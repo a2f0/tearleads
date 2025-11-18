@@ -1,9 +1,20 @@
 {
   "name": "rapid",
   "version": "0.0.1",
-  "main": "index.js",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "postinstall": "npm run build:shared",
+    "build:shared": "npm run build -w @rapid/shared",
+    "dev": "npm run build:shared && concurrently -n api,client -c blue,magenta \"npm run dev -w @rapid/api\" \"npm run dev -w @rapid/client\"",
+    "dev:api": "npm run build:shared && npm run dev -w @rapid/api",
+    "dev:client": "npm run build:shared && npm run dev -w @rapid/client",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present"
   },
   "repository": {
     "type": "git",
@@ -11,5 +22,10 @@
   },
   "author": "",
   "license": "Unlicensed",
-  "description": ""
+  "description": "Monorepo for Rapid application",
+  "devDependencies": {
+    "@tsconfig/strictest": "2.0.8",
+    "concurrently": "9.2.1",
+    "typescript": "5.3.3"
+  }
 }
