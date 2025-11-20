@@ -18,5 +18,5 @@ const health: HealthData = {
 ## Building
 
 ```bash
-npm run build
+pnpm build
 ```

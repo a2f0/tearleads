@@ -3,18 +3,15 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ],
   "scripts": {
-    "postinstall": "npm run build:shared",
-    "build:shared": "npm run build -w @rapid/shared",
-    "dev": "npm run build:shared && concurrently -n api,client -c blue,magenta \"npm run dev -w @rapid/api\" \"npm run dev -w @rapid/client\"",
-    "dev:api": "npm run build:shared && npm run dev -w @rapid/api",
-    "dev:client": "npm run build:shared && npm run dev -w @rapid/client",
-    "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
-    "clean": "npm run clean --workspaces --if-present"
+    "postinstall": "pnpm build:shared",
+    "build:shared": "pnpm --filter @rapid/shared build",
+    "dev": "pnpm build:shared && concurrently -n api,client -c blue,magenta \"pnpm --filter @rapid/api dev\" \"pnpm --filter @rapid/client dev\"",
+    "dev:api": "pnpm build:shared && pnpm --filter @rapid/api dev",
+    "dev:client": "pnpm build:shared && pnpm --filter @rapid/client dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "clean": "pnpm -r clean"
   },
   "repository": {
     "type": "git",
@@ -27,5 +24,6 @@
     "@tsconfig/strictest": "2.0.8",
     "concurrently": "9.2.1",
     "typescript": "5.3.3"
-  }
+  },
+  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
 }

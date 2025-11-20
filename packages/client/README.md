@@ -5,7 +5,7 @@ React client application for Rapid, built with Vite.
 ## Development
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Starts the development server on `http://localhost:3000`.
@@ -13,7 +13,7 @@ Starts the development server on `http://localhost:3000`.
 ## Building
 
 ```bash
-npm run build
+pnpm build
 ```
 
 Builds the application for production in the `dist` directory.
@@ -21,5 +21,5 @@ Builds the application for production in the `dist` directory.
 ## Preview
 
 ```bash
-npm run preview
+pnpm preview
 ```
