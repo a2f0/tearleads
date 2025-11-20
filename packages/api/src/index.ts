@@ -13,7 +13,7 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
-app.get('/health', (_req: Request, res: Response) => {
+app.get('/api/health', (_req: Request, res: Response) => {
   const healthData: HealthData = {
     timestamp: formatDate(new Date()),
     uptime: process.uptime()
