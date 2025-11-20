@@ -15,7 +15,7 @@ function App() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/health');
+      const response = await fetch('/api/health');
 
       if (!response.ok) {
         throw new Error('Failed to fetch health status');
