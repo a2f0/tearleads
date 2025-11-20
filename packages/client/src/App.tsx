@@ -58,15 +58,6 @@ function App() {
           Refresh
         </button>
       </div>
-
-      <div className="section">
-        <h2>Monorepo Structure</h2>
-        <ul className="info-list">
-          <li><strong>@rapid/shared</strong> - Shared TypeScript types and utilities</li>
-          <li><strong>@rapid/api</strong> - Express API server</li>
-          <li><strong>@rapid/client</strong> - React client application</li>
-        </ul>
-      </div>
     </div>
   );
 }
