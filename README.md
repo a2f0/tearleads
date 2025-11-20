@@ -14,20 +14,20 @@ packages/
 ## Getting Started
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 ## Scripts
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Run API and client in parallel |
-| `npm run dev:api` | Run API only |
-| `npm run dev:client` | Run client only |
-| `npm run build` | Build all packages |
-| `npm run build:shared` | Build shared package |
-| `npm run clean` | Clean build artifacts |
+| `pnpm dev` | Run API and client in parallel |
+| `pnpm dev:api` | Run API only |
+| `pnpm dev:client` | Run client only |
+| `pnpm build` | Build all packages |
+| `pnpm build:shared` | Build shared package |
+| `pnpm clean` | Clean build artifacts |
 
 ## License
 
