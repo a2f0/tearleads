@@ -5,7 +5,7 @@ Express API server for the Rapid application.
 ## Development
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Starts the development server with hot reloading on `http://localhost:5001`.
@@ -13,8 +13,8 @@ Starts the development server with hot reloading on `http://localhost:5001`.
 ## Building
 
 ```bash
-npm run build
-npm start
+pnpm build
+pnpm start
 ```
 
 ## API Endpoints
