@@ -20,23 +20,6 @@ h2 {
   border-radius: 8px;
 }
 
-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1em;
-  max-width: 400px;
-  margin: 0 auto;
-}
-
-input {
-  padding: 0.75em;
-  font-size: 1em;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  color: inherit;
-}
-
 button {
   padding: 0.75em 1.5em;
   font-size: 1em;
@@ -53,6 +36,11 @@ button:hover {
   background: #535bf2;
 }
 
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .health-info {
   text-align: left;
   padding: 1em 0;
@@ -60,24 +48,6 @@ button:hover {
 
 .health-info p {
   margin: 0.5em 0;
-}
-
-.info-list {
-  list-style: none;
-  padding: 0;
-  text-align: left;
-}
-
-.info-list li {
-  padding: 1em;
-  margin: 0.5em 0;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .error {
