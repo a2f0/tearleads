@@ -1,0 +1,19 @@
+{
+  "name": "@rapid/shared",
+  "version": "0.0.1",
+  "description": "Shared TypeScript utilities and types for Rapid",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["shared", "utils", "types", "typescript"],
+  "author": "",
+  "license": "Unlicensed",
+  "devDependencies": {
+    "typescript": "5.3.3"
+  }
+}
