@@ -1,34 +1,34 @@
-import { useState, useEffect } from 'react';
-import { formatDate, type HealthData } from '@rapid/shared';
-import './App.css';
+import { formatDate, type HealthData } from "@rapid/shared";
+import { useCallback, useEffect, useState } from "react";
+import "./App.css";
 
 function App() {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchHealth();
-  }, []);
-
-  const fetchHealth = async () => {
+  const fetchHealth = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/health');
+      const response = await fetch("/api/health");
 
       if (!response.ok) {
-        throw new Error('Failed to fetch health status');
+        throw new Error("Failed to fetch health status");
       }
 
       const data: HealthData = await response.json();
       setHealth(data);
-    } catch (err) {
-      setError('Failed to connect to API');
+    } catch (_err) {
+      setError("Failed to connect to API");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchHealth();
+  }, [fetchHealth]);
 
   return (
     <div className="app">
@@ -50,11 +50,12 @@ function App() {
               <strong>Uptime:</strong> {health.uptime.toFixed(2)}s
             </p>
             <p>
-              <strong>Current Time (formatted):</strong> {formatDate(new Date())}
+              <strong>Current Time (formatted):</strong>{" "}
+              {formatDate(new Date())}
             </p>
           </div>
         )}
-        <button onClick={fetchHealth} disabled={loading}>
+        <button type="button" onClick={fetchHealth} disabled={loading}>
           Refresh
         </button>
       </div>
