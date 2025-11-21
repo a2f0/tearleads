@@ -7,8 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "clean": "rm -rf dist",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "@rapid/shared": "workspace:*",
