@@ -8,12 +8,18 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run"
   },
-  "keywords": ["shared", "utils", "types", "typescript"],
+  "keywords": [
+    "shared",
+    "utils",
+    "types",
+    "typescript"
+  ],
   "author": "",
   "license": "Unlicensed",
   "devDependencies": {
-    "typescript": "5.3.3"
+    "typescript": "5.3.3",
+    "vitest": "4.0.12"
   }
 }
