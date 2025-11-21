@@ -17,7 +17,7 @@ app.use(express.json());
 app.get('/api/health', (_req: Request, res: Response) => {
   const healthData: HealthData = {
     timestamp: formatDate(new Date()),
-    uptime: process.uptime(),
+    uptime: process.uptime()
   };
   res.status(200).json(healthData);
 });
@@ -25,7 +25,7 @@ app.get('/api/health', (_req: Request, res: Response) => {
 // 404 handler
 app.use((_req: Request, res: Response) => {
   res.status(404).json({
-    error: 'Not found',
+    error: 'Not found'
   });
 });
 
