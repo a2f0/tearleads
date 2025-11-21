@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
 import { formatDate, type HealthData } from '@rapid/shared';
+import { useCallback, useEffect, useState } from 'react';
 import './App.css';
 
 function App() {
@@ -7,11 +7,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchHealth();
-  }, []);
-
-  const fetchHealth = async () => {
+  const fetchHealth = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -23,12 +19,16 @@ function App() {
 
       const data: HealthData = await response.json();
       setHealth(data);
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to connect to API');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchHealth();
+  }, [fetchHealth]);
 
   return (
     <div className="app">
@@ -50,11 +50,12 @@ function App() {
               <strong>Uptime:</strong> {health.uptime.toFixed(2)}s
             </p>
             <p>
-              <strong>Current Time (formatted):</strong> {formatDate(new Date())}
+              <strong>Current Time (formatted):</strong>{' '}
+              {formatDate(new Date())}
             </p>
           </div>
         )}
-        <button onClick={fetchHealth} disabled={loading}>
+        <button type="button" onClick={fetchHealth} disabled={loading}>
           Refresh
         </button>
       </div>
