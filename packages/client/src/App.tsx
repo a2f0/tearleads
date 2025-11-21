@@ -1,6 +1,6 @@
-import { formatDate, type HealthData } from "@rapid/shared";
-import { useCallback, useEffect, useState } from "react";
-import "./App.css";
+import { formatDate, type HealthData } from '@rapid/shared';
+import { useCallback, useEffect, useState } from 'react';
+import './App.css';
 
 function App() {
   const [health, setHealth] = useState<HealthData | null>(null);
@@ -11,16 +11,16 @@ function App() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch("/api/health");
+      const response = await fetch('/api/health');
 
       if (!response.ok) {
-        throw new Error("Failed to fetch health status");
+        throw new Error('Failed to fetch health status');
       }
 
       const data: HealthData = await response.json();
       setHealth(data);
     } catch (_err) {
-      setError("Failed to connect to API");
+      setError('Failed to connect to API');
     } finally {
       setLoading(false);
     }
@@ -50,7 +50,7 @@ function App() {
               <strong>Uptime:</strong> {health.uptime.toFixed(2)}s
             </p>
             <p>
-              <strong>Current Time (formatted):</strong>{" "}
+              <strong>Current Time (formatted):</strong>{' '}
               {formatDate(new Date())}
             </p>
           </div>
