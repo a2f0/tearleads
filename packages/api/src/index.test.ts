@@ -8,9 +8,10 @@ describe('API', () => {
       const response = await request(app).get('/api/health');
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('timestamp');
-      expect(response.body).toHaveProperty('uptime');
-      expect(typeof response.body.uptime).toBe('number');
+      expect(response.body).toEqual({
+        timestamp: expect.any(String),
+        uptime: expect.any(Number),
+      });
     });
   });
 
