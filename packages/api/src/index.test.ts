@@ -10,7 +10,7 @@ describe('API', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         timestamp: expect.any(String),
-        uptime: expect.any(Number),
+        uptime: expect.any(Number)
       });
     });
   });
