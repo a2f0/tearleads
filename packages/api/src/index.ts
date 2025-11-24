@@ -29,7 +29,12 @@ app.use((_req: Request, res: Response) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`API server running on http://localhost:${PORT}`);
-});
+// Export app for testing
+export { app };
+
+// Start server only when run directly
+if (process.env['NODE_ENV'] !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`API server running on http://localhost:${PORT}`);
+  });
+}
