@@ -31,7 +31,7 @@ function App() {
   }, [fetchHealth]);
 
   return (
-    <div className="app">
+    <div className="app" data-testid="app-container">
       <h1>Rapid Monorepo</h1>
 
       <div className="section">
