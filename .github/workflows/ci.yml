@@ -57,8 +57,6 @@ jobs:
           pnpm --filter @rapid/api dev &
           echo "Waiting for API server to be ready..."
           timeout 30 bash -c 'until curl -f http://localhost:5001/api/health; do sleep 1; done'
-        env:
-          NODE_ENV: test
 
       - name: Run Playwright tests
         run: pnpm --filter @rapid/client test:e2e
