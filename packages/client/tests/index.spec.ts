@@ -29,7 +29,7 @@ test.describe('Index page', () => {
 
     // The page should show a loading state when fetching health data
     // This might be brief, but we can check for either loading text or the loaded content
-    const loadingOrError = page.locator('text=/Loading...|Failed to connect to API|Healthy/');
+    const loadingOrError = page.getByText(/Loading\.\.\.|Failed to connect to API|Healthy/);
     await expect(loadingOrError).toBeVisible();
   });
 
