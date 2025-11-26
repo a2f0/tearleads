@@ -28,3 +28,7 @@ npm-debug.log*
 # Temporary files
 *.tmp
 .cache/
+
+# Test artifacts
+playwright-report/
+test-results/
