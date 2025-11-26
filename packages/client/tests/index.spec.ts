@@ -1,9 +1,11 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Index page', () => {
-  test('should load and display the main heading', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto('/');
+  });
 
+  test('should load and display the main heading', async ({ page }) => {
     // Check that the page title is correct
     await expect(page).toHaveTitle('Rapid');
 
@@ -13,8 +15,6 @@ test.describe('Index page', () => {
   });
 
   test('should display the API health check section', async ({ page }) => {
-    await page.goto('/');
-
     // Check that the health check section heading is present
     const healthHeading = page.getByRole('heading', { name: 'API Health Check', level: 2 });
     await expect(healthHeading).toBeVisible();
@@ -25,8 +25,6 @@ test.describe('Index page', () => {
   });
 
   test('should show loading state initially', async ({ page }) => {
-    await page.goto('/');
-
     // The page should show a loading state when fetching health data
     // This might be brief, but we can check for either loading text or the loaded content
     const loadingOrError = page.getByText(/Loading\.\.\.|Failed to connect to API|Healthy/);
@@ -34,14 +32,12 @@ test.describe('Index page', () => {
   });
 
   test('should have the root element mounted', async ({ page }) => {
-    await page.goto('/');
-
     // Verify that the React app is mounted to the #root element
     const rootElement = page.locator('#root');
     await expect(rootElement).not.toBeEmpty();
 
     // Verify the app container is present
-    const appContainer = page.locator('.app');
+    const appContainer = page.getByTestId('app-container');
     await expect(appContainer).toBeVisible();
   });
 });
