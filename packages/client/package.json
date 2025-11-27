@@ -13,6 +13,7 @@
     "test:e2e:debug": "playwright test --debug"
   },
   "dependencies": {
+    "@radix-ui/react-slot": "1.2.4",
     "@rapid/shared": "workspace:*",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
