@@ -46,7 +46,7 @@ function App() {
           <h1 className="text-4xl font-bold tracking-tight">Rapid Monorepo</h1>
         </div>
 
-        <Card>
+        <Card data-testid="api-health-card">
           <CardHeader>
             <CardTitle>API Health Check</CardTitle>
             <CardDescription>Current status of the backend API</CardDescription>
