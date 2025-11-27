@@ -43,7 +43,7 @@ test.describe('Index page', () => {
 
   test('should have Tailwind CSS and shadcn styles loaded', async ({ page }) => {
     // Wait for the card to be visible
-    const card = page.locator('.rounded-lg.border.bg-card').first();
+    const card = page.getByTestId('api-health-card');
     await expect(card).toBeVisible();
 
     // Verify that Tailwind/shadcn styles are applied by checking computed styles
