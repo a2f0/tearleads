@@ -27,7 +27,7 @@
     }
   },
   "files": {
-    "includes": ["packages/**/src/**/*.{ts,tsx,js,jsx}"],
+    "includes": ["packages/**/src/**/*.{ts,tsx}"],
     "ignoreUnknown": true
   },
   "assist": {
