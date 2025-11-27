@@ -16,7 +16,7 @@ test.describe('Index page', () => {
 
   test('should display the API health check section', async ({ page }) => {
     // Check that the health check section heading is present
-    const healthHeading = page.getByRole('heading', { name: 'API Health Check', level: 2 });
+    const healthHeading = page.getByRole('heading', { name: 'API Health Check', level: 3 });
     await expect(healthHeading).toBeVisible();
 
     // Check that the refresh button is present

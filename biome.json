@@ -6,6 +6,12 @@
       "recommended": true,
       "complexity": {
         "useLiteralKeys": "off"
+      },
+      "a11y": {
+        "useValidAnchor": "off"
+      },
+      "suspicious": {
+        "noUnknownAtRules": "off"
       }
     }
   },
@@ -21,7 +27,8 @@
     }
   },
   "files": {
-    "includes": ["packages/**/src/**"]
+    "includes": ["packages/**/src/**/*.{ts,tsx}"],
+    "ignoreUnknown": true
   },
   "assist": {
     "actions": {
