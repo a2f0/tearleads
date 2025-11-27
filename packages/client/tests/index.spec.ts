@@ -40,4 +40,45 @@ test.describe('Index page', () => {
     const appContainer = page.getByTestId('app-container');
     await expect(appContainer).toBeVisible();
   });
+
+  test('should have Tailwind CSS and shadcn styles loaded', async ({ page }) => {
+    // Wait for the card to be visible
+    const card = page.getByTestId('api-health-card');
+    await expect(card).toBeVisible();
+
+    // Verify that Tailwind/shadcn styles are applied by checking computed styles
+    const cardStyles = await card.evaluate((el) => {
+      const styles = window.getComputedStyle(el);
+      return {
+        borderRadius: styles.borderRadius,
+        borderWidth: styles.borderWidth,
+        boxShadow: styles.boxShadow,
+        backgroundColor: styles.backgroundColor
+      };
+    });
+
+    // Verify styles are not default values (indicating CSS is loaded)
+    expect(cardStyles.borderRadius).not.toBe('0px');
+    expect(cardStyles.borderWidth).not.toBe('0px');
+    expect(cardStyles.boxShadow).not.toBe('none');
+
+    // Check that the Button component has proper styling
+    const button = page.getByRole('button', { name: /Refresh/ });
+    const buttonStyles = await button.evaluate((el) => {
+      const styles = window.getComputedStyle(el);
+      return {
+        display: styles.display,
+        alignItems: styles.alignItems,
+        justifyContent: styles.justifyContent,
+        borderRadius: styles.borderRadius,
+        backgroundColor: styles.backgroundColor
+      };
+    });
+
+    // Verify button has flex display (from inline-flex class)
+    expect(buttonStyles.display).toBe('inline-flex');
+    expect(buttonStyles.alignItems).toBe('center');
+    expect(buttonStyles.justifyContent).toBe('center');
+    expect(buttonStyles.borderRadius).not.toBe('0px');
+  });
 });
