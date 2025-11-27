@@ -1,6 +1,14 @@
 import { formatDate, type HealthData } from '@rapid/shared';
+import { Activity, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import './App.css';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card';
 
 function App() {
   const [health, setHealth] = useState<HealthData | null>(null);
@@ -31,33 +39,57 @@ function App() {
   }, [fetchHealth]);
 
   return (
-    <div className="app" data-testid="app-container">
-      <h1>Rapid Monorepo</h1>
+    <div className="min-h-screen bg-background" data-testid="app-container">
+      <div className="container mx-auto px-4 py-16 max-w-2xl">
+        <div className="mb-8 flex items-center gap-3">
+          <Activity className="h-8 w-8 text-primary" />
+          <h1 className="text-4xl font-bold tracking-tight">Rapid Monorepo</h1>
+        </div>
 
-      <div className="section">
-        <h2>API Health Check</h2>
-        {loading && <p>Loading...</p>}
-        {error && <p className="error">{error}</p>}
-        {!loading && !error && health && (
-          <div className="health-info">
-            <p>
-              <strong>Status:</strong> Healthy
-            </p>
-            <p>
-              <strong>Timestamp:</strong> {health.timestamp}
-            </p>
-            <p>
-              <strong>Uptime:</strong> {health.uptime.toFixed(2)}s
-            </p>
-            <p>
-              <strong>Current Time (formatted):</strong>{' '}
-              {formatDate(new Date())}
-            </p>
-          </div>
-        )}
-        <button type="button" onClick={fetchHealth} disabled={loading}>
-          Refresh
-        </button>
+        <Card>
+          <CardHeader>
+            <CardTitle>API Health Check</CardTitle>
+            <CardDescription>Current status of the backend API</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {loading && (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            {!loading && !error && health && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <span className="text-sm font-medium">Status</span>
+                  <span className="text-sm text-green-600 font-semibold">
+                    Healthy
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b pb-2">
+                  <span className="text-sm font-medium">Timestamp</span>
+                  <span className="text-sm text-muted-foreground">
+                    {health.timestamp}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b pb-2">
+                  <span className="text-sm font-medium">Uptime</span>
+                  <span className="text-sm text-muted-foreground">
+                    {health.uptime.toFixed(2)}s
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Current Time</span>
+                  <span className="text-sm text-muted-foreground">
+                    {formatDate(new Date())}
+                  </span>
+                </div>
+              </div>
+            )}
+            <Button onClick={fetchHealth} disabled={loading} className="w-full">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              {loading ? 'Refreshing...' : 'Refresh'}
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
