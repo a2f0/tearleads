@@ -24,6 +24,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Lint scripts
+        run: pnpm lint:scripts
+
       - name: Build
         run: pnpm build
 
