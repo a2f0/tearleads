@@ -1,1 +1,1 @@
-pnpm lint && pnpm build
+pnpm lint && pnpm lint:scripts && pnpm build
