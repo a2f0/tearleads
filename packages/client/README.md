@@ -1,6 +1,6 @@
 # @rapid/client
 
-React client application for Rapid, built with Vite.
+React client application for Rapid, built with Vite and deployable to Android via Capacitor.
 
 ## Development
 
@@ -23,3 +23,21 @@ Builds the application for production in the `dist` directory.
 ```bash
 pnpm preview
 ```
+
+## Android
+
+### Setup
+
+```bash
+bundle install
+```
+
+### Build and Sync
+
+```bash
+pnpm build:android
+```
+
+### Fastlane
+
+See [fastlane/README.md](fastlane/README.md) for available lanes.
