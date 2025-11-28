@@ -32,3 +32,11 @@ npm-debug.log*
 # Test artifacts
 playwright-report/
 test-results/
+
+# Ruby/Fastlane
+vendor/bundle/
+.bundle/
+**/fastlane/report.xml
+**/fastlane/Preview.html
+**/fastlane/screenshots/
+**/fastlane/test_output/
