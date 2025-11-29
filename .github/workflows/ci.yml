@@ -110,6 +110,9 @@ jobs:
       - name: Sync Capacitor
         run: pnpm --filter @rapid/client cap sync android
 
+      - name: Download Gradle wrapper
+        run: ./packages/client/scripts/downloadGradleWrapper.sh
+
       - name: Run Android unit tests
         run: bundle exec fastlane android test
         working-directory: packages/client
