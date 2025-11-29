@@ -69,7 +69,15 @@ Promote beta to production
 [bundle exec] fastlane android test
 ```
 
-Run Android tests
+Run Android unit tests
+
+### android test_instrumented
+
+```sh
+[bundle exec] fastlane android test_instrumented
+```
+
+Run Android instrumented tests (requires device/emulator)
 
 ### android clean
 
