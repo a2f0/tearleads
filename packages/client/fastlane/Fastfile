@@ -1,33 +1,19 @@
 default_platform(:android)
 
 platform :android do
-  before_all do
-    java_version = File.read("#{__dir__}/../.java-version").strip
-    ENV["JAVA_HOME"] = `/usr/libexec/java_home -v #{java_version}`.strip
-  end
-
   desc "Build debug APK"
   lane :build_debug do
-    gradle(
-      project_dir: "./android",
-      task: "assembleDebug"
-    )
+    run_gradle(task: "assembleDebug")
   end
 
   desc "Build release APK"
   lane :build_release do
-    gradle(
-      project_dir: "./android",
-      task: "assembleRelease"
-    )
+    run_gradle(task: "assembleRelease")
   end
 
   desc "Build release AAB for Play Store"
   lane :build_aab do
-    gradle(
-      project_dir: "./android",
-      task: "bundleRelease"
-    )
+    run_gradle(task: "bundleRelease")
   end
 
   desc "Build and deploy to Play Store internal track"
@@ -60,19 +46,25 @@ platform :android do
     )
   end
 
-  desc "Run Android tests"
+  desc "Run Android unit tests"
   lane :test do
-    gradle(
-      project_dir: "./android",
-      task: "test"
-    )
+    run_gradle(task: "test")
+  end
+
+  desc "Run Android instrumented tests (requires device/emulator)"
+  lane :test_instrumented do
+    run_gradle(task: "connectedAndroidTest")
   end
 
   desc "Clean build artifacts"
   lane :clean do
+    run_gradle(task: "clean")
+  end
+
+  private_lane :run_gradle do |options|
     gradle(
       project_dir: "./android",
-      task: "clean"
+      task: options[:task]
     )
   end
 end
