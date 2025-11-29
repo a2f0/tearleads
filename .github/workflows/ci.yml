@@ -107,6 +107,9 @@ jobs:
       - name: Build web assets
         run: pnpm --filter @rapid/client build
 
+      - name: Generate Android images
+        run: ./packages/client/scripts/buildAndroidImages.sh
+
       - name: Sync Capacitor
         run: pnpm --filter @rapid/client cap sync android
 
