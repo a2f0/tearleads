@@ -1,0 +1,5 @@
+appId: com.tearleads.rapid
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Rapid Monorepo"
