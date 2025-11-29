@@ -60,11 +60,19 @@ platform :android do
     )
   end
 
-  desc "Run Android tests"
+  desc "Run Android unit tests"
   lane :test do
     gradle(
       project_dir: "./android",
       task: "test"
+    )
+  end
+
+  desc "Run Android instrumented tests (requires device/emulator)"
+  lane :test_instrumented do
+    gradle(
+      project_dir: "./android",
+      task: "connectedAndroidTest"
     )
   end
 

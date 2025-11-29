@@ -71,3 +71,53 @@ jobs:
           name: playwright-report
           path: packages/client/playwright-report/
           retention-days: 30
+
+  android:
+    name: Android Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version-file: 'packages/client/.java-version'
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.0'
+          bundler-cache: true
+          working-directory: packages/client
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build web assets
+        run: pnpm --filter @rapid/client build
+
+      - name: Sync Capacitor
+        run: pnpm --filter @rapid/client cap sync android
+
+      - name: Run Android unit tests
+        run: bundle exec fastlane android test
+        working-directory: packages/client
+
+      - name: Run Android instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 31
+          arch: x86_64
+          working-directory: packages/client
+          script: bundle exec fastlane android test_instrumented
