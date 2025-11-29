@@ -104,6 +104,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Install ImageMagick
+        run: sudo apt-get install -y imagemagick
+
       - name: Build web assets
         run: pnpm --filter @rapid/client build
 

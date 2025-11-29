@@ -25,7 +25,9 @@ BACKGROUND_COLOR="#FFFFFF"
 
 # Check for ImageMagick
 if ! command -v magick > /dev/null 2>&1; then
-    echo "Error: ImageMagick is required. Install with: brew install imagemagick"
+    echo "Error: ImageMagick is required."
+    echo "  macOS: brew install imagemagick"
+    echo "  Linux: sudo apt-get install imagemagick"
     exit 1
 fi
 
