@@ -114,7 +114,7 @@ jobs:
         run: ./packages/client/scripts/buildAndroidImages.sh
 
       - name: Sync Capacitor
-        run: pnpm --filter @rapid/client cap sync android
+        run: pnpm --filter @rapid/client run cap:sync
 
       - name: Download Gradle wrapper
         run: ./packages/client/scripts/downloadGradleWrapper.sh
