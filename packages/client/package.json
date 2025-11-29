@@ -15,7 +15,8 @@
     "cap:open:android": "cap open android",
     "cap:run:android": "cap run android",
     "build:android": "pnpm build && cap sync android",
-    "lint:scripts": "shellcheck scripts/*.sh"
+    "lint:scripts": "shellcheck scripts/*.sh",
+    "test:maestro": "$HOME/.maestro/bin/maestro test .maestro/"
   },
   "dependencies": {
     "@capacitor/core": "7.4.4",

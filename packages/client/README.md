@@ -2,6 +2,10 @@
 
 React client application for Rapid, built with Vite and deployable to Android via Capacitor.
 
+## Setup
+
+- Install [Maestro](https://maestro.mobile.dev/getting-started/installing-maestro) for E2E tests.
+
 ## Development
 
 ```bash
