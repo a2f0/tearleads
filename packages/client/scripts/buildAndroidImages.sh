@@ -23,9 +23,15 @@ RES_DIR="$CLIENT_DIR/android/app/src/main/res"
 # Colors
 BACKGROUND_COLOR="#FFFFFF"
 
-# Check for ImageMagick
-if ! command -v magick > /dev/null 2>&1; then
-    echo "Error: ImageMagick is required. Install with: brew install imagemagick"
+# Check for ImageMagick (magick for v7+, convert for v6)
+if command -v magick > /dev/null 2>&1; then
+    MAGICK_CMD="magick"
+elif command -v convert > /dev/null 2>&1; then
+    MAGICK_CMD="convert"
+else
+    echo "Error: ImageMagick is required."
+    echo "  macOS: brew install imagemagick"
+    echo "  Linux: sudo apt-get install imagemagick"
     exit 1
 fi
 
@@ -49,14 +55,14 @@ generate_launcher() {
     half=$((size / 2))
 
     # ic_launcher.png - square icon with padding
-    magick -background "$BACKGROUND_COLOR" -density 300 "$SVG_SOURCE" \
+    $MAGICK_CMD -background "$BACKGROUND_COLOR" -density 300 "$SVG_SOURCE" \
         -resize "${icon_size}x${icon_size}" \
         -gravity center -extent "${size}x${size}" \
         "$dir/ic_launcher.png"
     echo "  Created $dir/ic_launcher.png (${size}x${size})"
 
     # ic_launcher_round.png - circular icon
-    magick -background "$BACKGROUND_COLOR" -density 300 "$SVG_SOURCE" \
+    $MAGICK_CMD -background "$BACKGROUND_COLOR" -density 300 "$SVG_SOURCE" \
         -resize "${round_size}x${round_size}" \
         -gravity center -extent "${size}x${size}" \
         \( +clone -alpha extract \
@@ -77,7 +83,7 @@ generate_foreground() {
     fg_size=$((size * 50 / 100))
 
     # ic_launcher_foreground.png - logo centered with safe zone padding
-    magick -background none -density 300 "$SVG_SOURCE" \
+    $MAGICK_CMD -background none -density 300 "$SVG_SOURCE" \
         -resize "${fg_size}x${fg_size}" \
         -gravity center -extent "${size}x${size}" \
         "$dir/ic_launcher_foreground.png"
@@ -105,7 +111,7 @@ generate_splash() {
     # density = (target_size / svg_size) * 72
     density=$((logo_size * 72 / 33))
 
-    magick -density "$density" -background none "$SVG_SOURCE" \
+    $MAGICK_CMD -density "$density" -background none "$SVG_SOURCE" \
         -background "$BACKGROUND_COLOR" -gravity center -extent "${width}x${height}" \
         "$dir/splash.png"
     echo "  Created $dir/splash.png (${width}x${height})"
