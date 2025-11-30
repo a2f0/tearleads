@@ -15,6 +15,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "lint:scripts": "pnpm --filter @rapid/client lint:scripts",
+    "lint:rubocop": "pnpm --filter @rapid/client lint:rubocop",
     "format": "biome format --write .",
     "prepare": "husky"
   },
