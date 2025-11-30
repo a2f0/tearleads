@@ -63,10 +63,10 @@ Promote TestFlight build to App Store
 
 Sync certificates and provisioning profiles
 
-### ios register_device
+### ios add_device
 
 ```sh
-[bundle exec] fastlane ios register_device
+[bundle exec] fastlane ios add_device
 ```
 
 Register new device
