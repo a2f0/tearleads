@@ -1,1 +1,6 @@
 pnpm lint && pnpm lint:scripts && pnpm build
+
+# Run RuboCop if bundle is available
+if command -v bundle >/dev/null 2>&1; then
+  pnpm lint:rubocop
+fi
