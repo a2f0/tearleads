@@ -29,12 +29,6 @@ Metrics/BlockLength:
   Exclude:
     - 'fastlane/Fastfile'
 
-# Lane descriptions can be long
-Layout/LineLength:
-  Max: 120
-  Exclude:
-    - 'fastlane/Fastfile'
-
 # Fastlane config files don't need frozen string literals
 Style/FrozenStringLiteralComment:
   Enabled: false
