@@ -276,13 +276,10 @@ jobs:
 
       - name: Boot iOS simulator
         run: |
-          # List available devices for debugging
-          echo "Available devices:"
-          xcrun simctl list devices available
-          # Find an iPhone simulator (prefer iPhone 15, fall back to any iPhone)
-          DEVICE=$(xcrun simctl list devices available -j | jq -r '.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | contains("iPhone")) | select(.isAvailable == true) | .udid' | head -1)
+          # Use iPhone SE (3rd generation) - less resource-intensive for CI
+          DEVICE=$(xcrun simctl list devices available -j | jq -r '.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name == "iPhone SE (3rd generation)") | select(.isAvailable == true) | .udid' | head -1)
           if [ -z "$DEVICE" ]; then
-            echo "No available iPhone simulator found"
+            echo "iPhone SE (3rd generation) simulator not found"
             exit 1
           fi
           echo "Using device: $DEVICE"
