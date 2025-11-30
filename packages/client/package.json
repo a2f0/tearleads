@@ -15,6 +15,9 @@
     "cap:open:android": "cap open android",
     "cap:run:android": "cap run android",
     "build:android": "pnpm build && cap sync android",
+    "cap:open:ios": "cap open ios",
+    "cap:run:ios": "cap run ios",
+    "build:ios": "pnpm build && cap sync ios",
     "lint:scripts": "shellcheck scripts/*.sh",
     "test:maestro": "$HOME/.maestro/bin/maestro test .maestro/"
   },
@@ -32,6 +35,7 @@
   "devDependencies": {
     "@capacitor/android": "7.4.4",
     "@capacitor/cli": "7.4.4",
+    "@capacitor/ios": "7.4.4",
     "@playwright/test": "1.57.0",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
