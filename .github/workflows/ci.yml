@@ -224,3 +224,91 @@ jobs:
             adb shell input keyevent 82
             adb install android/app/build/outputs/apk/debug/app-debug.apk
             maestro test .maestro/
+
+  ios-maestro:
+    name: iOS Maestro Tests
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.0'
+          bundler-cache: true
+          working-directory: packages/client
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build web assets
+        run: pnpm --filter @rapid/client build
+
+      - name: Install ImageMagick
+        run: brew install imagemagick
+
+      - name: Generate iOS images
+        run: ./packages/client/scripts/buildIosImages.sh
+
+      - name: Install CocoaPods dependencies
+        run: pod install
+        working-directory: packages/client/ios/App
+
+      - name: Sync Capacitor
+        run: pnpm --filter @rapid/client run cap:sync
+
+      - name: Build iOS app for simulator
+        run: bundle exec fastlane ios build_debug
+        working-directory: packages/client
+
+      - name: Install Maestro
+        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+
+      - name: Boot iOS simulator
+        run: |
+          # List available devices for debugging
+          echo "Available devices:"
+          xcrun simctl list devices available
+          # Find an iPhone simulator (prefer iPhone 15, fall back to any iPhone)
+          DEVICE=$(xcrun simctl list devices available -j | jq -r '.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | contains("iPhone")) | select(.isAvailable == true) | .udid' | head -1)
+          if [ -z "$DEVICE" ]; then
+            echo "No available iPhone simulator found"
+            exit 1
+          fi
+          echo "Using device: $DEVICE"
+          xcrun simctl boot "$DEVICE" || true
+          echo "SIMULATOR_UDID=$DEVICE" >> $GITHUB_ENV
+
+      - name: Install app on simulator
+        run: |
+          # Find the built app
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -path "*/Build/Products/*" -name "App.app" -type d 2>/dev/null | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "App.app not found in DerivedData"
+            find ~/Library/Developer/Xcode/DerivedData -name "*.app" -type d 2>/dev/null || true
+            exit 1
+          fi
+          echo "Installing app from: $APP_PATH"
+          xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
+
+      - name: Wait for simulator to be ready
+        run: |
+          echo "Waiting for simulator to be fully booted..."
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          echo "Simulator is ready"
+
+      - name: Run Maestro tests
+        run: $HOME/.maestro/bin/maestro test .maestro/
+        working-directory: packages/client
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 300000
