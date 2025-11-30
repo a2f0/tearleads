@@ -86,15 +86,15 @@ generate_splash() {
         -gravity center -extent "${size}x${size}" \
         -depth 8 -colorspace sRGB -type TrueColor \
         -define png:color-type=2 \
-        "$dir/splash-2732x2732.png"
-    echo "  Created $dir/splash-2732x2732.png (${size}x${size})"
+        "$dir/splash@3x.png"
+    echo "  Created $dir/splash@3x.png (${size}x${size})"
 
     # Copy for 1x and 2x scales (iOS requires separate files)
-    cp "$dir/splash-2732x2732.png" "$dir/splash-2732x2732-1.png"
-    echo "  Created $dir/splash-2732x2732-1.png (${size}x${size})"
+    cp "$dir/splash@3x.png" "$dir/splash@2x.png"
+    echo "  Created $dir/splash@2x.png (${size}x${size})"
 
-    cp "$dir/splash-2732x2732.png" "$dir/splash-2732x2732-2.png"
-    echo "  Created $dir/splash-2732x2732-2.png (${size}x${size})"
+    cp "$dir/splash@3x.png" "$dir/splash.png"
+    echo "  Created $dir/splash.png (${size}x${size})"
 }
 
 # Generate app icon
