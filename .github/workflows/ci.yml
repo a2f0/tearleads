@@ -223,7 +223,7 @@ jobs:
             adb wait-for-device
             adb shell input keyevent 82
             adb install android/app/build/outputs/apk/debug/app-debug.apk
-            maestro test .maestro/ --output maestro-report --debug-output maestro-debug
+            MAESTRO_CLI_NO_ANALYTICS=1 maestro test .maestro/ --output maestro-report --debug-output maestro-debug
 
       - name: Upload Maestro artifacts
         uses: actions/upload-artifact@v4
@@ -320,6 +320,7 @@ jobs:
         working-directory: packages/client
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 300000
+          MAESTRO_CLI_NO_ANALYTICS: 1
 
       - name: Upload Maestro artifacts
         uses: actions/upload-artifact@v4
