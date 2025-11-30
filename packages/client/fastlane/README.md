@@ -13,6 +13,91 @@ For _fastlane_ installation instructions, see [Installing _fastlane_](https://do
 
 # Available Actions
 
+## iOS
+
+### ios build_debug
+
+```sh
+[bundle exec] fastlane ios build_debug
+```
+
+Build debug iOS app
+
+### ios build_release
+
+```sh
+[bundle exec] fastlane ios build_release
+```
+
+Build release iOS app
+
+### ios test
+
+```sh
+[bundle exec] fastlane ios test
+```
+
+Run iOS tests
+
+### ios deploy_testflight
+
+```sh
+[bundle exec] fastlane ios deploy_testflight
+```
+
+Deploy to TestFlight
+
+### ios promote_to_production
+
+```sh
+[bundle exec] fastlane ios promote_to_production
+```
+
+Promote TestFlight build to App Store
+
+### ios sync_certs
+
+```sh
+[bundle exec] fastlane ios sync_certs
+```
+
+Sync certificates and provisioning profiles
+
+### ios register_device
+
+```sh
+[bundle exec] fastlane ios register_device
+```
+
+Register new device
+
+### ios bump_build
+
+```sh
+[bundle exec] fastlane ios bump_build
+```
+
+Increment build number
+
+### ios bump_version
+
+```sh
+[bundle exec] fastlane ios bump_version
+```
+
+Increment version number
+
+### ios clean
+
+```sh
+[bundle exec] fastlane ios clean
+```
+
+Clean build artifacts
+
+----
+
+
 ## Android
 
 ### android build_debug
