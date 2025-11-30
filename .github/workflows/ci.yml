@@ -18,6 +18,13 @@ jobs:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
 
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.0'
+          bundler-cache: true
+          working-directory: packages/client
+
       - name: Install dependencies
         run: pnpm install
 
@@ -26,6 +33,9 @@ jobs:
 
       - name: Lint scripts
         run: pnpm lint:scripts
+
+      - name: Lint RuboCop
+        run: pnpm lint:rubocop
 
       - name: Build
         run: pnpm build

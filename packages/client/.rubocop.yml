@@ -1,0 +1,44 @@
+# RuboCop configuration for Fastlane
+# See https://docs.rubocop.org/rubocop/configuration
+
+AllCops:
+  TargetRubyVersion: 3.3
+  NewCops: enable
+  Include:
+    - 'fastlane/Appfile'
+    - 'fastlane/Fastfile'
+    - 'fastlane/Matchfile'
+    - 'Gemfile'
+  Exclude:
+    - 'vendor/**/*'
+    - 'node_modules/**/*'
+    - 'fastlane/README.md'
+    - 'fastlane/report.xml'
+    - 'fastlane/*.md'
+    - 'fastlane/*.xml'
+
+# Fastlane uses standard file names that don't follow snake_case
+Naming/FileName:
+  Exclude:
+    - 'fastlane/Appfile'
+    - 'fastlane/Fastfile'
+    - 'fastlane/Matchfile'
+
+# Fastlane DSL uses blocks extensively
+Metrics/BlockLength:
+  Exclude:
+    - 'fastlane/Fastfile'
+
+# Lane descriptions can be long
+Layout/LineLength:
+  Max: 120
+  Exclude:
+    - 'fastlane/Fastfile'
+
+# Fastlane config files don't need frozen string literals
+Style/FrozenStringLiteralComment:
+  Enabled: false
+
+# ENV[] is idiomatic in Fastlane for optional env vars
+Style/FetchEnvVar:
+  Enabled: false

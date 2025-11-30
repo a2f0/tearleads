@@ -1,5 +1,6 @@
-source "https://rubygems.org"
+source 'https://rubygems.org'
 
-ruby file: ".ruby-version"
+ruby file: '.ruby-version'
 
-gem "fastlane", "~> 2.225"
+gem 'fastlane', '~> 2.225'
+gem 'rubocop', '~> 1.69'
