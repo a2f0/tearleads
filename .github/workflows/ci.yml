@@ -205,13 +205,29 @@ jobs:
 
       - name: Boot iOS simulator
         run: |
-          DEVICE=$(xcrun simctl list devices available | grep "iPhone 15" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          # List available devices for debugging
+          echo "Available devices:"
+          xcrun simctl list devices available
+          # Find an iPhone simulator (prefer iPhone 15, fall back to any iPhone)
+          DEVICE=$(xcrun simctl list devices available -j | jq -r '.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | contains("iPhone")) | select(.isAvailable == true) | .udid' | head -1)
+          if [ -z "$DEVICE" ]; then
+            echo "No available iPhone simulator found"
+            exit 1
+          fi
+          echo "Using device: $DEVICE"
           xcrun simctl boot "$DEVICE" || true
           echo "SIMULATOR_UDID=$DEVICE" >> $GITHUB_ENV
 
       - name: Install app on simulator
         run: |
-          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "App.app" -type d | head -1)
+          # Find the built app
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -path "*/Build/Products/*" -name "App.app" -type d 2>/dev/null | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "App.app not found in DerivedData"
+            find ~/Library/Developer/Xcode/DerivedData -name "*.app" -type d 2>/dev/null || true
+            exit 1
+          fi
+          echo "Installing app from: $APP_PATH"
           xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
 
       - name: Run Maestro tests
