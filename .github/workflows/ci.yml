@@ -223,7 +223,15 @@ jobs:
             adb wait-for-device
             adb shell input keyevent 82
             adb install android/app/build/outputs/apk/debug/app-debug.apk
-            maestro test .maestro/
+            maestro test .maestro/ --debug-output maestro-debug
+
+      - name: Upload Maestro debug output
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: android-maestro-debug
+          path: packages/client/maestro-debug/
+          retention-days: 7
 
   ios-maestro:
     name: iOS Maestro Tests
@@ -305,7 +313,15 @@ jobs:
           echo "Simulator is ready"
 
       - name: Run Maestro tests
-        run: $HOME/.maestro/bin/maestro test .maestro/
+        run: $HOME/.maestro/bin/maestro test .maestro/ --debug-output maestro-debug
         working-directory: packages/client
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 300000
+
+      - name: Upload Maestro debug output
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ios-maestro-debug
+          path: packages/client/maestro-debug/
+          retention-days: 7
