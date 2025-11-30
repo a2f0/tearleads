@@ -19,6 +19,7 @@
     "cap:run:ios": "cap run ios",
     "build:ios": "pnpm build && cap sync ios",
     "lint:scripts": "shellcheck scripts/*.sh",
+    "lint:rubocop": "bundle exec rubocop",
     "test:maestro": "$HOME/.maestro/bin/maestro test .maestro/"
   },
   "dependencies": {
