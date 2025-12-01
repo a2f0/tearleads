@@ -32,6 +32,8 @@ npm-debug.log*
 # Test artifacts
 playwright-report/
 test-results/
+maestro-report/
+maestro-debug/
 
 # Ruby/Fastlane
 vendor/bundle/
