@@ -243,6 +243,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: System info
+        run: |
+          echo "CPU: $(sysctl -n machdep.cpu.brand_string)"
+          echo "Cores: $(sysctl -n hw.logicalcpu) logical, $(sysctl -n hw.physicalcpu) physical"
+          echo "Total RAM: $(($(sysctl -n hw.memsize) / 1024 / 1024 / 1024)) GB"
+          echo "Current usage:"
+          top -l 1 | head -20
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
