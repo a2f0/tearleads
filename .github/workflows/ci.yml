@@ -223,7 +223,18 @@ jobs:
             adb wait-for-device
             adb shell input keyevent 82
             adb install android/app/build/outputs/apk/debug/app-debug.apk
-            maestro test .maestro/
+            MAESTRO_CLI_NO_ANALYTICS=1 maestro test .maestro/ --output maestro-report --debug-output maestro-debug
+
+      - name: Upload Maestro artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-maestro-artifacts
+          path: |
+            packages/client/maestro-report/
+            packages/client/maestro-debug/
+          retention-days: 7
+          if-no-files-found: ignore
 
   ios-maestro:
     name: iOS Maestro Tests
@@ -276,13 +287,10 @@ jobs:
 
       - name: Boot iOS simulator
         run: |
-          # List available devices for debugging
-          echo "Available devices:"
-          xcrun simctl list devices available
-          # Find an iPhone simulator (prefer iPhone 15, fall back to any iPhone)
-          DEVICE=$(xcrun simctl list devices available -j | jq -r '.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | contains("iPhone")) | select(.isAvailable == true) | .udid' | head -1)
+          # Use iPhone SE (3rd generation) - less resource-intensive for CI
+          DEVICE=$(xcrun simctl list devices available -j | jq -r '.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name == "iPhone SE (3rd generation)") | select(.isAvailable == true) | .udid' | head -1)
           if [ -z "$DEVICE" ]; then
-            echo "No available iPhone simulator found"
+            echo "iPhone SE (3rd generation) simulator not found"
             exit 1
           fi
           echo "Using device: $DEVICE"
@@ -308,7 +316,25 @@ jobs:
           echo "Simulator is ready"
 
       - name: Run Maestro tests
-        run: $HOME/.maestro/bin/maestro test .maestro/
+        run: |
+          mkdir -p maestro-report maestro-debug
+          export MAESTRO_CLI_NO_ANALYTICS=1
+          EXIT_CODE=0
+          $HOME/.maestro/bin/maestro test .maestro/ --output maestro-report --debug-output maestro-debug || EXIT_CODE=$?
+          echo "=== Maestro output files ==="
+          find . -name "maestro*" -type d -exec ls -la {} \; 2>/dev/null || true
+          find . -path "./.maestro" -prune -o -name "*.png" -print 2>/dev/null | head -20 || true
+          ls -la ~/.maestro/tests/ 2>/dev/null || true
+          exit $EXIT_CODE
         working-directory: packages/client
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 300000
+
+      - name: Upload Maestro artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-maestro-artifacts
+          path: packages/client/maestro-debug/
+          retention-days: 7
+          if-no-files-found: ignore
