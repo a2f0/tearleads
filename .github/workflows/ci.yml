@@ -305,11 +305,10 @@ jobs:
 
       - name: Install app on simulator
         run: |
-          # Find the built app
-          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -path "*/Build/Products/*" -name "App.app" -type d 2>/dev/null | head -1)
-          if [ -z "$APP_PATH" ]; then
-            echo "App.app not found in DerivedData"
-            find ~/Library/Developer/Xcode/DerivedData -name "*.app" -type d 2>/dev/null || true
+          APP_PATH="packages/client/build/DerivedData/Build/Products/Debug-iphonesimulator/App.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "App.app not found at $APP_PATH"
+            ls -la packages/client/build/DerivedData/Build/Products/ 2>/dev/null || true
             exit 1
           fi
           echo "Installing app from: $APP_PATH"
