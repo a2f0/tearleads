@@ -262,6 +262,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Boot iOS simulator (background)
+        run: |
+          # Start simulator boot early - it will boot while other steps run
+          DEVICE=$(xcrun simctl list devices available -j | jq -r '.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name == "iPhone SE (3rd generation)") | select(.isAvailable == true) | .udid' | head -1)
+          if [ -z "$DEVICE" ]; then
+            echo "iPhone SE (3rd generation) simulator not found"
+            exit 1
+          fi
+          echo "Using device: $DEVICE"
+          echo "SIMULATOR_UDID=$DEVICE" >> $GITHUB_ENV
+          xcrun simctl boot "$DEVICE" || true
+
       - name: Build web assets
         run: pnpm --filter @rapid/client build
 
@@ -284,18 +296,6 @@ jobs:
 
       - name: Install Maestro
         run: curl -Ls "https://get.maestro.mobile.dev" | bash
-
-      - name: Boot iOS simulator
-        run: |
-          # Use iPhone SE (3rd generation) - less resource-intensive for CI
-          DEVICE=$(xcrun simctl list devices available -j | jq -r '.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name == "iPhone SE (3rd generation)") | select(.isAvailable == true) | .udid' | head -1)
-          if [ -z "$DEVICE" ]; then
-            echo "iPhone SE (3rd generation) simulator not found"
-            exit 1
-          fi
-          echo "Using device: $DEVICE"
-          xcrun simctl boot "$DEVICE" || true
-          echo "SIMULATOR_UDID=$DEVICE" >> $GITHUB_ENV
 
       - name: Wait for simulator to be ready
         run: |
