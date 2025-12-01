@@ -44,7 +44,7 @@ jobs:
         run: pnpm test
 
   e2e:
-    name: E2E Tests
+    name: Web E2E Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -83,7 +83,7 @@ jobs:
           retention-days: 30
 
   android:
-    name: Android Tests
+    name: Android Instrumented Tests
     runs-on: ubuntu-latest
 
     steps:
