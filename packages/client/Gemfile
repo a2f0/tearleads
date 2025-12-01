@@ -4,3 +4,4 @@ ruby file: '.ruby-version'
 
 gem 'fastlane', '~> 2.225'
 gem 'rubocop', '~> 1.69'
+gem 'cocoapods', '~> 1.16'

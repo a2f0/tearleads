@@ -284,7 +284,7 @@ jobs:
         run: ./packages/client/scripts/buildIosImages.sh
 
       - name: Install CocoaPods dependencies
-        run: pod install
+        run: bundle exec pod install
         working-directory: packages/client/ios/App
 
       - name: Sync Capacitor
