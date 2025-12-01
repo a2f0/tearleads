@@ -318,6 +318,7 @@ jobs:
       - name: Run Maestro tests
         run: |
           mkdir -p maestro-report maestro-debug
+          export MAESTRO_CLI_NO_ANALYTICS=1
           EXIT_CODE=0
           $HOME/.maestro/bin/maestro test .maestro/ --output maestro-report --debug-output maestro-debug || EXIT_CODE=$?
           echo "=== Maestro output files ==="
@@ -328,16 +329,12 @@ jobs:
         working-directory: packages/client
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 300000
-          MAESTRO_CLI_NO_ANALYTICS: 1
 
       - name: Upload Maestro artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ios-maestro-artifacts
-          path: |
-            packages/client/maestro-report/
-            packages/client/maestro-debug/
-            ~/.maestro/tests/
+          path: packages/client/maestro-debug/
           retention-days: 7
           if-no-files-found: ignore
