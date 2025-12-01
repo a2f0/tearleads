@@ -316,7 +316,15 @@ jobs:
           echo "Simulator is ready"
 
       - name: Run Maestro tests
-        run: $HOME/.maestro/bin/maestro test .maestro/ --output maestro-report --debug-output maestro-debug
+        run: |
+          mkdir -p maestro-report maestro-debug
+          EXIT_CODE=0
+          $HOME/.maestro/bin/maestro test .maestro/ --output maestro-report --debug-output maestro-debug || EXIT_CODE=$?
+          echo "=== Maestro output files ==="
+          find . -name "maestro*" -type d -exec ls -la {} \; 2>/dev/null || true
+          find . -path "./.maestro" -prune -o -name "*.png" -print 2>/dev/null | head -20 || true
+          ls -la ~/.maestro/tests/ 2>/dev/null || true
+          exit $EXIT_CODE
         working-directory: packages/client
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 300000
@@ -330,5 +338,6 @@ jobs:
           path: |
             packages/client/maestro-report/
             packages/client/maestro-debug/
+            ~/.maestro/tests/
           retention-days: 7
           if-no-files-found: ignore
