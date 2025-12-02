@@ -12,6 +12,6 @@ capacitor-cordova-ios-plugins
 App/App/capacitor.config.json
 App/App/config.xml
 
-# Generated image assets (run scripts/buildIosImages.sh to regenerate)
+# Generated image assets (run scripts/buildIosImageAssets.sh to regenerate)
 App/App/Assets.xcassets/AppIcon.appiconset/*.png
 App/App/Assets.xcassets/Splash.imageset/*.png
