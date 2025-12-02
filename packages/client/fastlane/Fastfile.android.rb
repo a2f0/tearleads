@@ -66,7 +66,8 @@ platform :android do
     # Find the emulator device ID
     emulator_id = `adb devices | grep emulator | head -1 | cut -f1`.strip
     UI.user_error!('No Android emulator found. Start an emulator first.') if emulator_id.empty?
-    sh("adb -s #{emulator_id} install '#{apk_path}'")
+    sh("adb -s #{emulator_id} uninstall #{APP_ID} || true")
+    sh("adb -s #{emulator_id} install -r '#{apk_path}'")
     sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test ../.maestro/ --output maestro-report --debug-output maestro-debug")
   end
 
