@@ -59,6 +59,17 @@ platform :android do
     run_gradle(task: 'clean')
   end
 
+  desc 'Run Maestro UI tests on Android emulator'
+  lane :test_maestro do
+    build_debug
+    apk_path = File.expand_path('../android/app/build/outputs/apk/debug/app-debug.apk', __dir__)
+    # Find the emulator device ID
+    emulator_id = `adb devices | grep emulator | head -1 | cut -f1`.strip
+    UI.user_error!('No Android emulator found. Start an emulator first.') if emulator_id.empty?
+    sh("adb -s #{emulator_id} install '#{apk_path}'")
+    sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test ../.maestro/ --output maestro-report --debug-output maestro-debug")
+  end
+
   private_lane :run_gradle do |options|
     gradle(
       project_dir: './android',
