@@ -131,7 +131,7 @@ jobs:
         run: pnpm --filter @rapid/client build
 
       - name: Generate Android images
-        run: ./packages/client/scripts/buildAndroidImages.sh
+        run: ./packages/client/scripts/buildAndroidImageAssets.sh
 
       - name: Sync Capacitor
         run: pnpm --filter @rapid/client run cap:sync
@@ -197,7 +197,7 @@ jobs:
         run: pnpm --filter @rapid/client build
 
       - name: Generate Android images
-        run: ./packages/client/scripts/buildAndroidImages.sh
+        run: ./packages/client/scripts/buildAndroidImageAssets.sh
 
       - name: Sync Capacitor
         run: pnpm --filter @rapid/client run cap:sync
