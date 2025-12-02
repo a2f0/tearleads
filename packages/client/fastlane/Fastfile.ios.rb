@@ -93,4 +93,16 @@ platform :ios do
   lane :clean do
     clear_derived_data
   end
+
+  desc 'Run Maestro UI tests on iOS simulator'
+  lane :test_maestro do
+    build_debug
+    # Find booted simulator and install app
+    simulator = `xcrun simctl list devices booted -j | jq -r '.devices[][] | select(.state == "Booted") | .udid' | head -1`.strip
+    UI.user_error!('No iOS simulator is booted. Boot a simulator first.') if simulator.empty?
+    app_path = File.expand_path('../build/DerivedData/Build/Products/Debug-iphonesimulator/App.app', __dir__)
+    UI.message("Installing app on simulator: #{simulator}")
+    sh("xcrun simctl install #{simulator} '#{app_path}'")
+    sh('$HOME/.maestro/bin/maestro --platform ios test ../.maestro/ --output maestro-report --debug-output maestro-debug')
+  end
 end

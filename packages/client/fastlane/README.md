@@ -95,6 +95,14 @@ Increment version number
 
 Clean build artifacts
 
+### ios test_maestro
+
+```sh
+[bundle exec] fastlane ios test_maestro
+```
+
+Run Maestro UI tests on iOS simulator
+
 ----
 
 
@@ -171,6 +179,14 @@ Run Android instrumented tests (requires device/emulator)
 ```
 
 Clean build artifacts
+
+### android test_maestro
+
+```sh
+[bundle exec] fastlane android test_maestro
+```
+
+Run Maestro UI tests on Android emulator
 
 ----
 
