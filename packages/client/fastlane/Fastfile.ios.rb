@@ -17,13 +17,16 @@ platform :ios do
 
   desc 'Build release iOS app'
   lane :build_release do
+    UI.user_error!('Please set TEAM_ID environment variable') unless ENV['TEAM_ID']
+
     build_app(
       workspace: './ios/App/App.xcworkspace',
       scheme: 'App',
       configuration: 'Release',
       export_method: 'app-store',
       output_directory: './build',
-      output_name: 'Rapid.ipa'
+      output_name: 'Rapid.ipa',
+      xcargs: "DEVELOPMENT_TEAM=#{ENV['TEAM_ID']} -allowProvisioningUpdates"
     )
   end
 
