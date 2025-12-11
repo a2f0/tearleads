@@ -1,0 +1,84 @@
+name: Deploy iOS to TestFlight
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to TestFlight
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.0'
+          bundler-cache: true
+          working-directory: packages/client
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build web assets
+        run: pnpm --filter @rapid/client build
+
+      - name: Generate iOS images
+        run: ./packages/client/scripts/buildIosImages.sh
+
+      - name: Sync Capacitor
+        run: pnpm --filter @rapid/client run cap:sync
+
+      - name: Verify workspace is clean
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "Error: Workspace is dirty after Capacitor sync"
+            echo "Please run 'pnpm --filter @rapid/client run cap:sync' locally and commit the changes"
+            git status
+            exit 1
+          fi
+
+      - name: Setup App Store Connect API Key
+        run: |
+          mkdir -p .secrets
+          echo "${{ secrets.APP_STORE_CONNECT_API_KEY }}" | base64 -d > .secrets/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+
+      - name: Deploy to TestFlight
+        run: bundle exec fastlane ios deploy_testflight
+        working-directory: packages/client
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/client/ios/App/App.xcodeproj/project.pbxproj
+          if git diff --staged --quiet; then
+            echo "No version bump to commit"
+          else
+            git commit -m "chore: bump iOS build number [skip ci]"
+            git push
+          fi
