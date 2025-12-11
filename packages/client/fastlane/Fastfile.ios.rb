@@ -57,6 +57,11 @@ platform :ios do
     )
   end
 
+  desc 'Setup CI environment'
+  lane :setup_ci_environment do
+    setup_ci if ENV['CI']
+  end
+
   desc 'Deploy to TestFlight'
   lane :deploy_testflight do
     UI.user_error!('Please set APP_STORE_CONNECT_KEY_ID environment variable') unless ENV['APP_STORE_CONNECT_KEY_ID']
@@ -64,6 +69,8 @@ platform :ios do
     UI.user_error!('Please set TEAM_ID environment variable') unless ENV['TEAM_ID']
     UI.user_error!('Please set MATCH_GIT_URL environment variable') unless ENV['MATCH_GIT_URL']
     UI.user_error!('Please set MATCH_PASSWORD environment variable') unless ENV['MATCH_PASSWORD']
+
+    setup_ci_environment
 
     app_store_connect_api_key(
       key_id: ENV['APP_STORE_CONNECT_KEY_ID'],
@@ -93,8 +100,8 @@ platform :ios do
 
   desc 'Sync certificates and provisioning profiles'
   lane :sync_certs do
-    match(type: 'development')
-    match(type: 'appstore')
+    match(type: 'development', readonly: true)
+    match(type: 'appstore', readonly: true)
   end
 
   desc 'Register new device'
