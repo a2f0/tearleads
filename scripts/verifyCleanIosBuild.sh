@@ -53,4 +53,4 @@ if [[ "$TOTAL_CHANGES" -ne "$VERSION_CHANGES" ]]; then
   exit 1
 fi
 
-echo "Only CURRENT_PROJECT_VERSION changed ($VERSION_CHANGES lines)"
+echo "Verified: only CURRENT_PROJECT_VERSION changed ($VERSION_CHANGES lines)"

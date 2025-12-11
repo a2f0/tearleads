@@ -62,15 +62,9 @@ platform :ios do
     setup_ci if ENV['CI']
   end
 
-  desc 'Build for TestFlight (bump version, sync certs, build release)'
-  lane :build_for_testflight do
+  private_lane :ensure_app_store_connect_api do
     UI.user_error!('Please set APP_STORE_CONNECT_KEY_ID environment variable') unless ENV['APP_STORE_CONNECT_KEY_ID']
     UI.user_error!('Please set APP_STORE_CONNECT_ISSUER_ID environment variable') unless ENV['APP_STORE_CONNECT_ISSUER_ID']
-    UI.user_error!('Please set TEAM_ID environment variable') unless ENV['TEAM_ID']
-    UI.user_error!('Please set MATCH_GIT_URL environment variable') unless ENV['MATCH_GIT_URL']
-    UI.user_error!('Please set MATCH_PASSWORD environment variable') unless ENV['MATCH_PASSWORD']
-
-    setup_ci_environment
 
     app_store_connect_api_key(
       key_id: ENV['APP_STORE_CONNECT_KEY_ID'],
@@ -78,6 +72,16 @@ platform :ios do
       key_filepath: File.expand_path("../../../.secrets/AuthKey_#{ENV['APP_STORE_CONNECT_KEY_ID']}.p8", __dir__),
       in_house: false
     )
+  end
+
+  desc 'Build for TestFlight (bump version, sync certs, build release)'
+  lane :build_for_testflight do
+    UI.user_error!('Please set TEAM_ID environment variable') unless ENV['TEAM_ID']
+    UI.user_error!('Please set MATCH_GIT_URL environment variable') unless ENV['MATCH_GIT_URL']
+    UI.user_error!('Please set MATCH_PASSWORD environment variable') unless ENV['MATCH_PASSWORD']
+
+    setup_ci_environment
+    ensure_app_store_connect_api
 
     bump_build_if_needed
     sync_certs
@@ -86,15 +90,7 @@ platform :ios do
 
   desc 'Upload to TestFlight'
   lane :upload_testflight do
-    UI.user_error!('Please set APP_STORE_CONNECT_KEY_ID environment variable') unless ENV['APP_STORE_CONNECT_KEY_ID']
-    UI.user_error!('Please set APP_STORE_CONNECT_ISSUER_ID environment variable') unless ENV['APP_STORE_CONNECT_ISSUER_ID']
-
-    app_store_connect_api_key(
-      key_id: ENV['APP_STORE_CONNECT_KEY_ID'],
-      issuer_id: ENV['APP_STORE_CONNECT_ISSUER_ID'],
-      key_filepath: File.expand_path("../../../.secrets/AuthKey_#{ENV['APP_STORE_CONNECT_KEY_ID']}.p8", __dir__),
-      in_house: false
-    )
+    ensure_app_store_connect_api
 
     upload_to_testflight(
       skip_waiting_for_build_processing: true,
