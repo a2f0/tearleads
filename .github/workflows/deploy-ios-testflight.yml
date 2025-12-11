@@ -95,8 +95,12 @@ jobs:
           echo "=== All Diffs ==="
           git diff
 
-          if [[ -n $(git status --porcelain | grep -v 'M packages/client/ios/App/App.xcodeproj/project.pbxproj') ]]; then
+          # Check if any files other than project.pbxproj were modified
+          MODIFIED_FILES=$(git status --porcelain | grep -v -F ' M packages/client/ios/App/App.xcodeproj/project.pbxproj')
+
+          if [[ -n "$MODIFIED_FILES" ]]; then
             echo "Error: Unexpected files changed after deployment"
+            echo "$MODIFIED_FILES"
             exit 1
           fi
 
