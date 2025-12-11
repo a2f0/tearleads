@@ -39,7 +39,7 @@ jobs:
         run: pnpm --filter @rapid/client build
 
       - name: Generate iOS images
-        run: ./packages/client/scripts/buildIosImages.sh
+        run: ./packages/client/scripts/buildIosImageAssets.sh
 
       - name: Sync Capacitor
         run: pnpm --filter @rapid/client run cap:sync
