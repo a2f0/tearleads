@@ -84,9 +84,15 @@ jobs:
 
       - name: Verify only version changed
         run: |
+          echo "=== Git Status ==="
+          git status
+
+          echo ""
+          echo "=== All Diffs ==="
+          git diff
+
           if [[ -n $(git status --porcelain | grep -v 'M packages/client/ios/App/App.xcodeproj/project.pbxproj') ]]; then
             echo "Error: Unexpected files changed after deployment"
-            git status
             exit 1
           fi
 
