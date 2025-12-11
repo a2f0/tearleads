@@ -32,6 +32,9 @@ jobs:
           bundler-cache: true
           working-directory: packages/client
 
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_26.1.1.app
+
       - name: Install dependencies
         run: pnpm install
 
