@@ -129,10 +129,7 @@ platform :ios do
     current_build_number = get_build_number(xcodeproj: './ios/App/App.xcodeproj')
 
     begin
-      testflight_build_number = latest_testflight_build_number(
-        app_identifier: APP_ID,
-        api_key_path: File.expand_path("../../../.secrets/AuthKey_#{ENV['APP_STORE_CONNECT_KEY_ID']}.p8", __dir__)
-      )
+      testflight_build_number = latest_testflight_build_number(app_identifier: APP_ID)
 
       if current_build_number.to_i <= testflight_build_number.to_i
         UI.message("Current build number (#{current_build_number}) already exists in TestFlight (#{testflight_build_number}). Incrementing...")
