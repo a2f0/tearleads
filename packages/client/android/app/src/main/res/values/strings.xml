@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Rapid</string>
-    <string name="title_activity_main">Rapid</string>
+    <string name="app_name">Tearleads</string>
+    <string name="title_activity_main">Tearleads</string>
     <string name="package_name">com.tearleads.rapid</string>
     <string name="custom_url_scheme">com.tearleads.rapid</string>
 </resources>
