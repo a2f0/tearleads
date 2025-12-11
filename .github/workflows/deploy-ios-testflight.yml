@@ -96,7 +96,8 @@ jobs:
           git diff
 
           # Check if any files other than project.pbxproj were modified
-          MODIFIED_FILES=$(git status --porcelain | grep -v -F ' M packages/client/ios/App/App.xcodeproj/project.pbxproj')
+          # MODIFIED_FILES will be empty when only project.pbxproj changed, causing the grep command to return a non-zero exit status code.
+          MODIFIED_FILES=$(git status --porcelain | grep -v -F ' M packages/client/ios/App/App.xcodeproj/project.pbxproj' || true)
 
           if [[ -n "$MODIFIED_FILES" ]]; then
             echo "Error: Unexpected files changed after deployment"
