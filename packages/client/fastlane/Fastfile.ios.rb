@@ -38,6 +38,7 @@ platform :ios do
       export_method: 'app-store',
       output_directory: './build',
       output_name: 'Rapid.ipa',
+      xcodebuild_formatter: '',
       export_options: {
         provisioningProfiles: {
           APP_ID => APPSTORE_PROFILE_NAME
