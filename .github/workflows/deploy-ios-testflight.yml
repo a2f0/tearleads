@@ -4,6 +4,9 @@ on:
   push:
     branches: [feat-ios-test-flight]
 
+permissions:
+  contents: write
+
 jobs:
   deploy:
     name: Deploy to TestFlight
