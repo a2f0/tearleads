@@ -104,14 +104,15 @@ jobs:
             exit 1
           fi
 
-          # Show the diff for visibility (just the changed lines)
+          # Get just the changed lines (skip 4 header lines: diff, index, ---, +++)
+          DIFF_LINES=$(git diff -U0 packages/client/ios/App/App.xcodeproj/project.pbxproj | tail -n +5)
+
           echo "Changes to commit:"
-          git diff packages/client/ios/App/App.xcodeproj/project.pbxproj | grep '^[-+]' | grep -v -F '+++' | grep -v -F '---'
+          echo "$DIFF_LINES"
 
           # Verify only CURRENT_PROJECT_VERSION changed
-          # Count total changed lines (+ and -) excluding diff headers, and lines containing CURRENT_PROJECT_VERSION
-          TOTAL_CHANGES=$(git diff packages/client/ios/App/App.xcodeproj/project.pbxproj | grep '^[-+]' | grep -v -F '+++' | grep -v -F '---' | wc -l | tr -d ' ')
-          VERSION_CHANGES=$(git diff packages/client/ios/App/App.xcodeproj/project.pbxproj | grep '^[-+]' | grep -v -F '+++' | grep -v -F '---' | grep -c 'CURRENT_PROJECT_VERSION' || true)
+          TOTAL_CHANGES=$(echo "$DIFF_LINES" | grep -c '^[-+]' || true)
+          VERSION_CHANGES=$(echo "$DIFF_LINES" | grep -c 'CURRENT_PROJECT_VERSION' || true)
 
           if [[ "$TOTAL_CHANGES" -eq 0 ]] || [[ "$VERSION_CHANGES" -eq 0 ]]; then
             echo "Error: No CURRENT_PROJECT_VERSION changes found"
@@ -122,7 +123,7 @@ jobs:
             echo "Error: Found changes other than CURRENT_PROJECT_VERSION"
             echo "Total changed lines: $TOTAL_CHANGES"
             echo "CURRENT_PROJECT_VERSION lines: $VERSION_CHANGES"
-            git diff packages/client/ios/App/App.xcodeproj/project.pbxproj | grep '^[-+]' | grep -v '^[-+][-+][-+]' | grep -v 'CURRENT_PROJECT_VERSION'
+            echo "$DIFF_LINES" | grep -v 'CURRENT_PROJECT_VERSION'
             exit 1
           fi
 
