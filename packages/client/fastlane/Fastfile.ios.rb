@@ -100,8 +100,8 @@ platform :ios do
 
   desc 'Sync certificates and provisioning profiles'
   lane :sync_certs do
-    match(type: 'development', readonly: true)
-    match(type: 'appstore', readonly: true)
+    match(type: 'development')
+    match(type: 'appstore')
   end
 
   desc 'Register new device'
