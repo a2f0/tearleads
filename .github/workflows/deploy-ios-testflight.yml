@@ -71,6 +71,40 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
 
+      - name: Clear DEVELOPMENT_TEAM from project file
+        run: |
+          sed -i '' '/DEVELOPMENT_TEAM = /d' packages/client/ios/App/App.xcodeproj/project.pbxproj
+
+      - name: Verify only version changed
+        run: |
+          if [[ -n $(git status --porcelain | grep -v 'M packages/client/ios/App/App.xcodeproj/project.pbxproj') ]]; then
+            echo "Error: Unexpected files changed after deployment"
+            git status
+            exit 1
+          fi
+
+          # Verify only CURRENT_PROJECT_VERSION changed in project.pbxproj
+          DIFF_OUTPUT=$(git diff packages/client/ios/App/App.xcodeproj/project.pbxproj)
+
+          if [[ -z "$DIFF_OUTPUT" ]]; then
+            echo "Error: No changes found in project.pbxproj"
+            exit 1
+          fi
+
+          # Check that all changed lines (excluding diff headers) contain CURRENT_PROJECT_VERSION
+          NON_VERSION_CHANGES=$(echo "$DIFF_OUTPUT" | grep -E '^\+|^-' | grep -v '^\+\+\+' | grep -v '^---' | grep -v 'CURRENT_PROJECT_VERSION')
+
+          if [[ -n "$NON_VERSION_CHANGES" ]]; then
+            echo "Error: Found changes other than CURRENT_PROJECT_VERSION:"
+            echo "$NON_VERSION_CHANGES"
+            echo ""
+            echo "Full diff:"
+            git diff packages/client/ios/App/App.xcodeproj/project.pbxproj
+            exit 1
+          fi
+
+          echo "✓ Only CURRENT_PROJECT_VERSION changed in project.pbxproj"
+
       - name: Commit version bump
         run: |
           git config user.name "github-actions[bot]"
