@@ -2,7 +2,7 @@ name: Deploy iOS to TestFlight
 
 on:
   push:
-    branches: [main]
+    branches: [feat-ios-test-flight]
 
 jobs:
   deploy:

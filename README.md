@@ -4,7 +4,7 @@ A TypeScript monorepo with an Express API and React client.
 
 ## Structure
 
-```
+```ascii
 packages/
 ├── shared/   # Shared types and utilities
 ├── api/      # Express API (port 5001)
@@ -42,10 +42,12 @@ Create an API key in App Store Connect (Users and Access → Keys):
 1. Go to [App Store Connect](https://appstoreconnect.apple.com/)
 2. Navigate to **Users and Access** → **Integrations** tab
 3. Click `Generate API Key` to create a new API Key
-4. Give it a name (e.g., "GitHub Actions")
+4. Give it a name (e.g., "GitHub Actions").
 5. Set role to **App Manager**.
-6. Download the `.p8` file.
-7. Note the **Key ID** and **Issuer ID**
+6. Download the `.p8` file, and put it into `.secrets/`
+7. Export `APP_STORE_CONNECT_KEY_ID` and `APP_STORE_CONNECT_ISSUER_ID`.
+
+Use [scripts/setGithubVars.sh](scripts/setGithubVars.sh) to set all required GitHub secrets.
 
 ### GitHub Personal Access Token
 
@@ -56,3 +58,5 @@ echo -n "<github handle>:<personal access token>" | base64 | pbcopy
 ```
 
 Then export it to `MATCH_GIT_BASIC_AUTHORIZATION`.
+
+Use [scripts/setGithubVars.sh](scripts/setGithubVars.sh) to set all required GitHub secrets.
