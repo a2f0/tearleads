@@ -14,7 +14,7 @@ section_end() {
     echo "  (${section_elapsed}s)"
 }
 
-# Get script directory (POSIX compatible)
+# Get script directory
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLIENT_DIR="$(dirname "$SCRIPT_DIR")"
 SVG_SOURCE="$CLIENT_DIR/src/images/tearleads-logo-small.svg"
@@ -29,9 +29,9 @@ if command -v magick > /dev/null 2>&1; then
 elif command -v convert > /dev/null 2>&1; then
     MAGICK_CMD="convert"
 else
-    echo "Error: ImageMagick is required."
-    echo "  macOS: brew install imagemagick"
-    echo "  Linux: sudo apt-get install imagemagick"
+    echo "Error: ImageMagick is required." >&2
+    echo "  macOS: brew install imagemagick" >&2
+    echo "  Linux: sudo apt-get install imagemagick" >&2
     exit 1
 fi
 
@@ -42,15 +42,15 @@ check_svgo() {
     elif [ -x "$CLIENT_DIR/node_modules/.bin/svgo" ]; then
         SVGO_CMD="$CLIENT_DIR/node_modules/.bin/svgo"
     else
-        echo "Error: svgo is required."
-        echo "  Run: pnpm --filter @rapid/client add -D svgo"
+        echo "Error: svgo is required." >&2
+        echo "  Run: pnpm --filter @rapid/client add -D svgo" >&2
         exit 1
     fi
 }
 
 # Check for source SVG
 if [ ! -f "$SVG_SOURCE" ]; then
-    echo "Error: Source SVG not found at $SVG_SOURCE"
+    echo "Error: Source SVG not found at $SVG_SOURCE" >&2
     exit 1
 fi
 
@@ -171,5 +171,6 @@ echo "Add to your index.html <head>:"
 echo '  <link rel="icon" type="image/svg+xml" href="/generated/favicon.svg">'
 echo '  <link rel="icon" type="image/png" sizes="32x32" href="/generated/favicon-32x32.png">'
 echo '  <link rel="icon" type="image/png" sizes="16x16" href="/generated/favicon-16x16.png">'
-echo '  <link rel="apple-touch-icon" href="/generated/apple-touch-icon.png">'
+echo '  <link rel="apple-touch-icon" sizes="180x180" href="/generated/apple-touch-icon.png">'
+echo '  <link rel="shortcut icon" href="/generated/favicon.ico">'
 echo '  <link rel="manifest" href="/generated/site.webmanifest">'
