@@ -7,7 +7,7 @@ test.describe('Index page', () => {
 
   test('should load and display the main heading', async ({ page }) => {
     // Check that the page title is correct
-    await expect(page).toHaveTitle('Rapid');
+    await expect(page).toHaveTitle('Tearleads');
 
     // Check that the main heading is present
     const heading = page.getByRole('heading', { name: 'Tearleads', level: 1 });

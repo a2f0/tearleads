@@ -5,6 +5,9 @@ node_modules/
 dist/
 build/
 
+# Generated image assets (web)
+**/public/generated/
+
 # Environment variables
 .env
 .env.local
