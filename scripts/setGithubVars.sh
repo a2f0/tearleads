@@ -6,17 +6,6 @@ check_var() {
   eval "var_value=\$$var_name"
   if [ -z "$var_value" ]; then
     echo "Error: $var_name is not set."
-    echo ""
-    echo "Please export all required variables:"
-    echo "  export APPLE_ID=your-apple-id@example.com"
-    echo "  export TEAM_ID=YOUR_TEAM_ID"
-    echo "  export ITC_TEAM_ID=YOUR_ITC_TEAM_ID"
-    echo "  export GITHUB_REPO=username/repo"
-    echo "  export APP_STORE_CONNECT_ISSUER_ID=your-issuer-id"
-    echo "  export APP_STORE_CONNECT_KEY_ID=YOUR_KEY_ID"
-    echo "  export MATCH_GIT_URL=git@github.com:username/certificates.git"
-    echo "  export MATCH_PASSWORD=your-match-password"
-    echo "  export MATCH_GIT_BASIC_AUTHORIZATION=base64-encoded-username:token"
     exit 1
   fi
 }
@@ -41,12 +30,21 @@ fi
 
 API_KEY_BASE64=$(base64 < "$P8_FILE")
 
-echo "$APPLE_ID" | gh secret set APPLE_ID -R "$GITHUB_REPO"
-echo "$TEAM_ID" | gh secret set TEAM_ID -R "$GITHUB_REPO"
-echo "$ITC_TEAM_ID" | gh secret set ITC_TEAM_ID -R "$GITHUB_REPO"
-echo "$APP_STORE_CONNECT_KEY_ID" | gh secret set APP_STORE_CONNECT_KEY_ID -R "$GITHUB_REPO"
-echo "$APP_STORE_CONNECT_ISSUER_ID" | gh secret set APP_STORE_CONNECT_ISSUER_ID -R "$GITHUB_REPO"
-echo "$API_KEY_BASE64" | gh secret set APP_STORE_CONNECT_API_KEY -R "$GITHUB_REPO"
-echo "$MATCH_GIT_URL" | gh secret set MATCH_GIT_URL -R "$GITHUB_REPO"
-echo "$MATCH_PASSWORD" | gh secret set MATCH_PASSWORD -R "$GITHUB_REPO"
-echo "$MATCH_GIT_BASIC_AUTHORIZATION" | gh secret set MATCH_GIT_BASIC_AUTHORIZATION -R "$GITHUB_REPO"
+set_secret() {
+  secret_name="$1"
+  secret_value="$2"
+  gh secret set "$secret_name" -R "$GITHUB_REPO" --body "$secret_value"
+}
+
+set_secret "APPLE_ID" "$APPLE_ID"
+set_secret "TEAM_ID" "$TEAM_ID"
+set_secret "ITC_TEAM_ID" "$ITC_TEAM_ID"
+set_secret "APP_STORE_CONNECT_KEY_ID" "$APP_STORE_CONNECT_KEY_ID"
+set_secret "APP_STORE_CONNECT_ISSUER_ID" "$APP_STORE_CONNECT_ISSUER_ID"
+set_secret "APP_STORE_CONNECT_API_KEY" "$API_KEY_BASE64"
+set_secret "MATCH_GIT_URL" "$MATCH_GIT_URL"
+set_secret "MATCH_PASSWORD" "$MATCH_PASSWORD"
+set_secret "MATCH_GIT_BASIC_AUTHORIZATION" "$MATCH_GIT_BASIC_AUTHORIZATION"
+
+echo ""
+echo "All secrets have been set successfully!"
