@@ -62,8 +62,8 @@ platform :ios do
     setup_ci if ENV['CI']
   end
 
-  desc 'Deploy to TestFlight'
-  lane :deploy_testflight do
+  desc 'Build for TestFlight (bump version, sync certs, build release)'
+  lane :build_for_testflight do
     UI.user_error!('Please set APP_STORE_CONNECT_KEY_ID environment variable') unless ENV['APP_STORE_CONNECT_KEY_ID']
     UI.user_error!('Please set APP_STORE_CONNECT_ISSUER_ID environment variable') unless ENV['APP_STORE_CONNECT_ISSUER_ID']
     UI.user_error!('Please set TEAM_ID environment variable') unless ENV['TEAM_ID']
@@ -82,8 +82,23 @@ platform :ios do
     bump_build_if_needed
     sync_certs
     build_release
+  end
+
+  desc 'Upload to TestFlight'
+  lane :upload_testflight do
+    UI.user_error!('Please set APP_STORE_CONNECT_KEY_ID environment variable') unless ENV['APP_STORE_CONNECT_KEY_ID']
+    UI.user_error!('Please set APP_STORE_CONNECT_ISSUER_ID environment variable') unless ENV['APP_STORE_CONNECT_ISSUER_ID']
+
+    app_store_connect_api_key(
+      key_id: ENV['APP_STORE_CONNECT_KEY_ID'],
+      issuer_id: ENV['APP_STORE_CONNECT_ISSUER_ID'],
+      key_filepath: File.expand_path("../../../.secrets/AuthKey_#{ENV['APP_STORE_CONNECT_KEY_ID']}.p8", __dir__),
+      in_house: false
+    )
+
     upload_to_testflight(
-      skip_waiting_for_build_processing: true
+      skip_waiting_for_build_processing: true,
+      ipa: './build/Rapid.ipa'
     )
   end
 
