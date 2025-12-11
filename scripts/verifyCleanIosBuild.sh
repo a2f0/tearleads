@@ -30,8 +30,8 @@ if git -C "$PROJECT_ROOT" diff --quiet "$PROJECT_FILE"; then
   exit 1
 fi
 
-# Get just the changed lines (skip 4 header lines: diff, index, ---, +++)
-DIFF_LINES=$(git -C "$PROJECT_ROOT" diff -U0 "$PROJECT_FILE" | tail -n +5)
+# Get only the actual change lines (lines starting with + or - but not --- or +++)
+DIFF_LINES=$(git -C "$PROJECT_ROOT" diff -U0 "$PROJECT_FILE" | grep -E '^[-+]' | grep -v -E '^(---|\+\+\+)')
 
 echo "Changes to commit:"
 echo "$DIFF_LINES"
