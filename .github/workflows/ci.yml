@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
       - name: Lint
         run: pnpm lint
 

@@ -1,5 +1,7 @@
 require 'json'
 
+APP_ID = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+
 platform :ios do
   desc 'Build debug iOS app'
   lane :build_debug do
@@ -19,6 +21,15 @@ platform :ios do
   lane :build_release do
     UI.user_error!('Please set TEAM_ID environment variable') unless ENV['TEAM_ID']
 
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: './ios/App/App.xcodeproj',
+      team_id: ENV['TEAM_ID'],
+      bundle_identifier: APP_ID,
+      profile_name: "match AppStore #{APP_ID}",
+      code_sign_identity: 'Apple Distribution'
+    )
+
     build_app(
       workspace: './ios/App/App.xcworkspace',
       scheme: 'App',
@@ -26,7 +37,11 @@ platform :ios do
       export_method: 'app-store',
       output_directory: './build',
       output_name: 'Rapid.ipa',
-      xcargs: "DEVELOPMENT_TEAM=#{ENV['TEAM_ID']} -allowProvisioningUpdates"
+      export_options: {
+        provisioningProfiles: {
+          APP_ID => "match AppStore #{APP_ID}"
+        }
+      }
     )
   end
 
@@ -42,7 +57,15 @@ platform :ios do
 
   desc 'Deploy to TestFlight'
   lane :deploy_testflight do
+    app_store_connect_api_key(
+      key_id: ENV['APP_STORE_CONNECT_KEY_ID'],
+      issuer_id: ENV['APP_STORE_CONNECT_ISSUER_ID'],
+      key_filepath: File.expand_path("../../../.secrets/AuthKey_#{ENV['APP_STORE_CONNECT_KEY_ID']}.p8", __dir__),
+      in_house: false
+    )
+
     bump_build
+    sync_certs
     build_release
     upload_to_testflight(
       skip_waiting_for_build_processing: true
@@ -102,7 +125,6 @@ platform :ios do
   desc 'Run Maestro UI tests on iOS simulator'
   lane :test_maestro do
     build_debug
-    # Find booted simulator using Ruby JSON (no jq dependency)
     simulators_output = `xcrun simctl list devices booted -j`
     devices = JSON.parse(simulators_output)['devices']
     simulator = devices.values.flatten.find { |d| d['state'] == 'Booted' }&.[]('udid')
