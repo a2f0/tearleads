@@ -67,8 +67,8 @@ jobs:
           mkdir -p .secrets
           echo "${{ secrets.APP_STORE_CONNECT_API_KEY }}" | base64 -d > .secrets/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
 
-      - name: Deploy to TestFlight
-        run: bundle exec fastlane ios deploy_testflight
+      - name: Build for TestFlight
+        run: bundle exec fastlane ios build_for_testflight
         working-directory: packages/client
         env:
           CI: true
@@ -81,56 +81,16 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
 
-      - name: Clear DEVELOPMENT_TEAM from project file
-        run: |
-          sed -i '' '/DEVELOPMENT_TEAM = /d' packages/client/ios/App/App.xcodeproj/project.pbxproj
+      - name: Verify clean build
+        run: ./scripts/verifyCleanIosBuild.sh
 
-      - name: Restore CFBundleVersion variable in Info.plist
-        run: |
-          sed -i '' '/<key>CFBundleVersion<\/key>/{n;s/<string>[0-9]*<\/string>/<string>$(CURRENT_PROJECT_VERSION)<\/string>/;}' packages/client/ios/App/App/Info.plist
-
-      - name: Verify only version changed
-        run: |
-          # Check if any files other than project.pbxproj were modified
-          MODIFIED_FILES=$(git status --porcelain | grep -v -F ' M packages/client/ios/App/App.xcodeproj/project.pbxproj' || true)
-
-          if [[ -n "$MODIFIED_FILES" ]]; then
-            echo "Error: Unexpected files changed after deployment"
-            echo "$MODIFIED_FILES"
-            git diff
-            exit 1
-          fi
-
-          # Verify project.pbxproj was actually modified
-          if git diff --quiet packages/client/ios/App/App.xcodeproj/project.pbxproj; then
-            echo "Error: No changes found in project.pbxproj"
-            exit 1
-          fi
-
-          # Get just the changed lines (skip 4 header lines: diff, index, ---, +++)
-          DIFF_LINES=$(git diff -U0 packages/client/ios/App/App.xcodeproj/project.pbxproj | tail -n +5)
-
-          echo "Changes to commit:"
-          echo "$DIFF_LINES"
-
-          # Verify only CURRENT_PROJECT_VERSION changed
-          TOTAL_CHANGES=$(echo "$DIFF_LINES" | grep -c '^[-+]' || true)
-          VERSION_CHANGES=$(echo "$DIFF_LINES" | grep -c 'CURRENT_PROJECT_VERSION' || true)
-
-          if [[ "$TOTAL_CHANGES" -eq 0 ]] || [[ "$VERSION_CHANGES" -eq 0 ]]; then
-            echo "Error: No CURRENT_PROJECT_VERSION changes found"
-            exit 1
-          fi
-
-          if [[ "$TOTAL_CHANGES" -ne "$VERSION_CHANGES" ]]; then
-            echo "Error: Found changes other than CURRENT_PROJECT_VERSION"
-            echo "Total changed lines: $TOTAL_CHANGES"
-            echo "CURRENT_PROJECT_VERSION lines: $VERSION_CHANGES"
-            echo "$DIFF_LINES" | grep -v 'CURRENT_PROJECT_VERSION'
-            exit 1
-          fi
-
-          echo "✓ Only CURRENT_PROJECT_VERSION changed ($VERSION_CHANGES lines)"
+      - name: Upload to TestFlight
+        run: bundle exec fastlane ios upload_testflight
+        working-directory: packages/client
+        env:
+          CI: true
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
 
       - name: Commit version bump
         run: |
