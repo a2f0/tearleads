@@ -82,6 +82,10 @@ jobs:
         run: |
           sed -i '' '/DEVELOPMENT_TEAM = /d' packages/client/ios/App/App.xcodeproj/project.pbxproj
 
+      - name: Restore CFBundleVersion variable in Info.plist
+        run: |
+          sed -i '' '/<key>CFBundleVersion<\/key>/{n;s/<string>[0-9]*<\/string>/<string>$(CURRENT_PROJECT_VERSION)<\/string>/;}' packages/client/ios/App/App/Info.plist
+
       - name: Verify only version changed
         run: |
           echo "=== Git Status ==="
