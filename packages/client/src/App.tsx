@@ -1,5 +1,5 @@
 import { formatDate, type HealthData } from '@rapid/shared';
-import { Activity, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
+import tearleadsLogo from '@/images/tearleads-logo-small.svg';
 
 function App() {
   const [health, setHealth] = useState<HealthData | null>(null);
@@ -42,8 +43,8 @@ function App() {
     <div className="min-h-screen bg-background" data-testid="app-container">
       <div className="container mx-auto px-4 py-16 max-w-2xl">
         <div className="mb-8 flex items-center gap-3">
-          <Activity className="h-8 w-8 text-primary" />
-          <h1 className="text-4xl font-bold tracking-tight">Rapid Monorepo</h1>
+          <img src={tearleadsLogo} alt="Tearleads" className="h-8 w-8" />
+          <h1 className="text-4xl font-bold tracking-tight">Tearleads</h1>
         </div>
 
         <Card data-testid="api-health-card">
