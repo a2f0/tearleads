@@ -10,7 +10,7 @@ test.describe('Index page', () => {
     await expect(page).toHaveTitle('Rapid');
 
     // Check that the main heading is present
-    const heading = page.getByRole('heading', { name: 'Rapid Monorepo', level: 1 });
+    const heading = page.getByRole('heading', { name: 'Tearleads', level: 1 });
     await expect(heading).toBeVisible();
   });
 
