@@ -1,0 +1,145 @@
+name: Deploy iOS to TestFlight
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    name: Deploy to TestFlight
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.0'
+          bundler-cache: true
+          working-directory: packages/client
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_26.1.1.app
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build web assets
+        run: pnpm --filter @rapid/client build
+
+      - name: Install ImageMagick
+        run: brew install imagemagick
+
+      - name: Generate iOS images
+        run: ./packages/client/scripts/buildIosImageAssets.sh
+
+      - name: Sync Capacitor
+        run: pnpm --filter @rapid/client run cap:sync
+
+      - name: Verify workspace is clean
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "Error: Workspace is dirty after Capacitor sync"
+            echo "Please run 'pnpm --filter @rapid/client run cap:sync' locally and commit the changes"
+            git status
+            exit 1
+          fi
+
+      - name: Setup App Store Connect API Key
+        run: |
+          mkdir -p .secrets
+          echo "${{ secrets.APP_STORE_CONNECT_API_KEY }}" | base64 -d > .secrets/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+
+      - name: Deploy to TestFlight
+        run: bundle exec fastlane ios deploy_testflight
+        working-directory: packages/client
+        env:
+          CI: true
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+
+      - name: Clear DEVELOPMENT_TEAM from project file
+        run: |
+          sed -i '' '/DEVELOPMENT_TEAM = /d' packages/client/ios/App/App.xcodeproj/project.pbxproj
+
+      - name: Restore CFBundleVersion variable in Info.plist
+        run: |
+          sed -i '' '/<key>CFBundleVersion<\/key>/{n;s/<string>[0-9]*<\/string>/<string>$(CURRENT_PROJECT_VERSION)<\/string>/;}' packages/client/ios/App/App/Info.plist
+
+      - name: Verify only version changed
+        run: |
+          # Check if any files other than project.pbxproj were modified
+          MODIFIED_FILES=$(git status --porcelain | grep -v -F ' M packages/client/ios/App/App.xcodeproj/project.pbxproj' || true)
+
+          if [[ -n "$MODIFIED_FILES" ]]; then
+            echo "Error: Unexpected files changed after deployment"
+            echo "$MODIFIED_FILES"
+            git diff
+            exit 1
+          fi
+
+          # Verify project.pbxproj was actually modified
+          if git diff --quiet packages/client/ios/App/App.xcodeproj/project.pbxproj; then
+            echo "Error: No changes found in project.pbxproj"
+            exit 1
+          fi
+
+          # Get just the changed lines (skip 4 header lines: diff, index, ---, +++)
+          DIFF_LINES=$(git diff -U0 packages/client/ios/App/App.xcodeproj/project.pbxproj | tail -n +5)
+
+          echo "Changes to commit:"
+          echo "$DIFF_LINES"
+
+          # Verify only CURRENT_PROJECT_VERSION changed
+          TOTAL_CHANGES=$(echo "$DIFF_LINES" | grep -c '^[-+]' || true)
+          VERSION_CHANGES=$(echo "$DIFF_LINES" | grep -c 'CURRENT_PROJECT_VERSION' || true)
+
+          if [[ "$TOTAL_CHANGES" -eq 0 ]] || [[ "$VERSION_CHANGES" -eq 0 ]]; then
+            echo "Error: No CURRENT_PROJECT_VERSION changes found"
+            exit 1
+          fi
+
+          if [[ "$TOTAL_CHANGES" -ne "$VERSION_CHANGES" ]]; then
+            echo "Error: Found changes other than CURRENT_PROJECT_VERSION"
+            echo "Total changed lines: $TOTAL_CHANGES"
+            echo "CURRENT_PROJECT_VERSION lines: $VERSION_CHANGES"
+            echo "$DIFF_LINES" | grep -v 'CURRENT_PROJECT_VERSION'
+            exit 1
+          fi
+
+          echo "✓ Only CURRENT_PROJECT_VERSION changed ($VERSION_CHANGES lines)"
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/client/ios/App/App.xcodeproj/project.pbxproj
+          if git diff --staged --quiet; then
+            echo "No version bump to commit"
+          else
+            git commit -m "chore: bump iOS build number [skip ci]"
+            git push
+          fi

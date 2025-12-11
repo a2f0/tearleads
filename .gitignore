@@ -9,6 +9,7 @@ build/
 .env
 .env.local
 .env.*.local
+.secrets/
 
 # Logs
 logs
@@ -36,7 +37,7 @@ maestro-report/
 maestro-debug/
 
 # Ruby/Fastlane
-vendor/bundle/
+**/vendor/
 .bundle/
 **/fastlane/report.xml
 **/fastlane/Preview.html
