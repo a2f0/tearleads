@@ -37,7 +37,7 @@ maestro-report/
 maestro-debug/
 
 # Ruby/Fastlane
-vendor/bundle/
+**/vendor/
 .bundle/
 **/fastlane/report.xml
 **/fastlane/Preview.html
