@@ -1,6 +1,7 @@
 require 'json'
 
 APP_ID = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+APPSTORE_PROFILE_NAME = "match AppStore #{APP_ID}"
 
 platform :ios do
   desc 'Build debug iOS app'
@@ -26,7 +27,7 @@ platform :ios do
       path: './ios/App/App.xcodeproj',
       team_id: ENV['TEAM_ID'],
       bundle_identifier: APP_ID,
-      profile_name: "match AppStore #{APP_ID}",
+      profile_name: APPSTORE_PROFILE_NAME,
       code_sign_identity: 'Apple Distribution'
     )
 
@@ -39,7 +40,7 @@ platform :ios do
       output_name: 'Rapid.ipa',
       export_options: {
         provisioningProfiles: {
-          APP_ID => "match AppStore #{APP_ID}"
+          APP_ID => APPSTORE_PROFILE_NAME
         }
       }
     )
@@ -57,6 +58,12 @@ platform :ios do
 
   desc 'Deploy to TestFlight'
   lane :deploy_testflight do
+    UI.user_error!('Please set APP_STORE_CONNECT_KEY_ID environment variable') unless ENV['APP_STORE_CONNECT_KEY_ID']
+    UI.user_error!('Please set APP_STORE_CONNECT_ISSUER_ID environment variable') unless ENV['APP_STORE_CONNECT_ISSUER_ID']
+    UI.user_error!('Please set TEAM_ID environment variable') unless ENV['TEAM_ID']
+    UI.user_error!('Please set MATCH_GIT_URL environment variable') unless ENV['MATCH_GIT_URL']
+    UI.user_error!('Please set MATCH_PASSWORD environment variable') unless ENV['MATCH_PASSWORD']
+
     app_store_connect_api_key(
       key_id: ENV['APP_STORE_CONNECT_KEY_ID'],
       issuer_id: ENV['APP_STORE_CONNECT_ISSUER_ID'],
