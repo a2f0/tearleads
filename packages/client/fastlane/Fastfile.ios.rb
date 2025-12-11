@@ -79,7 +79,7 @@ platform :ios do
       in_house: false
     )
 
-    bump_build
+    bump_build_if_needed
     sync_certs
     build_release
     upload_to_testflight(
@@ -122,6 +122,27 @@ platform :ios do
     increment_build_number(
       xcodeproj: './ios/App/App.xcodeproj'
     )
+  end
+
+  desc 'Increment build number only if current build exists in TestFlight'
+  lane :bump_build_if_needed do
+    current_build_number = get_build_number(xcodeproj: './ios/App/App.xcodeproj')
+
+    begin
+      testflight_build_number = latest_testflight_build_number(
+        app_identifier: APP_ID,
+        api_key_path: File.expand_path("../../../.secrets/AuthKey_#{ENV['APP_STORE_CONNECT_KEY_ID']}.p8", __dir__)
+      )
+
+      if current_build_number.to_i <= testflight_build_number.to_i
+        UI.message("Current build number (#{current_build_number}) already exists in TestFlight (#{testflight_build_number}). Incrementing...")
+        increment_build_number(xcodeproj: './ios/App/App.xcodeproj')
+      else
+        UI.message("Current build number (#{current_build_number}) is higher than TestFlight (#{testflight_build_number}). Skipping increment.")
+      end
+    rescue StandardError => e
+      UI.user_error!("Failed to fetch TestFlight build number: #{e.message}")
+    end
   end
 
   desc 'Increment version number'
