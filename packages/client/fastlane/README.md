@@ -39,6 +39,14 @@ Build release iOS app
 
 Run iOS tests
 
+### ios setup_ci_environment
+
+```sh
+[bundle exec] fastlane ios setup_ci_environment
+```
+
+Setup CI environment
+
 ### ios deploy_testflight
 
 ```sh
@@ -78,6 +86,14 @@ Register new device
 ```
 
 Increment build number
+
+### ios bump_build_if_needed
+
+```sh
+[bundle exec] fastlane ios bump_build_if_needed
+```
+
+Increment build number only if current build exists in TestFlight
 
 ### ios bump_version
 
