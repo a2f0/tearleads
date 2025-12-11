@@ -11,6 +11,7 @@ INFO_PLIST="$PROJECT_ROOT/packages/client/ios/App/App/Info.plist"
 sed -i '' '/DEVELOPMENT_TEAM = /d' "$PROJECT_FILE"
 
 # Restore CFBundleVersion variable in Info.plist
+# shellcheck disable=SC2016 # $(CURRENT_PROJECT_VERSION) is an Xcode variable, not a shell variable
 sed -i '' '/<key>CFBundleVersion<\/key>/{n;s/<string>[0-9]*<\/string>/<string>$(CURRENT_PROJECT_VERSION)<\/string>/;}' "$INFO_PLIST"
 
 # Check if any files other than project.pbxproj were modified
