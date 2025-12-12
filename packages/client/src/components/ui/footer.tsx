@@ -15,7 +15,9 @@ function Footer({ className, children, ...props }: FooterProps) {
     >
       <div className="container mx-auto px-4">
         {children ?? (
-          <p>&copy; {new Date().getFullYear()} Tearleads. All rights reserved.</p>
+          <p>
+            &copy; {new Date().getFullYear()} Tearleads. All rights reserved.
+          </p>
         )}
       </div>
     </footer>
