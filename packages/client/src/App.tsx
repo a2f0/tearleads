@@ -16,14 +16,16 @@ function App() {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, [darkMode]);
 
   const toggleDarkMode = useCallback(() => {
-    setDarkMode((prev) => {
-      const newValue = !prev;
-      document.documentElement.classList.toggle('dark', newValue);
-      return newValue;
-    });
+    setDarkMode((prev) => !prev);
   }, []);
 
   const fetchHealth = useCallback(async () => {
