@@ -17,20 +17,23 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(() => {
-    const stored = localStorage.getItem('darkMode');
-    if (stored !== null) {
-      return stored === 'true';
+    const stored = localStorage.getItem('theme');
+    if (stored) {
+      return stored === 'dark';
     }
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
-    localStorage.setItem('darkMode', String(darkMode));
   }, [darkMode]);
 
   const toggleDarkMode = useCallback(() => {
-    setDarkMode((prev) => !prev);
+    setDarkMode((prev) => {
+      const newDarkMode = !prev;
+      localStorage.setItem('theme', newDarkMode ? 'dark' : 'light');
+      return newDarkMode;
+    });
   }, []);
 
   const fetchHealth = useCallback(async () => {
