@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
+import { Footer } from '@/components/ui/footer';
 import tearleadsLogo from '@/images/tearleads-logo-small.svg';
 
 function App() {
@@ -40,8 +41,12 @@ function App() {
   }, [fetchHealth]);
 
   return (
-    <div className="min-h-screen bg-background" data-testid="app-container">
-      <div className="container mx-auto px-4 py-16 max-w-2xl">
+    <div
+      className="flex min-h-screen flex-col bg-background"
+      data-testid="app-container"
+    >
+      <main className="flex-1 pb-20">
+        <div className="container mx-auto px-4 py-16 max-w-2xl">
         <div className="mb-8 flex items-center gap-3">
           <img src={tearleadsLogo} alt="Tearleads" className="h-8 w-8" />
           <h1 className="text-4xl font-bold tracking-tight">Tearleads</h1>
@@ -91,7 +96,9 @@ function App() {
             </Button>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </main>
+      <Footer />
     </div>
   );
 }
