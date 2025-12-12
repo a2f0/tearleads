@@ -1,7 +1,9 @@
 name: Deploy iOS to TestFlight
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
 
 permissions:
@@ -12,6 +14,7 @@ jobs:
     name: Deploy to TestFlight
     runs-on: macos-latest
     timeout-minutes: 10
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - uses: actions/checkout@v4
