@@ -2,7 +2,7 @@ name: Deploy Android to Play Store
 
 on:
   push:
-    branches: [feat-google-play-deployments]
+    branches: [main]
 
 permissions:
   contents: write
