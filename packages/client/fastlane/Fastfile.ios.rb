@@ -1,19 +1,8 @@
 require 'json'
+import 'utils.rb'
 
 APP_ID = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
 APPSTORE_PROFILE_NAME = "match AppStore #{APP_ID}"
-RELEASE_NOTES_SCRIPT = File.expand_path('../scripts/generateReleaseNotes.sh', __dir__).freeze
-
-def generate_release_notes
-  UI.user_error!('ANTHROPIC_API_KEY environment variable is required') unless ENV['ANTHROPIC_API_KEY']
-
-  UI.message('Generating release notes with AI...')
-  notes = `#{RELEASE_NOTES_SCRIPT} ios`.strip
-  UI.user_error!('Failed to generate release notes') unless $?.success? && !notes.empty?
-
-  UI.success("Generated release notes:\n#{notes}")
-  notes
-end
 
 platform :ios do
   desc 'Build debug iOS app'
@@ -107,7 +96,7 @@ platform :ios do
     upload_to_testflight(
       skip_waiting_for_build_processing: true,
       ipa: './build/Rapid.ipa',
-      changelog: generate_release_notes
+      changelog: generate_release_notes('ios')
     )
   end
 

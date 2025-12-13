@@ -1,16 +1,6 @@
+import 'utils.rb'
+
 GRADLE_FILE = File.expand_path('../android/app/build.gradle', __dir__).freeze
-RELEASE_NOTES_SCRIPT = File.expand_path('../scripts/generateReleaseNotes.sh', __dir__).freeze
-
-def generate_release_notes
-  UI.user_error!('ANTHROPIC_API_KEY environment variable is required') unless ENV['ANTHROPIC_API_KEY']
-
-  UI.message('Generating release notes with AI...')
-  notes = `#{RELEASE_NOTES_SCRIPT} android`.strip
-  UI.user_error!('Failed to generate release notes') unless $?.success? && !notes.empty?
-
-  UI.success("Generated release notes:\n#{notes}")
-  notes
-end
 
 def get_version_code
   content = File.read(GRADLE_FILE)
@@ -94,7 +84,7 @@ platform :android do
   desc 'Upload AAB to Play Store internal track (without building)'
   lane :upload_internal do
     version_code = get_version_code
-    release_notes = generate_release_notes
+    release_notes = generate_release_notes('android')
 
     # Create changelog file for this version
     changelog_dir = File.expand_path('../fastlane/metadata/android/en-US/changelogs', __dir__)
