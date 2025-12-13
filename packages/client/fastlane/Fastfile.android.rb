@@ -13,6 +13,19 @@ def set_version_code(version_code)
   File.write(GRADLE_FILE, new_content)
 end
 
+def get_version_name
+  content = File.read(GRADLE_FILE)
+  match = content.match(/versionName\s+"([^"]+)"/)
+  UI.user_error!("Could not find versionName in #{GRADLE_FILE}") unless match
+  match[1]
+end
+
+def set_version_name(version_name)
+  content = File.read(GRADLE_FILE)
+  new_content = content.gsub(/versionName\s+"[^"]+"/, "versionName \"#{version_name}\"")
+  File.write(GRADLE_FILE, new_content)
+end
+
 platform :android do
   desc 'Build debug APK'
   lane :build_debug do
@@ -44,7 +57,14 @@ platform :android do
         UI.message("Current versionCode (#{current_version_code}) already exists in Play Store (#{latest_play_store_code}). Incrementing...")
         new_version_code = latest_play_store_code + 1
         set_version_code(new_version_code)
-        UI.success("Updated versionCode to #{new_version_code}")
+
+        current_version_name = get_version_name
+        parts = current_version_name.split('.')
+        parts[2] = new_version_code.to_s
+        new_version_name = parts[0..2].join('.')
+        set_version_name(new_version_name)
+
+        UI.success("Updated versionCode to #{new_version_code}, versionName to #{new_version_name}")
       else
         UI.message("Current versionCode (#{current_version_code}) is higher than Play Store (#{latest_play_store_code}). Skipping increment.")
       end
