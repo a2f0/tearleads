@@ -43,6 +43,63 @@ fi
 
 echo "Generating Android images from $SVG_SOURCE"
 
+# Generate adaptive icon foreground vector drawable from SVG
+generate_foreground_vector() {
+    output_file="$RES_DIR/drawable/ic_launcher_foreground.xml"
+    mkdir -p "$(dirname "$output_file")"
+
+    # Adaptive icon is 108dp, logo centered in 66dp safe zone (scale 2x, offset 21)
+    scale=2
+    offset=21
+
+    cat > "$output_file" << 'HEADER'
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+HEADER
+
+    # Parse SVG rects and convert to Android vector paths
+    # SVG format: <rect x="X" y="Y" width="W" height="H" fill="COLOR"/>
+    grep '<rect' "$SVG_SOURCE" | while read -r line; do
+        x=$(echo "$line" | sed -n 's/.*x="\([^"]*\)".*/\1/p')
+        y=$(echo "$line" | sed -n 's/.*y="\([^"]*\)".*/\1/p')
+        w=$(echo "$line" | sed -n 's/.*width="\([^"]*\)".*/\1/p')
+        h=$(echo "$line" | sed -n 's/.*height="\([^"]*\)".*/\1/p')
+        fill=$(echo "$line" | sed -n 's/.*fill="\([^"]*\)".*/\1/p')
+
+        # Scale and offset for adaptive icon safe zone
+        nx=$((x * scale + offset))
+        ny=$((y * scale + offset))
+        nw=$((w * scale))
+        nh=$((h * scale))
+
+        # Convert fill color to Android format (#RGB -> #FFRRGGBB, #RRGGBB -> #FFRRGGBB)
+        if echo "$fill" | grep -qE '^#[0-9A-Fa-f]{3}$'; then
+            # Expand 3-char hex: #RGB -> #RRGGBB
+            r=$(echo "$fill" | cut -c2)
+            g=$(echo "$fill" | cut -c3)
+            b=$(echo "$fill" | cut -c4)
+            android_color="#FF${r}${r}${g}${g}${b}${b}"
+        else
+            # 6-char hex: #RRGGBB -> #FFRRGGBB
+            android_color=$(echo "$fill" | sed 's/#/#FF/')
+        fi
+        android_color=$(echo "$android_color" | tr '[:lower:]' '[:upper:]')
+
+        cat >> "$output_file" << EOF
+    <path
+        android:fillColor="$android_color"
+        android:pathData="M$nx,$ny h$nw v$nh h-$nw z" />
+EOF
+    done
+
+    echo '</vector>' >> "$output_file"
+    echo "  Created $output_file"
+}
+
 # Generate launcher icon
 generate_launcher() {
     density=$1
@@ -71,23 +128,6 @@ generate_launcher() {
         -compose CopyOpacity -composite \
         "$dir/ic_launcher_round.png"
     echo "  Created $dir/ic_launcher_round.png (${size}x${size})"
-}
-
-# Generate foreground icon
-generate_foreground() {
-    density=$1
-    size=$2
-    dir="$RES_DIR/mipmap-$density"
-    mkdir -p "$dir"
-
-    fg_size=$((size * 50 / 100))
-
-    # ic_launcher_foreground.png - logo centered with safe zone padding
-    $MAGICK_CMD -background none -density 300 "$SVG_SOURCE" \
-        -resize "${fg_size}x${fg_size}" \
-        -gravity center -extent "${size}x${size}" \
-        "$dir/ic_launcher_foreground.png"
-    echo "  Created $dir/ic_launcher_foreground.png (${size}x${size})"
 }
 
 # Generate splash screen
@@ -127,14 +167,10 @@ generate_launcher "xxhdpi" 144
 generate_launcher "xxxhdpi" 192
 section_end
 
-# Generate foreground icons (for adaptive icons)
-echo "Generating foreground icons..."
+# Generate foreground vector drawable (for adaptive icons)
+echo "Generating foreground vector drawable..."
 section_start
-generate_foreground "mdpi" 108
-generate_foreground "hdpi" 162
-generate_foreground "xhdpi" 216
-generate_foreground "xxhdpi" 324
-generate_foreground "xxxhdpi" 432
+generate_foreground_vector
 section_end
 
 # Generate splash screens
