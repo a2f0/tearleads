@@ -40,9 +40,9 @@ function CardDescription({
   className,
   ref,
   ...props
-}: React.ComponentProps<'div'>) {
+}: React.ComponentProps<'p'>) {
   return (
-    <div
+    <p
       data-slot="card-description"
       ref={ref}
       className={cn('text-sm text-muted-foreground', className)}
