@@ -1,14 +1,16 @@
-def get_version_code(gradle_file)
-  content = File.read(gradle_file)
+GRADLE_FILE = File.expand_path('../android/app/build.gradle', __dir__).freeze
+
+def get_version_code
+  content = File.read(GRADLE_FILE)
   match = content.match(/versionCode\s+(\d+)/)
-  UI.user_error!("Could not find versionCode in #{gradle_file}") unless match
+  UI.user_error!("Could not find versionCode in #{GRADLE_FILE}") unless match
   match[1].to_i
 end
 
-def set_version_code(gradle_file, version_code)
-  content = File.read(gradle_file)
+def set_version_code(version_code)
+  content = File.read(GRADLE_FILE)
   new_content = content.gsub(/versionCode\s+\d+/, "versionCode #{version_code}")
-  File.write(gradle_file, new_content)
+  File.write(GRADLE_FILE, new_content)
 end
 
 platform :android do
@@ -29,8 +31,7 @@ platform :android do
 
   desc 'Increment versionCode only if current code exists in Play Store'
   lane :bump_build_if_needed do
-    gradle_file = 'android/app/build.gradle'
-    current_version_code = get_version_code(gradle_file)
+    current_version_code = get_version_code
 
     begin
       play_store_version_codes = google_play_track_version_codes(
@@ -42,7 +43,7 @@ platform :android do
       if current_version_code <= latest_play_store_code
         UI.message("Current versionCode (#{current_version_code}) already exists in Play Store (#{latest_play_store_code}). Incrementing...")
         new_version_code = latest_play_store_code + 1
-        set_version_code(gradle_file, new_version_code)
+        set_version_code(new_version_code)
         UI.success("Updated versionCode to #{new_version_code}")
       else
         UI.message("Current versionCode (#{current_version_code}) is higher than Play Store (#{latest_play_store_code}). Skipping increment.")
