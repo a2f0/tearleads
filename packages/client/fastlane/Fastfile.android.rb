@@ -14,9 +14,40 @@ platform :android do
     run_gradle(task: 'bundleRelease')
   end
 
+  desc 'Increment versionCode only if current code exists in Play Store'
+  lane :bump_build_if_needed do
+    current_version_code = android_get_version_code(gradle_file: 'android/app/build.gradle')
+
+    begin
+      play_store_version_codes = google_play_track_version_codes(
+        track: 'internal',
+        json_key: ENV['GOOGLE_PLAY_JSON_KEY_FILE']
+      )
+      latest_play_store_code = play_store_version_codes.max || 0
+
+      if current_version_code.to_i <= latest_play_store_code.to_i
+        UI.message("Current versionCode (#{current_version_code}) already exists in Play Store (#{latest_play_store_code}). Incrementing...")
+        new_version_code = latest_play_store_code.to_i + 1
+        android_set_version_code(
+          version_code: new_version_code,
+          gradle_file: 'android/app/build.gradle'
+        )
+      else
+        UI.message("Current versionCode (#{current_version_code}) is higher than Play Store (#{latest_play_store_code}). Skipping increment.")
+      end
+    rescue StandardError => e
+      UI.user_error!("Failed to fetch Play Store version codes: #{e.message}")
+    end
+  end
+
   desc 'Build and deploy to Play Store internal track'
   lane :deploy_internal do
     build_aab
+    upload_internal
+  end
+
+  desc 'Upload AAB to Play Store internal track (without building)'
+  lane :upload_internal do
     upload_to_play_store(
       track: 'internal',
       aab: 'android/app/build/outputs/bundle/release/app-release.aab',
