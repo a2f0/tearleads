@@ -1,3 +1,16 @@
+def get_version_code(gradle_file)
+  content = File.read(gradle_file)
+  match = content.match(/versionCode\s+(\d+)/)
+  UI.user_error!("Could not find versionCode in #{gradle_file}") unless match
+  match[1].to_i
+end
+
+def set_version_code(gradle_file, version_code)
+  content = File.read(gradle_file)
+  new_content = content.gsub(/versionCode\s+\d+/, "versionCode #{version_code}")
+  File.write(gradle_file, new_content)
+end
+
 platform :android do
   desc 'Build debug APK'
   lane :build_debug do
@@ -16,7 +29,8 @@ platform :android do
 
   desc 'Increment versionCode only if current code exists in Play Store'
   lane :bump_build_if_needed do
-    current_version_code = android_get_version_code(gradle_file: 'android/app/build.gradle')
+    gradle_file = 'android/app/build.gradle'
+    current_version_code = get_version_code(gradle_file)
 
     begin
       play_store_version_codes = google_play_track_version_codes(
@@ -25,13 +39,11 @@ platform :android do
       )
       latest_play_store_code = play_store_version_codes.max || 0
 
-      if current_version_code.to_i <= latest_play_store_code.to_i
+      if current_version_code <= latest_play_store_code
         UI.message("Current versionCode (#{current_version_code}) already exists in Play Store (#{latest_play_store_code}). Incrementing...")
-        new_version_code = latest_play_store_code.to_i + 1
-        android_set_version_code(
-          version_code: new_version_code,
-          gradle_file: 'android/app/build.gradle'
-        )
+        new_version_code = latest_play_store_code + 1
+        set_version_code(gradle_file, new_version_code)
+        UI.success("Updated versionCode to #{new_version_code}")
       else
         UI.message("Current versionCode (#{current_version_code}) is higher than Play Store (#{latest_play_store_code}). Skipping increment.")
       end
