@@ -106,6 +106,7 @@ jobs:
         env:
           CI: true
           GOOGLE_PLAY_JSON_KEY_FILE: ${{ github.workspace }}/.secrets/google-play-service-account.json
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       - name: Commit version bump
         run: |
