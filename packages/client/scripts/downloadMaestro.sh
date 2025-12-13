@@ -7,6 +7,22 @@ set -e
 INSTALL_DIR="$HOME/.maestro"
 BIN_DIR="$INSTALL_DIR/bin"
 
+# Check for dependencies
+if ! command -v unzip >/dev/null 2>&1; then
+    echo "Error: unzip is required but not found. Please install it." >&2
+    exit 1
+fi
+
+# Determine downloader
+if command -v curl >/dev/null 2>&1; then
+    DOWNLOADER="curl"
+elif command -v wget >/dev/null 2>&1; then
+    DOWNLOADER="wget"
+else
+    echo "Error: Neither curl nor wget found. Please install one of them." >&2
+    exit 1
+fi
+
 # Check if maestro already exists
 if [ -f "$BIN_DIR/maestro" ]; then
     INSTALLED_VERSION=$("$BIN_DIR/maestro" --version 2>/dev/null | tail -1 || echo "unknown")
@@ -17,17 +33,14 @@ fi
 
 # Get latest version from GitHub API
 echo "Fetching latest Maestro version..."
-if command -v curl > /dev/null 2>&1; then
+if [ "$DOWNLOADER" = "curl" ]; then
     MAESTRO_VERSION=$(curl -fsSL https://api.github.com/repos/mobile-dev-inc/maestro/releases/latest | grep '"tag_name"' | sed 's/.*"tag_name": *"cli-\([^"]*\)".*/\1/')
-elif command -v wget > /dev/null 2>&1; then
-    MAESTRO_VERSION=$(wget -qO- https://api.github.com/repos/mobile-dev-inc/maestro/releases/latest | grep '"tag_name"' | sed 's/.*"tag_name": *"cli-\([^"]*\)".*/\1/')
 else
-    echo "Error: Neither curl nor wget found. Please install one of them."
-    exit 1
+    MAESTRO_VERSION=$(wget -qO- https://api.github.com/repos/mobile-dev-inc/maestro/releases/latest | grep '"tag_name"' | sed 's/.*"tag_name": *"cli-\([^"]*\)".*/\1/')
 fi
 
 if [ -z "$MAESTRO_VERSION" ]; then
-    echo "Error: Could not determine latest Maestro version"
+    echo "Error: Could not determine latest Maestro version" >&2
     exit 1
 fi
 
@@ -44,9 +57,9 @@ trap 'rm -rf "$TEMP_DIR"' EXIT
 
 ZIP_FILE="$TEMP_DIR/maestro.zip"
 
-if command -v curl > /dev/null 2>&1; then
+if [ "$DOWNLOADER" = "curl" ]; then
     curl -fSL -o "$ZIP_FILE" "$DOWNLOAD_URL"
-elif command -v wget > /dev/null 2>&1; then
+else
     wget -q -O "$ZIP_FILE" "$DOWNLOAD_URL"
 fi
 
