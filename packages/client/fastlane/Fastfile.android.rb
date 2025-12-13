@@ -85,6 +85,7 @@ platform :android do
       track: 'internal',
       aab: 'android/app/build/outputs/bundle/release/app-release.aab',
       release_status: 'draft',
+      version_name: get_version_name,
       skip_upload_metadata: true,
       skip_upload_images: true,
       skip_upload_screenshots: true
