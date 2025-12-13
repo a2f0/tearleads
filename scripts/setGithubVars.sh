@@ -10,6 +10,7 @@ check_var() {
   fi
 }
 
+# iOS / Apple
 check_var "APPLE_ID"
 check_var "TEAM_ID"
 check_var "ITC_TEAM_ID"
@@ -20,6 +21,10 @@ check_var "MATCH_GIT_URL"
 check_var "MATCH_PASSWORD"
 check_var "MATCH_GIT_BASIC_AUTHORIZATION"
 
+# Android
+check_var "ANDROID_KEYSTORE_STORE_PASS"
+check_var "ANDROID_KEYSTORE_KEY_PASS"
+
 # https://appstoreconnect.apple.com/access/integrations/api
 P8_FILE=".secrets/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
 
@@ -28,7 +33,24 @@ if [ ! -f "$P8_FILE" ]; then
   exit 1
 fi
 
+KEYSTORE_FILE=".secrets/tearleads-release.keystore"
+
+if [ ! -f "$KEYSTORE_FILE" ]; then
+  echo "Error: Android keystore not found at $KEYSTORE_FILE"
+  exit 1
+fi
+
+# https://console.cloud.google.com/iam-admin/serviceaccounts
+GOOGLE_PLAY_JSON_FILE=".secrets/google-play-service-account.json"
+
+if [ ! -f "$GOOGLE_PLAY_JSON_FILE" ]; then
+  echo "Error: Google Play service account JSON not found at $GOOGLE_PLAY_JSON_FILE"
+  exit 1
+fi
+
 API_KEY_BASE64=$(base64 < "$P8_FILE")
+ANDROID_KEYSTORE_BASE64=$(base64 < "$KEYSTORE_FILE")
+GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64=$(base64 < "$GOOGLE_PLAY_JSON_FILE")
 
 set_secret() {
   secret_name="$1"
@@ -45,6 +67,12 @@ set_secret "APP_STORE_CONNECT_API_KEY" "$API_KEY_BASE64"
 set_secret "MATCH_GIT_URL" "$MATCH_GIT_URL"
 set_secret "MATCH_PASSWORD" "$MATCH_PASSWORD"
 set_secret "MATCH_GIT_BASIC_AUTHORIZATION" "$MATCH_GIT_BASIC_AUTHORIZATION"
+
+# Android secrets
+set_secret "ANDROID_KEYSTORE_BASE64" "$ANDROID_KEYSTORE_BASE64"
+set_secret "ANDROID_KEYSTORE_STORE_PASS" "$ANDROID_KEYSTORE_STORE_PASS"
+set_secret "ANDROID_KEYSTORE_KEY_PASS" "$ANDROID_KEYSTORE_KEY_PASS"
+set_secret "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64"
 
 echo ""
 echo "All secrets have been set successfully!"
