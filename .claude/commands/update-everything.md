@@ -13,3 +13,4 @@ Update all of the dependencies in the `packages` folder and:
 - pnpm lock files are updated.
 - Dependencies are pinned.
 - Provide a summary of any warnings / deprecations.
+- Make sure Capacitor's Podfile.lock is sync'd (`cap:sync` should pass).
