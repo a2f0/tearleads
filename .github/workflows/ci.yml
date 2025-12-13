@@ -219,7 +219,7 @@ jobs:
 
       - name: Install Maestro
         run: |
-          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          ./packages/client/scripts/downloadMaestro.sh
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
       - name: Run Maestro tests
