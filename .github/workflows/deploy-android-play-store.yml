@@ -1,0 +1,120 @@
+name: Deploy Android to Play Store
+
+on:
+  push:
+    branches: [feat-google-play-deployments]
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    name: Deploy to Play Store
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version-file: 'packages/client/.java-version'
+          cache: 'gradle'
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.0'
+          bundler-cache: true
+          working-directory: packages/client
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install ImageMagick
+        run: sudo apt-get install -y imagemagick
+
+      - name: Build web assets
+        run: pnpm --filter @rapid/client build
+
+      - name: Generate Android images
+        run: ./packages/client/scripts/buildAndroidImageAssets.sh
+
+      - name: Sync Capacitor
+        run: pnpm --filter @rapid/client run cap:sync
+
+      - name: Download Gradle wrapper
+        run: ./packages/client/scripts/downloadGradleWrapper.sh
+
+      - name: Verify workspace is clean
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "Error: Workspace is dirty after Capacitor sync"
+            echo "Please run 'pnpm --filter @rapid/client run cap:sync' locally and commit the changes"
+            git status
+            exit 1
+          fi
+
+      - name: Setup Android keystore
+        run: |
+          mkdir -p .secrets
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > .secrets/tearleads-release.keystore
+
+      - name: Create keystore.properties
+        run: |
+          cat > packages/client/android/keystore.properties << EOF
+          storeFile=${{ github.workspace }}/.secrets/tearleads-release.keystore
+          storePassword=${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
+          keyAlias=tearleads
+          keyPassword=${{ secrets.ANDROID_KEYSTORE_KEY_PASS }}
+          EOF
+
+      - name: Setup Google Play credentials
+        run: |
+          echo "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}" | base64 -d > .secrets/google-play-service-account.json
+
+      - name: Bump versionCode if needed
+        run: bundle exec fastlane android bump_build_if_needed
+        working-directory: packages/client
+        env:
+          CI: true
+          GOOGLE_PLAY_JSON_KEY_FILE: ${{ github.workspace }}/.secrets/google-play-service-account.json
+
+      - name: Build release AAB
+        run: bundle exec fastlane android build_aab
+        working-directory: packages/client
+        env:
+          CI: true
+
+      - name: Upload to Play Store (internal track)
+        run: bundle exec fastlane android upload_internal
+        working-directory: packages/client
+        env:
+          CI: true
+          GOOGLE_PLAY_JSON_KEY_FILE: ${{ github.workspace }}/.secrets/google-play-service-account.json
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/client/android/app/build.gradle
+          if git diff --staged --quiet; then
+            echo "No version bump to commit"
+          else
+            git commit -m "chore: bump Android build number [skip ci]"
+            git push
+          fi
