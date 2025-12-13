@@ -1,3 +1,5 @@
+import 'utils.rb'
+
 GRADLE_FILE = File.expand_path('../android/app/build.gradle', __dir__).freeze
 
 def get_version_code
@@ -81,12 +83,19 @@ platform :android do
 
   desc 'Upload AAB to Play Store internal track (without building)'
   lane :upload_internal do
+    version_code = get_version_code
+    release_notes = generate_release_notes('android')
+
+    # Create changelog file for this version
+    changelog_dir = File.expand_path('../fastlane/metadata/android/en-US/changelogs', __dir__)
+    FileUtils.mkdir_p(changelog_dir)
+    File.write("#{changelog_dir}/#{version_code}.txt", release_notes)
+
     upload_to_play_store(
       track: 'internal',
       aab: 'android/app/build/outputs/bundle/release/app-release.aab',
       release_status: 'draft',
       version_name: get_version_name,
-      skip_upload_metadata: true,
       skip_upload_images: true,
       skip_upload_screenshots: true
     )

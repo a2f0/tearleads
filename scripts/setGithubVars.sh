@@ -25,6 +25,9 @@ check_var "MATCH_GIT_BASIC_AUTHORIZATION"
 check_var "ANDROID_KEYSTORE_STORE_PASS"
 check_var "ANDROID_KEYSTORE_KEY_PASS"
 
+# Anthropic (for release notes generation)
+check_var "ANTHROPIC_API_KEY"
+
 # https://appstoreconnect.apple.com/access/integrations/api
 P8_FILE=".secrets/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
 
@@ -73,6 +76,9 @@ set_secret "ANDROID_KEYSTORE_BASE64" "$ANDROID_KEYSTORE_BASE64"
 set_secret "ANDROID_KEYSTORE_STORE_PASS" "$ANDROID_KEYSTORE_STORE_PASS"
 set_secret "ANDROID_KEYSTORE_KEY_PASS" "$ANDROID_KEYSTORE_KEY_PASS"
 set_secret "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64"
+
+# Anthropic
+set_secret "ANTHROPIC_API_KEY" "$ANTHROPIC_API_KEY"
 
 echo ""
 echo "All secrets have been set successfully!"

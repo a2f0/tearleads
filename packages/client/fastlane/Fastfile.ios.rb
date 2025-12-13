@@ -1,4 +1,5 @@
 require 'json'
+import 'utils.rb'
 
 APP_ID = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
 APPSTORE_PROFILE_NAME = "match AppStore #{APP_ID}"
@@ -94,7 +95,8 @@ platform :ios do
 
     upload_to_testflight(
       skip_waiting_for_build_processing: true,
-      ipa: './build/Rapid.ipa'
+      ipa: './build/Rapid.ipa',
+      changelog: generate_release_notes('ios')
     )
   end
 
