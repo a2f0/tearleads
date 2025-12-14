@@ -14,6 +14,6 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
 export const api = {
   health: {
-    get: () => request<HealthData>('/health'),
-  },
+    get: () => request<HealthData>('/health')
+  }
 };
