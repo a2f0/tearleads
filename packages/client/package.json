@@ -20,7 +20,9 @@
     "build:ios": "pnpm build && cap sync ios",
     "lint:scripts": "shellcheck --severity=info scripts/*.sh",
     "lint:rubocop": "bundle exec rubocop",
-    "test:maestro": "$HOME/.maestro/bin/maestro test .maestro/"
+    "test:maestro": "$HOME/.maestro/bin/maestro test .maestro/",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@capacitor/core": "8.0.0",
@@ -39,13 +41,19 @@
     "@capacitor/ios": "8.0.0",
     "@playwright/test": "1.57.0",
     "@tailwindcss/vite": "4.1.18",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.0",
+    "@testing-library/user-event": "14.6.1",
+    "@types/node": "25.0.1",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.2",
+    "jsdom": "27.3.0",
     "svgo": "4.0.0",
     "tailwindcss": "4.1.18",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
-    "vite": "7.2.7"
+    "vite": "7.2.7",
+    "vitest": "4.0.15"
   }
 }
