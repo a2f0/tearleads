@@ -1,0 +1,32 @@
+---
+- name: Configure example server
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Upgrade all packages
+      ansible.builtin.apt:
+        upgrade: dist
+
+    - name: Install nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+
+    - name: Install certbot and nginx plugin
+      ansible.builtin.apt:
+        name:
+          - certbot
+          - python3-certbot-nginx
+        state: present
+
+    - name: Ensure nginx is running and enabled
+      ansible.builtin.systemd:
+        name: nginx
+        state: started
+        enabled: true
