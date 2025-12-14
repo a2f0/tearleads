@@ -6,9 +6,9 @@ import { DebugMenu } from './debug-menu';
 vi.mock('@/lib/api', () => ({
   api: {
     health: {
-      get: vi.fn(),
-    },
-  },
+      get: vi.fn()
+    }
+  }
 }));
 
 import { api } from '@/lib/api';
@@ -16,7 +16,7 @@ import { api } from '@/lib/api';
 const mockHealthData = {
   status: 'healthy',
   timestamp: '2025-01-01T00:00:00.000Z',
-  uptime: 123.45,
+  uptime: 123.45
 };
 
 describe('DebugMenu', () => {
@@ -115,7 +115,7 @@ describe('DebugMenu', () => {
 
     // Get the X button (the one with the icon, not the backdrop)
     const closeButtons = screen.getAllByRole('button', {
-      name: /close debug menu/i,
+      name: /close debug menu/i
     });
     const xButton = closeButtons.find(
       (btn) => !btn.classList.contains('bg-black/50')
@@ -140,7 +140,7 @@ describe('DebugMenu', () => {
 
     // Click the backdrop (the button with "Close debug menu" aria-label that covers the screen)
     const buttons = screen.getAllByRole('button', {
-      name: /close debug menu/i,
+      name: /close debug menu/i
     });
     const backdrop = buttons.find((btn) =>
       btn.classList.contains('bg-black/50')
