@@ -6,79 +6,141 @@ test.describe('Index page', () => {
   });
 
   test('should load and display the main heading', async ({ page }) => {
-    // Check that the page title is correct
     await expect(page).toHaveTitle('Tearleads');
 
-    // Check that the main heading is present
     const heading = page.getByRole('heading', { name: 'Tearleads', level: 1 });
     await expect(heading).toBeVisible();
   });
 
-  test('should display the API health check section', async ({ page }) => {
-    // Check that the health check section heading is present
-    const healthHeading = page.getByRole('heading', { name: 'API Health Check', level: 3 });
-    await expect(healthHeading).toBeVisible();
-
-    // Check that the refresh button is present
-    const refreshButton = page.getByRole('button', { name: 'Refresh' });
-    await expect(refreshButton).toBeVisible();
-  });
-
-  test('should show loading state initially', async ({ page }) => {
-    // The page should show a loading state when fetching health data
-    // This might be brief, but we can check for either loading text or the loaded content
-    const loadingOrError = page.getByText(/Loading\.\.\.|Failed to connect to API|Healthy/);
-    await expect(loadingOrError).toBeVisible();
-  });
-
   test('should have the root element mounted', async ({ page }) => {
-    // Verify that the React app is mounted to the #root element
     const rootElement = page.locator('#root');
     await expect(rootElement).not.toBeEmpty();
 
-    // Verify the app container is present
     const appContainer = page.getByTestId('app-container');
     await expect(appContainer).toBeVisible();
   });
 
-  test('should have Tailwind CSS and shadcn styles loaded', async ({ page }) => {
-    // Wait for the card to be visible
-    const card = page.getByTestId('api-health-card');
-    await expect(card).toBeVisible();
+  test('should toggle dark mode', async ({ page }) => {
+    const toggleButton = page.getByRole('button', { name: 'Toggle dark mode' });
+    await expect(toggleButton).toBeVisible();
 
-    // Verify that Tailwind/shadcn styles are applied by checking computed styles
-    const cardStyles = await card.evaluate((el) => {
-      const styles = window.getComputedStyle(el);
-      return {
-        borderRadius: styles.borderRadius,
-        borderWidth: styles.borderWidth,
-        boxShadow: styles.boxShadow,
-        backgroundColor: styles.backgroundColor
-      };
-    });
+    // Get initial state
+    const htmlElement = page.locator('html');
+    const initialDark = await htmlElement.evaluate((el) =>
+      el.classList.contains('dark')
+    );
 
-    // Verify styles are not default values (indicating CSS is loaded)
-    expect(cardStyles.borderRadius).not.toBe('0px');
-    expect(cardStyles.borderWidth).not.toBe('0px');
-    expect(cardStyles.boxShadow).not.toBe('none');
+    // Toggle
+    await toggleButton.click();
 
-    // Check that the Button component has proper styling
-    const button = page.getByRole('button', { name: /Refresh/ });
-    const buttonStyles = await button.evaluate((el) => {
-      const styles = window.getComputedStyle(el);
-      return {
-        display: styles.display,
-        alignItems: styles.alignItems,
-        justifyContent: styles.justifyContent,
-        borderRadius: styles.borderRadius,
-        backgroundColor: styles.backgroundColor
-      };
-    });
+    // Verify class changed
+    const afterToggle = await htmlElement.evaluate((el) =>
+      el.classList.contains('dark')
+    );
+    expect(afterToggle).toBe(!initialDark);
+  });
 
-    // Verify button has flex display (from inline-flex class)
-    expect(buttonStyles.display).toBe('inline-flex');
-    expect(buttonStyles.alignItems).toBe('center');
-    expect(buttonStyles.justifyContent).toBe('center');
-    expect(buttonStyles.borderRadius).not.toBe('0px');
+  test('should change background color when dark mode is toggled', async ({
+    page
+  }) => {
+    const toggleButton = page.getByRole('button', { name: 'Toggle dark mode' });
+    const appContainer = page.getByTestId('app-container');
+
+    // Get initial background color
+    const initialBgColor = await appContainer.evaluate((el) =>
+      window.getComputedStyle(el).backgroundColor
+    );
+
+    // Toggle dark mode
+    await toggleButton.click();
+
+    // Get new background color
+    const newBgColor = await appContainer.evaluate((el) =>
+      window.getComputedStyle(el).backgroundColor
+    );
+
+    // Background colors should be different
+    expect(newBgColor).not.toBe(initialBgColor);
+
+    // Toggle back
+    await toggleButton.click();
+
+    // Should return to original color
+    const restoredBgColor = await appContainer.evaluate((el) =>
+      window.getComputedStyle(el).backgroundColor
+    );
+    expect(restoredBgColor).toBe(initialBgColor);
+  });
+});
+
+test.describe('Debug menu', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+  });
+
+  test('should open debug menu when bug button is clicked', async ({ page }) => {
+    const debugButton = page.getByRole('button', { name: 'Open debug menu' });
+    await expect(debugButton).toBeVisible();
+
+    await debugButton.click();
+
+    const debugMenu = page.getByText('Debug Menu');
+    await expect(debugMenu).toBeVisible();
+  });
+
+  test('should display environment info in debug menu', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open debug menu' }).click();
+
+    await expect(page.getByText(/Environment/)).toBeVisible();
+    await expect(page.getByText(/Screen/)).toBeVisible();
+    await expect(page.getByText(/User Agent/)).toBeVisible();
+  });
+
+  test('should fetch and display API health status', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open debug menu' }).click();
+
+    // Wait for health data to load (either success or error)
+    const healthStatus = page.getByText(/Healthy|Failed to connect to API/);
+    await expect(healthStatus).toBeVisible({ timeout: 10000 });
+  });
+
+  test('should refresh health data when refresh button is clicked', async ({
+    page
+  }) => {
+    await page.getByRole('button', { name: 'Open debug menu' }).click();
+
+    // Wait for initial load to complete (button becomes enabled)
+    const refreshButton = page.getByRole('button', { name: /^Refresh$/ });
+    await expect(refreshButton).toBeEnabled({ timeout: 10000 });
+
+    // Force click due to overlapping elements in the scrollable container
+    await refreshButton.click({ force: true });
+
+    // Should show refreshing state or remain showing data
+    await expect(
+      page.getByRole('button', { name: /Refresh|Refreshing/ })
+    ).toBeVisible();
+  });
+
+  test('should close debug menu when X button is clicked', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open debug menu' }).click();
+    await expect(page.getByText('Debug Menu')).toBeVisible();
+
+    // Click the X button (not the backdrop)
+    const closeButtons = page.getByRole('button', { name: 'Close debug menu' });
+    await closeButtons.first().click();
+
+    await expect(page.getByText('Debug Menu')).not.toBeVisible();
+  });
+
+  test('should close debug menu when backdrop is clicked', async ({ page }) => {
+    await page.getByRole('button', { name: 'Open debug menu' }).click();
+    await expect(page.getByText('Debug Menu')).toBeVisible();
+
+    // Click the backdrop (the button covering the screen)
+    const backdrop = page.locator('button.bg-black\\/50');
+    await backdrop.click();
+
+    await expect(page.getByText('Debug Menu')).not.toBeVisible();
   });
 });
