@@ -71,12 +71,16 @@ EOF
 
   if [ -n "$existing" ]; then
     # Update existing variable
-    curl -s \
+    http_code=$(curl -s -w "%{http_code}" \
       --header "Authorization: Bearer $TFE_TOKEN" \
       --header "Content-Type: application/vnd.api+json" \
       --request PATCH \
       --data "$payload" \
-      "$TFC_API/workspaces/$WORKSPACE_ID/vars/$existing" > /dev/null
+      -o /dev/null \
+      "$TFC_API/workspaces/$WORKSPACE_ID/vars/$existing")
+    if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+      echo "Error updating $var_key. Received HTTP status $http_code." >&2
+    fi
     echo "Updated: $var_key"
   else
     # Create new variable
