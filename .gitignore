@@ -47,3 +47,11 @@ maestro-debug/
 **/fastlane/screenshots/
 **/fastlane/test_output/
 **/fastlane/README.md
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
