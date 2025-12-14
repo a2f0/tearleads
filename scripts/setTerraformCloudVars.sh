@@ -113,8 +113,11 @@ EOF
   fi
 }
 
+# shellcheck disable=SC2154
 set_variable "hcloud_token" "$TF_VAR_hcloud_token" "true"
+# shellcheck disable=SC2154
 set_variable "ssh_key_name" "$TF_VAR_ssh_key_name" "false"
+# shellcheck disable=SC2154
 set_variable "domain" "$TF_VAR_domain" "false"
 
 echo ""
