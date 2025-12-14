@@ -9,6 +9,7 @@ describe('API', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
+        status: 'healthy',
         timestamp: expect.any(String),
         uptime: expect.any(Number)
       });
