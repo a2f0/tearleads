@@ -8,12 +8,12 @@ output "server_status" {
   value       = hcloud_server.main.status
 }
 
-output "url" {
-  description = "Server URL"
+output "hostname" {
+  description = "Server hostname"
   value       = "example.${var.domain}"
 }
 
 output "ssh_command" {
   description = "SSH command to connect to the server"
-  value       = "ssh root@${hcloud_server.main.ipv4_address}"
+  value       = "ssh root@example.${var.domain}"
 }
