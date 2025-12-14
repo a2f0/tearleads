@@ -56,7 +56,7 @@ export function DebugMenu() {
                 variant="ghost"
                 size="icon"
                 onClick={() => setIsOpen(false)}
-                aria-label="Close debug menu"
+                aria-label="Close debug menu button"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -98,8 +98,16 @@ export function DebugMenu() {
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Status</span>
-                      <span className="text-green-600 font-medium">
-                        Healthy
+                      <span
+                        className={
+                          health.status === 'healthy'
+                            ? 'text-green-600 font-medium'
+                            : 'text-red-600 font-medium'
+                        }
+                      >
+                        {health.status === 'healthy'
+                          ? 'Healthy'
+                          : health.status}
                       </span>
                     </div>
                     <div className="flex justify-between">
