@@ -4,23 +4,16 @@
   become: true
 
   tasks:
-    - name: Update apt cache
+    - name: Update apt cache and upgrade all packages
       ansible.builtin.apt:
         update_cache: true
         cache_valid_time: 3600
-
-    - name: Upgrade all packages
-      ansible.builtin.apt:
         upgrade: dist
 
-    - name: Install nginx
-      ansible.builtin.apt:
-        name: nginx
-        state: present
-
-    - name: Install certbot and nginx plugin
+    - name: Install nginx, certbot and nginx plugin
       ansible.builtin.apt:
         name:
+          - nginx
           - certbot
           - python3-certbot-nginx
         state: present
