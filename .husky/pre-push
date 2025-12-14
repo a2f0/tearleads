@@ -4,7 +4,8 @@ pnpm lint
 pnpm lint:scripts
 pnpm build
 
-# Run RuboCop if bundle is available
-if command -v bundle >/dev/null 2>&1; then
-  pnpm lint:rubocop
+if ! command -v bundle >/dev/null 2>&1; then
+  echo "Error: bundle is not installed. Please install Ruby and Bundler."
+  exit 1
 fi
+pnpm lint:rubocop
