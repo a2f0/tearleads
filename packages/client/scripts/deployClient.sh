@@ -4,7 +4,7 @@ set -eu
 cd "$(dirname "$0")/../../.."
 
 # Get server hostname from Terraform
-HOSTNAME=$(cd terraform/environments/example && terraform output -raw hostname)
+HOSTNAME=$(cd terraform && terraform output -raw hostname)
 
 if [ -z "$HOSTNAME" ]; then
   echo "Error: Could not get hostname from Terraform output"

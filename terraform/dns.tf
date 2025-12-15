@@ -21,3 +21,13 @@ resource "hcloud_zone_rrset" "app" {
     { value = hcloud_server.main.ipv4_address }
   ]
 }
+
+resource "hcloud_zone_rrset" "api" {
+  zone = data.hcloud_zone.main.name
+  name = "api"
+  type = "A"
+  ttl  = 60
+  records = [
+    { value = hcloud_server.main.ipv4_address }
+  ]
+}
