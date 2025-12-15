@@ -13,7 +13,7 @@ jobs:
   deploy:
     name: Deploy to TestFlight
     runs-on: macos-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
@@ -37,9 +37,6 @@ jobs:
           ruby-version: '3.3.0'
           bundler-cache: true
           working-directory: packages/client
-
-      - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode_16.2.app
 
       - name: Install dependencies
         run: pnpm install
@@ -69,6 +66,22 @@ jobs:
         run: |
           mkdir -p .secrets
           echo "${{ secrets.APP_STORE_CONNECT_API_KEY }}" | base64 -d > .secrets/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: packages/client/ios/App/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('packages/client/ios/App/Podfile.lock') }}
+          restore-keys: |
+            pods-${{ runner.os }}-
+
+      - name: Cache Xcode DerivedData
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: xcode-deriveddata-${{ runner.os }}-${{ hashFiles('packages/client/ios/App/Podfile.lock') }}
+          restore-keys: |
+            xcode-deriveddata-${{ runner.os }}-
 
       - name: Build for TestFlight
         run: bundle exec fastlane ios build_for_testflight
