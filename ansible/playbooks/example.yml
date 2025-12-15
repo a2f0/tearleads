@@ -6,6 +6,7 @@
   vars:
     domain: "{{ lookup('env', 'TF_VAR_domain') | mandatory('TF_VAR_domain environment variable is required') }}"
     certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') | mandatory('CERTBOT_EMAIL environment variable is required') }}"
+    nodejs_major_version: 22
     sites:
       - example
       - app
@@ -21,18 +22,12 @@
         cache_valid_time: 3600
         upgrade: dist
 
-    - name: Install nginx, certbot and nginx plugin
+    - name: Install required packages
       ansible.builtin.apt:
         name:
           - nginx
           - certbot
           - python3-certbot-nginx
-        state: present
-
-    # Node.js installation for API
-    - name: Install ca-certificates and curl
-      ansible.builtin.apt:
-        name:
           - ca-certificates
           - curl
         state: present
@@ -43,9 +38,11 @@
         state: directory
         mode: "0755"
 
+    # Node.js installation for API
     - name: Download and dearmor NodeSource GPG key
       ansible.builtin.shell:
-        cmd: curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+        cmd: set -o pipefail && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+        executable: /bin/bash
         creates: /etc/apt/keyrings/nodesource.gpg
 
     - name: Set permissions on NodeSource GPG key
@@ -55,7 +52,7 @@
 
     - name: Add NodeSource repository
       ansible.builtin.apt_repository:
-        repo: "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main"
+        repo: "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_{{ nodejs_major_version }}.x nodistro main"
         state: present
         filename: nodesource
 
