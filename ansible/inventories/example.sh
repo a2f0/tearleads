@@ -2,7 +2,7 @@
 # Dynamic inventory script that gets the server hostname from Terraform output
 set -e
 
-cd "$(dirname "$0")/../../terraform/environments/example"
+cd "$(dirname "$0")/../../terraform"
 
 HOSTNAME=$(terraform output -raw hostname 2>/dev/null)
 
