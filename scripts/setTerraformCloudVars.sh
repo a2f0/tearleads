@@ -27,6 +27,7 @@ check_var "TF_WORKSPACE"
 check_var "TF_VAR_hcloud_token"
 check_var "TF_VAR_ssh_key_name"
 check_var "TF_VAR_domain"
+check_var "TF_VAR_server_username"
 
 # Get workspace ID
 WORKSPACE_ID=$(curl -s \
@@ -123,6 +124,8 @@ set_variable "hcloud_token" "$TF_VAR_hcloud_token" "true"
 set_variable "ssh_key_name" "$TF_VAR_ssh_key_name" "false"
 # shellcheck disable=SC2154
 set_variable "domain" "$TF_VAR_domain" "false"
+# shellcheck disable=SC2154
+set_variable "server_username" "$TF_VAR_server_username" "false"
 
 echo ""
 echo "All Terraform Cloud variables have been set successfully!"

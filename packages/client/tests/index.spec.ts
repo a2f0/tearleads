@@ -21,7 +21,7 @@ test.describe('Index page', () => {
   });
 
   test('should toggle dark mode', async ({ page }) => {
-    const toggleButton = page.getByRole('button', { name: 'Toggle dark mode' });
+    const toggleButton = page.getByRole('button', { name: /Toggle theme/ });
     await expect(toggleButton).toBeVisible();
 
     // Get initial state
@@ -43,7 +43,7 @@ test.describe('Index page', () => {
   test('should change background color when dark mode is toggled', async ({
     page
   }) => {
-    const toggleButton = page.getByRole('button', { name: 'Toggle dark mode' });
+    const toggleButton = page.getByRole('button', { name: /Toggle theme/ });
     const appContainer = page.getByTestId('app-container');
 
     // Get initial background color
