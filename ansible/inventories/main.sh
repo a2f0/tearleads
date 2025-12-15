@@ -7,7 +7,7 @@ cd "$(dirname "$0")/../../terraform"
 HOSTNAME=$(terraform output -raw hostname 2>/dev/null)
 USERNAME=$(terraform output -raw server_username 2>/dev/null)
 
-if [ -z "$HOSTNAME" ]; then
+if [ -z "$HOSTNAME" ] || [ -z "$USERNAME" ]; then
   echo '{"_meta": {"hostvars": {}}}'
   exit 0
 fi
