@@ -14,7 +14,7 @@ resource "hcloud_server" "main" {
     #cloud-config
     users:
       - name: ${var.server_username}
-        groups: sudo
+        groups: sudo, www-data
         shell: /bin/bash
         sudo: ALL=(ALL) NOPASSWD:ALL
         ssh_authorized_keys:
