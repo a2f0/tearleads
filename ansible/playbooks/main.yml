@@ -1,5 +1,5 @@
 ---
-- name: Configure example server
+- name: Configure main server
   hosts: all
   become: true
 
@@ -9,10 +9,10 @@
     certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') | mandatory('CERTBOT_EMAIL environment variable is required') }}"
     nodejs_major_version: 22
     sites:
-      - example
+      - www
       - app
-    all_domains:
-      - example
+    subdomains:
+      - www
       - app
       - api
 
@@ -154,7 +154,7 @@
           --agree-tos
           --expand
           --email {{ certbot_email }}
-          --domains {{ all_domains | map('regex_replace', '$', '.' ~ domain) | join(',') }}
+          --domains {{ domain }},{{ subdomains | map('regex_replace', '$', '.' ~ domain) | join(',') }}
       register: certbot_result
       changed_when: "'Certificate not yet due for renewal' not in certbot_result.stdout"
 

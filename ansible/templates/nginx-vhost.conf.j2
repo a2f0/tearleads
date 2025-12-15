@@ -1,6 +1,10 @@
 server {
     listen 80;
+{% if item == 'www' %}
+    server_name {{ domain }} www.{{ domain }};
+{% else %}
     server_name {{ item }}.{{ domain }};
+{% endif %}
 
     root /var/www/{{ item }};
     index index.html;
