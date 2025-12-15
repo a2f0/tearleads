@@ -3,8 +3,9 @@ set -eu
 
 cd "$(dirname "$0")/../../.."
 
-# Get server hostname from Terraform
+# Get server info from Terraform
 HOSTNAME=$(cd terraform && terraform output -raw hostname)
+USERNAME=$(cd terraform && terraform output -raw server_username)
 
 if [ -z "$HOSTNAME" ]; then
   echo "Error: Could not get hostname from Terraform output"
@@ -29,14 +30,14 @@ pnpm --filter @rapid/api deploy "$DEPLOY_DIR"
 echo "Deploying to ${HOSTNAME}..."
 rsync -avz --delete \
   "$DEPLOY_DIR/" \
-  "root@${HOSTNAME}:/opt/rapid-api/"
+  "${USERNAME}@${HOSTNAME}:/opt/rapid-api/"
 
 # Set ownership and restart service
-ssh "root@${HOSTNAME}" <<'REMOTE'
-chown -R www-data:www-data /opt/rapid-api
-find /opt/rapid-api -type d -exec chmod 755 {} + && find /opt/rapid-api -type f -exec chmod 644 {} +
-systemctl restart rapid-api
-systemctl --no-pager status rapid-api
+ssh "${USERNAME}@${HOSTNAME}" <<'REMOTE'
+sudo chown -R www-data:www-data /opt/rapid-api
+sudo find /opt/rapid-api -type d -exec chmod 755 {} + && sudo find /opt/rapid-api -type f -exec chmod 644 {} +
+sudo systemctl restart rapid-api
+sudo systemctl --no-pager status rapid-api
 REMOTE
 
 # shellcheck disable=SC2154
