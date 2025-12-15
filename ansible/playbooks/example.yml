@@ -4,6 +4,7 @@
   become: true
 
   vars:
+    ansible_python_interpreter: /usr/bin/python3
     domain: "{{ lookup('env', 'TF_VAR_domain') | mandatory('TF_VAR_domain environment variable is required') }}"
     certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') | mandatory('CERTBOT_EMAIL environment variable is required') }}"
     nodejs_major_version: 22
