@@ -1,8 +1,11 @@
 import { Footer, ThemeSwitcher } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
 import { DebugMenu } from '@/components/ui/debug-menu';
+import { useAppVersion } from '@/hooks/useAppVersion';
 
 function App() {
+  const version = useAppVersion();
+
   return (
     <div
       className="flex min-h-screen flex-col bg-background"
@@ -19,7 +22,7 @@ function App() {
           </div>
         </div>
       </main>
-      <Footer>
+      <Footer version={version}>
         <p>&copy; {new Date().getFullYear()} Tearleads. All rights reserved.</p>
       </Footer>
       <DebugMenu />

@@ -22,6 +22,7 @@ function App() {
         </div>
       </main>
       <Footer
+        version={undefined}
         copyrightText={`\u00A9 ${new Date().getFullYear()} Rapid. All rights reserved.`}
       />
     </div>
