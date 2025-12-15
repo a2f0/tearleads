@@ -7,6 +7,7 @@
     ansible_python_interpreter: /usr/bin/python3
     domain: "{{ lookup('env', 'TF_VAR_domain') | mandatory('TF_VAR_domain environment variable is required') }}"
     certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') | mandatory('CERTBOT_EMAIL environment variable is required') }}"
+    deploy_public_key: "{{ lookup('pipe', 'ssh-keygen -y -f ' ~ playbook_dir ~ '/../../.secrets/deploy.key') }}"
     nodejs_major_version: 22
     sites:
       - www
@@ -21,7 +22,7 @@
       ansible.builtin.authorized_key:
         user: root
         state: present
-        key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDbV4K8Yr9FWyhhIwVo3MvDNXhPip0ZT+4vfGldvKJv2SDD8NJ2lyj/EEv1ddzACZ0MUqVgBo3S2aqy42PjK2UdBBeesjkXwv1pxd93B8SOzraoTchTAV29ky/gqDWGIrODiFh3Ho5tLJHkKhBJYsDFFCffiTZz6nS593++uJegpiEm+afMWOAb9CIxhwEVXojgq+wdoPTVn1EFJx8ligXcvkVqwN922Crgo5tLdgdLoSBUEcAk8wPr6iPvzpMWr7c7z6e1yA80aBAlWK4BNioBtsH+axku0NzCqun0QEEi8ShWt5iQKo1YC/ZWZvFxMawD3/egowm4B2wuWybgz8JlfHm3XhH6oHf4xLrswPvf4DRESJ6D6wOOMWZs0HbEtpV5oTe4qMgqEwgH3mqoYJg5Lkq+1j2mBoDloPV4yL0bVE/gK7zzRjlQyGTfJN0R3OCzpm52NtyZR+QcZu1AkO/1dEt4feeYrDecd6RfpUqp5qWBMUQSQx4aEGFDXGH0Rxk= deploy@pine"
+        key: "{{ deploy_public_key }}"
 
     - name: Update apt cache and upgrade all packages
       ansible.builtin.apt:
