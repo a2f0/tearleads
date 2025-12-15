@@ -122,5 +122,5 @@ jobs:
             echo "No version bump to commit"
           else
             git commit -m "chore: bump Android build number [skip ci]"
-            git push
+            HUSKY=0 git push
           fi
