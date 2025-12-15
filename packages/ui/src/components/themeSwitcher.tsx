@@ -1,5 +1,5 @@
 import { Monitor, Moon, Sun } from 'lucide-react';
-import { useTheme } from '../context/themeProvider.js';
+import { useTheme } from '../context/useTheme.js';
 import { cn } from '../lib/utils.js';
 
 export interface ThemeSwitcherProps {
