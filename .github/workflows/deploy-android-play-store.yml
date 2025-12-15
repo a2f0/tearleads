@@ -51,7 +51,9 @@ jobs:
         run: pnpm install
 
       - name: Install ImageMagick
-        run: sudo apt-get install -y imagemagick
+        run: |
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
+          sudo apt-get install -y --no-install-recommends imagemagick
 
       - name: Build web assets
         run: pnpm --filter @rapid/client build
