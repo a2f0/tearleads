@@ -32,8 +32,7 @@ describe('Footer', () => {
     render(<Footer version="1.2.3" />);
 
     const versionElements = screen.getAllByText('1.2.3');
-    expect(versionElements.length).toBeGreaterThan(0);
-    expect(versionElements[0]).toBeInTheDocument();
+    expect(versionElements).toHaveLength(2);
   });
 
   it('does not render version when undefined', () => {
