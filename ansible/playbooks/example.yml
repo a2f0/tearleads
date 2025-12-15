@@ -3,6 +3,10 @@
   hosts: all
   become: true
 
+  vars:
+    domain: "{{ lookup('env', 'TF_VAR_domain') }}"
+    certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') }}"
+
   tasks:
     - name: Update apt cache and upgrade all packages
       ansible.builtin.apt:
@@ -18,8 +22,73 @@
           - python3-certbot-nginx
         state: present
 
+    - name: Create web root directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+      loop:
+        - /var/www/example
+        - /var/www/app
+
+    - name: Deploy nginx vhost for example
+      ansible.builtin.template:
+        src: ../templates/nginx-example.conf.j2
+        dest: /etc/nginx/sites-available/example.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload nginx
+
+    - name: Deploy nginx vhost for app
+      ansible.builtin.template:
+        src: ../templates/nginx-app.conf.j2
+        dest: /etc/nginx/sites-available/app.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload nginx
+
+    - name: Enable nginx vhosts
+      ansible.builtin.file:
+        src: "/etc/nginx/sites-available/{{ item }}.conf"
+        dest: "/etc/nginx/sites-enabled/{{ item }}.conf"
+        state: link
+      loop:
+        - example
+        - app
+      notify: Reload nginx
+
+    - name: Remove default nginx site
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Reload nginx
+
     - name: Ensure nginx is running and enabled
       ansible.builtin.systemd:
         name: nginx
         state: started
         enabled: true
+
+    - name: Flush handlers to ensure nginx config is active
+      ansible.builtin.meta: flush_handlers
+
+    - name: Obtain SSL certificates with certbot
+      ansible.builtin.command:
+        cmd: >
+          certbot --nginx
+          --non-interactive
+          --agree-tos
+          --email {{ certbot_email }}
+          --domains example.{{ domain }},app.{{ domain }}
+      register: certbot_result
+      changed_when: "'Certificate not yet due for renewal' not in certbot_result.stdout"
+
+  handlers:
+    - name: Reload nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded
