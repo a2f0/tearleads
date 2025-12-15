@@ -17,7 +17,7 @@ section_end() {
 # Get script directory (POSIX compatible)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLIENT_DIR="$(dirname "$SCRIPT_DIR")"
-SVG_SOURCE="$CLIENT_DIR/src/images/tearleads-logo-small.svg"
+SVG_SOURCE="$CLIENT_DIR/../ui/src/images/logo.svg"
 RES_DIR="$CLIENT_DIR/android/app/src/main/res"
 
 # Colors

@@ -28,12 +28,11 @@
     "@capacitor/core": "8.0.0",
     "@radix-ui/react-slot": "1.2.4",
     "@rapid/shared": "workspace:*",
+    "@rapid/ui": "workspace:*",
     "class-variance-authority": "0.7.1",
-    "clsx": "2.1.1",
     "lucide-react": "0.561.0",
     "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "tailwind-merge": "3.4.0"
+    "react-dom": "19.2.3"
   },
   "devDependencies": {
     "@capacitor/android": "8.0.0",

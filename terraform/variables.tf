@@ -13,3 +13,8 @@ variable "domain" {
   description = "Domain name for DNS records"
   type        = string
 }
+
+variable "server_username" {
+  description = "Non-root username for server access"
+  type        = string
+}

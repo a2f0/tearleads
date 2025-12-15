@@ -1,0 +1,47 @@
+{
+  "name": "@rapid/ui",
+  "version": "0.0.1",
+  "description": "Shared UI components and design system for Rapid",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles/index.css",
+    "./theme.css": "./dist/styles/theme.css",
+    "./logo.svg": "./dist/images/logo.svg"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && pnpm copy-assets",
+    "copy-assets": "cp -r src/styles dist/ && cp -r src/images dist/",
+    "clean": "rm -rf dist",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "dependencies": {
+    "clsx": "2.1.1",
+    "lucide-react": "0.561.0",
+    "tailwind-merge": "3.4.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.0",
+    "@testing-library/user-event": "14.6.1",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "jsdom": "27.3.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "typescript": "5.9.3",
+    "vitest": "4.0.15"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@rapid/website",
+  "version": "0.0.1",
+  "description": "Marketing website for Rapid",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@rapid/ui": "workspace:*",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.1.18",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.2",
+    "tailwindcss": "4.1.18",
+    "typescript": "5.9.3",
+    "vite": "7.2.7"
+  }
+}

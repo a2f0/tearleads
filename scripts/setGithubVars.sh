@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+cd "$(dirname "$0")/.."
+
 check_var() {
   var_name="$1"
   eval "var_value=\$$var_name"
