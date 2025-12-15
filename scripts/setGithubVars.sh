@@ -30,6 +30,10 @@ check_var "ANDROID_KEYSTORE_KEY_PASS"
 # Anthropic (for release notes generation)
 check_var "ANTHROPIC_API_KEY"
 
+# Server Deploy
+check_var "TF_VAR_domain"
+check_var "TF_VAR_server_username"
+
 # https://appstoreconnect.apple.com/access/integrations/api
 P8_FILE=".secrets/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
 
@@ -53,7 +57,15 @@ if [ ! -f "$GOOGLE_PLAY_JSON_FILE" ]; then
   exit 1
 fi
 
+DEPLOY_KEY_FILE=".secrets/deploy.key"
+
+if [ ! -f "$DEPLOY_KEY_FILE" ]; then
+  echo "Error: Deploy SSH key not found at $DEPLOY_KEY_FILE"
+  exit 1
+fi
+
 API_KEY_BASE64=$(base64 < "$P8_FILE")
+DEPLOY_SSH_KEY=$(cat "$DEPLOY_KEY_FILE")
 ANDROID_KEYSTORE_BASE64=$(base64 < "$KEYSTORE_FILE")
 GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64=$(base64 < "$GOOGLE_PLAY_JSON_FILE")
 
@@ -81,6 +93,13 @@ set_secret "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
 
 # Anthropic
 set_secret "ANTHROPIC_API_KEY" "$ANTHROPIC_API_KEY"
+
+# Deploy
+set_secret "DEPLOY_SSH_KEY" "$DEPLOY_SSH_KEY"
+# shellcheck disable=SC2154 # validated by check_var
+set_secret "DEPLOY_DOMAIN" "$TF_VAR_domain"
+# shellcheck disable=SC2154 # validated by check_var
+set_secret "DEPLOY_USER" "$TF_VAR_server_username"
 
 echo ""
 echo "All secrets have been set successfully!"
