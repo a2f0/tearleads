@@ -132,8 +132,6 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          build-root-directory: packages/client/android
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
@@ -214,8 +212,6 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          build-root-directory: packages/client/android
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
