@@ -17,7 +17,7 @@ section_end() {
 # Get script directory (POSIX compatible)
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLIENT_DIR="$(dirname "$SCRIPT_DIR")"
-SVG_SOURCE="$CLIENT_DIR/src/images/tearleads-logo-small.svg"
+SVG_SOURCE="$CLIENT_DIR/../ui/src/images/logo.svg"
 ASSETS_DIR="$CLIENT_DIR/ios/App/App/Assets.xcassets"
 
 # Colors

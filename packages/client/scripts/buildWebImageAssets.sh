@@ -17,7 +17,7 @@ section_end() {
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLIENT_DIR="$(dirname "$SCRIPT_DIR")"
-SVG_SOURCE="$CLIENT_DIR/src/images/tearleads-logo-small.svg"
+SVG_SOURCE="$CLIENT_DIR/../ui/src/images/logo.svg"
 OUTPUT_DIR="$CLIENT_DIR/public/generated"
 
 # Colors
