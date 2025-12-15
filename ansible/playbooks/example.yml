@@ -6,6 +6,9 @@
   vars:
     domain: "{{ lookup('env', 'TF_VAR_domain') }}"
     certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') }}"
+    sites:
+      - example
+      - app
 
   tasks:
     - name: Update apt cache and upgrade all packages
@@ -29,26 +32,16 @@
         owner: www-data
         group: www-data
         mode: "0755"
-      loop:
-        - /var/www/example
-        - /var/www/app
+      loop: "{{ sites | map('regex_replace', '^', '/var/www/') | list }}"
 
-    - name: Deploy nginx vhost for example
+    - name: Deploy nginx vhosts
       ansible.builtin.template:
-        src: ../templates/nginx-example.conf.j2
-        dest: /etc/nginx/sites-available/example.conf
+        src: ../templates/nginx-vhost.conf.j2
+        dest: "/etc/nginx/sites-available/{{ item }}.conf"
         owner: root
         group: root
         mode: "0644"
-      notify: Reload nginx
-
-    - name: Deploy nginx vhost for app
-      ansible.builtin.template:
-        src: ../templates/nginx-app.conf.j2
-        dest: /etc/nginx/sites-available/app.conf
-        owner: root
-        group: root
-        mode: "0644"
+      loop: "{{ sites }}"
       notify: Reload nginx
 
     - name: Enable nginx vhosts
@@ -56,9 +49,7 @@
         src: "/etc/nginx/sites-available/{{ item }}.conf"
         dest: "/etc/nginx/sites-enabled/{{ item }}.conf"
         state: link
-      loop:
-        - example
-        - app
+      loop: "{{ sites }}"
       notify: Reload nginx
 
     - name: Remove default nginx site
@@ -83,7 +74,7 @@
           --non-interactive
           --agree-tos
           --email {{ certbot_email }}
-          --domains example.{{ domain }},app.{{ domain }}
+          --domains {{ sites | map('regex_replace', '$', '.' ~ domain) | join(',') }}
       register: certbot_result
       changed_when: "'Certificate not yet due for renewal' not in certbot_result.stdout"
 
