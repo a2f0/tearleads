@@ -33,22 +33,16 @@
         - /var/www/example
         - /var/www/app
 
-    - name: Deploy nginx vhost for example
+    - name: Deploy nginx vhosts
       ansible.builtin.template:
-        src: ../templates/nginx-example.conf.j2
-        dest: /etc/nginx/sites-available/example.conf
+        src: ../templates/nginx-vhost.conf.j2
+        dest: "/etc/nginx/sites-available/{{ item }}.conf"
         owner: root
         group: root
         mode: "0644"
-      notify: Reload nginx
-
-    - name: Deploy nginx vhost for app
-      ansible.builtin.template:
-        src: ../templates/nginx-app.conf.j2
-        dest: /etc/nginx/sites-available/app.conf
-        owner: root
-        group: root
-        mode: "0644"
+      loop:
+        - example
+        - app
       notify: Reload nginx
 
     - name: Enable nginx vhosts
