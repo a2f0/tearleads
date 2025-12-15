@@ -4,8 +4,8 @@
   become: true
 
   vars:
-    domain: "{{ lookup('env', 'TF_VAR_domain') }}"
-    certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') }}"
+    domain: "{{ lookup('env', 'TF_VAR_domain') | mandatory('TF_VAR_domain environment variable is required') }}"
+    certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') | mandatory('CERTBOT_EMAIL environment variable is required') }}"
     sites:
       - example
       - app
