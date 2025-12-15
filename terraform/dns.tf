@@ -2,13 +2,47 @@ data "hcloud_zone" "main" {
   name = var.domain
 }
 
-resource "hcloud_zone_rrset" "main" {
+locals {
+  ipv6_address = "${trimsuffix(hcloud_server.main.ipv6_network, "::/64")}::1"
+}
+
+resource "hcloud_zone_rrset" "apex" {
   zone = data.hcloud_zone.main.name
-  name = "example"
+  name = "@"
   type = "A"
   ttl  = 60
   records = [
     { value = hcloud_server.main.ipv4_address }
+  ]
+}
+
+resource "hcloud_zone_rrset" "apex_ipv6" {
+  zone = data.hcloud_zone.main.name
+  name = "@"
+  type = "AAAA"
+  ttl  = 60
+  records = [
+    { value = local.ipv6_address }
+  ]
+}
+
+resource "hcloud_zone_rrset" "www" {
+  zone = data.hcloud_zone.main.name
+  name = "www"
+  type = "A"
+  ttl  = 60
+  records = [
+    { value = hcloud_server.main.ipv4_address }
+  ]
+}
+
+resource "hcloud_zone_rrset" "www_ipv6" {
+  zone = data.hcloud_zone.main.name
+  name = "www"
+  type = "AAAA"
+  ttl  = 60
+  records = [
+    { value = local.ipv6_address }
   ]
 }
 
@@ -22,6 +56,16 @@ resource "hcloud_zone_rrset" "app" {
   ]
 }
 
+resource "hcloud_zone_rrset" "app_ipv6" {
+  zone = data.hcloud_zone.main.name
+  name = "app"
+  type = "AAAA"
+  ttl  = 60
+  records = [
+    { value = local.ipv6_address }
+  ]
+}
+
 resource "hcloud_zone_rrset" "api" {
   zone = data.hcloud_zone.main.name
   name = "api"
@@ -29,5 +73,15 @@ resource "hcloud_zone_rrset" "api" {
   ttl  = 60
   records = [
     { value = hcloud_server.main.ipv4_address }
+  ]
+}
+
+resource "hcloud_zone_rrset" "api_ipv6" {
+  zone = data.hcloud_zone.main.name
+  name = "api"
+  type = "AAAA"
+  ttl  = 60
+  records = [
+    { value = local.ipv6_address }
   ]
 }
