@@ -25,6 +25,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@capacitor/app": "8.0.0",
     "@capacitor/core": "8.0.0",
     "@radix-ui/react-slot": "1.2.4",
     "@rapid/shared": "workspace:*",
