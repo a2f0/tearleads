@@ -1,0 +1,30 @@
+[Unit]
+Description=Rapid API Server
+Documentation=https://github.com/a2f0/rapid
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/rapid-api
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rapid-api
+
+# Environment
+Environment=NODE_ENV=production
+Environment=PORT=5001
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/rapid-api
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
