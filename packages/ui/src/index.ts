@@ -8,9 +8,9 @@ export {
 // Context
 export {
   ThemeProvider,
-  type ThemeProviderProps,
-  useTheme
+  type ThemeProviderProps
 } from './context/themeProvider.js';
+export { useTheme } from './context/useTheme.js';
 
 // Utilities
 export { cn } from './lib/utils.js';
