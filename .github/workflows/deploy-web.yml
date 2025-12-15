@@ -1,0 +1,66 @@
+name: Deploy Web
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy Website, Client & API
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy.key
+          chmod 600 ~/.ssh/deploy.key
+          ssh-keyscan -H ${{ secrets.DEPLOY_DOMAIN }} >> ~/.ssh/known_hosts
+
+      - name: Deploy Website
+        run: |
+          rsync -avz --delete -e "ssh -i ~/.ssh/deploy.key" \
+            packages/website/dist/ \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/var/www/www/
+
+      - name: Deploy Client
+        run: |
+          rsync -avz --delete -e "ssh -i ~/.ssh/deploy.key" \
+            packages/client/dist/ \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/var/www/app/
+
+      - name: Create API deployment package
+        run: |
+          pnpm --filter @rapid/api deploy /tmp/api-deploy
+
+      - name: Deploy API
+        run: |
+          rsync -avz --delete -e "ssh -i ~/.ssh/deploy.key" \
+            /tmp/api-deploy/ \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/opt/rapid-api/
+
+      - name: Restart API service
+        run: |
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+            "sudo systemctl restart rapid-api && sudo systemctl --no-pager status rapid-api"
