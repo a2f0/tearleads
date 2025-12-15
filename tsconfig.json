@@ -5,8 +5,10 @@
   },
   "references": [
     { "path": "./packages/shared" },
+    { "path": "./packages/ui" },
     { "path": "./packages/api" },
-    { "path": "./packages/client" }
+    { "path": "./packages/client" },
+    { "path": "./packages/website" }
   ],
   "files": []
 }
