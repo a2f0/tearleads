@@ -17,13 +17,13 @@ if [ -z "$USERNAME" ]; then
   exit 1
 fi
 
-# Build the client
-pnpm --filter @rapid/client build
+# Build the website
+pnpm --filter @rapid/website build
 
 # Upload to server (user is in www-data group with write access)
 rsync -avz --delete \
-  packages/client/dist/ \
-  "${USERNAME}@${HOSTNAME}:/var/www/app/"
+  packages/website/dist/ \
+  "${USERNAME}@${HOSTNAME}:/var/www/www/"
 
 # shellcheck disable=SC2154 # validated by set -u
-echo "Deployed to https://app.${TF_VAR_domain}"
+echo "Deployed to https://${TF_VAR_domain}"
