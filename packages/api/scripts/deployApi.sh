@@ -31,16 +31,14 @@ trap 'rm -rf "$DEPLOY_DIR"' EXIT
 # Use pnpm deploy to create a deployment-ready package with all dependencies
 pnpm --filter @rapid/api deploy "$DEPLOY_DIR"
 
-# Upload to server
+# Upload to server (user is in www-data group with write access)
 echo "Deploying to ${HOSTNAME}..."
 rsync -avz --delete \
   "$DEPLOY_DIR/" \
   "${USERNAME}@${HOSTNAME}:/opt/rapid-api/"
 
-# Set ownership and restart service
+# Restart service
 ssh "${USERNAME}@${HOSTNAME}" <<'REMOTE'
-sudo chown -R www-data:www-data /opt/rapid-api
-sudo find /opt/rapid-api -type d -exec chmod 755 {} + && sudo find /opt/rapid-api -type f -exec chmod 644 {} +
 sudo systemctl restart rapid-api
 sudo systemctl --no-pager status rapid-api
 REMOTE
