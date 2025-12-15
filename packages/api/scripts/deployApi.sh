@@ -12,6 +12,11 @@ if [ -z "$HOSTNAME" ]; then
   exit 1
 fi
 
+if [ -z "$USERNAME" ]; then
+  echo "Error: Could not get server_username from Terraform output"
+  exit 1
+fi
+
 # Build shared package (API dependency)
 pnpm --filter @rapid/shared build
 
