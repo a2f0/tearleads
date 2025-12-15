@@ -1,8 +1,8 @@
+import { ThemeProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { ThemeProvider } from '@rapid/ui';
-import App from './App';
 import packageJson from '../package.json';
+import App from './App';
 
 vi.mock('@/hooks/useAppVersion', () => ({
   useAppVersion: vi.fn(() => packageJson.version)
