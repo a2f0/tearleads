@@ -3,14 +3,27 @@ data "hcloud_ssh_key" "main" {
 }
 
 resource "hcloud_server" "main" {
-  name        = "example"
+  name        = var.domain
   image       = "ubuntu-24.04"
   server_type = "cx23"
   location    = "fsn1"
 
   ssh_keys = [data.hcloud_ssh_key.main.id]
 
+  user_data = <<-EOF
+    #cloud-config
+    users:
+      - name: ${var.server_username}
+        groups: sudo
+        shell: /bin/bash
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        ssh_authorized_keys:
+          - ${data.hcloud_ssh_key.main.public_key}
+    ssh_pwauth: false
+    disable_root: true
+  EOF
+
   labels = {
-    environment = "example"
+    environment = var.domain
   }
 }
