@@ -145,8 +145,9 @@ platform :ios do
       testflight_build_number = latest_testflight_build_number(app_identifier: APP_ID)
 
       if current_build_number.to_i <= testflight_build_number.to_i
-        UI.message("Current build number (#{current_build_number}) already exists in TestFlight (#{testflight_build_number}). Incrementing...")
-        increment_build_number(xcodeproj: './ios/App/App.xcodeproj')
+        new_build_number = testflight_build_number.to_i + 1
+        UI.message("Current build number (#{current_build_number}) <= TestFlight (#{testflight_build_number}). Setting to #{new_build_number}...")
+        increment_build_number(xcodeproj: './ios/App/App.xcodeproj', build_number: new_build_number)
       else
         UI.message("Current build number (#{current_build_number}) is higher than TestFlight (#{testflight_build_number}). Skipping increment.")
       end
