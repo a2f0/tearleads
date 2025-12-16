@@ -24,6 +24,14 @@
         state: present
         key: "{{ deploy_public_key }}"
 
+    - name: Disable root SSH login
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin no'
+        validate: 'sshd -t -f %s'
+      notify: Restart sshd
+
     - name: Update apt cache and upgrade all packages
       ansible.builtin.apt:
         update_cache: true
@@ -174,3 +182,8 @@
     - name: Reload systemd
       ansible.builtin.systemd:
         daemon_reload: true
+
+    - name: Restart sshd
+      ansible.builtin.systemd:
+        name: sshd
+        state: restarted
