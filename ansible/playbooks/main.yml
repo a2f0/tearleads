@@ -20,7 +20,7 @@
   tasks:
     - name: Add GitHub Actions deploy key to authorized_keys
       ansible.builtin.authorized_key:
-        user: root
+        user: "{{ lookup('env', 'TF_VAR_server_username') | mandatory('TF_VAR_server_username environment variable is required') }}"
         state: present
         key: "{{ deploy_public_key }}"
 
