@@ -21,7 +21,7 @@ fi
 pnpm --filter @rapid/website build
 
 # Upload to server (user is in www-data group with write access)
-rsync -avz --delete \
+rsync -avz --delete --chmod=D750,F640 \
   packages/website/dist/ \
   "${USERNAME}@${HOSTNAME}:/var/www/www/"
 
