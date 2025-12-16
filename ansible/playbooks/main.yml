@@ -83,9 +83,10 @@
       ansible.builtin.file:
         path: /opt/rapid-api
         state: directory
-        owner: www-data
+        owner: "{{ lookup('env', 'TF_VAR_server_username') }}"
         group: www-data
         mode: "0775"
+        recurse: true
 
     - name: Deploy rapid-api systemd service
       ansible.builtin.template:
@@ -106,9 +107,10 @@
       ansible.builtin.file:
         path: "{{ item }}"
         state: directory
-        owner: www-data
+        owner: "{{ lookup('env', 'TF_VAR_server_username') }}"
         group: www-data
         mode: "0775"
+        recurse: true
       loop: "{{ sites | map('regex_replace', '^', '/var/www/') | list }}"
 
     - name: Deploy nginx vhosts
@@ -185,5 +187,5 @@
 
     - name: Restart sshd
       ansible.builtin.systemd:
-        name: sshd
+        name: ssh
         state: restarted
