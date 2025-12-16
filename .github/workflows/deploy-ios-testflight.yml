@@ -75,14 +75,6 @@ jobs:
           restore-keys: |
             pods-${{ runner.os }}-
 
-      - name: Cache Xcode DerivedData
-        uses: actions/cache@v4
-        with:
-          path: ~/Library/Developer/Xcode/DerivedData
-          key: xcode-deriveddata-${{ runner.os }}-${{ hashFiles('packages/client/ios/App/Podfile.lock') }}
-          restore-keys: |
-            xcode-deriveddata-${{ runner.os }}-
-
       - name: Build for TestFlight
         run: bundle exec fastlane ios build_for_testflight
         working-directory: packages/client
