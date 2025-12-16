@@ -137,9 +137,23 @@ platform :ios do
     )
   end
 
-  desc 'Increment build number'
+  desc 'Increment build number only if current build exists in TestFlight'
   lane :bump_build_if_needed do
-    increment_build_number(xcodeproj: './ios/App/App.xcodeproj')
+    current_build_number = get_build_number(xcodeproj: './ios/App/App.xcodeproj')
+
+    begin
+      testflight_build_number = latest_testflight_build_number(app_identifier: APP_ID)
+
+      if current_build_number.to_i <= testflight_build_number.to_i
+        new_build_number = testflight_build_number.to_i + 1
+        UI.message("Current build number (#{current_build_number}) <= TestFlight (#{testflight_build_number}). Setting to #{new_build_number}...")
+        increment_build_number(xcodeproj: './ios/App/App.xcodeproj', build_number: new_build_number)
+      else
+        UI.message("Current build number (#{current_build_number}) is higher than TestFlight (#{testflight_build_number}). Skipping increment.")
+      end
+    rescue StandardError => e
+      UI.user_error!("Failed to fetch TestFlight build number: #{e.message}")
+    end
   end
 
   desc 'Increment version number'
