@@ -21,7 +21,7 @@ fi
 pnpm --filter @rapid/client build
 
 # Upload to server (user is in www-data group with write access)
-rsync -avz --delete \
+rsync -avz --delete --chmod=D750,F640 \
   packages/client/dist/ \
   "${USERNAME}@${HOSTNAME}:/var/www/app/"
 
