@@ -7,23 +7,35 @@ cd "$(dirname "$0")/../../.."
 HOSTNAME=$(cd terraform && terraform output -raw hostname)
 USERNAME=$(cd terraform && terraform output -raw server_username)
 
-if [ -z "$HOSTNAME" ]; then
+if [ -z "${HOSTNAME:-}" ]; then
   echo "Error: Could not get hostname from Terraform output"
   exit 1
 fi
 
-if [ -z "$USERNAME" ]; then
+if [ -z "${USERNAME:-}" ]; then
   echo "Error: Could not get server_username from Terraform output"
+  exit 1
+fi
+
+if [ -z "${VITE_API_URL:-}" ]; then
+  echo "Error: VITE_API_URL environment variable is not set"
+  exit 1
+fi
+
+if [ -z "${TF_VAR_domain:-}" ]; then
+  echo "Error: TF_VAR_domain environment variable is not set"
   exit 1
 fi
 
 # Build the client
 pnpm --filter @rapid/client build
 
-# Upload to server (user is in www-data group with write access)
-rsync -avz --delete --chmod=D750,F640 \
+# Upload to server
+rsync -avz --delete \
   packages/client/dist/ \
   "${USERNAME}@${HOSTNAME}:/var/www/app/"
 
-# shellcheck disable=SC2154 # validated by set -u
+# Set ownership and permissions
+ssh "${USERNAME}@${HOSTNAME}" "chgrp -R www-data /var/www/app && chmod -R u=rwX,g=rX,o= /var/www/app"
+
 echo "Deployed to https://app.${TF_VAR_domain}"
