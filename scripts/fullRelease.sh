@@ -6,7 +6,6 @@ if [ "$CURRENT_BRANCH" != "main" ]; then
   echo "Error: Must be on 'main' branch to release. Currently on '$CURRENT_BRANCH'."
   exit 1
 fi
-echo "Verified: on main branch"
 
 git fetch origin main
 LOCAL_SHA=$(git rev-parse HEAD)
@@ -19,4 +18,6 @@ if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
   echo "Please pull the latest changes first."
   exit 1
 fi
-echo "Verified: up-to-date with origin/main"
+
+pnpm lint
+pnpm build
