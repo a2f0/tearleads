@@ -43,12 +43,16 @@ jobs:
           rsync -avz --delete -e "ssh -i ~/.ssh/deploy.key" \
             packages/website/dist/ \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/var/www/www/
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+            "chgrp -R www-data /var/www/www && chmod -R u=rwX,g=rX,o= /var/www/www"
 
       - name: Deploy Client
         run: |
           rsync -avz --delete -e "ssh -i ~/.ssh/deploy.key" \
             packages/client/dist/ \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/var/www/app/
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+            "chgrp -R www-data /var/www/app && chmod -R u=rwX,g=rX,o= /var/www/app"
 
       - name: Create API deployment package
         run: |
@@ -59,6 +63,8 @@ jobs:
           rsync -avz --delete -e "ssh -i ~/.ssh/deploy.key" \
             /tmp/api-deploy/ \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/opt/rapid-api/
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+            "chgrp -R www-data /opt/rapid-api && chmod -R u=rwX,g=rX,o= /opt/rapid-api"
 
       - name: Restart API service
         run: |
