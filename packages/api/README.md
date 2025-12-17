@@ -19,4 +19,4 @@ pnpm start
 
 ## API Endpoints
 
-- `GET /api/health` - Health check endpoint
+- `GET /v1/health` - Health check endpoint

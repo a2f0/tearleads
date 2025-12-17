@@ -14,7 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
-app.get('/api/health', (_req: Request, res: Response) => {
+app.get('/v1/health', (_req: Request, res: Response) => {
   const healthData: HealthData = {
     status: 'healthy',
     timestamp: formatDate(new Date()),

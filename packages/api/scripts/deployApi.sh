@@ -7,13 +7,18 @@ cd "$(dirname "$0")/../../.."
 HOSTNAME=$(cd terraform && terraform output -raw hostname)
 USERNAME=$(cd terraform && terraform output -raw server_username)
 
-if [ -z "$HOSTNAME" ]; then
+if [ -z "${HOSTNAME:-}" ]; then
   echo "Error: Could not get hostname from Terraform output"
   exit 1
 fi
 
-if [ -z "$USERNAME" ]; then
+if [ -z "${USERNAME:-}" ]; then
   echo "Error: Could not get server_username from Terraform output"
+  exit 1
+fi
+
+if [ -z "${TF_VAR_domain:-}" ]; then
+  echo "Error: TF_VAR_domain environment variable is not set"
   exit 1
 fi
 
@@ -31,11 +36,14 @@ trap 'rm -rf "$DEPLOY_DIR"' EXIT
 # Use pnpm deploy to create a deployment-ready package with all dependencies
 pnpm --filter @rapid/api deploy "$DEPLOY_DIR"
 
-# Upload to server (user is in www-data group with write access)
+# Upload to server
 echo "Deploying to ${HOSTNAME}..."
 rsync -avz --delete \
   "$DEPLOY_DIR/" \
   "${USERNAME}@${HOSTNAME}:/opt/rapid-api/"
+
+# Set ownership and permissions
+ssh "${USERNAME}@${HOSTNAME}" "chgrp -R www-data /opt/rapid-api && chmod -R u=rwX,g=rX,o= /opt/rapid-api"
 
 # Restart service
 ssh "${USERNAME}@${HOSTNAME}" <<'REMOTE'
@@ -43,5 +51,4 @@ sudo systemctl restart rapid-api
 sudo systemctl --no-pager status rapid-api
 REMOTE
 
-# shellcheck disable=SC2154
 echo "API deployed to https://api.${TF_VAR_domain}"
