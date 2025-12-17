@@ -30,11 +30,11 @@
   "devDependencies": {
     "@types/cors": "2.8.19",
     "@types/express": "5.0.6",
-    "@types/node": "25.0.2",
+    "@types/node": "25.0.3",
     "@types/supertest": "6.0.3",
     "supertest": "7.1.4",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
-    "vitest": "4.0.15"
+    "vitest": "4.0.16"
   }
 }
