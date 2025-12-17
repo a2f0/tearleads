@@ -1,15 +1,4 @@
-# Rapid
-
-A TypeScript monorepo with an Express API and React client.
-
-## Structure
-
-```ascii
-packages/
-├── shared/   # Shared types and utilities
-├── api/      # Express API (port 5001)
-└── client/   # React client (port 3000)
-```
+# Tearleads
 
 ## Getting Started
 
@@ -18,26 +7,9 @@ pnpm install
 pnpm dev
 ```
 
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Run API and client in parallel |
-| `pnpm dev:api` | Run API only |
-| `pnpm dev:client` | Run client only |
-| `pnpm build` | Build all packages |
-| `pnpm build:shared` | Build shared package |
-| `pnpm clean` | Clean build artifacts |
-
-## License
-
-Unlicensed
-
-## Deployment
-
 ### App Store Connect API Key
 
-Create an API key in App Store Connect (Users and Access → Keys):
+An App Store connect API key is needed for Fastlane's build automation.
 
 1. Go to [App Store Connect](https://appstoreconnect.apple.com/)
 2. Navigate to **Users and Access** → **Integrations** tab
@@ -46,17 +18,16 @@ Create an API key in App Store Connect (Users and Access → Keys):
 5. Set role to **App Manager**.
 6. Download the `.p8` file, and put it into `.secrets/`
 7. Export `APP_STORE_CONNECT_KEY_ID` and `APP_STORE_CONNECT_ISSUER_ID`.
-
-Use [scripts/setGithubVars.sh](scripts/setGithubVars.sh) to set all required GitHub secrets.
+8. Use [scripts/setGithubVars.sh](scripts/setGithubVars.sh) to deploy it to GitHub.
 
 ### GitHub Personal Access Token
 
-To create the basic authorization token:
+A personal access token is required for Fastlane Match, which is used for signing certificate and provisioning profile management. To configure this:
 
-```bash
-echo -n "<github handle>:<personal access token>" | base64 | pbcopy
-```
-
-Then export it to `MATCH_GIT_BASIC_AUTHORIZATION`.
-
-Use [scripts/setGithubVars.sh](scripts/setGithubVars.sh) to set all required GitHub secrets.
+1. Create a new GitHub Repository
+2. Go to [Personal Access Tokens](https://github.com/settings/personal-access-tokens)
+3. Give the token the following permissions:
+  a. Read access to metadata
+  b. Read and Write access to code
+4. Encode the token with `echo -n "<github handle>:<personal access token>" | base64 | pbcopy` and set it to `MATCH_GIT_BASIC_AUTHORIZATION`
+5. Use [scripts/setGithubVars.sh](scripts/setGithubVars.sh) to set it in GitHub (for GitHub Actions).
