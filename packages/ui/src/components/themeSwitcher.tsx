@@ -1,4 +1,4 @@
-import { Monitor, Moon, Sun } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '../context/useTheme.js';
 import { cn } from '../lib/utils.js';
 
@@ -37,8 +37,7 @@ export function ThemeSwitcher({
     }
   };
 
-  const Icon =
-    theme === 'system' ? Monitor : resolvedTheme === 'dark' ? Sun : Moon;
+  const Icon = resolvedTheme === 'dark' ? Sun : Moon;
 
   return (
     <button
