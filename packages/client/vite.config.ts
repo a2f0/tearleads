@@ -11,7 +11,12 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
+      '@': path.resolve(__dirname, './src'),
+      // Alias UI package to source for HMR
+      '@rapid/ui/styles.css': path.resolve(__dirname, '../ui/src/styles/index.css'),
+      '@rapid/ui/theme.css': path.resolve(__dirname, '../ui/src/styles/theme.css'),
+      '@rapid/ui/logo.svg': path.resolve(__dirname, '../ui/src/images/logo.svg'),
+      '@rapid/ui': path.resolve(__dirname, '../ui/src/index.ts')
     }
   },
   clearScreen: false,
