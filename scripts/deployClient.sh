@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-cd "$(dirname "$0")/../../.."
+cd "$(dirname "$0")/.."
 
 # Get server info from Terraform
 HOSTNAME=$(cd terraform && terraform output -raw hostname)
@@ -30,12 +30,10 @@ fi
 # Build the client
 pnpm --filter @rapid/client build
 
-# Upload to server
 rsync -avz --delete \
   packages/client/dist/ \
   "${USERNAME}@${HOSTNAME}:/var/www/app/"
 
-# Set ownership and permissions
 ssh "${USERNAME}@${HOSTNAME}" "chgrp -R www-data /var/www/app && chmod -R u=rwX,g=rX,o= /var/www/app"
 
 echo "Deployed to https://app.${TF_VAR_domain}"
