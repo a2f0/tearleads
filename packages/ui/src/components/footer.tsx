@@ -21,6 +21,9 @@ export function Footer({
         'fixed bottom-0 left-0 right-0 border-t bg-background py-6 text-sm text-muted-foreground',
         className
       )}
+      style={{
+        paddingBottom: `calc(1.5rem + env(safe-area-inset-bottom, 0px))`
+      }}
       {...props}
     >
       <div className="container mx-auto px-4 flex items-center">
