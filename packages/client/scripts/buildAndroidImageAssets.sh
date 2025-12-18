@@ -48,9 +48,12 @@ generate_foreground_vector() {
     output_file="$RES_DIR/drawable/ic_launcher_foreground.xml"
     mkdir -p "$(dirname "$output_file")"
 
-    # Adaptive icon is 108dp, logo centered in 66dp safe zone (scale 2x, offset 21)
-    scale=2
-    offset=21
+    # Adaptive icon is 108dp with 66dp safe zone, but circular icons need smaller content.
+    # Target 50dp logo (inscribed in 66dp safe zone circle), centered with 29dp offset.
+    # Use integer math: multiply by 50, divide by 33 (SVG viewBox size)
+    target_size=50
+    svg_size=33
+    offset=$(( (108 - target_size) / 2 ))
 
     cat > "$output_file" << 'HEADER'
 <?xml version="1.0" encoding="utf-8"?>
@@ -70,11 +73,11 @@ HEADER
         h=$(echo "$line" | sed -n 's/.*height="\([^"]*\)".*/\1/p')
         fill=$(echo "$line" | sed -n 's/.*fill="\([^"]*\)".*/\1/p')
 
-        # Scale and offset for adaptive icon safe zone
-        nx=$((x * scale + offset))
-        ny=$((y * scale + offset))
-        nw=$((w * scale))
-        nh=$((h * scale))
+        # Scale and offset for adaptive icon circular safe zone
+        nx=$((x * target_size / svg_size + offset))
+        ny=$((y * target_size / svg_size + offset))
+        nw=$((w * target_size / svg_size))
+        nh=$((h * target_size / svg_size))
 
         # Convert fill color to Android format (#RGB -> #FFRRGGBB, #RRGGBB -> #FFRRGGBB)
         if echo "$fill" | grep -qE '^#[0-9A-Fa-f]{3}$'; then
@@ -108,8 +111,7 @@ generate_launcher() {
     mkdir -p "$dir"
 
     icon_size=$((size * 70 / 100))
-    round_size=$((size * 60 / 100))
-    half=$((size / 2))
+    round_size=$((size * 50 / 100))
 
     # ic_launcher.png - square icon with padding
     $MAGICK_CMD -background "$BACKGROUND_COLOR" -density 300 "$SVG_SOURCE" \
@@ -118,14 +120,10 @@ generate_launcher() {
         "$dir/ic_launcher.png"
     echo "  Created $dir/ic_launcher.png (${size}x${size})"
 
-    # ic_launcher_round.png - circular icon
+    # ic_launcher_round.png - same as square for now (adaptive icons handle the shape)
     $MAGICK_CMD -background "$BACKGROUND_COLOR" -density 300 "$SVG_SOURCE" \
         -resize "${round_size}x${round_size}" \
         -gravity center -extent "${size}x${size}" \
-        \( +clone -alpha extract \
-           -draw "fill black polygon 0,0 0,${size} ${size},0 fill white circle ${half},${half} ${half},0" \
-           -alpha off \) \
-        -compose CopyOpacity -composite \
         "$dir/ic_launcher_round.png"
     echo "  Created $dir/ic_launcher_round.png (${size}x${size})"
 }
