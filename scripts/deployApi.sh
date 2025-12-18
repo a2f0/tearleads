@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-cd "$(dirname "$0")/../../.."
+cd "$(dirname "$0")/.."
 
 # Get server info from Terraform
 HOSTNAME=$(cd terraform && terraform output -raw hostname)

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-cd "$(dirname "$0")/../../.."
+cd "$(dirname "$0")/.."
 
 # Get server info from Terraform
 HOSTNAME=$(cd terraform && terraform output -raw hostname)
@@ -20,10 +20,10 @@ fi
 # Build the website
 pnpm --filter @rapid/website build
 
-# Upload to server (user is in www-data group with write access)
-rsync -avz --delete --chmod=D750,F640 \
+rsync -avz --delete \
   packages/website/dist/ \
   "${USERNAME}@${HOSTNAME}:/var/www/www/"
 
-# shellcheck disable=SC2154 # validated by set -u
+ssh "${USERNAME}@${HOSTNAME}" "chgrp -R www-data /var/www/www && chmod -R u=rwX,g=rX,o= /var/www/www"
+
 echo "Deployed to https://${TF_VAR_domain}"
