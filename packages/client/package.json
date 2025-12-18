@@ -20,7 +20,8 @@
     "build:ios": "pnpm build && cap sync ios",
     "lint:scripts": "shellcheck --severity=info scripts/*.sh",
     "lint:rubocop": "bundle exec rubocop",
-    "test:maestro": "$HOME/.maestro/bin/maestro test .maestro/",
+    "test:maestro:android": "./scripts/runMaestroAndroidTests.sh",
+    "test:maestro:ios": "./scripts/runMaestroIosTests.sh",
     "test": "vitest run",
     "test:watch": "vitest"
   },
