@@ -17,6 +17,11 @@ if [ -z "$USERNAME" ]; then
   exit 1
 fi
 
+if [ -z "${TF_VAR_domain:-}" ]; then
+  echo "Error: TF_VAR_domain environment variable is not set"
+  exit 1
+fi
+
 # Build the website
 pnpm --filter @rapid/website build
 
