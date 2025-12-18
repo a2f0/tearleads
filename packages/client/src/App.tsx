@@ -8,7 +8,7 @@ function App() {
 
   return (
     <div
-      className="flex min-h-screen flex-col bg-background"
+      className="flex min-h-screen flex-col bg-background safe-area-inset"
       data-testid="app-container"
     >
       <main className="flex-1 pb-20">
