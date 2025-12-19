@@ -12,7 +12,7 @@ function App() {
       data-testid="app-container"
     >
       <main className="flex-1 pb-20">
-        <div className="container mx-auto px-4 pt-4 pb-16 max-w-2xl">
+        <div className="container mx-auto px-4 pb-16 max-w-2xl">
           <div className="mb-8 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img src={logo} alt="Tearleads" className="h-8 w-8" />

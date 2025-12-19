@@ -6,13 +6,33 @@ appId: com.tearleads.rapid
 - assertVisible: "Tearleads"
 
 # Tap the theme switcher button (starts in light mode by default)
-- tapOn: "Toggle theme.*"
+- evalScript: document.querySelector('[data-testid="theme-switcher"]').click()
 
-# After tapping, theme should switch to dark
-- assertVisible: "Toggle theme (current: dark)"
+# Wait for theme transition
+- swipe:
+    direction: DOWN
+    duration: 100
+
+# Verify theme switched to dark
+- evalScript: |
+    (function() {
+      const isDark = document.documentElement.classList.contains('dark');
+      if (!isDark) throw new Error('Expected dark mode');
+      return 'ok';
+    })()
 
 # Tap again to switch back to light
-- tapOn: "Toggle theme.*"
+- evalScript: document.querySelector('[data-testid="theme-switcher"]').click()
+
+# Wait for theme transition
+- swipe:
+    direction: DOWN
+    duration: 100
 
 # Verify we're back to light mode
-- assertVisible: "Toggle theme (current: light)"
+- evalScript: |
+    (function() {
+      const isDark = document.documentElement.classList.contains('dark');
+      if (isDark) throw new Error('Expected light mode');
+      return 'ok';
+    })()

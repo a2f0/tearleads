@@ -39,6 +39,8 @@ export function ThemeSwitcher({
 
   const Icon = resolvedTheme === 'dark' ? Sun : Moon;
 
+  const label = `Toggle theme (current: ${resolvedTheme})`;
+
   return (
     <button
       type="button"
@@ -48,7 +50,8 @@ export function ThemeSwitcher({
         buttonSize,
         className
       )}
-      aria-label={`Toggle theme (current: ${theme})`}
+      aria-label={label}
+      data-testid="theme-switcher"
     >
       <Icon className={iconSize} />
     </button>
