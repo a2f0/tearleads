@@ -1,5 +1,6 @@
 import { ThemeProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import packageJson from '../package.json';
 import App from './App';
@@ -18,9 +19,11 @@ vi.mock('@/lib/api', () => ({
 
 function renderApp() {
   return render(
-    <ThemeProvider>
-      <App />
-    </ThemeProvider>
+    <MemoryRouter>
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
+    </MemoryRouter>
   );
 }
 
@@ -53,12 +56,10 @@ describe('App', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders the theme switcher', () => {
+  it('renders the settings link', () => {
     renderApp();
 
-    expect(
-      screen.getByRole('button', { name: /toggle theme/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /settings/i })).toBeInTheDocument();
   });
 
   it('renders the logo', () => {
