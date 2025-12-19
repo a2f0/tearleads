@@ -6,7 +6,7 @@ export MAESTRO_CLI_NO_ANALYTICS=1
 MAESTRO_CLI="${HOME}/.maestro/bin/maestro"
 ANDROID_VERSION="33"
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../packages/client"
 
 if adb devices | grep -q "emulator.*device"; then
   echo "==> Android emulator is already running"
