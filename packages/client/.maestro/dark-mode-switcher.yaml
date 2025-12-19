@@ -8,12 +8,10 @@ appId: com.tearleads.rapid
 # Navigate to settings page
 - evalScript: document.querySelector('[data-testid="settings-link"]').click()
 
-# Wait for navigation
-- swipe:
-    direction: DOWN
-    duration: 100
-
-- assertVisible: "Settings"
+# Wait for Settings page to load
+- extendedWaitUntil:
+    visible: "Settings"
+    timeout: 10000
 
 # Tap the dark mode switch (starts in light mode by default)
 - evalScript: document.querySelector('[data-testid="dark-mode-switch"]').click()
@@ -21,7 +19,7 @@ appId: com.tearleads.rapid
 # Wait for theme transition
 - swipe:
     direction: DOWN
-    duration: 100
+    duration: 300
 
 # Verify theme switched to dark
 - evalScript: |
@@ -37,7 +35,7 @@ appId: com.tearleads.rapid
 # Wait for theme transition
 - swipe:
     direction: DOWN
-    duration: 100
+    duration: 300
 
 # Verify we're back to light mode
 - evalScript: |
