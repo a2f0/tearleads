@@ -1,5 +1,5 @@
 ---
-description: Update all dependencies
+description: Update all dependencies (project)
 ---
 
 # Update
@@ -14,3 +14,5 @@ Update all of the dependencies in the `packages` folder and:
 - Make sure all dependencies are pinned.
 - Provide a summary of any warnings / deprecations.
 - Make sure Capacitor's Podfile.lock is sync'd (`cap:sync` should pass).
+- Update Ruby dependencies in `packages/client` (Gemfile and Gemfile.lock).
+- Make sure Maestro tests pass (both iOS and Android).
