@@ -33,6 +33,12 @@ pnpm build
 BUILD_END=$(date +%s)
 BUILD_TIME=$((BUILD_END - BUILD_START))
 
+echo "==> Running unit tests..."
+UNIT_START=$(date +%s)
+pnpm test
+UNIT_END=$(date +%s)
+UNIT_TIME=$((UNIT_END - UNIT_START))
+
 echo "==> Running Android Maestro tests..."
 ANDROID_START=$(date +%s)
 pnpm --filter @rapid/client test:maestro:android
@@ -54,6 +60,7 @@ echo "       Timing Summary"
 echo "=============================="
 echo "Lint:           ${LINT_TIME}s"
 echo "Build:          ${BUILD_TIME}s"
+echo "Unit tests:     ${UNIT_TIME}s"
 echo "Android tests:  ${ANDROID_TIME}s"
 echo "iOS tests:      ${IOS_TIME}s"
 echo "------------------------------"
