@@ -14,7 +14,6 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['generated/favicon.ico', 'generated/apple-touch-icon.png'],
       manifest: {
         name: 'Tearleads',
         short_name: 'Tearleads',
