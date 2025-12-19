@@ -1,0 +1,18 @@
+appId: com.tearleads.rapid
+---
+- launchApp:
+    clearState: true
+
+- assertVisible: "Tearleads"
+
+# Tap the theme switcher button (starts in light mode by default)
+- tapOn: "Toggle theme.*"
+
+# After tapping, theme should switch to dark
+- assertVisible: "Toggle theme (current: dark)"
+
+# Tap again to switch back to light
+- tapOn: "Toggle theme.*"
+
+# Verify we're back to light mode
+- assertVisible: "Toggle theme (current: light)"
