@@ -20,9 +20,22 @@ test.describe('Index page', () => {
     await expect(appContainer).toBeVisible();
   });
 
-  test('should toggle dark mode', async ({ page }) => {
-    const toggleButton = page.getByRole('button', { name: /Toggle theme/ });
-    await expect(toggleButton).toBeVisible();
+  test('should navigate to settings page', async ({ page }) => {
+    const settingsLink = page.getByTestId('settings-link');
+    await expect(settingsLink).toBeVisible();
+
+    await settingsLink.click();
+
+    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+  });
+
+  test('should toggle dark mode from settings', async ({ page }) => {
+    // Navigate to settings
+    await page.getByTestId('settings-link').click();
+    await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
+
+    const toggleSwitch = page.getByTestId('dark-mode-switch');
+    await expect(toggleSwitch).toBeVisible();
 
     // Get initial state
     const htmlElement = page.locator('html');
@@ -31,7 +44,7 @@ test.describe('Index page', () => {
     );
 
     // Toggle
-    await toggleButton.click();
+    await toggleSwitch.click();
 
     // Verify class changed
     const afterToggle = await htmlElement.evaluate((el) =>
@@ -43,19 +56,22 @@ test.describe('Index page', () => {
   test('should change background color when dark mode is toggled', async ({
     page
   }) => {
-    const toggleButton = page.getByRole('button', { name: /Toggle theme/ });
-    const appContainer = page.getByTestId('app-container');
+    // Navigate to settings
+    await page.getByTestId('settings-link').click();
+
+    const toggleSwitch = page.getByTestId('dark-mode-switch');
+    const body = page.locator('body');
 
     // Get initial background color
-    const initialBgColor = await appContainer.evaluate((el) =>
+    const initialBgColor = await body.evaluate((el) =>
       window.getComputedStyle(el).backgroundColor
     );
 
     // Toggle dark mode
-    await toggleButton.click();
+    await toggleSwitch.click();
 
     // Get new background color
-    const newBgColor = await appContainer.evaluate((el) =>
+    const newBgColor = await body.evaluate((el) =>
       window.getComputedStyle(el).backgroundColor
     );
 
@@ -63,10 +79,10 @@ test.describe('Index page', () => {
     expect(newBgColor).not.toBe(initialBgColor);
 
     // Toggle back
-    await toggleButton.click();
+    await toggleSwitch.click();
 
     // Should return to original color
-    const restoredBgColor = await appContainer.evaluate((el) =>
+    const restoredBgColor = await body.evaluate((el) =>
       window.getComputedStyle(el).backgroundColor
     );
     expect(restoredBgColor).toBe(initialBgColor);
