@@ -3,4 +3,11 @@ set -eu
 
 cd "$(dirname "$0")/../packages/client"
 
-pnpm build && pnpm exec cap sync ios && pnpm exec cap run ios --target-name "iPhone 16"
+BUNDLE_ID="com.tearleads.rapid"
+DEVICE="iPhone 16"
+
+pnpm build && pnpm exec cap sync ios && pnpm exec cap run ios --target-name "$DEVICE"
+
+# Restart the app to ensure fresh state
+xcrun simctl terminate booted "$BUNDLE_ID" 2>/dev/null || true
+xcrun simctl launch booted "$BUNDLE_ID"

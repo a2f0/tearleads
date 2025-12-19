@@ -1,5 +1,7 @@
-import { Footer, ThemeSwitcher } from '@rapid/ui';
+import { Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
+import { Settings } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { DebugMenu } from '@/components/ui/debug-menu';
 import { useAppVersion } from '@/hooks/useAppVersion';
 
@@ -18,7 +20,14 @@ function App() {
               <img src={logo} alt="Tearleads" className="h-8 w-8" />
               <h1 className="text-4xl font-bold tracking-tight">Tearleads</h1>
             </div>
-            <ThemeSwitcher />
+            <Link
+              to="/settings"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+              aria-label="Settings"
+              data-testid="settings-link"
+            >
+              <Settings className="h-5 w-5" />
+            </Link>
           </div>
         </div>
       </main>
