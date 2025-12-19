@@ -4,6 +4,7 @@ node_modules/
 # Build outputs
 dist/
 build/
+*.tsbuildinfo
 
 # Generated image assets (web)
 **/public/generated/
