@@ -20,10 +20,8 @@ Commit and push the current changes following these rules:
    - Add emoji or "Generated with Claude Code" footers
    - Use `--no-gpg-sign` or skip signing
 
-4. **GPG signing**: The commit MUST be signed. Use a 5-second timeout:
-   ```
-   timeout 5 git commit -m "message"
-   ```
-   If the commit times out (exit code 124), output an error telling the user to unlock their GPG keychain and DO NOT retry or commit unsigned.
+4. **GPG signing**: The commit MUST be signed. Use a 5-second timeout. For multi-line messages, pipe the content to `git commit`:
+   ```bash
+   printf "subject\n\nbody" | timeout 5 git commit -F -
 
 5. **Push**: After successful commit, push to the current branch's remote.
