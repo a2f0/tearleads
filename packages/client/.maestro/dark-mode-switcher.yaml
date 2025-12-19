@@ -5,8 +5,8 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Navigate to settings page
-- evalScript: document.querySelector('[data-testid="settings-link"]').click()
+# Navigate to settings page via URL (more reliable in WebView)
+- evalScript: window.location.href = '/settings'
 
 # Wait for Settings page to load
 - extendedWaitUntil:
