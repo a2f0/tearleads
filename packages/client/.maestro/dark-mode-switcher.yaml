@@ -16,31 +16,29 @@ appId: com.tearleads.rapid
 # Tap the dark mode switch (starts in light mode by default)
 - evalScript: document.querySelector('[data-testid="dark-mode-switch"]').click()
 
-# Wait for theme transition
-- swipe:
-    direction: DOWN
-    duration: 300
-
-# Verify theme switched to dark
+# Poll until dark mode is applied
 - evalScript: |
-    (function() {
-      var isDark = document.documentElement.classList.contains('dark');
-      if (!isDark) throw new Error('Expected dark mode');
-      return 'ok';
+    (async () => {
+      for (let i = 0; i < 30; i++) {
+        if (document.documentElement.classList.contains('dark')) {
+          return 'ok';
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      throw new Error('Expected dark mode');
     })()
 
 # Tap again to switch back to light
 - evalScript: document.querySelector('[data-testid="dark-mode-switch"]').click()
 
-# Wait for theme transition
-- swipe:
-    direction: DOWN
-    duration: 300
-
-# Verify we're back to light mode
+# Poll until light mode is applied
 - evalScript: |
-    (function() {
-      var isDark = document.documentElement.classList.contains('dark');
-      if (isDark) throw new Error('Expected light mode');
-      return 'ok';
+    (async () => {
+      for (let i = 0; i < 30; i++) {
+        if (!document.documentElement.classList.contains('dark')) {
+          return 'ok';
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      throw new Error('Expected light mode');
     })()
