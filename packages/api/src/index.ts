@@ -1,11 +1,11 @@
 import { formatDate, type HealthData } from '@rapid/shared';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import express, { type Request, type Response } from 'express';
+import express, { type Express, type Request, type Response } from 'express';
 
 dotenv.config();
 
-const app = express();
+const app: Express = express();
 
 const PORT = Number(process.env['PORT']) || 5001;
 
