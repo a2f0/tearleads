@@ -17,7 +17,9 @@ function ThrowOnClick({ message }: { message: string }) {
   }
 
   return (
-    <button onClick={() => setShouldThrow(true)}>Trigger error</button>
+    <button type="button" onClick={() => setShouldThrow(true)}>
+      Trigger error
+    </button>
   );
 }
 

@@ -1,5 +1,5 @@
-import { Component, type ReactNode } from 'react';
 import { X } from 'lucide-react';
+import { Component, type ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
