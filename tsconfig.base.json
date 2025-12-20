@@ -3,7 +3,6 @@
   "extends": "@tsconfig/strictest/tsconfig.json",
   "compilerOptions": {
     "target": "ESNext",
-    "module": "ESNext",
-    "skipLibCheck": true
+    "module": "ESNext"
   }
 }
