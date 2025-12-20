@@ -1,11 +1,13 @@
 import { useTheme } from '@rapid/ui';
 import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAppVersion } from '@/hooks/useAppVersion';
 import { cn } from '@/lib/utils';
 
 export function Settings() {
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
+  const version = useAppVersion();
 
   const handleToggle = () => {
     setTheme(isDark ? 'light' : 'dark');
@@ -53,6 +55,15 @@ export function Settings() {
               />
             </button>
           </div>
+        </div>
+
+        <div className="mt-8 text-center">
+          <p
+            className="text-xs text-muted-foreground/70"
+            data-testid="app-version"
+          >
+            v{version ?? 'unknown'}
+          </p>
         </div>
       </div>
     </div>
