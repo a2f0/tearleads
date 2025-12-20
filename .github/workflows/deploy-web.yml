@@ -28,6 +28,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Install ImageMagick
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
+
+      - name: Generate web image assets
+        run: ./packages/client/scripts/buildWebImageAssets.sh
+
       - name: Build packages
         run: pnpm build
 
