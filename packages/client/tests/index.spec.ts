@@ -8,8 +8,8 @@ const IGNORED_WARNING_PATTERNS: RegExp[] = [
 interface ConsoleMessage {
   level: string;
   text: string;
-  source?: string;
-  url?: string;
+  source?: string | undefined;
+  url?: string | undefined;
 }
 
 async function setupConsoleCapture(page: Page): Promise<ConsoleMessage[]> {
