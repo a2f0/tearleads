@@ -2,7 +2,7 @@ import { formatDate, type HealthData } from '@rapid/shared';
 import { Bug, RefreshCw, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { api } from '@/lib/api';
+import { API_BASE_URL, api } from '@/lib/api';
 
 export function DebugMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -94,6 +94,12 @@ export function DebugMenu() {
 
               <div className="border-t pt-4">
                 <h3 className="text-sm font-semibold mb-2">API Health</h3>
+                <div className="text-sm mb-2">
+                  <span className="font-medium">API URL: </span>
+                  <span className="text-muted-foreground text-xs break-all">
+                    {API_BASE_URL || '(not set)'}
+                  </span>
+                </div>
                 {healthLoading && (
                   <p className="text-sm text-muted-foreground">Loading...</p>
                 )}

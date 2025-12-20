@@ -8,7 +8,8 @@ vi.mock('@/lib/api', () => ({
     health: {
       get: vi.fn()
     }
-  }
+  },
+  API_BASE_URL: 'https://api.example.com/v1'
 }));
 
 import { api } from '@/lib/api';
@@ -54,6 +55,18 @@ describe('DebugMenu', () => {
     expect(screen.getByText(/environment/i)).toBeInTheDocument();
     expect(screen.getByText(/screen/i)).toBeInTheDocument();
     expect(screen.getByText(/user agent/i)).toBeInTheDocument();
+  });
+
+  it('displays the API URL', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.health.get).mockResolvedValue(mockHealthData);
+
+    render(<DebugMenu />);
+
+    await user.click(screen.getByRole('button', { name: /open debug menu/i }));
+
+    expect(screen.getByText(/api url/i)).toBeInTheDocument();
+    expect(screen.getByText('https://api.example.com/v1')).toBeInTheDocument();
   });
 
   it('fetches and displays health data when menu opens', async () => {
