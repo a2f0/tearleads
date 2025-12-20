@@ -21,7 +21,11 @@ Commit and push the current changes following these rules:
    - Use `--no-gpg-sign` or skip signing
 
 4. **GPG signing**: The commit MUST be signed. Use a 5-second timeout. For multi-line messages, pipe the content to `git commit`:
+
    ```bash
    printf "subject\n\nbody" | timeout 5 git commit -F -
+   ```
 
 5. **Push**: After successful commit, push to the current branch's remote.
+
+6. **Open PR**: If NOT on the `main` branch, open a pull request using `gh pr create`. Skip this step if already on `main`.
