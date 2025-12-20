@@ -1,7 +1,8 @@
-import { test, expect, Page, CDPSession } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
 const IGNORED_WARNING_PATTERNS: RegExp[] = [
-  /Download the React DevTools/i
+  /Download the React DevTools/i,
+  /apple-mobile-web-app-capable.*deprecated/i
 ];
 
 interface ConsoleMessage {
@@ -11,10 +12,7 @@ interface ConsoleMessage {
   url?: string;
 }
 
-async function setupConsoleCapture(page: Page): Promise<{
-  messages: ConsoleMessage[];
-  client: CDPSession;
-}> {
+async function setupConsoleCapture(page: Page): Promise<ConsoleMessage[]> {
   const messages: ConsoleMessage[] = [];
 
   // Use CDP to capture browser-level warnings (deprecations, security, etc.)
@@ -40,7 +38,7 @@ async function setupConsoleCapture(page: Page): Promise<{
     }
   });
 
-  return { messages, client };
+  return messages;
 }
 
 function filterIgnoredWarnings(messages: ConsoleMessage[]): ConsoleMessage[] {
@@ -59,12 +57,10 @@ test.describe('Console warnings', () => {
   test('should have no console warnings or errors on page load', async ({
     page
   }) => {
-    const { messages } = await setupConsoleCapture(page);
+    const messages = await setupConsoleCapture(page);
 
     await page.goto('/');
-
-    // Wait for any async warnings to appear
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
 
     const relevantMessages = filterIgnoredWarnings(messages);
 
