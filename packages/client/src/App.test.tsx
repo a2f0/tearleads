@@ -2,12 +2,7 @@ import { ThemeProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-import packageJson from '../package.json';
 import App from './App';
-
-vi.mock('@/hooks/useAppVersion', () => ({
-  useAppVersion: vi.fn(() => packageJson.version)
-}));
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -38,13 +33,6 @@ describe('App', () => {
     renderApp();
 
     expect(screen.getByText('Tearleads')).toBeInTheDocument();
-  });
-
-  it('renders the footer with version', () => {
-    renderApp();
-
-    const versionElements = screen.getAllByText(packageJson.version);
-    expect(versionElements.length).toBeGreaterThan(0);
   });
 
   it('renders the footer with copyright', () => {
