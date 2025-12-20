@@ -27,6 +27,9 @@ if [ -z "${TF_VAR_domain:-}" ]; then
   exit 1
 fi
 
+# Generate web image assets
+./packages/client/scripts/buildWebImageAssets.sh
+
 # Build the client
 pnpm --filter @rapid/client build
 
