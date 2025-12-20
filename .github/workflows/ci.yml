@@ -96,6 +96,32 @@ jobs:
           path: packages/client/playwright-report/
           retention-days: 30
 
+  electron-e2e:
+    name: Electron E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install system dependencies for Electron
+        run: sudo apt-get install -y xvfb libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2t64
+
+      - name: Run Electron tests
+        run: xvfb-run --auto-servernum -- pnpm --filter @rapid/client electron:test
+
   android:
     name: Android Instrumented Tests
     runs-on: ubuntu-latest
