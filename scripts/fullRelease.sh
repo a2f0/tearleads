@@ -51,6 +51,12 @@ pnpm --filter @rapid/client test:maestro:ios
 IOS_END=$(date +%s)
 IOS_TIME=$((IOS_END - IOS_START))
 
+echo "==> Running Electron tests..."
+ELECTRON_START=$(date +%s)
+pnpm --filter @rapid/client electron:test
+ELECTRON_END=$(date +%s)
+ELECTRON_TIME=$((ELECTRON_END - ELECTRON_START))
+
 TOTAL_END=$(date +%s)
 TOTAL_TIME=$((TOTAL_END - TOTAL_START))
 
@@ -63,6 +69,7 @@ echo "Build:          ${BUILD_TIME}s"
 echo "Unit tests:     ${UNIT_TIME}s"
 echo "Android tests:  ${ANDROID_TIME}s"
 echo "iOS tests:      ${IOS_TIME}s"
+echo "Electron tests: ${ELECTRON_TIME}s"
 echo "------------------------------"
 echo "Total:          ${TOTAL_TIME}s"
 echo "=============================="

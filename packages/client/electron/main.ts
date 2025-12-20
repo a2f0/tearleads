@@ -59,7 +59,7 @@ function createWindow(): void {
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL']);
   } else {
-    mainWindow.loadURL(`${protocolScheme}://app/index.html`);
+    mainWindow.loadURL(`${protocolScheme}://app/`);
   }
 }
 
