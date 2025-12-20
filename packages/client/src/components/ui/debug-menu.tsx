@@ -94,9 +94,9 @@ export function DebugMenu() {
 
               <div className="border-t pt-4">
                 <h3 className="text-sm font-semibold mb-2">API Health</h3>
-                <div className="text-sm mb-2">
-                  <span className="font-medium">API URL: </span>
-                  <span className="text-muted-foreground text-xs break-all">
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-muted-foreground">API URL</span>
+                  <span className="text-xs break-all max-w-45 text-right">
                     {API_BASE_URL || '(not set)'}
                   </span>
                 </div>
