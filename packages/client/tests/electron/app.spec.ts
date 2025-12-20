@@ -4,13 +4,14 @@ import {fileURLToPath} from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const mainPath = join(__dirname, '../../out/main/main.js');
+const isCI = !!process.env.CI;
 
 test.describe('Electron App', () => {
   let electronApp: ElectronApplication;
 
   test.beforeEach(async () => {
     electronApp = await electron.launch({
-      args: [mainPath],
+      args: isCI ? [mainPath, '--no-sandbox', '--disable-gpu'] : [mainPath],
     });
   });
 
