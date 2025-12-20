@@ -10,6 +10,7 @@
     { "path": "./packages/ui/tsconfig.test.json" },
     { "path": "./packages/api" },
     { "path": "./packages/client" },
+    { "path": "./packages/client/tsconfig.test.json" },
     { "path": "./packages/website" }
   ],
   "files": []
