@@ -2,6 +2,7 @@ set -e
 
 pnpm lint
 pnpm lint:scripts
+pnpm exec tsc -b
 pnpm build
 
 if ! command -v bundle >/dev/null 2>&1; then
