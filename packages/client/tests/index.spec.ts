@@ -1,4 +1,75 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
+
+const IGNORED_WARNING_PATTERNS: RegExp[] = [
+  /Download the React DevTools/i,
+  /apple-mobile-web-app-capable.*deprecated/i
+];
+
+interface ConsoleMessage {
+  level: string;
+  text: string;
+  source?: string;
+  url?: string;
+}
+
+async function setupConsoleCapture(page: Page): Promise<ConsoleMessage[]> {
+  const messages: ConsoleMessage[] = [];
+
+  // Use CDP to capture browser-level warnings (deprecations, security, etc.)
+  const client = await page.context().newCDPSession(page);
+  await client.send('Log.enable');
+
+  client.on('Log.entryAdded', (event) => {
+    const { level, text, source, url } = event.entry;
+    if (level === 'warning' || level === 'error') {
+      messages.push({ level, text, source, url });
+    }
+  });
+
+  // Capture JavaScript console.warn() and console.error() calls
+  page.on('console', (msg) => {
+    const type = msg.type();
+    if (type === 'warning' || type === 'error') {
+      messages.push({
+        level: type,
+        text: msg.text(),
+        url: msg.location().url
+      });
+    }
+  });
+
+  return messages;
+}
+
+function filterIgnoredWarnings(messages: ConsoleMessage[]): ConsoleMessage[] {
+  return messages.filter(
+    (msg) => !IGNORED_WARNING_PATTERNS.some((pattern) => pattern.test(msg.text))
+  );
+}
+
+function formatMessages(messages: ConsoleMessage[]): string {
+  return messages
+    .map((m) => `[${m.level}] ${m.text}${m.url ? ` (${m.url})` : ''}`)
+    .join('\n');
+}
+
+test.describe('Console warnings', () => {
+  test('should have no console warnings or errors on page load', async ({
+    page
+  }) => {
+    const messages = await setupConsoleCapture(page);
+
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+
+    const relevantMessages = filterIgnoredWarnings(messages);
+
+    expect(
+      relevantMessages,
+      `Found console issues:\n${formatMessages(relevantMessages)}`
+    ).toEqual([]);
+  });
+});
 
 test.describe('Index page', () => {
   test.beforeEach(async ({ page }) => {
