@@ -4,10 +4,9 @@
     "composite": true,
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true,
     "types": ["node"],
     "outDir": "./node_modules/.cache/tsc-node",
     "tsBuildInfoFile": "./node_modules/.cache/tsc-node/tsconfig.node.tsbuildinfo"
   },
-  "include": ["vite.config.ts", "vitest.config.ts", "package.json"]
+  "include": ["vitest.config.ts"]
 }
