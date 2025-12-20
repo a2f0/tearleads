@@ -9,6 +9,11 @@ export function DebugMenu() {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthError, setHealthError] = useState<string | null>(null);
+  const [shouldThrow, setShouldThrow] = useState(false);
+
+  if (shouldThrow) {
+    throw new Error('Test error from debug menu');
+  }
 
   const fetchHealth = useCallback(async () => {
     try {
@@ -34,9 +39,10 @@ export function DebugMenu() {
       <Button
         variant="outline"
         size="icon"
-        className="fixed bottom-4 right-4 z-50 h-10 w-10 rounded-full shadow-lg"
+        className="fixed bottom-28 right-4 z-50 h-10 w-10 rounded-full shadow-lg"
         onClick={() => setIsOpen(true)}
         aria-label="Open debug menu"
+        data-testid="debug-menu-button"
       >
         <Bug className="h-5 w-5" />
       </Button>
@@ -138,7 +144,7 @@ export function DebugMenu() {
                 </Button>
               </div>
 
-              <div className="border-t pt-3">
+              <div className="border-t pt-3 space-y-2">
                 <Button
                   variant="destructive"
                   size="sm"
@@ -149,6 +155,15 @@ export function DebugMenu() {
                   }}
                 >
                   Clear Local Storage
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setShouldThrow(true)}
+                  data-testid="throw-error-button"
+                >
+                  Throw Error
                 </Button>
               </div>
             </div>
