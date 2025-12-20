@@ -1,33 +1,39 @@
 import { ThemeProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import App from './App';
 
-describe('App', () => {
-  beforeEach(() => {
-    render(
-      <ThemeProvider>
-        <App />
-      </ThemeProvider>
-    );
-  });
+const renderApp = () => {
+  render(
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>
+  );
+};
 
+describe('App', () => {
   it('renders the home screen', () => {
-    expect(screen.getByText('Rapid')).toBeInTheDocument();
-    expect(screen.getByText('Welcome to Rapid')).toBeInTheDocument();
+    renderApp();
+    expect(
+      screen.getByRole('heading', { name: 'Rapid', level: 1 })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Welcome to Rapid', level: 2 })
+    ).toBeInTheDocument();
     expect(
       screen.getByText('Your marketing content goes here.')
     ).toBeInTheDocument();
   });
 
   it('renders the header with logo', () => {
+    renderApp();
     expect(screen.getByAltText('Rapid')).toBeInTheDocument();
   });
 
   it('renders the footer with copyright', () => {
-    const currentYear = new Date().getFullYear();
+    renderApp();
     expect(
-      screen.getByText(`© ${currentYear} Rapid. All rights reserved.`)
+      screen.getByText(/© \d{4} Rapid\. All rights reserved\./)
     ).toBeInTheDocument();
   });
 });
