@@ -2,6 +2,7 @@
   "name": "@rapid/client",
   "version": "0.0.3",
   "description": "React client application for Rapid",
+  "main": "out/main/main.js",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -23,7 +24,13 @@
     "test:maestro:android": "../../scripts/runMaestroAndroidTests.sh",
     "test:maestro:ios": "../../scripts/runMaestroIosTests.sh",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "electron:dev": "electron-vite dev",
+    "electron:build": "electron-vite build",
+    "electron:preview": "electron-vite preview",
+    "electron:pack": "electron-vite build && electron-builder --config electron-builder.config.ts",
+    "electron:dist": "electron-vite build && electron-builder --config electron-builder.config.ts --publish=never",
+    "electron:dist:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-vite build && electron-builder --config electron-builder.config.ts --publish=never"
   },
   "dependencies": {
     "@capacitor/app": "8.0.0",
@@ -42,6 +49,8 @@
     "@capacitor/android": "8.0.0",
     "@capacitor/cli": "8.0.0",
     "@capacitor/ios": "8.0.0",
+    "@electron-toolkit/preload": "3.0.2",
+    "@electron-toolkit/utils": "4.0.0",
     "@playwright/test": "1.57.0",
     "@tailwindcss/vite": "4.1.18",
     "@testing-library/jest-dom": "6.9.1",
@@ -52,6 +61,9 @@
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.2",
+    "electron": "39.2.3",
+    "electron-builder": "26.0.12",
+    "electron-vite": "4.0.1",
     "jsdom": "27.3.0",
     "svgo": "4.0.0",
     "tailwindcss": "4.1.18",
