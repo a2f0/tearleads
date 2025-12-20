@@ -1,5 +1,5 @@
 import {promises as fs} from 'node:fs';
-import {extname, join} from 'node:path';
+import {extname, join, resolve} from 'node:path';
 import {electronApp, is, optimizer} from '@electron-toolkit/utils';
 import {app, BrowserWindow, ipcMain, protocol, shell} from 'electron';
 import {getElectronProtocolScheme} from './protocol';
@@ -63,14 +63,15 @@ function createWindow(): void {
   }
 }
 
-// Handle IPC request to open external URLs (HTTPS only)
+// Handle IPC request to open external URLs
 ipcMain.handle('open-external', async (_event, url: string) => {
   try {
     const parsedUrl = new URL(url);
-    if (parsedUrl.protocol === 'https:') {
+    const allowedProtocols = ['https:', 'mailto:'];
+    if (allowedProtocols.includes(parsedUrl.protocol)) {
       await shell.openExternal(url);
     } else {
-      console.error(`Blocked attempt to open non-https URL: ${url}`);
+      console.error(`Blocked attempt to open URL with disallowed protocol: ${url}`);
     }
   } catch {
     console.error(`Blocked attempt to open invalid URL: ${url}`);
@@ -95,8 +96,16 @@ app.whenReady().then(() => {
   // Register the protocol to serve local files
   protocol.handle(protocolScheme, async request => {
     const urlPrefix = `${protocolScheme}://app/`;
-    const filePath = request.url.slice(urlPrefix.length);
-    const fullPath = join(__dirname, '../renderer', filePath || 'index.html');
+    const filePath = request.url.slice(urlPrefix.length) || 'index.html';
+    const rendererDir = resolve(__dirname, '../renderer');
+    const fullPath = resolve(rendererDir, filePath);
+
+    // Security: Prevent path traversal
+    if (!fullPath.startsWith(rendererDir)) {
+      console.error(`Blocked path traversal attempt: ${filePath}`);
+      return new Response('Forbidden', {status: 403});
+    }
+
     try {
       const data = await fs.readFile(fullPath);
       return new Response(data, {
