@@ -10,22 +10,24 @@ function App() {
       className="flex min-h-screen flex-col bg-background safe-area-inset"
       data-testid="app-container"
     >
+      <header className="w-full px-4 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src={logo} alt="Tearleads" className="h-8 w-8" />
+            <h1 className="text-4xl font-bold tracking-tight">Tearleads</h1>
+          </div>
+          <Link
+            to="/settings"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+            aria-label="Settings"
+            data-testid="settings-link"
+          >
+            <Settings className="h-5 w-5" />
+          </Link>
+        </div>
+      </header>
       <main className="flex-1 pb-20">
         <div className="container mx-auto px-4 pb-16 max-w-2xl">
-          <div className="mb-8 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <img src={logo} alt="Tearleads" className="h-8 w-8" />
-              <h1 className="text-4xl font-bold tracking-tight">Tearleads</h1>
-            </div>
-            <Link
-              to="/settings"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
-              aria-label="Settings"
-              data-testid="settings-link"
-            >
-              <Settings className="h-5 w-5" />
-            </Link>
-          </div>
         </div>
       </main>
       <Footer version={undefined}>
