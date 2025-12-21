@@ -35,17 +35,21 @@
     "electron:test:ui": "pnpm electron:build && playwright test --config=playwright.electron.config.ts --ui"
   },
   "dependencies": {
+    "@capacitor-community/sqlite": "7.0.2",
     "@capacitor/app": "8.0.0",
     "@capacitor/core": "8.0.0",
+    "@capacitor/preferences": "8.0.0",
     "@radix-ui/react-slot": "1.2.4",
     "@rapid/shared": "workspace:*",
     "@rapid/ui": "workspace:*",
     "class-variance-authority": "0.7.1",
+    "drizzle-orm": "0.45.1",
     "invariant": "2.2.4",
     "lucide-react": "0.562.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-router-dom": "7.11.0"
+    "react-router-dom": "7.11.0",
+    "wa-sqlite": "1.0.0"
   },
   "devDependencies": {
     "@capacitor/android": "8.0.0",
@@ -58,11 +62,14 @@
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.1",
     "@testing-library/user-event": "14.6.1",
+    "@types/better-sqlite3": "7.6.13",
     "@types/invariant": "2.2.37",
     "@types/node": "25.0.3",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.2",
+    "better-sqlite3-multiple-ciphers": "12.5.0",
+    "drizzle-kit": "0.31.8",
     "electron": "39.2.3",
     "electron-builder": "26.0.12",
     "electron-vite": "4.0.1",

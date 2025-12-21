@@ -3,6 +3,7 @@ import {extname, join, resolve} from 'node:path';
 import {electronApp, is, optimizer} from '@electron-toolkit/utils';
 import {app, BrowserWindow, ipcMain, nativeImage, protocol, shell} from 'electron';
 import {getElectronProtocolScheme} from './protocol';
+import {cleanupSqlite, registerSqliteHandlers} from './sqlite/handler';
 
 declare const __APP_VERSION__: string;
 
@@ -118,6 +119,9 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 app.whenReady().then(() => {
+  // Register SQLite IPC handlers
+  registerSqliteHandlers();
+
   // Register the protocol to serve local files
   protocol.handle(protocolScheme, async request => {
     const urlPrefix = `${protocolScheme}://app/`;
@@ -158,5 +162,6 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  cleanupSqlite();
   if (process.platform !== 'darwin') app.quit();
 });
