@@ -52,6 +52,9 @@ maestro-debug/
 **/fastlane/test_output/
 **/fastlane/README.md
 
+# Ansible
+.ansible/
+
 # Terraform
 **/.terraform/
 *.tfstate
