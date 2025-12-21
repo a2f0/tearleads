@@ -2,7 +2,9 @@ import path from 'node:path';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import {defineConfig, externalizeDepsPlugin} from 'electron-vite';
+import {VitePWA} from 'vite-plugin-pwa';
 import packageJson from './package.json';
+import {pwaOptions} from './pwa.options';
 
 export default defineConfig({
   main: {
@@ -47,6 +49,6 @@ export default defineConfig({
         '@rapid/ui': path.resolve(__dirname, '../ui/src/index.ts'),
       },
     },
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), VitePWA(pwaOptions)],
   },
 });
