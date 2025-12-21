@@ -228,31 +228,45 @@ test.describe('Dropzone', () => {
   });
 });
 
-test.describe('Debug menu', () => {
+test.describe('Debug page', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
   });
 
-  test('should open debug menu when bug button is clicked', async ({ page }) => {
-    const debugButton = page.getByRole('button', { name: 'Open debug menu' });
-    await expect(debugButton).toBeVisible();
+  test('should navigate to debug page when debug link is clicked', async ({
+    page
+  }) => {
+    const debugLink = page.getByTestId('debug-link');
+    await expect(debugLink).toBeVisible();
 
-    await debugButton.click();
+    await debugLink.click();
 
-    const debugMenu = page.getByText('Debug Menu');
-    await expect(debugMenu).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Debug' })).toBeVisible();
   });
 
-  test('should display environment info in debug menu', async ({ page }) => {
-    await page.getByRole('button', { name: 'Open debug menu' }).click();
+  test('should display environment info on debug page', async ({ page }) => {
+    await page.getByTestId('debug-link').click();
 
-    await expect(page.getByText(/Environment/)).toBeVisible();
-    await expect(page.getByText(/Screen/)).toBeVisible();
-    await expect(page.getByText(/User Agent/)).toBeVisible();
+    await expect(page.getByText('Environment Info')).toBeVisible();
+    await expect(page.getByText(/Environment:/)).toBeVisible();
+    await expect(page.getByText(/Screen:/)).toBeVisible();
+    await expect(page.getByText(/User Agent:/)).toBeVisible();
+  });
+
+  test('should display device info on debug page', async ({ page }) => {
+    await page.getByTestId('debug-link').click();
+
+    await expect(page.getByText('Device Info')).toBeVisible();
+    await expect(page.getByText(/Platform:/)).toBeVisible();
+    await expect(page.getByText(/Pixel Ratio:/)).toBeVisible();
+    await expect(page.getByText(/Online:/)).toBeVisible();
+    await expect(page.getByText(/Language:/)).toBeVisible();
+    await expect(page.getByText(/Touch Support:/)).toBeVisible();
+    await expect(page.getByText(/Standalone:/)).toBeVisible();
   });
 
   test('should fetch and display API health status', async ({ page }) => {
-    await page.getByRole('button', { name: 'Open debug menu' }).click();
+    await page.getByTestId('debug-link').click();
 
     // Wait for health data to load (either success or error)
     const healthStatus = page.getByText(/Healthy|Failed to connect to API/);
@@ -262,14 +276,13 @@ test.describe('Debug menu', () => {
   test('should refresh health data when refresh button is clicked', async ({
     page
   }) => {
-    await page.getByRole('button', { name: 'Open debug menu' }).click();
+    await page.getByTestId('debug-link').click();
 
     // Wait for initial load to complete (button becomes enabled)
     const refreshButton = page.getByRole('button', { name: /^Refresh$/ });
     await expect(refreshButton).toBeEnabled({ timeout: 10000 });
 
-    // Force click due to overlapping elements in the scrollable container
-    await refreshButton.click({ force: true });
+    await refreshButton.click();
 
     // Should show refreshing state or remain showing data
     await expect(
@@ -277,25 +290,16 @@ test.describe('Debug menu', () => {
     ).toBeVisible();
   });
 
-  test('should close debug menu when X button is clicked', async ({ page }) => {
-    await page.getByRole('button', { name: 'Open debug menu' }).click();
-    await expect(page.getByText('Debug Menu')).toBeVisible();
+  test('should navigate back to home when logo is clicked', async ({
+    page
+  }) => {
+    await page.getByTestId('debug-link').click();
+    await expect(page.getByRole('heading', { name: 'Debug' })).toBeVisible();
 
-    // Click the X button (not the backdrop)
-    const closeButtons = page.getByRole('button', { name: 'Close debug menu' });
-    await closeButtons.first().click();
+    // Click the logo/title to go back home
+    await page.getByRole('link', { name: 'Tearleads' }).click();
 
-    await expect(page.getByText('Debug Menu')).not.toBeVisible();
-  });
-
-  test('should close debug menu when backdrop is clicked', async ({ page }) => {
-    await page.getByRole('button', { name: 'Open debug menu' }).click();
-    await expect(page.getByText('Debug Menu')).toBeVisible();
-
-    // Click the backdrop (the button covering the screen)
-    const backdrop = page.locator('button.bg-black\\/50');
-    await backdrop.click();
-
-    await expect(page.getByText('Debug Menu')).not.toBeVisible();
+    // Should be back on the home page with dropzone visible
+    await expect(page.getByTestId('dropzone')).toBeVisible();
   });
 });
