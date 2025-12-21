@@ -1,7 +1,7 @@
 import { Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
 import { Settings } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, Outlet } from 'react-router-dom';
 import { DebugMenu } from '@/components/ui/debug-menu';
 
 function App() {
@@ -27,7 +27,9 @@ function App() {
         </div>
       </header>
       <main className="flex-1 pb-20">
-        <div className="container mx-auto px-4 pb-16 max-w-2xl"></div>
+        <div className="container mx-auto px-4 pb-16 max-w-2xl">
+          <Outlet />
+        </div>
       </main>
       <Footer version={undefined}>
         <p>&copy; {new Date().getFullYear()} Tearleads. All rights reserved.</p>
