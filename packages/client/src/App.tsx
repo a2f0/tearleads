@@ -1,14 +1,15 @@
 import { Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
 import { Settings } from 'lucide-react';
+import { useCallback } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { DebugMenu } from '@/components/ui/debug-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 
 function App() {
-  const handleFilesSelected = (files: File[]) => {
+  const handleFilesSelected = useCallback((files: File[]) => {
     console.log('Files selected:', files);
-  };
+  }, []);
 
   return (
     <div
