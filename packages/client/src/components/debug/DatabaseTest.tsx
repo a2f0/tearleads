@@ -1,0 +1,297 @@
+/**
+ * Database testing component for the Debug page.
+ * Provides UI for testing database operations across all platforms.
+ */
+
+import { type ChangeEvent, useCallback, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { getDatabaseAdapter } from '@/db';
+import { useDatabaseContext } from '@/db/hooks';
+
+type TestStatus = 'idle' | 'running' | 'success' | 'error';
+
+interface TestResult {
+  status: TestStatus;
+  message: string;
+}
+
+export function DatabaseTest() {
+  const { isLoading, isSetUp, isUnlocked, setup, unlock, lock, reset } =
+    useDatabaseContext();
+
+  const [password, setPassword] = useState('testpassword123');
+  const [testResult, setTestResult] = useState<TestResult>({
+    status: 'idle',
+    message: ''
+  });
+  const [testData, setTestData] = useState<string | null>(null);
+
+  const handleSetup = useCallback(async () => {
+    setTestResult({ status: 'running', message: 'Setting up database...' });
+    try {
+      const success = await setup(password);
+      if (success) {
+        setTestResult({
+          status: 'success',
+          message: 'Database setup complete'
+        });
+      } else {
+        setTestResult({ status: 'error', message: 'Setup failed' });
+      }
+    } catch (err) {
+      setTestResult({
+        status: 'error',
+        message: `Setup error: ${(err as Error).message}`
+      });
+    }
+  }, [password, setup]);
+
+  const handleUnlock = useCallback(async () => {
+    setTestResult({ status: 'running', message: 'Unlocking database...' });
+    try {
+      const success = await unlock(password);
+      if (success) {
+        setTestResult({ status: 'success', message: 'Database unlocked' });
+      } else {
+        setTestResult({ status: 'error', message: 'Wrong password' });
+      }
+    } catch (err) {
+      setTestResult({
+        status: 'error',
+        message: `Unlock error: ${(err as Error).message}`
+      });
+    }
+  }, [password, unlock]);
+
+  const handleLock = useCallback(async () => {
+    setTestResult({ status: 'running', message: 'Locking database...' });
+    try {
+      await lock();
+      setTestResult({ status: 'success', message: 'Database locked' });
+      setTestData(null);
+    } catch (err) {
+      setTestResult({
+        status: 'error',
+        message: `Lock error: ${(err as Error).message}`
+      });
+    }
+  }, [lock]);
+
+  const handleReset = useCallback(async () => {
+    setTestResult({ status: 'running', message: 'Resetting database...' });
+    try {
+      await reset();
+      setTestResult({ status: 'success', message: 'Database reset complete' });
+      setTestData(null);
+    } catch (err) {
+      setTestResult({
+        status: 'error',
+        message: `Reset error: ${(err as Error).message}`
+      });
+    }
+  }, [reset]);
+
+  const handleWriteData = useCallback(async () => {
+    if (!isUnlocked) {
+      setTestResult({ status: 'error', message: 'Database not unlocked' });
+      return;
+    }
+
+    setTestResult({ status: 'running', message: 'Writing test data...' });
+    try {
+      const adapter = getDatabaseAdapter();
+      const testValue = `test-value-${Date.now()}`;
+
+      // Use the adapter to insert a test setting
+      await adapter.execute(
+        `INSERT OR REPLACE INTO user_settings (key, value, updated_at) VALUES (?, ?, ?)`,
+        ['test_key', testValue, Date.now()]
+      );
+
+      setTestData(testValue);
+      setTestResult({
+        status: 'success',
+        message: `Wrote test data: ${testValue}`
+      });
+    } catch (err) {
+      setTestResult({
+        status: 'error',
+        message: `Write error: ${(err as Error).message}`
+      });
+    }
+  }, [isUnlocked]);
+
+  const handleReadData = useCallback(async () => {
+    if (!isUnlocked) {
+      setTestResult({ status: 'error', message: 'Database not unlocked' });
+      return;
+    }
+
+    setTestResult({ status: 'running', message: 'Reading test data...' });
+    try {
+      const adapter = getDatabaseAdapter();
+      const result = await adapter.execute(
+        `SELECT value FROM user_settings WHERE key = ?`,
+        ['test_key']
+      );
+
+      if (result.rows.length > 0) {
+        const value = (result.rows[0] as { value: string }).value;
+        setTestData(value);
+        setTestResult({
+          status: 'success',
+          message: `Read test data: ${value}`
+        });
+      } else {
+        setTestData(null);
+        setTestResult({ status: 'success', message: 'No test data found' });
+      }
+    } catch (err) {
+      setTestResult({
+        status: 'error',
+        message: `Read error: ${(err as Error).message}`
+      });
+    }
+  }, [isUnlocked]);
+
+  const getStatusColor = (status: TestStatus) => {
+    switch (status) {
+      case 'success':
+        return 'text-green-600';
+      case 'error':
+        return 'text-red-600';
+      case 'running':
+        return 'text-yellow-600';
+      default:
+        return 'text-muted-foreground';
+    }
+  };
+
+  const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+  };
+
+  return (
+    <div
+      className="rounded-lg border p-4 space-y-3"
+      data-testid="database-test"
+    >
+      <h2 className="font-medium">Database Test</h2>
+
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Status</span>
+          <span data-testid="db-status">
+            {isLoading
+              ? 'Loading...'
+              : isUnlocked
+                ? 'Unlocked'
+                : isSetUp
+                  ? 'Locked'
+                  : 'Not Set Up'}
+          </span>
+        </div>
+        {testData && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Test Data</span>
+            <span
+              data-testid="db-test-data"
+              className="text-xs truncate max-w-[150px]"
+            >
+              {testData}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={handlePasswordChange}
+          data-testid="db-password-input"
+          className="w-full px-3 py-2 text-sm border rounded-md bg-background"
+        />
+
+        <div className="grid grid-cols-2 gap-2">
+          {!isSetUp && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSetup}
+              disabled={isLoading || !password}
+              data-testid="db-setup-button"
+            >
+              Setup
+            </Button>
+          )}
+
+          {isSetUp && !isUnlocked && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleUnlock}
+              disabled={isLoading || !password}
+              data-testid="db-unlock-button"
+            >
+              Unlock
+            </Button>
+          )}
+
+          {isUnlocked && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLock}
+                disabled={isLoading}
+                data-testid="db-lock-button"
+              >
+                Lock
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleWriteData}
+                disabled={isLoading}
+                data-testid="db-write-button"
+              >
+                Write Data
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReadData}
+                disabled={isLoading}
+                data-testid="db-read-button"
+              >
+                Read Data
+              </Button>
+            </>
+          )}
+
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleReset}
+            disabled={isLoading}
+            data-testid="db-reset-button"
+          >
+            Reset
+          </Button>
+        </div>
+      </div>
+
+      {testResult.message && (
+        <div
+          className={`text-sm ${getStatusColor(testResult.status)}`}
+          data-testid="db-test-result"
+          data-status={testResult.status}
+        >
+          {testResult.message}
+        </div>
+      )}
+    </div>
+  );
+}

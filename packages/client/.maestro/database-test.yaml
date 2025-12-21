@@ -1,0 +1,247 @@
+appId: com.tearleads.rapid
+---
+# Database Test - Tests SQLite database operations on native platforms
+
+- launchApp:
+    clearState: true
+
+- assertVisible: "Tearleads"
+
+# Navigate to debug page
+- evalScript: document.querySelector('[data-testid="debug-link"]').click()
+
+# Wait for debug page to load
+- extendedWaitUntil:
+    visible: "Database Test"
+    timeout: 10000
+
+# Reset database to ensure clean state
+- evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
+
+# Wait for reset to complete
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 50; i++) {
+        const result = document.querySelector('[data-testid="db-test-result"]');
+        if (result && result.getAttribute('data-status') === 'success') {
+          return 'ok';
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      throw new Error('Reset did not complete');
+    })()
+
+# Verify database is in "Not Set Up" state
+- evalScript: |
+    (async () => {
+      const status = document.querySelector('[data-testid="db-status"]');
+      if (status && status.textContent === 'Not Set Up') {
+        return 'ok';
+      }
+      throw new Error('Expected "Not Set Up" status, got: ' + (status ? status.textContent : 'null'));
+    })()
+
+# Enter password
+- evalScript: |
+    const input = document.querySelector('[data-testid="db-password-input"]');
+    input.value = 'testpassword123';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+# Click setup button
+- evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
+
+# Wait for setup to complete
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 50; i++) {
+        const result = document.querySelector('[data-testid="db-test-result"]');
+        if (result && result.getAttribute('data-status') === 'success') {
+          return 'ok';
+        }
+        if (result && result.getAttribute('data-status') === 'error') {
+          throw new Error('Setup failed: ' + result.textContent);
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      throw new Error('Setup did not complete');
+    })()
+
+# Verify database is unlocked
+- evalScript: |
+    (async () => {
+      const status = document.querySelector('[data-testid="db-status"]');
+      if (status && status.textContent === 'Unlocked') {
+        return 'ok';
+      }
+      throw new Error('Expected "Unlocked" status, got: ' + (status ? status.textContent : 'null'));
+    })()
+
+# Write test data
+- evalScript: document.querySelector('[data-testid="db-write-button"]').click()
+
+# Wait for write to complete
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 50; i++) {
+        const result = document.querySelector('[data-testid="db-test-result"]');
+        if (result && result.getAttribute('data-status') === 'success' && result.textContent.includes('Wrote test data:')) {
+          return 'ok';
+        }
+        if (result && result.getAttribute('data-status') === 'error') {
+          throw new Error('Write failed: ' + result.textContent);
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      throw new Error('Write did not complete');
+    })()
+
+# Verify test data is displayed
+- evalScript: |
+    (async () => {
+      const testData = document.querySelector('[data-testid="db-test-data"]');
+      if (testData && /^test-value-\d+$/.test(testData.textContent)) {
+        window.__writtenValue = testData.textContent;
+        return 'ok';
+      }
+      throw new Error('Expected test data, got: ' + (testData ? testData.textContent : 'null'));
+    })()
+
+# Read test data
+- evalScript: document.querySelector('[data-testid="db-read-button"]').click()
+
+# Wait for read to complete
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 50; i++) {
+        const result = document.querySelector('[data-testid="db-test-result"]');
+        if (result && result.getAttribute('data-status') === 'success' && result.textContent.includes('Read test data:')) {
+          return 'ok';
+        }
+        if (result && result.getAttribute('data-status') === 'error') {
+          throw new Error('Read failed: ' + result.textContent);
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      throw new Error('Read did not complete');
+    })()
+
+# Verify read value matches written value
+- evalScript: |
+    (async () => {
+      const testData = document.querySelector('[data-testid="db-test-data"]');
+      if (testData && testData.textContent === window.__writtenValue) {
+        return 'ok';
+      }
+      throw new Error('Read value does not match written value. Expected: ' + window.__writtenValue + ', got: ' + (testData ? testData.textContent : 'null'));
+    })()
+
+# Lock the database
+- evalScript: document.querySelector('[data-testid="db-lock-button"]').click()
+
+# Wait for lock to complete
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 50; i++) {
+        const status = document.querySelector('[data-testid="db-status"]');
+        if (status && status.textContent === 'Locked') {
+          return 'ok';
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      throw new Error('Lock did not complete');
+    })()
+
+# Unlock with password
+- evalScript: document.querySelector('[data-testid="db-unlock-button"]').click()
+
+# Wait for unlock to complete
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 50; i++) {
+        const status = document.querySelector('[data-testid="db-status"]');
+        if (status && status.textContent === 'Unlocked') {
+          return 'ok';
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      throw new Error('Unlock did not complete');
+    })()
+
+# Read data again to verify persistence across lock/unlock
+- evalScript: document.querySelector('[data-testid="db-read-button"]').click()
+
+# Verify data persisted
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 50; i++) {
+        const result = document.querySelector('[data-testid="db-test-result"]');
+        const testData = document.querySelector('[data-testid="db-test-data"]');
+        if (result && result.getAttribute('data-status') === 'success' && testData && testData.textContent === window.__writtenValue) {
+          return 'ok';
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      throw new Error('Data did not persist across lock/unlock');
+    })()
+
+# Test wrong password
+- evalScript: document.querySelector('[data-testid="db-lock-button"]').click()
+
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 50; i++) {
+        const status = document.querySelector('[data-testid="db-status"]');
+        if (status && status.textContent === 'Locked') {
+          return 'ok';
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      throw new Error('Lock did not complete');
+    })()
+
+# Enter wrong password
+- evalScript: |
+    const input = document.querySelector('[data-testid="db-password-input"]');
+    input.value = 'wrongpassword';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+# Try to unlock with wrong password
+- evalScript: document.querySelector('[data-testid="db-unlock-button"]').click()
+
+# Verify error
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 50; i++) {
+        const result = document.querySelector('[data-testid="db-test-result"]');
+        if (result && result.getAttribute('data-status') === 'error' && result.textContent.includes('Wrong password')) {
+          return 'ok';
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      throw new Error('Expected wrong password error');
+    })()
+
+# Verify database is still locked
+- evalScript: |
+    (async () => {
+      const status = document.querySelector('[data-testid="db-status"]');
+      if (status && status.textContent === 'Locked') {
+        return 'ok';
+      }
+      throw new Error('Expected "Locked" status after wrong password');
+    })()
+
+# Reset database to clean up
+- evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
+
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 50; i++) {
+        const status = document.querySelector('[data-testid="db-status"]');
+        if (status && status.textContent === 'Not Set Up') {
+          return 'ok';
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      throw new Error('Reset did not complete');
+    })()
