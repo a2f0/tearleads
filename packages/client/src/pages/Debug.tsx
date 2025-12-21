@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { API_BASE_URL, api } from '@/lib/api';
+import { detectPlatform } from '@/lib/utils';
 
 export function Debug() {
   const [health, setHealth] = useState<HealthData | null>(null);
@@ -84,6 +85,46 @@ export function Debug() {
               <span className="font-medium">User Agent: </span>
               <span className="text-muted-foreground text-xs break-all">
                 {navigator.userAgent}
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-lg border p-4 space-y-3">
+            <h2 className="font-medium">Device Info</h2>
+            <div className="text-sm">
+              <span className="font-medium">Platform: </span>
+              <span className="text-muted-foreground">{detectPlatform()}</span>
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">Pixel Ratio: </span>
+              <span className="text-muted-foreground">
+                {window.devicePixelRatio}x
+              </span>
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">Online: </span>
+              <span className="text-muted-foreground">
+                {navigator.onLine ? 'Yes' : 'No'}
+              </span>
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">Language: </span>
+              <span className="text-muted-foreground">
+                {navigator.language}
+              </span>
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">Touch Support: </span>
+              <span className="text-muted-foreground">
+                {'ontouchstart' in window ? 'Yes' : 'No'}
+              </span>
+            </div>
+            <div className="text-sm">
+              <span className="font-medium">Standalone: </span>
+              <span className="text-muted-foreground">
+                {window.matchMedia('(display-mode: standalone)').matches
+                  ? 'Yes'
+                  : 'No'}
               </span>
             </div>
           </div>
