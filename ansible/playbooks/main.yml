@@ -19,7 +19,7 @@
 
   tasks:
     - name: Add GitHub Actions deploy key to authorized_keys
-      ansible.builtin.authorized_key:
+      ansible.posix.authorized_key:
         user: "{{ lookup('env', 'TF_VAR_server_username') | mandatory('TF_VAR_server_username environment variable is required') }}"
         state: present
         key: "{{ deploy_public_key }}"
@@ -90,7 +90,7 @@
 
     - name: Deploy rapid-api systemd service
       ansible.builtin.template:
-        src: ../templates/rapid-api.service.j2
+        src: rapid-api.service.j2
         dest: /etc/systemd/system/rapid-api.service
         owner: root
         group: root
@@ -115,7 +115,7 @@
 
     - name: Deploy nginx vhosts
       ansible.builtin.template:
-        src: ../templates/nginx-vhost.conf.j2
+        src: nginx-vhost.conf.j2
         dest: "/etc/nginx/sites-available/{{ item }}.conf"
         owner: root
         group: root
@@ -140,7 +140,7 @@
     # API nginx configuration
     - name: Deploy nginx API reverse proxy config
       ansible.builtin.template:
-        src: ../templates/nginx-api.conf.j2
+        src: nginx-api.conf.j2
         dest: /etc/nginx/sites-available/api.conf
         owner: root
         group: root
