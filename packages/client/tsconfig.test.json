@@ -2,16 +2,14 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "composite": true,
-    "module": "ESNext",
+    "types": ["node"],
     "moduleResolution": "bundler",
     "noEmit": false,
     "emitDeclarationOnly": true,
-    "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
     "outDir": "./dist-tests",
     "tsBuildInfoFile": "./dist-tests/.tsbuildinfo"
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["tests/**/*"]
 }

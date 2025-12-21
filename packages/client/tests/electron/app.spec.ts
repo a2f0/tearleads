@@ -4,7 +4,7 @@ import {fileURLToPath} from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const mainPath = join(__dirname, '../../out/main/main.js');
-const isCI = !!process.env.CI;
+const isCI = !!process.env['CI'];
 const APP_LOAD_TIMEOUT = 10000;
 
 test.describe('Electron App', () => {
