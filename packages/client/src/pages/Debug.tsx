@@ -10,6 +10,10 @@ export function Debug() {
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthError, setHealthError] = useState<string | null>(null);
   const [shouldThrow, setShouldThrow] = useState(false);
+  const [screenSize, setScreenSize] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight
+  });
 
   if (shouldThrow) {
     throw new Error('Test error from debug menu');
@@ -21,7 +25,8 @@ export function Debug() {
       setHealthError(null);
       const data = await api.health.get();
       setHealth(data);
-    } catch (_err) {
+    } catch (err) {
+      console.error('Failed to fetch API health:', err);
       setHealthError('Failed to connect to API');
     } finally {
       setHealthLoading(false);
@@ -33,6 +38,18 @@ export function Debug() {
       fetchHealth();
     }
   }, [health, healthLoading, fetchHealth]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setScreenSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
     <div className="flex min-h-screen flex-col bg-background safe-area-inset">
@@ -60,7 +77,7 @@ export function Debug() {
             <div className="text-sm">
               <span className="font-medium">Screen: </span>
               <span className="text-muted-foreground">
-                {window.innerWidth} x {window.innerHeight}
+                {screenSize.width} x {screenSize.height}
               </span>
             </div>
             <div className="text-sm">
