@@ -160,6 +160,74 @@ test.describe('Index page', () => {
   });
 });
 
+test.describe('Dropzone', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+  });
+
+  test('should display the dropzone', async ({ page }) => {
+    const dropzone = page.getByTestId('dropzone');
+    await expect(dropzone).toBeVisible();
+    await expect(page.getByText('Drag and drop files here')).toBeVisible();
+    await expect(page.getByText('or click to browse')).toBeVisible();
+  });
+
+  test('should open file picker when dropzone is clicked', async ({ page }) => {
+    const dropzone = page.getByTestId('dropzone');
+    const fileInput = page.locator('input[type="file"]');
+
+    // Set up a file chooser listener
+    const fileChooserPromise = page.waitForEvent('filechooser');
+
+    await dropzone.click();
+
+    const fileChooser = await fileChooserPromise;
+    expect(fileChooser).toBeTruthy();
+  });
+
+  test('should accept files via file input', async ({ page }) => {
+    const fileInput = page.locator('input[type="file"]');
+
+    // Create a test file and set it on the input
+    await fileInput.setInputFiles({
+      name: 'test.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('test content')
+    });
+
+    // The file should be selected (we're just testing the input works)
+    // In a real app, we'd verify the callback was called
+  });
+
+  test('should show dragging state on dragover', async ({ page }) => {
+    const dropzone = page.getByTestId('dropzone');
+
+    // Verify initial state
+    await expect(dropzone).toHaveAttribute('data-dragging', 'false');
+
+    // Simulate dragover
+    await dropzone.dispatchEvent('dragover');
+
+    // Verify dragging state
+    await expect(dropzone).toHaveAttribute('data-dragging', 'true');
+    await expect(page.getByText('Drop files here')).toBeVisible();
+  });
+
+  test('should remove dragging state on dragleave', async ({ page }) => {
+    const dropzone = page.getByTestId('dropzone');
+
+    // Set dragging state
+    await dropzone.dispatchEvent('dragover');
+    await expect(dropzone).toHaveAttribute('data-dragging', 'true');
+
+    // Simulate dragleave
+    await dropzone.dispatchEvent('dragleave');
+
+    // Verify dragging state removed
+    await expect(dropzone).toHaveAttribute('data-dragging', 'false');
+  });
+});
+
 test.describe('Debug menu', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
