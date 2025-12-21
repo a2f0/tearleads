@@ -38,6 +38,20 @@ jobs:
       - name: Lint RuboCop
         run: pnpm lint:rubocop
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: '.python-version'
+
+      - name: Install ansible-lint
+        run: pip install ansible-lint ansible
+
+      - name: Install Ansible collections
+        run: ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Lint Ansible
+        run: pnpm lint:ansible
+
       - name: Type check
         run: pnpm exec tsc -b
 
