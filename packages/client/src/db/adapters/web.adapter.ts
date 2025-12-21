@@ -1,0 +1,223 @@
+/**
+ * Web adapter for SQLite using wa-sqlite in a Web Worker.
+ */
+
+import type {
+  WorkerRequest,
+  WorkerResponse
+} from '@/workers/sqlite.worker.interface';
+import { generateRequestId } from '@/workers/sqlite.worker.interface';
+
+import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
+
+interface PendingRequest {
+  resolve: (value: unknown) => void;
+  reject: (error: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+}
+
+const REQUEST_TIMEOUT = 30000; // 30 seconds
+
+export class WebAdapter implements DatabaseAdapter {
+  private worker: Worker | null = null;
+  private pending = new Map<string, PendingRequest>();
+  private isReady = false;
+  private readyPromise: Promise<void> | null = null;
+
+  async initialize(config: DatabaseConfig): Promise<void> {
+    // Create the worker
+    this.worker = new Worker(
+      new URL('../../workers/sqlite.worker.ts', import.meta.url),
+      { type: 'module' }
+    );
+
+    // Set up message handler
+    this.worker.onmessage = this.handleMessage.bind(this);
+    this.worker.onerror = this.handleError.bind(this);
+
+    // Wait for worker to be ready
+    await this.waitForReady();
+
+    // Initialize the database
+    const id = generateRequestId();
+    await this.sendRequest({
+      type: 'INIT',
+      id,
+      config: {
+        name: config.name,
+        encryptionKey: Array.from(config.encryptionKey)
+      }
+    });
+  }
+
+  private waitForReady(): Promise<void> {
+    if (this.isReady) return Promise.resolve();
+
+    if (!this.readyPromise) {
+      this.readyPromise = new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Worker initialization timeout'));
+        }, REQUEST_TIMEOUT);
+
+        const checkReady = (event: MessageEvent<WorkerResponse>) => {
+          if (event.data.type === 'READY') {
+            clearTimeout(timeout);
+            this.isReady = true;
+            this.worker?.removeEventListener('message', checkReady);
+            resolve();
+          }
+        };
+
+        this.worker?.addEventListener('message', checkReady);
+      });
+    }
+
+    return this.readyPromise;
+  }
+
+  private handleMessage(event: MessageEvent<WorkerResponse>): void {
+    const response = event.data;
+
+    // Skip READY messages (handled separately)
+    if (response.type === 'READY') return;
+
+    // Find the pending request
+    const id = 'id' in response ? response.id : null;
+    if (!id) return;
+
+    const pending = this.pending.get(id);
+    if (!pending) return;
+
+    // Clear timeout and remove from pending
+    clearTimeout(pending.timeout);
+    this.pending.delete(id);
+
+    // Resolve or reject based on response type
+    if (response.type === 'ERROR') {
+      pending.reject(new Error(response.error));
+    } else if (response.type === 'RESULT') {
+      pending.resolve(response.data);
+    } else {
+      pending.resolve(undefined);
+    }
+  }
+
+  private handleError(error: ErrorEvent): void {
+    console.error('Worker error:', error);
+
+    // Reject all pending requests
+    for (const [id, pending] of this.pending) {
+      clearTimeout(pending.timeout);
+      pending.reject(new Error(`Worker error: ${error.message}`));
+      this.pending.delete(id);
+    }
+  }
+
+  private sendRequest(request: WorkerRequest): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      if (!this.worker) {
+        reject(new Error('Worker not initialized'));
+        return;
+      }
+
+      const id = 'id' in request ? request.id : generateRequestId();
+
+      const timeout = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`Request timeout: ${request.type}`));
+      }, REQUEST_TIMEOUT);
+
+      this.pending.set(id, { resolve, reject, timeout });
+      this.worker.postMessage(request);
+    });
+  }
+
+  async close(): Promise<void> {
+    if (this.worker) {
+      const id = generateRequestId();
+      await this.sendRequest({ type: 'CLOSE', id });
+      this.worker.terminate();
+      this.worker = null;
+    }
+
+    this.isReady = false;
+    this.readyPromise = null;
+  }
+
+  isOpen(): boolean {
+    return this.worker !== null && this.isReady;
+  }
+
+  async execute(sql: string, params?: unknown[]): Promise<QueryResult> {
+    const id = generateRequestId();
+    const result = await this.sendRequest({
+      type: 'EXECUTE',
+      id,
+      query: { sql, params: params ?? [], method: 'all' }
+    });
+
+    return result as QueryResult;
+  }
+
+  async executeMany(statements: string[]): Promise<void> {
+    const id = generateRequestId();
+    await this.sendRequest({
+      type: 'EXECUTE_MANY',
+      id,
+      statements
+    });
+  }
+
+  async beginTransaction(): Promise<void> {
+    const id = generateRequestId();
+    await this.sendRequest({ type: 'BEGIN_TRANSACTION', id });
+  }
+
+  async commitTransaction(): Promise<void> {
+    const id = generateRequestId();
+    await this.sendRequest({ type: 'COMMIT', id });
+  }
+
+  async rollbackTransaction(): Promise<void> {
+    const id = generateRequestId();
+    await this.sendRequest({ type: 'ROLLBACK', id });
+  }
+
+  async rekeyDatabase(newKey: Uint8Array): Promise<void> {
+    const id = generateRequestId();
+    await this.sendRequest({
+      type: 'REKEY',
+      id,
+      newKey: Array.from(newKey)
+    });
+  }
+
+  getConnection(): unknown {
+    // For Drizzle sqlite-proxy, we return a function that executes queries
+    return async (
+      sql: string,
+      params: unknown[],
+      method: 'all' | 'get' | 'run'
+    ) => {
+      const id = generateRequestId();
+      const result = (await this.sendRequest({
+        type: 'EXECUTE',
+        id,
+        query: { sql, params, method }
+      })) as QueryResult;
+
+      if (method === 'run') {
+        return {
+          changes: result.changes,
+          lastInsertRowId: result.lastInsertRowId
+        };
+      }
+
+      if (method === 'get') {
+        return result.rows[0] ?? null;
+      }
+
+      return result.rows;
+    };
+  }
+}

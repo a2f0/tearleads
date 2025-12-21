@@ -27,6 +27,19 @@ export default defineConfig({
   },
   clearScreen: false,
   server: {
-    port: 3000
-  }
+    port: 3000,
+    headers: {
+      // Required for SharedArrayBuffer (used by some WASM implementations)
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp'
+    }
+  },
+  worker: {
+    format: 'es'
+  },
+  optimizeDeps: {
+    // Don't pre-bundle WASM modules
+    exclude: ['wa-sqlite']
+  },
+  assetsInclude: ['**/*.wasm']
 });

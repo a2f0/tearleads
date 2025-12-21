@@ -6,8 +6,25 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    iosScheme: 'https',
+    iosScheme: 'https'
   },
+  plugins: {
+    CapacitorSQLite: {
+      // Enable encryption on iOS
+      iosIsEncryption: true,
+      // Enable encryption on Android
+      androidIsEncryption: true,
+      // Use memory security (wipe database from memory on close)
+      iosKeychainPrefix: 'com.tearleads.rapid',
+      // Biometric authentication (optional, can enable later)
+      iosBiometric: {
+        biometricAuth: false
+      },
+      androidBiometric: {
+        biometricAuth: false
+      }
+    }
+  }
 };
 
 export default config;
