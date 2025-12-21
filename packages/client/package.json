@@ -32,7 +32,8 @@
     "electron:dist": "electron-vite build && electron-builder --config electron-builder.config.ts --publish=never",
     "electron:dist:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-vite build && electron-builder --config electron-builder.config.ts --publish=never",
     "electron:test": "pnpm electron:build && playwright test --config=playwright.electron.config.ts",
-    "electron:test:ui": "pnpm electron:build && playwright test --config=playwright.electron.config.ts --ui"
+    "electron:test:ui": "pnpm electron:build && playwright test --config=playwright.electron.config.ts --ui",
+    "postinstall": "electron-rebuild -o better-sqlite3-multiple-ciphers"
   },
   "dependencies": {
     "@capacitor-community/sqlite": "7.0.2",
@@ -57,6 +58,7 @@
     "@capacitor/ios": "8.0.0",
     "@electron-toolkit/preload": "3.0.2",
     "@electron-toolkit/utils": "4.0.0",
+    "@electron/rebuild": "4.0.2",
     "@playwright/test": "1.57.0",
     "@tailwindcss/vite": "4.1.18",
     "@testing-library/jest-dom": "6.9.1",

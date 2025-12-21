@@ -73,6 +73,12 @@ export interface DatabaseAdapter {
    * The type varies by platform.
    */
   getConnection(): unknown;
+
+  /**
+   * Delete the database file.
+   * Used during reset to ensure a clean slate.
+   */
+  deleteDatabase?(name: string): Promise<void>;
 }
 
 /**
