@@ -1,5 +1,5 @@
 import { Upload } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 import { cn, detectPlatform } from '@/lib/utils';
 
 import { Button } from './button';
@@ -19,6 +19,7 @@ export function Dropzone({
 }: DropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputId = useId();
   const platform = detectPlatform();
   const isNative = platform === 'ios' || platform === 'android';
 
@@ -67,6 +68,18 @@ export function Dropzone({
     [handleFiles]
   );
 
+  const fileInput = (
+    <input
+      id={inputId}
+      ref={inputRef}
+      type="file"
+      accept={accept}
+      multiple={multiple}
+      onChange={handleChange}
+      className="hidden"
+    />
+  );
+
   if (isNative) {
     return (
       <div className={cn('flex flex-col items-center gap-4', className)}>
@@ -74,20 +87,14 @@ export function Dropzone({
           <Upload className="mr-2 h-5 w-5" />
           Choose Files
         </Button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept={accept}
-          multiple={multiple}
-          onChange={handleChange}
-          className="hidden"
-        />
+        {fileInput}
       </div>
     );
   }
 
   return (
     <label
+      htmlFor={inputId}
       data-slot="dropzone"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -111,14 +118,7 @@ export function Dropzone({
         </p>
         <p className="text-xs text-muted-foreground">or click to browse</p>
       </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={accept}
-        multiple={multiple}
-        onChange={handleChange}
-        className="hidden"
-      />
+      {fileInput}
     </label>
   );
 }
