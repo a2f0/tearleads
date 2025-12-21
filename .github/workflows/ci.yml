@@ -38,6 +38,9 @@ jobs:
       - name: Lint RuboCop
         run: pnpm lint:rubocop
 
+      - name: Type check
+        run: pnpm exec tsc -b
+
       - name: Build
         run: pnpm build
 
