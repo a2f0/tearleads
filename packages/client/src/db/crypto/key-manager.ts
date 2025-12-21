@@ -138,55 +138,51 @@ class WebKeyStorage implements KeyStorageAdapter {
  * Electron storage adapter using safeStorage API via IPC.
  */
 class ElectronKeyStorage implements KeyStorageAdapter {
-  async getSalt(): Promise<Uint8Array | null> {
-    const api = (
+  private getApi() {
+    return (
       window as unknown as {
-        electron?: { getSalt?: () => Promise<number[] | null> };
+        electron?: {
+          sqlite?: {
+            getSalt?: () => Promise<number[] | null>;
+            setSalt?: (salt: number[]) => Promise<void>;
+            getKeyCheckValue?: () => Promise<string | null>;
+            setKeyCheckValue?: (kcv: string) => Promise<void>;
+            clearKeyStorage?: () => Promise<void>;
+          };
+        };
       }
-    ).electron;
+    ).electron?.sqlite;
+  }
+
+  async getSalt(): Promise<Uint8Array | null> {
+    const api = this.getApi();
     if (!api?.getSalt) return null;
     const stored = await api.getSalt();
     return stored ? new Uint8Array(stored) : null;
   }
 
   async setSalt(salt: Uint8Array): Promise<void> {
-    const api = (
-      window as unknown as {
-        electron?: { setSalt?: (salt: number[]) => Promise<void> };
-      }
-    ).electron;
+    const api = this.getApi();
     if (api?.setSalt) {
       await api.setSalt(Array.from(salt));
     }
   }
 
   async getKeyCheckValue(): Promise<string | null> {
-    const api = (
-      window as unknown as {
-        electron?: { getKeyCheckValue?: () => Promise<string | null> };
-      }
-    ).electron;
+    const api = this.getApi();
     if (!api?.getKeyCheckValue) return null;
     return api.getKeyCheckValue();
   }
 
   async setKeyCheckValue(kcv: string): Promise<void> {
-    const api = (
-      window as unknown as {
-        electron?: { setKeyCheckValue?: (kcv: string) => Promise<void> };
-      }
-    ).electron;
+    const api = this.getApi();
     if (api?.setKeyCheckValue) {
       await api.setKeyCheckValue(kcv);
     }
   }
 
   async clear(): Promise<void> {
-    const api = (
-      window as unknown as {
-        electron?: { clearKeyStorage?: () => Promise<void> };
-      }
-    ).electron;
+    const api = this.getApi();
     if (api?.clearKeyStorage) {
       await api.clearKeyStorage();
     }
@@ -194,95 +190,33 @@ class ElectronKeyStorage implements KeyStorageAdapter {
 }
 
 /**
- * Capacitor storage adapter using secure storage plugin.
- * Falls back to WebKeyStorage if plugin not available.
+ * Capacitor storage adapter.
+ * Uses IndexedDB (WebKeyStorage) which works reliably in mobile WebViews.
+ * Note: @capacitor/preferences has compatibility issues with dynamic imports,
+ * and IndexedDB provides sufficient persistence for encryption salt storage.
  */
 class CapacitorKeyStorage implements KeyStorageAdapter {
-  private fallback = new WebKeyStorage();
-
-  private async getPlugin(): Promise<unknown | null> {
-    try {
-      // Dynamic import to avoid bundling in non-native builds
-      // Uses @capacitor/preferences which stores in iOS Keychain / Android SharedPreferences
-      const { Preferences } = await import('@capacitor/preferences');
-      return Preferences;
-    } catch {
-      return null;
-    }
-  }
+  // Use IndexedDB directly - it works well in Capacitor WebViews
+  private storage = new WebKeyStorage();
 
   async getSalt(): Promise<Uint8Array | null> {
-    const plugin = await this.getPlugin();
-    if (!plugin) return this.fallback.getSalt();
-
-    try {
-      const result = await (
-        plugin as { get: (opts: { key: string }) => Promise<{ value: string }> }
-      ).get({
-        key: SALT_STORAGE_KEY
-      });
-      return result?.value
-        ? new Uint8Array(JSON.parse(result.value) as number[])
-        : null;
-    } catch {
-      return null;
-    }
+    return this.storage.getSalt();
   }
 
   async setSalt(salt: Uint8Array): Promise<void> {
-    const plugin = await this.getPlugin();
-    if (!plugin) return this.fallback.setSalt(salt);
-
-    await (
-      plugin as {
-        set: (opts: { key: string; value: string }) => Promise<void>;
-      }
-    ).set({
-      key: SALT_STORAGE_KEY,
-      value: JSON.stringify(Array.from(salt))
-    });
+    return this.storage.setSalt(salt);
   }
 
   async getKeyCheckValue(): Promise<string | null> {
-    const plugin = await this.getPlugin();
-    if (!plugin) return this.fallback.getKeyCheckValue();
-
-    try {
-      const result = await (
-        plugin as { get: (opts: { key: string }) => Promise<{ value: string }> }
-      ).get({
-        key: KEY_CHECK_VALUE
-      });
-      return result?.value ?? null;
-    } catch {
-      return null;
-    }
+    return this.storage.getKeyCheckValue();
   }
 
   async setKeyCheckValue(kcv: string): Promise<void> {
-    const plugin = await this.getPlugin();
-    if (!plugin) return this.fallback.setKeyCheckValue(kcv);
-
-    await (
-      plugin as {
-        set: (opts: { key: string; value: string }) => Promise<void>;
-      }
-    ).set({
-      key: KEY_CHECK_VALUE,
-      value: kcv
-    });
+    return this.storage.setKeyCheckValue(kcv);
   }
 
   async clear(): Promise<void> {
-    const plugin = await this.getPlugin();
-    if (!plugin) return this.fallback.clear();
-
-    // Clear just our keys, not all preferences
-    const preferences = plugin as {
-      remove: (opts: { key: string }) => Promise<void>;
-    };
-    await preferences.remove({ key: SALT_STORAGE_KEY });
-    await preferences.remove({ key: KEY_CHECK_VALUE });
+    return this.storage.clear();
   }
 }
 

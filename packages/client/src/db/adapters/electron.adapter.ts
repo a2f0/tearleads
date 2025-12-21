@@ -19,6 +19,7 @@ interface ElectronSqliteApi {
     commit: () => Promise<void>;
     rollback: () => Promise<void>;
     rekey: (newKey: number[]) => Promise<void>;
+    deleteDatabase: (name: string) => Promise<void>;
   };
 }
 
@@ -108,5 +109,11 @@ export class ElectronAdapter implements DatabaseAdapter {
 
       return result.rows;
     };
+  }
+
+  async deleteDatabase(name: string): Promise<void> {
+    const api = getElectronApi();
+    await api.sqlite.deleteDatabase(name);
+    this.initialized = false;
   }
 }

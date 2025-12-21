@@ -226,7 +226,35 @@ export async function changePassword(
  * Reset the database (for testing or complete wipe).
  */
 export async function resetDatabase(): Promise<void> {
+  // Store adapter reference before closing
+  const adapter = adapterInstance;
+
   await closeDatabase();
+
+  // Delete the database file if adapter supports it
+  if (adapter?.deleteDatabase) {
+    await adapter.deleteDatabase('rapid');
+  } else {
+    // For Electron, try to delete the database file directly
+    // even if no adapter was initialized
+    const platformInfo = getCurrentPlatform();
+    if (platformInfo.platform === 'electron') {
+      try {
+        const electronApi = (
+          window as unknown as {
+            electron?: {
+              sqlite?: { deleteDatabase: (name: string) => Promise<void> };
+            };
+          }
+        ).electron?.sqlite;
+        if (electronApi?.deleteDatabase) {
+          await electronApi.deleteDatabase('rapid');
+        }
+      } catch {
+        // Ignore errors if the file doesn't exist
+      }
+    }
+  }
 
   const keyManager = getKeyManager();
   await keyManager.reset();

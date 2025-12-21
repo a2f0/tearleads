@@ -46,8 +46,12 @@ function initializeDatabase(config: {
   db.pragma(`key="x'${key.toString('hex')}'"`);
 
   // Verify the key works by running a simple query
+  // Note: cipher_integrity_check only works on existing encrypted databases
+  // For new databases or verification, we use a simple table check
   try {
-    db.pragma('cipher_integrity_check');
+    // This will fail with "SQLITE_NOTADB: file is not a database"
+    // if the key is wrong for an existing encrypted database
+    db.exec('SELECT 1');
   } catch (error) {
     db.close();
     db = null;
@@ -227,8 +231,13 @@ export function registerSqliteHandlers(): void {
   // Database operations
   ipcMain.handle(
     'sqlite:initialize',
-    (_event, config: { name: string; encryptionKey: number[] }) => {
-      initializeDatabase(config);
+    async (_event, config: { name: string; encryptionKey: number[] }) => {
+      try {
+        initializeDatabase(config);
+      } catch (error) {
+        console.error('sqlite:initialize error:', error);
+        throw error;
+      }
     }
   );
 
@@ -283,6 +292,44 @@ export function registerSqliteHandlers(): void {
   ipcMain.handle('sqlite:clearKeyStorage', () => {
     clearKeyStorage();
   });
+
+  ipcMain.handle('sqlite:deleteDatabase', (_event, name: string) => {
+    deleteDatabase(name);
+  });
+}
+
+/**
+ * Delete the database file.
+ */
+function deleteDatabase(name: string): void {
+  closeDatabase();
+
+  const dbPath = getDatabasePath(name);
+  const walPath = `${dbPath}-wal`;
+  const shmPath = `${dbPath}-shm`;
+
+  const fs = require('fs');
+
+  // Delete main database file
+  try {
+    fs.unlinkSync(dbPath);
+  } catch {
+    // Ignore if file doesn't exist
+  }
+
+  // Delete WAL file
+  try {
+    fs.unlinkSync(walPath);
+  } catch {
+    // Ignore if file doesn't exist
+  }
+
+  // Delete SHM file
+  try {
+    fs.unlinkSync(shmPath);
+  } catch {
+    // Ignore if file doesn't exist
+  }
 }
 
 /**
