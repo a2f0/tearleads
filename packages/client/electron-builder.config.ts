@@ -6,9 +6,11 @@ const config: Configuration = {
   directories: {
     output: 'dist-electron',
   },
-  files: ['out/**/*', 'package.json'],
+  files: ['out/**/*', 'build/icons/**/*', 'package.json'],
   npmRebuild: false,
+  icon: 'build/icons/icon',
   mac: {
+    icon: 'build/icons/icon.icns',
     category: 'public.app-category.productivity',
     target: [
       {
@@ -18,6 +20,7 @@ const config: Configuration = {
     ],
   },
   win: {
+    icon: 'build/icons/icon.ico',
     target: [
       {
         target: 'nsis',
@@ -26,6 +29,7 @@ const config: Configuration = {
     ],
   },
   linux: {
+    icon: 'build/icons/icon.png',
     category: 'Utility',
     target: [
       {
