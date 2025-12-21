@@ -27,7 +27,7 @@
     }
   },
   "files": {
-    "includes": ["packages/**/src/**/*.{ts,tsx}"],
+    "includes": ["packages/**/src/**/*.{ts,tsx}", "!**/dist-tests"],
     "ignoreUnknown": true
   },
   "assist": {
