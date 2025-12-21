@@ -185,7 +185,7 @@ test.describe('Dropzone', () => {
   });
 
   test('should accept files via file input', async ({ page }) => {
-    const fileInput = page.locator('input[type="file"]');
+    const fileInput = page.getByTestId('dropzone-input');
 
     // Create a test file and set it on the input
     await fileInput.setInputFiles({
@@ -194,8 +194,9 @@ test.describe('Dropzone', () => {
       buffer: Buffer.from('test content')
     });
 
-    // The file should be selected (we're just testing the input works)
-    // In a real app, we'd verify the callback was called
+    // Verify the dropzone is still functional after file selection
+    // (the current implementation logs to console, so we verify the UI remains stable)
+    await expect(page.getByTestId('dropzone')).toBeVisible();
   });
 
   test('should show dragging state on dragover', async ({ page }) => {
