@@ -1,12 +1,19 @@
 import {promises as fs} from 'node:fs';
 import {extname, join, resolve} from 'node:path';
 import {electronApp, is, optimizer} from '@electron-toolkit/utils';
-import {app, BrowserWindow, ipcMain, protocol, shell} from 'electron';
+import {app, BrowserWindow, ipcMain, nativeImage, protocol, shell} from 'electron';
 import {getElectronProtocolScheme} from './protocol';
 
 let mainWindow: BrowserWindow | null = null;
 
 const protocolScheme = getElectronProtocolScheme(is.dev);
+
+// Get the app icon path - works for both dev and production
+function getIconPath(): string {
+  // In dev: __dirname is .../out/main, so ../../build/icons
+  // In prod: __dirname is .../app.asar/out/main, so ../../build/icons
+  return resolve(__dirname, '../../build/icons/icon.png');
+}
 
 function getContentType(filePath: string): string {
   const ext = extname(filePath).substring(1).toLowerCase();
@@ -29,6 +36,8 @@ function getContentType(filePath: string): string {
 }
 
 function createWindow(): void {
+  const iconPath = getIconPath();
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -36,12 +45,21 @@ function createWindow(): void {
     minHeight: 667,
     show: false,
     autoHideMenuBar: true,
+    icon: iconPath,
     webPreferences: {
       preload: join(__dirname, '../preload/preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+
+  // Set dock icon on macOS
+  if (process.platform === 'darwin' && app.dock) {
+    const icon = nativeImage.createFromPath(iconPath);
+    if (!icon.isEmpty()) {
+      app.dock.setIcon(icon);
+    }
+  }
 
   mainWindow.on('ready-to-show', () => {
     if (mainWindow) {
