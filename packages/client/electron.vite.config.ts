@@ -8,6 +8,9 @@ import {pwaOptions} from './pwa.options';
 
 export default defineConfig({
   main: {
+    define: {
+      __APP_VERSION__: JSON.stringify(packageJson.version),
+    },
     build: {
       lib: {
         entry: 'electron/main.ts',
