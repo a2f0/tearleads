@@ -18,6 +18,7 @@
     "lint:fix": "biome check --write .",
     "lint:scripts": "shellcheck --severity=info scripts/*.sh && pnpm --filter @rapid/client lint:scripts",
     "lint:rubocop": "pnpm --filter @rapid/client lint:rubocop",
+    "lint:ansible": "ansible-lint ansible/",
     "format": "biome format --write .",
     "prepare": "husky"
   },
