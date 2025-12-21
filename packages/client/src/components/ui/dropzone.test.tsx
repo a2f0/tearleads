@@ -118,26 +118,22 @@ describe('Dropzone', () => {
     });
   });
 
-  describe('Native version (iOS/Android)', () => {
+  describe.each([
+    'ios',
+    'android'
+  ] as const)('Native version on %s', (platform) => {
     beforeEach(() => {
-      vi.mocked(detectPlatform).mockReturnValue('ios');
+      vi.mocked(detectPlatform).mockReturnValue(platform);
     });
 
-    it('renders the Choose Files button on iOS', () => {
+    it('renders the Choose Files button', () => {
       render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
 
       expect(screen.getByTestId('dropzone-choose-files')).toBeInTheDocument();
       expect(screen.getByText('Choose Files')).toBeInTheDocument();
     });
 
-    it('renders the Choose Files button on Android', () => {
-      vi.mocked(detectPlatform).mockReturnValue('android');
-      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
-
-      expect(screen.getByTestId('dropzone-choose-files')).toBeInTheDocument();
-    });
-
-    it('does not show drag and drop text on native', () => {
+    it('does not show drag and drop text', () => {
       render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
 
       expect(
