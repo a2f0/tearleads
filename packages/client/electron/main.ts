@@ -10,12 +10,9 @@ const protocolScheme = getElectronProtocolScheme(is.dev);
 
 // Get the app icon path - works for both dev and production
 function getIconPath(): string {
-  if (is.dev) {
-    // In dev mode, resolve from the client package directory
-    return resolve(__dirname, '../../build/icons/icon.png');
-  }
-  // In production, the icon is bundled by electron-builder
-  return resolve(__dirname, '../build/icons/icon.png');
+  // In dev: __dirname is .../out/main, so ../../build/icons
+  // In prod: __dirname is .../app.asar/out/main, so ../../build/icons
+  return resolve(__dirname, '../../build/icons/icon.png');
 }
 
 function getContentType(filePath: string): string {
