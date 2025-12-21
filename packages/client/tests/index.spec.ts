@@ -253,6 +253,18 @@ test.describe('Debug page', () => {
     await expect(page.getByText(/User Agent:/)).toBeVisible();
   });
 
+  test('should display device info on debug page', async ({ page }) => {
+    await page.getByTestId('debug-link').click();
+
+    await expect(page.getByText('Device Info')).toBeVisible();
+    await expect(page.getByText(/Platform:/)).toBeVisible();
+    await expect(page.getByText(/Pixel Ratio:/)).toBeVisible();
+    await expect(page.getByText(/Online:/)).toBeVisible();
+    await expect(page.getByText(/Language:/)).toBeVisible();
+    await expect(page.getByText(/Touch Support:/)).toBeVisible();
+    await expect(page.getByText(/Standalone:/)).toBeVisible();
+  });
+
   test('should fetch and display API health status', async ({ page }) => {
     await page.getByTestId('debug-link').click();
 
