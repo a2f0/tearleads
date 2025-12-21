@@ -1,0 +1,18 @@
+appId: com.tearleads.rapid
+---
+- launchApp:
+    clearState: true
+
+- assertVisible: "Tearleads"
+
+# On native, the dropzone should show the "Choose Files" button
+- assertVisible: "Choose Files"
+
+# Verify the drag-and-drop text is NOT visible (native uses button instead)
+- assertNotVisible: "Drag and drop files here"
+
+# Tap the Choose Files button to open the file picker
+- tapOn: "Choose Files"
+
+# The file picker will open - we can't interact with it in Maestro
+# but we've verified the button works
