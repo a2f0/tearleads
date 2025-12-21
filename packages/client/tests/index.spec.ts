@@ -174,7 +174,6 @@ test.describe('Dropzone', () => {
 
   test('should open file picker when dropzone is clicked', async ({ page }) => {
     const dropzone = page.getByTestId('dropzone');
-    const fileInput = page.locator('input[type="file"]');
 
     // Set up a file chooser listener
     const fileChooserPromise = page.waitForEvent('filechooser');
