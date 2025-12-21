@@ -4,6 +4,8 @@ import {electronApp, is, optimizer} from '@electron-toolkit/utils';
 import {app, BrowserWindow, ipcMain, nativeImage, protocol, shell} from 'electron';
 import {getElectronProtocolScheme} from './protocol';
 
+declare const __APP_VERSION__: string;
+
 let mainWindow: BrowserWindow | null = null;
 
 const protocolScheme = getElectronProtocolScheme(is.dev);
@@ -63,6 +65,9 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     if (mainWindow) {
+      const title = `Tearleads v${__APP_VERSION__}`;
+      mainWindow.setTitle(title);
+      mainWindow.webContents.executeJavaScript(`document.title = ${JSON.stringify(title)}`);
       mainWindow.show();
     }
   });
