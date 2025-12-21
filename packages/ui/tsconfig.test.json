@@ -12,6 +12,6 @@
     "outDir": "./dist-tests",
     "tsBuildInfoFile": "./dist-tests/.tsbuildinfo"
   },
-  "include": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**/*", "src/**/*.ts", "src/**/*.tsx"],
+  "include": ["src/test/**/*", "src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["node_modules", "dist"]
 }
