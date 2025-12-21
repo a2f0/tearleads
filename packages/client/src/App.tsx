@@ -27,8 +27,7 @@ function App() {
         </div>
       </header>
       <main className="flex-1 pb-20">
-        <div className="container mx-auto px-4 pb-16 max-w-2xl">
-        </div>
+        <div className="container mx-auto px-4 pb-16 max-w-2xl"></div>
       </main>
       <Footer version={undefined}>
         <p>&copy; {new Date().getFullYear()} Tearleads. All rights reserved.</p>
