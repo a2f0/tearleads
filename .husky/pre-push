@@ -6,13 +6,13 @@ pnpm exec tsc -b
 pnpm build
 
 if ! command -v bundle >/dev/null 2>&1; then
-  echo "Error: bundle is not installed. Please install Ruby and Bundler."
+  echo "Error: bundle is not installed. Please install Ruby and Bundler." >&2
   exit 1
 fi
 pnpm lint:rubocop
 
 if ! command -v ansible-lint >/dev/null 2>&1; then
-  echo "Error: ansible-lint is not installed. Run: pipx install ansible-lint && pipx inject ansible-lint ansible"
+  echo "Error: ansible-lint is not installed. Run: pipx install ansible-lint && pipx inject ansible-lint ansible" >&2
   exit 1
 fi
 pnpm lint:ansible
