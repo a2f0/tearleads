@@ -1,0 +1,271 @@
+import {
+  test,
+  expect,
+  _electron as electron,
+  ElectronApplication,
+  Page
+} from '@playwright/test';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const mainPath = join(__dirname, '../../out/main/main.js');
+const isCI = !!process.env['CI'];
+
+const TEST_PASSWORD = 'testpassword123';
+const DB_OPERATION_TIMEOUT = 15000;
+const APP_LOAD_TIMEOUT = 10000;
+
+test.describe('Database (Electron)', () => {
+  let electronApp: ElectronApplication;
+  let window: Page;
+
+  test.beforeEach(async () => {
+    electronApp = await electron.launch({
+      args: isCI ? [mainPath, '--no-sandbox', '--disable-gpu'] : [mainPath]
+    });
+    window = await electronApp.firstWindow();
+
+    // Wait for app to load
+    await expect(
+      window.getByRole('heading', { name: 'Tearleads', level: 1 })
+    ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
+
+    // Navigate to debug page
+    await window.getByTestId('debug-link').click();
+    await expect(window.getByTestId('database-test')).toBeVisible();
+
+    // Reset the database to ensure clean state
+    const resetButton = window.getByTestId('db-reset-button');
+    await resetButton.click();
+
+    // Wait for reset to complete
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+  });
+
+  test.afterEach(async () => {
+    await electronApp.close();
+  });
+
+  test('should setup a new database with password', async () => {
+    // Verify initial state
+    await expect(window.getByTestId('db-status')).toHaveText('Not Set Up');
+
+    // Enter password
+    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+
+    // Click setup button
+    const setupButton = window.getByTestId('db-setup-button');
+    await expect(setupButton).toBeVisible();
+    await setupButton.click();
+
+    // Wait for setup to complete
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+
+    // Verify database is now unlocked
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked');
+    await expect(window.getByTestId('db-test-result')).toContainText(
+      'Database setup complete'
+    );
+  });
+
+  test('should write and read data from database', async () => {
+    // Setup database first
+    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await window.getByTestId('db-setup-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Write data
+    const writeButton = window.getByTestId('db-write-button');
+    await expect(writeButton).toBeVisible();
+    await writeButton.click();
+
+    // Wait for write to complete
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+
+    // Verify test data is displayed
+    await expect(window.getByTestId('db-test-data')).toBeVisible();
+    const writtenValue = await window.getByTestId('db-test-data').textContent();
+    expect(writtenValue).toMatch(/^test-value-\d+$/);
+
+    // Read data
+    await window.getByTestId('db-read-button').click();
+
+    // Wait for read to complete
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+
+    // Verify the read value matches the written value
+    const readValue = await window.getByTestId('db-test-data').textContent();
+    expect(readValue).toBe(writtenValue);
+  });
+
+  test('should lock and unlock database', async () => {
+    // Setup database first
+    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await window.getByTestId('db-setup-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Lock the database
+    await window.getByTestId('db-lock-button').click();
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+    await expect(window.getByTestId('db-status')).toHaveText('Locked');
+
+    // Unlock the database
+    await window.getByTestId('db-unlock-button').click();
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked');
+  });
+
+  test('should fail to unlock with wrong password', async () => {
+    // Setup database first
+    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await window.getByTestId('db-setup-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Lock the database
+    await window.getByTestId('db-lock-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Locked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Try to unlock with wrong password
+    await window.getByTestId('db-password-input').fill('wrongpassword');
+    await window.getByTestId('db-unlock-button').click();
+
+    // Verify error
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'error',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+    await expect(window.getByTestId('db-test-result')).toContainText(
+      'Wrong password'
+    );
+    await expect(window.getByTestId('db-status')).toHaveText('Locked');
+  });
+
+  test('should persist data across lock/unlock cycles', async () => {
+    // Setup and write data
+    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await window.getByTestId('db-setup-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    await window.getByTestId('db-write-button').click();
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+    const writtenValue = await window.getByTestId('db-test-data').textContent();
+
+    // Lock and unlock
+    await window.getByTestId('db-lock-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Locked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    await window.getByTestId('db-unlock-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Read and verify data persisted
+    await window.getByTestId('db-read-button').click();
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+    const readValue = await window.getByTestId('db-test-data').textContent();
+
+    expect(readValue).toBe(writtenValue);
+  });
+
+  test('should persist data across app restarts', async () => {
+    // Setup and write data
+    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await window.getByTestId('db-setup-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    await window.getByTestId('db-write-button').click();
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+    const writtenValue = await window.getByTestId('db-test-data').textContent();
+
+    // Close the app
+    await electronApp.close();
+
+    // Relaunch the app
+    electronApp = await electron.launch({
+      args: isCI ? [mainPath, '--no-sandbox', '--disable-gpu'] : [mainPath]
+    });
+    window = await electronApp.firstWindow();
+
+    // Navigate to debug page
+    await expect(
+      window.getByRole('heading', { name: 'Tearleads', level: 1 })
+    ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
+    await window.getByTestId('debug-link').click();
+    await expect(window.getByTestId('database-test')).toBeVisible();
+
+    // Database should be in "Locked" state (set up but not unlocked)
+    await expect(window.getByTestId('db-status')).toHaveText('Locked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Unlock with password
+    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await window.getByTestId('db-unlock-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Read and verify data persisted
+    await window.getByTestId('db-read-button').click();
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+    const readValue = await window.getByTestId('db-test-data').textContent();
+
+    expect(readValue).toBe(writtenValue);
+  });
+});
