@@ -9,30 +9,15 @@ appId: com.tearleads.rapid
 - assertVisible: "Choose Files"
 
 # Verify the native dropzone container is present
-- evalScript: |
-    (async () => {
-      for (let i = 0; i < 30; i++) {
-        const el = document.querySelector('[data-testid="dropzone-native"]');
-        if (el) {
-          return 'ok';
-        }
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      throw new Error('Expected dropzone-native element');
-    })()
+- assertVisible:
+    id: "dropzone-native"
 
 # Verify the drag-and-drop text is NOT visible (native uses button instead)
-- evalScript: |
-    (async () => {
-      const dragText = document.body.innerText.includes('Drag and drop files here');
-      if (dragText) {
-        throw new Error('Drag and drop text should not be visible on native');
-      }
-      return 'ok';
-    })()
+- assertNotVisible: "Drag and drop files here"
 
 # Tap the Choose Files button to open the file picker
-- evalScript: document.querySelector('[data-testid="dropzone-choose-files"]').click()
+- tapOn:
+    id: "dropzone-choose-files"
 
 # The file picker will open - we can't interact with it in Maestro
 # but we've verified the button works
