@@ -290,19 +290,16 @@ test.describe('Debug page', () => {
     ).toBeVisible();
   });
 
-  test('should navigate back to home when back button is clicked', async ({
+  test('should navigate back to home when logo is clicked', async ({
     page
   }) => {
     await page.getByTestId('debug-link').click();
     await expect(page.getByRole('heading', { name: 'Debug' })).toBeVisible();
 
-    // Click the back button
-    const backButton = page.getByRole('link', { name: 'Go back' });
-    await backButton.click();
+    // Click the logo/title to go back home
+    await page.getByRole('link', { name: 'Tearleads' }).click();
 
-    // Should be back on the home page
-    await expect(
-      page.getByRole('heading', { name: 'Tearleads', level: 1 })
-    ).toBeVisible();
+    // Should be back on the home page with dropzone visible
+    await expect(page.getByTestId('dropzone')).toBeVisible();
   });
 });
