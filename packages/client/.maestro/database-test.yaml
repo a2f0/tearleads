@@ -1,6 +1,7 @@
 appId: com.tearleads.rapid
 ---
 # Database Test - Tests SQLite database operations on native platforms
+# Uses evalScript for DOM interaction as Maestro's extendedWaitUntil doesn't work reliably with Capacitor WebViews
 
 - launchApp:
     clearState: true
@@ -10,10 +11,16 @@ appId: com.tearleads.rapid
 # Navigate to debug page
 - evalScript: document.querySelector('[data-testid="debug-link"]').click()
 
-# Wait for debug page to load
-- extendedWaitUntil:
-    visible: "Database Test"
-    timeout: 10000
+# Wait for Debug page to load by checking for DatabaseTest component
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 50; i++) {
+        const dbTest = document.querySelector('[data-testid="database-test"]');
+        if (dbTest) return 'ok';
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      throw new Error('Database Test component not found');
+    })()
 
 # Reset database to ensure clean state
 - evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
