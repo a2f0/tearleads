@@ -89,8 +89,9 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       setIsSetUp(true);
       return true;
     } catch (err) {
+      console.error('Database setup error:', err);
       setError(err as Error);
-      return false;
+      throw err; // Re-throw so caller can see the error
     } finally {
       setIsLoading(false);
     }

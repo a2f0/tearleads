@@ -43,6 +43,9 @@ const sqlite = {
   clearKeyStorage: (): Promise<void> => {
     return ipcRenderer.invoke('sqlite:clearKeyStorage');
   },
+  deleteDatabase: (name: string): Promise<void> => {
+    return ipcRenderer.invoke('sqlite:deleteDatabase', name);
+  },
 };
 
 // Custom APIs for renderer
