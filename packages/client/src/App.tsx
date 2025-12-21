@@ -3,8 +3,13 @@ import logo from '@rapid/ui/logo.svg';
 import { Settings } from 'lucide-react';
 import { Link, Outlet } from 'react-router-dom';
 import { DebugMenu } from '@/components/ui/debug-menu';
+import { Dropzone } from '@/components/ui/dropzone';
 
 function App() {
+  const handleFilesSelected = (files: File[]) => {
+    console.log('Files selected:', files);
+  };
+
   return (
     <div
       className="flex min-h-screen flex-col bg-background safe-area-inset"
@@ -28,6 +33,7 @@ function App() {
       </header>
       <main className="flex-1 pb-20">
         <div className="container mx-auto px-4 pb-16 max-w-2xl">
+          <Dropzone onFilesSelected={handleFilesSelected} className="mb-8" />
           <Outlet />
         </div>
       </main>
