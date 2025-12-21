@@ -41,7 +41,6 @@ function createWindow(): void {
   const iconPath = getIconPath();
 
   mainWindow = new BrowserWindow({
-    title: `Tearleads v${__APP_VERSION__}`,
     width: 1200,
     height: 800,
     minWidth: 375,
