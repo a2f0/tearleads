@@ -77,13 +77,22 @@ export function Dropzone({
       multiple={multiple}
       onChange={handleChange}
       className="hidden"
+      data-testid="dropzone-input"
     />
   );
 
   if (isNative) {
     return (
-      <div className={cn('flex flex-col items-center gap-4', className)}>
-        <Button onClick={handleClick} variant="outline" size="lg">
+      <div
+        data-testid="dropzone-native"
+        className={cn('flex flex-col items-center gap-4', className)}
+      >
+        <Button
+          onClick={handleClick}
+          variant="outline"
+          size="lg"
+          data-testid="dropzone-choose-files"
+        >
           <Upload className="mr-2 h-5 w-5" />
           Choose Files
         </Button>
@@ -95,7 +104,9 @@ export function Dropzone({
   return (
     <label
       htmlFor={inputId}
+      data-testid="dropzone"
       data-slot="dropzone"
+      data-dragging={isDragging}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
