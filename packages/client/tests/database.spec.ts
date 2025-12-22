@@ -3,13 +3,12 @@ import { test, expect } from '@playwright/test';
 const TEST_PASSWORD = 'testpassword123';
 const DB_OPERATION_TIMEOUT = 15000;
 
-// Skip database tests in CI - WASM with web workers in headless Chrome is unreliable.
-// Database functionality is tested via Electron E2E tests (native SQLite) and
-// mobile Maestro tests.
-const isCI = !!process.env['CI'];
+// Requirements for web database tests:
+// - Browser: Chrome 102+, Edge 102+, Firefox 111+, or Safari 15.2+
+// - Headers: Cross-Origin-Opener-Policy: same-origin, Cross-Origin-Embedder-Policy: require-corp
+// - Playwright must launch Chrome with --enable-features=SharedArrayBuffer
 
 test.describe('Database (Web)', () => {
-  test.skip(isCI, 'Skipping WASM database tests in CI - tested via Electron E2E instead');
   test.beforeEach(async ({ page }) => {
     // Navigate to the debug page where database test UI is located
     await page.goto('/debug');

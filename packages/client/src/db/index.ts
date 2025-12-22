@@ -76,7 +76,9 @@ async function initializeDatabaseWithKey(
   encryptionKey: Uint8Array
 ): Promise<Database> {
   const platformInfo = getCurrentPlatform();
-  const adapter = await createAdapter(platformInfo);
+
+  // Reuse existing adapter if available (keeps worker/WASM memory alive on web)
+  const adapter = adapterInstance ?? (await createAdapter(platformInfo));
 
   await adapter.initialize({
     name: 'rapid',
@@ -185,11 +187,14 @@ export function getDatabaseAdapter(): DatabaseAdapter {
 
 /**
  * Close the database connection.
+ * Note: On web, the adapter is preserved to keep the worker/WASM memory alive.
+ * This allows data to persist across lock/unlock cycles within a session.
  */
 export async function closeDatabase(): Promise<void> {
   if (adapterInstance) {
     await adapterInstance.close();
-    adapterInstance = null;
+    // Don't null out the adapter - keep it for potential unlock
+    // The worker stays alive with the encrypted file in WASM VFS
   }
   databaseInstance = null;
 
@@ -255,6 +260,16 @@ export async function resetDatabase(): Promise<void> {
       }
     }
   }
+
+  // Terminate the worker to destroy WASM memory (web platform)
+  if (
+    adapter &&
+    'terminate' in adapter &&
+    typeof adapter.terminate === 'function'
+  ) {
+    adapter.terminate();
+  }
+  adapterInstance = null;
 
   const keyManager = getKeyManager();
   await keyManager.reset();

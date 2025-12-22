@@ -19,7 +19,17 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        // Use system Chrome instead of bundled Chromium for better OPFS/encryption support
+        channel: 'chrome',
+        launchOptions: {
+          args: [
+            // Ensure SharedArrayBuffer is available for OPFS VFS
+            '--enable-features=SharedArrayBuffer',
+          ],
+        },
+      },
     },
   ],
 
