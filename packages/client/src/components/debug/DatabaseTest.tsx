@@ -3,8 +3,8 @@
  * Provides UI for testing database operations across all platforms.
  */
 
-import { type ChangeEvent, useCallback, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import { type ChangeEvent, useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
