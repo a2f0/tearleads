@@ -54,6 +54,42 @@ appId: com.tearleads.rapid
     input.value = 'testpassword123';
     input.dispatchEvent(new Event('input', { bubbles: true }));
 
+# Test password visibility toggle
+- evalScript: |
+    const input = document.querySelector('[data-testid="db-password-input"]');
+    if (input.type !== 'password') {
+      throw new Error('Expected password to be hidden initially, got type: ' + input.type);
+    }
+    return 'ok';
+
+# Click eye icon to show password
+- evalScript: |
+    const button = document.querySelector('[aria-label="Show password"]');
+    if (!button) throw new Error('Show password button not found');
+    button.click();
+
+# Verify password is now visible
+- evalScript: |
+    const input = document.querySelector('[data-testid="db-password-input"]');
+    if (input.type !== 'text') {
+      throw new Error('Expected password to be visible, got type: ' + input.type);
+    }
+    return 'ok';
+
+# Click eye icon to hide password again
+- evalScript: |
+    const button = document.querySelector('[aria-label="Hide password"]');
+    if (!button) throw new Error('Hide password button not found');
+    button.click();
+
+# Verify password is hidden again
+- evalScript: |
+    const input = document.querySelector('[data-testid="db-password-input"]');
+    if (input.type !== 'password') {
+      throw new Error('Expected password to be hidden, got type: ' + input.type);
+    }
+    return 'ok';
+
 # Click setup button
 - evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
 
