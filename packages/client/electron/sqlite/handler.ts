@@ -3,8 +3,9 @@
  * Uses better-sqlite3-multiple-ciphers for encrypted database operations.
  */
 
-import { app, ipcMain, safeStorage } from 'electron';
+import fs from 'node:fs';
 import path from 'node:path';
+import { app, ipcMain, safeStorage } from 'electron';
 import Database from 'better-sqlite3-multiple-ciphers';
 
 interface QueryResult {
@@ -150,75 +151,104 @@ function rekey(newKey: number[]): void {
 }
 
 /**
- * Store the salt securely using Electron's safeStorage.
+ * Store the salt and key check value.
+ * Note: The salt is not secret - it's a random value used for key derivation.
+ * The key check value is a hash used only for password verification.
+ * We use safeStorage when available for extra protection, but fall back to
+ * plain JSON storage when not available (e.g., in CI environments).
  */
-const SALT_KEY = 'rapid_db_salt';
-const KCV_KEY = 'rapid_db_kcv';
+const SALT_FILE = '.salt';
+const KCV_FILE = '.kcv';
+
+function getStoragePath(filename: string): string {
+  return path.join(app.getPath('userData'), filename);
+}
 
 function storeSalt(salt: number[]): void {
+  const saltPath = getStoragePath(SALT_FILE);
+  const data = JSON.stringify(salt);
+
   if (safeStorage.isEncryptionAvailable()) {
-    const encrypted = safeStorage.encryptString(JSON.stringify(salt));
-    // Store in a file or use electron-store
-    // For now, we'll use a simple approach
-    const userDataPath = app.getPath('userData');
-    const saltPath = path.join(userDataPath, '.salt');
-    require('fs').writeFileSync(saltPath, encrypted);
+    const encrypted = safeStorage.encryptString(data);
+    fs.writeFileSync(saltPath, encrypted);
+  } else {
+    // Fallback: store as plain JSON (salt is not secret)
+    fs.writeFileSync(saltPath, data, 'utf8');
   }
 }
 
 function getSalt(): number[] | null {
-  if (!safeStorage.isEncryptionAvailable()) {
-    return null;
-  }
+  const saltPath = getStoragePath(SALT_FILE);
 
   try {
-    const userDataPath = app.getPath('userData');
-    const saltPath = path.join(userDataPath, '.salt');
-    const encrypted = require('fs').readFileSync(saltPath);
-    const decrypted = safeStorage.decryptString(encrypted);
-    return JSON.parse(decrypted);
+    const fileData = fs.readFileSync(saltPath);
+
+    if (safeStorage.isEncryptionAvailable()) {
+      // Try to decrypt first
+      try {
+        const decrypted = safeStorage.decryptString(fileData);
+        return JSON.parse(decrypted);
+      } catch {
+        // If decryption fails, try reading as plain JSON
+        // (for migration from non-encrypted storage)
+        return JSON.parse(fileData.toString('utf8'));
+      }
+    } else {
+      // Read as plain JSON
+      return JSON.parse(fileData.toString('utf8'));
+    }
   } catch {
     return null;
   }
 }
 
 function storeKeyCheckValue(kcv: string): void {
+  const kcvPath = getStoragePath(KCV_FILE);
+
   if (safeStorage.isEncryptionAvailable()) {
     const encrypted = safeStorage.encryptString(kcv);
-    const userDataPath = app.getPath('userData');
-    const kcvPath = path.join(userDataPath, '.kcv');
-    require('fs').writeFileSync(kcvPath, encrypted);
+    fs.writeFileSync(kcvPath, encrypted);
+  } else {
+    // Fallback: store as plain text (kcv is not secret)
+    fs.writeFileSync(kcvPath, kcv, 'utf8');
   }
 }
 
 function getKeyCheckValue(): string | null {
-  if (!safeStorage.isEncryptionAvailable()) {
-    return null;
-  }
+  const kcvPath = getStoragePath(KCV_FILE);
 
   try {
-    const userDataPath = app.getPath('userData');
-    const kcvPath = path.join(userDataPath, '.kcv');
-    const encrypted = require('fs').readFileSync(kcvPath);
-    return safeStorage.decryptString(encrypted);
+    const fileData = fs.readFileSync(kcvPath);
+
+    if (safeStorage.isEncryptionAvailable()) {
+      // Try to decrypt first
+      try {
+        return safeStorage.decryptString(fileData);
+      } catch {
+        // If decryption fails, try reading as plain text
+        return fileData.toString('utf8');
+      }
+    } else {
+      // Read as plain text
+      return fileData.toString('utf8');
+    }
   } catch {
     return null;
   }
 }
 
 function clearKeyStorage(): void {
-  const userDataPath = app.getPath('userData');
-  const saltPath = path.join(userDataPath, '.salt');
-  const kcvPath = path.join(userDataPath, '.kcv');
+  const saltPath = getStoragePath(SALT_FILE);
+  const kcvPath = getStoragePath(KCV_FILE);
 
   try {
-    require('fs').unlinkSync(saltPath);
+    fs.unlinkSync(saltPath);
   } catch {
     // Ignore if file doesn't exist
   }
 
   try {
-    require('fs').unlinkSync(kcvPath);
+    fs.unlinkSync(kcvPath);
   } catch {
     // Ignore if file doesn't exist
   }
@@ -307,8 +337,6 @@ function deleteDatabase(name: string): void {
   const dbPath = getDatabasePath(name);
   const walPath = `${dbPath}-wal`;
   const shmPath = `${dbPath}-shm`;
-
-  const fs = require('fs');
 
   // Delete main database file
   try {

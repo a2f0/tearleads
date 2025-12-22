@@ -15,7 +15,6 @@ import type { Database } from '../index';
 import {
   changePassword,
   closeDatabase,
-  getDatabase,
   isDatabaseSetUp,
   resetDatabase,
   setupDatabase,
@@ -212,9 +211,6 @@ export function useDatabase(): Database {
  * Returns null if the database is not unlocked.
  */
 export function useDatabaseOptional(): Database | null {
-  try {
-    return getDatabase();
-  } catch {
-    return null;
-  }
+  const { db } = useDatabaseContext();
+  return db;
 }
