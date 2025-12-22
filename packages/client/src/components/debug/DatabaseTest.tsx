@@ -4,6 +4,7 @@
  */
 
 import { type ChangeEvent, useCallback, useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
@@ -20,6 +21,7 @@ export function DatabaseTest() {
     useDatabaseContext();
 
   const [password, setPassword] = useState('testpassword123');
+  const [showPassword, setShowPassword] = useState(false);
   const [testResult, setTestResult] = useState<TestResult>({
     status: 'idle',
     message: ''
@@ -201,14 +203,28 @@ export function DatabaseTest() {
       </div>
 
       <div className="space-y-2">
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={handlePasswordChange}
-          data-testid="db-password-input"
-          className="w-full px-3 py-2 text-sm border rounded-md bg-background"
-        />
+        <div className="relative">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Password"
+            value={password}
+            onChange={handlePasswordChange}
+            data-testid="db-password-input"
+            className="w-full px-3 py-2 pr-10 text-sm border rounded-md bg-background"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+          >
+            {showPassword ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+          </button>
+        </div>
 
         <div className="grid grid-cols-2 gap-2">
           {!isSetUp && (
