@@ -53,6 +53,15 @@ export type WorkerRequest =
       newKey: number[];
     }
   | {
+      type: 'EXPORT';
+      id: string;
+    }
+  | {
+      type: 'IMPORT';
+      id: string;
+      data: number[]; // Uint8Array as array for transfer
+    }
+  | {
       type: 'CLOSE';
       id: string;
     };
@@ -80,6 +89,11 @@ export type WorkerResponse =
       id: string;
       error: string;
       stack?: string;
+    }
+  | {
+      type: 'EXPORT_RESULT';
+      id: string;
+      data: number[]; // Uint8Array as array for transfer
     }
   | {
       type: 'CLOSED';

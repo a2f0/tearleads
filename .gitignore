@@ -36,6 +36,10 @@ npm-debug.log*
 # Temporary files
 *.tmp
 .cache/
+.tmp-sqlite-wasm/
+
+# Downloaded SQLite WASM (use scripts/downloadSqliteWasm.sh to download)
+packages/client/src/workers/sqlite-wasm/
 
 # Test artifacts
 playwright-report/

@@ -1,5 +1,7 @@
 /**
- * Web adapter for SQLite using wa-sqlite in a Web Worker.
+ * Web adapter for SQLite using official SQLite WASM with encryption in a Web Worker.
+ * Uses SQLite3MultipleCiphers for at-rest encryption.
+ * Database is persisted to OPFS as an encrypted blob.
  */
 
 import type {
@@ -18,6 +20,26 @@ interface PendingRequest {
 
 const REQUEST_TIMEOUT = 30000; // 30 seconds
 
+/**
+ * Type guard to check if a value is a QueryResult.
+ */
+function isQueryResult(value: unknown): value is QueryResult {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  return 'rows' in value && Array.isArray((value as { rows: unknown }).rows);
+}
+
+/**
+ * Assert that a value is a QueryResult, throwing if not.
+ */
+function assertQueryResult(value: unknown): QueryResult {
+  if (!isQueryResult(value)) {
+    throw new Error(`Expected QueryResult but got: ${typeof value}`);
+  }
+  return value;
+}
+
 export class WebAdapter implements DatabaseAdapter {
   private worker: Worker | null = null;
   private pending = new Map<string, PendingRequest>();
@@ -26,20 +48,23 @@ export class WebAdapter implements DatabaseAdapter {
   private readyReject: ((error: Error) => void) | null = null;
 
   async initialize(config: DatabaseConfig): Promise<void> {
-    // Create the worker
-    this.worker = new Worker(
-      new URL('../../workers/sqlite.worker.ts', import.meta.url),
-      { type: 'module' }
-    );
+    // Create worker if it doesn't exist
+    if (!this.worker) {
+      this.worker = new Worker(
+        new URL('../../workers/sqlite.worker.ts', import.meta.url),
+        { type: 'module' }
+      );
 
-    // Set up message handler
-    this.worker.onmessage = this.handleMessage.bind(this);
-    this.worker.onerror = this.handleError.bind(this);
+      // Set up message handler
+      this.worker.onmessage = this.handleMessage.bind(this);
+      this.worker.onerror = this.handleError.bind(this);
 
-    // Wait for worker to be ready
-    await this.waitForReady();
+      // Wait for worker to be ready
+      await this.waitForReady();
+    }
 
-    // Initialize the database
+    // Initialize/reopen the database
+    // If the file exists in WASM VFS from a previous session, it will be reopened
     const id = generateRequestId();
     await this.sendRequest({
       type: 'INIT',
@@ -103,6 +128,8 @@ export class WebAdapter implements DatabaseAdapter {
       pending.reject(new Error(response.error));
     } else if (response.type === 'RESULT') {
       pending.resolve(response.data);
+    } else if (response.type === 'EXPORT_RESULT') {
+      pending.resolve({ data: response.data });
     } else {
       pending.resolve(undefined);
     }
@@ -150,10 +177,20 @@ export class WebAdapter implements DatabaseAdapter {
     if (this.worker) {
       const id = generateRequestId();
       await this.sendRequest({ type: 'CLOSE', id });
+      // Don't terminate worker - keep WASM VFS alive so file persists
+      // The database is closed but the encrypted file stays in WASM memory
+    }
+  }
+
+  /**
+   * Terminate the worker completely.
+   * Called during reset to destroy WASM memory.
+   */
+  terminate(): void {
+    if (this.worker) {
       this.worker.terminate();
       this.worker = null;
     }
-
     this.isReady = false;
     this.readyPromise = null;
   }
@@ -170,7 +207,7 @@ export class WebAdapter implements DatabaseAdapter {
       query: { sql, params: params ?? [], method: 'all' }
     });
 
-    return result as QueryResult;
+    return assertQueryResult(result);
   }
 
   async executeMany(statements: string[]): Promise<void> {
@@ -214,11 +251,13 @@ export class WebAdapter implements DatabaseAdapter {
       method: 'all' | 'get' | 'run'
     ) => {
       const id = generateRequestId();
-      const result = (await this.sendRequest({
-        type: 'EXECUTE',
-        id,
-        query: { sql, params, method }
-      })) as QueryResult;
+      const result = assertQueryResult(
+        await this.sendRequest({
+          type: 'EXECUTE',
+          id,
+          query: { sql, params, method }
+        })
+      );
 
       if (method === 'run') {
         return {
