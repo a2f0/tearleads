@@ -38,8 +38,8 @@ export default defineConfig({
     format: 'es'
   },
   optimizeDeps: {
-    // Don't pre-bundle WASM modules
-    exclude: ['wa-sqlite']
+    // Don't pre-bundle WASM modules - they need special handling
+    exclude: ['@/workers/sqlite-wasm']
   },
   assetsInclude: ['**/*.wasm']
 });
