@@ -23,6 +23,7 @@ export class WebAdapter implements DatabaseAdapter {
   private pending = new Map<string, PendingRequest>();
   private isReady = false;
   private readyPromise: Promise<void> | null = null;
+  private readyReject: ((error: Error) => void) | null = null;
 
   async initialize(config: DatabaseConfig): Promise<void> {
     // Create the worker
@@ -55,7 +56,11 @@ export class WebAdapter implements DatabaseAdapter {
 
     if (!this.readyPromise) {
       this.readyPromise = new Promise((resolve, reject) => {
+        // Store reject function so handleError can use it
+        this.readyReject = reject;
+
         const timeout = setTimeout(() => {
+          this.readyReject = null;
           reject(new Error('Worker initialization timeout'));
         }, REQUEST_TIMEOUT);
 
@@ -63,6 +68,7 @@ export class WebAdapter implements DatabaseAdapter {
           if (event.data.type === 'READY') {
             clearTimeout(timeout);
             this.isReady = true;
+            this.readyReject = null;
             this.worker?.removeEventListener('message', checkReady);
             resolve();
           }
@@ -104,6 +110,14 @@ export class WebAdapter implements DatabaseAdapter {
 
   private handleError(error: ErrorEvent): void {
     console.error('Worker error:', error);
+
+    // Reject the ready promise if we're still waiting for initialization
+    if (this.readyReject) {
+      this.readyReject(
+        new Error(`Worker initialization error: ${error.message}`)
+      );
+      this.readyReject = null;
+    }
 
     // Reject all pending requests
     for (const [id, pending] of this.pending) {

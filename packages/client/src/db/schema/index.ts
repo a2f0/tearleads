@@ -11,7 +11,7 @@ export const syncMetadata = sqliteTable(
     entityType: text('entity_type').notNull(),
     entityId: text('entity_id').notNull(),
     version: integer('version').notNull().default(0),
-    lastModified: integer('last_modified', { mode: 'timestamp' }).notNull(),
+    lastModified: integer('last_modified', { mode: 'timestamp_ms' }).notNull(),
     syncStatus: text('sync_status', {
       enum: ['pending', 'synced', 'conflict']
     })
@@ -31,7 +31,7 @@ export const syncMetadata = sqliteTable(
 export const userSettings = sqliteTable('user_settings', {
   key: text('key').primaryKey(),
   value: text('value'),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull()
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
 });
 
 /**
@@ -39,7 +39,7 @@ export const userSettings = sqliteTable('user_settings', {
  */
 export const migrations = sqliteTable('schema_migrations', {
   version: integer('version').primaryKey(),
-  appliedAt: integer('applied_at', { mode: 'timestamp' }).notNull()
+  appliedAt: integer('applied_at', { mode: 'timestamp_ms' }).notNull()
 });
 
 /**
@@ -48,6 +48,6 @@ export const migrations = sqliteTable('schema_migrations', {
 export const secrets = sqliteTable('secrets', {
   key: text('key').primaryKey(),
   encryptedValue: text('encrypted_value').notNull(),
-  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull()
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
 });

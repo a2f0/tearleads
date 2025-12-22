@@ -26,31 +26,21 @@ export function DatabaseTest() {
   });
   const [testData, setTestData] = useState<string | null>(null);
 
-  const { error: dbError } = useDatabaseContext();
-
   const handleSetup = useCallback(async () => {
     setTestResult({ status: 'running', message: 'Setting up database...' });
     try {
-      const success = await setup(password);
-      if (success) {
-        setTestResult({
-          status: 'success',
-          message: 'Database setup complete'
-        });
-      } else {
-        // Show the actual error if available
-        setTestResult({
-          status: 'error',
-          message: dbError ? `Setup failed: ${dbError.message}` : 'Setup failed'
-        });
-      }
+      await setup(password);
+      setTestResult({
+        status: 'success',
+        message: 'Database setup complete'
+      });
     } catch (err) {
       setTestResult({
         status: 'error',
         message: `Setup error: ${(err as Error).message}`
       });
     }
-  }, [password, setup, dbError]);
+  }, [password, setup]);
 
   const handleUnlock = useCallback(async () => {
     setTestResult({ status: 'running', message: 'Unlocking database...' });
