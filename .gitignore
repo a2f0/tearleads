@@ -40,6 +40,7 @@ npm-debug.log*
 
 # Downloaded SQLite WASM (use scripts/downloadSqliteWasm.sh to download)
 packages/client/src/workers/sqlite-wasm/
+packages/client/public/sqlite/
 
 # Test artifacts
 playwright-report/
