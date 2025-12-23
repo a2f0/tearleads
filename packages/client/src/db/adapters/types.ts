@@ -99,10 +99,7 @@ export interface PlatformInfo {
  */
 export function getPlatformInfo(): PlatformInfo {
   // Check for Electron first
-  if (
-    typeof window !== 'undefined' &&
-    (window as unknown as { electron?: unknown }).electron
-  ) {
+  if (typeof window !== 'undefined' && window.electron) {
     return {
       platform: 'electron',
       supportsNativeEncryption: true,
@@ -112,18 +109,8 @@ export function getPlatformInfo(): PlatformInfo {
 
   // Check for Capacitor native
   try {
-    // Dynamic check to avoid import errors
-    const Capacitor = (
-      window as unknown as {
-        Capacitor?: {
-          getPlatform: () => string;
-          isNativePlatform: () => boolean;
-        };
-      }
-    ).Capacitor;
-
-    if (Capacitor?.isNativePlatform()) {
-      const platform = Capacitor.getPlatform();
+    if (window.Capacitor?.isNativePlatform()) {
+      const platform = window.Capacitor.getPlatform();
       if (platform === 'ios') {
         return {
           platform: 'ios',
