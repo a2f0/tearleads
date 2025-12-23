@@ -10,95 +10,90 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
+# Define reusable helper functions
+- evalScript: |
+    window.waitFor = async (predicate, errorMessage, timeout = 10000) => {
+      const interval = 200;
+      const maxTries = timeout / interval;
+      for (let i = 0; i < maxTries; i++) {
+        if (await predicate()) return 'ok';
+        await new Promise(resolve => setTimeout(resolve, interval));
+      }
+      throw new Error(errorMessage);
+    };
+    window.waitForStatus = (status) => window.waitFor(
+      () => document.querySelector('[data-testid="db-status"]')?.textContent === status,
+      `Expected "${status}" status`
+    );
+    window.waitForResult = (status, textMatch) => window.waitFor(
+      () => {
+        const result = document.querySelector('[data-testid="db-test-result"]');
+        if (!result) return false;
+        const hasStatus = result.getAttribute('data-status') === status;
+        const hasText = !textMatch || result.textContent.includes(textMatch);
+        return hasStatus && hasText;
+      },
+      `Expected result status "${status}"${textMatch ? ` with "${textMatch}"` : ''}`
+    );
+    window.setPassword = (password) => {
+      const input = document.querySelector('[data-testid="db-password-input"]');
+      input.value = password;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    'helpers loaded';
+
 # Navigate to debug page
 - evalScript: document.querySelector('[data-testid="debug-link"]').click()
 
 # Wait for Debug page to load
-- evalScript: |
-    (async () => {
-      for (let i = 0; i < 50; i++) {
-        const dbTest = document.querySelector('[data-testid="database-test"]');
-        if (dbTest) return 'ok';
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      throw new Error('Database Test component not found');
-    })()
+- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
 
 # Reset database to ensure clean state
 - evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
 
 # Wait for reset to complete
-- evalScript: |
-    (async () => {
-      for (let i = 0; i < 50; i++) {
-        const result = document.querySelector('[data-testid="db-test-result"]');
-        if (result && result.getAttribute('data-status') === 'success') {
-          return 'ok';
-        }
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      throw new Error('Reset did not complete');
-    })()
+- evalScript: window.waitForResult('success')
 
 # Enter password
-- evalScript: |
-    const input = document.querySelector('[data-testid="db-password-input"]');
-    input.value = 'relaunchtest123';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+- evalScript: window.setPassword('relaunchtest123')
 
 # Set up database
 - evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
 
 # Wait for setup to complete
 - evalScript: |
-    (async () => {
-      for (let i = 0; i < 50; i++) {
+    window.waitFor(
+      () => {
         const result = document.querySelector('[data-testid="db-test-result"]');
-        if (result && result.getAttribute('data-status') === 'success') {
-          return 'ok';
-        }
-        if (result && result.getAttribute('data-status') === 'error') {
+        if (result?.getAttribute('data-status') === 'error') {
           throw new Error('Setup failed: ' + result.textContent);
         }
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      throw new Error('Setup did not complete');
-    })()
+        return result?.getAttribute('data-status') === 'success';
+      },
+      'Setup did not complete'
+    )
 
 # Write test data
 - evalScript: document.querySelector('[data-testid="db-write-button"]').click()
 
-# Wait for write to complete and store the value
+# Wait for write to complete
 - evalScript: |
-    (async () => {
-      for (let i = 0; i < 50; i++) {
+    window.waitFor(
+      () => {
         const result = document.querySelector('[data-testid="db-test-result"]');
-        if (result && result.getAttribute('data-status') === 'success' && result.textContent.includes('Wrote test data:')) {
-          return 'ok';
-        }
-        if (result && result.getAttribute('data-status') === 'error') {
+        if (result?.getAttribute('data-status') === 'error') {
           throw new Error('Write failed: ' + result.textContent);
         }
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      throw new Error('Write did not complete');
-    })()
+        return result?.getAttribute('data-status') === 'success' && result.textContent.includes('Wrote test data:');
+      },
+      'Write did not complete'
+    )
 
 # Lock the database before relaunch (simulates normal app close state)
 - evalScript: document.querySelector('[data-testid="db-lock-button"]').click()
 
 # Wait for lock to complete
-- evalScript: |
-    (async () => {
-      for (let i = 0; i < 50; i++) {
-        const status = document.querySelector('[data-testid="db-status"]');
-        if (status && status.textContent === 'Locked') {
-          return 'ok';
-        }
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      throw new Error('Lock did not complete');
-    })()
+- evalScript: window.waitForStatus('Locked')
 
 # Stop the app (this is the key test - simulates app being killed)
 - stopApp
@@ -109,39 +104,49 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
+# Re-define helper functions (they were lost when app was killed)
+- evalScript: |
+    window.waitFor = async (predicate, errorMessage, timeout = 10000) => {
+      const interval = 200;
+      const maxTries = timeout / interval;
+      for (let i = 0; i < maxTries; i++) {
+        if (await predicate()) return 'ok';
+        await new Promise(resolve => setTimeout(resolve, interval));
+      }
+      throw new Error(errorMessage);
+    };
+    window.waitForStatus = (status) => window.waitFor(
+      () => document.querySelector('[data-testid="db-status"]')?.textContent === status,
+      `Expected "${status}" status`
+    );
+    window.waitForResult = (status, textMatch) => window.waitFor(
+      () => {
+        const result = document.querySelector('[data-testid="db-test-result"]');
+        if (!result) return false;
+        const hasStatus = result.getAttribute('data-status') === status;
+        const hasText = !textMatch || result.textContent.includes(textMatch);
+        return hasStatus && hasText;
+      },
+      `Expected result status "${status}"${textMatch ? ` with "${textMatch}"` : ''}`
+    );
+    window.setPassword = (password) => {
+      const input = document.querySelector('[data-testid="db-password-input"]');
+      input.value = password;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    'helpers loaded';
+
 # Navigate to debug page
 - evalScript: document.querySelector('[data-testid="debug-link"]').click()
 
 # Wait for Debug page to load
-- evalScript: |
-    (async () => {
-      for (let i = 0; i < 50; i++) {
-        const dbTest = document.querySelector('[data-testid="database-test"]');
-        if (dbTest) return 'ok';
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      throw new Error('Database Test component not found after relaunch');
-    })()
+- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found after relaunch')
 
 # Verify database shows as Locked (state persisted)
-- evalScript: |
-    (async () => {
-      for (let i = 0; i < 50; i++) {
-        const status = document.querySelector('[data-testid="db-status"]');
-        if (status && status.textContent === 'Locked') {
-          return 'ok';
-        }
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      const status = document.querySelector('[data-testid="db-status"]');
-      throw new Error('Expected "Locked" status after relaunch, got: ' + (status ? status.textContent : 'null'));
-    })()
+- evalScript: window.waitForStatus('Locked')
 
 # Enter password again
-- evalScript: |
-    const input = document.querySelector('[data-testid="db-password-input"]');
-    input.value = 'relaunchtest123';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
+- evalScript: window.setPassword('relaunchtest123')
 
 # Unlock the database - THIS IS THE CRITICAL TEST
 # If there's a stale connection issue, unlocking will fail here
@@ -149,39 +154,33 @@ appId: com.tearleads.rapid
 
 # Wait for unlock to complete
 - evalScript: |
-    (async () => {
-      for (let i = 0; i < 50; i++) {
+    window.waitFor(
+      () => {
         const result = document.querySelector('[data-testid="db-test-result"]');
         const status = document.querySelector('[data-testid="db-status"]');
-        if (status && status.textContent === 'Unlocked') {
-          return 'ok';
-        }
-        if (result && result.getAttribute('data-status') === 'error') {
+        if (result?.getAttribute('data-status') === 'error') {
           throw new Error('Unlock after relaunch failed (stale connection?): ' + result.textContent);
         }
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      throw new Error('Unlock did not complete after relaunch');
-    })()
+        return status?.textContent === 'Unlocked';
+      },
+      'Unlock did not complete after relaunch'
+    )
 
 # Read data to verify it persisted across app restart
 - evalScript: document.querySelector('[data-testid="db-read-button"]').click()
 
 # Verify read succeeded
 - evalScript: |
-    (async () => {
-      for (let i = 0; i < 50; i++) {
+    window.waitFor(
+      () => {
         const result = document.querySelector('[data-testid="db-test-result"]');
-        if (result && result.getAttribute('data-status') === 'success' && result.textContent.includes('Read test data:')) {
-          return 'ok';
-        }
-        if (result && result.getAttribute('data-status') === 'error') {
+        if (result?.getAttribute('data-status') === 'error') {
           throw new Error('Read after relaunch failed: ' + result.textContent);
         }
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      throw new Error('Read did not complete after relaunch');
-    })()
+        return result?.getAttribute('data-status') === 'success' && result.textContent.includes('Read test data:');
+      },
+      'Read did not complete after relaunch'
+    )
 
 # Verify data value exists (should be test-value-TIMESTAMP format)
 - evalScript: |
@@ -196,14 +195,4 @@ appId: com.tearleads.rapid
 # Clean up - reset database
 - evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
 
-- evalScript: |
-    (async () => {
-      for (let i = 0; i < 50; i++) {
-        const status = document.querySelector('[data-testid="db-status"]');
-        if (status && status.textContent === 'Not Set Up') {
-          return 'ok';
-        }
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      throw new Error('Reset did not complete');
-    })()
+- evalScript: window.waitForStatus('Not Set Up')
