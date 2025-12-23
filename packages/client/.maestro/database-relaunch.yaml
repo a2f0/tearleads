@@ -12,31 +12,36 @@ appId: com.tearleads.rapid
 
 # Define reusable helper functions
 - evalScript: |
-    window.waitFor = async (predicate, errorMessage, timeout = 10000) => {
-      const interval = 200;
-      const maxTries = timeout / interval;
-      for (let i = 0; i < maxTries; i++) {
+    window.waitFor = async (predicate, errorMessage, timeout) => {
+      timeout = timeout || 10000;
+      var interval = 200;
+      var maxTries = timeout / interval;
+      for (var i = 0; i < maxTries; i++) {
         if (await predicate()) return 'ok';
-        await new Promise(resolve => setTimeout(resolve, interval));
+        await new Promise(function(resolve) { setTimeout(resolve, interval); });
       }
       throw new Error(errorMessage);
     };
-    window.waitForStatus = (status) => window.waitFor(
-      () => document.querySelector('[data-testid="db-status"]')?.textContent === status,
-      `Expected "${status}" status`
-    );
-    window.waitForResult = (status, textMatch) => window.waitFor(
-      () => {
-        const result = document.querySelector('[data-testid="db-test-result"]');
-        if (!result) return false;
-        const hasStatus = result.getAttribute('data-status') === status;
-        const hasText = !textMatch || result.textContent.includes(textMatch);
-        return hasStatus && hasText;
-      },
-      `Expected result status "${status}"${textMatch ? ` with "${textMatch}"` : ''}`
-    );
-    window.setPassword = (password) => {
-      const input = document.querySelector('[data-testid="db-password-input"]');
+    window.waitForStatus = function(status) {
+      return window.waitFor(
+        function() { return document.querySelector('[data-testid="db-status"]') && document.querySelector('[data-testid="db-status"]').textContent === status; },
+        'Expected "' + status + '" status'
+      );
+    };
+    window.waitForResult = function(status, textMatch) {
+      return window.waitFor(
+        function() {
+          var result = document.querySelector('[data-testid="db-test-result"]');
+          if (!result) return false;
+          var hasStatus = result.getAttribute('data-status') === status;
+          var hasText = !textMatch || result.textContent.includes(textMatch);
+          return hasStatus && hasText;
+        },
+        'Expected result status "' + status + '"' + (textMatch ? ' with "' + textMatch + '"' : '')
+      );
+    };
+    window.setPassword = function(password) {
+      var input = document.querySelector('[data-testid="db-password-input"]');
       input.value = password;
       input.dispatchEvent(new Event('input', { bubbles: true }));
     };
@@ -106,31 +111,36 @@ appId: com.tearleads.rapid
 
 # Re-define helper functions (they were lost when app was killed)
 - evalScript: |
-    window.waitFor = async (predicate, errorMessage, timeout = 10000) => {
-      const interval = 200;
-      const maxTries = timeout / interval;
-      for (let i = 0; i < maxTries; i++) {
+    window.waitFor = async (predicate, errorMessage, timeout) => {
+      timeout = timeout || 10000;
+      var interval = 200;
+      var maxTries = timeout / interval;
+      for (var i = 0; i < maxTries; i++) {
         if (await predicate()) return 'ok';
-        await new Promise(resolve => setTimeout(resolve, interval));
+        await new Promise(function(resolve) { setTimeout(resolve, interval); });
       }
       throw new Error(errorMessage);
     };
-    window.waitForStatus = (status) => window.waitFor(
-      () => document.querySelector('[data-testid="db-status"]')?.textContent === status,
-      `Expected "${status}" status`
-    );
-    window.waitForResult = (status, textMatch) => window.waitFor(
-      () => {
-        const result = document.querySelector('[data-testid="db-test-result"]');
-        if (!result) return false;
-        const hasStatus = result.getAttribute('data-status') === status;
-        const hasText = !textMatch || result.textContent.includes(textMatch);
-        return hasStatus && hasText;
-      },
-      `Expected result status "${status}"${textMatch ? ` with "${textMatch}"` : ''}`
-    );
-    window.setPassword = (password) => {
-      const input = document.querySelector('[data-testid="db-password-input"]');
+    window.waitForStatus = function(status) {
+      return window.waitFor(
+        function() { return document.querySelector('[data-testid="db-status"]') && document.querySelector('[data-testid="db-status"]').textContent === status; },
+        'Expected "' + status + '" status'
+      );
+    };
+    window.waitForResult = function(status, textMatch) {
+      return window.waitFor(
+        function() {
+          var result = document.querySelector('[data-testid="db-test-result"]');
+          if (!result) return false;
+          var hasStatus = result.getAttribute('data-status') === status;
+          var hasText = !textMatch || result.textContent.includes(textMatch);
+          return hasStatus && hasText;
+        },
+        'Expected result status "' + status + '"' + (textMatch ? ' with "' + textMatch + '"' : '')
+      );
+    };
+    window.setPassword = function(password) {
+      var input = document.querySelector('[data-testid="db-password-input"]');
       input.value = password;
       input.dispatchEvent(new Event('input', { bubbles: true }));
     };
