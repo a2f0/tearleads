@@ -1,0 +1,92 @@
+/**
+ * Electron adapter for SQLite using better-sqlite3-multiple-ciphers.
+ * Communicates with the main process via IPC.
+ */
+
+import type { ElectronApi } from '@/types/electron';
+import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
+
+function getElectronApi(): ElectronApi {
+  if (!window.electron?.sqlite) {
+    throw new Error('Electron SQLite API not available');
+  }
+  return window.electron;
+}
+
+export class ElectronAdapter implements DatabaseAdapter {
+  private initialized = false;
+
+  async initialize(config: DatabaseConfig): Promise<void> {
+    const api = getElectronApi();
+
+    await api.sqlite.initialize({
+      name: config.name,
+      encryptionKey: Array.from(config.encryptionKey)
+    });
+
+    this.initialized = true;
+  }
+
+  async close(): Promise<void> {
+    if (this.initialized) {
+      const api = getElectronApi();
+      await api.sqlite.close();
+      this.initialized = false;
+    }
+  }
+
+  isOpen(): boolean {
+    return this.initialized;
+  }
+
+  async execute(sql: string, params?: unknown[]): Promise<QueryResult> {
+    const api = getElectronApi();
+    return api.sqlite.execute(sql, params);
+  }
+
+  async executeMany(statements: string[]): Promise<void> {
+    const api = getElectronApi();
+    await api.sqlite.executeMany(statements);
+  }
+
+  async beginTransaction(): Promise<void> {
+    const api = getElectronApi();
+    await api.sqlite.beginTransaction();
+  }
+
+  async commitTransaction(): Promise<void> {
+    const api = getElectronApi();
+    await api.sqlite.commit();
+  }
+
+  async rollbackTransaction(): Promise<void> {
+    const api = getElectronApi();
+    await api.sqlite.rollback();
+  }
+
+  async rekeyDatabase(newKey: Uint8Array, _oldKey?: Uint8Array): Promise<void> {
+    const api = getElectronApi();
+    await api.sqlite.rekey(Array.from(newKey));
+  }
+
+  getConnection(): unknown {
+    // For Drizzle sqlite-proxy, return a function that always returns { rows: any[] }
+    return async (
+      sql: string,
+      params: unknown[],
+      _method: 'all' | 'get' | 'run' | 'values'
+    ): Promise<{ rows: unknown[] }> => {
+      const result = await this.execute(sql, params);
+
+      // Drizzle sqlite-proxy expects { rows: any[] } for ALL methods
+      // The method parameter tells Drizzle how to interpret the rows
+      return { rows: result.rows };
+    };
+  }
+
+  async deleteDatabase(name: string): Promise<void> {
+    const api = getElectronApi();
+    await api.sqlite.deleteDatabase(name);
+    this.initialized = false;
+  }
+}

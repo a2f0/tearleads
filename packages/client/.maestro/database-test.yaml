@@ -1,0 +1,156 @@
+appId: com.tearleads.rapid
+---
+# Database Test - Tests SQLite database operations on native platforms
+# Uses evalScript for DOM interaction as Maestro's extendedWaitUntil doesn't work reliably with Capacitor WebViews
+
+- launchApp:
+    clearState: true
+
+- assertVisible: "Tearleads"
+
+# Load shared database helper functions
+- runFlow: helpers/db-helpers.yaml
+
+# Navigate to debug page
+- evalScript: document.querySelector('[data-testid="debug-link"]').click()
+
+# Wait for Debug page to load
+- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
+
+# Reset database to ensure clean state
+- evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
+
+# Wait for reset to complete
+- evalScript: window.waitForResult('success')
+
+# Verify database is in "Not Set Up" state
+- evalScript: window.waitForStatus('Not Set Up')
+
+# Enter password
+- evalScript: window.setPassword('testpassword123')
+
+# Test password visibility toggle
+- evalScript: |
+    const input = document.querySelector('[data-testid="db-password-input"]');
+    if (input.type !== 'password') {
+      throw new Error('Expected password to be hidden initially, got type: ' + input.type);
+    }
+    return 'ok';
+
+# Click eye icon to show password
+- evalScript: |
+    const button = document.querySelector('[aria-label="Show password"]');
+    if (!button) throw new Error('Show password button not found');
+    button.click();
+
+# Verify password is now visible
+- evalScript: |
+    const input = document.querySelector('[data-testid="db-password-input"]');
+    if (input.type !== 'text') {
+      throw new Error('Expected password to be visible, got type: ' + input.type);
+    }
+    return 'ok';
+
+# Click eye icon to hide password again
+- evalScript: |
+    const button = document.querySelector('[aria-label="Hide password"]');
+    if (!button) throw new Error('Hide password button not found');
+    button.click();
+
+# Verify password is hidden again
+- evalScript: |
+    const input = document.querySelector('[data-testid="db-password-input"]');
+    if (input.type !== 'password') {
+      throw new Error('Expected password to be hidden, got type: ' + input.type);
+    }
+    return 'ok';
+
+# Click setup button
+- evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
+
+# Wait for setup to complete
+- evalScript: window.waitForResult('success')
+
+# Verify database is unlocked
+- evalScript: window.waitForStatus('Unlocked')
+
+# Write test data
+- evalScript: document.querySelector('[data-testid="db-write-button"]').click()
+
+# Wait for write to complete
+- evalScript: window.waitForResult('success', 'Wrote test data:')
+
+# Verify test data is displayed and store the value
+- evalScript: |
+    (async () => {
+      const testData = document.querySelector('[data-testid="db-test-data"]');
+      if (testData && /^test-value-\d+$/.test(testData.textContent)) {
+        window.__writtenValue = testData.textContent;
+        return 'ok';
+      }
+      throw new Error('Expected test data, got: ' + (testData ? testData.textContent : 'null'));
+    })()
+
+# Read test data
+- evalScript: document.querySelector('[data-testid="db-read-button"]').click()
+
+# Wait for read to complete
+- evalScript: window.waitForResult('success', 'Read test data:')
+
+# Verify read value matches written value
+- evalScript: |
+    (async () => {
+      const testData = document.querySelector('[data-testid="db-test-data"]');
+      if (testData && testData.textContent === window.__writtenValue) {
+        return 'ok';
+      }
+      throw new Error('Read value does not match written value. Expected: ' + window.__writtenValue + ', got: ' + (testData ? testData.textContent : 'null'));
+    })()
+
+# Lock the database
+- evalScript: document.querySelector('[data-testid="db-lock-button"]').click()
+
+# Wait for lock to complete
+- evalScript: window.waitForStatus('Locked')
+
+# Unlock with password
+- evalScript: document.querySelector('[data-testid="db-unlock-button"]').click()
+
+# Wait for unlock to complete
+- evalScript: window.waitForStatus('Unlocked')
+
+# Read data again to verify persistence across lock/unlock
+- evalScript: document.querySelector('[data-testid="db-read-button"]').click()
+
+# Verify data persisted
+- evalScript: |
+    window.waitFor(
+      () => {
+        const result = document.querySelector('[data-testid="db-test-result"]');
+        const testData = document.querySelector('[data-testid="db-test-data"]');
+        return result?.getAttribute('data-status') === 'success' && testData?.textContent === window.__writtenValue;
+      },
+      'Data did not persist across lock/unlock'
+    )
+
+# Test wrong password
+- evalScript: document.querySelector('[data-testid="db-lock-button"]').click()
+
+- evalScript: window.waitForStatus('Locked')
+
+# Enter wrong password
+- evalScript: window.setPassword('wrongpassword')
+
+# Try to unlock with wrong password
+- evalScript: document.querySelector('[data-testid="db-unlock-button"]').click()
+
+# Verify error
+- evalScript: window.waitForResult('error', 'Wrong password')
+
+# Verify database is still locked
+- evalScript: window.waitForStatus('Locked')
+
+# Reset database to clean up
+- evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
+
+- evalScript: window.waitForStatus('Not Set Up')

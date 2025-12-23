@@ -15,8 +15,13 @@ export default defineConfig({
       lib: {
         entry: 'electron/main.ts',
       },
+      rollupOptions: {
+        external: ['better-sqlite3-multiple-ciphers'],
+      },
     },
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({
+      include: ['better-sqlite3-multiple-ciphers'],
+    })],
   },
   preload: {
     build: {
@@ -42,6 +47,9 @@ export default defineConfig({
       rollupOptions: {
         input: './index.html',
       },
+    },
+    worker: {
+      format: 'es',
     },
     resolve: {
       alias: {
