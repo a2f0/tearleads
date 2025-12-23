@@ -13,6 +13,12 @@ server {
         try_files $uri $uri/ =404;
     }
 
+    # Serve .mjs files with correct MIME type for ES modules
+    location ~* \.mjs$ {
+        types { application/javascript mjs; }
+        default_type application/javascript;
+    }
+
     # Security Headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
