@@ -25,6 +25,13 @@ function getDatabasePath(name: string): string {
 }
 
 /**
+ * Securely zero out a buffer to prevent key material from lingering in memory.
+ */
+function secureZeroBuffer(buffer: Buffer): void {
+  buffer.fill(0);
+}
+
+/**
  * Initialize the database with encryption.
  */
 function initializeDatabase(config: {
@@ -36,36 +43,47 @@ function initializeDatabase(config: {
   }
 
   const dbPath = getDatabasePath(config.name);
-  const key = Buffer.from(config.encryptionKey);
+  const keyBuffer = Buffer.from(config.encryptionKey);
 
-  // Open database with encryption
-  db = new Database(dbPath);
-
-  // Set up encryption using SQLite3MultipleCiphers
-  // Use ChaCha20-Poly1305 cipher (recommended)
-  db.pragma(`cipher='chacha20'`);
-  db.pragma(`key="x'${key.toString('hex')}'"`);
-
-  // Verify the key works by running a simple query
-  // Note: cipher_integrity_check only works on existing encrypted databases
-  // For new databases or verification, we use a simple table check
   try {
-    // This will fail with "SQLITE_NOTADB: file is not a database"
-    // if the key is wrong for an existing encrypted database
-    db.exec('SELECT 1');
+    // Open database with encryption
+    db = new Database(dbPath);
+
+    // Set up encryption using SQLite3MultipleCiphers
+    // Use ChaCha20-Poly1305 cipher (recommended)
+    db.pragma(`cipher='chacha20'`);
+
+    // Convert to hex for the pragma, then immediately zero the source buffer
+    const keyHex = keyBuffer.toString('hex');
+    secureZeroBuffer(keyBuffer);
+
+    db.pragma(`key="x'${keyHex}'"`);
+
+    // Verify the key works by running a simple query
+    // Note: cipher_integrity_check only works on existing encrypted databases
+    // For new databases or verification, we use a simple table check
+    try {
+      // This will fail with "SQLITE_NOTADB: file is not a database"
+      // if the key is wrong for an existing encrypted database
+      db.exec('SELECT 1');
+    } catch (error) {
+      db.close();
+      db = null;
+      throw new Error('Invalid encryption key');
+    }
+
+    // Enable WAL mode for better performance
+    db.pragma('journal_mode = WAL');
+
+    // Enable foreign keys
+    db.pragma('foreign_keys = ON');
+
+    console.log(`Database initialized at: ${dbPath}`);
   } catch (error) {
-    db.close();
-    db = null;
-    throw new Error('Invalid encryption key');
+    // Ensure we zero the buffer even on error
+    secureZeroBuffer(keyBuffer);
+    throw error;
   }
-
-  // Enable WAL mode for better performance
-  db.pragma('journal_mode = WAL');
-
-  // Enable foreign keys
-  db.pragma('foreign_keys = ON');
-
-  console.log(`Database initialized at: ${dbPath}`);
 }
 
 /**
@@ -146,8 +164,15 @@ function rekey(newKey: number[]): void {
     throw new Error('Database not initialized');
   }
 
-  const key = Buffer.from(newKey);
-  db.pragma(`rekey="x'${key.toString('hex')}'"`);
+  const keyBuffer = Buffer.from(newKey);
+  try {
+    const keyHex = keyBuffer.toString('hex');
+    secureZeroBuffer(keyBuffer);
+    db.pragma(`rekey="x'${keyHex}'"`);
+  } catch (error) {
+    secureZeroBuffer(keyBuffer);
+    throw error;
+  }
 }
 
 /**

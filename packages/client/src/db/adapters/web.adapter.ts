@@ -234,7 +234,7 @@ export class WebAdapter implements DatabaseAdapter {
     await this.sendRequest({ type: 'ROLLBACK', id });
   }
 
-  async rekeyDatabase(newKey: Uint8Array): Promise<void> {
+  async rekeyDatabase(newKey: Uint8Array, _oldKey?: Uint8Array): Promise<void> {
     const id = generateRequestId();
     await this.sendRequest({
       type: 'REKEY',
@@ -244,33 +244,24 @@ export class WebAdapter implements DatabaseAdapter {
   }
 
   getConnection(): unknown {
-    // For Drizzle sqlite-proxy, we return a function that executes queries
+    // For Drizzle sqlite-proxy, return a function that always returns { rows: any[] }
     return async (
       sql: string,
       params: unknown[],
-      method: 'all' | 'get' | 'run'
-    ) => {
+      method: 'all' | 'get' | 'run' | 'values'
+    ): Promise<{ rows: unknown[] }> => {
       const id = generateRequestId();
       const result = assertQueryResult(
         await this.sendRequest({
           type: 'EXECUTE',
           id,
-          query: { sql, params, method }
+          query: { sql, params, method: method === 'values' ? 'all' : method }
         })
       );
 
-      if (method === 'run') {
-        return {
-          changes: result.changes,
-          lastInsertRowId: result.lastInsertRowId
-        };
-      }
-
-      if (method === 'get') {
-        return result.rows[0] ?? null;
-      }
-
-      return result.rows;
+      // Drizzle sqlite-proxy expects { rows: any[] } for ALL methods
+      // The method parameter tells Drizzle how to interpret the rows
+      return { rows: result.rows };
     };
   }
 }

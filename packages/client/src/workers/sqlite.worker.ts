@@ -292,7 +292,8 @@ function rekey(newKey: Uint8Array): void {
   const newHexKey = keyToHex(newKey);
 
   // Use PRAGMA rekey to change the encryption key
-  db.exec(`PRAGMA rekey='x''${newHexKey}''';`);
+  // Format: PRAGMA rekey = "x'HEXKEY'"
+  db.exec(`PRAGMA rekey = "x'${newHexKey}'";`);
   encryptionKey = newHexKey;
 
   console.log('Database re-keyed successfully');

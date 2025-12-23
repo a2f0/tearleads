@@ -192,39 +192,56 @@ export class CapacitorAdapter implements DatabaseAdapter {
     await this.execute('ROLLBACK');
   }
 
-  async rekeyDatabase(newKey: Uint8Array): Promise<void> {
-    if (!this.db || !this.isInitialized) {
+  async rekeyDatabase(newKey: Uint8Array, oldKey?: Uint8Array): Promise<void> {
+    if (!this.db || !this.isInitialized || !this.dbName) {
       throw new Error('Database not initialized');
     }
+    if (!oldKey) {
+      throw new Error('Capacitor adapter requires the old key for rekeying');
+    }
 
-    const keyHex = Array.from(newKey)
+    const sqlite = await getSQLiteConnection();
+
+    const newKeyHex = Array.from(newKey)
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
 
-    await this.db.execute(`PRAGMA rekey = "x'${keyHex}'"`, false);
+    const oldKeyHex = Array.from(oldKey)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    // Close current connection before changing the secret
+    await this.db.close();
+    await sqlite.closeConnection(this.dbName, false);
+
+    // Use changeEncryptionSecret which handles both rekeying the database
+    // and updating the stored secret in secure storage (Keychain/EncryptedSharedPreferences)
+    await sqlite.changeEncryptionSecret(newKeyHex, oldKeyHex);
+
+    // Reopen the connection with the new key
+    this.db = await sqlite.createConnection(
+      this.dbName,
+      true, // encrypted
+      'secret',
+      1, // version
+      false // readonly
+    );
+
+    await this.db.open();
   }
 
   getConnection(): unknown {
-    // For Drizzle, return an executor function
+    // For Drizzle sqlite-proxy, return a function that always returns { rows: any[] }
     return async (
       sql: string,
       params: unknown[],
-      method: 'all' | 'get' | 'run'
-    ) => {
+      _method: 'all' | 'get' | 'run' | 'values'
+    ): Promise<{ rows: unknown[] }> => {
       const result = await this.execute(sql, params);
 
-      if (method === 'run') {
-        return {
-          changes: result.changes,
-          lastInsertRowId: result.lastInsertRowId
-        };
-      }
-
-      if (method === 'get') {
-        return result.rows[0] ?? null;
-      }
-
-      return result.rows;
+      // Drizzle sqlite-proxy expects { rows: any[] } for ALL methods
+      // The method parameter tells Drizzle how to interpret the rows
+      return { rows: result.rows };
     };
   }
 
