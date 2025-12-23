@@ -49,12 +49,9 @@ BUMP_COMMITS=$(git log --oneline --grep="$BUMP_PATTERN" -2 --format="%H" 2>/dev/
 CURRENT_BUMP=$(echo "$BUMP_COMMITS" | head -1)
 PREVIOUS_BUMP=$(echo "$BUMP_COMMITS" | tail -1)
 
-# Get commits between the two bumps, excluding merge commits
-COMMITS=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" -p --no-merges 2>/dev/null || echo "")
-
-# Build JSON payload using jq to handle all escaping properly
-# Pipe commits via stdin to avoid "Argument list too long" error
-JSON_PAYLOAD=$(printf '%s' "$COMMITS" | jq -Rs --arg model "claude-sonnet-4-20250514" '
+# Build JSON payload by streaming git log directly to jq
+# This avoids both "Argument list too long" and intermediate variable memory usage
+JSON_PAYLOAD=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" -p --no-merges 2>/dev/null | jq -Rs --arg model "claude-sonnet-4-20250514" '
 {
     model: $model,
     max_tokens: 256,
