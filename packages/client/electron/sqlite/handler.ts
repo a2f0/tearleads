@@ -208,20 +208,15 @@ function getSalt(): number[] | null {
   try {
     const fileData = fs.readFileSync(saltPath);
 
+    // Try decryption first if available, fall back to plain text
     if (safeStorage.isEncryptionAvailable()) {
-      // Try to decrypt first
       try {
-        const decrypted = safeStorage.decryptString(fileData);
-        return JSON.parse(decrypted);
+        return JSON.parse(safeStorage.decryptString(fileData));
       } catch {
-        // If decryption fails, try reading as plain JSON
-        // (for migration from non-encrypted storage)
-        return JSON.parse(fileData.toString('utf8'));
+        // Fall through to plain text parsing
       }
-    } else {
-      // Read as plain JSON
-      return JSON.parse(fileData.toString('utf8'));
     }
+    return JSON.parse(fileData.toString('utf8'));
   } catch {
     return null;
   }
@@ -245,18 +240,15 @@ function getKeyCheckValue(): string | null {
   try {
     const fileData = fs.readFileSync(kcvPath);
 
+    // Try decryption first if available, fall back to plain text
     if (safeStorage.isEncryptionAvailable()) {
-      // Try to decrypt first
       try {
         return safeStorage.decryptString(fileData);
       } catch {
-        // If decryption fails, try reading as plain text
-        return fileData.toString('utf8');
+        // Fall through to plain text parsing
       }
-    } else {
-      // Read as plain text
-      return fileData.toString('utf8');
     }
+    return fileData.toString('utf8');
   } catch {
     return null;
   }
