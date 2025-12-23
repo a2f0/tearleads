@@ -89,29 +89,12 @@ async function initializeDatabaseWithKey(
   adapterInstance = adapter;
 
   // Create Drizzle instance with the sqlite-proxy driver
-  // The connection function needs to handle 'values' method for Drizzle compatibility
-  const rawConnection = adapter.getConnection() as (
-    sql: string,
-    params: unknown[],
-    method: 'all' | 'get' | 'run'
-  ) => Promise<{ rows: unknown[] }>;
-
-  // Wrap to handle the 'values' method that Drizzle might use
-  const connection = async (
+  // The adapters return { rows: any[] } for all methods as expected by Drizzle
+  const connection = adapter.getConnection() as (
     sql: string,
     params: unknown[],
     method: 'all' | 'get' | 'run' | 'values'
-  ): Promise<{ rows: unknown[] }> => {
-    // 'values' method is used for returning raw values without column names
-    // We map it to 'all' and let Drizzle handle the transformation
-    const effectiveMethod = method === 'values' ? 'all' : method;
-    const result = await rawConnection(sql, params, effectiveMethod);
-    // Ensure we always return the expected format
-    if (Array.isArray(result)) {
-      return { rows: result };
-    }
-    return result;
-  };
+  ) => Promise<{ rows: unknown[] }>;
 
   databaseInstance = drizzle(connection, { schema });
 
@@ -222,7 +205,8 @@ export async function changePassword(
   }
 
   // Re-key the database with the new key
-  await adapterInstance.rekeyDatabase(keys.newKey);
+  // Pass oldKey for Capacitor which requires both keys for changeEncryptionSecret
+  await adapterInstance.rekeyDatabase(keys.newKey, keys.oldKey);
 
   return true;
 }

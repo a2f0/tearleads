@@ -26,11 +26,21 @@ interface TestResult {
 }
 
 export function DatabaseTest() {
-  const { isLoading, isSetUp, isUnlocked, setup, unlock, lock, reset } =
-    useDatabaseContext();
+  const {
+    isLoading,
+    isSetUp,
+    isUnlocked,
+    setup,
+    unlock,
+    lock,
+    reset,
+    changePassword
+  } = useDatabaseContext();
 
   const [password, setPassword] = useState('testpassword123');
+  const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [testResult, setTestResult] = useState<TestResult>({
     status: 'idle',
     message: ''
@@ -161,6 +171,45 @@ export function DatabaseTest() {
     }
   }, [isUnlocked]);
 
+  const handleChangePassword = useCallback(async () => {
+    if (!isUnlocked) {
+      setTestResult({ status: 'error', message: 'Database not unlocked' });
+      return;
+    }
+    if (!newPassword) {
+      setTestResult({
+        status: 'error',
+        message: 'New password is required'
+      });
+      return;
+    }
+
+    setTestResult({ status: 'running', message: 'Changing password...' });
+    try {
+      const success = await changePassword(password, newPassword);
+      if (success) {
+        // Update the current password to the new one
+        setPassword(newPassword);
+        setNewPassword('');
+        setShowChangePassword(false);
+        setTestResult({
+          status: 'success',
+          message: 'Password changed successfully'
+        });
+      } else {
+        setTestResult({
+          status: 'error',
+          message: 'Wrong current password'
+        });
+      }
+    } catch (err) {
+      setTestResult({
+        status: 'error',
+        message: `Change password error: ${(err as Error).message}`
+      });
+    }
+  }, [isUnlocked, password, newPassword, changePassword]);
+
   const getStatusColor = (status: TestStatus) => {
     switch (status) {
       case 'success':
@@ -288,6 +337,38 @@ export function DatabaseTest() {
                 data-testid="db-read-button"
               >
                 Read Data
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowChangePassword(!showChangePassword)}
+                disabled={isLoading}
+                data-testid="db-change-password-toggle"
+              >
+                {showChangePassword ? 'Cancel' : 'Change Password'}
+              </Button>
+            </>
+          )}
+
+          {showChangePassword && isUnlocked && (
+            <>
+              <input
+                type="password"
+                placeholder="New Password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                data-testid="db-new-password-input"
+                className="col-span-2 px-3 py-2 text-sm border rounded-md bg-background"
+              />
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleChangePassword}
+                disabled={isLoading || !newPassword}
+                data-testid="db-change-password-button"
+                className="col-span-2"
+              >
+                Confirm Change
               </Button>
             </>
           )}
