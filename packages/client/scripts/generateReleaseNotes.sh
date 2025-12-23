@@ -49,9 +49,9 @@ BUMP_COMMITS=$(git log --oneline --grep="$BUMP_PATTERN" -2 --format="%H" 2>/dev/
 CURRENT_BUMP=$(echo "$BUMP_COMMITS" | head -1)
 PREVIOUS_BUMP=$(echo "$BUMP_COMMITS" | tail -1)
 
-# Build JSON payload by streaming git log directly to jq
-# This avoids both "Argument list too long" and intermediate variable memory usage
-JSON_PAYLOAD=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" -p --no-merges 2>/dev/null | jq -Rs --arg model "claude-sonnet-4-20250514" '
+# Build JSON payload and pipe directly to curl to avoid argument length limits
+# Using -d @- reads the JSON from stdin
+RESPONSE=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" -p --no-merges 2>/dev/null | jq -Rs --arg model "claude-sonnet-4-20250514" '
 {
     model: $model,
     max_tokens: 256,
@@ -59,14 +59,11 @@ JSON_PAYLOAD=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" -p --no-merges 2>/dev/n
         role: "user",
         content: ("Generate brief, user-friendly release notes for a mobile app based on these git commits and diffs. Focus on what users will notice, not technical details. Use simple language. Keep it to 2-4 bullet points max. No markdown formatting, just plain text with bullet points using • character. Do not include a header or version number.\n\nCommits and diffs:\n" + .)
     }]
-}')
-
-# Call Anthropic API
-RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
+}' | curl -s https://api.anthropic.com/v1/messages \
     -H "Content-Type: application/json" \
     -H "x-api-key: $ANTHROPIC_API_KEY" \
     -H "anthropic-version: 2023-06-01" \
-    -d "$JSON_PAYLOAD")
+    -d @-)
 
 # Extract the text from response using printf to avoid echo issues
 RELEASE_NOTES=$(printf '%s' "$RESPONSE" | jq -r '.content[0].text // empty')
