@@ -13,6 +13,7 @@ const mainPath = join(__dirname, '../../out/main/main.js');
 const isCI = !!process.env['CI'];
 
 const TEST_PASSWORD = 'testpassword123';
+const NEW_PASSWORD = 'newpassword456';
 const DB_OPERATION_TIMEOUT = 15000;
 const APP_LOAD_TIMEOUT = 10000;
 
@@ -266,6 +267,81 @@ test.describe('Database (Electron)', () => {
     );
     const readValue = await window.getByTestId('db-test-data').textContent();
 
+    expect(readValue).toBe(writtenValue);
+  });
+
+  test('should change password successfully', async () => {
+    // Setup database first
+    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await window.getByTestId('db-setup-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Write some data to verify it persists after password change
+    await window.getByTestId('db-write-button').click();
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+    const writtenValue = await window.getByTestId('db-test-data').textContent();
+
+    // Open change password UI
+    await window.getByTestId('db-change-password-toggle').click();
+
+    // Enter new password
+    await window.getByTestId('db-new-password-input').fill(NEW_PASSWORD);
+
+    // Click confirm change
+    await window.getByTestId('db-change-password-button').click();
+
+    // Wait for change to complete
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+    await expect(window.getByTestId('db-test-result')).toContainText(
+      'Password changed successfully'
+    );
+
+    // Verify database is still unlocked
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked');
+
+    // Lock the database
+    await window.getByTestId('db-lock-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Locked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Try to unlock with old password (should fail)
+    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await window.getByTestId('db-unlock-button').click();
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'error',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+    await expect(window.getByTestId('db-test-result')).toContainText(
+      'Wrong password'
+    );
+
+    // Unlock with new password (should succeed)
+    await window.getByTestId('db-password-input').fill(NEW_PASSWORD);
+    await window.getByTestId('db-unlock-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Verify data persisted across password change
+    await window.getByTestId('db-read-button').click();
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+    const readValue = await window.getByTestId('db-test-data').textContent();
     expect(readValue).toBe(writtenValue);
   });
 });

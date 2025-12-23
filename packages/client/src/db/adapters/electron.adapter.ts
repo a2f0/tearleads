@@ -82,32 +82,23 @@ export class ElectronAdapter implements DatabaseAdapter {
     await api.sqlite.rollback();
   }
 
-  async rekeyDatabase(newKey: Uint8Array): Promise<void> {
+  async rekeyDatabase(newKey: Uint8Array, _oldKey?: Uint8Array): Promise<void> {
     const api = getElectronApi();
     await api.sqlite.rekey(Array.from(newKey));
   }
 
   getConnection(): unknown {
-    // For Drizzle, return an executor function
+    // For Drizzle sqlite-proxy, return a function that always returns { rows: any[] }
     return async (
       sql: string,
       params: unknown[],
-      method: 'all' | 'get' | 'run'
-    ) => {
+      _method: 'all' | 'get' | 'run' | 'values'
+    ): Promise<{ rows: unknown[] }> => {
       const result = await this.execute(sql, params);
 
-      if (method === 'run') {
-        return {
-          changes: result.changes,
-          lastInsertRowId: result.lastInsertRowId
-        };
-      }
-
-      if (method === 'get') {
-        return result.rows[0] ?? null;
-      }
-
-      return result.rows;
+      // Drizzle sqlite-proxy expects { rows: any[] } for ALL methods
+      // The method parameter tells Drizzle how to interpret the rows
+      return { rows: result.rows };
     };
   }
 
