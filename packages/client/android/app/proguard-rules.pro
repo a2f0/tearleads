@@ -22,3 +22,7 @@
 # Preserve line numbers for debugging stack traces
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# Google Tink / SQLCipher - suppress warnings for compile-time annotations
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn javax.annotation.**
