@@ -139,19 +139,7 @@ class WebKeyStorage implements KeyStorageAdapter {
  */
 class ElectronKeyStorage implements KeyStorageAdapter {
   private getApi() {
-    return (
-      window as unknown as {
-        electron?: {
-          sqlite?: {
-            getSalt?: () => Promise<number[] | null>;
-            setSalt?: (salt: number[]) => Promise<void>;
-            getKeyCheckValue?: () => Promise<string | null>;
-            setKeyCheckValue?: (kcv: string) => Promise<void>;
-            clearKeyStorage?: () => Promise<void>;
-          };
-        };
-      }
-    ).electron?.sqlite;
+    return window.electron?.sqlite;
   }
 
   async getSalt(): Promise<Uint8Array | null> {

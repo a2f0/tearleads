@@ -3,32 +3,14 @@
  * Communicates with the main process via IPC.
  */
 
+import type { ElectronApi } from '@/types/electron';
 import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
 
-// Type for the electron API exposed via preload
-interface ElectronSqliteApi {
-  sqlite: {
-    initialize: (config: {
-      name: string;
-      encryptionKey: number[];
-    }) => Promise<void>;
-    close: () => Promise<void>;
-    execute: (sql: string, params?: unknown[]) => Promise<QueryResult>;
-    executeMany: (statements: string[]) => Promise<void>;
-    beginTransaction: () => Promise<void>;
-    commit: () => Promise<void>;
-    rollback: () => Promise<void>;
-    rekey: (newKey: number[]) => Promise<void>;
-    deleteDatabase: (name: string) => Promise<void>;
-  };
-}
-
-function getElectronApi(): ElectronSqliteApi {
-  const api = (window as unknown as { electron?: ElectronSqliteApi }).electron;
-  if (!api?.sqlite) {
+function getElectronApi(): ElectronApi {
+  if (!window.electron?.sqlite) {
     throw new Error('Electron SQLite API not available');
   }
-  return api;
+  return window.electron;
 }
 
 export class ElectronAdapter implements DatabaseAdapter {

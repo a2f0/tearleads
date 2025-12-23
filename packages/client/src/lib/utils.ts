@@ -6,10 +6,7 @@ export type Platform = 'web' | 'ios' | 'android' | 'electron';
 
 export function detectPlatform(): Platform {
   // Check for Electron first (before Capacitor which returns 'web' for Electron)
-  if (
-    typeof window !== 'undefined' &&
-    (window as unknown as { electron?: unknown }).electron
-  ) {
+  if (typeof window !== 'undefined' && window.electron) {
     return 'electron';
   }
 
