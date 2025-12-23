@@ -1,0 +1,392 @@
+/**
+ * Electron main process SQLite handler.
+ * Uses better-sqlite3-multiple-ciphers for encrypted database operations.
+ */
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { app, ipcMain, safeStorage } from 'electron';
+import Database from 'better-sqlite3-multiple-ciphers';
+
+interface QueryResult {
+  rows: Record<string, unknown>[];
+  changes?: number;
+  lastInsertRowId?: number;
+}
+
+let db: Database.Database | null = null;
+
+/**
+ * Get the database file path.
+ */
+function getDatabasePath(name: string): string {
+  const userDataPath = app.getPath('userData');
+  return path.join(userDataPath, `${name}.db`);
+}
+
+/**
+ * Securely zero out a buffer to prevent key material from lingering in memory.
+ */
+function secureZeroBuffer(buffer: Buffer): void {
+  buffer.fill(0);
+}
+
+/**
+ * Initialize the database with encryption.
+ */
+function initializeDatabase(config: {
+  name: string;
+  encryptionKey: number[];
+}): void {
+  if (db) {
+    throw new Error('Database already initialized');
+  }
+
+  const dbPath = getDatabasePath(config.name);
+  const keyBuffer = Buffer.from(config.encryptionKey);
+
+  try {
+    // Open database with encryption
+    db = new Database(dbPath);
+
+    // Set up encryption using SQLite3MultipleCiphers
+    // Use ChaCha20-Poly1305 cipher (recommended)
+    db.pragma(`cipher='chacha20'`);
+
+    // Convert to hex for the pragma, then immediately zero the source buffer
+    const keyHex = keyBuffer.toString('hex');
+    secureZeroBuffer(keyBuffer);
+
+    db.pragma(`key="x'${keyHex}'"`);
+
+    // Verify the key works by running a simple query
+    // Note: cipher_integrity_check only works on existing encrypted databases
+    // For new databases or verification, we use a simple table check
+    try {
+      // This will fail with "SQLITE_NOTADB: file is not a database"
+      // if the key is wrong for an existing encrypted database
+      db.exec('SELECT 1');
+    } catch (error) {
+      db.close();
+      db = null;
+      throw new Error('Invalid encryption key');
+    }
+
+    // Enable WAL mode for better performance
+    db.pragma('journal_mode = WAL');
+
+    // Enable foreign keys
+    db.pragma('foreign_keys = ON');
+
+    console.log(`Database initialized at: ${dbPath}`);
+  } catch (error) {
+    // Ensure we zero the buffer even on error
+    secureZeroBuffer(keyBuffer);
+    throw error;
+  }
+}
+
+/**
+ * Close the database.
+ */
+function closeDatabase(): void {
+  if (db) {
+    db.close();
+    db = null;
+  }
+}
+
+/**
+ * Execute a SQL query.
+ */
+function execute(sql: string, params?: unknown[]): QueryResult {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
+  const stmt = db.prepare(sql);
+  const isSelect =
+    sql.trim().toUpperCase().startsWith('SELECT') ||
+    sql.trim().toUpperCase().startsWith('PRAGMA');
+
+  if (isSelect) {
+    const rows = params ? stmt.all(...params) : stmt.all();
+    return { rows: rows as Record<string, unknown>[] };
+  }
+
+  const result = params ? stmt.run(...params) : stmt.run();
+  return {
+    rows: [],
+    changes: result.changes,
+    lastInsertRowId: Number(result.lastInsertRowid)
+  };
+}
+
+/**
+ * Execute multiple SQL statements atomically within a transaction.
+ * Uses better-sqlite3's transaction() for automatic rollback on error.
+ */
+function executeMany(statements: string[]): void {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
+  const runStatements = db.transaction((stmts: string[]) => {
+    for (const sql of stmts) {
+      db!.exec(sql);
+    }
+  });
+
+  runStatements(statements);
+}
+
+/**
+ * Begin a transaction.
+ */
+function beginTransaction(): void {
+  execute('BEGIN TRANSACTION');
+}
+
+/**
+ * Commit the current transaction.
+ */
+function commit(): void {
+  execute('COMMIT');
+}
+
+/**
+ * Rollback the current transaction.
+ */
+function rollback(): void {
+  execute('ROLLBACK');
+}
+
+/**
+ * Re-key the database with a new encryption key.
+ */
+function rekey(newKey: number[]): void {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
+  const keyBuffer = Buffer.from(newKey);
+  try {
+    const keyHex = keyBuffer.toString('hex');
+    secureZeroBuffer(keyBuffer);
+    db.pragma(`rekey="x'${keyHex}'"`);
+  } catch (error) {
+    secureZeroBuffer(keyBuffer);
+    throw error;
+  }
+}
+
+/**
+ * Store the salt and key check value.
+ * Note: The salt is not secret - it's a random value used for key derivation.
+ * The key check value is a hash used only for password verification.
+ * We use safeStorage when available for extra protection, but fall back to
+ * plain JSON storage when not available (e.g., in CI environments).
+ */
+const SALT_FILE = '.salt';
+const KCV_FILE = '.kcv';
+
+function getStoragePath(filename: string): string {
+  return path.join(app.getPath('userData'), filename);
+}
+
+function storeSalt(salt: number[]): void {
+  const saltPath = getStoragePath(SALT_FILE);
+  const data = JSON.stringify(salt);
+
+  if (safeStorage.isEncryptionAvailable()) {
+    const encrypted = safeStorage.encryptString(data);
+    fs.writeFileSync(saltPath, encrypted);
+  } else {
+    // Fallback: store as plain JSON (salt is not secret, but log for awareness)
+    console.warn('safeStorage not available, storing salt as plain JSON');
+    fs.writeFileSync(saltPath, data, 'utf8');
+  }
+}
+
+function getSalt(): number[] | null {
+  const saltPath = getStoragePath(SALT_FILE);
+
+  try {
+    const fileData = fs.readFileSync(saltPath);
+
+    // Try decryption first if available, fall back to plain text
+    if (safeStorage.isEncryptionAvailable()) {
+      try {
+        return JSON.parse(safeStorage.decryptString(fileData));
+      } catch {
+        // Fall through to plain text parsing
+      }
+    }
+    return JSON.parse(fileData.toString('utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function storeKeyCheckValue(kcv: string): void {
+  const kcvPath = getStoragePath(KCV_FILE);
+
+  if (safeStorage.isEncryptionAvailable()) {
+    const encrypted = safeStorage.encryptString(kcv);
+    fs.writeFileSync(kcvPath, encrypted);
+  } else {
+    // Fallback: store as plain text (kcv is not secret, but log for awareness)
+    console.warn('safeStorage not available, storing KCV as plain text');
+    fs.writeFileSync(kcvPath, kcv, 'utf8');
+  }
+}
+
+function getKeyCheckValue(): string | null {
+  const kcvPath = getStoragePath(KCV_FILE);
+
+  try {
+    const fileData = fs.readFileSync(kcvPath);
+
+    // Try decryption first if available, fall back to plain text
+    if (safeStorage.isEncryptionAvailable()) {
+      try {
+        return safeStorage.decryptString(fileData);
+      } catch {
+        // Fall through to plain text parsing
+      }
+    }
+    return fileData.toString('utf8');
+  } catch {
+    return null;
+  }
+}
+
+function clearKeyStorage(): void {
+  const saltPath = getStoragePath(SALT_FILE);
+  const kcvPath = getStoragePath(KCV_FILE);
+
+  try {
+    fs.unlinkSync(saltPath);
+  } catch {
+    // Ignore if file doesn't exist
+  }
+
+  try {
+    fs.unlinkSync(kcvPath);
+  } catch {
+    // Ignore if file doesn't exist
+  }
+}
+
+/**
+ * Register IPC handlers for SQLite operations.
+ */
+export function registerSqliteHandlers(): void {
+  // Database operations
+  ipcMain.handle(
+    'sqlite:initialize',
+    async (_event, config: { name: string; encryptionKey: number[] }) => {
+      try {
+        initializeDatabase(config);
+      } catch (error) {
+        console.error('sqlite:initialize error:', error);
+        throw error;
+      }
+    }
+  );
+
+  ipcMain.handle('sqlite:close', () => {
+    closeDatabase();
+  });
+
+  ipcMain.handle(
+    'sqlite:execute',
+    (_event, sql: string, params?: unknown[]) => {
+      return execute(sql, params);
+    }
+  );
+
+  ipcMain.handle('sqlite:executeMany', (_event, statements: string[]) => {
+    executeMany(statements);
+  });
+
+  ipcMain.handle('sqlite:beginTransaction', () => {
+    beginTransaction();
+  });
+
+  ipcMain.handle('sqlite:commit', () => {
+    commit();
+  });
+
+  ipcMain.handle('sqlite:rollback', () => {
+    rollback();
+  });
+
+  ipcMain.handle('sqlite:rekey', (_event, newKey: number[]) => {
+    rekey(newKey);
+  });
+
+  // Key storage operations
+  ipcMain.handle('sqlite:getSalt', () => {
+    return getSalt();
+  });
+
+  ipcMain.handle('sqlite:setSalt', (_event, salt: number[]) => {
+    storeSalt(salt);
+  });
+
+  ipcMain.handle('sqlite:getKeyCheckValue', () => {
+    return getKeyCheckValue();
+  });
+
+  ipcMain.handle('sqlite:setKeyCheckValue', (_event, kcv: string) => {
+    storeKeyCheckValue(kcv);
+  });
+
+  ipcMain.handle('sqlite:clearKeyStorage', () => {
+    clearKeyStorage();
+  });
+
+  ipcMain.handle('sqlite:deleteDatabase', (_event, name: string) => {
+    deleteDatabase(name);
+  });
+}
+
+/**
+ * Delete the database file.
+ */
+function deleteDatabase(name: string): void {
+  closeDatabase();
+
+  const dbPath = getDatabasePath(name);
+  const walPath = `${dbPath}-wal`;
+  const shmPath = `${dbPath}-shm`;
+
+  // Delete main database file
+  try {
+    fs.unlinkSync(dbPath);
+  } catch {
+    // Ignore if file doesn't exist
+  }
+
+  // Delete WAL file
+  try {
+    fs.unlinkSync(walPath);
+  } catch {
+    // Ignore if file doesn't exist
+  }
+
+  // Delete SHM file
+  try {
+    fs.unlinkSync(shmPath);
+  } catch {
+    // Ignore if file doesn't exist
+  }
+}
+
+/**
+ * Clean up on app quit.
+ */
+export function cleanupSqlite(): void {
+  closeDatabase();
+}
