@@ -269,11 +269,7 @@ export class CapacitorAdapter implements DatabaseAdapter {
     // This is on CapacitorSQLite directly, not the SQLiteConnection wrapper
     try {
       const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
-      await (
-        CapacitorSQLite as unknown as {
-          clearEncryptionSecret: () => Promise<void>;
-        }
-      ).clearEncryptionSecret();
+      await CapacitorSQLite.clearEncryptionSecret();
     } catch {
       // Ignore errors if not supported or no secret stored
     }

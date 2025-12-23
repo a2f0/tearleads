@@ -229,15 +229,8 @@ export async function resetDatabase(): Promise<void> {
     const platformInfo = getCurrentPlatform();
     if (platformInfo.platform === 'electron') {
       try {
-        const electronApi = (
-          window as unknown as {
-            electron?: {
-              sqlite?: { deleteDatabase: (name: string) => Promise<void> };
-            };
-          }
-        ).electron?.sqlite;
-        if (electronApi?.deleteDatabase) {
-          await electronApi.deleteDatabase('rapid');
+        if (window.electron?.sqlite?.deleteDatabase) {
+          await window.electron.sqlite.deleteDatabase('rapid');
         }
       } catch {
         // Ignore errors if the file doesn't exist
