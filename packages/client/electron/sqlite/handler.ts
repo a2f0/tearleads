@@ -123,15 +123,23 @@ function execute(sql: string, params?: unknown[]): QueryResult {
 }
 
 /**
- * Execute multiple SQL statements.
+ * Execute multiple SQL statements atomically within a transaction.
+ * If any statement fails, all changes are rolled back.
  */
 function executeMany(statements: string[]): void {
   if (!db) {
     throw new Error('Database not initialized');
   }
 
-  for (const sql of statements) {
-    db.exec(sql);
+  db.exec('BEGIN TRANSACTION');
+  try {
+    for (const sql of statements) {
+      db.exec(sql);
+    }
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
   }
 }
 
@@ -197,7 +205,8 @@ function storeSalt(salt: number[]): void {
     const encrypted = safeStorage.encryptString(data);
     fs.writeFileSync(saltPath, encrypted);
   } else {
-    // Fallback: store as plain JSON (salt is not secret)
+    // Fallback: store as plain JSON (salt is not secret, but log for awareness)
+    console.warn('safeStorage not available, storing salt as plain JSON');
     fs.writeFileSync(saltPath, data, 'utf8');
   }
 }
@@ -229,7 +238,8 @@ function storeKeyCheckValue(kcv: string): void {
     const encrypted = safeStorage.encryptString(kcv);
     fs.writeFileSync(kcvPath, encrypted);
   } else {
-    // Fallback: store as plain text (kcv is not secret)
+    // Fallback: store as plain text (kcv is not secret, but log for awareness)
+    console.warn('safeStorage not available, storing KCV as plain text');
     fs.writeFileSync(kcvPath, kcv, 'utf8');
   }
 }

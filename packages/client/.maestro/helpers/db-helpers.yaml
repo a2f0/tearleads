@@ -1,0 +1,41 @@
+appId: com.tearleads.rapid
+---
+# Shared database test helper functions
+# Include this flow at the start of tests that need database interaction helpers
+# Usage: - runFlow: helpers/db-helpers.yaml
+
+- evalScript: |
+    window.waitFor = async (predicate, errorMessage, timeout) => {
+      timeout = timeout || 10000;
+      var interval = 200;
+      var maxTries = timeout / interval;
+      for (var i = 0; i < maxTries; i++) {
+        if (await predicate()) return 'ok';
+        await new Promise(function(resolve) { setTimeout(resolve, interval); });
+      }
+      throw new Error(errorMessage);
+    };
+    window.waitForStatus = function(status) {
+      return window.waitFor(
+        function() { return document.querySelector('[data-testid="db-status"]') && document.querySelector('[data-testid="db-status"]').textContent === status; },
+        'Expected "' + status + '" status'
+      );
+    };
+    window.waitForResult = function(status, textMatch) {
+      return window.waitFor(
+        function() {
+          var result = document.querySelector('[data-testid="db-test-result"]');
+          if (!result) return false;
+          var hasStatus = result.getAttribute('data-status') === status;
+          var hasText = !textMatch || result.textContent.includes(textMatch);
+          return hasStatus && hasText;
+        },
+        'Expected result status "' + status + '"' + (textMatch ? ' with "' + textMatch + '"' : '')
+      );
+    };
+    window.setPassword = function(password) {
+      var input = document.querySelector('[data-testid="db-password-input"]');
+      input.value = password;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    'helpers loaded';

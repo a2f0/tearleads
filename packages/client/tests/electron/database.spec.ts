@@ -270,7 +270,7 @@ test.describe('Database (Electron)', () => {
     expect(readValue).toBe(writtenValue);
   });
 
-  // TODO: Skip until password change feature is fully tested
+  // TODO: Skip until WASM rekey issue is resolved (see #103)
   test.skip('should change password successfully', async () => {
     // Setup database first
     await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
