@@ -244,6 +244,60 @@ test.describe('Database (Web)', () => {
     await expect(page.getByTestId('db-setup-button')).toBeVisible();
   });
 
+  test('should setup database again after reset', async ({ page }) => {
+    // Setup database first
+    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Write some data
+    await page.getByTestId('db-write-button').click();
+    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+
+    // Reset the database
+    await page.getByTestId('db-reset-button').click();
+    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+    await expect(page.getByTestId('db-status')).toHaveText('Not Set Up');
+
+    // Setup database again with a new password
+    await page.getByTestId('db-password-input').fill('newpassword789');
+    await page.getByTestId('db-setup-button').click();
+
+    // Wait for setup to complete - this is where the bug occurs
+    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+
+    // Verify database is unlocked again
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked');
+    await expect(page.getByTestId('db-test-result')).toContainText(
+      'Database setup complete'
+    );
+
+    // Write and read data to verify the new database works
+    await page.getByTestId('db-write-button').click();
+    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+
+    const newValue = await page.getByTestId('db-test-data').textContent();
+    expect(newValue).toMatch(/^test-value-\d+$/);
+  });
+
   // TODO: Skip until WASM rekey issue is resolved (see #103)
   test.skip('should change password successfully', async ({ page }) => {
     // Setup database first
