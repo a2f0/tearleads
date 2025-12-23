@@ -3,11 +3,20 @@
  * Provides UI for testing database operations across all platforms.
  */
 
-import { Eye, EyeOff } from 'lucide-react';
+import { Copy, Eye, EyeOff } from 'lucide-react';
 import { type ChangeEvent, useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
+
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 type TestStatus = 'idle' | 'running' | 'success' | 'error';
 
@@ -297,11 +306,21 @@ export function DatabaseTest() {
 
       {testResult.message && (
         <div
-          className={`text-sm ${getStatusColor(testResult.status)}`}
+          className={`text-sm flex items-start gap-2 ${getStatusColor(testResult.status)}`}
           data-testid="db-test-result"
           data-status={testResult.status}
         >
-          {testResult.message}
+          <span className="flex-1 break-all">{testResult.message}</span>
+          {testResult.status === 'error' && (
+            <button
+              type="button"
+              onClick={() => copyToClipboard(testResult.message)}
+              className="flex-shrink-0 p-1 hover:bg-muted rounded"
+              aria-label="Copy error to clipboard"
+            >
+              <Copy className="h-3 w-3" />
+            </button>
+          )}
         </div>
       )}
     </div>
