@@ -4,7 +4,7 @@
  */
 
 import { Check, Copy, Eye, EyeOff } from 'lucide-react';
-import { type ChangeEvent, useCallback, useState } from 'react';
+import { type ChangeEvent, useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
@@ -47,6 +47,16 @@ export function DatabaseTest() {
   });
   const [testData, setTestData] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+
+    const timerId = setTimeout(() => {
+      setCopied(false);
+    }, 2000);
+
+    return () => clearTimeout(timerId);
+  }, [copied]);
 
   const handleSetup = useCallback(async () => {
     setTestResult({ status: 'running', message: 'Setting up database...' });
@@ -397,10 +407,8 @@ export function DatabaseTest() {
             <button
               type="button"
               onClick={async () => {
-                const success = await copyToClipboard(testResult.message);
-                if (success) {
+                if (await copyToClipboard(testResult.message)) {
                   setCopied(true);
-                  setTimeout(() => setCopied(false), 2000);
                 }
               }}
               className="flex-shrink-0 p-1 hover:bg-muted rounded"
