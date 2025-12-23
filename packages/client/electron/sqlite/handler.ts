@@ -124,23 +124,20 @@ function execute(sql: string, params?: unknown[]): QueryResult {
 
 /**
  * Execute multiple SQL statements atomically within a transaction.
- * If any statement fails, all changes are rolled back.
+ * Uses better-sqlite3's transaction() for automatic rollback on error.
  */
 function executeMany(statements: string[]): void {
   if (!db) {
     throw new Error('Database not initialized');
   }
 
-  db.exec('BEGIN TRANSACTION');
-  try {
-    for (const sql of statements) {
-      db.exec(sql);
+  const runStatements = db.transaction((stmts: string[]) => {
+    for (const sql of stmts) {
+      db!.exec(sql);
     }
-    db.exec('COMMIT');
-  } catch (error) {
-    db.exec('ROLLBACK');
-    throw error;
-  }
+  });
+
+  runStatements(statements);
 }
 
 /**
