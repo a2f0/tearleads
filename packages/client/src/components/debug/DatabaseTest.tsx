@@ -3,7 +3,7 @@
  * Provides UI for testing database operations across all platforms.
  */
 
-import { Copy, Eye, EyeOff } from 'lucide-react';
+import { Check, Copy, Eye, EyeOff } from 'lucide-react';
 import { type ChangeEvent, useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
@@ -46,6 +46,7 @@ export function DatabaseTest() {
     message: ''
   });
   const [testData, setTestData] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const handleSetup = useCallback(async () => {
     setTestResult({ status: 'running', message: 'Setting up database...' });
@@ -395,11 +396,21 @@ export function DatabaseTest() {
           {testResult.status === 'error' && (
             <button
               type="button"
-              onClick={() => copyToClipboard(testResult.message)}
+              onClick={async () => {
+                const success = await copyToClipboard(testResult.message);
+                if (success) {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }
+              }}
               className="flex-shrink-0 p-1 hover:bg-muted rounded"
               aria-label="Copy error to clipboard"
             >
-              <Copy className="h-3 w-3" />
+              {copied ? (
+                <Check className="h-3 w-3 text-green-600" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
             </button>
           )}
         </div>
