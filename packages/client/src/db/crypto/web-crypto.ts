@@ -158,33 +158,6 @@ export async function decrypt(
 }
 
 /**
- * Encrypt a SQLite page with page number as additional authenticated data.
- * This prevents page reordering attacks.
- */
-export async function encryptPage(
-  pageData: Uint8Array,
-  key: CryptoKey,
-  pageNumber: number
-): Promise<Uint8Array> {
-  const aad = new Uint8Array(4);
-  new DataView(aad.buffer).setUint32(0, pageNumber, true);
-  return encrypt(pageData, key, aad);
-}
-
-/**
- * Decrypt a SQLite page with page number verification.
- */
-export async function decryptPage(
-  encryptedPage: Uint8Array,
-  key: CryptoKey,
-  pageNumber: number
-): Promise<Uint8Array> {
-  const aad = new Uint8Array(4);
-  new DataView(aad.buffer).setUint32(0, pageNumber, true);
-  return decrypt(encryptedPage, key, aad);
-}
-
-/**
  * Securely zero out a buffer to prevent key leakage.
  */
 export function secureZero(buffer: Uint8Array): void {
