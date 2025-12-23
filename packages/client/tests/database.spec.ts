@@ -270,7 +270,7 @@ test.describe('Database (Web)', () => {
     await expect(page.getByTestId('db-status')).toHaveText('Not Set Up');
 
     // Setup database again with a new password
-    await page.getByTestId('db-password-input').fill('newpassword789');
+    await page.getByTestId('db-password-input').fill(NEW_PASSWORD);
     await page.getByTestId('db-setup-button').click();
 
     // Wait for setup to complete - this is where the bug occurs
