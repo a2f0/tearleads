@@ -27,6 +27,9 @@ if [ -z "${TF_VAR_domain:-}" ]; then
   exit 1
 fi
 
+# Download SQLite WASM if not present
+./scripts/downloadSqliteWasm.sh
+
 # Generate web image assets
 ./packages/client/scripts/buildWebImageAssets.sh
 

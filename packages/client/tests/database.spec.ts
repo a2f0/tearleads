@@ -1,8 +1,24 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 const TEST_PASSWORD = 'testpassword123';
 const NEW_PASSWORD = 'newpassword456';
 const DB_OPERATION_TIMEOUT = 15000;
+
+// Helper to wait for successful database operation
+const waitForSuccess = (page: Page) =>
+  expect(page.getByTestId('db-test-result')).toHaveAttribute(
+    'data-status',
+    'success',
+    { timeout: DB_OPERATION_TIMEOUT }
+  );
+
+// Helper to wait for failed database operation
+const waitForError = (page: Page) =>
+  expect(page.getByTestId('db-test-result')).toHaveAttribute(
+    'data-status',
+    'error',
+    { timeout: DB_OPERATION_TIMEOUT }
+  );
 
 // Requirements for web database tests:
 // - Browser: Chrome 102+, Edge 102+, Firefox 111+, or Safari 15.2+
@@ -20,11 +36,7 @@ test.describe('Database (Web)', () => {
     await resetButton.click();
 
     // Wait for reset to complete
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await waitForSuccess(page);
 
     // Verify database is in "Not Set Up" state
     await expect(page.getByTestId('db-status')).toHaveText('Not Set Up');
@@ -41,11 +53,7 @@ test.describe('Database (Web)', () => {
     await setupButton.click();
 
     // Wait for setup to complete
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await waitForSuccess(page);
 
     // Verify database is now unlocked
     await expect(page.getByTestId('db-status')).toHaveText('Unlocked');
@@ -68,11 +76,7 @@ test.describe('Database (Web)', () => {
     await writeButton.click();
 
     // Wait for write to complete
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await waitForSuccess(page);
     await expect(page.getByTestId('db-test-result')).toContainText(
       'Wrote test data:'
     );
@@ -87,11 +91,7 @@ test.describe('Database (Web)', () => {
     await readButton.click();
 
     // Wait for read to complete
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await waitForSuccess(page);
     await expect(page.getByTestId('db-test-result')).toContainText(
       'Read test data:'
     );
@@ -115,11 +115,7 @@ test.describe('Database (Web)', () => {
     await lockButton.click();
 
     // Wait for lock to complete
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await waitForSuccess(page);
 
     // Verify database is now locked
     await expect(page.getByTestId('db-status')).toHaveText('Locked');
@@ -130,11 +126,7 @@ test.describe('Database (Web)', () => {
     await unlockButton.click();
 
     // Wait for unlock to complete
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await waitForSuccess(page);
 
     // Verify database is unlocked again
     await expect(page.getByTestId('db-status')).toHaveText('Unlocked');
@@ -159,11 +151,7 @@ test.describe('Database (Web)', () => {
     await page.getByTestId('db-unlock-button').click();
 
     // Wait for unlock attempt to complete
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'error',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await waitForError(page);
 
     // Verify error message
     await expect(page.getByTestId('db-test-result')).toContainText(
@@ -184,11 +172,7 @@ test.describe('Database (Web)', () => {
 
     // Write data
     await page.getByTestId('db-write-button').click();
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await waitForSuccess(page);
     const writtenValue = await page.getByTestId('db-test-data').textContent();
 
     // Lock the database
@@ -205,11 +189,7 @@ test.describe('Database (Web)', () => {
 
     // Read data and verify it persisted
     await page.getByTestId('db-read-button').click();
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await waitForSuccess(page);
     const readValue = await page.getByTestId('db-test-data').textContent();
 
     expect(readValue).toBe(writtenValue);
@@ -228,11 +208,7 @@ test.describe('Database (Web)', () => {
 
     // Reset the database
     await page.getByTestId('db-reset-button').click();
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await waitForSuccess(page);
 
     // Verify database is in "Not Set Up" state
     await expect(page.getByTestId('db-status')).toHaveText('Not Set Up');
@@ -242,6 +218,44 @@ test.describe('Database (Web)', () => {
 
     // Setup button should be visible again
     await expect(page.getByTestId('db-setup-button')).toBeVisible();
+  });
+
+  test('should setup database again after reset', async ({ page }) => {
+    // Setup database first
+    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Write some data
+    await page.getByTestId('db-write-button').click();
+    await waitForSuccess(page);
+
+    // Reset the database
+    await page.getByTestId('db-reset-button').click();
+    await waitForSuccess(page);
+    await expect(page.getByTestId('db-status')).toHaveText('Not Set Up');
+
+    // Setup database again with a new password
+    await page.getByTestId('db-password-input').fill(NEW_PASSWORD);
+    await page.getByTestId('db-setup-button').click();
+
+    // Wait for setup to complete - this is where the bug occurs
+    await waitForSuccess(page);
+
+    // Verify database is unlocked again
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked');
+    await expect(page.getByTestId('db-test-result')).toContainText(
+      'Database setup complete'
+    );
+
+    // Write and read data to verify the new database works
+    await page.getByTestId('db-write-button').click();
+    await waitForSuccess(page);
+
+    const newValue = await page.getByTestId('db-test-data').textContent();
+    expect(newValue).toMatch(/^test-value-\d+$/);
   });
 
   // TODO: Skip until WASM rekey issue is resolved (see #103)
@@ -255,11 +269,7 @@ test.describe('Database (Web)', () => {
 
     // Write some data to verify it persists after password change
     await page.getByTestId('db-write-button').click();
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await waitForSuccess(page);
     const writtenValue = await page.getByTestId('db-test-data').textContent();
 
     // Open change password UI
@@ -272,11 +282,7 @@ test.describe('Database (Web)', () => {
     await page.getByTestId('db-change-password-button').click();
 
     // Wait for change to complete
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await waitForSuccess(page);
     await expect(page.getByTestId('db-test-result')).toContainText(
       'Password changed successfully'
     );
@@ -293,11 +299,7 @@ test.describe('Database (Web)', () => {
     // Try to unlock with old password (should fail)
     await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
     await page.getByTestId('db-unlock-button').click();
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'error',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await waitForError(page);
     await expect(page.getByTestId('db-test-result')).toContainText(
       'Wrong password'
     );
@@ -311,11 +313,7 @@ test.describe('Database (Web)', () => {
 
     // Verify data persisted across password change
     await page.getByTestId('db-read-button').click();
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'success',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await waitForSuccess(page);
     const readValue = await page.getByTestId('db-test-data').textContent();
     expect(readValue).toBe(writtenValue);
   });
@@ -344,11 +342,7 @@ test.describe('Database (Web)', () => {
     await page.getByTestId('db-change-password-button').click();
 
     // Wait for error
-    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-      'data-status',
-      'error',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    await waitForError(page);
     await expect(page.getByTestId('db-test-result')).toContainText(
       'Wrong current password'
     );
