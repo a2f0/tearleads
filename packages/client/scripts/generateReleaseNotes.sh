@@ -53,13 +53,14 @@ PREVIOUS_BUMP=$(echo "$BUMP_COMMITS" | tail -1)
 COMMITS=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" -p --no-merges 2>/dev/null || echo "")
 
 # Build JSON payload using jq to handle all escaping properly
-JSON_PAYLOAD=$(jq -Rsn --arg model "claude-sonnet-4-20250514" --arg commits "$COMMITS" '
+# Pipe commits via stdin to avoid "Argument list too long" error
+JSON_PAYLOAD=$(printf '%s' "$COMMITS" | jq -Rs --arg model "claude-sonnet-4-20250514" '
 {
     model: $model,
     max_tokens: 256,
     messages: [{
         role: "user",
-        content: ("Generate brief, user-friendly release notes for a mobile app based on these git commits and diffs. Focus on what users will notice, not technical details. Use simple language. Keep it to 2-4 bullet points max. No markdown formatting, just plain text with bullet points using • character. Do not include a header or version number.\n\nCommits and diffs:\n" + $commits)
+        content: ("Generate brief, user-friendly release notes for a mobile app based on these git commits and diffs. Focus on what users will notice, not technical details. Use simple language. Keep it to 2-4 bullet points max. No markdown formatting, just plain text with bullet points using • character. Do not include a header or version number.\n\nCommits and diffs:\n" + .)
     }]
 }')
 
