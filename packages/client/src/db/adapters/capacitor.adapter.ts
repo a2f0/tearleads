@@ -5,135 +5,131 @@
 
 import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
 
-// Dynamic import types for Capacitor SQLite plugin
-interface CapacitorSQLitePlugin {
-  createConnection(options: {
-    database: string;
-    encrypted: boolean;
-    mode: string;
-    version: number;
-    readonly: boolean;
-  }): Promise<{ changes?: { changes: number; lastId: number } }>;
-  closeConnection(options: {
-    database: string;
-    readonly: boolean;
-  }): Promise<void>;
-  open(options: { database: string; readonly: boolean }): Promise<void>;
-  close(options: { database: string; readonly: boolean }): Promise<void>;
-  execute(options: {
-    database: string;
-    statements: string;
-    transaction?: boolean;
-    readonly: boolean;
-  }): Promise<{ changes?: { changes: number; lastId: number } }>;
-  query(options: {
-    database: string;
-    statement: string;
-    values?: unknown[];
-    readonly: boolean;
-  }): Promise<{ values?: Record<string, unknown>[] }>;
-  run(options: {
-    database: string;
-    statement: string;
-    values?: unknown[];
-    transaction?: boolean;
-    readonly: boolean;
-  }): Promise<{ changes?: { changes: number; lastId: number } }>;
-  isDBOpen(options: {
-    database: string;
-    readonly: boolean;
-  }): Promise<{ result: boolean }>;
-  executeSet(options: {
-    database: string;
-    set: Array<{ statement: string; values?: unknown[] }>;
-    transaction?: boolean;
-    readonly: boolean;
-  }): Promise<{ changes?: { changes: number; lastId: number } }>;
+// Types for SQLiteConnection wrapper
+interface SQLiteConnectionWrapper {
+  createConnection(
+    database: string,
+    encrypted: boolean,
+    mode: string,
+    version: number,
+    readonly: boolean
+  ): Promise<SQLiteDBConnection>;
+  closeConnection(database: string, readonly: boolean): Promise<void>;
+  isConnection(
+    database: string,
+    readonly: boolean
+  ): Promise<{ result: boolean }>;
+  isSecretStored(): Promise<{ result: boolean }>;
+  setEncryptionSecret(passphrase: string): Promise<void>;
+  changeEncryptionSecret(
+    passphrase: string,
+    oldpassphrase: string
+  ): Promise<void>;
+  deleteDatabase(database: string): Promise<void>;
+  clearEncryptionSecret(): Promise<void>;
 }
 
-let sqlite: CapacitorSQLitePlugin | null = null;
+interface SQLiteDBConnection {
+  open(): Promise<void>;
+  close(): Promise<void>;
+  execute(
+    statements: string,
+    transaction?: boolean
+  ): Promise<{ changes?: { changes: number; lastId: number } }>;
+  query(
+    statement: string,
+    values?: unknown[]
+  ): Promise<{ values?: Record<string, unknown>[] }>;
+  run(
+    statement: string,
+    values?: unknown[],
+    transaction?: boolean
+  ): Promise<{ changes?: { changes: number; lastId: number } }>;
+  executeSet(
+    set: Array<{ statement: string; values?: unknown[] }>,
+    transaction?: boolean
+  ): Promise<{ changes?: { changes: number; lastId: number } }>;
+  isDBOpen(): Promise<boolean>;
+}
 
-async function getPlugin(): Promise<CapacitorSQLitePlugin> {
-  if (sqlite) return sqlite;
+let sqliteConnection: SQLiteConnectionWrapper | null = null;
 
-  const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
-  sqlite = CapacitorSQLite as unknown as CapacitorSQLitePlugin;
-  return sqlite;
+async function getSQLiteConnection(): Promise<SQLiteConnectionWrapper> {
+  if (sqliteConnection) return sqliteConnection;
+
+  const { CapacitorSQLite, SQLiteConnection } = await import(
+    '@capacitor-community/sqlite'
+  );
+  sqliteConnection = new SQLiteConnection(
+    CapacitorSQLite
+  ) as unknown as SQLiteConnectionWrapper;
+  return sqliteConnection;
 }
 
 export class CapacitorAdapter implements DatabaseAdapter {
   private dbName: string | null = null;
+  private db: SQLiteDBConnection | null = null;
   private isInitialized = false;
 
   async initialize(config: DatabaseConfig): Promise<void> {
     this.dbName = config.name;
 
-    const plugin = await getPlugin();
+    const sqlite = await getSQLiteConnection();
 
-    // Create connection with encryption enabled
-    await plugin.createConnection({
-      database: config.name,
-      encrypted: true,
-      mode: 'encryption',
-      version: 1,
-      readonly: false
-    });
+    // Check if a connection already exists and close it first
+    const { result: hasConnection } = await sqlite.isConnection(
+      config.name,
+      false
+    );
+    if (hasConnection) {
+      try {
+        await sqlite.closeConnection(config.name, false);
+      } catch {
+        // Ignore errors closing stale connection
+      }
+    }
 
-    // Set the encryption key
-    // The key needs to be passed as a hex string for SQLCipher
+    // Set the encryption key as hex string for SQLCipher
     const keyHex = Array.from(config.encryptionKey)
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
 
+    // Check if encryption secret is stored, if not set it
+    const { result: isStored } = await sqlite.isSecretStored();
+    if (!isStored) {
+      await sqlite.setEncryptionSecret(keyHex);
+    }
+
+    // Create connection with encryption enabled
+    // Mode 'secret' uses the passphrase stored via setEncryptionSecret
+    this.db = await sqlite.createConnection(
+      config.name,
+      true, // encrypted
+      'secret',
+      1, // version
+      false // readonly
+    );
+
     // Open the database
-    await plugin.open({
-      database: config.name,
-      readonly: false
-    });
+    await this.db.open();
 
-    // Set the encryption key via PRAGMA
-    await plugin.execute({
-      database: config.name,
-      statements: `PRAGMA key = "x'${keyHex}'"`,
-      transaction: false,
-      readonly: false
-    });
-
-    // Enable WAL mode
-    await plugin.execute({
-      database: config.name,
-      statements: 'PRAGMA journal_mode = WAL',
-      transaction: false,
-      readonly: false
-    });
-
-    // Enable foreign keys
-    await plugin.execute({
-      database: config.name,
-      statements: 'PRAGMA foreign_keys = ON',
-      transaction: false,
-      readonly: false
-    });
+    // Note: PRAGMA statements are not supported via the plugin's query/execute methods
+    // on Android. WAL mode and foreign keys are typically enabled by default or
+    // configured at the native level.
 
     this.isInitialized = true;
   }
 
   async close(): Promise<void> {
-    if (this.dbName && this.isInitialized) {
-      const plugin = await getPlugin();
+    if (this.db && this.isInitialized && this.dbName) {
+      await this.db.close();
 
-      await plugin.close({
-        database: this.dbName,
-        readonly: false
-      });
-
-      await plugin.closeConnection({
-        database: this.dbName,
-        readonly: false
-      });
+      const sqlite = await getSQLiteConnection();
+      await sqlite.closeConnection(this.dbName, false);
 
       this.isInitialized = false;
     }
+    this.db = null;
     this.dbName = null;
   }
 
@@ -142,11 +138,9 @@ export class CapacitorAdapter implements DatabaseAdapter {
   }
 
   async execute(sql: string, params?: unknown[]): Promise<QueryResult> {
-    if (!this.dbName || !this.isInitialized) {
+    if (!this.db || !this.isInitialized) {
       throw new Error('Database not initialized');
     }
-
-    const plugin = await getPlugin();
 
     // Determine if this is a SELECT query
     const isSelect =
@@ -154,42 +148,13 @@ export class CapacitorAdapter implements DatabaseAdapter {
       sql.trim().toUpperCase().startsWith('PRAGMA');
 
     if (isSelect) {
-      const queryOpts: {
-        database: string;
-        statement: string;
-        values?: unknown[];
-        readonly: boolean;
-      } = {
-        database: this.dbName,
-        statement: sql,
-        readonly: false
-      };
-      if (params && params.length > 0) {
-        queryOpts.values = params;
-      }
-      const result = await plugin.query(queryOpts);
-
+      const result = await this.db.query(sql, params);
       return {
         rows: result.values ?? []
       };
     }
 
-    const runOpts: {
-      database: string;
-      statement: string;
-      values?: unknown[];
-      transaction?: boolean;
-      readonly: boolean;
-    } = {
-      database: this.dbName,
-      statement: sql,
-      transaction: false,
-      readonly: false
-    };
-    if (params && params.length > 0) {
-      runOpts.values = params;
-    }
-    const result = await plugin.run(runOpts);
+    const result = await this.db.run(sql, params, false);
 
     const queryResult: QueryResult = {
       rows: []
@@ -204,18 +169,15 @@ export class CapacitorAdapter implements DatabaseAdapter {
   }
 
   async executeMany(statements: string[]): Promise<void> {
-    if (!this.dbName || !this.isInitialized) {
+    if (!this.db || !this.isInitialized) {
       throw new Error('Database not initialized');
     }
 
-    const plugin = await getPlugin();
-
-    await plugin.executeSet({
-      database: this.dbName,
-      set: statements.map((statement) => ({ statement })),
-      transaction: true,
-      readonly: false
-    });
+    // Plugin requires 'values' array even if empty
+    await this.db.executeSet(
+      statements.map((statement) => ({ statement, values: [] })),
+      true
+    );
   }
 
   async beginTransaction(): Promise<void> {
@@ -231,7 +193,7 @@ export class CapacitorAdapter implements DatabaseAdapter {
   }
 
   async rekeyDatabase(newKey: Uint8Array): Promise<void> {
-    if (!this.dbName || !this.isInitialized) {
+    if (!this.db || !this.isInitialized) {
       throw new Error('Database not initialized');
     }
 
@@ -239,14 +201,7 @@ export class CapacitorAdapter implements DatabaseAdapter {
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
 
-    const plugin = await getPlugin();
-
-    await plugin.execute({
-      database: this.dbName,
-      statements: `PRAGMA rekey = "x'${keyHex}'"`,
-      transaction: false,
-      readonly: false
-    });
+    await this.db.execute(`PRAGMA rekey = "x'${keyHex}'"`, false);
   }
 
   getConnection(): unknown {
@@ -271,5 +226,46 @@ export class CapacitorAdapter implements DatabaseAdapter {
 
       return result.rows;
     };
+  }
+
+  async deleteDatabase(name: string): Promise<void> {
+    const sqlite = await getSQLiteConnection();
+
+    // Close any existing connection first
+    const { result: hasConnection } = await sqlite.isConnection(name, false);
+    if (hasConnection) {
+      try {
+        await sqlite.closeConnection(name, false);
+      } catch {
+        // Ignore errors
+      }
+    }
+
+    // Delete the database file
+    try {
+      await sqlite.deleteDatabase(name);
+    } catch {
+      // Ignore errors if database doesn't exist
+    }
+
+    // Clear the stored encryption secret so a new one can be set
+    // This is on CapacitorSQLite directly, not the SQLiteConnection wrapper
+    try {
+      const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
+      await (
+        CapacitorSQLite as unknown as {
+          clearEncryptionSecret: () => Promise<void>;
+        }
+      ).clearEncryptionSecret();
+    } catch {
+      // Ignore errors if not supported or no secret stored
+    }
+
+    // Reset the module-level connection to force fresh state
+    sqliteConnection = null;
+
+    this.db = null;
+    this.dbName = null;
+    this.isInitialized = false;
   }
 }
