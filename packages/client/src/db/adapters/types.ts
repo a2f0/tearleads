@@ -65,8 +65,10 @@ export interface DatabaseAdapter {
   /**
    * Re-key the database with a new encryption key.
    * Used for password changes.
+   * @param newKey - The new encryption key
+   * @param oldKey - The old encryption key (required for Capacitor)
    */
-  rekeyDatabase(newKey: Uint8Array): Promise<void>;
+  rekeyDatabase(newKey: Uint8Array, oldKey?: Uint8Array): Promise<void>;
 
   /**
    * Get the raw database connection for Drizzle.
