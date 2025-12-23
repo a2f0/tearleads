@@ -13,9 +13,17 @@ server {
         try_files $uri $uri/ =404;
     }
 
+    # Serve .mjs files with correct MIME type for ES modules
+    location ~* \.mjs$ {
+        types { application/javascript mjs; }
+        default_type application/javascript;
+    }
+
     # Security Headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://api.{{ domain }}; object-src 'none'; frame-ancestors 'self';" always;
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+    add_header Cross-Origin-Embedder-Policy "require-corp" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://api.{{ domain }}; object-src 'none'; frame-ancestors 'self';" always;
 }
