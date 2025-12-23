@@ -2,6 +2,7 @@ import { formatDate, type HealthData } from '@rapid/shared';
 import { RefreshCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { DatabaseTest } from '@/components/debug/DatabaseTest';
 import { Button } from '@/components/ui/button';
 import { API_BASE_URL, api } from '@/lib/api';
 import { cn, detectPlatform } from '@/lib/utils';
@@ -187,6 +188,8 @@ export function Debug() {
           Throw Error
         </Button>
       </div>
+
+      <DatabaseTest />
     </div>
   );
 }

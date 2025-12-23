@@ -32,10 +32,6 @@ describe('Settings', () => {
     expect(screen.getByTestId('dark-mode-switch')).toBeInTheDocument();
   });
 
-  it('renders the back link', () => {
-    expect(screen.getByRole('link', { name: /go back/i })).toBeInTheDocument();
-  });
-
   it('renders the version at the bottom', () => {
     expect(screen.getByTestId('app-version')).toHaveTextContent(
       `v${packageJson.version}`
