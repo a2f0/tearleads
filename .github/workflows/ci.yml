@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Download SQLite WASM
+        run: ./scripts/downloadSqliteWasm.sh
+
       - name: Lint
         run: pnpm lint
 
@@ -80,6 +83,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
+
+      - name: Download SQLite WASM
+        run: ./scripts/downloadSqliteWasm.sh
 
       - name: Get Playwright version
         id: playwright-version
@@ -135,6 +141,9 @@ jobs:
 
       - name: Install system dependencies for Electron
         run: sudo apt-get install -y xvfb libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2t64
+
+      - name: Download SQLite WASM
+        run: ./scripts/downloadSqliteWasm.sh
 
       - name: Run Electron tests
         run: xvfb-run --auto-servernum -- pnpm --filter @rapid/client electron:test
