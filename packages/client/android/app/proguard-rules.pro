@@ -25,4 +25,5 @@
 
 # Google Tink / SQLCipher - suppress warnings for compile-time annotations
 -dontwarn com.google.errorprone.annotations.**
--dontwarn javax.annotation.**
+-dontwarn javax.annotation.Nullable
+-dontwarn javax.annotation.concurrent.GuardedBy
