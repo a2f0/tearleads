@@ -44,8 +44,8 @@ platform :android do
     run_gradle(task: 'bundleRelease')
   end
 
-  desc 'Increment versionCode only if current code exists in Play Store'
-  lane :bump_build_if_needed do
+  desc 'Check if current versionCode already exists in Play Store'
+  lane :build_exists_in_play_store do
     current_version_code = get_version_code
 
     begin
@@ -56,19 +56,11 @@ platform :android do
       latest_play_store_code = play_store_version_codes.max || 0
 
       if current_version_code <= latest_play_store_code
-        UI.message("Current versionCode (#{current_version_code}) already exists in Play Store (#{latest_play_store_code}). Incrementing...")
-        new_version_code = latest_play_store_code + 1
-        set_version_code(new_version_code)
-
-        current_version_name = get_version_name
-        parts = current_version_name.split('.')
-        parts[2] = new_version_code.to_s
-        new_version_name = parts[0..2].join('.')
-        set_version_name(new_version_name)
-
-        UI.success("Updated versionCode to #{new_version_code}, versionName to #{new_version_name}")
+        UI.important("Build #{current_version_code} already exists in Play Store (latest: #{latest_play_store_code}). Skipping deployment.")
+        true
       else
-        UI.message("Current versionCode (#{current_version_code}) is higher than Play Store (#{latest_play_store_code}). Skipping increment.")
+        UI.message("Build #{current_version_code} is new (Play Store latest: #{latest_play_store_code}). Proceeding with deployment.")
+        false
       end
     rescue StandardError => e
       UI.user_error!("Failed to fetch Play Store version codes: #{e.message}")

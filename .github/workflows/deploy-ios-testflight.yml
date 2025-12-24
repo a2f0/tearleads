@@ -67,7 +67,22 @@ jobs:
           mkdir -p .secrets
           echo "${{ secrets.APP_STORE_CONNECT_API_KEY }}" | base64 -d > .secrets/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
 
+      - name: Check if build exists in TestFlight
+        id: check_build
+        run: |
+          if bundle exec fastlane ios build_exists_in_testflight; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+        working-directory: packages/client
+        env:
+          CI: true
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+
       - name: Cache CocoaPods
+        if: steps.check_build.outputs.skip != 'true'
         uses: actions/cache@v4
         with:
           path: packages/client/ios/App/Pods
@@ -76,6 +91,7 @@ jobs:
             pods-${{ runner.os }}-
 
       - name: Build for TestFlight
+        if: steps.check_build.outputs.skip != 'true'
         run: bundle exec fastlane ios build_for_testflight
         working-directory: packages/client
         env:
@@ -90,9 +106,11 @@ jobs:
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
 
       - name: Verify clean build
+        if: steps.check_build.outputs.skip != 'true'
         run: ./scripts/verifyCleanIosBuild.sh
 
       - name: Upload to TestFlight
+        if: steps.check_build.outputs.skip != 'true'
         run: bundle exec fastlane ios upload_testflight
         working-directory: packages/client
         env:
@@ -100,15 +118,3 @@ jobs:
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-
-      - name: Commit version bump
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add packages/client/ios/App/App.xcodeproj/project.pbxproj
-          if git diff --staged --quiet; then
-            echo "No version bump to commit"
-          else
-            git commit -m "chore: bump iOS build number [skip ci]"
-            HUSKY=0 git push
-          fi

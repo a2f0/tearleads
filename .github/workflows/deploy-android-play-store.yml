@@ -94,35 +94,31 @@ jobs:
         run: |
           echo "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}" | base64 -d > .secrets/google-play-service-account.json
 
-      - name: Bump versionCode if needed
-        run: bundle exec fastlane android bump_build_if_needed
+      - name: Check if build exists in Play Store
+        id: check_build
+        run: |
+          if bundle exec fastlane android build_exists_in_play_store; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
         working-directory: packages/client
         env:
           CI: true
           GOOGLE_PLAY_JSON_KEY_FILE: ${{ github.workspace }}/.secrets/google-play-service-account.json
 
       - name: Build release AAB
+        if: steps.check_build.outputs.skip != 'true'
         run: bundle exec fastlane android build_aab
         working-directory: packages/client
         env:
           CI: true
 
       - name: Upload to Play Store (internal track)
+        if: steps.check_build.outputs.skip != 'true'
         run: bundle exec fastlane android upload_internal
         working-directory: packages/client
         env:
           CI: true
           GOOGLE_PLAY_JSON_KEY_FILE: ${{ github.workspace }}/.secrets/google-play-service-account.json
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-
-      - name: Commit version bump
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add packages/client/android/app/build.gradle
-          if git diff --staged --quiet; then
-            echo "No version bump to commit"
-          else
-            git commit -m "chore: bump Android build number [skip ci]"
-            HUSKY=0 git push
-          fi
