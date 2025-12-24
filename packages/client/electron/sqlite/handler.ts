@@ -194,8 +194,12 @@ function rekey(newKey: number[]): void {
     db.pragma(`rekey="x'${keyHex}'"`);
   } finally {
     // Always restore WAL mode and zero the buffer, even if rekey fails
-    db.exec('PRAGMA journal_mode = WAL;');
-    secureZeroBuffer(keyBuffer);
+    // Use nested try/finally to ensure buffer is zeroed even if WAL restore fails
+    try {
+      db.exec('PRAGMA journal_mode = WAL;');
+    } finally {
+      secureZeroBuffer(keyBuffer);
+    }
   }
 }
 
