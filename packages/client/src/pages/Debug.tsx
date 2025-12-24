@@ -17,9 +17,14 @@ function InfoRow({
   valueClassName?: string;
 }) {
   return (
-    <div className="text-sm">
-      <span className="font-medium">{label}: </span>
-      <span className={cn('text-muted-foreground', valueClassName)}>
+    <div className="text-sm flex gap-1">
+      <span className="font-medium shrink-0">{label}: </span>
+      <span
+        className={cn(
+          'text-muted-foreground min-w-0 break-words',
+          valueClassName
+        )}
+      >
         {value}
       </span>
     </div>
@@ -73,7 +78,7 @@ export function Debug() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       <h1 className="text-2xl font-bold tracking-tight">Debug</h1>
 
       <div className="rounded-lg border p-4 space-y-3">
@@ -112,9 +117,9 @@ export function Debug() {
 
       <div className="rounded-lg border p-4 space-y-3">
         <h2 className="font-medium">API Health</h2>
-        <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">API URL</span>
-          <span className="text-xs break-all max-w-[200px] text-right">
+        <div className="flex justify-between gap-2 text-sm">
+          <span className="text-muted-foreground shrink-0">API URL</span>
+          <span className="text-xs break-all min-w-0 text-right">
             {API_BASE_URL || '(not set)'}
           </span>
         </div>

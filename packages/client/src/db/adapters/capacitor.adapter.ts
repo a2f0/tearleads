@@ -94,11 +94,14 @@ export class CapacitorAdapter implements DatabaseAdapter {
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
 
-    // Check if encryption secret is stored, if not set it
+    // Always clear and set the encryption secret to ensure we use the correct key.
+    // This handles the case where reset was called but clearEncryptionSecret failed
+    // silently, or where the stored secret doesn't match the current key.
     const { result: isStored } = await sqlite.isSecretStored();
-    if (!isStored) {
-      await sqlite.setEncryptionSecret(keyHex);
+    if (isStored) {
+      await sqlite.clearEncryptionSecret();
     }
+    await sqlite.setEncryptionSecret(keyHex);
 
     // Create connection with encryption enabled
     // Mode 'secret' uses the passphrase stored via setEncryptionSecret
