@@ -240,7 +240,7 @@ export function DatabaseTest() {
 
   return (
     <div
-      className="rounded-lg border p-4 space-y-3"
+      className="rounded-lg border p-4 space-y-3 overflow-x-hidden"
       data-testid="database-test"
     >
       <h2 className="font-medium">Database Test</h2>
@@ -259,11 +259,11 @@ export function DatabaseTest() {
           </span>
         </div>
         {testData && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Test Data</span>
+          <div className="flex justify-between gap-2">
+            <span className="text-muted-foreground shrink-0">Test Data</span>
             <span
               data-testid="db-test-data"
-              className="text-xs truncate max-w-[150px]"
+              className="text-xs truncate min-w-0"
             >
               {testData}
             </span>

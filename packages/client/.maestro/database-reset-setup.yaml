@@ -1,0 +1,138 @@
+appId: com.tearleads.rapid
+---
+# Database Reset-Setup Test - Verifies database can be set up again after reset
+# This catches issues where the encryption secret isn't properly cleared,
+# causing "Cannot open the DB" errors when trying to set up again.
+
+- launchApp:
+    clearState: true
+
+- assertVisible: "Tearleads"
+
+# Load shared database helper functions
+- runFlow: helpers/db-helpers.yaml
+
+# Navigate to debug page
+- evalScript: document.querySelector('[data-testid="debug-link"]').click()
+
+# Wait for Debug page to load
+- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
+
+# Reset database to ensure clean state
+- evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
+
+# Wait for reset to complete
+- evalScript: window.waitForResult('success')
+
+# Verify database is in "Not Set Up" state
+- evalScript: window.waitForStatus('Not Set Up')
+
+# Enter password and set up database
+- evalScript: window.setPassword('resettest123')
+
+- evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
+
+# Wait for setup to complete
+- evalScript: |
+    window.waitFor(
+      () => {
+        const result = document.querySelector('[data-testid="db-test-result"]');
+        if (result?.getAttribute('data-status') === 'error') {
+          throw new Error('Initial setup failed: ' + result.textContent);
+        }
+        return result?.getAttribute('data-status') === 'success';
+      },
+      'Initial setup did not complete'
+    )
+
+# Verify database is unlocked
+- evalScript: window.waitForStatus('Unlocked')
+
+# Write some test data to verify the database is functional
+- evalScript: document.querySelector('[data-testid="db-write-button"]').click()
+
+- evalScript: window.waitForResult('success', 'Wrote test data:')
+
+# === CRITICAL TEST: Reset while unlocked, then set up again ===
+# This is the scenario that was failing with "Cannot open the DB"
+
+- evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
+
+# Wait for reset to complete
+- evalScript: window.waitForResult('success', 'Database reset complete')
+
+# Verify database is in "Not Set Up" state
+- evalScript: window.waitForStatus('Not Set Up')
+
+# Enter a NEW password (different from before to ensure fresh key derivation)
+- evalScript: window.setPassword('newpassword456')
+
+# Set up database again - THIS IS THE CRITICAL STEP
+# If encryption secret wasn't properly cleared, this will fail with "Cannot open the DB"
+- evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
+
+# Wait for setup to complete - check for the specific error
+- evalScript: |
+    window.waitFor(
+      () => {
+        const result = document.querySelector('[data-testid="db-test-result"]');
+        if (result?.getAttribute('data-status') === 'error') {
+          throw new Error('Setup after reset failed (encryption secret not cleared?): ' + result.textContent);
+        }
+        return result?.getAttribute('data-status') === 'success';
+      },
+      'Setup after reset did not complete'
+    )
+
+# Verify database is unlocked
+- evalScript: window.waitForStatus('Unlocked')
+
+# Write test data to verify database is fully functional
+- evalScript: document.querySelector('[data-testid="db-write-button"]').click()
+
+- evalScript: window.waitForResult('success', 'Wrote test data:')
+
+# Read it back
+- evalScript: document.querySelector('[data-testid="db-read-button"]').click()
+
+- evalScript: window.waitForResult('success', 'Read test data:')
+
+# Verify data format
+- evalScript: |
+    (async () => {
+      const testData = document.querySelector('[data-testid="db-test-data"]');
+      if (testData && /^test-value-\d+$/.test(testData.textContent)) {
+        return 'ok';
+      }
+      throw new Error('Expected test data after reset-setup, got: ' + (testData ? testData.textContent : 'null'));
+    })()
+
+# === TEST: Multiple reset-setup cycles ===
+# Verify we can do this multiple times without issues
+
+- evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
+
+- evalScript: window.waitForStatus('Not Set Up')
+
+- evalScript: window.setPassword('thirdpassword789')
+
+- evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
+
+- evalScript: |
+    window.waitFor(
+      () => {
+        const result = document.querySelector('[data-testid="db-test-result"]');
+        if (result?.getAttribute('data-status') === 'error') {
+          throw new Error('Third setup failed: ' + result.textContent);
+        }
+        return result?.getAttribute('data-status') === 'success';
+      },
+      'Third setup did not complete'
+    )
+
+- evalScript: window.waitForStatus('Unlocked')
+
+# Final cleanup
+- evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
+
+- evalScript: window.waitForStatus('Not Set Up')
