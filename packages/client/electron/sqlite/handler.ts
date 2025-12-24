@@ -172,6 +172,7 @@ function rekey(newKey: number[]): void {
   }
 
   const keyBuffer = Buffer.from(newKey);
+  newKey.fill(0); // Zero out the original key array from memory
   try {
     // Use the native rekey() method for binary keys
     db.rekey(keyBuffer);
