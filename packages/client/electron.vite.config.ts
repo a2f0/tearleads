@@ -1,7 +1,7 @@
 import path from 'node:path';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import {defineConfig, externalizeDepsPlugin} from 'electron-vite';
+import {defineConfig} from 'electron-vite';
 import {VitePWA} from 'vite-plugin-pwa';
 import packageJson from './package.json';
 import {pwaOptions} from './pwa.options';
@@ -12,6 +12,7 @@ export default defineConfig({
       __APP_VERSION__: JSON.stringify(packageJson.version),
     },
     build: {
+      externalizeDeps: true,
       lib: {
         entry: 'electron/main.ts',
       },
@@ -19,12 +20,10 @@ export default defineConfig({
         external: ['better-sqlite3-multiple-ciphers'],
       },
     },
-    plugins: [externalizeDepsPlugin({
-      include: ['better-sqlite3-multiple-ciphers'],
-    })],
   },
   preload: {
     build: {
+      externalizeDeps: true,
       lib: {
         entry: 'electron/preload.ts',
         formats: ['cjs'],
@@ -35,7 +34,6 @@ export default defineConfig({
         },
       },
     },
-    plugins: [externalizeDepsPlugin()],
   },
   renderer: {
     root: '.',
