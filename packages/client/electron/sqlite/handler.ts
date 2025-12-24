@@ -173,9 +173,28 @@ function rekey(newKey: number[]): void {
 
   const keyBuffer = Buffer.from(newKey);
   newKey.fill(0); // Zero out the original key array from memory
+
+  // Rekeying is not supported in WAL mode, so we need to:
+  // 1. Checkpoint all WAL data
+  // 2. Switch to DELETE journal mode
+  // 3. Perform the rekey
+  // 4. Switch back to WAL mode
+
   try {
-    // Use the native rekey() method for binary keys
-    db.rekey(keyBuffer);
+    // Checkpoint all WAL data to main database
+    db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+
+    // Switch to DELETE journal mode (required for rekey)
+    db.exec('PRAGMA journal_mode = DELETE;');
+
+    // Use PRAGMA rekey with hex format to match how we initialize
+    // Initialize uses: PRAGMA key="x'HEXKEY'"
+    // Rekey must use: PRAGMA rekey="x'HEXKEY'"
+    const keyHex = keyBuffer.toString('hex');
+    db.pragma(`rekey="x'${keyHex}'"`);
+
+    // Switch back to WAL mode for better performance
+    db.exec('PRAGMA journal_mode = WAL;');
   } finally {
     secureZeroBuffer(keyBuffer);
   }
@@ -197,33 +216,13 @@ function getStoragePath(filename: string): string {
 
 function storeSalt(salt: number[]): void {
   const saltPath = getStoragePath(SALT_FILE);
-  const data = JSON.stringify(salt);
-
-  if (safeStorage.isEncryptionAvailable()) {
-    const encrypted = safeStorage.encryptString(data);
-    fs.writeFileSync(saltPath, encrypted);
-  } else {
-    // Fallback: store as plain JSON (salt is not secret, but log for awareness)
-    console.warn('safeStorage not available, storing salt as plain JSON');
-    fs.writeFileSync(saltPath, data, 'utf8');
-  }
+  fs.writeFileSync(saltPath, JSON.stringify(salt), 'utf8');
 }
 
 function getSalt(): number[] | null {
   const saltPath = getStoragePath(SALT_FILE);
-
   try {
-    const fileData = fs.readFileSync(saltPath);
-
-    // Try decryption first if available, fall back to plain text
-    if (safeStorage.isEncryptionAvailable()) {
-      try {
-        return JSON.parse(safeStorage.decryptString(fileData));
-      } catch {
-        // Fall through to plain text parsing
-      }
-    }
-    return JSON.parse(fileData.toString('utf8'));
+    return JSON.parse(fs.readFileSync(saltPath, 'utf8'));
   } catch {
     return null;
   }
@@ -231,32 +230,13 @@ function getSalt(): number[] | null {
 
 function storeKeyCheckValue(kcv: string): void {
   const kcvPath = getStoragePath(KCV_FILE);
-
-  if (safeStorage.isEncryptionAvailable()) {
-    const encrypted = safeStorage.encryptString(kcv);
-    fs.writeFileSync(kcvPath, encrypted);
-  } else {
-    // Fallback: store as plain text (kcv is not secret, but log for awareness)
-    console.warn('safeStorage not available, storing KCV as plain text');
-    fs.writeFileSync(kcvPath, kcv, 'utf8');
-  }
+  fs.writeFileSync(kcvPath, kcv, 'utf8');
 }
 
 function getKeyCheckValue(): string | null {
   const kcvPath = getStoragePath(KCV_FILE);
-
   try {
-    const fileData = fs.readFileSync(kcvPath);
-
-    // Try decryption first if available, fall back to plain text
-    if (safeStorage.isEncryptionAvailable()) {
-      try {
-        return safeStorage.decryptString(fileData);
-      } catch {
-        // Fall through to plain text parsing
-      }
-    }
-    return fileData.toString('utf8');
+    return fs.readFileSync(kcvPath, 'utf8');
   } catch {
     return null;
   }
