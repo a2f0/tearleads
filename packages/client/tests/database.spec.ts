@@ -258,8 +258,7 @@ test.describe('Database (Web)', () => {
     expect(newValue).toMatch(/^test-value-\d+$/);
   });
 
-  // TODO: Skip until WASM rekey issue is resolved (see #103)
-  test.skip('should change password successfully', async ({ page }) => {
+  test('should change password successfully', async ({ page }) => {
     // Setup database first
     await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
     await page.getByTestId('db-setup-button').click();
@@ -318,8 +317,7 @@ test.describe('Database (Web)', () => {
     expect(readValue).toBe(writtenValue);
   });
 
-  // TODO: Skip until WASM rekey issue is resolved (see #103)
-  test.skip('should fail to change password with wrong current password', async ({
+  test('should fail to change password with wrong current password', async ({
     page
   }) => {
     // Setup database first
