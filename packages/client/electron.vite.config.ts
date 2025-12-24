@@ -12,18 +12,13 @@ export default defineConfig({
       __APP_VERSION__: JSON.stringify(packageJson.version),
     },
     build: {
-      externalizeDeps: true,
       lib: {
         entry: 'electron/main.ts',
-      },
-      rollupOptions: {
-        external: ['better-sqlite3-multiple-ciphers'],
       },
     },
   },
   preload: {
     build: {
-      externalizeDeps: true,
       lib: {
         entry: 'electron/preload.ts',
         formats: ['cjs'],
