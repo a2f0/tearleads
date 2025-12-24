@@ -136,6 +136,28 @@ platform :ios do
     )
   end
 
+  desc 'Get latest build number from TestFlight'
+  lane :get_testflight_build_number do
+    setup_ci_environment
+    ensure_app_store_connect_api
+
+    begin
+      testflight_build_number = latest_testflight_build_number(app_identifier: APP_ID)
+      UI.success("Latest TestFlight build number: #{testflight_build_number}")
+      testflight_build_number
+    rescue StandardError => e
+      UI.user_error!("Failed to fetch TestFlight build number: #{e.message}")
+    end
+  end
+
+  desc 'Sync local build number to TestFlight + 1'
+  lane :sync_build_from_testflight do
+    testflight_build = get_testflight_build_number.to_i
+    new_build = testflight_build + 1
+    increment_build_number(xcodeproj: './ios/App/App.xcodeproj', build_number: new_build)
+    UI.success("Updated local build number to #{new_build}")
+  end
+
   desc 'Check if current build number already exists in TestFlight'
   lane :build_exists_in_testflight do
     setup_ci_environment

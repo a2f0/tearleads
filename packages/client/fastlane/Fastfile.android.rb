@@ -44,6 +44,34 @@ platform :android do
     run_gradle(task: 'bundleRelease')
   end
 
+  desc 'Get latest versionCode from Play Store'
+  lane :get_play_store_version_code do
+    begin
+      play_store_version_codes = google_play_track_version_codes(
+        track: 'internal',
+        json_key: ENV['GOOGLE_PLAY_JSON_KEY_FILE']
+      )
+      latest_code = play_store_version_codes.max || 0
+      UI.success("Latest Play Store versionCode: #{latest_code}")
+      latest_code
+    rescue StandardError => e
+      UI.user_error!("Failed to fetch Play Store version codes: #{e.message}")
+    end
+  end
+
+  desc 'Sync local versionCode to Play Store + 1'
+  lane :sync_version_from_play_store do
+    play_store_code = get_play_store_version_code.to_i
+    new_code = play_store_code + 1
+    set_version_code(new_code)
+
+    # Update versionName to match (1.0.XX format)
+    new_version_name = "1.0.#{new_code}"
+    set_version_name(new_version_name)
+
+    UI.success("Updated local versionCode to #{new_code}, versionName to #{new_version_name}")
+  end
+
   desc 'Check if current versionCode already exists in Play Store'
   lane :build_exists_in_play_store do
     current_version_code = get_version_code
