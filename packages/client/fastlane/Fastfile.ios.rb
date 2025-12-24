@@ -75,7 +75,7 @@ platform :ios do
     )
   end
 
-  desc 'Build for TestFlight (bump version, sync certs, build release)'
+  desc 'Build for TestFlight (sync certs, build release)'
   lane :build_for_testflight do
     UI.user_error!('Please set TEAM_ID environment variable') unless ENV['TEAM_ID']
     UI.user_error!('Please set MATCH_GIT_URL environment variable') unless ENV['MATCH_GIT_URL']
@@ -84,7 +84,6 @@ platform :ios do
     setup_ci_environment
     ensure_app_store_connect_api
 
-    bump_build_if_needed
     sync_certs
     build_release
   end
@@ -137,19 +136,22 @@ platform :ios do
     )
   end
 
-  desc 'Increment build number only if current build exists in TestFlight'
-  lane :bump_build_if_needed do
+  desc 'Check if current build number already exists in TestFlight'
+  lane :build_exists_in_testflight do
+    setup_ci_environment
+    ensure_app_store_connect_api
+
     current_build_number = get_build_number(xcodeproj: './ios/App/App.xcodeproj')
 
     begin
       testflight_build_number = latest_testflight_build_number(app_identifier: APP_ID)
 
       if current_build_number.to_i <= testflight_build_number.to_i
-        new_build_number = testflight_build_number.to_i + 1
-        UI.message("Current build number (#{current_build_number}) <= TestFlight (#{testflight_build_number}). Setting to #{new_build_number}...")
-        increment_build_number(xcodeproj: './ios/App/App.xcodeproj', build_number: new_build_number)
+        UI.important("Build #{current_build_number} already exists in TestFlight (latest: #{testflight_build_number}). Skipping deployment.")
+        true
       else
-        UI.message("Current build number (#{current_build_number}) is higher than TestFlight (#{testflight_build_number}). Skipping increment.")
+        UI.message("Build #{current_build_number} is new (TestFlight latest: #{testflight_build_number}). Proceeding with deployment.")
+        false
       end
     rescue StandardError => e
       UI.user_error!("Failed to fetch TestFlight build number: #{e.message}")
