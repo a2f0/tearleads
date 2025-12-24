@@ -36,6 +36,8 @@ jobs:
 
       - name: Build packages
         run: pnpm build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - name: Setup SSH
         run: |
