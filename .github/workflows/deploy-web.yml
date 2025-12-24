@@ -31,6 +31,9 @@ jobs:
       - name: Install ImageMagick
         run: sudo apt-get update && sudo apt-get install -y imagemagick
 
+      - name: Download SQLite WASM
+        run: ./scripts/downloadSqliteWasm.sh
+
       - name: Generate web image assets
         run: ./packages/client/scripts/buildWebImageAssets.sh
 
