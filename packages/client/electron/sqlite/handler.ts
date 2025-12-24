@@ -192,10 +192,9 @@ function rekey(newKey: number[]): void {
     // Rekey must use: PRAGMA rekey="x'HEXKEY'"
     const keyHex = keyBuffer.toString('hex');
     db.pragma(`rekey="x'${keyHex}'"`);
-
-    // Switch back to WAL mode for better performance
-    db.exec('PRAGMA journal_mode = WAL;');
   } finally {
+    // Always restore WAL mode and zero the buffer, even if rekey fails
+    db.exec('PRAGMA journal_mode = WAL;');
     secureZeroBuffer(keyBuffer);
   }
 }
