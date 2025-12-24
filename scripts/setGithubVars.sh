@@ -101,6 +101,7 @@ set_secret "DEPLOY_SSH_KEY" "$DEPLOY_SSH_KEY"
 set_secret "DEPLOY_DOMAIN" "$TF_VAR_domain"
 # shellcheck disable=SC2154 # validated by check_var
 set_secret "DEPLOY_USER" "$TF_VAR_server_username"
+# shellcheck disable=SC2154 # validated by check_var
 set_secret "VITE_API_URL" "$VITE_API_URL"
 
 echo ""
