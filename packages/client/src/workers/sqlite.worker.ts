@@ -283,6 +283,7 @@ function rollback(): void {
 
 /**
  * Re-key the database with a new encryption key.
+ * Uses PRAGMA hexrekey for hex-encoded keys as per SQLite3MultipleCiphers docs.
  */
 function rekey(newKey: Uint8Array): void {
   if (!db) {
@@ -290,10 +291,15 @@ function rekey(newKey: Uint8Array): void {
   }
 
   const newHexKey = keyToHex(newKey);
+  newKey.fill(0); // Zero out the key from memory
 
-  // Use PRAGMA rekey to change the encryption key
-  // Format: PRAGMA rekey = "x'HEXKEY'"
-  db.exec(`PRAGMA rekey = "x'${newHexKey}'";`);
+  // Use PRAGMA hexrekey for hex-encoded keys
+  // See: https://utelle.github.io/SQLite3MultipleCiphers/docs/configuration/config_sql_pragmas/
+  db.exec(`PRAGMA hexrekey = '${newHexKey}';`);
+
+  // Force a checkpoint to ensure changes are written to the database file
+  db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+
   encryptionKey = newHexKey;
 
   console.log('Database re-keyed successfully');
@@ -349,8 +355,8 @@ function importDatabase(data: Uint8Array): void {
       0 // No flags - don't free the data
     );
 
-    // Set the encryption key for the loaded database
-    db.exec(`PRAGMA key = "x'${encryptionKey}'";`);
+    // Set the encryption key for the loaded database using hexkey pragma
+    db.exec(`PRAGMA hexkey = '${encryptionKey}';`);
 
     // Verify the database is accessible
     db.exec('SELECT 1;');
