@@ -1,4 +1,8 @@
 appId: com.tearleads.rapid
+env:
+  PASSWORD_1: 'resettest123'
+  PASSWORD_2: 'newpassword456'
+  PASSWORD_3: 'thirdpassword789'
 ---
 # Database Reset-Setup Test - Verifies database can be set up again after reset
 # This catches issues where the encryption secret isn't properly cleared,
@@ -28,7 +32,7 @@ appId: com.tearleads.rapid
 - evalScript: window.waitForStatus('Not Set Up')
 
 # Enter password and set up database
-- evalScript: window.setPassword('resettest123')
+- evalScript: window.setPassword('${PASSWORD_1}')
 
 - evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
 
@@ -65,7 +69,7 @@ appId: com.tearleads.rapid
 - evalScript: window.waitForStatus('Not Set Up')
 
 # Enter a NEW password (different from before to ensure fresh key derivation)
-- evalScript: window.setPassword('newpassword456')
+- evalScript: window.setPassword('${PASSWORD_2}')
 
 # Set up database again - THIS IS THE CRITICAL STEP
 # If encryption secret wasn't properly cleared, this will fail with "Cannot open the DB"
@@ -114,7 +118,7 @@ appId: com.tearleads.rapid
 
 - evalScript: window.waitForStatus('Not Set Up')
 
-- evalScript: window.setPassword('thirdpassword789')
+- evalScript: window.setPassword('${PASSWORD_3}')
 
 - evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
 
