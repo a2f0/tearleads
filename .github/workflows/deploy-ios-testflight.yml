@@ -14,7 +14,7 @@ jobs:
     name: Deploy to TestFlight
     runs-on: macos-latest
     timeout-minutes: 15
-    if: false # Temporarily disabled
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - uses: actions/checkout@v4
