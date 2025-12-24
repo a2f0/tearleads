@@ -15,6 +15,9 @@ export default defineConfig({
       lib: {
         entry: 'electron/main.ts',
       },
+      rollupOptions: {
+        external: ['better-sqlite3-multiple-ciphers'],
+      },
     },
   },
   preload: {
