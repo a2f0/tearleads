@@ -163,6 +163,8 @@ function rollback(): void {
 
 /**
  * Re-key the database with a new encryption key.
+ * Uses the native rekey() method which directly calls sqlite3_rekey().
+ * See: https://github.com/m4heshd/better-sqlite3-multiple-ciphers/blob/master/docs/api.md
  */
 function rekey(newKey: number[]): void {
   if (!db) {
@@ -171,12 +173,10 @@ function rekey(newKey: number[]): void {
 
   const keyBuffer = Buffer.from(newKey);
   try {
-    const keyHex = keyBuffer.toString('hex');
+    // Use the native rekey() method for binary keys
+    db.rekey(keyBuffer);
+  } finally {
     secureZeroBuffer(keyBuffer);
-    db.pragma(`rekey="x'${keyHex}'"`);
-  } catch (error) {
-    secureZeroBuffer(keyBuffer);
-    throw error;
   }
 }
 
