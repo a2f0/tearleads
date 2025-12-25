@@ -395,3 +395,94 @@ test.describe('Debug page', () => {
     await expect(page.getByTestId('dropzone')).toBeVisible();
   });
 });
+
+test.describe('Tables page', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+  });
+
+  test('should navigate to tables page when tables link is clicked', async ({
+    page
+  }) => {
+    const tablesLink = page.getByTestId('tables-link');
+    await expect(tablesLink).toBeVisible();
+
+    await tablesLink.click();
+
+    await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
+  });
+
+  test('should show locked message when database is not unlocked', async ({
+    page
+  }) => {
+    await page.getByTestId('tables-link').click();
+
+    await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
+    await expect(
+      page.getByText('Database is locked. Unlock it from the Debug page')
+    ).toBeVisible();
+  });
+
+  test('should show tables list when database is unlocked', async ({
+    page
+  }) => {
+    // First unlock the database via Debug page
+    await page.getByTestId('debug-link').click();
+    await expect(page.getByTestId('database-test')).toBeVisible();
+
+    // Reset and setup database
+    await page.getByTestId('db-reset-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
+      timeout: 10000
+    });
+
+    await page.getByTestId('db-password-input').fill('testpassword123');
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Navigate to tables page
+    await page.getByTestId('tables-link').click();
+    await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
+
+    // Should show tables (at least the schema tables)
+    await expect(page.getByText('user_settings')).toBeVisible({
+      timeout: 10000
+    });
+    await expect(page.getByText('schema_migrations')).toBeVisible();
+
+    // Should show row counts
+    await expect(page.getByText(/\d+ rows?/).first()).toBeVisible();
+  });
+
+  test('should refresh tables list when refresh button is clicked', async ({
+    page
+  }) => {
+    // Setup database first
+    await page.getByTestId('debug-link').click();
+    await page.getByTestId('db-reset-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
+      timeout: 10000
+    });
+    await page.getByTestId('db-password-input').fill('testpassword123');
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Navigate to tables page
+    await page.getByTestId('tables-link').click();
+    await expect(page.getByText('user_settings')).toBeVisible({
+      timeout: 10000
+    });
+
+    // Click refresh button
+    const refreshButton = page.getByRole('button', { name: 'Refresh' });
+    await expect(refreshButton).toBeVisible();
+    await refreshButton.click();
+
+    // Tables should still be visible after refresh
+    await expect(page.getByText('user_settings')).toBeVisible();
+  });
+});
