@@ -357,15 +357,15 @@ test.describe('Debug page', () => {
     await expect(page.getByText(/Standalone:/)).toBeVisible();
   });
 
-  test('should fetch and display API health status', async ({ page }) => {
+  test('should fetch and display API version', async ({ page }) => {
     await page.getByTestId('debug-link').click();
 
-    // Wait for health data to load (either success or error)
-    const healthStatus = page.getByText(/Healthy|Failed to connect to API/);
-    await expect(healthStatus).toBeVisible({ timeout: 10000 });
+    // Wait for ping data to load (either success or error)
+    const apiStatus = page.getByText(/\d+\.\d+\.\d+|Failed to connect to API/);
+    await expect(apiStatus).toBeVisible({ timeout: 10000 });
   });
 
-  test('should refresh health data when refresh button is clicked', async ({
+  test('should refresh API data when refresh button is clicked', async ({
     page
   }) => {
     await page.getByTestId('debug-link').click();
