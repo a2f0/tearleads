@@ -72,7 +72,7 @@ platform :android do
     UI.success("Updated local versionCode to #{new_code}, versionName to #{new_version_name}")
   end
 
-  desc 'Check if current versionCode already exists in Play Store'
+  desc 'Check if current versionCode already exists in Play Store (exits 0 if exists, 1 if new)'
   lane :build_exists_in_play_store do
     current_version_code = get_version_code
 
@@ -85,10 +85,8 @@ platform :android do
 
       if current_version_code <= latest_play_store_code
         UI.important("Build #{current_version_code} already exists in Play Store (latest: #{latest_play_store_code}). Skipping deployment.")
-        true
       else
-        UI.message("Build #{current_version_code} is new (Play Store latest: #{latest_play_store_code}). Proceeding with deployment.")
-        false
+        UI.user_error!("Build #{current_version_code} is new (Play Store latest: #{latest_play_store_code}). Proceeding with deployment.")
       end
     rescue StandardError => e
       UI.user_error!("Failed to fetch Play Store version codes: #{e.message}")
