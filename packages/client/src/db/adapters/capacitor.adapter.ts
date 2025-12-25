@@ -109,6 +109,9 @@ export class CapacitorAdapter implements DatabaseAdapter {
       // from a previous session with different encryption), delete the database
       // file and retry. This commonly happens during repeated reset/setup cycles.
       if (err instanceof Error && err.message.includes('State for')) {
+        console.warn(
+          `Recovering from database state error by deleting and retrying: ${err.message}`
+        );
         await sqlite.deleteDatabase(config.name);
         await sqlite.setEncryptionSecret(keyHex);
       } else {
