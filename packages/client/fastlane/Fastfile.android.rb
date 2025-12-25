@@ -111,11 +111,14 @@ platform :android do
 
     upload_to_play_store(
       track: 'internal',
-      aab: 'android/app/build/outputs/bundle/release/app-release.aab',
+      aab: File.expand_path('../android/app/build/outputs/bundle/release/app-release.aab', __dir__),
       release_status: ENV.fetch('ANDROID_RELEASE_STATUS', 'completed'),
       version_name: get_version_name,
       skip_upload_images: true,
-      skip_upload_screenshots: true
+      skip_upload_screenshots: true,
+      mapping_paths: [
+        File.expand_path('../android/app/build/outputs/mapping/release/mapping.txt', __dir__)
+      ]
     )
   end
 
