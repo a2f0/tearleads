@@ -79,8 +79,8 @@ export function DatabaseTest() {
     try {
       const startTime = performance.now();
       const success = await unlock(password);
-      const elapsed = performance.now() - startTime;
       if (success) {
+        const elapsed = performance.now() - startTime;
         setTestResult({
           status: 'success',
           message: `Database unlocked (${elapsed.toFixed(0)}ms)`
