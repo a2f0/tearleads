@@ -77,9 +77,14 @@ export function DatabaseTest() {
   const handleUnlock = useCallback(async () => {
     setTestResult({ status: 'running', message: 'Unlocking database...' });
     try {
+      const startTime = performance.now();
       const success = await unlock(password);
       if (success) {
-        setTestResult({ status: 'success', message: 'Database unlocked' });
+        const elapsed = performance.now() - startTime;
+        setTestResult({
+          status: 'success',
+          message: `Database unlocked (${elapsed.toFixed(0)}ms)`
+        });
       } else {
         setTestResult({ status: 'error', message: 'Wrong password' });
       }
