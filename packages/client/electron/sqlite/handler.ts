@@ -334,6 +334,16 @@ export function registerSqliteHandlers(): void {
   ipcMain.handle('sqlite:deleteDatabase', (_event, name: string) => {
     deleteDatabase(name);
   });
+
+  ipcMain.handle('sqlite:export', (_event, name: string) => {
+    const data = exportDatabase(name);
+    // Convert Buffer to number[] for IPC transfer
+    return Array.from(data);
+  });
+
+  ipcMain.handle('sqlite:import', (_event, name: string, data: number[]) => {
+    importDatabase(name, Buffer.from(data));
+  });
 }
 
 /**
@@ -366,6 +376,54 @@ function deleteDatabase(name: string): void {
   } catch {
     // Ignore if file doesn't exist
   }
+}
+
+/**
+ * Export the database to a buffer.
+ * Checkpoints WAL to ensure all data is in the main file.
+ */
+function exportDatabase(name: string): Buffer {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
+  // Checkpoint WAL to ensure all data is in main file
+  db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+
+  const dbPath = getDatabasePath(name);
+
+  // Read the encrypted database file
+  return fs.readFileSync(dbPath);
+}
+
+/**
+ * Import a database from a buffer.
+ * Closes the current database, writes the new file, and marks for re-initialization.
+ */
+function importDatabase(name: string, data: Buffer): void {
+  // Close the current database
+  closeDatabase();
+
+  const dbPath = getDatabasePath(name);
+  const walPath = `${dbPath}-wal`;
+  const shmPath = `${dbPath}-shm`;
+
+  // Delete WAL and SHM files
+  try {
+    fs.unlinkSync(walPath);
+  } catch {
+    // Ignore if file doesn't exist
+  }
+  try {
+    fs.unlinkSync(shmPath);
+  } catch {
+    // Ignore if file doesn't exist
+  }
+
+  // Write the imported data
+  fs.writeFileSync(dbPath, data);
+
+  // Database will be reopened on next initialize() call
 }
 
 /**
