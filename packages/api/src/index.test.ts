@@ -3,16 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { app } from './index.js';
 
 describe('API', () => {
-  describe('GET /v1/health', () => {
-    it('should return health data with 200 status', async () => {
-      const response = await request(app).get('/v1/health');
+  describe('GET /v1/ping', () => {
+    it('should return version with 200 status', async () => {
+      const response = await request(app).get('/v1/ping');
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
-        status: 'healthy',
-        timestamp: expect.any(String),
-        uptime: expect.any(Number)
+        version: expect.any(String)
       });
+      expect(response.body.version).toMatch(/^\d+\.\d+\.\d+$/);
     });
   });
 
