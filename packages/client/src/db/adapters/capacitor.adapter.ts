@@ -351,35 +351,90 @@ export class CapacitorAdapter implements DatabaseAdapter {
     const { Filesystem, Directory } = await import('@capacitor/filesystem');
     const { Capacitor } = await import('@capacitor/core');
 
+    // Get the database file path based on platform
+    const platform = Capacitor.getPlatform();
+    const dbFileName = `${this.dbName}SQLite.db`;
+    const backupFileName = `${this.dbName}SQLite.db.backup`;
+    let filePath: string;
+    let backupPath: string;
+    let directory: typeof Directory.Library | typeof Directory.Data;
+
+    if (platform === 'ios') {
+      filePath = `CapacitorDatabase/${dbFileName}`;
+      backupPath = `CapacitorDatabase/${backupFileName}`;
+      directory = Directory.Library;
+    } else {
+      filePath = `../databases/${dbFileName}`;
+      backupPath = `../databases/${backupFileName}`;
+      directory = Directory.Data;
+    }
+
+    // Backup current database before import
+    try {
+      const currentDb = await Filesystem.readFile({
+        path: filePath,
+        directory
+      });
+      await Filesystem.writeFile({
+        path: backupPath,
+        data: currentDb.data,
+        directory
+      });
+    } catch {
+      // Ignore if file doesn't exist (first time setup)
+    }
+
     // Close current connection
     if (this.db && this.isInitialized) {
       await this.db.close();
       await sqlite.closeConnection(this.dbName, false);
     }
 
-    // Convert Uint8Array to base64
-    const base64Data = btoa(String.fromCharCode(...data));
-
-    // Get the database file path based on platform
-    const platform = Capacitor.getPlatform();
-    const dbFileName = `${this.dbName}SQLite.db`;
-    let filePath: string;
-    let directory: typeof Directory.Library | typeof Directory.Data;
-
-    if (platform === 'ios') {
-      filePath = `CapacitorDatabase/${dbFileName}`;
-      directory = Directory.Library;
-    } else {
-      filePath = `../databases/${dbFileName}`;
-      directory = Directory.Data;
+    // Convert Uint8Array to base64 in chunks to avoid stack overflow
+    const CHUNK_SIZE = 0x8000; // 32k characters
+    let binary = '';
+    for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+      binary += String.fromCharCode.apply(
+        null,
+        Array.from(data.subarray(i, i + CHUNK_SIZE))
+      );
     }
+    const base64Data = btoa(binary);
 
-    // Write the database file
-    await Filesystem.writeFile({
-      path: filePath,
-      data: base64Data,
-      directory
-    });
+    try {
+      // Write the database file
+      await Filesystem.writeFile({
+        path: filePath,
+        data: base64Data,
+        directory
+      });
+
+      // Remove backup on success
+      try {
+        await Filesystem.deleteFile({
+          path: backupPath,
+          directory
+        });
+      } catch {
+        // Ignore cleanup errors
+      }
+    } catch (error) {
+      // Restore from backup on failure
+      try {
+        const backup = await Filesystem.readFile({
+          path: backupPath,
+          directory
+        });
+        await Filesystem.writeFile({
+          path: filePath,
+          data: backup.data,
+          directory
+        });
+      } catch {
+        // Best effort restore
+      }
+      throw error;
+    }
 
     // Database will be reopened on next initialize() call
     this.db = null;

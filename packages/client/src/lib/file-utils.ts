@@ -70,8 +70,16 @@ export async function saveFile(
     const { Share } = await import('@capacitor/share');
     const { Filesystem, Directory } = await import('@capacitor/filesystem');
 
-    // Convert to base64
-    const base64Data = btoa(String.fromCharCode(...data));
+    // Convert to base64 in chunks to avoid stack overflow
+    const CHUNK_SIZE = 0x8000; // 32k characters
+    let binary = '';
+    for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+      binary += String.fromCharCode.apply(
+        null,
+        Array.from(data.subarray(i, i + CHUNK_SIZE))
+      );
+    }
+    const base64Data = btoa(binary);
 
     // Write to cache directory
     const result = await Filesystem.writeFile({
