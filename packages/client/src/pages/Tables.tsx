@@ -30,9 +30,14 @@ export function Tables() {
         []
       );
 
-      const tableNames = tablesResult.rows.map(
-        (row) => (row as { name: string }).name
-      );
+      const tableNames = tablesResult.rows.map((row) => {
+        const r = row as Record<string, unknown>;
+        const name = r['name'];
+        if (typeof name !== 'string') {
+          throw new Error('Unexpected row format from sqlite_master');
+        }
+        return name;
+      });
 
       // Get row count for each table
       const tablesWithCounts: TableInfo[] = await Promise.all(
@@ -41,24 +46,29 @@ export function Tables() {
             `SELECT COUNT(*) as count FROM "${name}"`,
             []
           );
-          const count = (countResult.rows[0] as { count: number }).count;
+          const countRow = countResult.rows[0] as Record<string, unknown>;
+          const count = countRow['count'];
+          if (typeof count !== 'number') {
+            throw new Error(`Unexpected count format for table "${name}"`);
+          }
           return { name, rowCount: count };
         })
       );
 
       setTables(tablesWithCounts);
     } catch (err) {
-      setError((err as Error).message);
+      console.error('Failed to fetch tables:', err);
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
   }, [isUnlocked]);
 
   useEffect(() => {
-    if (isUnlocked && tables.length === 0 && !loading) {
+    if (isUnlocked && tables.length === 0 && !loading && !error) {
       fetchTables();
     }
-  }, [isUnlocked, tables.length, loading, fetchTables]);
+  }, [isUnlocked, tables.length, loading, fetchTables, error]);
 
   return (
     <div className="space-y-6">
