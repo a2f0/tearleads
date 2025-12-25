@@ -7,50 +7,19 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT_FILE="$PROJECT_ROOT/packages/client/ios/App/App.xcodeproj/project.pbxproj"
 INFO_PLIST="$PROJECT_ROOT/packages/client/ios/App/App/Info.plist"
 
-# Clear DEVELOPMENT_TEAM from project file
+# Clear DEVELOPMENT_TEAM from project file (added by fastlane during build)
 sed -i '' '/DEVELOPMENT_TEAM = /d' "$PROJECT_FILE"
 
-# Restore CFBundleVersion variable in Info.plist
+# Restore CFBundleVersion variable in Info.plist (may be replaced with actual number during build)
 # shellcheck disable=SC2016 # $(CURRENT_PROJECT_VERSION) is an Xcode variable, not a shell variable
 sed -i '' '/<key>CFBundleVersion<\/key>/{n;s/<string>[0-9]*<\/string>/<string>$(CURRENT_PROJECT_VERSION)<\/string>/;}' "$INFO_PLIST"
 
-# Check if any files other than project.pbxproj were modified
-MODIFIED_FILES=$(git -C "$PROJECT_ROOT" status --porcelain | grep -v -F ' M packages/client/ios/App/App.xcodeproj/project.pbxproj' || true)
-
-if [[ -n "$MODIFIED_FILES" ]]; then
-  echo "Error: Unexpected files changed after deployment"
-  echo "$MODIFIED_FILES"
+# Verify workspace is clean after cleanup
+if [[ -n $(git -C "$PROJECT_ROOT" status --porcelain) ]]; then
+  echo "Error: Workspace has unexpected changes after build cleanup"
+  git -C "$PROJECT_ROOT" status
   git -C "$PROJECT_ROOT" diff
   exit 1
 fi
 
-# Verify project.pbxproj was actually modified
-if git -C "$PROJECT_ROOT" diff --quiet "$PROJECT_FILE"; then
-  echo "Error: No changes found in project.pbxproj"
-  exit 1
-fi
-
-# Get only the actual change lines (lines starting with + or - but not --- or +++)
-DIFF_LINES=$(git -C "$PROJECT_ROOT" diff -U0 "$PROJECT_FILE" | grep -E '^[-+]' | grep -v -E '^(---|\+\+\+)')
-
-echo "Changes to commit:"
-echo "$DIFF_LINES"
-
-# Verify only CURRENT_PROJECT_VERSION changed
-TOTAL_CHANGES=$(echo "$DIFF_LINES" | grep -c '^[-+]' || true)
-VERSION_CHANGES=$(echo "$DIFF_LINES" | grep -c 'CURRENT_PROJECT_VERSION' || true)
-
-if [[ "$TOTAL_CHANGES" -eq 0 ]] || [[ "$VERSION_CHANGES" -eq 0 ]]; then
-  echo "Error: No CURRENT_PROJECT_VERSION changes found"
-  exit 1
-fi
-
-if [[ "$TOTAL_CHANGES" -ne "$VERSION_CHANGES" ]]; then
-  echo "Error: Found changes other than CURRENT_PROJECT_VERSION"
-  echo "Total changed lines: $TOTAL_CHANGES"
-  echo "CURRENT_PROJECT_VERSION lines: $VERSION_CHANGES"
-  echo "$DIFF_LINES" | grep -v 'CURRENT_PROJECT_VERSION'
-  exit 1
-fi
-
-echo "Verified: only CURRENT_PROJECT_VERSION changed ($VERSION_CHANGES lines)"
+echo "Verified: workspace is clean after build"
