@@ -48,4 +48,45 @@ test.describe('Electron App', () => {
       window.getByRole('heading', {name: 'Settings'})
     ).toBeVisible();
   });
+
+  test('should navigate to tables page', async () => {
+    const tablesLink = window.getByTestId('tables-link');
+    await expect(tablesLink).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+
+    await tablesLink.click();
+
+    await expect(
+      window.getByRole('heading', {name: 'Tables'})
+    ).toBeVisible();
+  });
+
+  test('should show locked message on tables page when database not unlocked', async () => {
+    await window.getByTestId('tables-link').click();
+
+    await expect(
+      window.getByText('Database is locked. Unlock it from the Debug page')
+    ).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+  });
+
+  test('should show tables list after database is unlocked', async () => {
+    // Setup database via Debug page
+    await window.getByTestId('debug-link').click();
+    await expect(window.getByTestId('database-test')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+
+    // Reset and setup
+    await window.getByTestId('db-reset-button').click();
+    await expect(window.getByTestId('db-status')).toContainText('Not Set Up', {timeout: 10000});
+
+    await window.getByTestId('db-password-input').fill('testpassword123');
+    await window.getByTestId('db-setup-button').click();
+    await expect(window.getByTestId('db-status')).toContainText('Unlocked', {timeout: 10000});
+
+    // Navigate to tables page
+    await window.getByTestId('tables-link').click();
+    await expect(window.getByRole('heading', {name: 'Tables'})).toBeVisible();
+
+    // Should show tables
+    await expect(window.getByText('user_settings')).toBeVisible({timeout: 10000});
+    await expect(window.getByText('schema_migrations')).toBeVisible();
+  });
 });
