@@ -1,0 +1,88 @@
+appId: com.tearleads.rapid
+---
+# Tables Page Test - Tests SQLite tables listing functionality
+
+- launchApp:
+    clearState: true
+
+- assertVisible: "Tearleads"
+
+# Load shared database helper functions
+- runFlow: helpers/db-helpers.yaml
+
+# Navigate to tables page first (should show locked message)
+- evalScript: document.querySelector('[data-testid="tables-link"]').click()
+
+# Wait for Tables page to load
+- extendedWaitUntil:
+    visible: "Tables"
+    timeout: 10000
+
+# Verify locked message is shown
+- evalScript: |
+    window.waitFor(
+      () => document.body.textContent.includes('Database is locked'),
+      'Expected locked message'
+    )
+
+# Navigate to debug page to setup database
+- evalScript: document.querySelector('[data-testid="debug-link"]').click()
+
+# Wait for Debug page to load
+- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
+
+# Reset database to ensure clean state
+- evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
+
+# Wait for reset to complete
+- evalScript: window.waitForStatus('Not Set Up')
+
+# Enter password and setup
+- evalScript: window.setPassword('testpassword123')
+
+- evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
+
+# Wait for setup to complete
+- evalScript: window.waitForStatus('Unlocked')
+
+# Navigate to tables page
+- evalScript: document.querySelector('[data-testid="tables-link"]').click()
+
+# Wait for Tables page to load
+- extendedWaitUntil:
+    visible: "Tables"
+    timeout: 10000
+
+# Wait for tables to load
+- evalScript: |
+    window.waitFor(
+      () => document.body.textContent.includes('user_settings'),
+      'Expected user_settings table'
+    )
+
+# Verify schema_migrations table is shown
+- evalScript: |
+    window.waitFor(
+      () => document.body.textContent.includes('schema_migrations'),
+      'Expected schema_migrations table'
+    )
+
+# Verify row counts are shown
+- evalScript: |
+    window.waitFor(
+      () => /\d+ rows?/.test(document.body.textContent),
+      'Expected row count display'
+    )
+
+# Test refresh button
+- evalScript: |
+    const refreshButton = Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Refresh'));
+    if (!refreshButton) throw new Error('Refresh button not found');
+    refreshButton.click();
+
+# Verify tables still visible after refresh
+- evalScript: |
+    window.waitFor(
+      () => document.body.textContent.includes('user_settings'),
+      'Expected tables after refresh'
+    )
