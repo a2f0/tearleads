@@ -1,4 +1,4 @@
-import { formatDate, type HealthData } from '@rapid/shared';
+import type { PingData } from '@rapid/shared';
 import { Bug, RefreshCw, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -6,33 +6,33 @@ import { API_BASE_URL, api } from '@/lib/api';
 
 export function DebugMenu() {
   const [isOpen, setIsOpen] = useState(false);
-  const [health, setHealth] = useState<HealthData | null>(null);
-  const [healthLoading, setHealthLoading] = useState(false);
-  const [healthError, setHealthError] = useState<string | null>(null);
+  const [ping, setPing] = useState<PingData | null>(null);
+  const [pingLoading, setPingLoading] = useState(false);
+  const [pingError, setPingError] = useState<string | null>(null);
   const [shouldThrow, setShouldThrow] = useState(false);
 
   if (shouldThrow) {
     throw new Error('Test error from debug menu');
   }
 
-  const fetchHealth = useCallback(async () => {
+  const fetchPing = useCallback(async () => {
     try {
-      setHealthLoading(true);
-      setHealthError(null);
-      const data = await api.health.get();
-      setHealth(data);
+      setPingLoading(true);
+      setPingError(null);
+      const data = await api.ping.get();
+      setPing(data);
     } catch (_err) {
-      setHealthError('Failed to connect to API');
+      setPingError('Failed to connect to API');
     } finally {
-      setHealthLoading(false);
+      setPingLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (isOpen && !health && !healthLoading) {
-      fetchHealth();
+    if (isOpen && !ping && !pingLoading) {
+      fetchPing();
     }
-  }, [isOpen, health, healthLoading, fetchHealth]);
+  }, [isOpen, ping, pingLoading, fetchPing]);
 
   return (
     <>
@@ -93,48 +93,26 @@ export function DebugMenu() {
               </div>
 
               <div className="border-t pt-4">
-                <h3 className="text-sm font-semibold mb-2">API Health</h3>
+                <h3 className="text-sm font-semibold mb-2">API Status</h3>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-muted-foreground">API URL</span>
                   <span className="text-xs break-all max-w-45 text-right">
                     {API_BASE_URL || '(not set)'}
                   </span>
                 </div>
-                {healthLoading && (
+                {pingLoading && (
                   <p className="text-sm text-muted-foreground">Loading...</p>
                 )}
-                {healthError && (
-                  <p className="text-sm text-destructive">{healthError}</p>
+                {pingError && (
+                  <p className="text-sm text-destructive">{pingError}</p>
                 )}
-                {!healthLoading && !healthError && health && (
+                {!pingLoading && !pingError && ping && (
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Status</span>
-                      <span
-                        className={
-                          health.status === 'healthy'
-                            ? 'text-green-600 font-medium'
-                            : 'text-red-600 font-medium'
-                        }
-                      >
-                        {health.status === 'healthy'
-                          ? 'Healthy'
-                          : health.status}
+                      <span className="text-muted-foreground">Version</span>
+                      <span className="text-green-600 font-medium">
+                        {ping.version}
                       </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Timestamp</span>
-                      <span>{health.timestamp}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Uptime</span>
-                      <span>{health.uptime.toFixed(2)}s</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Current Time
-                      </span>
-                      <span>{formatDate(new Date())}</span>
                     </div>
                   </div>
                 )}
@@ -142,11 +120,11 @@ export function DebugMenu() {
                   variant="outline"
                   size="sm"
                   className="w-full mt-2"
-                  onClick={fetchHealth}
-                  disabled={healthLoading}
+                  onClick={fetchPing}
+                  disabled={pingLoading}
                 >
                   <RefreshCw className="mr-2 h-3 w-3" />
-                  {healthLoading ? 'Refreshing...' : 'Refresh'}
+                  {pingLoading ? 'Refreshing...' : 'Refresh'}
                 </Button>
               </div>
 

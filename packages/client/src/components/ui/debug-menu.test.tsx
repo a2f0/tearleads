@@ -5,7 +5,7 @@ import { DebugMenu } from './debug-menu';
 
 vi.mock('@/lib/api', () => ({
   api: {
-    health: {
+    ping: {
       get: vi.fn()
     }
   },
@@ -14,10 +14,8 @@ vi.mock('@/lib/api', () => ({
 
 import { api } from '@/lib/api';
 
-const mockHealthData = {
-  status: 'healthy' as const,
-  timestamp: '2025-01-01T00:00:00.000Z',
-  uptime: 123.45
+const mockPingData = {
+  version: '0.0.2'
 };
 
 describe('DebugMenu', () => {
@@ -34,7 +32,7 @@ describe('DebugMenu', () => {
 
   it('opens the menu when debug button is clicked', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.health.get).mockResolvedValue(mockHealthData);
+    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
 
     render(<DebugMenu />);
 
@@ -46,7 +44,7 @@ describe('DebugMenu', () => {
 
   it('displays environment information', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.health.get).mockResolvedValue(mockHealthData);
+    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
 
     render(<DebugMenu />);
 
@@ -59,7 +57,7 @@ describe('DebugMenu', () => {
 
   it('displays the API URL', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.health.get).mockResolvedValue(mockHealthData);
+    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
 
     render(<DebugMenu />);
 
@@ -69,25 +67,24 @@ describe('DebugMenu', () => {
     expect(screen.getByText('https://api.example.com/v1')).toBeInTheDocument();
   });
 
-  it('fetches and displays health data when menu opens', async () => {
+  it('fetches and displays version when menu opens', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.health.get).mockResolvedValue(mockHealthData);
+    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
 
     render(<DebugMenu />);
 
     await user.click(screen.getByRole('button', { name: /open debug menu/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Healthy')).toBeInTheDocument();
+      expect(screen.getByText('0.0.2')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('123.45s')).toBeInTheDocument();
-    expect(api.health.get).toHaveBeenCalled();
+    expect(api.ping.get).toHaveBeenCalled();
   });
 
-  it('displays error when health check fails', async () => {
+  it('displays error when ping fails', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.health.get).mockRejectedValue(new Error('API error: 500'));
+    vi.mocked(api.ping.get).mockRejectedValue(new Error('API error: 500'));
 
     render(<DebugMenu />);
 
@@ -98,28 +95,28 @@ describe('DebugMenu', () => {
     });
   });
 
-  it('refreshes health data when refresh button is clicked', async () => {
+  it('refreshes ping data when refresh button is clicked', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.health.get).mockResolvedValue(mockHealthData);
+    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
 
     render(<DebugMenu />);
 
     await user.click(screen.getByRole('button', { name: /open debug menu/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Healthy')).toBeInTheDocument();
+      expect(screen.getByText('0.0.2')).toBeInTheDocument();
     });
 
     await user.click(screen.getByRole('button', { name: /refresh/i }));
 
     await waitFor(() => {
-      expect(api.health.get).toHaveBeenCalledTimes(2);
+      expect(api.ping.get).toHaveBeenCalledTimes(2);
     });
   });
 
   it('closes the menu when close button is clicked', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.health.get).mockResolvedValue(mockHealthData);
+    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
 
     render(<DebugMenu />);
 
@@ -137,7 +134,7 @@ describe('DebugMenu', () => {
 
   it('closes the menu when backdrop is clicked', async () => {
     const user = userEvent.setup();
-    vi.mocked(api.health.get).mockResolvedValue(mockHealthData);
+    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
 
     render(<DebugMenu />);
 
