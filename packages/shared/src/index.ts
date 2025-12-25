@@ -3,10 +3,8 @@
  */
 
 // Types
-export interface HealthData {
-  status: 'healthy' | 'unhealthy';
-  timestamp: string;
-  uptime: number;
+export interface PingData {
+  version: string;
 }
 
 // Utilities
