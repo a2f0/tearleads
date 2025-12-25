@@ -1,4 +1,8 @@
 #!/bin/bash
+# Cleans up iOS build artifacts that fastlane/Xcode modifies during builds:
+# - Removes DEVELOPMENT_TEAM entries from project.pbxproj
+# - Restores CFBundleVersion placeholder in Info.plist
+# Then verifies the git workspace is clean (no uncommitted changes).
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
