@@ -173,8 +173,8 @@ platform :ios do
       else
         UI.user_error!("Build #{current_build_number} is new (TestFlight latest: #{testflight_build_number}). Proceeding with deployment.")
       end
-    rescue Fastlane::Helper::BuildNumberError => e
-      UI.user_error!("Build is new or not found: #{e.message}")
+    rescue FastlaneCore::Interface::FastlaneError => e
+      UI.user_error!("Build is new as no builds were found in TestFlight: #{e.message}")
     rescue StandardError => e
       UI.user_error!("Failed to fetch TestFlight build number: #{e.message}")
     end
