@@ -284,4 +284,105 @@ export class CapacitorAdapter implements DatabaseAdapter {
     this.dbName = null;
     this.isInitialized = false;
   }
+
+  async exportDatabase(): Promise<Uint8Array> {
+    if (!this.db || !this.isInitialized || !this.dbName) {
+      throw new Error('Database not initialized');
+    }
+
+    const sqlite = await getSQLiteConnection();
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const { Capacitor } = await import('@capacitor/core');
+
+    // Close connection to ensure all data is flushed
+    await this.db.close();
+    await sqlite.closeConnection(this.dbName, false);
+
+    try {
+      // Get the database file path based on platform
+      // iOS: Library/CapacitorDatabase/{name}SQLite.db
+      // Android: databases/{name}SQLite.db
+      const platform = Capacitor.getPlatform();
+      const dbFileName = `${this.dbName}SQLite.db`;
+      let filePath: string;
+      let directory: typeof Directory.Library | typeof Directory.Data;
+
+      if (platform === 'ios') {
+        filePath = `CapacitorDatabase/${dbFileName}`;
+        directory = Directory.Library;
+      } else {
+        // Android - need to use a relative path from Data directory
+        filePath = `../databases/${dbFileName}`;
+        directory = Directory.Data;
+      }
+
+      const result = await Filesystem.readFile({
+        path: filePath,
+        directory
+      });
+
+      // Convert base64 to Uint8Array
+      const base64Data = result.data as string;
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes;
+    } finally {
+      // Re-open the connection
+      this.db = await sqlite.createConnection(
+        this.dbName,
+        true,
+        'secret',
+        1,
+        false
+      );
+      await this.db.open();
+    }
+  }
+
+  async importDatabase(data: Uint8Array): Promise<void> {
+    if (!this.dbName) {
+      throw new Error('Database name not set');
+    }
+
+    const sqlite = await getSQLiteConnection();
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const { Capacitor } = await import('@capacitor/core');
+
+    // Close current connection
+    if (this.db && this.isInitialized) {
+      await this.db.close();
+      await sqlite.closeConnection(this.dbName, false);
+    }
+
+    // Convert Uint8Array to base64
+    const base64Data = btoa(String.fromCharCode(...data));
+
+    // Get the database file path based on platform
+    const platform = Capacitor.getPlatform();
+    const dbFileName = `${this.dbName}SQLite.db`;
+    let filePath: string;
+    let directory: typeof Directory.Library | typeof Directory.Data;
+
+    if (platform === 'ios') {
+      filePath = `CapacitorDatabase/${dbFileName}`;
+      directory = Directory.Library;
+    } else {
+      filePath = `../databases/${dbFileName}`;
+      directory = Directory.Data;
+    }
+
+    // Write the database file
+    await Filesystem.writeFile({
+      path: filePath,
+      data: base64Data,
+      directory
+    });
+
+    // Database will be reopened on next initialize() call
+    this.db = null;
+    this.isInitialized = false;
+  }
 }
