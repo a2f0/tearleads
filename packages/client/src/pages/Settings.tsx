@@ -38,6 +38,7 @@ export function Settings() {
       const filename = generateBackupFilename();
       await saveFile(data, filename);
     } catch (err) {
+      console.error('Export failed:', err);
       setError(err instanceof Error ? err.message : 'Export failed');
     } finally {
       setIsExporting(false);
@@ -73,7 +74,12 @@ export function Settings() {
       await lock();
       // Navigation to unlock screen will happen automatically
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Restore failed');
+      console.error('Restore failed:', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Restore failed. The file may be corrupt or invalid.'
+      );
     } finally {
       setIsImporting(false);
       setPendingRestoreFile(null);

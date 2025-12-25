@@ -324,11 +324,7 @@ export class CapacitorAdapter implements DatabaseAdapter {
       // Convert base64 to Uint8Array
       const base64Data = result.data as string;
       const binaryString = atob(base64Data);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      return bytes;
+      return Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
     } finally {
       // Re-open the connection
       this.db = await sqlite.createConnection(
