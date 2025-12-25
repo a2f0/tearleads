@@ -288,8 +288,8 @@ test.describe('Dropzone', () => {
 
     await expect(page.getByText('removeme.txt')).toBeVisible();
 
-    // Click the remove button (X icon)
-    const removeButton = page.getByRole('button').filter({ has: page.locator('svg') }).first();
+    // Click the remove button using aria-label
+    const removeButton = page.getByRole('button', { name: 'Remove removeme.txt' });
     await removeButton.click();
 
     await expect(page.getByText('removeme.txt')).not.toBeVisible();
