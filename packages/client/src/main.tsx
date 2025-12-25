@@ -8,6 +8,7 @@ import { DatabaseProvider } from './db/hooks';
 import { Debug } from './pages/Debug';
 import { Home } from './pages/Home';
 import { Settings } from './pages/Settings';
+import { Tables } from './pages/Tables';
 import './index.css';
 
 const rootElement = document.getElementById('root');
@@ -23,6 +24,7 @@ if (rootElement) {
                   <Route index element={<Home />} />
                   <Route path="debug" element={<Debug />} />
                   <Route path="settings" element={<Settings />} />
+                  <Route path="tables" element={<Tables />} />
                 </Route>
               </Routes>
             </BrowserRouter>
