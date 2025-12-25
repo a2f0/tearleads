@@ -1,6 +1,6 @@
 import { Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
-import { Bug, Settings } from 'lucide-react';
+import { Bug, Settings, Table2 } from 'lucide-react';
 import { Link, Outlet } from 'react-router-dom';
 
 function App() {
@@ -18,6 +18,14 @@ function App() {
             </Link>
           </div>
           <div className="flex items-center gap-1">
+            <Link
+              to="/tables"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+              aria-label="Tables"
+              data-testid="tables-link"
+            >
+              <Table2 className="h-5 w-5" />
+            </Link>
             <Link
               to="/debug"
               className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
