@@ -15,6 +15,7 @@ function getElectronApi(): ElectronApi {
 
 export class ElectronAdapter implements DatabaseAdapter {
   private initialized = false;
+  private dbName = '';
 
   async initialize(config: DatabaseConfig): Promise<void> {
     const api = getElectronApi();
@@ -24,6 +25,7 @@ export class ElectronAdapter implements DatabaseAdapter {
       encryptionKey: Array.from(config.encryptionKey)
     });
 
+    this.dbName = config.name;
     this.initialized = true;
   }
 
@@ -88,5 +90,23 @@ export class ElectronAdapter implements DatabaseAdapter {
     const api = getElectronApi();
     await api.sqlite.deleteDatabase(name);
     this.initialized = false;
+  }
+
+  async exportDatabase(): Promise<Uint8Array> {
+    if (!this.initialized || !this.dbName) {
+      throw new Error('Database not initialized');
+    }
+    const api = getElectronApi();
+    const data = await api.sqlite.export(this.dbName);
+    return new Uint8Array(data);
+  }
+
+  async importDatabase(data: Uint8Array): Promise<void> {
+    if (!this.dbName) {
+      throw new Error('Database name not set');
+    }
+    const api = getElectronApi();
+    await api.sqlite.import(this.dbName, Array.from(data));
+    this.initialized = false; // Force re-initialization
   }
 }

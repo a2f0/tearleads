@@ -212,6 +212,37 @@ export async function changePassword(
 }
 
 /**
+ * Export the database to a byte array.
+ * Returns the encrypted database file bytes.
+ */
+export async function exportDatabase(): Promise<Uint8Array> {
+  if (!adapterInstance) {
+    throw new Error('Database not initialized');
+  }
+  return adapterInstance.exportDatabase();
+}
+
+/**
+ * Import a database from a byte array.
+ * The database must be unlocked first. After import, the database
+ * will need to be re-initialized with the same password.
+ * @param data - The encrypted database file bytes
+ */
+export async function importDatabase(data: Uint8Array): Promise<void> {
+  if (!adapterInstance) {
+    throw new Error('Database not initialized');
+  }
+
+  await adapterInstance.importDatabase(data);
+
+  // Clear the current database instance since the database has been replaced
+  databaseInstance = null;
+
+  // The adapter stays alive but db is closed - re-initialization will happen
+  // when user unlocks again with the same password
+}
+
+/**
  * Reset the database (for testing or complete wipe).
  */
 export async function resetDatabase(): Promise<void> {

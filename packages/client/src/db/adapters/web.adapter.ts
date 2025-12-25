@@ -264,4 +264,20 @@ export class WebAdapter implements DatabaseAdapter {
       return { rows: result.rows };
     };
   }
+
+  async exportDatabase(): Promise<Uint8Array> {
+    const id = generateRequestId();
+    const result = await this.sendRequest({ type: 'EXPORT', id });
+    const data = (result as { data: number[] }).data;
+    return new Uint8Array(data);
+  }
+
+  async importDatabase(data: Uint8Array): Promise<void> {
+    const id = generateRequestId();
+    await this.sendRequest({
+      type: 'IMPORT',
+      id,
+      data: Array.from(data)
+    });
+  }
 }
