@@ -334,6 +334,16 @@ export function registerSqliteHandlers(): void {
   ipcMain.handle('sqlite:deleteDatabase', (_event, name: string) => {
     deleteDatabase(name);
   });
+
+  ipcMain.handle('sqlite:export', (_event, name: string) => {
+    const data = exportDatabase(name);
+    // Convert Buffer to number[] for IPC transfer
+    return Array.from(data);
+  });
+
+  ipcMain.handle('sqlite:import', (_event, name: string, data: number[]) => {
+    importDatabase(name, Buffer.from(data));
+  });
 }
 
 /**
@@ -366,6 +376,80 @@ function deleteDatabase(name: string): void {
   } catch {
     // Ignore if file doesn't exist
   }
+}
+
+/**
+ * Export the database to a buffer.
+ * Checkpoints WAL to ensure all data is in the main file.
+ */
+async function exportDatabase(name: string): Promise<Buffer> {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
+  // Checkpoint WAL to ensure all data is in main file
+  db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+
+  const dbPath = getDatabasePath(name);
+
+  // Read the encrypted database file asynchronously
+  return fs.promises.readFile(dbPath);
+}
+
+/**
+ * Import a database from a buffer.
+ * Creates a backup of the current database before replacing it.
+ * Closes the current database, writes the new file, and marks for re-initialization.
+ */
+async function importDatabase(name: string, data: Buffer): Promise<void> {
+  const dbPath = getDatabasePath(name);
+  const backupPath = `${dbPath}.backup`;
+  const walPath = `${dbPath}-wal`;
+  const shmPath = `${dbPath}-shm`;
+
+  // Create backup of current database before import
+  try {
+    await fs.promises.copyFile(dbPath, backupPath);
+  } catch {
+    // Ignore if file doesn't exist (first time setup)
+  }
+
+  // Close the current database
+  closeDatabase();
+
+  try {
+    // Delete WAL and SHM files
+    try {
+      await fs.promises.unlink(walPath);
+    } catch {
+      // Ignore if file doesn't exist
+    }
+    try {
+      await fs.promises.unlink(shmPath);
+    } catch {
+      // Ignore if file doesn't exist
+    }
+
+    // Write the imported data
+    await fs.promises.writeFile(dbPath, data);
+
+    // Remove backup on success
+    try {
+      await fs.promises.unlink(backupPath);
+    } catch {
+      // Ignore cleanup errors
+    }
+  } catch (error) {
+    // Restore from backup on failure
+    try {
+      await fs.promises.copyFile(backupPath, dbPath);
+    } catch {
+      // Best effort restore
+    }
+    throw error;
+  }
+
+  // Database will be reopened on next initialize() call
 }
 
 /**

@@ -284,4 +284,156 @@ export class CapacitorAdapter implements DatabaseAdapter {
     this.dbName = null;
     this.isInitialized = false;
   }
+
+  async exportDatabase(): Promise<Uint8Array> {
+    if (!this.db || !this.isInitialized || !this.dbName) {
+      throw new Error('Database not initialized');
+    }
+
+    const sqlite = await getSQLiteConnection();
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const { Capacitor } = await import('@capacitor/core');
+
+    // Close connection to ensure all data is flushed
+    await this.db.close();
+    await sqlite.closeConnection(this.dbName, false);
+
+    try {
+      // Get the database file path based on platform
+      // iOS: Library/CapacitorDatabase/{name}SQLite.db
+      // Android: databases/{name}SQLite.db
+      const platform = Capacitor.getPlatform();
+      const dbFileName = `${this.dbName}SQLite.db`;
+      let filePath: string;
+      let directory: typeof Directory.Library | typeof Directory.Data;
+
+      if (platform === 'ios') {
+        filePath = `CapacitorDatabase/${dbFileName}`;
+        directory = Directory.Library;
+      } else {
+        // Android - need to use a relative path from Data directory
+        filePath = `../databases/${dbFileName}`;
+        directory = Directory.Data;
+      }
+
+      const result = await Filesystem.readFile({
+        path: filePath,
+        directory
+      });
+
+      // Convert base64 to Uint8Array
+      const base64Data = result.data as string;
+      const binaryString = atob(base64Data);
+      return Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
+    } finally {
+      // Re-open the connection
+      this.db = await sqlite.createConnection(
+        this.dbName,
+        true,
+        'secret',
+        1,
+        false
+      );
+      await this.db.open();
+    }
+  }
+
+  async importDatabase(data: Uint8Array): Promise<void> {
+    if (!this.dbName) {
+      throw new Error('Database name not set');
+    }
+
+    const sqlite = await getSQLiteConnection();
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const { Capacitor } = await import('@capacitor/core');
+
+    // Get the database file path based on platform
+    const platform = Capacitor.getPlatform();
+    const dbFileName = `${this.dbName}SQLite.db`;
+    const backupFileName = `${this.dbName}SQLite.db.backup`;
+    let filePath: string;
+    let backupPath: string;
+    let directory: typeof Directory.Library | typeof Directory.Data;
+
+    if (platform === 'ios') {
+      filePath = `CapacitorDatabase/${dbFileName}`;
+      backupPath = `CapacitorDatabase/${backupFileName}`;
+      directory = Directory.Library;
+    } else {
+      filePath = `../databases/${dbFileName}`;
+      backupPath = `../databases/${backupFileName}`;
+      directory = Directory.Data;
+    }
+
+    // Backup current database before import
+    try {
+      const currentDb = await Filesystem.readFile({
+        path: filePath,
+        directory
+      });
+      await Filesystem.writeFile({
+        path: backupPath,
+        data: currentDb.data,
+        directory
+      });
+    } catch {
+      // Ignore if file doesn't exist (first time setup)
+    }
+
+    // Close current connection
+    if (this.db && this.isInitialized) {
+      await this.db.close();
+      await sqlite.closeConnection(this.dbName, false);
+    }
+
+    // Convert Uint8Array to base64 in chunks to avoid stack overflow
+    const CHUNK_SIZE = 0x8000; // 32k characters
+    let binary = '';
+    for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+      binary += String.fromCharCode.apply(
+        null,
+        Array.from(data.subarray(i, i + CHUNK_SIZE))
+      );
+    }
+    const base64Data = btoa(binary);
+
+    try {
+      // Write the database file
+      await Filesystem.writeFile({
+        path: filePath,
+        data: base64Data,
+        directory
+      });
+
+      // Remove backup on success
+      try {
+        await Filesystem.deleteFile({
+          path: backupPath,
+          directory
+        });
+      } catch {
+        // Ignore cleanup errors
+      }
+    } catch (error) {
+      // Restore from backup on failure
+      try {
+        const backup = await Filesystem.readFile({
+          path: backupPath,
+          directory
+        });
+        await Filesystem.writeFile({
+          path: filePath,
+          data: backup.data,
+          directory
+        });
+      } catch {
+        // Best effort restore
+      }
+      throw error;
+    }
+
+    // Database will be reopened on next initialize() call
+    this.db = null;
+    this.isInitialized = false;
+  }
 }
