@@ -115,7 +115,10 @@ platform :android do
       release_status: ENV.fetch('ANDROID_RELEASE_STATUS', 'completed'),
       version_name: get_version_name,
       skip_upload_images: true,
-      skip_upload_screenshots: true
+      skip_upload_screenshots: true,
+      mapping_paths: [
+        'android/app/build/outputs/mapping/release/mapping.txt'
+      ]
     )
   end
 
