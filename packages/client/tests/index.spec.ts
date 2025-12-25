@@ -226,6 +226,98 @@ test.describe('Dropzone', () => {
     // Verify dragging state removed
     await expect(dropzone).toHaveAttribute('data-dragging', 'false');
   });
+
+  test('should display file info after file is selected', async ({ page }) => {
+    const fileInput = page.getByTestId('dropzone-input');
+
+    await fileInput.setInputFiles({
+      name: 'document.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('test content')
+    });
+
+    // Verify file name is displayed
+    await expect(page.getByText('document.pdf')).toBeVisible();
+    // Verify file type is displayed
+    await expect(page.getByText(/application\/pdf/)).toBeVisible();
+  });
+
+  test('should display formatted file size', async ({ page }) => {
+    const fileInput = page.getByTestId('dropzone-input');
+
+    // Create a ~1.5KB file
+    const content = 'x'.repeat(1536);
+    await fileInput.setInputFiles({
+      name: 'test.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from(content)
+    });
+
+    // Verify file size is formatted (should show ~1.5 KB)
+    await expect(page.getByText(/1\.5 KB/)).toBeVisible();
+  });
+
+  test('should display multiple files', async ({ page }) => {
+    const fileInput = page.getByTestId('dropzone-input');
+
+    await fileInput.setInputFiles([
+      {
+        name: 'file1.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('content 1')
+      },
+      {
+        name: 'file2.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('content 2')
+      }
+    ]);
+
+    await expect(page.getByText('file1.txt')).toBeVisible();
+    await expect(page.getByText('file2.txt')).toBeVisible();
+  });
+
+  test('should remove file when remove button is clicked', async ({ page }) => {
+    const fileInput = page.getByTestId('dropzone-input');
+
+    await fileInput.setInputFiles({
+      name: 'removeme.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('test')
+    });
+
+    await expect(page.getByText('removeme.txt')).toBeVisible();
+
+    // Click the remove button (X icon)
+    const removeButton = page.getByRole('button').filter({ has: page.locator('svg') }).first();
+    await removeButton.click();
+
+    await expect(page.getByText('removeme.txt')).not.toBeVisible();
+  });
+
+  test('should accumulate files from multiple selections', async ({ page }) => {
+    const fileInput = page.getByTestId('dropzone-input');
+
+    // First selection
+    await fileInput.setInputFiles({
+      name: 'first.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('first')
+    });
+
+    await expect(page.getByText('first.txt')).toBeVisible();
+
+    // Second selection (should add to existing)
+    await fileInput.setInputFiles({
+      name: 'second.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('second')
+    });
+
+    // Both files should be visible
+    await expect(page.getByText('first.txt')).toBeVisible();
+    await expect(page.getByText('second.txt')).toBeVisible();
+  });
 });
 
 test.describe('Debug page', () => {
