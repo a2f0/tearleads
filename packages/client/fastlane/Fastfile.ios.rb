@@ -158,7 +158,7 @@ platform :ios do
     UI.success("Updated local build number to #{new_build}")
   end
 
-  desc 'Check if current build number already exists in TestFlight'
+  desc 'Check if current build number already exists in TestFlight (exits 0 if exists, 1 if new)'
   lane :build_exists_in_testflight do
     setup_ci_environment
     ensure_app_store_connect_api
@@ -170,11 +170,11 @@ platform :ios do
 
       if current_build_number.to_i <= testflight_build_number.to_i
         UI.important("Build #{current_build_number} already exists in TestFlight (latest: #{testflight_build_number}). Skipping deployment.")
-        true
       else
-        UI.message("Build #{current_build_number} is new (TestFlight latest: #{testflight_build_number}). Proceeding with deployment.")
-        false
+        UI.user_error!("Build #{current_build_number} is new (TestFlight latest: #{testflight_build_number}). Proceeding with deployment.")
       end
+    rescue FastlaneCore::Interface::FastlaneError => e
+      UI.user_error!("Build is new as no builds were found in TestFlight: #{e.message}")
     rescue StandardError => e
       UI.user_error!("Failed to fetch TestFlight build number: #{e.message}")
     end
