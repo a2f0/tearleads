@@ -1,4 +1,4 @@
-import type { HealthData } from '@rapid/shared';
+import type { PingData } from '@rapid/shared';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
@@ -16,7 +16,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  health: {
-    get: () => request<HealthData>('/health')
+  ping: {
+    get: () => request<PingData>('/ping')
   }
 };
