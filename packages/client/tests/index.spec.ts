@@ -361,7 +361,11 @@ test.describe('Debug page', () => {
     await page.getByTestId('debug-link').click();
 
     // Wait for ping data to load (either success or error)
-    const apiStatus = page.getByText(/\d+\.\d+\.\d+|Failed to connect to API/);
+    // Look for version in the API Status section (green text) or error message
+    const apiStatusSection = page.getByText('API Status').locator('..');
+    const apiStatus = apiStatusSection.getByText(
+      /^\d+\.\d+\.\d+$|Failed to connect to API/
+    );
     await expect(apiStatus).toBeVisible({ timeout: 10000 });
   });
 
