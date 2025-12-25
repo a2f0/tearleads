@@ -101,7 +101,20 @@ export class CapacitorAdapter implements DatabaseAdapter {
     if (isStored) {
       await sqlite.clearEncryptionSecret();
     }
-    await sqlite.setEncryptionSecret(keyHex);
+
+    try {
+      await sqlite.setEncryptionSecret(keyHex);
+    } catch (err) {
+      // If setEncryptionSecret fails due to incorrect state (stale database file
+      // from a previous session with different encryption), delete the database
+      // file and retry. This commonly happens during repeated reset/setup cycles.
+      if (err instanceof Error && err.message.includes('State for')) {
+        await sqlite.deleteDatabase(config.name);
+        await sqlite.setEncryptionSecret(keyHex);
+      } else {
+        throw err;
+      }
+    }
 
     // Create connection with encryption enabled
     // Mode 'secret' uses the passphrase stored via setEncryptionSecret
