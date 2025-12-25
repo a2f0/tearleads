@@ -23,7 +23,7 @@ export function generateBackupFilename(): string {
  * Download a file in the browser using a blob URL.
  */
 export function downloadFile(data: Uint8Array, filename: string): void {
-  const blob = new Blob([new Uint8Array(data)], {
+  const blob = new Blob([data.slice()], {
     type: 'application/octet-stream'
   });
   const url = URL.createObjectURL(blob);
