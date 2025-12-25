@@ -30,7 +30,7 @@ Commit and push the current changes following these rules:
 
 6. **Open PR**: If NOT on the `main` branch, open a pull request using `gh pr create`. Skip this step if already on `main`.
 
-7. **Wait for Gemini**: After pushing (and creating PR if applicable), wait 2 minutes to give Gemini time to review and provide feedback.
+7. **Wait for Gemini**: After pushing (and creating PR if applicable), wait for Gemini's review to be posted on the pull request.
 
 8. **Address Gemini feedback**: Run the `/address-gemini-feedback` skill to query the open PR and resolve any feedback from Gemini.
 

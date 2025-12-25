@@ -1,13 +1,10 @@
-import { createRequire } from 'node:module';
 import type { PingData } from '@rapid/shared';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { type Express, type Request, type Response } from 'express';
+import packageJson from '../package.json' with { type: 'json' };
 
 dotenv.config();
-
-const require = createRequire(import.meta.url);
-const packageJson = require('../package.json') as { version: string };
 
 const app: Express = express();
 
