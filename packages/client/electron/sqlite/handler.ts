@@ -339,9 +339,12 @@ export function registerSqliteHandlers(): void {
     return exportDatabase();
   });
 
-  ipcMain.handle('sqlite:importDatabase', (_event, data: number[]) => {
-    importDatabase(data);
-  });
+  ipcMain.handle(
+    'sqlite:importDatabase',
+    (_event, data: number[], key: number[]) => {
+      importDatabase(data, key);
+    }
+  );
 }
 
 /**
@@ -396,62 +399,49 @@ function exportDatabase(): number[] {
 /**
  * Import a database from a byte array.
  * Replaces the current database with the provided data.
+ * @param data The encrypted database file as a byte array
+ * @param key The encryption key to use when reopening the database
  */
-function importDatabase(data: number[]): void {
+function importDatabase(data: number[], key: number[]): void {
   if (!db) {
     throw new Error('Database not initialized');
   }
 
-  const buffer = Buffer.from(data);
+  const dbPath = getDatabasePath('rapid');
 
   // Close the current database
   db.close();
 
-  // Use better-sqlite3's deserialize to load the new data
-  // Note: deserialize creates an in-memory database, but we want to persist it
-  // So we deserialize, then copy to a file-based database
-  const memDb = new Database(buffer);
+  // Delete existing files using fs.rmSync with force option
+  fs.rmSync(dbPath, { force: true });
+  fs.rmSync(`${dbPath}-wal`, { force: true });
+  fs.rmSync(`${dbPath}-shm`, { force: true });
 
-  // Get the current database path from the closed db
-  // We need to store the path before closing
-  const dbPath = getDatabasePath('rapid');
+  // Write the imported database directly to the file
+  const buffer = Buffer.from(data);
+  fs.writeFileSync(dbPath, buffer);
 
-  // Delete existing files
-  try {
-    fs.unlinkSync(dbPath);
-  } catch {
-    // Ignore
-  }
-  try {
-    fs.unlinkSync(`${dbPath}-wal`);
-  } catch {
-    // Ignore
-  }
-  try {
-    fs.unlinkSync(`${dbPath}-shm`);
-  } catch {
-    // Ignore
-  }
-
-  // Create new file and copy data
+  // Reopen the database with encryption
   db = new Database(dbPath);
 
-  // Copy the deserialized database to the file
-  // Use VACUUM INTO to copy the database
-  const serialized = memDb.serialize();
-  memDb.close();
+  const keyBuffer = Buffer.from(key);
+  const keyHex = keyBuffer.toString('hex');
+  secureZeroBuffer(keyBuffer);
 
-  // Write directly to the file
-  fs.writeFileSync(dbPath, serialized);
+  // Apply encryption settings
+  db.pragma(`cipher='chacha20'`);
+  db.pragma(`key="x'${keyHex}'"`);
 
-  // Reopen the database
-  db.close();
-  db = new Database(dbPath);
-
-  // The imported database should already have encryption configured
-  // Enable WAL mode
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
+  // Verify key and enable standard pragmas
+  try {
+    db.exec('SELECT 1');
+    db.pragma('journal_mode = WAL');
+    db.pragma('foreign_keys = ON');
+  } catch (error) {
+    db.close();
+    db = null;
+    throw new Error('Failed to open imported database: invalid encryption key');
+  }
 }
 
 /**
