@@ -17,9 +17,10 @@ const PASSWORDS = {
   third: 'thirdpassword789',
 };
 
-// KNOWN APP BUG: Reset button click doesn't transition state back to "Not Set Up"
-// The React context state (isSetUp) doesn't update properly after reset() is called
-// This needs to be fixed in the app before this test can be enabled
+// KNOWN APP BUG: resetDatabase() fails on Capacitor/iOS
+// The reset operation isn't completing successfully - errors are now surfaced
+// after fixing the useDatabase hook to re-throw errors. Root cause needs investigation
+// in the Capacitor SQLite adapter or key storage layer.
 describe.skip('Database Reset-Setup', () => {
   before(async () => {
     await launchAppWithClearState();

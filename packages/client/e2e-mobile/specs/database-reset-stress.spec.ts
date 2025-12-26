@@ -13,8 +13,8 @@ import { goToDebug } from '../page-objects/navigation.js';
 
 const NUM_CYCLES = 3; // Reduced for faster testing
 
-// TODO: Reset button click doesn't transition state back to "Not Set Up" after first setup cycle
-// The React context state (isSetUp) doesn't update properly after reset() is called in subsequent cycles
+// KNOWN APP BUG: resetDatabase() fails on Capacitor/iOS (same issue as database-reset-setup)
+// Root cause needs investigation in the Capacitor SQLite adapter or key storage layer.
 describe.skip('Database Reset Stress Test', () => {
   before(async () => {
     await launchAppWithClearState();

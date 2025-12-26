@@ -149,6 +149,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       setIsSetUp(false);
     } catch (err) {
       setError(err as Error);
+      throw err; // Re-throw so caller knows reset failed
     }
   }, []);
 
