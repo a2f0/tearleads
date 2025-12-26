@@ -17,9 +17,9 @@ const PASSWORDS = {
   third: 'thirdpassword789',
 };
 
-// TODO: Reset button click doesn't transition state back to "Not Set Up" after first setup cycle
-// The React context state (isSetUp) doesn't update properly after reset() is called in subsequent cycles
-// This is the same issue that causes database-reset-stress.spec.ts to be skipped
+// KNOWN APP BUG: Reset button click doesn't transition state back to "Not Set Up"
+// The React context state (isSetUp) doesn't update properly after reset() is called
+// This needs to be fixed in the app before this test can be enabled
 describe.skip('Database Reset-Setup', () => {
   before(async () => {
     await launchAppWithClearState();

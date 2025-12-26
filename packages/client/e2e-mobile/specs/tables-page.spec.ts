@@ -11,10 +11,7 @@ import { goToDebug, goToTables } from '../page-objects/navigation.js';
 
 const TEST_PASSWORD = 'tablestest123';
 
-// TODO: Test passes in isolation but fails in full suite due to state pollution
-// The unlock step fails after database-test runs, even with fresh app state
-// This needs investigation into test isolation and state cleanup between spec files
-describe.skip('Tables Page', () => {
+describe('Tables Page', () => {
   before(async () => {
     // launchAppWithClearState ensures clean slate - no reset needed
     await launchAppWithClearState();
