@@ -27,3 +27,7 @@
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn javax.annotation.Nullable
 -dontwarn javax.annotation.concurrent.GuardedBy
+
+# Kotlin Coroutines - keep internal classes used by Capacitor plugins
+-keep class kotlin.coroutines.jvm.internal.** { *; }
+-dontwarn kotlin.coroutines.jvm.internal.**
