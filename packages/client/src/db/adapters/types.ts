@@ -81,6 +81,19 @@ export interface DatabaseAdapter {
    * Used during reset to ensure a clean slate.
    */
   deleteDatabase?(name: string): Promise<void>;
+
+  /**
+   * Export the database to a byte array.
+   * Returns the raw (encrypted) database file content.
+   */
+  exportDatabase?(): Promise<Uint8Array>;
+
+  /**
+   * Import a database from a byte array.
+   * Replaces the current database with the provided data.
+   * The data should be an encrypted database file.
+   */
+  importDatabase?(data: Uint8Array): Promise<void>;
 }
 
 /**

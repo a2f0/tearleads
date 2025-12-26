@@ -46,6 +46,12 @@ const sqlite = {
   deleteDatabase: (name: string): Promise<void> => {
     return ipcRenderer.invoke('sqlite:deleteDatabase', name);
   },
+  exportDatabase: (): Promise<number[]> => {
+    return ipcRenderer.invoke('sqlite:exportDatabase');
+  },
+  importDatabase: (data: number[]): Promise<void> => {
+    return ipcRenderer.invoke('sqlite:importDatabase', data);
+  },
 };
 
 // Custom APIs for renderer

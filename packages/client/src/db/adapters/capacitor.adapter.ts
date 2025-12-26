@@ -27,6 +27,7 @@ interface SQLiteConnectionWrapper {
   ): Promise<void>;
   deleteDatabase(database: string): Promise<void>;
   clearEncryptionSecret(): Promise<void>;
+  importFromJson(jsonstring: string): Promise<{ changes: { changes: number } }>;
 }
 
 interface SQLiteDBConnection {
@@ -50,6 +51,43 @@ interface SQLiteDBConnection {
     transaction?: boolean
   ): Promise<{ changes?: { changes: number; lastId: number } }>;
   isDBOpen(): Promise<boolean>;
+  exportToJson(mode: string): Promise<{ export: JsonSQLite }>;
+}
+
+interface JsonSQLite {
+  database: string;
+  version: number;
+  encrypted: boolean;
+  mode: string;
+  tables: JsonTable[];
+}
+
+interface JsonTable {
+  name: string;
+  schema?: JsonColumn[];
+  indexes?: JsonIndex[];
+  triggers?: JsonTrigger[];
+  values?: unknown[][];
+}
+
+interface JsonColumn {
+  column: string;
+  value: string;
+  foreignkey?: string;
+  constraint?: string;
+}
+
+interface JsonIndex {
+  name: string;
+  value: string;
+  mode?: string;
+}
+
+interface JsonTrigger {
+  name: string;
+  timeevent: string;
+  condition?: string;
+  logic: string;
 }
 
 let sqliteConnection: SQLiteConnectionWrapper | null = null;
@@ -283,5 +321,54 @@ export class CapacitorAdapter implements DatabaseAdapter {
     this.db = null;
     this.dbName = null;
     this.isInitialized = false;
+  }
+
+  async exportDatabase(): Promise<Uint8Array> {
+    if (!this.db || !this.isInitialized) {
+      throw new Error('Database not initialized');
+    }
+
+    // Export to JSON format (Capacitor SQLite's native export format)
+    const result = await this.db.exportToJson('full');
+    const jsonString = JSON.stringify(result.export);
+
+    // Convert JSON string to Uint8Array
+    return new TextEncoder().encode(jsonString);
+  }
+
+  async importDatabase(data: Uint8Array): Promise<void> {
+    if (!this.db || !this.isInitialized || !this.dbName) {
+      throw new Error('Database not initialized');
+    }
+
+    const sqlite = await getSQLiteConnection();
+
+    // Convert Uint8Array back to JSON string
+    const jsonString = new TextDecoder().decode(data);
+
+    // Close the current connection
+    await this.db.close();
+    await sqlite.closeConnection(this.dbName, false);
+
+    // Delete the existing database
+    try {
+      await sqlite.deleteDatabase(this.dbName);
+    } catch {
+      // Ignore if doesn't exist
+    }
+
+    // Import from JSON
+    await sqlite.importFromJson(jsonString);
+
+    // Reopen the connection
+    this.db = await sqlite.createConnection(
+      this.dbName,
+      true, // encrypted
+      'secret',
+      1, // version
+      false // readonly
+    );
+
+    await this.db.open();
   }
 }

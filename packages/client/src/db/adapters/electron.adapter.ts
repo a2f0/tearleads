@@ -89,4 +89,15 @@ export class ElectronAdapter implements DatabaseAdapter {
     await api.sqlite.deleteDatabase(name);
     this.initialized = false;
   }
+
+  async exportDatabase(): Promise<Uint8Array> {
+    const api = getElectronApi();
+    const data = await api.sqlite.exportDatabase();
+    return new Uint8Array(data);
+  }
+
+  async importDatabase(data: Uint8Array): Promise<void> {
+    const api = getElectronApi();
+    await api.sqlite.importDatabase(Array.from(data));
+  }
 }

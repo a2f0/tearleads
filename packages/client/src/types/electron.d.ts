@@ -22,6 +22,8 @@ export interface ElectronSqliteApi {
   setKeyCheckValue: (kcv: string) => Promise<void>;
   clearKeyStorage: () => Promise<void>;
   deleteDatabase: (name: string) => Promise<void>;
+  exportDatabase: () => Promise<number[]>;
+  importDatabase: (data: number[]) => Promise<void>;
 }
 
 export interface ElectronApi {
