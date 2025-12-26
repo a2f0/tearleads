@@ -25,7 +25,6 @@ interface SQLiteConnectionWrapper {
     passphrase: string,
     oldpassphrase: string
   ): Promise<void>;
-  deleteDatabase(database: string): Promise<void>;
   clearEncryptionSecret(): Promise<void>;
   importFromJson(jsonstring: string): Promise<{ changes: { changes: number } }>;
 }
@@ -139,7 +138,24 @@ export class CapacitorAdapter implements DatabaseAdapter {
     if (isStored) {
       await sqlite.clearEncryptionSecret();
     }
-    await sqlite.setEncryptionSecret(keyHex);
+
+    try {
+      await sqlite.setEncryptionSecret(keyHex);
+    } catch (err) {
+      // If setEncryptionSecret fails due to incorrect state (stale database file
+      // from a previous session with different encryption), delete the database
+      // file and retry. This commonly happens during repeated reset/setup cycles.
+      if (err instanceof Error && err.message.includes('State for')) {
+        console.warn(
+          `Recovering from database state error by deleting and retrying: ${err.message}`
+        );
+        const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
+        await CapacitorSQLite.deleteDatabase({ database: config.name });
+        await sqlite.setEncryptionSecret(keyHex);
+      } else {
+        throw err;
+      }
+    }
 
     // Create connection with encryption enabled
     // Mode 'secret' uses the passphrase stored via setEncryptionSecret
@@ -288,6 +304,7 @@ export class CapacitorAdapter implements DatabaseAdapter {
 
   async deleteDatabase(name: string): Promise<void> {
     const sqlite = await getSQLiteConnection();
+    const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
 
     // Close any existing connection first
     const { result: hasConnection } = await sqlite.isConnection(name, false);
@@ -300,8 +317,9 @@ export class CapacitorAdapter implements DatabaseAdapter {
     }
 
     // Delete the database file
+    // Note: deleteDatabase is on CapacitorSQLite, not SQLiteConnection
     try {
-      await sqlite.deleteDatabase(name);
+      await CapacitorSQLite.deleteDatabase({ database: name });
     } catch (error: unknown) {
       // Only ignore "database not found" errors
       const message = error instanceof Error ? error.message.toLowerCase() : '';
@@ -314,9 +332,7 @@ export class CapacitorAdapter implements DatabaseAdapter {
     }
 
     // Clear the stored encryption secret so a new one can be set
-    // This is on CapacitorSQLite directly, not the SQLiteConnection wrapper
     try {
-      const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
       await CapacitorSQLite.clearEncryptionSecret();
     } catch (error: unknown) {
       // Only ignore "no secret stored" errors
@@ -335,58 +351,154 @@ export class CapacitorAdapter implements DatabaseAdapter {
   }
 
   async exportDatabase(): Promise<Uint8Array> {
-    if (!this.db || !this.isInitialized) {
-      throw new Error('Database not initialized');
-    }
-
-    // Export to JSON format (Capacitor SQLite's native export format)
-    const result = await this.db.exportToJson('full');
-    const jsonString = JSON.stringify(result.export);
-
-    // Convert JSON string to Uint8Array
-    return new TextEncoder().encode(jsonString);
-  }
-
-  async importDatabase(data: Uint8Array): Promise<void> {
     if (!this.db || !this.isInitialized || !this.dbName) {
       throw new Error('Database not initialized');
     }
 
     const sqlite = await getSQLiteConnection();
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const { Capacitor } = await import('@capacitor/core');
 
-    // Convert Uint8Array back to JSON string
-    const jsonString = new TextDecoder().decode(data);
-
-    // Close the current connection
+    // Close connection to ensure all data is flushed
     await this.db.close();
     await sqlite.closeConnection(this.dbName, false);
 
-    // Delete the existing database
     try {
-      await sqlite.deleteDatabase(this.dbName);
-    } catch (error: unknown) {
-      // Only ignore "database not found" errors
-      const message = error instanceof Error ? error.message.toLowerCase() : '';
-      if (
-        !message.includes('not found') &&
-        !message.includes('does not exist')
-      ) {
-        throw error;
+      // Get the database file path based on platform
+      // iOS: Library/CapacitorDatabase/{name}SQLite.db
+      // Android: databases/{name}SQLite.db
+      const platform = Capacitor.getPlatform();
+      const dbFileName = `${this.dbName}SQLite.db`;
+      let filePath: string;
+      let directory: typeof Directory.Library | typeof Directory.Data;
+
+      if (platform === 'ios') {
+        filePath = `CapacitorDatabase/${dbFileName}`;
+        directory = Directory.Library;
+      } else {
+        // Android - need to use a relative path from Data directory
+        filePath = `../databases/${dbFileName}`;
+        directory = Directory.Data;
       }
+
+      const result = await Filesystem.readFile({
+        path: filePath,
+        directory
+      });
+
+      // Convert base64 to Uint8Array
+      const base64Data = result.data as string;
+      const binaryString = atob(base64Data);
+      return Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
+    } finally {
+      // Re-open the connection
+      this.db = await sqlite.createConnection(
+        this.dbName,
+        true,
+        'secret',
+        1,
+        false
+      );
+      await this.db.open();
+    }
+  }
+
+  async importDatabase(data: Uint8Array): Promise<void> {
+    if (!this.dbName) {
+      throw new Error('Database name not set');
     }
 
-    // Import from JSON
-    await sqlite.importFromJson(jsonString);
+    const sqlite = await getSQLiteConnection();
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    const { Capacitor } = await import('@capacitor/core');
 
-    // Reopen the connection
-    this.db = await sqlite.createConnection(
-      this.dbName,
-      true, // encrypted
-      'secret',
-      1, // version
-      false // readonly
-    );
+    // Get the database file path based on platform
+    const platform = Capacitor.getPlatform();
+    const dbFileName = `${this.dbName}SQLite.db`;
+    const backupFileName = `${this.dbName}SQLite.db.backup`;
+    let filePath: string;
+    let backupPath: string;
+    let directory: typeof Directory.Library | typeof Directory.Data;
 
-    await this.db.open();
+    if (platform === 'ios') {
+      filePath = `CapacitorDatabase/${dbFileName}`;
+      backupPath = `CapacitorDatabase/${backupFileName}`;
+      directory = Directory.Library;
+    } else {
+      filePath = `../databases/${dbFileName}`;
+      backupPath = `../databases/${backupFileName}`;
+      directory = Directory.Data;
+    }
+
+    // Backup current database before import
+    try {
+      const currentDb = await Filesystem.readFile({
+        path: filePath,
+        directory
+      });
+      await Filesystem.writeFile({
+        path: backupPath,
+        data: currentDb.data,
+        directory
+      });
+    } catch {
+      // Ignore if file doesn't exist (first time setup)
+    }
+
+    // Close current connection
+    if (this.db && this.isInitialized) {
+      await this.db.close();
+      await sqlite.closeConnection(this.dbName, false);
+    }
+
+    // Convert Uint8Array to base64 in chunks to avoid stack overflow
+    const CHUNK_SIZE = 0x8000; // 32k characters
+    let binary = '';
+    for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+      binary += String.fromCharCode.apply(
+        null,
+        Array.from(data.subarray(i, i + CHUNK_SIZE))
+      );
+    }
+    const base64Data = btoa(binary);
+
+    try {
+      // Write the database file
+      await Filesystem.writeFile({
+        path: filePath,
+        data: base64Data,
+        directory
+      });
+
+      // Remove backup on success
+      try {
+        await Filesystem.deleteFile({
+          path: backupPath,
+          directory
+        });
+      } catch {
+        // Ignore cleanup errors
+      }
+    } catch (error) {
+      // Restore from backup on failure
+      try {
+        const backup = await Filesystem.readFile({
+          path: backupPath,
+          directory
+        });
+        await Filesystem.writeFile({
+          path: filePath,
+          data: backup.data,
+          directory
+        });
+      } catch {
+        // Best effort restore
+      }
+      throw error;
+    }
+
+    // Database will be reopened on next initialize() call
+    this.db = null;
+    this.isInitialized = false;
   }
 }

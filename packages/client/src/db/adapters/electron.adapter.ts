@@ -15,6 +15,7 @@ function getElectronApi(): ElectronApi {
 
 export class ElectronAdapter implements DatabaseAdapter {
   private initialized = false;
+  private dbName = '';
 
   async initialize(config: DatabaseConfig): Promise<void> {
     const api = getElectronApi();
@@ -24,6 +25,7 @@ export class ElectronAdapter implements DatabaseAdapter {
       encryptionKey: Array.from(config.encryptionKey)
     });
 
+    this.dbName = config.name;
     this.initialized = true;
   }
 
@@ -91,8 +93,11 @@ export class ElectronAdapter implements DatabaseAdapter {
   }
 
   async exportDatabase(): Promise<Uint8Array> {
+    if (!this.initialized || !this.dbName) {
+      throw new Error('Database not initialized');
+    }
     const api = getElectronApi();
-    const data = await api.sqlite.exportDatabase();
+    const data = await api.sqlite.export(this.dbName);
     return new Uint8Array(data);
   }
 
@@ -100,11 +105,15 @@ export class ElectronAdapter implements DatabaseAdapter {
     data: Uint8Array,
     encryptionKey?: Uint8Array
   ): Promise<void> {
+    if (!this.dbName) {
+      throw new Error('Database name not set');
+    }
     if (!encryptionKey) {
       throw new Error('Electron adapter requires encryption key for import');
     }
     const api = getElectronApi();
-    await api.sqlite.importDatabase(
+    await api.sqlite.import(
+      this.dbName,
       Array.from(data),
       Array.from(encryptionKey)
     );
