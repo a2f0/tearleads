@@ -335,14 +335,16 @@ export function registerSqliteHandlers(): void {
     deleteDatabase(name);
   });
 
-  ipcMain.handle('sqlite:exportDatabase', () => {
-    return exportDatabase();
+  ipcMain.handle('sqlite:export', async (_event, name: string) => {
+    const data = await exportDatabase(name);
+    // Convert Buffer to number[] for IPC transfer
+    return Array.from(data);
   });
 
   ipcMain.handle(
-    'sqlite:importDatabase',
-    (_event, data: number[], key: number[]) => {
-      importDatabase(data, key);
+    'sqlite:import',
+    async (_event, name: string, data: number[], key: number[]) => {
+      await importDatabase(name, Buffer.from(data), key);
     }
   );
 }
@@ -380,67 +382,105 @@ function deleteDatabase(name: string): void {
 }
 
 /**
- * Export the database to a byte array.
- * Checkpoints WAL data first to ensure all data is in the main file.
+ * Export the database to a buffer.
+ * Checkpoints WAL to ensure all data is in the main file.
  */
-function exportDatabase(): number[] {
+async function exportDatabase(name: string): Promise<Buffer> {
   if (!db) {
     throw new Error('Database not initialized');
   }
 
-  // Checkpoint WAL data to main database file
+  // Checkpoint WAL to ensure all data is in main file
   db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
 
-  // Use better-sqlite3's serialize() to get database bytes
-  const buffer = db.serialize();
-  return Array.from(buffer);
+  const dbPath = getDatabasePath(name);
+
+  // Read the encrypted database file asynchronously
+  return fs.promises.readFile(dbPath);
 }
 
 /**
- * Import a database from a byte array.
- * Replaces the current database with the provided data.
- * @param data The encrypted database file as a byte array
+ * Import a database from a buffer.
+ * Creates a backup of the current database before replacing it.
+ * After import, re-opens the database with the provided encryption key.
+ * @param name The database name
+ * @param data The encrypted database file as a Buffer
  * @param key The encryption key to use when reopening the database
  */
-function importDatabase(data: number[], key: number[]): void {
-  if (!db) {
-    throw new Error('Database not initialized');
+async function importDatabase(
+  name: string,
+  data: Buffer,
+  key: number[]
+): Promise<void> {
+  const dbPath = getDatabasePath(name);
+  const backupPath = `${dbPath}.backup`;
+  const walPath = `${dbPath}-wal`;
+  const shmPath = `${dbPath}-shm`;
+
+  // Create backup of current database before import
+  try {
+    await fs.promises.copyFile(dbPath, backupPath);
+  } catch {
+    // Ignore if file doesn't exist (first time setup)
   }
 
-  const dbPath = getDatabasePath('rapid');
-
   // Close the current database
-  db.close();
+  closeDatabase();
 
-  // Delete existing files using fs.rmSync with force option
-  fs.rmSync(dbPath, { force: true });
-  fs.rmSync(`${dbPath}-wal`, { force: true });
-  fs.rmSync(`${dbPath}-shm`, { force: true });
-
-  // Write the imported database directly to the file
-  const buffer = Buffer.from(data);
-  fs.writeFileSync(dbPath, buffer);
-
-  // Reopen the database with encryption
-  db = new Database(dbPath);
-
-  const keyBuffer = Buffer.from(key);
-  const keyHex = keyBuffer.toString('hex');
-  secureZeroBuffer(keyBuffer);
-
-  // Apply encryption settings
-  db.pragma(`cipher='chacha20'`);
-  db.pragma(`key="x'${keyHex}'"`);
-
-  // Verify key and enable standard pragmas
   try {
-    db.exec('SELECT 1');
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
+    // Delete WAL and SHM files
+    try {
+      await fs.promises.unlink(walPath);
+    } catch {
+      // Ignore if file doesn't exist
+    }
+    try {
+      await fs.promises.unlink(shmPath);
+    } catch {
+      // Ignore if file doesn't exist
+    }
+
+    // Write the imported data
+    await fs.promises.writeFile(dbPath, data);
+
+    // Reopen the database with encryption
+    db = new Database(dbPath);
+
+    const keyBuffer = Buffer.from(key);
+    const keyHex = keyBuffer.toString('hex');
+    secureZeroBuffer(keyBuffer);
+
+    // Apply encryption settings
+    db.pragma(`cipher='chacha20'`);
+    db.pragma(`key="x'${keyHex}'"`);
+
+    // Verify key and enable standard pragmas
+    try {
+      db.exec('SELECT 1');
+      db.pragma('journal_mode = WAL');
+      db.pragma('foreign_keys = ON');
+    } catch (error) {
+      db.close();
+      db = null;
+      throw new Error(
+        'Failed to open imported database: invalid encryption key'
+      );
+    }
+
+    // Remove backup on success
+    try {
+      await fs.promises.unlink(backupPath);
+    } catch {
+      // Ignore cleanup errors
+    }
   } catch (error) {
-    db.close();
-    db = null;
-    throw new Error('Failed to open imported database: invalid encryption key');
+    // Restore from backup on failure
+    try {
+      await fs.promises.copyFile(backupPath, dbPath);
+    } catch {
+      // Best effort restore
+    }
+    throw error;
   }
 }
 

@@ -84,18 +84,17 @@ export interface DatabaseAdapter {
 
   /**
    * Export the database to a byte array.
-   * Returns the raw (encrypted) database file content.
+   * Returns the encrypted database file content.
    */
-  exportDatabase?(): Promise<Uint8Array>;
+  exportDatabase(): Promise<Uint8Array>;
 
   /**
    * Import a database from a byte array.
-   * Replaces the current database with the provided data.
-   * The data should be an encrypted database file.
-   * @param data The encrypted database as a Uint8Array
-   * @param encryptionKey The encryption key to use when reopening (required for Electron)
+   * Replaces the current database with the imported data.
+   * @param data - The encrypted database file bytes
+   * @param encryptionKey - The encryption key to use when reopening (required for Electron)
    */
-  importDatabase?(data: Uint8Array, encryptionKey?: Uint8Array): Promise<void>;
+  importDatabase(data: Uint8Array, encryptionKey?: Uint8Array): Promise<void>;
 }
 
 /**
