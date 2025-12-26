@@ -252,6 +252,43 @@ export async function resetDatabase(): Promise<void> {
   await keyManager.reset();
 }
 
+/**
+ * Export the database to a byte array for backup.
+ * The returned data is the raw encrypted database file.
+ * @returns The encrypted database as a Uint8Array
+ */
+export async function exportDatabase(): Promise<Uint8Array> {
+  if (!adapterInstance) {
+    throw new Error('Database not initialized');
+  }
+
+  if (!adapterInstance.exportDatabase) {
+    throw new Error('Export not supported on this platform');
+  }
+
+  return adapterInstance.exportDatabase();
+}
+
+/**
+ * Import a database from a byte array backup.
+ * Replaces the current database with the provided backup data.
+ * @param data The encrypted database backup as a Uint8Array
+ */
+export async function importDatabase(data: Uint8Array): Promise<void> {
+  if (!adapterInstance) {
+    throw new Error('Database not initialized');
+  }
+
+  if (!adapterInstance.importDatabase) {
+    throw new Error('Import not supported on this platform');
+  }
+
+  await adapterInstance.importDatabase(data);
+
+  // Re-run migrations in case the backup is from an older version
+  await runMigrations();
+}
+
 export type { DatabaseAdapter, PlatformInfo } from './adapters';
 // Re-export schema and types
 export * from './schema';
