@@ -8,6 +8,7 @@ set -e
 # Requires ANTHROPIC_API_KEY environment variable
 
 PLATFORM="$1"
+ANTHROPIC_MODEL="claude-3-5-haiku-20241022"
 
 if [ -z "$PLATFORM" ]; then
     echo "Usage: generateReleaseNotes.sh <platform>" >&2
@@ -52,7 +53,7 @@ PREVIOUS_BUMP=$(echo "$BUMP_COMMITS" | tail -1)
 # Build JSON payload and pipe directly to curl to avoid argument length limits
 # Using -d @- reads the JSON from stdin
 # Note: We use commit messages only (no diffs) and Haiku model to stay within API rate limits
-RESPONSE=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" --no-merges --format="- %s%n%b" 2>/dev/null | jq -Rs --arg model "claude-3-5-haiku-20241022" '
+RESPONSE=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" --no-merges --format="- %s%n%b" 2>/dev/null | jq -Rs --arg model "$ANTHROPIC_MODEL" '
 {
     model: $model,
     max_tokens: 256,
