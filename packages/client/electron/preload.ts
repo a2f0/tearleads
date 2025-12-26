@@ -49,8 +49,8 @@ const sqlite = {
   exportDatabase: (): Promise<number[]> => {
     return ipcRenderer.invoke('sqlite:exportDatabase');
   },
-  importDatabase: (data: number[]): Promise<void> => {
-    return ipcRenderer.invoke('sqlite:importDatabase', data);
+  importDatabase: (data: number[], key: number[]): Promise<void> => {
+    return ipcRenderer.invoke('sqlite:importDatabase', data, key);
   },
 };
 
