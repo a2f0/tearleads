@@ -25,7 +25,6 @@ interface SQLiteConnectionWrapper {
     passphrase: string,
     oldpassphrase: string
   ): Promise<void>;
-  deleteDatabase(database: string): Promise<void>;
   clearEncryptionSecret(): Promise<void>;
 }
 
@@ -112,7 +111,8 @@ export class CapacitorAdapter implements DatabaseAdapter {
         console.warn(
           `Recovering from database state error by deleting and retrying: ${err.message}`
         );
-        await sqlite.deleteDatabase(config.name);
+        const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
+        await CapacitorSQLite.deleteDatabase({ database: config.name });
         await sqlite.setEncryptionSecret(keyHex);
       } else {
         throw err;
@@ -266,6 +266,7 @@ export class CapacitorAdapter implements DatabaseAdapter {
 
   async deleteDatabase(name: string): Promise<void> {
     const sqlite = await getSQLiteConnection();
+    const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
 
     // Close any existing connection first
     const { result: hasConnection } = await sqlite.isConnection(name, false);
@@ -278,16 +279,15 @@ export class CapacitorAdapter implements DatabaseAdapter {
     }
 
     // Delete the database file
+    // Note: deleteDatabase is on CapacitorSQLite, not SQLiteConnection
     try {
-      await sqlite.deleteDatabase(name);
+      await CapacitorSQLite.deleteDatabase({ database: name });
     } catch {
       // Ignore errors if database doesn't exist
     }
 
     // Clear the stored encryption secret so a new one can be set
-    // This is on CapacitorSQLite directly, not the SQLiteConnection wrapper
     try {
-      const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
       await CapacitorSQLite.clearEncryptionSecret();
     } catch {
       // Ignore errors if not supported or no secret stored

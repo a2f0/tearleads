@@ -1,0 +1,81 @@
+appId: com.tearleads.rapid
+---
+# Database Reset-Setup Stress Test
+# Performs 10 rapid reset-setup cycles to catch any edge cases
+# with encryption secret handling or database state management.
+
+- launchApp:
+    clearState: true
+
+- assertVisible: "Tearleads"
+
+# Load shared database helper functions
+- runFlow: helpers/db-helpers.yaml
+
+# Navigate to debug page
+- evalScript: document.querySelector('[data-testid="debug-link"]').click()
+
+# Wait for Debug page to load
+- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
+
+# Reset database to ensure clean state
+- evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
+- evalScript: window.waitForResult('success')
+- evalScript: window.waitForStatus('Not Set Up')
+
+# Helper function to perform a reset-setup cycle
+- evalScript: |
+    window.resetSetupCycle = async function(cycleNum) {
+      const password = 'stresstest' + cycleNum + 'password';
+
+      // Set password
+      const input = document.querySelector('[data-testid="db-password-input"]');
+      input.value = password;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+
+      // Click setup
+      document.querySelector('[data-testid="db-setup-button"]').click();
+
+      // Wait for setup to complete
+      await window.waitFor(
+        () => {
+          const result = document.querySelector('[data-testid="db-test-result"]');
+          if (result?.getAttribute('data-status') === 'error') {
+            throw new Error('Cycle ' + cycleNum + ' setup failed: ' + result.textContent);
+          }
+          return result?.getAttribute('data-status') === 'success';
+        },
+        'Cycle ' + cycleNum + ' setup did not complete',
+        15000
+      );
+
+      // Verify unlocked
+      await window.waitForStatus('Unlocked');
+
+      // Write test data
+      document.querySelector('[data-testid="db-write-button"]').click();
+      await window.waitForResult('success', 'Wrote test data:');
+
+      // Read it back to verify
+      document.querySelector('[data-testid="db-read-button"]').click();
+      await window.waitForResult('success', 'Read test data:');
+
+      // Reset for next cycle
+      document.querySelector('[data-testid="db-reset-button"]').click();
+      await window.waitForResult('success', 'Database reset complete');
+      await window.waitForStatus('Not Set Up');
+
+      return 'Cycle ' + cycleNum + ' completed';
+    };
+    'helper defined';
+
+# Run 10 reset-setup cycles
+- evalScript: |
+    (async () => {
+      for (let i = 1; i <= 10; i++) {
+        console.log('Starting cycle ' + i);
+        await window.resetSetupCycle(i);
+        console.log('Completed cycle ' + i);
+      }
+      return 'All 10 cycles completed successfully';
+    })()
