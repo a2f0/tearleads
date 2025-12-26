@@ -87,8 +87,19 @@ appId: com.tearleads.rapid
       return 'ok';
     })()
 
-# Click export button
-- evalScript: document.querySelector('[data-testid="backup-export-button"]').click()
+# Click export button and verify loading state
+- evalScript: |
+    (() => {
+      const btn = document.querySelector('[data-testid="backup-export-button"]');
+      if (!btn) throw new Error('Export button not found');
+
+      // Store initial state for comparison
+      window.__exportBtnInitialText = btn.textContent;
+
+      // Click the button
+      btn.click();
+      return 'ok';
+    })()
 
 # On mobile, this triggers the Share API which we can't fully test in Maestro
 # but we can verify the button works and doesn't throw errors
@@ -108,6 +119,19 @@ appId: com.tearleads.rapid
       'Export did not complete successfully',
       15000
     )
+
+# Verify export button is back to normal state
+- evalScript: |
+    (() => {
+      const btn = document.querySelector('[data-testid="backup-export-button"]');
+      if (!btn) throw new Error('Export button not found after export');
+      if (btn.disabled) throw new Error('Export button still disabled after export');
+      // Button text should contain "Create Backup" (not "Exporting...")
+      if (!btn.textContent.includes('Create Backup')) {
+        throw new Error('Export button text not reset: ' + btn.textContent);
+      }
+      return 'ok';
+    })()
 
 # Navigate back to debug to verify database is still intact after export
 - evalScript: document.querySelector('[data-testid="debug-link"]').click()
@@ -156,6 +180,66 @@ appId: com.tearleads.rapid
         return 'ok';
       }
       throw new Error('Neither native nor web dropzone found');
+    })()
+
+# Test that export is disabled when database is locked
+# First, lock the database
+- evalScript: document.querySelector('[data-testid="debug-link"]').click()
+- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
+
+# Setup database again since we're in a fresh state after previous tests
+- evalScript: |
+    (() => {
+      const status = document.querySelector('[data-testid="db-status"]');
+      if (status && status.textContent === 'Not Set Up') {
+        window.setPassword('testpassword123');
+        document.querySelector('[data-testid="db-setup-button"]').click();
+      }
+      return 'ok';
+    })()
+- evalScript: window.waitForStatus('Unlocked')
+
+# Lock the database
+- evalScript: document.querySelector('[data-testid="db-lock-button"]').click()
+- evalScript: window.waitForStatus('Locked')
+
+# Navigate to settings
+- evalScript: document.querySelector('[data-testid="settings-link"]').click()
+- evalScript: |
+    window.waitFor(
+      () => document.querySelector('[data-testid="backup-export-button"]'),
+      'Settings page with backup button not found'
+    )
+
+# Verify export button is disabled when database is locked
+- evalScript: |
+    (() => {
+      const btn = document.querySelector('[data-testid="backup-export-button"]');
+      if (!btn) throw new Error('Export button not found');
+      if (!btn.disabled) throw new Error('Export button should be disabled when database is locked');
+      return 'ok';
+    })()
+
+# Navigate back to debug and unlock
+- evalScript: document.querySelector('[data-testid="debug-link"]').click()
+- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
+- evalScript: window.setPassword('testpassword123')
+- evalScript: document.querySelector('[data-testid="db-unlock-button"]').click()
+- evalScript: window.waitForStatus('Unlocked')
+
+# Verify export is enabled again after unlock
+- evalScript: document.querySelector('[data-testid="settings-link"]').click()
+- evalScript: |
+    window.waitFor(
+      () => document.querySelector('[data-testid="backup-export-button"]'),
+      'Settings page with backup button not found'
+    )
+- evalScript: |
+    (() => {
+      const btn = document.querySelector('[data-testid="backup-export-button"]');
+      if (!btn) throw new Error('Export button not found');
+      if (btn.disabled) throw new Error('Export button should be enabled when database is unlocked');
+      return 'ok';
     })()
 
 # Clean up - reset database

@@ -187,9 +187,7 @@ test.describe('Backup & Restore (Web)', () => {
       expect(path).toBeTruthy();
     });
 
-    // TODO: Web adapter import has a bug with SQLCipher encryption key on deserialized databases
-    // Skip until the web worker importDatabase is fixed to properly handle encrypted backups
-    test.skip('should restore from backup file', async ({ page }) => {
+    test('should restore from backup file', async ({ page }) => {
       // Navigate to debug and unlock (page reload loses in-memory key)
       await page.goto('/debug');
       // Database is locked after page reload, unlock it

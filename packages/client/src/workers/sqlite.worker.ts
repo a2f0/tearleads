@@ -58,11 +58,28 @@ interface SQLiteCAPI {
 }
 
 /**
+ * Emscripten FS (virtual file system) interface.
+ * Used to write imported database files before opening with encryption.
+ */
+interface EmscriptenFS {
+  writeFile(path: string, data: Uint8Array): void;
+  unlink(path: string): void;
+}
+
+/**
  * SQLite WASM module instance.
+ * Includes Emscripten's virtual file system for file operations.
  */
 interface SQLite3Module {
   oo1: SQLiteOO1;
   capi: SQLiteCAPI;
+  wasm: {
+    exports: {
+      memory: WebAssembly.Memory;
+    };
+  };
+  /** Emscripten virtual file system - may not be available in all builds */
+  FS?: EmscriptenFS;
 }
 
 /**
@@ -79,6 +96,7 @@ let sqlite3InitModule: SQLite3InitModule | null = null;
 let sqlite3: SQLite3Module | null = null;
 let db: SQLiteDatabase | null = null;
 let encryptionKey: string | null = null;
+let currentDbFilename: string | null = null;
 
 /**
  * Convert a Uint8Array encryption key to a hex string for SQLite.
@@ -163,12 +181,12 @@ async function initializeDatabase(
   // Use encrypted file-based database in WASM virtual file system
   // Note: This uses the default VFS which supports encryption
   // Data persists in WASM memory until worker terminates
-  const dbFilename = `${name}.sqlite3`;
+  currentDbFilename = `${name}.sqlite3`;
 
   try {
     // Create/open encrypted database using the default VFS with hexkey parameter
     db = new sqlite3.oo1.DB({
-      filename: dbFilename,
+      filename: currentDbFilename,
       flags: 'c', // Create if not exists
       hexkey: encryptionKey
     });
@@ -179,7 +197,7 @@ async function initializeDatabase(
     // Enable foreign keys
     db.exec('PRAGMA foreign_keys = ON;');
 
-    console.log('Encrypted database opened successfully:', dbFilename);
+    console.log('Encrypted database opened successfully:', currentDbFilename);
   } catch (error) {
     console.error('Failed to open encrypted database:', error);
     const message = error instanceof Error ? error.message : String(error);
@@ -324,40 +342,71 @@ function exportDatabase(): Uint8Array {
 
 /**
  * Import a database from byte array.
- * Loads an encrypted database file into the current database.
+ * Writes the encrypted database file to the WASM VFS and reopens it with encryption.
+ *
+ * The approach is:
+ * 1. Close the current database
+ * 2. Write the imported bytes to the database file in the WASM VFS
+ * 3. Reopen the database with the encryption key
+ *
+ * This works because the imported data is already encrypted with the same key.
  */
 function importDatabase(data: Uint8Array): void {
-  if (!db || !sqlite3) {
+  if (!sqlite3 || !encryptionKey || !currentDbFilename) {
     throw new Error('Database not initialized');
   }
 
-  if (!encryptionKey) {
-    throw new Error('Encryption key not set');
+  // Close the current database to release the file
+  if (db) {
+    db.close();
+    db = null;
   }
 
-  // Close the current database
-  db.close();
-
-  // Create a new database and deserialize the data
-  db = new sqlite3.oo1.DB({
-    filename: ':memory:', // Temporary in-memory
-    flags: 'c'
-  });
-
-  // Use sqlite3_deserialize to load the data
-  // The data is already encrypted, so we need to set the key after loading
   try {
-    sqlite3.capi.sqlite3_deserialize(
-      db.pointer,
-      'main',
-      data,
-      data.length,
-      data.length,
-      0 // No flags - don't free the data
-    );
+    // Access Emscripten's virtual file system through the sqlite3 module
+    // The FS module is attached to the sqlite3 object by Emscripten
+    if (sqlite3.FS) {
+      // Write the imported encrypted data directly to the VFS file
+      sqlite3.FS.writeFile(currentDbFilename, data);
+      console.log('Wrote imported data to VFS:', currentDbFilename);
+    } else {
+      // Fallback: If FS is not available, try using sqlite3_deserialize
+      // with a properly configured encrypted database
+      console.warn('Emscripten FS not available, using deserialize fallback');
 
-    // Set the encryption key for the loaded database using hexkey pragma
-    db.exec(`PRAGMA hexkey = '${encryptionKey}';`);
+      // Open a new database with encryption key at the same filename
+      // Opening with 'c' flag and hexkey will either open existing or create new
+      db = new sqlite3.oo1.DB({
+        filename: currentDbFilename,
+        flags: 'c',
+        hexkey: encryptionKey
+      });
+
+      // Use sqlite3_deserialize to replace the database content
+      // With the key already set, the deserialized encrypted content should work
+      sqlite3.capi.sqlite3_deserialize(
+        db.pointer,
+        'main',
+        data,
+        data.length,
+        data.length,
+        0 // No flags
+      );
+
+      // Verify the database is accessible
+      db.exec('SELECT 1;');
+      db.exec('PRAGMA foreign_keys = ON;');
+
+      console.log('Imported database via deserialize:', data.length, 'bytes');
+      return;
+    }
+
+    // Reopen the database with encryption
+    db = new sqlite3.oo1.DB({
+      filename: currentDbFilename,
+      flags: 'c', // Open existing file
+      hexkey: encryptionKey
+    });
 
     // Verify the database is accessible
     db.exec('SELECT 1;');
@@ -382,8 +431,9 @@ function closeDatabase(): void {
     db = null;
   }
 
-  // Clear the encryption key from memory
+  // Clear sensitive data from memory
   encryptionKey = null;
+  currentDbFilename = null;
 }
 
 /**
