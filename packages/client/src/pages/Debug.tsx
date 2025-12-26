@@ -21,7 +21,7 @@ function InfoRow({
       <span className="shrink-0 font-medium">{label}: </span>
       <span
         className={cn(
-          'min-w-0 break-words text-muted-foreground',
+          'wrap-break-word min-w-0 text-muted-foreground',
           valueClassName
         )}
       >
