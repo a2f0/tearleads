@@ -78,9 +78,8 @@ class DebugPage extends BasePage {
    */
   async clickReset(): Promise<void> {
     const element = await this.waitForElement(SELECTORS.dbResetButton);
-    // Scroll into view before clicking
+    // Scroll into view and click
     await element.scrollIntoView();
-    await browser.pause(200);
     await element.click();
   }
 

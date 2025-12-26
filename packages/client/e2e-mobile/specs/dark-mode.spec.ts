@@ -30,7 +30,9 @@ describe('Dark Mode Switcher', () => {
 
     // Toggle to dark mode
     await settingsPage.toggleDarkMode();
-    await browser.pause(500); // Wait for transition
+    await browser.waitUntil(async () => settingsPage.isDarkMode(), {
+      timeoutMsg: 'Expected to switch to dark mode',
+    });
 
     // Verify dark class is applied
     const isDark = await settingsPage.isDarkMode();
@@ -43,7 +45,9 @@ describe('Dark Mode Switcher', () => {
 
     // Toggle back to light mode
     await settingsPage.toggleDarkMode();
-    await browser.pause(500); // Wait for transition
+    await browser.waitUntil(async () => !(await settingsPage.isDarkMode()), {
+      timeoutMsg: 'Expected to switch to light mode',
+    });
 
     // Verify dark class is removed
     const isDark = await settingsPage.isDarkMode();
@@ -56,12 +60,10 @@ describe('Dark Mode Switcher', () => {
     const initialDark = await settingsPage.isDarkMode();
     expect(initialDark).toBe(true);
 
-    // Navigate away and back
+    // Navigate away and back (navigation waits for page elements)
     const { goToDebug } = await import('../page-objects/navigation.js');
     await goToDebug();
-    await browser.pause(500);
     await goToSettings();
-    await browser.pause(500);
 
     // Verify dark mode is still enabled
     const stillDark = await settingsPage.isDarkMode();

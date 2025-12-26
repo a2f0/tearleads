@@ -11,7 +11,16 @@ class TablesPage extends BasePage {
   async waitForPageLoad(): Promise<void> {
     // Wait for either the tables list or the locked message
     await this.switchToWebView();
-    await browser.pause(1000);
+    await browser.waitUntil(
+      async () => {
+        const lockedMsg = await $('[data-testid="tables-locked-message"]');
+        const tableItem = await $('[data-testid^="table-name-"]');
+        return (
+          (await lockedMsg.isExisting()) || (await tableItem.isExisting())
+        );
+      },
+      { timeout: 10000, timeoutMsg: 'Tables page did not load' }
+    );
   }
 
   /**

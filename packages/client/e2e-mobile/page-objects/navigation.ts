@@ -23,8 +23,17 @@ export async function navigateTo(page: PageName): Promise<void> {
   const link = await $(`[data-testid="${testId}"]`);
   await link.waitForExist({ timeout: 10000 });
   await link.click();
-  // Wait for navigation to complete
-  await browser.pause(500);
+
+  // Wait for destination page element to exist
+  const pageIndicators: Record<PageName, string> = {
+    home: 'dropzone',
+    tables: 'tables-page',
+    debug: 'database-test',
+    settings: 'dark-mode-switch',
+  };
+  const indicator = pageIndicators[page];
+  const destElement = await $(`[data-testid="${indicator}"]`);
+  await destElement.waitForExist({ timeout: 10000 });
 }
 
 /**

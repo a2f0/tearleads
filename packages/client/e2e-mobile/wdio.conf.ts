@@ -52,8 +52,7 @@ export const config: Options.Testrunner = {
   },
 
   beforeTest: async function () {
-    // Give WebView time to be available
-    await browser.pause(1000);
+    // Each test should handle its own waits for elements to be ready
   },
 
   afterTest: async function (

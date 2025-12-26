@@ -138,12 +138,9 @@ class SettingsPage extends BasePage {
    */
   async restoreFromFile(fileName: string): Promise<void> {
     await this.selectRestoreFile(fileName);
-    // Wait a moment for the file to be loaded
-    await browser.pause(1000);
-    // Confirm restore if the button appears
-    if (await this.isConfirmRestoreDisplayed()) {
-      await this.clickConfirmRestore();
-    }
+    // Wait for the confirm button to appear after file selection
+    await this.waitForElement(SELECTORS.backupRestoreConfirm);
+    await this.clickConfirmRestore();
   }
 }
 

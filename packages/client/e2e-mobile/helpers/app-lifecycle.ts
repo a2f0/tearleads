@@ -2,6 +2,8 @@
  * App lifecycle helpers for launching, stopping, and restarting the app
  */
 
+import { waitForWebView } from './webview-helpers.js';
+
 const APP_BUNDLE_ID = 'com.tearleads.rapid';
 
 /**
@@ -38,8 +40,8 @@ export async function launchAppWithClearState(): Promise<void> {
   // Launch the app
   await browser.activateApp(APP_BUNDLE_ID);
 
-  // Wait for app to fully load
-  await browser.pause(3000);
+  // Wait for WebView to be ready
+  await waitForWebView();
 }
 
 /**
@@ -53,7 +55,7 @@ export async function launchAppPreserveState(): Promise<void> {
   }
 
   await browser.activateApp(APP_BUNDLE_ID);
-  await browser.pause(3000);
+  await waitForWebView();
 }
 
 /**
