@@ -29,11 +29,10 @@ async function ensureCleanState(): Promise<void> {
   }
 }
 
-// TODO: These tests have two issues that need to be addressed:
-// 1. WebView context is lost after interacting with native share sheet/file picker dialogs
-//    The switchToWebViewContext() function can't find the WebView after native dialogs dismiss
-// 2. The export button disabled state test may have a timing/state issue
-// These require deeper investigation into Appium's context switching with Capacitor apps
+// Multiple issues prevent full test suite from passing:
+// 1. Native share sheet/file picker dialogs - Cancel button selectors may need updating for iOS 18
+// 2. ensureCleanState() uses reset which fails on Capacitor/iOS
+// 3. Export button disabled state test may have timing issue
 describe.skip('Backup & Restore', () => {
   before(async () => {
     await launchAppWithClearState();
