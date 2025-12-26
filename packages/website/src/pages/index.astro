@@ -1,0 +1,77 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { Content } from '@docs/encryption-architecture.md';
+---
+
+<Layout title="Rapid">
+  <div class="container mx-auto px-4 py-16">
+    <h2 class="font-bold text-4xl">Welcome to Rapid</h2>
+    <p class="mt-4 text-muted-foreground">Your marketing content goes here.</p>
+  </div>
+
+  <section class="container mx-auto px-4 py-8">
+    <div class="rounded-xl border bg-card p-6 shadow-sm">
+      <div class="encryption-diagram overflow-x-auto">
+        <Content />
+      </div>
+    </div>
+    <div class="mt-8 grid gap-6 md:grid-cols-3">
+      <div class="rounded-lg border bg-card p-4">
+        <h3 class="mb-2 font-semibold text-lg">Key Derivation</h3>
+        <p class="text-muted-foreground text-sm">
+          PBKDF2-SHA256 with 600,000 iterations transforms your password into a
+          cryptographically secure 256-bit key, following OWASP 2023
+          recommendations.
+        </p>
+      </div>
+      <div class="rounded-lg border bg-card p-4">
+        <h3 class="mb-2 font-semibold text-lg">Platform Security</h3>
+        <p class="text-muted-foreground text-sm">
+          Each platform uses native encryption: SQLCipher on mobile,
+          ChaCha20-Poly1305 on desktop, and SQLite3MultipleCiphers in the
+          browser.
+        </p>
+      </div>
+      <div class="rounded-lg border bg-card p-4">
+        <h3 class="mb-2 font-semibold text-lg">Memory Safety</h3>
+        <p class="text-muted-foreground text-sm">
+          Encryption keys are securely zeroed from memory after use, preventing
+          extraction from memory dumps or swap files.
+        </p>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .encryption-diagram :global(h1),
+  .encryption-diagram :global(h2),
+  .encryption-diagram :global(h3) {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+
+  .encryption-diagram :global(h1) {
+    font-size: 1.875rem;
+  }
+
+  .encryption-diagram :global(h2) {
+    font-size: 1.5rem;
+  }
+
+  .encryption-diagram :global(h3) {
+    font-size: 1.25rem;
+  }
+
+  .encryption-diagram :global(p) {
+    margin-bottom: 1rem;
+    color: var(--color-muted-foreground);
+  }
+
+  .encryption-diagram :global(svg) {
+    max-width: 100%;
+    height: auto;
+    min-width: 800px;
+  }
+</style>
