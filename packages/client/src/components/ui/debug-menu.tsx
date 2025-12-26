@@ -39,7 +39,7 @@ export function DebugMenu() {
       <Button
         variant="outline"
         size="icon"
-        className="fixed bottom-28 right-4 z-50 h-10 w-10 rounded-full shadow-lg"
+        className="fixed right-4 bottom-28 z-50 h-10 w-10 rounded-full shadow-lg"
         onClick={() => setIsOpen(true)}
         aria-label="Open debug menu"
         data-testid="debug-menu-button"
@@ -51,13 +51,13 @@ export function DebugMenu() {
         <div className="fixed inset-0 z-50 flex items-end justify-end p-4">
           <button
             type="button"
-            className="fixed inset-0 bg-black/50 cursor-default"
+            className="fixed inset-0 cursor-default bg-black/50"
             onClick={() => setIsOpen(false)}
             aria-label="Close debug menu"
           />
-          <div className="relative z-10 w-80 max-h-[80vh] overflow-y-auto rounded-lg border bg-background p-4 shadow-xl">
+          <div className="relative z-10 max-h-[80vh] w-80 overflow-y-auto rounded-lg border bg-background p-4 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Debug Menu</h2>
+              <h2 className="font-semibold text-lg">Debug Menu</h2>
               <Button
                 variant="ghost"
                 size="icon"
@@ -86,31 +86,31 @@ export function DebugMenu() {
 
                 <div className="text-sm">
                   <span className="font-medium">User Agent: </span>
-                  <span className="text-muted-foreground text-xs break-all">
+                  <span className="break-all text-muted-foreground text-xs">
                     {navigator.userAgent}
                   </span>
                 </div>
               </div>
 
               <div className="border-t pt-4">
-                <h3 className="text-sm font-semibold mb-2">API Status</h3>
-                <div className="flex justify-between text-sm mb-2">
+                <h3 className="mb-2 font-semibold text-sm">API Status</h3>
+                <div className="mb-2 flex justify-between text-sm">
                   <span className="text-muted-foreground">API URL</span>
-                  <span className="text-xs break-all max-w-45 text-right">
+                  <span className="max-w-45 break-all text-right text-xs">
                     {API_BASE_URL || '(not set)'}
                   </span>
                 </div>
                 {pingLoading && (
-                  <p className="text-sm text-muted-foreground">Loading...</p>
+                  <p className="text-muted-foreground text-sm">Loading...</p>
                 )}
                 {pingError && (
-                  <p className="text-sm text-destructive">{pingError}</p>
+                  <p className="text-destructive text-sm">{pingError}</p>
                 )}
                 {!pingLoading && !pingError && ping && (
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Version</span>
-                      <span className="text-green-600 font-medium">
+                      <span className="font-medium text-green-600">
                         {ping.version}
                       </span>
                     </div>
@@ -119,7 +119,7 @@ export function DebugMenu() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full mt-2"
+                  className="mt-2 w-full"
                   onClick={fetchPing}
                   disabled={pingLoading}
                 >
@@ -128,7 +128,7 @@ export function DebugMenu() {
                 </Button>
               </div>
 
-              <div className="border-t pt-3 space-y-2">
+              <div className="space-y-2 border-t pt-3">
                 <Button
                   variant="destructive"
                   size="sm"
