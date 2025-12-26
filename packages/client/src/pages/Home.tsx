@@ -28,8 +28,8 @@ export function Home() {
             >
               <FileIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{file.name}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="truncate font-medium text-sm">{file.name}</p>
+                <p className="text-muted-foreground text-xs">
                   {formatFileSize(file.size)}
                   {file.type && ` · ${file.type}`}
                 </p>

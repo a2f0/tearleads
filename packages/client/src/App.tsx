@@ -6,7 +6,7 @@ import { Link, Outlet } from 'react-router-dom';
 function App() {
   return (
     <div
-      className="flex min-h-screen flex-col bg-background safe-area-inset"
+      className="safe-area-inset flex min-h-screen flex-col bg-background"
       data-testid="app-container"
     >
       <header className="w-full px-4 py-4">
@@ -14,7 +14,7 @@ function App() {
           <div className="flex items-center gap-3">
             <Link to="/" className="flex items-center gap-3">
               <img src={logo} alt="Tearleads" className="h-8 w-8" />
-              <h1 className="text-4xl font-bold tracking-tight">Tearleads</h1>
+              <h1 className="font-bold text-4xl tracking-tight">Tearleads</h1>
             </Link>
           </div>
           <div className="flex items-center gap-1">
@@ -46,7 +46,7 @@ function App() {
         </div>
       </header>
       <main className="flex-1 pb-20">
-        <div className="container mx-auto px-4 pb-16 max-w-2xl">
+        <div className="container mx-auto max-w-2xl px-4 pb-16">
           <Outlet />
         </div>
       </main>
