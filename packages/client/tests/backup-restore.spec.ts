@@ -244,7 +244,12 @@ test.describe('Backup & Restore (Web)', () => {
       });
       await page.getByTestId('backup-restore-confirm').click();
 
-      // After restore, we should be locked out (redirected to home/unlock)
+      // After restore, navigate to debug page to check status
+      // (db-status element is on the debug page, not settings)
+      await page.getByTestId('debug-link').click();
+      await expect(page).toHaveURL('/debug');
+
+      // After restore, we should be locked out
       await expect(page.getByTestId('db-status')).toHaveText('Locked', {
         timeout: DB_OPERATION_TIMEOUT
       });
