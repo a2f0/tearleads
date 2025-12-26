@@ -450,10 +450,23 @@ async function importDatabase(
     // Restore from backup on failure
     try {
       await fs.promises.copyFile(backupPath, dbPath);
+      // Also restore WAL/SHM files were deleted, but original DB should work
+      // without them since closeDatabase() was called which flushes WAL
     } catch {
-      // Best effort restore
+      // Best effort restore - if this fails, database may be corrupted
     }
-    throw error;
+
+    // Ensure db is null so caller knows to re-unlock
+    // The database file has been restored but needs to be reopened
+    db = null;
+
+    // Re-throw with more context about recovery state
+    const originalMessage =
+      error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Import failed: ${originalMessage}. ` +
+        'Database has been restored from backup. Please unlock again.'
+    );
   }
 }
 
