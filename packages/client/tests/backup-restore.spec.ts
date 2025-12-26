@@ -187,9 +187,8 @@ test.describe('Backup & Restore (Web)', () => {
       expect(path).toBeTruthy();
     });
 
-    // TODO: Web adapter import still has issues with encrypted databases
-    // The Emscripten FS module may not be available in the WASM build,
-    // and the deserialize fallback doesn't properly handle encrypted data
+    // TODO: Web adapter import has issues with encrypted databases
+    // See: https://github.com/a2f0/rapid/issues/137
     test.skip('should restore from backup file', async ({ page }) => {
       // Navigate to debug and unlock (page reload loses in-memory key)
       await page.goto('/debug');
