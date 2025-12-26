@@ -23,7 +23,7 @@ export interface ElectronSqliteApi {
   clearKeyStorage: () => Promise<void>;
   deleteDatabase: (name: string) => Promise<void>;
   export: (name: string) => Promise<number[]>;
-  import: (name: string, data: number[]) => Promise<void>;
+  import: (name: string, data: number[], key: number[]) => Promise<void>;
 }
 
 export interface ElectronApi {

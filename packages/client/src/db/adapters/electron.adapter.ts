@@ -101,12 +101,21 @@ export class ElectronAdapter implements DatabaseAdapter {
     return new Uint8Array(data);
   }
 
-  async importDatabase(data: Uint8Array): Promise<void> {
+  async importDatabase(
+    data: Uint8Array,
+    encryptionKey?: Uint8Array
+  ): Promise<void> {
     if (!this.dbName) {
       throw new Error('Database name not set');
     }
+    if (!encryptionKey) {
+      throw new Error('Electron adapter requires encryption key for import');
+    }
     const api = getElectronApi();
-    await api.sqlite.import(this.dbName, Array.from(data));
-    this.initialized = false; // Force re-initialization
+    await api.sqlite.import(
+      this.dbName,
+      Array.from(data),
+      Array.from(encryptionKey)
+    );
   }
 }

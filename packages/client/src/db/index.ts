@@ -212,37 +212,6 @@ export async function changePassword(
 }
 
 /**
- * Export the database to a byte array.
- * Returns the encrypted database file bytes.
- */
-export async function exportDatabase(): Promise<Uint8Array> {
-  if (!adapterInstance) {
-    throw new Error('Database not initialized');
-  }
-  return adapterInstance.exportDatabase();
-}
-
-/**
- * Import a database from a byte array.
- * The database must be unlocked first. After import, the database
- * will need to be re-initialized with the same password.
- * @param data - The encrypted database file bytes
- */
-export async function importDatabase(data: Uint8Array): Promise<void> {
-  if (!adapterInstance) {
-    throw new Error('Database not initialized');
-  }
-
-  await adapterInstance.importDatabase(data);
-
-  // Clear the current database instance since the database has been replaced
-  databaseInstance = null;
-
-  // The adapter stays alive but db is closed - re-initialization will happen
-  // when user unlocks again with the same password
-}
-
-/**
  * Reset the database (for testing or complete wipe).
  */
 export async function resetDatabase(): Promise<void> {
@@ -281,6 +250,47 @@ export async function resetDatabase(): Promise<void> {
 
   const keyManager = getKeyManager();
   await keyManager.reset();
+}
+
+/**
+ * Export the database to a byte array for backup.
+ * The returned data is the raw encrypted database file.
+ * @returns The encrypted database as a Uint8Array
+ */
+export async function exportDatabase(): Promise<Uint8Array> {
+  if (!adapterInstance) {
+    throw new Error('Database not initialized');
+  }
+
+  if (!adapterInstance.exportDatabase) {
+    throw new Error('Export not supported on this platform');
+  }
+
+  return adapterInstance.exportDatabase();
+}
+
+/**
+ * Import a database from a byte array backup.
+ * Replaces the current database with the provided backup data.
+ * @param data The encrypted database backup as a Uint8Array
+ */
+export async function importDatabase(data: Uint8Array): Promise<void> {
+  if (!adapterInstance) {
+    throw new Error('Database not initialized');
+  }
+
+  if (!adapterInstance.importDatabase) {
+    throw new Error('Import not supported on this platform');
+  }
+
+  // Get the current encryption key for adapters that need it (e.g., Electron)
+  const keyManager = getKeyManager();
+  const encryptionKey = keyManager.getCurrentKey();
+
+  await adapterInstance.importDatabase(data, encryptionKey ?? undefined);
+
+  // Re-run migrations in case the backup is from an older version
+  await runMigrations();
 }
 
 export type { DatabaseAdapter, PlatformInfo } from './adapters';

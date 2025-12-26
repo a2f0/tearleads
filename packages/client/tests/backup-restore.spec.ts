@@ -187,8 +187,8 @@ test.describe('Backup & Restore (Web)', () => {
       expect(path).toBeTruthy();
     });
 
-    // TODO: Web adapter import has a bug with SQLCipher encryption key on deserialized databases
-    // Skip until the web worker importDatabase is fixed to properly handle encrypted backups
+    // TODO: Web adapter import has issues with encrypted databases
+    // See: https://github.com/a2f0/rapid/issues/137
     test.skip('should restore from backup file', async ({ page }) => {
       // Navigate to debug and unlock (page reload loses in-memory key)
       await page.goto('/debug');
@@ -246,7 +246,12 @@ test.describe('Backup & Restore (Web)', () => {
       });
       await page.getByTestId('backup-restore-confirm').click();
 
-      // After restore, we should be locked out (redirected to home/unlock)
+      // After restore, navigate to debug page to check status
+      // (db-status element is on the debug page, not settings)
+      await page.getByTestId('debug-link').click();
+      await expect(page).toHaveURL('/debug');
+
+      // After restore, we should be locked out
       await expect(page.getByTestId('db-status')).toHaveText('Locked', {
         timeout: DB_OPERATION_TIMEOUT
       });
