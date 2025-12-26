@@ -249,17 +249,8 @@ function clearKeyStorage(): void {
   const saltPath = getStoragePath(SALT_FILE);
   const kcvPath = getStoragePath(KCV_FILE);
 
-  try {
-    fs.unlinkSync(saltPath);
-  } catch {
-    // Ignore if file doesn't exist
-  }
-
-  try {
-    fs.unlinkSync(kcvPath);
-  } catch {
-    // Ignore if file doesn't exist
-  }
+  fs.rmSync(saltPath, { force: true });
+  fs.rmSync(kcvPath, { force: true });
 }
 
 /**
@@ -356,29 +347,11 @@ function deleteDatabase(name: string): void {
   closeDatabase();
 
   const dbPath = getDatabasePath(name);
-  const walPath = `${dbPath}-wal`;
-  const shmPath = `${dbPath}-shm`;
 
-  // Delete main database file
-  try {
-    fs.unlinkSync(dbPath);
-  } catch {
-    // Ignore if file doesn't exist
-  }
-
-  // Delete WAL file
-  try {
-    fs.unlinkSync(walPath);
-  } catch {
-    // Ignore if file doesn't exist
-  }
-
-  // Delete SHM file
-  try {
-    fs.unlinkSync(shmPath);
-  } catch {
-    // Ignore if file doesn't exist
-  }
+  // Delete database files (force: true handles non-existent files gracefully)
+  fs.rmSync(dbPath, { force: true });
+  fs.rmSync(`${dbPath}-wal`, { force: true });
+  fs.rmSync(`${dbPath}-shm`, { force: true });
 }
 
 /**
