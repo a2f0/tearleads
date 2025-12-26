@@ -11,10 +11,12 @@ import { goToDebug, goToTables } from '../page-objects/navigation.js';
 
 const TEST_PASSWORD = 'tablestest123';
 
-// TODO: Lock/unlock database operations don't properly update React state
-// The locked message element isn't displayed after lockDatabase() is called
+// TODO: Test passes in isolation but fails in full suite due to state pollution
+// The unlock step fails after database-test runs, even with fresh app state
+// This needs investigation into test isolation and state cleanup between spec files
 describe.skip('Tables Page', () => {
   before(async () => {
+    // launchAppWithClearState ensures clean slate - no reset needed
     await launchAppWithClearState();
     await waitForWebView();
   });
@@ -24,14 +26,7 @@ describe.skip('Tables Page', () => {
       // Setup and lock database
       await goToDebug();
       await debugPage.waitForPageLoad();
-
-      // Ensure clean state first
-      const currentStatus = await debugPage.getStatus();
-      if (currentStatus !== 'Not Set Up') {
-        await debugPage.clickReset();
-        await browser.pause(1000);
-        await debugPage.waitForStatus('Not Set Up');
-      }
+      await debugPage.waitForStatus('Not Set Up');
 
       await debugPage.setupDatabase(TEST_PASSWORD);
       await debugPage.lockDatabase();
@@ -48,10 +43,21 @@ describe.skip('Tables Page', () => {
 
   describe('when database is unlocked', () => {
     before(async () => {
-      // Unlock database
+      // Unlock database - wait for locked state first
       await goToDebug();
       await debugPage.waitForPageLoad();
-      await debugPage.unlockDatabase(TEST_PASSWORD);
+      await debugPage.waitForStatus('Locked');
+
+      // Clear password, enter correct one, and unlock
+      // Need longer pauses to ensure UI is stable
+      await debugPage.clearPassword();
+      await browser.pause(500);
+      await debugPage.setPassword(TEST_PASSWORD);
+      await browser.pause(500);
+      await debugPage.clickUnlock();
+
+      // Wait for unlocked status with longer timeout
+      await debugPage.waitForStatus('Unlocked', 15000);
     });
 
     it('should display SQLite tables', async () => {
@@ -76,17 +82,7 @@ describe.skip('Tables Page', () => {
   });
 
   after(async () => {
-    // Cleanup
-    try {
-      await goToDebug();
-      await debugPage.waitForPageLoad();
-      const currentStatus = await debugPage.getStatus();
-      if (currentStatus !== 'Not Set Up') {
-        await debugPage.clickReset();
-        await debugPage.waitForStatus('Not Set Up');
-      }
-    } catch {
-      // Ignore cleanup errors
-    }
+    // Cleanup - the next test's launchAppWithClearState will handle cleanup
+    // No need to call reset which has known issues
   });
 });

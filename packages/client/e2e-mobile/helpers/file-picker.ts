@@ -55,6 +55,8 @@ export async function handleAndroidFilePicker(
   if (action === 'cancel') {
     // Android back button to cancel
     await browser.back();
+    // Give time for dialog to dismiss and app to reactivate
+    await browser.pause(1000);
     await switchToWebViewContext();
     return;
   }
@@ -87,6 +89,8 @@ export async function handleAndroidFilePicker(
     await fileItem.click();
   }
 
+  // Give time for file picker to dismiss and app to reactivate
+  await browser.pause(1000);
   await switchToWebViewContext();
 }
 
@@ -105,6 +109,8 @@ export async function handleiOSFilePicker(
     if (await cancelButton.isExisting()) {
       await cancelButton.click();
     }
+    // Give time for dialog to dismiss and app to reactivate
+    await browser.pause(1000);
     await switchToWebViewContext();
     return;
   }
@@ -142,6 +148,8 @@ export async function handleiOSFilePicker(
     await fileCell.click();
   }
 
+  // Give time for file picker to dismiss and app to reactivate
+  await browser.pause(1000);
   await switchToWebViewContext();
 }
 
@@ -173,6 +181,8 @@ export async function handleAndroidShareSheet(
   if (action === 'cancel') {
     // Tap outside or press back
     await browser.back();
+    // Give time for share sheet to dismiss and app to reactivate
+    await browser.pause(1000);
     await switchToWebViewContext();
     return;
   }
@@ -199,6 +209,8 @@ export async function handleAndroidShareSheet(
     }
   }
 
+  // Give time for share sheet to dismiss and app to reactivate
+  await browser.pause(1000);
   await switchToWebViewContext();
 }
 
@@ -218,6 +230,8 @@ export async function handleiOSShareSheet(
     if (await closeButton.isExisting()) {
       await closeButton.click();
     }
+    // Give time for share sheet to dismiss and app to reactivate
+    await browser.pause(1000);
     await switchToWebViewContext();
     return;
   }
@@ -249,6 +263,8 @@ export async function handleiOSShareSheet(
     }
   }
 
+  // Give time for share sheet to dismiss and app to reactivate
+  await browser.pause(1000);
   await switchToWebViewContext();
 }
 

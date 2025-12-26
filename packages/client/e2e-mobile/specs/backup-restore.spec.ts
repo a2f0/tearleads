@@ -10,18 +10,10 @@
 
 import { launchAppWithClearState } from '../helpers/app-lifecycle.js';
 import { waitForWebView, switchToWebViewContext } from '../helpers/webview-helpers.js';
-import {
-  handleShareSheet,
-  handleFilePicker,
-  pushTestFile,
-  fileExistsOnDevice,
-} from '../helpers/file-picker.js';
+import { handleShareSheet, handleFilePicker } from '../helpers/file-picker.js';
 import { debugPage } from '../page-objects/debug.page.js';
 import { settingsPage } from '../page-objects/settings.page.js';
 import { goToDebug, goToSettings } from '../page-objects/navigation.js';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
 
 const TEST_PASSWORD = 'backup-test-123';
 
@@ -37,7 +29,11 @@ async function ensureCleanState(): Promise<void> {
   }
 }
 
-// TODO: These tests require native file picker automation which needs more work
+// TODO: These tests have two issues that need to be addressed:
+// 1. WebView context is lost after interacting with native share sheet/file picker dialogs
+//    The switchToWebViewContext() function can't find the WebView after native dialogs dismiss
+// 2. The export button disabled state test may have a timing/state issue
+// These require deeper investigation into Appium's context switching with Capacitor apps
 describe.skip('Backup & Restore', () => {
   before(async () => {
     await launchAppWithClearState();
@@ -222,43 +218,44 @@ describe.skip('Backup & Restore', () => {
     });
   });
 
-  describe('Restore with pre-pushed test file', () => {
+  describe('Database remains intact after export', () => {
     /**
-     * This test demonstrates the ability to push test files to the device
-     * and then select them with the file picker - something Maestro cannot do.
+     * Verify that exporting doesn't corrupt the database
      */
 
-    before(async function () {
-      this.timeout(60000);
-
-      // First, export a backup from a known state
+    before(async () => {
       await goToDebug();
       await debugPage.waitForPageLoad();
       await ensureCleanState();
-      await debugPage.setupDatabase('test-file-password');
-      await debugPage.writeAndGetData();
-
-      // Export to get a valid backup file
-      await goToSettings();
-      await settingsPage.waitForPageLoad();
-      await settingsPage.clickExportBackup();
-
-      // Save using share sheet
-      await handleShareSheet('save');
-      await browser.pause(2000);
+      await debugPage.setupDatabase(TEST_PASSWORD);
     });
 
-    it('should push a backup file to the device', async function () {
-      this.timeout(30000);
+    it('should write data before export', async () => {
+      const writtenValue = await debugPage.writeAndGetData();
+      expect(writtenValue).toMatch(/^test-value-\d+$/);
+    });
 
-      // Create a temporary test backup file
-      // In a real scenario, you would have a known good backup file
-      const tempDir = os.tmpdir();
-      const testFileName = 'test-restore-backup.db';
+    it('should export without errors', async () => {
+      await goToSettings();
+      await settingsPage.waitForPageLoad();
 
-      // We need an actual backup file - skip if we don't have one
-      // This test mainly demonstrates the capability
-      console.log('Test file push capability demonstrated');
+      await settingsPage.clickExportBackup();
+
+      // Cancel the share sheet (we just want to verify export triggers)
+      await handleShareSheet('cancel');
+
+      // Verify we're back and button is enabled
+      await switchToWebViewContext();
+      const isEnabled = await settingsPage.isExportButtonEnabled();
+      expect(isEnabled).toBe(true);
+    });
+
+    it('should still read data after export', async () => {
+      await goToDebug();
+      await debugPage.waitForPageLoad();
+
+      const readValue = await debugPage.readAndGetData();
+      expect(readValue).toMatch(/^test-value-\d+$/);
     });
   });
 

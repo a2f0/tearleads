@@ -13,32 +13,48 @@ export async function getAvailableContexts(): Promise<string[]> {
 }
 
 export async function switchToWebViewContext(): Promise<void> {
-  const contexts = await getAvailableContexts();
+  const maxRetries = 5;
+  const retryDelay = 2000;
 
-  // Find the WebView context (for Capacitor apps, it's usually WEBVIEW_com.tearleads.rapid)
-  let webviewContext = contexts.find(
-    (ctx) => ctx.startsWith('WEBVIEW') || ctx.includes('tearleads')
-  );
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const contexts = await getAvailableContexts();
 
-  if (!webviewContext) {
-    // Wait and retry - WebView might not be ready yet
-    await browser.pause(2000);
-    const retryContexts = await getAvailableContexts();
-    webviewContext = retryContexts.find(
+    // Find the WebView context (for Capacitor apps, it's usually WEBVIEW_com.tearleads.rapid)
+    const webviewContext = contexts.find(
       (ctx) => ctx.startsWith('WEBVIEW') || ctx.includes('tearleads')
     );
 
-    if (!webviewContext) {
-      throw new Error(
-        `No WebView context found. Available: ${retryContexts.join(', ')}`
+    if (webviewContext) {
+      if (currentContext !== webviewContext) {
+        await browser.switchContext(webviewContext);
+        currentContext = webviewContext;
+      }
+      return;
+    }
+
+    // WebView not found - try to bring app back to foreground
+    if (attempt < maxRetries - 1) {
+      console.log(
+        `WebView not found (attempt ${attempt + 1}/${maxRetries}), waiting...`
       );
+
+      // Try to activate the app (might help after native dialogs)
+      try {
+        await browser.execute('mobile: activateApp', {
+          bundleId: 'com.tearleads.rapid',
+        });
+      } catch {
+        // activateApp might not be supported, continue anyway
+      }
+
+      await browser.pause(retryDelay);
     }
   }
 
-  if (currentContext !== webviewContext) {
-    await browser.switchContext(webviewContext);
-    currentContext = webviewContext;
-  }
+  const finalContexts = await getAvailableContexts();
+  throw new Error(
+    `No WebView context found after ${maxRetries} attempts. Available: ${finalContexts.join(', ')}`
+  );
 }
 
 export async function switchToNativeContext(): Promise<void> {

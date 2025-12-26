@@ -140,8 +140,8 @@ class DebugPage extends BasePage {
   /**
    * Wait for specific database status
    */
-  async waitForStatus(status: DbStatus): Promise<void> {
-    await waitForStatus(status);
+  async waitForStatus(status: DbStatus, timeout?: number): Promise<void> {
+    await waitForStatus(status, timeout);
   }
 
   /**

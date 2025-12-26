@@ -87,6 +87,10 @@ describe('Database Operations', () => {
     });
 
     it('should unlock with correct password', async () => {
+      // Clear the wrong password first
+      await debugPage.clearPassword();
+      await browser.pause(300);
+
       await debugPage.setPassword(TEST_PASSWORD);
       await debugPage.clickUnlock();
       await debugPage.waitForStatus('Unlocked');

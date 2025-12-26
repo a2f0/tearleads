@@ -13,7 +13,8 @@ import { goToDebug } from '../page-objects/navigation.js';
 
 const TEST_PASSWORD = 'relaunchtest123';
 
-// TODO: App restart persistence test needs work with Appium session handling
+// TODO: App restart with Appium requires session termination/recreation
+// which needs more work to handle properly
 describe.skip('Database Relaunch Persistence', () => {
   before(async () => {
     await launchAppWithClearState();
@@ -25,13 +26,8 @@ describe.skip('Database Relaunch Persistence', () => {
     await goToDebug();
     await debugPage.waitForPageLoad();
 
-    // Ensure clean state and setup
-    const currentStatus = await debugPage.getStatus();
-    if (currentStatus !== 'Not Set Up') {
-      await debugPage.clickReset();
-      await debugPage.waitForSuccess();
-      await debugPage.waitForStatus('Not Set Up');
-    }
+    // The app should start fresh after launchAppWithClearState
+    // Just setup the database
     await debugPage.setupDatabase(TEST_PASSWORD);
 
     // Write data
@@ -61,17 +57,7 @@ describe.skip('Database Relaunch Persistence', () => {
   });
 
   after(async () => {
-    // Cleanup
-    try {
-      await goToDebug();
-      await debugPage.waitForPageLoad();
-      const currentStatus = await debugPage.getStatus();
-      if (currentStatus !== 'Not Set Up') {
-        await debugPage.clickReset();
-        await debugPage.waitForStatus('Not Set Up');
-      }
-    } catch {
-      // Ignore cleanup errors
-    }
+    // Cleanup - don't rely on reset which has known issues
+    // The next test's launchAppWithClearState will handle cleanup
   });
 });

@@ -8,6 +8,14 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
     iosScheme: 'https'
   },
+  ios: {
+    // Enable WebView debugging for Appium tests (iOS 16.4+)
+    webContentsDebuggingEnabled: true
+  },
+  android: {
+    // Enable WebView debugging for Appium tests
+    webContentsDebuggingEnabled: true
+  },
   plugins: {
     CapacitorSQLite: {
       // Enable encryption on iOS
