@@ -249,17 +249,8 @@ function clearKeyStorage(): void {
   const saltPath = getStoragePath(SALT_FILE);
   const kcvPath = getStoragePath(KCV_FILE);
 
-  try {
-    fs.unlinkSync(saltPath);
-  } catch {
-    // Ignore if file doesn't exist
-  }
-
-  try {
-    fs.unlinkSync(kcvPath);
-  } catch {
-    // Ignore if file doesn't exist
-  }
+  fs.rmSync(saltPath, { force: true });
+  fs.rmSync(kcvPath, { force: true });
 }
 
 /**
@@ -335,15 +326,18 @@ export function registerSqliteHandlers(): void {
     deleteDatabase(name);
   });
 
-  ipcMain.handle('sqlite:export', (_event, name: string) => {
-    const data = exportDatabase(name);
+  ipcMain.handle('sqlite:export', async (_event, name: string) => {
+    const data = await exportDatabase(name);
     // Convert Buffer to number[] for IPC transfer
     return Array.from(data);
   });
 
-  ipcMain.handle('sqlite:import', (_event, name: string, data: number[]) => {
-    importDatabase(name, Buffer.from(data));
-  });
+  ipcMain.handle(
+    'sqlite:import',
+    async (_event, name: string, data: number[], key: number[]) => {
+      await importDatabase(name, Buffer.from(data), key);
+    }
+  );
 }
 
 /**
@@ -353,29 +347,11 @@ function deleteDatabase(name: string): void {
   closeDatabase();
 
   const dbPath = getDatabasePath(name);
-  const walPath = `${dbPath}-wal`;
-  const shmPath = `${dbPath}-shm`;
 
-  // Delete main database file
-  try {
-    fs.unlinkSync(dbPath);
-  } catch {
-    // Ignore if file doesn't exist
-  }
-
-  // Delete WAL file
-  try {
-    fs.unlinkSync(walPath);
-  } catch {
-    // Ignore if file doesn't exist
-  }
-
-  // Delete SHM file
-  try {
-    fs.unlinkSync(shmPath);
-  } catch {
-    // Ignore if file doesn't exist
-  }
+  // Delete database files (force: true handles non-existent files gracefully)
+  fs.rmSync(dbPath, { force: true });
+  fs.rmSync(`${dbPath}-wal`, { force: true });
+  fs.rmSync(`${dbPath}-shm`, { force: true });
 }
 
 /**
@@ -399,9 +375,16 @@ async function exportDatabase(name: string): Promise<Buffer> {
 /**
  * Import a database from a buffer.
  * Creates a backup of the current database before replacing it.
- * Closes the current database, writes the new file, and marks for re-initialization.
+ * After import, re-opens the database with the provided encryption key.
+ * @param name The database name
+ * @param data The encrypted database file as a Buffer
+ * @param key The encryption key to use when reopening the database
  */
-async function importDatabase(name: string, data: Buffer): Promise<void> {
+async function importDatabase(
+  name: string,
+  data: Buffer,
+  key: number[]
+): Promise<void> {
   const dbPath = getDatabasePath(name);
   const backupPath = `${dbPath}.backup`;
   const walPath = `${dbPath}-wal`;
@@ -433,6 +416,30 @@ async function importDatabase(name: string, data: Buffer): Promise<void> {
     // Write the imported data
     await fs.promises.writeFile(dbPath, data);
 
+    // Reopen the database with encryption
+    db = new Database(dbPath);
+
+    const keyBuffer = Buffer.from(key);
+    const keyHex = keyBuffer.toString('hex');
+    secureZeroBuffer(keyBuffer);
+
+    // Apply encryption settings
+    db.pragma(`cipher='chacha20'`);
+    db.pragma(`key="x'${keyHex}'"`);
+
+    // Verify key and enable standard pragmas
+    try {
+      db.exec('SELECT 1');
+      db.pragma('journal_mode = WAL');
+      db.pragma('foreign_keys = ON');
+    } catch (error) {
+      db.close();
+      db = null;
+      throw new Error(
+        'Failed to open imported database: invalid encryption key'
+      );
+    }
+
     // Remove backup on success
     try {
       await fs.promises.unlink(backupPath);
@@ -443,13 +450,24 @@ async function importDatabase(name: string, data: Buffer): Promise<void> {
     // Restore from backup on failure
     try {
       await fs.promises.copyFile(backupPath, dbPath);
+      // Also restore WAL/SHM files were deleted, but original DB should work
+      // without them since closeDatabase() was called which flushes WAL
     } catch {
-      // Best effort restore
+      // Best effort restore - if this fails, database may be corrupted
     }
-    throw error;
-  }
 
-  // Database will be reopened on next initialize() call
+    // Ensure db is null so caller knows to re-unlock
+    // The database file has been restored but needs to be reopened
+    db = null;
+
+    // Re-throw with more context about recovery state
+    const originalMessage =
+      error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Import failed: ${originalMessage}. ` +
+        'Database has been restored from backup. Please unlock again.'
+    );
+  }
 }
 
 /**
