@@ -112,7 +112,7 @@ platform :android do
     upload_to_play_store(
       track: 'internal',
       aab: File.expand_path('../android/app/build/outputs/bundle/release/app-release.aab', __dir__),
-      release_status: ENV.fetch('ANDROID_RELEASE_STATUS', 'completed'),
+      release_status: ENV.fetch('ANDROID_RELEASE_STATUS', 'draft'),
       version_name: get_version_name,
       skip_upload_images: true,
       skip_upload_screenshots: true,
