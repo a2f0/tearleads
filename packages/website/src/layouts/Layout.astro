@@ -1,0 +1,62 @@
+---
+import { ThemeSwitcherIsland } from '../components/ThemeSwitcherIsland';
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+const currentYear = new Date().getFullYear();
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+    <script is:inline>
+      (function () {
+        const theme = localStorage.getItem('theme') || 'system';
+        const resolved =
+          theme === 'system'
+            ? window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+            : theme;
+        document.documentElement.classList.add(resolved);
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="flex min-h-screen flex-col bg-background">
+      <header class="border-b">
+        <div
+          class="container mx-auto flex items-center justify-between px-4 py-4"
+        >
+          <div class="flex items-center gap-3">
+            <img src="/logo.svg" alt="Rapid" class="h-8 w-8" />
+            <h1 class="font-bold text-2xl">Rapid</h1>
+          </div>
+          <ThemeSwitcherIsland client:load />
+        </div>
+      </header>
+      <main class="flex-1 pb-20">
+        <slot />
+      </main>
+      <footer
+        class="fixed right-0 bottom-0 left-0 border-t bg-background py-6 text-muted-foreground text-sm"
+        style="padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));"
+      >
+        <div class="container mx-auto flex items-center px-4">
+          <div class="flex-1 text-center">
+            <p>&copy; {currentYear} Rapid. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
