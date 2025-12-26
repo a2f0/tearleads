@@ -293,12 +293,13 @@ function rekey(newKey: Uint8Array): void {
   const newHexKey = keyToHex(newKey);
   newKey.fill(0); // Zero out the key from memory
 
+  // Checkpoint WAL data BEFORE rekey to ensure all data is in the main database
+  // This is critical for ensuring the rekey operation processes all data
+  db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+
   // Use PRAGMA hexrekey for hex-encoded keys
   // See: https://utelle.github.io/SQLite3MultipleCiphers/docs/configuration/config_sql_pragmas/
   db.exec(`PRAGMA hexrekey = '${newHexKey}';`);
-
-  // Force a checkpoint to ensure changes are written to the database file
-  db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
 
   encryptionKey = newHexKey;
 

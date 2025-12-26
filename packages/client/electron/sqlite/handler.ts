@@ -334,6 +334,14 @@ export function registerSqliteHandlers(): void {
   ipcMain.handle('sqlite:deleteDatabase', (_event, name: string) => {
     deleteDatabase(name);
   });
+
+  ipcMain.handle('sqlite:exportDatabase', () => {
+    return exportDatabase();
+  });
+
+  ipcMain.handle('sqlite:importDatabase', (_event, data: number[]) => {
+    importDatabase(data);
+  });
 }
 
 /**
@@ -366,6 +374,84 @@ function deleteDatabase(name: string): void {
   } catch {
     // Ignore if file doesn't exist
   }
+}
+
+/**
+ * Export the database to a byte array.
+ * Checkpoints WAL data first to ensure all data is in the main file.
+ */
+function exportDatabase(): number[] {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
+  // Checkpoint WAL data to main database file
+  db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+
+  // Use better-sqlite3's serialize() to get database bytes
+  const buffer = db.serialize();
+  return Array.from(buffer);
+}
+
+/**
+ * Import a database from a byte array.
+ * Replaces the current database with the provided data.
+ */
+function importDatabase(data: number[]): void {
+  if (!db) {
+    throw new Error('Database not initialized');
+  }
+
+  const buffer = Buffer.from(data);
+
+  // Close the current database
+  db.close();
+
+  // Use better-sqlite3's deserialize to load the new data
+  // Note: deserialize creates an in-memory database, but we want to persist it
+  // So we deserialize, then copy to a file-based database
+  const memDb = new Database(buffer);
+
+  // Get the current database path from the closed db
+  // We need to store the path before closing
+  const dbPath = getDatabasePath('rapid');
+
+  // Delete existing files
+  try {
+    fs.unlinkSync(dbPath);
+  } catch {
+    // Ignore
+  }
+  try {
+    fs.unlinkSync(`${dbPath}-wal`);
+  } catch {
+    // Ignore
+  }
+  try {
+    fs.unlinkSync(`${dbPath}-shm`);
+  } catch {
+    // Ignore
+  }
+
+  // Create new file and copy data
+  db = new Database(dbPath);
+
+  // Copy the deserialized database to the file
+  // Use VACUUM INTO to copy the database
+  const serialized = memDb.serialize();
+  memDb.close();
+
+  // Write directly to the file
+  fs.writeFileSync(dbPath, serialized);
+
+  // Reopen the database
+  db.close();
+  db = new Database(dbPath);
+
+  // The imported database should already have encryption configured
+  // Enable WAL mode
+  db.pragma('journal_mode = WAL');
+  db.pragma('foreign_keys = ON');
 }
 
 /**
