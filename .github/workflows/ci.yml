@@ -230,10 +230,10 @@ jobs:
             adb shell input keyevent 82
             bundle exec fastlane android test_instrumented
 
-  android-maestro:
-    name: Android Maestro Tests
+  android-appium:
+    name: Android Appium Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Free disk space
@@ -294,12 +294,10 @@ jobs:
       - name: Download Gradle wrapper
         run: ./packages/client/scripts/downloadGradleWrapper.sh
 
-      - name: Install Maestro
-        run: |
-          ./packages/client/scripts/downloadMaestro.sh
-          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+      - name: Install Appium drivers
+        run: ./scripts/installAppiumDrivers.sh
 
-      - name: Run Maestro tests
+      - name: Run Appium tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 31
@@ -311,15 +309,15 @@ jobs:
           script: |
             adb wait-for-device
             adb shell input keyevent 82
-            bundle exec fastlane android test_maestro
+            bundle exec fastlane android test_appium
 
-      - name: Upload Maestro artifacts
+      - name: Upload Appium artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: android-maestro-artifacts
+          name: android-appium-artifacts
           path: |
-            packages/client/maestro-report/
-            packages/client/maestro-debug/
+            packages/client/allure-results/
+            packages/client/appium-android.log
           retention-days: 7
           if-no-files-found: ignore

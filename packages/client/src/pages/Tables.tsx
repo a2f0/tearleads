@@ -71,7 +71,7 @@ export function Tables() {
   }, [isUnlocked, tables.length, loading, fetchTables, error]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="tables-page">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Tables</h1>
         {isUnlocked && (
@@ -80,6 +80,7 @@ export function Tables() {
             size="sm"
             onClick={fetchTables}
             disabled={loading}
+            data-testid="tables-refresh-button"
           >
             <RefreshCw
               className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
@@ -96,7 +97,10 @@ export function Tables() {
       )}
 
       {!isLoading && !isUnlocked && (
-        <div className="rounded-lg border p-8 text-center">
+        <div
+          className="rounded-lg border p-8 text-center"
+          data-testid="tables-locked-message"
+        >
           <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
           <p className="mt-4 text-muted-foreground">
             Database is locked. Unlock it from the Debug page to view tables.
@@ -125,13 +129,20 @@ export function Tables() {
               <div
                 key={table.name}
                 className="flex items-center gap-3 rounded-lg border bg-muted/50 p-3"
+                data-testid={`table-row-${table.name}`}
               >
                 <Table2 className="h-5 w-5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium font-mono">
+                  <p
+                    className="truncate text-sm font-medium font-mono"
+                    data-testid={`table-name-${table.name}`}
+                  >
                     {table.name}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p
+                    className="text-xs text-muted-foreground"
+                    data-testid={`table-count-${table.name}`}
+                  >
                     {table.rowCount} {table.rowCount === 1 ? 'row' : 'rows'}
                   </p>
                 </div>

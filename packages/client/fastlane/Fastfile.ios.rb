@@ -207,4 +207,22 @@ platform :ios do
     sh("xcrun simctl install #{simulator} '#{app_path}'")
     sh("MAESTRO_CLI_NO_ANALYTICS=1 MAESTRO_DEVICE=#{simulator} $HOME/.maestro/bin/maestro --platform ios test ../.maestro/ --output maestro-report --debug-output maestro-debug")
   end
+
+  desc 'Run Appium UI tests on iOS simulator'
+  lane :test_appium do
+    build_debug
+    simulators_output = `xcrun simctl list devices booted -j`
+    devices = JSON.parse(simulators_output)['devices']
+    simulator = devices.values.flatten.find { |d| d['state'] == 'Booted' }&.[]('udid')
+    UI.user_error!('No iOS simulator is booted. Boot a simulator first.') if simulator.to_s.empty?
+
+    app_path = File.expand_path('../build/DerivedData/Build/Products/Debug-iphonesimulator/App.app', __dir__)
+    UI.message("Installing app on simulator: #{simulator}")
+    sh("xcrun simctl uninstall #{simulator} #{APP_ID} || true")
+    sh("xcrun simctl install #{simulator} '#{app_path}'")
+    # Run WebdriverIO/Appium tests
+    Dir.chdir('..') do
+      sh('pnpm test:appium:ios')
+    end
+  end
 end

@@ -47,6 +47,9 @@ playwright-report/
 test-results/
 maestro-report/
 maestro-debug/
+allure-results/
+appium-*.log
+.appium/
 
 # Ruby/Fastlane
 **/vendor/
