@@ -26,6 +26,7 @@ interface SQLiteConnectionWrapper {
     oldpassphrase: string
   ): Promise<void>;
   clearEncryptionSecret(): Promise<void>;
+  importFromJson(jsonstring: string): Promise<{ changes: { changes: number } }>;
 }
 
 interface SQLiteDBConnection {
@@ -49,6 +50,43 @@ interface SQLiteDBConnection {
     transaction?: boolean
   ): Promise<{ changes?: { changes: number; lastId: number } }>;
   isDBOpen(): Promise<boolean>;
+  exportToJson(mode: string): Promise<{ export: JsonSQLite }>;
+}
+
+interface JsonSQLite {
+  database: string;
+  version: number;
+  encrypted: boolean;
+  mode: string;
+  tables: JsonTable[];
+}
+
+interface JsonTable {
+  name: string;
+  schema?: JsonColumn[];
+  indexes?: JsonIndex[];
+  triggers?: JsonTrigger[];
+  values?: unknown[][];
+}
+
+interface JsonColumn {
+  column: string;
+  value: string;
+  foreignkey?: string;
+  constraint?: string;
+}
+
+interface JsonIndex {
+  name: string;
+  value: string;
+  mode?: string;
+}
+
+interface JsonTrigger {
+  name: string;
+  timeevent: string;
+  condition?: string;
+  logic: string;
 }
 
 let sqliteConnection: SQLiteConnectionWrapper | null = null;
@@ -282,15 +320,26 @@ export class CapacitorAdapter implements DatabaseAdapter {
     // Note: deleteDatabase is on CapacitorSQLite, not SQLiteConnection
     try {
       await CapacitorSQLite.deleteDatabase({ database: name });
-    } catch {
-      // Ignore errors if database doesn't exist
+    } catch (error: unknown) {
+      // Only ignore "database not found" errors
+      const message = error instanceof Error ? error.message.toLowerCase() : '';
+      if (
+        !message.includes('not found') &&
+        !message.includes('does not exist')
+      ) {
+        throw error;
+      }
     }
 
     // Clear the stored encryption secret so a new one can be set
     try {
       await CapacitorSQLite.clearEncryptionSecret();
-    } catch {
-      // Ignore errors if not supported or no secret stored
+    } catch (error: unknown) {
+      // Only ignore "no secret stored" errors
+      const message = error instanceof Error ? error.message.toLowerCase() : '';
+      if (!message.includes('no secret') && !message.includes('not stored')) {
+        throw error;
+      }
     }
 
     // Reset the module-level connection to force fresh state
