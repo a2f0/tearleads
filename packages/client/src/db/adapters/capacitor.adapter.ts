@@ -302,8 +302,15 @@ export class CapacitorAdapter implements DatabaseAdapter {
     // Delete the database file
     try {
       await sqlite.deleteDatabase(name);
-    } catch {
-      // Ignore errors if database doesn't exist
+    } catch (error: unknown) {
+      // Only ignore "database not found" errors
+      const message = error instanceof Error ? error.message.toLowerCase() : '';
+      if (
+        !message.includes('not found') &&
+        !message.includes('does not exist')
+      ) {
+        throw error;
+      }
     }
 
     // Clear the stored encryption secret so a new one can be set
@@ -311,8 +318,12 @@ export class CapacitorAdapter implements DatabaseAdapter {
     try {
       const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
       await CapacitorSQLite.clearEncryptionSecret();
-    } catch {
-      // Ignore errors if not supported or no secret stored
+    } catch (error: unknown) {
+      // Only ignore "no secret stored" errors
+      const message = error instanceof Error ? error.message.toLowerCase() : '';
+      if (!message.includes('no secret') && !message.includes('not stored')) {
+        throw error;
+      }
     }
 
     // Reset the module-level connection to force fresh state
@@ -353,8 +364,15 @@ export class CapacitorAdapter implements DatabaseAdapter {
     // Delete the existing database
     try {
       await sqlite.deleteDatabase(this.dbName);
-    } catch {
-      // Ignore if doesn't exist
+    } catch (error: unknown) {
+      // Only ignore "database not found" errors
+      const message = error instanceof Error ? error.message.toLowerCase() : '';
+      if (
+        !message.includes('not found') &&
+        !message.includes('does not exist')
+      ) {
+        throw error;
+      }
     }
 
     // Import from JSON

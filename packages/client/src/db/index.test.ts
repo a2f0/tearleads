@@ -289,7 +289,8 @@ describe('Database API', () => {
       await importDatabase(new Uint8Array([1, 2, 3]));
 
       expect(mockAdapter.importDatabase).toHaveBeenCalledWith(
-        new Uint8Array([1, 2, 3])
+        new Uint8Array([1, 2, 3]),
+        undefined
       );
       // Should run migrations after import
       expect(mockAdapter.executeMany).toHaveBeenCalled();

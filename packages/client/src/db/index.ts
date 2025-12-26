@@ -283,7 +283,11 @@ export async function importDatabase(data: Uint8Array): Promise<void> {
     throw new Error('Import not supported on this platform');
   }
 
-  await adapterInstance.importDatabase(data);
+  // Get the current encryption key for adapters that need it (e.g., Electron)
+  const keyManager = getKeyManager();
+  const encryptionKey = keyManager.getCurrentKey();
+
+  await adapterInstance.importDatabase(data, encryptionKey ?? undefined);
 
   // Re-run migrations in case the backup is from an older version
   await runMigrations();
