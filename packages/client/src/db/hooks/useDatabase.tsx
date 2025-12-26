@@ -15,6 +15,8 @@ import type { Database } from '../index';
 import {
   changePassword,
   closeDatabase,
+  exportDatabase,
+  importDatabase,
   isDatabaseSetUp,
   resetDatabase,
   setupDatabase,
@@ -45,6 +47,10 @@ interface DatabaseContextValue {
   ) => Promise<boolean>;
   /** Reset the database (wipe everything) */
   reset: () => Promise<void>;
+  /** Export the database to a byte array */
+  exportDatabase: () => Promise<Uint8Array>;
+  /** Import a database from a byte array */
+  importDatabase: (data: Uint8Array) => Promise<void>;
 }
 
 const DatabaseContext = createContext<DatabaseContextValue | null>(null);
@@ -146,6 +152,32 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
     }
   }, []);
 
+  const handleExportDatabase = useCallback(async (): Promise<Uint8Array> => {
+    try {
+      return await exportDatabase();
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  }, []);
+
+  const handleImportDatabase = useCallback(
+    async (data: Uint8Array): Promise<void> => {
+      setIsLoading(true);
+      try {
+        await importDatabase(data);
+        // Clear db state - user will need to unlock again with same password
+        setDb(null);
+      } catch (err) {
+        setError(err as Error);
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
   const value = useMemo(
     (): DatabaseContextValue => ({
       db,
@@ -157,7 +189,9 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       unlock,
       lock,
       changePassword: handleChangePassword,
-      reset
+      reset,
+      exportDatabase: handleExportDatabase,
+      importDatabase: handleImportDatabase
     }),
     [
       db,
@@ -168,7 +202,9 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       unlock,
       lock,
       handleChangePassword,
-      reset
+      reset,
+      handleExportDatabase,
+      handleImportDatabase
     ]
   );
 

@@ -267,12 +267,9 @@ export class WebAdapter implements DatabaseAdapter {
 
   async exportDatabase(): Promise<Uint8Array> {
     const id = generateRequestId();
-    const result = (await this.sendRequest({
-      type: 'EXPORT',
-      id
-    })) as { data: number[] };
-
-    return new Uint8Array(result.data);
+    const result = await this.sendRequest({ type: 'EXPORT', id });
+    const data = (result as { data: number[] }).data;
+    return new Uint8Array(data);
   }
 
   async importDatabase(data: Uint8Array): Promise<void> {

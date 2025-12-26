@@ -90,6 +90,11 @@ jobs:
           restore-keys: |
             pods-${{ runner.os }}-
 
+      - name: Install CocoaPods
+        if: steps.check_build.outputs.skip != 'true'
+        run: bundle exec pod install
+        working-directory: packages/client/ios/App
+
       - name: Build for TestFlight
         if: steps.check_build.outputs.skip != 'true'
         run: bundle exec fastlane ios build_for_testflight

@@ -46,11 +46,11 @@ const sqlite = {
   deleteDatabase: (name: string): Promise<void> => {
     return ipcRenderer.invoke('sqlite:deleteDatabase', name);
   },
-  exportDatabase: (): Promise<number[]> => {
-    return ipcRenderer.invoke('sqlite:exportDatabase');
+  export: (name: string): Promise<number[]> => {
+    return ipcRenderer.invoke('sqlite:export', name);
   },
-  importDatabase: (data: number[], key: number[]): Promise<void> => {
-    return ipcRenderer.invoke('sqlite:importDatabase', data, key);
+  import: (name: string, data: number[], key: number[]): Promise<void> => {
+    return ipcRenderer.invoke('sqlite:import', name, data, key);
   },
 };
 
