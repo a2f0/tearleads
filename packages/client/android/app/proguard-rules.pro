@@ -28,6 +28,6 @@
 -dontwarn javax.annotation.Nullable
 -dontwarn javax.annotation.concurrent.GuardedBy
 
-# Kotlin Coroutines - keep internal classes used by Capacitor plugins
--keep class kotlin.coroutines.jvm.internal.** { *; }
--dontwarn kotlin.coroutines.jvm.internal.**
+# Kotlin Coroutines - keep SpillingKt class used by Capacitor Filesystem plugin
+-keep class kotlin.coroutines.jvm.internal.SpillingKt { *; }
+-dontwarn kotlin.coroutines.jvm.internal.SpillingKt
