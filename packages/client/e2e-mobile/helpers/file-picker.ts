@@ -50,13 +50,19 @@ export async function handleAndroidFilePicker(
   fileName?: string
 ): Promise<void> {
   await switchToNativeContext();
-  await browser.pause(1000); // Wait for picker to appear
 
   if (action === 'cancel') {
+    // Wait for any picker element to be present before dismissing
+    await browser.waitUntil(
+      async () => {
+        const contexts = await browser.getContexts();
+        return contexts.includes('NATIVE_APP');
+      },
+      { timeout: 5000, interval: 200 }
+    );
     // Android back button to cancel
     await browser.back();
-    // Give time for dialog to dismiss and app to reactivate
-    await browser.pause(1000);
+    // switchToWebViewContext has built-in retry logic for context availability
     await switchToWebViewContext();
     return;
   }
@@ -70,14 +76,18 @@ export async function handleAndroidFilePicker(
       );
       if (await hamburgerMenu.isExisting()) {
         await hamburgerMenu.click();
-        await browser.pause(500);
+        // Wait for navigation drawer to appear
+        const downloads = await $('//*[@text="Downloads" or @text="Download"]');
+        await downloads.waitForExist({ timeout: 3000 });
       }
 
       // Click on Downloads
       const downloads = await $('//*[@text="Downloads" or @text="Download"]');
       if (await downloads.isExisting()) {
         await downloads.click();
-        await browser.pause(500);
+        // Wait for file list to load
+        const fileItem = await $(`//*[contains(@text, "${fileName}")]`);
+        await fileItem.waitForExist({ timeout: 5000 });
       }
     } catch {
       // Already in the right location or different picker UI
@@ -89,8 +99,7 @@ export async function handleAndroidFilePicker(
     await fileItem.click();
   }
 
-  // Give time for file picker to dismiss and app to reactivate
-  await browser.pause(1000);
+  // switchToWebViewContext has built-in retry logic for context availability
   await switchToWebViewContext();
 }
 
@@ -102,15 +111,14 @@ export async function handleiOSFilePicker(
   fileName?: string
 ): Promise<void> {
   await switchToNativeContext();
-  await browser.pause(1000); // Wait for picker to appear
+
+  // Wait for picker to appear by checking for Cancel button
+  const cancelButton = await $('//XCUIElementTypeButton[@name="Cancel"]');
+  await cancelButton.waitForExist({ timeout: 5000 });
 
   if (action === 'cancel') {
-    const cancelButton = await $('//XCUIElementTypeButton[@name="Cancel"]');
-    if (await cancelButton.isExisting()) {
-      await cancelButton.click();
-    }
-    // Give time for dialog to dismiss and app to reactivate
-    await browser.pause(1000);
+    await cancelButton.click();
+    // switchToWebViewContext has built-in retry logic for context availability
     await switchToWebViewContext();
     return;
   }
@@ -121,7 +129,11 @@ export async function handleiOSFilePicker(
       const browse = await $('//XCUIElementTypeButton[@name="Browse"]');
       if (await browse.isExisting()) {
         await browse.click();
-        await browser.pause(500);
+        // Wait for browse view to appear
+        const onMyDevice = await $(
+          '//XCUIElementTypeCell[contains(@name, "On My")]'
+        );
+        await onMyDevice.waitForExist({ timeout: 3000 });
       }
     } catch {
       // Already in browse mode
@@ -134,7 +146,11 @@ export async function handleiOSFilePicker(
       );
       if (await onMyDevice.isExisting()) {
         await onMyDevice.click();
-        await browser.pause(500);
+        // Wait for file list to load
+        const fileCell = await $(
+          `//XCUIElementTypeCell[contains(@name, "${fileName}")]`
+        );
+        await fileCell.waitForExist({ timeout: 5000 });
       }
     } catch {
       // Already in the right location
@@ -148,8 +164,7 @@ export async function handleiOSFilePicker(
     await fileCell.click();
   }
 
-  // Give time for file picker to dismiss and app to reactivate
-  await browser.pause(1000);
+  // switchToWebViewContext has built-in retry logic for context availability
   await switchToWebViewContext();
 }
 
@@ -176,13 +191,22 @@ export async function handleAndroidShareSheet(
   action: 'save' | 'cancel'
 ): Promise<void> {
   await switchToNativeContext();
-  await browser.pause(1500); // Share sheet takes a moment to appear
+
+  // Wait for share sheet to appear by looking for any share option
+  await browser.waitUntil(
+    async () => {
+      const shareOption = await $(
+        '//*[contains(@text, "Files") or contains(@text, "Save") or contains(@text, "Share")]'
+      );
+      return shareOption.isExisting();
+    },
+    { timeout: 5000, interval: 300 }
+  );
 
   if (action === 'cancel') {
     // Tap outside or press back
     await browser.back();
-    // Give time for share sheet to dismiss and app to reactivate
-    await browser.pause(1000);
+    // switchToWebViewContext has built-in retry logic for context availability
     await switchToWebViewContext();
     return;
   }
@@ -195,12 +219,14 @@ export async function handleAndroidShareSheet(
       );
       if (await saveOption.isExisting()) {
         await saveOption.click();
-        await browser.pause(500);
 
-        // Confirm save location if prompted
+        // Wait for and confirm save location if prompted
         const saveButton = await $('//*[@text="Save" or @text="SAVE"]');
-        if (await saveButton.isExisting()) {
+        try {
+          await saveButton.waitForExist({ timeout: 3000 });
           await saveButton.click();
+        } catch {
+          // No save confirmation needed
         }
       }
     } catch {
@@ -209,8 +235,7 @@ export async function handleAndroidShareSheet(
     }
   }
 
-  // Give time for share sheet to dismiss and app to reactivate
-  await browser.pause(1000);
+  // switchToWebViewContext has built-in retry logic for context availability
   await switchToWebViewContext();
 }
 
@@ -221,17 +246,16 @@ export async function handleiOSShareSheet(
   action: 'save' | 'cancel'
 ): Promise<void> {
   await switchToNativeContext();
-  await browser.pause(1500); // Share sheet takes a moment to appear
+
+  // Wait for share sheet to appear by checking for Close button
+  const closeButton = await $(
+    '//XCUIElementTypeButton[@name="Close" or @name="Cancel"]'
+  );
+  await closeButton.waitForExist({ timeout: 5000 });
 
   if (action === 'cancel') {
-    const closeButton = await $(
-      '//XCUIElementTypeButton[@name="Close" or @name="Cancel"]'
-    );
-    if (await closeButton.isExisting()) {
-      await closeButton.click();
-    }
-    // Give time for share sheet to dismiss and app to reactivate
-    await browser.pause(1000);
+    await closeButton.click();
+    // switchToWebViewContext has built-in retry logic for context availability
     await switchToWebViewContext();
     return;
   }
@@ -244,27 +268,25 @@ export async function handleiOSShareSheet(
       );
       if (await saveToFiles.isExisting()) {
         await saveToFiles.click();
-        await browser.pause(500);
 
-        // Tap Save button
+        // Wait for and tap Save button
         const saveButton = await $('//XCUIElementTypeButton[@name="Save"]');
-        if (await saveButton.isExisting()) {
+        try {
+          await saveButton.waitForExist({ timeout: 3000 });
           await saveButton.click();
+        } catch {
+          // No save confirmation needed
         }
       }
     } catch {
       // Try to dismiss the share sheet
-      const closeButton = await $(
-        '//XCUIElementTypeButton[@name="Close" or @name="Cancel"]'
-      );
       if (await closeButton.isExisting()) {
         await closeButton.click();
       }
     }
   }
 
-  // Give time for share sheet to dismiss and app to reactivate
-  await browser.pause(1000);
+  // switchToWebViewContext has built-in retry logic for context availability
   await switchToWebViewContext();
 }
 
