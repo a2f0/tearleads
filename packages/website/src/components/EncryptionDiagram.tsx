@@ -1,6 +1,9 @@
 import mermaid from 'mermaid';
 import { useEffect, useId, useState } from 'react';
 
+const DIAGRAM_ARIA_LABEL =
+  'A flowchart diagram illustrating the database encryption architecture, showing password and salt input through PBKDF2 key derivation, platform-specific encryption methods, and secure storage.';
+
 const ENCRYPTION_DIAGRAM = `
 flowchart TB
     subgraph UserAuth["User Authentication"]
@@ -71,33 +74,6 @@ export function EncryptionDiagram() {
 
     const renderDiagram = async () => {
       try {
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: 'base',
-          themeVariables: {
-            primaryColor: '#e2e8f0',
-            primaryTextColor: '#1e293b',
-            primaryBorderColor: '#64748b',
-            lineColor: '#64748b',
-            secondaryColor: '#cbd5e1',
-            tertiaryColor: '#f1f5f9',
-            background: '#ffffff',
-            mainBkg: '#f8fafc',
-            nodeBorder: '#64748b',
-            clusterBkg: '#f8fafc',
-            clusterBorder: '#94a3b8',
-            titleColor: '#0f172a',
-            edgeLabelBackground: '#ffffff'
-          },
-          flowchart: {
-            curve: 'basis',
-            padding: 20,
-            nodeSpacing: 50,
-            rankSpacing: 80,
-            htmlLabels: true
-          }
-        });
-
         const { svg } = await mermaid.render(diagramId, ENCRYPTION_DIAGRAM);
         if (!cancelled) {
           setSvgContent(svg);
@@ -137,7 +113,9 @@ export function EncryptionDiagram() {
   return (
     <div className="overflow-x-auto">
       <div
-        className="min-w-200"
+        role="img"
+        aria-label={DIAGRAM_ARIA_LABEL}
+        className="min-w-[800px]"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: SVG from trusted Mermaid library
         dangerouslySetInnerHTML={{ __html: svgContent }}
       />
