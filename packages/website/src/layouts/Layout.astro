@@ -44,11 +44,11 @@ const currentYear = new Date().getFullYear();
           <ThemeSwitcherIsland client:load />
         </div>
       </header>
-      <main class="flex-1 pb-20">
+      <main class="flex-1">
         <slot />
       </main>
       <footer
-        class="fixed right-0 bottom-0 left-0 border-t bg-background py-6 text-muted-foreground text-sm"
+        class="border-t bg-background py-6 text-muted-foreground text-sm"
         style="padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));"
       >
         <div class="container mx-auto flex items-center px-4">
