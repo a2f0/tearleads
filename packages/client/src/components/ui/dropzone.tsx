@@ -124,10 +124,10 @@ export function Dropzone({
         )}
       />
       <div className="text-center">
-        <p className="text-sm font-medium">
+        <p className="font-medium text-sm">
           {isDragging ? 'Drop files here' : 'Drag and drop files here'}
         </p>
-        <p className="text-xs text-muted-foreground">or click to browse</p>
+        <p className="text-muted-foreground text-xs">or click to browse</p>
       </div>
       {fileInput}
     </label>

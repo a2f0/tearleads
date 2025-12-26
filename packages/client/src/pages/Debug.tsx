@@ -17,11 +17,11 @@ function InfoRow({
   valueClassName?: string;
 }) {
   return (
-    <div className="text-sm flex gap-1">
-      <span className="font-medium shrink-0">{label}: </span>
+    <div className="flex gap-1 text-sm">
+      <span className="shrink-0 font-medium">{label}: </span>
       <span
         className={cn(
-          'text-muted-foreground min-w-0 break-words',
+          'wrap-break-word min-w-0 text-muted-foreground',
           valueClassName
         )}
       >
@@ -79,9 +79,9 @@ export function Debug() {
 
   return (
     <div className="space-y-6 overflow-x-hidden">
-      <h1 className="text-2xl font-bold tracking-tight">Debug</h1>
+      <h1 className="font-bold text-2xl tracking-tight">Debug</h1>
 
-      <div className="rounded-lg border p-4 space-y-3">
+      <div className="space-y-3 rounded-lg border p-4">
         <h2 className="font-medium">Environment Info</h2>
         <InfoRow label="Environment" value={import.meta.env.MODE} />
         <InfoRow
@@ -95,7 +95,7 @@ export function Debug() {
         />
       </div>
 
-      <div className="rounded-lg border p-4 space-y-3">
+      <div className="space-y-3 rounded-lg border p-4">
         <h2 className="font-medium">Device Info</h2>
         <InfoRow label="Platform" value={detectPlatform()} />
         <InfoRow label="Pixel Ratio" value={`${window.devicePixelRatio}x`} />
@@ -115,18 +115,18 @@ export function Debug() {
         />
       </div>
 
-      <div className="rounded-lg border p-4 space-y-3">
+      <div className="space-y-3 rounded-lg border p-4">
         <h2 className="font-medium">API Status</h2>
         <div className="flex justify-between gap-2 text-sm">
-          <span className="text-muted-foreground shrink-0">API URL</span>
-          <span className="text-xs break-all min-w-0 text-right">
+          <span className="shrink-0 text-muted-foreground">API URL</span>
+          <span className="min-w-0 break-all text-right text-xs">
             {API_BASE_URL || '(not set)'}
           </span>
         </div>
         {pingLoading && (
-          <p className="text-sm text-muted-foreground">Loading...</p>
+          <p className="text-muted-foreground text-sm">Loading...</p>
         )}
-        {pingError && <p className="text-sm text-destructive">{pingError}</p>}
+        {pingError && <p className="text-destructive text-sm">{pingError}</p>}
         {!pingLoading && !pingError && ping && (
           <div className="space-y-1 text-sm">
             <div className="flex justify-between">
@@ -138,7 +138,7 @@ export function Debug() {
         <Button
           variant="outline"
           size="sm"
-          className="w-full mt-2"
+          className="mt-2 w-full"
           onClick={fetchPing}
           disabled={pingLoading}
         >
@@ -147,7 +147,7 @@ export function Debug() {
         </Button>
       </div>
 
-      <div className="rounded-lg border p-4 space-y-3">
+      <div className="space-y-3 rounded-lg border p-4">
         <h2 className="font-medium">Actions</h2>
         <Button
           variant="destructive"

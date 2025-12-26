@@ -12,6 +12,15 @@
       },
       "suspicious": {
         "noUnknownAtRules": "off"
+      },
+      "nursery": {
+        "useSortedClasses": {
+          "level": "error",
+          "options": {
+            "attributes": ["className"],
+            "functions": ["cn", "clsx", "cva"]
+          }
+        }
       }
     }
   },
