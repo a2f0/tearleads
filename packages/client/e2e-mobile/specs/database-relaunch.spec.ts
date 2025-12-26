@@ -13,9 +13,7 @@ import { goToDebug } from '../page-objects/navigation.js';
 
 const TEST_PASSWORD = 'relaunchtest123';
 
-// TODO: App restart with Appium requires session termination/recreation
-// which needs more work to handle properly
-describe.skip('Database Relaunch Persistence', () => {
+describe('Database Relaunch Persistence', () => {
   before(async () => {
     await launchAppWithClearState();
     await waitForWebView();
