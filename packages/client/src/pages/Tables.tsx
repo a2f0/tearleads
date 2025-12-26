@@ -73,7 +73,7 @@ export function Tables() {
   return (
     <div className="space-y-6" data-testid="tables-page">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Tables</h1>
+        <h1 className="font-bold text-2xl tracking-tight">Tables</h1>
         {isUnlocked && (
           <Button
             variant="outline"
@@ -134,13 +134,13 @@ export function Tables() {
                 <Table2 className="h-5 w-5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
                   <p
-                    className="truncate text-sm font-medium font-mono"
+                    className="truncate font-medium font-mono text-sm"
                     data-testid={`table-name-${table.name}`}
                   >
                     {table.name}
                   </p>
                   <p
-                    className="text-xs text-muted-foreground"
+                    className="text-muted-foreground text-xs"
                     data-testid={`table-count-${table.name}`}
                   >
                     {table.rowCount} {table.rowCount === 1 ? 'row' : 'rows'}
