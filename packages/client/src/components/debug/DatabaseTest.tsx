@@ -245,7 +245,7 @@ export function DatabaseTest() {
 
   return (
     <div
-      className="rounded-lg border p-4 space-y-3 overflow-x-hidden"
+      className="space-y-3 overflow-x-hidden rounded-lg border p-4"
       data-testid="database-test"
     >
       <h2 className="font-medium">Database Test</h2>
@@ -265,10 +265,10 @@ export function DatabaseTest() {
         </div>
         {testData && (
           <div className="flex justify-between gap-2">
-            <span className="text-muted-foreground shrink-0">Test Data</span>
+            <span className="shrink-0 text-muted-foreground">Test Data</span>
             <span
               data-testid="db-test-data"
-              className="text-xs truncate min-w-0"
+              className="min-w-0 truncate text-xs"
             >
               {testData}
             </span>
@@ -284,12 +284,12 @@ export function DatabaseTest() {
             value={password}
             onChange={handlePasswordChange}
             data-testid="db-password-input"
-            className="w-full px-3 py-2 pr-10 text-sm border rounded-md bg-background"
+            className="w-full rounded-md border bg-background px-3 py-2 pr-10 text-sm"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
             {showPassword ? (
@@ -374,7 +374,7 @@ export function DatabaseTest() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 data-testid="db-new-password-input"
-                className="col-span-2 px-3 py-2 text-sm border rounded-md bg-background"
+                className="col-span-2 rounded-md border bg-background px-3 py-2 text-sm"
               />
               <Button
                 variant="default"
@@ -403,7 +403,7 @@ export function DatabaseTest() {
 
       {testResult.message && (
         <div
-          className={`text-sm flex items-start gap-2 ${getStatusColor(testResult.status)}`}
+          className={`flex items-start gap-2 text-sm ${getStatusColor(testResult.status)}`}
           data-testid="db-test-result"
           data-status={testResult.status}
         >
@@ -416,7 +416,7 @@ export function DatabaseTest() {
                   setCopied(true);
                 }
               }}
-              className="flex-shrink-0 p-1 hover:bg-muted rounded"
+              className="flex-shrink-0 rounded p-1 hover:bg-muted"
               aria-label="Copy error to clipboard"
             >
               {copied ? (

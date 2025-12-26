@@ -18,7 +18,7 @@ export function Footer({
       data-slot="footer"
       ref={ref}
       className={cn(
-        'fixed bottom-0 left-0 right-0 border-t bg-background py-6 text-sm text-muted-foreground',
+        'fixed right-0 bottom-0 left-0 border-t bg-background py-6 text-muted-foreground text-sm',
         className
       )}
       style={{
@@ -26,9 +26,9 @@ export function Footer({
       }}
       {...props}
     >
-      <div className="container mx-auto px-4 flex items-center">
+      <div className="container mx-auto flex items-center px-4">
         {version && (
-          <span className="text-xs text-muted-foreground/70">{version}</span>
+          <span className="text-muted-foreground/70 text-xs">{version}</span>
         )}
         <div className="flex-1 text-center">
           {children ?? (
@@ -38,7 +38,7 @@ export function Footer({
             </p>
           )}
         </div>
-        {version && <span className="text-xs invisible">{version}</span>}
+        {version && <span className="invisible text-xs">{version}</span>}
       </div>
     </footer>
   );

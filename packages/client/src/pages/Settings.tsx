@@ -93,12 +93,12 @@ export function Settings() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+      <h1 className="font-bold text-2xl tracking-tight">Settings</h1>
 
       <div className="flex items-center justify-between rounded-lg border p-4">
         <div>
           <p className="font-medium">Dark Mode</p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Toggle dark mode on or off
           </p>
         </div>
@@ -127,13 +127,13 @@ export function Settings() {
       <div className="space-y-4 rounded-lg border p-4">
         <div>
           <p className="font-medium">Backup & Restore</p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             Export your encrypted database or restore from a backup
           </p>
         </div>
 
         {error && (
-          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-md bg-destructive/10 p-3 text-destructive text-sm">
             {error}
           </div>
         )}
@@ -153,7 +153,7 @@ export function Settings() {
         {/* Restore Dropzone */}
         {!showRestoreConfirm && (
           <div className="space-y-2">
-            <p className="text-sm font-medium">Restore from Backup</p>
+            <p className="font-medium text-sm">Restore from Backup</p>
             <Dropzone
               onFilesSelected={handleFilesSelected}
               accept=".db"
@@ -172,7 +172,7 @@ export function Settings() {
                 <p className="font-medium text-destructive">
                   Warning: This will replace your current data
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                   Restoring from &quot;{pendingRestoreFile?.name}&quot; will
                   overwrite all existing data. This action cannot be undone.
                 </p>
@@ -201,7 +201,7 @@ export function Settings() {
 
       <div className="text-center">
         <p
-          className="text-xs text-muted-foreground/70"
+          className="text-muted-foreground/70 text-xs"
           data-testid="app-version"
         >
           v{version ?? 'unknown'}
