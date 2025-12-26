@@ -27,3 +27,7 @@
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn javax.annotation.Nullable
 -dontwarn javax.annotation.concurrent.GuardedBy
+
+# Kotlin Coroutines - keep SpillingKt class used by Capacitor Filesystem plugin
+-keep class kotlin.coroutines.jvm.internal.SpillingKt { *; }
+-dontwarn kotlin.coroutines.jvm.internal.SpillingKt
