@@ -55,7 +55,7 @@ flowchart TB
 
     subgraph KeyDerivation["Key Derivation"]
         PBKDF2["PBKDF2-SHA256<br/>600,000 iterations"]
-        KEY["256-bit Key"]
+        KEY["256-bit AES Key"]
     end
 
     subgraph Verification["Password Verification"]
@@ -180,12 +180,12 @@ PBKDF2-SHA256 with 600,000 iterations transforms your password into a cryptograp
 
 Each platform uses native encryption:
 
-| Platform | Encryption Library              | Secure Storage              |
-| -------- | ------------------------------- | --------------------------- |
-| Web      | SQLite3MultipleCiphers (WASM)   | IndexedDB                   |
-| Electron | ChaCha20-Poly1305               | File System                 |
-| iOS      | SQLCipher                       | Keychain (Secure Enclave)   |
-| Android  | SQLCipher                       | EncryptedSharedPreferences  |
+| Platform | Encryption Library              | Secure Storage                                |
+| -------- | ------------------------------- | --------------------------------------------- |
+| Web      | SQLite3MultipleCiphers (WASM)   | IndexedDB                                     |
+| Electron | ChaCha20-Poly1305               | File System (Encrypted)                       |
+| iOS      | SQLCipher                       | Keychain (Secure Enclave)                     |
+| Android  | SQLCipher                       | EncryptedSharedPreferences (Android Keystore) |
 
 ### Memory Safety
 
