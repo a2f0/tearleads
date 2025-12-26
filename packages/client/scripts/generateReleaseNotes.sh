@@ -8,6 +8,7 @@ set -e
 # Requires ANTHROPIC_API_KEY environment variable
 
 PLATFORM="$1"
+ANTHROPIC_MODEL="claude-3-5-haiku-20241022"
 
 if [ -z "$PLATFORM" ]; then
     echo "Usage: generateReleaseNotes.sh <platform>" >&2
@@ -51,13 +52,14 @@ PREVIOUS_BUMP=$(echo "$BUMP_COMMITS" | tail -1)
 
 # Build JSON payload and pipe directly to curl to avoid argument length limits
 # Using -d @- reads the JSON from stdin
-RESPONSE=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" -p --no-merges 2>/dev/null | jq -Rs --arg model "claude-sonnet-4-20250514" '
+# Note: We use commit messages only (no diffs) and Haiku model to stay within API rate limits
+RESPONSE=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" --no-merges --format="- %s%n%b" 2>/dev/null | jq -Rs --arg model "$ANTHROPIC_MODEL" '
 {
     model: $model,
     max_tokens: 256,
     messages: [{
         role: "user",
-        content: ("Generate brief, user-friendly release notes for a mobile app based on these git commits and diffs. Focus on what users will notice, not technical details. Use simple language. Keep it to 2-4 bullet points max. No markdown formatting, just plain text with bullet points using • character. Do not include a header or version number.\n\nCommits and diffs:\n" + .)
+        content: ("Generate brief, user-friendly release notes for a mobile app based on these git commit messages. Focus on what users will notice, not technical details. Use simple language. Keep it to 2-4 bullet points max. No markdown formatting, just plain text with bullet points using • character. Do not include a header or version number.\n\nCommit messages:\n" + .)
     }]
 }' | curl -s https://api.anthropic.com/v1/messages \
     -H "Content-Type: application/json" \
