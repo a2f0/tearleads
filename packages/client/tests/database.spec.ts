@@ -433,7 +433,7 @@ test.describe('Session Persistence (Web)', () => {
     expect(readValue).toBe(writtenValue);
   });
 
-  test('should restore session on page reload', async ({ page }) => {
+  test('should auto-restore session on page reload', async ({ page }) => {
     // Setup database first
     await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
     await page.getByTestId('db-setup-button').click();
@@ -453,38 +453,21 @@ test.describe('Session Persistence (Web)', () => {
     await waitForSuccess(page);
     await expect(page.getByTestId('db-session-status')).toHaveText('Yes');
 
-    // Lock the database (keeping session)
-    await page.getByTestId('db-lock-button').click();
-    await expect(page.getByTestId('db-status')).toHaveText('Locked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
-
-    // Reload the page
+    // Reload the page (no need to lock first - session should persist)
     await page.reload();
     await expect(page.getByTestId('database-test')).toBeVisible({
       timeout: DB_OPERATION_TIMEOUT
     });
 
-    // Verify session status still shows "Yes" (may take a moment to check IndexedDB)
-    await expect(page.getByTestId('db-session-status')).toHaveText('Yes', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
-
-    // Verify "Restore Session" button is visible
-    const restoreButton = page.getByTestId('db-restore-session-button');
-    await expect(restoreButton).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
-
-    // Click restore session (this re-initializes WASM worker, may take longer)
-    await restoreButton.click();
-    await waitForSuccess(page);
-
-    // Verify database is unlocked without needing password
+    // Database should be automatically unlocked after reload
     await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
       timeout: DB_OPERATION_TIMEOUT
     });
-    await expect(page.getByTestId('db-test-result')).toContainText(
-      'Session restored'
-    );
+
+    // Session should still be persisted
+    await expect(page.getByTestId('db-session-status')).toHaveText('Yes', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
 
     // Verify we can write new data (proves the database is functional)
     const writeButton = page.getByTestId('db-write-button');
