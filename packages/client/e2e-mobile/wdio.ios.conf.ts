@@ -18,7 +18,7 @@ export const config: Options.Testrunner = {
       'appium:deviceName': 'iPhone 16',
       'appium:platformVersion': '18.2',
       'appium:automationName': 'XCUITest',
-      'appium:app': '../ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app',
+      'appium:app': './ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app',
       'appium:bundleId': 'com.tearleads.rapid',
       'appium:noReset': false,
       'appium:fullReset': false,
