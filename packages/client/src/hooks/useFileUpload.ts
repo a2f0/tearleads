@@ -17,6 +17,10 @@ export interface UploadResult {
   isDuplicate: boolean;
 }
 
+interface FileRow {
+  id: string;
+}
+
 export function useFileUpload() {
   const uploadFile = useCallback(
     async (
@@ -50,9 +54,9 @@ export function useFileUpload() {
       );
 
       if (existing.rows.length > 0) {
-        const existingRow = existing.rows[0] as Record<string, unknown>;
+        const existingRow = existing.rows[0] as unknown as FileRow;
         onProgress?.(100);
-        return { id: existingRow['id'] as string, isDuplicate: true };
+        return { id: existingRow.id, isDuplicate: true };
       }
 
       // Store encrypted file

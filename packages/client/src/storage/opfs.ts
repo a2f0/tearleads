@@ -47,7 +47,7 @@ class OPFSStorage implements FileStorage {
       create: true
     });
     const writable = await fileHandle.createWritable();
-    // Copy to plain ArrayBuffer for OPFS compatibility
+    // Copy to plain ArrayBuffer for TypeScript compatibility
     const buffer = new ArrayBuffer(encrypted.byteLength);
     new Uint8Array(buffer).set(encrypted);
     await writable.write(buffer);
