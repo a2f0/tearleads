@@ -49,24 +49,87 @@ export async function setupDatabase(password: string): Promise<Database> {
   return initializeDatabaseWithKey(encryptionKey);
 }
 
+export interface UnlockResult {
+  db: Database;
+  sessionPersisted: boolean;
+}
+
 /**
  * Unlock an existing database with a password.
+ * @param persistSession If true, persist the key for session restoration on reload (web only)
+ * @returns Object with db instance and whether session was persisted, or null if wrong password
  */
 export async function unlockDatabase(
-  password: string
-): Promise<Database | null> {
+  password: string,
+  persistSession = false
+): Promise<UnlockResult | null> {
+  const keyManager = getKeyManager();
+
   if (databaseInstance) {
-    return databaseInstance;
+    return {
+      db: databaseInstance,
+      sessionPersisted: await keyManager.hasPersistedSession()
+    };
   }
 
-  const keyManager = getKeyManager();
   const encryptionKey = await keyManager.unlockWithPassword(password);
 
   if (!encryptionKey) {
     return null; // Wrong password
   }
 
-  return initializeDatabaseWithKey(encryptionKey);
+  const db = await initializeDatabaseWithKey(encryptionKey);
+
+  // Persist session if requested (web only)
+  let sessionPersisted = false;
+  if (persistSession) {
+    sessionPersisted = await keyManager.persistSession();
+  }
+
+  return { db, sessionPersisted };
+}
+
+/**
+ * Check if there's a persisted session available (web only).
+ */
+export async function hasPersistedSession(): Promise<boolean> {
+  const keyManager = getKeyManager();
+  return keyManager.hasPersistedSession();
+}
+
+/**
+ * Restore the database from a persisted session (web only).
+ * Returns the database if successful, null if no persisted session or restoration failed.
+ */
+export async function restoreDatabaseSession(): Promise<Database | null> {
+  if (databaseInstance) {
+    return databaseInstance;
+  }
+
+  const keyManager = getKeyManager();
+  const encryptionKey = await keyManager.restoreSession();
+
+  if (!encryptionKey) {
+    return null;
+  }
+
+  try {
+    return await initializeDatabaseWithKey(encryptionKey);
+  } catch (err) {
+    console.error('Failed to restore database session:', err);
+    // Clear the invalid session
+    await keyManager.clearPersistedSession();
+    keyManager.clearKey();
+    return null;
+  }
+}
+
+/**
+ * Clear any persisted session data (web only).
+ */
+export async function clearPersistedSession(): Promise<void> {
+  const keyManager = getKeyManager();
+  await keyManager.clearPersistedSession();
 }
 
 /**
@@ -261,6 +324,8 @@ export async function resetDatabase(): Promise<void> {
   adapterInstance = null;
 
   const keyManager = getKeyManager();
+  // Clear any persisted session before full reset
+  await keyManager.clearPersistedSession();
   await keyManager.reset();
 }
 
