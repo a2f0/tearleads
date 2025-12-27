@@ -96,8 +96,7 @@ export function Files() {
       const storage = getFileStorage();
       const data = await storage.retrieve(file.storagePath);
 
-      // Create blob and open in new tab
-      // Copy to plain ArrayBuffer for Blob compatibility
+      // Create blob and open in new tab (copy for TypeScript compatibility)
       const buffer = new ArrayBuffer(data.byteLength);
       new Uint8Array(buffer).set(data);
       const blob = new Blob([buffer], { type: file.mimeType });
