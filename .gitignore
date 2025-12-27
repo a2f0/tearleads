@@ -37,6 +37,7 @@ npm-debug.log*
 *.tmp
 .cache/
 .tmp-sqlite-wasm/
+.astro/
 
 # Downloaded SQLite WASM (use scripts/downloadSqliteWasm.sh to download)
 packages/client/src/workers/sqlite-wasm/
