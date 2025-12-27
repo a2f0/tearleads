@@ -9,8 +9,16 @@ server {
     root /var/www/{{ item }};
     index index.html;
 
+    # Static assets - fingerprinted, cache aggressively
+    location /_astro/ {
+        try_files $uri =404;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # SPA fallback for client-side routing
     location / {
-        try_files $uri /index.html;
+        try_files $uri $uri/ /index.html;
     }
 
     # Serve .mjs files with correct MIME type for ES modules
