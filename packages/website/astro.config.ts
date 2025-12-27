@@ -18,6 +18,10 @@ export default defineConfig({
     port: 3001,
   },
   markdown: {
+    syntaxHighlight: {
+      type: 'shiki',
+      excludeLangs: ['mermaid'],
+    },
     rehypePlugins: [[rehypeMermaid, { class: 'not-prose' }]],
   },
 });
