@@ -1,6 +1,11 @@
 import { config as baseConfig } from './wdio.conf.js';
 import type { Options } from '@wdio/types';
 import { startAppiumServer } from './utils/appium-server.js';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const clientDir = join(__dirname, '..');
 
 export const config: Options.Testrunner = {
   ...baseConfig,
@@ -18,7 +23,7 @@ export const config: Options.Testrunner = {
       'appium:deviceName': 'iPhone 16',
       'appium:platformVersion': '18.2',
       'appium:automationName': 'XCUITest',
-      'appium:app': './ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app',
+      'appium:app': join(clientDir, 'ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app'),
       'appium:bundleId': 'com.tearleads.rapid',
       'appium:noReset': false,
       'appium:fullReset': false,

@@ -1,6 +1,11 @@
 import { config as baseConfig } from './wdio.conf.js';
 import type { Options } from '@wdio/types';
 import { startAppiumServer } from './utils/appium-server.js';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const clientDir = join(__dirname, '..');
 
 // Note: We don't use the appium service - we manage Appium startup ourselves
 // to ensure APPIUM_HOME is properly set for driver discovery
@@ -21,7 +26,7 @@ export const config: Options.Testrunner = {
       'appium:deviceName': 'Android Emulator',
       // platformVersion omitted to auto-detect running emulator
       'appium:automationName': 'UiAutomator2',
-      'appium:app': './android/app/build/outputs/apk/debug/app-debug.apk',
+      'appium:app': join(clientDir, 'android/app/build/outputs/apk/debug/app-debug.apk'),
       'appium:appPackage': 'com.tearleads.rapid',
       'appium:appActivity': 'com.tearleads.rapid.MainActivity',
       'appium:noReset': false,
