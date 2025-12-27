@@ -120,10 +120,10 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       setError(null);
 
       try {
-        const database = await unlockDatabase(password, persistSession);
-        if (database) {
-          setDb(database);
-          if (persistSession) {
+        const result = await unlockDatabase(password, persistSession);
+        if (result) {
+          setDb(result.db);
+          if (result.sessionPersisted) {
             setHasPersisted(true);
           }
           return true;
