@@ -5,6 +5,20 @@
 import { Capacitor } from '@capacitor/core';
 
 /**
+ * Compute SHA-256 hash of file data.
+ * Used for deduplication and integrity verification.
+ */
+export async function computeContentHash(data: Uint8Array): Promise<string> {
+  // Copy to plain ArrayBuffer for TypeScript compatibility with Web Crypto types
+  const buffer = new ArrayBuffer(data.byteLength);
+  new Uint8Array(buffer).set(data);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/**
  * Generate a backup filename with timestamp.
  * Format: rapid-backup-YYYY-MM-DD-HHmmss.db
  */
