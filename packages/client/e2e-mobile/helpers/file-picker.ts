@@ -105,6 +105,7 @@ export async function handleAndroidFilePicker(
 
 /**
  * Handle iOS file picker dialog (UIDocumentPickerViewController)
+ * iOS 18 uses a different UI - the file picker now shows as a sheet with navigation
  */
 export async function handleiOSFilePicker(
   action: 'select' | 'cancel',
@@ -112,9 +113,94 @@ export async function handleiOSFilePicker(
 ): Promise<void> {
   await switchToNativeContext();
 
-  // Wait for picker to appear by checking for Cancel button
-  const cancelButton = await $('//XCUIElementTypeButton[@name="Cancel"]');
-  await cancelButton.waitForExist({ timeout: 5000 });
+  // Wait for picker animation to complete
+  await browser.pause(1500);
+
+  // iOS 18 file picker strategies - try multiple approaches
+  const cancelSelectors = [
+    // Standard Cancel button
+    '-ios predicate string:type == "XCUIElementTypeButton" AND name == "Cancel"',
+    // Done button (used in some picker states)
+    '-ios predicate string:type == "XCUIElementTypeButton" AND name == "Done"',
+    // Close button (iOS 18 style)
+    '-ios predicate string:type == "XCUIElementTypeButton" AND name == "Close"',
+    // Try by label
+    '-ios predicate string:type == "XCUIElementTypeButton" AND label == "Cancel"',
+    '-ios predicate string:type == "XCUIElementTypeButton" AND label == "Done"',
+    // iOS 18: Navigation bar button by position
+    '-ios class chain:**/XCUIElementTypeNavigationBar/**/XCUIElementTypeButton[1]',
+    // Any button in the navigation bar
+    '//XCUIElementTypeNavigationBar//XCUIElementTypeButton',
+  ];
+
+  let cancelButton;
+  for (const selector of cancelSelectors) {
+    try {
+      cancelButton = await $(selector);
+      const exists = await cancelButton.isExisting();
+      if (exists) {
+        console.log(`Found file picker button with selector: ${selector}`);
+        break;
+      }
+    } catch {
+      // Try next selector
+    }
+  }
+
+  if (!cancelButton || !(await cancelButton.isExisting())) {
+    // Debug: Take screenshot to see what's on screen
+    const debugDir = path.join(process.cwd(), 'e2e-mobile', 'debug-output');
+    fs.mkdirSync(debugDir, { recursive: true });
+    try {
+      const screenshot = await browser.takeScreenshot();
+      const screenshotFile = path.join(debugDir, `file-picker-${Date.now()}.png`);
+      fs.writeFileSync(screenshotFile, screenshot, 'base64');
+      console.log(`File picker screenshot saved to: ${screenshotFile}`);
+    } catch (screenshotError) {
+      console.log('Failed to take screenshot:', screenshotError);
+    }
+
+    // Try alternative dismiss methods for iOS 18
+    console.log('Cancel button not found, trying alternative dismiss methods...');
+
+    // Method 1: Try mobile: alert dismiss (works for some native dialogs)
+    try {
+      await browser.execute('mobile: dismissAlert', {});
+      await browser.pause(500);
+      await switchToWebViewContext();
+      return;
+    } catch {
+      // Not an alert, try next method
+    }
+
+    // Method 2: Try pressing hardware home button
+    try {
+      await browser.execute('mobile: pressButton', { name: 'home' });
+      await browser.pause(1000);
+      // Re-activate our app
+      await browser.execute('mobile: activateApp', {
+        bundleId: 'com.tearleads.rapid',
+      });
+      await browser.pause(500);
+      await switchToWebViewContext();
+      return;
+    } catch {
+      // Home button didn't work, try next method
+    }
+
+    // Method 3: Try tapping above the file picker
+    try {
+      const { width } = await browser.getWindowSize();
+      await browser.execute('mobile: tap', { x: Math.floor(width / 2), y: 100 });
+      await browser.pause(500);
+      await switchToWebViewContext();
+      return;
+    } catch {
+      // Tap didn't work
+    }
+
+    throw new Error('Could not find file picker cancel button or dismiss via alternative methods');
+  }
 
   if (action === 'cancel') {
     await cancelButton.click();
@@ -241,17 +327,92 @@ export async function handleAndroidShareSheet(
 
 /**
  * Handle iOS share sheet (UIActivityViewController)
+ * iOS 18 uses a sheet-style presentation with Close button
  */
 export async function handleiOSShareSheet(
   action: 'save' | 'cancel'
 ): Promise<void> {
   await switchToNativeContext();
 
-  // Wait for share sheet to appear by checking for Close button
-  const closeButton = await $(
-    '//XCUIElementTypeButton[@name="Close" or @name="Cancel"]'
-  );
-  await closeButton.waitForExist({ timeout: 5000 });
+  // Give share sheet time to animate in
+  await browser.pause(1500);
+
+  // iOS 18 share sheet strategies
+  const closeSelectors = [
+    // Standard Close button
+    '-ios predicate string:type == "XCUIElementTypeButton" AND name == "Close"',
+    // Cancel button
+    '-ios predicate string:type == "XCUIElementTypeButton" AND name == "Cancel"',
+    // Done button
+    '-ios predicate string:type == "XCUIElementTypeButton" AND name == "Done"',
+    // By label
+    '-ios predicate string:type == "XCUIElementTypeButton" AND label == "Close"',
+    '-ios predicate string:type == "XCUIElementTypeButton" AND label == "Cancel"',
+    // Navigation bar button
+    '-ios class chain:**/XCUIElementTypeNavigationBar/**/XCUIElementTypeButton[1]',
+    // Any button at top of screen
+    '//XCUIElementTypeNavigationBar//XCUIElementTypeButton',
+  ];
+
+  let closeButton;
+  for (const selector of closeSelectors) {
+    try {
+      closeButton = await $(selector);
+      const exists = await closeButton.isExisting();
+      if (exists) {
+        console.log(`Found share sheet button with selector: ${selector}`);
+        break;
+      }
+    } catch {
+      // Try next selector
+    }
+  }
+
+  if (!closeButton || !(await closeButton.isExisting())) {
+    // Debug: Take screenshot to see what's on screen
+    const debugDir = path.join(process.cwd(), 'e2e-mobile', 'debug-output');
+    fs.mkdirSync(debugDir, { recursive: true });
+    try {
+      const screenshot = await browser.takeScreenshot();
+      const screenshotFile = path.join(debugDir, `share-sheet-${Date.now()}.png`);
+      fs.writeFileSync(screenshotFile, screenshot, 'base64');
+      console.log(`Share sheet screenshot saved to: ${screenshotFile}`);
+    } catch (screenshotError) {
+      console.log('Failed to take screenshot:', screenshotError);
+    }
+
+    // Try alternative dismiss methods for iOS 18
+    console.log('Close button not found, trying alternative dismiss methods...');
+
+    // Method 1: Tap at the very top of the screen (above the share sheet)
+    try {
+      const { width } = await browser.getWindowSize();
+      // Tap at coordinates above the share sheet
+      await browser.execute('mobile: tap', { x: Math.floor(width / 2), y: 100 });
+      await browser.pause(500);
+      await switchToWebViewContext();
+      return;
+    } catch {
+      // Tap didn't work
+    }
+
+    // Method 2: Try hardware home button to dismiss (less intrusive than going to home)
+    try {
+      await browser.execute('mobile: pressButton', { name: 'home' });
+      await browser.pause(1000);
+      // Re-activate our app
+      await browser.execute('mobile: activateApp', {
+        bundleId: 'com.tearleads.rapid',
+      });
+      await browser.pause(500);
+      await switchToWebViewContext();
+      return;
+    } catch {
+      // Home button didn't work
+    }
+
+    throw new Error('Could not find share sheet close button or dismiss via alternative methods');
+  }
 
   if (action === 'cancel') {
     await closeButton.click();

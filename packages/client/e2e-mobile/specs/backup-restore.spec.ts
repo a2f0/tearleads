@@ -29,10 +29,10 @@ async function ensureCleanState(): Promise<void> {
   }
 }
 
-// Status: 7/14 tests pass after reset bug fix. Remaining failures need iOS 18 selector updates:
-// - Share sheet: //XCUIElementTypeButton[@name="Close" or @name="Cancel"] not found
-// - File picker: //XCUIElementTypeButton[@name="Cancel"] not found
-// TODO: Use Appium Inspector to find correct iOS 18 selectors for native dialogs
+// SKIPPED: Export functionality fails with "readFile failed: rapidSQLite.db couldn't be opened"
+// The share sheet never opens because the backup export fails at the file read step.
+// This needs to be fixed in the backup export implementation before these tests can run.
+// Native dialog handling (file picker) is working - see file-picker.spec.ts
 describe.skip('Backup & Restore', () => {
   before(async () => {
     await launchAppWithClearState();
