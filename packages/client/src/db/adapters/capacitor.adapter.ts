@@ -32,6 +32,7 @@ interface SQLiteConnectionWrapper {
 interface SQLiteDBConnection {
   open(): Promise<void>;
   close(): Promise<void>;
+  delete(): Promise<void>;
   execute(
     statements: string,
     transaction?: boolean
@@ -306,32 +307,72 @@ export class CapacitorAdapter implements DatabaseAdapter {
     const sqlite = await getSQLiteConnection();
     const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
 
-    // Close any existing connection first
+    // Fix for reset bug: Use connection.delete() instead of CapacitorSQLite.deleteDatabase()
+    // CapacitorSQLite.deleteDatabase() requires an active connection to exist first.
+    // See: https://github.com/capacitor-community/sqlite/issues/272
     const { result: hasConnection } = await sqlite.isConnection(name, false);
-    if (hasConnection) {
-      try {
-        await sqlite.closeConnection(name, false);
-      } catch {
-        // Ignore errors
-      }
-    }
 
-    // Delete the database file
-    // Note: deleteDatabase is on CapacitorSQLite, not SQLiteConnection
-    try {
-      await CapacitorSQLite.deleteDatabase({ database: name });
-    } catch (error: unknown) {
-      // Only ignore "database not found" errors
-      const message = error instanceof Error ? error.message.toLowerCase() : '';
-      if (
-        !message.includes('not found') &&
-        !message.includes('does not exist')
-      ) {
-        throw error;
+    if (hasConnection) {
+      // Get existing connection and use its delete() method
+      try {
+        // If we have an open db, use it directly
+        if (this.db) {
+          await this.db.delete();
+        } else {
+          // Otherwise close the stale connection and create a new one to delete
+          await sqlite.closeConnection(name, false);
+          const tempDb = await sqlite.createConnection(
+            name,
+            true,
+            'secret',
+            1,
+            false
+          );
+          await tempDb.delete();
+        }
+      } catch (error: unknown) {
+        // Only ignore "database not found" errors
+        const message =
+          error instanceof Error ? error.message.toLowerCase() : '';
+        if (
+          !message.includes('not found') &&
+          !message.includes('does not exist')
+        ) {
+          throw error;
+        }
+      }
+    } else {
+      // No connection exists - try to create one to delete the database file
+      // This handles cases where the database file exists but no connection was made
+      try {
+        const tempDb = await sqlite.createConnection(
+          name,
+          true,
+          'secret',
+          1,
+          false
+        );
+        await tempDb.delete();
+      } catch (error: unknown) {
+        // Ignore errors if database doesn't exist or can't be opened
+        const message =
+          error instanceof Error ? error.message.toLowerCase() : '';
+        if (
+          !message.includes('not found') &&
+          !message.includes('does not exist') &&
+          !message.includes('cannot open')
+        ) {
+          // Log but don't throw - we still want to clear the encryption secret
+          console.warn(
+            'deleteDatabase: Could not delete database file:',
+            error
+          );
+        }
       }
     }
 
     // Clear the stored encryption secret so a new one can be set
+    // See: https://github.com/capacitor-community/sqlite/issues/311
     try {
       await CapacitorSQLite.clearEncryptionSecret();
     } catch (error: unknown) {

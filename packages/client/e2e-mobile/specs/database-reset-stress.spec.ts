@@ -13,9 +13,9 @@ import { goToDebug } from '../page-objects/navigation.js';
 
 const NUM_CYCLES = 3; // Reduced for faster testing
 
-// KNOWN APP BUG: resetDatabase() fails on Capacitor/iOS (same issue as database-reset-setup)
-// Root cause needs investigation in the Capacitor SQLite adapter or key storage layer.
-describe.skip('Database Reset Stress Test', () => {
+// Fixed: resetDatabase() now uses connection.delete() instead of CapacitorSQLite.deleteDatabase()
+// See: https://github.com/capacitor-community/sqlite/issues/272
+describe('Database Reset Stress Test', () => {
   before(async () => {
     await launchAppWithClearState();
     await waitForWebView();

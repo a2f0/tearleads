@@ -17,11 +17,9 @@ const PASSWORDS = {
   third: 'thirdpassword789',
 };
 
-// KNOWN APP BUG: resetDatabase() fails on Capacitor/iOS
-// The reset operation isn't completing successfully - errors are now surfaced
-// after fixing the useDatabase hook to re-throw errors. Root cause needs investigation
-// in the Capacitor SQLite adapter or key storage layer.
-describe.skip('Database Reset-Setup', () => {
+// Fixed: resetDatabase() now uses connection.delete() instead of CapacitorSQLite.deleteDatabase()
+// See: https://github.com/capacitor-community/sqlite/issues/272
+describe('Database Reset-Setup', () => {
   before(async () => {
     await launchAppWithClearState();
     await waitForWebView();
