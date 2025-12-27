@@ -349,3 +349,248 @@ test.describe('Database (Web)', () => {
     await expect(page.getByTestId('db-status')).toHaveText('Unlocked');
   });
 });
+
+test.describe('Session Persistence (Web)', () => {
+  test.beforeEach(async ({ page }) => {
+    // Navigate to the debug page where database test UI is located
+    await page.goto('/debug');
+    await expect(page.getByTestId('database-test')).toBeVisible();
+
+    // Reset the database to ensure clean state
+    const resetButton = page.getByTestId('db-reset-button');
+    await resetButton.click();
+
+    // Wait for reset to complete
+    await waitForSuccess(page);
+
+    // Verify database is in "Not Set Up" state
+    await expect(page.getByTestId('db-status')).toHaveText('Not Set Up');
+  });
+
+  test('should show persist checkbox and session status on web', async ({
+    page
+  }) => {
+    // Setup database first
+    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Lock the database
+    await page.getByTestId('db-lock-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Locked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Verify persist checkbox is visible
+    const persistCheckbox = page.getByTestId('db-persist-checkbox');
+    await expect(persistCheckbox).toBeVisible();
+    await expect(persistCheckbox).not.toBeChecked();
+
+    // Verify session status shows "No"
+    await expect(page.getByTestId('db-session-status')).toHaveText('No');
+  });
+
+  test('should persist session when checkbox is checked', async ({ page }) => {
+    // Setup database first
+    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Write some data
+    await page.getByTestId('db-write-button').click();
+    await waitForSuccess(page);
+    const writtenValue = await page.getByTestId('db-test-data').textContent();
+
+    // Lock the database
+    await page.getByTestId('db-lock-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Locked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Check the persist checkbox
+    const persistCheckbox = page.getByTestId('db-persist-checkbox');
+    await persistCheckbox.check();
+    await expect(persistCheckbox).toBeChecked();
+
+    // Unlock with persist enabled
+    await page.getByTestId('db-unlock-button').click();
+    await waitForSuccess(page);
+
+    // Verify session is now persisted
+    await expect(page.getByTestId('db-session-status')).toHaveText('Yes');
+    await expect(page.getByTestId('db-test-result')).toContainText(
+      'session persisted'
+    );
+
+    // Verify data is still accessible
+    await page.getByTestId('db-read-button').click();
+    await waitForSuccess(page);
+    const readValue = await page.getByTestId('db-test-data').textContent();
+    expect(readValue).toBe(writtenValue);
+  });
+
+  test('should restore session on page reload', async ({ page }) => {
+    // Setup database first
+    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Lock the database
+    await page.getByTestId('db-lock-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Locked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Check the persist checkbox and unlock
+    await page.getByTestId('db-persist-checkbox').check();
+    await page.getByTestId('db-unlock-button').click();
+    await waitForSuccess(page);
+    await expect(page.getByTestId('db-session-status')).toHaveText('Yes');
+
+    // Lock the database (keeping session)
+    await page.getByTestId('db-lock-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Locked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Reload the page
+    await page.reload();
+    await expect(page.getByTestId('database-test')).toBeVisible({
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Verify session status still shows "Yes" (may take a moment to check IndexedDB)
+    await expect(page.getByTestId('db-session-status')).toHaveText('Yes', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Verify "Restore Session" button is visible
+    const restoreButton = page.getByTestId('db-restore-session-button');
+    await expect(restoreButton).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
+
+    // Click restore session (this re-initializes WASM worker, may take longer)
+    await restoreButton.click();
+    await waitForSuccess(page);
+
+    // Verify database is unlocked without needing password
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+    await expect(page.getByTestId('db-test-result')).toContainText(
+      'Session restored'
+    );
+
+    // Verify we can write new data (proves the database is functional)
+    const writeButton = page.getByTestId('db-write-button');
+    await expect(writeButton).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
+    await writeButton.click();
+    await waitForSuccess(page);
+    await expect(page.getByTestId('db-test-result')).toContainText(
+      'Wrote test data:'
+    );
+  });
+
+  test('should clear session when locking with clear option', async ({
+    page
+  }) => {
+    // Setup database first
+    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Lock the database
+    await page.getByTestId('db-lock-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Locked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Check the persist checkbox and unlock
+    await page.getByTestId('db-persist-checkbox').check();
+    await page.getByTestId('db-unlock-button').click();
+    await waitForSuccess(page);
+    await expect(page.getByTestId('db-session-status')).toHaveText('Yes');
+
+    // Lock & Clear Session button should be visible
+    const lockClearButton = page.getByTestId('db-lock-clear-session-button');
+    await expect(lockClearButton).toBeVisible();
+
+    // Click Lock & Clear Session
+    await lockClearButton.click();
+    await waitForSuccess(page);
+
+    // Verify session is cleared
+    await expect(page.getByTestId('db-session-status')).toHaveText('No');
+    await expect(page.getByTestId('db-test-result')).toContainText(
+      'session cleared'
+    );
+
+    // Restore Session button should NOT be visible
+    await expect(
+      page.getByTestId('db-restore-session-button')
+    ).not.toBeVisible();
+  });
+
+  test('should clear session on database reset', async ({ page }) => {
+    // Setup database first
+    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Lock the database
+    await page.getByTestId('db-lock-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Locked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Check the persist checkbox and unlock
+    await page.getByTestId('db-persist-checkbox').check();
+    await page.getByTestId('db-unlock-button').click();
+    await waitForSuccess(page);
+    await expect(page.getByTestId('db-session-status')).toHaveText('Yes');
+
+    // Reset the database
+    await page.getByTestId('db-reset-button').click();
+    await waitForSuccess(page);
+
+    // Verify session is cleared
+    await expect(page.getByTestId('db-session-status')).toHaveText('No');
+
+    // Verify database is in "Not Set Up" state
+    await expect(page.getByTestId('db-status')).toHaveText('Not Set Up');
+  });
+
+  test('should not show restore button when no persisted session', async ({
+    page
+  }) => {
+    // Setup database first
+    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Lock the database without persisting
+    await page.getByTestId('db-lock-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Locked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Verify session status shows "No"
+    await expect(page.getByTestId('db-session-status')).toHaveText('No');
+
+    // Restore Session button should NOT be visible
+    await expect(
+      page.getByTestId('db-restore-session-button')
+    ).not.toBeVisible();
+  });
+});
