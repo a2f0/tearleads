@@ -19,7 +19,7 @@ export const config: Options.Testrunner = {
     {
       platformName: 'Android',
       'appium:deviceName': 'Android Emulator',
-      'appium:platformVersion': '15',
+      // platformVersion omitted to auto-detect running emulator
       'appium:automationName': 'UiAutomator2',
       'appium:app': '../android/app/build/outputs/apk/debug/app-debug.apk',
       'appium:appPackage': 'com.tearleads.rapid',
