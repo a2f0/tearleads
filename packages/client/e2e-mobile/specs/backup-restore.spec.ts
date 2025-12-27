@@ -29,10 +29,10 @@ async function ensureCleanState(): Promise<void> {
   }
 }
 
-// Multiple issues prevent full test suite from passing:
-// 1. Native share sheet/file picker dialogs - Cancel button selectors may need updating for iOS 18
-// 2. ensureCleanState() uses reset which fails on Capacitor/iOS
-// 3. Export button disabled state test may have timing issue
+// Status: 7/14 tests pass after reset bug fix. Remaining failures need iOS 18 selector updates:
+// - Share sheet: //XCUIElementTypeButton[@name="Close" or @name="Cancel"] not found
+// - File picker: //XCUIElementTypeButton[@name="Cancel"] not found
+// TODO: Use Appium Inspector to find correct iOS 18 selectors for native dialogs
 describe.skip('Backup & Restore', () => {
   before(async () => {
     await launchAppWithClearState();
