@@ -80,11 +80,12 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
   useEffect(() => {
     async function checkSetupAndRestore() {
       try {
-        const setup = await isDatabaseSetUp();
+        // Check for setup status and persisted session in parallel
+        const [setup, persisted] = await Promise.all([
+          isDatabaseSetUp(),
+          hasPersistedSession()
+        ]);
         setIsSetUp(setup);
-
-        // Check for persisted session (web only)
-        const persisted = await hasPersistedSession();
         setHasPersisted(persisted);
 
         // Auto-restore session if available
