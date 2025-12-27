@@ -9,8 +9,14 @@ server {
     root /var/www/{{ item }};
     index index.html;
 
+    # Static assets - serve directly, return 404 if not found
+    location /_astro/ {
+        try_files $uri =404;
+    }
+
+    # SPA fallback for client-side routing
     location / {
-        try_files $uri /index.html;
+        try_files $uri $uri/ /index.html;
     }
 
     # Serve .mjs files with correct MIME type for ES modules
