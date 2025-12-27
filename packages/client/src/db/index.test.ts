@@ -47,7 +47,11 @@ const mockKeyManager = {
   ),
   getCurrentKey: vi.fn(() => null),
   clearKey: vi.fn(),
-  reset: vi.fn()
+  reset: vi.fn(),
+  persistSession: vi.fn(async () => true),
+  hasPersistedSession: vi.fn(async () => false),
+  restoreSession: vi.fn(async () => null),
+  clearPersistedSession: vi.fn()
 };
 
 vi.mock('./crypto', () => ({
@@ -137,22 +141,39 @@ describe('Database API', () => {
     });
 
     it('initializes database with correct password', async () => {
-      const db = await unlockDatabase('correctpassword');
+      const result = await unlockDatabase('correctpassword');
 
       expect(mockKeyManager.unlockWithPassword).toHaveBeenCalledWith(
         'correctpassword'
       );
       expect(mockAdapter.initialize).toHaveBeenCalled();
-      expect(db).toBeDefined();
+      expect(result).toBeDefined();
+      expect(result?.db).toBeDefined();
+      expect(result?.sessionPersisted).toBe(false);
     });
 
     it('returns existing database if already unlocked', async () => {
-      const db1 = await unlockDatabase('password');
-      const db2 = await unlockDatabase('password');
+      const result1 = await unlockDatabase('password');
+      const result2 = await unlockDatabase('password');
 
-      expect(db1).toBe(db2);
+      expect(result1?.db).toBe(result2?.db);
       // Should only initialize once
       expect(mockAdapter.initialize).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns sessionPersisted true when persist succeeds', async () => {
+      mockKeyManager.persistSession.mockResolvedValueOnce(true);
+      const result = await unlockDatabase('password', true);
+
+      expect(result?.sessionPersisted).toBe(true);
+      expect(mockKeyManager.persistSession).toHaveBeenCalled();
+    });
+
+    it('returns sessionPersisted false when persist fails', async () => {
+      mockKeyManager.persistSession.mockResolvedValueOnce(false);
+      const result = await unlockDatabase('password', true);
+
+      expect(result?.sessionPersisted).toBe(false);
     });
   });
 

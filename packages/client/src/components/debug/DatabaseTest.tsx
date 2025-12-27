@@ -8,6 +8,7 @@ import { type ChangeEvent, useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
+import { detectPlatform } from '@/lib/utils';
 
 async function copyToClipboard(text: string): Promise<boolean> {
   try {
@@ -30,8 +31,10 @@ export function DatabaseTest() {
     isLoading,
     isSetUp,
     isUnlocked,
+    hasPersistedSession,
     setup,
     unlock,
+    restoreSession,
     lock,
     reset,
     changePassword
@@ -41,12 +44,15 @@ export function DatabaseTest() {
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [persistUnlock, setPersistUnlock] = useState(false);
   const [testResult, setTestResult] = useState<TestResult>({
     status: 'idle',
     message: ''
   });
   const [testData, setTestData] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const isWeb = detectPlatform() === 'web';
 
   useEffect(() => {
     if (!copied) return;
@@ -78,12 +84,13 @@ export function DatabaseTest() {
     setTestResult({ status: 'running', message: 'Unlocking database...' });
     try {
       const startTime = performance.now();
-      const success = await unlock(password);
+      const success = await unlock(password, persistUnlock);
       if (success) {
         const elapsed = performance.now() - startTime;
+        const persistMsg = persistUnlock ? ' (session persisted)' : '';
         setTestResult({
           status: 'success',
-          message: `Database unlocked (${elapsed.toFixed(0)}ms)`
+          message: `Database unlocked${persistMsg} (${elapsed.toFixed(0)}ms)`
         });
       } else {
         setTestResult({ status: 'error', message: 'Wrong password' });
@@ -94,21 +101,53 @@ export function DatabaseTest() {
         message: `Unlock error: ${(err as Error).message}`
       });
     }
-  }, [password, unlock]);
+  }, [password, persistUnlock, unlock]);
 
-  const handleLock = useCallback(async () => {
-    setTestResult({ status: 'running', message: 'Locking database...' });
+  const handleRestoreSession = useCallback(async () => {
+    setTestResult({ status: 'running', message: 'Restoring session...' });
     try {
-      await lock();
-      setTestResult({ status: 'success', message: 'Database locked' });
-      setTestData(null);
+      const startTime = performance.now();
+      const success = await restoreSession();
+      if (success) {
+        const elapsed = performance.now() - startTime;
+        setTestResult({
+          status: 'success',
+          message: `Session restored (${elapsed.toFixed(0)}ms)`
+        });
+      } else {
+        setTestResult({
+          status: 'error',
+          message: 'No persisted session found'
+        });
+      }
     } catch (err) {
       setTestResult({
         status: 'error',
-        message: `Lock error: ${(err as Error).message}`
+        message: `Restore error: ${(err as Error).message}`
       });
     }
-  }, [lock]);
+  }, [restoreSession]);
+
+  const handleLock = useCallback(
+    async (clearSession = false) => {
+      setTestResult({ status: 'running', message: 'Locking database...' });
+      try {
+        await lock(clearSession);
+        const sessionMsg = clearSession ? ' (session cleared)' : '';
+        setTestResult({
+          status: 'success',
+          message: `Database locked${sessionMsg}`
+        });
+        setTestData(null);
+      } catch (err) {
+        setTestResult({
+          status: 'error',
+          message: `Lock error: ${(err as Error).message}`
+        });
+      }
+    },
+    [lock]
+  );
 
   const handleReset = useCallback(async () => {
     setTestResult({ status: 'running', message: 'Resetting database...' });
@@ -263,6 +302,14 @@ export function DatabaseTest() {
                   : 'Not Set Up'}
           </span>
         </div>
+        {isWeb && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Session Persisted</span>
+            <span data-testid="db-session-status">
+              {hasPersistedSession ? 'Yes' : 'No'}
+            </span>
+          </div>
+        )}
         {testData && (
           <div className="flex justify-between gap-2">
             <span className="shrink-0 text-muted-foreground">Test Data</span>
@@ -311,6 +358,19 @@ export function DatabaseTest() {
           </button>
         </div>
 
+        {isWeb && isSetUp && !isUnlocked && (
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={persistUnlock}
+              onChange={(e) => setPersistUnlock(e.target.checked)}
+              data-testid="db-persist-checkbox"
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <span>Keep unlocked across reloads</span>
+          </label>
+        )}
+
         <div className="grid grid-cols-2 gap-2">
           {!isSetUp && (
             <Button
@@ -325,15 +385,29 @@ export function DatabaseTest() {
           )}
 
           {isSetUp && !isUnlocked && (
-            <Button
-              type="submit"
-              variant="outline"
-              size="sm"
-              disabled={isLoading || !password}
-              data-testid="db-unlock-button"
-            >
-              Unlock
-            </Button>
+            <>
+              <Button
+                type="submit"
+                variant="outline"
+                size="sm"
+                disabled={isLoading || !password}
+                data-testid="db-unlock-button"
+              >
+                Unlock
+              </Button>
+              {hasPersistedSession && (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={handleRestoreSession}
+                  disabled={isLoading}
+                  data-testid="db-restore-session-button"
+                >
+                  Restore Session
+                </Button>
+              )}
+            </>
           )}
 
           {isUnlocked && (
@@ -342,12 +416,24 @@ export function DatabaseTest() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={handleLock}
+                onClick={() => handleLock(false)}
                 disabled={isLoading}
                 data-testid="db-lock-button"
               >
                 Lock
               </Button>
+              {isWeb && hasPersistedSession && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleLock(true)}
+                  disabled={isLoading}
+                  data-testid="db-lock-clear-session-button"
+                >
+                  Lock & Clear Session
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
