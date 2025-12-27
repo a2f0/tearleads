@@ -286,10 +286,13 @@ describe('Database API', () => {
       await setupDatabase('password');
       mockAdapter.executeMany.mockClear();
 
-      await importDatabase(new Uint8Array([1, 2, 3]));
+      // SQLite backup must be at least 100 bytes (header size)
+      const fakeBackup = new Uint8Array(100).fill(0);
+
+      await importDatabase(fakeBackup);
 
       expect(mockAdapter.importDatabase).toHaveBeenCalledWith(
-        new Uint8Array([1, 2, 3]),
+        fakeBackup,
         undefined
       );
       // Should run migrations after import
@@ -304,7 +307,10 @@ describe('Database API', () => {
       mockAdapter.importDatabase =
         undefined as unknown as typeof originalImport;
 
-      await expect(importDatabase(new Uint8Array([1, 2, 3]))).rejects.toThrow(
+      // SQLite backup must be at least 100 bytes (header size)
+      const fakeBackup = new Uint8Array(100).fill(0);
+
+      await expect(importDatabase(fakeBackup)).rejects.toThrow(
         'Import not supported on this platform'
       );
 
