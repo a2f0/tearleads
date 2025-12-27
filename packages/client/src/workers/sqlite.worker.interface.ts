@@ -60,6 +60,7 @@ export type WorkerRequest =
       type: 'IMPORT';
       id: string;
       data: number[]; // Uint8Array as array for transfer
+      encryptionKey?: number[]; // Key to re-encrypt with after import
     }
   | {
       type: 'CLOSE';

@@ -236,11 +236,19 @@ export class KeyManager {
     if (!this.storage) await this.initialize();
 
     const salt = generateSalt();
+    console.log('[Setup] Password length:', password.length);
+    console.log(
+      '[Setup] Password bytes:',
+      Array.from(new TextEncoder().encode(password))
+    );
+    console.log('[Setup] Full salt:', Array.from(salt));
+
     const key = await deriveKeyFromPassword(password, salt);
     const keyBytes = await exportKey(key);
 
     // Create a key check value for password verification
     const kcv = await this.createKeyCheckValue(keyBytes);
+    console.log('[Setup] KCV:', kcv);
 
     await this.storage?.setSalt(salt);
     await this.storage?.setKeyCheckValue(kcv);
@@ -261,12 +269,27 @@ export class KeyManager {
       throw new Error('No existing key found. Use setupNewKey instead.');
     }
 
+    console.log('[Unlock] Password length:', password.length);
+    console.log(
+      '[Unlock] Password bytes:',
+      Array.from(new TextEncoder().encode(password))
+    );
+    console.log(
+      '[Unlock] Salt from storage (first 8 bytes):',
+      Array.from(salt.slice(0, 8))
+    );
+    console.log('[Unlock] Full salt:', Array.from(salt));
+
     const key = await deriveKeyFromPassword(password, salt);
     const keyBytes = await exportKey(key);
 
     // Verify the key check value
     const storedKcv = await this.storage?.getKeyCheckValue();
     const computedKcv = await this.createKeyCheckValue(keyBytes);
+
+    console.log('[Unlock] Stored KCV:', storedKcv);
+    console.log('[Unlock] Computed KCV:', computedKcv);
+    console.log('[Unlock] KCV match:', storedKcv === computedKcv);
 
     if (storedKcv !== computedKcv) {
       secureZero(keyBytes);
@@ -328,6 +351,34 @@ export class KeyManager {
     this.clearKey();
     if (!this.storage) await this.initialize();
     await this.storage?.clear();
+  }
+
+  /**
+   * Get the salt for backup purposes.
+   * Returns null if no key has been set up.
+   */
+  async getSalt(): Promise<Uint8Array | null> {
+    if (!this.storage) await this.initialize();
+    return this.storage?.getSalt() ?? null;
+  }
+
+  /**
+   * Get the key check value for backup purposes.
+   * Returns null if no key has been set up.
+   */
+  async getKeyCheckValue(): Promise<string | null> {
+    if (!this.storage) await this.initialize();
+    return this.storage?.getKeyCheckValue() ?? null;
+  }
+
+  /**
+   * Restore salt and key check value from a backup.
+   * This allows restoring a backup to a fresh device.
+   */
+  async restoreFromBackup(salt: Uint8Array, kcv: string): Promise<void> {
+    if (!this.storage) await this.initialize();
+    await this.storage?.setSalt(salt);
+    await this.storage?.setKeyCheckValue(kcv);
   }
 
   /**

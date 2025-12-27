@@ -55,20 +55,22 @@ interface SQLiteCAPI {
     bufferSize: number,
     flags: number
   ): void;
-}
-
-/**
- * Emscripten FS (virtual file system) interface.
- * Used to write imported database files before opening with encryption.
- */
-interface EmscriptenFS {
-  writeFile(path: string, data: Uint8Array): void;
-  unlink(path: string): void;
+  /**
+   * Create or overwrite a file in the VFS using POSIX APIs.
+   * Works with Emscripten's in-memory virtual filesystem.
+   * @param filename - Path to the file
+   * @param data - File content (ArrayBuffer or Uint8Array)
+   * @param dataLen - Optional length in bytes (defaults to data.byteLength)
+   */
+  sqlite3_js_posix_create_file(
+    filename: string,
+    data: Uint8Array | ArrayBuffer,
+    dataLen?: number
+  ): number;
 }
 
 /**
  * SQLite WASM module instance.
- * Includes Emscripten's virtual file system for file operations.
  */
 interface SQLite3Module {
   oo1: SQLiteOO1;
@@ -78,8 +80,6 @@ interface SQLite3Module {
       memory: WebAssembly.Memory;
     };
   };
-  /** Emscripten virtual file system - may not be available in all builds */
-  FS?: EmscriptenFS;
 }
 
 /**
@@ -184,6 +184,13 @@ async function initializeDatabase(
   currentDbFilename = `${name}.sqlite3`;
 
   try {
+    console.log(
+      'Opening database:',
+      currentDbFilename,
+      'with key (first 16 chars):',
+      encryptionKey.slice(0, 16)
+    );
+
     // Create/open encrypted database using the default VFS with hexkey parameter
     db = new sqlite3.oo1.DB({
       filename: currentDbFilename,
@@ -337,23 +344,21 @@ function exportDatabase(): Uint8Array {
   // This gets the raw (encrypted) database file bytes
   const data = sqlite3.capi.sqlite3_js_db_export(db);
   console.log('Exported database:', data.length, 'bytes');
+  console.log('Export: First 16 bytes:', Array.from(data.slice(0, 16)));
   return data;
 }
 
 /**
  * Import a database from byte array.
- * Writes the encrypted database file to the WASM VFS and reopens it with encryption.
+ * Backups are raw SQLite databases (unencrypted). After import, the database
+ * is re-encrypted with the provided key using PRAGMA rekey.
  *
- * The approach is:
- * 1. Close the current database
- * 2. Write the imported bytes to the database file in the WASM VFS
- * 3. Reopen the database with the encryption key
- *
- * This works because the imported data is already encrypted with the same key.
+ * @param data The raw SQLite database bytes
+ * @param newKey The encryption key to use (as hex string), or null for no encryption
  */
-function importDatabase(data: Uint8Array): void {
-  if (!sqlite3 || !encryptionKey || !currentDbFilename) {
-    throw new Error('Database not initialized');
+function importDatabase(data: Uint8Array, newKey: string | null): void {
+  if (!sqlite3 || !currentDbFilename) {
+    throw new Error('SQLite not initialized');
   }
 
   // Close the current database to release the file
@@ -362,59 +367,37 @@ function importDatabase(data: Uint8Array): void {
     db = null;
   }
 
+  console.log('Import: Data length:', data.length);
+  console.log('Import: Will re-encrypt:', newKey !== null);
+
   try {
-    // Access Emscripten's virtual file system through the sqlite3 module
-    // The FS module is attached to the sqlite3 object by Emscripten
-    if (sqlite3.FS) {
-      // Write the imported encrypted data directly to the VFS file
-      sqlite3.FS.writeFile(currentDbFilename, data);
-      console.log('Wrote imported data to VFS:', currentDbFilename);
-    } else {
-      // Fallback: If FS is not available, try using sqlite3_deserialize
-      // with a properly configured encrypted database
-      console.warn('Emscripten FS not available, using deserialize fallback');
+    // Write the database file to VFS
+    sqlite3.capi.sqlite3_js_posix_create_file(
+      currentDbFilename,
+      data,
+      data.length
+    );
+    console.log('Imported database file to VFS:', currentDbFilename);
 
-      // Open a new database with encryption key at the same filename
-      // Opening with 'c' flag and hexkey will either open existing or create new
-      db = new sqlite3.oo1.DB({
-        filename: currentDbFilename,
-        flags: 'c',
-        hexkey: encryptionKey
-      });
-
-      // Use sqlite3_deserialize to replace the database content
-      // With the key already set, the deserialized encrypted content should work
-      sqlite3.capi.sqlite3_deserialize(
-        db.pointer,
-        'main',
-        data,
-        data.length,
-        data.length,
-        0 // No flags
-      );
-
-      // Verify the database is accessible
-      db.exec('SELECT 1;');
-      db.exec('PRAGMA foreign_keys = ON;');
-
-      console.log('Imported database via deserialize:', data.length, 'bytes');
-      return;
-    }
-
-    // Reopen the database with encryption
+    // Open the plaintext database without encryption
     db = new sqlite3.oo1.DB({
       filename: currentDbFilename,
-      flags: 'c', // Open existing file
-      hexkey: encryptionKey
+      flags: 'c'
     });
-
-    // Verify the database is accessible
     db.exec('SELECT 1;');
+    console.log('Opened imported plaintext database');
+
+    // Re-encrypt with the new key if provided
+    if (newKey) {
+      db.exec(`PRAGMA hexrekey = '${newKey}';`);
+      encryptionKey = newKey;
+      console.log('Database re-encrypted with new key');
+    }
 
     // Enable foreign keys
     db.exec('PRAGMA foreign_keys = ON;');
 
-    console.log('Imported database:', data.length, 'bytes');
+    console.log('Import complete');
   } catch (error) {
     console.error('Failed to import database:', error);
     const message = error instanceof Error ? error.message : String(error);
@@ -507,7 +490,10 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       }
 
       case 'IMPORT': {
-        importDatabase(new Uint8Array(request.data));
+        const importKey = request.encryptionKey
+          ? keyToHex(new Uint8Array(request.encryptionKey))
+          : null;
+        importDatabase(new Uint8Array(request.data), importKey);
         respond({ type: 'SUCCESS', id: request.id });
         break;
       }

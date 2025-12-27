@@ -63,10 +63,19 @@ export async function unlockDatabase(
   const encryptionKey = await keyManager.unlockWithPassword(password);
 
   if (!encryptionKey) {
+    console.log('[Unlock DB] Password verification failed');
     return null; // Wrong password
   }
 
-  return initializeDatabaseWithKey(encryptionKey);
+  console.log('[Unlock DB] Password verified, initializing database...');
+  try {
+    const db = await initializeDatabaseWithKey(encryptionKey);
+    console.log('[Unlock DB] Database initialized successfully');
+    return db;
+  } catch (error) {
+    console.error('[Unlock DB] Failed to initialize database:', error);
+    throw error;
+  }
 }
 
 /**
@@ -254,8 +263,9 @@ export async function resetDatabase(): Promise<void> {
 
 /**
  * Export the database to a byte array for backup.
- * The returned data is the raw encrypted database file.
- * @returns The encrypted database as a Uint8Array
+ * Returns the raw (unencrypted) database content.
+ * Backups are platform-portable - the user provides a password on import to re-encrypt.
+ * @returns The database as a Uint8Array
  */
 export async function exportDatabase(): Promise<Uint8Array> {
   if (!adapterInstance) {
@@ -266,13 +276,17 @@ export async function exportDatabase(): Promise<Uint8Array> {
     throw new Error('Export not supported on this platform');
   }
 
-  return adapterInstance.exportDatabase();
+  const dbData = await adapterInstance.exportDatabase();
+  console.log('[Backup Export] Database size:', dbData.length, 'bytes');
+
+  return dbData;
 }
 
 /**
  * Import a database from a byte array backup.
- * Replaces the current database with the provided backup data.
- * @param data The encrypted database backup as a Uint8Array
+ * Backups are raw SQLite databases (unencrypted). After import, the database
+ * is re-encrypted with the current encryption key.
+ * @param data The raw SQLite database as a Uint8Array
  */
 export async function importDatabase(data: Uint8Array): Promise<void> {
   if (!adapterInstance) {
@@ -283,14 +297,24 @@ export async function importDatabase(data: Uint8Array): Promise<void> {
     throw new Error('Import not supported on this platform');
   }
 
-  // Get the current encryption key for adapters that need it (e.g., Electron)
+  // Validate backup size (SQLite header is 100 bytes minimum)
+  if (data.length < 100) {
+    throw new Error('Invalid backup file: too small');
+  }
+
+  console.log('[Backup Import] Database size:', data.length, 'bytes');
+
+  // Get the current encryption key to re-encrypt the imported database
   const keyManager = getKeyManager();
   const encryptionKey = keyManager.getCurrentKey();
 
+  // Import the database and re-encrypt with the current key
   await adapterInstance.importDatabase(data, encryptionKey ?? undefined);
 
   // Re-run migrations in case the backup is from an older version
   await runMigrations();
+
+  console.log('[Backup Import] Import complete, database re-encrypted');
 }
 
 export type { DatabaseAdapter, PlatformInfo } from './adapters';

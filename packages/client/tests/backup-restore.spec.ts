@@ -60,9 +60,23 @@ test.describe('Backup & Restore (Web)', () => {
     test('should show loading state when export button clicked', async ({
       page
     }) => {
-      await page.goto('/settings');
+      // Navigate to debug and unlock first (page reload locks the db)
+      await page.goto('/debug');
+      await expect(page.getByTestId('db-status')).toHaveText('Locked', {
+        timeout: DB_OPERATION_TIMEOUT
+      });
+      await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
+      await page.getByTestId('db-unlock-button').click();
+      await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+        timeout: DB_OPERATION_TIMEOUT
+      });
+
+      // Use client-side navigation to preserve React context
+      await page.getByTestId('settings-link').click();
+      await expect(page).toHaveURL('/settings');
 
       const exportButton = page.getByTestId('backup-export-button');
+      await expect(exportButton).toBeEnabled();
       await exportButton.click();
 
       // Should show exporting state (may be brief)
@@ -187,9 +201,25 @@ test.describe('Backup & Restore (Web)', () => {
       expect(path).toBeTruthy();
     });
 
-    // TODO: Web adapter import has issues with encrypted databases
-    // See: https://github.com/a2f0/rapid/issues/137
-    test.skip('should restore from backup file', async ({ page }) => {
+    test('should restore from backup file', async ({ page }) => {
+      // Log console messages for debugging
+      page.on('console', (msg) => {
+        const text = msg.text();
+        if (
+          text.includes('[Backup') ||
+          text.includes('[Unlock') ||
+          text.includes('[Setup') ||
+          text.includes('Failed') ||
+          text.includes('Error') ||
+          text.includes('error') ||
+          text.includes('Import:') ||
+          text.includes('Export:') ||
+          text.includes('Opening database')
+        ) {
+          console.log('PAGE:', text);
+        }
+      });
+
       // Navigate to debug and unlock (page reload loses in-memory key)
       await page.goto('/debug');
       // Database is locked after page reload, unlock it
@@ -246,19 +276,33 @@ test.describe('Backup & Restore (Web)', () => {
       });
       await page.getByTestId('backup-restore-confirm').click();
 
-      // After restore, navigate to debug page to check status
-      // (db-status element is on the debug page, not settings)
+      // Wait for restore to complete - the export button will become disabled when locked
+      // (The import writes the file and restores key metadata, then lock() is called)
+      await expect(page.getByTestId('backup-export-button')).toBeDisabled({
+        timeout: DB_OPERATION_TIMEOUT
+      });
+
+      // Navigate to debug page to check status
       await page.getByTestId('debug-link').click();
       await expect(page).toHaveURL('/debug');
 
-      // After restore, we should be locked out
+      // After restore, we should be locked out (need to re-enter password)
       await expect(page.getByTestId('db-status')).toHaveText('Locked', {
         timeout: DB_OPERATION_TIMEOUT
       });
 
-      // Unlock with the same password
+      // Unlock with the same password (the one used to create the original backup)
       await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
       await page.getByTestId('db-unlock-button').click();
+
+      // Wait a moment for the unlock to complete
+      await page.waitForTimeout(1000);
+
+      // Check for any error message from the unlock attempt
+      const resultElement = page.getByTestId('db-test-result');
+      const resultText = await resultElement.textContent();
+      console.log('Unlock result:', resultText);
+
       await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
         timeout: DB_OPERATION_TIMEOUT
       });

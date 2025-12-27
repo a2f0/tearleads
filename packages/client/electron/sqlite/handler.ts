@@ -356,7 +356,8 @@ function deleteDatabase(name: string): void {
 
 /**
  * Export the database to a buffer.
- * Checkpoints WAL to ensure all data is in the main file.
+ * Returns a plaintext (unencrypted) SQLite database for cross-platform portability.
+ * Creates an unencrypted copy by attaching a new database and copying tables.
  */
 async function exportDatabase(name: string): Promise<Buffer> {
   if (!db) {
@@ -367,18 +368,99 @@ async function exportDatabase(name: string): Promise<Buffer> {
   db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
 
   const dbPath = getDatabasePath(name);
+  const plaintextPath = `${dbPath}.export.tmp`;
 
-  // Read the encrypted database file asynchronously
-  return fs.promises.readFile(dbPath);
+  try {
+    // Remove any existing export file
+    try {
+      await fs.promises.unlink(plaintextPath);
+    } catch {
+      // Ignore if file doesn't exist
+    }
+
+    // Create a new unencrypted database and copy all schema and data
+    const plaintextDb = new Database(plaintextPath);
+
+    try {
+      // Get all table names from the encrypted database
+      const tables = db
+        .prepare(
+          "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+        )
+        .all() as { name: string; sql: string }[];
+
+      // Get all indexes
+      const indexes = db
+        .prepare(
+          "SELECT name, sql FROM sqlite_master WHERE type='index' AND sql IS NOT NULL"
+        )
+        .all() as { name: string; sql: string | null }[];
+
+      // Create tables in plaintext database
+      for (const table of tables) {
+        plaintextDb.exec(table.sql);
+      }
+
+      // Copy data from each table
+      for (const table of tables) {
+        const rows = db.prepare(`SELECT * FROM "${table.name}"`).all();
+        if (rows.length > 0) {
+          const columns = Object.keys(rows[0] as Record<string, unknown>);
+          const placeholders = columns.map(() => '?').join(', ');
+          const insert = plaintextDb.prepare(
+            `INSERT INTO "${table.name}" (${columns.map((c) => `"${c}"`).join(', ')}) VALUES (${placeholders})`
+          );
+
+          const insertMany = plaintextDb.transaction(
+            (data: Record<string, unknown>[]) => {
+              for (const row of data) {
+                insert.run(...columns.map((c) => row[c]));
+              }
+            }
+          );
+          insertMany(rows as Record<string, unknown>[]);
+        }
+      }
+
+      // Create indexes in plaintext database
+      for (const index of indexes) {
+        if (index.sql) {
+          plaintextDb.exec(index.sql);
+        }
+      }
+
+      plaintextDb.close();
+
+      // Read and return the plaintext database
+      const data = await fs.promises.readFile(plaintextPath);
+      console.log(
+        'Exported plaintext database:',
+        data.length,
+        'bytes, first 16 bytes:',
+        Array.from(data.slice(0, 16))
+      );
+      return data;
+    } catch (error) {
+      plaintextDb.close();
+      throw error;
+    }
+  } finally {
+    // Clean up export file
+    try {
+      await fs.promises.unlink(plaintextPath);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
 }
 
 /**
  * Import a database from a buffer.
- * Creates a backup of the current database before replacing it.
- * After import, re-opens the database with the provided encryption key.
+ * Backups are raw (unencrypted) SQLite databases for cross-platform portability.
+ * After import, re-encrypts the database with the provided key.
  * @param name The database name
- * @param data The encrypted database file as a Buffer
- * @param key The encryption key to use when reopening the database
+ * @param data The plaintext SQLite database as a Buffer
+ * @param key The encryption key to use for re-encryption
  */
 async function importDatabase(
   name: string,
@@ -389,6 +471,14 @@ async function importDatabase(
   const backupPath = `${dbPath}.backup`;
   const walPath = `${dbPath}-wal`;
   const shmPath = `${dbPath}-shm`;
+  const plaintextPath = `${dbPath}.import.tmp`;
+
+  console.log(
+    'Importing plaintext database:',
+    data.length,
+    'bytes, first 16 bytes:',
+    Array.from(data.slice(0, 16))
+  );
 
   // Create backup of current database before import
   try {
@@ -413,51 +503,131 @@ async function importDatabase(
       // Ignore if file doesn't exist
     }
 
-    // Write the imported data
-    await fs.promises.writeFile(dbPath, data);
+    // Write plaintext data to a temp file
+    await fs.promises.writeFile(plaintextPath, data);
 
-    // Reopen the database with encryption
-    db = new Database(dbPath);
+    // Open the plaintext database to read its contents
+    const plaintextDb = new Database(plaintextPath);
 
+    // Verify it's a valid SQLite database
+    try {
+      plaintextDb.exec('SELECT 1');
+    } catch (error) {
+      plaintextDb.close();
+      throw new Error('Invalid backup file: not a valid SQLite database');
+    }
+
+    // Delete the target path if it exists
+    try {
+      await fs.promises.unlink(dbPath);
+    } catch {
+      // Ignore if file doesn't exist
+    }
+
+    // Create the encrypted database and copy data
     const keyBuffer = Buffer.from(key);
     const keyHex = keyBuffer.toString('hex');
     secureZeroBuffer(keyBuffer);
 
-    // Apply encryption settings
+    db = new Database(dbPath);
     db.pragma(`cipher='chacha20'`);
     db.pragma(`key="x'${keyHex}'"`);
 
-    // Verify key and enable standard pragmas
     try {
-      db.exec('SELECT 1');
+      // Get all tables from plaintext database
+      const tables = plaintextDb
+        .prepare(
+          "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+        )
+        .all() as { name: string; sql: string }[];
+
+      // Get all indexes
+      const indexes = plaintextDb
+        .prepare(
+          "SELECT name, sql FROM sqlite_master WHERE type='index' AND sql IS NOT NULL"
+        )
+        .all() as { name: string; sql: string | null }[];
+
+      // Create tables in encrypted database
+      for (const table of tables) {
+        db.exec(table.sql);
+      }
+
+      // Copy data from each table
+      for (const table of tables) {
+        const rows = plaintextDb
+          .prepare(`SELECT * FROM "${table.name}"`)
+          .all();
+        if (rows.length > 0) {
+          const columns = Object.keys(rows[0] as Record<string, unknown>);
+          const placeholders = columns.map(() => '?').join(', ');
+          const insert = db.prepare(
+            `INSERT INTO "${table.name}" (${columns.map((c) => `"${c}"`).join(', ')}) VALUES (${placeholders})`
+          );
+
+          const insertMany = db.transaction(
+            (dataRows: Record<string, unknown>[]) => {
+              for (const row of dataRows) {
+                insert.run(...columns.map((c) => row[c]));
+              }
+            }
+          );
+          insertMany(rows as Record<string, unknown>[]);
+        }
+      }
+
+      // Create indexes in encrypted database
+      for (const index of indexes) {
+        if (index.sql) {
+          db.exec(index.sql);
+        }
+      }
+
+      plaintextDb.close();
+
+      // Enable standard pragmas
       db.pragma('journal_mode = WAL');
       db.pragma('foreign_keys = ON');
-    } catch (error) {
-      db.close();
-      db = null;
-      throw new Error(
-        'Failed to open imported database: invalid encryption key'
-      );
-    }
 
-    // Remove backup on success
-    try {
-      await fs.promises.unlink(backupPath);
-    } catch {
-      // Ignore cleanup errors
+      console.log('Database imported and re-encrypted successfully');
+
+      // Clean up plaintext temp file
+      try {
+        await fs.promises.unlink(plaintextPath);
+      } catch {
+        // Ignore cleanup errors
+      }
+
+      // Remove backup on success
+      try {
+        await fs.promises.unlink(backupPath);
+      } catch {
+        // Ignore cleanup errors
+      }
+    } catch (error) {
+      plaintextDb.close();
+      if (db) {
+        db.close();
+        db = null;
+      }
+      throw error;
     }
   } catch (error) {
+    // Clean up temp file on failure
+    try {
+      await fs.promises.unlink(plaintextPath);
+    } catch {
+      // Ignore
+    }
+
     // Restore from backup on failure
     try {
       await fs.promises.copyFile(backupPath, dbPath);
-      // Also restore WAL/SHM files were deleted, but original DB should work
-      // without them since closeDatabase() was called which flushes WAL
     } catch {
       // Best effort restore - if this fails, database may be corrupted
     }
 
     // Ensure db is null so caller knows to re-unlock
-    // The database file has been restored but needs to be reopened
     db = null;
 
     // Re-throw with more context about recovery state

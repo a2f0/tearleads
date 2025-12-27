@@ -272,12 +272,23 @@ export class WebAdapter implements DatabaseAdapter {
     return new Uint8Array(data);
   }
 
-  async importDatabase(data: Uint8Array): Promise<void> {
+  async importDatabase(
+    data: Uint8Array,
+    encryptionKey?: Uint8Array
+  ): Promise<void> {
     const id = generateRequestId();
-    await this.sendRequest({
-      type: 'IMPORT',
-      id,
-      data: Array.from(data)
-    });
+    const request: WorkerRequest = encryptionKey
+      ? {
+          type: 'IMPORT',
+          id,
+          data: Array.from(data),
+          encryptionKey: Array.from(encryptionKey)
+        }
+      : {
+          type: 'IMPORT',
+          id,
+          data: Array.from(data)
+        };
+    await this.sendRequest(request);
   }
 }
