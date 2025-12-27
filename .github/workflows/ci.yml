@@ -32,6 +32,9 @@ jobs:
       - name: Download SQLite WASM
         run: ./scripts/downloadSqliteWasm.sh
 
+      - name: Install Playwright for mermaid rendering
+        run: pnpm exec playwright install chromium
+
       - name: Lint
         run: pnpm lint
 
