@@ -139,7 +139,19 @@ async function runMigrations(): Promise<void> {
       "encrypted_value" TEXT NOT NULL,
       "created_at" INTEGER NOT NULL,
       "updated_at" INTEGER NOT NULL
-    )`
+    )`,
+    `CREATE TABLE IF NOT EXISTS "files" (
+      "id" TEXT PRIMARY KEY NOT NULL,
+      "name" TEXT NOT NULL,
+      "size" INTEGER NOT NULL,
+      "mime_type" TEXT NOT NULL,
+      "upload_date" INTEGER NOT NULL,
+      "content_hash" TEXT NOT NULL,
+      "storage_path" TEXT NOT NULL,
+      "deleted" INTEGER DEFAULT 0 NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS "files_content_hash_idx" ON "files" ("content_hash")`,
+    `CREATE INDEX IF NOT EXISTS "files_upload_date_idx" ON "files" ("upload_date")`
   ];
 
   await adapterInstance.executeMany(statements);

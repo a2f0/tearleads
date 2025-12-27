@@ -9,13 +9,15 @@ export interface DropzoneProps {
   accept?: string;
   multiple?: boolean;
   className?: string;
+  disabled?: boolean;
 }
 
 export function Dropzone({
   onFilesSelected,
   accept,
   multiple = true,
-  className
+  className,
+  disabled = false
 }: DropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -25,11 +27,12 @@ export function Dropzone({
 
   const handleFiles = useCallback(
     (files: FileList | null) => {
+      if (disabled) return;
       if (files && files.length > 0) {
         onFilesSelected(Array.from(files));
       }
     },
-    [onFilesSelected]
+    [onFilesSelected, disabled]
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -55,8 +58,9 @@ export function Dropzone({
   );
 
   const handleClick = useCallback(() => {
+    if (disabled) return;
     inputRef.current?.click();
-  }, []);
+  }, [disabled]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,6 +80,7 @@ export function Dropzone({
       accept={accept}
       multiple={multiple}
       onChange={handleChange}
+      disabled={disabled}
       className="hidden"
       data-testid="dropzone-input"
     />
@@ -91,6 +96,7 @@ export function Dropzone({
           onClick={handleClick}
           variant="outline"
           size="lg"
+          disabled={disabled}
           data-testid="dropzone-choose-files"
         >
           <Upload className="mr-2 h-5 w-5" />
@@ -107,13 +113,15 @@ export function Dropzone({
       data-testid="dropzone"
       data-slot="dropzone"
       data-dragging={isDragging}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      onDragOver={disabled ? undefined : handleDragOver}
+      onDragLeave={disabled ? undefined : handleDragLeave}
+      onDrop={disabled ? undefined : handleDrop}
       className={cn(
-        'flex cursor-pointer flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-12 transition-colors',
-        'border-muted-foreground/25 hover:border-muted-foreground/50',
-        isDragging && 'border-primary bg-primary/5',
+        'flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-12 transition-colors',
+        disabled
+          ? 'cursor-not-allowed opacity-50'
+          : 'cursor-pointer border-muted-foreground/25 hover:border-muted-foreground/50',
+        isDragging && !disabled && 'border-primary bg-primary/5',
         className
       )}
     >

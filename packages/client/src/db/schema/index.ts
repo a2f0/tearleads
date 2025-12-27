@@ -51,3 +51,24 @@ export const secrets = sqliteTable('secrets', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
 });
+
+/**
+ * Files metadata table for tracking encrypted file storage in OPFS.
+ */
+export const files = sqliteTable(
+  'files',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    size: integer('size').notNull(),
+    mimeType: text('mime_type').notNull(),
+    uploadDate: integer('upload_date', { mode: 'timestamp_ms' }).notNull(),
+    contentHash: text('content_hash').notNull(),
+    storagePath: text('storage_path').notNull(),
+    deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false)
+  },
+  (table) => [
+    index('files_content_hash_idx').on(table.contentHash),
+    index('files_upload_date_idx').on(table.uploadDate)
+  ]
+);

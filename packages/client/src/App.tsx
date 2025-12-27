@@ -1,6 +1,6 @@
 import { Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
-import { Bug, Settings, Table2 } from 'lucide-react';
+import { Bug, FileIcon, Settings, Table2 } from 'lucide-react';
 import { Link, Outlet } from 'react-router-dom';
 
 function App() {
@@ -18,6 +18,14 @@ function App() {
             </Link>
           </div>
           <div className="flex items-center gap-1">
+            <Link
+              to="/files"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+              aria-label="Files"
+              data-testid="files-link"
+            >
+              <FileIcon className="h-5 w-5" />
+            </Link>
             <Link
               to="/tables"
               className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
