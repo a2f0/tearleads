@@ -172,8 +172,32 @@ test.describe('Dropzone', () => {
     await expect(page.getByText('or click to browse')).toBeVisible();
   });
 
-  test('should open file picker when dropzone is clicked', async ({ page }) => {
+  test('should be disabled when database is locked', async ({ page }) => {
     const dropzone = page.getByTestId('dropzone');
+    // Dropzone should be disabled (has opacity-50 class) when database is locked
+    await expect(dropzone).toHaveClass(/opacity-50/);
+    await expect(
+      page.getByText('Unlock the database to upload files')
+    ).toBeVisible();
+  });
+
+  test('should open file picker when dropzone is clicked (unlocked)', async ({
+    page
+  }) => {
+    // First unlock the database
+    await page.getByTestId('debug-link').click();
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Go back to home
+    await page.getByRole('link', { name: 'Tearleads' }).click();
+
+    const dropzone = page.getByTestId('dropzone');
+
+    // Dropzone should not be disabled
+    await expect(dropzone).not.toHaveClass(/opacity-50/);
 
     // Set up a file chooser listener
     const fileChooserPromise = page.waitForEvent('filechooser');
@@ -195,11 +219,23 @@ test.describe('Dropzone', () => {
     });
 
     // Verify the dropzone is still functional after file selection
-    // (the current implementation logs to console, so we verify the UI remains stable)
+    // (without database unlocked, files won't be processed but UI stays stable)
     await expect(page.getByTestId('dropzone')).toBeVisible();
   });
 
-  test('should show dragging state on dragover', async ({ page }) => {
+  test('should show dragging state on dragover (unlocked)', async ({
+    page
+  }) => {
+    // First unlock the database
+    await page.getByTestId('debug-link').click();
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Go back to home
+    await page.getByRole('link', { name: 'Tearleads' }).click();
+
     const dropzone = page.getByTestId('dropzone');
 
     // Verify initial state
@@ -213,7 +249,19 @@ test.describe('Dropzone', () => {
     await expect(page.getByText('Drop files here')).toBeVisible();
   });
 
-  test('should remove dragging state on dragleave', async ({ page }) => {
+  test('should remove dragging state on dragleave (unlocked)', async ({
+    page
+  }) => {
+    // First unlock the database
+    await page.getByTestId('debug-link').click();
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Go back to home
+    await page.getByRole('link', { name: 'Tearleads' }).click();
+
     const dropzone = page.getByTestId('dropzone');
 
     // Set dragging state
@@ -227,7 +275,17 @@ test.describe('Dropzone', () => {
     await expect(dropzone).toHaveAttribute('data-dragging', 'false');
   });
 
-  test('should display file info after file is selected', async ({ page }) => {
+  test('should upload file and show completion status', async ({ page }) => {
+    // First unlock the database
+    await page.getByTestId('debug-link').click();
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Go back to home
+    await page.getByRole('link', { name: 'Tearleads' }).click();
+
     const fileInput = page.getByTestId('dropzone-input');
 
     await fileInput.setInputFiles({
@@ -236,13 +294,23 @@ test.describe('Dropzone', () => {
       buffer: Buffer.from('test content')
     });
 
-    // Verify file name is displayed
+    // Verify file name is displayed during/after upload
     await expect(page.getByText('document.pdf')).toBeVisible();
-    // Verify file type is displayed
-    await expect(page.getByText(/application\/pdf/)).toBeVisible();
+    // Verify file size is displayed
+    await expect(page.getByText(/12 B/)).toBeVisible();
   });
 
-  test('should display formatted file size', async ({ page }) => {
+  test('should display formatted file size during upload', async ({ page }) => {
+    // First unlock the database
+    await page.getByTestId('debug-link').click();
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Go back to home
+    await page.getByRole('link', { name: 'Tearleads' }).click();
+
     const fileInput = page.getByTestId('dropzone-input');
 
     // Create a ~1.5KB file
@@ -257,7 +325,17 @@ test.describe('Dropzone', () => {
     await expect(page.getByText(/1\.5 KB/)).toBeVisible();
   });
 
-  test('should display multiple files', async ({ page }) => {
+  test('should upload multiple files', async ({ page }) => {
+    // First unlock the database
+    await page.getByTestId('debug-link').click();
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Go back to home
+    await page.getByRole('link', { name: 'Tearleads' }).click();
+
     const fileInput = page.getByTestId('dropzone-input');
 
     await fileInput.setInputFiles([
@@ -277,46 +355,33 @@ test.describe('Dropzone', () => {
     await expect(page.getByText('file2.txt')).toBeVisible();
   });
 
-  test('should remove file when remove button is clicked', async ({ page }) => {
+  test('should show files on Files page after upload', async ({ page }) => {
+    // First unlock the database
+    await page.getByTestId('debug-link').click();
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Go back to home
+    await page.getByRole('link', { name: 'Tearleads' }).click();
+
     const fileInput = page.getByTestId('dropzone-input');
 
     await fileInput.setInputFiles({
-      name: 'removeme.txt',
+      name: 'uploaded-file.txt',
       mimeType: 'text/plain',
-      buffer: Buffer.from('test')
+      buffer: Buffer.from('test content for files page')
     });
 
-    await expect(page.getByText('removeme.txt')).toBeVisible();
+    // Wait for upload to complete
+    await expect(page.getByText('uploaded-file.txt')).toBeVisible();
 
-    // Click the remove button using aria-label
-    const removeButton = page.getByRole('button', { name: 'Remove removeme.txt' });
-    await removeButton.click();
+    // Navigate to Files page
+    await page.getByTestId('files-link').click();
 
-    await expect(page.getByText('removeme.txt')).not.toBeVisible();
-  });
-
-  test('should accumulate files from multiple selections', async ({ page }) => {
-    const fileInput = page.getByTestId('dropzone-input');
-
-    // First selection
-    await fileInput.setInputFiles({
-      name: 'first.txt',
-      mimeType: 'text/plain',
-      buffer: Buffer.from('first')
-    });
-
-    await expect(page.getByText('first.txt')).toBeVisible();
-
-    // Second selection (should add to existing)
-    await fileInput.setInputFiles({
-      name: 'second.txt',
-      mimeType: 'text/plain',
-      buffer: Buffer.from('second')
-    });
-
-    // Both files should be visible
-    await expect(page.getByText('first.txt')).toBeVisible();
-    await expect(page.getByText('second.txt')).toBeVisible();
+    // Verify file appears in the Files listing
+    await expect(page.getByText('uploaded-file.txt')).toBeVisible();
   });
 });
 
