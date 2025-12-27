@@ -15,7 +15,8 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: vi.fn(() => ({
     exportDatabase: mockExportDatabase,
     importDatabase: mockImportDatabase,
-    lock: mockLock
+    lock: mockLock,
+    isUnlocked: true
   }))
 }));
 
