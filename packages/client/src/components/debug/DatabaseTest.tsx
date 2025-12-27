@@ -276,7 +276,17 @@ export function DatabaseTest() {
         )}
       </div>
 
-      <div className="space-y-2">
+      <form
+        className="space-y-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!isSetUp) {
+            handleSetup();
+          } else if (!isUnlocked) {
+            handleUnlock();
+          }
+        }}
+      >
         <div className="relative">
           <input
             type={showPassword ? 'text' : 'password'}
@@ -284,6 +294,7 @@ export function DatabaseTest() {
             value={password}
             onChange={handlePasswordChange}
             data-testid="db-password-input"
+            autoComplete="current-password"
             className="w-full rounded-md border bg-background px-3 py-2 pr-10 text-sm"
           />
           <button
@@ -303,9 +314,9 @@ export function DatabaseTest() {
         <div className="grid grid-cols-2 gap-2">
           {!isSetUp && (
             <Button
+              type="submit"
               variant="outline"
               size="sm"
-              onClick={handleSetup}
               disabled={isLoading || !password}
               data-testid="db-setup-button"
             >
@@ -315,9 +326,9 @@ export function DatabaseTest() {
 
           {isSetUp && !isUnlocked && (
             <Button
+              type="submit"
               variant="outline"
               size="sm"
-              onClick={handleUnlock}
               disabled={isLoading || !password}
               data-testid="db-unlock-button"
             >
@@ -328,6 +339,7 @@ export function DatabaseTest() {
           {isUnlocked && (
             <>
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={handleLock}
@@ -337,6 +349,7 @@ export function DatabaseTest() {
                 Lock
               </Button>
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={handleWriteData}
@@ -346,6 +359,7 @@ export function DatabaseTest() {
                 Write Data
               </Button>
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={handleReadData}
@@ -355,6 +369,7 @@ export function DatabaseTest() {
                 Read Data
               </Button>
               <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setShowChangePassword(!showChangePassword)}
@@ -374,9 +389,11 @@ export function DatabaseTest() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 data-testid="db-new-password-input"
+                autoComplete="new-password"
                 className="col-span-2 rounded-md border bg-background px-3 py-2 text-sm"
               />
               <Button
+                type="button"
                 variant="default"
                 size="sm"
                 onClick={handleChangePassword}
@@ -390,6 +407,7 @@ export function DatabaseTest() {
           )}
 
           <Button
+            type="button"
             variant="destructive"
             size="sm"
             onClick={handleReset}
@@ -399,7 +417,7 @@ export function DatabaseTest() {
             Reset
           </Button>
         </div>
-      </div>
+      </form>
 
       {testResult.message && (
         <div
