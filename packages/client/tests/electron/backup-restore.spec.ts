@@ -8,13 +8,20 @@ import {
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as fs from 'node:fs';
-import type { ElectronApi } from '@/types/electron';
 
-// Extend Window type for Electron's exposed API
-declare global {
-  interface Window {
-    electron: ElectronApi;
-  }
+// Type for window.electron.sqlite in the browser context (defined by preload script)
+interface ElectronSqliteApi {
+  export: (name: string) => Promise<number[]>;
+  import: (name: string, data: number[], key: number[]) => Promise<void>;
+  getSalt: () => Promise<number[] | null>;
+  setSalt: (salt: number[]) => Promise<void>;
+  setKeyCheckValue: (kcv: string) => Promise<void>;
+}
+
+interface ElectronWindow extends Window {
+  electron: {
+    sqlite: ElectronSqliteApi;
+  };
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -95,7 +102,8 @@ test.describe('Backup & Restore (Electron)', () => {
 
     // Export via IPC (bypassing native file dialog)
     const exportData = await window.evaluate(async () => {
-      return window.electron.sqlite.export('rapid');
+      const win = window as unknown as ElectronWindow;
+      return win.electron.sqlite.export('rapid');
     });
 
     // Verify export data is a valid SQLite database (starts with "SQLite format 3")
@@ -119,12 +127,14 @@ test.describe('Backup & Restore (Electron)', () => {
 
     // Export the database via IPC
     const exportData = await window.evaluate(async () => {
-      return window.electron.sqlite.export('rapid');
+      const win = window as unknown as ElectronWindow;
+      return win.electron.sqlite.export('rapid');
     });
 
     // Get the salt before reset (we'll need it to derive the key)
     const originalSalt = await window.evaluate(async () => {
-      return window.electron.sqlite.getSalt();
+      const win = window as unknown as ElectronWindow;
+      return win.electron.sqlite.getSalt();
     });
 
     // Reset the database
@@ -133,11 +143,13 @@ test.describe('Backup & Restore (Electron)', () => {
     await expect(window.getByTestId('db-status')).toHaveText('Not Set Up');
 
     // Restore the original salt so we can derive the same key
+    expect(originalSalt).not.toBeNull();
     await window.evaluate(
       async (salt) => {
-        await window.electron.sqlite.setSalt(salt);
+        const win = window as unknown as ElectronWindow;
+        await win.electron.sqlite.setSalt(salt);
       },
-      originalSalt
+      originalSalt as number[]
     );
 
     // Setup with the same password - this will derive the same key with the original salt
@@ -151,7 +163,8 @@ test.describe('Backup & Restore (Electron)', () => {
     // This matches what the app does internally
     const encryptionKey = await window.evaluate(async (password) => {
       // Use Web Crypto to derive the key the same way the app does
-      const salt = await window.electron.sqlite.getSalt();
+      const win = window as unknown as ElectronWindow;
+      const salt = await win.electron.sqlite.getSalt();
       if (!salt) return null;
 
       const encoder = new TextEncoder();
@@ -188,9 +201,10 @@ test.describe('Backup & Restore (Electron)', () => {
     // Import the backup via IPC
     await window.evaluate(
       async ({ data, key }) => {
-        await window.electron.sqlite.import('rapid', data, key);
+        const win = window as unknown as ElectronWindow;
+        await win.electron.sqlite.import('rapid', data, key);
       },
-      { data: exportData, key: encryptionKey }
+      { data: exportData, key: encryptionKey as number[] }
     );
 
     // Read and verify the data was restored
