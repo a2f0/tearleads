@@ -10,7 +10,7 @@ description: Respond to Gemini's comments after resolving and pushing feedback.
 
 3. For each unresolved comment that has been addressed and pushed:
    - Reply directly to that comment thread using `gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies`
-   - Tag @gemini-code-assist and briefly explain that the feedback has been addressed
-   - Example: "@gemini-code-assist This has been addressed in the latest push."
+   - Tag @gemini-code-assist and briefly explain that the feedback has been addressed, and ask Gemini to confirm.
+   - Example: "@gemini-code-assist This has been addressed in the latest push, please confirm it is fixed to your safisfaction."
 
 4. Do NOT comment on the main PR thread. Only reply inside discussion threads.
