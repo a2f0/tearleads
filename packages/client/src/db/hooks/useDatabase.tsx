@@ -76,9 +76,9 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
   const [isSetUp, setIsSetUp] = useState(false);
   const [hasPersisted, setHasPersisted] = useState(false);
 
-  // Check if database is set up on mount
+  // Check if database is set up on mount and auto-restore session if available
   useEffect(() => {
-    async function checkSetup() {
+    async function checkSetupAndRestore() {
       try {
         const setup = await isDatabaseSetUp();
         setIsSetUp(setup);
@@ -86,6 +86,17 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         // Check for persisted session (web only)
         const persisted = await hasPersistedSession();
         setHasPersisted(persisted);
+
+        // Auto-restore session if available
+        if (persisted) {
+          const database = await restoreDatabaseSession();
+          if (database) {
+            setDb(database);
+          } else {
+            // Session restore failed, clear the invalid session
+            setHasPersisted(false);
+          }
+        }
       } catch (err) {
         setError(err as Error);
       } finally {
@@ -93,7 +104,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       }
     }
 
-    checkSetup();
+    checkSetupAndRestore();
   }, []);
 
   const setup = useCallback(async (password: string): Promise<boolean> => {
