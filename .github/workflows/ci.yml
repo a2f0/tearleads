@@ -33,7 +33,7 @@ jobs:
         run: ./scripts/downloadSqliteWasm.sh
 
       - name: Install Playwright for mermaid rendering
-        run: pnpm exec playwright install chromium
+        run: pnpm --filter @rapid/website exec playwright install chromium
 
       - name: Lint
         run: pnpm lint
