@@ -434,7 +434,7 @@ export function DatabaseTest() {
                   setCopied(true);
                 }
               }}
-              className="flex-shrink-0 rounded p-1 hover:bg-muted"
+              className="shrink-0 rounded p-1 hover:bg-muted"
               aria-label="Copy error to clipboard"
             >
               {copied ? (
