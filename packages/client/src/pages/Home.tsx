@@ -6,6 +6,7 @@ import { useFileUpload } from '@/hooks/useFileUpload';
 import { formatFileSize } from '@/lib/utils';
 
 interface UploadingFile {
+  id: string;
   file: File;
   progress: number;
   status: 'pending' | 'uploading' | 'complete' | 'duplicate' | 'error';
@@ -23,34 +24,33 @@ export function Home() {
         return;
       }
 
-      // Add files to upload queue
+      // Add files to upload queue with unique IDs
       const newFiles: UploadingFile[] = files.map((file) => ({
+        id: crypto.randomUUID(),
         file,
         progress: 0,
         status: 'pending' as const
       }));
       setUploadingFiles((prev) => [...prev, ...newFiles]);
 
-      // Process each file
-      for (const fileEntry of newFiles) {
+      // Process files in parallel
+      const uploadPromises = newFiles.map(async (fileEntry) => {
         try {
           setUploadingFiles((prev) =>
             prev.map((f) =>
-              f.file === fileEntry.file ? { ...f, status: 'uploading' } : f
+              f.id === fileEntry.id ? { ...f, status: 'uploading' } : f
             )
           );
 
           const result = await uploadFile(fileEntry.file, (progress) => {
             setUploadingFiles((prev) =>
-              prev.map((f) =>
-                f.file === fileEntry.file ? { ...f, progress } : f
-              )
+              prev.map((f) => (f.id === fileEntry.id ? { ...f, progress } : f))
             );
           });
 
           setUploadingFiles((prev) =>
             prev.map((f) =>
-              f.file === fileEntry.file
+              f.id === fileEntry.id
                 ? {
                     ...f,
                     status: result.isDuplicate ? 'duplicate' : 'complete',
@@ -62,13 +62,15 @@ export function Home() {
         } catch (err) {
           setUploadingFiles((prev) =>
             prev.map((f) =>
-              f.file === fileEntry.file
+              f.id === fileEntry.id
                 ? { ...f, status: 'error', error: String(err) }
                 : f
             )
           );
         }
-      }
+      });
+
+      await Promise.all(uploadPromises);
     },
     [isUnlocked, uploadFile]
   );
@@ -108,9 +110,9 @@ export function Home() {
               Clear completed
             </button>
           )}
-          {uploadingFiles.map((entry, index) => (
+          {uploadingFiles.map((entry) => (
             <div
-              key={`${entry.file.name}-${entry.file.size}-${index}`}
+              key={entry.id}
               className="flex items-center gap-3 rounded-lg border bg-muted/50 p-3"
             >
               {entry.status === 'uploading' && (
