@@ -49,19 +49,29 @@ export async function setupDatabase(password: string): Promise<Database> {
   return initializeDatabaseWithKey(encryptionKey);
 }
 
+export interface UnlockResult {
+  db: Database;
+  sessionPersisted: boolean;
+}
+
 /**
  * Unlock an existing database with a password.
  * @param persistSession If true, persist the key for session restoration on reload (web only)
+ * @returns Object with db instance and whether session was persisted, or null if wrong password
  */
 export async function unlockDatabase(
   password: string,
   persistSession = false
-): Promise<Database | null> {
+): Promise<UnlockResult | null> {
+  const keyManager = getKeyManager();
+
   if (databaseInstance) {
-    return databaseInstance;
+    return {
+      db: databaseInstance,
+      sessionPersisted: await keyManager.hasPersistedSession()
+    };
   }
 
-  const keyManager = getKeyManager();
   const encryptionKey = await keyManager.unlockWithPassword(password);
 
   if (!encryptionKey) {
@@ -71,11 +81,12 @@ export async function unlockDatabase(
   const db = await initializeDatabaseWithKey(encryptionKey);
 
   // Persist session if requested (web only)
+  let sessionPersisted = false;
   if (persistSession) {
-    await keyManager.persistSession();
+    sessionPersisted = await keyManager.persistSession();
   }
 
-  return db;
+  return { db, sessionPersisted };
 }
 
 /**
