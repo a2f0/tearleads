@@ -14,7 +14,8 @@ import { cn } from '@/lib/utils';
 
 export function Settings() {
   const { resolvedTheme, setTheme } = useTheme();
-  const { exportDatabase, importDatabase, lock } = useDatabaseContext();
+  const { exportDatabase, importDatabase, lock, isUnlocked } =
+    useDatabaseContext();
   const isDark = resolvedTheme === 'dark';
   const version = useAppVersion();
 
@@ -141,7 +142,7 @@ export function Settings() {
         {/* Export Button */}
         <Button
           onClick={handleExport}
-          disabled={isExporting || isImporting}
+          disabled={!isUnlocked || isExporting || isImporting}
           variant="outline"
           className="w-full"
           data-testid="backup-export-button"

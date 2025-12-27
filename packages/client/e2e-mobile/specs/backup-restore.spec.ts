@@ -29,11 +29,7 @@ async function ensureCleanState(): Promise<void> {
   }
 }
 
-// SKIPPED: Export functionality fails with "readFile failed: rapidSQLite.db couldn't be opened"
-// The share sheet never opens because the backup export fails at the file read step.
-// This needs to be fixed in the backup export implementation before these tests can run.
-// Native dialog handling (file picker) is working - see file-picker.spec.ts
-describe.skip('Backup & Restore', () => {
+describe('Backup & Restore', () => {
   before(async () => {
     await launchAppWithClearState();
     await waitForWebView();

@@ -18,6 +18,8 @@ const config: CapacitorConfig = {
   },
   plugins: {
     CapacitorSQLite: {
+      // Store databases in Library/CapacitorDatabase (not visible to iTunes, backed up to iCloud)
+      iosDatabaseLocation: 'Library/CapacitorDatabase',
       // Enable encryption on iOS
       iosIsEncryption: true,
       // Enable encryption on Android
