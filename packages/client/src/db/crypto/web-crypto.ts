@@ -192,3 +192,68 @@ export async function decryptString(
   const decoder = new TextDecoder();
   return decoder.decode(decrypted);
 }
+
+/**
+ * Generate a non-extractable wrapping key for session persistence.
+ * This key can be stored in IndexedDB but its raw bytes cannot be exported.
+ */
+export async function generateWrappingKey(): Promise<CryptoKey> {
+  return crypto.subtle.generateKey(
+    { name: 'AES-KW', length: 256 },
+    false, // non-extractable - key bytes cannot be read by JavaScript
+    ['wrapKey', 'unwrapKey']
+  );
+}
+
+/**
+ * Wrap (encrypt) a key using a wrapping key.
+ * Returns the wrapped key as a Uint8Array.
+ */
+export async function wrapKey(
+  keyToWrap: Uint8Array,
+  wrappingKey: CryptoKey
+): Promise<Uint8Array> {
+  // Import the raw key bytes as a CryptoKey so we can wrap it
+  const keyBuffer = new ArrayBuffer(keyToWrap.byteLength);
+  new Uint8Array(keyBuffer).set(keyToWrap);
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    keyBuffer,
+    { name: ALGORITHM, length: KEY_LENGTH },
+    true, // must be extractable to wrap
+    ['encrypt', 'decrypt']
+  );
+
+  const wrapped = await crypto.subtle.wrapKey('raw', cryptoKey, wrappingKey, {
+    name: 'AES-KW'
+  });
+
+  return new Uint8Array(wrapped);
+}
+
+/**
+ * Unwrap (decrypt) a wrapped key using a wrapping key.
+ * Returns the unwrapped key as a Uint8Array.
+ */
+export async function unwrapKey(
+  wrappedKey: Uint8Array,
+  wrappingKey: CryptoKey
+): Promise<Uint8Array> {
+  // Copy to plain ArrayBuffer for Web Crypto compatibility
+  const wrappedBuffer = new ArrayBuffer(wrappedKey.byteLength);
+  new Uint8Array(wrappedBuffer).set(wrappedKey);
+
+  const unwrappedCryptoKey = await crypto.subtle.unwrapKey(
+    'raw',
+    wrappedBuffer,
+    wrappingKey,
+    { name: 'AES-KW' },
+    { name: ALGORITHM, length: KEY_LENGTH },
+    true, // extractable so we can get the raw bytes
+    ['encrypt', 'decrypt']
+  );
+
+  const exported = await crypto.subtle.exportKey('raw', unwrappedCryptoKey);
+  return new Uint8Array(exported);
+}

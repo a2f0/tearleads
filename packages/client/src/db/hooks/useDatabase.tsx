@@ -14,11 +14,14 @@ import {
 import type { Database } from '../index';
 import {
   changePassword,
+  clearPersistedSession,
   closeDatabase,
   exportDatabase,
+  hasPersistedSession,
   importDatabase,
   isDatabaseSetUp,
   resetDatabase,
+  restoreDatabaseSession,
   setupDatabase,
   unlockDatabase
 } from '../index';
@@ -34,12 +37,16 @@ interface DatabaseContextValue {
   isSetUp: boolean;
   /** Whether the database is currently unlocked */
   isUnlocked: boolean;
+  /** Whether there's a persisted session available (web only) */
+  hasPersistedSession: boolean;
   /** Set up a new database with a password */
   setup: (password: string) => Promise<boolean>;
   /** Unlock an existing database with a password */
-  unlock: (password: string) => Promise<boolean>;
+  unlock: (password: string, persistSession?: boolean) => Promise<boolean>;
+  /** Restore the database from a persisted session (web only) */
+  restoreSession: () => Promise<boolean>;
   /** Lock the database (close and clear key) */
-  lock: () => Promise<void>;
+  lock: (clearSession?: boolean) => Promise<void>;
   /** Change the database password */
   changePassword: (
     oldPassword: string,
@@ -67,6 +74,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [isSetUp, setIsSetUp] = useState(false);
+  const [hasPersisted, setHasPersisted] = useState(false);
 
   // Check if database is set up on mount
   useEffect(() => {
@@ -74,6 +82,10 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       try {
         const setup = await isDatabaseSetUp();
         setIsSetUp(setup);
+
+        // Check for persisted session (web only)
+        const persisted = await hasPersistedSession();
+        setHasPersisted(persisted);
       } catch (err) {
         setError(err as Error);
       } finally {
@@ -102,29 +114,62 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
     }
   }, []);
 
-  const unlock = useCallback(async (password: string): Promise<boolean> => {
+  const unlock = useCallback(
+    async (password: string, persistSession = false): Promise<boolean> => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const result = await unlockDatabase(password, persistSession);
+        if (result) {
+          setDb(result.db);
+          if (result.sessionPersisted) {
+            setHasPersisted(true);
+          }
+          return true;
+        }
+        return false; // Wrong password
+      } catch (err) {
+        setError(err as Error);
+        return false;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  const restoreSession = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const database = await unlockDatabase(password);
+      const database = await restoreDatabaseSession();
       if (database) {
         setDb(database);
         return true;
       }
-      return false; // Wrong password
+      // No persisted session or restoration failed
+      setHasPersisted(false);
+      return false;
     } catch (err) {
       setError(err as Error);
+      setHasPersisted(false);
       return false;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const lock = useCallback(async (): Promise<void> => {
+  const lock = useCallback(async (clearSession = false): Promise<void> => {
     try {
       await closeDatabase();
       setDb(null);
+
+      if (clearSession) {
+        await clearPersistedSession();
+        setHasPersisted(false);
+      }
     } catch (err) {
       setError(err as Error);
     }
@@ -147,6 +192,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       await resetDatabase();
       setDb(null);
       setIsSetUp(false);
+      setHasPersisted(false);
     } catch (err) {
       setError(err as Error);
     }
@@ -185,8 +231,10 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       error,
       isSetUp,
       isUnlocked: db !== null,
+      hasPersistedSession: hasPersisted,
       setup,
       unlock,
+      restoreSession,
       lock,
       changePassword: handleChangePassword,
       reset,
@@ -198,8 +246,10 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       isLoading,
       error,
       isSetUp,
+      hasPersisted,
       setup,
       unlock,
+      restoreSession,
       lock,
       handleChangePassword,
       reset,

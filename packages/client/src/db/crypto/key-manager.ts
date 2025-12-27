@@ -8,12 +8,17 @@ import {
   deriveKeyFromPassword,
   exportKey,
   generateSalt,
+  generateWrappingKey,
   importKey,
-  secureZero
+  secureZero,
+  unwrapKey,
+  wrapKey
 } from './web-crypto';
 
 const SALT_STORAGE_KEY = 'rapid_db_salt';
 const KEY_CHECK_VALUE = 'rapid_db_kcv';
+const WRAPPING_KEY_STORAGE = 'rapid_session_wrapping_key';
+const WRAPPED_KEY_STORAGE = 'rapid_session_wrapped_key';
 
 export interface KeyManagerConfig {
   databaseName: string;
@@ -47,6 +52,12 @@ interface KeyStorageAdapter {
   getKeyCheckValue(): Promise<string | null>;
   setKeyCheckValue(kcv: string): Promise<void>;
   clear(): Promise<void>;
+  // Session persistence (web only)
+  getWrappingKey(): Promise<CryptoKey | null>;
+  setWrappingKey(key: CryptoKey): Promise<void>;
+  getWrappedKey(): Promise<Uint8Array | null>;
+  setWrappedKey(wrappedKey: Uint8Array): Promise<void>;
+  clearSession(): Promise<void>;
 }
 
 /**
@@ -132,6 +143,41 @@ class WebKeyStorage implements KeyStorageAdapter {
       };
     });
   }
+
+  async getWrappingKey(): Promise<CryptoKey | null> {
+    return this.get<CryptoKey>(WRAPPING_KEY_STORAGE);
+  }
+
+  async setWrappingKey(key: CryptoKey): Promise<void> {
+    await this.set(WRAPPING_KEY_STORAGE, key);
+  }
+
+  async getWrappedKey(): Promise<Uint8Array | null> {
+    const stored = await this.get<number[]>(WRAPPED_KEY_STORAGE);
+    return stored ? new Uint8Array(stored) : null;
+  }
+
+  async setWrappedKey(wrappedKey: Uint8Array): Promise<void> {
+    await this.set(WRAPPED_KEY_STORAGE, Array.from(wrappedKey));
+  }
+
+  async clearSession(): Promise<void> {
+    const db = await this.openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(this.storeName, 'readwrite');
+      const store = tx.objectStore(this.storeName);
+
+      // Delete only session-related keys, not the salt/kcv
+      store.delete(WRAPPING_KEY_STORAGE);
+      store.delete(WRAPPED_KEY_STORAGE);
+
+      tx.onerror = () => reject(tx.error);
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+    });
+  }
 }
 
 /**
@@ -175,6 +221,17 @@ class ElectronKeyStorage implements KeyStorageAdapter {
       await api.clearKeyStorage();
     }
   }
+
+  // Session persistence not supported on Electron (uses native secure storage)
+  async getWrappingKey(): Promise<CryptoKey | null> {
+    return null;
+  }
+  async setWrappingKey(_key: CryptoKey): Promise<void> {}
+  async getWrappedKey(): Promise<Uint8Array | null> {
+    return null;
+  }
+  async setWrappedKey(_wrappedKey: Uint8Array): Promise<void> {}
+  async clearSession(): Promise<void> {}
 }
 
 /**
@@ -206,6 +263,17 @@ class CapacitorKeyStorage implements KeyStorageAdapter {
   async clear(): Promise<void> {
     return this.storage.clear();
   }
+
+  // Session persistence not supported on mobile (security concern)
+  async getWrappingKey(): Promise<CryptoKey | null> {
+    return null;
+  }
+  async setWrappingKey(_key: CryptoKey): Promise<void> {}
+  async getWrappedKey(): Promise<Uint8Array | null> {
+    return null;
+  }
+  async setWrappedKey(_wrappedKey: Uint8Array): Promise<void> {}
+  async clearSession(): Promise<void> {}
 }
 
 /**
@@ -328,6 +396,80 @@ export class KeyManager {
     this.clearKey();
     if (!this.storage) await this.initialize();
     await this.storage?.clear();
+  }
+
+  /**
+   * Persist the current key for session restoration (web only).
+   * Uses a non-extractable wrapping key to securely store the database key.
+   */
+  async persistSession(): Promise<boolean> {
+    if (!this.currentKey) return false;
+    if (!this.storage) await this.initialize();
+
+    try {
+      // Generate a non-extractable wrapping key
+      const wrappingKey = await generateWrappingKey();
+
+      // Wrap (encrypt) the database key
+      const wrappedKey = await wrapKey(this.currentKey, wrappingKey);
+
+      // Store both in IndexedDB
+      await this.storage?.setWrappingKey(wrappingKey);
+      await this.storage?.setWrappedKey(wrappedKey);
+
+      return true;
+    } catch (err) {
+      console.error('Failed to persist session:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Check if a persisted session exists.
+   */
+  async hasPersistedSession(): Promise<boolean> {
+    if (!this.storage) await this.initialize();
+
+    const wrappingKey = await this.storage?.getWrappingKey();
+    const wrappedKey = await this.storage?.getWrappedKey();
+
+    return wrappingKey !== null && wrappedKey !== null;
+  }
+
+  /**
+   * Restore a persisted session (web only).
+   * Returns the unwrapped database key if successful.
+   */
+  async restoreSession(): Promise<Uint8Array | null> {
+    if (!this.storage) await this.initialize();
+
+    try {
+      const wrappingKey = await this.storage?.getWrappingKey();
+      const wrappedKey = await this.storage?.getWrappedKey();
+
+      if (!wrappingKey || !wrappedKey) {
+        return null;
+      }
+
+      // Unwrap the database key
+      const keyBytes = await unwrapKey(wrappedKey, wrappingKey);
+
+      this.currentKey = keyBytes;
+      return keyBytes;
+    } catch (err) {
+      console.error('Failed to restore session:', err);
+      // Clear invalid session data
+      await this.clearPersistedSession();
+      return null;
+    }
+  }
+
+  /**
+   * Clear any persisted session data.
+   */
+  async clearPersistedSession(): Promise<void> {
+    if (!this.storage) await this.initialize();
+    await this.storage?.clearSession();
   }
 
   /**
