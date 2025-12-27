@@ -47,7 +47,11 @@ const mockKeyManager = {
   ),
   getCurrentKey: vi.fn(() => null),
   clearKey: vi.fn(),
-  reset: vi.fn()
+  reset: vi.fn(),
+  persistSession: vi.fn(async () => true),
+  hasPersistedSession: vi.fn(async () => false),
+  restoreSession: vi.fn(async () => null),
+  clearPersistedSession: vi.fn()
 };
 
 vi.mock('./crypto', () => ({
