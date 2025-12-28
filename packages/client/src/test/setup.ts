@@ -6,6 +6,9 @@ afterEach(() => {
   cleanup();
 });
 
+// Mock __APP_VERSION__ global defined by Vite
+vi.stubGlobal('__APP_VERSION__', '0.0.0-test');
+
 // Mock import.meta.env
 vi.stubGlobal('import.meta', {
   env: {
