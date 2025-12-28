@@ -46,16 +46,18 @@ export function Contacts() {
     try {
       const adapter = getDatabaseAdapter();
 
-      // Fetch contacts with their primary email and phone
+      // Fetch contacts with their primary email and phone using LEFT JOINs
       const result = await adapter.execute(
         `SELECT
           c.id,
           c.first_name,
           c.birthday,
           c.created_at,
-          (SELECT email FROM contact_emails WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) as primary_email,
-          (SELECT phone_number FROM contact_phones WHERE contact_id = c.id AND is_primary = 1 LIMIT 1) as primary_phone
+          ce.email as primary_email,
+          cp.phone_number as primary_phone
          FROM contacts c
+         LEFT JOIN contact_emails ce ON ce.contact_id = c.id AND ce.is_primary = 1
+         LEFT JOIN contact_phones cp ON cp.contact_id = c.id AND cp.is_primary = 1
          WHERE c.deleted = 0
          ORDER BY c.first_name ASC`,
         []
