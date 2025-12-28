@@ -19,6 +19,18 @@ function formatCellValue(value: unknown): string {
   return String(value);
 }
 
+function getRowKey(
+  row: Record<string, unknown>,
+  columns: ColumnInfo[],
+  index: number
+): string {
+  const pkColumns = columns.filter((col) => col.pk > 0);
+  if (pkColumns.length > 0) {
+    return pkColumns.map((col) => String(row[col.name])).join('-');
+  }
+  return String(index);
+}
+
 export function TableRows() {
   const { tableName } = useParams<{ tableName: string }>();
   const { isUnlocked, isLoading } = useDatabaseContext();
@@ -35,6 +47,19 @@ export function TableRows() {
 
     try {
       const adapter = getDatabaseAdapter();
+
+      // Validate tableName against actual tables to prevent SQL injection
+      const tablesResult = await adapter.execute(
+        `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`,
+        []
+      );
+      const validTables = tablesResult.rows.map(
+        (row) => (row as Record<string, unknown>)['name'] as string
+      );
+
+      if (!validTables.includes(tableName)) {
+        throw new Error(`Table "${tableName}" does not exist.`);
+      }
 
       // Get column info using PRAGMA
       const schemaResult = await adapter.execute(
@@ -154,7 +179,7 @@ export function TableRows() {
                       className="px-4 py-3 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider"
                     >
                       {col.name}
-                      {col.pk === 1 && (
+                      {col.pk > 0 && (
                         <span className="ml-1 text-primary">PK</span>
                       )}
                     </th>
@@ -172,8 +197,11 @@ export function TableRows() {
                     </td>
                   </tr>
                 ) : (
-                  rows.map((row) => (
-                    <tr key={JSON.stringify(row)} className="hover:bg-muted/25">
+                  rows.map((row, index) => (
+                    <tr
+                      key={getRowKey(row, columns, index)}
+                      className="hover:bg-muted/25"
+                    >
                       {columns.map((col) => (
                         <td
                           key={col.name}
