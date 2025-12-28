@@ -42,6 +42,7 @@
     "@capacitor/filesystem": "8.0.0",
     "@capacitor/preferences": "8.0.0",
     "@capacitor/share": "8.0.0",
+    "@mlc-ai/web-llm": "0.2.80",
     "@radix-ui/react-slot": "1.2.4",
     "@rapid/shared": "workspace:*",
     "@rapid/ui": "workspace:*",
