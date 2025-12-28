@@ -549,4 +549,69 @@ test.describe('Tables page', () => {
     // Tables should still be visible after refresh
     await expect(page.getByText('user_settings')).toBeVisible();
   });
+
+  test('should navigate to table rows view and display file data', async ({
+    page
+  }) => {
+    // Setup database first
+    await page.getByTestId('debug-link').click();
+    await page.getByTestId('db-reset-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
+      timeout: 10000
+    });
+    await page.getByTestId('db-password-input').fill('testpassword123');
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Navigate to home using client-side navigation (preserves db session)
+    await page.getByRole('link', { name: 'Tearleads Tearleads' }).click();
+    await expect(page.getByRole('heading', { name: 'Files' })).toBeVisible();
+    const fileInput = page.getByTestId('dropzone-input');
+    await fileInput.setInputFiles({
+      name: 'test-file.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('Hello, this is test content!')
+    });
+
+    // Wait for file to appear in list
+    await expect(page.getByText('test-file.txt')).toBeVisible({
+      timeout: 10000
+    });
+
+    // Navigate to tables page
+    await page.getByTestId('tables-link').click();
+    await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
+
+    // Wait for files table to appear and click it
+    await expect(page.getByText('files')).toBeVisible({ timeout: 10000 });
+    await page.getByText('files').click();
+
+    // Should be on table rows page
+    await expect(page).toHaveURL(/\/tables\/files/);
+
+    // Should show back link
+    await expect(page.getByText('Back')).toBeVisible();
+
+    // Should show table name in header
+    await expect(
+      page.getByRole('heading', { name: 'files', exact: true })
+    ).toBeVisible();
+
+    // Should show column headers (from files table schema)
+    await expect(page.getByRole('columnheader', { name: /id/i })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: /name/i })).toBeVisible();
+
+    // Should show our uploaded file data
+    await expect(page.getByText('test-file.txt')).toBeVisible();
+
+    // Should show row count
+    await expect(page.getByText(/Showing 1 row/)).toBeVisible();
+
+    // Click back to return to tables list
+    await page.getByText('Back').click();
+    await expect(page).toHaveURL('/tables');
+    await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
+  });
 });
