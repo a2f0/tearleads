@@ -39,7 +39,8 @@ test.describe('Electron App', () => {
   });
 
   test('should navigate to settings page', async () => {
-    const settingsLink = window.getByTestId('settings-link');
+    // Use sidebar navigation (visible on desktop)
+    const settingsLink = window.locator('nav').getByRole('link', { name: 'Settings' });
     await expect(settingsLink).toBeVisible({timeout: APP_LOAD_TIMEOUT});
 
     await settingsLink.click();
@@ -50,7 +51,8 @@ test.describe('Electron App', () => {
   });
 
   test('should navigate to tables page', async () => {
-    const tablesLink = window.getByTestId('tables-link');
+    // Use sidebar navigation (visible on desktop)
+    const tablesLink = window.locator('nav').getByRole('link', { name: 'Tables' });
     await expect(tablesLink).toBeVisible({timeout: APP_LOAD_TIMEOUT});
 
     await tablesLink.click();
@@ -61,7 +63,7 @@ test.describe('Electron App', () => {
   });
 
   test('should show locked message on tables page when database not unlocked', async () => {
-    await window.getByTestId('tables-link').click();
+    await window.locator('nav').getByRole('link', { name: 'Tables' }).click();
 
     await expect(
       window.getByText('Database is locked. Unlock it from the Debug page')
@@ -69,8 +71,8 @@ test.describe('Electron App', () => {
   });
 
   test('should show tables list after database is unlocked', async () => {
-    // Setup database via Debug page
-    await window.getByTestId('debug-link').click();
+    // Setup database via Debug page (using sidebar navigation)
+    await window.locator('nav').getByRole('link', { name: 'Debug' }).click();
     await expect(window.getByTestId('database-test')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
 
     // Reset and setup
@@ -81,8 +83,8 @@ test.describe('Electron App', () => {
     await window.getByTestId('db-setup-button').click();
     await expect(window.getByTestId('db-status')).toContainText('Unlocked', {timeout: 10000});
 
-    // Navigate to tables page
-    await window.getByTestId('tables-link').click();
+    // Navigate to tables page via sidebar
+    await window.locator('nav').getByRole('link', { name: 'Tables' }).click();
     await expect(window.getByRole('heading', {name: 'Tables'})).toBeVisible();
 
     // Should show tables
