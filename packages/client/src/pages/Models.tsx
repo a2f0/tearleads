@@ -24,9 +24,9 @@ interface ModelInfo {
 // Curated list of recommended models
 const RECOMMENDED_MODELS: ModelInfo[] = [
   {
-    id: 'Phi-3.5-vision-instruct-q4f16_1-MLC',
+    id: 'Phi-3.5-vision-instruct-q4f32_1-MLC',
     name: 'Phi 3.5 Vision',
-    size: '~2.5GB',
+    size: '~3GB',
     description: 'Vision model for image understanding',
     isVision: true
   },
@@ -43,9 +43,9 @@ const RECOMMENDED_MODELS: ModelInfo[] = [
     description: 'Good balance of speed and capability'
   },
   {
-    id: 'gemma-2-2b-it-q4f16_1-MLC',
+    id: 'gemma-2-2b-it-q4f32_1-MLC',
     name: 'Gemma 2 2B',
-    size: '~1.4GB',
+    size: '~1.6GB',
     description: "Google's efficient open model"
   },
   {
@@ -204,7 +204,6 @@ function ModelCard({
 export function Models() {
   const {
     loadedModel,
-    isLoading,
     loadProgress,
     error,
     loadModel,
@@ -277,7 +276,9 @@ export function Models() {
 
   const getModelStatus = (modelId: string): ModelStatus => {
     if (loadedModel === modelId) return 'loaded';
-    if (loadingModelId === modelId && isLoading) return 'downloading';
+    // Use local loadingModelId as source of truth for downloading status
+    // (isLoading from hook may have timing lag)
+    if (loadingModelId === modelId) return 'downloading';
     if (cachedModels.has(modelId)) return 'ready';
     return 'not_downloaded';
   };
