@@ -1,0 +1,259 @@
+import { Database, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { formatFileSize } from '@/lib/utils';
+
+interface StorageEntry {
+  key: string;
+  value: string;
+  size: number;
+}
+
+interface DeleteButtonProps {
+  onClick: () => void;
+}
+
+function DeleteButton({ onClick }: DeleteButtonProps) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-6 w-6 opacity-0 group-hover:opacity-100"
+      onClick={onClick}
+      title="Delete"
+    >
+      <Trash2 className="h-3 w-3" />
+    </Button>
+  );
+}
+
+function StorageRow({
+  entry,
+  onDelete
+}: {
+  entry: StorageEntry;
+  onDelete: (key: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const isLongValue = entry.value.length > 100;
+  const displayValue = expanded ? entry.value : entry.value.slice(0, 100);
+
+  return (
+    <div className="group border-b last:border-b-0">
+      <div className="flex items-start gap-4 px-4 py-3 hover:bg-accent">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="font-medium font-mono text-sm">{entry.key}</span>
+            <span className="shrink-0 text-muted-foreground text-xs">
+              {formatFileSize(entry.size)}
+            </span>
+          </div>
+          <div className="mt-1">
+            <pre className="whitespace-pre-wrap break-all font-mono text-muted-foreground text-xs">
+              {displayValue}
+              {isLongValue && !expanded && '...'}
+            </pre>
+            {isLongValue && (
+              <button
+                type="button"
+                className="mt-1 text-primary text-xs hover:underline"
+                onClick={() => setExpanded(!expanded)}
+              >
+                {expanded ? 'Show less' : 'Show more'}
+              </button>
+            )}
+          </div>
+        </div>
+        <DeleteButton onClick={() => onDelete(entry.key)} />
+      </div>
+    </div>
+  );
+}
+
+function getStorageEntries(): StorageEntry[] {
+  const entries: StorageEntry[] = [];
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key !== null) {
+      const value = localStorage.getItem(key) ?? '';
+      // Size in bytes (UTF-16 encoding, 2 bytes per char)
+      const size = (key.length + value.length) * 2;
+      entries.push({ key, value, size });
+    }
+  }
+
+  // Sort alphabetically by key
+  entries.sort((a, b) => a.key.localeCompare(b.key));
+
+  return entries;
+}
+
+function getTotalSize(entries: StorageEntry[]): number {
+  return entries.reduce((total, entry) => total + entry.size, 0);
+}
+
+export function LocalStorage() {
+  const [entries, setEntries] = useState<StorageEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const isMountedRef = useRef(true);
+
+  const fetchStorageContents = () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const storageEntries = getStorageEntries();
+
+      if (isMountedRef.current) {
+        setEntries(storageEntries);
+      }
+    } catch (err) {
+      console.error('Failed to read localStorage:', err);
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    const loadContents = () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const storageEntries = getStorageEntries();
+
+        if (isMountedRef.current) {
+          setEntries(storageEntries);
+        }
+      } catch (err) {
+        console.error('Failed to read localStorage:', err);
+        if (isMountedRef.current) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadContents();
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const handleDelete = (key: string) => {
+    const confirmationMessage = `Are you sure you want to delete "${key}"?`;
+
+    if (!window.confirm(confirmationMessage)) {
+      return;
+    }
+
+    try {
+      localStorage.removeItem(key);
+      fetchStorageContents();
+    } catch (err) {
+      console.error('Failed to delete:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleClearAll = () => {
+    if (entries.length === 0) return;
+
+    const confirmationMessage =
+      'Are you sure you want to clear ALL localStorage data? This cannot be undone.';
+
+    if (!window.confirm(confirmationMessage)) {
+      return;
+    }
+
+    try {
+      localStorage.clear();
+      fetchStorageContents();
+    } catch (err) {
+      console.error('Failed to clear localStorage:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const totalSize = getTotalSize(entries);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-bold text-2xl tracking-tight">
+            Local Storage Browser
+          </h1>
+          {entries.length > 0 && (
+            <p className="mt-1 text-muted-foreground text-sm">
+              {entries.length} {entries.length === 1 ? 'entry' : 'entries'} (
+              {formatFileSize(totalSize)})
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          {entries.length > 0 && (
+            <Button variant="destructive" size="sm" onClick={handleClearAll}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Clear All
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchStorageContents}
+            disabled={loading}
+          >
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+            />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
+          {error}
+        </div>
+      )}
+
+      <div className="rounded-lg border">
+        {loading && entries.length === 0 ? (
+          <div className="flex items-center justify-center p-8 text-muted-foreground">
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            Loading localStorage contents...
+          </div>
+        ) : entries.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">
+            <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
+            <p className="mt-4">localStorage is empty.</p>
+          </div>
+        ) : (
+          <div>
+            {entries.map((entry) => (
+              <StorageRow
+                key={entry.key}
+                entry={entry}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
