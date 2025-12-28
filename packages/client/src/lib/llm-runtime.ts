@@ -10,7 +10,7 @@ export function createWebLLMAdapter(engine: MLCEngine): ChatModelAdapter {
     async *run({ messages, abortSignal }) {
       // Map assistant-ui message format to OpenAI-compatible format
       const formattedMessages = messages.map((m) => ({
-        role: m.role as 'user' | 'assistant' | 'system',
+        role: m.role,
         content:
           m.content
             .filter(
