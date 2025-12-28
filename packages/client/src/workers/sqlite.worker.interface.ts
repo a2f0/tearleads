@@ -64,6 +64,11 @@ export type WorkerRequest =
   | {
       type: 'CLOSE';
       id: string;
+    }
+  | {
+      type: 'DELETE_DATABASE';
+      id: string;
+      name: string;
     };
 
 // Response messages (worker -> main thread)
