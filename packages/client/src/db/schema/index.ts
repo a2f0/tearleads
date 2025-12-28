@@ -72,3 +72,56 @@ export const files = sqliteTable(
     index('files_upload_date_idx').on(table.uploadDate)
   ]
 );
+
+/**
+ * Contacts table for storing contact information.
+ */
+export const contacts = sqliteTable(
+  'contacts',
+  {
+    id: text('id').primaryKey(),
+    firstName: text('first_name').notNull(),
+    birthday: text('birthday'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false)
+  },
+  (table) => [index('contacts_first_name_idx').on(table.firstName)]
+);
+
+/**
+ * Contact phone numbers (multiple per contact).
+ */
+export const contactPhones = sqliteTable(
+  'contact_phones',
+  {
+    id: text('id').primaryKey(),
+    contactId: text('contact_id').notNull(),
+    phoneNumber: text('phone_number').notNull(),
+    label: text('label'),
+    isPrimary: integer('is_primary', { mode: 'boolean' })
+      .notNull()
+      .default(false)
+  },
+  (table) => [index('contact_phones_contact_idx').on(table.contactId)]
+);
+
+/**
+ * Contact email addresses (multiple per contact).
+ */
+export const contactEmails = sqliteTable(
+  'contact_emails',
+  {
+    id: text('id').primaryKey(),
+    contactId: text('contact_id').notNull(),
+    email: text('email').notNull(),
+    label: text('label'),
+    isPrimary: integer('is_primary', { mode: 'boolean' })
+      .notNull()
+      .default(false)
+  },
+  (table) => [
+    index('contact_emails_contact_idx').on(table.contactId),
+    index('contact_emails_email_idx').on(table.email)
+  ]
+);
