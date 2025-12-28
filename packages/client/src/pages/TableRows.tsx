@@ -8,7 +8,7 @@ import {
   RefreshCw,
   Settings
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
@@ -173,7 +173,17 @@ export function TableRows() {
   }, [showColumnSettings]);
 
   // Get visible columns
-  const visibleColumns = columns.filter((col) => !hiddenColumns.has(col.name));
+  const visibleColumns = useMemo(
+    () => columns.filter((col) => !hiddenColumns.has(col.name)),
+    [columns, hiddenColumns]
+  );
+
+  // Reset sort if the sorted column is hidden
+  useEffect(() => {
+    if (sort.column && hiddenColumns.has(sort.column)) {
+      setSort({ column: null, direction: null });
+    }
+  }, [hiddenColumns, sort.column]);
 
   // Reset sort state when table name changes
   useEffect(() => {
