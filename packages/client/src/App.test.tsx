@@ -58,7 +58,7 @@ describe('App', () => {
 
     // Sidebar contains all navigation links
     const sidebarLinks = sidebar.querySelectorAll('a');
-    expect(sidebarLinks).toHaveLength(4);
+    expect(sidebarLinks).toHaveLength(5);
   });
 
   it('renders navigation in both header and sidebar', () => {
@@ -71,6 +71,7 @@ describe('App', () => {
 
     // Sidebar nav links (by text)
     expect(screen.getByText('Files')).toBeInTheDocument();
+    expect(screen.getByText('Contacts')).toBeInTheDocument();
     expect(screen.getByText('Tables')).toBeInTheDocument();
     expect(screen.getByText('Debug')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
