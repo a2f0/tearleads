@@ -81,6 +81,7 @@ export const contacts = sqliteTable(
   {
     id: text('id').primaryKey(),
     firstName: text('first_name').notNull(),
+    lastName: text('last_name'),
     birthday: text('birthday'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
