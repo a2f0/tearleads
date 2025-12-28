@@ -56,9 +56,10 @@ function parseCSVLine(line: string): string[] {
  */
 function parseGoogleContactsCSV(text: string): ParsedContact[] {
   const lines = text.split(/\r?\n/).filter((line) => line.trim());
-  if (lines.length < 2) return [];
+  const headerLine = lines[0];
+  if (lines.length < 2 || !headerLine) return [];
 
-  const headers = parseCSVLine(lines[0]);
+  const headers = parseCSVLine(headerLine);
   const contacts: ParsedContact[] = [];
 
   // Find column indices
@@ -101,7 +102,9 @@ function parseGoogleContactsCSV(text: string): ParsedContact[] {
 
   // Parse data rows
   for (let i = 1; i < lines.length; i++) {
-    const values = parseCSVLine(lines[i]);
+    const line = lines[i];
+    if (!line) continue;
+    const values = parseCSVLine(line);
 
     const firstName = firstNameIdx !== -1 ? (values[firstNameIdx] ?? '') : '';
     if (!firstName) continue; // Skip contacts without first name
@@ -167,9 +170,8 @@ export function useContactsImport() {
       const adapter = getDatabaseAdapter();
 
       // Import each contact
-      for (let i = 0; i < contacts.length; i++) {
-        const contact = contacts[i];
-
+      let importedCount = 0;
+      for (const contact of contacts) {
         try {
           await adapter.beginTransaction();
 
@@ -184,8 +186,7 @@ export function useContactsImport() {
           );
 
           // Insert emails
-          for (let j = 0; j < contact.emails.length; j++) {
-            const email = contact.emails[j];
+          for (const [j, email] of contact.emails.entries()) {
             await adapter.execute(
               `INSERT INTO contact_emails (id, contact_id, email, label, is_primary)
                  VALUES (?, ?, ?, ?, ?)`,
@@ -200,8 +201,7 @@ export function useContactsImport() {
           }
 
           // Insert phones
-          for (let j = 0; j < contact.phones.length; j++) {
-            const phone = contact.phones[j];
+          for (const [j, phone] of contact.phones.entries()) {
             await adapter.execute(
               `INSERT INTO contact_phones (id, contact_id, phone_number, label, is_primary)
                  VALUES (?, ?, ?, ?, ?)`,
@@ -225,8 +225,9 @@ export function useContactsImport() {
           );
         }
 
+        importedCount++;
         // Update progress (20% to 100%)
-        setProgress(20 + Math.round(((i + 1) / contacts.length) * 80));
+        setProgress(20 + Math.round((importedCount / contacts.length) * 80));
       }
     } catch (err) {
       result.errors.push(
