@@ -1,4 +1,5 @@
 import {
+  Bot,
   Bug,
   FileIcon,
   ImageIcon,
@@ -15,6 +16,7 @@ const navItems = [
   { path: '/photos', icon: ImageIcon, label: 'Photos' },
   { path: '/tables', icon: Table2, label: 'Tables' },
   { path: '/debug', icon: Bug, label: 'Debug' },
+  { path: '/models', icon: Bot, label: 'Models' },
   { path: '/settings', icon: Settings, label: 'Settings' }
 ];
 

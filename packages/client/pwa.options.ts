@@ -27,5 +27,8 @@ export const pwaOptions: Partial<VitePWAOptions> = {
   },
   workbox: {
     globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+    // Increase max file size for large JS bundles (e.g., web-llm library ~6MB)
+    // Note: LLM models themselves are cached by web-llm at runtime, not by Workbox
+    maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB
   },
 };
