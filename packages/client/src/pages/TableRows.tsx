@@ -1,4 +1,4 @@
-import { ArrowLeft, Database, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Braces, Database, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -38,6 +38,7 @@ export function TableRows() {
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [documentView, setDocumentView] = useState(false);
 
   const fetchTableData = useCallback(async () => {
     if (!isUnlocked || !tableName) return;
@@ -115,17 +116,27 @@ export function TableRows() {
           </h1>
         </div>
         {isUnlocked && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchTableData}
-            disabled={loading}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-            />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={documentView ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDocumentView(!documentView)}
+              title="Toggle document view"
+            >
+              <Braces className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchTableData}
+              disabled={loading}
+            >
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+              />
+              Refresh
+            </Button>
+          </div>
         )}
       </div>
 
@@ -169,57 +180,77 @@ export function TableRows() {
             Showing {rows.length} row{rows.length !== 1 ? 's' : ''}
             {rows.length === 100 ? ' (limited to 100)' : ''}
           </p>
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="min-w-full divide-y divide-border">
-              <thead className="bg-muted/50">
-                <tr>
-                  {columns.map((col) => (
-                    <th
-                      key={col.name}
-                      className="px-4 py-3 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider"
-                    >
-                      {col.name}
-                      {col.pk > 0 && (
-                        <span className="ml-1 text-primary">PK</span>
-                      )}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border bg-background">
-                {rows.length === 0 ? (
+
+          {documentView ? (
+            <div className="space-y-3">
+              {rows.length === 0 ? (
+                <div className="rounded-lg border p-8 text-center text-muted-foreground">
+                  No rows in this table
+                </div>
+              ) : (
+                rows.map((row, index) => (
+                  <pre
+                    key={getRowKey(row, columns, index)}
+                    className="overflow-x-auto rounded-lg border bg-muted/30 p-4 font-mono text-sm"
+                  >
+                    {JSON.stringify(row, null, 2)}
+                  </pre>
+                ))
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border">
+              <table className="min-w-full divide-y divide-border">
+                <thead className="bg-muted/50">
                   <tr>
-                    <td
-                      colSpan={columns.length}
-                      className="px-4 py-8 text-center text-muted-foreground"
-                    >
-                      No rows in this table
-                    </td>
+                    {columns.map((col) => (
+                      <th
+                        key={col.name}
+                        className="px-4 py-3 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider"
+                      >
+                        {col.name}
+                        {col.pk > 0 && (
+                          <span className="ml-1 text-primary">PK</span>
+                        )}
+                      </th>
+                    ))}
                   </tr>
-                ) : (
-                  rows.map((row, index) => (
-                    <tr
-                      key={getRowKey(row, columns, index)}
-                      className="hover:bg-muted/25"
-                    >
-                      {columns.map((col) => (
-                        <td
-                          key={col.name}
-                          className={`whitespace-nowrap px-4 py-2 font-mono text-sm ${
-                            row[col.name] === null
-                              ? 'text-muted-foreground italic'
-                              : ''
-                          }`}
-                        >
-                          {formatCellValue(row[col.name])}
-                        </td>
-                      ))}
+                </thead>
+                <tbody className="divide-y divide-border bg-background">
+                  {rows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={columns.length}
+                        className="px-4 py-8 text-center text-muted-foreground"
+                      >
+                        No rows in this table
+                      </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : (
+                    rows.map((row, index) => (
+                      <tr
+                        key={getRowKey(row, columns, index)}
+                        className="hover:bg-muted/25"
+                      >
+                        {columns.map((col) => (
+                          <td
+                            key={col.name}
+                            className={`whitespace-nowrap px-4 py-2 font-mono text-sm ${
+                              row[col.name] === null
+                                ? 'text-muted-foreground italic'
+                                : ''
+                            }`}
+                          >
+                            {formatCellValue(row[col.name])}
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>
