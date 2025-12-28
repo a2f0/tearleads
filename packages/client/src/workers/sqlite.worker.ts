@@ -506,7 +506,7 @@ async function deleteDatabaseFile(name: string): Promise<void> {
     try {
       await opfsRoot.removeEntry(filename);
       console.log('Deleted OPFS database file:', filename);
-    } catch (e) {
+    } catch {
       // File might not exist, which is fine
       console.log('OPFS file not found or already deleted:', filename);
     }
