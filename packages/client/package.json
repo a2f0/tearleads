@@ -47,6 +47,7 @@
     "@rapid/ui": "workspace:*",
     "class-variance-authority": "0.7.1",
     "drizzle-orm": "0.45.1",
+    "file-type": "21.2.0",
     "invariant": "2.2.4",
     "lucide-react": "0.562.0",
     "react": "19.2.3",
