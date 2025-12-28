@@ -8,6 +8,7 @@ interface LabeledValue {
 
 interface ParsedContact {
   firstName: string;
+  lastName: string | null;
   birthday: string | null;
   emails: LabeledValue[];
   phones: LabeledValue[];
@@ -66,37 +67,43 @@ function parseGoogleContactsCSV(text: string): ParsedContact[] {
   const firstNameIdx = headers.findIndex(
     (h) => h.toLowerCase() === 'first name' || h.toLowerCase() === 'given name'
   );
+  const lastNameIdx = headers.findIndex(
+    (h) => h.toLowerCase() === 'last name' || h.toLowerCase() === 'family name'
+  );
   const birthdayIdx = headers.findIndex((h) => h.toLowerCase() === 'birthday');
 
-  // Find email columns (E-mail N - Type/Value or Email N - Type/Value)
-  const emailColumns: { typeIdx: number; valueIdx: number }[] = [];
+  // Find email columns (E-mail N - Label/Value or E-mail N - Type/Value)
+  const emailColumns: { labelIdx: number; valueIdx: number }[] = [];
   for (let i = 1; i <= 10; i++) {
-    const typeIdx = headers.findIndex(
-      (h) =>
-        h.toLowerCase() === `e-mail ${i} - type` ||
-        h.toLowerCase() === `email ${i} - type`
+    const emailLabelHeaders = [
+      `e-mail ${i} - label`,
+      `e-mail ${i} - type`,
+      `email ${i} - label`,
+      `email ${i} - type`
+    ];
+    const emailValueHeaders = [`e-mail ${i} - value`, `email ${i} - value`];
+    const labelIdx = headers.findIndex((h) =>
+      emailLabelHeaders.includes(h.toLowerCase())
     );
-    const valueIdx = headers.findIndex(
-      (h) =>
-        h.toLowerCase() === `e-mail ${i} - value` ||
-        h.toLowerCase() === `email ${i} - value`
+    const valueIdx = headers.findIndex((h) =>
+      emailValueHeaders.includes(h.toLowerCase())
     );
     if (valueIdx !== -1) {
-      emailColumns.push({ typeIdx, valueIdx });
+      emailColumns.push({ labelIdx, valueIdx });
     }
   }
 
-  // Find phone columns (Phone N - Type/Value)
-  const phoneColumns: { typeIdx: number; valueIdx: number }[] = [];
+  // Find phone columns (Phone N - Label/Value or Phone N - Type/Value)
+  const phoneColumns: { labelIdx: number; valueIdx: number }[] = [];
   for (let i = 1; i <= 10; i++) {
-    const typeIdx = headers.findIndex(
-      (h) => h.toLowerCase() === `phone ${i} - type`
+    const labelIdx = headers.findIndex((h) =>
+      [`phone ${i} - label`, `phone ${i} - type`].includes(h.toLowerCase())
     );
     const valueIdx = headers.findIndex(
       (h) => h.toLowerCase() === `phone ${i} - value`
     );
     if (valueIdx !== -1) {
-      phoneColumns.push({ typeIdx, valueIdx });
+      phoneColumns.push({ labelIdx, valueIdx });
     }
   }
 
@@ -109,6 +116,7 @@ function parseGoogleContactsCSV(text: string): ParsedContact[] {
     const firstName = firstNameIdx !== -1 ? (values[firstNameIdx] ?? '') : '';
     if (!firstName) continue; // Skip contacts without first name
 
+    const lastName = lastNameIdx !== -1 ? values[lastNameIdx] || null : null;
     const birthday = birthdayIdx !== -1 ? values[birthdayIdx] || null : null;
 
     // Extract emails
@@ -116,7 +124,7 @@ function parseGoogleContactsCSV(text: string): ParsedContact[] {
     for (const col of emailColumns) {
       const value = values[col.valueIdx];
       if (value) {
-        const label = col.typeIdx !== -1 ? values[col.typeIdx] || null : null;
+        const label = col.labelIdx !== -1 ? values[col.labelIdx] || null : null;
         emails.push({ label, value });
       }
     }
@@ -126,12 +134,12 @@ function parseGoogleContactsCSV(text: string): ParsedContact[] {
     for (const col of phoneColumns) {
       const value = values[col.valueIdx];
       if (value) {
-        const label = col.typeIdx !== -1 ? values[col.typeIdx] || null : null;
+        const label = col.labelIdx !== -1 ? values[col.labelIdx] || null : null;
         phones.push({ label, value });
       }
     }
 
-    contacts.push({ firstName, birthday, emails, phones });
+    contacts.push({ firstName, lastName, birthday, emails, phones });
   }
 
   return contacts;
@@ -180,9 +188,16 @@ export function useContactsImport() {
 
           // Insert contact
           await adapter.execute(
-            `INSERT INTO contacts (id, first_name, birthday, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?)`,
-            [contactId, contact.firstName, contact.birthday, now, now]
+            `INSERT INTO contacts (id, first_name, last_name, birthday, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+              contactId,
+              contact.firstName,
+              contact.lastName,
+              contact.birthday,
+              now,
+              now
+            ]
           );
 
           // Insert emails
