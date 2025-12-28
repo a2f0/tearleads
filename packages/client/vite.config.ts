@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => ({
     __APP_VERSION__: JSON.stringify(packageJson.version),
     // Default API URL for development mode
     ...(mode === 'development' && {
-      'import.meta.env.VITE_API_URL': JSON.stringify('http://localhost:5001')
+      'import.meta.env.VITE_API_URL': JSON.stringify('http://localhost:5001/v1')
     })
   },
   plugins: [
