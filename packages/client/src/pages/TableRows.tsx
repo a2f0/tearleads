@@ -142,11 +142,11 @@ export function TableRows() {
   }, [tableName]);
 
   // Fetch data on initial load, or when the table or sort order changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loading is intentionally omitted to prevent infinite loop
   useEffect(() => {
-    if (isUnlocked) {
+    if (isUnlocked && !loading) {
       fetchTableData();
     }
-    // Note: loading is intentionally excluded to prevent infinite re-render loop
   }, [isUnlocked, fetchTableData]);
 
   return (
