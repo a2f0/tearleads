@@ -226,9 +226,11 @@ async function initializeDatabase(
 
   // Use OPFS filename if available, otherwise use in-memory
   // OPFS files persist across page reloads
+  // Use multipleciphers-opfs VFS which wraps OPFS with encryption support
+  // See: https://utelle.github.io/SQLite3MultipleCiphers/docs/architecture/arch_vfs/
   if (hasOpfs) {
-    currentDbFilename = `file:${name}.sqlite3?vfs=opfs`;
-    console.log('Using OPFS VFS for persistence');
+    currentDbFilename = `file:${name}.sqlite3?vfs=multipleciphers-opfs`;
+    console.log('Using multipleciphers-opfs VFS for encrypted persistence');
   } else {
     currentDbFilename = `${name}.sqlite3`;
     console.log('Using in-memory VFS (data will not persist across reloads)');
@@ -488,6 +490,42 @@ function closeDatabase(): void {
 }
 
 /**
+ * Delete the database file from OPFS.
+ * This must be called after closing the database.
+ */
+async function deleteDatabaseFile(name: string): Promise<void> {
+  // Close the database first if it's open
+  closeDatabase();
+
+  // Try to delete from OPFS using the File System Access API
+  try {
+    const opfsRoot = await navigator.storage.getDirectory();
+    // The filename format used by multipleciphers-opfs VFS
+    const filename = `${name}.sqlite3`;
+
+    try {
+      await opfsRoot.removeEntry(filename);
+      console.log('Deleted OPFS database file:', filename);
+    } catch (e) {
+      // File might not exist, which is fine
+      console.log('OPFS file not found or already deleted:', filename);
+    }
+
+    // Also try to delete any journal/WAL files
+    for (const suffix of ['-journal', '-wal', '-shm']) {
+      try {
+        await opfsRoot.removeEntry(filename + suffix);
+      } catch {
+        // Ignore if not found
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to delete OPFS files:', error);
+    // Don't throw - the file might not exist which is fine
+  }
+}
+
+/**
  * Send a response to the main thread.
  */
 function respond(response: WorkerResponse): void {
@@ -566,6 +604,12 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       case 'CLOSE': {
         closeDatabase();
         respond({ type: 'CLOSED', id: request.id });
+        break;
+      }
+
+      case 'DELETE_DATABASE': {
+        await deleteDatabaseFile(request.name);
+        respond({ type: 'SUCCESS', id: request.id });
         break;
       }
     }
