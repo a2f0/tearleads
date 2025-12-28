@@ -31,15 +31,15 @@ const RECOMMENDED_MODELS: ModelInfo[] = [
     isVision: true
   },
   {
-    id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+    id: 'Llama-3.2-1B-Instruct-q4f32_1-MLC',
     name: 'Llama 3.2 1B Instruct',
-    size: '~700MB',
+    size: '~800MB',
     description: 'Small and fast, good for basic tasks'
   },
   {
-    id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
+    id: 'Llama-3.2-3B-Instruct-q4f32_1-MLC',
     name: 'Llama 3.2 3B Instruct',
-    size: '~1.8GB',
+    size: '~2GB',
     description: 'Good balance of speed and capability'
   },
   {
@@ -49,21 +49,21 @@ const RECOMMENDED_MODELS: ModelInfo[] = [
     description: "Google's efficient open model"
   },
   {
-    id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',
+    id: 'Phi-3.5-mini-instruct-q4f32_1-MLC',
     name: 'Phi 3.5 Mini',
-    size: '~2GB',
+    size: '~2.3GB',
     description: "Microsoft's efficient reasoning model"
   },
   {
-    id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+    id: 'Qwen2.5-1.5B-Instruct-q4f32_1-MLC',
     name: 'Qwen 2.5 1.5B Instruct',
-    size: '~1GB',
+    size: '~1.2GB',
     description: "Alibaba's multilingual model"
   },
   {
-    id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC',
+    id: 'SmolLM2-1.7B-Instruct-q4f32_1-MLC',
     name: 'SmolLM2 1.7B Instruct',
-    size: '~1GB',
+    size: '~1.2GB',
     description: "HuggingFace's efficient small model"
   }
 ];
