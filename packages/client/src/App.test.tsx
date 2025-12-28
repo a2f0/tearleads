@@ -58,7 +58,7 @@ describe('App', () => {
 
     // Sidebar contains all navigation links
     const sidebarLinks = sidebar.querySelectorAll('a');
-    expect(sidebarLinks).toHaveLength(9);
+    expect(sidebarLinks).toHaveLength(10);
   });
 
   it('renders navigation in both header and sidebar', () => {
