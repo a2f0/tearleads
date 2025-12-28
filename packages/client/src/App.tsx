@@ -3,8 +3,11 @@ import logo from '@rapid/ui/logo.svg';
 import { Bug, Settings, Table2 } from 'lucide-react';
 import { Link, Outlet } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
+import { useAppVersion } from './hooks/useAppVersion';
 
 function App() {
+  const version = useAppVersion();
+
   return (
     <div
       className="safe-area-inset flex min-h-screen flex-col bg-background"
@@ -54,7 +57,7 @@ function App() {
           </div>
         </main>
       </div>
-      <Footer version={undefined} className="lg:left-64">
+      <Footer version={version} className="lg:left-64">
         <p>&copy; {new Date().getFullYear()} Tearleads. All rights reserved.</p>
       </Footer>
     </div>
