@@ -57,7 +57,6 @@ type ModelStatus = 'not_downloaded' | 'downloading' | 'ready' | 'loaded';
 interface ModelCardProps {
   model: ModelInfo;
   status: ModelStatus;
-  isCurrentlyLoading: boolean;
   loadProgress: { text: string; progress: number } | null;
   onLoad: () => void;
   onUnload: () => void;
@@ -67,14 +66,13 @@ interface ModelCardProps {
 function ModelCard({
   model,
   status,
-  isCurrentlyLoading,
   loadProgress,
   onLoad,
   onUnload,
   onDelete
 }: ModelCardProps) {
   const isLoaded = status === 'loaded';
-  const isDownloading = status === 'downloading' || isCurrentlyLoading;
+  const isDownloading = status === 'downloading';
 
   return (
     <div className="rounded-lg border bg-card p-4">
@@ -180,6 +178,7 @@ export function Models() {
   }, [isWebGPUSupported]);
 
   // Check for cached models in Cache Storage on mount
+  // This is a heuristic based on web-llm's cache naming convention
   useEffect(() => {
     async function checkCachedModels() {
       if (typeof caches === 'undefined') return;
@@ -195,12 +194,9 @@ export function Models() {
 
         const cached = new Set<string>();
         for (const model of RECOMMENDED_MODELS) {
-          // Check if any cache might contain this model
+          // Check if any cache contains this model ID
           for (const cacheName of modelCaches) {
-            if (
-              cacheName.toLowerCase().includes(model.id.toLowerCase()) ||
-              model.id.toLowerCase().includes(cacheName.toLowerCase())
-            ) {
+            if (cacheName.toLowerCase().includes(model.id.toLowerCase())) {
               cached.add(model.id);
               break;
             }
@@ -239,7 +235,9 @@ export function Models() {
       try {
         const cacheNames = await caches.keys();
         for (const cacheName of cacheNames) {
-          if (cacheName.toLowerCase().includes(modelId.toLowerCase())) {
+          // Use endsWith to avoid accidentally deleting caches for other models
+          // when one model ID is a substring of another
+          if (cacheName.toLowerCase().endsWith(modelId.toLowerCase())) {
             await caches.delete(cacheName);
           }
         }
@@ -309,7 +307,6 @@ export function Models() {
             key={model.id}
             model={model}
             status={getModelStatus(model.id)}
-            isCurrentlyLoading={loadingModelId === model.id && isLoading}
             loadProgress={loadingModelId === model.id ? loadProgress : null}
             onLoad={() => handleLoad(model.id)}
             onUnload={handleUnload}
