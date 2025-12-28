@@ -1,10 +1,19 @@
-import { Bot, Bug, FileIcon, Settings, Table2, Users } from 'lucide-react';
+import {
+  Bot,
+  Bug,
+  FileIcon,
+  ImageIcon,
+  Settings,
+  Table2,
+  Users
+} from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { path: '/', icon: FileIcon, label: 'Files' },
   { path: '/contacts', icon: Users, label: 'Contacts' },
+  { path: '/photos', icon: ImageIcon, label: 'Photos' },
   { path: '/tables', icon: Table2, label: 'Tables' },
   { path: '/debug', icon: Bug, label: 'Debug' },
   { path: '/models', icon: Bot, label: 'Models' },

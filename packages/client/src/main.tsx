@@ -9,6 +9,7 @@ import { Contacts } from './pages/Contacts';
 import { Debug } from './pages/Debug';
 import { Files } from './pages/Files';
 import { Models } from './pages/Models';
+import { Photos } from './pages/Photos';
 import { Settings } from './pages/Settings';
 import { TableRows } from './pages/TableRows';
 import { Tables } from './pages/Tables';
@@ -26,6 +27,7 @@ if (rootElement) {
                 <Route path="/" element={<App />}>
                   <Route index element={<Files />} />
                   <Route path="contacts" element={<Contacts />} />
+                  <Route path="photos" element={<Photos />} />
                   <Route path="debug" element={<Debug />} />
                   <Route path="models" element={<Models />} />
                   <Route path="settings" element={<Settings />} />

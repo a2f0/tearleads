@@ -1,5 +1,11 @@
 import { test, expect, Page } from '@playwright/test';
 
+// Helper to navigate via sidebar (visible on desktop viewport)
+async function navigateTo(page: Page, linkName: string) {
+  const link = page.locator('aside nav').getByRole('link', { name: linkName });
+  await link.click();
+}
+
 const IGNORED_WARNING_PATTERNS: RegExp[] = [
   /Download the React DevTools/i,
   /apple-mobile-web-app-capable.*deprecated/i
@@ -92,7 +98,7 @@ test.describe('Index page', () => {
   });
 
   test('should navigate to settings page', async ({ page }) => {
-    const settingsLink = page.getByTestId('settings-link');
+    const settingsLink = page.locator('aside nav').getByRole('link', { name: 'Settings' });
     await expect(settingsLink).toBeVisible();
 
     await settingsLink.click();
@@ -102,7 +108,7 @@ test.describe('Index page', () => {
 
   test('should toggle dark mode from settings', async ({ page }) => {
     // Navigate to settings
-    await page.getByTestId('settings-link').click();
+    await navigateTo(page, 'Settings');
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
 
     const toggleSwitch = page.getByTestId('dark-mode-switch');
@@ -128,7 +134,7 @@ test.describe('Index page', () => {
     page
   }) => {
     // Navigate to settings
-    await page.getByTestId('settings-link').click();
+    await navigateTo(page, 'Settings');
 
     const toggleSwitch = page.getByTestId('dark-mode-switch');
     const body = page.locator('body');
@@ -185,7 +191,7 @@ test.describe('Dropzone', () => {
     page
   }) => {
     // First unlock the database
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
     await page.getByTestId('db-setup-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
       timeout: 10000
@@ -227,7 +233,7 @@ test.describe('Dropzone', () => {
     page
   }) => {
     // First unlock the database
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
     await page.getByTestId('db-setup-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
       timeout: 10000
@@ -253,7 +259,7 @@ test.describe('Dropzone', () => {
     page
   }) => {
     // First unlock the database
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
     await page.getByTestId('db-setup-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
       timeout: 10000
@@ -277,7 +283,7 @@ test.describe('Dropzone', () => {
 
   test('should upload file and show completion status', async ({ page }) => {
     // First unlock the database
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
     await page.getByTestId('db-setup-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
       timeout: 10000
@@ -295,14 +301,14 @@ test.describe('Dropzone', () => {
     });
 
     // Verify file name is displayed during/after upload
-    await expect(page.getByText('document.pdf')).toBeVisible();
+    await expect(page.getByText('document.pdf', { exact: true })).toBeVisible();
     // Verify file size is displayed
     await expect(page.getByText(/12 B/)).toBeVisible();
   });
 
   test('should display formatted file size during upload', async ({ page }) => {
     // First unlock the database
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
     await page.getByTestId('db-setup-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
       timeout: 10000
@@ -327,7 +333,7 @@ test.describe('Dropzone', () => {
 
   test('should upload multiple files', async ({ page }) => {
     // First unlock the database
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
     await page.getByTestId('db-setup-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
       timeout: 10000
@@ -351,13 +357,13 @@ test.describe('Dropzone', () => {
       }
     ]);
 
-    await expect(page.getByText('file1.txt')).toBeVisible();
-    await expect(page.getByText('file2.txt')).toBeVisible();
+    await expect(page.getByText('file1.txt', { exact: true })).toBeVisible();
+    await expect(page.getByText('file2.txt', { exact: true })).toBeVisible();
   });
 
   test('should show files in list after upload', async ({ page }) => {
     // First unlock the database
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
     await page.getByTestId('db-setup-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
       timeout: 10000
@@ -376,7 +382,7 @@ test.describe('Dropzone', () => {
 
     // Wait for upload to complete and verify file appears in the listing
     // The file list auto-refreshes after upload completes
-    await expect(page.getByText('uploaded-file.txt')).toBeVisible();
+    await expect(page.getByText('uploaded-file.txt', { exact: true })).toBeVisible();
   });
 });
 
@@ -388,7 +394,7 @@ test.describe('Debug page', () => {
   test('should navigate to debug page when debug link is clicked', async ({
     page
   }) => {
-    const debugLink = page.getByTestId('debug-link');
+    const debugLink = page.locator('aside nav').getByRole('link', { name: 'Debug' });
     await expect(debugLink).toBeVisible();
 
     await debugLink.click();
@@ -397,7 +403,7 @@ test.describe('Debug page', () => {
   });
 
   test('should display environment info on debug page', async ({ page }) => {
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
 
     await expect(page.getByText('Environment Info')).toBeVisible();
     await expect(page.getByText(/Environment:/)).toBeVisible();
@@ -406,7 +412,7 @@ test.describe('Debug page', () => {
   });
 
   test('should display device info on debug page', async ({ page }) => {
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
 
     await expect(page.getByText('Device Info')).toBeVisible();
     await expect(page.getByText(/Platform:/)).toBeVisible();
@@ -418,7 +424,7 @@ test.describe('Debug page', () => {
   });
 
   test('should fetch and display API version', async ({ page }) => {
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
 
     // Wait for ping data to load (either success or error)
     // Look for version in the API Status section (green text) or error message
@@ -432,7 +438,7 @@ test.describe('Debug page', () => {
   test('should refresh API data when refresh button is clicked', async ({
     page
   }) => {
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
 
     // Wait for initial load to complete (button becomes enabled)
     const refreshButton = page.getByRole('button', { name: /^Refresh$/ });
@@ -449,7 +455,7 @@ test.describe('Debug page', () => {
   test('should navigate back to home when logo is clicked', async ({
     page
   }) => {
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
     await expect(page.getByRole('heading', { name: 'Debug' })).toBeVisible();
 
     // Click the logo/title to go back home
@@ -468,7 +474,7 @@ test.describe('Tables page', () => {
   test('should navigate to tables page when tables link is clicked', async ({
     page
   }) => {
-    const tablesLink = page.getByTestId('tables-link');
+    const tablesLink = page.locator('aside nav').getByRole('link', { name: 'Tables' });
     await expect(tablesLink).toBeVisible();
 
     await tablesLink.click();
@@ -479,7 +485,7 @@ test.describe('Tables page', () => {
   test('should show locked message when database is not unlocked', async ({
     page
   }) => {
-    await page.getByTestId('tables-link').click();
+    await navigateTo(page, 'Tables');
 
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
     await expect(
@@ -491,7 +497,7 @@ test.describe('Tables page', () => {
     page
   }) => {
     // First unlock the database via Debug page
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
     await expect(page.getByTestId('database-test')).toBeVisible();
 
     // Reset and setup database
@@ -507,7 +513,7 @@ test.describe('Tables page', () => {
     });
 
     // Navigate to tables page
-    await page.getByTestId('tables-link').click();
+    await navigateTo(page, 'Tables');
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
 
     // Should show tables (at least the schema tables)
@@ -524,7 +530,7 @@ test.describe('Tables page', () => {
     page
   }) => {
     // Setup database first
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
     await page.getByTestId('db-reset-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
       timeout: 10000
@@ -536,7 +542,7 @@ test.describe('Tables page', () => {
     });
 
     // Navigate to tables page
-    await page.getByTestId('tables-link').click();
+    await navigateTo(page, 'Tables');
     await expect(page.getByText('user_settings')).toBeVisible({
       timeout: 10000
     });
@@ -554,7 +560,7 @@ test.describe('Tables page', () => {
     page
   }) => {
     // Setup database first
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
     await page.getByTestId('db-reset-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
       timeout: 10000
@@ -569,24 +575,36 @@ test.describe('Tables page', () => {
     await page.getByRole('link', { name: 'Tearleads Tearleads' }).click();
     await expect(page.getByRole('heading', { name: 'Files' })).toBeVisible();
     const fileInput = page.getByTestId('dropzone-input');
+    // Use a minimal valid PNG (1x1 transparent pixel) for file type detection
+    const pngMagicBytes = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
+      0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1x1 dimensions
+      0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, // bit depth, color type, etc.
+      0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54, // IDAT chunk
+      0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, // compressed data
+      0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, // IEND chunk
+      0xae, 0x42, 0x60, 0x82
+    ]);
     await fileInput.setInputFiles({
-      name: 'test-file.txt',
-      mimeType: 'text/plain',
-      buffer: Buffer.from('Hello, this is test content!')
+      name: 'test-file.png',
+      mimeType: 'image/png',
+      buffer: pngMagicBytes
     });
 
     // Wait for file to appear in list
-    await expect(page.getByText('test-file.txt')).toBeVisible({
+    await expect(page.getByText('test-file.png', { exact: true })).toBeVisible({
       timeout: 10000
     });
 
     // Navigate to tables page
-    await page.getByTestId('tables-link').click();
+    await navigateTo(page, 'Tables');
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
 
-    // Wait for files table to appear and click it
-    await expect(page.getByText('files')).toBeVisible({ timeout: 10000 });
-    await page.getByText('files').click();
+    // Wait for files table to appear and click it (use link with table name)
+    const filesTableLink = page.getByRole('link', { name: /files.*\d+\s+rows?/i });
+    await expect(filesTableLink).toBeVisible({ timeout: 10000 });
+    await filesTableLink.click();
 
     // Should be on table rows page
     await expect(page).toHaveURL(/\/tables\/files/);
@@ -600,14 +618,16 @@ test.describe('Tables page', () => {
     ).toBeVisible();
 
     // Should show column headers (from files table schema)
-    await expect(page.getByRole('columnheader', { name: /id/i })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: /id/i })).toBeVisible({
+      timeout: 10000
+    });
     await expect(page.getByRole('columnheader', { name: /name/i })).toBeVisible();
 
-    // Should show our uploaded file data
-    await expect(page.getByText('test-file.txt')).toBeVisible();
+    // Should show row count (confirms data loaded)
+    await expect(page.getByText(/Showing 1 row/)).toBeVisible({ timeout: 10000 });
 
-    // Should show row count
-    await expect(page.getByText(/Showing 1 row/)).toBeVisible();
+    // Should show our uploaded file data
+    await expect(page.getByText('test-file.png', { exact: true })).toBeVisible();
 
     // Click back to return to tables list
     await page.getByText('Back').click();
@@ -617,7 +637,7 @@ test.describe('Tables page', () => {
 
   test('should toggle document view to show JSON format', async ({ page }) => {
     // Setup database first
-    await page.getByTestId('debug-link').click();
+    await navigateTo(page, 'Debug');
     await page.getByTestId('db-reset-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
       timeout: 10000
@@ -632,21 +652,33 @@ test.describe('Tables page', () => {
     await page.getByRole('link', { name: 'Tearleads Tearleads' }).click();
     await expect(page.getByRole('heading', { name: 'Files' })).toBeVisible();
     const fileInput = page.getByTestId('dropzone-input');
+    // Use a minimal valid PNG for file type detection
+    const pngMagicBytes = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+      0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+      0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89,
+      0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54,
+      0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01,
+      0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44,
+      0xae, 0x42, 0x60, 0x82
+    ]);
     await fileInput.setInputFiles({
-      name: 'doc-view-test.txt',
-      mimeType: 'text/plain',
-      buffer: Buffer.from('Document view test content')
+      name: 'doc-view-test.png',
+      mimeType: 'image/png',
+      buffer: pngMagicBytes
     });
 
-    await expect(page.getByText('doc-view-test.txt')).toBeVisible({
+    await expect(page.getByText('doc-view-test.png', { exact: true })).toBeVisible({
       timeout: 10000
     });
 
-    // Navigate to tables and open files table
-    await page.getByTestId('tables-link').click();
+    // Navigate to tables and open files table (use link with table name)
+    await navigateTo(page, 'Tables');
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
-    await expect(page.getByText('files')).toBeVisible({ timeout: 10000 });
-    await page.getByText('files').click();
+    const filesTableLink = page.getByRole('link', { name: /files.*\d+\s+rows?/i });
+    await expect(filesTableLink).toBeVisible({ timeout: 10000 });
+    await filesTableLink.click();
     await expect(page).toHaveURL(/\/tables\/files/);
 
     // Initially should show table view with column headers
@@ -656,12 +688,12 @@ test.describe('Tables page', () => {
     // Click the document view toggle button (Braces icon)
     await page.getByRole('button', { name: 'Toggle document view' }).click();
 
-    // Should now show JSON document format in pre tags
+    // Should now show JSON document format in pre tags (wait for render)
     const preElement = page.locator('pre').first();
-    await expect(preElement).toBeVisible();
+    await expect(preElement).toBeVisible({ timeout: 10000 });
 
     // Should contain the file name in JSON format
-    await expect(preElement).toContainText('"name": "doc-view-test.txt"');
+    await expect(preElement).toContainText('"name": "doc-view-test.png"');
 
     // Table headers should not be visible in document view
     await expect(

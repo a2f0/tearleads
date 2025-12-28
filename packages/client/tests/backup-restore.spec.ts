@@ -1,5 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
 
+// Helper to navigate via sidebar (visible on desktop viewport)
+async function navigateTo(page: Page, linkName: string) {
+  const link = page.locator('aside nav').getByRole('link', { name: linkName });
+  await link.click();
+}
+
 const TEST_PASSWORD = 'testpassword123';
 const DB_OPERATION_TIMEOUT = 15000;
 
@@ -160,7 +166,7 @@ test.describe('Backup & Restore (Web)', () => {
       });
 
       // Use client-side navigation (preserves React state including db context)
-      await page.getByTestId('settings-link').click();
+      await navigateTo(page, 'Settings');
       await expect(page).toHaveURL('/settings');
 
       // Wait for export button to be ready
@@ -211,7 +217,7 @@ test.describe('Backup & Restore (Web)', () => {
 
       // Export the database using client-side navigation
       const downloadPromise = page.waitForEvent('download');
-      await page.getByTestId('settings-link').click();
+      await navigateTo(page, 'Settings');
       await expect(page).toHaveURL('/settings');
       await page.getByTestId('backup-export-button').click();
       const download = await downloadPromise;
@@ -221,7 +227,7 @@ test.describe('Backup & Restore (Web)', () => {
       await download.saveAs(backupPath);
 
       // Reset the database using client-side navigation
-      await page.getByTestId('debug-link').click();
+      await navigateTo(page, 'Debug');
       await expect(page).toHaveURL('/debug');
       await page.getByTestId('db-reset-button').click();
       await waitForSuccess(page);
@@ -235,7 +241,7 @@ test.describe('Backup & Restore (Web)', () => {
       });
 
       // Restore from backup using client-side navigation
-      await page.getByTestId('settings-link').click();
+      await navigateTo(page, 'Settings');
       await expect(page).toHaveURL('/settings');
       const fileInput = page.getByTestId('dropzone-input');
       await fileInput.setInputFiles(backupPath);
@@ -248,7 +254,7 @@ test.describe('Backup & Restore (Web)', () => {
 
       // After restore, navigate to debug page to check status
       // (db-status element is on the debug page, not settings)
-      await page.getByTestId('debug-link').click();
+      await navigateTo(page, 'Debug');
       await expect(page).toHaveURL('/debug');
 
       // After restore, we should be locked out
@@ -264,7 +270,7 @@ test.describe('Backup & Restore (Web)', () => {
       });
 
       // Verify the data was restored using client-side navigation
-      await page.getByTestId('debug-link').click();
+      await navigateTo(page, 'Debug');
       await expect(page).toHaveURL('/debug');
       await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
         timeout: DB_OPERATION_TIMEOUT
