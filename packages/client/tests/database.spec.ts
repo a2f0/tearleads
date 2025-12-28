@@ -20,6 +20,15 @@ const waitForError = (page: Page) =>
     { timeout: DB_OPERATION_TIMEOUT }
   );
 
+// Helper to setup a new database with test password
+const setupDatabase = async (page: Page) => {
+  await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
+  await page.getByTestId('db-setup-button').click();
+  await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+    timeout: DB_OPERATION_TIMEOUT
+  });
+};
+
 // Requirements for web database tests:
 // - Browser: Chrome 102+, Edge 102+, Firefox 111+, or Safari 15.2+
 // - Headers: Cross-Origin-Opener-Policy: same-origin, Cross-Origin-Embedder-Policy: require-corp
@@ -371,11 +380,7 @@ test.describe('Session Persistence (Web)', () => {
     page
   }) => {
     // Setup database first
-    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
+    await setupDatabase(page);
 
     // Lock the database
     await page.getByTestId('db-lock-button').click();
@@ -394,11 +399,7 @@ test.describe('Session Persistence (Web)', () => {
 
   test('should persist session when checkbox is checked', async ({ page }) => {
     // Setup database first
-    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
+    await setupDatabase(page);
 
     // Write some data
     await page.getByTestId('db-write-button').click();
@@ -435,11 +436,7 @@ test.describe('Session Persistence (Web)', () => {
 
   test('should auto-restore session on page reload', async ({ page }) => {
     // Setup database first
-    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
+    await setupDatabase(page);
 
     // Lock the database
     await page.getByTestId('db-lock-button').click();
@@ -479,15 +476,52 @@ test.describe('Session Persistence (Web)', () => {
     );
   });
 
+  test('should persist data across page reloads with OPFS', async ({ page }) => {
+    // Setup database first
+    await setupDatabase(page);
+
+    // Write data BEFORE enabling session persistence
+    await page.getByTestId('db-write-button').click();
+    await waitForSuccess(page);
+    const writtenValue = await page.getByTestId('db-test-data').textContent();
+
+    // Lock the database
+    await page.getByTestId('db-lock-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Locked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Enable session persistence and unlock
+    await page.getByTestId('db-persist-checkbox').check();
+    await page.getByTestId('db-unlock-button').click();
+    await waitForSuccess(page);
+    await expect(page.getByTestId('db-session-status')).toHaveText('Yes');
+
+    // Reload the page (hard refresh)
+    await page.reload();
+    await expect(page.getByTestId('database-test')).toBeVisible({
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Database should be automatically unlocked
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Read the data - it should persist across reload via OPFS
+    await page.getByTestId('db-read-button').click();
+    await waitForSuccess(page);
+    const readValue = await page.getByTestId('db-test-data').textContent();
+
+    // Verify the data persisted across the reload
+    expect(readValue).toBe(writtenValue);
+  });
+
   test('should clear session when locking with clear option', async ({
     page
   }) => {
     // Setup database first
-    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
+    await setupDatabase(page);
 
     // Lock the database
     await page.getByTestId('db-lock-button').click();
@@ -523,11 +557,7 @@ test.describe('Session Persistence (Web)', () => {
 
   test('should clear session on database reset', async ({ page }) => {
     // Setup database first
-    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
+    await setupDatabase(page);
 
     // Lock the database
     await page.getByTestId('db-lock-button').click();
