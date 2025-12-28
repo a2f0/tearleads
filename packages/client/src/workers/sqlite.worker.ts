@@ -80,6 +80,17 @@ interface SQLite3Module {
   };
   /** Emscripten virtual file system - may not be available in all builds */
   FS?: EmscriptenFS;
+  /** OPFS namespace - available after installOpfsVfs() */
+  opfs?: unknown;
+  /** Install OPFS VFS - may not be available in all builds */
+  installOpfsVfs?: () => Promise<void>;
+}
+
+/**
+ * Extended SQLiteOO1 interface with optional OPFS database class.
+ */
+interface SQLiteOO1WithOpfs extends SQLiteOO1 {
+  OpfsDb?: unknown;
 }
 
 /**
@@ -162,7 +173,49 @@ async function initializeSqliteWasm(): Promise<void> {
 }
 
 /**
+ * Check if OPFS VFS is available and install it.
+ */
+async function installOpfsVfs(): Promise<boolean> {
+  if (!sqlite3) return false;
+
+  // Check if OPFS is already available
+  if (sqlite3.opfs) {
+    console.log('OPFS VFS already installed');
+    return true;
+  }
+
+  // Check browser support for OPFS
+  if (typeof navigator?.storage?.getDirectory !== 'function') {
+    console.warn('OPFS not supported in this browser');
+    return false;
+  }
+
+  // Try to install OPFS VFS
+  try {
+    if (typeof sqlite3.installOpfsVfs === 'function') {
+      await sqlite3.installOpfsVfs();
+      console.log('OPFS VFS installed successfully');
+      return true;
+    }
+
+    // Alternative: check for OpfsDb class
+    const oo1WithOpfs = sqlite3.oo1 as SQLiteOO1WithOpfs;
+    if (oo1WithOpfs.OpfsDb) {
+      console.log('OpfsDb class available');
+      return true;
+    }
+
+    console.warn('OPFS VFS installation not available');
+    return false;
+  } catch (error) {
+    console.warn('Failed to install OPFS VFS:', error);
+    return false;
+  }
+}
+
+/**
  * Initialize SQLite WASM and open an encrypted database.
+ * Attempts to use OPFS for persistence, falls back to in-memory if unavailable.
  */
 async function initializeDatabase(
   name: string,
@@ -178,13 +231,23 @@ async function initializeDatabase(
     throw new Error('SQLite module not initialized');
   }
 
-  // Use encrypted file-based database in WASM virtual file system
-  // Note: This uses the default VFS which supports encryption
-  // Data persists in WASM memory until worker terminates
-  currentDbFilename = `${name}.sqlite3`;
+  // Try to install OPFS VFS for persistence
+  const hasOpfs = await installOpfsVfs();
+
+  // Use OPFS filename if available, otherwise use in-memory
+  // OPFS files persist across page reloads
+  // Use multipleciphers-opfs VFS which wraps OPFS with encryption support
+  // See: https://utelle.github.io/SQLite3MultipleCiphers/docs/architecture/arch_vfs/
+  if (hasOpfs) {
+    currentDbFilename = `file:${name}.sqlite3?vfs=multipleciphers-opfs`;
+    console.log('Using multipleciphers-opfs VFS for encrypted persistence');
+  } else {
+    currentDbFilename = `${name}.sqlite3`;
+    console.log('Using in-memory VFS (data will not persist across reloads)');
+  }
 
   try {
-    // Create/open encrypted database using the default VFS with hexkey parameter
+    // Create/open encrypted database
     db = new sqlite3.oo1.DB({
       filename: currentDbFilename,
       flags: 'c', // Create if not exists
@@ -437,6 +500,42 @@ function closeDatabase(): void {
 }
 
 /**
+ * Delete the database file from OPFS.
+ * This must be called after closing the database.
+ */
+async function deleteDatabaseFile(name: string): Promise<void> {
+  // Close the database first if it's open
+  closeDatabase();
+
+  // Try to delete from OPFS using the File System Access API
+  try {
+    const opfsRoot = await navigator.storage.getDirectory();
+    // The filename format used by multipleciphers-opfs VFS
+    const filename = `${name}.sqlite3`;
+
+    try {
+      await opfsRoot.removeEntry(filename);
+      console.log('Deleted OPFS database file:', filename);
+    } catch {
+      // File might not exist, which is fine
+      console.log('OPFS file not found or already deleted:', filename);
+    }
+
+    // Also try to delete any journal/WAL files
+    for (const suffix of ['-journal', '-wal', '-shm']) {
+      try {
+        await opfsRoot.removeEntry(filename + suffix);
+      } catch {
+        // Ignore if not found
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to delete OPFS files:', error);
+    // Don't throw - the file might not exist which is fine
+  }
+}
+
+/**
  * Send a response to the main thread.
  */
 function respond(response: WorkerResponse): void {
@@ -515,6 +614,12 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       case 'CLOSE': {
         closeDatabase();
         respond({ type: 'CLOSED', id: request.id });
+        break;
+      }
+
+      case 'DELETE_DATABASE': {
+        await deleteDatabaseFile(request.name);
+        respond({ type: 'SUCCESS', id: request.id });
         break;
       }
     }
