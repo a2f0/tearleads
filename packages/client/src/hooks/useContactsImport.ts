@@ -75,17 +75,18 @@ function parseGoogleContactsCSV(text: string): ParsedContact[] {
   // Find email columns (E-mail N - Label/Value or E-mail N - Type/Value)
   const emailColumns: { labelIdx: number; valueIdx: number }[] = [];
   for (let i = 1; i <= 10; i++) {
-    const labelIdx = headers.findIndex(
-      (h) =>
-        h.toLowerCase() === `e-mail ${i} - label` ||
-        h.toLowerCase() === `e-mail ${i} - type` ||
-        h.toLowerCase() === `email ${i} - label` ||
-        h.toLowerCase() === `email ${i} - type`
+    const emailLabelHeaders = [
+      `e-mail ${i} - label`,
+      `e-mail ${i} - type`,
+      `email ${i} - label`,
+      `email ${i} - type`
+    ];
+    const emailValueHeaders = [`e-mail ${i} - value`, `email ${i} - value`];
+    const labelIdx = headers.findIndex((h) =>
+      emailLabelHeaders.includes(h.toLowerCase())
     );
-    const valueIdx = headers.findIndex(
-      (h) =>
-        h.toLowerCase() === `e-mail ${i} - value` ||
-        h.toLowerCase() === `email ${i} - value`
+    const valueIdx = headers.findIndex((h) =>
+      emailValueHeaders.includes(h.toLowerCase())
     );
     if (valueIdx !== -1) {
       emailColumns.push({ labelIdx, valueIdx });
@@ -95,10 +96,8 @@ function parseGoogleContactsCSV(text: string): ParsedContact[] {
   // Find phone columns (Phone N - Label/Value or Phone N - Type/Value)
   const phoneColumns: { labelIdx: number; valueIdx: number }[] = [];
   for (let i = 1; i <= 10; i++) {
-    const labelIdx = headers.findIndex(
-      (h) =>
-        h.toLowerCase() === `phone ${i} - label` ||
-        h.toLowerCase() === `phone ${i} - type`
+    const labelIdx = headers.findIndex((h) =>
+      [`phone ${i} - label`, `phone ${i} - type`].includes(h.toLowerCase())
     );
     const valueIdx = headers.findIndex(
       (h) => h.toLowerCase() === `phone ${i} - value`
