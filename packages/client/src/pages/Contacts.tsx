@@ -97,6 +97,8 @@ export function Contacts() {
       setImportResult(null);
 
       const file = files[0];
+      if (!file) return;
+
       const result = await importCSV(file);
 
       setImportResult({
