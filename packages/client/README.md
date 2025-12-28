@@ -30,7 +30,7 @@ pnpm preview
 
 ## Android
 
-### Setup
+### Android Setup
 
 ```bash
 bundle install

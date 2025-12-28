@@ -19,6 +19,7 @@
     "lint:scripts": "shellcheck --severity=info scripts/*.sh && pnpm --filter @rapid/client lint:scripts",
     "lint:rubocop": "pnpm --filter @rapid/client lint:rubocop",
     "lint:ansible": "ansible-lint ansible/",
+    "lint:md": "markdownlint-cli2 '**/*.md'",
     "format": "biome format --write .",
     "prepare": "husky"
   },
@@ -34,6 +35,7 @@
     "@tsconfig/strictest": "2.0.8",
     "concurrently": "9.2.1",
     "husky": "9.1.7",
+    "markdownlint-cli2": "0.20.0",
     "typescript": "5.9.3"
   },
   "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
