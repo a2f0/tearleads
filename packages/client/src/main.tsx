@@ -8,6 +8,7 @@ import { DatabaseProvider } from './db/hooks';
 import { Contacts } from './pages/Contacts';
 import { Debug } from './pages/Debug';
 import { Files } from './pages/Files';
+import { Models } from './pages/Models';
 import { Settings } from './pages/Settings';
 import { TableRows } from './pages/TableRows';
 import { Tables } from './pages/Tables';
@@ -26,6 +27,7 @@ if (rootElement) {
                   <Route index element={<Files />} />
                   <Route path="contacts" element={<Contacts />} />
                   <Route path="debug" element={<Debug />} />
+                  <Route path="models" element={<Models />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="tables" element={<Tables />} />
                   <Route path="tables/:tableName" element={<TableRows />} />

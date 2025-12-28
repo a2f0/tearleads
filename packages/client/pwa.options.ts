@@ -27,5 +27,7 @@ export const pwaOptions: Partial<VitePWAOptions> = {
   },
   workbox: {
     globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+    // Increase max file size for LLM-related bundles
+    maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB
   },
 };
