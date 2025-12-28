@@ -69,25 +69,23 @@ export function Photos() {
       }
 
       const storage = getFileStorage();
-      const photosWithUrls: PhotoWithUrl[] = [];
-
-      for (const photo of photoList) {
-        try {
-          const data = await storage.retrieve(photo.storagePath);
-          const buffer = new ArrayBuffer(data.byteLength);
-          new Uint8Array(buffer).set(data);
-          const blob = new Blob([buffer], { type: photo.mimeType });
-          const objectUrl = URL.createObjectURL(blob);
-          photosWithUrls.push({ ...photo, objectUrl });
-        } catch (err) {
-          console.error(`Failed to load photo ${photo.name}:`, err);
-        }
-      }
-
-      // Clean up old object URLs
-      for (const p of photos) {
-        URL.revokeObjectURL(p.objectUrl);
-      }
+      const photosWithUrls = (
+        await Promise.all(
+          photoList.map(async (photo) => {
+            try {
+              const data = await storage.retrieve(photo.storagePath);
+              const buffer = new ArrayBuffer(data.byteLength);
+              new Uint8Array(buffer).set(data);
+              const blob = new Blob([buffer], { type: photo.mimeType });
+              const objectUrl = URL.createObjectURL(blob);
+              return { ...photo, objectUrl };
+            } catch (err) {
+              console.error(`Failed to load photo ${photo.name}:`, err);
+              return null;
+            }
+          })
+        )
+      ).filter((p): p is PhotoWithUrl => p !== null);
 
       setPhotos(photosWithUrls);
       setHasFetched(true);
@@ -97,7 +95,7 @@ export function Photos() {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, photos]);
+  }, [isUnlocked]);
 
   useEffect(() => {
     if (isUnlocked && !hasFetched && !loading) {
