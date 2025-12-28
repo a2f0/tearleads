@@ -5,6 +5,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import App from './App';
 import { ErrorBoundary } from './components/ui/error-boundary';
 import { DatabaseProvider } from './db/hooks';
+import { Chat } from './pages/Chat';
 import { Contacts } from './pages/Contacts';
 import { Debug } from './pages/Debug';
 import { Files } from './pages/Files';
@@ -29,6 +30,7 @@ if (rootElement) {
                   <Route path="contacts" element={<Contacts />} />
                   <Route path="photos" element={<Photos />} />
                   <Route path="debug" element={<Debug />} />
+                  <Route path="chat" element={<Chat />} />
                   <Route path="models" element={<Models />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="tables" element={<Tables />} />
