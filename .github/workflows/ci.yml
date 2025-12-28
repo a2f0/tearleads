@@ -41,6 +41,9 @@ jobs:
       - name: Lint scripts
         run: pnpm lint:scripts
 
+      - name: Lint Markdown
+        run: pnpm lint:md
+
       - name: Lint RuboCop
         run: pnpm lint:rubocop
 
