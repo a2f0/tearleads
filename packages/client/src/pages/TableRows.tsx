@@ -142,11 +142,12 @@ export function TableRows() {
   }, [tableName]);
 
   // Fetch data on initial load, or when the table or sort order changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loading is intentionally omitted to prevent infinite loop
   useEffect(() => {
     if (isUnlocked && !loading) {
       fetchTableData();
     }
-  }, [isUnlocked, loading, fetchTableData]);
+  }, [isUnlocked, fetchTableData]);
 
   return (
     <div className="space-y-6">
