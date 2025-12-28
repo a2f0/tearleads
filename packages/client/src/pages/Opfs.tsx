@@ -29,6 +29,24 @@ interface TreeNodeProps {
   onDelete: (path: string, isDirectory: boolean) => void;
 }
 
+interface DeleteButtonProps {
+  onClick: () => void;
+}
+
+function DeleteButton({ onClick }: DeleteButtonProps) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-6 w-6 opacity-0 group-hover:opacity-100"
+      onClick={onClick}
+      title="Delete"
+    >
+      <Trash2 className="h-3 w-3" />
+    </Button>
+  );
+}
+
 function TreeNode({
   entry,
   depth,
@@ -71,15 +89,7 @@ function TreeNode({
             )}
             <span className="truncate text-sm">{entry.name}</span>
           </button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 opacity-0 group-hover:opacity-100"
-            onClick={() => onDelete(path, true)}
-            title="Delete"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
+          <DeleteButton onClick={() => onDelete(path, true)} />
         </div>
         {isExpanded && entry.children && (
           <div>
@@ -113,15 +123,7 @@ function TreeNode({
           {formatFileSize(entry.size)}
         </span>
       )}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6 opacity-0 group-hover:opacity-100"
-        onClick={() => onDelete(path, false)}
-        title="Delete"
-      >
-        <Trash2 className="h-3 w-3" />
-      </Button>
+      <DeleteButton onClick={() => onDelete(path, false)} />
     </div>
   );
 }
@@ -273,12 +275,21 @@ export function Opfs() {
   };
 
   const handleDelete = async (path: string, isDirectory: boolean) => {
+    const entryName = path.substring(path.lastIndexOf('/') + 1);
+    const confirmationMessage = isDirectory
+      ? `Are you sure you want to delete the directory "${entryName}" and all its contents?`
+      : `Are you sure you want to delete the file "${entryName}"?`;
+
+    if (!window.confirm(confirmationMessage)) {
+      return;
+    }
+
     try {
       const root = await navigator.storage.getDirectory();
       const pathParts = path.split('/').filter(Boolean);
-      const entryName = pathParts.pop();
+      const nameToDelete = pathParts.pop();
 
-      if (!entryName) return;
+      if (!nameToDelete) return;
 
       // Navigate to parent directory
       let parentDir = root;
@@ -287,7 +298,7 @@ export function Opfs() {
       }
 
       // Remove the entry
-      await parentDir.removeEntry(entryName, { recursive: isDirectory });
+      await parentDir.removeEntry(nameToDelete, { recursive: isDirectory });
 
       // Refresh the tree
       await fetchOpfsContents();
