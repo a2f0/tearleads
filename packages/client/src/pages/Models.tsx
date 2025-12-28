@@ -251,7 +251,11 @@ export function Models() {
         // After successful load, mark as cached
         setCachedModels((prev) => new Set(prev).add(modelId));
       } finally {
-        setLoadingModelId(null);
+        // Only clear loading state if this was the model being loaded
+        // (prevents race condition if user starts loading a different model)
+        setLoadingModelId((currentId) =>
+          currentId === modelId ? null : currentId
+        );
       }
     },
     [loadModel]
