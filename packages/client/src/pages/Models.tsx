@@ -97,13 +97,11 @@ function ModelCard({
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div
-            className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-              isLoaded
-                ? 'bg-green-500/10 text-green-500'
-                : model.isVision
-                  ? 'bg-purple-500/10 text-purple-500'
-                  : 'bg-muted text-muted-foreground'
-            }`}
+            className={`flex h-10 w-10 items-center justify-center rounded-lg ${(() => {
+              if (isLoaded) return 'bg-green-500/10 text-green-500';
+              if (model.isVision) return 'bg-purple-500/10 text-purple-500';
+              return 'bg-muted text-muted-foreground';
+            })()}`}
           >
             {model.isVision ? (
               <Eye className="h-5 w-5" />
