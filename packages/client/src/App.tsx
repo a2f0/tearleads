@@ -2,6 +2,7 @@ import { Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
 import { Bug, Settings, Table2 } from 'lucide-react';
 import { Link, Outlet } from 'react-router-dom';
+import { Sidebar } from './components/Sidebar';
 
 function App() {
   return (
@@ -17,7 +18,7 @@ function App() {
               <h1 className="font-bold text-4xl tracking-tight">Tearleads</h1>
             </Link>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 lg:hidden">
             <Link
               to="/tables"
               className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
@@ -45,12 +46,15 @@ function App() {
           </div>
         </div>
       </header>
-      <main className="flex-1 pb-20">
-        <div className="container mx-auto max-w-2xl px-4 pb-16">
-          <Outlet />
-        </div>
-      </main>
-      <Footer version={undefined}>
+      <div className="flex flex-1">
+        <Sidebar />
+        <main className="flex-1 pb-20">
+          <div className="container mx-auto max-w-2xl px-4 pb-16 lg:max-w-none lg:px-8">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+      <Footer version={undefined} className="lg:left-64">
         <p>&copy; {new Date().getFullYear()} Tearleads. All rights reserved.</p>
       </Footer>
     </div>
