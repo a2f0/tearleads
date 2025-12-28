@@ -229,7 +229,8 @@ async function runMigrations(): Promise<void> {
       "contact_id" TEXT NOT NULL,
       "phone_number" TEXT NOT NULL,
       "label" TEXT,
-      "is_primary" INTEGER DEFAULT 0 NOT NULL
+      "is_primary" INTEGER DEFAULT 0 NOT NULL,
+      FOREIGN KEY("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE
     )`,
     `CREATE INDEX IF NOT EXISTS "contact_phones_contact_idx" ON "contact_phones" ("contact_id")`,
     `CREATE TABLE IF NOT EXISTS "contact_emails" (
@@ -237,7 +238,8 @@ async function runMigrations(): Promise<void> {
       "contact_id" TEXT NOT NULL,
       "email" TEXT NOT NULL,
       "label" TEXT,
-      "is_primary" INTEGER DEFAULT 0 NOT NULL
+      "is_primary" INTEGER DEFAULT 0 NOT NULL,
+      FOREIGN KEY("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE
     )`,
     `CREATE INDEX IF NOT EXISTS "contact_emails_contact_idx" ON "contact_emails" ("contact_id")`,
     `CREATE INDEX IF NOT EXISTS "contact_emails_email_idx" ON "contact_emails" ("email")`
