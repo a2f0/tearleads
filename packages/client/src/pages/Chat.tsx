@@ -13,9 +13,22 @@ import { Button } from '@/components/ui/button';
 import { useLLM } from '@/hooks/useLLM';
 import { createWebLLMAdapter } from '@/lib/llm-runtime';
 
-interface ChatInterfaceProps {
-  engine: MLCEngine;
-  loadedModel: string;
+interface ChatHeaderProps {
+  modelDisplayName: string | undefined;
+}
+
+function ChatHeader({ modelDisplayName }: ChatHeaderProps) {
+  return (
+    <div className="flex items-center justify-between border-b px-4 py-3">
+      <h1 className="font-bold text-2xl tracking-tight">Chat</h1>
+      {modelDisplayName && (
+        <span className="flex items-center gap-2 rounded-full bg-green-500/10 px-3 py-1 font-medium text-green-500 text-sm">
+          <Bot className="h-4 w-4" />
+          {modelDisplayName}
+        </span>
+      )}
+    </div>
+  );
 }
 
 function UserMessage() {
@@ -84,70 +97,73 @@ function Thread() {
   );
 }
 
-function ChatInterface({ engine, loadedModel }: ChatInterfaceProps) {
+interface ChatInterfaceProps {
+  engine: MLCEngine;
+}
+
+function ChatInterface({ engine }: ChatInterfaceProps) {
   const adapter = useMemo(() => createWebLLMAdapter(engine), [engine]);
   const runtime = useLocalRuntime(adapter);
 
-  // Extract display name from model ID
-  const modelDisplayName = loadedModel
-    .split('-')
-    .slice(0, 3)
-    .join(' ')
-    .replace('Instruct', '')
-    .trim();
-
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between border-b px-4 py-3">
-          <h1 className="font-bold text-2xl tracking-tight">Chat</h1>
-          <span className="flex items-center gap-2 rounded-full bg-green-500/10 px-3 py-1 font-medium text-green-500 text-sm">
-            <Bot className="h-4 w-4" />
-            {modelDisplayName}
-          </span>
-        </div>
-        <div className="flex-1 overflow-hidden">
-          <Thread />
-        </div>
+      <div className="flex-1 overflow-hidden">
+        <Thread />
       </div>
     </AssistantRuntimeProvider>
   );
 }
 
-function NoModelLoaded() {
+function NoModelLoadedContent() {
   return (
-    <div className="flex h-full flex-col">
-      <div className="border-b px-4 py-3">
-        <h1 className="font-bold text-2xl tracking-tight">Chat</h1>
-      </div>
-      <div className="flex flex-1 items-center justify-center p-8">
-        <div className="max-w-md rounded-lg border bg-card p-8 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
-            <MessageSquare className="h-8 w-8 text-muted-foreground" />
-          </div>
-          <h2 className="mt-4 font-semibold text-lg">No Model Loaded</h2>
-          <p className="mt-2 text-muted-foreground text-sm">
-            Load a model from the Models page to start chatting with a local
-            LLM.
-          </p>
-          <Button asChild className="mt-6">
-            <Link to="/models">
-              <Bot className="mr-2 h-4 w-4" />
-              Go to Models
-            </Link>
-          </Button>
+    <div className="flex flex-1 items-center justify-center p-8">
+      <div className="max-w-md rounded-lg border bg-card p-8 text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+          <MessageSquare className="h-8 w-8 text-muted-foreground" />
         </div>
+        <h2 className="mt-4 font-semibold text-lg">No Model Loaded</h2>
+        <p className="mt-2 text-muted-foreground text-sm">
+          Load a model from the Models page to start chatting with a local LLM.
+        </p>
+        <Button asChild className="mt-6">
+          <Link to="/models">
+            <Bot className="mr-2 h-4 w-4" />
+            Go to Models
+          </Link>
+        </Button>
       </div>
     </div>
   );
 }
 
+/**
+ * Derives a display name from a MLC model ID.
+ * Example: Llama-3.2-1B-Instruct-q4f16_1-MLC -> Llama 3.2 1B
+ */
+function getModelDisplayName(modelId: string): string {
+  return modelId
+    .split('-')
+    .slice(0, 3)
+    .join(' ')
+    .replace('Instruct', '')
+    .trim();
+}
+
 export function Chat() {
   const { engine, loadedModel } = useLLM();
 
-  if (!engine || !loadedModel) {
-    return <NoModelLoaded />;
-  }
+  const modelDisplayName = loadedModel
+    ? getModelDisplayName(loadedModel)
+    : undefined;
 
-  return <ChatInterface engine={engine} loadedModel={loadedModel} />;
+  return (
+    <div className="flex h-full flex-col">
+      <ChatHeader modelDisplayName={modelDisplayName} />
+      {engine && loadedModel ? (
+        <ChatInterface engine={engine} />
+      ) : (
+        <NoModelLoadedContent />
+      )}
+    </div>
+  );
 }
