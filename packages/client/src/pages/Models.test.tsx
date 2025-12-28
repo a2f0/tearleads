@@ -130,20 +130,44 @@ describe('Models', () => {
       expect(mockLoadModel).toHaveBeenCalled();
     });
 
-    it('shows loading button when download is clicked', async () => {
+    it('shows loading button when model is being downloaded', async () => {
+      // To test the loading state, we need to simulate:
+      // 1. User clicks download -> sets loadingModelId in component state
+      // 2. Hook's isLoading becomes true -> getModelStatus returns 'downloading'
+      //
+      // We achieve this by making loadModel not resolve immediately,
+      // then updating the mock to show isLoading: true, triggering a re-render
+      let resolveLoad: (() => void) | undefined;
+      const loadPromise = new Promise<void>((resolve) => {
+        resolveLoad = resolve;
+      });
+
+      const loadModelMock = vi.fn().mockImplementation(() => loadPromise);
+
+      // Start with isLoading: false
+      vi.mocked(useLLM).mockReturnValue({
+        engine: null,
+        loadedModel: null,
+        isLoading: false,
+        loadProgress: null,
+        error: null,
+        loadModel: loadModelMock,
+        unloadModel: mockUnloadModel,
+        isWebGPUSupported: mockIsWebGPUSupported
+      });
+
       const user = userEvent.setup();
-
-      // Make loadModel not resolve immediately to keep loading state
-      mockLoadModel.mockImplementation(
-        () => new Promise(() => {}) // Never resolves
+      const { rerender } = render(
+        <MemoryRouter>
+          <Models />
+        </MemoryRouter>
       );
-
-      renderModels();
 
       await waitFor(() => {
         expect(screen.getByText('Llama 3.2 1B Instruct')).toBeInTheDocument();
       });
 
+      // Click the download button - this sets loadingModelId in component state
       const downloadButtons = screen.getAllByRole('button', {
         name: /download/i
       });
@@ -151,8 +175,34 @@ describe('Models', () => {
       // biome-ignore lint/style/noNonNullAssertion: checked above
       await user.click(downloadButtons[0]!);
 
-      // After clicking, loadModel should have been called
-      expect(mockLoadModel).toHaveBeenCalled();
+      // Now update the mock to show loading state and re-render
+      vi.mocked(useLLM).mockReturnValue({
+        engine: null,
+        loadedModel: null,
+        isLoading: true,
+        loadProgress: { text: 'Downloading weights...', progress: 0.45 },
+        error: null,
+        loadModel: loadModelMock,
+        unloadModel: mockUnloadModel,
+        isWebGPUSupported: mockIsWebGPUSupported
+      });
+
+      // Trigger re-render
+      rerender(
+        <MemoryRouter>
+          <Models />
+        </MemoryRouter>
+      );
+
+      // Verify the loading button is shown
+      await waitFor(() => {
+        expect(
+          screen.getByRole('button', { name: /loading/i })
+        ).toBeInTheDocument();
+      });
+
+      // Cleanup: resolve the promise to prevent hanging
+      resolveLoad?.();
     });
 
     it('shows loaded badge when model is loaded', async () => {
