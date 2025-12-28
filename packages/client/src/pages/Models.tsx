@@ -313,7 +313,7 @@ export function Models() {
               model={model}
               status={getModelStatus(model.id)}
               loadProgress={loadingModelId === model.id ? loadProgress : null}
-              disabled={isCheckingCache || loadingModelId !== null}
+              disabled={loadingModelId !== null}
               onLoad={() => handleLoad(model.id)}
               onUnload={handleUnload}
               onDelete={() => handleDelete(model.id)}
