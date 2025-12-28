@@ -20,6 +20,15 @@ const waitForError = (page: Page) =>
     { timeout: DB_OPERATION_TIMEOUT }
   );
 
+// Helper to setup a new database with test password
+const setupDatabase = async (page: Page) => {
+  await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
+  await page.getByTestId('db-setup-button').click();
+  await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+    timeout: DB_OPERATION_TIMEOUT
+  });
+};
+
 // Requirements for web database tests:
 // - Browser: Chrome 102+, Edge 102+, Firefox 111+, or Safari 15.2+
 // - Headers: Cross-Origin-Opener-Policy: same-origin, Cross-Origin-Embedder-Policy: require-corp
@@ -481,11 +490,7 @@ test.describe('Session Persistence (Web)', () => {
 
   test('should persist data across page reloads with OPFS', async ({ page }) => {
     // Setup database first
-    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
+    await setupDatabase(page);
 
     // Write data BEFORE enabling session persistence
     await page.getByTestId('db-write-button').click();
