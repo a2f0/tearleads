@@ -1,5 +1,6 @@
-import { Database, RefreshCw, Table2 } from 'lucide-react';
+import { ChevronRight, Database, RefreshCw, Table2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
@@ -122,9 +123,10 @@ export function Tables() {
             </div>
           ) : (
             tables.map((table) => (
-              <div
+              <Link
                 key={table.name}
-                className="flex items-center gap-3 rounded-lg border bg-muted/50 p-3"
+                to={`/tables/${encodeURIComponent(table.name)}`}
+                className="flex items-center gap-3 rounded-lg border bg-muted/50 p-3 transition-colors hover:bg-muted"
               >
                 <Table2 className="h-5 w-5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
@@ -135,7 +137,8 @@ export function Tables() {
                     {table.rowCount} {table.rowCount === 1 ? 'row' : 'rows'}
                   </p>
                 </div>
-              </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Link>
             ))
           )}
         </div>
