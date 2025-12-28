@@ -3,6 +3,7 @@ import {
   Bot,
   Check,
   Download,
+  Eye,
   Loader2,
   Play,
   Square,
@@ -17,10 +18,18 @@ interface ModelInfo {
   name: string;
   size: string;
   description: string;
+  isVision?: boolean;
 }
 
 // Curated list of recommended models
 const RECOMMENDED_MODELS: ModelInfo[] = [
+  {
+    id: 'Phi-3.5-vision-instruct-q4f16_1-MLC',
+    name: 'Phi 3.5 Vision',
+    size: '~2.5GB',
+    description: 'Vision model for image understanding',
+    isVision: true
+  },
   {
     id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
     name: 'Llama 3.2 1B Instruct',
@@ -32,6 +41,12 @@ const RECOMMENDED_MODELS: ModelInfo[] = [
     name: 'Llama 3.2 3B Instruct',
     size: '~1.8GB',
     description: 'Good balance of speed and capability'
+  },
+  {
+    id: 'gemma-2-2b-it-q4f16_1-MLC',
+    name: 'Gemma 2 2B',
+    size: '~1.4GB',
+    description: "Google's efficient open model"
   },
   {
     id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',
@@ -85,13 +100,26 @@ function ModelCard({
             className={`flex h-10 w-10 items-center justify-center rounded-lg ${
               isLoaded
                 ? 'bg-green-500/10 text-green-500'
-                : 'bg-muted text-muted-foreground'
+                : model.isVision
+                  ? 'bg-purple-500/10 text-purple-500'
+                  : 'bg-muted text-muted-foreground'
             }`}
           >
-            <Bot className="h-5 w-5" />
+            {model.isVision ? (
+              <Eye className="h-5 w-5" />
+            ) : (
+              <Bot className="h-5 w-5" />
+            )}
           </div>
           <div>
-            <h3 className="font-medium">{model.name}</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium">{model.name}</h3>
+              {model.isVision && (
+                <span className="rounded-full bg-purple-500/10 px-2 py-0.5 font-medium text-purple-500 text-xs">
+                  Vision
+                </span>
+              )}
+            </div>
             <p className="text-muted-foreground text-sm">
               {model.size} &bull; {model.description}
             </p>
