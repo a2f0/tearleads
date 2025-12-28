@@ -1,17 +1,22 @@
 import {
+  CheckCircle,
   Database,
   Download,
   Eye,
   FileIcon,
+  Loader2,
   RefreshCw,
   RotateCcw,
-  Trash2
+  Trash2,
+  XCircle
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Dropzone } from '@/components/ui/dropzone';
 import { getDatabaseAdapter } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
+import { useFileUpload } from '@/hooks/useFileUpload';
 import { downloadFile } from '@/lib/file-utils';
 import { formatFileSize } from '@/lib/utils';
 import {
@@ -30,6 +35,14 @@ interface FileInfo {
   deleted: boolean;
 }
 
+interface UploadingFile {
+  id: string;
+  file: File;
+  progress: number;
+  status: 'pending' | 'uploading' | 'complete' | 'duplicate' | 'error';
+  error?: string;
+}
+
 export function Files() {
   const { isUnlocked, isLoading } = useDatabaseContext();
   const [files, setFiles] = useState<FileInfo[]>([]);
@@ -37,6 +50,8 @@ export function Files() {
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
+  const { uploadFile } = useFileUpload();
 
   const fetchFiles = useCallback(async () => {
     if (!isUnlocked) return;
@@ -82,6 +97,76 @@ export function Files() {
       fetchFiles();
     }
   }, [isUnlocked, hasFetched, loading, fetchFiles]);
+
+  const handleFilesSelected = useCallback(
+    async (selectedFiles: File[]) => {
+      if (!isUnlocked) {
+        return;
+      }
+
+      // Add files to upload queue with unique IDs
+      const newFiles: UploadingFile[] = selectedFiles.map((file) => ({
+        id: crypto.randomUUID(),
+        file,
+        progress: 0,
+        status: 'pending' as const
+      }));
+      setUploadingFiles((prev) => [...prev, ...newFiles]);
+
+      // Process files in parallel
+      const uploadPromises = newFiles.map(async (fileEntry) => {
+        try {
+          setUploadingFiles((prev) =>
+            prev.map((f) =>
+              f.id === fileEntry.id ? { ...f, status: 'uploading' } : f
+            )
+          );
+
+          const result = await uploadFile(fileEntry.file, (progress) => {
+            setUploadingFiles((prev) =>
+              prev.map((f) => (f.id === fileEntry.id ? { ...f, progress } : f))
+            );
+          });
+
+          setUploadingFiles((prev) =>
+            prev.map((f) =>
+              f.id === fileEntry.id
+                ? {
+                    ...f,
+                    status: result.isDuplicate ? 'duplicate' : 'complete',
+                    progress: 100
+                  }
+                : f
+            )
+          );
+        } catch (err) {
+          setUploadingFiles((prev) =>
+            prev.map((f) =>
+              f.id === fileEntry.id
+                ? { ...f, status: 'error', error: String(err) }
+                : f
+            )
+          );
+        }
+      });
+
+      await Promise.all(uploadPromises);
+
+      // Refresh file list after uploads complete
+      fetchFiles();
+    },
+    [isUnlocked, uploadFile, fetchFiles]
+  );
+
+  const clearCompleted = useCallback(() => {
+    setUploadingFiles((prev) =>
+      prev.filter((f) => f.status !== 'complete' && f.status !== 'duplicate')
+    );
+  }, []);
+
+  const hasCompleted = uploadingFiles.some(
+    (f) => f.status === 'complete' || f.status === 'duplicate'
+  );
 
   const handleView = useCallback(async (file: FileInfo) => {
     try {
@@ -206,6 +291,61 @@ export function Files() {
         )}
       </div>
 
+      <Dropzone onFilesSelected={handleFilesSelected} disabled={!isUnlocked} />
+
+      {!isUnlocked && (
+        <p className="text-center text-muted-foreground text-sm">
+          Unlock the database to upload files
+        </p>
+      )}
+
+      {uploadingFiles.length > 0 && (
+        <div className="space-y-2">
+          {hasCompleted && (
+            <button
+              type="button"
+              onClick={clearCompleted}
+              className="text-muted-foreground text-xs hover:underline"
+            >
+              Clear completed
+            </button>
+          )}
+          {uploadingFiles.map((entry) => (
+            <div
+              key={entry.id}
+              className="flex items-center gap-3 rounded-lg border bg-muted/50 p-3"
+            >
+              {entry.status === 'uploading' && (
+                <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted-foreground" />
+              )}
+              {entry.status === 'complete' && (
+                <CheckCircle className="h-5 w-5 shrink-0 text-green-500" />
+              )}
+              {entry.status === 'duplicate' && (
+                <CheckCircle className="h-5 w-5 shrink-0 text-yellow-500" />
+              )}
+              {entry.status === 'error' && (
+                <XCircle className="h-5 w-5 shrink-0 text-destructive" />
+              )}
+              {entry.status === 'pending' && (
+                <FileIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-sm">
+                  {entry.file.name}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  {formatFileSize(entry.file.size)}
+                  {entry.status === 'uploading' && ` · ${entry.progress}%`}
+                  {entry.status === 'duplicate' && ' · Already exists'}
+                  {entry.status === 'error' && ` · ${entry.error}`}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {isLoading && (
         <div className="rounded-lg border p-8 text-center text-muted-foreground">
           Loading database...
@@ -235,7 +375,7 @@ export function Files() {
             </div>
           ) : files.filter((f) => showDeleted || !f.deleted).length === 0 ? (
             <div className="rounded-lg border p-8 text-center text-muted-foreground">
-              No files found. Upload files from the Home page.
+              No files found. Drop or select files above to upload.
             </div>
           ) : (
             files
