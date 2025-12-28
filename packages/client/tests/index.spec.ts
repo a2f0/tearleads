@@ -575,14 +575,25 @@ test.describe('Tables page', () => {
     await page.getByRole('link', { name: 'Tearleads Tearleads' }).click();
     await expect(page.getByRole('heading', { name: 'Files' })).toBeVisible();
     const fileInput = page.getByTestId('dropzone-input');
+    // Use a minimal valid PNG (1x1 transparent pixel) for file type detection
+    const pngMagicBytes = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
+      0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1x1 dimensions
+      0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, // bit depth, color type, etc.
+      0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54, // IDAT chunk
+      0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, // compressed data
+      0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, // IEND chunk
+      0xae, 0x42, 0x60, 0x82
+    ]);
     await fileInput.setInputFiles({
-      name: 'test-file.txt',
-      mimeType: 'text/plain',
-      buffer: Buffer.from('Hello, this is test content!')
+      name: 'test-file.png',
+      mimeType: 'image/png',
+      buffer: pngMagicBytes
     });
 
     // Wait for file to appear in list
-    await expect(page.getByText('test-file.txt', { exact: true })).toBeVisible({
+    await expect(page.getByText('test-file.png', { exact: true })).toBeVisible({
       timeout: 10000
     });
 
@@ -616,7 +627,7 @@ test.describe('Tables page', () => {
     await expect(page.getByText(/Showing 1 row/)).toBeVisible({ timeout: 10000 });
 
     // Should show our uploaded file data
-    await expect(page.getByText('test-file.txt', { exact: true })).toBeVisible();
+    await expect(page.getByText('test-file.png', { exact: true })).toBeVisible();
 
     // Click back to return to tables list
     await page.getByText('Back').click();
@@ -641,13 +652,24 @@ test.describe('Tables page', () => {
     await page.getByRole('link', { name: 'Tearleads Tearleads' }).click();
     await expect(page.getByRole('heading', { name: 'Files' })).toBeVisible();
     const fileInput = page.getByTestId('dropzone-input');
+    // Use a minimal valid PNG for file type detection
+    const pngMagicBytes = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+      0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+      0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89,
+      0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54,
+      0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01,
+      0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44,
+      0xae, 0x42, 0x60, 0x82
+    ]);
     await fileInput.setInputFiles({
-      name: 'doc-view-test.txt',
-      mimeType: 'text/plain',
-      buffer: Buffer.from('Document view test content')
+      name: 'doc-view-test.png',
+      mimeType: 'image/png',
+      buffer: pngMagicBytes
     });
 
-    await expect(page.getByText('doc-view-test.txt', { exact: true })).toBeVisible({
+    await expect(page.getByText('doc-view-test.png', { exact: true })).toBeVisible({
       timeout: 10000
     });
 
@@ -671,7 +693,7 @@ test.describe('Tables page', () => {
     await expect(preElement).toBeVisible({ timeout: 10000 });
 
     // Should contain the file name in JSON format
-    await expect(preElement).toContainText('"name": "doc-view-test.txt"');
+    await expect(preElement).toContainText('"name": "doc-view-test.png"');
 
     // Table headers should not be visible in document view
     await expect(
