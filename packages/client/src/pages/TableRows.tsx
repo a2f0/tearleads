@@ -290,7 +290,7 @@ export function TableRows() {
         <div className="rounded-lg border p-8 text-center">
           <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
           <p className="mt-4 text-muted-foreground">
-            Database is locked. Unlock it from the Debug page to view table
+            Database is locked. Unlock it from the SQLite page to view table
             data.
           </p>
         </div>

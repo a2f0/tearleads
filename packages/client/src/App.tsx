@@ -1,6 +1,6 @@
 import { Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
-import { Bug, Settings, Table2, Users } from 'lucide-react';
+import { Bug, Database, Settings, Table2, Users } from 'lucide-react';
 import { Link, Outlet } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { useAppVersion } from './hooks/useAppVersion';
@@ -37,6 +37,14 @@ function App() {
               data-testid="tables-link"
             >
               <Table2 className="h-5 w-5" />
+            </Link>
+            <Link
+              to="/sqlite"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+              aria-label="SQLite"
+              data-testid="sqlite-link"
+            >
+              <Database className="h-5 w-5" />
             </Link>
             <Link
               to="/debug"
