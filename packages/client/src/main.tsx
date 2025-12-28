@@ -10,6 +10,7 @@ import { Contacts } from './pages/Contacts';
 import { Debug } from './pages/Debug';
 import { Files } from './pages/Files';
 import { Models } from './pages/Models';
+import { Opfs } from './pages/Opfs';
 import { Photos } from './pages/Photos';
 import { Settings } from './pages/Settings';
 import { TableRows } from './pages/TableRows';
@@ -35,6 +36,7 @@ if (rootElement) {
                   <Route path="settings" element={<Settings />} />
                   <Route path="tables" element={<Tables />} />
                   <Route path="tables/:tableName" element={<TableRows />} />
+                  <Route path="opfs" element={<Opfs />} />
                 </Route>
               </Routes>
             </BrowserRouter>
