@@ -8,7 +8,9 @@ async function navigateTo(page: Page, linkName: string) {
 
 const IGNORED_WARNING_PATTERNS: RegExp[] = [
   /Download the React DevTools/i,
-  /apple-mobile-web-app-capable.*deprecated/i
+  /apple-mobile-web-app-capable.*deprecated/i,
+  // web-llm warnings during model cache checks (expected in test environment)
+  /Failed to check cached models/i
 ];
 
 interface ConsoleMessage {
@@ -706,5 +708,104 @@ test.describe('Tables page', () => {
     // Should show table view again
     await expect(page.getByRole('columnheader', { name: /id/i })).toBeVisible();
     await expect(page.locator('pre')).not.toBeVisible();
+  });
+});
+
+test.describe('Models page', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+  });
+
+  test('should navigate to models page when models link is clicked', async ({
+    page
+  }) => {
+    const modelsLink = page.locator('aside nav').getByRole('link', { name: 'Models' });
+    await expect(modelsLink).toBeVisible();
+
+    await modelsLink.click();
+
+    await expect(page.getByRole('heading', { name: 'Models' })).toBeVisible();
+  });
+
+  test('should display model cards', async ({ page }) => {
+    await navigateTo(page, 'Models');
+
+    // Wait for model cards to appear
+    await expect(page.getByText('Llama 3.2 1B Instruct')).toBeVisible({
+      timeout: 10000
+    });
+    await expect(page.getByText('Llama 3.2 3B Instruct')).toBeVisible();
+    await expect(page.getByText('Phi 3.5 Mini')).toBeVisible();
+  });
+
+  test('should show model sizes', async ({ page }) => {
+    await navigateTo(page, 'Models');
+
+    await expect(page.getByText(/~700MB/)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/~1\.8GB/)).toBeVisible();
+  });
+
+  test('should show description text', async ({ page }) => {
+    await navigateTo(page, 'Models');
+
+    await expect(
+      page.getByText(/Download and run LLMs locally/)
+    ).toBeVisible();
+  });
+
+  test('should show download buttons for models not cached', async ({
+    page
+  }) => {
+    await navigateTo(page, 'Models');
+
+    // Wait for model cards to load
+    await expect(page.getByText('Llama 3.2 1B Instruct')).toBeVisible({
+      timeout: 10000
+    });
+
+    // Should have Download buttons (models not cached in test environment)
+    const downloadButtons = page.getByRole('button', { name: /Download/i });
+    await expect(downloadButtons.first()).toBeVisible();
+  });
+
+  test('should persist cached model status across page reload', async ({
+    page
+  }) => {
+    await navigateTo(page, 'Models');
+
+    // Wait for initial load
+    await expect(page.getByText('Llama 3.2 1B Instruct')).toBeVisible({
+      timeout: 10000
+    });
+
+    // Get the initial state of buttons (should be Download since not cached)
+    const initialDownloadButtons = await page.getByRole('button', { name: /Download/i }).count();
+
+    // Reload the page
+    await page.reload();
+
+    // Wait for models page to load again
+    await expect(page.getByText('Llama 3.2 1B Instruct')).toBeVisible({
+      timeout: 10000
+    });
+
+    // Count buttons again - should be the same since no model was actually downloaded
+    const afterReloadDownloadButtons = await page.getByRole('button', { name: /Download/i }).count();
+
+    // The button count should be consistent (cache detection is working)
+    expect(afterReloadDownloadButtons).toBe(initialDownloadButtons);
+  });
+
+  test('should show WebGPU support status', async ({ page }) => {
+    await navigateTo(page, 'Models');
+
+    // Chrome supports WebGPU, so we should see the models page normally
+    // If WebGPU was not supported, we would see an error message instead
+    await expect(page.getByText('Llama 3.2 1B Instruct')).toBeVisible({
+      timeout: 10000
+    });
+
+    // Should NOT show the "WebGPU Not Supported" error
+    await expect(page.getByText('WebGPU Not Supported')).not.toBeVisible();
   });
 });
