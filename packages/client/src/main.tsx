@@ -13,6 +13,7 @@ import { Models } from './pages/Models';
 import { Opfs } from './pages/Opfs';
 import { Photos } from './pages/Photos';
 import { Settings } from './pages/Settings';
+import { Sqlite } from './pages/Sqlite';
 import { TableRows } from './pages/TableRows';
 import { Tables } from './pages/Tables';
 import './index.css';
@@ -30,6 +31,7 @@ if (rootElement) {
                   <Route index element={<Files />} />
                   <Route path="contacts" element={<Contacts />} />
                   <Route path="photos" element={<Photos />} />
+                  <Route path="sqlite" element={<Sqlite />} />
                   <Route path="debug" element={<Debug />} />
                   <Route path="chat" element={<Chat />} />
                   <Route path="models" element={<Models />} />
