@@ -119,7 +119,7 @@ export function TableRows() {
           <div className="flex items-center gap-2">
             <Button
               variant={documentView ? 'default' : 'outline'}
-              size="sm"
+              size="icon"
               onClick={() => setDocumentView(!documentView)}
               title="Toggle document view"
             >

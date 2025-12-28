@@ -644,6 +644,7 @@ test.describe('Tables page', () => {
 
     // Navigate to tables and open files table
     await page.getByTestId('tables-link').click();
+    await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
     await expect(page.getByText('files')).toBeVisible({ timeout: 10000 });
     await page.getByText('files').click();
     await expect(page).toHaveURL(/\/tables\/files/);
