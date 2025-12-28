@@ -2,10 +2,18 @@
 description: Query the open PR and resolve Gemini's feedback.
 ---
 
-# Update
+# Address Gemini Feedback
 
-Use the command `gh pr view --json number,title,url | cat` to obtain the PR number for this branch, and:
+1. **Get PR info**: Run `gh pr view --json number,title,url | cat` to obtain the PR number for this branch.
 
-- Address any open feedback that you think is relevant / important (make sure not to consider resolved feedback).
-- Make sure linting passes and typescript compiles.
-- Write a one line PR description using conventional commit synax (do not commit just output it)
+2. **Fetch unresolved comments**: Use the GitHub GraphQL API to get review comments and check their `isResolved` status. Only consider unresolved feedback.
+
+3. **Address feedback**: For each unresolved comment that you think is relevant/important:
+   - Make the necessary code changes
+   - Make sure linting passes and TypeScript compiles
+
+4. **Commit and push**: If changes were made, run `/commit-and-push` to commit and push the fixes.
+
+5. **Follow up with Gemini**: Run `/follow-up-with-gemini` to reply to the addressed comments.
+
+6. **Wait and repeat**: If Gemini posts new feedback after your changes, repeat from step 2.
