@@ -162,7 +162,50 @@ async function initializeSqliteWasm(): Promise<void> {
 }
 
 /**
+ * Check if OPFS VFS is available and install it.
+ */
+async function installOpfsVfs(): Promise<boolean> {
+  if (!sqlite3) return false;
+
+  // Check if OPFS is already available
+  // biome-ignore lint/suspicious/noExplicitAny: SQLite WASM dynamic API
+  const sqlite3Any = sqlite3 as any;
+  if (sqlite3Any.opfs) {
+    console.log('OPFS VFS already installed');
+    return true;
+  }
+
+  // Check browser support for OPFS
+  if (typeof navigator?.storage?.getDirectory !== 'function') {
+    console.warn('OPFS not supported in this browser');
+    return false;
+  }
+
+  // Try to install OPFS VFS
+  try {
+    if (typeof sqlite3Any.installOpfsVfs === 'function') {
+      await sqlite3Any.installOpfsVfs();
+      console.log('OPFS VFS installed successfully');
+      return true;
+    }
+
+    // Alternative: check for OpfsDb class
+    if (sqlite3Any.oo1?.OpfsDb) {
+      console.log('OpfsDb class available');
+      return true;
+    }
+
+    console.warn('OPFS VFS installation not available');
+    return false;
+  } catch (error) {
+    console.warn('Failed to install OPFS VFS:', error);
+    return false;
+  }
+}
+
+/**
  * Initialize SQLite WASM and open an encrypted database.
+ * Attempts to use OPFS for persistence, falls back to in-memory if unavailable.
  */
 async function initializeDatabase(
   name: string,
@@ -178,13 +221,21 @@ async function initializeDatabase(
     throw new Error('SQLite module not initialized');
   }
 
-  // Use encrypted file-based database in WASM virtual file system
-  // Note: This uses the default VFS which supports encryption
-  // Data persists in WASM memory until worker terminates
-  currentDbFilename = `${name}.sqlite3`;
+  // Try to install OPFS VFS for persistence
+  const hasOpfs = await installOpfsVfs();
+
+  // Use OPFS filename if available, otherwise use in-memory
+  // OPFS files persist across page reloads
+  if (hasOpfs) {
+    currentDbFilename = `file:${name}.sqlite3?vfs=opfs`;
+    console.log('Using OPFS VFS for persistence');
+  } else {
+    currentDbFilename = `${name}.sqlite3`;
+    console.log('Using in-memory VFS (data will not persist across reloads)');
+  }
 
   try {
-    // Create/open encrypted database using the default VFS with hexkey parameter
+    // Create/open encrypted database
     db = new sqlite3.oo1.DB({
       filename: currentDbFilename,
       flags: 'c', // Create if not exists
