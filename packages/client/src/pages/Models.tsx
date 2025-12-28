@@ -3,7 +3,6 @@ import {
   Bot,
   Check,
   Download,
-  Eye,
   Loader2,
   Play,
   Square,
@@ -18,28 +17,22 @@ interface ModelInfo {
   name: string;
   size: string;
   description: string;
-  isVision?: boolean;
 }
 
 // Curated list of recommended models
+// Note: Vision models (Phi-3.5-vision) are excluded due to known bugs in web-llm
+// See: https://github.com/mlc-ai/web-llm/issues/727
 const RECOMMENDED_MODELS: ModelInfo[] = [
   {
-    id: 'Phi-3.5-vision-instruct-q4f32_1-MLC',
-    name: 'Phi 3.5 Vision',
-    size: '~3GB',
-    description: 'Vision model for image understanding',
-    isVision: true
-  },
-  {
-    id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+    id: 'Llama-3.2-1B-Instruct-q4f32_1-MLC',
     name: 'Llama 3.2 1B Instruct',
-    size: '~700MB',
+    size: '~800MB',
     description: 'Small and fast, good for basic tasks'
   },
   {
-    id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
+    id: 'Llama-3.2-3B-Instruct-q4f32_1-MLC',
     name: 'Llama 3.2 3B Instruct',
-    size: '~1.8GB',
+    size: '~2GB',
     description: 'Good balance of speed and capability'
   },
   {
@@ -49,21 +42,21 @@ const RECOMMENDED_MODELS: ModelInfo[] = [
     description: "Google's efficient open model"
   },
   {
-    id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',
+    id: 'Phi-3.5-mini-instruct-q4f32_1-MLC',
     name: 'Phi 3.5 Mini',
-    size: '~2GB',
+    size: '~2.3GB',
     description: "Microsoft's efficient reasoning model"
   },
   {
-    id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
+    id: 'Qwen2.5-1.5B-Instruct-q4f32_1-MLC',
     name: 'Qwen 2.5 1.5B Instruct',
-    size: '~1GB',
+    size: '~1.2GB',
     description: "Alibaba's multilingual model"
   },
   {
-    id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC',
+    id: 'SmolLM2-1.7B-Instruct-q4f32_1-MLC',
     name: 'SmolLM2 1.7B Instruct',
-    size: '~1GB',
+    size: '~1.2GB',
     description: "HuggingFace's efficient small model"
   }
 ];
@@ -97,27 +90,16 @@ function ModelCard({
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div
-            className={`flex h-10 w-10 items-center justify-center rounded-lg ${(() => {
-              if (isLoaded) return 'bg-green-500/10 text-green-500';
-              if (model.isVision) return 'bg-purple-500/10 text-purple-500';
-              return 'bg-muted text-muted-foreground';
-            })()}`}
+            className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+              isLoaded
+                ? 'bg-green-500/10 text-green-500'
+                : 'bg-muted text-muted-foreground'
+            }`}
           >
-            {model.isVision ? (
-              <Eye className="h-5 w-5" />
-            ) : (
-              <Bot className="h-5 w-5" />
-            )}
+            <Bot className="h-5 w-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-medium">{model.name}</h3>
-              {model.isVision && (
-                <span className="rounded-full bg-purple-500/10 px-2 py-0.5 font-medium text-purple-500 text-xs">
-                  Vision
-                </span>
-              )}
-            </div>
+            <h3 className="font-medium">{model.name}</h3>
             <p className="text-muted-foreground text-sm">
               {model.size} &bull; {model.description}
             </p>

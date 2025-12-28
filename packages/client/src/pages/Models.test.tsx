@@ -80,8 +80,8 @@ describe('Models', () => {
       renderModels();
 
       await waitFor(() => {
-        expect(screen.getByText(/~700MB/)).toBeInTheDocument();
-        expect(screen.getByText(/~1.8GB/)).toBeInTheDocument();
+        expect(screen.getByText(/~800MB/)).toBeInTheDocument();
+        expect(screen.getByText(/~2GB/)).toBeInTheDocument();
       });
     });
   });
@@ -221,7 +221,7 @@ describe('Models', () => {
     it('shows loaded badge when model is loaded', async () => {
       vi.mocked(useLLM).mockReturnValue({
         engine: {} as ReturnType<typeof useLLM>['engine'],
-        loadedModel: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+        loadedModel: 'Llama-3.2-1B-Instruct-q4f32_1-MLC',
         isLoading: false,
         loadProgress: null,
         error: null,
@@ -240,7 +240,7 @@ describe('Models', () => {
     it('shows unload button for loaded model', async () => {
       vi.mocked(useLLM).mockReturnValue({
         engine: {} as ReturnType<typeof useLLM>['engine'],
-        loadedModel: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+        loadedModel: 'Llama-3.2-1B-Instruct-q4f32_1-MLC',
         isLoading: false,
         loadProgress: null,
         error: null,
@@ -262,7 +262,7 @@ describe('Models', () => {
       const user = userEvent.setup();
       vi.mocked(useLLM).mockReturnValue({
         engine: {} as ReturnType<typeof useLLM>['engine'],
-        loadedModel: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+        loadedModel: 'Llama-3.2-1B-Instruct-q4f32_1-MLC',
         isLoading: false,
         loadProgress: null,
         error: null,
@@ -315,13 +315,13 @@ describe('Models', () => {
       await waitFor(() => {
         // Should check cache for each recommended model
         expect(mockHasModelInCache).toHaveBeenCalledWith(
-          'Llama-3.2-1B-Instruct-q4f16_1-MLC'
+          'Llama-3.2-1B-Instruct-q4f32_1-MLC'
         );
         expect(mockHasModelInCache).toHaveBeenCalledWith(
-          'Llama-3.2-3B-Instruct-q4f16_1-MLC'
+          'Llama-3.2-3B-Instruct-q4f32_1-MLC'
         );
         expect(mockHasModelInCache).toHaveBeenCalledWith(
-          'Phi-3.5-mini-instruct-q4f16_1-MLC'
+          'Phi-3.5-mini-instruct-q4f32_1-MLC'
         );
       });
     });
@@ -329,7 +329,7 @@ describe('Models', () => {
     it('shows Ready status for cached models', async () => {
       // Only the first model is cached
       mockHasModelInCache.mockImplementation((modelId: string) =>
-        Promise.resolve(modelId === 'Llama-3.2-1B-Instruct-q4f16_1-MLC')
+        Promise.resolve(modelId === 'Llama-3.2-1B-Instruct-q4f32_1-MLC')
       );
 
       renderModels();
@@ -361,7 +361,7 @@ describe('Models', () => {
 
     it('shows delete button for cached models', async () => {
       mockHasModelInCache.mockImplementation((modelId: string) =>
-        Promise.resolve(modelId === 'Llama-3.2-1B-Instruct-q4f16_1-MLC')
+        Promise.resolve(modelId === 'Llama-3.2-1B-Instruct-q4f32_1-MLC')
       );
 
       renderModels();
@@ -380,7 +380,7 @@ describe('Models', () => {
     it('calls deleteModelInCache when delete button is clicked', async () => {
       const user = userEvent.setup();
       mockHasModelInCache.mockImplementation((modelId: string) =>
-        Promise.resolve(modelId === 'Llama-3.2-1B-Instruct-q4f16_1-MLC')
+        Promise.resolve(modelId === 'Llama-3.2-1B-Instruct-q4f32_1-MLC')
       );
 
       renderModels();
@@ -400,7 +400,7 @@ describe('Models', () => {
       }
 
       expect(mockDeleteModelInCache).toHaveBeenCalledWith(
-        'Llama-3.2-1B-Instruct-q4f16_1-MLC'
+        'Llama-3.2-1B-Instruct-q4f32_1-MLC'
       );
     });
   });
