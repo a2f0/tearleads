@@ -280,4 +280,37 @@ export class WebAdapter implements DatabaseAdapter {
       data: Array.from(data)
     });
   }
+
+  async deleteDatabase(name: string): Promise<void> {
+    // If worker is running, use it to delete the file
+    if (this.worker && this.isReady) {
+      const id = generateRequestId();
+      await this.sendRequest({
+        type: 'DELETE_DATABASE',
+        id,
+        name
+      });
+    } else {
+      // Worker not running, delete OPFS file directly
+      try {
+        const opfsRoot = await navigator.storage.getDirectory();
+        const filename = `${name}.sqlite3`;
+        try {
+          await opfsRoot.removeEntry(filename);
+        } catch {
+          // File might not exist
+        }
+        // Also delete journal/WAL files
+        for (const suffix of ['-journal', '-wal', '-shm']) {
+          try {
+            await opfsRoot.removeEntry(filename + suffix);
+          } catch {
+            // Ignore
+          }
+        }
+      } catch {
+        // OPFS not available or file doesn't exist
+      }
+    }
+  }
 }
