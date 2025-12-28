@@ -80,6 +80,17 @@ interface SQLite3Module {
   };
   /** Emscripten virtual file system - may not be available in all builds */
   FS?: EmscriptenFS;
+  /** OPFS namespace - available after installOpfsVfs() */
+  opfs?: unknown;
+  /** Install OPFS VFS - may not be available in all builds */
+  installOpfsVfs?: () => Promise<void>;
+}
+
+/**
+ * Extended SQLiteOO1 interface with optional OPFS database class.
+ */
+interface SQLiteOO1WithOpfs extends SQLiteOO1 {
+  OpfsDb?: unknown;
 }
 
 /**
@@ -168,9 +179,7 @@ async function installOpfsVfs(): Promise<boolean> {
   if (!sqlite3) return false;
 
   // Check if OPFS is already available
-  // biome-ignore lint/suspicious/noExplicitAny: SQLite WASM dynamic API
-  const sqlite3Any = sqlite3 as any;
-  if (sqlite3Any.opfs) {
+  if (sqlite3.opfs) {
     console.log('OPFS VFS already installed');
     return true;
   }
@@ -183,14 +192,15 @@ async function installOpfsVfs(): Promise<boolean> {
 
   // Try to install OPFS VFS
   try {
-    if (typeof sqlite3Any.installOpfsVfs === 'function') {
-      await sqlite3Any.installOpfsVfs();
+    if (typeof sqlite3.installOpfsVfs === 'function') {
+      await sqlite3.installOpfsVfs();
       console.log('OPFS VFS installed successfully');
       return true;
     }
 
     // Alternative: check for OpfsDb class
-    if (sqlite3Any.oo1?.OpfsDb) {
+    const oo1WithOpfs = sqlite3.oo1 as SQLiteOO1WithOpfs;
+    if (oo1WithOpfs.OpfsDb) {
       console.log('OpfsDb class available');
       return true;
     }
