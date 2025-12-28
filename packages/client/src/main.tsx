@@ -8,6 +8,7 @@ import { DatabaseProvider } from './db/hooks';
 import { Debug } from './pages/Debug';
 import { Files } from './pages/Files';
 import { Settings } from './pages/Settings';
+import { TableRows } from './pages/TableRows';
 import { Tables } from './pages/Tables';
 import './index.css';
 
@@ -25,6 +26,7 @@ if (rootElement) {
                   <Route path="debug" element={<Debug />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="tables" element={<Tables />} />
+                  <Route path="tables/:tableName" element={<TableRows />} />
                 </Route>
               </Routes>
             </BrowserRouter>
