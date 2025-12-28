@@ -1,5 +1,5 @@
 import { Database, Loader2, RefreshCw, Trash2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { formatFileSize } from '@/lib/utils';
 
@@ -77,8 +77,7 @@ function getStorageEntries(): StorageEntry[] {
     const key = localStorage.key(i);
     if (key !== null) {
       const value = localStorage.getItem(key) ?? '';
-      // Size in bytes (UTF-16 encoding, 2 bytes per char)
-      const size = (key.length + value.length) * 2;
+      const size = new Blob([key, value]).size;
       entries.push({ key, value, size });
     }
   }
@@ -99,7 +98,7 @@ export function LocalStorage() {
   const [error, setError] = useState<string | null>(null);
   const isMountedRef = useRef(true);
 
-  const fetchStorageContents = () => {
+  const fetchStorageContents = useCallback(() => {
     setLoading(true);
     setError(null);
 
@@ -119,39 +118,15 @@ export function LocalStorage() {
         setLoading(false);
       }
     }
-  };
+  }, []);
 
   useEffect(() => {
-    isMountedRef.current = true;
-
-    const loadContents = () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const storageEntries = getStorageEntries();
-
-        if (isMountedRef.current) {
-          setEntries(storageEntries);
-        }
-      } catch (err) {
-        console.error('Failed to read localStorage:', err);
-        if (isMountedRef.current) {
-          setError(err instanceof Error ? err.message : String(err));
-        }
-      } finally {
-        if (isMountedRef.current) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadContents();
+    fetchStorageContents();
 
     return () => {
       isMountedRef.current = false;
     };
-  }, []);
+  }, [fetchStorageContents]);
 
   const handleDelete = (key: string) => {
     const confirmationMessage = `Are you sure you want to delete "${key}"?`;
