@@ -58,7 +58,7 @@ describe('App', () => {
 
     // Sidebar contains all navigation links
     const sidebarLinks = sidebar.querySelectorAll('a');
-    expect(sidebarLinks).toHaveLength(8);
+    expect(sidebarLinks).toHaveLength(9);
   });
 
   it('renders navigation in both header and sidebar', () => {
@@ -76,6 +76,7 @@ describe('App', () => {
     expect(screen.getByText('Photos')).toBeInTheDocument();
     expect(screen.getByText('Tables')).toBeInTheDocument();
     expect(screen.getByText('Debug')).toBeInTheDocument();
+    expect(screen.getByText('OPFS')).toBeInTheDocument();
     expect(screen.getByText('Chat')).toBeInTheDocument();
     expect(screen.getByText('Models')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
