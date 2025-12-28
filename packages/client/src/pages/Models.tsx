@@ -182,19 +182,14 @@ export function Models() {
   useEffect(() => {
     async function checkCachedModels() {
       try {
-        const cached = new Set<string>();
-        const cacheChecks = await Promise.all(
-          RECOMMENDED_MODELS.map(async (model) => ({
-            id: model.id,
-            isCached: await hasModelInCache(model.id)
-          }))
+        const cacheCheckPromises = RECOMMENDED_MODELS.map(async (model) => {
+          const isCached = await hasModelInCache(model.id);
+          return isCached ? model.id : null;
+        });
+        const cachedIds = (await Promise.all(cacheCheckPromises)).filter(
+          (id): id is string => id !== null
         );
-        for (const { id, isCached } of cacheChecks) {
-          if (isCached) {
-            cached.add(id);
-          }
-        }
-        setCachedModels(cached);
+        setCachedModels(new Set(cachedIds));
       } catch (err) {
         console.error('Failed to check cached models:', err);
       }
