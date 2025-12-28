@@ -1,3 +1,4 @@
+import { deleteModelInCache, hasModelInCache } from '@mlc-ai/web-llm';
 import {
   Bot,
   Check,
@@ -177,29 +178,20 @@ export function Models() {
     isWebGPUSupported().then(setWebGPUSupported);
   }, [isWebGPUSupported]);
 
-  // Check for cached models in Cache Storage on mount
-  // This is a heuristic based on web-llm's cache naming convention
+  // Check for cached models using web-llm's official API on mount
   useEffect(() => {
     async function checkCachedModels() {
-      if (typeof caches === 'undefined') return;
-
       try {
-        const cacheNames = await caches.keys();
-        const modelCaches = cacheNames.filter(
-          (name) =>
-            name.includes('webllm') ||
-            name.includes('mlc') ||
-            name.includes('model')
-        );
-
         const cached = new Set<string>();
-        for (const model of RECOMMENDED_MODELS) {
-          // Check if any cache contains this model ID
-          for (const cacheName of modelCaches) {
-            if (cacheName.toLowerCase().includes(model.id.toLowerCase())) {
-              cached.add(model.id);
-              break;
-            }
+        const cacheChecks = await Promise.all(
+          RECOMMENDED_MODELS.map(async (model) => ({
+            id: model.id,
+            isCached: await hasModelInCache(model.id)
+          }))
+        );
+        for (const { id, isCached } of cacheChecks) {
+          if (isCached) {
+            cached.add(id);
           }
         }
         setCachedModels(cached);
@@ -230,25 +222,15 @@ export function Models() {
   }, [unloadModel]);
 
   const handleDelete = useCallback(async (modelId: string) => {
-    // Delete from Cache Storage
-    if (typeof caches !== 'undefined') {
-      try {
-        const cacheNames = await caches.keys();
-        for (const cacheName of cacheNames) {
-          // Use endsWith to avoid accidentally deleting caches for other models
-          // when one model ID is a substring of another
-          if (cacheName.toLowerCase().endsWith(modelId.toLowerCase())) {
-            await caches.delete(cacheName);
-          }
-        }
-        setCachedModels((prev) => {
-          const next = new Set(prev);
-          next.delete(modelId);
-          return next;
-        });
-      } catch (err) {
-        console.error('Failed to delete cached model:', err);
-      }
+    try {
+      await deleteModelInCache(modelId);
+      setCachedModels((prev) => {
+        const next = new Set(prev);
+        next.delete(modelId);
+        return next;
+      });
+    } catch (err) {
+      console.error('Failed to delete cached model:', err);
     }
   }, []);
 

@@ -4,6 +4,17 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Models } from './Models';
 
+// Mock web-llm cache functions
+vi.mock('@mlc-ai/web-llm', () => ({
+  hasModelInCache: vi.fn().mockResolvedValue(false),
+  deleteModelInCache: vi.fn().mockResolvedValue(undefined)
+}));
+
+import { deleteModelInCache, hasModelInCache } from '@mlc-ai/web-llm';
+
+const mockHasModelInCache = vi.mocked(hasModelInCache);
+const mockDeleteModelInCache = vi.mocked(deleteModelInCache);
+
 // Mock useLLM hook
 const mockLoadModel = vi.fn();
 const mockUnloadModel = vi.fn();
@@ -36,6 +47,8 @@ describe('Models', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsWebGPUSupported.mockResolvedValue(true);
+    mockHasModelInCache.mockResolvedValue(false);
+    mockDeleteModelInCache.mockResolvedValue(undefined);
   });
 
   describe('page rendering', () => {
@@ -292,6 +305,103 @@ describe('Models', () => {
           screen.getByText('Failed to load model: Network error')
         ).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('model cache persistence', () => {
+    it('checks cache for all models on mount', async () => {
+      renderModels();
+
+      await waitFor(() => {
+        // Should check cache for each recommended model
+        expect(mockHasModelInCache).toHaveBeenCalledWith(
+          'Llama-3.2-1B-Instruct-q4f16_1-MLC'
+        );
+        expect(mockHasModelInCache).toHaveBeenCalledWith(
+          'Llama-3.2-3B-Instruct-q4f16_1-MLC'
+        );
+        expect(mockHasModelInCache).toHaveBeenCalledWith(
+          'Phi-3.5-mini-instruct-q4f16_1-MLC'
+        );
+      });
+    });
+
+    it('shows Ready status for cached models', async () => {
+      // Only the first model is cached
+      mockHasModelInCache.mockImplementation((modelId: string) =>
+        Promise.resolve(modelId === 'Llama-3.2-1B-Instruct-q4f16_1-MLC')
+      );
+
+      renderModels();
+
+      await waitFor(() => {
+        // First model should show "Ready" and "Load" button
+        expect(screen.getByText('Ready')).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: /^Load$/i })
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('shows Load button instead of Download for cached models', async () => {
+      mockHasModelInCache.mockResolvedValue(true);
+
+      renderModels();
+
+      await waitFor(() => {
+        // All models are cached, so no Download buttons
+        expect(
+          screen.queryByRole('button', { name: /download/i })
+        ).not.toBeInTheDocument();
+        // Should have Load buttons instead
+        const loadButtons = screen.getAllByRole('button', { name: /^Load$/i });
+        expect(loadButtons.length).toBeGreaterThan(0);
+      });
+    });
+
+    it('shows delete button for cached models', async () => {
+      mockHasModelInCache.mockImplementation((modelId: string) =>
+        Promise.resolve(modelId === 'Llama-3.2-1B-Instruct-q4f16_1-MLC')
+      );
+
+      renderModels();
+
+      await waitFor(() => {
+        // Should have a delete button (trash icon) for the cached model
+        const deleteButtons = screen.getAllByRole('button');
+        // Look for button that contains trash icon (it's an icon button without text)
+        const trashButton = deleteButtons.find(
+          (btn) => btn.querySelector('svg.lucide-trash-2') !== null
+        );
+        expect(trashButton).toBeDefined();
+      });
+    });
+
+    it('calls deleteModelInCache when delete button is clicked', async () => {
+      const user = userEvent.setup();
+      mockHasModelInCache.mockImplementation((modelId: string) =>
+        Promise.resolve(modelId === 'Llama-3.2-1B-Instruct-q4f16_1-MLC')
+      );
+
+      renderModels();
+
+      await waitFor(() => {
+        expect(screen.getByText('Ready')).toBeInTheDocument();
+      });
+
+      // Find and click the delete button (trash icon)
+      const deleteButtons = screen.getAllByRole('button');
+      const trashButton = deleteButtons.find(
+        (btn) => btn.querySelector('svg.lucide-trash-2') !== null
+      );
+      expect(trashButton).toBeDefined();
+      if (trashButton) {
+        await user.click(trashButton);
+      }
+
+      expect(mockDeleteModelInCache).toHaveBeenCalledWith(
+        'Llama-3.2-1B-Instruct-q4f16_1-MLC'
+      );
     });
   });
 });
