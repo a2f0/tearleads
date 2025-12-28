@@ -2,6 +2,7 @@
  * Hook for uploading files to OPFS with encryption.
  */
 
+import { fileTypeFromBuffer } from 'file-type';
 import { useCallback } from 'react';
 import { getDatabaseAdapter } from '@/db';
 import { getKeyManager } from '@/db/crypto';
@@ -42,6 +43,15 @@ export function useFileUpload() {
       const data = await readFileAsUint8Array(file);
       onProgress?.(20);
 
+      // Detect MIME type from file content (magic bytes)
+      const detectedType = await fileTypeFromBuffer(data);
+      if (!detectedType) {
+        throw new Error(
+          `Unable to detect file type for "${file.name}". Only files with recognizable formats are supported.`
+        );
+      }
+      const mimeType = detectedType.mime;
+
       // Compute content hash for deduplication
       const contentHash = await computeContentHash(data);
       onProgress?.(40);
@@ -75,7 +85,7 @@ export function useFileUpload() {
           id,
           file.name,
           file.size,
-          file.type || 'application/octet-stream',
+          mimeType,
           Date.now(),
           contentHash,
           storagePath
