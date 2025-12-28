@@ -59,6 +59,7 @@ interface ModelCardProps {
   model: ModelInfo;
   status: ModelStatus;
   loadProgress: { text: string; progress: number } | null;
+  disabled: boolean;
   onLoad: () => void;
   onUnload: () => void;
   onDelete: () => void;
@@ -68,6 +69,7 @@ function ModelCard({
   model,
   status,
   loadProgress,
+  disabled,
   onLoad,
   onUnload,
   onDelete
@@ -124,7 +126,12 @@ function ModelCard({
 
       <div className="mt-4 flex gap-2">
         {isLoaded ? (
-          <Button variant="outline" size="sm" onClick={onUnload}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onUnload}
+            disabled={disabled}
+          >
             <Square className="mr-2 h-4 w-4" />
             Unload
           </Button>
@@ -134,7 +141,12 @@ function ModelCard({
             Loading...
           </Button>
         ) : (
-          <Button variant="default" size="sm" onClick={onLoad}>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={onLoad}
+            disabled={disabled}
+          >
             {status === 'ready' ? (
               <>
                 <Play className="mr-2 h-4 w-4" />
@@ -149,7 +161,12 @@ function ModelCard({
           </Button>
         )}
         {status === 'ready' && !isLoaded && !isDownloading && (
-          <Button variant="ghost" size="sm" onClick={onDelete}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            disabled={disabled}
+          >
             <Trash2 className="h-4 w-4" />
           </Button>
         )}
@@ -172,6 +189,7 @@ export function Models() {
   const [webGPUSupported, setWebGPUSupported] = useState<boolean | null>(null);
   const [loadingModelId, setLoadingModelId] = useState<string | null>(null);
   const [cachedModels, setCachedModels] = useState<Set<string>>(new Set());
+  const [isCheckingCache, setIsCheckingCache] = useState(true);
 
   // Check WebGPU support on mount
   useEffect(() => {
@@ -192,6 +210,8 @@ export function Models() {
         setCachedModels(new Set(cachedIds));
       } catch (err) {
         console.error('Failed to check cached models:', err);
+      } finally {
+        setIsCheckingCache(false);
       }
     }
 
@@ -278,19 +298,29 @@ export function Models() {
         cached for future use.
       </p>
 
-      <div className="space-y-3">
-        {RECOMMENDED_MODELS.map((model) => (
-          <ModelCard
-            key={model.id}
-            model={model}
-            status={getModelStatus(model.id)}
-            loadProgress={loadingModelId === model.id ? loadProgress : null}
-            onLoad={() => handleLoad(model.id)}
-            onUnload={handleUnload}
-            onDelete={() => handleDelete(model.id)}
-          />
-        ))}
-      </div>
+      {isCheckingCache ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <span className="ml-2 text-muted-foreground text-sm">
+            Checking cached models...
+          </span>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {RECOMMENDED_MODELS.map((model) => (
+            <ModelCard
+              key={model.id}
+              model={model}
+              status={getModelStatus(model.id)}
+              loadProgress={loadingModelId === model.id ? loadProgress : null}
+              disabled={loadingModelId !== null}
+              onLoad={() => handleLoad(model.id)}
+              onUnload={handleUnload}
+              onDelete={() => handleDelete(model.id)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
