@@ -65,6 +65,7 @@ describe('App', () => {
     renderApp();
 
     // Header nav links (with test IDs)
+    expect(screen.getByTestId('contacts-link')).toBeInTheDocument();
     expect(screen.getByTestId('tables-link')).toBeInTheDocument();
     expect(screen.getByTestId('debug-link')).toBeInTheDocument();
     expect(screen.getByTestId('settings-link')).toBeInTheDocument();
