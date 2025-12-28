@@ -5,9 +5,10 @@ import {
   ArrowUpDown,
   Braces,
   Database,
-  RefreshCw
+  RefreshCw,
+  Settings
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
@@ -58,6 +59,11 @@ export function TableRows() {
     column: null,
     direction: null
   });
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(
+    new Set(['id'])
+  );
+  const [showColumnSettings, setShowColumnSettings] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
 
   const fetchTableData = useCallback(async () => {
     if (!isUnlocked || !tableName) return;
@@ -134,6 +140,51 @@ export function TableRows() {
     });
   }, []);
 
+  const toggleColumnVisibility = useCallback((columnName: string) => {
+    setHiddenColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(columnName)) {
+        next.delete(columnName);
+      } else {
+        next.add(columnName);
+      }
+      return next;
+    });
+  }, []);
+
+  // Close settings dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        settingsRef.current &&
+        !settingsRef.current.contains(event.target as Node)
+      ) {
+        setShowColumnSettings(false);
+      }
+    };
+
+    if (showColumnSettings) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showColumnSettings]);
+
+  // Get visible columns
+  const visibleColumns = useMemo(
+    () => columns.filter((col) => !hiddenColumns.has(col.name)),
+    [columns, hiddenColumns]
+  );
+
+  // Reset sort if the sorted column is hidden
+  useEffect(() => {
+    if (sort.column && hiddenColumns.has(sort.column)) {
+      setSort({ column: null, direction: null });
+    }
+  }, [hiddenColumns, sort.column]);
+
   // Reset sort state when table name changes
   useEffect(() => {
     if (tableName) {
@@ -166,6 +217,46 @@ export function TableRows() {
         </div>
         {isUnlocked && (
           <div className="flex items-center gap-2">
+            <div className="relative" ref={settingsRef}>
+              <Button
+                variant={showColumnSettings ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setShowColumnSettings(!showColumnSettings)}
+                title="Column settings"
+                data-testid="column-settings-button"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+              {showColumnSettings && columns.length > 0 && (
+                <div className="absolute top-full right-0 z-10 mt-2 w-56 rounded-lg border bg-popover p-2 shadow-lg">
+                  <div className="mb-2 px-2 font-medium text-sm">
+                    Visible Columns
+                  </div>
+                  <div className="max-h-64 overflow-y-auto">
+                    {columns.map((col) => (
+                      <label
+                        key={col.name}
+                        className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-muted"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!hiddenColumns.has(col.name)}
+                          onChange={() => toggleColumnVisibility(col.name)}
+                          className="h-4 w-4 rounded border-input"
+                          data-testid={`column-toggle-${col.name}`}
+                        />
+                        <span className="font-mono text-sm">{col.name}</span>
+                        {col.pk > 0 && (
+                          <span className="ml-auto text-primary text-xs">
+                            PK
+                          </span>
+                        )}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <Button
               variant={documentView ? 'default' : 'outline'}
               size="icon"
@@ -252,7 +343,7 @@ export function TableRows() {
               <table className="min-w-full divide-y divide-border">
                 <thead className="bg-muted/50">
                   <tr>
-                    {columns.map((col) => (
+                    {visibleColumns.map((col) => (
                       <th
                         key={col.name}
                         className="px-4 py-3 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider"
@@ -285,7 +376,7 @@ export function TableRows() {
                   {rows.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={columns.length}
+                        colSpan={visibleColumns.length}
                         className="px-4 py-8 text-center text-muted-foreground"
                       >
                         No rows in this table
@@ -297,7 +388,7 @@ export function TableRows() {
                         key={getRowKey(row, columns, index)}
                         className="hover:bg-muted/25"
                       >
-                        {columns.map((col) => (
+                        {visibleColumns.map((col) => (
                           <td
                             key={col.name}
                             className={`whitespace-nowrap px-4 py-2 font-mono text-sm ${

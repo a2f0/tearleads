@@ -91,21 +91,23 @@ describe('TableRows', () => {
   });
 
   describe('column sorting', () => {
-    it('renders sort buttons for each column', async () => {
+    it('renders sort buttons for visible columns (id hidden by default)', async () => {
       renderTableRows();
 
       await waitFor(() => {
-        expect(screen.getByTestId('sort-id')).toBeInTheDocument();
         expect(screen.getByTestId('sort-name')).toBeInTheDocument();
         expect(screen.getByTestId('sort-age')).toBeInTheDocument();
       });
+
+      // id column is hidden by default
+      expect(screen.queryByTestId('sort-id')).not.toBeInTheDocument();
     });
 
     it('shows unsorted icon initially', async () => {
       renderTableRows();
 
       await waitFor(() => {
-        expect(screen.getByTestId('sort-id')).toBeInTheDocument();
+        expect(screen.getByTestId('sort-name')).toBeInTheDocument();
       });
 
       // All columns should show the ArrowUpDown icon (unsorted state)
@@ -281,8 +283,17 @@ describe('TableRows', () => {
       });
     });
 
-    it('shows PK indicator for primary key columns', async () => {
+    it('shows PK indicator for primary key columns when unhidden', async () => {
+      const user = userEvent.setup();
       renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('sort-name')).toBeInTheDocument();
+      });
+
+      // id column is hidden by default, show it via column settings
+      await user.click(screen.getByTestId('column-settings-button'));
+      await user.click(screen.getByTestId('column-toggle-id'));
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-id')).toBeInTheDocument();
