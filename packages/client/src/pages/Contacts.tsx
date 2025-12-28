@@ -17,6 +17,7 @@ import { useContactsImport } from '@/hooks/useContactsImport';
 interface ContactInfo {
   id: string;
   firstName: string;
+  lastName: string | null;
   birthday: string | null;
   primaryEmail: string | null;
   primaryPhone: string | null;
@@ -51,6 +52,7 @@ export function Contacts() {
         `SELECT
           c.id,
           c.first_name,
+          c.last_name,
           c.birthday,
           c.created_at,
           ce.email as primary_email,
@@ -68,6 +70,7 @@ export function Contacts() {
         return {
           id: r['id'] as string,
           firstName: r['first_name'] as string,
+          lastName: (r['last_name'] as string) || null,
           birthday: (r['birthday'] as string) || null,
           primaryEmail: (r['primary_email'] as string) || null,
           primaryPhone: (r['primary_phone'] as string) || null,
@@ -224,7 +227,10 @@ export function Contacts() {
                   className="flex items-center justify-between rounded-lg border p-4"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{contact.firstName}</p>
+                    <p className="truncate font-medium">
+                      {contact.firstName}
+                      {contact.lastName && ` ${contact.lastName}`}
+                    </p>
                     <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-sm">
                       {contact.primaryEmail && (
                         <span className="flex items-center gap-1">
