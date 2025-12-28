@@ -1,3 +1,4 @@
+import { fileTypeFromBuffer } from 'file-type';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   downloadFile,
@@ -163,6 +164,72 @@ describe('file-utils', () => {
       for (let i = 0; i < 256; i++) {
         expect(result[i]).toBe(i);
       }
+    });
+  });
+
+  describe('file type detection', () => {
+    it('detects PNG files from magic bytes', async () => {
+      // PNG file header with IHDR chunk (minimum valid PNG structure)
+      const pngBytes = new Uint8Array([
+        // PNG signature
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+        // IHDR chunk length (13 bytes)
+        0x00, 0x00, 0x00, 0x0d,
+        // IHDR chunk type
+        0x49, 0x48, 0x44, 0x52,
+        // IHDR data (width, height, bit depth, color type, etc.)
+        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00,
+        0x00,
+        // CRC
+        0x90, 0x77, 0x53, 0xde
+      ]);
+      const result = await fileTypeFromBuffer(pngBytes);
+      expect(result).not.toBeUndefined();
+      expect(result?.mime).toBe('image/png');
+      expect(result?.ext).toBe('png');
+    });
+
+    it('detects JPEG files from magic bytes', async () => {
+      // JPEG magic bytes: FF D8 FF
+      const jpegMagicBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]);
+      const result = await fileTypeFromBuffer(jpegMagicBytes);
+      expect(result).not.toBeUndefined();
+      expect(result?.mime).toBe('image/jpeg');
+      expect(result?.ext).toBe('jpg');
+    });
+
+    it('detects PDF files from magic bytes', async () => {
+      // PDF magic bytes: %PDF (25 50 44 46)
+      const pdfMagicBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]);
+      const result = await fileTypeFromBuffer(pdfMagicBytes);
+      expect(result).not.toBeUndefined();
+      expect(result?.mime).toBe('application/pdf');
+      expect(result?.ext).toBe('pdf');
+    });
+
+    it('returns undefined for unrecognized magic bytes', async () => {
+      // Random bytes that don't match any known file signature
+      const unknownBytes = new Uint8Array([
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
+      ]);
+      const result = await fileTypeFromBuffer(unknownBytes);
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined for plain text content', async () => {
+      // Plain text has no magic bytes - use ASCII codes directly
+      const textContent = new Uint8Array([
+        0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x2c, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64,
+        0x21
+      ]); // "Hello, world!"
+      const result = await fileTypeFromBuffer(textContent);
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined for empty buffer', async () => {
+      const emptyBuffer = new Uint8Array([]);
+      const result = await fileTypeFromBuffer(emptyBuffer);
+      expect(result).toBeUndefined();
     });
   });
 });
