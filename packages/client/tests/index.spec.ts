@@ -614,4 +614,65 @@ test.describe('Tables page', () => {
     await expect(page).toHaveURL('/tables');
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
   });
+
+  test('should toggle document view to show JSON format', async ({ page }) => {
+    // Setup database first
+    await page.getByTestId('debug-link').click();
+    await page.getByTestId('db-reset-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
+      timeout: 10000
+    });
+    await page.getByTestId('db-password-input').fill('testpassword123');
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Navigate to home and upload a file
+    await page.getByRole('link', { name: 'Tearleads Tearleads' }).click();
+    await expect(page.getByRole('heading', { name: 'Files' })).toBeVisible();
+    const fileInput = page.getByTestId('dropzone-input');
+    await fileInput.setInputFiles({
+      name: 'doc-view-test.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('Document view test content')
+    });
+
+    await expect(page.getByText('doc-view-test.txt')).toBeVisible({
+      timeout: 10000
+    });
+
+    // Navigate to tables and open files table
+    await page.getByTestId('tables-link').click();
+    await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
+    await expect(page.getByText('files')).toBeVisible({ timeout: 10000 });
+    await page.getByText('files').click();
+    await expect(page).toHaveURL(/\/tables\/files/);
+
+    // Initially should show table view with column headers
+    await expect(page.getByRole('columnheader', { name: /id/i })).toBeVisible();
+    await expect(page.locator('pre')).not.toBeVisible();
+
+    // Click the document view toggle button (Braces icon)
+    await page.getByRole('button', { name: 'Toggle document view' }).click();
+
+    // Should now show JSON document format in pre tags
+    const preElement = page.locator('pre').first();
+    await expect(preElement).toBeVisible();
+
+    // Should contain the file name in JSON format
+    await expect(preElement).toContainText('"name": "doc-view-test.txt"');
+
+    // Table headers should not be visible in document view
+    await expect(
+      page.getByRole('columnheader', { name: /id/i })
+    ).not.toBeVisible();
+
+    // Toggle back to table view
+    await page.getByRole('button', { name: 'Toggle document view' }).click();
+
+    // Should show table view again
+    await expect(page.getByRole('columnheader', { name: /id/i })).toBeVisible();
+    await expect(page.locator('pre')).not.toBeVisible();
+  });
 });
