@@ -41,8 +41,8 @@ test.describe('Backup & Restore (Electron)', () => {
       window.getByRole('heading', { name: 'Tearleads', level: 1 })
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
 
-    // Navigate to debug page
-    await window.getByTestId('debug-link').click();
+    // Navigate to debug page via sidebar (visible on desktop)
+    await window.locator('nav').getByRole('link', { name: 'Debug' }).click();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Reset the database to ensure clean state
@@ -63,8 +63,8 @@ test.describe('Backup & Restore (Electron)', () => {
       timeout: DB_OPERATION_TIMEOUT
     });
 
-    // Navigate to settings
-    await window.getByTestId('settings-link').click();
+    // Navigate to settings via sidebar
+    await window.locator('nav').getByRole('link', { name: 'Settings' }).click();
     await expect(window).toHaveURL(/\/settings/);
 
     // Verify backup section is visible
@@ -97,8 +97,8 @@ test.describe('Backup & Restore (Electron)', () => {
       timeout: DB_OPERATION_TIMEOUT
     });
 
-    // Navigate to settings
-    await window.getByTestId('settings-link').click();
+    // Navigate to settings via sidebar
+    await window.locator('nav').getByRole('link', { name: 'Settings' }).click();
     await expect(window).toHaveURL(/\/settings/);
 
     // Create and upload an invalid file
