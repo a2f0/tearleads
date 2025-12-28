@@ -130,23 +130,29 @@ describe('Models', () => {
       expect(mockLoadModel).toHaveBeenCalled();
     });
 
-    it('shows loading state during model download', async () => {
-      vi.mocked(useLLM).mockReturnValue({
-        engine: null,
-        loadedModel: null,
-        isLoading: true,
-        loadProgress: { text: 'Downloading weights...', progress: 0.45 },
-        error: null,
-        loadModel: mockLoadModel,
-        unloadModel: mockUnloadModel,
-        isWebGPUSupported: mockIsWebGPUSupported
-      });
+    it('shows loading button when download is clicked', async () => {
+      const user = userEvent.setup();
+
+      // Make loadModel not resolve immediately to keep loading state
+      mockLoadModel.mockImplementation(
+        () => new Promise(() => {}) // Never resolves
+      );
 
       renderModels();
 
-      // The loading state is shown when we click download
-      // Since isLoading is true but loadingModelId isn't set in this mock,
-      // we won't see the loading button
+      await waitFor(() => {
+        expect(screen.getByText('Llama 3.2 1B Instruct')).toBeInTheDocument();
+      });
+
+      const downloadButtons = screen.getAllByRole('button', {
+        name: /download/i
+      });
+      expect(downloadButtons.length).toBeGreaterThan(0);
+      // biome-ignore lint/style/noNonNullAssertion: checked above
+      await user.click(downloadButtons[0]!);
+
+      // After clicking, loadModel should have been called
+      expect(mockLoadModel).toHaveBeenCalled();
     });
 
     it('shows loaded badge when model is loaded', async () => {
