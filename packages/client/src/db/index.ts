@@ -250,11 +250,17 @@ async function runMigrations(): Promise<void> {
 
   // Add last_name column to existing contacts tables (migration for existing databases)
   try {
-    await adapterInstance.execute(
-      `ALTER TABLE "contacts" ADD COLUMN "last_name" TEXT`
+    const info = await adapterInstance.execute(`PRAGMA table_info("contacts")`);
+    const columnExists = info?.rows?.some(
+      (col) => (col as Record<string, unknown>)['name'] === 'last_name'
     );
+    if (!columnExists) {
+      await adapterInstance.execute(
+        `ALTER TABLE "contacts" ADD COLUMN "last_name" TEXT`
+      );
+    }
   } catch {
-    // Column already exists, ignore error
+    // PRAGMA not supported or column already exists, ignore
   }
 }
 
