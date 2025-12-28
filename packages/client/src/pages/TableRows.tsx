@@ -1,5 +1,13 @@
-import { ArrowLeft, Braces, Database, RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  ArrowUpDown,
+  Braces,
+  Database,
+  RefreshCw
+} from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
@@ -9,6 +17,13 @@ interface ColumnInfo {
   name: string;
   type: string;
   pk: number;
+}
+
+type SortDirection = 'asc' | 'desc' | null;
+
+interface SortState {
+  column: string | null;
+  direction: SortDirection;
 }
 
 function formatCellValue(value: unknown): string {
@@ -39,6 +54,10 @@ export function TableRows() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [documentView, setDocumentView] = useState(false);
+  const [sort, setSort] = useState<SortState>({
+    column: null,
+    direction: null
+  });
 
   const fetchTableData = useCallback(async () => {
     if (!isUnlocked || !tableName) return;
@@ -79,11 +98,20 @@ export function TableRows() {
 
       setColumns(columnInfo);
 
+      // Validate sort column if set
+      const validColumns = columnInfo.map((c) => c.name);
+      const sortColumn =
+        sort.column && validColumns.includes(sort.column) ? sort.column : null;
+
       // Fetch rows (with limit for performance)
-      const rowsResult = await adapter.execute(
-        `SELECT * FROM "${tableName}" LIMIT 100`,
-        []
-      );
+      let query = `SELECT * FROM "${tableName}"`;
+      if (sortColumn && sort.direction) {
+        const direction = sort.direction === 'desc' ? 'DESC' : 'ASC';
+        query += ` ORDER BY "${sortColumn}" ${direction}`;
+      }
+      query += ' LIMIT 100';
+
+      const rowsResult = await adapter.execute(query, []);
 
       setRows(rowsResult.rows);
     } catch (err) {
@@ -92,13 +120,43 @@ export function TableRows() {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, tableName]);
+  }, [isUnlocked, tableName, sort]);
 
+  const handleSort = useCallback((columnName: string) => {
+    setSort((prev) => {
+      if (prev.column !== columnName) {
+        return { column: columnName, direction: 'asc' };
+      }
+      if (prev.direction === 'asc') {
+        return { column: columnName, direction: 'desc' };
+      }
+      return { column: null, direction: null };
+    });
+  }, []);
+
+  // Track if initial load has completed
+  const hasLoadedRef = useRef(false);
+  const prevSortRef = useRef(sort);
+
+  // Fetch on initial load
   useEffect(() => {
-    if (isUnlocked && columns.length === 0 && !loading && !error) {
+    if (isUnlocked && !hasLoadedRef.current && !loading && !error) {
+      hasLoadedRef.current = true;
       fetchTableData();
     }
-  }, [isUnlocked, columns.length, loading, fetchTableData, error]);
+  }, [isUnlocked, loading, fetchTableData, error]);
+
+  // Refetch when sort changes (after initial load)
+  useEffect(() => {
+    const sortChanged =
+      prevSortRef.current.column !== sort.column ||
+      prevSortRef.current.direction !== sort.direction;
+
+    if (sortChanged && hasLoadedRef.current && isUnlocked && !loading) {
+      prevSortRef.current = sort;
+      fetchTableData();
+    }
+  }, [sort, isUnlocked, loading, fetchTableData]);
 
   return (
     <div className="space-y-6">
@@ -208,10 +266,26 @@ export function TableRows() {
                         key={col.name}
                         className="px-4 py-3 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider"
                       >
-                        {col.name}
-                        {col.pk > 0 && (
-                          <span className="ml-1 text-primary">PK</span>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleSort(col.name)}
+                          className="inline-flex items-center gap-1 hover:text-foreground"
+                          data-testid={`sort-${col.name}`}
+                        >
+                          {col.name}
+                          {col.pk > 0 && (
+                            <span className="text-primary">PK</span>
+                          )}
+                          {sort.column === col.name ? (
+                            sort.direction === 'asc' ? (
+                              <ArrowUp className="h-3 w-3" />
+                            ) : (
+                              <ArrowDown className="h-3 w-3" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3 opacity-50" />
+                          )}
+                        </button>
                       </th>
                     ))}
                   </tr>
