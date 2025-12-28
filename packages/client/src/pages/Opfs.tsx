@@ -8,7 +8,7 @@ import {
   Loader2,
   RefreshCw
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { formatFileSize } from '@/lib/utils';
 
@@ -47,6 +47,7 @@ function TreeNode({
           className="flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1 text-left hover:bg-accent"
           style={{ paddingLeft }}
           onClick={() => onToggle(path)}
+          aria-expanded={hasChildren ? isExpanded : undefined}
         >
           {hasChildren ? (
             isExpanded ? (
@@ -104,24 +105,16 @@ async function readDirectory(
 ): Promise<FileSystemEntry[]> {
   const entries: FileSystemEntry[] = [];
 
-  const iterator = (
-    handle as unknown as {
-      entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
-    }
-  ).entries();
-
-  for await (const [name, childHandle] of iterator) {
+  for await (const [name, childHandle] of handle.entries()) {
     if (childHandle.kind === 'file') {
-      const fileHandle = childHandle as FileSystemFileHandle;
-      const file = await fileHandle.getFile();
+      const file = await childHandle.getFile();
       entries.push({
         name,
         kind: 'file',
         size: file.size
       });
     } else {
-      const dirHandle = childHandle as FileSystemDirectoryHandle;
-      const children = await readDirectory(dirHandle);
+      const children = await readDirectory(childHandle);
       entries.push({
         name,
         kind: 'directory',
@@ -164,41 +157,84 @@ export function Opfs() {
   const [error, setError] = useState<string | null>(null);
   const [supported, setSupported] = useState(true);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
-  const [hasFetched, setHasFetched] = useState(false);
+  const isMountedRef = useRef(true);
 
-  const fetchOpfsContents = useCallback(async () => {
+  const fetchOpfsContents = async () => {
     setLoading(true);
     setError(null);
 
     try {
       if (!('storage' in navigator) || !navigator.storage.getDirectory) {
-        setSupported(false);
+        if (isMountedRef.current) {
+          setSupported(false);
+        }
         return;
       }
 
       const root = await navigator.storage.getDirectory();
-      const entries = await readDirectory(root);
-      setEntries(entries);
+      const fetchedEntries = await readDirectory(root);
 
-      // Expand all directories by default
-      const allPaths = collectAllPaths(entries, '');
-      setExpandedPaths(new Set(allPaths));
-      setHasFetched(true);
+      if (isMountedRef.current) {
+        setEntries(fetchedEntries);
+        // Expand all directories by default
+        const allPaths = collectAllPaths(fetchedEntries, '');
+        setExpandedPaths(new Set(allPaths));
+      }
     } catch (err) {
       console.error('Failed to read OPFS:', err);
-      setError(err instanceof Error ? err.message : String(err));
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
-  }, []);
+  };
 
   useEffect(() => {
-    if (!hasFetched && !loading) {
-      fetchOpfsContents();
-    }
-  }, [hasFetched, loading, fetchOpfsContents]);
+    isMountedRef.current = true;
 
-  const handleToggle = useCallback((path: string) => {
+    const loadContents = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        if (!('storage' in navigator) || !navigator.storage.getDirectory) {
+          if (isMountedRef.current) {
+            setSupported(false);
+          }
+          return;
+        }
+
+        const root = await navigator.storage.getDirectory();
+        const fetchedEntries = await readDirectory(root);
+
+        if (isMountedRef.current) {
+          setEntries(fetchedEntries);
+          const allPaths = collectAllPaths(fetchedEntries, '');
+          setExpandedPaths(new Set(allPaths));
+        }
+      } catch (err) {
+        console.error('Failed to read OPFS:', err);
+        if (isMountedRef.current) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadContents();
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const handleToggle = (path: string) => {
     setExpandedPaths((prev) => {
       const next = new Set(prev);
       if (next.has(path)) {
@@ -208,7 +244,7 @@ export function Opfs() {
       }
       return next;
     });
-  }, []);
+  };
 
   if (!supported) {
     return (
@@ -248,7 +284,7 @@ export function Opfs() {
       )}
 
       <div className="rounded-lg border">
-        {loading && !hasFetched ? (
+        {loading && entries.length === 0 ? (
           <div className="flex items-center justify-center p-8 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             Loading OPFS contents...
