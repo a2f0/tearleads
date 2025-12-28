@@ -1,8 +1,23 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps, FC } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TableRows } from './TableRows';
+
+// Mock lucide-react icons to add testids
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('lucide-react')>();
+  const MockIcon =
+    (testId: string): FC<ComponentProps<'svg'>> =>
+    (props) => <svg {...props} data-testid={testId} />;
+  return {
+    ...actual,
+    ArrowUp: MockIcon('arrow-up'),
+    ArrowDown: MockIcon('arrow-down'),
+    ArrowUpDown: MockIcon('arrow-up-down')
+  };
+});
 
 // Mock database adapter
 const mockExecute = vi.fn();
@@ -94,10 +109,16 @@ describe('TableRows', () => {
       });
 
       // All columns should show the ArrowUpDown icon (unsorted state)
-      const sortButtons = screen.getAllByRole('button', {
-        name: /id|name|age/i
-      });
-      expect(sortButtons).toHaveLength(3);
+      const sortButton = screen.getByTestId('sort-name');
+      expect(
+        sortButton.querySelector('[data-testid="arrow-up-down"]')
+      ).toBeInTheDocument();
+      expect(
+        sortButton.querySelector('[data-testid="arrow-up"]')
+      ).not.toBeInTheDocument();
+      expect(
+        sortButton.querySelector('[data-testid="arrow-down"]')
+      ).not.toBeInTheDocument();
     });
 
     it('cycles through sort states: none -> asc -> desc -> none', async () => {
@@ -143,7 +164,7 @@ describe('TableRows', () => {
         const lastCall =
           mockExecute.mock.calls[mockExecute.mock.calls.length - 1];
         expect(lastCall).toBeDefined();
-        expect(lastCall![0]).not.toContain('ORDER BY');
+        expect(lastCall?.[0]).not.toContain('ORDER BY');
       });
     });
 
@@ -196,8 +217,12 @@ describe('TableRows', () => {
       });
 
       // The ArrowUp icon should be visible (ascending indicator)
-      // We check that the button still exists and the sort was applied
-      expect(screen.getByTestId('sort-name')).toBeInTheDocument();
+      expect(
+        sortButton.querySelector('[data-testid="arrow-up"]')
+      ).toBeInTheDocument();
+      expect(
+        sortButton.querySelector('[data-testid="arrow-down"]')
+      ).not.toBeInTheDocument();
     });
 
     it('displays descending arrow when sorted descending', async () => {
@@ -228,7 +253,12 @@ describe('TableRows', () => {
       });
 
       // The ArrowDown icon should be visible (descending indicator)
-      expect(screen.getByTestId('sort-name')).toBeInTheDocument();
+      expect(
+        sortButton.querySelector('[data-testid="arrow-down"]')
+      ).toBeInTheDocument();
+      expect(
+        sortButton.querySelector('[data-testid="arrow-up"]')
+      ).not.toBeInTheDocument();
     });
   });
 
