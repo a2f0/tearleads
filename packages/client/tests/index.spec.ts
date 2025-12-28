@@ -620,10 +620,11 @@ test.describe('Tables page', () => {
     ).toBeVisible();
 
     // Should show column headers (from files table schema)
-    await expect(page.getByRole('columnheader', { name: /id/i })).toBeVisible({
+    // Note: id column is hidden by default
+    await expect(page.getByRole('columnheader', { name: /name/i })).toBeVisible({
       timeout: 10000
     });
-    await expect(page.getByRole('columnheader', { name: /name/i })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: /size/i })).toBeVisible();
 
     // Should show row count (confirms data loaded)
     await expect(page.getByText(/Showing 1 row/)).toBeVisible({ timeout: 10000 });
@@ -683,8 +684,8 @@ test.describe('Tables page', () => {
     await filesTableLink.click();
     await expect(page).toHaveURL(/\/tables\/files/);
 
-    // Initially should show table view with column headers
-    await expect(page.getByRole('columnheader', { name: /id/i })).toBeVisible();
+    // Initially should show table view with column headers (id hidden by default)
+    await expect(page.getByRole('columnheader', { name: /name/i })).toBeVisible();
     await expect(page.locator('pre')).not.toBeVisible();
 
     // Click the document view toggle button (Braces icon)
@@ -699,14 +700,14 @@ test.describe('Tables page', () => {
 
     // Table headers should not be visible in document view
     await expect(
-      page.getByRole('columnheader', { name: /id/i })
+      page.getByRole('columnheader', { name: /name/i })
     ).not.toBeVisible();
 
     // Toggle back to table view
     await page.getByRole('button', { name: 'Toggle document view' }).click();
 
     // Should show table view again
-    await expect(page.getByRole('columnheader', { name: /id/i })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: /name/i })).toBeVisible();
     await expect(page.locator('pre')).not.toBeVisible();
   });
 });
