@@ -3,6 +3,7 @@ import {
   Bug,
   FileIcon,
   ImageIcon,
+  MessageSquare,
   Settings,
   Table2,
   Users
@@ -16,6 +17,7 @@ const navItems = [
   { path: '/photos', icon: ImageIcon, label: 'Photos' },
   { path: '/tables', icon: Table2, label: 'Tables' },
   { path: '/debug', icon: Bug, label: 'Debug' },
+  { path: '/chat', icon: MessageSquare, label: 'Chat' },
   { path: '/models', icon: Bot, label: 'Models' },
   { path: '/settings', icon: Settings, label: 'Settings' }
 ];
