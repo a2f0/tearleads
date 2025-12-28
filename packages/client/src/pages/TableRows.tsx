@@ -7,7 +7,7 @@ import {
   Database,
   RefreshCw
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
@@ -134,29 +134,19 @@ export function TableRows() {
     });
   }, []);
 
-  // Track if initial load has completed
-  const hasLoadedRef = useRef(false);
-  const prevSortRef = useRef(sort);
-
-  // Fetch on initial load
+  // Reset sort state when table name changes
   useEffect(() => {
-    if (isUnlocked && !hasLoadedRef.current && !loading && !error) {
-      hasLoadedRef.current = true;
+    if (tableName) {
+      setSort({ column: null, direction: null });
+    }
+  }, [tableName]);
+
+  // Fetch data on initial load, or when the table or sort order changes
+  useEffect(() => {
+    if (isUnlocked && !loading) {
       fetchTableData();
     }
-  }, [isUnlocked, loading, fetchTableData, error]);
-
-  // Refetch when sort changes (after initial load)
-  useEffect(() => {
-    const sortChanged =
-      prevSortRef.current.column !== sort.column ||
-      prevSortRef.current.direction !== sort.direction;
-
-    if (sortChanged && hasLoadedRef.current && isUnlocked && !loading) {
-      prevSortRef.current = sort;
-      fetchTableData();
-    }
-  }, [sort, isUnlocked, loading, fetchTableData]);
+  }, [isUnlocked, loading, fetchTableData]);
 
   return (
     <div className="space-y-6">
