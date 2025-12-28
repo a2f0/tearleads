@@ -6,7 +6,8 @@ import {
   FolderOpen,
   HardDrive,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ interface TreeNodeProps {
   expandedPaths: Set<string>;
   path: string;
   onToggle: (path: string) => void;
+  onDelete: (path: string, isDirectory: boolean) => void;
 }
 
 function TreeNode({
@@ -32,7 +34,8 @@ function TreeNode({
   depth,
   expandedPaths,
   path,
-  onToggle
+  onToggle,
+  onDelete
 }: TreeNodeProps) {
   const isExpanded = expandedPaths.has(path);
   const isDirectory = entry.kind === 'directory';
@@ -42,29 +45,42 @@ function TreeNode({
   if (isDirectory) {
     return (
       <div>
-        <button
-          type="button"
-          className="flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1 text-left hover:bg-accent"
+        <div
+          className="group flex items-center gap-2 rounded px-2 py-1 hover:bg-accent"
           style={{ paddingLeft }}
-          onClick={() => onToggle(path)}
-          aria-expanded={hasChildren ? isExpanded : undefined}
         >
-          {hasChildren ? (
-            isExpanded ? (
-              <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <button
+            type="button"
+            className="flex flex-1 cursor-pointer items-center gap-2 text-left"
+            onClick={() => onToggle(path)}
+            aria-expanded={hasChildren ? isExpanded : undefined}
+          >
+            {hasChildren ? (
+              isExpanded ? (
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              )
             ) : (
-              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-            )
-          ) : (
-            <span className="w-4" />
-          )}
-          {isExpanded ? (
-            <FolderOpen className="h-4 w-4 shrink-0 text-amber-500" />
-          ) : (
-            <FolderIcon className="h-4 w-4 shrink-0 text-amber-500" />
-          )}
-          <span className="truncate text-sm">{entry.name}</span>
-        </button>
+              <span className="w-4" />
+            )}
+            {isExpanded ? (
+              <FolderOpen className="h-4 w-4 shrink-0 text-amber-500" />
+            ) : (
+              <FolderIcon className="h-4 w-4 shrink-0 text-amber-500" />
+            )}
+            <span className="truncate text-sm">{entry.name}</span>
+          </button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 opacity-0 group-hover:opacity-100"
+            onClick={() => onDelete(path, true)}
+            title="Delete"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
         {isExpanded && entry.children && (
           <div>
             {entry.children.map((child) => (
@@ -75,6 +91,7 @@ function TreeNode({
                 expandedPaths={expandedPaths}
                 path={`${path}/${child.name}`}
                 onToggle={onToggle}
+                onDelete={onDelete}
               />
             ))}
           </div>
@@ -85,7 +102,7 @@ function TreeNode({
 
   return (
     <div
-      className="flex items-center gap-2 rounded px-2 py-1"
+      className="group flex items-center gap-2 rounded px-2 py-1 hover:bg-accent"
       style={{ paddingLeft }}
     >
       <span className="w-4" />
@@ -96,6 +113,15 @@ function TreeNode({
           {formatFileSize(entry.size)}
         </span>
       )}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 opacity-0 group-hover:opacity-100"
+        onClick={() => onDelete(path, false)}
+        title="Delete"
+      >
+        <Trash2 className="h-3 w-3" />
+      </Button>
     </div>
   );
 }
@@ -246,6 +272,31 @@ export function Opfs() {
     });
   };
 
+  const handleDelete = async (path: string, isDirectory: boolean) => {
+    try {
+      const root = await navigator.storage.getDirectory();
+      const pathParts = path.split('/').filter(Boolean);
+      const entryName = pathParts.pop();
+
+      if (!entryName) return;
+
+      // Navigate to parent directory
+      let parentDir = root;
+      for (const part of pathParts) {
+        parentDir = await parentDir.getDirectoryHandle(part);
+      }
+
+      // Remove the entry
+      await parentDir.removeEntry(entryName, { recursive: isDirectory });
+
+      // Refresh the tree
+      await fetchOpfsContents();
+    } catch (err) {
+      console.error('Failed to delete:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   if (!supported) {
     return (
       <div className="space-y-6">
@@ -304,6 +355,7 @@ export function Opfs() {
                 expandedPaths={expandedPaths}
                 path={`/${entry.name}`}
                 onToggle={handleToggle}
+                onDelete={handleDelete}
               />
             ))}
           </div>
