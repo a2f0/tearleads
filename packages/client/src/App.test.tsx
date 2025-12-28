@@ -58,19 +58,21 @@ describe('App', () => {
 
     // Sidebar contains all navigation links
     const sidebarLinks = sidebar.querySelectorAll('a');
-    expect(sidebarLinks).toHaveLength(4);
+    expect(sidebarLinks).toHaveLength(5);
   });
 
   it('renders navigation in both header and sidebar', () => {
     renderApp();
 
     // Header nav links (with test IDs)
+    expect(screen.getByTestId('contacts-link')).toBeInTheDocument();
     expect(screen.getByTestId('tables-link')).toBeInTheDocument();
     expect(screen.getByTestId('debug-link')).toBeInTheDocument();
     expect(screen.getByTestId('settings-link')).toBeInTheDocument();
 
     // Sidebar nav links (by text)
     expect(screen.getByText('Files')).toBeInTheDocument();
+    expect(screen.getByText('Contacts')).toBeInTheDocument();
     expect(screen.getByText('Tables')).toBeInTheDocument();
     expect(screen.getByText('Debug')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
