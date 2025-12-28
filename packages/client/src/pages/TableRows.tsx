@@ -143,10 +143,11 @@ export function TableRows() {
 
   // Fetch data on initial load, or when the table or sort order changes
   useEffect(() => {
-    if (isUnlocked && !loading) {
+    if (isUnlocked) {
       fetchTableData();
     }
-  }, [isUnlocked, loading, fetchTableData]);
+    // Note: loading is intentionally excluded to prevent infinite re-render loop
+  }, [isUnlocked, fetchTableData]);
 
   return (
     <div className="space-y-6">
