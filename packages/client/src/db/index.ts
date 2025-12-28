@@ -214,7 +214,35 @@ async function runMigrations(): Promise<void> {
       "deleted" INTEGER DEFAULT 0 NOT NULL
     )`,
     `CREATE INDEX IF NOT EXISTS "files_content_hash_idx" ON "files" ("content_hash")`,
-    `CREATE INDEX IF NOT EXISTS "files_upload_date_idx" ON "files" ("upload_date")`
+    `CREATE INDEX IF NOT EXISTS "files_upload_date_idx" ON "files" ("upload_date")`,
+    `CREATE TABLE IF NOT EXISTS "contacts" (
+      "id" TEXT PRIMARY KEY NOT NULL,
+      "first_name" TEXT NOT NULL,
+      "birthday" TEXT,
+      "created_at" INTEGER NOT NULL,
+      "updated_at" INTEGER NOT NULL,
+      "deleted" INTEGER DEFAULT 0 NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS "contacts_first_name_idx" ON "contacts" ("first_name")`,
+    `CREATE TABLE IF NOT EXISTS "contact_phones" (
+      "id" TEXT PRIMARY KEY NOT NULL,
+      "contact_id" TEXT NOT NULL,
+      "phone_number" TEXT NOT NULL,
+      "label" TEXT,
+      "is_primary" INTEGER DEFAULT 0 NOT NULL,
+      FOREIGN KEY("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS "contact_phones_contact_idx" ON "contact_phones" ("contact_id")`,
+    `CREATE TABLE IF NOT EXISTS "contact_emails" (
+      "id" TEXT PRIMARY KEY NOT NULL,
+      "contact_id" TEXT NOT NULL,
+      "email" TEXT NOT NULL,
+      "label" TEXT,
+      "is_primary" INTEGER DEFAULT 0 NOT NULL,
+      FOREIGN KEY("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS "contact_emails_contact_idx" ON "contact_emails" ("contact_id")`,
+    `CREATE INDEX IF NOT EXISTS "contact_emails_email_idx" ON "contact_emails" ("email")`
   ];
 
   await adapterInstance.executeMany(statements);
