@@ -7,7 +7,6 @@ import { ErrorBoundary } from './components/ui/error-boundary';
 import { DatabaseProvider } from './db/hooks';
 import { Debug } from './pages/Debug';
 import { Files } from './pages/Files';
-import { Home } from './pages/Home';
 import { Settings } from './pages/Settings';
 import { Tables } from './pages/Tables';
 import './index.css';
@@ -22,9 +21,8 @@ if (rootElement) {
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<App />}>
-                  <Route index element={<Home />} />
+                  <Route index element={<Files />} />
                   <Route path="debug" element={<Debug />} />
-                  <Route path="files" element={<Files />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="tables" element={<Tables />} />
                 </Route>

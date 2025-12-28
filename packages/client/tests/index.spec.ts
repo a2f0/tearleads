@@ -355,7 +355,7 @@ test.describe('Dropzone', () => {
     await expect(page.getByText('file2.txt')).toBeVisible();
   });
 
-  test('should show files on Files page after upload', async ({ page }) => {
+  test('should show files in list after upload', async ({ page }) => {
     // First unlock the database
     await page.getByTestId('debug-link').click();
     await page.getByTestId('db-setup-button').click();
@@ -363,7 +363,7 @@ test.describe('Dropzone', () => {
       timeout: 10000
     });
 
-    // Go back to home
+    // Go back to home (which is now the Files page)
     await page.getByRole('link', { name: 'Tearleads' }).click();
 
     const fileInput = page.getByTestId('dropzone-input');
@@ -374,13 +374,8 @@ test.describe('Dropzone', () => {
       buffer: Buffer.from('test content for files page')
     });
 
-    // Wait for upload to complete
-    await expect(page.getByText('uploaded-file.txt')).toBeVisible();
-
-    // Navigate to Files page
-    await page.getByTestId('files-link').click();
-
-    // Verify file appears in the Files listing
+    // Wait for upload to complete and verify file appears in the listing
+    // The file list auto-refreshes after upload completes
     await expect(page.getByText('uploaded-file.txt')).toBeVisible();
   });
 });

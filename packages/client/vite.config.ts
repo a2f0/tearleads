@@ -6,9 +6,13 @@ import { VitePWA } from 'vite-plugin-pwa';
 import packageJson from './package.json';
 import { pwaOptions } from './pwa.options';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   define: {
-    __APP_VERSION__: JSON.stringify(packageJson.version)
+    __APP_VERSION__: JSON.stringify(packageJson.version),
+    // Default API URL for development mode
+    ...(mode === 'development' && {
+      'import.meta.env.VITE_API_URL': JSON.stringify('http://localhost:5001')
+    })
   },
   plugins: [
     react(),
@@ -42,4 +46,4 @@ export default defineConfig({
     exclude: ['@/workers/sqlite-wasm']
   },
   assetsInclude: ['**/*.wasm']
-});
+}));
