@@ -5,6 +5,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import App from './App';
 import { ErrorBoundary } from './components/ui/error-boundary';
 import { DatabaseProvider } from './db/hooks';
+import { Contacts } from './pages/Contacts';
 import { Debug } from './pages/Debug';
 import { Files } from './pages/Files';
 import { Settings } from './pages/Settings';
@@ -23,6 +24,7 @@ if (rootElement) {
               <Routes>
                 <Route path="/" element={<App />}>
                   <Route index element={<Files />} />
+                  <Route path="contacts" element={<Contacts />} />
                   <Route path="debug" element={<Debug />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="tables" element={<Tables />} />
