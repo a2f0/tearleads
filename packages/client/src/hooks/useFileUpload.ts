@@ -6,6 +6,7 @@ import { fileTypeFromBuffer } from 'file-type';
 import { useCallback } from 'react';
 import { getDatabaseAdapter } from '@/db';
 import { getKeyManager } from '@/db/crypto';
+import { UnsupportedFileTypeError } from '@/lib/errors';
 import { computeContentHash, readFileAsUint8Array } from '@/lib/file-utils';
 import {
   getFileStorage,
@@ -46,9 +47,7 @@ export function useFileUpload() {
       // Detect MIME type from file content (magic bytes)
       const detectedType = await fileTypeFromBuffer(data);
       if (!detectedType) {
-        throw new Error(
-          `Unable to detect file type for "${file.name}". Only files with recognizable formats are supported.`
-        );
+        throw new UnsupportedFileTypeError(file.name);
       }
       const mimeType = detectedType.mime;
 
