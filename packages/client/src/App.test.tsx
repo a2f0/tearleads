@@ -58,7 +58,7 @@ describe('App', () => {
 
     // Sidebar contains all navigation links
     const sidebarLinks = sidebar.querySelectorAll('a');
-    expect(sidebarLinks).toHaveLength(9);
+    expect(sidebarLinks).toHaveLength(10);
   });
 
   it('renders navigation in both header and sidebar', () => {
@@ -67,6 +67,7 @@ describe('App', () => {
     // Header nav links (with test IDs)
     expect(screen.getByTestId('contacts-link')).toBeInTheDocument();
     expect(screen.getByTestId('tables-link')).toBeInTheDocument();
+    expect(screen.getByTestId('sqlite-link')).toBeInTheDocument();
     expect(screen.getByTestId('debug-link')).toBeInTheDocument();
     expect(screen.getByTestId('settings-link')).toBeInTheDocument();
 
@@ -75,6 +76,7 @@ describe('App', () => {
     expect(screen.getByText('Contacts')).toBeInTheDocument();
     expect(screen.getByText('Photos')).toBeInTheDocument();
     expect(screen.getByText('Tables')).toBeInTheDocument();
+    expect(screen.getByText('SQLite')).toBeInTheDocument();
     expect(screen.getByText('Debug')).toBeInTheDocument();
     expect(screen.getByText('OPFS')).toBeInTheDocument();
     expect(screen.getByText('Chat')).toBeInTheDocument();

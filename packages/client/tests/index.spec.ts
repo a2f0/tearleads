@@ -193,7 +193,7 @@ test.describe('Dropzone', () => {
     page
   }) => {
     // First unlock the database
-    await navigateTo(page, 'Debug');
+    await navigateTo(page, 'SQLite');
     await page.getByTestId('db-setup-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
       timeout: 10000
@@ -235,7 +235,7 @@ test.describe('Dropzone', () => {
     page
   }) => {
     // First unlock the database
-    await navigateTo(page, 'Debug');
+    await navigateTo(page, 'SQLite');
     await page.getByTestId('db-setup-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
       timeout: 10000
@@ -261,7 +261,7 @@ test.describe('Dropzone', () => {
     page
   }) => {
     // First unlock the database
-    await navigateTo(page, 'Debug');
+    await navigateTo(page, 'SQLite');
     await page.getByTestId('db-setup-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
       timeout: 10000
@@ -285,7 +285,7 @@ test.describe('Dropzone', () => {
 
   test('should upload file and show completion status', async ({ page }) => {
     // First unlock the database
-    await navigateTo(page, 'Debug');
+    await navigateTo(page, 'SQLite');
     await page.getByTestId('db-setup-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
       timeout: 10000
@@ -310,7 +310,7 @@ test.describe('Dropzone', () => {
 
   test('should display formatted file size during upload', async ({ page }) => {
     // First unlock the database
-    await navigateTo(page, 'Debug');
+    await navigateTo(page, 'SQLite');
     await page.getByTestId('db-setup-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
       timeout: 10000
@@ -335,7 +335,7 @@ test.describe('Dropzone', () => {
 
   test('should upload multiple files', async ({ page }) => {
     // First unlock the database
-    await navigateTo(page, 'Debug');
+    await navigateTo(page, 'SQLite');
     await page.getByTestId('db-setup-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
       timeout: 10000
@@ -365,7 +365,7 @@ test.describe('Dropzone', () => {
 
   test('should show files in list after upload', async ({ page }) => {
     // First unlock the database
-    await navigateTo(page, 'Debug');
+    await navigateTo(page, 'SQLite');
     await page.getByTestId('db-setup-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
       timeout: 10000
@@ -491,15 +491,15 @@ test.describe('Tables page', () => {
 
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
     await expect(
-      page.getByText('Database is locked. Unlock it from the Debug page')
+      page.getByText('Database is locked. Unlock it from the SQLite page')
     ).toBeVisible();
   });
 
   test('should show tables list when database is unlocked', async ({
     page
   }) => {
-    // First unlock the database via Debug page
-    await navigateTo(page, 'Debug');
+    // First unlock the database via SQLite page
+    await navigateTo(page, 'SQLite');
     await expect(page.getByTestId('database-test')).toBeVisible();
 
     // Reset and setup database
@@ -532,7 +532,7 @@ test.describe('Tables page', () => {
     page
   }) => {
     // Setup database first
-    await navigateTo(page, 'Debug');
+    await navigateTo(page, 'SQLite');
     await page.getByTestId('db-reset-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
       timeout: 10000
@@ -562,7 +562,7 @@ test.describe('Tables page', () => {
     page
   }) => {
     // Setup database first
-    await navigateTo(page, 'Debug');
+    await navigateTo(page, 'SQLite');
     await page.getByTestId('db-reset-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
       timeout: 10000
@@ -640,7 +640,7 @@ test.describe('Tables page', () => {
 
   test('should toggle document view to show JSON format', async ({ page }) => {
     // Setup database first
-    await navigateTo(page, 'Debug');
+    await navigateTo(page, 'SQLite');
     await page.getByTestId('db-reset-button').click();
     await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
       timeout: 10000

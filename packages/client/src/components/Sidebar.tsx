@@ -1,6 +1,7 @@
 import {
   Bot,
   Bug,
+  Database,
   FileIcon,
   HardDrive,
   ImageIcon,
@@ -17,6 +18,7 @@ const navItems = [
   { path: '/contacts', icon: Users, label: 'Contacts' },
   { path: '/photos', icon: ImageIcon, label: 'Photos' },
   { path: '/tables', icon: Table2, label: 'Tables' },
+  { path: '/sqlite', icon: Database, label: 'SQLite' },
   { path: '/debug', icon: Bug, label: 'Debug' },
   { path: '/opfs', icon: HardDrive, label: 'OPFS' },
   { path: '/chat', icon: MessageSquare, label: 'Chat' },
