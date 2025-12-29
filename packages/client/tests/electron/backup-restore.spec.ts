@@ -41,8 +41,8 @@ test.describe('Backup & Restore (Electron)', () => {
       window.getByRole('heading', { name: 'Tearleads', level: 1 })
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
 
-    // Navigate to debug page via sidebar (visible on desktop)
-    await window.locator('nav').getByRole('link', { name: 'Debug' }).click();
+    // Navigate to SQLite page via sidebar (visible on desktop)
+    await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Reset the database to ensure clean state

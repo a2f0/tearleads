@@ -11,10 +11,10 @@ appId: com.tearleads.rapid
 # Load shared database helper functions
 - runFlow: helpers/db-helpers.yaml
 
-# Navigate to debug page and setup database first
-- evalScript: document.querySelector('[data-testid="debug-link"]').click()
+# Navigate to SQLite page and setup database first
+- evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
 
-# Wait for Debug page to load
+# Wait for SQLite page to load
 - evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
 
 # Reset database to ensure clean state
@@ -134,9 +134,9 @@ appId: com.tearleads.rapid
     })()
 
 # Navigate back to debug to verify database is still intact after export
-- evalScript: document.querySelector('[data-testid="debug-link"]').click()
+- evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
 
-# Wait for Debug page to load
+# Wait for SQLite page to load
 - evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
 
 # Verify database is still unlocked
@@ -184,7 +184,7 @@ appId: com.tearleads.rapid
 
 # Test that export is disabled when database is locked
 # First, lock the database
-- evalScript: document.querySelector('[data-testid="debug-link"]').click()
+- evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
 - evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
 
 # Setup database again since we're in a fresh state after previous tests
@@ -221,7 +221,7 @@ appId: com.tearleads.rapid
     })()
 
 # Navigate back to debug and unlock
-- evalScript: document.querySelector('[data-testid="debug-link"]').click()
+- evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
 - evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
 - evalScript: window.setPassword('testpassword123')
 - evalScript: document.querySelector('[data-testid="db-unlock-button"]').click()
@@ -243,7 +243,7 @@ appId: com.tearleads.rapid
     })()
 
 # Clean up - reset database
-- evalScript: document.querySelector('[data-testid="debug-link"]').click()
+- evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
 - evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
 - evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
 - evalScript: window.waitForStatus('Not Set Up')

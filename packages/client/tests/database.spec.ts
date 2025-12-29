@@ -36,8 +36,8 @@ const setupDatabase = async (page: Page) => {
 
 test.describe('Database (Web)', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to the debug page where database test UI is located
-    await page.goto('/debug');
+    // Navigate to the SQLite page where database test UI is located
+    await page.goto('/sqlite');
     await expect(page.getByTestId('database-test')).toBeVisible();
 
     // Reset the database to ensure clean state
@@ -361,8 +361,8 @@ test.describe('Database (Web)', () => {
 
 test.describe('Session Persistence (Web)', () => {
   test.beforeEach(async ({ page }) => {
-    // Navigate to the debug page where database test UI is located
-    await page.goto('/debug');
+    // Navigate to the SQLite page where database test UI is located
+    await page.goto('/sqlite');
     await expect(page.getByTestId('database-test')).toBeVisible();
 
     // Reset the database to ensure clean state
