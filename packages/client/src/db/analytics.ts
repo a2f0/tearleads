@@ -2,9 +2,19 @@
  * Analytics logging module for tracking database operations.
  */
 
-import { count } from 'drizzle-orm';
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  lte,
+  max,
+  min,
+  sql,
+  sum
+} from 'drizzle-orm';
 import type { Database } from './index';
-import { getDatabaseAdapter } from './index';
 import { analyticsEvents } from './schema';
 
 export interface AnalyticsEvent {
@@ -86,136 +96,94 @@ export async function measureOperation<T>(
 }
 
 /**
- * Raw row type from SQLite query
- */
-interface RawAnalyticsRow {
-  id: string;
-  event_name: string;
-  duration_ms: number;
-  success: number;
-  timestamp: number;
-}
-
-/**
  * Get analytics events with optional filters.
- * Uses raw SQL for reliable results with sqlite-proxy.
  */
 export async function getEvents(
-  _db: Database,
+  db: Database,
   options: GetEventsOptions = {}
 ): Promise<AnalyticsEvent[]> {
   const { eventName, startTime, endTime, limit = 100 } = options;
-  const adapter = getDatabaseAdapter();
 
-  const conditions: string[] = [];
-  const params: unknown[] = [];
+  const conditions = [];
 
   if (eventName) {
-    conditions.push('event_name = ?');
-    params.push(eventName);
+    conditions.push(eq(analyticsEvents.eventName, eventName));
   }
 
   if (startTime) {
-    conditions.push('timestamp >= ?');
-    params.push(startTime.getTime());
+    conditions.push(gte(analyticsEvents.timestamp, startTime));
   }
 
   if (endTime) {
-    conditions.push('timestamp <= ?');
-    params.push(endTime.getTime());
+    conditions.push(lte(analyticsEvents.timestamp, endTime));
   }
 
-  let query = 'SELECT * FROM analytics_events';
-  if (conditions.length > 0) {
-    query += ' WHERE ' + conditions.join(' AND ');
-  }
-  query += ' ORDER BY timestamp DESC';
-  query += ` LIMIT ${limit}`;
+  const query = db
+    .select()
+    .from(analyticsEvents)
+    .orderBy(desc(analyticsEvents.timestamp))
+    .limit(limit);
 
-  const result = await adapter.execute(query, params);
-  const rows = result.rows as unknown as RawAnalyticsRow[];
+  const results =
+    conditions.length > 0 ? await query.where(and(...conditions)) : await query;
 
-  return rows.map((row) => ({
-    id: String(row.id),
-    eventName: String(row.event_name),
-    durationMs: Number(row.duration_ms) || 0,
-    success: Boolean(row.success),
-    timestamp: new Date(row.timestamp)
+  // Map drizzle results to our interface
+  return results.map((row) => ({
+    id: row.id,
+    eventName: row.eventName,
+    durationMs: row.durationMs,
+    success: row.success,
+    timestamp: row.timestamp
   }));
 }
 
 /**
- * Raw stats row type from SQLite query
- */
-interface RawStatsRow {
-  event_name: string;
-  count: number;
-  total_duration: number;
-  min_duration: number;
-  max_duration: number;
-  success_count: number;
-}
-
-/**
  * Get statistics for analytics events grouped by event name.
- * Uses raw SQL for reliable results with sqlite-proxy.
  */
 export async function getEventStats(
-  _db: Database,
+  db: Database,
   options: Omit<GetEventsOptions, 'limit'> = {}
 ): Promise<EventStats[]> {
   const { eventName, startTime, endTime } = options;
-  const adapter = getDatabaseAdapter();
 
-  const conditions: string[] = [];
-  const params: unknown[] = [];
-
+  const conditions = [];
   if (eventName) {
-    conditions.push('event_name = ?');
-    params.push(eventName);
+    conditions.push(eq(analyticsEvents.eventName, eventName));
   }
   if (startTime) {
-    conditions.push('timestamp >= ?');
-    params.push(startTime.getTime());
+    conditions.push(gte(analyticsEvents.timestamp, startTime));
   }
   if (endTime) {
-    conditions.push('timestamp <= ?');
-    params.push(endTime.getTime());
+    conditions.push(lte(analyticsEvents.timestamp, endTime));
   }
 
-  let query = `
-    SELECT
-      event_name,
-      COUNT(*) as count,
-      SUM(duration_ms) as total_duration,
-      MIN(duration_ms) as min_duration,
-      MAX(duration_ms) as max_duration,
-      SUM(CASE WHEN success THEN 1 ELSE 0 END) as success_count
-    FROM analytics_events
-  `;
+  const results = await db
+    .select({
+      eventName: analyticsEvents.eventName,
+      count: count(),
+      totalDuration: sum(analyticsEvents.durationMs),
+      minDuration: min(analyticsEvents.durationMs),
+      maxDuration: max(analyticsEvents.durationMs),
+      successCount: sql<number>`sum(case when ${analyticsEvents.success} then 1 else 0 end)`
+    })
+    .from(analyticsEvents)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .groupBy(analyticsEvents.eventName);
 
-  if (conditions.length > 0) {
-    query += ' WHERE ' + conditions.join(' AND ');
-  }
-  query += ' GROUP BY event_name';
-
-  const result = await adapter.execute(query, params);
-  const rows = result.rows as unknown as RawStatsRow[];
-
-  return rows.map((row) => {
-    const totalCount = Number(row.count) || 0;
-    const totalDuration = Number(row.total_duration) || 0;
+  return results.map((row) => {
+    const totalCount = row.count ?? 0;
+    const totalDuration = Number(row.totalDuration) || 0;
 
     return {
-      eventName: String(row.event_name),
+      eventName: row.eventName,
       count: totalCount,
       avgDurationMs:
         totalCount > 0 ? Math.round(totalDuration / totalCount) : 0,
-      minDurationMs: Number(row.min_duration) || 0,
-      maxDurationMs: Number(row.max_duration) || 0,
+      minDurationMs: Number(row.minDuration) || 0,
+      maxDurationMs: Number(row.maxDuration) || 0,
       successRate:
         totalCount > 0
-          ? Math.round((Number(row.success_count) / totalCount) * 100)
+          ? Math.round((Number(row.successCount) / totalCount) * 100)
           : 0
     };
   });
