@@ -111,7 +111,12 @@ export function Contacts() {
                  OR ce.email LIKE ? COLLATE NOCASE
                  OR cp.phone_number LIKE ?)`
           );
-          params.push(searchPattern, searchPattern, searchPattern, searchPattern);
+          params.push(
+            searchPattern,
+            searchPattern,
+            searchPattern,
+            searchPattern
+          );
         }
 
         const query = `${baseQuery} WHERE ${whereClauses.join(' AND ')} ORDER BY c.first_name ASC`;
