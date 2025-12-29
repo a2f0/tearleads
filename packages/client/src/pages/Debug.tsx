@@ -60,10 +60,8 @@ export function Debug() {
   }, []);
 
   useEffect(() => {
-    if (!ping && !pingLoading && !pingError) {
-      fetchPing();
-    }
-  }, [ping, pingLoading, pingError, fetchPing]);
+    fetchPing();
+  }, [fetchPing]);
 
   useEffect(() => {
     const handleResize = () => {
