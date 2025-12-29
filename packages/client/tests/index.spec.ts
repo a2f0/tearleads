@@ -6,6 +6,36 @@ async function navigateTo(page: Page, linkName: string) {
   await link.click();
 }
 
+// Helper to reset, setup, and unlock the database
+async function setupAndUnlockDatabase(page: Page, password = 'testpassword123') {
+  await navigateTo(page, 'SQLite');
+  await page.getByTestId('db-reset-button').click();
+  await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
+    timeout: 10000
+  });
+  await page.getByTestId('db-password-input').fill(password);
+  await page.getByTestId('db-setup-button').click();
+  await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+    timeout: 10000
+  });
+}
+
+// Helper to import contacts from a CSV file
+async function importContacts(page: Page, csvContent: string) {
+  await navigateTo(page, 'Contacts');
+  await expect(page.getByText('Import CSV')).toBeVisible({ timeout: 10000 });
+
+  const fileInput = page.getByTestId('dropzone-input');
+  await fileInput.setInputFiles({
+    name: 'contacts.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(csvContent)
+  });
+
+  await expect(page.getByText('Map CSV Columns')).toBeVisible({ timeout: 5000 });
+  await page.getByRole('button', { name: 'Import' }).click();
+}
+
 const IGNORED_WARNING_PATTERNS: RegExp[] = [
   /Download the React DevTools/i,
   /apple-mobile-web-app-capable.*deprecated/i,
@@ -498,21 +528,8 @@ test.describe('Tables page', () => {
   test('should show tables list when database is unlocked', async ({
     page
   }) => {
-    // First unlock the database via SQLite page
-    await navigateTo(page, 'SQLite');
-    await expect(page.getByTestId('database-test')).toBeVisible();
-
-    // Reset and setup database
-    await page.getByTestId('db-reset-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
-      timeout: 10000
-    });
-
-    await page.getByTestId('db-password-input').fill('testpassword123');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    // Setup and unlock the database
+    await setupAndUnlockDatabase(page);
 
     // Navigate to tables page
     await navigateTo(page, 'Tables');
@@ -531,17 +548,8 @@ test.describe('Tables page', () => {
   test('should refresh tables list when refresh button is clicked', async ({
     page
   }) => {
-    // Setup database first
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-reset-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
-      timeout: 10000
-    });
-    await page.getByTestId('db-password-input').fill('testpassword123');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    // Setup and unlock the database
+    await setupAndUnlockDatabase(page);
 
     // Navigate to tables page
     await navigateTo(page, 'Tables');
@@ -561,17 +569,8 @@ test.describe('Tables page', () => {
   test('should navigate to table rows view and display file data', async ({
     page
   }) => {
-    // Setup database first
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-reset-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
-      timeout: 10000
-    });
-    await page.getByTestId('db-password-input').fill('testpassword123');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    // Setup and unlock the database
+    await setupAndUnlockDatabase(page);
 
     // Navigate to home using client-side navigation (preserves db session)
     await page.getByRole('link', { name: 'Tearleads Tearleads' }).click();
@@ -644,17 +643,8 @@ test.describe('Tables page', () => {
   });
 
   test('should toggle document view to show JSON format', async ({ page }) => {
-    // Setup database first
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-reset-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
-      timeout: 10000
-    });
-    await page.getByTestId('db-password-input').fill('testpassword123');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    // Setup and unlock the database
+    await setupAndUnlockDatabase(page);
 
     // Navigate to home and upload a file
     await page.getByRole('link', { name: 'Tearleads Tearleads' }).click();
@@ -877,17 +867,8 @@ test.describe('Music page', () => {
   test('should show dropzone when database is unlocked and no tracks exist', async ({
     page
   }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-reset-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
-      timeout: 10000
-    });
-    await page.getByTestId('db-password-input').fill('testpassword123');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    // Setup and unlock the database
+    await setupAndUnlockDatabase(page);
 
     // Navigate to music page
     await navigateTo(page, 'Music');
@@ -902,12 +883,8 @@ test.describe('Music page', () => {
   test('should show refresh button when database is unlocked', async ({
     page
   }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    // Setup and unlock the database
+    await setupAndUnlockDatabase(page);
 
     // Navigate to music page
     await navigateTo(page, 'Music');
@@ -918,17 +895,8 @@ test.describe('Music page', () => {
   });
 
   test('should reject non-audio files with error message', async ({ page }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-reset-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
-      timeout: 10000
-    });
-    await page.getByTestId('db-password-input').fill('testpassword123');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    // Setup and unlock the database
+    await setupAndUnlockDatabase(page);
 
     // Navigate to music page
     await navigateTo(page, 'Music');
@@ -979,17 +947,8 @@ test.describe('Contacts page', () => {
   test('should show import CSV section when database is unlocked', async ({
     page
   }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-reset-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
-      timeout: 10000
-    });
-    await page.getByTestId('db-password-input').fill('testpassword123');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    // Setup and unlock the database
+    await setupAndUnlockDatabase(page);
 
     // Navigate to contacts page
     await navigateTo(page, 'Contacts');
@@ -1003,12 +962,8 @@ test.describe('Contacts page', () => {
   test('should show search input when database is unlocked', async ({
     page
   }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    // Setup and unlock the database
+    await setupAndUnlockDatabase(page);
 
     // Navigate to contacts page
     await navigateTo(page, 'Contacts');
@@ -1021,12 +976,8 @@ test.describe('Contacts page', () => {
   test('should show refresh button when database is unlocked', async ({
     page
   }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    // Setup and unlock the database
+    await setupAndUnlockDatabase(page);
 
     // Navigate to contacts page
     await navigateTo(page, 'Contacts');
@@ -1037,17 +988,8 @@ test.describe('Contacts page', () => {
   });
 
   test('should show empty state when no contacts exist', async ({ page }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-reset-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
-      timeout: 10000
-    });
-    await page.getByTestId('db-password-input').fill('testpassword123');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    // Setup and unlock the database
+    await setupAndUnlockDatabase(page);
 
     // Navigate to contacts page
     await navigateTo(page, 'Contacts');
@@ -1060,17 +1002,8 @@ test.describe('Contacts page', () => {
   });
 
   test('should show column mapper when CSV is uploaded', async ({ page }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-reset-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
-      timeout: 10000
-    });
-    await page.getByTestId('db-password-input').fill('testpassword123');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    // Setup and unlock the database
+    await setupAndUnlockDatabase(page);
 
     // Navigate to contacts page
     await navigateTo(page, 'Contacts');
@@ -1090,36 +1023,11 @@ test.describe('Contacts page', () => {
   });
 
   test('should import contacts from CSV and display them', async ({ page }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-reset-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
-      timeout: 10000
-    });
-    await page.getByTestId('db-password-input').fill('testpassword123');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    // Setup and unlock the database
+    await setupAndUnlockDatabase(page);
 
-    // Navigate to contacts page
-    await navigateTo(page, 'Contacts');
-    await expect(page.getByText('Import CSV')).toBeVisible({ timeout: 10000 });
-
-    // Upload a CSV file
-    const fileInput = page.getByTestId('dropzone-input');
-    const csvContent = 'First Name,Last Name,Email\nJohn,Doe,john@example.com';
-    await fileInput.setInputFiles({
-      name: 'contacts.csv',
-      mimeType: 'text/csv',
-      buffer: Buffer.from(csvContent)
-    });
-
-    // Wait for column mapper
-    await expect(page.getByText('Map CSV Columns')).toBeVisible({ timeout: 5000 });
-
-    // Click import button
-    await page.getByRole('button', { name: 'Import' }).click();
+    // Import a contact using the helper
+    await importContacts(page, 'First Name,Last Name,Email\nJohn,Doe,john@example.com');
 
     // Should show import result and contact
     await expect(page.getByText(/Imported 1 contact/)).toBeVisible({ timeout: 10000 });
@@ -1127,32 +1035,11 @@ test.describe('Contacts page', () => {
   });
 
   test('should filter contacts by search query', async ({ page }) => {
-    // First unlock the database
-    await navigateTo(page, 'SQLite');
-    await page.getByTestId('db-reset-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
-      timeout: 10000
-    });
-    await page.getByTestId('db-password-input').fill('testpassword123');
-    await page.getByTestId('db-setup-button').click();
-    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-      timeout: 10000
-    });
+    // Setup and unlock the database
+    await setupAndUnlockDatabase(page);
 
-    // Navigate to contacts page and import contacts
-    await navigateTo(page, 'Contacts');
-    await expect(page.getByText('Import CSV')).toBeVisible({ timeout: 10000 });
-
-    const fileInput = page.getByTestId('dropzone-input');
-    const csvContent = 'First Name,Last Name,Email\nJohn,Doe,john@example.com\nJane,Smith,jane@example.com';
-    await fileInput.setInputFiles({
-      name: 'contacts.csv',
-      mimeType: 'text/csv',
-      buffer: Buffer.from(csvContent)
-    });
-
-    await expect(page.getByText('Map CSV Columns')).toBeVisible({ timeout: 5000 });
-    await page.getByRole('button', { name: 'Import' }).click();
+    // Import contacts using the helper
+    await importContacts(page, 'First Name,Last Name,Email\nJohn,Doe,john@example.com\nJane,Smith,jane@example.com');
     await expect(page.getByText(/Imported 2 contacts/)).toBeVisible({ timeout: 10000 });
 
     // Both contacts should be visible
