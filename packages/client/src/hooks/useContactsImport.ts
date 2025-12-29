@@ -22,6 +22,13 @@ interface ImportResult {
 }
 
 /**
+ * Normalize dashes (en-dash, em-dash, etc.) to regular hyphens for comparison
+ */
+function normalizeDashes(str: string): string {
+  return str.replace(/[\u2013\u2014\u2015]/g, '-');
+}
+
+/**
  * Parse a CSV line, handling quoted fields with commas
  */
 function parseCSVLine(line: string): string[] {
@@ -61,18 +68,24 @@ function parseGoogleContactsCSV(text: string): ParsedContact[] {
   if (lines.length < 2 || !headerLine) return [];
 
   const headers = parseCSVLine(headerLine);
+  // Normalize headers for comparison (lowercase and normalize dashes)
+  const normalizedHeaders = headers.map((h) =>
+    normalizeDashes(h.toLowerCase())
+  );
   const contacts: ParsedContact[] = [];
 
   // Find column indices
-  const firstNameIdx = headers.findIndex(
-    (h) => h.toLowerCase() === 'first name' || h.toLowerCase() === 'given name'
+  const firstNameIdx = normalizedHeaders.findIndex(
+    (h) => h === 'first name' || h === 'given name'
   );
-  const lastNameIdx = headers.findIndex(
-    (h) => h.toLowerCase() === 'last name' || h.toLowerCase() === 'family name'
+  const lastNameIdx = normalizedHeaders.findIndex(
+    (h) => h === 'last name' || h === 'family name'
   );
-  const birthdayIdx = headers.findIndex((h) => h.toLowerCase() === 'birthday');
+  const nameIdx = normalizedHeaders.findIndex((h) => h === 'name');
+  const birthdayIdx = normalizedHeaders.findIndex((h) => h === 'birthday');
 
   // Find email columns (E-mail N - Label/Value or E-mail N - Type/Value)
+  // Google uses en-dash (–) but we normalize to hyphen (-)
   const emailColumns: { labelIdx: number; valueIdx: number }[] = [];
   for (let i = 1; i <= 10; i++) {
     const emailLabelHeaders = [
@@ -82,11 +95,11 @@ function parseGoogleContactsCSV(text: string): ParsedContact[] {
       `email ${i} - type`
     ];
     const emailValueHeaders = [`e-mail ${i} - value`, `email ${i} - value`];
-    const labelIdx = headers.findIndex((h) =>
-      emailLabelHeaders.includes(h.toLowerCase())
+    const labelIdx = normalizedHeaders.findIndex((h) =>
+      emailLabelHeaders.includes(h)
     );
-    const valueIdx = headers.findIndex((h) =>
-      emailValueHeaders.includes(h.toLowerCase())
+    const valueIdx = normalizedHeaders.findIndex((h) =>
+      emailValueHeaders.includes(h)
     );
     if (valueIdx !== -1) {
       emailColumns.push({ labelIdx, valueIdx });
@@ -96,11 +109,11 @@ function parseGoogleContactsCSV(text: string): ParsedContact[] {
   // Find phone columns (Phone N - Label/Value or Phone N - Type/Value)
   const phoneColumns: { labelIdx: number; valueIdx: number }[] = [];
   for (let i = 1; i <= 10; i++) {
-    const labelIdx = headers.findIndex((h) =>
-      [`phone ${i} - label`, `phone ${i} - type`].includes(h.toLowerCase())
+    const labelIdx = normalizedHeaders.findIndex((h) =>
+      [`phone ${i} - label`, `phone ${i} - type`].includes(h)
     );
-    const valueIdx = headers.findIndex(
-      (h) => h.toLowerCase() === `phone ${i} - value`
+    const valueIdx = normalizedHeaders.findIndex(
+      (h) => h === `phone ${i} - value`
     );
     if (valueIdx !== -1) {
       phoneColumns.push({ labelIdx, valueIdx });
@@ -113,10 +126,25 @@ function parseGoogleContactsCSV(text: string): ParsedContact[] {
     if (!line) continue;
     const values = parseCSVLine(line);
 
-    const firstName = firstNameIdx !== -1 ? (values[firstNameIdx] ?? '') : '';
-    if (!firstName) continue; // Skip contacts without first name
+    // Try Given Name first, fall back to Name column, then try to split Name
+    let firstName = firstNameIdx !== -1 ? (values[firstNameIdx] ?? '') : '';
+    let lastName = lastNameIdx !== -1 ? values[lastNameIdx] || null : null;
 
-    const lastName = lastNameIdx !== -1 ? values[lastNameIdx] || null : null;
+    // If no first name but we have a Name column, use it
+    if (!firstName && nameIdx !== -1) {
+      const fullName = values[nameIdx] ?? '';
+      if (fullName) {
+        // Split full name into first and last (simple split on first space)
+        const nameParts = fullName.trim().split(/\s+/);
+        firstName = nameParts[0] ?? '';
+        if (nameParts.length > 1 && !lastName) {
+          lastName = nameParts.slice(1).join(' ');
+        }
+      }
+    }
+
+    if (!firstName) continue; // Skip contacts without any name
+
     const birthday = birthdayIdx !== -1 ? values[birthdayIdx] || null : null;
 
     // Extract emails
