@@ -1,3 +1,4 @@
+import { desc, eq } from 'drizzle-orm';
 import {
   CheckCircle,
   Database,
@@ -13,9 +14,10 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
-import { getDatabaseAdapter } from '@/db';
+import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
+import { files as filesTable } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { downloadFile } from '@/lib/file-utils';
 import { formatFileSize } from '@/lib/utils';
@@ -60,27 +62,30 @@ export function Files() {
     setError(null);
 
     try {
-      const adapter = getDatabaseAdapter();
+      const db = getDatabase();
 
-      const result = await adapter.execute(
-        `SELECT id, name, size, mime_type, upload_date, storage_path, deleted
-         FROM files
-         ORDER BY upload_date DESC`,
-        []
-      );
+      const result = await db
+        .select({
+          id: filesTable.id,
+          name: filesTable.name,
+          size: filesTable.size,
+          mimeType: filesTable.mimeType,
+          uploadDate: filesTable.uploadDate,
+          storagePath: filesTable.storagePath,
+          deleted: filesTable.deleted
+        })
+        .from(filesTable)
+        .orderBy(desc(filesTable.uploadDate));
 
-      const fileList = result.rows.map((row) => {
-        const r = row as Record<string, unknown>;
-        return {
-          id: r['id'] as string,
-          name: r['name'] as string,
-          size: r['size'] as number,
-          mimeType: r['mime_type'] as string,
-          uploadDate: new Date(r['upload_date'] as number),
-          storagePath: r['storage_path'] as string,
-          deleted: Boolean(r['deleted'])
-        };
-      });
+      const fileList = result.map((row) => ({
+        id: row.id,
+        name: row.name,
+        size: row.size,
+        mimeType: row.mimeType,
+        uploadDate: row.uploadDate,
+        storagePath: row.storagePath,
+        deleted: row.deleted
+      }));
 
       setFiles(fileList);
       setHasFetched(true);
@@ -217,12 +222,13 @@ export function Files() {
 
   const handleDelete = useCallback(async (file: FileInfo) => {
     try {
-      const adapter = getDatabaseAdapter();
+      const db = getDatabase();
 
       // Soft delete
-      await adapter.execute('UPDATE files SET deleted = 1 WHERE id = ?', [
-        file.id
-      ]);
+      await db
+        .update(filesTable)
+        .set({ deleted: true })
+        .where(eq(filesTable.id, file.id));
 
       // Update in list
       setFiles((prev) =>
@@ -236,11 +242,12 @@ export function Files() {
 
   const handleRestore = useCallback(async (file: FileInfo) => {
     try {
-      const adapter = getDatabaseAdapter();
+      const db = getDatabase();
 
-      await adapter.execute('UPDATE files SET deleted = 0 WHERE id = ?', [
-        file.id
-      ]);
+      await db
+        .update(filesTable)
+        .set({ deleted: false })
+        .where(eq(filesTable.id, file.id));
 
       // Update in list
       setFiles((prev) =>

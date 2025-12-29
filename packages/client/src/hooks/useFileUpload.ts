@@ -2,10 +2,12 @@
  * Hook for uploading files to OPFS with encryption.
  */
 
+import { and, eq } from 'drizzle-orm';
 import { fileTypeFromBuffer } from 'file-type';
 import { useCallback } from 'react';
-import { getDatabaseAdapter } from '@/db';
+import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
+import { files } from '@/db/schema';
 import { UnsupportedFileTypeError } from '@/lib/errors';
 import { computeContentHash, readFileAsUint8Array } from '@/lib/file-utils';
 import {
@@ -17,10 +19,6 @@ import {
 export interface UploadResult {
   id: string;
   isDuplicate: boolean;
-}
-
-interface FileRow {
-  id: string;
 }
 
 export function useFileUpload() {
@@ -56,16 +54,18 @@ export function useFileUpload() {
       onProgress?.(40);
 
       // Check for duplicate
-      const adapter = getDatabaseAdapter();
-      const existing = await adapter.execute(
-        'SELECT id FROM files WHERE content_hash = ? AND deleted = 0',
-        [contentHash]
-      );
+      const db = getDatabase();
+      const existing = await db
+        .select({ id: files.id })
+        .from(files)
+        .where(
+          and(eq(files.contentHash, contentHash), eq(files.deleted, false))
+        )
+        .limit(1);
 
-      if (existing.rows.length > 0) {
-        const existingRow = existing.rows[0] as unknown as FileRow;
+      if (existing.length > 0 && existing[0]) {
         onProgress?.(100);
-        return { id: existingRow.id, isDuplicate: true };
+        return { id: existing[0].id, isDuplicate: true };
       }
 
       // Store encrypted file
@@ -77,19 +77,15 @@ export function useFileUpload() {
       onProgress?.(80);
 
       // Insert metadata
-      await adapter.execute(
-        `INSERT INTO files (id, name, size, mime_type, upload_date, content_hash, storage_path)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          id,
-          file.name,
-          file.size,
-          mimeType,
-          Date.now(),
-          contentHash,
-          storagePath
-        ]
-      );
+      await db.insert(files).values({
+        id,
+        name: file.name,
+        size: file.size,
+        mimeType,
+        uploadDate: new Date(),
+        contentHash,
+        storagePath
+      });
       onProgress?.(100);
 
       return { id, isDuplicate: false };
