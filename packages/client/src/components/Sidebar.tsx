@@ -6,6 +6,7 @@ import {
   HardDrive,
   ImageIcon,
   MessageSquare,
+  Music,
   Settings,
   Table2,
   Users
@@ -17,6 +18,7 @@ export const navItems = [
   { path: '/', icon: FileIcon, label: 'Files' },
   { path: '/contacts', icon: Users, label: 'Contacts' },
   { path: '/photos', icon: ImageIcon, label: 'Photos' },
+  { path: '/music', icon: Music, label: 'Music' },
   { path: '/tables', icon: Table2, label: 'Tables' },
   { path: '/sqlite', icon: Database, label: 'SQLite' },
   { path: '/debug', icon: Bug, label: 'Debug' },
