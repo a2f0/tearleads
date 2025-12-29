@@ -11,8 +11,16 @@ export interface ParsedCSV {
 export interface ColumnMapping {
   firstName: number | null;
   lastName: number | null;
-  email: number | null;
-  phone: number | null;
+  email1Label: number | null;
+  email1Value: number | null;
+  email2Label: number | null;
+  email2Value: number | null;
+  phone1Label: number | null;
+  phone1Value: number | null;
+  phone2Label: number | null;
+  phone2Value: number | null;
+  phone3Label: number | null;
+  phone3Value: number | null;
   birthday: number | null;
 }
 
@@ -128,14 +136,71 @@ export function useContactsImport() {
           mapping.lastName !== null
             ? row[mapping.lastName]?.trim() || null
             : null;
-        const email =
-          mapping.email !== null ? row[mapping.email]?.trim() || null : null;
-        const phone =
-          mapping.phone !== null ? row[mapping.phone]?.trim() || null : null;
         const birthday =
           mapping.birthday !== null
             ? row[mapping.birthday]?.trim() || null
             : null;
+
+        // Extract emails with labels
+        const emails: { value: string; label: string | null }[] = [];
+        const email1Value =
+          mapping.email1Value !== null
+            ? row[mapping.email1Value]?.trim() || null
+            : null;
+        if (email1Value) {
+          const email1Label =
+            mapping.email1Label !== null
+              ? row[mapping.email1Label]?.trim() || null
+              : null;
+          emails.push({ value: email1Value, label: email1Label });
+        }
+        const email2Value =
+          mapping.email2Value !== null
+            ? row[mapping.email2Value]?.trim() || null
+            : null;
+        if (email2Value) {
+          const email2Label =
+            mapping.email2Label !== null
+              ? row[mapping.email2Label]?.trim() || null
+              : null;
+          emails.push({ value: email2Value, label: email2Label });
+        }
+
+        // Extract phones with labels
+        const phones: { value: string; label: string | null }[] = [];
+        const phone1Value =
+          mapping.phone1Value !== null
+            ? row[mapping.phone1Value]?.trim() || null
+            : null;
+        if (phone1Value) {
+          const phone1Label =
+            mapping.phone1Label !== null
+              ? row[mapping.phone1Label]?.trim() || null
+              : null;
+          phones.push({ value: phone1Value, label: phone1Label });
+        }
+        const phone2Value =
+          mapping.phone2Value !== null
+            ? row[mapping.phone2Value]?.trim() || null
+            : null;
+        if (phone2Value) {
+          const phone2Label =
+            mapping.phone2Label !== null
+              ? row[mapping.phone2Label]?.trim() || null
+              : null;
+          phones.push({ value: phone2Value, label: phone2Label });
+        }
+        const phone3Value =
+          mapping.phone3Value !== null
+            ? row[mapping.phone3Value]?.trim() || null
+            : null;
+        if (phone3Value) {
+          const phone3Label =
+            mapping.phone3Label !== null
+              ? row[mapping.phone3Label]?.trim() || null
+              : null;
+          phones.push({ value: phone3Value, label: phone3Label });
+        }
 
         try {
           await adapter.beginTransaction();
@@ -150,21 +215,33 @@ export function useContactsImport() {
             [contactId, firstName, lastName, birthday, now, now]
           );
 
-          // Insert email if mapped
-          if (email) {
+          // Insert emails
+          for (const [i, email] of emails.entries()) {
             await adapter.execute(
               `INSERT INTO contact_emails (id, contact_id, email, label, is_primary)
                VALUES (?, ?, ?, ?, ?)`,
-              [crypto.randomUUID(), contactId, email, null, 1]
+              [
+                crypto.randomUUID(),
+                contactId,
+                email.value,
+                email.label,
+                i === 0 ? 1 : 0
+              ]
             );
           }
 
-          // Insert phone if mapped
-          if (phone) {
+          // Insert phones
+          for (const [i, phone] of phones.entries()) {
             await adapter.execute(
               `INSERT INTO contact_phones (id, contact_id, phone_number, label, is_primary)
                VALUES (?, ?, ?, ?, ?)`,
-              [crypto.randomUUID(), contactId, phone, null, 1]
+              [
+                crypto.randomUUID(),
+                contactId,
+                phone.value,
+                phone.label,
+                i === 0 ? 1 : 0
+              ]
             );
           }
 
