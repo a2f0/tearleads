@@ -121,6 +121,7 @@ export function LocalStorage() {
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
     fetchStorageContents();
 
     return () => {
