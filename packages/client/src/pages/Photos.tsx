@@ -1,10 +1,12 @@
+import { and, desc, eq, like } from 'drizzle-orm';
 import { Database, ImageIcon, Loader2, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { getDatabaseAdapter } from '@/db';
+import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
+import { files } from '@/db/schema';
 import {
   getFileStorage,
   initializeFileStorage,
@@ -39,27 +41,29 @@ export function Photos() {
     setError(null);
 
     try {
-      const adapter = getDatabaseAdapter();
+      const db = getDatabase();
 
-      const result = await adapter.execute(
-        `SELECT id, name, size, mime_type, upload_date, storage_path
-         FROM files
-         WHERE mime_type LIKE 'image/%' AND deleted = 0
-         ORDER BY upload_date DESC`,
-        []
-      );
+      const result = await db
+        .select({
+          id: files.id,
+          name: files.name,
+          size: files.size,
+          mimeType: files.mimeType,
+          uploadDate: files.uploadDate,
+          storagePath: files.storagePath
+        })
+        .from(files)
+        .where(and(like(files.mimeType, 'image/%'), eq(files.deleted, false)))
+        .orderBy(desc(files.uploadDate));
 
-      const photoList: PhotoInfo[] = result.rows.map((row) => {
-        const r = row as Record<string, unknown>;
-        return {
-          id: r['id'] as string,
-          name: r['name'] as string,
-          size: r['size'] as number,
-          mimeType: r['mime_type'] as string,
-          uploadDate: new Date(r['upload_date'] as number),
-          storagePath: r['storage_path'] as string
-        };
-      });
+      const photoList: PhotoInfo[] = result.map((row) => ({
+        id: row.id,
+        name: row.name,
+        size: row.size,
+        mimeType: row.mimeType,
+        uploadDate: row.uploadDate,
+        storagePath: row.storagePath
+      }));
 
       // Load image data and create object URLs
       const keyManager = getKeyManager();
