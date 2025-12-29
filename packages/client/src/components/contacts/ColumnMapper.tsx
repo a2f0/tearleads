@@ -11,6 +11,57 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { ColumnMapping, ParsedCSV } from '@/hooks/useContactsImport';
 
+// Google Contacts CSV header mappings
+const GOOGLE_CONTACTS_HEADER_MAP: Record<string, keyof ColumnMapping> = {
+  'First Name': 'firstName',
+  'Last Name': 'lastName',
+  Birthday: 'birthday',
+  'E-mail 1 - Label': 'email1Label',
+  'E-mail 1 - Value': 'email1Value',
+  'E-mail 2 - Label': 'email2Label',
+  'E-mail 2 - Value': 'email2Value',
+  'Phone 1 - Label': 'phone1Label',
+  'Phone 1 - Value': 'phone1Value',
+  'Phone 2 - Label': 'phone2Label',
+  'Phone 2 - Value': 'phone2Value',
+  'Phone 3 - Label': 'phone3Label',
+  'Phone 3 - Value': 'phone3Value'
+};
+
+// Initial empty column mapping - reusable for reset functionality
+const INITIAL_COLUMN_MAPPING: ColumnMapping = {
+  firstName: null,
+  lastName: null,
+  birthday: null,
+  email1Label: null,
+  email1Value: null,
+  email2Label: null,
+  email2Value: null,
+  phone1Label: null,
+  phone1Value: null,
+  phone2Label: null,
+  phone2Value: null,
+  phone3Label: null,
+  phone3Value: null
+};
+
+/**
+ * Auto-detect and map CSV columns based on header names.
+ * Supports Google Contacts CSV export format.
+ */
+function autoMapColumns(headers: string[]): ColumnMapping {
+  const mapping = { ...INITIAL_COLUMN_MAPPING };
+
+  headers.forEach((header, index) => {
+    const fieldKey = GOOGLE_CONTACTS_HEADER_MAP[header];
+    if (fieldKey) {
+      mapping[fieldKey] = index;
+    }
+  });
+
+  return mapping;
+}
+
 interface ColumnMapperProps {
   data: ParsedCSV;
   onImport: (mapping: ColumnMapping) => void;
@@ -247,21 +298,10 @@ export function ColumnMapper({
   onCancel,
   importing
 }: ColumnMapperProps) {
-  const [mapping, setMapping] = useState<ColumnMapping>({
-    firstName: null,
-    lastName: null,
-    email1Label: null,
-    email1Value: null,
-    email2Label: null,
-    email2Value: null,
-    phone1Label: null,
-    phone1Value: null,
-    phone2Label: null,
-    phone2Value: null,
-    phone3Label: null,
-    phone3Value: null,
-    birthday: null
-  });
+  // Auto-map columns on initial render based on header names (Google Contacts format)
+  const [mapping, setMapping] = useState<ColumnMapping>(() =>
+    autoMapColumns(data.headers)
+  );
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // Get which column indices are already mapped
