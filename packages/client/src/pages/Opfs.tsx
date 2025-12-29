@@ -195,6 +195,7 @@ export function Opfs() {
       if (!('storage' in navigator) || !navigator.storage.getDirectory) {
         if (isMountedRef.current) {
           setSupported(false);
+          setLoading(false);
         }
         return;
       }
@@ -231,6 +232,7 @@ export function Opfs() {
         if (!('storage' in navigator) || !navigator.storage.getDirectory) {
           if (isMountedRef.current) {
             setSupported(false);
+            setLoading(false);
           }
           return;
         }
