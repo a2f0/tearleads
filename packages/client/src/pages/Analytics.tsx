@@ -120,7 +120,8 @@ export function Analytics() {
     return date.toLocaleString();
   };
 
-  const formatEventName = (name: string) => {
+  const formatEventName = (name: string | undefined) => {
+    if (!name) return '';
     return name
       .replace('db_', '')
       .replace(/_/g, ' ')
@@ -200,9 +201,9 @@ export function Analytics() {
             <div className="space-y-2">
               <h2 className="font-semibold text-lg">Summary</h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {stats.map((stat) => (
+                {stats.map((stat, index) => (
                   <div
-                    key={stat.eventName}
+                    key={stat.eventName || `stat-${index}`}
                     className="rounded-lg border bg-muted/50 p-4"
                   >
                     <div className="flex items-center gap-2">
