@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 
 const MIN_COLUMN_WIDTH = 50;
 const KEYBOARD_RESIZE_STEP = 10;
+const CONFIRM_TRUNCATE_TIMEOUT_MS = 3000;
 
 interface ColumnInfo {
   name: string;
@@ -154,13 +155,13 @@ export function TableRows() {
     });
   }, []);
 
-  const handleTruncateClick = useCallback(() => {
+  const handleTruncateClick = useCallback(async () => {
     if (!confirmTruncate) {
       setConfirmTruncate(true);
-      // Auto-reset after 3 seconds if not confirmed
+      // Auto-reset if not confirmed
       truncateTimeoutRef.current = setTimeout(() => {
         setConfirmTruncate(false);
-      }, 3000);
+      }, CONFIRM_TRUNCATE_TIMEOUT_MS);
       return;
     }
 
@@ -170,27 +171,27 @@ export function TableRows() {
       truncateTimeoutRef.current = null;
     }
 
-    // Execute truncate
-    const executeTruncate = async () => {
-      if (!tableName) return;
+    if (!tableName) return;
 
-      setTruncating(true);
-      setError(null);
+    setTruncating(true);
+    setError(null);
 
-      try {
-        const adapter = getDatabaseAdapter();
-        await adapter.execute(`DELETE FROM "${tableName}"`, []);
-        setConfirmTruncate(false);
-        await fetchTableData();
-      } catch (err) {
-        console.error('Failed to truncate table:', err);
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setTruncating(false);
-      }
-    };
-
-    executeTruncate();
+    try {
+      const adapter = getDatabaseAdapter();
+      await adapter.execute(`DELETE FROM "${tableName}"`, []);
+      // Also reset the autoincrement counter to fully emulate TRUNCATE.
+      // This will silently do nothing if the table doesn't use AUTOINCREMENT.
+      await adapter.execute(`DELETE FROM sqlite_sequence WHERE name = ?`, [
+        tableName
+      ]);
+      setConfirmTruncate(false);
+      await fetchTableData();
+    } catch (err) {
+      console.error('Failed to truncate table:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setTruncating(false);
+    }
   }, [confirmTruncate, tableName, fetchTableData]);
 
   // Clear truncate timeout on unmount
