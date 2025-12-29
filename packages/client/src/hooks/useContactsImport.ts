@@ -1,20 +1,22 @@
 import { useCallback, useState } from 'react';
 import { getDatabaseAdapter } from '../db';
 
-interface LabeledValue {
-  label: string | null;
-  value: string;
+/** Parsed CSV data with headers and rows */
+export interface ParsedCSV {
+  headers: string[];
+  rows: string[][];
 }
 
-interface ParsedContact {
-  firstName: string;
-  lastName: string | null;
-  birthday: string | null;
-  emails: LabeledValue[];
-  phones: LabeledValue[];
+/** Mapping of target field to CSV column index */
+export interface ColumnMapping {
+  firstName: number | null;
+  lastName: number | null;
+  email: number | null;
+  phone: number | null;
+  birthday: number | null;
 }
 
-interface ImportResult {
+export interface ImportResult {
   total: number;
   imported: number;
   skipped: number;
@@ -53,133 +55,88 @@ function parseCSVLine(line: string): string[] {
 }
 
 /**
- * Parse Google Contacts CSV format
+ * Parse CSV file into memory (headers + rows)
  */
-function parseGoogleContactsCSV(text: string): ParsedContact[] {
+export function parseCSV(text: string): ParsedCSV {
   const lines = text.split(/\r?\n/).filter((line) => line.trim());
   const headerLine = lines[0];
-  if (lines.length < 2 || !headerLine) return [];
+
+  if (!headerLine) {
+    return { headers: [], rows: [] };
+  }
 
   const headers = parseCSVLine(headerLine);
-  const contacts: ParsedContact[] = [];
+  const rows: string[][] = [];
 
-  // Find column indices
-  const firstNameIdx = headers.findIndex(
-    (h) => h.toLowerCase() === 'first name' || h.toLowerCase() === 'given name'
-  );
-  const lastNameIdx = headers.findIndex(
-    (h) => h.toLowerCase() === 'last name' || h.toLowerCase() === 'family name'
-  );
-  const birthdayIdx = headers.findIndex((h) => h.toLowerCase() === 'birthday');
-
-  // Find email columns (E-mail N - Label/Value or E-mail N - Type/Value)
-  const emailColumns: { labelIdx: number; valueIdx: number }[] = [];
-  for (let i = 1; i <= 10; i++) {
-    const emailLabelHeaders = [
-      `e-mail ${i} - label`,
-      `e-mail ${i} - type`,
-      `email ${i} - label`,
-      `email ${i} - type`
-    ];
-    const emailValueHeaders = [`e-mail ${i} - value`, `email ${i} - value`];
-    const labelIdx = headers.findIndex((h) =>
-      emailLabelHeaders.includes(h.toLowerCase())
-    );
-    const valueIdx = headers.findIndex((h) =>
-      emailValueHeaders.includes(h.toLowerCase())
-    );
-    if (valueIdx !== -1) {
-      emailColumns.push({ labelIdx, valueIdx });
-    }
-  }
-
-  // Find phone columns (Phone N - Label/Value or Phone N - Type/Value)
-  const phoneColumns: { labelIdx: number; valueIdx: number }[] = [];
-  for (let i = 1; i <= 10; i++) {
-    const labelIdx = headers.findIndex((h) =>
-      [`phone ${i} - label`, `phone ${i} - type`].includes(h.toLowerCase())
-    );
-    const valueIdx = headers.findIndex(
-      (h) => h.toLowerCase() === `phone ${i} - value`
-    );
-    if (valueIdx !== -1) {
-      phoneColumns.push({ labelIdx, valueIdx });
-    }
-  }
-
-  // Parse data rows
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i];
-    if (!line) continue;
-    const values = parseCSVLine(line);
-
-    const firstName = firstNameIdx !== -1 ? (values[firstNameIdx] ?? '') : '';
-    if (!firstName) continue; // Skip contacts without first name
-
-    const lastName = lastNameIdx !== -1 ? values[lastNameIdx] || null : null;
-    const birthday = birthdayIdx !== -1 ? values[birthdayIdx] || null : null;
-
-    // Extract emails
-    const emails: LabeledValue[] = [];
-    for (const col of emailColumns) {
-      const value = values[col.valueIdx];
-      if (value) {
-        const label = col.labelIdx !== -1 ? values[col.labelIdx] || null : null;
-        emails.push({ label, value });
-      }
+    if (line) {
+      rows.push(parseCSVLine(line));
     }
-
-    // Extract phones
-    const phones: LabeledValue[] = [];
-    for (const col of phoneColumns) {
-      const value = values[col.valueIdx];
-      if (value) {
-        const label = col.labelIdx !== -1 ? values[col.labelIdx] || null : null;
-        phones.push({ label, value });
-      }
-    }
-
-    contacts.push({ firstName, lastName, birthday, emails, phones });
   }
 
-  return contacts;
+  return { headers, rows };
 }
 
 export function useContactsImport() {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  const importCSV = useCallback(async (file: File): Promise<ImportResult> => {
-    setImporting(true);
-    setProgress(0);
+  /**
+   * Parse a CSV file into memory without any column detection
+   */
+  const parseFile = useCallback(async (file: File): Promise<ParsedCSV> => {
+    const text = await file.text();
+    return parseCSV(text);
+  }, []);
 
-    const result: ImportResult = {
-      total: 0,
-      imported: 0,
-      skipped: 0,
-      errors: []
-    };
+  /**
+   * Import contacts using the provided column mapping
+   */
+  const importContacts = useCallback(
+    async (data: ParsedCSV, mapping: ColumnMapping): Promise<ImportResult> => {
+      const result: ImportResult = {
+        total: data.rows.length,
+        imported: 0,
+        skipped: 0,
+        errors: []
+      };
 
-    try {
-      // Read file
-      const text = await file.text();
-      setProgress(10);
-
-      // Parse CSV
-      const contacts = parseGoogleContactsCSV(text);
-      result.total = contacts.length;
-      setProgress(20);
-
-      if (contacts.length === 0) {
-        result.errors.push('No valid contacts found in CSV');
+      // Validate before setting importing state to avoid UI flicker
+      if (mapping.firstName === null) {
+        result.errors.push('First Name column must be mapped');
         return result;
       }
 
+      setImporting(true);
+      setProgress(0);
+
       const adapter = getDatabaseAdapter();
 
-      // Import each contact
-      let importedCount = 0;
-      for (const contact of contacts) {
+      let processedCount = 0;
+      for (const row of data.rows) {
+        const firstName = row[mapping.firstName]?.trim() ?? '';
+
+        if (!firstName) {
+          result.skipped++;
+          processedCount++;
+          setProgress(Math.round((processedCount / data.rows.length) * 100));
+          continue;
+        }
+
+        const lastName =
+          mapping.lastName !== null
+            ? row[mapping.lastName]?.trim() || null
+            : null;
+        const email =
+          mapping.email !== null ? row[mapping.email]?.trim() || null : null;
+        const phone =
+          mapping.phone !== null ? row[mapping.phone]?.trim() || null : null;
+        const birthday =
+          mapping.birthday !== null
+            ? row[mapping.birthday]?.trim() || null
+            : null;
+
         try {
           await adapter.beginTransaction();
 
@@ -189,44 +146,25 @@ export function useContactsImport() {
           // Insert contact
           await adapter.execute(
             `INSERT INTO contacts (id, first_name, last_name, birthday, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?)`,
-            [
-              contactId,
-              contact.firstName,
-              contact.lastName,
-              contact.birthday,
-              now,
-              now
-            ]
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [contactId, firstName, lastName, birthday, now, now]
           );
 
-          // Insert emails
-          for (const [j, email] of contact.emails.entries()) {
+          // Insert email if mapped
+          if (email) {
             await adapter.execute(
               `INSERT INTO contact_emails (id, contact_id, email, label, is_primary)
-                 VALUES (?, ?, ?, ?, ?)`,
-              [
-                crypto.randomUUID(),
-                contactId,
-                email.value,
-                email.label,
-                j === 0 ? 1 : 0
-              ]
+               VALUES (?, ?, ?, ?, ?)`,
+              [crypto.randomUUID(), contactId, email, null, 1]
             );
           }
 
-          // Insert phones
-          for (const [j, phone] of contact.phones.entries()) {
+          // Insert phone if mapped
+          if (phone) {
             await adapter.execute(
               `INSERT INTO contact_phones (id, contact_id, phone_number, label, is_primary)
-                 VALUES (?, ?, ?, ?, ?)`,
-              [
-                crypto.randomUUID(),
-                contactId,
-                phone.value,
-                phone.label,
-                j === 0 ? 1 : 0
-              ]
+               VALUES (?, ?, ?, ?, ?)`,
+              [crypto.randomUUID(), contactId, phone, null, 1]
             );
           }
 
@@ -236,24 +174,19 @@ export function useContactsImport() {
           await adapter.rollbackTransaction();
           result.skipped++;
           result.errors.push(
-            `Failed to import ${contact.firstName}: ${err instanceof Error ? err.message : 'Unknown error'}`
+            `Failed to import ${firstName}: ${err instanceof Error ? err.message : 'Unknown error'}`
           );
         }
 
-        importedCount++;
-        // Update progress (20% to 100%)
-        setProgress(20 + Math.round((importedCount / contacts.length) * 80));
+        processedCount++;
+        setProgress(Math.round((processedCount / data.rows.length) * 100));
       }
-    } catch (err) {
-      result.errors.push(
-        `Import failed: ${err instanceof Error ? err.message : 'Unknown error'}`
-      );
-    } finally {
+
       setImporting(false);
-    }
+      return result;
+    },
+    []
+  );
 
-    return result;
-  }, []);
-
-  return { importCSV, importing, progress };
+  return { parseFile, importContacts, importing, progress };
 }
