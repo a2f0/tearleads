@@ -27,10 +27,14 @@ interface PhotoInfo {
 }
 
 function formatFileSize(bytes: number): string {
+  if (bytes < 0) return 'Invalid size';
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+  const i = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(k)),
+    sizes.length - 1
+  );
   return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
 }
 
@@ -96,6 +100,7 @@ export function PhotoDetail() {
 
       const storage = getFileStorage();
       const data = await storage.retrieve(photoInfo.storagePath);
+      // Copy to ArrayBuffer for TypeScript compatibility with Blob constructor
       const buffer = new ArrayBuffer(data.byteLength);
       new Uint8Array(buffer).set(data);
       const blob = new Blob([buffer], { type: photoInfo.mimeType });
