@@ -244,10 +244,9 @@ USA"`;
       const addressIdx = result.headers.indexOf('Address 1 - Formatted');
       const address = row[addressIdx];
 
-      expect(address).toContain('456 Elm Avenue');
-      expect(address).toContain('Suite 200');
-      expect(address).toContain('Metropolis, NY 10001');
-      expect(address).toContain('USA');
+      expect(address).toBe(
+        '456 Elm Avenue\nSuite 200\nMetropolis, NY 10001\nUSA'
+      );
     });
 
     it('parses Google Contacts CSV with multiple contacts including multiline fields', () => {
@@ -279,8 +278,9 @@ Eve,,Franklin,Startup Inc,,Work,eve@startup.co,,,Mobile,+1 555-666-7777,,,`;
 
       // Check David has multiline address
       const addressIdx = result.headers.indexOf('Address 1 - Formatted');
-      expect(davidRow[addressIdx]).toContain('789 Pine Road');
-      expect(davidRow[addressIdx]).toContain('Smalltown, CA 90210');
+      expect(davidRow[addressIdx]).toBe(
+        '789 Pine Road\nSmalltown, CA 90210\nUSA'
+      );
 
       // Check Eve
       const firstNameIdx = result.headers.indexOf('First Name');
