@@ -11,6 +11,7 @@ import { Debug } from './pages/Debug';
 import { Files } from './pages/Files';
 import { LocalStorage } from './pages/LocalStorage';
 import { Models } from './pages/Models';
+import { MusicPage } from './pages/Music';
 import { Opfs } from './pages/Opfs';
 import { Photos } from './pages/Photos';
 import { Settings } from './pages/Settings';
@@ -32,6 +33,7 @@ if (rootElement) {
                   <Route index element={<Files />} />
                   <Route path="contacts" element={<Contacts />} />
                   <Route path="photos" element={<Photos />} />
+                  <Route path="music" element={<MusicPage />} />
                   <Route path="sqlite" element={<Sqlite />} />
                   <Route path="debug" element={<Debug />} />
                   <Route path="chat" element={<Chat />} />
