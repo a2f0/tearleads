@@ -7,7 +7,7 @@ import {
   Trash2,
   XCircle
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { getDatabase } from '@/db';
 import {
@@ -60,9 +60,13 @@ export function Analytics() {
   const [error, setError] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('day');
 
-  const fetchData = useCallback(async () => {
-    if (!isUnlocked) return;
+  // Use ref to prevent duplicate fetches during React strict mode or re-renders
+  const fetchingRef = useRef(false);
 
+  const fetchData = useCallback(async () => {
+    if (!isUnlocked || fetchingRef.current) return;
+
+    fetchingRef.current = true;
     setLoading(true);
     setError(null);
 
@@ -82,6 +86,7 @@ export function Analytics() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   }, [isUnlocked, timeFilter]);
 
@@ -99,6 +104,7 @@ export function Analytics() {
     }
   }, [isUnlocked]);
 
+  // Fetch data when unlocked state or time filter changes
   useEffect(() => {
     if (isUnlocked) {
       fetchData();
