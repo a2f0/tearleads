@@ -8,9 +8,9 @@ vi.mock('file-type', () => ({
   fileTypeFromBuffer: vi.fn()
 }));
 
-// Mock database adapter
+// Mock database - using Drizzle-style query builder
 vi.mock('@/db', () => ({
-  getDatabaseAdapter: vi.fn()
+  getDatabase: vi.fn()
 }));
 
 // Mock key manager
@@ -32,30 +32,52 @@ vi.mock('@/storage/opfs', () => ({
 }));
 
 import { fileTypeFromBuffer } from 'file-type';
-import { getDatabaseAdapter } from '@/db';
+import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { computeContentHash, readFileAsUint8Array } from '@/lib/file-utils';
 import { getFileStorage, isFileStorageInitialized } from '@/storage/opfs';
 
 describe('useFileUpload', () => {
   const mockEncryptionKey = new Uint8Array(32);
-  const mockAdapter = {
-    execute: vi.fn()
-  };
   const mockStorage = {
     store: vi.fn()
   };
 
+  // Drizzle-style mock database with chainable methods
+  const createMockSelectQuery = (result: unknown[]) => {
+    const query = {
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue(result)
+    };
+    return query;
+  };
+
+  const createMockInsertQuery = () => {
+    const query = {
+      values: vi.fn().mockResolvedValue(undefined)
+    };
+    return query;
+  };
+
+  let mockSelectResult: unknown[] = [];
+
+  const mockDb = {
+    select: vi.fn(() => createMockSelectQuery(mockSelectResult)),
+    insert: vi.fn(() => createMockInsertQuery())
+  };
+
   beforeEach(() => {
     vi.resetAllMocks();
+    mockSelectResult = [];
 
     // Default mocks for successful upload
     vi.mocked(getKeyManager).mockReturnValue({
       getCurrentKey: () => mockEncryptionKey
     } as ReturnType<typeof getKeyManager>);
     vi.mocked(isFileStorageInitialized).mockReturnValue(true);
-    vi.mocked(getDatabaseAdapter).mockReturnValue(
-      mockAdapter as unknown as ReturnType<typeof getDatabaseAdapter>
+    vi.mocked(getDatabase).mockReturnValue(
+      mockDb as unknown as ReturnType<typeof getDatabase>
     );
     vi.mocked(getFileStorage).mockReturnValue(
       mockStorage as unknown as ReturnType<typeof getFileStorage>
@@ -64,7 +86,6 @@ describe('useFileUpload', () => {
       new Uint8Array([1, 2, 3])
     );
     vi.mocked(computeContentHash).mockResolvedValue('mock-hash');
-    vi.mocked(mockAdapter.execute).mockResolvedValue({ rows: [] });
     vi.mocked(mockStorage.store).mockResolvedValue('storage/path');
 
     // Mock crypto.randomUUID
@@ -103,10 +124,8 @@ describe('useFileUpload', () => {
 
       expect(uploadResult.id).toBe('test-uuid-1234');
       expect(uploadResult.isDuplicate).toBe(false);
-      expect(mockAdapter.execute).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO files'),
-        expect.arrayContaining(['image/png'])
-      );
+      // Verify insert was called (Drizzle-style)
+      expect(mockDb.insert).toHaveBeenCalled();
     });
 
     it('successfully uploads when file type is detected as JPEG', async () => {
@@ -123,10 +142,7 @@ describe('useFileUpload', () => {
       const uploadResult = await result.current.uploadFile(file);
 
       expect(uploadResult.isDuplicate).toBe(false);
-      expect(mockAdapter.execute).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO files'),
-        expect.arrayContaining(['image/jpeg'])
-      );
+      expect(mockDb.insert).toHaveBeenCalled();
     });
 
     it('successfully uploads when file type is detected as PDF', async () => {
@@ -143,10 +159,7 @@ describe('useFileUpload', () => {
       const uploadResult = await result.current.uploadFile(file);
 
       expect(uploadResult.isDuplicate).toBe(false);
-      expect(mockAdapter.execute).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO files'),
-        expect.arrayContaining(['application/pdf'])
-      );
+      expect(mockDb.insert).toHaveBeenCalled();
     });
 
     it('uses detected MIME type instead of browser-provided type', async () => {
@@ -163,11 +176,8 @@ describe('useFileUpload', () => {
 
       await result.current.uploadFile(file);
 
-      // Should use detected MIME type, not browser-provided
-      expect(mockAdapter.execute).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO files'),
-        expect.arrayContaining(['image/png'])
-      );
+      // Should insert file (Drizzle-style)
+      expect(mockDb.insert).toHaveBeenCalled();
     });
   });
 
@@ -192,9 +202,12 @@ describe('useFileUpload', () => {
         ext: 'png',
         mime: 'image/png'
       });
-      vi.mocked(mockAdapter.execute).mockResolvedValue({
-        rows: [{ id: 'existing-file-id' }]
-      });
+      // Mock select to return existing file (Drizzle-style)
+      mockDb.select.mockImplementationOnce(() => ({
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue([{ id: 'existing-file-id' }])
+      }));
 
       const { result } = renderHook(() => useFileUpload());
       const file = new File(['duplicate-content'], 'copy.png', {

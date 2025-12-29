@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { getDatabaseAdapter } from '../db';
+import { getDatabase, getDatabaseAdapter } from '../db';
+import { contactEmails, contactPhones, contacts } from '../db/schema';
 
 /** Parsed CSV data with headers and rows */
 export interface ParsedCSV {
@@ -221,43 +222,43 @@ export function useContactsImport() {
         try {
           await adapter.beginTransaction();
 
+          const db = getDatabase();
           const contactId = crypto.randomUUID();
-          const now = Date.now();
+          const now = new Date();
 
           // Insert contact
-          await adapter.execute(
-            `INSERT INTO contacts (id, first_name, last_name, birthday, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [contactId, firstName, lastName, birthday, now, now]
-          );
+          await db.insert(contacts).values({
+            id: contactId,
+            firstName,
+            lastName,
+            birthday,
+            createdAt: now,
+            updatedAt: now
+          });
 
-          // Insert emails
-          for (const [i, email] of emails.entries()) {
-            await adapter.execute(
-              `INSERT INTO contact_emails (id, contact_id, email, label, is_primary)
-               VALUES (?, ?, ?, ?, ?)`,
-              [
-                crypto.randomUUID(),
+          // Batch insert emails for better performance
+          if (emails.length > 0) {
+            await db.insert(contactEmails).values(
+              emails.map((email, i) => ({
+                id: crypto.randomUUID(),
                 contactId,
-                email.value,
-                email.label,
-                i === 0 ? 1 : 0
-              ]
+                email: email.value,
+                label: email.label,
+                isPrimary: i === 0
+              }))
             );
           }
 
-          // Insert phones
-          for (const [i, phone] of phones.entries()) {
-            await adapter.execute(
-              `INSERT INTO contact_phones (id, contact_id, phone_number, label, is_primary)
-               VALUES (?, ?, ?, ?, ?)`,
-              [
-                crypto.randomUUID(),
+          // Batch insert phones for better performance
+          if (phones.length > 0) {
+            await db.insert(contactPhones).values(
+              phones.map((phone, i) => ({
+                id: crypto.randomUUID(),
                 contactId,
-                phone.value,
-                phone.label,
-                i === 0 ? 1 : 0
-              ]
+                phoneNumber: phone.value,
+                label: phone.label,
+                isPrimary: i === 0
+              }))
             );
           }
 

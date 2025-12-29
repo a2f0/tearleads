@@ -1,3 +1,4 @@
+import { and, asc, eq, like, or, type SQL } from 'drizzle-orm';
 import {
   Database,
   Loader2,
@@ -14,8 +15,13 @@ import { useNavigate } from 'react-router-dom';
 import { ColumnMapper } from '@/components/contacts/ColumnMapper';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
-import { getDatabaseAdapter } from '@/db';
+import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
+import {
+  contactEmails,
+  contactPhones,
+  contacts as contactsTable
+} from '@/db/schema';
 import {
   type ColumnMapping,
   type ParsedCSV,
@@ -85,58 +91,69 @@ export function Contacts() {
       setError(null);
 
       try {
-        const adapter = getDatabaseAdapter();
+        const db = getDatabase();
 
         // Build query with optional search
         const searchTerm = search?.trim();
         const searchPattern = searchTerm ? `%${searchTerm}%` : null;
 
-        const baseQuery = `SELECT
-              c.id,
-              c.first_name,
-              c.last_name,
-              c.birthday,
-              c.created_at,
-              ce.email as primary_email,
-              cp.phone_number as primary_phone
-             FROM contacts c
-             LEFT JOIN contact_emails ce ON ce.contact_id = c.id AND ce.is_primary = 1
-             LEFT JOIN contact_phones cp ON cp.contact_id = c.id AND cp.is_primary = 1`;
+        // Query contacts with LEFT JOINs for primary email/phone
+        const baseQuery = db
+          .select({
+            id: contactsTable.id,
+            firstName: contactsTable.firstName,
+            lastName: contactsTable.lastName,
+            birthday: contactsTable.birthday,
+            createdAt: contactsTable.createdAt,
+            primaryEmail: contactEmails.email,
+            primaryPhone: contactPhones.phoneNumber
+          })
+          .from(contactsTable)
+          .leftJoin(
+            contactEmails,
+            and(
+              eq(contactEmails.contactId, contactsTable.id),
+              eq(contactEmails.isPrimary, true)
+            )
+          )
+          .leftJoin(
+            contactPhones,
+            and(
+              eq(contactPhones.contactId, contactsTable.id),
+              eq(contactPhones.isPrimary, true)
+            )
+          );
 
-        const whereClauses = ['c.deleted = 0'];
-        const params: string[] = [];
+        // Build where conditions
+        const baseCondition = eq(contactsTable.deleted, false);
+        let whereCondition: SQL | undefined;
 
         if (searchPattern) {
-          whereClauses.push(
-            `(c.first_name LIKE ? COLLATE NOCASE
-                 OR c.last_name LIKE ? COLLATE NOCASE
-                 OR ce.email LIKE ? COLLATE NOCASE
-                 OR cp.phone_number LIKE ?)`
+          // Search across name, email, and phone (SQLite LIKE is case-insensitive by default)
+          const searchCondition = or(
+            like(contactsTable.firstName, searchPattern),
+            like(contactsTable.lastName, searchPattern),
+            like(contactEmails.email, searchPattern),
+            like(contactPhones.phoneNumber, searchPattern)
           );
-          params.push(
-            searchPattern,
-            searchPattern,
-            searchPattern,
-            searchPattern
-          );
+          whereCondition = and(baseCondition, searchCondition);
+        } else {
+          whereCondition = baseCondition;
         }
 
-        const query = `${baseQuery} WHERE ${whereClauses.join(' AND ')} ORDER BY c.first_name ASC`;
+        const result = await baseQuery
+          .where(whereCondition)
+          .orderBy(asc(contactsTable.firstName));
 
-        const result = await adapter.execute(query, params);
-
-        const contactList = result.rows.map((row) => {
-          const r = row as Record<string, unknown>;
-          return {
-            id: r['id'] as string,
-            firstName: r['first_name'] as string,
-            lastName: (r['last_name'] as string) || null,
-            birthday: (r['birthday'] as string) || null,
-            primaryEmail: (r['primary_email'] as string) || null,
-            primaryPhone: (r['primary_phone'] as string) || null,
-            createdAt: new Date(r['created_at'] as number)
-          };
-        });
+        const contactList = result.map((row) => ({
+          id: row.id,
+          firstName: row.firstName,
+          lastName: row.lastName,
+          birthday: row.birthday,
+          primaryEmail: row.primaryEmail,
+          primaryPhone: row.primaryPhone,
+          createdAt: row.createdAt
+        }));
 
         setContacts(contactList);
         setHasFetched(true);

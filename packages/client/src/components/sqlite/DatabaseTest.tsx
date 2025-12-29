@@ -174,7 +174,7 @@ export function DatabaseTest() {
       const adapter = getDatabaseAdapter();
       const testValue = `test-value-${Date.now()}`;
 
-      // Use the adapter to insert a test setting
+      // Use raw SQL for reliable INSERT OR REPLACE
       await adapter.execute(
         `INSERT OR REPLACE INTO user_settings (key, value, updated_at) VALUES (?, ?, ?)`,
         ['test_key', testValue, Date.now()]
