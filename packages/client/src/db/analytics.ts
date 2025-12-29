@@ -2,7 +2,7 @@
  * Analytics logging module for tracking database operations.
  */
 
-import { and, desc, eq, gte, lte } from 'drizzle-orm';
+import { and, count, desc, eq, gte, lte, max, min, sum } from 'drizzle-orm';
 import type { Database } from './index';
 import { analyticsEvents } from './schema';
 
@@ -127,45 +127,45 @@ export async function getEventStats(
   db: Database,
   options: Omit<GetEventsOptions, 'limit'> = {}
 ): Promise<EventStats[]> {
-  const events = await getEvents(db, { ...options, limit: 10000 });
+  const { eventName, startTime, endTime } = options;
 
-  const statsMap = new Map<
-    string,
-    {
-      count: number;
-      totalDuration: number;
-      minDuration: number;
-      maxDuration: number;
-      successCount: number;
-    }
-  >();
-
-  for (const event of events) {
-    const existing = statsMap.get(event.eventName);
-    if (existing) {
-      existing.count++;
-      existing.totalDuration += event.durationMs;
-      existing.minDuration = Math.min(existing.minDuration, event.durationMs);
-      existing.maxDuration = Math.max(existing.maxDuration, event.durationMs);
-      if (event.success) existing.successCount++;
-    } else {
-      statsMap.set(event.eventName, {
-        count: 1,
-        totalDuration: event.durationMs,
-        minDuration: event.durationMs,
-        maxDuration: event.durationMs,
-        successCount: event.success ? 1 : 0
-      });
-    }
+  const conditions = [];
+  if (eventName) {
+    conditions.push(eq(analyticsEvents.eventName, eventName));
+  }
+  if (startTime) {
+    conditions.push(gte(analyticsEvents.timestamp, startTime));
+  }
+  if (endTime) {
+    conditions.push(lte(analyticsEvents.timestamp, endTime));
   }
 
-  return Array.from(statsMap.entries()).map(([eventName, stats]) => ({
-    eventName,
+  const results = await db
+    .select({
+      eventName: analyticsEvents.eventName,
+      count: count(),
+      totalDuration: sum(analyticsEvents.durationMs),
+      minDuration: min(analyticsEvents.durationMs),
+      maxDuration: max(analyticsEvents.durationMs),
+      successCount: sum(analyticsEvents.success)
+    })
+    .from(analyticsEvents)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .groupBy(analyticsEvents.eventName);
+
+  return results.map((stats) => ({
+    eventName: stats.eventName,
     count: stats.count,
-    avgDurationMs: Math.round(stats.totalDuration / stats.count),
-    minDurationMs: stats.minDuration,
-    maxDurationMs: stats.maxDuration,
-    successRate: Math.round((stats.successCount / stats.count) * 100)
+    avgDurationMs:
+      stats.count > 0
+        ? Math.round(Number(stats.totalDuration) / stats.count)
+        : 0,
+    minDurationMs: Number(stats.minDuration),
+    maxDurationMs: Number(stats.maxDuration),
+    successRate:
+      stats.count > 0
+        ? Math.round((Number(stats.successCount) / stats.count) * 100)
+        : 0
   }));
 }
 
@@ -180,6 +180,6 @@ export async function clearEvents(db: Database): Promise<void> {
  * Get the count of events.
  */
 export async function getEventCount(db: Database): Promise<number> {
-  const result = await db.select().from(analyticsEvents);
-  return result.length;
+  const result = await db.select({ count: count() }).from(analyticsEvents);
+  return result[0]?.count ?? 0;
 }
