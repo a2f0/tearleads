@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
+import { formatFileSize } from '@/lib/utils';
 import {
   getFileStorage,
   initializeFileStorage,
@@ -48,14 +49,21 @@ export function MusicPage() {
       );
 
       const trackList: AudioInfo[] = result.rows.map((row) => {
-        const r = row as Record<string, unknown>;
+        const r = row as {
+          id: string;
+          name: string;
+          size: number;
+          mime_type: string;
+          upload_date: number;
+          storage_path: string;
+        };
         return {
-          id: r['id'] as string,
-          name: r['name'] as string,
-          size: r['size'] as number,
-          mimeType: r['mime_type'] as string,
-          uploadDate: new Date(r['upload_date'] as number),
-          storagePath: r['storage_path'] as string
+          id: r.id,
+          name: r.name,
+          size: r.size,
+          mimeType: r.mime_type,
+          uploadDate: new Date(r.upload_date),
+          storagePath: r.storage_path
         };
       });
 
@@ -111,12 +119,6 @@ export function MusicPage() {
       }
     };
   }, [tracks]);
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
 
   return (
     <div className="space-y-6">
