@@ -185,8 +185,12 @@ export function TableRows() {
         await adapter.execute(`DELETE FROM sqlite_sequence WHERE name = ?`, [
           tableName
         ]);
-      } catch {
-        // Ignore error if sqlite_sequence doesn't exist
+      } catch (err) {
+        // Only ignore the error if it's the specific "no such table" error.
+        // Re-throwing other errors allows them to be caught by the outer handler.
+        if (!(err instanceof Error && err.message.includes('no such table'))) {
+          throw err;
+        }
       }
       setConfirmTruncate(false);
       await fetchTableData();
