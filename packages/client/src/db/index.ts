@@ -7,6 +7,7 @@ import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import type { DatabaseAdapter, PlatformInfo } from './adapters';
 import { createAdapter, getPlatformInfo } from './adapters';
+import { logEvent } from './analytics';
 import { getKeyManager } from './crypto';
 import * as schema from './schema';
 
@@ -43,10 +44,22 @@ export async function setupDatabase(password: string): Promise<Database> {
     throw new Error('Database already initialized');
   }
 
+  const startTime = performance.now();
+
   const keyManager = getKeyManager();
   const encryptionKey = await keyManager.setupNewKey(password);
 
-  return initializeDatabaseWithKey(encryptionKey);
+  const db = await initializeDatabaseWithKey(encryptionKey);
+
+  // Log the setup event
+  const durationMs = performance.now() - startTime;
+  try {
+    await logEvent(db, 'db_setup', durationMs, true);
+  } catch {
+    // Don't let logging errors affect the main operation
+  }
+
+  return db;
 }
 
 export interface UnlockResult {
@@ -72,6 +85,8 @@ export async function unlockDatabase(
     };
   }
 
+  const startTime = performance.now();
+
   const encryptionKey = await keyManager.unlockWithPassword(password);
 
   if (!encryptionKey) {
@@ -79,6 +94,14 @@ export async function unlockDatabase(
   }
 
   const db = await initializeDatabaseWithKey(encryptionKey);
+
+  // Log the unlock event
+  const durationMs = performance.now() - startTime;
+  try {
+    await logEvent(db, 'db_unlock', durationMs, true);
+  } catch {
+    // Don't let logging errors affect the main operation
+  }
 
   // Persist session if requested (web only)
   let sessionPersisted = false;
@@ -106,6 +129,8 @@ export async function restoreDatabaseSession(): Promise<Database | null> {
     return databaseInstance;
   }
 
+  const startTime = performance.now();
+
   const keyManager = getKeyManager();
   const encryptionKey = await keyManager.restoreSession();
 
@@ -114,7 +139,17 @@ export async function restoreDatabaseSession(): Promise<Database | null> {
   }
 
   try {
-    return await initializeDatabaseWithKey(encryptionKey);
+    const db = await initializeDatabaseWithKey(encryptionKey);
+
+    // Log the session restore event
+    const durationMs = performance.now() - startTime;
+    try {
+      await logEvent(db, 'db_session_restore', durationMs, true);
+    } catch {
+      // Don't let logging errors affect the main operation
+    }
+
+    return db;
   } catch (err) {
     console.error('Failed to restore database session:', err);
     // Clear the invalid session
@@ -243,7 +278,15 @@ async function runMigrations(): Promise<void> {
       FOREIGN KEY("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE
     )`,
     `CREATE INDEX IF NOT EXISTS "contact_emails_contact_idx" ON "contact_emails" ("contact_id")`,
-    `CREATE INDEX IF NOT EXISTS "contact_emails_email_idx" ON "contact_emails" ("email")`
+    `CREATE INDEX IF NOT EXISTS "contact_emails_email_idx" ON "contact_emails" ("email")`,
+    `CREATE TABLE IF NOT EXISTS "analytics_events" (
+      "id" TEXT PRIMARY KEY NOT NULL,
+      "event_name" TEXT NOT NULL,
+      "duration_ms" INTEGER NOT NULL,
+      "success" INTEGER NOT NULL,
+      "timestamp" INTEGER NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS "analytics_events_timestamp_idx" ON "analytics_events" ("timestamp")`
   ];
 
   await adapterInstance.executeMany(statements);
@@ -312,9 +355,11 @@ export async function changePassword(
   oldPassword: string,
   newPassword: string
 ): Promise<boolean> {
-  if (!adapterInstance) {
+  if (!adapterInstance || !databaseInstance) {
     throw new Error('Database not initialized');
   }
+
+  const startTime = performance.now();
 
   const keyManager = getKeyManager();
   const keys = await keyManager.changePassword(oldPassword, newPassword);
@@ -326,6 +371,14 @@ export async function changePassword(
   // Re-key the database with the new key
   // Pass oldKey for Capacitor which requires both keys for changeEncryptionSecret
   await adapterInstance.rekeyDatabase(keys.newKey, keys.oldKey);
+
+  // Log the password change event
+  const durationMs = performance.now() - startTime;
+  try {
+    await logEvent(databaseInstance, 'db_password_change', durationMs, true);
+  } catch {
+    // Don't let logging errors affect the main operation
+  }
 
   return true;
 }
