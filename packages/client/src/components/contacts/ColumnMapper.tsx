@@ -49,21 +49,18 @@ const PHONE_FIELDS: FieldGroup[] = [
   { name: 'Phone 3', labelKey: 'phone3Label', valueKey: 'phone3Value' }
 ];
 
-// All fields for preview purposes
+// All fields for preview purposes - dynamically generated from other constants
 const ALL_PREVIEW_FIELDS: TargetField[] = [
-  { key: 'firstName', label: 'First Name', required: true },
-  { key: 'lastName', label: 'Last Name', required: false },
-  { key: 'email1Label', label: 'Email 1 Label', required: false },
-  { key: 'email1Value', label: 'Email 1', required: false },
-  { key: 'email2Label', label: 'Email 2 Label', required: false },
-  { key: 'email2Value', label: 'Email 2', required: false },
-  { key: 'phone1Label', label: 'Phone 1 Label', required: false },
-  { key: 'phone1Value', label: 'Phone 1', required: false },
-  { key: 'phone2Label', label: 'Phone 2 Label', required: false },
-  { key: 'phone2Value', label: 'Phone 2', required: false },
-  { key: 'phone3Label', label: 'Phone 3 Label', required: false },
-  { key: 'phone3Value', label: 'Phone 3', required: false },
-  { key: 'birthday', label: 'Birthday', required: false }
+  ...BASIC_FIELDS.filter((f) => f.key !== 'birthday'),
+  ...EMAIL_FIELDS.flatMap((group) => [
+    { key: group.labelKey, label: `${group.name} Label`, required: false },
+    { key: group.valueKey, label: group.name, required: false }
+  ]),
+  ...PHONE_FIELDS.flatMap((group) => [
+    { key: group.labelKey, label: `${group.name} Label`, required: false },
+    { key: group.valueKey, label: group.name, required: false }
+  ]),
+  ...BASIC_FIELDS.filter((f) => f.key === 'birthday')
 ];
 
 function DraggableColumn({
@@ -96,6 +93,58 @@ function DraggableColumn({
   );
 }
 
+// Shared droppable area component used by DropZone and DropZoneSmall
+function DroppableArea({
+  fieldKey,
+  mapping,
+  headers,
+  onRemove,
+  placeholder,
+  truncateText = false
+}: {
+  fieldKey: keyof ColumnMapping;
+  mapping: ColumnMapping;
+  headers: string[];
+  onRemove: (key: keyof ColumnMapping) => void;
+  placeholder: string;
+  truncateText?: boolean;
+}) {
+  const mappedIndex = mapping[fieldKey];
+  const { isOver, setNodeRef } = useDroppable({
+    id: `target-${fieldKey}`
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex min-h-10 flex-1 items-center rounded-md border-2 border-dashed px-3 ${
+        isOver
+          ? 'border-primary bg-primary/10'
+          : mappedIndex !== null
+            ? 'border-muted-foreground/30 border-solid bg-muted'
+            : 'border-muted-foreground/30'
+      }`}
+    >
+      {mappedIndex !== null ? (
+        <div className="flex w-full items-center justify-between">
+          <span className={`text-sm ${truncateText ? 'truncate' : ''}`}>
+            {headers[mappedIndex]}
+          </span>
+          <button
+            type="button"
+            onClick={() => onRemove(fieldKey)}
+            className={`text-muted-foreground hover:text-foreground ${truncateText ? 'ml-1 shrink-0' : ''}`}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <span className="text-muted-foreground text-sm">{placeholder}</span>
+      )}
+    </div>
+  );
+}
+
 function DropZone({
   field,
   mapping,
@@ -107,44 +156,19 @@ function DropZone({
   headers: string[];
   onRemove: (key: keyof ColumnMapping) => void;
 }) {
-  const mappedIndex = mapping[field.key];
-  const { isOver, setNodeRef } = useDroppable({
-    id: `target-${field.key}`
-  });
-
   return (
     <div className="flex items-center gap-3">
       <span className="w-24 shrink-0 font-medium text-sm">
         {field.label}
         {field.required && <span className="text-destructive">*</span>}
       </span>
-      <div
-        ref={setNodeRef}
-        className={`flex min-h-[40px] flex-1 items-center rounded-md border-2 border-dashed px-3 ${
-          isOver
-            ? 'border-primary bg-primary/10'
-            : mappedIndex !== null
-              ? 'border-muted-foreground/30 border-solid bg-muted'
-              : 'border-muted-foreground/30'
-        }`}
-      >
-        {mappedIndex !== null ? (
-          <div className="flex w-full items-center justify-between">
-            <span className="text-sm">{headers[mappedIndex]}</span>
-            <button
-              type="button"
-              onClick={() => onRemove(field.key)}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ) : (
-          <span className="text-muted-foreground text-sm">
-            Drag a column here
-          </span>
-        )}
-      </div>
+      <DroppableArea
+        fieldKey={field.key}
+        mapping={mapping}
+        headers={headers}
+        onRemove={onRemove}
+        placeholder="Drag a column here"
+      />
     </div>
   );
 }
@@ -162,37 +186,15 @@ function DropZoneSmall({
   onRemove: (key: keyof ColumnMapping) => void;
   placeholder: string;
 }) {
-  const mappedIndex = mapping[fieldKey];
-  const { isOver, setNodeRef } = useDroppable({
-    id: `target-${fieldKey}`
-  });
-
   return (
-    <div
-      ref={setNodeRef}
-      className={`flex min-h-[40px] flex-1 items-center rounded-md border-2 border-dashed px-3 ${
-        isOver
-          ? 'border-primary bg-primary/10'
-          : mappedIndex !== null
-            ? 'border-muted-foreground/30 border-solid bg-muted'
-            : 'border-muted-foreground/30'
-      }`}
-    >
-      {mappedIndex !== null ? (
-        <div className="flex w-full items-center justify-between">
-          <span className="truncate text-sm">{headers[mappedIndex]}</span>
-          <button
-            type="button"
-            onClick={() => onRemove(fieldKey)}
-            className="ml-1 shrink-0 text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : (
-        <span className="text-muted-foreground text-sm">{placeholder}</span>
-      )}
-    </div>
+    <DroppableArea
+      fieldKey={fieldKey}
+      mapping={mapping}
+      headers={headers}
+      onRemove={onRemove}
+      placeholder={placeholder}
+      truncateText
+    />
   );
 }
 
