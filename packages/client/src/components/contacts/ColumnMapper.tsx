@@ -221,47 +221,50 @@ export function ColumnMapper({
           </div>
         </div>
 
-        {data.rows.length > 0 && (
-          <div>
-            <h3 className="mb-2 font-medium">Preview (first 3 rows)</h3>
-            <div className="overflow-x-auto rounded-md border">
-              <table className="w-full text-sm">
-                <thead className="bg-muted">
-                  <tr>
-                    {TARGET_FIELDS.filter((f) => mapping[f.key] !== null).map(
-                      (field) => (
-                        <th
-                          key={field.key}
-                          className="px-3 py-2 text-left font-medium"
-                        >
-                          {field.label}
-                        </th>
-                      )
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.rows.slice(0, 3).map((row) => (
-                    <tr key={row.join('|')} className="border-t">
-                      {TARGET_FIELDS.filter((f) => mapping[f.key] !== null).map(
-                        (field) => (
-                          <td key={field.key} className="px-3 py-2">
-                            {mapping[field.key] !== null
-                              ? row[mapping[field.key] as number] || '-'
-                              : '-'}
-                          </td>
-                        )
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-2 text-muted-foreground text-sm">
-              {data.rows.length} total rows
-            </p>
-          </div>
-        )}
+        {data.rows.length > 0 &&
+          (() => {
+            const mappedFields = TARGET_FIELDS.filter(
+              (f) => mapping[f.key] !== null
+            );
+            return (
+              <div>
+                <h3 className="mb-2 font-medium">Preview (first 3 rows)</h3>
+                <div className="overflow-x-auto rounded-md border">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted">
+                      <tr>
+                        {mappedFields.map((field) => (
+                          <th
+                            key={field.key}
+                            className="px-3 py-2 text-left font-medium"
+                          >
+                            {field.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.rows.slice(0, 3).map((row, index) => (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: preview rows are static, never reordered
+                        <tr key={index} className="border-t">
+                          {mappedFields.map((field) => (
+                            <td key={field.key} className="px-3 py-2">
+                              {mapping[field.key] !== null
+                                ? row[mapping[field.key] as number] || '-'
+                                : '-'}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-2 text-muted-foreground text-sm">
+                  {data.rows.length} total rows
+                </p>
+              </div>
+            );
+          })()}
 
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={onCancel} disabled={importing}>
