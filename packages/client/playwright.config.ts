@@ -21,8 +21,8 @@ export default defineConfig({
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        // Use system Chrome instead of bundled Chromium for better OPFS/encryption support
-        channel: 'chrome',
+        // In CI, use bundled Chromium. Locally, use system Chrome if available.
+        ...(process.env.CI ? {} : { channel: 'chrome' }),
         launchOptions: {
           args: [
             // Ensure SharedArrayBuffer is available for OPFS VFS
