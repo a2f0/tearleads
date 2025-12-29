@@ -1,5 +1,6 @@
 import { Database, ImageIcon, Loader2, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
 import { getKeyManager } from '@/db/crypto';
@@ -24,6 +25,7 @@ interface PhotoWithUrl extends PhotoInfo {
 }
 
 export function Photos() {
+  const navigate = useNavigate();
   const { isUnlocked, isLoading } = useDatabaseContext();
   const [photos, setPhotos] = useState<PhotoWithUrl[]>([]);
   const [loading, setLoading] = useState(false);
@@ -112,9 +114,12 @@ export function Photos() {
     };
   }, [photos]);
 
-  const handlePhotoClick = useCallback((photo: PhotoWithUrl) => {
-    window.open(photo.objectUrl, '_blank');
-  }, []);
+  const handlePhotoClick = useCallback(
+    (photo: PhotoWithUrl) => {
+      navigate(`/photos/${photo.id}`);
+    },
+    [navigate]
+  );
 
   return (
     <div className="space-y-6">
