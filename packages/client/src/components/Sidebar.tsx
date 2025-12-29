@@ -1,6 +1,7 @@
 import {
   Bot,
   Bug,
+  Database,
   FileIcon,
   HardDrive,
   ImageIcon,
@@ -12,13 +13,15 @@ import {
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
-const navItems = [
+export const navItems = [
   { path: '/', icon: FileIcon, label: 'Files' },
   { path: '/contacts', icon: Users, label: 'Contacts' },
   { path: '/photos', icon: ImageIcon, label: 'Photos' },
   { path: '/tables', icon: Table2, label: 'Tables' },
+  { path: '/sqlite', icon: Database, label: 'SQLite' },
   { path: '/debug', icon: Bug, label: 'Debug' },
   { path: '/opfs', icon: HardDrive, label: 'OPFS' },
+  { path: '/local-storage', icon: Database, label: 'Local Storage' },
   { path: '/chat', icon: MessageSquare, label: 'Chat' },
   { path: '/models', icon: Bot, label: 'Models' },
   { path: '/settings', icon: Settings, label: 'Settings' }
