@@ -41,8 +41,7 @@ function isUnexpectedError(text: string): boolean {
     /React DevTools/i,
     /Download the React DevTools/i,
     // React development warnings (not actual errors)
-    /Each child in a list should have a unique "key" prop/i,
-    /Warning:/i
+    /Each child in a list should have a unique "key" prop/i
   ];
   return !ignoredPatterns.some((pattern) => pattern.test(text));
 }
@@ -246,18 +245,22 @@ test.describe('Analytics page', () => {
         .or(page.getByText('Recent Events'))
     ).toBeVisible({ timeout: 10000 });
 
+    // Helper to click a time filter and wait for loading to complete
+    const clickTimeFilter = async (name: string) => {
+      await page.getByRole('button', { name }).click();
+      // Wait for loading spinner to appear and disappear
+      const spinner = page.locator('svg.animate-spin');
+      await expect(spinner).toBeVisible({ timeout: 5000 }).catch(() => {
+        // Spinner may be too fast to catch, which is fine
+      });
+      await expect(spinner).not.toBeVisible({ timeout: 10000 });
+    };
+
     // Click through different time filters
-    await page.getByRole('button', { name: 'Last Hour' }).click();
-    await page.waitForTimeout(300);
-
-    await page.getByRole('button', { name: 'Last Week' }).click();
-    await page.waitForTimeout(300);
-
-    await page.getByRole('button', { name: 'All Time' }).click();
-    await page.waitForTimeout(300);
-
-    await page.getByRole('button', { name: 'Last 24h' }).click();
-    await page.waitForTimeout(300);
+    await clickTimeFilter('Last Hour');
+    await clickTimeFilter('Last Week');
+    await clickTimeFilter('All Time');
+    await clickTimeFilter('Last 24h');
 
     expect(
       consoleErrors,
@@ -294,14 +297,14 @@ test.describe('Analytics page', () => {
 
     // Click refresh multiple times rapidly to test stability
     const refreshButton = page.getByRole('button', { name: 'Refresh' });
+    const spinner = page.locator('svg.animate-spin');
+
     await refreshButton.click();
-    await page.waitForTimeout(100);
     await refreshButton.click();
-    await page.waitForTimeout(100);
     await refreshButton.click();
 
-    // Wait for any pending operations
-    await page.waitForTimeout(1000);
+    // Wait for loading to complete (spinner disappears)
+    await expect(spinner).not.toBeVisible({ timeout: 10000 });
 
     expect(
       consoleErrors,
