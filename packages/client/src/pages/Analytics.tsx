@@ -218,7 +218,7 @@ export function Analytics() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {stats.map((stat, index) => (
                   <div
-                    key={stat.eventName || `stat-${index}`}
+                    key={`stat-${index}-${stat.eventName}`}
                     className="rounded-lg border bg-muted/50 p-4"
                   >
                     <div className="flex items-center gap-2">
