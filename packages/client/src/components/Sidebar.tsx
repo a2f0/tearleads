@@ -21,6 +21,7 @@ export const navItems = [
   { path: '/sqlite', icon: Database, label: 'SQLite' },
   { path: '/debug', icon: Bug, label: 'Debug' },
   { path: '/opfs', icon: HardDrive, label: 'OPFS' },
+  { path: '/local-storage', icon: Database, label: 'Local Storage' },
   { path: '/chat', icon: MessageSquare, label: 'Chat' },
   { path: '/models', icon: Bot, label: 'Models' },
   { path: '/settings', icon: Settings, label: 'Settings' }
