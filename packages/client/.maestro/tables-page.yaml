@@ -25,10 +25,10 @@ appId: com.tearleads.rapid
       'Expected locked message'
     )
 
-# Navigate to debug page to setup database
-- evalScript: document.querySelector('[data-testid="debug-link"]').click()
+# Navigate to SQLite page to setup database
+- evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
 
-# Wait for Debug page to load
+# Wait for SQLite page to load
 - evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
 
 # Reset database to ensure clean state

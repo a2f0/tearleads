@@ -9,10 +9,12 @@ import { Chat } from './pages/Chat';
 import { Contacts } from './pages/Contacts';
 import { Debug } from './pages/Debug';
 import { Files } from './pages/Files';
+import { LocalStorage } from './pages/LocalStorage';
 import { Models } from './pages/Models';
 import { Opfs } from './pages/Opfs';
 import { Photos } from './pages/Photos';
 import { Settings } from './pages/Settings';
+import { Sqlite } from './pages/Sqlite';
 import { TableRows } from './pages/TableRows';
 import { Tables } from './pages/Tables';
 import './index.css';
@@ -30,6 +32,7 @@ if (rootElement) {
                   <Route index element={<Files />} />
                   <Route path="contacts" element={<Contacts />} />
                   <Route path="photos" element={<Photos />} />
+                  <Route path="sqlite" element={<Sqlite />} />
                   <Route path="debug" element={<Debug />} />
                   <Route path="chat" element={<Chat />} />
                   <Route path="models" element={<Models />} />
@@ -37,6 +40,7 @@ if (rootElement) {
                   <Route path="tables" element={<Tables />} />
                   <Route path="tables/:tableName" element={<TableRows />} />
                   <Route path="opfs" element={<Opfs />} />
+                  <Route path="local-storage" element={<LocalStorage />} />
                 </Route>
               </Routes>
             </BrowserRouter>
