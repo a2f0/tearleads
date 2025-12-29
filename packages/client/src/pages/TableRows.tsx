@@ -6,7 +6,8 @@ import {
   Braces,
   Database,
   RefreshCw,
-  Settings
+  Settings,
+  Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -17,6 +18,7 @@ import { cn } from '@/lib/utils';
 
 const MIN_COLUMN_WIDTH = 50;
 const KEYBOARD_RESIZE_STEP = 10;
+const CONFIRM_TRUNCATE_TIMEOUT_MS = 3000;
 
 interface ColumnInfo {
   name: string;
@@ -74,6 +76,9 @@ export function TableRows() {
     startX: number;
     startWidth: number;
   } | null>(null);
+  const [confirmTruncate, setConfirmTruncate] = useState(false);
+  const [truncating, setTruncating] = useState(false);
+  const truncateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchTableData = useCallback(async () => {
     if (!isUnlocked || !tableName) return;
@@ -148,6 +153,54 @@ export function TableRows() {
       }
       return { column: null, direction: null };
     });
+  }, []);
+
+  const handleTruncateClick = useCallback(async () => {
+    if (!confirmTruncate) {
+      setConfirmTruncate(true);
+      // Auto-reset if not confirmed
+      truncateTimeoutRef.current = setTimeout(() => {
+        setConfirmTruncate(false);
+      }, CONFIRM_TRUNCATE_TIMEOUT_MS);
+      return;
+    }
+
+    // Clear timeout if confirming
+    if (truncateTimeoutRef.current) {
+      clearTimeout(truncateTimeoutRef.current);
+      truncateTimeoutRef.current = null;
+    }
+
+    if (!tableName) return;
+
+    setTruncating(true);
+    setError(null);
+
+    try {
+      const adapter = getDatabaseAdapter();
+      await adapter.execute(`DELETE FROM "${tableName}"`, []);
+      // Also reset the autoincrement counter to fully emulate TRUNCATE.
+      // This will silently do nothing if the table doesn't use AUTOINCREMENT.
+      await adapter.execute(`DELETE FROM sqlite_sequence WHERE name = ?`, [
+        tableName
+      ]);
+      setConfirmTruncate(false);
+      await fetchTableData();
+    } catch (err) {
+      console.error('Failed to truncate table:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setTruncating(false);
+    }
+  }, [confirmTruncate, tableName, fetchTableData]);
+
+  // Clear truncate timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (truncateTimeoutRef.current) {
+        clearTimeout(truncateTimeoutRef.current);
+      }
+    };
   }, []);
 
   const toggleColumnVisibility = useCallback((columnName: string) => {
@@ -329,6 +382,23 @@ export function TableRows() {
               title="Toggle document view"
             >
               <Braces className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={confirmTruncate ? 'destructive' : 'outline'}
+              size="sm"
+              onClick={handleTruncateClick}
+              disabled={truncating || loading}
+              title={
+                confirmTruncate ? 'Click again to confirm' : 'Truncate table'
+              }
+              data-testid="truncate-button"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {truncating
+                ? 'Truncating...'
+                : confirmTruncate
+                  ? 'Confirm'
+                  : 'Truncate'}
             </Button>
             <Button
               variant="outline"
