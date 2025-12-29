@@ -11,8 +11,16 @@ export interface ParsedCSV {
 export interface ColumnMapping {
   firstName: number | null;
   lastName: number | null;
-  email: number | null;
-  phone: number | null;
+  email1Label: number | null;
+  email1Value: number | null;
+  email2Label: number | null;
+  email2Value: number | null;
+  phone1Label: number | null;
+  phone1Value: number | null;
+  phone2Label: number | null;
+  phone2Value: number | null;
+  phone3Label: number | null;
+  phone3Value: number | null;
   birthday: number | null;
 }
 
@@ -128,14 +136,46 @@ export function useContactsImport() {
           mapping.lastName !== null
             ? row[mapping.lastName]?.trim() || null
             : null;
-        const email =
-          mapping.email !== null ? row[mapping.email]?.trim() || null : null;
-        const phone =
-          mapping.phone !== null ? row[mapping.phone]?.trim() || null : null;
         const birthday =
           mapping.birthday !== null
             ? row[mapping.birthday]?.trim() || null
             : null;
+
+        // Extract grouped values (emails/phones) with labels
+        const extractGroupedValues = (
+          groups: ReadonlyArray<{
+            valueKey: keyof ColumnMapping;
+            labelKey: keyof ColumnMapping;
+          }>
+        ) => {
+          const results: { value: string; label: string | null }[] = [];
+          for (const group of groups) {
+            const valueIndex = mapping[group.valueKey];
+            if (valueIndex !== null) {
+              const value = row[valueIndex]?.trim();
+              if (value) {
+                const labelIndex = mapping[group.labelKey];
+                const label =
+                  labelIndex !== null ? row[labelIndex]?.trim() || null : null;
+                results.push({ value, label });
+              }
+            }
+          }
+          return results;
+        };
+
+        const emailGroups = [
+          { valueKey: 'email1Value', labelKey: 'email1Label' },
+          { valueKey: 'email2Value', labelKey: 'email2Label' }
+        ] as const;
+        const emails = extractGroupedValues(emailGroups);
+
+        const phoneGroups = [
+          { valueKey: 'phone1Value', labelKey: 'phone1Label' },
+          { valueKey: 'phone2Value', labelKey: 'phone2Label' },
+          { valueKey: 'phone3Value', labelKey: 'phone3Label' }
+        ] as const;
+        const phones = extractGroupedValues(phoneGroups);
 
         try {
           await adapter.beginTransaction();
@@ -150,21 +190,33 @@ export function useContactsImport() {
             [contactId, firstName, lastName, birthday, now, now]
           );
 
-          // Insert email if mapped
-          if (email) {
+          // Insert emails
+          for (const [i, email] of emails.entries()) {
             await adapter.execute(
               `INSERT INTO contact_emails (id, contact_id, email, label, is_primary)
                VALUES (?, ?, ?, ?, ?)`,
-              [crypto.randomUUID(), contactId, email, null, 1]
+              [
+                crypto.randomUUID(),
+                contactId,
+                email.value,
+                email.label,
+                i === 0 ? 1 : 0
+              ]
             );
           }
 
-          // Insert phone if mapped
-          if (phone) {
+          // Insert phones
+          for (const [i, phone] of phones.entries()) {
             await adapter.execute(
               `INSERT INTO contact_phones (id, contact_id, phone_number, label, is_primary)
                VALUES (?, ?, ?, ?, ?)`,
-              [crypto.randomUUID(), contactId, phone, null, 1]
+              [
+                crypto.randomUUID(),
+                contactId,
+                phone.value,
+                phone.label,
+                i === 0 ? 1 : 0
+              ]
             );
           }
 
