@@ -2,19 +2,9 @@
  * Analytics logging module for tracking database operations.
  */
 
-import {
-  and,
-  count,
-  desc,
-  eq,
-  gte,
-  lte,
-  max,
-  min,
-  sql,
-  sum
-} from 'drizzle-orm';
+import { count } from 'drizzle-orm';
 import type { Database } from './index';
+import { getDatabaseAdapter } from './index';
 import { analyticsEvents } from './schema';
 
 export interface AnalyticsEvent {
@@ -96,101 +86,137 @@ export async function measureOperation<T>(
 }
 
 /**
+ * Raw row type from SQLite query
+ */
+interface RawAnalyticsRow {
+  id: string;
+  event_name: string;
+  duration_ms: number;
+  success: number;
+  timestamp: number;
+}
+
+/**
  * Get analytics events with optional filters.
+ * Uses raw SQL for reliable results with sqlite-proxy.
  */
 export async function getEvents(
-  db: Database,
+  _db: Database,
   options: GetEventsOptions = {}
 ): Promise<AnalyticsEvent[]> {
   const { eventName, startTime, endTime, limit = 100 } = options;
+  const adapter = getDatabaseAdapter();
 
-  const conditions = [];
+  const conditions: string[] = [];
+  const params: unknown[] = [];
 
   if (eventName) {
-    conditions.push(eq(analyticsEvents.eventName, eventName));
+    conditions.push('event_name = ?');
+    params.push(eventName);
   }
 
   if (startTime) {
-    conditions.push(gte(analyticsEvents.timestamp, startTime));
+    conditions.push('timestamp >= ?');
+    params.push(startTime.getTime());
   }
 
   if (endTime) {
-    conditions.push(lte(analyticsEvents.timestamp, endTime));
+    conditions.push('timestamp <= ?');
+    params.push(endTime.getTime());
   }
 
-  const query = db
-    .select()
-    .from(analyticsEvents)
-    .orderBy(desc(analyticsEvents.timestamp))
-    .limit(limit);
+  let query = 'SELECT * FROM analytics_events';
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+  query += ' ORDER BY timestamp DESC';
+  query += ` LIMIT ${limit}`;
 
-  const results =
-    conditions.length > 0 ? await query.where(and(...conditions)) : await query;
+  const result = await adapter.execute(query, params);
+  const rows = result.rows as unknown as RawAnalyticsRow[];
 
-  // Explicitly transform the raw data to ensure proper types
-  // sqlite-proxy may not apply schema transformations automatically
-  return results.map((row) => ({
-    id: String(row.id ?? ''),
-    eventName: String(row.eventName ?? ''),
-    durationMs: Number(row.durationMs) || 0,
+  return rows.map((row) => ({
+    id: String(row.id),
+    eventName: String(row.event_name),
+    durationMs: Number(row.duration_ms) || 0,
     success: Boolean(row.success),
-    timestamp:
-      row.timestamp instanceof Date
-        ? row.timestamp
-        : new Date(Number(row.timestamp) || 0)
+    timestamp: new Date(row.timestamp)
   }));
 }
 
 /**
+ * Raw stats row type from SQLite query
+ */
+interface RawStatsRow {
+  event_name: string;
+  count: number;
+  total_duration: number;
+  min_duration: number;
+  max_duration: number;
+  success_count: number;
+}
+
+/**
  * Get statistics for analytics events grouped by event name.
+ * Uses raw SQL for reliable results with sqlite-proxy.
  */
 export async function getEventStats(
-  db: Database,
+  _db: Database,
   options: Omit<GetEventsOptions, 'limit'> = {}
 ): Promise<EventStats[]> {
   const { eventName, startTime, endTime } = options;
+  const adapter = getDatabaseAdapter();
 
-  const conditions = [];
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
   if (eventName) {
-    conditions.push(eq(analyticsEvents.eventName, eventName));
+    conditions.push('event_name = ?');
+    params.push(eventName);
   }
   if (startTime) {
-    conditions.push(gte(analyticsEvents.timestamp, startTime));
+    conditions.push('timestamp >= ?');
+    params.push(startTime.getTime());
   }
   if (endTime) {
-    conditions.push(lte(analyticsEvents.timestamp, endTime));
+    conditions.push('timestamp <= ?');
+    params.push(endTime.getTime());
   }
 
-  const results = await db
-    .select({
-      eventName: analyticsEvents.eventName,
-      count: count(),
-      totalDuration: sum(analyticsEvents.durationMs),
-      minDuration: min(analyticsEvents.durationMs),
-      maxDuration: max(analyticsEvents.durationMs),
-      // Use sql template to explicitly sum the integer value (0/1) for boolean
-      successCount: sql<number>`sum(case when ${analyticsEvents.success} then 1 else 0 end)`
-    })
-    .from(analyticsEvents)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .groupBy(analyticsEvents.eventName);
+  let query = `
+    SELECT
+      event_name,
+      COUNT(*) as count,
+      SUM(duration_ms) as total_duration,
+      MIN(duration_ms) as min_duration,
+      MAX(duration_ms) as max_duration,
+      SUM(CASE WHEN success THEN 1 ELSE 0 END) as success_count
+    FROM analytics_events
+  `;
 
-  return results.map((stats) => {
-    const totalCount = stats.count ?? 0;
-    const totalDuration = Number(stats.totalDuration) || 0;
-    const minDuration = Number(stats.minDuration) || 0;
-    const maxDuration = Number(stats.maxDuration) || 0;
-    const successCount = Number(stats.successCount) || 0;
+  if (conditions.length > 0) {
+    query += ' WHERE ' + conditions.join(' AND ');
+  }
+  query += ' GROUP BY event_name';
+
+  const result = await adapter.execute(query, params);
+  const rows = result.rows as unknown as RawStatsRow[];
+
+  return rows.map((row) => {
+    const totalCount = Number(row.count) || 0;
+    const totalDuration = Number(row.total_duration) || 0;
 
     return {
-      eventName: stats.eventName ?? '',
+      eventName: String(row.event_name),
       count: totalCount,
       avgDurationMs:
         totalCount > 0 ? Math.round(totalDuration / totalCount) : 0,
-      minDurationMs: minDuration,
-      maxDurationMs: maxDuration,
+      minDurationMs: Number(row.min_duration) || 0,
+      maxDurationMs: Number(row.max_duration) || 0,
       successRate:
-        totalCount > 0 ? Math.round((successCount / totalCount) * 100) : 0
+        totalCount > 0
+          ? Math.round((Number(row.success_count) / totalCount) * 100)
+          : 0
     };
   });
 }
