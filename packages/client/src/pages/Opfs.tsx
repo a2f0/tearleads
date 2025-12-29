@@ -9,7 +9,7 @@ import {
   RefreshCw,
   Trash2
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { formatFileSize } from '@/lib/utils';
 
@@ -187,7 +187,7 @@ export function Opfs() {
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const isMountedRef = useRef(true);
 
-  const fetchOpfsContents = async () => {
+  const fetchOpfsContents = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -195,6 +195,7 @@ export function Opfs() {
       if (!('storage' in navigator) || !navigator.storage.getDirectory) {
         if (isMountedRef.current) {
           setSupported(false);
+          setLoading(false);
         }
         return;
       }
@@ -218,49 +219,16 @@ export function Opfs() {
         setLoading(false);
       }
     }
-  };
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
-
-    const loadContents = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        if (!('storage' in navigator) || !navigator.storage.getDirectory) {
-          if (isMountedRef.current) {
-            setSupported(false);
-          }
-          return;
-        }
-
-        const root = await navigator.storage.getDirectory();
-        const fetchedEntries = await readDirectory(root);
-
-        if (isMountedRef.current) {
-          setEntries(fetchedEntries);
-          const allPaths = collectAllPaths(fetchedEntries, '');
-          setExpandedPaths(new Set(allPaths));
-        }
-      } catch (err) {
-        console.error('Failed to read OPFS:', err);
-        if (isMountedRef.current) {
-          setError(err instanceof Error ? err.message : String(err));
-        }
-      } finally {
-        if (isMountedRef.current) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadContents();
+    fetchOpfsContents();
 
     return () => {
       isMountedRef.current = false;
     };
-  }, []);
+  }, [fetchOpfsContents]);
 
   const handleToggle = (path: string) => {
     setExpandedPaths((prev) => {
