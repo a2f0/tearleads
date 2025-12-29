@@ -34,15 +34,19 @@ const getSuccessRateColor = (rate: number) => {
   return 'text-red-600';
 };
 
+const ONE_HOUR_MS = 60 * 60 * 1000;
+const ONE_DAY_MS = 24 * ONE_HOUR_MS;
+const ONE_WEEK_MS = 7 * ONE_DAY_MS;
+
 function getTimeRange(filter: TimeFilter): Date | undefined {
   const now = new Date();
   switch (filter) {
     case 'hour':
-      return new Date(now.getTime() - 60 * 60 * 1000);
+      return new Date(now.getTime() - ONE_HOUR_MS);
     case 'day':
-      return new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      return new Date(now.getTime() - ONE_DAY_MS);
     case 'week':
-      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return new Date(now.getTime() - ONE_WEEK_MS);
     case 'all':
       return undefined;
   }
