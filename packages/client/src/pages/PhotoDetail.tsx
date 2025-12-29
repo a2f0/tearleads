@@ -26,6 +26,49 @@ interface PhotoInfo {
   storagePath: string;
 }
 
+function parsePhotoRow(row: unknown): PhotoInfo {
+  if (typeof row !== 'object' || row === null) {
+    throw new Error('Invalid photo data: expected object');
+  }
+
+  const r = row as Record<string, unknown>;
+
+  const id = r['id'];
+  const name = r['name'];
+  const size = r['size'];
+  const mimeType = r['mime_type'];
+  const uploadDate = r['upload_date'];
+  const storagePath = r['storage_path'];
+
+  if (typeof id !== 'string') {
+    throw new Error('Invalid photo data: id must be a string');
+  }
+  if (typeof name !== 'string') {
+    throw new Error('Invalid photo data: name must be a string');
+  }
+  if (typeof size !== 'number') {
+    throw new Error('Invalid photo data: size must be a number');
+  }
+  if (typeof mimeType !== 'string') {
+    throw new Error('Invalid photo data: mime_type must be a string');
+  }
+  if (typeof uploadDate !== 'number') {
+    throw new Error('Invalid photo data: upload_date must be a number');
+  }
+  if (typeof storagePath !== 'string') {
+    throw new Error('Invalid photo data: storage_path must be a string');
+  }
+
+  return {
+    id,
+    name,
+    size,
+    mimeType,
+    uploadDate: new Date(uploadDate),
+    storagePath
+  };
+}
+
 function formatFileSize(bytes: number): string {
   if (bytes < 0) return 'Invalid size';
   if (bytes === 0) return '0 Bytes';
@@ -77,16 +120,7 @@ export function PhotoDetail() {
         return;
       }
 
-      const row = result.rows[0] as Record<string, unknown>;
-      const photoInfo: PhotoInfo = {
-        id: row['id'] as string,
-        name: row['name'] as string,
-        size: row['size'] as number,
-        mimeType: row['mime_type'] as string,
-        uploadDate: new Date(row['upload_date'] as number),
-        storagePath: row['storage_path'] as string
-      };
-
+      const photoInfo = parsePhotoRow(result.rows[0]);
       setPhoto(photoInfo);
 
       // Load image data and create object URL
