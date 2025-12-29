@@ -34,6 +34,24 @@ const getSuccessRateColor = (rate: number) => {
   return 'text-red-600';
 };
 
+const ONE_HOUR_MS = 60 * 60 * 1000;
+const ONE_DAY_MS = 24 * ONE_HOUR_MS;
+const ONE_WEEK_MS = 7 * ONE_DAY_MS;
+
+function getTimeRange(filter: TimeFilter): Date | undefined {
+  const now = new Date();
+  switch (filter) {
+    case 'hour':
+      return new Date(now.getTime() - ONE_HOUR_MS);
+    case 'day':
+      return new Date(now.getTime() - ONE_DAY_MS);
+    case 'week':
+      return new Date(now.getTime() - ONE_WEEK_MS);
+    case 'all':
+      return undefined;
+  }
+}
+
 export function Analytics() {
   const { isUnlocked, isLoading } = useDatabaseContext();
   const [events, setEvents] = useState<AnalyticsEvent[]>([]);
@@ -41,20 +59,6 @@ export function Analytics() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('day');
-
-  const getTimeRange = useCallback((filter: TimeFilter) => {
-    const now = new Date();
-    switch (filter) {
-      case 'hour':
-        return new Date(now.getTime() - 60 * 60 * 1000);
-      case 'day':
-        return new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      case 'week':
-        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      case 'all':
-        return undefined;
-    }
-  }, []);
 
   const fetchData = useCallback(async () => {
     if (!isUnlocked) return;
@@ -79,7 +83,7 @@ export function Analytics() {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, timeFilter, getTimeRange]);
+  }, [isUnlocked, timeFilter]);
 
   const handleClear = useCallback(async () => {
     if (!isUnlocked) return;
