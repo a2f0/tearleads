@@ -2,7 +2,18 @@
  * Analytics logging module for tracking database operations.
  */
 
-import { and, count, desc, eq, gte, lte, max, min, sum } from 'drizzle-orm';
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gte,
+  lte,
+  max,
+  min,
+  sql,
+  sum
+} from 'drizzle-orm';
 import type { Database } from './index';
 import { analyticsEvents } from './schema';
 
@@ -147,26 +158,31 @@ export async function getEventStats(
       totalDuration: sum(analyticsEvents.durationMs),
       minDuration: min(analyticsEvents.durationMs),
       maxDuration: max(analyticsEvents.durationMs),
-      successCount: sum(analyticsEvents.success)
+      // Use sql template to explicitly sum the integer value (0/1) for boolean
+      successCount: sql<number>`sum(case when ${analyticsEvents.success} then 1 else 0 end)`
     })
     .from(analyticsEvents)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .groupBy(analyticsEvents.eventName);
 
-  return results.map((stats) => ({
-    eventName: stats.eventName,
-    count: stats.count,
-    avgDurationMs:
-      stats.count > 0
-        ? Math.round(Number(stats.totalDuration) / stats.count)
-        : 0,
-    minDurationMs: Number(stats.minDuration),
-    maxDurationMs: Number(stats.maxDuration),
-    successRate:
-      stats.count > 0
-        ? Math.round((Number(stats.successCount) / stats.count) * 100)
-        : 0
-  }));
+  return results.map((stats) => {
+    const totalCount = stats.count ?? 0;
+    const totalDuration = Number(stats.totalDuration) || 0;
+    const minDuration = Number(stats.minDuration) || 0;
+    const maxDuration = Number(stats.maxDuration) || 0;
+    const successCount = Number(stats.successCount) || 0;
+
+    return {
+      eventName: stats.eventName ?? '',
+      count: totalCount,
+      avgDurationMs:
+        totalCount > 0 ? Math.round(totalDuration / totalCount) : 0,
+      minDurationMs: minDuration,
+      maxDurationMs: maxDuration,
+      successRate:
+        totalCount > 0 ? Math.round((successCount / totalCount) * 100) : 0
+    };
+  });
 }
 
 /**
