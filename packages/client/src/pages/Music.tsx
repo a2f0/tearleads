@@ -1,10 +1,12 @@
+import { and, desc, eq, like } from 'drizzle-orm';
 import { Database, Loader2, Music, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
-import { getDatabaseAdapter } from '@/db';
+import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
+import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { formatFileSize } from '@/lib/utils';
 import {
@@ -59,34 +61,29 @@ export function MusicPage() {
     setError(null);
 
     try {
-      const adapter = getDatabaseAdapter();
+      const db = getDatabase();
 
-      const result = await adapter.execute(
-        `SELECT id, name, size, mime_type, upload_date, storage_path
-         FROM files
-         WHERE mime_type LIKE 'audio/%' AND deleted = 0
-         ORDER BY upload_date DESC`,
-        []
-      );
+      const result = await db
+        .select({
+          id: files.id,
+          name: files.name,
+          size: files.size,
+          mimeType: files.mimeType,
+          uploadDate: files.uploadDate,
+          storagePath: files.storagePath
+        })
+        .from(files)
+        .where(and(like(files.mimeType, 'audio/%'), eq(files.deleted, false)))
+        .orderBy(desc(files.uploadDate));
 
-      const trackList: AudioInfo[] = result.rows.map((row) => {
-        const r = row as {
-          id: string;
-          name: string;
-          size: number;
-          mime_type: string;
-          upload_date: number;
-          storage_path: string;
-        };
-        return {
-          id: r.id,
-          name: r.name,
-          size: r.size,
-          mimeType: r.mime_type,
-          uploadDate: new Date(r.upload_date),
-          storagePath: r.storage_path
-        };
-      });
+      const trackList: AudioInfo[] = result.map((row) => ({
+        id: row.id,
+        name: row.name,
+        size: row.size,
+        mimeType: row.mimeType,
+        uploadDate: row.uploadDate,
+        storagePath: row.storagePath
+      }));
 
       // Load audio data and create object URLs
       const keyManager = getKeyManager();
