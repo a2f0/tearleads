@@ -1,3 +1,4 @@
+import { and, eq, like } from 'drizzle-orm';
 import {
   ArrowLeft,
   Calendar,
@@ -8,9 +9,10 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getDatabaseAdapter } from '@/db';
+import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
+import { files } from '@/db/schema';
 import {
   getFileStorage,
   initializeFileStorage,
@@ -24,49 +26,6 @@ interface PhotoInfo {
   mimeType: string;
   uploadDate: Date;
   storagePath: string;
-}
-
-function parsePhotoRow(row: unknown): PhotoInfo {
-  if (typeof row !== 'object' || row === null) {
-    throw new Error('Invalid photo data: expected object');
-  }
-
-  const r = row as Record<string, unknown>;
-
-  const id = r['id'];
-  const name = r['name'];
-  const size = r['size'];
-  const mimeType = r['mime_type'];
-  const uploadDate = r['upload_date'];
-  const storagePath = r['storage_path'];
-
-  if (typeof id !== 'string') {
-    throw new Error('Invalid photo data: id must be a string');
-  }
-  if (typeof name !== 'string') {
-    throw new Error('Invalid photo data: name must be a string');
-  }
-  if (typeof size !== 'number') {
-    throw new Error('Invalid photo data: size must be a number');
-  }
-  if (typeof mimeType !== 'string') {
-    throw new Error('Invalid photo data: mime_type must be a string');
-  }
-  if (typeof uploadDate !== 'number') {
-    throw new Error('Invalid photo data: upload_date must be a number');
-  }
-  if (typeof storagePath !== 'string') {
-    throw new Error('Invalid photo data: storage_path must be a string');
-  }
-
-  return {
-    id,
-    name,
-    size,
-    mimeType,
-    uploadDate: new Date(uploadDate),
-    storagePath
-  };
 }
 
 function formatFileSize(bytes: number): string {
@@ -106,21 +65,46 @@ export function PhotoDetail() {
     setError(null);
 
     try {
-      const adapter = getDatabaseAdapter();
+      const db = getDatabase();
 
-      const result = await adapter.execute(
-        `SELECT id, name, size, mime_type, upload_date, storage_path
-         FROM files
-         WHERE id = ? AND mime_type LIKE 'image/%' AND deleted = 0`,
-        [id]
-      );
+      const result = await db
+        .select({
+          id: files.id,
+          name: files.name,
+          size: files.size,
+          mimeType: files.mimeType,
+          uploadDate: files.uploadDate,
+          storagePath: files.storagePath
+        })
+        .from(files)
+        .where(
+          and(
+            eq(files.id, id),
+            like(files.mimeType, 'image/%'),
+            eq(files.deleted, false)
+          )
+        )
+        .limit(1);
 
-      if (result.rows.length === 0) {
+      if (result.length === 0) {
         setError('Photo not found');
         return;
       }
 
-      const photoInfo = parsePhotoRow(result.rows[0]);
+      const row = result[0];
+      if (!row) {
+        setError('Photo not found');
+        return;
+      }
+
+      const photoInfo: PhotoInfo = {
+        id: row.id,
+        name: row.name,
+        size: row.size,
+        mimeType: row.mimeType,
+        uploadDate: row.uploadDate,
+        storagePath: row.storagePath
+      };
       setPhoto(photoInfo);
 
       // Load image data and create object URL
