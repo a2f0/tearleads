@@ -55,8 +55,9 @@ export async function setupDatabase(password: string): Promise<Database> {
   const durationMs = performance.now() - startTime;
   try {
     await logEvent(db, 'db_setup', durationMs, true);
-  } catch {
+  } catch (err) {
     // Don't let logging errors affect the main operation
+    console.warn('Failed to log db_setup analytics event:', err);
   }
 
   return db;
@@ -99,8 +100,9 @@ export async function unlockDatabase(
   const durationMs = performance.now() - startTime;
   try {
     await logEvent(db, 'db_unlock', durationMs, true);
-  } catch {
+  } catch (err) {
     // Don't let logging errors affect the main operation
+    console.warn('Failed to log db_unlock analytics event:', err);
   }
 
   // Persist session if requested (web only)
@@ -145,8 +147,9 @@ export async function restoreDatabaseSession(): Promise<Database | null> {
     const durationMs = performance.now() - startTime;
     try {
       await logEvent(db, 'db_session_restore', durationMs, true);
-    } catch {
+    } catch (err) {
       // Don't let logging errors affect the main operation
+      console.warn('Failed to log db_session_restore analytics event:', err);
     }
 
     return db;
@@ -376,8 +379,9 @@ export async function changePassword(
   const durationMs = performance.now() - startTime;
   try {
     await logEvent(databaseInstance, 'db_password_change', durationMs, true);
-  } catch {
+  } catch (err) {
     // Don't let logging errors affect the main operation
+    console.warn('Failed to log db_password_change analytics event:', err);
   }
 
   return true;

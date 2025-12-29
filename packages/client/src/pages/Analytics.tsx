@@ -21,6 +21,19 @@ import { useDatabaseContext } from '@/db/hooks';
 
 type TimeFilter = 'hour' | 'day' | 'week' | 'all';
 
+const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
+  hour: 'Last Hour',
+  day: 'Last 24h',
+  week: 'Last Week',
+  all: 'All Time'
+};
+
+const getSuccessRateColor = (rate: number) => {
+  if (rate >= 90) return 'text-green-600';
+  if (rate >= 70) return 'text-yellow-600';
+  return 'text-red-600';
+};
+
 export function Analytics() {
   const { isUnlocked, isLoading } = useDatabaseContext();
   const [events, setEvents] = useState<AnalyticsEvent[]>([]);
@@ -167,13 +180,7 @@ export function Analytics() {
                 size="sm"
                 onClick={() => setTimeFilter(filter)}
               >
-                {filter === 'hour'
-                  ? 'Last Hour'
-                  : filter === 'day'
-                    ? 'Last 24h'
-                    : filter === 'week'
-                      ? 'Last Week'
-                      : 'All Time'}
+                {TIME_FILTER_LABELS[filter]}
               </Button>
             ))}
           </div>
@@ -216,15 +223,7 @@ export function Analytics() {
                       <span className="text-muted-foreground">
                         Success Rate:
                       </span>{' '}
-                      <span
-                        className={
-                          stat.successRate >= 90
-                            ? 'text-green-600'
-                            : stat.successRate >= 70
-                              ? 'text-yellow-600'
-                              : 'text-red-600'
-                        }
-                      >
+                      <span className={getSuccessRateColor(stat.successRate)}>
                         {stat.successRate}%
                       </span>
                     </div>
