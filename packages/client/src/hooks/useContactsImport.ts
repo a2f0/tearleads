@@ -64,11 +64,47 @@ function parseCSVLine(line: string): string[] {
 
 /**
  * Parse CSV file into memory (headers + rows)
+ * Handles multiline quoted fields (e.g., addresses spanning multiple lines)
  */
 export function parseCSV(text: string): ParsedCSV {
-  const lines = text.split(/\r?\n/).filter((line) => line.trim());
-  const headerLine = lines[0];
+  // First, split into logical lines handling multiline quoted fields
+  const logicalLines: string[] = [];
+  let currentLine = '';
+  let inQuotes = false;
 
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (char === '"') {
+      // Check for escaped quote
+      if (inQuotes && text[i + 1] === '"') {
+        currentLine += '""';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+        currentLine += char;
+      }
+    } else if ((char === '\n' || char === '\r') && !inQuotes) {
+      // End of logical line (not inside quotes)
+      if (currentLine.trim()) {
+        logicalLines.push(currentLine);
+      }
+      currentLine = '';
+      // Skip \r\n as single newline
+      if (char === '\r' && text[i + 1] === '\n') {
+        i++;
+      }
+    } else {
+      currentLine += char;
+    }
+  }
+
+  // Don't forget the last line
+  if (currentLine.trim()) {
+    logicalLines.push(currentLine);
+  }
+
+  const headerLine = logicalLines[0];
   if (!headerLine) {
     return { headers: [], rows: [] };
   }
@@ -76,8 +112,8 @@ export function parseCSV(text: string): ParsedCSV {
   const headers = parseCSVLine(headerLine);
   const rows: string[][] = [];
 
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i];
+  for (let i = 1; i < logicalLines.length; i++) {
+    const line = logicalLines[i];
     if (line) {
       rows.push(parseCSVLine(line));
     }
