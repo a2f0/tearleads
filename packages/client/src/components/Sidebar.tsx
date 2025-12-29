@@ -13,7 +13,7 @@ import {
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
-const navItems = [
+export const navItems = [
   { path: '/', icon: FileIcon, label: 'Files' },
   { path: '/contacts', icon: Users, label: 'Contacts' },
   { path: '/photos', icon: ImageIcon, label: 'Photos' },

@@ -1,5 +1,5 @@
 import { Database } from 'lucide-react';
-import { DatabaseTest } from '@/components/debug/DatabaseTest';
+import { DatabaseTest } from '@/components/sqlite/DatabaseTest';
 
 export function Sqlite() {
   return (
