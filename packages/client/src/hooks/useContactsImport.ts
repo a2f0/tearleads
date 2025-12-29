@@ -95,9 +95,6 @@ export function useContactsImport() {
    */
   const importContacts = useCallback(
     async (data: ParsedCSV, mapping: ColumnMapping): Promise<ImportResult> => {
-      setImporting(true);
-      setProgress(0);
-
       const result: ImportResult = {
         total: data.rows.length,
         imported: 0,
@@ -105,11 +102,14 @@ export function useContactsImport() {
         errors: []
       };
 
+      // Validate before setting importing state to avoid UI flicker
       if (mapping.firstName === null) {
         result.errors.push('First Name column must be mapped');
-        setImporting(false);
         return result;
       }
+
+      setImporting(true);
+      setProgress(0);
 
       const adapter = getDatabaseAdapter();
 
