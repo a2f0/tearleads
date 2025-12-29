@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import App from './App';
+import { navItems } from './components/Sidebar';
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -58,7 +59,7 @@ describe('App', () => {
 
     // Sidebar contains all navigation links
     const sidebarLinks = sidebar.querySelectorAll('a');
-    expect(sidebarLinks).toHaveLength(10);
+    expect(sidebarLinks).toHaveLength(navItems.length);
   });
 
   it('renders navigation in both header and sidebar', () => {
