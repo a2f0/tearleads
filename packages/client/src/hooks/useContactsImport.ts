@@ -99,6 +99,11 @@ export function parseCSV(text: string): ParsedCSV {
     }
   }
 
+  // Check for malformed CSV with unclosed quote
+  if (inQuotes) {
+    throw new Error('Malformed CSV: unclosed quote at end of file.');
+  }
+
   // Don't forget the last line
   if (currentLine.trim()) {
     logicalLines.push(currentLine);
