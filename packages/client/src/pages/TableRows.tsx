@@ -180,10 +180,18 @@ export function TableRows() {
       const adapter = getDatabaseAdapter();
       await adapter.execute(`DELETE FROM "${tableName}"`, []);
       // Also reset the autoincrement counter to fully emulate TRUNCATE.
-      // This will silently do nothing if the table doesn't use AUTOINCREMENT.
-      await adapter.execute(`DELETE FROM sqlite_sequence WHERE name = ?`, [
-        tableName
-      ]);
+      // sqlite_sequence only exists if any table uses AUTOINCREMENT.
+      try {
+        await adapter.execute(`DELETE FROM sqlite_sequence WHERE name = ?`, [
+          tableName
+        ]);
+      } catch (err) {
+        // Only ignore the error if it's the specific "no such table" error.
+        // Re-throwing other errors allows them to be caught by the outer handler.
+        if (!(err instanceof Error && err.message.includes('no such table'))) {
+          throw err;
+        }
+      }
       setConfirmTruncate(false);
       await fetchTableData();
     } catch (err) {
