@@ -1031,7 +1031,8 @@ test.describe('Contacts page', () => {
 
     // Should show import result and contact
     await expect(page.getByText(/Imported 1 contact/)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('John Doe')).toBeVisible();
+    // Wait for contacts list to refresh after import
+    await expect(page.getByText('John Doe')).toBeVisible({ timeout: 5000 });
   });
 
   test('should filter contacts by search query', async ({ page }) => {
@@ -1042,9 +1043,9 @@ test.describe('Contacts page', () => {
     await importContacts(page, 'First Name,Last Name,Email\nJohn,Doe,john@example.com\nJane,Smith,jane@example.com');
     await expect(page.getByText(/Imported 2 contacts/)).toBeVisible({ timeout: 10000 });
 
-    // Both contacts should be visible
-    await expect(page.getByText('John Doe')).toBeVisible();
-    await expect(page.getByText('Jane Smith')).toBeVisible();
+    // Wait for contacts list to refresh after import
+    await expect(page.getByText('John Doe')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('Jane Smith')).toBeVisible({ timeout: 5000 });
 
     // Search for John
     await page.getByPlaceholder('Search contacts...').fill('John');
