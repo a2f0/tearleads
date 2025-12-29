@@ -1,15 +1,33 @@
 import { Database, Loader2, Music, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Dropzone } from '@/components/ui/dropzone';
 import { getDatabaseAdapter } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
+import { useFileUpload } from '@/hooks/useFileUpload';
 import { formatFileSize } from '@/lib/utils';
 import {
   getFileStorage,
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
+
+const AUDIO_MIME_TYPES = [
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/wav',
+  'audio/wave',
+  'audio/x-wav',
+  'audio/ogg',
+  'audio/flac',
+  'audio/aac',
+  'audio/mp4',
+  'audio/x-m4a',
+  'audio/webm',
+  'audio/aiff',
+  'audio/x-aiff'
+];
 
 interface AudioInfo {
   id: string;
@@ -30,6 +48,9 @@ export function MusicPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const { uploadFile } = useFileUpload();
 
   const fetchTracks = useCallback(async () => {
     if (!isUnlocked) return;
@@ -105,6 +126,39 @@ export function MusicPage() {
     }
   }, [isUnlocked]);
 
+  const handleFilesSelected = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
+
+      setError(null);
+      setUploading(true);
+      setUploadProgress(0);
+
+      try {
+        for (const file of files) {
+          // Validate that the file type is one of the supported audio MIME types
+          if (!AUDIO_MIME_TYPES.includes(file.type)) {
+            throw new Error(
+              `"${file.name}" has an unsupported audio format. Supported formats: MP3, WAV, OGG, FLAC, AAC, M4A, WebM, AIFF.`
+            );
+          }
+
+          await uploadFile(file, setUploadProgress);
+        }
+
+        // Refresh tracks after successful upload
+        setHasFetched(false);
+      } catch (err) {
+        console.error('Failed to upload file:', err);
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setUploading(false);
+        setUploadProgress(0);
+      }
+    },
+    [uploadFile]
+  );
+
   useEffect(() => {
     if (isUnlocked && !hasFetched && !loading) {
       fetchTracks();
@@ -164,16 +218,32 @@ export function MusicPage() {
       )}
 
       {isUnlocked &&
-        !error &&
         (loading && !hasFetched ? (
           <div className="flex items-center justify-center gap-2 rounded-lg border p-8 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
             Loading music...
           </div>
+        ) : uploading ? (
+          <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="text-center">
+              <p className="font-medium">Uploading...</p>
+              <p className="text-muted-foreground text-sm">
+                {uploadProgress}% complete
+              </p>
+            </div>
+          </div>
         ) : tracks.length === 0 && hasFetched ? (
-          <div className="rounded-lg border p-8 text-center text-muted-foreground">
-            No music found. Upload audio files from the Files page to see them
-            here.
+          <div className="space-y-4">
+            <Dropzone
+              onFilesSelected={handleFilesSelected}
+              accept="audio/*"
+              multiple={false}
+              disabled={uploading}
+            />
+            <p className="text-center text-muted-foreground text-sm">
+              Drop an audio file here to add it to your library
+            </p>
           </div>
         ) : (
           <div className="space-y-2">
