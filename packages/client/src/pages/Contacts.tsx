@@ -8,11 +8,16 @@ import {
   User
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { ColumnMapper } from '@/components/contacts/ColumnMapper';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
-import { useContactsImport } from '@/hooks/useContactsImport';
+import {
+  type ColumnMapping,
+  type ParsedCSV,
+  useContactsImport
+} from '@/hooks/useContactsImport';
 
 interface ContactInfo {
   id: string;
@@ -36,7 +41,11 @@ export function Contacts() {
     errors: string[];
   } | null>(null);
 
-  const { importCSV, importing, progress } = useContactsImport();
+  // CSV parsing and mapping state
+  const [parsedData, setParsedData] = useState<ParsedCSV | null>(null);
+
+  const { parseFile, importContacts, importing, progress } =
+    useContactsImport();
 
   const fetchContacts = useCallback(async () => {
     if (!isUnlocked) return;
@@ -104,7 +113,25 @@ export function Contacts() {
       const file = files[0];
       if (!file) return;
 
-      const result = await importCSV(file);
+      try {
+        const data = await parseFile(file);
+        if (data.headers.length === 0) {
+          setError('CSV file is empty or has no headers');
+          return;
+        }
+        setParsedData(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to parse CSV');
+      }
+    },
+    [isUnlocked, parseFile]
+  );
+
+  const handleImport = useCallback(
+    async (mapping: ColumnMapping) => {
+      if (!parsedData) return;
+
+      const result = await importContacts(parsedData, mapping);
 
       setImportResult({
         imported: result.imported,
@@ -112,11 +139,17 @@ export function Contacts() {
         errors: result.errors
       });
 
+      setParsedData(null);
+
       // Refresh contacts list
       await fetchContacts();
     },
-    [isUnlocked, importCSV, fetchContacts]
+    [parsedData, importContacts, fetchContacts]
   );
+
+  const handleCancelMapping = useCallback(() => {
+    setParsedData(null);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -125,7 +158,7 @@ export function Contacts() {
           <User className="h-8 w-8 text-muted-foreground" />
           <h1 className="font-bold text-2xl tracking-tight">Contacts</h1>
         </div>
-        {isUnlocked && (
+        {isUnlocked && !parsedData && (
           <Button
             variant="outline"
             size="sm"
@@ -155,13 +188,42 @@ export function Contacts() {
         </div>
       )}
 
-      {isUnlocked && (
+      {isUnlocked && parsedData && (
+        <div className="rounded-lg border p-4">
+          <div className="mb-4 flex items-center gap-2">
+            <Upload className="h-5 w-5 text-muted-foreground" />
+            <h2 className="font-semibold">Map CSV Columns</h2>
+          </div>
+          <ColumnMapper
+            data={parsedData}
+            onImport={handleImport}
+            onCancel={handleCancelMapping}
+            importing={importing}
+          />
+          {importing && (
+            <div className="mt-4">
+              <div className="mb-1 flex items-center gap-2 text-muted-foreground text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Importing... {progress}%
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isUnlocked && !parsedData && (
         <>
           {/* Import Section */}
           <div className="rounded-lg border p-4">
             <div className="mb-3 flex items-center gap-2">
               <Upload className="h-5 w-5 text-muted-foreground" />
-              <h2 className="font-semibold">Import from Google Contacts</h2>
+              <h2 className="font-semibold">Import CSV</h2>
             </div>
             <Dropzone
               onFilesSelected={handleFilesSelected}
@@ -169,20 +231,6 @@ export function Contacts() {
               multiple={false}
               disabled={importing}
             />
-            {importing && (
-              <div className="mt-3">
-                <div className="mb-1 flex items-center gap-2 text-muted-foreground text-sm">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Importing... {progress}%
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full bg-primary transition-all"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
-            )}
             {importResult && (
               <div className="mt-3 rounded-md bg-muted p-3 text-sm">
                 <p>
@@ -215,7 +263,7 @@ export function Contacts() {
           {/* Contacts List */}
           {!loading && contacts.length === 0 && hasFetched && (
             <div className="rounded-lg border p-8 text-center text-muted-foreground">
-              No contacts yet. Import a CSV from Google Contacts to get started.
+              No contacts yet. Import a CSV to get started.
             </div>
           )}
 
