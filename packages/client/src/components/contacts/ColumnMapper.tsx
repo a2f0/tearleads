@@ -28,26 +28,29 @@ const GOOGLE_CONTACTS_HEADER_MAP: Record<string, keyof ColumnMapping> = {
   'Phone 3 - Value': 'phone3Value'
 };
 
+// Initial empty column mapping - reusable for reset functionality
+const INITIAL_COLUMN_MAPPING: ColumnMapping = {
+  firstName: null,
+  lastName: null,
+  birthday: null,
+  email1Label: null,
+  email1Value: null,
+  email2Label: null,
+  email2Value: null,
+  phone1Label: null,
+  phone1Value: null,
+  phone2Label: null,
+  phone2Value: null,
+  phone3Label: null,
+  phone3Value: null
+};
+
 /**
  * Auto-detect and map CSV columns based on header names.
  * Supports Google Contacts CSV export format.
  */
 function autoMapColumns(headers: string[]): ColumnMapping {
-  const mapping: ColumnMapping = {
-    firstName: null,
-    lastName: null,
-    email1Label: null,
-    email1Value: null,
-    email2Label: null,
-    email2Value: null,
-    phone1Label: null,
-    phone1Value: null,
-    phone2Label: null,
-    phone2Value: null,
-    phone3Label: null,
-    phone3Value: null,
-    birthday: null
-  };
+  const mapping = { ...INITIAL_COLUMN_MAPPING };
 
   headers.forEach((header, index) => {
     const fieldKey = GOOGLE_CONTACTS_HEADER_MAP[header];
