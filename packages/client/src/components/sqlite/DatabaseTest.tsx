@@ -1,5 +1,5 @@
 /**
- * Database testing component for the Debug page.
+ * Database testing component for the SQLite page.
  * Provides UI for testing database operations across all platforms.
  */
 

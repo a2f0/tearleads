@@ -66,13 +66,13 @@ test.describe('Electron App', () => {
     await window.locator('nav').getByRole('link', { name: 'Tables' }).click();
 
     await expect(
-      window.getByText('Database is locked. Unlock it from the Debug page')
+      window.getByText('Database is locked. Unlock it from the SQLite page')
     ).toBeVisible({timeout: APP_LOAD_TIMEOUT});
   });
 
   test('should show tables list after database is unlocked', async () => {
-    // Setup database via Debug page (using sidebar navigation)
-    await window.locator('nav').getByRole('link', { name: 'Debug' }).click();
+    // Setup database via SQLite page (using sidebar navigation)
+    await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
     await expect(window.getByTestId('database-test')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
 
     // Reset and setup

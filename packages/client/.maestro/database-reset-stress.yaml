@@ -12,10 +12,10 @@ appId: com.tearleads.rapid
 # Load shared database helper functions
 - runFlow: helpers/db-helpers.yaml
 
-# Navigate to debug page
-- evalScript: document.querySelector('[data-testid="debug-link"]').click()
+# Navigate to SQLite page
+- evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
 
-# Wait for Debug page to load
+# Wait for SQLite page to load
 - evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
 
 # Reset database to ensure clean state
