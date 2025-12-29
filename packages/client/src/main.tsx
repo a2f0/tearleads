@@ -9,6 +9,7 @@ import { Chat } from './pages/Chat';
 import { Contacts } from './pages/Contacts';
 import { Debug } from './pages/Debug';
 import { Files } from './pages/Files';
+import { LocalStorage } from './pages/LocalStorage';
 import { Models } from './pages/Models';
 import { Opfs } from './pages/Opfs';
 import { Photos } from './pages/Photos';
@@ -39,6 +40,7 @@ if (rootElement) {
                   <Route path="tables" element={<Tables />} />
                   <Route path="tables/:tableName" element={<TableRows />} />
                   <Route path="opfs" element={<Opfs />} />
+                  <Route path="local-storage" element={<LocalStorage />} />
                 </Route>
               </Routes>
             </BrowserRouter>
