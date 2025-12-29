@@ -5,6 +5,9 @@ import { Link, Outlet } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { useAppVersion } from './hooks/useAppVersion';
 
+const navLinkClassName =
+  'inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground';
+
 function App() {
   const version = useAppVersion();
 
@@ -24,7 +27,7 @@ function App() {
           <div className="flex items-center gap-1 lg:hidden">
             <Link
               to="/contacts"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+              className={navLinkClassName}
               aria-label="Contacts"
               data-testid="contacts-link"
             >
@@ -32,7 +35,7 @@ function App() {
             </Link>
             <Link
               to="/tables"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+              className={navLinkClassName}
               aria-label="Tables"
               data-testid="tables-link"
             >
@@ -40,7 +43,7 @@ function App() {
             </Link>
             <Link
               to="/sqlite"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+              className={navLinkClassName}
               aria-label="SQLite"
               data-testid="sqlite-link"
             >
@@ -48,7 +51,7 @@ function App() {
             </Link>
             <Link
               to="/debug"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+              className={navLinkClassName}
               aria-label="Debug"
               data-testid="debug-link"
             >
@@ -56,7 +59,7 @@ function App() {
             </Link>
             <Link
               to="/settings"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+              className={navLinkClassName}
               aria-label="Settings"
               data-testid="settings-link"
             >
