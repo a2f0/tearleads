@@ -5,6 +5,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import App from './App';
 import { ErrorBoundary } from './components/ui/error-boundary';
 import { DatabaseProvider } from './db/hooks';
+import { Analytics } from './pages/Analytics';
 import { Chat } from './pages/Chat';
 import { Contacts } from './pages/Contacts';
 import { Debug } from './pages/Debug';
@@ -43,6 +44,7 @@ if (rootElement) {
                   <Route path="settings" element={<Settings />} />
                   <Route path="tables" element={<Tables />} />
                   <Route path="tables/:tableName" element={<TableRows />} />
+                  <Route path="analytics" element={<Analytics />} />
                   <Route path="opfs" element={<Opfs />} />
                   <Route path="local-storage" element={<LocalStorage />} />
                 </Route>
