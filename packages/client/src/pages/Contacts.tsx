@@ -89,8 +89,7 @@ export function Contacts() {
         const searchTerm = search?.trim();
         const searchPattern = searchTerm ? `%${searchTerm}%` : null;
 
-        const query = searchPattern
-          ? `SELECT
+        const baseQuery = `SELECT
               c.id,
               c.first_name,
               c.last_name,
@@ -100,30 +99,22 @@ export function Contacts() {
               cp.phone_number as primary_phone
              FROM contacts c
              LEFT JOIN contact_emails ce ON ce.contact_id = c.id AND ce.is_primary = 1
-             LEFT JOIN contact_phones cp ON cp.contact_id = c.id AND cp.is_primary = 1
-             WHERE c.deleted = 0
-               AND (c.first_name LIKE ? COLLATE NOCASE
+             LEFT JOIN contact_phones cp ON cp.contact_id = c.id AND cp.is_primary = 1`;
+
+        const whereClauses = ['c.deleted = 0'];
+        const params: string[] = [];
+
+        if (searchPattern) {
+          whereClauses.push(
+            `(c.first_name LIKE ? COLLATE NOCASE
                  OR c.last_name LIKE ? COLLATE NOCASE
                  OR ce.email LIKE ? COLLATE NOCASE
-                 OR cp.phone_number LIKE ?)
-             ORDER BY c.first_name ASC`
-          : `SELECT
-              c.id,
-              c.first_name,
-              c.last_name,
-              c.birthday,
-              c.created_at,
-              ce.email as primary_email,
-              cp.phone_number as primary_phone
-             FROM contacts c
-             LEFT JOIN contact_emails ce ON ce.contact_id = c.id AND ce.is_primary = 1
-             LEFT JOIN contact_phones cp ON cp.contact_id = c.id AND cp.is_primary = 1
-             WHERE c.deleted = 0
-             ORDER BY c.first_name ASC`;
+                 OR cp.phone_number LIKE ?)`
+          );
+          params.push(searchPattern, searchPattern, searchPattern, searchPattern);
+        }
 
-        const params = searchPattern
-          ? [searchPattern, searchPattern, searchPattern, searchPattern]
-          : [];
+        const query = `${baseQuery} WHERE ${whereClauses.join(' AND ')} ORDER BY c.first_name ASC`;
 
         const result = await adapter.execute(query, params);
 
@@ -152,19 +143,12 @@ export function Contacts() {
     [isUnlocked]
   );
 
-  // Initial fetch
+  // Fetch contacts on initial load and when search query changes
   useEffect(() => {
-    if (isUnlocked && !hasFetched && !loading) {
-      fetchContacts();
-    }
-  }, [isUnlocked, hasFetched, loading, fetchContacts]);
-
-  // Fetch when search changes
-  useEffect(() => {
-    if (isUnlocked && hasFetched) {
+    if (isUnlocked) {
       fetchContacts(debouncedSearch);
     }
-  }, [debouncedSearch, isUnlocked, hasFetched, fetchContacts]);
+  }, [isUnlocked, debouncedSearch, fetchContacts]);
 
   const handleFilesSelected = useCallback(
     async (files: File[]) => {
