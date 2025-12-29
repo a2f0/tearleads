@@ -236,26 +236,30 @@ export function useContactsImport() {
             updatedAt: now
           });
 
-          // Insert emails
-          for (const [i, email] of emails.entries()) {
-            await db.insert(contactEmails).values({
-              id: crypto.randomUUID(),
-              contactId,
-              email: email.value,
-              label: email.label,
-              isPrimary: i === 0
-            });
+          // Batch insert emails for better performance
+          if (emails.length > 0) {
+            await db.insert(contactEmails).values(
+              emails.map((email, i) => ({
+                id: crypto.randomUUID(),
+                contactId,
+                email: email.value,
+                label: email.label,
+                isPrimary: i === 0
+              }))
+            );
           }
 
-          // Insert phones
-          for (const [i, phone] of phones.entries()) {
-            await db.insert(contactPhones).values({
-              id: crypto.randomUUID(),
-              contactId,
-              phoneNumber: phone.value,
-              label: phone.label,
-              isPrimary: i === 0
-            });
+          // Batch insert phones for better performance
+          if (phones.length > 0) {
+            await db.insert(contactPhones).values(
+              phones.map((phone, i) => ({
+                id: crypto.randomUUID(),
+                contactId,
+                phoneNumber: phone.value,
+                label: phone.label,
+                isPrimary: i === 0
+              }))
+            );
           }
 
           await adapter.commitTransaction();
