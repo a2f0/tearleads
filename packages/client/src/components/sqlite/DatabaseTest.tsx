@@ -176,18 +176,13 @@ export function DatabaseTest() {
       const db = getDatabase();
       const testValue = `test-value-${Date.now()}`;
 
-      // Use Drizzle to upsert a test setting
-      await db
-        .insert(userSettings)
-        .values({
-          key: 'test_key',
-          value: testValue,
-          updatedAt: new Date()
-        })
-        .onConflictDoUpdate({
-          target: userSettings.key,
-          set: { value: testValue, updatedAt: new Date() }
-        });
+      // Delete existing and insert new (simulates INSERT OR REPLACE)
+      await db.delete(userSettings).where(eq(userSettings.key, 'test_key'));
+      await db.insert(userSettings).values({
+        key: 'test_key',
+        value: testValue,
+        updatedAt: new Date()
+      });
 
       setTestData(testValue);
       setTestResult({
