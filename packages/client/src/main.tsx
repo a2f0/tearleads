@@ -6,6 +6,7 @@ import App from './App';
 import { ErrorBoundary } from './components/ui/error-boundary';
 import { DatabaseProvider } from './db/hooks';
 import { Analytics } from './pages/Analytics';
+import { CacheStorage } from './pages/CacheStorage';
 import { Chat } from './pages/Chat';
 import { ContactDetail } from './pages/ContactDetail';
 import { Contacts } from './pages/Contacts';
@@ -48,6 +49,7 @@ if (rootElement) {
                   <Route path="tables/:tableName" element={<TableRows />} />
                   <Route path="analytics" element={<Analytics />} />
                   <Route path="opfs" element={<Opfs />} />
+                  <Route path="cache-storage" element={<CacheStorage />} />
                   <Route path="local-storage" element={<LocalStorage />} />
                 </Route>
               </Routes>
