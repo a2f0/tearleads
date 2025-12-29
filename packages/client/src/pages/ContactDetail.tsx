@@ -1,3 +1,4 @@
+import { and, asc, desc, eq, type InferSelectModel } from 'drizzle-orm';
 import {
   ArrowLeft,
   Cake,
@@ -10,31 +11,13 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getDatabaseAdapter } from '@/db';
+import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
+import { contactEmails, contactPhones, contacts } from '@/db/schema';
 
-interface ContactInfo {
-  id: string;
-  firstName: string;
-  lastName: string | null;
-  birthday: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface ContactEmail {
-  id: string;
-  email: string;
-  label: string | null;
-  isPrimary: boolean;
-}
-
-interface ContactPhone {
-  id: string;
-  phoneNumber: string;
-  label: string | null;
-  isPrimary: boolean;
-}
+type ContactInfo = InferSelectModel<typeof contacts>;
+type ContactEmail = InferSelectModel<typeof contactEmails>;
+type ContactPhone = InferSelectModel<typeof contactPhones>;
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString(undefined, {
@@ -62,72 +45,38 @@ export function ContactDetail() {
     setError(null);
 
     try {
-      const adapter = getDatabaseAdapter();
+      const db = getDatabase();
 
-      // Fetch contact info
-      const contactResult = await adapter.execute(
-        `SELECT id, first_name, last_name, birthday, created_at, updated_at
-         FROM contacts
-         WHERE id = ? AND deleted = 0`,
-        [id]
-      );
+      const [contactResult, emailsResult, phonesResult] = await Promise.all([
+        db
+          .select()
+          .from(contacts)
+          .where(and(eq(contacts.id, id), eq(contacts.deleted, false)))
+          .limit(1),
+        db
+          .select()
+          .from(contactEmails)
+          .where(eq(contactEmails.contactId, id))
+          .orderBy(desc(contactEmails.isPrimary), asc(contactEmails.email)),
+        db
+          .select()
+          .from(contactPhones)
+          .where(eq(contactPhones.contactId, id))
+          .orderBy(
+            desc(contactPhones.isPrimary),
+            asc(contactPhones.phoneNumber)
+          )
+      ]);
 
-      if (contactResult.rows.length === 0) {
+      const foundContact = contactResult[0];
+      if (!foundContact) {
         setError('Contact not found');
         return;
       }
 
-      const row = contactResult.rows[0] as Record<string, unknown>;
-      const contactInfo: ContactInfo = {
-        id: row['id'] as string,
-        firstName: row['first_name'] as string,
-        lastName: (row['last_name'] as string) || null,
-        birthday: (row['birthday'] as string) || null,
-        createdAt: new Date(row['created_at'] as number),
-        updatedAt: new Date(row['updated_at'] as number)
-      };
-
-      setContact(contactInfo);
-
-      // Fetch emails
-      const emailsResult = await adapter.execute(
-        `SELECT id, email, label, is_primary
-         FROM contact_emails
-         WHERE contact_id = ?
-         ORDER BY is_primary DESC, email ASC`,
-        [id]
-      );
-
-      const emailList = emailsResult.rows.map((r) => {
-        const row = r as Record<string, unknown>;
-        return {
-          id: row['id'] as string,
-          email: row['email'] as string,
-          label: (row['label'] as string) || null,
-          isPrimary: Boolean(row['is_primary'])
-        };
-      });
-      setEmails(emailList);
-
-      // Fetch phones
-      const phonesResult = await adapter.execute(
-        `SELECT id, phone_number, label, is_primary
-         FROM contact_phones
-         WHERE contact_id = ?
-         ORDER BY is_primary DESC, phone_number ASC`,
-        [id]
-      );
-
-      const phoneList = phonesResult.rows.map((r) => {
-        const row = r as Record<string, unknown>;
-        return {
-          id: row['id'] as string,
-          phoneNumber: row['phone_number'] as string,
-          label: (row['label'] as string) || null,
-          isPrimary: Boolean(row['is_primary'])
-        };
-      });
-      setPhones(phoneList);
+      setContact(foundContact);
+      setEmails(emailsResult);
+      setPhones(phonesResult);
     } catch (err) {
       console.error('Failed to fetch contact:', err);
       setError(err instanceof Error ? err.message : String(err));
