@@ -6,6 +6,7 @@ import App from './App';
 import { ErrorBoundary } from './components/ui/error-boundary';
 import { DatabaseProvider } from './db/hooks';
 import { Chat } from './pages/Chat';
+import { ContactDetail } from './pages/ContactDetail';
 import { Contacts } from './pages/Contacts';
 import { Debug } from './pages/Debug';
 import { Files } from './pages/Files';
@@ -32,6 +33,7 @@ if (rootElement) {
                 <Route path="/" element={<App />}>
                   <Route index element={<Files />} />
                   <Route path="contacts" element={<Contacts />} />
+                  <Route path="contacts/:id" element={<ContactDetail />} />
                   <Route path="photos" element={<Photos />} />
                   <Route path="music" element={<MusicPage />} />
                   <Route path="sqlite" element={<Sqlite />} />

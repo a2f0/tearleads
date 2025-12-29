@@ -8,6 +8,7 @@ import {
   User
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ColumnMapper } from '@/components/contacts/ColumnMapper';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
@@ -30,6 +31,7 @@ interface ContactInfo {
 }
 
 export function Contacts() {
+  const navigate = useNavigate();
   const { isUnlocked, isLoading } = useDatabaseContext();
   const [contacts, setContacts] = useState<ContactInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -270,9 +272,11 @@ export function Contacts() {
           {contacts.length > 0 && (
             <div className="space-y-2">
               {contacts.map((contact) => (
-                <div
+                <button
+                  type="button"
                   key={contact.id}
-                  className="flex items-center justify-between rounded-lg border p-4"
+                  className="flex w-full items-center justify-between rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
+                  onClick={() => navigate(`/contacts/${contact.id}`)}
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">
@@ -296,7 +300,7 @@ export function Contacts() {
                       )}
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
