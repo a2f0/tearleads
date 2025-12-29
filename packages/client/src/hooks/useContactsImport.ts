@@ -141,66 +141,41 @@ export function useContactsImport() {
             ? row[mapping.birthday]?.trim() || null
             : null;
 
-        // Extract emails with labels
-        const emails: { value: string; label: string | null }[] = [];
-        const email1Value =
-          mapping.email1Value !== null
-            ? row[mapping.email1Value]?.trim() || null
-            : null;
-        if (email1Value) {
-          const email1Label =
-            mapping.email1Label !== null
-              ? row[mapping.email1Label]?.trim() || null
-              : null;
-          emails.push({ value: email1Value, label: email1Label });
-        }
-        const email2Value =
-          mapping.email2Value !== null
-            ? row[mapping.email2Value]?.trim() || null
-            : null;
-        if (email2Value) {
-          const email2Label =
-            mapping.email2Label !== null
-              ? row[mapping.email2Label]?.trim() || null
-              : null;
-          emails.push({ value: email2Value, label: email2Label });
-        }
+        // Extract grouped values (emails/phones) with labels
+        const extractGroupedValues = (
+          groups: ReadonlyArray<{
+            valueKey: keyof ColumnMapping;
+            labelKey: keyof ColumnMapping;
+          }>
+        ) => {
+          const results: { value: string; label: string | null }[] = [];
+          for (const group of groups) {
+            const valueIndex = mapping[group.valueKey];
+            if (valueIndex !== null) {
+              const value = row[valueIndex]?.trim();
+              if (value) {
+                const labelIndex = mapping[group.labelKey];
+                const label =
+                  labelIndex !== null ? row[labelIndex]?.trim() || null : null;
+                results.push({ value, label });
+              }
+            }
+          }
+          return results;
+        };
 
-        // Extract phones with labels
-        const phones: { value: string; label: string | null }[] = [];
-        const phone1Value =
-          mapping.phone1Value !== null
-            ? row[mapping.phone1Value]?.trim() || null
-            : null;
-        if (phone1Value) {
-          const phone1Label =
-            mapping.phone1Label !== null
-              ? row[mapping.phone1Label]?.trim() || null
-              : null;
-          phones.push({ value: phone1Value, label: phone1Label });
-        }
-        const phone2Value =
-          mapping.phone2Value !== null
-            ? row[mapping.phone2Value]?.trim() || null
-            : null;
-        if (phone2Value) {
-          const phone2Label =
-            mapping.phone2Label !== null
-              ? row[mapping.phone2Label]?.trim() || null
-              : null;
-          phones.push({ value: phone2Value, label: phone2Label });
-        }
-        const phone3Value =
-          mapping.phone3Value !== null
-            ? row[mapping.phone3Value]?.trim() || null
-            : null;
-        if (phone3Value) {
-          const phone3Label =
-            mapping.phone3Label !== null
-              ? row[mapping.phone3Label]?.trim() || null
-              : null;
-          phones.push({ value: phone3Value, label: phone3Label });
-        }
+        const emailGroups = [
+          { valueKey: 'email1Value', labelKey: 'email1Label' },
+          { valueKey: 'email2Value', labelKey: 'email2Label' }
+        ] as const;
+        const emails = extractGroupedValues(emailGroups);
+
+        const phoneGroups = [
+          { valueKey: 'phone1Value', labelKey: 'phone1Label' },
+          { valueKey: 'phone2Value', labelKey: 'phone2Label' },
+          { valueKey: 'phone3Value', labelKey: 'phone3Label' }
+        ] as const;
+        const phones = extractGroupedValues(phoneGroups);
 
         try {
           await adapter.beginTransaction();
