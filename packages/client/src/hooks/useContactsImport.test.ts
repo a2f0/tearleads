@@ -130,11 +130,11 @@ USA",555-0100`;
 
       expect(result.headers).toEqual(['Name', 'Address', 'Phone']);
       expect(result.rows).toHaveLength(1);
-      expect(result.rows[0]![0]).toBe('Alice Smith');
-      expect(result.rows[0]![1]).toBe(
+      expect(result.rows[0]?.[0]).toBe('Alice Smith');
+      expect(result.rows[0]?.[1]).toBe(
         '123 Oak Street\nApartment 4B\nSpringfield, IL 62701\nUSA'
       );
-      expect(result.rows[0]![2]).toBe('555-0100');
+      expect(result.rows[0]?.[2]).toBe('555-0100');
     });
 
     it('handles multiple rows with multiline fields', () => {
@@ -149,9 +149,9 @@ note"`;
       const result = parseCSV(csv);
 
       expect(result.rows).toHaveLength(3);
-      expect(result.rows[0]![1]).toBe('Line 1\nLine 2');
-      expect(result.rows[1]![1]).toBe('Single line');
-      expect(result.rows[2]![1]).toBe('Another\nmultiline\nnote');
+      expect(result.rows[0]?.[1]).toBe('Line 1\nLine 2');
+      expect(result.rows[1]?.[1]).toBe('Single line');
+      expect(result.rows[2]?.[1]).toBe('Another\nmultiline\nnote');
     });
 
     it('handles multiline fields with CRLF line endings', () => {
@@ -161,7 +161,7 @@ note"`;
       const result = parseCSV(csv);
 
       expect(result.rows).toHaveLength(1);
-      expect(result.rows[0]![1]).toBe('123 Street\r\nCity, ST 12345\r\nUSA');
+      expect(result.rows[0]?.[1]).toBe('123 Street\r\nCity, ST 12345\r\nUSA');
     });
   });
 
@@ -217,16 +217,16 @@ Alice,,Johnson,Acme Corp,1990-05-15,Work,alice@acme.com,,,Mobile,+1 555-123-4567
       expect(result.headers).toContain('Phone 1 - Value');
       expect(result.rows).toHaveLength(1);
 
-      const row = result.rows[0]!;
+      const row = result.rows[0];
       const firstNameIdx = result.headers.indexOf('First Name');
       const lastNameIdx = result.headers.indexOf('Last Name');
       const emailValueIdx = result.headers.indexOf('E-mail 1 - Value');
       const phoneValueIdx = result.headers.indexOf('Phone 1 - Value');
 
-      expect(row[firstNameIdx]).toBe('Alice');
-      expect(row[lastNameIdx]).toBe('Johnson');
-      expect(row[emailValueIdx]).toBe('alice@acme.com');
-      expect(row[phoneValueIdx]).toBe('+1 555-123-4567');
+      expect(row?.[firstNameIdx]).toBe('Alice');
+      expect(row?.[lastNameIdx]).toBe('Johnson');
+      expect(row?.[emailValueIdx]).toBe('alice@acme.com');
+      expect(row?.[phoneValueIdx]).toBe('+1 555-123-4567');
     });
 
     it('parses Google Contacts CSV with multiline address', () => {
@@ -240,9 +240,9 @@ USA"`;
 
       expect(result.rows).toHaveLength(1);
 
-      const row = result.rows[0]!;
+      const row = result.rows[0];
       const addressIdx = result.headers.indexOf('Address 1 - Formatted');
-      const address = row[addressIdx];
+      const address = row?.[addressIdx];
 
       expect(address).toBe(
         '456 Elm Avenue\nSuite 200\nMetropolis, NY 10001\nUSA'
@@ -261,9 +261,9 @@ Eve,,Franklin,Startup Inc,,Work,eve@startup.co,,,Mobile,+1 555-666-7777,,,`;
 
       expect(result.rows).toHaveLength(3);
 
-      const carolRow = result.rows[0]!;
-      const davidRow = result.rows[1]!;
-      const eveRow = result.rows[2]!;
+      const carolRow = result.rows[0];
+      const davidRow = result.rows[1];
+      const eveRow = result.rows[2];
 
       // Check Carol has two emails
       const email1LabelIdx = result.headers.indexOf('E-mail 1 - Label');
@@ -271,20 +271,20 @@ Eve,,Franklin,Startup Inc,,Work,eve@startup.co,,,Mobile,+1 555-666-7777,,,`;
       const email2LabelIdx = result.headers.indexOf('E-mail 2 - Label');
       const email2ValueIdx = result.headers.indexOf('E-mail 2 - Value');
 
-      expect(carolRow[email1LabelIdx]).toBe('Work');
-      expect(carolRow[email1ValueIdx]).toBe('carol@techsol.io');
-      expect(carolRow[email2LabelIdx]).toBe('Personal');
-      expect(carolRow[email2ValueIdx]).toBe('carol.d@gmail.com');
+      expect(carolRow?.[email1LabelIdx]).toBe('Work');
+      expect(carolRow?.[email1ValueIdx]).toBe('carol@techsol.io');
+      expect(carolRow?.[email2LabelIdx]).toBe('Personal');
+      expect(carolRow?.[email2ValueIdx]).toBe('carol.d@gmail.com');
 
       // Check David has multiline address
       const addressIdx = result.headers.indexOf('Address 1 - Formatted');
-      expect(davidRow[addressIdx]).toBe(
+      expect(davidRow?.[addressIdx]).toBe(
         '789 Pine Road\nSmalltown, CA 90210\nUSA'
       );
 
       // Check Eve
       const firstNameIdx = result.headers.indexOf('First Name');
-      expect(eveRow[firstNameIdx]).toBe('Eve');
+      expect(eveRow?.[firstNameIdx]).toBe('Eve');
     });
 
     it('handles Google Contacts CSV with special characters in names', () => {
@@ -297,8 +297,8 @@ Eve,,Franklin,Startup Inc,,Work,eve@startup.co,,,Mobile,+1 555-666-7777,,,`;
       expect(result.rows).toHaveLength(2);
 
       const firstNameIdx = result.headers.indexOf('First Name');
-      expect(result.rows[0]![firstNameIdx]).toBe("O'Brien");
-      expect(result.rows[1]![firstNameIdx]).toBe('Smith-Jones');
+      expect(result.rows[0]?.[firstNameIdx]).toBe("O'Brien");
+      expect(result.rows[1]?.[firstNameIdx]).toBe('Smith-Jones');
     });
 
     it('handles Google Contacts CSV with organization names containing commas', () => {
@@ -308,7 +308,7 @@ Grace,,Hopper,"Navy, United States",,,,,,,+1 555-222-3333,,,`;
       const result = parseCSV(csv);
 
       const orgIdx = result.headers.indexOf('Organization Name');
-      expect(result.rows[0]![orgIdx]).toBe('Navy, United States');
+      expect(result.rows[0]?.[orgIdx]).toBe('Navy, United States');
     });
 
     it('handles Google Contacts CSV with empty optional fields', () => {
@@ -319,16 +319,16 @@ Henry,,,,,,,,,Mobile,+1 555-444-5555,,,`;
 
       expect(result.rows).toHaveLength(1);
 
-      const row = result.rows[0]!;
+      const row = result.rows[0];
       const firstNameIdx = result.headers.indexOf('First Name');
       const middleNameIdx = result.headers.indexOf('Middle Name');
       const lastNameIdx = result.headers.indexOf('Last Name');
       const orgIdx = result.headers.indexOf('Organization Name');
 
-      expect(row[firstNameIdx]).toBe('Henry');
-      expect(row[middleNameIdx]).toBe('');
-      expect(row[lastNameIdx]).toBe('');
-      expect(row[orgIdx]).toBe('');
+      expect(row?.[firstNameIdx]).toBe('Henry');
+      expect(row?.[middleNameIdx]).toBe('');
+      expect(row?.[lastNameIdx]).toBe('');
+      expect(row?.[orgIdx]).toBe('');
     });
   });
 });
