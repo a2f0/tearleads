@@ -3,13 +3,11 @@
  * Provides UI for testing database operations across all platforms.
  */
 
-import { eq } from 'drizzle-orm';
 import { Check, Copy, Eye, EyeOff } from 'lucide-react';
 import { type ChangeEvent, useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { getDatabase } from '@/db';
+import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
-import { userSettings } from '@/db/schema';
 import { detectPlatform } from '@/lib/utils';
 
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -173,16 +171,14 @@ export function DatabaseTest() {
 
     setTestResult({ status: 'running', message: 'Writing test data...' });
     try {
-      const db = getDatabase();
+      const adapter = getDatabaseAdapter();
       const testValue = `test-value-${Date.now()}`;
 
-      // Delete existing and insert new (simulates INSERT OR REPLACE)
-      await db.delete(userSettings).where(eq(userSettings.key, 'test_key'));
-      await db.insert(userSettings).values({
-        key: 'test_key',
-        value: testValue,
-        updatedAt: new Date()
-      });
+      // Use raw SQL for reliable INSERT OR REPLACE
+      await adapter.execute(
+        `INSERT OR REPLACE INTO user_settings (key, value, updated_at) VALUES (?, ?, ?)`,
+        ['test_key', testValue, Date.now()]
+      );
 
       setTestData(testValue);
       setTestResult({
@@ -205,15 +201,14 @@ export function DatabaseTest() {
 
     setTestResult({ status: 'running', message: 'Reading test data...' });
     try {
-      const db = getDatabase();
-      const result = await db
-        .select({ value: userSettings.value })
-        .from(userSettings)
-        .where(eq(userSettings.key, 'test_key'))
-        .limit(1);
+      const adapter = getDatabaseAdapter();
+      const result = await adapter.execute(
+        `SELECT value FROM user_settings WHERE key = ?`,
+        ['test_key']
+      );
 
-      if (result.length > 0 && result[0]?.value) {
-        const value = result[0].value;
+      if (result.rows.length > 0) {
+        const value = (result.rows[0] as { value: string }).value;
         setTestData(value);
         setTestResult({
           status: 'success',
