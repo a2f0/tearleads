@@ -131,10 +131,9 @@ USA",555-0100`;
       expect(result.headers).toEqual(['Name', 'Address', 'Phone']);
       expect(result.rows).toHaveLength(1);
       expect(result.rows[0]![0]).toBe('Alice Smith');
-      expect(result.rows[0]![1]).toContain('123 Oak Street');
-      expect(result.rows[0]![1]).toContain('Apartment 4B');
-      expect(result.rows[0]![1]).toContain('Springfield, IL 62701');
-      expect(result.rows[0]![1]).toContain('USA');
+      expect(result.rows[0]![1]).toBe(
+        '123 Oak Street\nApartment 4B\nSpringfield, IL 62701\nUSA'
+      );
       expect(result.rows[0]![2]).toBe('555-0100');
     });
 
@@ -150,12 +149,9 @@ note"`;
       const result = parseCSV(csv);
 
       expect(result.rows).toHaveLength(3);
-      expect(result.rows[0]![1]).toContain('Line 1');
-      expect(result.rows[0]![1]).toContain('Line 2');
+      expect(result.rows[0]![1]).toBe('Line 1\nLine 2');
       expect(result.rows[1]![1]).toBe('Single line');
-      expect(result.rows[2]![1]).toContain('Another');
-      expect(result.rows[2]![1]).toContain('multiline');
-      expect(result.rows[2]![1]).toContain('note');
+      expect(result.rows[2]![1]).toBe('Another\nmultiline\nnote');
     });
 
     it('handles multiline fields with CRLF line endings', () => {
@@ -165,8 +161,7 @@ note"`;
       const result = parseCSV(csv);
 
       expect(result.rows).toHaveLength(1);
-      expect(result.rows[0]![1]).toContain('123 Street');
-      expect(result.rows[0]![1]).toContain('City, ST 12345');
+      expect(result.rows[0]![1]).toBe('123 Street\r\nCity, ST 12345\r\nUSA');
     });
   });
 
