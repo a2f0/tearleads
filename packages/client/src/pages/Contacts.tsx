@@ -4,10 +4,12 @@ import {
   Mail,
   Phone,
   RefreshCw,
+  Search,
   Upload,
-  User
+  User,
+  X
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ColumnMapper } from '@/components/contacts/ColumnMapper';
 import { Button } from '@/components/ui/button';
@@ -37,11 +39,30 @@ export function Contacts() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [importResult, setImportResult] = useState<{
     imported: number;
     skipped: number;
     errors: string[];
   } | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Debounce search query
+  useEffect(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [searchQuery]);
 
   // CSV parsing and mapping state
   const [parsedData, setParsedData] = useState<ParsedCSV | null>(null);
@@ -49,61 +70,92 @@ export function Contacts() {
   const { parseFile, importContacts, importing, progress } =
     useContactsImport();
 
-  const fetchContacts = useCallback(async () => {
-    if (!isUnlocked) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const adapter = getDatabaseAdapter();
-
-      // Fetch contacts with their primary email and phone using LEFT JOINs
-      const result = await adapter.execute(
-        `SELECT
-          c.id,
-          c.first_name,
-          c.last_name,
-          c.birthday,
-          c.created_at,
-          ce.email as primary_email,
-          cp.phone_number as primary_phone
-         FROM contacts c
-         LEFT JOIN contact_emails ce ON ce.contact_id = c.id AND ce.is_primary = 1
-         LEFT JOIN contact_phones cp ON cp.contact_id = c.id AND cp.is_primary = 1
-         WHERE c.deleted = 0
-         ORDER BY c.first_name ASC`,
-        []
-      );
-
-      const contactList = result.rows.map((row) => {
-        const r = row as Record<string, unknown>;
-        return {
-          id: r['id'] as string,
-          firstName: r['first_name'] as string,
-          lastName: (r['last_name'] as string) || null,
-          birthday: (r['birthday'] as string) || null,
-          primaryEmail: (r['primary_email'] as string) || null,
-          primaryPhone: (r['primary_phone'] as string) || null,
-          createdAt: new Date(r['created_at'] as number)
-        };
-      });
-
-      setContacts(contactList);
-      setHasFetched(true);
-    } catch (err) {
-      console.error('Failed to fetch contacts:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [isUnlocked]);
-
+  // Focus search input when database is unlocked
   useEffect(() => {
-    if (isUnlocked && !hasFetched && !loading) {
-      fetchContacts();
+    if (isUnlocked && !parsedData) {
+      searchInputRef.current?.focus();
     }
-  }, [isUnlocked, hasFetched, loading, fetchContacts]);
+  }, [isUnlocked, parsedData]);
+
+  const fetchContacts = useCallback(
+    async (search?: string) => {
+      if (!isUnlocked) return;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const adapter = getDatabaseAdapter();
+
+        // Build query with optional search
+        const searchTerm = search?.trim();
+        const searchPattern = searchTerm ? `%${searchTerm}%` : null;
+
+        const baseQuery = `SELECT
+              c.id,
+              c.first_name,
+              c.last_name,
+              c.birthday,
+              c.created_at,
+              ce.email as primary_email,
+              cp.phone_number as primary_phone
+             FROM contacts c
+             LEFT JOIN contact_emails ce ON ce.contact_id = c.id AND ce.is_primary = 1
+             LEFT JOIN contact_phones cp ON cp.contact_id = c.id AND cp.is_primary = 1`;
+
+        const whereClauses = ['c.deleted = 0'];
+        const params: string[] = [];
+
+        if (searchPattern) {
+          whereClauses.push(
+            `(c.first_name LIKE ? COLLATE NOCASE
+                 OR c.last_name LIKE ? COLLATE NOCASE
+                 OR ce.email LIKE ? COLLATE NOCASE
+                 OR cp.phone_number LIKE ?)`
+          );
+          params.push(
+            searchPattern,
+            searchPattern,
+            searchPattern,
+            searchPattern
+          );
+        }
+
+        const query = `${baseQuery} WHERE ${whereClauses.join(' AND ')} ORDER BY c.first_name ASC`;
+
+        const result = await adapter.execute(query, params);
+
+        const contactList = result.rows.map((row) => {
+          const r = row as Record<string, unknown>;
+          return {
+            id: r['id'] as string,
+            firstName: r['first_name'] as string,
+            lastName: (r['last_name'] as string) || null,
+            birthday: (r['birthday'] as string) || null,
+            primaryEmail: (r['primary_email'] as string) || null,
+            primaryPhone: (r['primary_phone'] as string) || null,
+            createdAt: new Date(r['created_at'] as number)
+          };
+        });
+
+        setContacts(contactList);
+        setHasFetched(true);
+      } catch (err) {
+        console.error('Failed to fetch contacts:', err);
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [isUnlocked]
+  );
+
+  // Fetch contacts on initial load and when search query changes
+  useEffect(() => {
+    if (isUnlocked) {
+      fetchContacts(debouncedSearch);
+    }
+  }, [isUnlocked, debouncedSearch, fetchContacts]);
 
   const handleFilesSelected = useCallback(
     async (files: File[]) => {
@@ -155,23 +207,45 @@ export function Contacts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <User className="h-8 w-8 text-muted-foreground" />
           <h1 className="font-bold text-2xl tracking-tight">Contacts</h1>
         </div>
         {isUnlocked && !parsedData && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchContacts}
-            disabled={loading}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-            />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search contacts..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 w-48 rounded-md border bg-background py-2 pr-8 pl-9 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchContacts(debouncedSearch)}
+              disabled={loading}
+            >
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+              />
+              Refresh
+            </Button>
+          </div>
         )}
       </div>
 
@@ -263,9 +337,15 @@ export function Contacts() {
           )}
 
           {/* Contacts List */}
-          {!loading && contacts.length === 0 && hasFetched && (
+          {!loading && contacts.length === 0 && hasFetched && !searchQuery && (
             <div className="rounded-lg border p-8 text-center text-muted-foreground">
               No contacts yet. Import a CSV to get started.
+            </div>
+          )}
+
+          {!loading && contacts.length === 0 && hasFetched && searchQuery && (
+            <div className="rounded-lg border p-8 text-center text-muted-foreground">
+              No contacts found matching "{searchQuery}"
             </div>
           )}
 
