@@ -180,10 +180,14 @@ export function TableRows() {
       const adapter = getDatabaseAdapter();
       await adapter.execute(`DELETE FROM "${tableName}"`, []);
       // Also reset the autoincrement counter to fully emulate TRUNCATE.
-      // This will silently do nothing if the table doesn't use AUTOINCREMENT.
-      await adapter.execute(`DELETE FROM sqlite_sequence WHERE name = ?`, [
-        tableName
-      ]);
+      // sqlite_sequence only exists if any table uses AUTOINCREMENT.
+      try {
+        await adapter.execute(`DELETE FROM sqlite_sequence WHERE name = ?`, [
+          tableName
+        ]);
+      } catch {
+        // Ignore error if sqlite_sequence doesn't exist
+      }
       setConfirmTruncate(false);
       await fetchTableData();
     } catch (err) {
