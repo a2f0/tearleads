@@ -13,6 +13,10 @@ import { Link, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
+import { cn } from '@/lib/utils';
+
+const MIN_COLUMN_WIDTH = 50;
+const KEYBOARD_RESIZE_STEP = 10;
 
 interface ColumnInfo {
   name: string;
@@ -161,10 +165,30 @@ export function TableRows() {
   const handleResizeStart = useCallback(
     (column: string, e: React.MouseEvent) => {
       e.preventDefault();
-      const startWidth = columnWidths[column] || 150;
+      const thElement = (e.currentTarget as HTMLElement).parentElement;
+      if (!thElement) return;
+      const startWidth = thElement.getBoundingClientRect().width;
       setResizing({ column, startX: e.clientX, startWidth });
     },
-    [columnWidths]
+    []
+  );
+
+  const handleKeyboardResize = useCallback(
+    (column: string, e: React.KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const delta =
+          e.key === 'ArrowRight' ? KEYBOARD_RESIZE_STEP : -KEYBOARD_RESIZE_STEP;
+        setColumnWidths((prev) => {
+          const currentWidth = prev[column] || 150;
+          return {
+            ...prev,
+            [column]: Math.max(MIN_COLUMN_WIDTH, currentWidth + delta)
+          };
+        });
+      }
+    },
+    []
   );
 
   // Handle resize mouse move and mouse up at document level
@@ -173,7 +197,7 @@ export function TableRows() {
 
     const handleMouseMove = (e: MouseEvent) => {
       const delta = e.clientX - resizing.startX;
-      const newWidth = Math.max(50, resizing.startWidth + delta);
+      const newWidth = Math.max(MIN_COLUMN_WIDTH, resizing.startWidth + delta);
       setColumnWidths((prev) => ({
         ...prev,
         [resizing.column]: newWidth
@@ -417,13 +441,20 @@ export function TableRows() {
                             <ArrowUpDown className="h-3 w-3 opacity-50" />
                           )}
                         </button>
-                        {/* Resize handle - mouse-only interaction for column resizing */}
-                        {/* biome-ignore lint/a11y/noStaticElementInteractions: resize handle is mouse-only */}
+                        {/* Resize handle */}
+                        {/* biome-ignore lint/a11y/useSemanticElements: vertical separator for column resize, hr is not appropriate */}
                         <div
-                          className={`absolute top-0 right-0 h-full w-1 cursor-col-resize bg-border opacity-0 transition-opacity hover:opacity-100 group-hover:opacity-50 ${
-                            resizing?.column === col.name ? 'opacity-100' : ''
-                          }`}
+                          role="separator"
+                          aria-orientation="vertical"
+                          aria-valuenow={columnWidths[col.name] || 150}
+                          aria-label={`Resize ${col.name} column`}
+                          tabIndex={0}
+                          className={cn(
+                            'absolute top-0 right-0 h-full w-1 cursor-col-resize bg-border opacity-0 transition-opacity hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary group-hover:opacity-50',
+                            resizing?.column === col.name && 'opacity-100'
+                          )}
                           onMouseDown={(e) => handleResizeStart(col.name, e)}
+                          onKeyDown={(e) => handleKeyboardResize(col.name, e)}
                         />
                       </th>
                     ))}
