@@ -17,9 +17,9 @@ const waitForSuccess = (page: Page) =>
     { timeout: DB_OPERATION_TIMEOUT }
   );
 
-// Helper to setup database via debug page
+// Helper to setup database via SQLite page
 async function setupDatabase(page: Page) {
-  await page.goto('/debug');
+  await page.goto('/sqlite');
   await expect(page.getByTestId('database-test')).toBeVisible();
 
   // Reset first
@@ -154,8 +154,8 @@ test.describe('Backup & Restore (Web)', () => {
 
   test.describe('Full backup/restore cycle', () => {
     test('should export database and download file', async ({ page }) => {
-      // Go to debug page first (beforeEach sets up db, but page reload locks it)
-      await page.goto('/debug');
+      // Go to SQLite page first (beforeEach sets up db, but page reload locks it)
+      await page.goto('/sqlite');
       await expect(page.getByTestId('db-status')).toHaveText('Locked', {
         timeout: DB_OPERATION_TIMEOUT
       });
@@ -196,8 +196,8 @@ test.describe('Backup & Restore (Web)', () => {
     // TODO: Web adapter import has issues with encrypted databases
     // See: https://github.com/a2f0/rapid/issues/137
     test.skip('should restore from backup file', async ({ page }) => {
-      // Navigate to debug and unlock (page reload loses in-memory key)
-      await page.goto('/debug');
+      // Navigate to SQLite and unlock (page reload loses in-memory key)
+      await page.goto('/sqlite');
       // Database is locked after page reload, unlock it
       await expect(page.getByTestId('db-status')).toHaveText('Locked', {
         timeout: DB_OPERATION_TIMEOUT
@@ -227,8 +227,8 @@ test.describe('Backup & Restore (Web)', () => {
       await download.saveAs(backupPath);
 
       // Reset the database using client-side navigation
-      await navigateTo(page, 'Debug');
-      await expect(page).toHaveURL('/debug');
+      await navigateTo(page, 'SQLite');
+      await expect(page).toHaveURL('/sqlite');
       await page.getByTestId('db-reset-button').click();
       await waitForSuccess(page);
       await expect(page.getByTestId('db-status')).toHaveText('Not Set Up');
@@ -252,10 +252,10 @@ test.describe('Backup & Restore (Web)', () => {
       });
       await page.getByTestId('backup-restore-confirm').click();
 
-      // After restore, navigate to debug page to check status
-      // (db-status element is on the debug page, not settings)
-      await navigateTo(page, 'Debug');
-      await expect(page).toHaveURL('/debug');
+      // After restore, navigate to SQLite page to check status
+      // (db-status element is on the SQLite page, not settings)
+      await navigateTo(page, 'SQLite');
+      await expect(page).toHaveURL('/sqlite');
 
       // After restore, we should be locked out
       await expect(page.getByTestId('db-status')).toHaveText('Locked', {
@@ -270,8 +270,8 @@ test.describe('Backup & Restore (Web)', () => {
       });
 
       // Verify the data was restored using client-side navigation
-      await navigateTo(page, 'Debug');
-      await expect(page).toHaveURL('/debug');
+      await navigateTo(page, 'SQLite');
+      await expect(page).toHaveURL('/sqlite');
       await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
         timeout: DB_OPERATION_TIMEOUT
       });
