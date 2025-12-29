@@ -621,10 +621,15 @@ test.describe('Tables page', () => {
 
     // Should show column headers (from files table schema)
     // Note: id column is hidden by default
-    await expect(page.getByRole('columnheader', { name: /name/i })).toBeVisible({
+    // Use exact: true to avoid matching "Resize" text in column headers
+    await expect(
+      page.getByRole('columnheader', { name: /^name\s/i })
+    ).toBeVisible({
       timeout: 10000
     });
-    await expect(page.getByRole('columnheader', { name: /size/i })).toBeVisible();
+    await expect(
+      page.getByRole('columnheader', { name: /^size\s/i })
+    ).toBeVisible();
 
     // Should show row count (confirms data loaded)
     await expect(page.getByText(/Showing 1 row/)).toBeVisible({ timeout: 10000 });
