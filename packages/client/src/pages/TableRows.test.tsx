@@ -304,4 +304,52 @@ describe('TableRows', () => {
       expect(sortButton).toHaveTextContent('PK');
     });
   });
+
+  describe('truncate table', () => {
+    it('shows Truncate button initially', async () => {
+      renderTableRows();
+
+      await waitFor(() => {
+        const truncateButton = screen.getByTestId('truncate-button');
+        expect(truncateButton).toBeInTheDocument();
+        expect(truncateButton).toHaveTextContent('Truncate');
+      });
+    });
+
+    it('shows Confirm on first click and executes DELETE on second click', async () => {
+      const user = userEvent.setup();
+      renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('truncate-button')).toBeInTheDocument();
+      });
+
+      const truncateButton = screen.getByTestId('truncate-button');
+
+      // First click - enter confirm mode
+      await user.click(truncateButton);
+      expect(truncateButton).toHaveTextContent('Confirm');
+
+      // Second click - execute truncate
+      await user.click(truncateButton);
+
+      await waitFor(() => {
+        // Should have called DELETE FROM
+        expect(mockExecute).toHaveBeenCalledWith(
+          'DELETE FROM "test_table"',
+          []
+        );
+        // Should have reset the sequence
+        expect(mockExecute).toHaveBeenCalledWith(
+          'DELETE FROM sqlite_sequence WHERE name = ?',
+          ['test_table']
+        );
+      });
+
+      // Should reset button text after successful truncate
+      await waitFor(() => {
+        expect(truncateButton).toHaveTextContent('Truncate');
+      });
+    });
+  });
 });
