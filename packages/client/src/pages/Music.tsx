@@ -136,21 +136,10 @@ export function MusicPage() {
 
       try {
         for (const file of files) {
-          // Validate file type - check if it starts with audio/
-          if (!file.type.startsWith('audio/')) {
+          // Validate that the file type is one of the supported audio MIME types
+          if (!AUDIO_MIME_TYPES.includes(file.type)) {
             throw new Error(
-              `"${file.name}" is not a valid audio file. Please select an audio file (MP3, WAV, OGG, FLAC, etc.)`
-            );
-          }
-
-          // Additional validation against known audio MIME types
-          if (
-            !AUDIO_MIME_TYPES.some(
-              (type) => file.type === type || file.type.startsWith('audio/')
-            )
-          ) {
-            throw new Error(
-              `"${file.name}" has an unsupported audio format. Supported formats: MP3, WAV, OGG, FLAC, AAC, M4A, WebM.`
+              `"${file.name}" has an unsupported audio format. Supported formats: MP3, WAV, OGG, FLAC, AAC, M4A, WebM, AIFF.`
             );
           }
 
