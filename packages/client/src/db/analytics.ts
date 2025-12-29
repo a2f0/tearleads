@@ -124,11 +124,21 @@ export async function getEvents(
     .orderBy(desc(analyticsEvents.timestamp))
     .limit(limit);
 
-  if (conditions.length > 0) {
-    return query.where(and(...conditions));
-  }
+  const results =
+    conditions.length > 0 ? await query.where(and(...conditions)) : await query;
 
-  return query;
+  // Explicitly transform the raw data to ensure proper types
+  // sqlite-proxy may not apply schema transformations automatically
+  return results.map((row) => ({
+    id: String(row.id ?? ''),
+    eventName: String(row.eventName ?? ''),
+    durationMs: Number(row.durationMs) || 0,
+    success: Boolean(row.success),
+    timestamp:
+      row.timestamp instanceof Date
+        ? row.timestamp
+        : new Date(Number(row.timestamp) || 0)
+  }));
 }
 
 /**
