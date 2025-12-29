@@ -126,3 +126,19 @@ export const contactEmails = sqliteTable(
     index('contact_emails_email_idx').on(table.email)
   ]
 );
+
+/**
+ * Analytics events table for tracking database operations.
+ * Used for time series analysis of operation durations.
+ */
+export const analyticsEvents = sqliteTable(
+  'analytics_events',
+  {
+    id: text('id').primaryKey(),
+    eventName: text('event_name').notNull(),
+    durationMs: integer('duration_ms').notNull(),
+    success: integer('success', { mode: 'boolean' }).notNull(),
+    timestamp: integer('timestamp', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [index('analytics_events_timestamp_idx').on(table.timestamp)]
+);

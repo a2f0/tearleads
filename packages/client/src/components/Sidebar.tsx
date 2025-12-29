@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   Bot,
   Bug,
   Database,
@@ -20,6 +21,7 @@ export const navItems = [
   { path: '/photos', icon: ImageIcon, label: 'Photos' },
   { path: '/music', icon: Music, label: 'Music' },
   { path: '/tables', icon: Table2, label: 'Tables' },
+  { path: '/analytics', icon: BarChart3, label: 'Analytics' },
   { path: '/sqlite', icon: Database, label: 'SQLite' },
   { path: '/debug', icon: Bug, label: 'Debug' },
   { path: '/opfs', icon: HardDrive, label: 'OPFS' },
