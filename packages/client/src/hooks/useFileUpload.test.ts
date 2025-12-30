@@ -24,6 +24,17 @@ vi.mock('@/lib/file-utils', () => ({
   computeContentHash: vi.fn()
 }));
 
+// Mock thumbnail
+vi.mock('@/lib/thumbnail', () => ({
+  generateThumbnail: vi.fn(),
+  isThumbnailSupported: vi.fn()
+}));
+
+// Mock analytics
+vi.mock('@/db/analytics', () => ({
+  logEvent: vi.fn()
+}));
+
 // Mock OPFS storage
 vi.mock('@/storage/opfs', () => ({
   getFileStorage: vi.fn(),
@@ -33,8 +44,10 @@ vi.mock('@/storage/opfs', () => ({
 
 import { fileTypeFromBuffer } from 'file-type';
 import { getDatabase } from '@/db';
+import { logEvent } from '@/db/analytics';
 import { getKeyManager } from '@/db/crypto';
 import { computeContentHash, readFileAsUint8Array } from '@/lib/file-utils';
+import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
 import { getFileStorage, isFileStorageInitialized } from '@/storage/opfs';
 
 describe('useFileUpload', () => {
@@ -87,6 +100,9 @@ describe('useFileUpload', () => {
     );
     vi.mocked(computeContentHash).mockResolvedValue('mock-hash');
     vi.mocked(mockStorage.store).mockResolvedValue('storage/path');
+    vi.mocked(isThumbnailSupported).mockReturnValue(false);
+    vi.mocked(generateThumbnail).mockResolvedValue(new Uint8Array([1, 2, 3]));
+    vi.mocked(logEvent).mockResolvedValue(undefined);
 
     // Mock crypto.randomUUID
     vi.stubGlobal('crypto', {
@@ -224,11 +240,33 @@ describe('useFileUpload', () => {
   });
 
   describe('progress callback', () => {
-    it('calls progress callback at expected stages', async () => {
+    it('calls progress callback at expected stages for non-image files', async () => {
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+        ext: 'pdf',
+        mime: 'application/pdf'
+      });
+      vi.mocked(isThumbnailSupported).mockReturnValue(false);
+
+      const onProgress = vi.fn();
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['test'], 'test.pdf', { type: 'application/pdf' });
+
+      await result.current.uploadFile(file, onProgress);
+
+      expect(onProgress).toHaveBeenCalledWith(20); // After reading file
+      expect(onProgress).toHaveBeenCalledWith(40); // After computing hash
+      expect(onProgress).toHaveBeenCalledWith(50); // After generating ID
+      expect(onProgress).toHaveBeenCalledWith(65); // After storing file
+      expect(onProgress).toHaveBeenCalledWith(85); // After thumbnail step (skipped)
+      expect(onProgress).toHaveBeenCalledWith(100); // Complete
+    });
+
+    it('calls progress callback at expected stages for image files with thumbnail', async () => {
       vi.mocked(fileTypeFromBuffer).mockResolvedValue({
         ext: 'png',
         mime: 'image/png'
       });
+      vi.mocked(isThumbnailSupported).mockReturnValue(true);
 
       const onProgress = vi.fn();
       const { result } = renderHook(() => useFileUpload());
@@ -238,9 +276,122 @@ describe('useFileUpload', () => {
 
       expect(onProgress).toHaveBeenCalledWith(20); // After reading file
       expect(onProgress).toHaveBeenCalledWith(40); // After computing hash
-      expect(onProgress).toHaveBeenCalledWith(60); // After generating ID
-      expect(onProgress).toHaveBeenCalledWith(80); // After storing file
+      expect(onProgress).toHaveBeenCalledWith(50); // After generating ID
+      expect(onProgress).toHaveBeenCalledWith(65); // After storing file
+      expect(onProgress).toHaveBeenCalledWith(85); // After thumbnail generation
       expect(onProgress).toHaveBeenCalledWith(100); // Complete
+    });
+  });
+
+  describe('thumbnail generation', () => {
+    it('generates thumbnail for supported image types', async () => {
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+        ext: 'png',
+        mime: 'image/png'
+      });
+      vi.mocked(isThumbnailSupported).mockReturnValue(true);
+      vi.mocked(generateThumbnail).mockResolvedValue(new Uint8Array([4, 5, 6]));
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+      await result.current.uploadFile(file);
+
+      expect(generateThumbnail).toHaveBeenCalledWith(
+        new Uint8Array([1, 2, 3]),
+        'image/png'
+      );
+      // Should store both original and thumbnail
+      expect(mockStorage.store).toHaveBeenCalledTimes(2);
+      expect(mockStorage.store).toHaveBeenCalledWith(
+        'test-uuid-1234',
+        new Uint8Array([1, 2, 3])
+      );
+      expect(mockStorage.store).toHaveBeenCalledWith(
+        'test-uuid-1234-thumb',
+        new Uint8Array([4, 5, 6])
+      );
+    });
+
+    it('does not generate thumbnail for unsupported types', async () => {
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+        ext: 'pdf',
+        mime: 'application/pdf'
+      });
+      vi.mocked(isThumbnailSupported).mockReturnValue(false);
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['test'], 'test.pdf', { type: 'application/pdf' });
+
+      await result.current.uploadFile(file);
+
+      expect(generateThumbnail).not.toHaveBeenCalled();
+      // Should only store original
+      expect(mockStorage.store).toHaveBeenCalledTimes(1);
+    });
+
+    it('continues upload when thumbnail generation fails', async () => {
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+        ext: 'png',
+        mime: 'image/png'
+      });
+      vi.mocked(isThumbnailSupported).mockReturnValue(true);
+      vi.mocked(generateThumbnail).mockRejectedValue(
+        new Error('Thumbnail failed')
+      );
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+      const uploadResult = await result.current.uploadFile(file);
+
+      expect(uploadResult.id).toBe('test-uuid-1234');
+      expect(uploadResult.isDuplicate).toBe(false);
+      // Should only store original (thumbnail failed)
+      expect(mockStorage.store).toHaveBeenCalledTimes(1);
+    });
+
+    it('logs analytics event for thumbnail generation', async () => {
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+        ext: 'png',
+        mime: 'image/png'
+      });
+      vi.mocked(isThumbnailSupported).mockReturnValue(true);
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+      await result.current.uploadFile(file);
+
+      expect(logEvent).toHaveBeenCalledWith(
+        expect.anything(),
+        'thumbnail_generation',
+        expect.any(Number),
+        true
+      );
+    });
+
+    it('logs failed analytics event when thumbnail generation fails', async () => {
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+        ext: 'png',
+        mime: 'image/png'
+      });
+      vi.mocked(isThumbnailSupported).mockReturnValue(true);
+      vi.mocked(generateThumbnail).mockRejectedValue(
+        new Error('Thumbnail failed')
+      );
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+      await result.current.uploadFile(file);
+
+      expect(logEvent).toHaveBeenCalledWith(
+        expect.anything(),
+        'thumbnail_generation',
+        expect.any(Number),
+        false
+      );
     });
   });
 });
