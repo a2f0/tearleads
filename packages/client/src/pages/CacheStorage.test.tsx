@@ -470,25 +470,55 @@ describe('CacheStorage', () => {
     });
   });
 
-  describe('URL display truncation', () => {
-    beforeEach(() => {
+  describe('URL display', () => {
+    it('displays full paths without JavaScript truncation for long URLs', async () => {
+      const longPath =
+        '/very/long/path/that/exceeds/eighty/characters/and/should/not/be/truncated/by/javascript';
+
       setupMockCaches({
         'test-cache': createMockCache([
           {
-            url: 'https://example.com/very/long/path/that/exceeds/eighty/characters/and/should/be/truncated/appropriately',
+            url: `https://example.com${longPath}`,
             body: 'data'
           }
         ])
       });
-    });
 
-    it('truncates long URLs', async () => {
       renderCacheStorage();
 
       await waitFor(() => {
-        // Should show truncated path ending with ...
-        const truncatedPath = screen.getByText(/\.\.\.$/);
-        expect(truncatedPath).toBeInTheDocument();
+        // Full path should be displayed (CSS handles visual truncation)
+        expect(screen.getByText(longPath)).toBeInTheDocument();
+      });
+    });
+
+    it('extracts pathname from full URL', async () => {
+      setupMockCaches({
+        'test-cache': createMockCache([
+          { url: 'https://example.com/api/data?param=value', body: 'test' }
+        ])
+      });
+
+      renderCacheStorage();
+
+      await waitFor(() => {
+        // Should show pathname + search params, not the full URL
+        expect(screen.getByText('/api/data?param=value')).toBeInTheDocument();
+      });
+    });
+
+    it('shows full URL in title attribute for hover tooltip', async () => {
+      const fullUrl = 'https://example.com/some/path';
+
+      setupMockCaches({
+        'test-cache': createMockCache([{ url: fullUrl, body: 'data' }])
+      });
+
+      renderCacheStorage();
+
+      await waitFor(() => {
+        const entryElement = screen.getByText('/some/path').closest('div');
+        expect(entryElement).toHaveAttribute('title', fullUrl);
       });
     });
   });
