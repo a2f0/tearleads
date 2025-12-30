@@ -2,7 +2,12 @@
   "hooks": {
     "SessionEnd": [
       {
-        "command": "./scripts/agents/cleanupQueuedTitle.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./scripts/agents/cleanupQueuedTitle.sh"
+          }
+        ]
       }
     ]
   }
