@@ -2,6 +2,7 @@ package com.tearleads.rapid;
 
 import android.os.Bundle;
 import android.webkit.WebView;
+import com.tearleads.rapid.BuildConfig;
 import androidx.core.view.WindowCompat;
 import com.getcapacitor.BridgeActivity;
 
@@ -11,8 +12,10 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
-        // Enable WebView debugging for Maestro devtools mode
-        WebView.setWebContentsDebuggingEnabled(true);
+        // Enable WebView debugging for Maestro devtools mode in debug builds only for security
+        if (BuildConfig.DEBUG) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
     }
 
     @Override

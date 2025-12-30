@@ -3,64 +3,62 @@ appId: com.tearleads.rapid
 - launchApp:
     clearState: true
 
-# Wait for app to load using evalScript (more reliable than native assertions for WebView)
+# Load shared helpers (provides window.waitFor)
+- runFlow: helpers/db-helpers.yaml
+
+# Define file-picker specific helper
 - evalScript: |
-    (async () => {
-      for (let i = 0; i < 50; i++) {
-        if (document.body.innerText.includes('Tearleads')) {
-          return 'ok';
-        }
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      throw new Error('Tearleads text not found');
-    })()
+    window.getChooseFilesBtn = () => {
+      return document.querySelector('[data-testid="choose-files-button"]') ||
+             Array.from(document.querySelectorAll('button')).find(b =>
+               b.textContent.includes('Choose Files') || b.textContent.includes('Open Files App'));
+    };
+    'helper defined';
+
+# Wait for app to load
+- evalScript: |
+    window.waitFor(
+      () => document.body.innerText.includes('Tearleads'),
+      'Tearleads text not found'
+    )
 
 # Navigate to Files page by clicking the Files link
 - evalScript: |
-    (async () => {
-      for (let i = 0; i < 30; i++) {
+    window.waitFor(
+      () => {
         const filesLink = document.querySelector('[href="/files"]') ||
                           Array.from(document.querySelectorAll('a')).find(a => a.textContent.includes('Files'));
         if (filesLink) {
           filesLink.click();
-          return 'ok';
+          return true;
         }
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      throw new Error('Files link not found');
-    })()
+        return false;
+      },
+      'Files link not found',
+      6000
+    )
 
 # Wait for Files page to load and the Choose Files button to appear
 - evalScript: |
-    (async () => {
-      for (let i = 0; i < 50; i++) {
-        // Check for either "Choose Files" button or "Open Files App" (depends on platform detection)
-        const chooseFilesBtn = document.querySelector('[data-testid="choose-files-button"]') ||
-                               Array.from(document.querySelectorAll('button')).find(b =>
-                                 b.textContent.includes('Choose Files') || b.textContent.includes('Open Files App'));
-        if (chooseFilesBtn) {
-          return 'ok';
-        }
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      throw new Error('Choose Files button not found');
-    })()
+    window.waitFor(
+      () => window.getChooseFilesBtn() !== null && window.getChooseFilesBtn() !== undefined,
+      'Choose Files button not found'
+    )
 
 # Take a screenshot to debug what the UI looks like
 - takeScreenshot: files-page
 
 # Click the Choose Files button (or Open Files App)
 - evalScript: |
-    (async () => {
-      for (let i = 0; i < 30; i++) {
-        const chooseFilesBtn = document.querySelector('[data-testid="choose-files-button"]') ||
-                               Array.from(document.querySelectorAll('button')).find(b =>
-                                 b.textContent.includes('Choose Files') || b.textContent.includes('Open Files App'));
-        if (chooseFilesBtn) {
-          chooseFilesBtn.click();
-          return 'ok';
+    window.waitFor(
+      () => {
+        const btn = window.getChooseFilesBtn();
+        if (btn) {
+          btn.click();
+          return true;
         }
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      throw new Error('Choose Files button not found');
-    })()
+        return false;
+      },
+      'Choose Files button not found',
+      6000
+    )
