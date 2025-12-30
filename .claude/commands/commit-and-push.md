@@ -29,3 +29,12 @@ Commit and push the current changes following these rules:
 5. **Push**: After successful commit, push to the current branch's remote.
 
 6. **Open PR**: If a PR doesn't already exist for this branch, create one using `gh pr create`. Skip if already on `main` or PR exists.
+
+7. **Wait for Gemini feedback**: After the push completes (and PR is created/updated), wait 60 seconds for Gemini Code Assist to post its review comments.
+
+8. **Address Gemini feedback**: Run `/address-gemini-feedback` to enter the feedback resolution loop. This will:
+   - Fetch unresolved review comments
+   - Make necessary code changes
+   - Commit and push fixes
+   - Reply to addressed comments
+   - Repeat until all feedback is resolved
