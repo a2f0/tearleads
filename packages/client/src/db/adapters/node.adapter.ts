@@ -4,6 +4,8 @@
  */
 
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import Database from 'better-sqlite3-multiple-ciphers';
 import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
 
@@ -66,7 +68,10 @@ export class NodeAdapter implements DatabaseAdapter {
       // Create a unique temp file for this test
       const timestamp = Date.now();
       const random = Math.random().toString(36).substring(7);
-      filename = `/tmp/vitest-db-${config.name}-${timestamp}-${random}.db`;
+      filename = path.join(
+        os.tmpdir(),
+        `vitest-db-${config.name}-${timestamp}-${random}.db`
+      );
     }
 
     this.dbPath = filename;
@@ -100,8 +105,8 @@ export class NodeAdapter implements DatabaseAdapter {
       this.db.close();
       this.db = null;
 
-      // Clean up temp files (those created by us in /tmp)
-      if (this.dbPath.startsWith('/tmp/vitest-db-')) {
+      // Clean up temp files (those created by us when no filePath and encryption enabled)
+      if (!this.options.filePath && !this.options.skipEncryption) {
         try {
           fs.rmSync(this.dbPath, { force: true });
           fs.rmSync(`${this.dbPath}-wal`, { force: true });

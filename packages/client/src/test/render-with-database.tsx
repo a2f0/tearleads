@@ -8,6 +8,7 @@ import type { RenderOptions, RenderResult } from '@testing-library/react';
 import { render, waitFor } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import { expect } from 'vitest';
 import { TestDatabaseProvider } from './test-database-provider';
 
 export interface RenderWithDatabaseOptions
@@ -125,19 +126,17 @@ export async function renderWithDatabase(
 
   if (waitForReady && autoSetup) {
     // Wait for the database to be ready
-    // First, wait for the loading indicator to appear (setup started)
-    // Then wait for it to disappear (setup complete) or error to appear
     await waitFor(
       () => {
         const error = result.queryByTestId('test-database-error');
         if (error) {
+          // Fail fast with a descriptive error if setup fails
           throw new Error(`Database setup failed: ${error.textContent}`);
         }
-        const loading = result.queryByTestId('test-database-loading');
-        if (loading) {
-          throw new Error('Database still loading');
-        }
-        // Neither loading nor error - setup must be complete
+        // Wait for the loading indicator to disappear
+        expect(
+          result.queryByTestId('test-database-loading')
+        ).not.toBeInTheDocument();
       },
       { timeout: 10000 }
     );
