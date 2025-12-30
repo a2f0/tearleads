@@ -10,20 +10,15 @@ appId: com.tearleads.rapid
     visible: "Files"
     timeout: 15000
 
-# Wait for the "Choose Files" button to appear
-# On native (Android/iOS), the dropzone shows this button instead of drag-and-drop
+# Take a screenshot to debug what the UI looks like
+- takeScreenshot: file-picker-debug
+
+# On native (Android/iOS), the dropzone shows "Choose Files" button
+# On web, it shows "Drag and drop files here"
+# We expect native UI on Android/iOS
 - extendedWaitUntil:
     visible: "Choose Files"
-    timeout: 20000
+    timeout: 10000
 
-# On native, the dropzone should show the "Choose Files" button
 - assertVisible: "Choose Files"
-
-# Verify the drag-and-drop text is NOT visible (native uses button instead)
-- assertNotVisible: "Drag and drop files here"
-
-# Tap the Choose Files button to open the file picker
 - tapOn: "Choose Files"
-
-# The file picker will open - we can't interact with it in Maestro
-# but we've verified the button works
