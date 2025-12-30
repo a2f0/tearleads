@@ -227,6 +227,9 @@ describe('Models', () => {
         ).toBeInTheDocument();
       });
 
+      // Verify the progress bar is rendered with correct progress text
+      expect(screen.getByText('Downloading weights...')).toBeInTheDocument();
+
       // Cleanup: resolve the promise in act to handle any resulting state updates
       await act(async () => {
         resolveLoad?.();
