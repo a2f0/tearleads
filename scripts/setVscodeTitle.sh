@@ -33,25 +33,50 @@ TITLE="$1"
 
 mkdir -p "$VSCODE_DIR"
 
-if [ -f "$SETTINGS_FILE" ] && command -v jq >/dev/null 2>&1; then
-    # Merge with existing settings using jq
-    TEMP_FILE=$(mktemp)
-    jq --arg title "$TITLE" '.["window.title"] = $title' "$SETTINGS_FILE" > "$TEMP_FILE"
-    mv "$TEMP_FILE" "$SETTINGS_FILE"
-    echo "Updated window.title in $SETTINGS_FILE"
-elif [ -f "$SETTINGS_FILE" ]; then
-    # Settings exist but no jq - warn user
-    echo "Warning: $SETTINGS_FILE exists but jq is not installed."
-    echo "Please manually add: \"window.title\": \"$TITLE\""
-    exit 1
+if command -v jq >/dev/null 2>&1; then
+    # jq is available, use it for robust JSON handling
+    if [ -f "$SETTINGS_FILE" ]; then
+        # Merge with existing settings
+        TEMP_FILE=$(mktemp "${TMPDIR:-/tmp}/setVscodeTitle.XXXXXX")
+        trap 'rm -f "$TEMP_FILE"' EXIT
+        if jq --arg title "$TITLE" '.["window.title"] = $title' "$SETTINGS_FILE" > "$TEMP_FILE"; then
+            mv "$TEMP_FILE" "$SETTINGS_FILE"
+        else
+            echo "Error: Failed to update $SETTINGS_FILE with jq." >&2
+            exit 1
+        fi
+        trap - EXIT
+        echo "Updated window.title in $SETTINGS_FILE"
+    else
+        # Create new settings file
+        if ! jq -n --arg title "$TITLE" '{ "window.title": $title }' > "$SETTINGS_FILE"; then
+            echo "Error: Failed to create $SETTINGS_FILE with jq." >&2
+            exit 1
+        fi
+        echo "Created $SETTINGS_FILE"
+    fi
 else
-    # Create new settings file
-    cat > "$SETTINGS_FILE" << EOF
+    # jq is not available, proceed with caution
+    if [ -f "$SETTINGS_FILE" ]; then
+        echo "Warning: $SETTINGS_FILE exists but 'jq' is not installed. Cannot merge automatically." >&2
+        echo "Please manually add or update: \"window.title\": \"$TITLE\"" >&2
+        exit 1
+    else
+        # Creating a new file without jq. Check for characters that would break JSON
+        if printf '%s' "$TITLE" | grep -q '[\"\\]'; then
+            printf "Warning: Title contains special characters ('\"' or '\\') and 'jq' is not installed.\n" >&2
+            echo "Cannot reliably create $SETTINGS_FILE." >&2
+            echo "Please install 'jq' or create the file manually." >&2
+            exit 1
+        fi
+        # Create new settings file (safe for simple titles)
+        cat > "$SETTINGS_FILE" << EOF
 {
   "window.title": "$TITLE"
 }
 EOF
-    echo "Created $SETTINGS_FILE"
+        echo "Created $SETTINGS_FILE"
+    fi
 fi
 
 echo "VS Code window title set to: $TITLE"
