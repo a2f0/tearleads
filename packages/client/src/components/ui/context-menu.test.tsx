@@ -14,7 +14,7 @@ describe('ContextMenu', () => {
     expect(screen.getByText('Menu content')).toBeInTheDocument();
   });
 
-  it('positions the menu at the specified coordinates', () => {
+  it('positions the menu at the specified coordinates', async () => {
     render(
       <ContextMenu x={150} y={250} onClose={() => {}}>
         <div>Menu content</div>
@@ -22,7 +22,10 @@ describe('ContextMenu', () => {
     );
 
     const menu = screen.getByText('Menu content').parentElement;
-    expect(menu).toHaveStyle({ top: '250px', left: '150px' });
+    // Initial position, may be adjusted by useLayoutEffect
+    await waitFor(() => {
+      expect(menu).toHaveStyle({ top: '250px', left: '150px' });
+    });
   });
 
   it('calls onClose when backdrop is clicked', async () => {

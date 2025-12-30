@@ -146,6 +146,10 @@ export function Photos() {
     }
   }, [contextMenu, navigate]);
 
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -227,7 +231,7 @@ export function Photos() {
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          onClose={() => setContextMenu(null)}
+          onClose={handleCloseContextMenu}
         >
           <ContextMenuItem
             icon={<Info className="h-4 w-4" />}
