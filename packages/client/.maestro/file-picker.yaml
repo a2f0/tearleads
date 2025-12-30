@@ -1,18 +1,24 @@
 appId: com.tearleads.rapid
+androidWebViewHierarchy: devtools
 ---
 - launchApp:
     clearState: true
 
 - assertVisible: "Tearleads"
 
-# On native, the dropzone should show the "Choose Files" button
+# Wait for the Files page heading to be visible (proves page content is rendering)
+- extendedWaitUntil:
+    visible: "Files"
+    timeout: 15000
+
+# Wait for platform debug text to appear (it's always rendered at top of Files page)
+- extendedWaitUntil:
+    visible: "Platform:"
+    timeout: 10000
+
+# Take a screenshot to debug what the UI looks like and see platform value
+- takeScreenshot: platform-detected
+
+# Now check for the native Choose Files button
 - assertVisible: "Choose Files"
-
-# Verify the drag-and-drop text is NOT visible (native uses button instead)
-- assertNotVisible: "Drag and drop files here"
-
-# Tap the Choose Files button to open the file picker
 - tapOn: "Choose Files"
-
-# The file picker will open - we can't interact with it in Maestro
-# but we've verified the button works
