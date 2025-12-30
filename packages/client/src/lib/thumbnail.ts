@@ -93,7 +93,7 @@ export async function generateThumbnail(
  * Calculate dimensions that fit within bounds while preserving aspect ratio.
  * Will not scale up images smaller than the bounds.
  */
-function calculateScaledDimensions(
+export function calculateScaledDimensions(
   originalWidth: number,
   originalHeight: number,
   maxWidth: number,
