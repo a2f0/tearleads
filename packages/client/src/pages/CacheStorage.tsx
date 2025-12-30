@@ -9,7 +9,7 @@ import {
   RefreshCw,
   Trash2
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { formatFileSize } from '@/lib/utils';
 
@@ -112,8 +112,7 @@ function CacheTreeNode({
           {cache.entries.map((entry) => (
             <div
               key={entry.url}
-              className="group flex items-center gap-2 rounded px-2 py-1 hover:bg-accent"
-              style={{ paddingLeft: '40px' }}
+              className="group flex items-center gap-2 rounded py-1 pr-2 pl-10 hover:bg-accent"
               title={entry.url}
             >
               <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -137,30 +136,37 @@ function CacheTreeNode({
 
 async function getCacheInfo(cache: Cache, name: string): Promise<CacheInfo> {
   const keys = await cache.keys();
-  const entries: CacheEntry[] = [];
-  let totalSize = 0;
 
-  for (const request of keys) {
+  // Process entries in parallel for better performance
+  const entryPromises = keys.map(async (request) => {
     const response = await cache.match(request);
-    if (response) {
-      // Try to get size from Content-Length header or blob
-      let size = 0;
-      const contentLength = response.headers.get('Content-Length');
-      if (contentLength) {
-        size = parseInt(contentLength, 10);
-      } else {
-        // Clone and read as blob to get size
-        try {
-          const blob = await response.clone().blob();
-          size = blob.size;
-        } catch {
-          // Ignore if we can't read the size
-        }
-      }
-      entries.push({ url: request.url, size });
-      totalSize += size;
+    if (!response) {
+      return null;
     }
-  }
+
+    let size = 0;
+    const contentLength = response.headers.get('Content-Length');
+    if (contentLength) {
+      const parsedSize = parseInt(contentLength, 10);
+      if (!Number.isNaN(parsedSize)) {
+        size = parsedSize;
+      }
+    } else {
+      // Clone and read as blob to get size
+      try {
+        const blob = await response.clone().blob();
+        size = blob.size;
+      } catch {
+        // Ignore if we can't read the size
+      }
+    }
+    return { url: request.url, size };
+  });
+
+  const entries = (await Promise.all(entryPromises)).filter(
+    (e): e is CacheEntry => e !== null
+  );
+  const totalSize = entries.reduce((sum, entry) => sum + entry.size, 0);
 
   // Sort entries alphabetically by URL
   entries.sort((a, b) => a.url.localeCompare(b.url));
@@ -174,58 +180,63 @@ export function CacheStorage() {
   const [error, setError] = useState<string | null>(null);
   const [supported, setSupported] = useState(true);
   const [expandedCaches, setExpandedCaches] = useState<Set<string>>(new Set());
-  const isMountedRef = useRef(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const fetchCacheContents = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const refresh = () => setRefreshKey((k) => k + 1);
 
-    try {
-      if (!('caches' in window)) {
-        if (isMountedRef.current) {
-          setSupported(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshKey is intentionally used as a trigger
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchCacheContents = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        if (!('caches' in window)) {
+          if (!isCancelled) {
+            setSupported(false);
+            setLoading(false);
+          }
+          return;
+        }
+
+        const cacheNames = await window.caches.keys();
+
+        // Fetch all cache info in parallel for better performance
+        const cacheInfos = await Promise.all(
+          cacheNames.map(async (name) => {
+            const cache = await window.caches.open(name);
+            return getCacheInfo(cache, name);
+          })
+        );
+
+        // Sort caches alphabetically
+        cacheInfos.sort((a, b) => a.name.localeCompare(b.name));
+
+        if (!isCancelled) {
+          setCaches(cacheInfos);
+          // Expand all caches by default
+          setExpandedCaches(new Set(cacheInfos.map((c) => c.name)));
+        }
+      } catch (err) {
+        console.error('Failed to read Cache Storage:', err);
+        if (!isCancelled) {
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      } finally {
+        if (!isCancelled) {
           setLoading(false);
         }
-        return;
       }
+    };
 
-      const cacheNames = await window.caches.keys();
-      const cacheInfos: CacheInfo[] = [];
-
-      for (const name of cacheNames) {
-        const cache = await window.caches.open(name);
-        const info = await getCacheInfo(cache, name);
-        cacheInfos.push(info);
-      }
-
-      // Sort caches alphabetically
-      cacheInfos.sort((a, b) => a.name.localeCompare(b.name));
-
-      if (isMountedRef.current) {
-        setCaches(cacheInfos);
-        // Expand all caches by default
-        setExpandedCaches(new Set(cacheInfos.map((c) => c.name)));
-      }
-    } catch (err) {
-      console.error('Failed to read Cache Storage:', err);
-      if (isMountedRef.current) {
-        setError(err instanceof Error ? err.message : String(err));
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setLoading(false);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    isMountedRef.current = true;
     fetchCacheContents();
 
     return () => {
-      isMountedRef.current = false;
+      isCancelled = true;
     };
-  }, [fetchCacheContents]);
+  }, [refreshKey]);
 
   const handleToggle = (cacheName: string) => {
     setExpandedCaches((prev) => {
@@ -250,7 +261,7 @@ export function CacheStorage() {
 
     try {
       await window.caches.delete(cacheName);
-      await fetchCacheContents();
+      refresh();
     } catch (err) {
       console.error('Failed to delete cache:', err);
       setError(err instanceof Error ? err.message : String(err));
@@ -265,7 +276,7 @@ export function CacheStorage() {
     try {
       const cache = await window.caches.open(cacheName);
       await cache.delete(url);
-      await fetchCacheContents();
+      refresh();
     } catch (err) {
       console.error('Failed to delete cache entry:', err);
       setError(err instanceof Error ? err.message : String(err));
@@ -308,7 +319,7 @@ export function CacheStorage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={fetchCacheContents}
+          onClick={refresh}
           disabled={loading}
         >
           <RefreshCw
