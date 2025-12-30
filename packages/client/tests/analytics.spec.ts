@@ -401,4 +401,57 @@ test.describe('Analytics page', () => {
     const rows = eventTable.locator('tbody tr');
     await expect(rows.first()).toBeVisible({ timeout: 5000 });
   });
+
+  /**
+   * Regression test to verify analytics data values are displayed correctly.
+   * Checks that event names, durations, and statuses are not showing
+   * undefined, NaN, or other invalid values.
+   */
+  test('should display valid data values (not NaN, undefined, or Invalid Date)', async ({
+    page
+  }) => {
+    await setupDatabase(page);
+
+    // Generate analytics events
+    await page.getByTestId('db-write-button').click();
+    await waitForSuccess(page);
+
+    await navigateTo(page, 'Analytics');
+    await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
+
+    // Wait for events table to load
+    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: 10000 });
+    const eventTable = page.locator('table');
+    await expect(eventTable).toBeVisible({ timeout: 5000 });
+
+    // Wait for at least one data row
+    const firstRow = eventTable.locator('tbody tr').first();
+    await expect(firstRow).toBeVisible({ timeout: 5000 });
+
+    // Get all table cells in the first row
+    const cells = firstRow.locator('td');
+    const cellCount = await cells.count();
+
+    // Verify each cell does not contain invalid values
+    for (let i = 0; i < cellCount; i++) {
+      const cell = cells.nth(i);
+      const text = await cell.textContent();
+
+      // Cell should not be empty or contain invalid values
+      expect(text, `Cell ${i} should not be undefined`).not.toContain('undefined');
+      expect(text, `Cell ${i} should not be NaN`).not.toBe('NaN');
+      expect(text, `Cell ${i} should not be Invalid Date`).not.toContain(
+        'Invalid Date'
+      );
+      // Event name cell should not be "(Unknown)" if we successfully recorded events
+      if (i === 0) {
+        expect(text, 'Event name should not be (Unknown)').not.toBe('(Unknown)');
+      }
+    }
+
+    // Verify at least one "Success" status exists (db_write should succeed)
+    await expect(eventTable.getByText('Success').first()).toBeVisible({
+      timeout: 5000
+    });
+  });
 });

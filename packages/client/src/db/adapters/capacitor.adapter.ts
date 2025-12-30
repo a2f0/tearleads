@@ -5,6 +5,26 @@
 
 import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
 
+/**
+ * Convert snake_case to camelCase.
+ */
+function snakeToCamel(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+/**
+ * Map row object keys from snake_case to camelCase.
+ * This is needed because SQLite returns column names in snake_case,
+ * but Drizzle sqlite-proxy expects camelCase property names.
+ */
+function mapRowKeys(row: Record<string, unknown>): Record<string, unknown> {
+  const mapped: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    mapped[snakeToCamel(key)] = value;
+  }
+  return mapped;
+}
+
 // Types for SQLiteConnection wrapper
 interface SQLiteConnectionWrapper {
   createConnection(
@@ -298,7 +318,11 @@ export class CapacitorAdapter implements DatabaseAdapter {
 
       // Drizzle sqlite-proxy expects { rows: any[] } for ALL methods
       // The method parameter tells Drizzle how to interpret the rows
-      return { rows: result.rows };
+      // Map column names from snake_case to camelCase for Drizzle schema compatibility
+      const mappedRows = result.rows.map((row) =>
+        mapRowKeys(row as Record<string, unknown>)
+      );
+      return { rows: mappedRows };
     };
   }
 
