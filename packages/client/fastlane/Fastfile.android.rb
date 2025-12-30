@@ -179,6 +179,9 @@ platform :android do
     sh("adb -s #{emulator_id} exec-out uiautomator dump /dev/tty 2>/dev/null | head -100 > '#{debug_dir}/ui-hierarchy.xml' || true")
     # Clear logcat before running tests
     sh("adb -s #{emulator_id} logcat -c || true")
+    # Start screen recording in background (max 3 minutes)
+    recording_pid = spawn("adb -s #{emulator_id} shell screenrecord --time-limit 180 /sdcard/maestro-recording.mp4", [:out, :err] => '/dev/null')
+    Process.detach(recording_pid)
     # Run Maestro with debug output for CI failures
     # --output expects a file path for junit format, --debug-output is for screenshots
     begin
@@ -188,6 +191,12 @@ platform :android do
       UI.important("Maestro tests failed: #{e.message}")
       maestro_result = "1"
     end
+    # Stop screen recording and pull the video
+    sh("adb -s #{emulator_id} shell pkill -SIGINT screenrecord || true")
+    sh("sleep 2")
+    sh("adb -s #{emulator_id} pull /sdcard/maestro-recording.mp4 '#{debug_dir}/test-recording.mp4' || true")
+    # Capture final screenshot
+    sh("adb -s #{emulator_id} exec-out screencap -p > '#{debug_dir}/03-after-tests.png' || true")
     # Capture full logcat for debugging (JS console.log appears as INFO:CONSOLE in chromium logs)
     sh("adb -s #{emulator_id} logcat -d > '#{debug_dir}/logcat.txt' 2>&1 || true")
     # Also capture just the relevant lines
