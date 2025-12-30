@@ -12,7 +12,7 @@ description: Query the open PR and resolve Gemini's feedback.
    - Make the necessary code changes
    - Make sure linting passes and TypeScript compiles
 
-4. **Commit and push**: If changes were made, run `/commit-and-push` to commit and push the fixes.
+4. **Commit and push**: If changes were made, commit with a conventional commit message (e.g., `fix: address Gemini review feedback`) and push directly. Do NOT run `/commit-and-push` to avoid circular loops.
 
 5. **Follow up with Gemini**: Run `/follow-up-with-gemini` to reply to the addressed comments.
 
