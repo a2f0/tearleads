@@ -283,6 +283,27 @@ export function CacheStorage() {
     }
   };
 
+  const handleClearAll = async () => {
+    if (caches.length === 0) return;
+
+    if (
+      !window.confirm(
+        'Are you sure you want to clear ALL cache storage data? This cannot be undone.'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const cacheNames = await window.caches.keys();
+      await Promise.all(cacheNames.map((name) => window.caches.delete(name)));
+      refresh();
+    } catch (err) {
+      console.error('Failed to clear cache storage:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   const totalSize = caches.reduce((sum, c) => sum + c.totalSize, 0);
   const totalEntries = caches.reduce((sum, c) => sum + c.entries.length, 0);
 
@@ -316,17 +337,25 @@ export function CacheStorage() {
             </p>
           )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={refresh}
-          disabled={loading}
-        >
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-          />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          {caches.length > 0 && (
+            <Button variant="destructive" size="sm" onClick={handleClearAll}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Clear All
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refresh}
+            disabled={loading}
+          >
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+            />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {error && (
