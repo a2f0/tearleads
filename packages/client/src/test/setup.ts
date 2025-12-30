@@ -6,6 +6,26 @@ afterEach(() => {
   cleanup();
 });
 
+// Mock localStorage for tests
+const localStorageMock = {
+  store: {} as Record<string, string>,
+  getItem(key: string) {
+    return this.store[key] ?? null;
+  },
+  setItem(key: string, value: string) {
+    this.store[key] = value;
+  },
+  removeItem(key: string) {
+    delete this.store[key];
+  },
+  clear() {
+    this.store = {};
+  }
+};
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock
+});
+
 // Mock __APP_VERSION__ global defined by Vite
 vi.stubGlobal('__APP_VERSION__', '0.0.0-test');
 
