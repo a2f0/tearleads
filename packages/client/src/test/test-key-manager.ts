@@ -69,8 +69,9 @@ export class TestKeyManager {
       return null;
     }
 
-    const key = new Uint8Array(TEST_KEY);
-    return { oldKey: key, newKey: key };
+    const oldKey = new Uint8Array(TEST_KEY);
+    const newKey = new Uint8Array(TEST_KEY);
+    return { oldKey, newKey };
   }
 
   /**
