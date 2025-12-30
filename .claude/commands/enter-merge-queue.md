@@ -69,7 +69,22 @@ This skill prepares a PR to be merged by updating it from the base branch, ensur
    - Commit and push fixes
    - Reply to Gemini's comments
 
-9. **Follow up with Gemini**: Run `/follow-up-with-gemini` to notify Gemini that feedback has been addressed.
+9. **Follow up with Gemini and resolve threads**: Run `/follow-up-with-gemini` to:
+   - Notify Gemini that feedback has been addressed
+   - Wait for Gemini's response (polling every 30 seconds, up to 5 minutes)
+   - When Gemini confirms a fix is satisfactory, resolve the review thread using the GraphQL API:
+
+     ```bash
+     gh api graphql -f query='
+       mutation {
+         resolveReviewThread(input: {threadId: "<thread_node_id>"}) {
+           thread { isResolved }
+         }
+       }
+     '
+     ```
+
+   - If Gemini requests further changes, return to step 8
 
 10. **Wait for CI again**: After addressing feedback, wait for CI to pass (repeat step 6).
 
@@ -88,6 +103,8 @@ This skill prepares a PR to be merged by updating it from the base branch, ensur
 - Non-fixable issues: merge conflicts, infrastructure failures, architectural disagreements
 - If stuck in a loop (same fix attempted twice), ask the user for help
 - If Gemini posts new feedback after fixes, repeat steps 8-10
+- When Gemini confirms a fix (phrases like "looks good", "resolved", "satisfied", "fixed", "approved", "thank you"), resolve the thread via GraphQL
+- Only resolve threads after explicit confirmation from Gemini - do not auto-resolve based on your own assessment
 
 ## Commit Rules
 
