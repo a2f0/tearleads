@@ -122,7 +122,9 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 
    This sets the VS Code window title to "ready" and switches back to main with the latest changes.
 
-6. **Report success**: Confirm the PR was merged and show the URL.
+6. **Report success**: Confirm the PR was merged and provide a summary:
+   - Show the PR URL
+   - Output a brief description of what was merged (1-3 sentences summarizing the changes based on the PR title and commits)
 
 ## Notes
 
