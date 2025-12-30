@@ -100,7 +100,41 @@ cd packages/client
 bundle exec fastlane ios test_maestro
 ```
 
-## 6. Fix and Verify
+## 6. Common Issues and Fixes
+
+### Maestro: WebView Not Accessible (NAF="true")
+
+If Maestro can't find text/elements in a WebView, the UI hierarchy may show
+`NAF="true"` (Not Accessible Friendly) on the WebView node.
+
+**Fix**: Add `androidWebViewHierarchy: devtools` to your test file:
+
+```yaml
+appId: com.tearleads.rapid
+androidWebViewHierarchy: devtools
+---
+- launchApp:
+    clearState: true
+- assertVisible: "My Text"
+```
+
+This uses Chrome DevTools Protocol instead of Android accessibility APIs.
+
+### Maestro: Use evalScript for Complex Interactions
+
+For reliable WebView interaction, prefer JavaScript-based selectors:
+
+```yaml
+- evalScript: document.querySelector('[data-testid="my-button"]').click()
+```
+
+### Platform Detection Issues
+
+If tests fail because platform detection returns wrong value (e.g., 'web' instead
+of 'android'), check the debug indicator on the Files page and review logcat for
+platform detection logs.
+
+## 7. Fix and Verify
 
 1. Fix the failing tests by updating selectors, assertions, or test logic
 2. Verify all tests pass locally before pushing
