@@ -45,6 +45,10 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 
    - If CI is **in_progress** or **queued**: Wait 30 seconds and check again
    - If CI **passes**: Continue to step 3d
+   - If CI is **cancelled**: Rerun CI using the CLI (do NOT push empty commits):
+     ```bash
+     gh run rerun <run-id>
+     ```
    - If CI **fails**:
      1. Download logs: `gh run view <run-id> --log-failed`
      2. Analyze the failure and fix the issue
