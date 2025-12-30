@@ -181,8 +181,13 @@ platform :android do
     sh("adb -s #{emulator_id} logcat -c || true")
     # Run Maestro with debug output for CI failures
     # --output expects a file path for junit format, --debug-output is for screenshots
-    # Allow Maestro to fail so we can capture debug output, then check result
-    maestro_result = sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test '#{maestro_dir}' --output '#{debug_dir}/report.xml' --debug-output '#{debug_dir}' --format junit; echo $?", log: false).strip
+    begin
+      sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test '#{maestro_dir}' --output '#{debug_dir}/report.xml' --debug-output '#{debug_dir}' --format junit")
+      maestro_result = "0"
+    rescue StandardError => e
+      UI.important("Maestro tests failed: #{e.message}")
+      maestro_result = "1"
+    end
     # Capture full logcat for debugging (JS console.log appears as INFO:CONSOLE in chromium logs)
     sh("adb -s #{emulator_id} logcat -d > '#{debug_dir}/logcat.txt' 2>&1 || true")
     # Also capture just the relevant lines
