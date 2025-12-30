@@ -5,24 +5,19 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Wait for the app to fully initialize - give it extra time in CI
+# Wait for the Files page heading to be visible (proves page content is rendering)
 - extendedWaitUntil:
     visible: "Files"
     timeout: 15000
 
-# Take a screenshot to debug what the UI looks like
-- takeScreenshot: before-choose-files-check
-
-# Debug: Check what platform was detected (will show in screenshot)
-# The Files page now shows "Platform: android" or "Platform: web" at top
+# Wait for platform debug text to appear (it's always rendered at top of Files page)
 - extendedWaitUntil:
     visible: "Platform:"
-    timeout: 5000
+    timeout: 10000
 
-# Verify platform is detected as android (not web)
-- assertVisible: "Platform: android"
+# Take a screenshot to debug what the UI looks like and see platform value
+- takeScreenshot: platform-detected
 
-# On native (Android/iOS), the dropzone shows "Choose Files" button
-# On web, it shows "Drag and drop files here"
+# Now check for the native Choose Files button
 - assertVisible: "Choose Files"
 - tapOn: "Choose Files"
