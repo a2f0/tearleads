@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -55,15 +55,21 @@ describe('Models', () => {
     it('renders the page title', async () => {
       renderModels();
 
-      expect(screen.getByText('Models')).toBeInTheDocument();
+      // Wait for async effects to settle
+      await waitFor(() => {
+        expect(screen.getByText('Models')).toBeInTheDocument();
+      });
     });
 
     it('renders the description text', async () => {
       renderModels();
 
-      expect(
-        screen.getByText(/Download and run LLMs locally/)
-      ).toBeInTheDocument();
+      // Wait for async effects to settle
+      await waitFor(() => {
+        expect(
+          screen.getByText(/Download and run LLMs locally/)
+        ).toBeInTheDocument();
+      });
     });
 
     it('renders model cards', async () => {
@@ -100,16 +106,20 @@ describe('Models', () => {
       });
     });
 
-    it('shows checking message while determining WebGPU support', () => {
+    it('shows checking message while determining WebGPU support', async () => {
       mockIsWebGPUSupported.mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
+      // Also make cache check never resolve to prevent state updates
+      mockHasModelInCache.mockImplementation(() => new Promise(() => {}));
 
       renderModels();
 
-      expect(
-        screen.getByText('Checking WebGPU support...')
-      ).toBeInTheDocument();
+      await waitFor(() => {
+        expect(
+          screen.getByText('Checking WebGPU support...')
+        ).toBeInTheDocument();
+      });
     });
   });
 
@@ -189,23 +199,26 @@ describe('Models', () => {
       await user.click(downloadButtons[0]!);
 
       // Now update the mock to show loading state and re-render
-      vi.mocked(useLLM).mockReturnValue({
-        engine: null,
-        loadedModel: null,
-        isLoading: true,
-        loadProgress: { text: 'Downloading weights...', progress: 0.45 },
-        error: null,
-        loadModel: loadModelMock,
-        unloadModel: mockUnloadModel,
-        isWebGPUSupported: mockIsWebGPUSupported
-      });
+      // Wrap in act() to handle React state updates
+      await act(async () => {
+        vi.mocked(useLLM).mockReturnValue({
+          engine: null,
+          loadedModel: null,
+          isLoading: true,
+          loadProgress: { text: 'Downloading weights...', progress: 0.45 },
+          error: null,
+          loadModel: loadModelMock,
+          unloadModel: mockUnloadModel,
+          isWebGPUSupported: mockIsWebGPUSupported
+        });
 
-      // Trigger re-render
-      rerender(
-        <MemoryRouter>
-          <Models />
-        </MemoryRouter>
-      );
+        // Trigger re-render
+        rerender(
+          <MemoryRouter>
+            <Models />
+          </MemoryRouter>
+        );
+      });
 
       // Verify the loading button is shown
       await waitFor(() => {
@@ -214,8 +227,10 @@ describe('Models', () => {
         ).toBeInTheDocument();
       });
 
-      // Cleanup: resolve the promise to prevent hanging
-      resolveLoad?.();
+      // Cleanup: resolve the promise in act to handle any resulting state updates
+      await act(async () => {
+        resolveLoad?.();
+      });
     });
 
     it('shows loaded badge when model is loaded', async () => {
