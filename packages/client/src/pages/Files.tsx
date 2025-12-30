@@ -20,7 +20,7 @@ import { useDatabaseContext } from '@/db/hooks';
 import { files as filesTable } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { downloadFile } from '@/lib/file-utils';
-import { formatFileSize } from '@/lib/utils';
+import { detectPlatform, formatFileSize } from '@/lib/utils';
 import {
   getFileStorage,
   initializeFileStorage,
@@ -259,8 +259,18 @@ export function Files() {
     }
   }, []);
 
+  // Debug: detect platform for CI troubleshooting
+  const platform = detectPlatform();
+
   return (
     <div className="space-y-6">
+      {/* Debug indicator for CI - shows detected platform */}
+      <div
+        data-testid="platform-debug"
+        className="rounded bg-muted px-2 py-1 font-mono text-muted-foreground text-xs"
+      >
+        Platform: {platform}
+      </div>
       <div className="flex items-center justify-between">
         <h1 className="font-bold text-2xl tracking-tight">Files</h1>
         {isUnlocked && (
