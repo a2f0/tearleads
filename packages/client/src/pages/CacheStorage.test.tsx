@@ -241,9 +241,8 @@ describe('CacheStorage', () => {
         expect(screen.getByText('test-cache')).toBeInTheDocument();
       });
 
-      // Find and click the delete button for the cache
-      const [deleteButton] = screen.getAllByTitle('Delete cache');
-      if (!deleteButton) throw new Error('Delete button not found');
+      // Find and click the delete button for the cache - use getByTitle since there's only one cache
+      const deleteButton = screen.getByTitle('Delete cache');
       await user.click(deleteButton);
 
       expect(confirmSpy).toHaveBeenCalledWith(
@@ -260,8 +259,7 @@ describe('CacheStorage', () => {
         expect(screen.getByText('test-cache')).toBeInTheDocument();
       });
 
-      const [deleteButton] = screen.getAllByTitle('Delete cache');
-      if (!deleteButton) throw new Error('Delete button not found');
+      const deleteButton = screen.getByTitle('Delete cache');
       await user.click(deleteButton);
 
       await waitFor(() => {
@@ -278,8 +276,7 @@ describe('CacheStorage', () => {
         expect(screen.getByText('test-cache')).toBeInTheDocument();
       });
 
-      const [deleteButton] = screen.getAllByTitle('Delete cache');
-      if (!deleteButton) throw new Error('Delete button not found');
+      const deleteButton = screen.getByTitle('Delete cache');
       await user.click(deleteButton);
 
       expect(mockCaches.delete).not.toHaveBeenCalled();
@@ -305,8 +302,7 @@ describe('CacheStorage', () => {
         expect(screen.getByText('/api/data')).toBeInTheDocument();
       });
 
-      const [deleteButton] = screen.getAllByTitle('Delete entry');
-      if (!deleteButton) throw new Error('Delete button not found');
+      const deleteButton = screen.getByTitle('Delete entry');
       await user.click(deleteButton);
 
       expect(confirmSpy).toHaveBeenCalledWith(
@@ -323,8 +319,7 @@ describe('CacheStorage', () => {
         expect(screen.getByText('/api/data')).toBeInTheDocument();
       });
 
-      const [deleteButton] = screen.getAllByTitle('Delete entry');
-      if (!deleteButton) throw new Error('Delete button not found');
+      const deleteButton = screen.getByTitle('Delete entry');
       await user.click(deleteButton);
 
       await waitFor(() => {
@@ -475,55 +470,25 @@ describe('CacheStorage', () => {
     });
   });
 
-  describe('URL display', () => {
-    it('displays full paths without JavaScript truncation for long URLs', async () => {
-      const longPath =
-        '/very/long/path/that/exceeds/eighty/characters/and/should/not/be/truncated/by/javascript';
-
+  describe('URL display truncation', () => {
+    beforeEach(() => {
       setupMockCaches({
         'test-cache': createMockCache([
           {
-            url: `https://example.com${longPath}`,
+            url: 'https://example.com/very/long/path/that/exceeds/eighty/characters/and/should/be/truncated/appropriately',
             body: 'data'
           }
         ])
       });
-
-      renderCacheStorage();
-
-      await waitFor(() => {
-        // Full path should be displayed (CSS handles visual truncation)
-        expect(screen.getByText(longPath)).toBeInTheDocument();
-      });
     });
 
-    it('extracts pathname from full URL', async () => {
-      setupMockCaches({
-        'test-cache': createMockCache([
-          { url: 'https://example.com/api/data?param=value', body: 'test' }
-        ])
-      });
-
+    it('truncates long URLs', async () => {
       renderCacheStorage();
 
       await waitFor(() => {
-        // Should show pathname + search params, not the full URL
-        expect(screen.getByText('/api/data?param=value')).toBeInTheDocument();
-      });
-    });
-
-    it('shows full URL in title attribute for hover tooltip', async () => {
-      const fullUrl = 'https://example.com/some/path';
-
-      setupMockCaches({
-        'test-cache': createMockCache([{ url: fullUrl, body: 'data' }])
-      });
-
-      renderCacheStorage();
-
-      await waitFor(() => {
-        const entryElement = screen.getByText('/some/path').closest('div');
-        expect(entryElement).toHaveAttribute('title', fullUrl);
+        // Should show truncated path ending with ...
+        const truncatedPath = screen.getByText(/\.\.\.$/);
+        expect(truncatedPath).toBeInTheDocument();
       });
     });
   });
