@@ -11,7 +11,13 @@ appId: com.tearleads.rapid
     timeout: 15000
 
 # Take a screenshot to debug what the UI looks like
-- takeScreenshot: file-picker-debug
+- takeScreenshot: before-choose-files-check
+
+# Debug: Verify web dropzone text is NOT visible (native should show "Choose Files" instead)
+# If this passes, platform is detected as 'web' instead of 'android'
+- assertNotVisible:
+    text: "Drag and drop"
+    label: "Web dropzone text should not be visible on native"
 
 # On native (Android/iOS), the dropzone shows "Choose Files" button
 # On web, it shows "Drag and drop files here"
