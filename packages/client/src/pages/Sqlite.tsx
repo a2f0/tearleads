@@ -1,5 +1,6 @@
 import { Database } from 'lucide-react';
 import { DatabaseTest } from '@/components/sqlite/DatabaseTest';
+import { TableSizes } from '@/components/sqlite/TableSizes';
 
 export function Sqlite() {
   return (
@@ -15,6 +16,8 @@ export function Sqlite() {
       </p>
 
       <DatabaseTest />
+
+      <TableSizes />
     </div>
   );
 }
