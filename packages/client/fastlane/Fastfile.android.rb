@@ -159,18 +159,19 @@ platform :android do
   lane :test_maestro do
     build_debug
     apk_path = File.expand_path('../android/app/build/outputs/apk/debug/app-debug.apk', __dir__)
+    debug_dir = File.expand_path('../maestro-debug', __dir__)
     # Find the emulator device ID
     emulator_id = `adb devices | grep emulator | head -1 | cut -f1`.strip
     UI.user_error!('No Android emulator found. Start an emulator first.') if emulator_id.empty?
     sh("adb -s #{emulator_id} uninstall #{APP_ID} || true")
     sh("adb -s #{emulator_id} install -r '#{apk_path}'")
-    # Create debug output directory
-    FileUtils.mkdir_p('maestro-debug')
+    # Create debug output directory (at packages/client/maestro-debug)
+    FileUtils.mkdir_p(debug_dir)
     # Take a screenshot of initial state for debugging
-    sh("adb -s #{emulator_id} exec-out screencap -p > maestro-debug/initial-screen.png || true")
+    sh("adb -s #{emulator_id} exec-out screencap -p > '#{debug_dir}/initial-screen.png' || true")
     # Run Maestro with debug output for CI failures
     # --output expects a file path for junit format, --debug-output is for screenshots
-    sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test ../.maestro/ --output maestro-debug/report.xml --debug-output maestro-debug --format junit")
+    sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test ../.maestro/ --output '#{debug_dir}/report.xml' --debug-output '#{debug_dir}' --format junit")
   end
 
   private_lane :run_gradle do |options|
