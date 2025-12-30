@@ -183,8 +183,10 @@ platform :android do
     # --output expects a file path for junit format, --debug-output is for screenshots
     # Allow Maestro to fail so we can capture debug output, then check result
     maestro_result = sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test '#{maestro_dir}' --output '#{debug_dir}/report.xml' --debug-output '#{debug_dir}' --format junit; echo $?", log: false).strip
-    # Capture logcat for debugging (filter for console messages from WebView)
-    sh("adb -s #{emulator_id} logcat -d chromium:V '*:S' > '#{debug_dir}/logcat.txt' 2>&1 || true")
+    # Capture full logcat for debugging (JS console.log appears as INFO:CONSOLE in chromium logs)
+    sh("adb -s #{emulator_id} logcat -d > '#{debug_dir}/logcat.txt' 2>&1 || true")
+    # Also capture just the relevant lines
+    sh("adb -s #{emulator_id} logcat -d | grep -iE '(Dropzone|platform|capacitor|CONSOLE)' > '#{debug_dir}/logcat-filtered.txt' 2>&1 || true")
     # Fail if Maestro tests failed
     UI.user_error!("Maestro tests failed") unless maestro_result == "0"
   end
