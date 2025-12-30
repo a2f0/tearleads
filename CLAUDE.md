@@ -6,3 +6,4 @@
 - Do NOT add "Generated with Claude Code" footers to commit messages
 - Do NOT force push unless explicitly instructed to do so.
 - Do NOT commit or push to the `main` branch, if you are on `main`, create a new branch.
+- Do NOT use `any` typings or `as` TypesScript assertions.
