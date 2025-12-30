@@ -12,7 +12,11 @@ import { useDatabaseContext } from '@/db/hooks';
 interface TableSize {
   name: string;
   size: number;
+  isEstimated: boolean;
 }
+
+/** Estimated average row size in bytes when dbstat is unavailable */
+const AVG_ROW_SIZE_ESTIMATE_BYTES = 100;
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -42,6 +46,9 @@ export function TableSizes() {
       const pageSizeResult = await adapter.execute('PRAGMA page_size', []);
       const pageCountResult = await adapter.execute('PRAGMA page_count', []);
 
+      if (!pageSizeResult.rows.length || !pageCountResult.rows.length) {
+        throw new Error('Failed to retrieve database page size or count.');
+      }
       const pageSizeRow = pageSizeResult.rows[0] as Record<string, unknown>;
       const pageCountRow = pageCountResult.rows[0] as Record<string, unknown>;
 
@@ -68,28 +75,32 @@ export function TableSizes() {
 
       // Try to get individual table sizes using dbstat virtual table
       // This may not be available in all SQLite builds
-      const sizes: TableSize[] = [];
-      for (const name of tableNames) {
-        try {
-          const sizeResult = await adapter.execute(
-            `SELECT SUM(pgsize) as size FROM dbstat WHERE name = ?`,
-            [name]
-          );
-          const sizeRow = sizeResult.rows[0] as Record<string, unknown>;
-          const size = Number(sizeRow['size'] ?? sizeRow[0] ?? 0);
-          sizes.push({ name, size });
-        } catch {
-          // dbstat not available, estimate using row count and average row size
-          const countResult = await adapter.execute(
-            `SELECT COUNT(*) as count FROM "${name}"`,
-            []
-          );
-          const countRow = countResult.rows[0] as Record<string, unknown>;
-          const count = Number(countRow['count'] ?? countRow[0] ?? 0);
-          // Rough estimate: assume 100 bytes per row average
-          sizes.push({ name, size: count * 100 });
-        }
-      }
+      const sizes: TableSize[] = await Promise.all(
+        tableNames.map(async (name) => {
+          try {
+            const sizeResult = await adapter.execute(
+              `SELECT SUM(pgsize) as size FROM dbstat WHERE name = ?`,
+              [name]
+            );
+            const sizeRow = sizeResult.rows[0] as Record<string, unknown>;
+            const size = Number(sizeRow['size'] ?? sizeRow[0] ?? 0);
+            return { name, size, isEstimated: false };
+          } catch {
+            // dbstat not available, estimate using row count and average row size
+            const countResult = await adapter.execute(
+              `SELECT COUNT(*) as count FROM "${name}"`,
+              []
+            );
+            const countRow = countResult.rows[0] as Record<string, unknown>;
+            const count = Number(countRow['count'] ?? countRow[0] ?? 0);
+            return {
+              name,
+              size: count * AVG_ROW_SIZE_ESTIMATE_BYTES,
+              isEstimated: true
+            };
+          }
+        })
+      );
 
       // Sort by size descending
       sizes.sort((a, b) => b.size - a.size);
@@ -156,21 +167,29 @@ export function TableSizes() {
               No tables found
             </div>
           ) : (
-            <div className="space-y-1">
-              {tableSizes.map((table) => (
-                <div
-                  key={table.name}
-                  className="flex items-center justify-between"
-                >
-                  <span className="truncate font-mono text-muted-foreground">
-                    {table.name}
-                  </span>
-                  <span className="shrink-0 font-mono text-xs">
-                    {formatBytes(table.size)}
-                  </span>
+            <>
+              {tableSizes.some((t) => t.isEstimated) && (
+                <div className="text-muted-foreground text-xs italic">
+                  * Sizes are estimated (dbstat unavailable)
                 </div>
-              ))}
-            </div>
+              )}
+              <div className="space-y-1">
+                {tableSizes.map((table) => (
+                  <div
+                    key={table.name}
+                    className="flex items-center justify-between"
+                  >
+                    <span className="truncate font-mono text-muted-foreground">
+                      {table.name}
+                    </span>
+                    <span className="shrink-0 font-mono text-xs">
+                      {table.isEstimated ? '~' : ''}
+                      {formatBytes(table.size)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}
