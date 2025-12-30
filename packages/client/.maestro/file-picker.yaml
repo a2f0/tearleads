@@ -1,24 +1,71 @@
 appId: com.tearleads.rapid
-androidWebViewHierarchy: devtools
 ---
 - launchApp:
     clearState: true
 
-- assertVisible: "Tearleads"
+# Wait for app to load using evalScript (more reliable than native assertions for WebView)
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 50; i++) {
+        if (document.body.innerText.includes('Tearleads')) {
+          return 'ok';
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      throw new Error('Tearleads text not found');
+    })()
 
-# Wait for the Files page heading to be visible (proves page content is rendering)
-- extendedWaitUntil:
-    visible: "Files"
-    timeout: 15000
+# Navigate to Files page by clicking the Files link
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 30; i++) {
+        const filesLink = document.querySelector('[href="/files"]') ||
+                          Array.from(document.querySelectorAll('a')).find(a => a.textContent.includes('Files'));
+        if (filesLink) {
+          filesLink.click();
+          return 'ok';
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      throw new Error('Files link not found');
+    })()
 
-# Wait for platform debug text to appear (it's always rendered at top of Files page)
-- extendedWaitUntil:
-    visible: "Platform:"
-    timeout: 10000
+# Wait for Files page to load and platform debug text to appear
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 50; i++) {
+        if (document.body.innerText.includes('Platform:')) {
+          return 'ok';
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      throw new Error('Platform debug text not found');
+    })()
 
-# Take a screenshot to debug what the UI looks like and see platform value
+# Take a screenshot to debug what the UI looks like
 - takeScreenshot: platform-detected
 
-# Now check for the native Choose Files button
-- assertVisible: "Choose Files"
-- tapOn: "Choose Files"
+# Check that platform is detected as native (android or ios, not web)
+- evalScript: |
+    (async () => {
+      const platformText = document.body.innerText;
+      if (platformText.includes('Platform: android') || platformText.includes('Platform: ios')) {
+        return 'ok';
+      }
+      throw new Error('Platform is not native: ' + platformText.match(/Platform: \w+/)?.[0]);
+    })()
+
+# Check for and click the native Choose Files button
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 30; i++) {
+        const chooseFilesBtn = document.querySelector('[data-testid="choose-files-button"]') ||
+                               Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Choose Files'));
+        if (chooseFilesBtn) {
+          chooseFilesBtn.click();
+          return 'ok';
+        }
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      throw new Error('Choose Files button not found');
+    })()
