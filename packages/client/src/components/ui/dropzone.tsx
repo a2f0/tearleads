@@ -27,7 +27,7 @@ export function Dropzone({
 
   // Debug logging for CI troubleshooting
   if (typeof window !== 'undefined') {
-    console.log('[Dropzone] Platform detection:', {
+    const debugInfo = {
       platform,
       isNative,
       isNativePlatform:
@@ -38,7 +38,8 @@ export function Dropzone({
         typeof window.Capacitor?.getPlatform === 'function'
           ? window.Capacitor.getPlatform()
           : 'N/A'
-    });
+    };
+    console.log('[Dropzone] Platform detection:', JSON.stringify(debugInfo));
   }
 
   const handleFiles = useCallback(

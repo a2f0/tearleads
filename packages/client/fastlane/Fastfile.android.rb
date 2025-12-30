@@ -170,9 +170,9 @@ platform :android do
     FileUtils.mkdir_p(debug_dir)
     # Take a screenshot of home screen before launching app
     sh("adb -s #{emulator_id} exec-out screencap -p > '#{debug_dir}/01-before-launch.png' || true")
-    # Launch app and wait for it to start
+    # Launch app and wait for it to start (10s to allow slow CI emulator to fully render)
     sh("adb -s #{emulator_id} shell am start -n #{APP_ID}/.MainActivity || true")
-    sh("sleep 5")
+    sh("sleep 10")
     # Take screenshot after app launch
     sh("adb -s #{emulator_id} exec-out screencap -p > '#{debug_dir}/02-after-launch.png' || true")
     # Dump UI hierarchy for debugging
