@@ -359,7 +359,7 @@ jobs:
         run: pnpm --filter @rapid/client build
 
       - name: Generate iOS images
-        run: ./packages/client/scripts/buildIosImages.sh
+        run: ./packages/client/scripts/buildIosImageAssets.sh
 
       - name: Install CocoaPods dependencies
         run: pod install
@@ -386,10 +386,32 @@ jobs:
           APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "App.app" -type d | head -1)
           xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
 
-      - name: Run Maestro tests
+      - name: Capture pre-test screenshot
         run: |
           mkdir -p maestro-debug
+          xcrun simctl io "$SIMULATOR_UDID" screenshot maestro-debug/01-before-tests.png || true
+
+      - name: Run Maestro tests with video recording
+        run: |
+          # Start screen recording in background
+          xcrun simctl io "$SIMULATOR_UDID" recordVideo maestro-debug/test-recording.mov &
+          RECORD_PID=$!
+
+          # Run Maestro tests
           $HOME/.maestro/bin/maestro test .maestro/ --output maestro-debug/report.xml --debug-output maestro-debug --format junit || true
+          MAESTRO_EXIT=$?
+
+          # Stop recording
+          kill $RECORD_PID 2>/dev/null || true
+          sleep 2
+
+          # Capture final screenshot
+          xcrun simctl io "$SIMULATOR_UDID" screenshot maestro-debug/02-after-tests.png || true
+
+          # Get device logs
+          xcrun simctl spawn "$SIMULATOR_UDID" log show --last 5m --predicate 'subsystem contains "com.tearleads"' > maestro-debug/device-logs.txt 2>&1 || true
+
+          exit $MAESTRO_EXIT
         working-directory: packages/client
 
       - name: Upload Maestro artifacts
