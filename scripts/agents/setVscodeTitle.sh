@@ -37,7 +37,7 @@ if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
 fi
 
 # Determine title
-if [ $# -eq 0 ]; then
+if [ "$#" -eq 0 ]; then
     # Auto-detect based on branch/PR
     cd "$REPO_ROOT"
     BRANCH=$(git branch --show-current)
