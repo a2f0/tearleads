@@ -32,7 +32,7 @@ const NEW_PASSWORD = 'new-password-456';
 
 describe('Database Integration Tests', () => {
   beforeEach(async () => {
-    resetTestKeyManager();
+    await resetTestKeyManager();
     await resetDatabase();
   });
 

@@ -61,7 +61,7 @@ async function createTestContact(data: {
 
 describe('Contacts Page Integration Tests', () => {
   beforeEach(async () => {
-    resetTestKeyManager();
+    await resetTestKeyManager();
   });
 
   describe('when database is unlocked', () => {

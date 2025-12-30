@@ -19,7 +19,7 @@ import { Tables } from './Tables';
 
 describe('Tables Page Integration Tests', () => {
   beforeEach(async () => {
-    resetTestKeyManager();
+    await resetTestKeyManager();
   });
 
   describe('when database is unlocked', () => {
