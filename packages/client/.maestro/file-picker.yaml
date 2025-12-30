@@ -13,20 +13,16 @@ appId: com.tearleads.rapid
 # Take a screenshot to debug what the UI looks like
 - takeScreenshot: before-choose-files-check
 
-# Debug: Check if web dropzone is showing (would mean platform detection is wrong)
-# This uses extendedWaitUntil with short timeout to quickly check
+# Debug: Check what platform was detected (will show in screenshot)
+# The Files page now shows "Platform: android" or "Platform: web" at top
 - extendedWaitUntil:
-    visible:
-      or:
-        - "Choose Files"
-        - "Drag and drop"
+    visible: "Platform:"
     timeout: 5000
 
-# Take another screenshot after the above check
-- takeScreenshot: after-wait-for-either
+# Verify platform is detected as android (not web)
+- assertVisible: "Platform: android"
 
 # On native (Android/iOS), the dropzone shows "Choose Files" button
 # On web, it shows "Drag and drop files here"
-# We expect native UI on Android/iOS
 - assertVisible: "Choose Files"
 - tapOn: "Choose Files"
