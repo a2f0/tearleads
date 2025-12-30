@@ -30,3 +30,27 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: vi.fn()
   }))
 });
+
+// Mock localStorage for ThemeProvider
+const localStorageStore: Record<string, string> = {};
+Object.defineProperty(window, 'localStorage', {
+  value: {
+    getItem: vi.fn((key: string) => localStorageStore[key] ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      localStorageStore[key] = value;
+    }),
+    removeItem: vi.fn((key: string) => {
+      delete localStorageStore[key];
+    }),
+    clear: vi.fn(() => {
+      for (const key in localStorageStore) {
+        delete localStorageStore[key];
+      }
+    }),
+    key: vi.fn(
+      (index: number) => Object.keys(localStorageStore)[index] ?? null
+    ),
+    length: 0
+  },
+  writable: true
+});
