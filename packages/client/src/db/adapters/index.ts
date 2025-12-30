@@ -6,6 +6,8 @@
 import type { DatabaseAdapter, PlatformInfo } from './types';
 import { getPlatformInfo } from './types';
 
+export type { NodeAdapterOptions } from './node.adapter';
+export { NodeAdapter } from './node.adapter';
 export type {
   DatabaseAdapter,
   DatabaseConfig,
