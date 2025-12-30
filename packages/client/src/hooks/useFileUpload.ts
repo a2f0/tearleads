@@ -6,10 +6,12 @@ import { and, eq } from 'drizzle-orm';
 import { fileTypeFromBuffer } from 'file-type';
 import { useCallback } from 'react';
 import { getDatabase } from '@/db';
+import { logEvent } from '@/db/analytics';
 import { getKeyManager } from '@/db/crypto';
 import { files } from '@/db/schema';
 import { UnsupportedFileTypeError } from '@/lib/errors';
 import { computeContentHash, readFileAsUint8Array } from '@/lib/file-utils';
+import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
 import {
   getFileStorage,
   initializeFileStorage,
@@ -71,10 +73,39 @@ export function useFileUpload() {
       // Store encrypted file
       const storage = getFileStorage();
       const id = crypto.randomUUID();
-      onProgress?.(60);
+      onProgress?.(50);
 
       const storagePath = await storage.store(id, data);
-      onProgress?.(80);
+      onProgress?.(65);
+
+      // Generate thumbnail for supported image types
+      let thumbnailPath: string | null = null;
+      if (isThumbnailSupported(mimeType)) {
+        const thumbnailStartTime = performance.now();
+        let thumbnailSuccess = false;
+        try {
+          const thumbnailData = await generateThumbnail(data, mimeType);
+          const thumbnailId = `${id}-thumb`;
+          thumbnailPath = await storage.store(thumbnailId, thumbnailData);
+          thumbnailSuccess = true;
+        } catch (err) {
+          console.warn(`Failed to generate thumbnail for ${file.name}:`, err);
+          // Continue without thumbnail
+        }
+        const thumbnailDurationMs = performance.now() - thumbnailStartTime;
+        try {
+          await logEvent(
+            db,
+            'thumbnail_generation',
+            thumbnailDurationMs,
+            thumbnailSuccess
+          );
+        } catch (err) {
+          // Don't let logging errors affect the main operation
+          console.warn('Failed to log thumbnail_generation event:', err);
+        }
+      }
+      onProgress?.(85);
 
       // Insert metadata
       await db.insert(files).values({
@@ -84,7 +115,8 @@ export function useFileUpload() {
         mimeType,
         uploadDate: new Date(),
         contentHash,
-        storagePath
+        storagePath,
+        thumbnailPath
       });
       onProgress?.(100);
 
