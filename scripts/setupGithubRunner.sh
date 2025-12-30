@@ -5,8 +5,15 @@
 # Prerequisites:
 #   - GitHub Personal Access Token with 'repo' scope
 #   - Set GITHUB_TOKEN environment variable or pass via prompt
+#   - jq (brew install jq)
 
 set -euo pipefail
+
+# Check for jq
+if ! command -v jq &> /dev/null; then
+  echo "Error: jq is not installed. Please install it with: brew install jq" >&2
+  exit 1
+fi
 
 # Configuration
 RUNNER_VERSION="2.321.0"
@@ -21,8 +28,8 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
-log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $1" >&2; }
+log_error() { echo -e "${RED}[ERROR]${NC} $1" >&2; }
 
 # Check architecture
 ARCH=$(uname -m)
@@ -52,12 +59,12 @@ fi
 
 # Get runner registration token from GitHub API
 log_info "Fetching runner registration token..."
-REGISTRATION_TOKEN=$(curl -s -X POST \
+REGISTRATION_TOKEN=$(curl -sS -X POST \
   -H "Accept: application/vnd.github+json" \
   -H "Authorization: Bearer $GITHUB_TOKEN" \
   -H "X-GitHub-Api-Version: 2022-11-28" \
   "https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/actions/runners/registration-token" \
-  | grep -o '"token": "[^"]*' | cut -d'"' -f4)
+  | jq -r '.token // empty')
 
 if [[ -z "$REGISTRATION_TOKEN" ]]; then
   log_error "Failed to get registration token. Check your GITHUB_TOKEN permissions."
@@ -95,13 +102,17 @@ RUNNER_TARBALL="actions-runner-osx-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz"
 RUNNER_URL="https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/${RUNNER_TARBALL}"
 
 log_info "Downloading GitHub Actions runner v${RUNNER_VERSION}..."
-curl -sL -o "$RUNNER_TARBALL" "$RUNNER_URL"
+curl -sSL -o "$RUNNER_TARBALL" "$RUNNER_URL"
 
-# Verify download
-if [[ ! -f "$RUNNER_TARBALL" ]]; then
-  log_error "Failed to download runner"
+# Verify checksum
+log_info "Verifying runner checksum..."
+curl -sSL -o "${RUNNER_TARBALL}.sha256sum" "${RUNNER_URL}.sha256sum"
+if ! shasum -a 256 -c "${RUNNER_TARBALL}.sha256sum" --ignore-missing; then
+  log_error "Checksum verification failed. The downloaded file may be corrupt."
+  rm -f "$RUNNER_TARBALL" "${RUNNER_TARBALL}.sha256sum"
   exit 1
 fi
+rm "${RUNNER_TARBALL}.sha256sum"
 
 # Extract
 log_info "Extracting runner..."
