@@ -25,6 +25,6 @@ CURRENT_TITLE=$(jq -r '.["window.title"] // ""' "$SETTINGS_FILE" 2>/dev/null || 
 # Check if title contains "(queued)" and reset if so
 case "$CURRENT_TITLE" in
     *"(queued)"*)
-        "$SCRIPT_DIR/updateVscodeTitle.sh"
+        "$SCRIPT_DIR/setVscodeTitle.sh"
         ;;
 esac
