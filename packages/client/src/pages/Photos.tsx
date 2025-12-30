@@ -7,6 +7,7 @@ import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
+import { DEFAULT_THUMBNAIL_OPTIONS } from '@/lib/thumbnail';
 import {
   getFileStorage,
   initializeFileStorage,
@@ -188,13 +189,17 @@ export function Photos() {
             No photos found. Upload images from the Files page to see them here.
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          <div className="flex flex-wrap gap-4">
             {photos.map((photo) => (
               <button
                 key={photo.id}
                 type="button"
                 onClick={() => handlePhotoClick(photo)}
-                className="group relative aspect-square overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
+                className="group relative overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
+                style={{
+                  width: DEFAULT_THUMBNAIL_OPTIONS.maxWidth,
+                  height: DEFAULT_THUMBNAIL_OPTIONS.maxHeight
+                }}
               >
                 <img
                   src={photo.objectUrl}
