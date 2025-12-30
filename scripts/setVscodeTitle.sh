@@ -63,14 +63,12 @@ else
         exit 1
     else
         # Creating a new file without jq. Check for characters that would break JSON
-        case "$TITLE" in
-          *'"'*|*'\'*|*`printf '\n'`*)
-            printf "Warning: Title contains special characters ('\"', '\\', or newline) and 'jq' is not installed.\n" >&2
+        if printf '%s' "$TITLE" | grep -q '[\"\\]'; then
+            printf "Warning: Title contains special characters ('\"' or '\\') and 'jq' is not installed.\n" >&2
             echo "Cannot reliably create $SETTINGS_FILE." >&2
             echo "Please install 'jq' or create the file manually." >&2
             exit 1
-            ;;
-        esac
+        fi
         # Create new settings file (safe for simple titles)
         cat > "$SETTINGS_FILE" << EOF
 {
