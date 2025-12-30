@@ -57,11 +57,11 @@ function DeleteButton({ onClick, title = 'Delete' }: DeleteButtonProps) {
 function getDisplayUrl(url: string): string {
   try {
     const parsed = new URL(url);
-    // Show just the pathname and search params, truncated if needed
-    const path = parsed.pathname + parsed.search;
-    return path.length > 80 ? `${path.substring(0, 77)}...` : path;
+    // Show just the pathname and search params
+    // CSS truncate class handles overflow responsively
+    return parsed.pathname + parsed.search;
   } catch {
-    return url.length > 80 ? `${url.substring(0, 77)}...` : url;
+    return url;
   }
 }
 
