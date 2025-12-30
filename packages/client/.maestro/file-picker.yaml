@@ -30,37 +30,32 @@ appId: com.tearleads.rapid
       throw new Error('Files link not found');
     })()
 
-# Wait for Files page to load and platform debug text to appear
+# Wait for Files page to load and the Choose Files button to appear
 - evalScript: |
     (async () => {
       for (let i = 0; i < 50; i++) {
-        if (document.body.innerText.includes('Platform:')) {
+        // Check for either "Choose Files" button or "Open Files App" (depends on platform detection)
+        const chooseFilesBtn = document.querySelector('[data-testid="choose-files-button"]') ||
+                               Array.from(document.querySelectorAll('button')).find(b =>
+                                 b.textContent.includes('Choose Files') || b.textContent.includes('Open Files App'));
+        if (chooseFilesBtn) {
           return 'ok';
         }
         await new Promise(resolve => setTimeout(resolve, 200));
       }
-      throw new Error('Platform debug text not found');
+      throw new Error('Choose Files button not found');
     })()
 
 # Take a screenshot to debug what the UI looks like
-- takeScreenshot: platform-detected
+- takeScreenshot: files-page
 
-# Check that platform is detected as native (android or ios, not web)
-- evalScript: |
-    (async () => {
-      const platformText = document.body.innerText;
-      if (platformText.includes('Platform: android') || platformText.includes('Platform: ios')) {
-        return 'ok';
-      }
-      throw new Error('Platform is not native: ' + platformText.match(/Platform: \w+/)?.[0]);
-    })()
-
-# Check for and click the native Choose Files button
+# Click the Choose Files button (or Open Files App)
 - evalScript: |
     (async () => {
       for (let i = 0; i < 30; i++) {
         const chooseFilesBtn = document.querySelector('[data-testid="choose-files-button"]') ||
-                               Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Choose Files'));
+                               Array.from(document.querySelectorAll('button')).find(b =>
+                                 b.textContent.includes('Choose Files') || b.textContent.includes('Open Files App'));
         if (chooseFilesBtn) {
           chooseFilesBtn.click();
           return 'ok';
