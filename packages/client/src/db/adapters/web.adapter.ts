@@ -57,16 +57,18 @@ function extractSelectColumns(sql: string): string[] | null {
 
   // Extract the actual column name from each expression
   return columns.map((col) => {
-    // Handle "table"."column" or just "column"
-    // Extract the last quoted identifier
-    const quotedMatches = col.match(/"([^"]+)"/g);
-    if (quotedMatches && quotedMatches.length > 0) {
-      // Get the last match (the column name, not table name)
-      const lastMatch = quotedMatches[quotedMatches.length - 1];
-      return lastMatch?.replace(/"/g, '') ?? col;
+    // Match "alias" or alias in `... as alias`
+    const aliasMatch = col.match(/\s+as\s+("?([\w$]+)"?)\s*$/i);
+    if (aliasMatch?.[1]) {
+      return aliasMatch[1].replace(/"/g, '');
     }
-    // Fallback: just use the trimmed column expression
-    return col;
+
+    // Handle table.column or "table"."column"
+    const colParts = col.split('.');
+    const lastPart = colParts[colParts.length - 1]?.trim() ?? col;
+
+    // Remove quotes from the final part
+    return lastPart.replace(/"/g, '');
   });
 }
 
