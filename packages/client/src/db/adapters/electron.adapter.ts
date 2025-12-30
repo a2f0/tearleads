@@ -7,23 +7,52 @@ import type { ElectronApi } from '@/types/electron';
 import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
 
 /**
- * Convert snake_case to camelCase.
+ * Extract column names from a SELECT statement.
+ * Returns column names in the order they appear in the SELECT clause.
  */
-function snakeToCamel(str: string): string {
-  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+function extractSelectColumns(sql: string): string[] | null {
+  const selectMatch = sql.match(/select\s+(.+?)\s+from\s/is);
+  if (!selectMatch || !selectMatch[1]) return null;
+
+  const selectClause = selectMatch[1];
+  if (selectClause.trim() === '*') return null;
+
+  const columns: string[] = [];
+  let depth = 0;
+  let current = '';
+
+  for (const char of selectClause) {
+    if (char === '(') depth++;
+    else if (char === ')') depth--;
+    else if (char === ',' && depth === 0) {
+      columns.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+  if (current.trim()) {
+    columns.push(current.trim());
+  }
+
+  return columns.map((col) => {
+    const quotedMatches = col.match(/"([^"]+)"/g);
+    if (quotedMatches && quotedMatches.length > 0) {
+      const lastMatch = quotedMatches[quotedMatches.length - 1];
+      return lastMatch?.replace(/"/g, '') ?? col;
+    }
+    return col;
+  });
 }
 
 /**
- * Map row object keys from snake_case to camelCase.
- * This is needed because SQLite returns column names in snake_case,
- * but Drizzle sqlite-proxy expects camelCase property names.
+ * Convert a row object to an array of values in the column order specified.
  */
-function mapRowKeys(row: Record<string, unknown>): Record<string, unknown> {
-  const mapped: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(row)) {
-    mapped[snakeToCamel(key)] = value;
-  }
-  return mapped;
+function rowToArray(
+  row: Record<string, unknown>,
+  columns: string[]
+): unknown[] {
+  return columns.map((col) => row[col]);
 }
 
 function getElectronApi(): ElectronApi {
@@ -93,6 +122,8 @@ export class ElectronAdapter implements DatabaseAdapter {
 
   getConnection(): unknown {
     // For Drizzle sqlite-proxy, return a function that always returns { rows: any[] }
+    // IMPORTANT: Drizzle sqlite-proxy expects rows as ARRAYS of values, not objects.
+    // The values must be in the same order as columns in the SELECT clause.
     return async (
       sql: string,
       params: unknown[],
@@ -101,12 +132,17 @@ export class ElectronAdapter implements DatabaseAdapter {
       const result = await this.execute(sql, params);
 
       // Drizzle sqlite-proxy expects { rows: any[] } for ALL methods
-      // The method parameter tells Drizzle how to interpret the rows
-      // Map column names from snake_case to camelCase for Drizzle schema compatibility
-      const mappedRows = result.rows.map((row) =>
-        mapRowKeys(row as Record<string, unknown>)
-      );
-      return { rows: mappedRows };
+      // The rows must be ARRAYS of values in SELECT column order, not objects.
+      const columns = extractSelectColumns(sql);
+
+      if (columns && result.rows.length > 0) {
+        const arrayRows = result.rows.map((row) =>
+          rowToArray(row as Record<string, unknown>, columns)
+        );
+        return { rows: arrayRows };
+      }
+
+      return { rows: result.rows };
     };
   }
 
