@@ -60,11 +60,11 @@ flowchart TB
 
     subgraph Verification["Password Verification"]
         KCV["Key Check Value<br/>(AES-GCM encrypted)"]
-        STORE["File System<br/>(Encrypted Config)"]
+        STORE["File System<br/>(App Data)"]
     end
 
     subgraph Encryption["Database Encryption"]
-        CIPHER["ChaCha20-Poly1305<br/>(Native Node.js)"]
+        CIPHER["ChaCha20<br/>(better-sqlite3-multiple-ciphers)"]
     end
 
     subgraph Database["Encrypted Database"]
@@ -102,7 +102,7 @@ flowchart TB
 
     subgraph Verification["Password Verification"]
         KCV["Key Check Value<br/>(AES-GCM encrypted)"]
-        STORE["iOS Keychain<br/>(Secure Enclave)"]
+        STORE["IndexedDB<br/>(WebView Storage)"]
     end
 
     subgraph Encryption["Database Encryption"]
@@ -144,7 +144,7 @@ flowchart TB
 
     subgraph Verification["Password Verification"]
         KCV["Key Check Value<br/>(AES-GCM encrypted)"]
-        STORE["EncryptedSharedPreferences<br/>(Android Keystore)"]
+        STORE["IndexedDB<br/>(WebView Storage)"]
     end
 
     subgraph Encryption["Database Encryption"]
@@ -180,12 +180,12 @@ PBKDF2-SHA256 with 600,000 iterations transforms your password into a cryptograp
 
 Each platform uses native encryption:
 
-| Platform | Encryption Library              | Secure Storage                                |
-| -------- | ------------------------------- | --------------------------------------------- |
-| Web      | SQLite3MultipleCiphers (WASM)   | IndexedDB                                     |
-| Electron | ChaCha20-Poly1305               | File System (Encrypted)                       |
-| iOS      | SQLCipher                       | Keychain (Secure Enclave)                     |
-| Android  | SQLCipher                       | EncryptedSharedPreferences (Android Keystore) |
+| Platform | Encryption Library                         | Salt/KCV Storage    |
+| -------- | ------------------------------------------ | ------------------- |
+| Web      | SQLite3MultipleCiphers (WASM)              | IndexedDB           |
+| Electron | ChaCha20 (better-sqlite3-multiple-ciphers) | File System         |
+| iOS      | SQLCipher                                  | IndexedDB (WebView) |
+| Android  | SQLCipher                                  | IndexedDB (WebView) |
 
 ### Memory Safety
 
