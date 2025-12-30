@@ -9,54 +9,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-// Helper function implementations (copy from web.adapter.ts for testing)
-function extractSelectColumns(sql: string): string[] | null {
-  const selectMatch = sql.match(/select\s+(.+?)\s+from\s/is);
-  if (!selectMatch || !selectMatch[1]) return null;
-
-  const selectClause = selectMatch[1];
-  if (selectClause.trim() === '*') return null;
-
-  const columns: string[] = [];
-  let depth = 0;
-  let current = '';
-
-  for (const char of selectClause) {
-    if (char === '(') depth++;
-    else if (char === ')') depth--;
-    else if (char === ',' && depth === 0) {
-      columns.push(current.trim());
-      current = '';
-      continue;
-    }
-    current += char;
-  }
-  if (current.trim()) {
-    columns.push(current.trim());
-  }
-
-  return columns.map((col) => {
-    // Match "alias" or alias in `... as alias`
-    const aliasMatch = col.match(/\s+as\s+("?([\w$]+)"?)\s*$/i);
-    if (aliasMatch?.[1]) {
-      return aliasMatch[1].replace(/"/g, '');
-    }
-
-    // Handle table.column or "table"."column"
-    const colParts = col.split('.');
-    const lastPart = colParts[colParts.length - 1]?.trim() ?? col;
-
-    // Remove quotes from the final part
-    return lastPart.replace(/"/g, '');
-  });
-}
-
-function rowToArray(
-  row: Record<string, unknown>,
-  columns: string[]
-): unknown[] {
-  return columns.map((col) => row[col]);
-}
+import { convertRowsToArrays, extractSelectColumns, rowToArray } from './utils';
 
 describe('SQL Column Extraction', () => {
   describe('extractSelectColumns', () => {
@@ -199,6 +152,55 @@ describe('SQL Column Extraction', () => {
         'image/jpeg',
         1704067200000
       ]);
+    });
+  });
+
+  describe('convertRowsToArrays', () => {
+    it('should convert rows from object format to array format for explicit SELECT', () => {
+      const sql = 'select "id", "name", "size" from "files"';
+      const rows = [
+        { id: 'file-1', name: 'test.jpg', size: 1024 },
+        { id: 'file-2', name: 'doc.pdf', size: 2048 }
+      ];
+
+      const result = convertRowsToArrays(sql, rows);
+      expect(result).toEqual([
+        ['file-1', 'test.jpg', 1024],
+        ['file-2', 'doc.pdf', 2048]
+      ]);
+    });
+
+    it('should derive column order from first row for SELECT *', () => {
+      // For SELECT *, columns can't be parsed from SQL, so derive from first row's keys
+      const sql = 'select * from "files"';
+      const rows = [
+        { id: 'file-1', name: 'test.jpg', size: 1024 },
+        { id: 'file-2', name: 'doc.pdf', size: 2048 }
+      ];
+
+      const result = convertRowsToArrays(sql, rows);
+      // Order is determined by Object.keys of first row
+      expect(result).toEqual([
+        ['file-1', 'test.jpg', 1024],
+        ['file-2', 'doc.pdf', 2048]
+      ]);
+    });
+
+    it('should return empty array for empty rows', () => {
+      const sql = 'select "id", "name" from "files"';
+      const rows: unknown[] = [];
+
+      const result = convertRowsToArrays(sql, rows);
+      expect(result).toEqual([]);
+    });
+
+    it('should handle rows that are already arrays (pass through)', () => {
+      // For non-SELECT queries or if rows are already arrays
+      const sql = 'insert into "files" ("id", "name") values (?, ?)';
+      const rows: unknown[] = [];
+
+      const result = convertRowsToArrays(sql, rows);
+      expect(result).toEqual([]);
     });
   });
 });

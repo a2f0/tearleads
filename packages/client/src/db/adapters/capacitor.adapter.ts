@@ -4,61 +4,7 @@
  */
 
 import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
-
-/**
- * Extract column names from a SELECT statement.
- * Returns column names in the order they appear in the SELECT clause.
- */
-function extractSelectColumns(sql: string): string[] | null {
-  const selectMatch = sql.match(/select\s+(.+?)\s+from\s/is);
-  if (!selectMatch || !selectMatch[1]) return null;
-
-  const selectClause = selectMatch[1];
-  if (selectClause.trim() === '*') return null;
-
-  const columns: string[] = [];
-  let depth = 0;
-  let current = '';
-
-  for (const char of selectClause) {
-    if (char === '(') depth++;
-    else if (char === ')') depth--;
-    else if (char === ',' && depth === 0) {
-      columns.push(current.trim());
-      current = '';
-      continue;
-    }
-    current += char;
-  }
-  if (current.trim()) {
-    columns.push(current.trim());
-  }
-
-  return columns.map((col) => {
-    // Match "alias" or alias in `... as alias`
-    const aliasMatch = col.match(/\s+as\s+("?([\w$]+)"?)\s*$/i);
-    if (aliasMatch?.[1]) {
-      return aliasMatch[1].replace(/"/g, '');
-    }
-
-    // Handle table.column or "table"."column"
-    const colParts = col.split('.');
-    const lastPart = colParts[colParts.length - 1]?.trim() ?? col;
-
-    // Remove quotes from the final part
-    return lastPart.replace(/"/g, '');
-  });
-}
-
-/**
- * Convert a row object to an array of values in the column order specified.
- */
-function rowToArray(
-  row: Record<string, unknown>,
-  columns: string[]
-): unknown[] {
-  return columns.map((col) => row[col]);
-}
+import { convertRowsToArrays } from './utils';
 
 // Types for SQLiteConnection wrapper
 interface SQLiteConnectionWrapper {
@@ -355,16 +301,9 @@ export class CapacitorAdapter implements DatabaseAdapter {
 
       // Drizzle sqlite-proxy expects { rows: any[] } for ALL methods
       // The rows must be ARRAYS of values in SELECT column order, not objects.
-      const columns = extractSelectColumns(sql);
-
-      if (columns && result.rows.length > 0) {
-        const arrayRows = result.rows.map((row) =>
-          rowToArray(row as Record<string, unknown>, columns)
-        );
-        return { rows: arrayRows };
-      }
-
-      return { rows: result.rows };
+      // convertRowsToArrays handles both explicit SELECT and SELECT * queries.
+      const arrayRows = convertRowsToArrays(sql, result.rows);
+      return { rows: arrayRows };
     };
   }
 
