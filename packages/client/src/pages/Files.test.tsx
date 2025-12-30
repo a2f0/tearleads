@@ -111,7 +111,6 @@ function createMockUpdateChain() {
 }
 
 // Mock URL.createObjectURL and URL.revokeObjectURL
-const mockObjectUrls = new Map<string, string>();
 let objectUrlCounter = 0;
 
 function renderFiles() {
@@ -126,7 +125,6 @@ describe('Files', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     objectUrlCounter = 0;
-    mockObjectUrls.clear();
 
     // Mock URL methods
     vi.spyOn(URL, 'createObjectURL').mockImplementation(() => {
@@ -264,6 +262,28 @@ describe('Files', () => {
 
       // Should not have any img elements since thumbnail failed to load
       expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    });
+
+    it('revokes object URLs on unmount to prevent memory leaks', async () => {
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
+      );
+      const { unmount } = renderFiles();
+
+      // Wait for thumbnail to load
+      await waitFor(() => {
+        expect(screen.getByText('photo.jpg')).toBeInTheDocument();
+      });
+
+      await waitFor(() => {
+        expect(URL.createObjectURL).toHaveBeenCalled();
+      });
+
+      // Unmount the component
+      unmount();
+
+      // Verify revokeObjectURL was called for cleanup
+      expect(URL.revokeObjectURL).toHaveBeenCalled();
     });
   });
 

@@ -111,9 +111,7 @@ export function Files() {
           }
           try {
             const data = await storage.retrieve(file.thumbnailPath);
-            const buffer = new ArrayBuffer(data.byteLength);
-            new Uint8Array(buffer).set(data);
-            const blob = new Blob([buffer], { type: 'image/jpeg' });
+            const blob = new Blob([data.slice()], { type: 'image/jpeg' });
             const thumbnailUrl = URL.createObjectURL(blob);
             return { ...file, thumbnailUrl };
           } catch (err) {
