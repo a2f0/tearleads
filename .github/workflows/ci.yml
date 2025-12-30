@@ -386,13 +386,36 @@ jobs:
 
       - name: Boot iOS simulator
         run: |
-          DEVICE=$(xcrun simctl list devices available | grep "iPhone 15" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          # List available devices for debugging
+          echo "Available simulators:"
+          xcrun simctl list devices available | head -20
+
+          # Try iPhone 16 first (macOS 15), then iPhone 15 (macOS 14), then any iPhone
+          DEVICE=$(xcrun simctl list devices available | grep -E "iPhone (16|15)" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+
+          if [ -z "$DEVICE" ]; then
+            echo "No iPhone 15/16 found, trying any iPhone"
+            DEVICE=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
+
+          if [ -z "$DEVICE" ]; then
+            echo "ERROR: No iPhone simulator found"
+            exit 1
+          fi
+
+          echo "Using simulator: $DEVICE"
           xcrun simctl boot "$DEVICE" || true
           echo "SIMULATOR_UDID=$DEVICE" >> $GITHUB_ENV
 
       - name: Install app on simulator
         run: |
-          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "App.app" -type d | head -1)
+          # Fastlane builds to packages/client/build/DerivedData
+          APP_PATH="packages/client/build/DerivedData/Build/Products/Debug-iphonesimulator/App.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "App not found at expected path, searching..."
+            APP_PATH=$(find . -name "App.app" -type d | head -1)
+          fi
+          echo "Installing app from: $APP_PATH"
           xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
 
       - name: Capture pre-test screenshot
