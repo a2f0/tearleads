@@ -1,101 +1,109 @@
 ---
-description: Update branch, fix tests, get Gemini review, and enable auto-merge. (project)
+description: Guarantee PR merge by cycling until merged. (project)
 ---
 
 # Enter Merge Queue
 
-This skill prepares a PR to be merged by updating it from the base branch, ensuring CI passes, getting Gemini review feedback, and enabling auto-merge.
+This skill guarantees a PR gets merged by continuously updating from base, fixing CI, addressing reviews, and waiting until the PR is actually merged.
 
 ## Steps
 
-1. **Verify PR exists**: Run `gh pr view --json number,title,headRefName,baseRefName,url` to get PR info. If no PR exists, abort with a message. Store the `baseRefName` for use in subsequent steps.
+1. **Verify PR exists**: Run `gh pr view --json number,title,headRefName,baseRefName,url,state` to get PR info. If no PR exists, abort with a message. Store the `baseRefName` for use in subsequent steps.
 
 2. **Check current branch**: Ensure you're on the PR's head branch, not `main`.
 
-3. **Fetch and merge base branch** (use the `baseRefName` from step 1):
+3. **Main loop** - Repeat until PR is merged:
+
+   ### 3a. Check PR state
+
+   ```bash
+   gh pr view --json state,mergeStateStatus,mergeable
+   ```
+
+   - If `state` is `MERGED`: Exit loop and proceed to step 4
+   - If `mergeStateStatus` is `BEHIND`: Update from base (step 3b)
+   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Check CI and reviews (step 3c)
+   - If `mergeStateStatus` is `CLEAN`: Ensure auto-merge is enabled and wait (step 3f)
+
+   ### 3b. Update from base branch
 
    ```bash
    git fetch origin <baseRefName>
    git merge origin/<baseRefName> --no-edit
    ```
 
-   If already up-to-date, skip to step 5.
+   - If merge conflicts occur, list them and stop. Do NOT auto-resolve without user input.
+   - If successful, push and continue to step 3c.
 
-4. **Handle merge conflicts**: If there are conflicts, list them and stop. Do NOT attempt to auto-resolve conflicts without user input.
-
-5. **Push updated branch and get commit SHA**:
+   ### 3c. Wait for CI
 
    ```bash
    git push
-   ```
-
-   After pushing, get the current commit SHA for tracking the CI run:
-
-   ```bash
    git rev-parse HEAD
-   ```
-
-6. **Wait for CI and fix failures**: Monitor CI status for the specific commit in a loop:
-
-   ```bash
    gh run list --commit <commit-sha> --limit 1 --json status,conclusion,databaseId
    ```
 
    - If CI is **in_progress** or **queued**: Wait 30 seconds and check again
-   - If CI **passes**: Proceed to next step
+   - If CI **passes**: Continue to step 3d
    - If CI **fails**:
      1. Download logs: `gh run view <run-id> --log-failed`
      2. Analyze the failure and fix the issue
      3. Run `/commit-and-push` to push the fix
      4. Return to monitoring CI status
 
-7. **Request Gemini review**: Request a review from gemini-code-assist:
+   ### 3d. Request Gemini review (first iteration only)
+
+   On the first pass through the loop, request a review:
 
    ```bash
    gh pr edit <pr-number> --add-reviewer gemini-code-assist
    ```
 
-   Poll for Gemini's review instead of using a fixed wait time:
+   Poll for Gemini's review:
 
    ```bash
    gh pr view <pr-number> --json reviews
    ```
 
-   Check every 30 seconds for a new review from `gemini-code-assist` until one is found or a reasonable timeout (5 minutes) is reached.
+   Check every 30 seconds until a review from `gemini-code-assist` is found (timeout: 5 minutes).
 
-8. **Address Gemini feedback**: Run `/address-gemini-feedback` to:
-   - Find unresolved Gemini review comments
-   - Make the necessary code changes
-   - Commit and push fixes
-   - Reply to Gemini's comments
+   ### 3e. Address Gemini feedback
 
-9. **Follow up with Gemini**: Run `/follow-up-with-gemini` to notify Gemini that feedback has been addressed.
+   Run `/address-gemini-feedback` to handle any unresolved comments, then `/follow-up-with-gemini` to reply.
 
-10. **Wait for CI again**: After addressing feedback, wait for CI to pass (repeat step 6).
+   ### 3f. Enable auto-merge and wait
 
-11. **Enable auto-merge**: Once CI passes and Gemini feedback is addressed, enable auto-merge:
+   ```bash
+   gh pr merge --auto --squash
+   ```
 
-    ```bash
-    gh pr merge --auto --squash
-    ```
+   Then poll for merge completion:
 
-12. **Report status**: Show the PR URL and confirm auto-merge is enabled.
+   ```bash
+   gh pr view --json state,mergeStateStatus
+   ```
 
-13. **Reset workspace**: After auto-merge is enabled, run the ready script to reset the workspace:
+   - If `state` is `MERGED`: Exit loop
+   - If `mergeStateStatus` is `BEHIND`: Go back to step 3b
+   - Otherwise: Wait 30 seconds and check again
 
-    ```bash
-    ./scripts/agents/readyVscode.sh
-    ```
+4. **Reset workspace**: Once the PR is merged, run:
 
-    This sets the VS Code window title to "ready" and switches back to main with the latest changes.
+   ```bash
+   ./scripts/agents/readyVscode.sh
+   ```
+
+   This sets the VS Code window title to "ready" and switches back to main with the latest changes.
+
+5. **Report success**: Confirm the PR was merged and show the URL.
 
 ## Notes
 
-- This skill will loop until CI passes and Gemini feedback is resolved
+- This skill loops until the PR is **actually merged**, not just until auto-merge is enabled
+- If multiple PRs are in the queue, this PR may need to update from main multiple times as others merge
 - Common fixable issues: lint errors, type errors, test failures, code style suggestions
 - Non-fixable issues: merge conflicts, infrastructure failures, architectural disagreements
 - If stuck in a loop (same fix attempted twice), ask the user for help
-- If Gemini posts new feedback after fixes, repeat steps 8-10
 
 ## Commit Rules
 
