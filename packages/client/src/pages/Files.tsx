@@ -34,7 +34,12 @@ interface FileInfo {
   mimeType: string;
   uploadDate: Date;
   storagePath: string;
+  thumbnailPath: string | null;
   deleted: boolean;
+}
+
+interface FileWithThumbnail extends FileInfo {
+  thumbnailUrl: string | null;
 }
 
 interface UploadingFile {
@@ -47,7 +52,7 @@ interface UploadingFile {
 
 export function Files() {
   const { isUnlocked, isLoading } = useDatabaseContext();
-  const [files, setFiles] = useState<FileInfo[]>([]);
+  const [files, setFiles] = useState<FileWithThumbnail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
@@ -72,22 +77,53 @@ export function Files() {
           mimeType: filesTable.mimeType,
           uploadDate: filesTable.uploadDate,
           storagePath: filesTable.storagePath,
+          thumbnailPath: filesTable.thumbnailPath,
           deleted: filesTable.deleted
         })
         .from(filesTable)
         .orderBy(desc(filesTable.uploadDate));
 
-      const fileList = result.map((row) => ({
+      const fileList: FileInfo[] = result.map((row) => ({
         id: row.id,
         name: row.name,
         size: row.size,
         mimeType: row.mimeType,
         uploadDate: row.uploadDate,
         storagePath: row.storagePath,
+        thumbnailPath: row.thumbnailPath,
         deleted: row.deleted
       }));
 
-      setFiles(fileList);
+      // Load thumbnail URLs for files that have them
+      const keyManager = getKeyManager();
+      const encryptionKey = keyManager.getCurrentKey();
+      if (!encryptionKey) throw new Error('Database not unlocked');
+
+      if (!isFileStorageInitialized()) {
+        await initializeFileStorage(encryptionKey);
+      }
+
+      const storage = getFileStorage();
+      const filesWithThumbnails: FileWithThumbnail[] = await Promise.all(
+        fileList.map(async (file) => {
+          if (!file.thumbnailPath) {
+            return { ...file, thumbnailUrl: null };
+          }
+          try {
+            const data = await storage.retrieve(file.thumbnailPath);
+            const buffer = new ArrayBuffer(data.byteLength);
+            new Uint8Array(buffer).set(data);
+            const blob = new Blob([buffer], { type: 'image/jpeg' });
+            const thumbnailUrl = URL.createObjectURL(blob);
+            return { ...file, thumbnailUrl };
+          } catch (err) {
+            console.warn(`Failed to load thumbnail for ${file.name}:`, err);
+            return { ...file, thumbnailUrl: null };
+          }
+        })
+      );
+
+      setFiles(filesWithThumbnails);
       setHasFetched(true);
     } catch (err) {
       console.error('Failed to fetch files:', err);
@@ -102,6 +138,17 @@ export function Files() {
       fetchFiles();
     }
   }, [isUnlocked, hasFetched, loading, fetchFiles]);
+
+  // Cleanup thumbnail URLs on unmount
+  useEffect(() => {
+    return () => {
+      for (const file of files) {
+        if (file.thumbnailUrl) {
+          URL.revokeObjectURL(file.thumbnailUrl);
+        }
+      }
+    };
+  }, [files]);
 
   const handleFilesSelected = useCallback(
     async (selectedFiles: File[]) => {
@@ -394,7 +441,15 @@ export function Files() {
                     file.deleted ? 'opacity-60' : ''
                   }`}
                 >
-                  <FileIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
+                  {file.thumbnailUrl ? (
+                    <img
+                      src={file.thumbnailUrl}
+                      alt=""
+                      className="h-8 w-8 shrink-0 rounded object-cover"
+                    />
+                  ) : (
+                    <FileIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
+                  )}
                   <div className="min-w-0 flex-1">
                     <p
                       className={`truncate font-medium text-sm ${
