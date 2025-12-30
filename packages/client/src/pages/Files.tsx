@@ -264,10 +264,11 @@ export function Files() {
 
   return (
     <div className="space-y-6">
-      {/* Debug indicator for CI - shows detected platform */}
+      {/* Debug indicator for CI - shows detected platform with high contrast */}
       <div
         data-testid="platform-debug"
-        className="rounded bg-muted px-2 py-1 font-mono text-muted-foreground text-xs"
+        className="rounded bg-yellow-200 px-2 py-1 font-mono text-black text-sm"
+        style={{ backgroundColor: '#fef08a', color: '#000000' }}
       >
         Platform: {platform}
       </div>
