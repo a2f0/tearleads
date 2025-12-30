@@ -6,12 +6,18 @@ import {
   Database,
   Loader2,
   Mail,
+  Pencil,
   Phone,
-  User
+  Plus,
+  Save,
+  Trash2,
+  User,
+  X
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getDatabase } from '@/db';
+import { Button } from '@/components/ui/button';
+import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
 import { formatDate } from '@/lib/utils';
@@ -19,6 +25,30 @@ import { formatDate } from '@/lib/utils';
 type ContactInfo = InferSelectModel<typeof contacts>;
 type ContactEmail = InferSelectModel<typeof contactEmails>;
 type ContactPhone = InferSelectModel<typeof contactPhones>;
+
+interface ContactFormData {
+  firstName: string;
+  lastName: string;
+  birthday: string;
+}
+
+interface EmailFormData {
+  id: string;
+  email: string;
+  label: string;
+  isPrimary: boolean;
+  isNew?: boolean;
+  isDeleted?: boolean;
+}
+
+interface PhoneFormData {
+  id: string;
+  phoneNumber: string;
+  label: string;
+  isPrimary: boolean;
+  isNew?: boolean;
+  isDeleted?: boolean;
+}
 
 export function ContactDetail() {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +58,13 @@ export function ContactDetail() {
   const [phones, setPhones] = useState<ContactPhone[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<ContactFormData | null>(null);
+  const [emailsForm, setEmailsForm] = useState<EmailFormData[]>([]);
+  const [phonesForm, setPhonesForm] = useState<PhoneFormData[]>([]);
+  const [saving, setSaving] = useState(false);
 
   const fetchContact = useCallback(async () => {
     if (!isUnlocked || !id) return;
@@ -86,6 +123,273 @@ export function ContactDetail() {
     ? `${contact.firstName}${contact.lastName ? ` ${contact.lastName}` : ''}`
     : '';
 
+  // Enter edit mode
+  const handleEditClick = useCallback(() => {
+    if (!contact) return;
+    setFormData({
+      firstName: contact.firstName,
+      lastName: contact.lastName ?? '',
+      birthday: contact.birthday ?? ''
+    });
+    setEmailsForm(
+      emails.map((e) => ({
+        id: e.id,
+        email: e.email,
+        label: e.label ?? '',
+        isPrimary: e.isPrimary
+      }))
+    );
+    setPhonesForm(
+      phones.map((p) => ({
+        id: p.id,
+        phoneNumber: p.phoneNumber,
+        label: p.label ?? '',
+        isPrimary: p.isPrimary
+      }))
+    );
+    setIsEditing(true);
+    setError(null);
+  }, [contact, emails, phones]);
+
+  // Cancel and discard changes
+  const handleCancel = useCallback(() => {
+    setFormData(null);
+    setEmailsForm([]);
+    setPhonesForm([]);
+    setIsEditing(false);
+    setError(null);
+  }, []);
+
+  // Update form field
+  const handleFormChange = useCallback(
+    (field: keyof ContactFormData, value: string) => {
+      setFormData((prev) => (prev ? { ...prev, [field]: value } : null));
+    },
+    []
+  );
+
+  // Update email field
+  const handleEmailChange = useCallback(
+    (emailId: string, field: keyof EmailFormData, value: string | boolean) => {
+      setEmailsForm((prev) =>
+        prev.map((e) => (e.id === emailId ? { ...e, [field]: value } : e))
+      );
+    },
+    []
+  );
+
+  // Set primary email (unset others)
+  const handleEmailPrimaryChange = useCallback((emailId: string) => {
+    setEmailsForm((prev) =>
+      prev.map((e) => ({
+        ...e,
+        isPrimary: e.id === emailId
+      }))
+    );
+  }, []);
+
+  // Mark email for deletion
+  const handleDeleteEmail = useCallback((emailId: string) => {
+    setEmailsForm((prev) =>
+      prev.map((e) => (e.id === emailId ? { ...e, isDeleted: true } : e))
+    );
+  }, []);
+
+  // Add new email
+  const handleAddEmail = useCallback(() => {
+    setEmailsForm((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        email: '',
+        label: '',
+        isPrimary: prev.filter((e) => !e.isDeleted).length === 0,
+        isNew: true
+      }
+    ]);
+  }, []);
+
+  // Update phone field
+  const handlePhoneChange = useCallback(
+    (phoneId: string, field: keyof PhoneFormData, value: string | boolean) => {
+      setPhonesForm((prev) =>
+        prev.map((p) => (p.id === phoneId ? { ...p, [field]: value } : p))
+      );
+    },
+    []
+  );
+
+  // Set primary phone (unset others)
+  const handlePhonePrimaryChange = useCallback((phoneId: string) => {
+    setPhonesForm((prev) =>
+      prev.map((p) => ({
+        ...p,
+        isPrimary: p.id === phoneId
+      }))
+    );
+  }, []);
+
+  // Mark phone for deletion
+  const handleDeletePhone = useCallback((phoneId: string) => {
+    setPhonesForm((prev) =>
+      prev.map((p) => (p.id === phoneId ? { ...p, isDeleted: true } : p))
+    );
+  }, []);
+
+  // Add new phone
+  const handleAddPhone = useCallback(() => {
+    setPhonesForm((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        phoneNumber: '',
+        label: '',
+        isPrimary: prev.filter((p) => !p.isDeleted).length === 0,
+        isNew: true
+      }
+    ]);
+  }, []);
+
+  // Save changes
+  const handleSave = useCallback(async () => {
+    if (!contact || !formData || !id) return;
+
+    // Validation
+    if (!formData.firstName.trim()) {
+      setError('First name is required');
+      return;
+    }
+
+    const activeEmails = emailsForm.filter((e) => !e.isDeleted);
+    for (const email of activeEmails) {
+      if (!email.email.trim()) {
+        setError('Email address cannot be empty');
+        return;
+      }
+    }
+
+    const activePhones = phonesForm.filter((p) => !p.isDeleted);
+    for (const phone of activePhones) {
+      if (!phone.phoneNumber.trim()) {
+        setError('Phone number cannot be empty');
+        return;
+      }
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const adapter = getDatabaseAdapter();
+      await adapter.beginTransaction();
+
+      try {
+        const db = getDatabase();
+        const now = new Date();
+
+        // 1. Update contact basic info
+        await db
+          .update(contacts)
+          .set({
+            firstName: formData.firstName.trim(),
+            lastName: formData.lastName.trim() || null,
+            birthday: formData.birthday.trim() || null,
+            updatedAt: now
+          })
+          .where(eq(contacts.id, id));
+
+        // 2. Process emails
+        const emailsToDelete = emailsForm.filter(
+          (e) => e.isDeleted && !e.isNew
+        );
+        const emailsToInsert = emailsForm.filter(
+          (e) => e.isNew && !e.isDeleted
+        );
+        const emailsToUpdate = emailsForm.filter(
+          (e) => !e.isNew && !e.isDeleted
+        );
+
+        for (const email of emailsToDelete) {
+          await db.delete(contactEmails).where(eq(contactEmails.id, email.id));
+        }
+
+        for (const email of emailsToInsert) {
+          await db.insert(contactEmails).values({
+            id: email.id,
+            contactId: id,
+            email: email.email.trim(),
+            label: email.label.trim() || null,
+            isPrimary: email.isPrimary
+          });
+        }
+
+        for (const email of emailsToUpdate) {
+          await db
+            .update(contactEmails)
+            .set({
+              email: email.email.trim(),
+              label: email.label.trim() || null,
+              isPrimary: email.isPrimary
+            })
+            .where(eq(contactEmails.id, email.id));
+        }
+
+        // 3. Process phones
+        const phonesToDelete = phonesForm.filter(
+          (p) => p.isDeleted && !p.isNew
+        );
+        const phonesToInsert = phonesForm.filter(
+          (p) => p.isNew && !p.isDeleted
+        );
+        const phonesToUpdate = phonesForm.filter(
+          (p) => !p.isNew && !p.isDeleted
+        );
+
+        for (const phone of phonesToDelete) {
+          await db.delete(contactPhones).where(eq(contactPhones.id, phone.id));
+        }
+
+        for (const phone of phonesToInsert) {
+          await db.insert(contactPhones).values({
+            id: phone.id,
+            contactId: id,
+            phoneNumber: phone.phoneNumber.trim(),
+            label: phone.label.trim() || null,
+            isPrimary: phone.isPrimary
+          });
+        }
+
+        for (const phone of phonesToUpdate) {
+          await db
+            .update(contactPhones)
+            .set({
+              phoneNumber: phone.phoneNumber.trim(),
+              label: phone.label.trim() || null,
+              isPrimary: phone.isPrimary
+            })
+            .where(eq(contactPhones.id, phone.id));
+        }
+
+        await adapter.commitTransaction();
+
+        // Refresh data and exit edit mode
+        await fetchContact();
+        setIsEditing(false);
+        setFormData(null);
+        setEmailsForm([]);
+        setPhonesForm([]);
+      } catch (err) {
+        await adapter.rollbackTransaction();
+        throw err;
+      }
+    } catch (err) {
+      console.error('Failed to save contact:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  }, [contact, formData, id, emailsForm, phonesForm, fetchContact]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -127,95 +431,321 @@ export function ContactDetail() {
         </div>
       )}
 
-      {isUnlocked && !loading && !error && contact && (
+      {isUnlocked && !loading && contact && (
         <div className="space-y-6">
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+          {/* Contact Header */}
+          <div className="flex items-start gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-muted">
               <User className="h-8 w-8 text-muted-foreground" />
             </div>
-            <div>
-              <h1 className="font-bold text-2xl tracking-tight">
-                {displayName}
-              </h1>
-              {contact.birthday && (
-                <p className="mt-1 flex items-center gap-1 text-muted-foreground text-sm">
-                  <Cake className="h-4 w-4" />
-                  {contact.birthday}
-                </p>
+            <div className="min-w-0 flex-1">
+              {isEditing && formData ? (
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={formData.firstName}
+                    onChange={(e) =>
+                      handleFormChange('firstName', e.target.value)
+                    }
+                    placeholder="First name *"
+                    className="h-9 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    data-testid="edit-first-name"
+                  />
+                  <input
+                    type="text"
+                    value={formData.lastName}
+                    onChange={(e) =>
+                      handleFormChange('lastName', e.target.value)
+                    }
+                    placeholder="Last name"
+                    className="h-9 w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    data-testid="edit-last-name"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Cake className="h-4 w-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={formData.birthday}
+                      onChange={(e) =>
+                        handleFormChange('birthday', e.target.value)
+                      }
+                      placeholder="Birthday (YYYY-MM-DD)"
+                      className="h-9 flex-1 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      data-testid="edit-birthday"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <h1 className="font-bold text-2xl tracking-tight">
+                    {displayName}
+                  </h1>
+                  {contact.birthday && (
+                    <p className="mt-1 flex items-center gap-1 text-muted-foreground text-sm">
+                      <Cake className="h-4 w-4" />
+                      {contact.birthday}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="shrink-0">
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancel}
+                    disabled={saving}
+                    data-testid="cancel-button"
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSave}
+                    disabled={saving}
+                    data-testid="save-button"
+                  >
+                    {saving ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Save
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEditClick}
+                  data-testid="edit-button"
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
               )}
             </div>
           </div>
 
-          {emails.length > 0 && (
+          {/* Email Addresses */}
+          {isEditing ? (
             <div className="rounded-lg border">
               <div className="border-b px-4 py-3">
                 <h2 className="font-semibold">Email Addresses</h2>
               </div>
               <div className="divide-y">
-                {emails.map((email) => (
-                  <div
-                    key={email.id}
-                    className="flex items-center gap-3 px-4 py-3"
-                  >
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <a
-                        href={`mailto:${email.email}`}
-                        className="text-sm hover:underline"
+                {emailsForm
+                  .filter((e) => !e.isDeleted)
+                  .map((email) => (
+                    <div
+                      key={email.id}
+                      className="flex items-center gap-2 px-4 py-3"
+                    >
+                      <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <input
+                        type="email"
+                        value={email.email}
+                        onChange={(e) =>
+                          handleEmailChange(email.id, 'email', e.target.value)
+                        }
+                        placeholder="Email address"
+                        className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        data-testid={`edit-email-${email.id}`}
+                      />
+                      <input
+                        type="text"
+                        value={email.label}
+                        onChange={(e) =>
+                          handleEmailChange(email.id, 'label', e.target.value)
+                        }
+                        placeholder="Label"
+                        className="h-9 w-24 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        data-testid={`edit-email-label-${email.id}`}
+                      />
+                      <label className="flex shrink-0 items-center gap-1 text-sm">
+                        <input
+                          type="radio"
+                          name="primaryEmail"
+                          checked={email.isPrimary}
+                          onChange={() => handleEmailPrimaryChange(email.id)}
+                          className="h-4 w-4"
+                        />
+                        Primary
+                      </label>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteEmail(email.id)}
+                        className="h-8 w-8 shrink-0"
+                        data-testid={`delete-email-${email.id}`}
                       >
-                        {email.email}
-                      </a>
-                      {email.label && (
-                        <span className="ml-2 text-muted-foreground text-xs">
-                          ({email.label})
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+              </div>
+              <div className="border-t px-4 py-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAddEmail}
+                  data-testid="add-email-button"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Email
+                </Button>
+              </div>
+            </div>
+          ) : (
+            emails.length > 0 && (
+              <div className="rounded-lg border">
+                <div className="border-b px-4 py-3">
+                  <h2 className="font-semibold">Email Addresses</h2>
+                </div>
+                <div className="divide-y">
+                  {emails.map((email) => (
+                    <div
+                      key={email.id}
+                      className="flex items-center gap-3 px-4 py-3"
+                    >
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <a
+                          href={`mailto:${email.email}`}
+                          className="text-sm hover:underline"
+                        >
+                          {email.email}
+                        </a>
+                        {email.label && (
+                          <span className="ml-2 text-muted-foreground text-xs">
+                            ({email.label})
+                          </span>
+                        )}
+                      </div>
+                      {email.isPrimary && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs">
+                          Primary
                         </span>
                       )}
                     </div>
-                    {email.isPrimary && (
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs">
-                        Primary
-                      </span>
-                    )}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )
           )}
 
-          {phones.length > 0 && (
+          {/* Phone Numbers */}
+          {isEditing ? (
             <div className="rounded-lg border">
               <div className="border-b px-4 py-3">
                 <h2 className="font-semibold">Phone Numbers</h2>
               </div>
               <div className="divide-y">
-                {phones.map((phone) => (
-                  <div
-                    key={phone.id}
-                    className="flex items-center gap-3 px-4 py-3"
-                  >
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <a
-                        href={`tel:${phone.phoneNumber}`}
-                        className="text-sm hover:underline"
+                {phonesForm
+                  .filter((p) => !p.isDeleted)
+                  .map((phone) => (
+                    <div
+                      key={phone.id}
+                      className="flex items-center gap-2 px-4 py-3"
+                    >
+                      <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <input
+                        type="tel"
+                        value={phone.phoneNumber}
+                        onChange={(e) =>
+                          handlePhoneChange(
+                            phone.id,
+                            'phoneNumber',
+                            e.target.value
+                          )
+                        }
+                        placeholder="Phone number"
+                        className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        data-testid={`edit-phone-${phone.id}`}
+                      />
+                      <input
+                        type="text"
+                        value={phone.label}
+                        onChange={(e) =>
+                          handlePhoneChange(phone.id, 'label', e.target.value)
+                        }
+                        placeholder="Label"
+                        className="h-9 w-24 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        data-testid={`edit-phone-label-${phone.id}`}
+                      />
+                      <label className="flex shrink-0 items-center gap-1 text-sm">
+                        <input
+                          type="radio"
+                          name="primaryPhone"
+                          checked={phone.isPrimary}
+                          onChange={() => handlePhonePrimaryChange(phone.id)}
+                          className="h-4 w-4"
+                        />
+                        Primary
+                      </label>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeletePhone(phone.id)}
+                        className="h-8 w-8 shrink-0"
+                        data-testid={`delete-phone-${phone.id}`}
                       >
-                        {phone.phoneNumber}
-                      </a>
-                      {phone.label && (
-                        <span className="ml-2 text-muted-foreground text-xs">
-                          ({phone.label})
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+              </div>
+              <div className="border-t px-4 py-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleAddPhone}
+                  data-testid="add-phone-button"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Phone
+                </Button>
+              </div>
+            </div>
+          ) : (
+            phones.length > 0 && (
+              <div className="rounded-lg border">
+                <div className="border-b px-4 py-3">
+                  <h2 className="font-semibold">Phone Numbers</h2>
+                </div>
+                <div className="divide-y">
+                  {phones.map((phone) => (
+                    <div
+                      key={phone.id}
+                      className="flex items-center gap-3 px-4 py-3"
+                    >
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <a
+                          href={`tel:${phone.phoneNumber}`}
+                          className="text-sm hover:underline"
+                        >
+                          {phone.phoneNumber}
+                        </a>
+                        {phone.label && (
+                          <span className="ml-2 text-muted-foreground text-xs">
+                            ({phone.label})
+                          </span>
+                        )}
+                      </div>
+                      {phone.isPrimary && (
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs">
+                          Primary
                         </span>
                       )}
                     </div>
-                    {phone.isPrimary && (
-                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs">
-                        Primary
-                      </span>
-                    )}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )
           )}
 
           <div className="rounded-lg border">
