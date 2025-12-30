@@ -14,20 +14,11 @@ import { Link, useParams } from 'react-router-dom';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
+import { formatDate } from '@/lib/utils';
 
 type ContactInfo = InferSelectModel<typeof contacts>;
 type ContactEmail = InferSelectModel<typeof contactEmails>;
 type ContactPhone = InferSelectModel<typeof contactPhones>;
-
-function formatDate(date: Date): string {
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
 
 export function ContactDetail() {
   const { id } = useParams<{ id: string }>();

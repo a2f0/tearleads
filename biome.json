@@ -7,6 +7,10 @@
       "complexity": {
         "useLiteralKeys": "off"
       },
+      "correctness": {
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error"
+      },
       "a11y": {
         "useValidAnchor": "off"
       },
