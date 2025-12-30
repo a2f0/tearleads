@@ -1,0 +1,9 @@
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "command": "./scripts/agents/cleanupQueuedTitle.sh"
+      }
+    ]
+  }
+}
