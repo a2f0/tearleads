@@ -10,7 +10,29 @@ export function detectPlatform(): Platform {
     return 'electron';
   }
 
-  // Fall back to Capacitor's platform detection for iOS/Android/web
+  // Use isNativePlatform() for reliable native detection, then getPlatform() for specifics.
+  // This handles cases where getPlatform() might incorrectly return 'web' during initialization.
+  if (Capacitor.isNativePlatform()) {
+    const platform = Capacitor.getPlatform();
+    if (platform === 'ios' || platform === 'android') {
+      return platform;
+    }
+    // Fallback: if isNativePlatform() is true but getPlatform() returns something else,
+    // use user agent to distinguish iOS vs Android
+    if (typeof navigator !== 'undefined') {
+      const ua = navigator.userAgent.toLowerCase();
+      if (ua.includes('iphone') || ua.includes('ipad')) {
+        return 'ios';
+      }
+      if (ua.includes('android')) {
+        return 'android';
+      }
+    }
+    // Default to android if we can't distinguish (less likely on native)
+    return 'android';
+  }
+
+  // Fall back to Capacitor's platform detection for web
   return Capacitor.getPlatform() as Platform;
 }
 
