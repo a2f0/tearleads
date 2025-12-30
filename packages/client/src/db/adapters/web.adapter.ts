@@ -21,26 +21,6 @@ interface PendingRequest {
 const REQUEST_TIMEOUT = 30000; // 30 seconds
 
 /**
- * Convert snake_case to camelCase.
- */
-function snakeToCamel(str: string): string {
-  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-}
-
-/**
- * Map row object keys from snake_case to camelCase.
- * This is needed because SQLite returns column names in snake_case,
- * but raw SQL queries (like analytics) expect camelCase property names.
- */
-function mapRowKeys(row: Record<string, unknown>): Record<string, unknown> {
-  const mapped: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(row)) {
-    mapped[snakeToCamel(key)] = value;
-  }
-  return mapped;
-}
-
-/**
  * Extract column names from a SELECT statement.
  * Returns column names in the order they appear in the SELECT clause.
  * Handles quoted identifiers like "column_name" and "table"."column".
@@ -289,12 +269,8 @@ export class WebAdapter implements DatabaseAdapter {
 
     const queryResult = assertQueryResult(result);
 
-    // Map column names from snake_case to camelCase for consistency
-    const mappedRows = queryResult.rows.map((row) =>
-      mapRowKeys(row as Record<string, unknown>)
-    );
-
-    return { ...queryResult, rows: mappedRows };
+    // Return raw column names - callers that need camelCase should use SQL aliases
+    return queryResult;
   }
 
   async executeMany(statements: string[]): Promise<void> {
