@@ -6,6 +6,11 @@
 import type { DatabaseAdapter, PlatformInfo } from './types';
 import { getPlatformInfo } from './types';
 
+// Note: NodeAdapter is intentionally NOT exported here.
+// It uses Node.js-only modules (fs, os, path, better-sqlite3-multiple-ciphers)
+// and is only meant for Vitest integration tests.
+// Import directly from './node.adapter' in test files.
+
 export type {
   DatabaseAdapter,
   DatabaseConfig,
