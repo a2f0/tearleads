@@ -10,15 +10,17 @@ export function detectPlatform(): Platform {
     return 'electron';
   }
 
-  // Use isNativePlatform() for reliable native detection, then getPlatform() for specifics.
-  // This handles cases where getPlatform() might incorrectly return 'web' during initialization.
+  // Try Capacitor's platform detection first
+  const capacitorPlatform = Capacitor.getPlatform();
+  if (capacitorPlatform === 'ios' || capacitorPlatform === 'android') {
+    return capacitorPlatform;
+  }
+
+  // If Capacitor returns 'web', double-check with isNativePlatform()
+  // This handles cases where getPlatform() might return 'web' during initialization
   if (Capacitor.isNativePlatform()) {
-    const platform = Capacitor.getPlatform();
-    if (platform === 'ios' || platform === 'android') {
-      return platform;
-    }
-    // Fallback: if isNativePlatform() is true but getPlatform() returns something else,
-    // use user agent to distinguish iOS vs Android
+    // We're on a native platform but getPlatform() returned something unexpected
+    // Use user agent to distinguish iOS vs Android
     if (typeof navigator !== 'undefined') {
       const ua = navigator.userAgent.toLowerCase();
       if (ua.includes('iphone') || ua.includes('ipad')) {
@@ -28,12 +30,33 @@ export function detectPlatform(): Platform {
         return 'android';
       }
     }
-    // Default to android if we can't distinguish (less likely on native)
+    // Default to android if we can't distinguish
     return 'android';
   }
 
-  // Fall back to Capacitor's platform detection for web
-  return Capacitor.getPlatform() as Platform;
+  // Final fallback: check user agent for mobile platforms even if Capacitor says 'web'
+  // This handles edge cases where Capacitor bridge hasn't fully initialized
+  if (typeof navigator !== 'undefined') {
+    const ua = navigator.userAgent.toLowerCase();
+    // Check for Android WebView specifically (Capacitor apps run in WebView)
+    // Android WebView UA contains both 'android' and 'wv' (WebView indicator)
+    if (
+      ua.includes('android') &&
+      (ua.includes('wv') || ua.includes('version/'))
+    ) {
+      return 'android';
+    }
+    // Check for iOS WebView (Safari in-app)
+    if (
+      (ua.includes('iphone') || ua.includes('ipad')) &&
+      !ua.includes('safari')
+    ) {
+      return 'ios';
+    }
+  }
+
+  // Fall back to web
+  return 'web';
 }
 
 export function formatFileSize(bytes: number): string {

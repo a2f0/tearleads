@@ -37,9 +37,10 @@ export function Dropzone({
       getPlatform:
         typeof window.Capacitor?.getPlatform === 'function'
           ? window.Capacitor.getPlatform()
-          : 'N/A'
+          : 'N/A',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A'
     };
-    console.log('[Dropzone] Platform detection:', JSON.stringify(debugInfo));
+    console.log('[Dropzone] Platform:', JSON.stringify(debugInfo));
   }
 
   const handleFiles = useCallback(
