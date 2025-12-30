@@ -12,30 +12,36 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 
 2. **Check current branch**: Ensure you're on the PR's head branch, not `main`.
 
-3. **Main loop** - Repeat until PR is merged:
+3. **Update VS Code title**: Set the window title to show queued status:
 
-   ### 3a. Check PR state
+   ```bash
+   ./scripts/setVscodeTitle.sh "(queued) #<pr-number> - <branch>"
+   ```
+
+4. **Main loop** - Repeat until PR is merged:
+
+   ### 4a. Check PR state
 
    ```bash
    gh pr view --json state,mergeStateStatus,mergeable
    ```
 
-   - If `state` is `MERGED`: Exit loop and proceed to step 4
-   - If `mergeStateStatus` is `BEHIND`: Update from base (step 3b)
-   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Check CI and reviews (step 3c)
-   - If `mergeStateStatus` is `CLEAN`: Ensure auto-merge is enabled and wait (step 3f)
+   - If `state` is `MERGED`: Exit loop and proceed to step 5
+   - If `mergeStateStatus` is `BEHIND`: Update from base (step 4b)
+   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Check CI and reviews (step 4c)
+   - If `mergeStateStatus` is `CLEAN`: Ensure auto-merge is enabled and wait (step 4f)
 
-   ### 3b. Update from base branch
+   ### 4b. Update from base branch
 
    ```bash
    git fetch origin <baseRefName>
    git merge origin/<baseRefName> --no-edit
    ```
 
-   - If merge conflicts occur, list them and stop. Do NOT auto-resolve without user input.
-   - If successful, push and continue to step 3c.
+   - If merge conflicts occur, list them, reset the VS Code title with `./scripts/agents/updateVscodeTitle.sh`, and stop. Do NOT auto-resolve without user input.
+   - If successful, push and continue to step 4c.
 
-   ### 3c. Wait for CI
+   ### 4c. Wait for CI
 
    ```bash
    git push
@@ -44,14 +50,14 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    ```
 
    - If CI is **in_progress** or **queued**: Wait 30 seconds and check again
-   - If CI **passes**: Continue to step 3d
+   - If CI **passes**: Continue to step 4d
    - If CI **fails**:
      1. Download logs: `gh run view <run-id> --log-failed`
      2. Analyze the failure and fix the issue
      3. Run `/commit-and-push` to push the fix
      4. Return to monitoring CI status
 
-   ### 3d. Request Gemini review (first iteration only)
+   ### 4d. Request Gemini review (first iteration only)
 
    On the first pass through the loop, request a review:
 
@@ -67,7 +73,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 
    Check every 30 seconds until a review from `gemini-code-assist` is found (timeout: 5 minutes).
 
-   ### 3e. Address Gemini feedback
+   ### 4e. Address Gemini feedback
 
    Run `/address-gemini-feedback` to handle any unresolved comments, then `/follow-up-with-gemini` to:
    - Notify Gemini that feedback has been addressed
@@ -84,9 +90,9 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
      '
      ```
 
-   - If Gemini requests further changes, repeat step 3e
+   - If Gemini requests further changes, repeat step 4e
 
-   ### 3f. Enable auto-merge and wait
+   ### 4f. Enable auto-merge and wait
 
    ```bash
    gh pr merge --auto --squash
@@ -99,10 +105,10 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    ```
 
    - If `state` is `MERGED`: Exit loop
-   - If `mergeStateStatus` is `BEHIND`: Go back to step 3b
+   - If `mergeStateStatus` is `BEHIND`: Go back to step 4b
    - Otherwise: Wait 30 seconds and check again
 
-4. **Reset workspace**: Once the PR is merged, run:
+5. **Reset workspace**: Once the PR is merged, run:
 
    ```bash
    ./scripts/agents/readyVscode.sh
@@ -110,7 +116,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 
    This sets the VS Code window title to "ready" and switches back to main with the latest changes.
 
-5. **Report success**: Confirm the PR was merged and show the URL.
+6. **Report success**: Confirm the PR was merged and show the URL.
 
 ## Notes
 
@@ -119,6 +125,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 - Common fixable issues: lint errors, type errors, test failures, code style suggestions
 - Non-fixable issues: merge conflicts, infrastructure failures, architectural disagreements
 - If stuck in a loop (same fix attempted twice), ask the user for help
+- **Always reset VS Code title when exiting early**: If you exit the merge queue before the PR is merged (conflicts, user intervention needed, etc.), run `./scripts/agents/updateVscodeTitle.sh` to remove the "(queued)" prefix
 - When Gemini confirms a fix, resolve the thread via GraphQL. To detect confirmation:
   1. Look for positive phrases: "looks good", "resolved", "satisfied", "fixed", "approved", "thank you", "lgtm"
   2. Ensure the response does NOT contain negative qualifiers: "but", "however", "still", "issue", "problem", "not yet", "almost"

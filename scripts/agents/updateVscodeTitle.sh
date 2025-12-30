@@ -14,7 +14,7 @@ else
     # Check if a PR exists for this branch
     PR_NUM=$(gh pr view --json number -q .number 2>/dev/null || true)
     if [ -n "$PR_NUM" ]; then
-        "$SCRIPT_DIR/../setVscodeTitle.sh" "#$PR_NUM"
+        "$SCRIPT_DIR/../setVscodeTitle.sh" "#$PR_NUM - $BRANCH"
     else
         "$SCRIPT_DIR/../setVscodeTitle.sh" "$BRANCH"
     fi
