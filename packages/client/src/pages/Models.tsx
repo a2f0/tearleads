@@ -26,7 +26,7 @@ const RECOMMENDED_MODELS: ModelInfo[] = [
   {
     id: 'Phi-3.5-vision-instruct-q4f16_1-MLC',
     name: 'Phi 3.5 Vision',
-    size: '~4GB',
+    size: '~2.8GB',
     description: 'Vision model for image understanding',
     isVision: true
   },

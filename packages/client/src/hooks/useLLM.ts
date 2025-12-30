@@ -65,12 +65,18 @@ function getWorkerEngine(): WebWorkerMLCEngine {
       new URL('../workers/llm-worker.ts', import.meta.url),
       { type: 'module' }
     );
-    workerEngine = new WebWorkerMLCEngine(worker, {
-      appConfig: {
-        ...prebuiltAppConfig,
-        useIndexedDBCache: true
-      }
-    });
+    try {
+      workerEngine = new WebWorkerMLCEngine(worker, {
+        appConfig: {
+          ...prebuiltAppConfig,
+          useIndexedDBCache: true
+        }
+      });
+    } catch (e) {
+      // Terminate the worker if engine creation fails to prevent leaks.
+      worker.terminate();
+      throw e;
+    }
   }
   return workerEngine;
 }
