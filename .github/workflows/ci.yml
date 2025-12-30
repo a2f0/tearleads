@@ -327,3 +327,76 @@ jobs:
           path: packages/client/maestro-debug/
           retention-days: 7
           if-no-files-found: ignore
+
+  ios-maestro:
+    name: iOS Maestro Tests
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.0'
+          bundler-cache: true
+          working-directory: packages/client
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build web assets
+        run: pnpm --filter @rapid/client build
+
+      - name: Generate iOS images
+        run: ./packages/client/scripts/buildIosImages.sh
+
+      - name: Install CocoaPods dependencies
+        run: pod install
+        working-directory: packages/client/ios/App
+
+      - name: Sync Capacitor
+        run: pnpm --filter @rapid/client run cap:sync
+
+      - name: Build iOS app for simulator
+        run: bundle exec fastlane ios build_debug
+        working-directory: packages/client
+
+      - name: Install Maestro
+        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+
+      - name: Boot iOS simulator
+        run: |
+          DEVICE=$(xcrun simctl list devices available | grep "iPhone 15" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          xcrun simctl boot "$DEVICE" || true
+          echo "SIMULATOR_UDID=$DEVICE" >> $GITHUB_ENV
+
+      - name: Install app on simulator
+        run: |
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "App.app" -type d | head -1)
+          xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
+
+      - name: Run Maestro tests
+        run: |
+          mkdir -p maestro-debug
+          $HOME/.maestro/bin/maestro test .maestro/ --output maestro-debug/report.xml --debug-output maestro-debug --format junit || true
+        working-directory: packages/client
+
+      - name: Upload Maestro artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-maestro-artifacts
+          path: packages/client/maestro-debug/
+          retention-days: 7
+          if-no-files-found: ignore
