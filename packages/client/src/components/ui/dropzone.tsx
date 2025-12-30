@@ -25,24 +25,6 @@ export function Dropzone({
   const platform = detectPlatform();
   const isNative = platform === 'ios' || platform === 'android';
 
-  // Debug logging for CI troubleshooting
-  if (typeof window !== 'undefined') {
-    const debugInfo = {
-      platform,
-      isNative,
-      isNativePlatform:
-        typeof window.Capacitor?.isNativePlatform === 'function'
-          ? window.Capacitor.isNativePlatform()
-          : 'N/A',
-      getPlatform:
-        typeof window.Capacitor?.getPlatform === 'function'
-          ? window.Capacitor.getPlatform()
-          : 'N/A',
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'N/A'
-    };
-    console.log('[Dropzone] Platform:', JSON.stringify(debugInfo));
-  }
-
   const handleFiles = useCallback(
     (files: FileList | null) => {
       if (disabled) return;
