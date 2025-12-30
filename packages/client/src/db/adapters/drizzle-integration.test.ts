@@ -72,9 +72,6 @@ describe('Drizzle sqlite-proxy Integration', () => {
         .from(schema.files)
         .orderBy(desc(schema.files.uploadDate));
 
-      // Debug: log what we got
-      console.log('Query result:', JSON.stringify(result, null, 2));
-
       // Verify we got the expected number of rows
       expect(result).toHaveLength(2);
 
@@ -123,8 +120,6 @@ describe('Drizzle sqlite-proxy Integration', () => {
         })
         .from(schema.contacts)
         .where(eq(schema.contacts.deleted, false));
-
-      console.log('Contact query result:', JSON.stringify(result, null, 2));
 
       expect(result).toHaveLength(2);
 
@@ -183,8 +178,6 @@ describe('Drizzle sqlite-proxy Integration', () => {
           eq(schema.contactPhones.contactId, schema.contacts.id)
         );
 
-      console.log('JOIN query result:', JSON.stringify(result, null, 2));
-
       expect(result).toHaveLength(1);
 
       const contact = result[0];
@@ -220,8 +213,6 @@ describe('Drizzle sqlite-proxy Integration', () => {
         })
         .from(schema.files);
 
-      console.log('Generated SQL:', capturedSql);
-
       // Drizzle should generate SQL with snake_case column names
       expect(capturedSql).toContain('mime_type');
       expect(capturedSql).toContain('upload_date');
@@ -245,42 +236,14 @@ describe('Drizzle sqlite-proxy Integration', () => {
         deleted: 0
       };
 
-      const mockConnection = vi.fn(
-        async (
-          sql: string,
-          _params: unknown[],
-          _method: 'all' | 'get' | 'run' | 'values'
-        ) => {
-          console.log('SQL executed:', sql);
-          console.log('Returning row with keys:', Object.keys(mockRow));
-          return { rows: [mockRow] };
-        }
-      );
+      const mockConnection = vi.fn(async () => {
+        return { rows: [mockRow] };
+      });
 
       const db = drizzle(mockConnection, { schema });
 
       // Use select() without custom mapping to see default behavior
       const result = await db.select().from(schema.files);
-
-      console.log('Full select() result:', JSON.stringify(result, null, 2));
-      console.log('Result keys:', result[0] ? Object.keys(result[0]) : []);
-
-      // Try to access fields
-      const row = result[0];
-      if (row) {
-        console.log('row.id:', row.id);
-        console.log('row.name:', row.name);
-        console.log('row.mimeType:', row.mimeType);
-        console.log('row.uploadDate:', row.uploadDate);
-        console.log(
-          'row["mime_type"]:',
-          (row as unknown as Record<string, unknown>)['mime_type']
-        );
-        console.log(
-          'row["upload_date"]:',
-          (row as unknown as Record<string, unknown>)['upload_date']
-        );
-      }
 
       expect(result).toHaveLength(1);
     });
@@ -288,44 +251,33 @@ describe('Drizzle sqlite-proxy Integration', () => {
     it('should work when returning rows as arrays (values format)', async () => {
       // According to drizzle-orm sqlite-proxy docs, rows should be arrays of values
       // in the same order as columns appear in the SELECT statement
-      const mockConnection = vi.fn(
-        async (
-          sql: string,
-          _params: unknown[],
-          method: 'all' | 'get' | 'run' | 'values'
-        ) => {
-          console.log('SQL:', sql);
-          console.log('Method:', method);
 
-          // For a query like: select "id", "name", "size", "mime_type", ... from "files"
-          // Return values in the same order
-          const rowAsArray = [
-            'file-1', // id
-            'test.jpg', // name
-            100, // size
-            'image/jpeg', // mime_type
-            1704067200000, // upload_date
-            'abc', // content_hash
-            '/test', // storage_path
-            0 // deleted
-          ];
+      // For a query like: select "id", "name", "size", "mime_type", ... from "files"
+      // Return values in the same order
+      const rowAsArray = [
+        'file-1', // id
+        'test.jpg', // name
+        100, // size
+        'image/jpeg', // mime_type
+        1704067200000, // upload_date
+        'abc', // content_hash
+        '/test', // storage_path
+        0 // deleted
+      ];
 
-          return { rows: [rowAsArray] };
-        }
-      );
+      const mockConnection = vi.fn(async () => {
+        return { rows: [rowAsArray] };
+      });
 
       const db = drizzle(mockConnection, { schema });
       const result = await db.select().from(schema.files);
 
-      console.log('Array format result:', JSON.stringify(result, null, 2));
-
-      // Check if values are now populated
+      // Check if values are populated correctly
+      expect(result).toHaveLength(1);
       const row = result[0];
-      if (row) {
-        console.log('row.id:', row.id);
-        console.log('row.name:', row.name);
-        console.log('row.mimeType:', row.mimeType);
-      }
+      expect(row?.id).toBe('file-1');
+      expect(row?.name).toBe('test.jpg');
+      expect(row?.mimeType).toBe('image/jpeg');
     });
   });
 });

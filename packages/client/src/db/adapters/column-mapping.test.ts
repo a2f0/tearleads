@@ -36,12 +36,18 @@ function extractSelectColumns(sql: string): string[] | null {
   }
 
   return columns.map((col) => {
-    const quotedMatches = col.match(/"([^"]+)"/g);
-    if (quotedMatches && quotedMatches.length > 0) {
-      const lastMatch = quotedMatches[quotedMatches.length - 1];
-      return lastMatch?.replace(/"/g, '') ?? col;
+    // Match "alias" or alias in `... as alias`
+    const aliasMatch = col.match(/\s+as\s+("?([\w$]+)"?)\s*$/i);
+    if (aliasMatch?.[1]) {
+      return aliasMatch[1].replace(/"/g, '');
     }
-    return col;
+
+    // Handle table.column or "table"."column"
+    const colParts = col.split('.');
+    const lastPart = colParts[colParts.length - 1]?.trim() ?? col;
+
+    // Remove quotes from the final part
+    return lastPart.replace(/"/g, '');
   });
 }
 
@@ -96,12 +102,12 @@ describe('SQL Column Extraction', () => {
       expect(columns).toEqual(['id', 'mime_type', 'upload_date']);
     });
 
-    it('should handle functions in SELECT', () => {
+    it('should handle functions with aliases in SELECT', () => {
       const sql =
         'select count(*) as count, sum("duration_ms") as totalDuration from "analytics_events"';
       const columns = extractSelectColumns(sql);
-      // For functions, we extract the alias or fallback to the expression
-      expect(columns).toContain('count(*) as count');
+      // For functions with aliases, we extract the alias name
+      expect(columns).toEqual(['count', 'totalDuration']);
     });
   });
 
