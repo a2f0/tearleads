@@ -76,7 +76,7 @@ This skill prepares a PR to be merged by updating it from the base branch, ensur
 11. **Enable auto-merge**: Once CI passes and Gemini feedback is addressed, enable auto-merge:
 
     ```bash
-    gh pr merge --auto --squash
+    gh pr merge --auto --merge
     ```
 
 12. **Report status**: Show the PR URL and confirm auto-merge is enabled.
