@@ -5,6 +5,7 @@
 
 import { HardDrive, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
@@ -179,9 +180,12 @@ export function TableSizes() {
                     key={table.name}
                     className="flex items-center justify-between"
                   >
-                    <span className="truncate font-mono text-muted-foreground">
+                    <Link
+                      to={`/tables/${encodeURIComponent(table.name)}`}
+                      className="truncate font-mono text-muted-foreground hover:text-foreground hover:underline"
+                    >
                       {table.name}
-                    </span>
+                    </Link>
                     <span className="shrink-0 font-mono text-xs">
                       {table.isEstimated ? '~' : ''}
                       {formatBytes(table.size)}
