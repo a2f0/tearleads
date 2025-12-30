@@ -284,8 +284,6 @@ export function CacheStorage() {
   };
 
   const handleClearAll = async () => {
-    if (caches.length === 0) return;
-
     if (
       !window.confirm(
         'Are you sure you want to clear ALL cache storage data? This cannot be undone.'
@@ -296,7 +294,19 @@ export function CacheStorage() {
 
     try {
       const cacheNames = await window.caches.keys();
-      await Promise.all(cacheNames.map((name) => window.caches.delete(name)));
+      const results = await Promise.allSettled(
+        cacheNames.map((name) => window.caches.delete(name))
+      );
+
+      const failed = results.filter((r) => r.status === 'rejected');
+
+      if (failed.length > 0) {
+        console.error('Failed to delete some caches:', failed);
+        setError(
+          `Failed to delete ${failed.length} cache(s). See console for details.`
+        );
+      }
+
       refresh();
     } catch (err) {
       console.error('Failed to clear cache storage:', err);
