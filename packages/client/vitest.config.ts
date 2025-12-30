@@ -13,7 +13,27 @@ export default defineConfig({
     // Integration tests use better-sqlite3-multiple-ciphers which requires
     // native module compilation and is only available in dev environments.
     // Run integration tests locally with: pnpm test -- --include '**/*.integration.test.tsx'
-    exclude: ['tests/**/*', 'node_modules/**/*', 'src/**/*.integration.test.{ts,tsx}']
+    exclude: ['tests/**/*', 'node_modules/**/*', 'src/**/*.integration.test.{ts,tsx}'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'json-summary', 'html'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/**/*.integration.test.{ts,tsx}',
+        'src/test/**/*',
+        'src/types/**/*',
+        'src/main.tsx',
+        'src/vite-env.d.ts'
+      ],
+      thresholds: {
+        statements: 28,
+        branches: 29,
+        functions: 29,
+        lines: 28
+      }
+    }
   },
   resolve: {
     alias: {
