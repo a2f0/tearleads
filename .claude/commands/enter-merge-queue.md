@@ -106,6 +106,26 @@ This skill prepares a PR to be merged by updating it from the base branch, ensur
 - When Gemini confirms a fix (phrases like "looks good", "resolved", "satisfied", "fixed", "approved", "thank you"), resolve the thread via GraphQL
 - Only resolve threads after explicit confirmation from Gemini - do not auto-resolve based on your own assessment
 
+## Keeping PR Description Updated
+
+As you iterate through fixes, keep the PR description accurate:
+
+```bash
+gh pr edit <pr-number> --body "$(cat <<'EOF'
+## Summary
+- Original feature/fix description
+- Additional: fixed CI lint errors
+- Additional: addressed Gemini feedback on error handling
+EOF
+)"
+```
+
+Guidelines:
+
+- Add bullet points for significant changes made during the merge queue process
+- Document CI fixes, Gemini feedback addressed, and any scope changes
+- Keep it concise - the commit history has the details
+
 ## Commit Rules
 
 When committing fixes, follow the same rules as `/commit-and-push`:

@@ -36,9 +36,29 @@ description: Query the open PR and resolve Gemini's feedback.
 
 4. **Commit and push**: If changes were made, run `/commit-and-push` to commit and push the fixes.
 
-5. **Follow up with Gemini**: Run `/follow-up-with-gemini` to:
+5. **Update PR description**: If the changes are significant or alter the original scope, update the PR body to reflect what was done:
+
+   ```bash
+   gh pr edit <pr-number> --body "$(cat <<'EOF'
+   ## Summary
+   - Original changes...
+   - Additional: addressed Gemini feedback on X, Y, Z
+   EOF
+   )"
+   ```
+
+6. **Follow up with Gemini**: Run `/follow-up-with-gemini` to:
    - Reply to the addressed comments asking Gemini to confirm
    - Wait for Gemini's response
    - Resolve threads where Gemini confirms the fix is satisfactory
 
-6. **Wait and repeat**: If Gemini posts new feedback or requests further changes, repeat from step 2.
+7. **Wait and repeat**: If Gemini posts new feedback or requests further changes, repeat from step 2.
+
+## PR Description Guidelines
+
+Keep the PR description accurate as you iterate:
+
+- Add bullet points for significant changes made during review
+- If the scope changed significantly, rewrite the summary
+- Keep it concise - the commit history has the details
+- Use `gh pr edit --body` to update
