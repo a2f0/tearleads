@@ -295,35 +295,32 @@ async function runMigrations(): Promise<void> {
 
   await adapterInstance.executeMany(statements);
 
-  // Add last_name column to existing contacts tables (migration for existing databases)
-  try {
-    const info = await adapterInstance.execute(`PRAGMA table_info("contacts")`);
-    const columnExists = info?.rows?.some(
-      (col) => (col as Record<string, unknown>)['name'] === 'last_name'
-    );
-    if (!columnExists) {
-      await adapterInstance.execute(
-        `ALTER TABLE "contacts" ADD COLUMN "last_name" TEXT`
+  // Helper to add a column if it doesn't exist
+  async function addColumnIfNotExists(
+    tableName: string,
+    columnName: string,
+    columnDefinition: string
+  ): Promise<void> {
+    try {
+      const info = await adapterInstance?.execute(
+        `PRAGMA table_info("${tableName}")`
       );
+      const columnExists = info?.rows?.some(
+        (col) => (col as Record<string, unknown>)['name'] === columnName
+      );
+      if (!columnExists) {
+        await adapterInstance?.execute(
+          `ALTER TABLE "${tableName}" ADD COLUMN "${columnName}" ${columnDefinition}`
+        );
+      }
+    } catch {
+      // PRAGMA not supported or column already exists, ignore
     }
-  } catch {
-    // PRAGMA not supported or column already exists, ignore
   }
 
-  // Add thumbnail_path column to existing files tables (migration for existing databases)
-  try {
-    const info = await adapterInstance.execute(`PRAGMA table_info("files")`);
-    const columnExists = info?.rows?.some(
-      (col) => (col as Record<string, unknown>)['name'] === 'thumbnail_path'
-    );
-    if (!columnExists) {
-      await adapterInstance.execute(
-        `ALTER TABLE "files" ADD COLUMN "thumbnail_path" TEXT`
-      );
-    }
-  } catch {
-    // PRAGMA not supported or column already exists, ignore
-  }
+  // Migrations for existing databases
+  await addColumnIfNotExists('contacts', 'last_name', 'TEXT');
+  await addColumnIfNotExists('files', 'thumbnail_path', 'TEXT');
 }
 
 /**

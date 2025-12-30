@@ -41,10 +41,8 @@ export async function generateThumbnail(
 ): Promise<Uint8Array> {
   const opts = { ...DEFAULT_THUMBNAIL_OPTIONS, ...options };
 
-  // Create blob from image data
-  const buffer = new ArrayBuffer(imageData.byteLength);
-  new Uint8Array(buffer).set(imageData);
-  const blob = new Blob([buffer], { type: mimeType });
+  // Create blob from image data (slice creates a copy with proper ArrayBuffer)
+  const blob = new Blob([imageData.slice()], { type: mimeType });
 
   // Decode image using createImageBitmap
   const bitmap = await createImageBitmap(blob);

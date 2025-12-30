@@ -100,8 +100,9 @@ export function useFileUpload() {
             thumbnailDurationMs,
             thumbnailSuccess
           );
-        } catch {
+        } catch (err) {
           // Don't let logging errors affect the main operation
+          console.warn('Failed to log thumbnail_generation event:', err);
         }
       }
       onProgress?.(85);
