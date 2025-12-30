@@ -45,9 +45,6 @@ appId: com.tearleads.rapid
       'Choose Files button not found'
     )
 
-# Take a screenshot to debug what the UI looks like
-- takeScreenshot: files-page
-
 # Click the Choose Files button (or Open Files App)
 - evalScript: |
     window.waitFor(
