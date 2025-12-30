@@ -34,6 +34,6 @@ bundle exec pod install
 cd "$REPO_ROOT"
 
 # Update VS Code window title (will set to "ready" since on main)
-"$SCRIPT_DIR/updateVscodeTitle.sh"
+"$SCRIPT_DIR/setVscodeTitle.sh"
 
 echo "Ready for next task."
