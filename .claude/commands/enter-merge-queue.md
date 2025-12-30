@@ -81,6 +81,14 @@ This skill prepares a PR to be merged by updating it from the base branch, ensur
 
 12. **Report status**: Show the PR URL and confirm auto-merge is enabled.
 
+13. **Reset workspace**: After auto-merge is enabled, run the ready script to reset the workspace:
+
+    ```bash
+    ./scripts/agents/readyVscode.sh
+    ```
+
+    This sets the VS Code window title to "ready" and switches back to main with the latest changes.
+
 ## Notes
 
 - This skill will loop until CI passes and Gemini feedback is resolved
