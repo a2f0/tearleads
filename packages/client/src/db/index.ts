@@ -249,6 +249,7 @@ async function runMigrations(): Promise<void> {
       "upload_date" INTEGER NOT NULL,
       "content_hash" TEXT NOT NULL,
       "storage_path" TEXT NOT NULL,
+      "thumbnail_path" TEXT,
       "deleted" INTEGER DEFAULT 0 NOT NULL
     )`,
     `CREATE INDEX IF NOT EXISTS "files_content_hash_idx" ON "files" ("content_hash")`,
@@ -303,6 +304,21 @@ async function runMigrations(): Promise<void> {
     if (!columnExists) {
       await adapterInstance.execute(
         `ALTER TABLE "contacts" ADD COLUMN "last_name" TEXT`
+      );
+    }
+  } catch {
+    // PRAGMA not supported or column already exists, ignore
+  }
+
+  // Add thumbnail_path column to existing files tables (migration for existing databases)
+  try {
+    const info = await adapterInstance.execute(`PRAGMA table_info("files")`);
+    const columnExists = info?.rows?.some(
+      (col) => (col as Record<string, unknown>)['name'] === 'thumbnail_path'
+    );
+    if (!columnExists) {
+      await adapterInstance.execute(
+        `ALTER TABLE "files" ADD COLUMN "thumbnail_path" TEXT`
       );
     }
   } catch {
