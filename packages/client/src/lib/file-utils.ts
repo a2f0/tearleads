@@ -69,6 +69,42 @@ export async function readFileAsUint8Array(file: File): Promise<Uint8Array> {
 }
 
 /**
+ * Check if the Web Share API with file sharing is supported.
+ */
+export function canShareFiles(): boolean {
+  if (!navigator.share || !navigator.canShare) {
+    return false;
+  }
+  // Test with a dummy file to check if file sharing is supported
+  const testFile = new File(['test'], 'test.txt', { type: 'text/plain' });
+  return navigator.canShare({ files: [testFile] });
+}
+
+/**
+ * Share a file using the Web Share API.
+ * Returns true if sharing was initiated, false if not supported.
+ * Throws if sharing fails for other reasons.
+ */
+export async function shareFile(
+  data: Uint8Array,
+  filename: string,
+  mimeType: string
+): Promise<boolean> {
+  if (!navigator.share || !navigator.canShare) {
+    return false;
+  }
+
+  const file = new File([data.slice()], filename, { type: mimeType });
+
+  if (!navigator.canShare({ files: [file] })) {
+    return false;
+  }
+
+  await navigator.share({ files: [file] });
+  return true;
+}
+
+/**
  * Save file using platform-appropriate method.
  * - Mobile (iOS/Android): Uses Share API to let user save via system share sheet
  * - Web/Electron: Uses browser download
