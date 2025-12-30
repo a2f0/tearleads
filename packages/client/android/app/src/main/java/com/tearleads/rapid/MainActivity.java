@@ -10,6 +10,9 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+
+        // Enable WebView debugging for Maestro devtools mode
+        WebView.setWebContentsDebuggingEnabled(true);
     }
 
     @Override
