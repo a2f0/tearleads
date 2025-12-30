@@ -180,12 +180,12 @@ PBKDF2-SHA256 with 600,000 iterations transforms your password into a cryptograp
 
 Each platform uses native encryption:
 
-| Platform | Encryption Library                    | Salt/KCV Storage    |
-| -------- | ------------------------------------- | ------------------- |
-| Web      | SQLite3MultipleCiphers (WASM)         | IndexedDB           |
-| Electron | ChaCha20 (better-sqlite3-mc)          | File System         |
-| iOS      | SQLCipher                             | IndexedDB (WebView) |
-| Android  | SQLCipher                             | IndexedDB (WebView) |
+| Platform | Encryption Library                         | Salt/KCV Storage    |
+| -------- | ------------------------------------------ | ------------------- |
+| Web      | SQLite3MultipleCiphers (WASM)              | IndexedDB           |
+| Electron | ChaCha20 (better-sqlite3-multiple-ciphers) | File System         |
+| iOS      | SQLCipher                                  | IndexedDB (WebView) |
+| Android  | SQLCipher                                  | IndexedDB (WebView) |
 
 ### Memory Safety
 
