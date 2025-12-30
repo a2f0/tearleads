@@ -283,6 +283,37 @@ export function CacheStorage() {
     }
   };
 
+  const handleClearAll = async () => {
+    if (
+      !window.confirm(
+        'Are you sure you want to clear ALL cache storage data? This cannot be undone.'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const cacheNames = await window.caches.keys();
+      const results = await Promise.allSettled(
+        cacheNames.map((name) => window.caches.delete(name))
+      );
+
+      const failed = results.filter((r) => r.status === 'rejected');
+
+      if (failed.length > 0) {
+        console.error('Failed to delete some caches:', failed);
+        setError(
+          `Failed to delete ${failed.length} cache(s). See console for details.`
+        );
+      }
+
+      refresh();
+    } catch (err) {
+      console.error('Failed to clear cache storage:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   const totalSize = caches.reduce((sum, c) => sum + c.totalSize, 0);
   const totalEntries = caches.reduce((sum, c) => sum + c.entries.length, 0);
 
@@ -316,17 +347,25 @@ export function CacheStorage() {
             </p>
           )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={refresh}
-          disabled={loading}
-        >
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-          />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          {caches.length > 0 && (
+            <Button variant="destructive" size="sm" onClick={handleClearAll}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Clear All
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refresh}
+            disabled={loading}
+          >
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+            />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {error && (
