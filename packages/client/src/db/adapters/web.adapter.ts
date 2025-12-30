@@ -30,7 +30,7 @@ function snakeToCamel(str: string): string {
 /**
  * Map row object keys from snake_case to camelCase.
  * This is needed because SQLite returns column names in snake_case,
- * but Drizzle sqlite-proxy expects camelCase property names.
+ * but raw SQL queries (like analytics) expect camelCase property names.
  */
 function mapRowKeys(row: Record<string, unknown>): Record<string, unknown> {
   const mapped: Record<string, unknown> = {};
@@ -38,6 +38,66 @@ function mapRowKeys(row: Record<string, unknown>): Record<string, unknown> {
     mapped[snakeToCamel(key)] = value;
   }
   return mapped;
+}
+
+/**
+ * Extract column names from a SELECT statement.
+ * Returns column names in the order they appear in the SELECT clause.
+ * Handles quoted identifiers like "column_name" and "table"."column".
+ */
+function extractSelectColumns(sql: string): string[] | null {
+  // Match SELECT ... FROM (case insensitive, handles newlines)
+  const selectMatch = sql.match(/select\s+(.+?)\s+from\s/is);
+  if (!selectMatch || !selectMatch[1]) return null;
+
+  const selectClause = selectMatch[1];
+
+  // Handle SELECT * case
+  if (selectClause.trim() === '*') return null;
+
+  const columns: string[] = [];
+
+  // Split by comma, handling potential nested parentheses (for functions)
+  let depth = 0;
+  let current = '';
+
+  for (const char of selectClause) {
+    if (char === '(') depth++;
+    else if (char === ')') depth--;
+    else if (char === ',' && depth === 0) {
+      columns.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+  if (current.trim()) {
+    columns.push(current.trim());
+  }
+
+  // Extract the actual column name from each expression
+  return columns.map((col) => {
+    // Handle "table"."column" or just "column"
+    // Extract the last quoted identifier
+    const quotedMatches = col.match(/"([^"]+)"/g);
+    if (quotedMatches && quotedMatches.length > 0) {
+      // Get the last match (the column name, not table name)
+      const lastMatch = quotedMatches[quotedMatches.length - 1];
+      return lastMatch?.replace(/"/g, '') ?? col;
+    }
+    // Fallback: just use the trimmed column expression
+    return col;
+  });
+}
+
+/**
+ * Convert a row object to an array of values in the column order specified.
+ */
+function rowToArray(
+  row: Record<string, unknown>,
+  columns: string[]
+): unknown[] {
+  return columns.map((col) => row[col]);
 }
 
 /**
@@ -272,6 +332,9 @@ export class WebAdapter implements DatabaseAdapter {
 
   getConnection(): unknown {
     // For Drizzle sqlite-proxy, return a function that always returns { rows: any[] }
+    // IMPORTANT: Drizzle sqlite-proxy expects rows as ARRAYS of values, not objects.
+    // The values must be in the same order as columns in the SELECT clause.
+    // We convert from the worker's object format to array format here.
     return async (
       sql: string,
       params: unknown[],
@@ -287,12 +350,20 @@ export class WebAdapter implements DatabaseAdapter {
       );
 
       // Drizzle sqlite-proxy expects { rows: any[] } for ALL methods
-      // The method parameter tells Drizzle how to interpret the rows
-      // Map column names from snake_case to camelCase for Drizzle schema compatibility
-      const mappedRows = result.rows.map((row) =>
-        mapRowKeys(row as Record<string, unknown>)
-      );
-      return { rows: mappedRows };
+      // The rows must be ARRAYS of values in SELECT column order, not objects.
+      // Extract column names from SQL to convert object rows to arrays.
+      const columns = extractSelectColumns(sql);
+
+      if (columns && result.rows.length > 0) {
+        // Convert object rows to array rows in the correct column order
+        const arrayRows = result.rows.map((row) =>
+          rowToArray(row as Record<string, unknown>, columns)
+        );
+        return { rows: arrayRows };
+      }
+
+      // For non-SELECT queries or if we can't parse columns, return as-is
+      return { rows: result.rows };
     };
   }
 
