@@ -1,5 +1,5 @@
 ---
-description: Fix failing Playwright tests (project)
+description: Fix failing tests from CI (project)
 ---
 
 # Fix Failing Tests
