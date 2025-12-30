@@ -177,9 +177,16 @@ platform :android do
     sh("adb -s #{emulator_id} exec-out screencap -p > '#{debug_dir}/02-after-launch.png' || true")
     # Dump UI hierarchy for debugging
     sh("adb -s #{emulator_id} exec-out uiautomator dump /dev/tty 2>/dev/null | head -100 > '#{debug_dir}/ui-hierarchy.xml' || true")
+    # Clear logcat before running tests
+    sh("adb -s #{emulator_id} logcat -c || true")
     # Run Maestro with debug output for CI failures
     # --output expects a file path for junit format, --debug-output is for screenshots
-    sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test '#{maestro_dir}' --output '#{debug_dir}/report.xml' --debug-output '#{debug_dir}' --format junit")
+    # Allow Maestro to fail so we can capture debug output, then check result
+    maestro_result = sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test '#{maestro_dir}' --output '#{debug_dir}/report.xml' --debug-output '#{debug_dir}' --format junit; echo $?", log: false).strip
+    # Capture logcat for debugging (filter for console messages from WebView)
+    sh("adb -s #{emulator_id} logcat -d chromium:V '*:S' > '#{debug_dir}/logcat.txt' 2>&1 || true")
+    # Fail if Maestro tests failed
+    UI.user_error!("Maestro tests failed") unless maestro_result == "0"
   end
 
   private_lane :run_gradle do |options|

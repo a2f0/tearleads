@@ -25,6 +25,22 @@ export function Dropzone({
   const platform = detectPlatform();
   const isNative = platform === 'ios' || platform === 'android';
 
+  // Debug logging for CI troubleshooting
+  if (typeof window !== 'undefined') {
+    console.log('[Dropzone] Platform detection:', {
+      platform,
+      isNative,
+      isNativePlatform:
+        typeof window.Capacitor?.isNativePlatform === 'function'
+          ? window.Capacitor.isNativePlatform()
+          : 'N/A',
+      getPlatform:
+        typeof window.Capacitor?.getPlatform === 'function'
+          ? window.Capacitor.getPlatform()
+          : 'N/A'
+    });
+  }
+
   const handleFiles = useCallback(
     (files: FileList | null) => {
       if (disabled) return;
@@ -90,6 +106,7 @@ export function Dropzone({
     return (
       <div
         data-testid="dropzone-native"
+        data-platform={platform}
         className={cn('flex flex-col items-center gap-4', className)}
       >
         <Button
@@ -113,6 +130,7 @@ export function Dropzone({
       data-testid="dropzone"
       data-slot="dropzone"
       data-dragging={isDragging}
+      data-platform={platform}
       onDragOver={disabled ? undefined : handleDragOver}
       onDragLeave={disabled ? undefined : handleDragLeave}
       onDrop={disabled ? undefined : handleDrop}
