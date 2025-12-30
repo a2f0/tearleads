@@ -242,8 +242,10 @@ describe('CacheStorage', () => {
       });
 
       // Find and click the delete button for the cache
-      const deleteButton = screen.getAllByTitle('Delete cache')[0]!;
-      await user.click(deleteButton);
+      const deleteButtons = screen.getAllByTitle('Delete cache');
+      expect(deleteButtons[0]).toBeDefined();
+      // biome-ignore lint/style/noNonNullAssertion: checked above
+      await user.click(deleteButtons[0]!);
 
       expect(confirmSpy).toHaveBeenCalledWith(
         'Are you sure you want to delete the cache "test-cache" and all its contents?'
@@ -259,8 +261,10 @@ describe('CacheStorage', () => {
         expect(screen.getByText('test-cache')).toBeInTheDocument();
       });
 
-      const deleteButton = screen.getAllByTitle('Delete cache')[0]!;
-      await user.click(deleteButton);
+      const deleteButtons = screen.getAllByTitle('Delete cache');
+      expect(deleteButtons[0]).toBeDefined();
+      // biome-ignore lint/style/noNonNullAssertion: checked above
+      await user.click(deleteButtons[0]!);
 
       await waitFor(() => {
         expect(mockCaches.delete).toHaveBeenCalledWith('test-cache');
@@ -276,8 +280,10 @@ describe('CacheStorage', () => {
         expect(screen.getByText('test-cache')).toBeInTheDocument();
       });
 
-      const deleteButton = screen.getAllByTitle('Delete cache')[0]!;
-      await user.click(deleteButton);
+      const deleteButtons = screen.getAllByTitle('Delete cache');
+      expect(deleteButtons[0]).toBeDefined();
+      // biome-ignore lint/style/noNonNullAssertion: checked above
+      await user.click(deleteButtons[0]!);
 
       expect(mockCaches.delete).not.toHaveBeenCalled();
     });
@@ -302,8 +308,10 @@ describe('CacheStorage', () => {
         expect(screen.getByText('/api/data')).toBeInTheDocument();
       });
 
-      const deleteButton = screen.getAllByTitle('Delete entry')[0]!;
-      await user.click(deleteButton);
+      const deleteButtons = screen.getAllByTitle('Delete entry');
+      expect(deleteButtons[0]).toBeDefined();
+      // biome-ignore lint/style/noNonNullAssertion: checked above
+      await user.click(deleteButtons[0]!);
 
       expect(confirmSpy).toHaveBeenCalledWith(
         'Are you sure you want to delete this cached entry?'
@@ -319,8 +327,10 @@ describe('CacheStorage', () => {
         expect(screen.getByText('/api/data')).toBeInTheDocument();
       });
 
-      const deleteButton = screen.getAllByTitle('Delete entry')[0]!;
-      await user.click(deleteButton);
+      const deleteButtons = screen.getAllByTitle('Delete entry');
+      expect(deleteButtons[0]).toBeDefined();
+      // biome-ignore lint/style/noNonNullAssertion: checked above
+      await user.click(deleteButtons[0]!);
 
       await waitFor(() => {
         expect(testCache.delete).toHaveBeenCalledWith(
