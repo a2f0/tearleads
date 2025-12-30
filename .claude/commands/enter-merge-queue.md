@@ -103,7 +103,10 @@ This skill prepares a PR to be merged by updating it from the base branch, ensur
 - Non-fixable issues: merge conflicts, infrastructure failures, architectural disagreements
 - If stuck in a loop (same fix attempted twice), ask the user for help
 - If Gemini posts new feedback after fixes, repeat steps 8-10
-- When Gemini confirms a fix (phrases like "looks good", "resolved", "satisfied", "fixed", "approved", "thank you"), resolve the thread via GraphQL
+- When Gemini confirms a fix, resolve the thread via GraphQL. To detect confirmation:
+  1. Look for positive phrases: "looks good", "resolved", "satisfied", "fixed", "approved", "thank you", "lgtm"
+  2. Ensure the response does NOT contain negative qualifiers: "but", "however", "still", "issue", "problem", "not yet", "almost"
+  3. Only resolve if both conditions are met (positive phrase present AND no negative qualifiers)
 - Only resolve threads after explicit confirmation from Gemini - do not auto-resolve based on your own assessment
 
 ## Keeping PR Description Updated

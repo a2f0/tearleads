@@ -14,12 +14,14 @@ description: Query the open PR and resolve Gemini's feedback.
        repository(owner: "<owner>", name: "<repo>") {
          pullRequest(number: <pr_number>) {
            reviewThreads(first: 100) {
+             pageInfo { hasNextPage endCursor }
              nodes {
                id
                isResolved
                path
                line
                comments(first: 10) {
+                 pageInfo { hasNextPage endCursor }
                  nodes { body author { login } databaseId }
                }
              }
@@ -29,6 +31,8 @@ description: Query the open PR and resolve Gemini's feedback.
      }
    '
    ```
+
+   **Note on pagination**: If `pageInfo.hasNextPage` is true, make subsequent requests using the `endCursor` to fetch all items. This ensures no threads or comments are missed on PRs with high feedback volume.
 
 3. **Address feedback**: For each unresolved comment that you think is relevant/important:
    - Make the necessary code changes

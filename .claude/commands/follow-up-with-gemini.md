@@ -17,7 +17,11 @@ description: Respond to Gemini's comments after resolving and pushing feedback.
 
 5. **Wait for Gemini's response**: Poll for Gemini's reply every 30 seconds (up to 5 minutes):
    - Use GraphQL to fetch the comment thread and check for new replies from `gemini-code-assist`
-   - Look for confirmation phrases like "looks good", "resolved", "satisfied", "fixed", "approved", "thank you", etc.
+   - To detect confirmation:
+     1. Look for positive phrases: "looks good", "resolved", "satisfied", "fixed", "approved", "thank you", "lgtm"
+     2. Ensure the response does NOT contain negative qualifiers: "but", "however", "still", "issue", "problem", "not yet", "almost"
+     3. Only treat as confirmation if both conditions are met (positive phrase present AND no negative qualifiers)
+   - Example of false positive to avoid: "Thank you for the update, but I still see an issue" contains "thank you" but also "but" and "still" - do NOT resolve
 
 6. **Resolve satisfied comments**: When Gemini confirms a fix is satisfactory, resolve the review thread:
 
@@ -39,10 +43,12 @@ description: Respond to Gemini's comments after resolving and pushing feedback.
        repository(owner: "<owner>", name: "<repo>") {
          pullRequest(number: <pr_number>) {
            reviewThreads(first: 100) {
+             pageInfo { hasNextPage endCursor }
              nodes {
                id
                isResolved
                comments(first: 10) {
+                 pageInfo { hasNextPage endCursor }
                  nodes { body author { login } }
                }
              }
@@ -52,5 +58,7 @@ description: Respond to Gemini's comments after resolving and pushing feedback.
      }
    '
    ```
+
+   **Note on pagination**: If `pageInfo.hasNextPage` is true, make subsequent requests using the `endCursor` to fetch all items. This ensures no threads or comments are missed on PRs with high feedback volume.
 
 7. If Gemini requests further changes instead of confirming, do NOT resolve the thread - return control to `address-gemini-feedback` to make additional fixes.
