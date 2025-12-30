@@ -7,10 +7,12 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './tests',
   testIgnore: ['**/electron/**'],
-  fullyParallel: true,
+  // Run tests serially to avoid OPFS storage conflicts
+  // OPFS is origin-scoped, so parallel tests on same origin conflict
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: 0,
-  workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:3000',

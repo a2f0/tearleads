@@ -29,6 +29,7 @@ const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
 };
 
 const getSuccessRateColor = (rate: number) => {
+  if (rate == null || Number.isNaN(rate)) return 'text-muted-foreground';
   if (rate >= 90) return 'text-green-600';
   if (rate >= 70) return 'text-yellow-600';
   return 'text-red-600';
@@ -112,19 +113,34 @@ export function Analytics() {
   }, [isUnlocked, fetchData]);
 
   const formatDuration = (ms: number) => {
+    if (ms == null || Number.isNaN(ms)) return '—';
     if (ms < 1000) return `${ms}ms`;
     return `${(ms / 1000).toFixed(2)}s`;
   };
 
   const formatTime = (date: Date) => {
+    if (!date || !(date instanceof Date) || Number.isNaN(date.getTime())) {
+      return '—';
+    }
     return date.toLocaleString();
   };
 
-  const formatEventName = (name: string) => {
+  const formatEventName = (name: string | undefined) => {
+    if (!name) return '(Unknown)';
     return name
       .replace('db_', '')
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
+  const formatCount = (count: number) => {
+    if (count == null || Number.isNaN(count)) return '—';
+    return count.toString();
+  };
+
+  const formatSuccessRate = (rate: number) => {
+    if (rate == null || Number.isNaN(rate)) return '—';
+    return `${rate}%`;
   };
 
   return (
@@ -200,9 +216,9 @@ export function Analytics() {
             <div className="space-y-2">
               <h2 className="font-semibold text-lg">Summary</h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {stats.map((stat) => (
+                {stats.map((stat, index) => (
                   <div
-                    key={stat.eventName}
+                    key={`stat-${index}-${stat.eventName}`}
                     className="rounded-lg border bg-muted/50 p-4"
                   >
                     <div className="flex items-center gap-2">
@@ -214,7 +230,7 @@ export function Analytics() {
                     <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
                       <div>
                         <span className="text-muted-foreground">Count:</span>{' '}
-                        {stat.count}
+                        {formatCount(stat.count)}
                       </div>
                       <div>
                         <span className="text-muted-foreground">Avg:</span>{' '}
@@ -234,7 +250,7 @@ export function Analytics() {
                         Success Rate:
                       </span>{' '}
                       <span className={getSuccessRateColor(stat.successRate)}>
-                        {stat.successRate}%
+                        {formatSuccessRate(stat.successRate)}
                       </span>
                     </div>
                   </div>
