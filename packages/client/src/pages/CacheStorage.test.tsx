@@ -242,7 +242,9 @@ describe('CacheStorage', () => {
       });
 
       // Find and click the delete button for the cache
-      const deleteButton = screen.getAllByTitle('Delete cache')[0]!;
+      const deleteButtons = screen.getAllByTitle('Delete cache');
+      const deleteButton = deleteButtons[0];
+      if (!deleteButton) throw new Error('Delete button not found');
       await user.click(deleteButton);
 
       expect(confirmSpy).toHaveBeenCalledWith(
@@ -259,7 +261,9 @@ describe('CacheStorage', () => {
         expect(screen.getByText('test-cache')).toBeInTheDocument();
       });
 
-      const deleteButton = screen.getAllByTitle('Delete cache')[0]!;
+      const deleteButtons = screen.getAllByTitle('Delete cache');
+      const deleteButton = deleteButtons[0];
+      if (!deleteButton) throw new Error('Delete button not found');
       await user.click(deleteButton);
 
       await waitFor(() => {
@@ -276,7 +280,9 @@ describe('CacheStorage', () => {
         expect(screen.getByText('test-cache')).toBeInTheDocument();
       });
 
-      const deleteButton = screen.getAllByTitle('Delete cache')[0]!;
+      const deleteButtons = screen.getAllByTitle('Delete cache');
+      const deleteButton = deleteButtons[0];
+      if (!deleteButton) throw new Error('Delete button not found');
       await user.click(deleteButton);
 
       expect(mockCaches.delete).not.toHaveBeenCalled();
@@ -302,7 +308,9 @@ describe('CacheStorage', () => {
         expect(screen.getByText('/api/data')).toBeInTheDocument();
       });
 
-      const deleteButton = screen.getAllByTitle('Delete entry')[0]!;
+      const deleteButtons = screen.getAllByTitle('Delete entry');
+      const deleteButton = deleteButtons[0];
+      if (!deleteButton) throw new Error('Delete button not found');
       await user.click(deleteButton);
 
       expect(confirmSpy).toHaveBeenCalledWith(
@@ -319,7 +327,9 @@ describe('CacheStorage', () => {
         expect(screen.getByText('/api/data')).toBeInTheDocument();
       });
 
-      const deleteButton = screen.getAllByTitle('Delete entry')[0]!;
+      const deleteButtons = screen.getAllByTitle('Delete entry');
+      const deleteButton = deleteButtons[0];
+      if (!deleteButton) throw new Error('Delete button not found');
       await user.click(deleteButton);
 
       await waitFor(() => {
