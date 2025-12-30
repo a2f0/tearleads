@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TableSizes } from './TableSizes';
 
@@ -13,6 +14,14 @@ vi.mock('@/db/hooks', () => ({
 vi.mock('@/db', () => ({
   getDatabaseAdapter: () => mockGetDatabaseAdapter()
 }));
+
+function renderTableSizes() {
+  return render(
+    <MemoryRouter>
+      <TableSizes />
+    </MemoryRouter>
+  );
+}
 
 describe('TableSizes', () => {
   beforeEach(() => {
@@ -62,14 +71,14 @@ describe('TableSizes', () => {
   describe('visibility', () => {
     it('returns null when database is not unlocked', () => {
       setupMockContext({ isUnlocked: false });
-      const { container } = render(<TableSizes />);
-      expect(container).toBeEmptyDOMElement();
+      const { container } = renderTableSizes();
+      expect(container.querySelector('[data-testid="table-sizes"]')).toBeNull();
     });
 
     it('renders when database is unlocked', () => {
       setupMockContext({ isUnlocked: true });
       setupMockAdapter({});
-      render(<TableSizes />);
+      renderTableSizes();
       expect(screen.getByTestId('table-sizes')).toBeInTheDocument();
     });
   });
@@ -78,7 +87,7 @@ describe('TableSizes', () => {
     it('shows loading message initially when unlocked', async () => {
       setupMockContext({ isUnlocked: true });
       setupMockAdapter({});
-      render(<TableSizes />);
+      renderTableSizes();
 
       await waitFor(() => {
         expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -95,7 +104,7 @@ describe('TableSizes', () => {
         tables: { rows: [] }
       });
 
-      render(<TableSizes />);
+      renderTableSizes();
 
       await waitFor(() => {
         expect(screen.getByText('1 MB')).toBeInTheDocument();
@@ -109,7 +118,7 @@ describe('TableSizes', () => {
         page_count: { rows: [] }
       });
 
-      render(<TableSizes />);
+      renderTableSizes();
 
       await waitFor(() => {
         expect(
@@ -127,7 +136,7 @@ describe('TableSizes', () => {
         dbstat: { rows: [{ size: 2048 }] }
       });
 
-      render(<TableSizes />);
+      renderTableSizes();
 
       await waitFor(() => {
         expect(screen.getByText('users')).toBeInTheDocument();
@@ -142,7 +151,7 @@ describe('TableSizes', () => {
         dbstat: { rows: [{ size: 2048 }] }
       });
 
-      render(<TableSizes />);
+      renderTableSizes();
 
       await waitFor(() => {
         expect(screen.getByText('users')).toBeInTheDocument();
@@ -163,7 +172,7 @@ describe('TableSizes', () => {
         count: { rows: [{ count: 100 }] }
       });
 
-      render(<TableSizes />);
+      renderTableSizes();
 
       await waitFor(() => {
         expect(screen.getByText('users')).toBeInTheDocument();
@@ -180,7 +189,7 @@ describe('TableSizes', () => {
         count: { rows: [{ count: 100 }] }
       });
 
-      render(<TableSizes />);
+      renderTableSizes();
 
       await waitFor(() => {
         expect(
@@ -197,7 +206,7 @@ describe('TableSizes', () => {
         count: { rows: [{ count: 100 }] }
       });
 
-      render(<TableSizes />);
+      renderTableSizes();
 
       await waitFor(() => {
         const sizeElement = screen.getByText(/^~\d/);
@@ -215,7 +224,7 @@ describe('TableSizes', () => {
         dbstat: { rows: [{ size: 1024 }] }
       });
 
-      render(<TableSizes />);
+      renderTableSizes();
 
       await waitFor(() => {
         expect(screen.getByText('users')).toBeInTheDocument();
@@ -239,7 +248,7 @@ describe('TableSizes', () => {
         tables: { rows: [] }
       });
 
-      render(<TableSizes />);
+      renderTableSizes();
 
       await waitFor(() => {
         expect(screen.getByText('No tables found')).toBeInTheDocument();
@@ -274,12 +283,76 @@ describe('TableSizes', () => {
 
       mockGetDatabaseAdapter.mockReturnValue({ execute });
 
-      render(<TableSizes />);
+      renderTableSizes();
 
       await waitFor(() => {
         const tableNames = screen.getAllByText(/small|large/);
         expect(tableNames[0]).toHaveTextContent('large');
         expect(tableNames[1]).toHaveTextContent('small');
+      });
+    });
+  });
+
+  describe('table links', () => {
+    it('renders table names as clickable links', async () => {
+      setupMockContext({ isUnlocked: true });
+      setupMockAdapter({
+        tables: { rows: [{ name: 'users' }] },
+        dbstat: { rows: [{ size: 1024 }] }
+      });
+
+      renderTableSizes();
+
+      await waitFor(() => {
+        const link = screen.getByRole('link', { name: 'users' });
+        expect(link).toBeInTheDocument();
+      });
+    });
+
+    it('links navigate to /tables/{tableName}', async () => {
+      setupMockContext({ isUnlocked: true });
+      setupMockAdapter({
+        tables: { rows: [{ name: 'users' }] },
+        dbstat: { rows: [{ size: 1024 }] }
+      });
+
+      renderTableSizes();
+
+      await waitFor(() => {
+        const link = screen.getByRole('link', { name: 'users' });
+        expect(link).toHaveAttribute('href', '/tables/users');
+      });
+    });
+
+    it('URL encodes special characters in table names', async () => {
+      setupMockContext({ isUnlocked: true });
+      setupMockAdapter({
+        tables: { rows: [{ name: 'my table' }] },
+        dbstat: { rows: [{ size: 1024 }] }
+      });
+
+      renderTableSizes();
+
+      await waitFor(() => {
+        const link = screen.getByRole('link', { name: 'my table' });
+        expect(link).toHaveAttribute('href', '/tables/my%20table');
+      });
+    });
+
+    it('renders multiple table links correctly', async () => {
+      setupMockContext({ isUnlocked: true });
+      setupMockAdapter({
+        tables: { rows: [{ name: 'users' }, { name: 'posts' }] },
+        dbstat: { rows: [{ size: 1024 }] }
+      });
+
+      renderTableSizes();
+
+      await waitFor(() => {
+        const usersLink = screen.getByRole('link', { name: 'users' });
+        const postsLink = screen.getByRole('link', { name: 'posts' });
+        expect(usersLink).toHaveAttribute('href', '/tables/users');
+        expect(postsLink).toHaveAttribute('href', '/tables/posts');
       });
     });
   });
