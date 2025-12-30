@@ -12,7 +12,7 @@ permissions:
 jobs:
   deploy:
     name: Deploy to Play Store
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, macOS]
     timeout-minutes: 15
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
@@ -51,9 +51,7 @@ jobs:
         run: pnpm install
 
       - name: Install ImageMagick
-        run: |
-          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
-          sudo apt-get install -y --no-install-recommends imagemagick librsvg2-bin
+        run: brew install imagemagick
 
       - name: Build web assets
         run: pnpm --filter @rapid/client build

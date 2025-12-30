@@ -4,7 +4,7 @@ on: push
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, macOS]
     timeout-minutes: 10
 
     steps:
@@ -72,7 +72,7 @@ jobs:
 
   web-e2e:
     name: Web E2E Tests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, macOS]
     timeout-minutes: 10
 
     steps:
@@ -101,7 +101,7 @@ jobs:
         uses: actions/cache@v4
         id: playwright-cache
         with:
-          path: ~/.cache/ms-playwright
+          path: ~/Library/Caches/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
       - name: Install Playwright browsers
@@ -112,10 +112,12 @@ jobs:
         run: |
           pnpm --filter @rapid/api dev &
           echo "Waiting for API server to be ready..."
-          timeout 30 bash -c 'until curl -f http://localhost:5001/v1/ping; do sleep 1; done'
+          for i in {1..30}; do curl -sf http://localhost:5001/v1/ping && break || sleep 1; done
 
-      - name: Run Playwright tests
+      - name: Run Playwright tests (headless)
         run: pnpm --filter @rapid/client test:e2e
+        env:
+          CI: true
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
@@ -127,7 +129,7 @@ jobs:
 
   electron-e2e:
     name: Electron E2E Tests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, macOS]
     timeout-minutes: 10
 
     steps:
@@ -145,33 +147,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Install system dependencies for Electron
-        run: sudo apt-get install -y xvfb libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2t64
-
       - name: Download SQLite WASM
         run: ./scripts/downloadSqliteWasm.sh
 
-      - name: Run Electron tests
-        run: xvfb-run --auto-servernum -- pnpm --filter @rapid/client electron:test
+      - name: Run Electron tests (headless)
+        run: pnpm --filter @rapid/client electron:test
+        env:
+          CI: true
 
   android:
     name: Android Instrumented Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    runs-on: [self-hosted, macOS]
+    timeout-minutes: 15
 
     steps:
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-
       - uses: actions/checkout@v4
-
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -200,11 +190,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
-
-      - name: Install ImageMagick
-        run: |
-          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
-          sudo apt-get install -y --no-install-recommends imagemagick librsvg2-bin
 
       - name: Build web assets
         run: pnpm --filter @rapid/client build
@@ -229,7 +214,7 @@ jobs:
           arch: x86_64
           working-directory: packages/client
           emulator-boot-timeout: 900
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          emulator-options: -no-snapshot-save -no-window -gpu host -noaudio -no-boot-anim -camera-back none -no-metrics
           disable-animations: true
           script: |
             adb wait-for-device
@@ -238,22 +223,11 @@ jobs:
 
   android-maestro:
     name: Android Maestro Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    runs-on: [self-hosted, macOS]
+    timeout-minutes: 15
 
     steps:
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-
       - uses: actions/checkout@v4
-
-      - name: Enable KVM
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -282,11 +256,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
-
-      - name: Install ImageMagick
-        run: |
-          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
-          sudo apt-get install -y --no-install-recommends imagemagick librsvg2-bin
 
       - name: Build web assets
         run: pnpm --filter @rapid/client build
@@ -312,7 +281,7 @@ jobs:
           arch: x86_64
           working-directory: packages/client
           emulator-boot-timeout: 900
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          emulator-options: -no-snapshot-save -no-window -gpu host -noaudio -no-boot-anim -camera-back none -no-metrics
           disable-animations: true
           script: |
             adb wait-for-device
