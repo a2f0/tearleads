@@ -5,10 +5,16 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Wait for the UI to fully load before checking for Choose Files button
+# Wait for the app to fully initialize - give it extra time in CI
+- extendedWaitUntil:
+    visible: "Files"
+    timeout: 15000
+
+# Wait for the "Choose Files" button to appear
+# On native (Android/iOS), the dropzone shows this button instead of drag-and-drop
 - extendedWaitUntil:
     visible: "Choose Files"
-    timeout: 10000
+    timeout: 20000
 
 # On native, the dropzone should show the "Choose Files" button
 - assertVisible: "Choose Files"
