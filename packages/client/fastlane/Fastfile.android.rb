@@ -164,7 +164,13 @@ platform :android do
     UI.user_error!('No Android emulator found. Start an emulator first.') if emulator_id.empty?
     sh("adb -s #{emulator_id} uninstall #{APP_ID} || true")
     sh("adb -s #{emulator_id} install -r '#{apk_path}'")
-    sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test ../.maestro/ --output maestro-report --debug-output maestro-debug")
+    # Create debug output directories
+    FileUtils.mkdir_p('maestro-debug')
+    FileUtils.mkdir_p('maestro-report')
+    # Take a screenshot of initial state for debugging
+    sh("adb -s #{emulator_id} exec-out screencap -p > maestro-debug/initial-screen.png || true")
+    # Run Maestro with debug output for CI failures
+    sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test ../.maestro/ --output maestro-report --debug-output maestro-debug --format junit")
   end
 
   private_lane :run_gradle do |options|
