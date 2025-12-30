@@ -3,16 +3,20 @@ import {
   ArrowLeft,
   Calendar,
   Database,
+  Download,
   FileType,
   HardDrive,
-  Loader2
+  Loader2,
+  Share2
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
+import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import {
   getFileStorage,
@@ -36,6 +40,70 @@ export function PhotoDetail() {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [canShare, setCanShare] = useState(false);
+  const [actionLoading, setActionLoading] = useState<
+    'download' | 'share' | null
+  >(null);
+
+  // Check if Web Share API is available on mount
+  useEffect(() => {
+    setCanShare(canShareFiles());
+  }, []);
+
+  const handleDownload = useCallback(async () => {
+    if (!photo) return;
+
+    setActionLoading('download');
+    try {
+      const keyManager = getKeyManager();
+      const encryptionKey = keyManager.getCurrentKey();
+      if (!encryptionKey) throw new Error('Database not unlocked');
+
+      if (!isFileStorageInitialized()) {
+        await initializeFileStorage(encryptionKey);
+      }
+
+      const storage = getFileStorage();
+      const data = await storage.retrieve(photo.storagePath);
+      downloadFile(data, photo.name);
+    } catch (err) {
+      console.error('Failed to download photo:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActionLoading(null);
+    }
+  }, [photo]);
+
+  const handleShare = useCallback(async () => {
+    if (!photo) return;
+
+    setActionLoading('share');
+    try {
+      const keyManager = getKeyManager();
+      const encryptionKey = keyManager.getCurrentKey();
+      if (!encryptionKey) throw new Error('Database not unlocked');
+
+      if (!isFileStorageInitialized()) {
+        await initializeFileStorage(encryptionKey);
+      }
+
+      const storage = getFileStorage();
+      const data = await storage.retrieve(photo.storagePath);
+      const shared = await shareFile(data, photo.name, photo.mimeType);
+      if (!shared) {
+        setError('Sharing is not supported on this device');
+      }
+    } catch (err) {
+      // User cancelled share - don't show error
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+      console.error('Failed to share photo:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActionLoading(null);
+    }
+  }, [photo]);
 
   const fetchPhoto = useCallback(async () => {
     if (!isUnlocked || !id) return;
@@ -180,6 +248,37 @@ export function PhotoDetail() {
               />
             </div>
           )}
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleDownload}
+              disabled={actionLoading !== null}
+              data-testid="download-button"
+            >
+              {actionLoading === 'download' ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Download
+            </Button>
+            {canShare && (
+              <Button
+                variant="outline"
+                onClick={handleShare}
+                disabled={actionLoading !== null}
+                data-testid="share-button"
+              >
+                {actionLoading === 'share' ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Share2 className="mr-2 h-4 w-4" />
+                )}
+                Share
+              </Button>
+            )}
+          </div>
 
           <div className="rounded-lg border">
             <div className="border-b px-4 py-3">
