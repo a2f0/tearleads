@@ -15,7 +15,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 3. **Update VS Code title**: Set the window title to show queued status:
 
    ```bash
-   ./scripts/setVscodeTitle.sh "(queued) #<pr-number> - <branch>"
+   ./scripts/agents/setVscodeTitle.sh "(queued) #<pr-number> - <branch>"
    ```
 
 4. **Main loop** - Repeat until PR is merged:
@@ -38,7 +38,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    git merge origin/<baseRefName> --no-edit
    ```
 
-   - If merge conflicts occur, list them, reset the VS Code title with `./scripts/agents/updateVscodeTitle.sh`, and stop. Do NOT auto-resolve without user input.
+   - If merge conflicts occur, list them, reset the VS Code title with `./scripts/agents/setVscodeTitle.sh`, and stop. Do NOT auto-resolve without user input.
    - If successful, push and continue to step 4c.
 
    ### 4c. Wait for CI
@@ -133,7 +133,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 - Common fixable issues: lint errors, type errors, test failures, code style suggestions
 - Non-fixable issues: merge conflicts, infrastructure failures, architectural disagreements
 - If stuck in a loop (same fix attempted twice), ask the user for help
-- **Always reset VS Code title when exiting early**: If you exit the merge queue before the PR is merged (conflicts, user intervention needed, etc.), run `./scripts/agents/updateVscodeTitle.sh` to remove the "(queued)" prefix
+- **Always reset VS Code title when exiting early**: If you exit the merge queue before the PR is merged (conflicts, user intervention needed, etc.), run `./scripts/agents/setVscodeTitle.sh` to remove the "(queued)" prefix
 - When Gemini confirms a fix, resolve the thread via GraphQL. To detect confirmation:
   1. Look for positive phrases: "looks good", "resolved", "satisfied", "fixed", "approved", "thank you", "lgtm"
   2. Ensure the response does NOT contain negative qualifiers: "but", "however", "still", "issue", "problem", "not yet", "almost"
