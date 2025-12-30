@@ -11,7 +11,8 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "shared",
@@ -22,6 +23,7 @@
   "author": "",
   "license": "Unlicensed",
   "devDependencies": {
+    "@vitest/coverage-v8": "4.0.16",
     "typescript": "5.9.3",
     "vitest": "4.0.16"
   }
