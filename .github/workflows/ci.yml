@@ -324,8 +324,6 @@ jobs:
         if: always()
         with:
           name: android-maestro-artifacts
-          path: |
-            packages/client/maestro-report/
-            packages/client/maestro-debug/
+          path: packages/client/maestro-debug/
           retention-days: 7
           if-no-files-found: ignore
