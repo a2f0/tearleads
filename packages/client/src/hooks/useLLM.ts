@@ -99,13 +99,16 @@ async function loadModelInternal(modelId: string): Promise<void> {
 
   store.isLoading = true;
   store.error = null;
-  store.loadProgress = { text: 'Initializing...', progress: 0 };
   loadingModelId = modelId;
   emitChange();
 
   try {
     // Unload previous model if any
     await unloadModelInternal();
+
+    // Set initial progress AFTER unload (unloadModelInternal clears loadProgress)
+    store.loadProgress = { text: 'Initializing...', progress: 0 };
+    emitChange();
 
     const progressCallback = (progress: InitProgressReport) => {
       // Only update if this is still the model we're loading
