@@ -3,6 +3,7 @@ import {
   Database,
   Download,
   ImageIcon,
+  Info,
   Loader2,
   RefreshCw,
   Share2
@@ -10,6 +11,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
@@ -43,6 +45,11 @@ export function Photos() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    photo: PhotoWithUrl;
+    x: number;
+    y: number;
+  } | null>(null);
   const [canShare, setCanShare] = useState(false);
 
   // Check if Web Share API is available on mount
@@ -207,6 +214,25 @@ export function Photos() {
     height: DEFAULT_THUMBNAIL_OPTIONS.maxHeight
   };
 
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, photo: PhotoWithUrl) => {
+      e.preventDefault();
+      setContextMenu({ photo, x: e.clientX, y: e.clientY });
+    },
+    []
+  );
+
+  const handleGetInfo = useCallback(() => {
+    if (contextMenu) {
+      navigate(`/photos/${contextMenu.photo.id}`);
+      setContextMenu(null);
+    }
+  }, [contextMenu, navigate]);
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -268,6 +294,7 @@ export function Photos() {
                 key={photo.id}
                 type="button"
                 onClick={() => handlePhotoClick(photo)}
+                onContextMenu={(e) => handleContextMenu(e, photo)}
                 className="group relative overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
                 style={thumbnailStyle}
               >
@@ -305,6 +332,21 @@ export function Photos() {
             ))}
           </div>
         ))}
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={handleCloseContextMenu}
+        >
+          <ContextMenuItem
+            icon={<Info className="h-4 w-4" />}
+            onClick={handleGetInfo}
+          >
+            Get info
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
     </div>
   );
 }
