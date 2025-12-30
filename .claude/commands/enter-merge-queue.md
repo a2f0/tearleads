@@ -8,31 +8,37 @@ This skill prepares a PR to be merged by updating it from the base branch, ensur
 
 ## Steps
 
-1. **Verify PR exists**: Run `gh pr view --json number,title,headRefName,baseRefName,url | cat` to get PR info. If no PR exists, abort with a message.
+1. **Verify PR exists**: Run `gh pr view --json number,title,headRefName,baseRefName,url` to get PR info. If no PR exists, abort with a message. Store the `baseRefName` for use in subsequent steps.
 
 2. **Check current branch**: Ensure you're on the PR's head branch, not `main`.
 
-3. **Fetch and merge base branch**:
+3. **Fetch and merge base branch** (use the `baseRefName` from step 1):
 
    ```bash
-   git fetch origin main
-   git merge origin/main --no-edit
+   git fetch origin <baseRefName>
+   git merge origin/<baseRefName> --no-edit
    ```
 
    If already up-to-date, skip to step 5.
 
 4. **Handle merge conflicts**: If there are conflicts, list them and stop. Do NOT attempt to auto-resolve conflicts without user input.
 
-5. **Push updated branch**:
+5. **Push updated branch and get commit SHA**:
 
    ```bash
    git push
    ```
 
-6. **Wait for CI and fix failures**: Monitor CI status in a loop:
+   After pushing, get the current commit SHA for tracking the CI run:
 
    ```bash
-   gh run list --branch <branch> --limit 1 --json status,conclusion,databaseId
+   git rev-parse HEAD
+   ```
+
+6. **Wait for CI and fix failures**: Monitor CI status for the specific commit in a loop:
+
+   ```bash
+   gh run list --commit <commit-sha> --limit 1 --json status,conclusion,databaseId
    ```
 
    - If CI is **in_progress** or **queued**: Wait 30 seconds and check again
@@ -49,7 +55,13 @@ This skill prepares a PR to be merged by updating it from the base branch, ensur
    gh pr edit <pr-number> --add-reviewer gemini-code-assist
    ```
 
-   Wait 60 seconds for Gemini to post its review.
+   Poll for Gemini's review instead of using a fixed wait time:
+
+   ```bash
+   gh pr view <pr-number> --json reviews
+   ```
+
+   Check every 30 seconds for a new review from `gemini-code-assist` until one is found or a reasonable timeout (5 minutes) is reached.
 
 8. **Address Gemini feedback**: Run `/address-gemini-feedback` to:
    - Find unresolved Gemini review comments
