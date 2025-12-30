@@ -69,7 +69,22 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 
    ### 3e. Address Gemini feedback
 
-   Run `/address-gemini-feedback` to handle any unresolved comments, then `/follow-up-with-gemini` to reply.
+   Run `/address-gemini-feedback` to handle any unresolved comments, then `/follow-up-with-gemini` to:
+   - Notify Gemini that feedback has been addressed
+   - Wait for Gemini's response (polling every 30 seconds, up to 5 minutes)
+   - When Gemini confirms a fix is satisfactory, resolve the review thread using the GraphQL API:
+
+     ```bash
+     gh api graphql -f query='
+       mutation {
+         resolveReviewThread(input: {threadId: "<thread_node_id>"}) {
+           thread { isResolved }
+         }
+       }
+     '
+     ```
+
+   - If Gemini requests further changes, repeat step 3e
 
    ### 3f. Enable auto-merge and wait
 
@@ -104,6 +119,31 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 - Common fixable issues: lint errors, type errors, test failures, code style suggestions
 - Non-fixable issues: merge conflicts, infrastructure failures, architectural disagreements
 - If stuck in a loop (same fix attempted twice), ask the user for help
+- When Gemini confirms a fix, resolve the thread via GraphQL. To detect confirmation:
+  1. Look for positive phrases: "looks good", "resolved", "satisfied", "fixed", "approved", "thank you", "lgtm"
+  2. Ensure the response does NOT contain negative qualifiers: "but", "however", "still", "issue", "problem", "not yet", "almost"
+  3. Only resolve if both conditions are met (positive phrase present AND no negative qualifiers)
+- Only resolve threads after explicit confirmation from Gemini - do not auto-resolve based on your own assessment
+
+## Keeping PR Description Updated
+
+As you iterate through fixes, keep the PR description accurate:
+
+```bash
+gh pr edit <pr-number> --body "$(cat <<'EOF'
+## Summary
+- Original feature/fix description
+- Additional: fixed CI lint errors
+- Additional: addressed Gemini feedback on error handling
+EOF
+)"
+```
+
+Guidelines:
+
+- Add bullet points for significant changes made during the merge queue process
+- Document CI fixes, Gemini feedback addressed, and any scope changes
+- Keep it concise - the commit history has the details
 
 ## Commit Rules
 
