@@ -2,8 +2,8 @@
  * Analytics logging module for tracking database operations.
  */
 
-import { and, count, desc, eq, gte, lte, max, min, sum } from 'drizzle-orm';
 import type { Database } from './index';
+import { getDatabaseAdapter } from './index';
 import { analyticsEvents } from './schema';
 
 export interface AnalyticsEvent {
@@ -85,101 +85,166 @@ export async function measureOperation<T>(
 }
 
 /**
+ * Raw row type from SQLite query result.
+ * Uses camelCase property names (mapped by adapter).
+ */
+interface RawAnalyticsRow {
+  id: string;
+  eventName: string;
+  durationMs: number;
+  success: number; // SQLite stores as 0/1
+  timestamp: number; // milliseconds since epoch
+}
+
+/**
  * Get analytics events with optional filters.
+ * Uses raw SQL via adapter to avoid drizzle ORM's column name mapping issues with sqlite-proxy.
  */
 export async function getEvents(
-  db: Database,
+  _db: Database,
   options: GetEventsOptions = {}
 ): Promise<AnalyticsEvent[]> {
   const { eventName, startTime, endTime, limit = 100 } = options;
+  const adapter = getDatabaseAdapter();
 
-  const conditions = [];
+  // Build SQL query with conditions
+  let sql = `SELECT id, event_name, duration_ms, success, timestamp FROM analytics_events`;
+  const conditions: string[] = [];
+  const params: unknown[] = [];
 
   if (eventName) {
-    conditions.push(eq(analyticsEvents.eventName, eventName));
+    conditions.push(`event_name = ?`);
+    params.push(eventName);
   }
 
   if (startTime) {
-    conditions.push(gte(analyticsEvents.timestamp, startTime));
+    conditions.push(`timestamp >= ?`);
+    params.push(startTime.getTime());
   }
 
   if (endTime) {
-    conditions.push(lte(analyticsEvents.timestamp, endTime));
+    conditions.push(`timestamp <= ?`);
+    params.push(endTime.getTime());
   }
-
-  const query = db
-    .select()
-    .from(analyticsEvents)
-    .orderBy(desc(analyticsEvents.timestamp))
-    .limit(limit);
 
   if (conditions.length > 0) {
-    return query.where(and(...conditions));
+    sql += ` WHERE ${conditions.join(' AND ')}`;
   }
 
-  return query;
+  sql += ` ORDER BY timestamp DESC LIMIT ?`;
+  params.push(limit);
+
+  // Execute raw SQL via adapter (which maps snake_case to camelCase)
+  const result = await adapter.execute(sql, params);
+  const rows = result.rows as unknown as RawAnalyticsRow[];
+
+  return rows.map((row) => ({
+    id: row.id,
+    eventName: row.eventName,
+    durationMs: row.durationMs,
+    success: Boolean(row.success),
+    timestamp: new Date(row.timestamp)
+  }));
+}
+
+/**
+ * Raw stats row type from SQLite query result.
+ */
+interface RawStatsRow {
+  eventName: string;
+  count: number;
+  totalDuration: number;
+  minDuration: number;
+  maxDuration: number;
+  successCount: number;
 }
 
 /**
  * Get statistics for analytics events grouped by event name.
+ * Uses raw SQL via adapter to avoid drizzle ORM's column name mapping issues.
  */
 export async function getEventStats(
-  db: Database,
+  _db: Database,
   options: Omit<GetEventsOptions, 'limit'> = {}
 ): Promise<EventStats[]> {
   const { eventName, startTime, endTime } = options;
+  const adapter = getDatabaseAdapter();
 
-  const conditions = [];
+  // Build SQL query with conditions
+  let sql = `
+    SELECT
+      event_name as eventName,
+      count(*) as count,
+      sum(duration_ms) as totalDuration,
+      min(duration_ms) as minDuration,
+      max(duration_ms) as maxDuration,
+      sum(case when success then 1 else 0 end) as successCount
+    FROM analytics_events
+  `;
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
   if (eventName) {
-    conditions.push(eq(analyticsEvents.eventName, eventName));
+    conditions.push(`event_name = ?`);
+    params.push(eventName);
   }
+
   if (startTime) {
-    conditions.push(gte(analyticsEvents.timestamp, startTime));
+    conditions.push(`timestamp >= ?`);
+    params.push(startTime.getTime());
   }
+
   if (endTime) {
-    conditions.push(lte(analyticsEvents.timestamp, endTime));
+    conditions.push(`timestamp <= ?`);
+    params.push(endTime.getTime());
   }
 
-  const results = await db
-    .select({
-      eventName: analyticsEvents.eventName,
-      count: count(),
-      totalDuration: sum(analyticsEvents.durationMs),
-      minDuration: min(analyticsEvents.durationMs),
-      maxDuration: max(analyticsEvents.durationMs),
-      successCount: sum(analyticsEvents.success)
-    })
-    .from(analyticsEvents)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .groupBy(analyticsEvents.eventName);
+  if (conditions.length > 0) {
+    sql += ` WHERE ${conditions.join(' AND ')}`;
+  }
 
-  return results.map((stats) => ({
-    eventName: stats.eventName,
-    count: stats.count,
-    avgDurationMs:
-      stats.count > 0
-        ? Math.round(Number(stats.totalDuration) / stats.count)
-        : 0,
-    minDurationMs: Number(stats.minDuration),
-    maxDurationMs: Number(stats.maxDuration),
-    successRate:
-      stats.count > 0
-        ? Math.round((Number(stats.successCount) / stats.count) * 100)
-        : 0
-  }));
+  sql += ` GROUP BY event_name`;
+
+  // Execute raw SQL via adapter
+  const result = await adapter.execute(sql, params);
+  const rows = result.rows as unknown as RawStatsRow[];
+
+  return rows.map((row) => {
+    const totalCount = row.count ?? 0;
+    const totalDuration = Number(row.totalDuration) || 0;
+
+    return {
+      eventName: row.eventName,
+      count: totalCount,
+      avgDurationMs:
+        totalCount > 0 ? Math.round(totalDuration / totalCount) : 0,
+      minDurationMs: Number(row.minDuration) || 0,
+      maxDurationMs: Number(row.maxDuration) || 0,
+      successRate:
+        totalCount > 0
+          ? Math.round((Number(row.successCount) / totalCount) * 100)
+          : 0
+    };
+  });
 }
 
 /**
  * Clear all analytics events.
  */
-export async function clearEvents(db: Database): Promise<void> {
-  await db.delete(analyticsEvents);
+export async function clearEvents(_db: Database): Promise<void> {
+  const adapter = getDatabaseAdapter();
+  await adapter.execute(`DELETE FROM analytics_events`, []);
 }
 
 /**
  * Get the count of events.
  */
-export async function getEventCount(db: Database): Promise<number> {
-  const result = await db.select({ count: count() }).from(analyticsEvents);
-  return result[0]?.count ?? 0;
+export async function getEventCount(_db: Database): Promise<number> {
+  const adapter = getDatabaseAdapter();
+  const result = await adapter.execute(
+    `SELECT count(*) as count FROM analytics_events`,
+    []
+  );
+  const row = result.rows[0] as { count: number } | undefined;
+  return row?.count ?? 0;
 }
