@@ -3,7 +3,7 @@
  *
  * This test verifies that:
  * 1. getConnection() converts object rows to array format for Drizzle ORM
- * 2. execute() returns camelCase column names for raw SQL queries
+ * 2. execute() returns raw snake_case column names (callers use SQL aliases for camelCase)
  * 3. Helper functions correctly parse SQL and convert row formats
  */
 
@@ -332,51 +332,189 @@ describe('Column Mapping', () => {
   });
 
   describe('WebAdapter execute() for raw SQL', () => {
-    it('should map column names to camelCase for raw SQL queries', async () => {
-      // Helper functions as defined in the adapter
-      function snakeToCamel(str: string): string {
-        return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-      }
-
-      function mapRowKeys(
-        row: Record<string, unknown>
-      ): Record<string, unknown> {
-        const mapped: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(row)) {
-          mapped[snakeToCamel(key)] = value;
-        }
-        return mapped;
-      }
-
+    it('should return raw snake_case column names from execute()', async () => {
       const mockSendRequest = vi.fn().mockResolvedValue({
         rows: [sampleContactRow]
       });
 
-      // Simulate execute() which DOES map columns
+      // Simulate execute() which returns raw column names
+      // Callers that need camelCase should use SQL aliases
       const execute = async (
         sql: string,
         params?: unknown[]
       ): Promise<{ rows: Record<string, unknown>[] }> => {
         const result = await mockSendRequest({ sql, params });
-        const mappedRows = result.rows.map((row: Record<string, unknown>) =>
-          mapRowKeys(row)
-        );
-        return { rows: mappedRows };
+        // No mapping - return raw column names from SQLite
+        return { rows: result.rows };
       };
 
       const result = await execute('SELECT * FROM contacts WHERE id = ?', [
         'contact-123'
       ]);
 
-      // execute() should return camelCase for raw SQL (used by analytics)
+      // execute() should return snake_case (raw column names)
+      expect(result.rows[0]).toHaveProperty('first_name', 'John');
+      expect(result.rows[0]).toHaveProperty('last_name', 'Doe');
+      expect(result.rows[0]).toHaveProperty('created_at', 1704067200000);
+      expect(result.rows[0]).toHaveProperty('updated_at', 1704067200000);
+
+      // Should NOT have camelCase (no mapping applied)
+      expect(result.rows[0]).not.toHaveProperty('firstName');
+      expect(result.rows[0]).not.toHaveProperty('lastName');
+    });
+
+    it('should support SQL aliases for camelCase when needed', async () => {
+      // Sample row with aliased columns (as returned by SQLite)
+      const aliasedRow = {
+        id: 'contact-123',
+        firstName: 'John', // Alias: first_name as firstName
+        lastName: 'Doe', // Alias: last_name as lastName
+        createdAt: 1704067200000 // Alias: created_at as createdAt
+      };
+
+      const mockSendRequest = vi.fn().mockResolvedValue({
+        rows: [aliasedRow]
+      });
+
+      const execute = async (
+        sql: string,
+        params?: unknown[]
+      ): Promise<{ rows: Record<string, unknown>[] }> => {
+        const result = await mockSendRequest({ sql, params });
+        return { rows: result.rows };
+      };
+
+      // Query with explicit aliases
+      const result = await execute(
+        `SELECT id, first_name as firstName, last_name as lastName, created_at as createdAt
+         FROM contacts WHERE id = ?`,
+        ['contact-123']
+      );
+
+      // Aliases produce camelCase column names
       expect(result.rows[0]).toHaveProperty('firstName', 'John');
       expect(result.rows[0]).toHaveProperty('lastName', 'Doe');
       expect(result.rows[0]).toHaveProperty('createdAt', 1704067200000);
-      expect(result.rows[0]).toHaveProperty('updatedAt', 1704067200000);
+    });
+  });
 
-      // Should NOT have snake_case
-      expect(result.rows[0]).not.toHaveProperty('first_name');
-      expect(result.rows[0]).not.toHaveProperty('last_name');
+  describe('Table browser (raw SQL with original column names)', () => {
+    it('should return rows with original snake_case column names for table browser', async () => {
+      const mockSendRequest = vi.fn().mockResolvedValue({
+        rows: [sampleFileRow]
+      });
+
+      // Table browser uses execute() with SELECT * FROM table_name
+      const execute = async (
+        sql: string,
+        params?: unknown[]
+      ): Promise<{ rows: Record<string, unknown>[] }> => {
+        const result = await mockSendRequest({ sql, params });
+        // No mapping - return raw column names
+        return { rows: result.rows };
+      };
+
+      const result = await execute('SELECT * FROM files', []);
+
+      // Table browser expects original column names
+      expect(result.rows[0]).toHaveProperty('id', 'file-123');
+      expect(result.rows[0]).toHaveProperty('name', 'photo.jpg');
+      expect(result.rows[0]).toHaveProperty('size', 1024);
+      expect(result.rows[0]).toHaveProperty('mime_type', 'image/jpeg');
+      expect(result.rows[0]).toHaveProperty('upload_date', 1704067200000);
+      expect(result.rows[0]).toHaveProperty('content_hash', 'abc123');
+      expect(result.rows[0]).toHaveProperty('storage_path', '/files/photo.jpg');
+      expect(result.rows[0]).toHaveProperty('deleted', 0);
+
+      // Should NOT have camelCase (table browser uses original names)
+      expect(result.rows[0]).not.toHaveProperty('mimeType');
+      expect(result.rows[0]).not.toHaveProperty('uploadDate');
+      expect(result.rows[0]).not.toHaveProperty('storagePath');
+      expect(result.rows[0]).not.toHaveProperty('contentHash');
+    });
+
+    it('should display all columns from any table', async () => {
+      // Simulate analytics_events table
+      const analyticsRow = {
+        id: 'event-1',
+        event_name: 'db.contacts.list',
+        duration_ms: 150,
+        success: 1,
+        timestamp: 1704067200000
+      };
+
+      const mockSendRequest = vi.fn().mockResolvedValue({
+        rows: [analyticsRow]
+      });
+
+      const execute = async (
+        sql: string,
+        params?: unknown[]
+      ): Promise<{ rows: Record<string, unknown>[] }> => {
+        const result = await mockSendRequest({ sql, params });
+        return { rows: result.rows };
+      };
+
+      const result = await execute(
+        'SELECT * FROM analytics_events LIMIT 50',
+        []
+      );
+
+      // Original column names are preserved
+      expect(result.rows[0]).toHaveProperty('event_name', 'db.contacts.list');
+      expect(result.rows[0]).toHaveProperty('duration_ms', 150);
+      expect(result.rows[0]).not.toHaveProperty('eventName');
+      expect(result.rows[0]).not.toHaveProperty('durationMs');
+    });
+
+    it('should handle PRAGMA queries for table info', async () => {
+      // PRAGMA table_info returns column metadata
+      const pragmaRows = [
+        {
+          cid: 0,
+          name: 'id',
+          type: 'TEXT',
+          notnull: 1,
+          dflt_value: null,
+          pk: 1
+        },
+        {
+          cid: 1,
+          name: 'event_name',
+          type: 'TEXT',
+          notnull: 1,
+          dflt_value: null,
+          pk: 0
+        },
+        {
+          cid: 2,
+          name: 'duration_ms',
+          type: 'INTEGER',
+          notnull: 1,
+          dflt_value: null,
+          pk: 0
+        }
+      ];
+
+      const mockSendRequest = vi.fn().mockResolvedValue({
+        rows: pragmaRows
+      });
+
+      const execute = async (
+        sql: string,
+        params?: unknown[]
+      ): Promise<{ rows: Record<string, unknown>[] }> => {
+        const result = await mockSendRequest({ sql, params });
+        return { rows: result.rows };
+      };
+
+      const result = await execute('PRAGMA table_info("analytics_events")', []);
+
+      // PRAGMA results should have original column names
+      expect(result.rows).toHaveLength(3);
+      expect(result.rows[0]).toHaveProperty('name', 'id');
+      expect(result.rows[1]).toHaveProperty('name', 'event_name');
+      expect(result.rows[2]).toHaveProperty('name', 'duration_ms');
     });
   });
 
