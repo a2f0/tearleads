@@ -29,7 +29,7 @@ Commit and push the current changes following these rules:
 5. **GPG signing**: The commit MUST be signed. Use a 5-second timeout. For multi-line messages, pipe the content to `git commit`:
 
    ```bash
-   printf "subject\n\nbody" | timeout 5 git commit -F -
+   printf "subject\n\nbody" | timeout 5 git commit -S -F -
    ```
 
 6. **Push**: After successful commit, push to the current branch's remote.

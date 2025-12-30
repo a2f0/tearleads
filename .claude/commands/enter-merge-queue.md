@@ -169,7 +169,7 @@ When committing fixes during the merge queue process:
 The commit MUST be signed. Use a 5-second timeout. For multi-line messages, pipe the content to `git commit`:
 
 ```bash
-printf "subject\n\nbody" | timeout 5 git commit -F -
+printf "subject\n\nbody" | timeout 5 git commit -S -F -
 ```
 
 ### DO NOT
