@@ -48,3 +48,5 @@ Commit and push the current changes following these rules:
    - Commit and push fixes
    - Reply to addressed comments
    - Repeat until all feedback is resolved
+
+10. **Enter merge queue**: Run `/enter-merge-queue` to guarantee the PR gets merged. This will continuously update from base, fix CI issues, address reviews, and wait until the PR is actually merged.
