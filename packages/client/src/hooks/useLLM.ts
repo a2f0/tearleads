@@ -1,8 +1,9 @@
 /// <reference types="@webgpu/types" />
 import {
-  CreateMLCEngine,
   type InitProgressReport,
-  type MLCEngine
+  type MLCEngineInterface,
+  prebuiltAppConfig,
+  WebWorkerMLCEngine
 } from '@mlc-ai/web-llm';
 import { useCallback, useSyncExternalStore } from 'react';
 
@@ -12,7 +13,7 @@ export interface LoadProgress {
 }
 
 export interface LLMState {
-  engine: MLCEngine | null;
+  engine: MLCEngineInterface | null;
   loadedModel: string | null;
   isLoading: boolean;
   loadProgress: LoadProgress | null;
@@ -54,6 +55,25 @@ function getSnapshot(): LLMState {
 
 // Track current loading operation to handle cancellation
 let loadingModelId: string | null = null;
+
+// Singleton worker engine
+let workerEngine: WebWorkerMLCEngine | null = null;
+
+function getWorkerEngine(): WebWorkerMLCEngine {
+  if (!workerEngine) {
+    const worker = new Worker(
+      new URL('../workers/llm-worker.ts', import.meta.url),
+      { type: 'module' }
+    );
+    workerEngine = new WebWorkerMLCEngine(worker, {
+      appConfig: {
+        ...prebuiltAppConfig,
+        useIndexedDBCache: true
+      }
+    });
+  }
+  return workerEngine;
+}
 
 async function checkWebGPUSupport(): Promise<boolean> {
   if (typeof navigator === 'undefined') return false;
@@ -107,7 +127,9 @@ async function loadModelInternal(modelId: string): Promise<void> {
     // Unload previous model if any
     await unloadModelInternal();
 
-    const progressCallback = (progress: InitProgressReport) => {
+    const engine = getWorkerEngine();
+
+    engine.setInitProgressCallback((progress: InitProgressReport) => {
       // Only update if this is still the model we're loading
       if (loadingModelId === modelId) {
         store.loadProgress = {
@@ -116,15 +138,13 @@ async function loadModelInternal(modelId: string): Promise<void> {
         };
         emitChange();
       }
-    };
-
-    const newEngine = await CreateMLCEngine(modelId, {
-      initProgressCallback: progressCallback
     });
+
+    await engine.reload(modelId);
 
     // Verify we're still loading this model (not cancelled)
     if (loadingModelId === modelId) {
-      store.engine = newEngine;
+      store.engine = engine;
       store.loadedModel = modelId;
       store.loadProgress = null;
       store.isLoading = false;
@@ -132,7 +152,7 @@ async function loadModelInternal(modelId: string): Promise<void> {
       emitChange();
     } else {
       // User started loading a different model, unload this one
-      await newEngine.unload();
+      await engine.unload();
     }
   } catch (err) {
     if (loadingModelId === modelId) {
