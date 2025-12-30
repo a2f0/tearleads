@@ -70,11 +70,47 @@ jobs:
       - name: Rebuild SQLite for Node.js
         run: ./scripts/rebuildSqliteForNode.sh
 
-      - name: Test
-        run: pnpm test
+      - name: Test with Coverage
+        run: |
+          pnpm --filter @rapid/shared test:coverage
+          pnpm --filter @rapid/ui test:coverage
+          pnpm --filter @rapid/api test:coverage
+          pnpm --filter @rapid/client test:coverage
 
       - name: Integration Tests
         run: pnpm --filter @rapid/client test:integration
+
+      - name: Upload Coverage Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            packages/shared/coverage/
+            packages/ui/coverage/
+            packages/api/coverage/
+            packages/client/coverage/
+          retention-days: 30
+
+      - name: Coverage Summary
+        run: |
+          echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          for pkg in shared ui api client; do
+            if [ -f "packages/$pkg/coverage/coverage-summary.json" ]; then
+              echo "### @rapid/$pkg" >> $GITHUB_STEP_SUMMARY
+              node -e "
+                const summary = require('./packages/$pkg/coverage/coverage-summary.json');
+                const total = summary.total;
+                console.log('| Metric | Coverage |');
+                console.log('|--------|----------|');
+                console.log('| Lines | ' + total.lines.pct + '% |');
+                console.log('| Statements | ' + total.statements.pct + '% |');
+                console.log('| Functions | ' + total.functions.pct + '% |');
+                console.log('| Branches | ' + total.branches.pct + '% |');
+              " >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
 
   web-e2e:
     name: Web E2E Tests
