@@ -86,7 +86,7 @@ export async function measureOperation<T>(
 
 /**
  * Raw row type from SQLite query result.
- * Uses camelCase property names (mapped by adapter).
+ * Uses camelCase property names via explicit SQL aliases.
  */
 interface RawAnalyticsRow {
   id: string;
@@ -107,8 +107,8 @@ export async function getEvents(
   const { eventName, startTime, endTime, limit = 100 } = options;
   const adapter = getDatabaseAdapter();
 
-  // Build SQL query with conditions
-  let sql = `SELECT id, event_name, duration_ms, success, timestamp FROM analytics_events`;
+  // Build SQL query with conditions - use explicit aliases for camelCase property names
+  let sql = `SELECT id, event_name as eventName, duration_ms as durationMs, success, timestamp FROM analytics_events`;
   const conditions: string[] = [];
   const params: unknown[] = [];
 
@@ -134,7 +134,7 @@ export async function getEvents(
   sql += ` ORDER BY timestamp DESC LIMIT ?`;
   params.push(limit);
 
-  // Execute raw SQL via adapter (which maps snake_case to camelCase)
+  // Execute raw SQL via adapter
   const result = await adapter.execute(sql, params);
   const rows = result.rows as unknown as RawAnalyticsRow[];
 

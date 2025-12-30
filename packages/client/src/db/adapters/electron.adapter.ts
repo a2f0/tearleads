@@ -5,26 +5,7 @@
 
 import type { ElectronApi } from '@/types/electron';
 import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
-
-/**
- * Convert snake_case to camelCase.
- */
-function snakeToCamel(str: string): string {
-  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
-}
-
-/**
- * Map row object keys from snake_case to camelCase.
- * This is needed because SQLite returns column names in snake_case,
- * but Drizzle sqlite-proxy expects camelCase property names.
- */
-function mapRowKeys(row: Record<string, unknown>): Record<string, unknown> {
-  const mapped: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(row)) {
-    mapped[snakeToCamel(key)] = value;
-  }
-  return mapped;
-}
+import { convertRowsToArrays } from './utils';
 
 function getElectronApi(): ElectronApi {
   if (!window.electron?.sqlite) {
@@ -93,6 +74,8 @@ export class ElectronAdapter implements DatabaseAdapter {
 
   getConnection(): unknown {
     // For Drizzle sqlite-proxy, return a function that always returns { rows: any[] }
+    // IMPORTANT: Drizzle sqlite-proxy expects rows as ARRAYS of values, not objects.
+    // The values must be in the same order as columns in the SELECT clause.
     return async (
       sql: string,
       params: unknown[],
@@ -101,12 +84,10 @@ export class ElectronAdapter implements DatabaseAdapter {
       const result = await this.execute(sql, params);
 
       // Drizzle sqlite-proxy expects { rows: any[] } for ALL methods
-      // The method parameter tells Drizzle how to interpret the rows
-      // Map column names from snake_case to camelCase for Drizzle schema compatibility
-      const mappedRows = result.rows.map((row) =>
-        mapRowKeys(row as Record<string, unknown>)
-      );
-      return { rows: mappedRows };
+      // The rows must be ARRAYS of values in SELECT column order, not objects.
+      // convertRowsToArrays handles both explicit SELECT and SELECT * queries.
+      const arrayRows = convertRowsToArrays(sql, result.rows);
+      return { rows: arrayRows };
     };
   }
 
