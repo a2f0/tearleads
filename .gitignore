@@ -48,6 +48,7 @@ playwright-report/
 test-results/
 maestro-report/
 maestro-debug/
+coverage/
 
 # Ruby/Fastlane
 **/vendor/
