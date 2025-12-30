@@ -100,7 +100,7 @@ export interface DatabaseAdapter {
 /**
  * Platform information for adapter selection.
  */
-export type Platform = 'web' | 'electron' | 'ios' | 'android';
+export type Platform = 'web' | 'electron' | 'ios' | 'android' | 'node';
 
 export interface PlatformInfo {
   platform: Platform;
