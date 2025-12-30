@@ -918,6 +918,9 @@ test.describe('Music page', () => {
 });
 
 test.describe('Contacts page', () => {
+  // Timeout for waiting for contacts list to refresh after import
+  const CONTACT_REFRESH_TIMEOUT = 5000;
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
   });
@@ -1031,7 +1034,8 @@ test.describe('Contacts page', () => {
 
     // Should show import result and contact
     await expect(page.getByText(/Imported 1 contact/)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('John Doe')).toBeVisible();
+    // Wait for contacts list to refresh after import
+    await expect(page.getByText('John Doe')).toBeVisible({ timeout: CONTACT_REFRESH_TIMEOUT });
   });
 
   test('should filter contacts by search query', async ({ page }) => {
@@ -1042,9 +1046,9 @@ test.describe('Contacts page', () => {
     await importContacts(page, 'First Name,Last Name,Email\nJohn,Doe,john@example.com\nJane,Smith,jane@example.com');
     await expect(page.getByText(/Imported 2 contacts/)).toBeVisible({ timeout: 10000 });
 
-    // Both contacts should be visible
-    await expect(page.getByText('John Doe')).toBeVisible();
-    await expect(page.getByText('Jane Smith')).toBeVisible();
+    // Wait for contacts list to refresh after import
+    await expect(page.getByText('John Doe')).toBeVisible({ timeout: CONTACT_REFRESH_TIMEOUT });
+    await expect(page.getByText('Jane Smith')).toBeVisible({ timeout: CONTACT_REFRESH_TIMEOUT });
 
     // Search for John
     await page.getByPlaceholder('Search contacts...').fill('John');
