@@ -16,5 +16,5 @@ Update all of the dependencies in the `packages` folder and:
 - Make sure Capacitor's Podfile.lock is sync'd (`cap:sync` should pass).
 - Update Ruby dependencies in `packages/client` (Gemfile and Gemfile.lock).
 - Make sure Maestro tests pass (both iOS and Android).
-- Commit the changes and push to remote using `/commit-and-push`.
-- Run `/enter-merge-queue` to prepare the PR for merging.
+- Commit and push changes using `/commit-and-push`.
+- Prepare the PR for merging using `/enter-merge-queue`.
