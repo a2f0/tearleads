@@ -17,3 +17,9 @@ if ! command -v ansible-lint >/dev/null 2>&1; then
   exit 1
 fi
 pnpm lint:ansible
+
+# Run tests with coverage thresholds
+pnpm --filter @rapid/shared test:coverage
+pnpm --filter @rapid/ui test:coverage
+pnpm --filter @rapid/api test:coverage
+pnpm --filter @rapid/client test:coverage
