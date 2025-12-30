@@ -65,6 +65,7 @@ export const files = sqliteTable(
     uploadDate: integer('upload_date', { mode: 'timestamp_ms' }).notNull(),
     contentHash: text('content_hash').notNull(),
     storagePath: text('storage_path').notNull(),
+    thumbnailPath: text('thumbnail_path'),
     deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false)
   },
   (table) => [

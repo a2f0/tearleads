@@ -21,6 +21,7 @@ interface PhotoInfo {
   mimeType: string;
   uploadDate: Date;
   storagePath: string;
+  thumbnailPath: string | null;
 }
 
 interface PhotoWithUrl extends PhotoInfo {
@@ -56,7 +57,8 @@ export function Photos() {
           size: files.size,
           mimeType: files.mimeType,
           uploadDate: files.uploadDate,
-          storagePath: files.storagePath
+          storagePath: files.storagePath,
+          thumbnailPath: files.thumbnailPath
         })
         .from(files)
         .where(and(like(files.mimeType, 'image/%'), eq(files.deleted, false)))
@@ -68,7 +70,8 @@ export function Photos() {
         size: row.size,
         mimeType: row.mimeType,
         uploadDate: row.uploadDate,
-        storagePath: row.storagePath
+        storagePath: row.storagePath,
+        thumbnailPath: row.thumbnailPath
       }));
 
       // Load image data and create object URLs
@@ -85,10 +88,15 @@ export function Photos() {
         await Promise.all(
           photoList.map(async (photo) => {
             try {
-              const data = await storage.retrieve(photo.storagePath);
+              // Prefer thumbnail for gallery view, fall back to full image
+              const pathToLoad = photo.thumbnailPath ?? photo.storagePath;
+              const mimeType = photo.thumbnailPath
+                ? 'image/jpeg'
+                : photo.mimeType;
+              const data = await storage.retrieve(pathToLoad);
               const buffer = new ArrayBuffer(data.byteLength);
               new Uint8Array(buffer).set(data);
-              const blob = new Blob([buffer], { type: photo.mimeType });
+              const blob = new Blob([buffer], { type: mimeType });
               const objectUrl = URL.createObjectURL(blob);
               return { ...photo, objectUrl };
             } catch (err) {
