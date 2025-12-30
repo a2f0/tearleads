@@ -22,8 +22,9 @@ fi
 # Get current title
 CURRENT_TITLE=$(jq -r '.["window.title"] // ""' "$SETTINGS_FILE" 2>/dev/null || true)
 
-# Check if title contains "(queued)"
-if echo "$CURRENT_TITLE" | grep -q "(queued)"; then
-    # Reset to normal title based on branch/PR
-    "$SCRIPT_DIR/updateVscodeTitle.sh"
-fi
+# Check if title contains "(queued)" and reset if so
+case "$CURRENT_TITLE" in
+    *"(queued)"*)
+        "$SCRIPT_DIR/updateVscodeTitle.sh"
+        ;;
+esac
