@@ -169,9 +169,9 @@ export function getTestKeyManager(): TestKeyManager {
  * Reset the test key manager singleton.
  * Call this in beforeEach to ensure test isolation.
  */
-export function resetTestKeyManager(): void {
+export async function resetTestKeyManager(): Promise<void> {
   if (testKeyManagerInstance) {
-    testKeyManagerInstance.reset();
+    await testKeyManagerInstance.reset();
   }
   testKeyManagerInstance = null;
 }
