@@ -409,7 +409,13 @@ jobs:
 
       - name: Install app on simulator
         run: |
-          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "App.app" -type d | head -1)
+          # Fastlane builds to packages/client/build/DerivedData
+          APP_PATH="packages/client/build/DerivedData/Build/Products/Debug-iphonesimulator/App.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "App not found at expected path, searching..."
+            APP_PATH=$(find . -name "App.app" -type d | head -1)
+          fi
+          echo "Installing app from: $APP_PATH"
           xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
 
       - name: Capture pre-test screenshot
