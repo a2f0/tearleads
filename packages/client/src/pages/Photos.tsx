@@ -134,6 +134,11 @@ export function Photos() {
     [navigate]
   );
 
+  const thumbnailStyle = {
+    width: DEFAULT_THUMBNAIL_OPTIONS.maxWidth,
+    height: DEFAULT_THUMBNAIL_OPTIONS.maxHeight
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -196,10 +201,7 @@ export function Photos() {
                 type="button"
                 onClick={() => handlePhotoClick(photo)}
                 className="group relative overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
-                style={{
-                  width: DEFAULT_THUMBNAIL_OPTIONS.maxWidth,
-                  height: DEFAULT_THUMBNAIL_OPTIONS.maxHeight
-                }}
+                style={thumbnailStyle}
               >
                 <img
                   src={photo.objectUrl}
