@@ -120,6 +120,12 @@ androidWebViewHierarchy: devtools
 
 This uses Chrome DevTools Protocol instead of Android accessibility APIs.
 
+**Also required**: Enable WebView debugging in MainActivity.java:
+
+```java
+WebView.setWebContentsDebuggingEnabled(true);
+```
+
 ### Maestro: Use evalScript for Complex Interactions
 
 For reliable WebView interaction, prefer JavaScript-based selectors:

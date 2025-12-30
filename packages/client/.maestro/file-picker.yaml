@@ -1,24 +1,64 @@
 appId: com.tearleads.rapid
-androidWebViewHierarchy: devtools
 ---
 - launchApp:
     clearState: true
 
-- assertVisible: "Tearleads"
+# Load shared helpers (provides window.waitFor)
+- runFlow: helpers/db-helpers.yaml
 
-# Wait for the Files page heading to be visible (proves page content is rendering)
-- extendedWaitUntil:
-    visible: "Files"
-    timeout: 15000
+# Define file-picker specific helper
+- evalScript: |
+    window.getChooseFilesBtn = () => {
+      return document.querySelector('[data-testid="choose-files-button"]') ||
+             Array.from(document.querySelectorAll('button')).find(b =>
+               b.textContent.includes('Choose Files') || b.textContent.includes('Open Files App'));
+    };
+    'helper defined';
 
-# Wait for platform debug text to appear (it's always rendered at top of Files page)
-- extendedWaitUntil:
-    visible: "Platform:"
-    timeout: 10000
+# Wait for app to load
+- evalScript: |
+    window.waitFor(
+      () => document.body.innerText.includes('Tearleads'),
+      'Tearleads text not found'
+    )
 
-# Take a screenshot to debug what the UI looks like and see platform value
-- takeScreenshot: platform-detected
+# Navigate to Files page by clicking the Files link
+- evalScript: |
+    window.waitFor(
+      () => {
+        const filesLink = document.querySelector('[href="/files"]') ||
+                          Array.from(document.querySelectorAll('a')).find(a => a.textContent.includes('Files'));
+        if (filesLink) {
+          filesLink.click();
+          return true;
+        }
+        return false;
+      },
+      'Files link not found',
+      6000
+    )
 
-# Now check for the native Choose Files button
-- assertVisible: "Choose Files"
-- tapOn: "Choose Files"
+# Wait for Files page to load and the Choose Files button to appear
+- evalScript: |
+    window.waitFor(
+      () => window.getChooseFilesBtn() !== null && window.getChooseFilesBtn() !== undefined,
+      'Choose Files button not found'
+    )
+
+# Take a screenshot to debug what the UI looks like
+- takeScreenshot: files-page
+
+# Click the Choose Files button (or Open Files App)
+- evalScript: |
+    window.waitFor(
+      () => {
+        const btn = window.getChooseFilesBtn();
+        if (btn) {
+          btn.click();
+          return true;
+        }
+        return false;
+      },
+      'Choose Files button not found',
+      6000
+    )

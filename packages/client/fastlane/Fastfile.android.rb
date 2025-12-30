@@ -161,48 +161,35 @@ platform :android do
     apk_path = File.expand_path('../android/app/build/outputs/apk/debug/app-debug.apk', __dir__)
     debug_dir = File.expand_path('../maestro-debug', __dir__)
     maestro_dir = File.expand_path('../.maestro', __dir__)
-    # Find the emulator device ID
+
     emulator_id = `adb devices | grep emulator | head -1 | cut -f1`.strip
     UI.user_error!('No Android emulator found. Start an emulator first.') if emulator_id.empty?
+
     sh("adb -s #{emulator_id} uninstall #{APP_ID} || true")
     sh("adb -s #{emulator_id} install -r '#{apk_path}'")
-    # Create debug output directory (at packages/client/maestro-debug)
+
     FileUtils.mkdir_p(debug_dir)
-    # Take a screenshot of home screen before launching app
-    sh("adb -s #{emulator_id} exec-out screencap -p > '#{debug_dir}/01-before-launch.png' || true")
-    # Launch app and wait for it to start (10s to allow slow CI emulator to fully render)
-    sh("adb -s #{emulator_id} shell am start -n #{APP_ID}/.MainActivity || true")
-    sh("sleep 10")
-    # Take screenshot after app launch
-    sh("adb -s #{emulator_id} exec-out screencap -p > '#{debug_dir}/02-after-launch.png' || true")
-    # Dump UI hierarchy for debugging
-    sh("adb -s #{emulator_id} exec-out uiautomator dump /dev/tty 2>/dev/null | head -100 > '#{debug_dir}/ui-hierarchy.xml' || true")
-    # Clear logcat before running tests
     sh("adb -s #{emulator_id} logcat -c || true")
+
     # Start screen recording in background (max 3 minutes)
     recording_pid = spawn("adb -s #{emulator_id} shell screenrecord --time-limit 180 /sdcard/maestro-recording.mp4", [:out, :err] => '/dev/null')
     Process.detach(recording_pid)
-    # Run Maestro with debug output for CI failures
-    # --output expects a file path for junit format, --debug-output is for screenshots
+
     begin
       sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test '#{maestro_dir}' --output '#{debug_dir}/report.xml' --debug-output '#{debug_dir}' --format junit")
-      maestro_result = "0"
+      maestro_result = '0'
     rescue StandardError => e
       UI.important("Maestro tests failed: #{e.message}")
-      maestro_result = "1"
+      maestro_result = '1'
     end
-    # Stop screen recording and pull the video
+
+    # Stop recording and collect debug artifacts
     sh("adb -s #{emulator_id} shell pkill -SIGINT screenrecord || true")
     sh("sleep 2")
     sh("adb -s #{emulator_id} pull /sdcard/maestro-recording.mp4 '#{debug_dir}/test-recording.mp4' || true")
-    # Capture final screenshot
-    sh("adb -s #{emulator_id} exec-out screencap -p > '#{debug_dir}/03-after-tests.png' || true")
-    # Capture full logcat for debugging (JS console.log appears as INFO:CONSOLE in chromium logs)
     sh("adb -s #{emulator_id} logcat -d > '#{debug_dir}/logcat.txt' 2>&1 || true")
-    # Also capture just the relevant lines
-    sh("adb -s #{emulator_id} logcat -d | grep -iE '(Dropzone|platform|capacitor|CONSOLE)' > '#{debug_dir}/logcat-filtered.txt' 2>&1 || true")
-    # Fail if Maestro tests failed
-    UI.user_error!("Maestro tests failed") unless maestro_result == "0"
+
+    UI.user_error!('Maestro tests failed') unless maestro_result == '0'
   end
 
   private_lane :run_gradle do |options|
