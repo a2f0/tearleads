@@ -6,14 +6,14 @@ afterEach(() => {
   cleanup();
 });
 
-// Mock localStorage for tests
+// Mock localStorage for ThemeProvider
 const localStorageMock = {
-  getItem: vi.fn(),
+  getItem: vi.fn(() => null),
   setItem: vi.fn(),
   removeItem: vi.fn(),
   clear: vi.fn(),
   length: 0,
-  key: vi.fn()
+  key: vi.fn(() => null)
 };
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
