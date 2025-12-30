@@ -42,17 +42,13 @@ A self-hosted runner allows CI jobs to run on your local Mac instead of GitHub-h
 
    ```bash
    export GITHUB_TOKEN="ghp_your_token_here"
-   ./scripts/setupGithubRunner.sh --service
+   ./scripts/setupGithubRunner.sh
    ```
 
 1. Verify the runner appears at [Settings → Actions → Runners](https://github.com/a2f0/rapid/settings/actions/runners)
 
-The `--service` flag installs the runner as a background service that starts automatically. To manage the service:
+The runner will start automatically after setup and run in the foreground. To restart it later:
 
 ```bash
-cd ~/actions-runner
-sudo ./svc.sh status    # Check status
-sudo ./svc.sh stop      # Stop runner
-sudo ./svc.sh start     # Start runner
-sudo ./svc.sh uninstall # Remove service
+cd ~/actions-runner && ./run.sh
 ```

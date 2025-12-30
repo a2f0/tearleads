@@ -1,13 +1,10 @@
 #!/bin/bash
 # Setup a self-hosted GitHub Actions runner on macOS
-# Usage: ./scripts/setupGithubRunner.sh [--service]
+# Usage: ./scripts/setupGithubRunner.sh
 #
 # Prerequisites:
-#   - GitHub Personal Access Token with 'admin:org' or 'repo' scope
+#   - GitHub Personal Access Token with 'repo' scope
 #   - Set GITHUB_TOKEN environment variable or pass via prompt
-#
-# Options:
-#   --service    Install and start the runner as a launchd service
 
 set -euo pipefail
 
@@ -16,7 +13,6 @@ RUNNER_VERSION="2.321.0"
 RUNNER_DIR="${HOME}/actions-runner"
 REPO_OWNER="a2f0"
 REPO_NAME="rapid"
-INSTALL_SERVICE=false
 
 # Colors for output
 RED='\033[0;31m'
@@ -27,16 +23,6 @@ NC='\033[0m' # No Color
 log_info() { echo -e "${GREEN}[INFO]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
-
-# Parse arguments
-for arg in "$@"; do
-  case $arg in
-    --service)
-      INSTALL_SERVICE=true
-      shift
-      ;;
-  esac
-done
 
 # Check architecture
 ARCH=$(uname -m)
@@ -140,43 +126,12 @@ ImageOS=macos$(sw_vers -productVersion | cut -d. -f1)
 RUNNER_TRACKING_ID=
 EOF
 
-if $INSTALL_SERVICE; then
-  log_info "Installing runner as a service..."
-
-  # Install service
-  sudo ./svc.sh install
-
-  # Start service
-  log_info "Starting runner service..."
-  sudo ./svc.sh start
-
-  # Check status
-  sudo ./svc.sh status
-
-  log_info "Runner installed and running as a service!"
-  echo ""
-  echo "Service commands:"
-  echo "  sudo ${RUNNER_DIR}/svc.sh status  - Check status"
-  echo "  sudo ${RUNNER_DIR}/svc.sh stop    - Stop runner"
-  echo "  sudo ${RUNNER_DIR}/svc.sh start   - Start runner"
-  echo "  sudo ${RUNNER_DIR}/svc.sh uninstall - Remove service"
-else
-  log_info "Runner configured successfully!"
-  echo ""
-  echo "To run interactively:  cd ${RUNNER_DIR} && ./run.sh"
-  echo "To install as service: cd ${RUNNER_DIR} && sudo ./svc.sh install && sudo ./svc.sh start"
-fi
-
-echo ""
+log_info "Runner configured successfully!"
 log_info "Runner is registered with labels: self-hosted, macOS, ${RUNNER_ARCH}"
 echo ""
-echo "Update your workflow to use this runner:"
-echo ""
-echo "  jobs:"
-echo "    build:"
-echo "      runs-on: [self-hosted, macOS, ${RUNNER_ARCH}]"
+echo "Starting runner in foreground (press Ctrl+C to stop)..."
+echo "To restart later: cd ${RUNNER_DIR} && ./run.sh"
 echo ""
 
-# Sources:
-# - https://docs.github.com/en/actions/reference/runners/self-hosted-runners
-# - https://dev.to/cubesoft/how-to-set-up-a-github-actions-self-hosted-runner-on-macos-15-2pid
+# Start the runner in foreground
+exec ./run.sh
