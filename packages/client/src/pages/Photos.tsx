@@ -1,5 +1,13 @@
 import { and, desc, eq, like } from 'drizzle-orm';
-import { Database, ImageIcon, Info, Loader2, RefreshCw } from 'lucide-react';
+import {
+  Database,
+  Download,
+  ImageIcon,
+  Info,
+  Loader2,
+  RefreshCw,
+  Share2
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -8,6 +16,7 @@ import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
+import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import {
   getFileStorage,
   initializeFileStorage,
@@ -40,6 +49,66 @@ export function Photos() {
     x: number;
     y: number;
   } | null>(null);
+  const [canShare, setCanShare] = useState(false);
+
+  // Check if Web Share API is available on mount
+  useEffect(() => {
+    setCanShare(canShareFiles());
+  }, []);
+
+  const handleDownload = useCallback(
+    async (photo: PhotoWithUrl, e: React.MouseEvent) => {
+      e.stopPropagation();
+
+      try {
+        const keyManager = getKeyManager();
+        const encryptionKey = keyManager.getCurrentKey();
+        if (!encryptionKey) throw new Error('Database not unlocked');
+
+        if (!isFileStorageInitialized()) {
+          await initializeFileStorage(encryptionKey);
+        }
+
+        const storage = getFileStorage();
+        // Use full image, not thumbnail
+        const data = await storage.retrieve(photo.storagePath);
+        downloadFile(data, photo.name);
+      } catch (err) {
+        console.error('Failed to download photo:', err);
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    []
+  );
+
+  const handleShare = useCallback(
+    async (photo: PhotoWithUrl, e: React.MouseEvent) => {
+      e.stopPropagation();
+
+      try {
+        const keyManager = getKeyManager();
+        const encryptionKey = keyManager.getCurrentKey();
+        if (!encryptionKey) throw new Error('Database not unlocked');
+
+        if (!isFileStorageInitialized()) {
+          await initializeFileStorage(encryptionKey);
+        }
+
+        const storage = getFileStorage();
+        // Use full image, not thumbnail
+        const data = await storage.retrieve(photo.storagePath);
+        await shareFile(data, photo.name, photo.mimeType);
+      } catch (err) {
+        // User cancelled share - don't show error
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
+        console.error('Failed to share photo:', err);
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    []
+  );
 
   const fetchPhotos = useCallback(async () => {
     if (!isUnlocked) return;
@@ -228,7 +297,29 @@ export function Photos() {
                   className="h-full w-full object-cover"
                 />
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
-                  <p className="truncate text-white text-xs">{photo.name}</p>
+                  <div className="flex items-center gap-1">
+                    <p className="min-w-0 flex-1 truncate text-white text-xs">
+                      {photo.name}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDownload(photo, e)}
+                      className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
+                      title="Download"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </button>
+                    {canShare && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleShare(photo, e)}
+                        className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
+                        title="Share"
+                      >
+                        <Share2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </button>
             ))}
