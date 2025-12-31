@@ -119,8 +119,30 @@ describe('Models', () => {
       renderModels();
 
       await waitFor(() => {
+        // Verify total count of vision badges
         const visionBadges = screen.getAllByText('Vision');
         expect(visionBadges.length).toBe(2);
+
+        // Verify vision badges are on the correct model cards
+        const smolVLMCard = screen
+          .getByText('SmolVLM 256M')
+          .closest('.rounded-lg');
+        expect(smolVLMCard).toHaveTextContent('Vision');
+
+        const paligemmaCard = screen
+          .getByText('PaliGemma 2 3B')
+          .closest('.rounded-lg');
+        expect(paligemmaCard).toHaveTextContent('Vision');
+
+        // Verify non-vision model doesn't have vision badge
+        const phi3Card = screen.getByText('Phi-3 Mini').closest('.rounded-lg');
+        const phi3VisionBadges = phi3Card?.querySelectorAll(
+          '.text-purple-500'
+        ) as NodeListOf<HTMLElement>;
+        const hasVisionBadge = Array.from(phi3VisionBadges).some(
+          (el) => el.textContent === 'Vision'
+        );
+        expect(hasVisionBadge).toBe(false);
       });
     });
   });
