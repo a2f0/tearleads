@@ -3,7 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { detectPlatform, formatFileSize } from './utils';
+import { detectPlatform, formatDate, formatFileSize } from './utils';
 
 describe('formatFileSize', () => {
   it('formats 0 bytes', () => {
@@ -44,6 +44,15 @@ describe('formatFileSize', () => {
     expect(formatFileSize(1024)).toBe('1 KB');
     expect(formatFileSize(2048)).toBe('2 KB');
   });
+
+  it('handles negative values', () => {
+    expect(formatFileSize(-1)).toBe('Invalid size');
+    expect(formatFileSize(-1024)).toBe('Invalid size');
+  });
+
+  it('formats terabytes', () => {
+    expect(formatFileSize(1024 * 1024 * 1024 * 1024)).toBe('1 TB');
+  });
 });
 
 describe('detectPlatform', () => {
@@ -73,4 +82,27 @@ describe('detectPlatform', () => {
   // Note: Full Capacitor platform detection tests require mocking
   // the @capacitor/core module, which is complex. The basic detection
   // is tested in integration tests where Capacitor is properly initialized.
+});
+
+describe('formatDate', () => {
+  it('formats a date and returns a non-empty string', () => {
+    const date = new Date(Date.UTC(2025, 2, 15, 14, 30, 0));
+    const formatted = formatDate(date);
+    // formatDate output is locale-dependent, so we just verify it returns
+    // a non-empty string containing expected date components
+    expect(formatted.length).toBeGreaterThan(0);
+    expect(formatted).toContain('2025');
+    expect(formatted).toContain('15');
+  });
+
+  it('handles different dates correctly', () => {
+    const date1 = new Date(Date.UTC(2025, 0, 1, 0, 0, 0));
+    const date2 = new Date(Date.UTC(2025, 11, 31, 23, 59, 0));
+    const formatted1 = formatDate(date1);
+    const formatted2 = formatDate(date2);
+    expect(formatted1.length).toBeGreaterThan(0);
+    expect(formatted2.length).toBeGreaterThan(0);
+    // Different dates should produce different output
+    expect(formatted1).not.toBe(formatted2);
+  });
 });
