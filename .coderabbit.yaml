@@ -1,4 +1,7 @@
 reviews:
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
   collapse_walkthrough: true
   poem: false
   related_issues: false

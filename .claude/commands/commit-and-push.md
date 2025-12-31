@@ -25,6 +25,7 @@ Commit and push the current changes following these rules:
    - Add `Co-Authored-By` headers
    - Add emoji or "Generated with Claude Code" footers
    - Use `--no-gpg-sign` or skip signing
+   - Use `--no-verify` to bypass hooks
 
 5. **GPG signing**: The commit MUST be signed. Use a 5-second timeout. For multi-line messages, pipe the content to `git commit`:
 
@@ -40,9 +41,9 @@ Commit and push the current changes following these rules:
    ./scripts/agents/setVscodeTitle.sh
    ```
 
-8. **Wait for Gemini feedback**: After the push completes (and PR is created/updated), wait 60 seconds for Gemini Code Assist to post its review comments.
+8. **Wait for CodeRabbit feedback**: After the push completes (and PR is created/updated), wait 60 seconds for CodeRabbit to post its review comments.
 
-9. **Address Gemini feedback**: Run `/address-gemini-feedback` to enter the feedback resolution loop. This will:
+9. **Address CodeRabbit feedback**: Run `/address-coderabbit-feedback` to enter the feedback resolution loop. This will:
    - Fetch unresolved review comments
    - Make necessary code changes
    - Commit and push fixes
