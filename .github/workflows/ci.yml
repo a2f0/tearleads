@@ -426,8 +426,13 @@ jobs:
           echo "Available simulators:"
           xcrun simctl list devices available | head -20
 
-          # Try iPhone 16 first (macOS 15), then iPhone 15 (macOS 14), then any iPhone
-          DEVICE=$(xcrun simctl list devices available | grep -E "iPhone (16|15)" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          # Prefer iPhone SE for faster boot and lower resource usage
+          DEVICE=$(xcrun simctl list devices available | grep "iPhone SE" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+
+          if [ -z "$DEVICE" ]; then
+            echo "No iPhone SE found, trying iPhone 16/15"
+            DEVICE=$(xcrun simctl list devices available | grep -E "iPhone (16|15)" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
 
           if [ -z "$DEVICE" ]; then
             echo "No iPhone 15/16 found, trying any iPhone"
