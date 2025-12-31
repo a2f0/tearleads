@@ -96,7 +96,8 @@ describe('App', () => {
   it('sidebar has hidden lg:flex classes for desktop-only display', () => {
     renderApp();
 
-    const sidebar = screen.getByRole('navigation').parentElement;
+    // The sidebar (aside element) itself has the hidden/lg:flex classes
+    const sidebar = screen.getByRole('navigation').closest('aside');
     expect(sidebar).toHaveClass('hidden');
     expect(sidebar).toHaveClass('lg:flex');
   });

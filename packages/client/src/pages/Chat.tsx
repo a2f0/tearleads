@@ -5,7 +5,7 @@ import {
   ThreadPrimitive,
   useLocalRuntime
 } from '@assistant-ui/react';
-import type { MLCEngine } from '@mlc-ai/web-llm';
+import type { MLCEngineInterface } from '@mlc-ai/web-llm';
 import { Bot, MessageSquare, Send } from 'lucide-react';
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
@@ -98,7 +98,7 @@ function Thread() {
 }
 
 interface ChatInterfaceProps {
-  engine: MLCEngine;
+  engine: MLCEngineInterface;
 }
 
 function ChatInterface({ engine }: ChatInterfaceProps) {
