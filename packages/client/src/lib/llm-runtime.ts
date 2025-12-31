@@ -1,17 +1,21 @@
 import type { ChatModelAdapter } from '@assistant-ui/react';
-import type { MLCEngineInterface } from '@mlc-ai/web-llm';
+import type { ChatMessage, GenerateCallback } from '@/hooks/useLLM';
+
+type GenerateFunction = (
+  messages: ChatMessage[],
+  onToken: GenerateCallback,
+  image?: string
+) => Promise<void>;
 
 /**
- * Creates a ChatModelAdapter that bridges assistant-ui with MLC WebLLM.
+ * Creates a ChatModelAdapter that bridges assistant-ui with our LLM worker.
  * This adapter enables streaming chat completions from local LLM inference.
  */
-export function createWebLLMAdapter(
-  engine: MLCEngineInterface
-): ChatModelAdapter {
+export function createLLMAdapter(generate: GenerateFunction): ChatModelAdapter {
   return {
     async *run({ messages, abortSignal }) {
-      // Map assistant-ui message format to OpenAI-compatible format
-      const formattedMessages = messages.map((m) => ({
+      // Map assistant-ui message format to our ChatMessage format
+      const formattedMessages: ChatMessage[] = messages.map((m) => ({
         role: m.role,
         content:
           m.content
@@ -22,25 +26,69 @@ export function createWebLLMAdapter(
             .join('') || ''
       }));
 
-      const stream = await engine.chat.completions.create({
-        messages: formattedMessages,
-        stream: true
-      });
-
+      // Collect streamed text
       let textContent = '';
+      let resolveNext: ((value: { done: boolean }) => void) | null = null;
+      let hasNewToken = false;
 
-      for await (const chunk of stream) {
+      const onToken: GenerateCallback = (text: string) => {
+        // TextStreamer sends cumulative text, not deltas
+        textContent = text;
+        hasNewToken = true;
+        if (resolveNext) {
+          resolveNext({ done: false });
+          resolveNext = null;
+        }
+      };
+
+      // Start generation in background
+      const generatePromise = generate(formattedMessages, onToken);
+
+      // Track completion
+      let isComplete = false;
+      let error: Error | null = null;
+
+      generatePromise
+        .then(() => {
+          isComplete = true;
+          if (resolveNext) {
+            resolveNext({ done: true });
+          }
+        })
+        .catch((e) => {
+          error = e instanceof Error ? e : new Error(String(e));
+          isComplete = true;
+          if (resolveNext) {
+            resolveNext({ done: true });
+          }
+        });
+
+      // Yield tokens as they come
+      while (!isComplete && !abortSignal?.aborted) {
+        // Wait for next token or completion
+        await new Promise<{ done: boolean }>((resolve) => {
+          if (isComplete || hasNewToken) {
+            hasNewToken = false;
+            resolve({ done: isComplete });
+          } else {
+            resolveNext = resolve;
+          }
+        });
+
         if (abortSignal?.aborted) {
           break;
         }
 
-        const delta = chunk.choices[0]?.delta?.content;
-        if (delta) {
-          textContent += delta;
+        if (textContent) {
           yield {
             content: [{ type: 'text' as const, text: textContent }]
           };
         }
+      }
+
+      // Rethrow any errors
+      if (error) {
+        throw error;
       }
     }
   };

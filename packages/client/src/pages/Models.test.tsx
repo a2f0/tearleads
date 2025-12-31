@@ -4,31 +4,24 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Models } from './Models';
 
-// Mock web-llm cache functions
-vi.mock('@mlc-ai/web-llm', () => ({
-  hasModelInCache: vi.fn().mockResolvedValue(false),
-  deleteModelInCache: vi.fn().mockResolvedValue(undefined)
-}));
-
-import { deleteModelInCache, hasModelInCache } from '@mlc-ai/web-llm';
-
-const mockHasModelInCache = vi.mocked(hasModelInCache);
-const mockDeleteModelInCache = vi.mocked(deleteModelInCache);
-
 // Mock useLLM hook
 const mockLoadModel = vi.fn();
 const mockUnloadModel = vi.fn();
 const mockIsWebGPUSupported = vi.fn();
+const mockGenerate = vi.fn();
+const mockAbort = vi.fn();
 
 vi.mock('@/hooks/useLLM', () => ({
   useLLM: vi.fn(() => ({
-    engine: null,
     loadedModel: null,
+    modelType: null,
     isLoading: false,
     loadProgress: null,
     error: null,
     loadModel: mockLoadModel,
     unloadModel: mockUnloadModel,
+    generate: mockGenerate,
+    abort: mockAbort,
     isWebGPUSupported: mockIsWebGPUSupported
   }))
 }));
@@ -47,15 +40,12 @@ describe('Models', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsWebGPUSupported.mockResolvedValue(true);
-    mockHasModelInCache.mockResolvedValue(false);
-    mockDeleteModelInCache.mockResolvedValue(undefined);
   });
 
   describe('page rendering', () => {
     it('renders the page title', async () => {
       renderModels();
 
-      // Wait for async effects to settle
       await waitFor(() => {
         expect(screen.getByText('Models')).toBeInTheDocument();
       });
@@ -64,7 +54,6 @@ describe('Models', () => {
     it('renders the description text', async () => {
       renderModels();
 
-      // Wait for async effects to settle
       await waitFor(() => {
         expect(
           screen.getByText(/Download and run LLMs locally/)
@@ -76,9 +65,8 @@ describe('Models', () => {
       renderModels();
 
       await waitFor(() => {
-        expect(screen.getByText('Llama 3.2 1B Instruct')).toBeInTheDocument();
-        expect(screen.getByText('Llama 3.2 3B Instruct')).toBeInTheDocument();
-        expect(screen.getByText('Phi 3.5 Mini')).toBeInTheDocument();
+        expect(screen.getByText('Phi-3 Mini')).toBeInTheDocument();
+        expect(screen.getByText('Phi-3.5 Vision')).toBeInTheDocument();
       });
     });
 
@@ -86,8 +74,16 @@ describe('Models', () => {
       renderModels();
 
       await waitFor(() => {
-        expect(screen.getByText(/~700MB/)).toBeInTheDocument();
-        expect(screen.getByText(/~1.8GB/)).toBeInTheDocument();
+        expect(screen.getByText(/~2GB/)).toBeInTheDocument();
+        expect(screen.getByText(/~2.8GB/)).toBeInTheDocument();
+      });
+    });
+
+    it('shows vision badge for vision model', async () => {
+      renderModels();
+
+      await waitFor(() => {
+        expect(screen.getByText('Vision')).toBeInTheDocument();
       });
     });
   });
@@ -110,8 +106,6 @@ describe('Models', () => {
       mockIsWebGPUSupported.mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
-      // Also make cache check never resolve to prevent state updates
-      mockHasModelInCache.mockImplementation(() => new Promise(() => {}));
 
       renderModels();
 
@@ -140,7 +134,7 @@ describe('Models', () => {
       renderModels();
 
       await waitFor(() => {
-        expect(screen.getByText('Llama 3.2 1B Instruct')).toBeInTheDocument();
+        expect(screen.getByText('Phi-3 Mini')).toBeInTheDocument();
       });
 
       const downloadButtons = screen.getAllByRole('button', {
@@ -154,12 +148,6 @@ describe('Models', () => {
     });
 
     it('shows loading button when model is being downloaded', async () => {
-      // To test the loading state, we need to simulate:
-      // 1. User clicks download -> sets loadingModelId in component state
-      // 2. Hook's isLoading becomes true -> getModelStatus returns 'downloading'
-      //
-      // We achieve this by making loadModel not resolve immediately,
-      // then updating the mock to show isLoading: true, triggering a re-render
       let resolveLoad: (() => void) | undefined;
       const loadPromise = new Promise<void>((resolve) => {
         resolveLoad = resolve;
@@ -167,15 +155,16 @@ describe('Models', () => {
 
       const loadModelMock = vi.fn().mockImplementation(() => loadPromise);
 
-      // Start with isLoading: false
       vi.mocked(useLLM).mockReturnValue({
-        engine: null,
         loadedModel: null,
+        modelType: null,
         isLoading: false,
         loadProgress: null,
         error: null,
         loadModel: loadModelMock,
         unloadModel: mockUnloadModel,
+        generate: mockGenerate,
+        abort: mockAbort,
         isWebGPUSupported: mockIsWebGPUSupported
       });
 
@@ -187,10 +176,9 @@ describe('Models', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Llama 3.2 1B Instruct')).toBeInTheDocument();
+        expect(screen.getByText('Phi-3 Mini')).toBeInTheDocument();
       });
 
-      // Click the download button - this sets loadingModelId in component state
       const downloadButtons = screen.getAllByRole('button', {
         name: /download/i
       });
@@ -198,21 +186,20 @@ describe('Models', () => {
       // biome-ignore lint/style/noNonNullAssertion: checked above
       await user.click(downloadButtons[0]!);
 
-      // Now update the mock to show loading state and re-render
-      // Wrap in act() to handle React state updates
       await act(async () => {
         vi.mocked(useLLM).mockReturnValue({
-          engine: null,
           loadedModel: null,
+          modelType: null,
           isLoading: true,
           loadProgress: { text: 'Downloading weights...', progress: 0.45 },
           error: null,
           loadModel: loadModelMock,
           unloadModel: mockUnloadModel,
+          generate: mockGenerate,
+          abort: mockAbort,
           isWebGPUSupported: mockIsWebGPUSupported
         });
 
-        // Trigger re-render
         rerender(
           <MemoryRouter>
             <Models />
@@ -220,17 +207,14 @@ describe('Models', () => {
         );
       });
 
-      // Verify the loading button is shown
       await waitFor(() => {
         expect(
           screen.getByRole('button', { name: /loading/i })
         ).toBeInTheDocument();
       });
 
-      // Verify the progress bar is rendered with correct progress text
       expect(screen.getByText('Downloading weights...')).toBeInTheDocument();
 
-      // Cleanup: resolve the promise in act to handle any resulting state updates
       await act(async () => {
         resolveLoad?.();
       });
@@ -238,13 +222,15 @@ describe('Models', () => {
 
     it('shows loaded badge when model is loaded', async () => {
       vi.mocked(useLLM).mockReturnValue({
-        engine: {} as ReturnType<typeof useLLM>['engine'],
-        loadedModel: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+        loadedModel: 'onnx-community/Phi-3-mini-4k-instruct',
+        modelType: 'chat',
         isLoading: false,
         loadProgress: null,
         error: null,
         loadModel: mockLoadModel,
         unloadModel: mockUnloadModel,
+        generate: mockGenerate,
+        abort: mockAbort,
         isWebGPUSupported: mockIsWebGPUSupported
       });
 
@@ -257,13 +243,15 @@ describe('Models', () => {
 
     it('shows unload button for loaded model', async () => {
       vi.mocked(useLLM).mockReturnValue({
-        engine: {} as ReturnType<typeof useLLM>['engine'],
-        loadedModel: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+        loadedModel: 'onnx-community/Phi-3-mini-4k-instruct',
+        modelType: 'chat',
         isLoading: false,
         loadProgress: null,
         error: null,
         loadModel: mockLoadModel,
         unloadModel: mockUnloadModel,
+        generate: mockGenerate,
+        abort: mockAbort,
         isWebGPUSupported: mockIsWebGPUSupported
       });
 
@@ -279,13 +267,15 @@ describe('Models', () => {
     it('calls unloadModel when unload button is clicked', async () => {
       const user = userEvent.setup();
       vi.mocked(useLLM).mockReturnValue({
-        engine: {} as ReturnType<typeof useLLM>['engine'],
-        loadedModel: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+        loadedModel: 'onnx-community/Phi-3-mini-4k-instruct',
+        modelType: 'chat',
         isLoading: false,
         loadProgress: null,
         error: null,
         loadModel: mockLoadModel,
         unloadModel: mockUnloadModel,
+        generate: mockGenerate,
+        abort: mockAbort,
         isWebGPUSupported: mockIsWebGPUSupported
       });
 
@@ -306,13 +296,15 @@ describe('Models', () => {
   describe('error handling', () => {
     it('displays error message when there is an error', async () => {
       vi.mocked(useLLM).mockReturnValue({
-        engine: null,
         loadedModel: null,
+        modelType: null,
         isLoading: false,
         loadProgress: null,
         error: 'Failed to load model: Network error',
         loadModel: mockLoadModel,
         unloadModel: mockUnloadModel,
+        generate: mockGenerate,
+        abort: mockAbort,
         isWebGPUSupported: mockIsWebGPUSupported
       });
 
@@ -323,103 +315,6 @@ describe('Models', () => {
           screen.getByText('Failed to load model: Network error')
         ).toBeInTheDocument();
       });
-    });
-  });
-
-  describe('model cache persistence', () => {
-    it('checks cache for all models on mount', async () => {
-      renderModels();
-
-      await waitFor(() => {
-        // Should check cache for each recommended model
-        expect(mockHasModelInCache).toHaveBeenCalledWith(
-          'Llama-3.2-1B-Instruct-q4f16_1-MLC'
-        );
-        expect(mockHasModelInCache).toHaveBeenCalledWith(
-          'Llama-3.2-3B-Instruct-q4f16_1-MLC'
-        );
-        expect(mockHasModelInCache).toHaveBeenCalledWith(
-          'Phi-3.5-mini-instruct-q4f16_1-MLC'
-        );
-      });
-    });
-
-    it('shows Ready status for cached models', async () => {
-      // Only the first model is cached
-      mockHasModelInCache.mockImplementation((modelId: string) =>
-        Promise.resolve(modelId === 'Llama-3.2-1B-Instruct-q4f16_1-MLC')
-      );
-
-      renderModels();
-
-      await waitFor(() => {
-        // First model should show "Ready" and "Load" button
-        expect(screen.getByText('Ready')).toBeInTheDocument();
-        expect(
-          screen.getByRole('button', { name: /^Load$/i })
-        ).toBeInTheDocument();
-      });
-    });
-
-    it('shows Load button instead of Download for cached models', async () => {
-      mockHasModelInCache.mockResolvedValue(true);
-
-      renderModels();
-
-      await waitFor(() => {
-        // All models are cached, so no Download buttons
-        expect(
-          screen.queryByRole('button', { name: /download/i })
-        ).not.toBeInTheDocument();
-        // Should have Load buttons instead
-        const loadButtons = screen.getAllByRole('button', { name: /^Load$/i });
-        expect(loadButtons.length).toBeGreaterThan(0);
-      });
-    });
-
-    it('shows delete button for cached models', async () => {
-      mockHasModelInCache.mockImplementation((modelId: string) =>
-        Promise.resolve(modelId === 'Llama-3.2-1B-Instruct-q4f16_1-MLC')
-      );
-
-      renderModels();
-
-      await waitFor(() => {
-        // Should have a delete button (trash icon) for the cached model
-        const deleteButtons = screen.getAllByRole('button');
-        // Look for button that contains trash icon (it's an icon button without text)
-        const trashButton = deleteButtons.find(
-          (btn) => btn.querySelector('svg.lucide-trash-2') !== null
-        );
-        expect(trashButton).toBeDefined();
-      });
-    });
-
-    it('calls deleteModelInCache when delete button is clicked', async () => {
-      const user = userEvent.setup();
-      mockHasModelInCache.mockImplementation((modelId: string) =>
-        Promise.resolve(modelId === 'Llama-3.2-1B-Instruct-q4f16_1-MLC')
-      );
-
-      renderModels();
-
-      await waitFor(() => {
-        expect(screen.getByText('Ready')).toBeInTheDocument();
-      });
-
-      // Find and click the delete button (trash icon)
-      const deleteButtons = screen.getAllByRole('button');
-      const trashButton = deleteButtons.find(
-        (btn) => btn.querySelector('svg.lucide-trash-2') !== null
-      );
-      expect(trashButton).toBeDefined();
-      if (trashButton) {
-        await user.click(trashButton);
-      }
-
-      expect(mockDeleteModelInCache).toHaveBeenCalledWith(
-        'Llama-3.2-1B-Instruct-q4f16_1-MLC'
-      );
     });
   });
 });
