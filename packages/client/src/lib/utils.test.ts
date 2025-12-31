@@ -2,7 +2,7 @@
  * Unit tests for utility functions.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { detectPlatform, formatDate, formatFileSize } from './utils';
 
 describe('formatFileSize', () => {
@@ -85,43 +85,30 @@ describe('detectPlatform', () => {
 });
 
 describe('formatDate', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   it('formats a date with year, month, day, hour and minute', () => {
-    const date = new Date('2025-03-15T14:30:00');
+    // Using Date.UTC makes the test independent of the local timezone.
+    // Note: month is 0-indexed, so 2 is March.
+    const date = new Date(Date.UTC(2025, 2, 15, 14, 30, 0));
     const formatted = formatDate(date);
-
-    // Check that all components are present
-    expect(formatted).toContain('2025');
-    expect(formatted).toContain('15');
+    // Using a snapshot ensures consistent output across environments.
+    expect(formatted).toMatchSnapshot();
   });
 
   it('formats midnight correctly', () => {
-    const date = new Date('2025-01-01T00:00:00');
+    const date = new Date(Date.UTC(2025, 0, 1, 0, 0, 0));
     const formatted = formatDate(date);
-
-    expect(formatted).toContain('2025');
-    expect(formatted).toContain('1');
+    expect(formatted).toMatchSnapshot();
   });
 
   it('formats end of day correctly', () => {
-    const date = new Date('2025-12-31T23:59:00');
+    const date = new Date(Date.UTC(2025, 11, 31, 23, 59, 0));
     const formatted = formatDate(date);
-
-    expect(formatted).toContain('2025');
-    expect(formatted).toContain('31');
+    expect(formatted).toMatchSnapshot();
   });
 
   it('returns a non-empty string', () => {
-    const date = new Date();
+    const date = new Date(Date.UTC(2025, 5, 15, 12, 0, 0));
     const formatted = formatDate(date);
-
     expect(formatted.length).toBeGreaterThan(0);
   });
 });

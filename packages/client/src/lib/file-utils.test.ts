@@ -190,11 +190,8 @@ describe('file-utils', () => {
           // Simple mock hash based on data content
           const hash = new Uint8Array(32);
           for (let i = 0; i < dataArray.length; i++) {
-            const currentValue = hash[i % 32];
-            const dataValue = dataArray[i];
-            if (currentValue !== undefined && dataValue !== undefined) {
-              hash[i % 32] = currentValue ^ dataValue;
-            }
+            const idx = i % 32;
+            hash[idx] = (hash[idx] ?? 0) ^ (dataArray[i] ?? 0);
           }
           return hash.buffer;
         }
@@ -250,6 +247,7 @@ describe('file-utils', () => {
         value: originalNavigator,
         configurable: true
       });
+      vi.restoreAllMocks();
     });
 
     it('returns false when navigator.share is not available', () => {
@@ -290,6 +288,7 @@ describe('file-utils', () => {
         value: originalNavigator,
         configurable: true
       });
+      vi.restoreAllMocks();
     });
 
     it('returns false when navigator.share is not available', async () => {

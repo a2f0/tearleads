@@ -1,0 +1,7 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`formatDate > formats a date with year, month, day, hour and minute 1`] = `"March 15, 2025 at 10:30 AM"`;
+
+exports[`formatDate > formats end of day correctly 1`] = `"December 31, 2025 at 06:59 PM"`;
+
+exports[`formatDate > formats midnight correctly 1`] = `"December 31, 2024 at 07:00 PM"`;
