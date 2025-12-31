@@ -290,12 +290,20 @@ export function Photos() {
         ) : (
           <div className="flex flex-wrap gap-4">
             {photos.map((photo) => (
-              <button
+              // biome-ignore lint/a11y/useSemanticElements: Cannot use button here because this container has nested Download/Share buttons
+              <div
                 key={photo.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => handlePhotoClick(photo)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handlePhotoClick(photo);
+                  }
+                }}
                 onContextMenu={(e) => handleContextMenu(e, photo)}
-                className="group relative overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
+                className="group relative cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
                 style={thumbnailStyle}
               >
                 <img
@@ -328,7 +336,7 @@ export function Photos() {
                     )}
                   </div>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         ))}

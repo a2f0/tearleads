@@ -227,5 +227,81 @@ describe('Photos', () => {
 
       expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1');
     });
+
+    it('navigates to photo detail on keyboard Enter', async () => {
+      const user = userEvent.setup();
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      const photoContainer =
+        screen.getByAltText('test-image.jpg').parentElement;
+      photoContainer?.focus();
+      await user.keyboard('{Enter}');
+
+      expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1');
+    });
+
+    it('navigates to photo detail on keyboard Space', async () => {
+      const user = userEvent.setup();
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      const photoContainer =
+        screen.getByAltText('test-image.jpg').parentElement;
+      photoContainer?.focus();
+      await user.keyboard(' ');
+
+      expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1');
+    });
+  });
+
+  describe('accessibility', () => {
+    it('does not have nested buttons in photo thumbnails', async () => {
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      // Get the photo container (div with role="button")
+      const photoContainers = screen.getAllByRole('button');
+      for (const container of photoContainers) {
+        // Skip non-photo containers (like context menu close button)
+        if (container.tagName === 'BUTTON') continue;
+
+        // The photo container should be a div with role="button", not an actual button
+        expect(container.tagName).toBe('DIV');
+
+        // Check that no buttons are nested inside other buttons
+        const nestedButtons = container.querySelectorAll('button');
+        for (const nestedButton of nestedButtons) {
+          // Verify the nested button's parent chain doesn't include another button element
+          let parent = nestedButton.parentElement;
+          while (parent && parent !== container) {
+            expect(parent.tagName).not.toBe('BUTTON');
+            parent = parent.parentElement;
+          }
+        }
+      }
+    });
+
+    it('photo container is keyboard focusable', async () => {
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      const photoContainer =
+        screen.getByAltText('test-image.jpg').parentElement;
+      expect(photoContainer).toHaveAttribute('tabIndex', '0');
+      expect(photoContainer).toHaveAttribute('role', 'button');
+    });
   });
 });
