@@ -63,28 +63,28 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
      3. Run `/commit-and-push` to push the fix
      4. Return to monitoring CI status
 
-   ### 4d. Request CodeRabbit review (first iteration only)
+   ### 4d. Request Gemini review (first iteration only)
 
    On the first pass through the loop, request a review:
 
    ```bash
-   gh pr edit <pr-number> --add-reviewer coderabbitai
+   gh pr edit <pr-number> --add-reviewer gemini-code-assist
    ```
 
-   Poll for CodeRabbit's review:
+   Poll for Gemini's review:
 
    ```bash
    gh pr view <pr-number> --json reviews
    ```
 
-   Check every 30 seconds until a review from `coderabbitai` is found (timeout: 5 minutes).
+   Check every 30 seconds until a review from `gemini-code-assist` is found (timeout: 5 minutes).
 
-   ### 4e. Address CodeRabbit feedback
+   ### 4e. Address Gemini feedback
 
-   Run `/address-coderabbit-feedback` to handle any unresolved comments, then `/follow-up-with-coderabbit` to:
-   - Notify CodeRabbit that feedback has been addressed
-   - Wait for CodeRabbit's response (polling every 30 seconds, up to 5 minutes)
-   - When CodeRabbit confirms a fix is satisfactory, resolve the review thread using the GraphQL API:
+   Run `/address-gemini-feedback` to handle any unresolved comments, then `/follow-up-with-gemini` to:
+   - Notify Gemini that feedback has been addressed
+   - Wait for Gemini's response (polling every 30 seconds, up to 5 minutes)
+   - When Gemini confirms a fix is satisfactory, resolve the review thread using the GraphQL API:
 
      ```bash
      gh api graphql -f query='
@@ -96,7 +96,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
      '
      ```
 
-   - If CodeRabbit requests further changes, repeat step 4e
+   - If Gemini requests further changes, repeat step 4e
 
    ### 4f. Enable auto-merge and wait
 
@@ -134,11 +134,11 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 - Non-fixable issues: merge conflicts, infrastructure failures, architectural disagreements
 - If stuck in a loop (same fix attempted twice), ask the user for help
 - **Always reset VS Code title when exiting early**: If you exit the merge queue before the PR is merged (conflicts, user intervention needed, etc.), run `./scripts/agents/setVscodeTitle.sh` to remove the "(queued)" prefix
-- When CodeRabbit confirms a fix, resolve the thread via GraphQL. To detect confirmation:
+- When Gemini confirms a fix, resolve the thread via GraphQL. To detect confirmation:
   1. Look for positive phrases: "looks good", "resolved", "satisfied", "fixed", "approved", "thank you", "lgtm"
   2. Ensure the response does NOT contain negative qualifiers: "but", "however", "still", "issue", "problem", "not yet", "almost"
   3. Only resolve if both conditions are met (positive phrase present AND no negative qualifiers)
-- Only resolve threads after explicit confirmation from CodeRabbit - do not auto-resolve based on your own assessment
+- Only resolve threads after explicit confirmation from Gemini - do not auto-resolve based on your own assessment
 
 ## Keeping PR Description Updated
 
@@ -149,7 +149,7 @@ gh pr edit <pr-number> --body "$(cat <<'EOF'
 ## Summary
 - Original feature/fix description
 - Additional: fixed CI lint errors
-- Additional: addressed CodeRabbit feedback on error handling
+- Additional: addressed Gemini feedback on error handling
 EOF
 )"
 ```
@@ -157,7 +157,7 @@ EOF
 Guidelines:
 
 - Add bullet points for significant changes made during the merge queue process
-- Document CI fixes, CodeRabbit feedback addressed, and any scope changes
+- Document CI fixes, Gemini feedback addressed, and any scope changes
 - Keep it concise - the commit history has the details
 
 ## Commit Rules

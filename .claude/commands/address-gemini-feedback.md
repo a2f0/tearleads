@@ -1,8 +1,8 @@
 ---
-description: Query the open PR and resolve CodeRabbit's feedback.
+description: Query the open PR and resolve Gemini's feedback.
 ---
 
-# Address CodeRabbit Feedback
+# Address Gemini Feedback
 
 1. **Get PR info**: Run `gh pr view --json number,title,url | cat` to obtain the PR number for this branch.
 
@@ -38,7 +38,7 @@ description: Query the open PR and resolve CodeRabbit's feedback.
    - Make the necessary code changes
    - Make sure linting passes and TypeScript compiles
 
-4. **Commit and push**: If changes were made, commit with a conventional commit message (e.g., `fix: address CodeRabbit review feedback`) and push directly. Do NOT run `/commit-and-push` to avoid circular loops.
+4. **Commit and push**: If changes were made, commit with a conventional commit message (e.g., `fix: address Gemini review feedback`) and push directly. Do NOT run `/commit-and-push` to avoid circular loops.
 
 5. **Update PR description**: If the changes are significant or alter the original scope, update the PR body to reflect what was done:
 
@@ -46,17 +46,17 @@ description: Query the open PR and resolve CodeRabbit's feedback.
    gh pr edit <pr-number> --body "$(cat <<'EOF'
    ## Summary
    - Original changes...
-   - Additional: addressed CodeRabbit feedback on X, Y, Z
+   - Additional: addressed Gemini feedback on X, Y, Z
    EOF
    )"
    ```
 
-6. **Follow up with CodeRabbit**: Run `/follow-up-with-coderabbit` to:
-   - Reply to the addressed comments asking CodeRabbit to confirm
-   - Wait for CodeRabbit's response
-   - Resolve threads where CodeRabbit confirms the fix is satisfactory
+6. **Follow up with Gemini**: Run `/follow-up-with-gemini` to:
+   - Reply to the addressed comments asking Gemini to confirm
+   - Wait for Gemini's response
+   - Resolve threads where Gemini confirms the fix is satisfactory
 
-7. **Wait and repeat**: If CodeRabbit posts new feedback or requests further changes, repeat from step 2.
+7. **Wait and repeat**: If Gemini posts new feedback or requests further changes, repeat from step 2.
 
 ## PR Description Guidelines
 
