@@ -1,11 +1,13 @@
 import type { ChatModelAdapter } from '@assistant-ui/react';
-import type { MLCEngine } from '@mlc-ai/web-llm';
+import type { MLCEngineInterface } from '@mlc-ai/web-llm';
 
 /**
  * Creates a ChatModelAdapter that bridges assistant-ui with MLC WebLLM.
  * This adapter enables streaming chat completions from local LLM inference.
  */
-export function createWebLLMAdapter(engine: MLCEngine): ChatModelAdapter {
+export function createWebLLMAdapter(
+  engine: MLCEngineInterface
+): ChatModelAdapter {
   return {
     async *run({ messages, abortSignal }) {
       // Map assistant-ui message format to OpenAI-compatible format
