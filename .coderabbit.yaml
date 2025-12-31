@@ -2,6 +2,7 @@ reviews:
   auto_review:
     enabled: true
     auto_incremental_review: true
+    drafts: false
   collapse_walkthrough: true
   poem: false
   related_issues: false
@@ -12,8 +13,7 @@ reviews:
   path_filters:
     - "!pnpm-lock.yaml"
     - "!**/dist/**"
-  drafts: false
 
 chat:
   auto_reply: true
-  generate_art: false
+  art: false
