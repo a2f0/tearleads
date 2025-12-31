@@ -1,3 +1,16 @@
+reviews:
+  collapse_walkthrough: true
+  poem: false
+  related_issues: false
+  related_prs: false
+  suggested_labels: false
+  suggested_reviewers: false
+  high_level_summary: true
+  path_filters:
+    - "!pnpm-lock.yaml"
+    - "!**/dist/**"
+  drafts: false
+
 chat:
   auto_reply: true
   generate_art: false
