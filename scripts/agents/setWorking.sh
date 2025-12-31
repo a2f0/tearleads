@@ -38,9 +38,7 @@ get_base_title() {
         CURRENT=$(jq -r '.["window.title"] // ""' "$SETTINGS_FILE" 2>/dev/null || true)
         # Strip any existing status prefix
         case "$CURRENT" in
-            "(working) "*) echo "${CURRENT#\(working\) }" ;;
-            "(waiting) "*) echo "${CURRENT#\(waiting\) }" ;;
-            "(queued) "*)  echo "${CURRENT#\(queued\) }" ;;
+            "(working) "*|"(waiting) "*|"(queued) "*) echo "${CURRENT#* }" ;;
             *)             echo "$CURRENT" ;;
         esac
     else
@@ -71,25 +69,28 @@ if [ -n "${TMUX:-}" ]; then
     CURRENT_WINDOW=$(tmux display-message -p '#I')
     CURRENT_NAME=$(tmux display-message -p '#W')
 
-    # Get original name (strip any status prefix)
+    # Get base name (strip any status prefix)
     case "$CURRENT_NAME" in
-        "(working) "*) ORIGINAL_NAME="${CURRENT_NAME#\(working\) }" ;;
-        "(waiting) "*) ORIGINAL_NAME="${CURRENT_NAME#\(waiting\) }" ;;
-        "(queued) "*)  ORIGINAL_NAME="${CURRENT_NAME#\(queued\) }" ;;
-        *)             ORIGINAL_NAME="$CURRENT_NAME" ;;
+        "(working) "*|"(waiting) "*|"(queued) "*)
+            BASE_NAME="${CURRENT_NAME#* }"
+            ;;
+        *)
+            BASE_NAME="$CURRENT_NAME"
+            ;;
     esac
 
     # Store original name if not already stored
     STORED_NAME=$(tmux show-option -wqv @original_name 2>/dev/null || true)
     if [ -z "$STORED_NAME" ]; then
-        tmux set-option -w @original_name "$ORIGINAL_NAME"
+        tmux set-option -w @original_name "$BASE_NAME"
     fi
 
-    # Set working status flag
+    # Set working status flag, clear waiting status
     tmux set-option -w @working_status "true"
+    tmux set-option -wu @waiting_status 2>/dev/null || true
 
     # Rename window with working prefix
-    tmux rename-window "(working) $ORIGINAL_NAME"
+    tmux rename-window "(working) $BASE_NAME"
 
     # Move window to the front of the list
     FIRST_WINDOW=$(tmux list-windows -F '#I' | sort -n | head -1)

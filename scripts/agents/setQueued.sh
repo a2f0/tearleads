@@ -21,12 +21,14 @@ if [ -n "${TMUX:-}" ]; then
     CURRENT_WINDOW=$(tmux display-message -p '#I')
     ORIGINAL_NAME=$(tmux display-message -p '#W')
 
-    # Get original name (strip any status prefix)
+    # Get base name (strip any status prefix)
     case "$ORIGINAL_NAME" in
-        "(working) "*) BASE_NAME="${ORIGINAL_NAME#\(working\) }" ;;
-        "(waiting) "*) BASE_NAME="${ORIGINAL_NAME#\(waiting\) }" ;;
-        "(queued) "*)  BASE_NAME="${ORIGINAL_NAME#\(queued\) }" ;;
-        *)             BASE_NAME="$ORIGINAL_NAME" ;;
+        "(working) "*|"(waiting) "*|"(queued) "*)
+            BASE_NAME="${ORIGINAL_NAME#* }"
+            ;;
+        *)
+            BASE_NAME="$ORIGINAL_NAME"
+            ;;
     esac
 
     # Store original name if not already stored

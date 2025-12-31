@@ -64,16 +64,8 @@ if [ -n "${TMUX:-}" ]; then
     else
         # If no stored name, remove status prefix if present
         case "$CURRENT_NAME" in
-            "(working) "*)
-                NEW_NAME="${CURRENT_NAME#\(working\) }"
-                tmux rename-window "$NEW_NAME"
-                ;;
-            "(waiting) "*)
-                NEW_NAME="${CURRENT_NAME#\(waiting\) }"
-                tmux rename-window "$NEW_NAME"
-                ;;
-            "(queued) "*)
-                NEW_NAME="${CURRENT_NAME#\(queued\) }"
+            "(working) "*|"(waiting) "*|"(queued) "*)
+                NEW_NAME="${CURRENT_NAME#* }"
                 tmux rename-window "$NEW_NAME"
                 ;;
         esac
