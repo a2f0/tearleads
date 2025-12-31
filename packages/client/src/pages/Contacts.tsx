@@ -244,6 +244,7 @@ export function Contacts() {
               {searchQuery && (
                 <button
                   type="button"
+                  aria-label="Clear search"
                   onClick={() => setSearchQuery('')}
                   className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
