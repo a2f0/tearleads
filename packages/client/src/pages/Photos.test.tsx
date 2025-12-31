@@ -227,5 +227,57 @@ describe('Photos', () => {
 
       expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1');
     });
+
+    it.each([
+      ['Enter', '{Enter}'],
+      ['Space', ' ']
+    ])('navigates to photo detail on keyboard %s', async (_keyName, key) => {
+      const user = userEvent.setup();
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      const photoContainer =
+        screen.getByAltText('test-image.jpg').parentElement;
+      photoContainer?.focus();
+      await user.keyboard(key);
+
+      expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1');
+    });
+  });
+
+  describe('accessibility', () => {
+    it('does not have nested buttons in photo thumbnails', async () => {
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      // Verify that no <button> element is a descendant of another <button> element
+      const nestedButtons = document.querySelectorAll('button button');
+      expect(nestedButtons).toHaveLength(0);
+
+      // Additionally, verify that the photo container is a div with role="button" as intended
+      const photoContainer =
+        screen.getByAltText('test-image.jpg').parentElement;
+      expect(photoContainer?.tagName).toBe('DIV');
+      expect(photoContainer).toHaveAttribute('role', 'button');
+    });
+
+    it('photo container is keyboard focusable', async () => {
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      const photoContainer =
+        screen.getByAltText('test-image.jpg').parentElement;
+      expect(photoContainer).toHaveAttribute('tabIndex', '0');
+      expect(photoContainer).toHaveAttribute('role', 'button');
+    });
   });
 });
