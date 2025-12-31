@@ -19,8 +19,9 @@ if [ -n "${TMUX:-}" ]; then
     if [ -n "$ORIGINAL_NAME" ]; then
         # Restore original name
         tmux rename-window "$ORIGINAL_NAME"
-        # Clean up window option
+        # Clean up window options
         tmux set-option -wu @original_name 2>/dev/null || true
+        tmux set-option -wu @queued_status 2>/dev/null || true
     else
         # If no stored name, remove "(queued) " prefix if present
         case "$CURRENT_NAME" in
@@ -29,6 +30,8 @@ if [ -n "${TMUX:-}" ]; then
                 tmux rename-window "$NEW_NAME"
                 ;;
         esac
+        # Clean up queued status flag
+        tmux set-option -wu @queued_status 2>/dev/null || true
     fi
 
     # Move window to the back of the list by swapping with the last window
