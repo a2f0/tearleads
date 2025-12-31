@@ -1,4 +1,4 @@
-import { Bot, Check, Download, Eye, Loader2, Play, Square } from 'lucide-react';
+import { Bot, Check, Download, Eye, Loader2, Square } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useLLM } from '@/hooks/useLLM';
@@ -126,17 +126,8 @@ function ModelCard({
             onClick={onLoad}
             disabled={disabled}
           >
-            {status === 'not_downloaded' ? (
-              <>
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </>
-            ) : (
-              <>
-                <Play className="mr-2 h-4 w-4" />
-                Load
-              </>
-            )}
+            <Download className="mr-2 h-4 w-4" />
+            Download
           </Button>
         )}
       </div>

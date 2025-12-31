@@ -182,16 +182,24 @@ function getWorker(): Worker {
     };
 
     worker.onerror = (error) => {
-      store.error = `Worker error: ${error.message}`;
+      const errorMessage = `Worker error: ${error.message}`;
+      store.error = errorMessage;
       store.isLoading = false;
       store.loadProgress = null;
       loadingModelId = null;
       emitChange();
 
       if (loadReject) {
-        loadReject(new Error(error.message));
+        loadReject(new Error(errorMessage));
         loadResolve = null;
         loadReject = null;
+      }
+
+      if (currentGenerateReject) {
+        currentGenerateReject(new Error(errorMessage));
+        currentGenerateResolve = null;
+        currentGenerateReject = null;
+        currentTokenCallback = null;
       }
     };
   }

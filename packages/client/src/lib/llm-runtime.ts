@@ -29,13 +29,12 @@ export function createLLMAdapter(generate: GenerateFunction): ChatModelAdapter {
       // Collect streamed text
       let textContent = '';
       let resolveNext: ((value: { done: boolean }) => void) | null = null;
-      let pendingText = '';
+      let hasNewToken = false;
 
       const onToken: GenerateCallback = (text: string) => {
         // TextStreamer sends cumulative text, not deltas
-        // So we need to track the full text
         textContent = text;
-        pendingText = text;
+        hasNewToken = true;
         if (resolveNext) {
           resolveNext({ done: false });
           resolveNext = null;
@@ -68,7 +67,8 @@ export function createLLMAdapter(generate: GenerateFunction): ChatModelAdapter {
       while (!isComplete && !abortSignal?.aborted) {
         // Wait for next token or completion
         await new Promise<{ done: boolean }>((resolve) => {
-          if (isComplete || pendingText !== textContent) {
+          if (isComplete || hasNewToken) {
+            hasNewToken = false;
             resolve({ done: isComplete });
           } else {
             resolveNext = resolve;
