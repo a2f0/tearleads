@@ -1,4 +1,6 @@
 #!/bin/sh
+# Reset workspace after a PR is merged: switches to main, pulls latest,
+# installs dependencies, builds packages, and sets VS Code title to "ready".
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
