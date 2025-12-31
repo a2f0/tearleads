@@ -4,6 +4,7 @@ import {
   AutoProcessor,
   AutoTokenizer,
   env,
+  PaliGemmaForConditionalGeneration,
   type PreTrainedModel,
   type PreTrainedTokenizer,
   type Processor,
@@ -26,9 +27,11 @@ type WorkerRequest =
   | { type: 'unload' }
   | { type: 'abort' };
 
+type ModelType = 'chat' | 'vision' | 'paligemma';
+
 type WorkerResponse =
   | { type: 'progress'; file: string; progress: number; total: number }
-  | { type: 'loaded'; modelId: string; modelType: 'chat' | 'vision' }
+  | { type: 'loaded'; modelId: string; modelType: ModelType }
   | { type: 'token'; text: string }
   | { type: 'done' }
   | { type: 'error'; message: string }
@@ -39,16 +42,26 @@ let model: PreTrainedModel | null = null;
 let tokenizer: PreTrainedTokenizer | null = null;
 let processor: Processor | null = null;
 let currentModelId: string | null = null;
-let currentModelType: 'chat' | 'vision' | null = null;
+let currentModelType: ModelType | null = null;
 let abortController: AbortController | null = null;
 
 function postResponse(response: WorkerResponse): void {
   self.postMessage(response);
 }
 
+function isPaliGemmaModel(modelId: string): boolean {
+  return modelId.toLowerCase().includes('paligemma');
+}
+
 function isVisionModel(modelId: string): boolean {
   const lowerModelId = modelId.toLowerCase();
   return lowerModelId.includes('vision') || lowerModelId.includes('vlm');
+}
+
+function getModelType(modelId: string): ModelType {
+  if (isPaliGemmaModel(modelId)) return 'paligemma';
+  if (isVisionModel(modelId)) return 'vision';
+  return 'chat';
 }
 
 async function loadModel(modelId: string): Promise<void> {
@@ -65,7 +78,7 @@ async function loadModel(modelId: string): Promise<void> {
   // Unload any existing model first
   await unloadModel();
 
-  const isVision = isVisionModel(modelId);
+  const modelType = getModelType(modelId);
 
   try {
     const progressCallback = (progress: {
@@ -84,7 +97,21 @@ async function loadModel(modelId: string): Promise<void> {
       }
     };
 
-    if (isVision) {
+    if (modelType === 'paligemma') {
+      // Load PaliGemma model - use q4 for memory efficiency
+      [processor, model] = await Promise.all([
+        AutoProcessor.from_pretrained(modelId, {
+          progress_callback: progressCallback
+        }),
+        PaliGemmaForConditionalGeneration.from_pretrained(modelId, {
+          dtype: 'q4',
+          device: 'webgpu',
+          progress_callback: progressCallback
+        })
+      ]);
+      // PaliGemma uses processor's tokenizer
+      tokenizer = processor.tokenizer ?? null;
+    } else if (modelType === 'vision') {
       // Load vision model (SmolVLM) with processor
       [processor, model] = await Promise.all([
         AutoProcessor.from_pretrained(modelId, {
@@ -113,7 +140,7 @@ async function loadModel(modelId: string): Promise<void> {
     }
 
     currentModelId = modelId;
-    currentModelType = isVision ? 'vision' : 'chat';
+    currentModelType = modelType;
 
     postResponse({
       type: 'loaded',
@@ -167,7 +194,46 @@ async function generate(
   try {
     let inputs: Record<string, unknown>;
 
-    if (currentModelType === 'vision' && processor && imageBase64) {
+    if (currentModelType === 'paligemma' && processor && imageBase64) {
+      // PaliGemma model with image
+      const image = await RawImage.fromURL(imageBase64);
+
+      // PaliGemma ft-docci uses specific prompt format for captioning
+      // Format: <image>caption en (for English captions)
+      const prompt = '<image>caption en';
+
+      // Process image and prompt together
+      inputs = await processor(image, prompt);
+
+      // PaliGemma doesn't stream well, generate and decode the full output
+      const output = await model.generate({
+        ...inputs,
+        // @ts-expect-error - Transformers.js types don't include all generation options
+        max_new_tokens: 256,
+        do_sample: false
+      });
+
+      if (abortController.signal.aborted) {
+        postResponse({ type: 'done' });
+        return;
+      }
+
+      // Slice to get only the generated tokens (not the prompt)
+      // @ts-expect-error - output.slice exists on Tensor
+      const inputLength = inputs.input_ids.dims[1];
+      // @ts-expect-error - output.slice exists on Tensor
+      const generatedIds = output.slice(null, [inputLength, null]);
+
+      // Decode the generated tokens
+      const decoded = processor.batch_decode(generatedIds, {
+        skip_special_tokens: true
+      });
+
+      const answer = decoded[0] ?? '';
+      postResponse({ type: 'token', text: answer });
+      postResponse({ type: 'done' });
+      return;
+    } else if (currentModelType === 'vision' && processor && imageBase64) {
       // Vision model with image (SmolVLM format)
       const image = await RawImage.fromURL(imageBase64);
 
