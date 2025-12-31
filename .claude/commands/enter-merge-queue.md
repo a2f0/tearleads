@@ -63,15 +63,11 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
      3. Run `/commit-and-push` to push the fix
      4. Return to monitoring CI status
 
-   ### 4d. Request Gemini review (first iteration only)
+   ### 4d. Wait for Gemini review (first iteration only)
 
-   On the first pass through the loop, request a review:
+   Gemini Code Assist is a GitHub App that automatically reviews PRs - do NOT use `gh pr edit --add-reviewer` as it doesn't work with GitHub App bots.
 
-   ```bash
-   gh pr edit <pr-number> --add-reviewer gemini-code-assist
-   ```
-
-   Poll for Gemini's review:
+   On the first pass through the loop, poll for Gemini's review:
 
    ```bash
    gh pr view <pr-number> --json reviews
