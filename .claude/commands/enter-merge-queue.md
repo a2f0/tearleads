@@ -71,7 +71,8 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    gh pr edit <pr-number> --add-reviewer gemini-code-assist
    ```
 
-   Poll for Gemini's review:
+   - If the request fails with HTTP 422 (not a collaborator), skip steps 4d and 4e and proceed directly to step 4f
+   - If successful, poll for Gemini's review:
 
    ```bash
    gh pr view <pr-number> --json reviews
