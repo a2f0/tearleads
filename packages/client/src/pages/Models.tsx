@@ -1,7 +1,120 @@
-import { Bot, Check, Download, Eye, Loader2, Square } from 'lucide-react';
+import {
+  Bot,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Download,
+  Eye,
+  Loader2,
+  Square
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useLLM } from '@/hooks/useLLM';
+
+interface WebGPUInfo {
+  adapterName: string;
+  vendor: string;
+  architecture: string;
+  maxBufferSize: number;
+  maxStorageBufferBindingSize: number;
+  maxComputeWorkgroupStorageSize: number;
+  maxComputeInvocationsPerWorkgroup: number;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
+  }
+  return `${(bytes / 1024).toFixed(0)} KB`;
+}
+
+async function getWebGPUInfo(): Promise<WebGPUInfo | null> {
+  if (!('gpu' in navigator)) return null;
+
+  try {
+    const adapter = await navigator.gpu.requestAdapter();
+    if (!adapter) return null;
+
+    const info = adapter.info;
+    const limits = adapter.limits;
+
+    return {
+      adapterName: info.device || 'Unknown',
+      vendor: info.vendor || 'Unknown',
+      architecture: info.architecture || 'Unknown',
+      maxBufferSize: limits.maxBufferSize,
+      maxStorageBufferBindingSize: limits.maxStorageBufferBindingSize,
+      maxComputeWorkgroupStorageSize: limits.maxComputeWorkgroupStorageSize,
+      maxComputeInvocationsPerWorkgroup:
+        limits.maxComputeInvocationsPerWorkgroup
+    };
+  } catch {
+    return null;
+  }
+}
+
+function WebGPUInfoPanel({ info }: { info: WebGPUInfo }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="rounded-lg border bg-card p-4">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center justify-between text-left"
+      >
+        <div>
+          <h3 className="font-medium text-sm">WebGPU Device</h3>
+          <p className="text-muted-foreground text-xs">
+            {info.adapterName} ({info.vendor})
+          </p>
+        </div>
+        {expanded ? (
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        )}
+      </button>
+
+      {expanded && (
+        <div className="mt-3 space-y-2 border-t pt-3">
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span className="text-muted-foreground">Architecture:</span>
+              <span className="ml-2 font-mono">{info.architecture}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Max Buffer:</span>
+              <span className="ml-2 font-mono">
+                {formatBytes(info.maxBufferSize)}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Max Storage Buffer:</span>
+              <span className="ml-2 font-mono">
+                {formatBytes(info.maxStorageBufferBindingSize)}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Workgroup Storage:</span>
+              <span className="ml-2 font-mono">
+                {formatBytes(info.maxComputeWorkgroupStorageSize)}
+              </span>
+            </div>
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Note: Browser ArrayBuffer limit (~2.15GB) may restrict model loading
+            regardless of GPU memory.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface ModelInfo {
   id: string;
@@ -11,7 +124,7 @@ interface ModelInfo {
   isVision?: boolean;
 }
 
-// Two recommended models: one chat, one vision
+// Recommended models: chat and vision options
 const RECOMMENDED_MODELS: ModelInfo[] = [
   {
     id: 'onnx-community/Phi-3-mini-4k-instruct',
@@ -146,11 +259,13 @@ export function Models() {
   } = useLLM();
 
   const [webGPUSupported, setWebGPUSupported] = useState<boolean | null>(null);
+  const [webGPUInfo, setWebGPUInfo] = useState<WebGPUInfo | null>(null);
   const [loadingModelId, setLoadingModelId] = useState<string | null>(null);
 
-  // Check WebGPU support on mount
+  // Check WebGPU support and get adapter info on mount
   useEffect(() => {
     isWebGPUSupported().then(setWebGPUSupported);
+    getWebGPUInfo().then(setWebGPUInfo);
   }, [isWebGPUSupported]);
 
   const handleLoad = useCallback(
@@ -218,6 +333,8 @@ export function Models() {
         Download and run LLMs locally in your browser using WebGPU. Models are
         cached for future use.
       </p>
+
+      {webGPUInfo && <WebGPUInfoPanel info={webGPUInfo} />}
 
       <div className="space-y-3">
         {RECOMMENDED_MODELS.map((model) => (
