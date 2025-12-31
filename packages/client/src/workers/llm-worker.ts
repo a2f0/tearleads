@@ -171,15 +171,13 @@ async function generate(
       // Vision model with image (SmolVLM format)
       const image = await RawImage.fromURL(imageBase64);
 
-      // Format messages for SmolVLM - add image to content
+      // Format messages for SmolVLM - use type markers, not actual images
+      // The images are passed separately to the processor
       const formattedMessages = messages.map((m) => {
         if (m.role === 'user') {
           return {
             role: m.role,
-            content: [
-              { type: 'image', image },
-              { type: 'text', text: m.content }
-            ]
+            content: [{ type: 'image' }, { type: 'text', text: m.content }]
           };
         }
         return m;
@@ -191,6 +189,7 @@ async function generate(
         add_generation_prompt: true
       });
 
+      // Pass text and images separately to processor
       inputs = await processor(text, [image]);
     } else {
       // Text-only chat
