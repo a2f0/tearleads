@@ -170,7 +170,7 @@ describe('Chat', () => {
   describe('when a vision model is loaded', () => {
     beforeEach(() => {
       vi.mocked(useLLM).mockReturnValue({
-        loadedModel: 'onnx-community/Phi-3.5-vision-instruct',
+        loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
         modelType: 'vision',
         isLoading: false,
         loadProgress: null,
@@ -186,7 +186,7 @@ describe('Chat', () => {
     it('shows the vision model name', () => {
       renderChat();
 
-      expect(screen.getByText('Phi 3.5 Vision')).toBeInTheDocument();
+      expect(screen.getByText('SmolVLM 256M Instruct')).toBeInTheDocument();
     });
   });
 });

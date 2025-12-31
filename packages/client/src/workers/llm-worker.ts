@@ -1,5 +1,6 @@
 import {
   AutoModelForCausalLM,
+  AutoModelForVision2Seq,
   AutoProcessor,
   AutoTokenizer,
   env,
@@ -46,7 +47,8 @@ function postResponse(response: WorkerResponse): void {
 }
 
 function isVisionModel(modelId: string): boolean {
-  return modelId.toLowerCase().includes('vision');
+  const lowerModelId = modelId.toLowerCase();
+  return lowerModelId.includes('vision') || lowerModelId.includes('vlm');
 }
 
 async function loadModel(modelId: string): Promise<void> {
@@ -83,17 +85,13 @@ async function loadModel(modelId: string): Promise<void> {
     };
 
     if (isVision) {
-      // Load vision model with processor
+      // Load vision model (SmolVLM) with processor
       [processor, model] = await Promise.all([
         AutoProcessor.from_pretrained(modelId, {
           progress_callback: progressCallback
         }),
-        AutoModelForCausalLM.from_pretrained(modelId, {
-          dtype: {
-            vision_encoder: 'q4',
-            prepare_inputs_embeds: 'q4',
-            model: 'q4f16'
-          },
+        AutoModelForVision2Seq.from_pretrained(modelId, {
+          dtype: 'q4',
           device: 'webgpu',
           progress_callback: progressCallback
         })
@@ -170,13 +168,13 @@ async function generate(
     let inputs: Record<string, unknown>;
 
     if (currentModelType === 'vision' && processor && imageBase64) {
-      // Vision model with image
+      // Vision model with image (SmolVLM format)
       const image = await RawImage.fromURL(imageBase64);
 
-      // Format messages for vision model - use image placeholder
+      // Format messages for SmolVLM - use <image> placeholder
       const formattedMessages = messages.map((m) => {
-        if (m.role === 'user' && !m.content.includes('<|image_1|>')) {
-          return { ...m, content: `<|image_1|>\n${m.content}` };
+        if (m.role === 'user' && !m.content.includes('<image>')) {
+          return { ...m, content: `<image>\n${m.content}` };
         }
         return m;
       });
@@ -186,7 +184,7 @@ async function generate(
         add_generation_prompt: true
       });
 
-      inputs = await processor(prompt, image, { num_crops: 4 });
+      inputs = await processor(prompt, [image]);
     } else {
       // Text-only chat
       const prompt = tokenizer.apply_chat_template(messages, {
