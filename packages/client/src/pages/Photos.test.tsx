@@ -228,7 +228,10 @@ describe('Photos', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1');
     });
 
-    it('navigates to photo detail on keyboard Enter', async () => {
+    it.each([
+      ['Enter', '{Enter}'],
+      ['Space', ' ']
+    ])('navigates to photo detail on keyboard %s', async (_keyName, key) => {
       const user = userEvent.setup();
       renderPhotos();
 
@@ -239,23 +242,7 @@ describe('Photos', () => {
       const photoContainer =
         screen.getByAltText('test-image.jpg').parentElement;
       photoContainer?.focus();
-      await user.keyboard('{Enter}');
-
-      expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1');
-    });
-
-    it('navigates to photo detail on keyboard Space', async () => {
-      const user = userEvent.setup();
-      renderPhotos();
-
-      await waitFor(() => {
-        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
-      });
-
-      const photoContainer =
-        screen.getByAltText('test-image.jpg').parentElement;
-      photoContainer?.focus();
-      await user.keyboard(' ');
+      await user.keyboard(key);
 
       expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1');
     });
@@ -269,26 +256,15 @@ describe('Photos', () => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
       });
 
-      // Get the photo container (div with role="button")
-      const photoContainers = screen.getAllByRole('button');
-      for (const container of photoContainers) {
-        // Skip non-photo containers (like context menu close button)
-        if (container.tagName === 'BUTTON') continue;
+      // Verify that no <button> element is a descendant of another <button> element
+      const nestedButtons = document.querySelectorAll('button button');
+      expect(nestedButtons).toHaveLength(0);
 
-        // The photo container should be a div with role="button", not an actual button
-        expect(container.tagName).toBe('DIV');
-
-        // Check that no buttons are nested inside other buttons
-        const nestedButtons = container.querySelectorAll('button');
-        for (const nestedButton of nestedButtons) {
-          // Verify the nested button's parent chain doesn't include another button element
-          let parent = nestedButton.parentElement;
-          while (parent && parent !== container) {
-            expect(parent.tagName).not.toBe('BUTTON');
-            parent = parent.parentElement;
-          }
-        }
-      }
+      // Additionally, verify that the photo container is a div with role="button" as intended
+      const photoContainer =
+        screen.getByAltText('test-image.jpg').parentElement;
+      expect(photoContainer?.tagName).toBe('DIV');
+      expect(photoContainer).toHaveAttribute('role', 'button');
     });
 
     it('photo container is keyboard focusable', async () => {
