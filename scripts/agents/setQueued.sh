@@ -21,18 +21,27 @@ if [ -n "${TMUX:-}" ]; then
     CURRENT_WINDOW=$(tmux display-message -p '#I')
     ORIGINAL_NAME=$(tmux display-message -p '#W')
 
-    # Store original name for later restoration (if not already queued)
+    # Get original name (strip any status prefix)
     case "$ORIGINAL_NAME" in
-        "(queued) "*)
-            # Already queued, don't rename again
-            ;;
-        *)
-            # Store original name as a window option (follows window when moved)
-            tmux set-option -w @original_name "$ORIGINAL_NAME"
-            # Rename window with queued prefix
-            tmux rename-window "(queued) ${ORIGINAL_NAME}"
-            ;;
+        "(working) "*) BASE_NAME="${ORIGINAL_NAME#\(working\) }" ;;
+        "(waiting) "*) BASE_NAME="${ORIGINAL_NAME#\(waiting\) }" ;;
+        "(queued) "*)  BASE_NAME="${ORIGINAL_NAME#\(queued\) }" ;;
+        *)             BASE_NAME="$ORIGINAL_NAME" ;;
     esac
+
+    # Store original name if not already stored
+    STORED_NAME=$(tmux show-option -wqv @original_name 2>/dev/null || true)
+    if [ -z "$STORED_NAME" ]; then
+        tmux set-option -w @original_name "$BASE_NAME"
+    fi
+
+    # Set queued status flag and clear other status flags
+    tmux set-option -w @queued_status "true"
+    tmux set-option -wu @working_status 2>/dev/null || true
+    tmux set-option -wu @waiting_status 2>/dev/null || true
+
+    # Rename window with queued prefix
+    tmux rename-window "(queued) $BASE_NAME"
 
     # Move window to the front of the list by swapping with the first window
     FIRST_WINDOW=$(tmux list-windows -F '#I' | sort -n | head -1)
