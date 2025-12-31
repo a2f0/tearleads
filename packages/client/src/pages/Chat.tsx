@@ -5,13 +5,12 @@ import {
   ThreadPrimitive,
   useLocalRuntime
 } from '@assistant-ui/react';
-import type { MLCEngineInterface } from '@mlc-ai/web-llm';
 import { Bot, MessageSquare, Send } from 'lucide-react';
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useLLM } from '@/hooks/useLLM';
-import { createWebLLMAdapter } from '@/lib/llm-runtime';
+import { createLLMAdapter } from '@/lib/llm-runtime';
 
 interface ChatHeaderProps {
   modelDisplayName: string | undefined;
@@ -98,11 +97,11 @@ function Thread() {
 }
 
 interface ChatInterfaceProps {
-  engine: MLCEngineInterface;
+  generate: ReturnType<typeof useLLM>['generate'];
 }
 
-function ChatInterface({ engine }: ChatInterfaceProps) {
-  const adapter = useMemo(() => createWebLLMAdapter(engine), [engine]);
+function ChatInterface({ generate }: ChatInterfaceProps) {
+  const adapter = useMemo(() => createLLMAdapter(generate), [generate]);
   const runtime = useLocalRuntime(adapter);
 
   return (
@@ -137,20 +136,34 @@ function NoModelLoadedContent() {
 }
 
 /**
- * Derives a display name from a MLC model ID.
- * Example: Llama-3.2-1B-Instruct-q4f16_1-MLC -> Llama 3.2 1B
+ * Derives a display name from an ONNX model ID.
+ * Example: onnx-community/Phi-3-mini-4k-instruct -> Phi-3 Mini
  */
 function getModelDisplayName(modelId: string): string {
-  return modelId
+  // Extract the model name part after the org/
+  const modelName = modelId.includes('/')
+    ? (modelId.split('/')[1] ?? modelId)
+    : modelId;
+
+  // Parse the name
+  return modelName
+    .replace(/-4k-instruct$/, '')
+    .replace(/-instruct$/, '')
     .split('-')
     .slice(0, 3)
+    .map((part) => {
+      // Capitalize first letter of each part
+      if (part.length > 0) {
+        return part.charAt(0).toUpperCase() + part.slice(1);
+      }
+      return part;
+    })
     .join(' ')
-    .replace('Instruct', '')
     .trim();
 }
 
 export function Chat() {
-  const { engine, loadedModel } = useLLM();
+  const { loadedModel, generate } = useLLM();
 
   const modelDisplayName = loadedModel
     ? getModelDisplayName(loadedModel)
@@ -159,8 +172,8 @@ export function Chat() {
   return (
     <div className="flex h-full flex-col">
       <ChatHeader modelDisplayName={modelDisplayName} />
-      {engine && loadedModel ? (
-        <ChatInterface engine={engine} />
+      {loadedModel ? (
+        <ChatInterface generate={generate} />
       ) : (
         <NoModelLoadedContent />
       )}
