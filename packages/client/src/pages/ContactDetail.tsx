@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
+import { formatDate } from '@/lib/utils';
 
 type ContactInfo = InferSelectModel<typeof contacts>;
 type ContactEmail = InferSelectModel<typeof contactEmails>;
@@ -47,16 +48,6 @@ interface PhoneFormData {
   isPrimary: boolean;
   isNew?: boolean;
   isDeleted?: boolean;
-}
-
-function formatDate(date: Date): string {
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
 }
 
 export function ContactDetail() {
