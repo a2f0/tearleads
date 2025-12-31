@@ -118,10 +118,10 @@ describe('Debug', () => {
     it('displays online status', async () => {
       renderDebug();
 
-      // Default navigator.onLine is true, so Online should show Yes
-      expect(screen.getByText('Online:')).toBeInTheDocument();
-      // Multiple 'Yes' values may exist (Online, Touch Support, Standalone)
-      expect(screen.getAllByText('Yes').length).toBeGreaterThanOrEqual(1);
+      // Check that the 'Online' row specifically shows 'Yes'
+      const onlineLabel = screen.getByText('Online:');
+      expect(onlineLabel).toBeInTheDocument();
+      expect(onlineLabel.nextElementSibling).toHaveTextContent('Yes');
     });
   });
 
