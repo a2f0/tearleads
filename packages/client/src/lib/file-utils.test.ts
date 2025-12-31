@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  canShareFiles,
+  computeContentHash,
   downloadFile,
   generateBackupFilename,
-  readFileAsUint8Array
+  readFileAsUint8Array,
+  shareFile
 } from './file-utils';
 
 describe('file-utils', () => {
@@ -163,6 +166,205 @@ describe('file-utils', () => {
       for (let i = 0; i < 256; i++) {
         expect(result[i]).toBe(i);
       }
+    });
+  });
+
+  describe('computeContentHash', () => {
+    beforeEach(() => {
+      // Use a simple hash mock that produces consistent results
+      vi.spyOn(crypto.subtle, 'digest').mockImplementation(
+        async (_algorithm, data) => {
+          let dataArray: Uint8Array;
+          if (data instanceof ArrayBuffer) {
+            dataArray = new Uint8Array(data);
+          } else if (ArrayBuffer.isView(data)) {
+            dataArray = new Uint8Array(
+              data.buffer,
+              data.byteOffset,
+              data.byteLength
+            );
+          } else {
+            dataArray = new Uint8Array(0);
+          }
+
+          // Simple mock hash based on data content
+          const hash = new Uint8Array(32);
+          for (let i = 0; i < dataArray.length; i++) {
+            const idx = i % 32;
+            hash[idx] = (hash[idx] ?? 0) ^ (dataArray[i] ?? 0);
+          }
+          return hash.buffer;
+        }
+      );
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('computes SHA-256 hash of data', async () => {
+      const data = new Uint8Array([1, 2, 3, 4, 5]);
+      const hash = await computeContentHash(data);
+
+      // SHA-256 produces 64 hex characters
+      expect(hash).toHaveLength(64);
+      expect(hash).toMatch(/^[0-9a-f]{64}$/);
+    });
+
+    it('produces consistent hash for same data', async () => {
+      const data = new Uint8Array([10, 20, 30]);
+      const hash1 = await computeContentHash(data);
+      const hash2 = await computeContentHash(data);
+
+      expect(hash1).toBe(hash2);
+    });
+
+    it('produces different hash for different data', async () => {
+      const data1 = new Uint8Array([1, 2, 3]);
+      const data2 = new Uint8Array([1, 2, 4]);
+
+      const hash1 = await computeContentHash(data1);
+      const hash2 = await computeContentHash(data2);
+
+      expect(hash1).not.toBe(hash2);
+    });
+
+    it('handles empty data', async () => {
+      const data = new Uint8Array([]);
+      const hash = await computeContentHash(data);
+
+      // With our mock, empty data produces all zeros hash
+      expect(hash).toHaveLength(64);
+      expect(hash).toMatch(/^[0-9a-f]{64}$/);
+    });
+  });
+
+  describe('canShareFiles', () => {
+    const originalNavigator = { ...navigator };
+
+    afterEach(() => {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: originalNavigator,
+        configurable: true
+      });
+      vi.restoreAllMocks();
+    });
+
+    it('returns false when navigator.share is not available', () => {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: { ...navigator, share: undefined, canShare: undefined },
+        configurable: true
+      });
+
+      expect(canShareFiles()).toBe(false);
+    });
+
+    it('returns false when navigator.canShare is not available', () => {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: { ...navigator, share: vi.fn(), canShare: undefined },
+        configurable: true
+      });
+
+      expect(canShareFiles()).toBe(false);
+    });
+
+    it('returns result of canShare when both are available', () => {
+      const mockCanShare = vi.fn().mockReturnValue(true);
+      Object.defineProperty(globalThis, 'navigator', {
+        value: { ...navigator, share: vi.fn(), canShare: mockCanShare },
+        configurable: true
+      });
+
+      expect(canShareFiles()).toBe(true);
+      expect(mockCanShare).toHaveBeenCalled();
+    });
+  });
+
+  describe('shareFile', () => {
+    const originalNavigator = { ...navigator };
+
+    afterEach(() => {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: originalNavigator,
+        configurable: true
+      });
+      vi.restoreAllMocks();
+    });
+
+    it('returns false when navigator.share is not available', async () => {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: { ...navigator, share: undefined, canShare: undefined },
+        configurable: true
+      });
+
+      const data = new Uint8Array([1, 2, 3]);
+      const result = await shareFile(
+        data,
+        'test.db',
+        'application/octet-stream'
+      );
+
+      expect(result).toBe(false);
+    });
+
+    it('returns false when navigator.canShare is not available', async () => {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: { ...navigator, share: vi.fn(), canShare: undefined },
+        configurable: true
+      });
+
+      const data = new Uint8Array([1, 2, 3]);
+      const result = await shareFile(
+        data,
+        'test.db',
+        'application/octet-stream'
+      );
+
+      expect(result).toBe(false);
+    });
+
+    it('returns false when canShare returns false for file', async () => {
+      Object.defineProperty(globalThis, 'navigator', {
+        value: {
+          ...navigator,
+          share: vi.fn(),
+          canShare: vi.fn().mockReturnValue(false)
+        },
+        configurable: true
+      });
+
+      const data = new Uint8Array([1, 2, 3]);
+      const result = await shareFile(
+        data,
+        'test.db',
+        'application/octet-stream'
+      );
+
+      expect(result).toBe(false);
+    });
+
+    it('calls navigator.share and returns true when sharing succeeds', async () => {
+      const mockShare = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(globalThis, 'navigator', {
+        value: {
+          ...navigator,
+          share: mockShare,
+          canShare: vi.fn().mockReturnValue(true)
+        },
+        configurable: true
+      });
+
+      const data = new Uint8Array([1, 2, 3]);
+      const result = await shareFile(
+        data,
+        'test.db',
+        'application/octet-stream'
+      );
+
+      expect(result).toBe(true);
+      expect(mockShare).toHaveBeenCalledWith({
+        files: expect.arrayContaining([expect.any(File)])
+      });
     });
   });
 });
