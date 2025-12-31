@@ -101,6 +101,7 @@ describe('Models', () => {
       await waitFor(() => {
         expect(screen.getByText('Phi-3 Mini')).toBeInTheDocument();
         expect(screen.getByText('SmolVLM 256M')).toBeInTheDocument();
+        expect(screen.getByText('PaliGemma 2 3B')).toBeInTheDocument();
       });
     });
 
@@ -110,14 +111,16 @@ describe('Models', () => {
       await waitFor(() => {
         expect(screen.getByText(/~2GB/)).toBeInTheDocument();
         expect(screen.getByText(/~500MB/)).toBeInTheDocument();
+        expect(screen.getByText(/~3GB/)).toBeInTheDocument();
       });
     });
 
-    it('shows vision badge for vision model', async () => {
+    it('shows vision badge for vision models', async () => {
       renderModels();
 
       await waitFor(() => {
-        expect(screen.getByText('Vision')).toBeInTheDocument();
+        const visionBadges = screen.getAllByText('Vision');
+        expect(visionBadges.length).toBe(2);
       });
     });
   });
