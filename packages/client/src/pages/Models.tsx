@@ -20,10 +20,10 @@ const RECOMMENDED_MODELS: ModelInfo[] = [
     description: 'Fast chat model for general tasks'
   },
   {
-    id: 'onnx-community/Phi-3.5-vision-instruct',
-    name: 'Phi-3.5 Vision',
-    size: '~2.8GB',
-    description: 'Vision model for image understanding',
+    id: 'HuggingFaceTB/SmolVLM-256M-Instruct',
+    name: 'SmolVLM 256M',
+    size: '~500MB',
+    description: 'Compact vision model for image understanding',
     isVision: true
   }
 ];

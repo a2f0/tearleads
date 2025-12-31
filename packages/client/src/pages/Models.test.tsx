@@ -66,7 +66,7 @@ describe('Models', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Phi-3 Mini')).toBeInTheDocument();
-        expect(screen.getByText('Phi-3.5 Vision')).toBeInTheDocument();
+        expect(screen.getByText('SmolVLM 256M')).toBeInTheDocument();
       });
     });
 
@@ -75,7 +75,7 @@ describe('Models', () => {
 
       await waitFor(() => {
         expect(screen.getByText(/~2GB/)).toBeInTheDocument();
-        expect(screen.getByText(/~2.8GB/)).toBeInTheDocument();
+        expect(screen.getByText(/~500MB/)).toBeInTheDocument();
       });
     });
 
