@@ -2,8 +2,8 @@
  * Unit tests for utility functions.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { detectPlatform, formatFileSize } from './utils';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { detectPlatform, formatDate, formatFileSize } from './utils';
 
 describe('formatFileSize', () => {
   it('formats 0 bytes', () => {
@@ -44,6 +44,15 @@ describe('formatFileSize', () => {
     expect(formatFileSize(1024)).toBe('1 KB');
     expect(formatFileSize(2048)).toBe('2 KB');
   });
+
+  it('handles negative values', () => {
+    expect(formatFileSize(-1)).toBe('Invalid size');
+    expect(formatFileSize(-1024)).toBe('Invalid size');
+  });
+
+  it('formats terabytes', () => {
+    expect(formatFileSize(1024 * 1024 * 1024 * 1024)).toBe('1 TB');
+  });
 });
 
 describe('detectPlatform', () => {
@@ -73,4 +82,46 @@ describe('detectPlatform', () => {
   // Note: Full Capacitor platform detection tests require mocking
   // the @capacitor/core module, which is complex. The basic detection
   // is tested in integration tests where Capacitor is properly initialized.
+});
+
+describe('formatDate', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('formats a date with year, month, day, hour and minute', () => {
+    const date = new Date('2025-03-15T14:30:00');
+    const formatted = formatDate(date);
+
+    // Check that all components are present
+    expect(formatted).toContain('2025');
+    expect(formatted).toContain('15');
+  });
+
+  it('formats midnight correctly', () => {
+    const date = new Date('2025-01-01T00:00:00');
+    const formatted = formatDate(date);
+
+    expect(formatted).toContain('2025');
+    expect(formatted).toContain('1');
+  });
+
+  it('formats end of day correctly', () => {
+    const date = new Date('2025-12-31T23:59:00');
+    const formatted = formatDate(date);
+
+    expect(formatted).toContain('2025');
+    expect(formatted).toContain('31');
+  });
+
+  it('returns a non-empty string', () => {
+    const date = new Date();
+    const formatted = formatDate(date);
+
+    expect(formatted.length).toBeGreaterThan(0);
+  });
 });
