@@ -7,6 +7,24 @@ type GenerateFunction = (
   image?: string
 ) => Promise<void>;
 
+// Store for the current attached image (base64 data URL)
+let attachedImage: string | null = null;
+
+/**
+ * Sets the image to be attached to the next message.
+ * The image should be a base64 data URL.
+ */
+export function setAttachedImage(image: string | null): void {
+  attachedImage = image;
+}
+
+/**
+ * Gets the currently attached image.
+ */
+export function getAttachedImage(): string | null {
+  return attachedImage;
+}
+
 /**
  * Creates a ChatModelAdapter that bridges assistant-ui with our LLM worker.
  * This adapter enables streaming chat completions from local LLM inference.
@@ -26,6 +44,10 @@ export function createLLMAdapter(generate: GenerateFunction): ChatModelAdapter {
             .join('') || ''
       }));
 
+      // Capture and clear the attached image
+      const imageToSend = attachedImage;
+      attachedImage = null;
+
       // Collect streamed text
       let textContent = '';
       let resolveNext: ((value: { done: boolean }) => void) | null = null;
@@ -41,8 +63,12 @@ export function createLLMAdapter(generate: GenerateFunction): ChatModelAdapter {
         }
       };
 
-      // Start generation in background
-      const generatePromise = generate(formattedMessages, onToken);
+      // Start generation in background (with optional image)
+      const generatePromise = generate(
+        formattedMessages,
+        onToken,
+        imageToSend ?? undefined
+      );
 
       // Track completion
       let isComplete = false;
