@@ -117,7 +117,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 5. **Reset workspace**: Once the PR is merged, run:
 
    ```bash
-   ./scripts/agents/readyVscode.sh
+   ./scripts/agents/reset.sh
    ```
 
    This sets the VS Code window title to "ready" and switches back to main with the latest changes.
