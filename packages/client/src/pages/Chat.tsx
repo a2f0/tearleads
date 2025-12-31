@@ -466,7 +466,7 @@ export function Chat() {
     ? getModelDisplayName(loadedModel)
     : undefined;
 
-  const isVisionModel = modelType === 'vision';
+  const isVisionModel = modelType === 'vision' || modelType === 'paligemma';
 
   return (
     <div className="flex h-full flex-col">
