@@ -13,9 +13,11 @@ type WorkerRequest =
   | { type: 'unload' }
   | { type: 'abort' };
 
+type ModelType = 'chat' | 'vision' | 'paligemma';
+
 type WorkerResponse =
   | { type: 'progress'; file: string; progress: number; total: number }
-  | { type: 'loaded'; modelId: string; modelType: 'chat' | 'vision' }
+  | { type: 'loaded'; modelId: string; modelType: ModelType }
   | { type: 'token'; text: string }
   | { type: 'done' }
   | { type: 'error'; message: string }
@@ -28,7 +30,7 @@ export interface LoadProgress {
 
 export interface LLMState {
   loadedModel: string | null;
-  modelType: 'chat' | 'vision' | null;
+  modelType: ModelType | null;
   isLoading: boolean;
   loadProgress: LoadProgress | null;
   error: string | null;
