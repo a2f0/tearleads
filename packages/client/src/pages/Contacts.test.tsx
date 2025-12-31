@@ -20,17 +20,18 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
-// Mock getDatabase
-const mockSelect = vi.fn();
-const mockFrom = vi.fn();
-const mockLeftJoin = vi.fn();
-const mockWhere = vi.fn();
+// Mock getDatabase with fluent mock object
 const mockOrderBy = vi.fn();
+const dbMock = {
+  select: vi.fn().mockReturnThis(),
+  from: vi.fn().mockReturnThis(),
+  leftJoin: vi.fn().mockReturnThis(),
+  where: vi.fn().mockReturnThis(),
+  orderBy: mockOrderBy
+};
 
 vi.mock('@/db', () => ({
-  getDatabase: () => ({
-    select: mockSelect
-  })
+  getDatabase: () => dbMock
 }));
 
 // Mock useContactsImport
@@ -64,11 +65,7 @@ describe('Contacts', () => {
       isLoading: false
     });
 
-    // Setup database query chain
-    mockSelect.mockReturnValue({ from: mockFrom });
-    mockFrom.mockReturnValue({ leftJoin: mockLeftJoin });
-    mockLeftJoin.mockReturnValue({ leftJoin: mockLeftJoin, where: mockWhere });
-    mockWhere.mockReturnValue({ orderBy: mockOrderBy });
+    // Setup default mock response
     mockOrderBy.mockResolvedValue([]);
   });
 
@@ -284,7 +281,7 @@ describe('Contacts', () => {
       expect(searchInput).toHaveValue('test');
 
       // Click the clear button (X)
-      const clearButton = screen.getByRole('button', { name: '' });
+      const clearButton = screen.getByRole('button', { name: 'Clear search' });
       await user.click(clearButton);
 
       expect(searchInput).toHaveValue('');
