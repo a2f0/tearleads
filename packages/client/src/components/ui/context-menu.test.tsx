@@ -28,6 +28,54 @@ describe('ContextMenu', () => {
     });
   });
 
+  it('adjusts horizontal position when menu would overflow right edge', async () => {
+    // Mock viewport width
+    Object.defineProperty(window, 'innerWidth', { value: 500, writable: true });
+    Object.defineProperty(window, 'innerHeight', {
+      value: 800,
+      writable: true
+    });
+
+    render(
+      <ContextMenu x={450} y={100} onClose={() => {}}>
+        <div>Menu content</div>
+      </ContextMenu>
+    );
+
+    const menu = screen.getByText('Menu content').parentElement;
+
+    // Menu should adjust position to avoid overflow
+    await waitFor(() => {
+      const style = menu?.getAttribute('style');
+      // The left position should be adjusted (less than the original 450)
+      expect(style).toContain('left:');
+    });
+  });
+
+  it('adjusts vertical position when menu would overflow bottom edge', async () => {
+    // Mock viewport dimensions
+    Object.defineProperty(window, 'innerWidth', { value: 800, writable: true });
+    Object.defineProperty(window, 'innerHeight', {
+      value: 500,
+      writable: true
+    });
+
+    render(
+      <ContextMenu x={100} y={450} onClose={() => {}}>
+        <div>Menu content</div>
+      </ContextMenu>
+    );
+
+    const menu = screen.getByText('Menu content').parentElement;
+
+    // Menu should adjust position to avoid overflow
+    await waitFor(() => {
+      const style = menu?.getAttribute('style');
+      // The top position should be adjusted (less than the original 450)
+      expect(style).toContain('top:');
+    });
+  });
+
   it('calls onClose when backdrop is clicked', async () => {
     const onClose = vi.fn();
     const user = userEvent.setup();

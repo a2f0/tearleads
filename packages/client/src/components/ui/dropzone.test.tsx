@@ -116,6 +116,36 @@ describe('Dropzone', () => {
 
       expect(input).toHaveAttribute('accept', 'image/*');
     });
+
+    it('does not call onFilesSelected when disabled and files are dropped', () => {
+      render(
+        <Dropzone onFilesSelected={mockOnFilesSelected} disabled={true} />
+      );
+
+      const dropzone = screen.getByTestId('dropzone');
+      const file = new File(['test content'], 'test.txt', {
+        type: 'text/plain'
+      });
+
+      fireEvent.drop(dropzone, {
+        dataTransfer: {
+          files: [file]
+        }
+      });
+
+      expect(mockOnFilesSelected).not.toHaveBeenCalled();
+    });
+
+    it('shows disabled styling when disabled', () => {
+      render(
+        <Dropzone onFilesSelected={mockOnFilesSelected} disabled={true} />
+      );
+
+      const dropzone = screen.getByTestId('dropzone');
+
+      expect(dropzone).toHaveClass('cursor-not-allowed');
+      expect(dropzone).toHaveClass('opacity-50');
+    });
   });
 
   describe.each([
@@ -147,6 +177,36 @@ describe('Dropzone', () => {
       const input = screen.getByTestId('dropzone-input');
 
       expect(input).toHaveClass('hidden');
+    });
+
+    it('does not trigger file input when disabled', async () => {
+      const user = userEvent.setup();
+      render(
+        <Dropzone onFilesSelected={mockOnFilesSelected} disabled={true} />
+      );
+
+      const button = screen.getByTestId('dropzone-choose-files');
+      const input = screen.getByTestId('dropzone-input');
+      const clickSpy = vi.spyOn(input, 'click');
+
+      await user.click(button);
+
+      expect(clickSpy).not.toHaveBeenCalled();
+      clickSpy.mockRestore();
+    });
+
+    it('triggers file input when clicked and not disabled', async () => {
+      const user = userEvent.setup();
+      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+
+      const button = screen.getByTestId('dropzone-choose-files');
+      const input = screen.getByTestId('dropzone-input');
+      const clickSpy = vi.spyOn(input, 'click');
+
+      await user.click(button);
+
+      expect(clickSpy).toHaveBeenCalled();
+      clickSpy.mockRestore();
     });
   });
 });
