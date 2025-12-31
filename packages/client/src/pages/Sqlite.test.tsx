@@ -23,18 +23,15 @@ function renderSqlite() {
 describe('Sqlite', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    renderSqlite();
   });
 
   describe('page rendering', () => {
     it('renders the page title', () => {
-      renderSqlite();
-
       expect(screen.getByText('SQLite')).toBeInTheDocument();
     });
 
     it('renders the page description', () => {
-      renderSqlite();
-
       expect(
         screen.getByText(
           'Manage your encrypted SQLite database. Set up, unlock, lock, and reset your database here.'
@@ -43,20 +40,14 @@ describe('Sqlite', () => {
     });
 
     it('renders the DatabaseTest component', () => {
-      renderSqlite();
-
       expect(screen.getByTestId('database-test')).toBeInTheDocument();
     });
 
     it('renders the TableSizes component', () => {
-      renderSqlite();
-
       expect(screen.getByTestId('table-sizes')).toBeInTheDocument();
     });
 
     it('has correct heading level', () => {
-      renderSqlite();
-
       const heading = screen.getByRole('heading', { level: 1 });
       expect(heading).toHaveTextContent('SQLite');
     });

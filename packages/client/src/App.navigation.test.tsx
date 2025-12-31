@@ -1,6 +1,6 @@
 import { ThemeProvider } from '@rapid/ui';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
@@ -94,28 +94,23 @@ describe('App Integration', () => {
   });
 
   describe('navigation', () => {
-    it('renders home page (Files) by default', async () => {
-      renderAppWithRoutes('/');
+    let user: UserEvent;
 
+    beforeEach(async () => {
+      user = userEvent.setup();
+      renderAppWithRoutes('/');
       await waitFor(() => {
         expect(screen.getByText('Tearleads')).toBeInTheDocument();
       });
+    });
 
-      // Files page should be rendered - check for heading
+    it('renders home page (Files) by default', () => {
       expect(
         screen.getByRole('heading', { name: 'Files' })
       ).toBeInTheDocument();
     });
 
     it('navigates to Contacts page when clicking sidebar link', async () => {
-      const user = userEvent.setup();
-      renderAppWithRoutes('/');
-
-      await waitFor(() => {
-        expect(screen.getByText('Tearleads')).toBeInTheDocument();
-      });
-
-      // Click Contacts in sidebar
       const contactsLinks = screen.getAllByText('Contacts');
       await user.click(contactsLinks[0] as HTMLElement);
 
@@ -127,14 +122,6 @@ describe('App Integration', () => {
     });
 
     it('navigates to SQLite page when clicking header link', async () => {
-      const user = userEvent.setup();
-      renderAppWithRoutes('/');
-
-      await waitFor(() => {
-        expect(screen.getByText('Tearleads')).toBeInTheDocument();
-      });
-
-      // Click SQLite in header
       const sqliteLink = screen.getByTestId('sqlite-link');
       await user.click(sqliteLink);
 
@@ -144,14 +131,6 @@ describe('App Integration', () => {
     });
 
     it('navigates to Debug page and displays debug info', async () => {
-      const user = userEvent.setup();
-      renderAppWithRoutes('/');
-
-      await waitFor(() => {
-        expect(screen.getByText('Tearleads')).toBeInTheDocument();
-      });
-
-      // Click Debug in header
       const debugLink = screen.getByTestId('debug-link');
       await user.click(debugLink);
 
@@ -162,14 +141,6 @@ describe('App Integration', () => {
     });
 
     it('navigates to Settings page', async () => {
-      const user = userEvent.setup();
-      renderAppWithRoutes('/');
-
-      await waitFor(() => {
-        expect(screen.getByText('Tearleads')).toBeInTheDocument();
-      });
-
-      // Click Settings in header
       const settingsLink = screen.getByTestId('settings-link');
       await user.click(settingsLink);
 
@@ -179,14 +150,6 @@ describe('App Integration', () => {
     });
 
     it('navigates to Tables page', async () => {
-      const user = userEvent.setup();
-      renderAppWithRoutes('/');
-
-      await waitFor(() => {
-        expect(screen.getByText('Tearleads')).toBeInTheDocument();
-      });
-
-      // Click Tables in header
       const tablesLink = screen.getByTestId('tables-link');
       await user.click(tablesLink);
 
