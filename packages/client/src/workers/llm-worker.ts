@@ -171,20 +171,27 @@ async function generate(
       // Vision model with image (SmolVLM format)
       const image = await RawImage.fromURL(imageBase64);
 
-      // Format messages for SmolVLM - use <image> placeholder
+      // Format messages for SmolVLM - add image to content
       const formattedMessages = messages.map((m) => {
-        if (m.role === 'user' && !m.content.includes('<image>')) {
-          return { ...m, content: `<image>\n${m.content}` };
+        if (m.role === 'user') {
+          return {
+            role: m.role,
+            content: [
+              { type: 'image', image },
+              { type: 'text', text: m.content }
+            ]
+          };
         }
         return m;
       });
 
-      const prompt = tokenizer.apply_chat_template(formattedMessages, {
-        tokenize: false,
+      // Use processor.apply_chat_template for vision models
+      // @ts-expect-error - SmolVLM uses multimodal content format
+      const text = processor.apply_chat_template(formattedMessages, {
         add_generation_prompt: true
       });
 
-      inputs = await processor(prompt, [image]);
+      inputs = await processor(text, [image]);
     } else {
       // Text-only chat
       const prompt = tokenizer.apply_chat_template(messages, {
@@ -207,8 +214,9 @@ async function generate(
     });
 
     // Generate with streaming
-    // @ts-expect-error - Transformers.js types don't fully match the actual API
-    await model.generate(inputs, {
+    await model.generate({
+      ...inputs,
+      // @ts-expect-error - Transformers.js types don't include all generation options
       max_new_tokens: 512,
       do_sample: true,
       temperature: 0.7,
