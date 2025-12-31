@@ -18,21 +18,27 @@ export const errorBoundaryRef: RefObject<ErrorBoundaryHandle | null> =
   createRef();
 
 export class ErrorBoundary extends Component<Props, State> {
+  private readonly handle: ErrorBoundaryHandle;
+
   constructor(props: Props) {
     super(props);
     this.state = { error: null };
-  }
-
-  override componentDidMount() {
-    (errorBoundaryRef as { current: ErrorBoundaryHandle | null }).current = {
+    this.handle = {
       setError: this.setError,
       clearError: this.clearError
     };
   }
 
-  override componentWillUnmount() {
+  override componentDidMount() {
     (errorBoundaryRef as { current: ErrorBoundaryHandle | null }).current =
-      null;
+      this.handle;
+  }
+
+  override componentWillUnmount() {
+    if (errorBoundaryRef.current === this.handle) {
+      (errorBoundaryRef as { current: ErrorBoundaryHandle | null }).current =
+        null;
+    }
   }
 
   static getDerivedStateFromError(error: Error): State {
