@@ -1,11 +1,21 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./scripts/agents/setWorking.sh"
+          }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "./scripts/agents/cleanupQueued.sh"
+            "command": "./scripts/agents/cleanup.sh"
           }
         ]
       }
