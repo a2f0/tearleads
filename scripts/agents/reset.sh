@@ -35,7 +35,7 @@ bundle exec pod install
 # Return to repo root
 cd "$REPO_ROOT"
 
-# Update VS Code window title (will set to "ready" since on main)
-"$SCRIPT_DIR/setVscodeTitle.sh"
+# Clear queued status (resets VS Code title and tmux window, moves to back)
+"$SCRIPT_DIR/clearQueued.sh"
 
 echo "Ready for next task."
