@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./scripts/agents/cleanupQueuedTitle.sh"
+            "command": "./scripts/agents/cleanupQueued.sh"
           }
         ]
       }
