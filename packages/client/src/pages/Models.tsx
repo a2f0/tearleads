@@ -1,14 +1,4 @@
-import { deleteModelInCache, hasModelInCache } from '@mlc-ai/web-llm';
-import {
-  Bot,
-  Check,
-  Download,
-  Eye,
-  Loader2,
-  Play,
-  Square,
-  Trash2
-} from 'lucide-react';
+import { Bot, Check, Download, Eye, Loader2, Play, Square } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useLLM } from '@/hooks/useLLM';
@@ -21,54 +11,24 @@ interface ModelInfo {
   isVision?: boolean;
 }
 
-// Curated list of recommended models
+// Two recommended models: one chat, one vision
 const RECOMMENDED_MODELS: ModelInfo[] = [
   {
-    id: 'Phi-3.5-vision-instruct-q4f16_1-MLC',
-    name: 'Phi 3.5 Vision',
+    id: 'onnx-community/Phi-3-mini-4k-instruct',
+    name: 'Phi-3 Mini',
+    size: '~2GB',
+    description: 'Fast chat model for general tasks'
+  },
+  {
+    id: 'onnx-community/Phi-3.5-vision-instruct',
+    name: 'Phi-3.5 Vision',
     size: '~2.8GB',
     description: 'Vision model for image understanding',
     isVision: true
-  },
-  {
-    id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
-    name: 'Llama 3.2 1B Instruct',
-    size: '~700MB',
-    description: 'Small and fast, good for basic tasks'
-  },
-  {
-    id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
-    name: 'Llama 3.2 3B Instruct',
-    size: '~1.8GB',
-    description: 'Good balance of speed and capability'
-  },
-  {
-    id: 'gemma-2-2b-it-q4f32_1-MLC',
-    name: 'Gemma 2 2B',
-    size: '~1.6GB',
-    description: "Google's efficient open model"
-  },
-  {
-    id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',
-    name: 'Phi 3.5 Mini',
-    size: '~2GB',
-    description: "Microsoft's efficient reasoning model"
-  },
-  {
-    id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
-    name: 'Qwen 2.5 1.5B Instruct',
-    size: '~1GB',
-    description: "Alibaba's multilingual model"
-  },
-  {
-    id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC',
-    name: 'SmolLM2 1.7B Instruct',
-    size: '~1GB',
-    description: "HuggingFace's efficient small model"
   }
 ];
 
-type ModelStatus = 'not_downloaded' | 'downloading' | 'ready' | 'loaded';
+type ModelStatus = 'not_downloaded' | 'downloading' | 'loaded';
 
 interface ModelCardProps {
   model: ModelInfo;
@@ -77,7 +37,6 @@ interface ModelCardProps {
   disabled: boolean;
   onLoad: () => void;
   onUnload: () => void;
-  onDelete: () => void;
 }
 
 function ModelCard({
@@ -86,8 +45,7 @@ function ModelCard({
   loadProgress,
   disabled,
   onLoad,
-  onUnload,
-  onDelete
+  onUnload
 }: ModelCardProps) {
   const isLoaded = status === 'loaded';
   const isDownloading = status === 'downloading';
@@ -130,11 +88,6 @@ function ModelCard({
               Loaded
             </span>
           )}
-          {status === 'ready' && !isLoaded && (
-            <span className="rounded-full bg-muted px-2 py-1 text-muted-foreground text-xs">
-              Ready
-            </span>
-          )}
         </div>
       </div>
 
@@ -173,27 +126,17 @@ function ModelCard({
             onClick={onLoad}
             disabled={disabled}
           >
-            {status === 'ready' ? (
-              <>
-                <Play className="mr-2 h-4 w-4" />
-                Load
-              </>
-            ) : (
+            {status === 'not_downloaded' ? (
               <>
                 <Download className="mr-2 h-4 w-4" />
                 Download
               </>
+            ) : (
+              <>
+                <Play className="mr-2 h-4 w-4" />
+                Load
+              </>
             )}
-          </Button>
-        )}
-        {status === 'ready' && !isLoaded && !isDownloading && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDelete}
-            disabled={disabled}
-          >
-            <Trash2 className="h-4 w-4" />
           </Button>
         )}
       </div>
@@ -213,46 +156,18 @@ export function Models() {
 
   const [webGPUSupported, setWebGPUSupported] = useState<boolean | null>(null);
   const [loadingModelId, setLoadingModelId] = useState<string | null>(null);
-  const [cachedModels, setCachedModels] = useState<Set<string>>(new Set());
-  const [isCheckingCache, setIsCheckingCache] = useState(true);
 
   // Check WebGPU support on mount
   useEffect(() => {
     isWebGPUSupported().then(setWebGPUSupported);
   }, [isWebGPUSupported]);
 
-  // Check for cached models using web-llm's official API on mount
-  useEffect(() => {
-    async function checkCachedModels() {
-      try {
-        const cacheCheckPromises = RECOMMENDED_MODELS.map(async (model) => {
-          const isCached = await hasModelInCache(model.id);
-          return isCached ? model.id : null;
-        });
-        const cachedIds = (await Promise.all(cacheCheckPromises)).filter(
-          (id): id is string => id !== null
-        );
-        setCachedModels(new Set(cachedIds));
-      } catch (err) {
-        console.error('Failed to check cached models:', err);
-      } finally {
-        setIsCheckingCache(false);
-      }
-    }
-
-    checkCachedModels();
-  }, []);
-
   const handleLoad = useCallback(
     async (modelId: string) => {
       setLoadingModelId(modelId);
       try {
         await loadModel(modelId);
-        // After successful load, mark as cached
-        setCachedModels((prev) => new Set(prev).add(modelId));
       } finally {
-        // Only clear loading state if this was the model being loaded
-        // (prevents race condition if user starts loading a different model)
         setLoadingModelId((currentId) =>
           currentId === modelId ? null : currentId
         );
@@ -265,25 +180,9 @@ export function Models() {
     await unloadModel();
   }, [unloadModel]);
 
-  const handleDelete = useCallback(async (modelId: string) => {
-    try {
-      await deleteModelInCache(modelId);
-      setCachedModels((prev) => {
-        const next = new Set(prev);
-        next.delete(modelId);
-        return next;
-      });
-    } catch (err) {
-      console.error('Failed to delete cached model:', err);
-    }
-  }, []);
-
   const getModelStatus = (modelId: string): ModelStatus => {
     if (loadedModel === modelId) return 'loaded';
-    // Use local loadingModelId as source of truth for downloading status
-    // (isLoading from hook may have timing lag)
     if (loadingModelId === modelId) return 'downloading';
-    if (cachedModels.has(modelId)) return 'ready';
     return 'not_downloaded';
   };
 
@@ -329,29 +228,19 @@ export function Models() {
         cached for future use.
       </p>
 
-      {isCheckingCache ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-muted-foreground text-sm">
-            Checking cached models...
-          </span>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {RECOMMENDED_MODELS.map((model) => (
-            <ModelCard
-              key={model.id}
-              model={model}
-              status={getModelStatus(model.id)}
-              loadProgress={loadingModelId === model.id ? loadProgress : null}
-              disabled={loadingModelId !== null}
-              onLoad={() => handleLoad(model.id)}
-              onUnload={handleUnload}
-              onDelete={() => handleDelete(model.id)}
-            />
-          ))}
-        </div>
-      )}
+      <div className="space-y-3">
+        {RECOMMENDED_MODELS.map((model) => (
+          <ModelCard
+            key={model.id}
+            model={model}
+            status={getModelStatus(model.id)}
+            loadProgress={loadingModelId === model.id ? loadProgress : null}
+            disabled={loadingModelId !== null}
+            onLoad={() => handleLoad(model.id)}
+            onUnload={handleUnload}
+          />
+        ))}
+      </div>
     </div>
   );
 }
