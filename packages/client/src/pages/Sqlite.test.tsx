@@ -1,40 +1,55 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Sqlite } from './Sqlite';
 
 // Mock the child components
 vi.mock('@/components/sqlite/DatabaseTest', () => ({
-  DatabaseTest: () => <div data-testid="database-test">DatabaseTest</div>
+  DatabaseTest: () => <div data-testid="database-test">DatabaseTest Mock</div>
 }));
 
 vi.mock('@/components/sqlite/TableSizes', () => ({
-  TableSizes: () => <div data-testid="table-sizes">TableSizes</div>
+  TableSizes: () => <div data-testid="table-sizes">TableSizes Mock</div>
 }));
 
+function renderSqlite() {
+  return render(
+    <MemoryRouter>
+      <Sqlite />
+    </MemoryRouter>
+  );
+}
+
 describe('Sqlite', () => {
-  it('renders the page title', () => {
-    render(<Sqlite />);
-
-    expect(screen.getByText('SQLite')).toBeInTheDocument();
+  beforeEach(() => {
+    vi.clearAllMocks();
+    renderSqlite();
   });
 
-  it('renders the description', () => {
-    render(<Sqlite />);
+  describe('page rendering', () => {
+    it('renders the page title', () => {
+      expect(screen.getByText('SQLite')).toBeInTheDocument();
+    });
 
-    expect(
-      screen.getByText(/Manage your encrypted SQLite database/)
-    ).toBeInTheDocument();
-  });
+    it('renders the page description', () => {
+      expect(
+        screen.getByText(
+          'Manage your encrypted SQLite database. Set up, unlock, lock, and reset your database here.'
+        )
+      ).toBeInTheDocument();
+    });
 
-  it('renders the DatabaseTest component', () => {
-    render(<Sqlite />);
+    it('renders the DatabaseTest component', () => {
+      expect(screen.getByTestId('database-test')).toBeInTheDocument();
+    });
 
-    expect(screen.getByTestId('database-test')).toBeInTheDocument();
-  });
+    it('renders the TableSizes component', () => {
+      expect(screen.getByTestId('table-sizes')).toBeInTheDocument();
+    });
 
-  it('renders the TableSizes component', () => {
-    render(<Sqlite />);
-
-    expect(screen.getByTestId('table-sizes')).toBeInTheDocument();
+    it('has correct heading level', () => {
+      const heading = screen.getByRole('heading', { level: 1 });
+      expect(heading).toHaveTextContent('SQLite');
+    });
   });
 });
