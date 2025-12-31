@@ -20,6 +20,35 @@ interface FileSystemEntry {
   children?: FileSystemEntry[];
 }
 
+interface StorageEstimate {
+  usage: number;
+  quota: number;
+}
+
+function calculateTotalSize(entries: FileSystemEntry[]): number {
+  return entries.reduce((total, entry) => {
+    if (entry.kind === 'file' && entry.size !== undefined) {
+      return total + entry.size;
+    }
+    if (entry.kind === 'directory' && entry.children) {
+      return total + calculateTotalSize(entry.children);
+    }
+    return total;
+  }, 0);
+}
+
+function countFiles(entries: FileSystemEntry[]): number {
+  return entries.reduce((count, entry) => {
+    if (entry.kind === 'file') {
+      return count + 1;
+    }
+    if (entry.kind === 'directory' && entry.children) {
+      return count + countFiles(entry.children);
+    }
+    return count;
+  }, 0);
+}
+
 interface TreeNodeProps {
   entry: FileSystemEntry;
   depth: number;
@@ -185,6 +214,8 @@ export function Opfs() {
   const [error, setError] = useState<string | null>(null);
   const [supported, setSupported] = useState(true);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+  const [storageEstimate, setStorageEstimate] =
+    useState<StorageEstimate | null>(null);
   const isMountedRef = useRef(true);
 
   const fetchOpfsContents = useCallback(async () => {
@@ -203,8 +234,24 @@ export function Opfs() {
       const root = await navigator.storage.getDirectory();
       const fetchedEntries = await readDirectory(root);
 
+      // Fetch storage estimate
+      let estimate: StorageEstimate | null = null;
+      if (navigator.storage.estimate) {
+        const rawEstimate = await navigator.storage.estimate();
+        if (
+          rawEstimate.usage !== undefined &&
+          rawEstimate.quota !== undefined
+        ) {
+          estimate = {
+            usage: rawEstimate.usage,
+            quota: rawEstimate.quota
+          };
+        }
+      }
+
       if (isMountedRef.current) {
         setEntries(fetchedEntries);
+        setStorageEstimate(estimate);
         // Expand all directories by default
         const allPaths = collectAllPaths(fetchedEntries, '');
         setExpandedPaths(new Set(allPaths));
@@ -290,10 +337,32 @@ export function Opfs() {
     );
   }
 
+  const totalSize = calculateTotalSize(entries);
+  const fileCount = countFiles(entries);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-bold text-2xl tracking-tight">OPFS Browser</h1>
+        <div>
+          <h1 className="font-bold text-2xl tracking-tight">OPFS Browser</h1>
+          {(entries.length > 0 || storageEstimate) && (
+            <p className="text-muted-foreground text-sm">
+              {fileCount > 0 && (
+                <>
+                  {fileCount} file{fileCount !== 1 ? 's' : ''} (
+                  {formatFileSize(totalSize)})
+                </>
+              )}
+              {storageEstimate && (
+                <>
+                  {fileCount > 0 && ' · '}
+                  {formatFileSize(storageEstimate.usage)} /{' '}
+                  {formatFileSize(storageEstimate.quota)} total capacity
+                </>
+              )}
+            </p>
+          )}
+        </div>
         <Button
           variant="outline"
           size="sm"

@@ -2,21 +2,27 @@
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 VSCODE_DIR="$REPO_ROOT/.vscode"
 SETTINGS_FILE="$VSCODE_DIR/settings.json"
 
 usage() {
-    echo "Usage: $0 <title>"
+    echo "Usage: $0 [title]"
     echo ""
     echo "Sets the VS Code window title for this workspace."
     echo ""
-    echo "Examples:"
-    echo "  $0 \"My Project\""
-    echo "  $0 \"rapid5 - \${activeEditorShort}\""
+    echo "If no title is provided, auto-detects based on current branch:"
+    echo "  - On main: sets title to 'ready'"
+    echo "  - On branch with PR: sets title to '#<pr-number> - <branch>'"
+    echo "  - On branch without PR: sets title to '<branch>'"
     echo ""
-    echo "Available variables:"
+    echo "Examples:"
+    echo "  $0                              # auto-detect"
+    echo "  $0 \"My Project\""
+    echo "  $0 \"(queued) #123 - feature\""
+    echo ""
+    echo "Available VS Code variables:"
     echo "  \${rootName}          - workspace/folder name"
     echo "  \${activeEditorShort} - current file name"
     echo "  \${activeEditorLong}  - full file path"
@@ -25,12 +31,33 @@ usage() {
     exit 1
 }
 
-if [ $# -eq 0 ]; then
+# Handle help flag
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
     usage
 fi
 
-TITLE="$1"
+# Determine title
+if [ "$#" -eq 0 ]; then
+    # Auto-detect based on branch/PR
+    cd "$REPO_ROOT"
+    BRANCH=$(git branch --show-current)
 
+    if [ "$BRANCH" = "main" ]; then
+        TITLE="ready"
+    else
+        # Check if a PR exists for this branch
+        PR_NUM=$(gh pr view --json number -q .number 2>/dev/null || true)
+        if [ -n "$PR_NUM" ]; then
+            TITLE="#$PR_NUM - $BRANCH"
+        else
+            TITLE="$BRANCH"
+        fi
+    fi
+else
+    TITLE="$1"
+fi
+
+# Set the VS Code title
 mkdir -p "$VSCODE_DIR"
 
 if command -v jq >/dev/null 2>&1; then
@@ -63,7 +90,7 @@ else
         exit 1
     else
         # Creating a new file without jq. Check for characters that would break JSON
-        if printf '%s' "$TITLE" | grep -q '[\"\\]'; then
+        if printf '%s' "$TITLE" | grep -q '["\\]'; then
             printf "Warning: Title contains special characters ('\"' or '\\') and 'jq' is not installed.\n" >&2
             echo "Cannot reliably create $SETTINGS_FILE." >&2
             echo "Please install 'jq' or create the file manually." >&2

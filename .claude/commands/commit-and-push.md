@@ -9,7 +9,7 @@ Commit and push the current changes following these rules:
 1. **Check branch**: If on `main`, create a new branch with an appropriate name based on the changes. After creating or switching branches, update the VS Code title:
 
    ```bash
-   ./scripts/agents/updateVscodeTitle.sh
+   ./scripts/agents/setVscodeTitle.sh
    ```
 
 2. **Analyze changes**: Run `git status` and `git diff --staged` to understand what's being committed.
@@ -29,7 +29,7 @@ Commit and push the current changes following these rules:
 5. **GPG signing**: The commit MUST be signed. Use a 5-second timeout. For multi-line messages, pipe the content to `git commit`:
 
    ```bash
-   printf "subject\n\nbody" | timeout 5 git commit -F -
+   printf "subject\n\nbody" | timeout 5 git commit -S -F -
    ```
 
 6. **Push**: After successful commit, push to the current branch's remote.
@@ -37,7 +37,7 @@ Commit and push the current changes following these rules:
 7. **Open PR**: If a PR doesn't already exist for this branch, create one using `gh pr create`. Skip if already on `main` or PR exists. After creating a PR, update the VS Code title to show the PR number:
 
    ```bash
-   ./scripts/agents/updateVscodeTitle.sh
+   ./scripts/agents/setVscodeTitle.sh
    ```
 
 8. **Wait for Gemini feedback**: After the push completes (and PR is created/updated), wait 60 seconds for Gemini Code Assist to post its review comments.

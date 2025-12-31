@@ -15,7 +15,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 3. **Update VS Code title**: Set the window title to show queued status:
 
    ```bash
-   ./scripts/setVscodeTitle.sh "(queued) #<pr-number> - <branch>"
+   ./scripts/agents/setVscodeTitle.sh "(queued) #<pr-number> - <branch>"
    ```
 
 4. **Main loop** - Repeat until PR is merged:
@@ -38,7 +38,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    git merge origin/<baseRefName> --no-edit
    ```
 
-   - If merge conflicts occur, list them, reset the VS Code title with `./scripts/agents/updateVscodeTitle.sh`, and stop. Do NOT auto-resolve without user input.
+   - If merge conflicts occur, list them, reset the VS Code title with `./scripts/agents/setVscodeTitle.sh`, and stop. Do NOT auto-resolve without user input.
    - If successful, push and continue to step 4c.
 
    ### 4c. Wait for CI
@@ -122,7 +122,9 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 
    This sets the VS Code window title to "ready" and switches back to main with the latest changes.
 
-6. **Report success**: Confirm the PR was merged and show the URL.
+6. **Report success**: Confirm the PR was merged and provide a summary:
+   - Show the PR URL
+   - Output a brief description of what was merged (1-3 sentences summarizing the changes based on the PR title and commits)
 
 ## Notes
 
@@ -131,7 +133,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 - Common fixable issues: lint errors, type errors, test failures, code style suggestions
 - Non-fixable issues: merge conflicts, infrastructure failures, architectural disagreements
 - If stuck in a loop (same fix attempted twice), ask the user for help
-- **Always reset VS Code title when exiting early**: If you exit the merge queue before the PR is merged (conflicts, user intervention needed, etc.), run `./scripts/agents/updateVscodeTitle.sh` to remove the "(queued)" prefix
+- **Always reset VS Code title when exiting early**: If you exit the merge queue before the PR is merged (conflicts, user intervention needed, etc.), run `./scripts/agents/setVscodeTitle.sh` to remove the "(queued)" prefix
 - When Gemini confirms a fix, resolve the thread via GraphQL. To detect confirmation:
   1. Look for positive phrases: "looks good", "resolved", "satisfied", "fixed", "approved", "thank you", "lgtm"
   2. Ensure the response does NOT contain negative qualifiers: "but", "however", "still", "issue", "problem", "not yet", "almost"
@@ -160,9 +162,26 @@ Guidelines:
 
 ## Commit Rules
 
-When committing fixes, follow the same rules as `/commit-and-push`:
+When committing fixes during the merge queue process:
 
-- **DO NOT** add `Co-Authored-By` headers
-- **DO NOT** add emoji or "Generated with Claude Code" footers
-- **DO NOT** use `--no-gpg-sign` or skip signing
-- Use conventional commit format: `<type>(<scope>): <description>`
+### Conventional Commit Format
+
+- Subject line: `<type>(<scope>): <description>` (max 50 chars)
+- Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`
+- Scope: prefer feature-based (`pwa`, `auth`, `settings`) over package-based when possible
+- Description should be imperative mood ("add" not "added")
+- Body can contain detailed explanation (wrap at 72 chars)
+
+### GPG Signing
+
+The commit MUST be signed. Use a 5-second timeout. For multi-line messages, pipe the content to `git commit`:
+
+```bash
+printf "subject\n\nbody" | timeout 5 git commit -S -F -
+```
+
+### DO NOT
+
+- Add `Co-Authored-By` headers
+- Add emoji or "Generated with Claude Code" footers
+- Use `--no-gpg-sign` or skip signing
