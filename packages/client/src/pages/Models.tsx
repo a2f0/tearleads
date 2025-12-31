@@ -24,9 +24,9 @@ interface ModelInfo {
 // Curated list of recommended models
 const RECOMMENDED_MODELS: ModelInfo[] = [
   {
-    id: 'Phi-3.5-vision-instruct-q4f32_1-MLC',
+    id: 'Phi-3.5-vision-instruct-q4f16_1-MLC',
     name: 'Phi 3.5 Vision',
-    size: '~3GB',
+    size: '~2.8GB',
     description: 'Vision model for image understanding',
     isVision: true
   },
