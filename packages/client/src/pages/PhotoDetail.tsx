@@ -17,6 +17,7 @@ import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { formatDate, formatFileSize } from '@/lib/utils';
 import {
   getFileStorage,
   initializeFileStorage,
@@ -30,28 +31,6 @@ interface PhotoInfo {
   mimeType: string;
   uploadDate: Date;
   storagePath: string;
-}
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 0) return 'Invalid size';
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-  const i = Math.min(
-    Math.floor(Math.log(bytes) / Math.log(k)),
-    sizes.length - 1
-  );
-  return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
-}
-
-function formatDate(date: Date): string {
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
 }
 
 export function PhotoDetail() {
