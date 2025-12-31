@@ -188,5 +188,17 @@ describe('Chat', () => {
 
       expect(screen.getByText('SmolVLM 256M Instruct')).toBeInTheDocument();
     });
+
+    it('renders chat interface with thread empty state', () => {
+      renderChat();
+
+      expect(screen.getByTestId('thread-empty')).toBeInTheDocument();
+    });
+
+    it('renders the composer for vision models', () => {
+      renderChat();
+
+      expect(screen.getByTestId('composer')).toBeInTheDocument();
+    });
   });
 });
