@@ -162,9 +162,26 @@ Guidelines:
 
 ## Commit Rules
 
-When committing fixes, follow the same rules as `/commit-and-push`:
+When committing fixes during the merge queue process:
 
-- **DO NOT** add `Co-Authored-By` headers
-- **DO NOT** add emoji or "Generated with Claude Code" footers
-- **DO NOT** use `--no-gpg-sign` or skip signing
-- Use conventional commit format: `<type>(<scope>): <description>`
+### Conventional Commit Format
+
+- Subject line: `<type>(<scope>): <description>` (max 50 chars)
+- Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`
+- Scope: prefer feature-based (`pwa`, `auth`, `settings`) over package-based when possible
+- Description should be imperative mood ("add" not "added")
+- Body can contain detailed explanation (wrap at 72 chars)
+
+### GPG Signing
+
+The commit MUST be signed. Use a 5-second timeout. For multi-line messages, pipe the content to `git commit`:
+
+```bash
+printf "subject\n\nbody" | timeout 5 git commit -S -F -
+```
+
+### DO NOT
+
+- Add `Co-Authored-By` headers
+- Add emoji or "Generated with Claude Code" footers
+- Use `--no-gpg-sign` or skip signing
