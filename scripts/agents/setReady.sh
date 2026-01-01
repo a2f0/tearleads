@@ -55,25 +55,13 @@ TITLE=$(get_title)
 
 # Update tmux window if we're in a tmux session
 if [ -n "${TMUX:-}" ]; then
-    CURRENT_NAME=$(tmux display-message -p '#W')
-
-    # Get base name (strip any status prefix)
-    case "$CURRENT_NAME" in
-        "(working) "*|"(waiting) "*|"(queued) "*)
-            BASE_NAME="${CURRENT_NAME#* }"
-            ;;
-        *)
-            BASE_NAME="$CURRENT_NAME"
-            ;;
-    esac
-
     # Clear all status flags
     tmux set-option -wu @working_status 2>/dev/null || true
     tmux set-option -wu @waiting_status 2>/dev/null || true
     tmux set-option -wu @original_name 2>/dev/null || true
 
-    # Rename window to base name (no prefix)
-    tmux rename-window "$BASE_NAME"
+    # Rename window to the new title (consistent with VS Code)
+    tmux rename-window "$TITLE"
 
     echo "Tmux window marked as ready"
 fi
