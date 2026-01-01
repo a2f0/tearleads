@@ -1,0 +1,542 @@
+/**
+ * Unit tests for analytics module.
+ */
+
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Create mock adapter
+const mockAdapter = {
+  execute: vi.fn()
+};
+
+// Mock dependencies
+vi.mock('./index', () => ({
+  getDatabaseAdapter: vi.fn(() => mockAdapter)
+}));
+
+// Import after mocks
+import {
+  clearEvents,
+  getDistinctEventTypes,
+  getEventCount,
+  getEventStats,
+  getEvents,
+  logEvent,
+  measureOperation
+} from './analytics';
+import type { Database } from './index';
+
+// Create mock database
+const mockDb = {
+  insert: vi.fn(() => ({
+    values: vi.fn()
+  }))
+} as unknown as Database;
+
+describe('analytics', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('logEvent', () => {
+    it('inserts event with correct values', async () => {
+      const mockValues = vi.fn();
+      (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue({
+        values: mockValues
+      });
+
+      await logEvent(mockDb, 'test-event', 150.5, true);
+
+      expect(mockDb.insert).toHaveBeenCalled();
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventName: 'test-event',
+          durationMs: 151, // Rounded
+          success: true
+        })
+      );
+    });
+
+    it('rounds duration to nearest integer', async () => {
+      const mockValues = vi.fn();
+      (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue({
+        values: mockValues
+      });
+
+      await logEvent(mockDb, 'test-event', 99.4, true);
+
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          durationMs: 99
+        })
+      );
+    });
+
+    it('generates unique ID for each event', async () => {
+      const mockValues = vi.fn();
+      (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue({
+        values: mockValues
+      });
+
+      await logEvent(mockDb, 'event1', 100, true);
+      await logEvent(mockDb, 'event2', 200, true);
+
+      const call1 = mockValues.mock.calls[0]?.[0] as { id: string };
+      const call2 = mockValues.mock.calls[1]?.[0] as { id: string };
+
+      expect(call1.id).toBeDefined();
+      expect(call2.id).toBeDefined();
+      expect(call1.id).not.toBe(call2.id);
+    });
+  });
+
+  describe('measureOperation', () => {
+    it('returns result of successful operation', async () => {
+      const mockValues = vi.fn();
+      (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue({
+        values: mockValues
+      });
+
+      const result = await measureOperation(mockDb, 'test-op', async () => 42);
+
+      expect(result).toBe(42);
+    });
+
+    it('logs success event for successful operation', async () => {
+      const mockValues = vi.fn();
+      (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue({
+        values: mockValues
+      });
+
+      await measureOperation(mockDb, 'test-op', async () => 'result');
+
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventName: 'test-op',
+          success: true
+        })
+      );
+    });
+
+    it('logs failure event when operation throws', async () => {
+      const mockValues = vi.fn();
+      (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue({
+        values: mockValues
+      });
+
+      await expect(
+        measureOperation(mockDb, 'failing-op', async () => {
+          throw new Error('Operation failed');
+        })
+      ).rejects.toThrow('Operation failed');
+
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventName: 'failing-op',
+          success: false
+        })
+      );
+    });
+
+    it('measures duration of operation', async () => {
+      const mockValues = vi.fn();
+      (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue({
+        values: mockValues
+      });
+
+      await measureOperation(mockDb, 'test-op', async () => {
+        // Simulate some work
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return 'done';
+      });
+
+      const call = mockValues.mock.calls[0]?.[0] as { durationMs: number };
+      expect(call.durationMs).toBeGreaterThan(0);
+    });
+
+    it('still throws error even if logging fails', async () => {
+      const mockValues = vi.fn();
+      (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue({
+        values: mockValues.mockRejectedValue(new Error('Logging failed'))
+      });
+
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      await expect(
+        measureOperation(mockDb, 'test-op', async () => {
+          throw new Error('Main error');
+        })
+      ).rejects.toThrow('Main error');
+
+      consoleSpy.mockRestore();
+    });
+
+    it('warns when logging fails but operation succeeds', async () => {
+      const mockValues = vi.fn().mockRejectedValue(new Error('Logging failed'));
+      (mockDb.insert as ReturnType<typeof vi.fn>).mockReturnValue({
+        values: mockValues
+      });
+
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const result = await measureOperation(
+        mockDb,
+        'test-op',
+        async () => 'success'
+      );
+
+      expect(result).toBe('success');
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to log analytics event: test-op'
+      );
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('getEvents', () => {
+    it('returns empty array when no events', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      const result = await getEvents(mockDb);
+
+      expect(result).toEqual([]);
+    });
+
+    it('maps database rows to AnalyticsEvent objects', async () => {
+      const timestamp = Date.now();
+      mockAdapter.execute.mockResolvedValue({
+        rows: [
+          {
+            id: 'event-1',
+            eventName: 'test-event',
+            durationMs: 150,
+            success: 1,
+            timestamp
+          }
+        ]
+      });
+
+      const result = await getEvents(mockDb);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({
+        id: 'event-1',
+        eventName: 'test-event',
+        durationMs: 150,
+        success: true,
+        timestamp: new Date(timestamp)
+      });
+    });
+
+    it('converts success 0 to false', async () => {
+      mockAdapter.execute.mockResolvedValue({
+        rows: [
+          {
+            id: 'event-1',
+            eventName: 'failed-event',
+            durationMs: 100,
+            success: 0,
+            timestamp: Date.now()
+          }
+        ]
+      });
+
+      const result = await getEvents(mockDb);
+
+      expect(result[0]?.success).toBe(false);
+    });
+
+    it('applies eventName filter', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEvents(mockDb, { eventName: 'specific-event' });
+
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        expect.stringContaining('event_name = ?'),
+        expect.arrayContaining(['specific-event'])
+      );
+    });
+
+    it('applies startTime filter', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+      const startTime = new Date('2024-01-01');
+
+      await getEvents(mockDb, { startTime });
+
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        expect.stringContaining('timestamp >= ?'),
+        expect.arrayContaining([startTime.getTime()])
+      );
+    });
+
+    it('applies endTime filter', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+      const endTime = new Date('2024-12-31');
+
+      await getEvents(mockDb, { endTime });
+
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        expect.stringContaining('timestamp <= ?'),
+        expect.arrayContaining([endTime.getTime()])
+      );
+    });
+
+    it('applies limit', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEvents(mockDb, { limit: 50 });
+
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        expect.stringContaining('LIMIT ?'),
+        expect.arrayContaining([50])
+      );
+    });
+
+    it('uses default limit of 100', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEvents(mockDb);
+
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining([100])
+      );
+    });
+
+    it('combines multiple filters', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+      const startTime = new Date('2024-01-01');
+      const endTime = new Date('2024-12-31');
+
+      await getEvents(mockDb, {
+        eventName: 'test-event',
+        startTime,
+        endTime,
+        limit: 25
+      });
+
+      const sql = mockAdapter.execute.mock.calls[0]?.[0] as string;
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('event_name = ?');
+      expect(sql).toContain('timestamp >= ?');
+      expect(sql).toContain('timestamp <= ?');
+      expect(sql).toContain('AND');
+    });
+  });
+
+  describe('getEventStats', () => {
+    it('returns empty array when no stats', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      const result = await getEventStats(mockDb);
+
+      expect(result).toEqual([]);
+    });
+
+    it('calculates stats from database rows', async () => {
+      mockAdapter.execute.mockResolvedValue({
+        rows: [
+          {
+            eventName: 'test-event',
+            count: 10,
+            totalDuration: 1500,
+            minDuration: 50,
+            maxDuration: 300,
+            successCount: 8
+          }
+        ]
+      });
+
+      const result = await getEventStats(mockDb);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({
+        eventName: 'test-event',
+        count: 10,
+        avgDurationMs: 150,
+        minDurationMs: 50,
+        maxDurationMs: 300,
+        successRate: 80
+      });
+    });
+
+    it('handles zero count gracefully', async () => {
+      mockAdapter.execute.mockResolvedValue({
+        rows: [
+          {
+            eventName: 'empty-event',
+            count: 0,
+            totalDuration: 0,
+            minDuration: 0,
+            maxDuration: 0,
+            successCount: 0
+          }
+        ]
+      });
+
+      const result = await getEventStats(mockDb);
+
+      expect(result[0]).toEqual({
+        eventName: 'empty-event',
+        count: 0,
+        avgDurationMs: 0,
+        minDurationMs: 0,
+        maxDurationMs: 0,
+        successRate: 0
+      });
+    });
+
+    it('applies eventName filter', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEventStats(mockDb, { eventName: 'specific-event' });
+
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        expect.stringContaining('event_name = ?'),
+        expect.arrayContaining(['specific-event'])
+      );
+    });
+
+    it('applies startTime filter', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+      const startTime = new Date('2024-01-01');
+
+      await getEventStats(mockDb, { startTime });
+
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        expect.stringContaining('timestamp >= ?'),
+        expect.arrayContaining([startTime.getTime()])
+      );
+    });
+
+    it('applies endTime filter', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+      const endTime = new Date('2024-12-31');
+
+      await getEventStats(mockDb, { endTime });
+
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        expect.stringContaining('timestamp <= ?'),
+        expect.arrayContaining([endTime.getTime()])
+      );
+    });
+
+    it('handles null values in row data', async () => {
+      mockAdapter.execute.mockResolvedValue({
+        rows: [
+          {
+            eventName: 'test-event',
+            count: null,
+            totalDuration: null,
+            minDuration: null,
+            maxDuration: null,
+            successCount: null
+          }
+        ]
+      });
+
+      const result = await getEventStats(mockDb);
+
+      // null values are converted to 0 via nullish coalescing
+      expect(result[0]).toEqual({
+        eventName: 'test-event',
+        count: 0,
+        avgDurationMs: 0,
+        minDurationMs: 0,
+        maxDurationMs: 0,
+        successRate: 0
+      });
+    });
+  });
+
+  describe('clearEvents', () => {
+    it('deletes all events from database', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await clearEvents(mockDb);
+
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        'DELETE FROM analytics_events',
+        []
+      );
+    });
+  });
+
+  describe('getEventCount', () => {
+    it('returns count from database', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [{ count: 42 }] });
+
+      const result = await getEventCount(mockDb);
+
+      expect(result).toBe(42);
+    });
+
+    it('returns 0 when no rows', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      const result = await getEventCount(mockDb);
+
+      expect(result).toBe(0);
+    });
+
+    it('returns 0 when row has undefined count', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [{}] });
+
+      const result = await getEventCount(mockDb);
+
+      expect(result).toBe(0);
+    });
+  });
+
+  describe('getDistinctEventTypes', () => {
+    it('returns list of distinct event names', async () => {
+      mockAdapter.execute.mockResolvedValue({
+        rows: [
+          { eventName: 'event-a' },
+          { eventName: 'event-b' },
+          { eventName: 'event-c' }
+        ]
+      });
+
+      const result = await getDistinctEventTypes(mockDb);
+
+      expect(result).toEqual(['event-a', 'event-b', 'event-c']);
+    });
+
+    it('returns empty array when no events', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      const result = await getDistinctEventTypes(mockDb);
+
+      expect(result).toEqual([]);
+    });
+
+    it('filters out invalid rows', async () => {
+      mockAdapter.execute.mockResolvedValue({
+        rows: [
+          { eventName: 'valid-event' },
+          { notEventName: 'invalid' },
+          null,
+          { eventName: 123 }, // Wrong type
+          { eventName: 'another-valid' }
+        ]
+      });
+
+      const result = await getDistinctEventTypes(mockDb);
+
+      expect(result).toEqual(['valid-event', 'another-valid']);
+    });
+
+    it('executes correct SQL query', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getDistinctEventTypes(mockDb);
+
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        'SELECT DISTINCT event_name as eventName FROM analytics_events ORDER BY event_name',
+        []
+      );
+    });
+  });
+});
