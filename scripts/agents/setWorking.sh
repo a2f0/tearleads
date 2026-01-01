@@ -1,6 +1,6 @@
 #!/bin/sh
-# Mark workspace as working: updates VS Code title and tmux window name,
-# then moves tmux window to the front of the window list.
+# Mark workspace as working: updates VS Code title, tmux window name,
+# and sets pane background color to indicate active work.
 # Skips if already in queued state (queued takes precedence).
 set -eu
 
@@ -92,11 +92,8 @@ if [ -n "${TMUX:-}" ]; then
     # Rename window with working prefix
     tmux rename-window "(working) $BASE_NAME"
 
-    # Move window to the front of the list
-    FIRST_WINDOW=$(tmux list-windows -F '#I' | sort -n | head -1)
-    if [ "$CURRENT_WINDOW" != "$FIRST_WINDOW" ]; then
-        tmux swap-window -t "$FIRST_WINDOW"
-    fi
+    # Set background color to indicate working status (dark amber/orange)
+    tmux select-pane -P 'bg=colour52'
 
-    echo "Tmux window marked as working and moved to front"
+    echo "Tmux window marked as working"
 fi
