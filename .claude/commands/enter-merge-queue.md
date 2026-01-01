@@ -65,21 +65,13 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 
    ### 4d. Address Gemini feedback
 
+   **Important**: All conversation threads must be resolved before the PR can merge.
+
    Run `/address-gemini-feedback` to handle any unresolved comments, then `/follow-up-with-gemini` to:
+
    - Notify Gemini that feedback has been addressed
    - Wait for Gemini's response (polling every 30 seconds, up to 5 minutes)
-   - When Gemini confirms a fix is satisfactory, resolve the review thread using the GraphQL API:
-
-     ```bash
-     gh api graphql -f query='
-       mutation {
-         resolveReviewThread(input: {threadId: "<thread_node_id>"}) {
-           thread { isResolved }
-         }
-       }
-     '
-     ```
-
+   - When Gemini confirms a fix is satisfactory, resolve the thread (see "Resolving Conversation Threads" below)
    - If Gemini requests further changes, repeat step 4d
 
    ### 4e. Wait for CI
@@ -171,7 +163,62 @@ Use appropriate labels when creating issues:
 
 - Do NOT let issue creation block the merge queue
 - Create the issue, note its number, and continue with the merge
-- Reference the issue in the PR description if relevant
+- When resolving a conversation with an issue, link the issue in the thread reply (NOT in PR body)
+
+## Resolving Conversation Threads
+
+**All conversation threads must be resolved before the PR can merge.** When resolving a thread, provide context in the thread itself (not the PR body).
+
+### Before Resolving a Thread
+
+Reply to the thread with:
+
+1. **The commit(s) that fixed the issue** - Link to the specific commit(s) that addressed the feedback
+2. **If an issue was opened** - Link the issue that will track the work
+
+### Reply Format
+
+```bash
+# Get the commit SHA for the fix
+git log --oneline -1
+
+# Reply to the thread with context
+gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies \
+  -f body="Fixed in commit abc1234. @gemini-code-assist Please confirm."
+```
+
+If an issue was created instead of a direct fix:
+
+```bash
+gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies \
+  -f body="Tracked in #456 for follow-up. Resolving as out of scope for this PR."
+```
+
+### Then Resolve the Thread
+
+```bash
+gh api graphql -f query='
+  mutation {
+    resolveReviewThread(input: {threadId: "<thread_node_id>"}) {
+      thread { isResolved }
+    }
+  }
+'
+```
+
+### Examples
+
+**Fixed with a commit:**
+
+> Fixed in commit e6aabdb. The error handling now catches the edge case you identified. @gemini-code-assist Please confirm.
+
+**Deferred to an issue:**
+
+> This is a broader architectural concern. Tracked in #789 for follow-up. Resolving as out of scope for this PR.
+
+**Fixed across multiple commits:**
+
+> Addressed in commits abc1234 and def5678. The first commit adds the validation, the second adds tests. @gemini-code-assist Please confirm.
 
 ## Notes
 
