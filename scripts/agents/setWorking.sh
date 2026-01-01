@@ -1,6 +1,5 @@
 #!/bin/sh
-# Mark workspace as working: updates VS Code title, tmux window name,
-# and sets pane background color to indicate active work.
+# Mark workspace as working: updates VS Code title and tmux window name.
 # Skips if already in queued state (queued takes precedence).
 set -eu
 
