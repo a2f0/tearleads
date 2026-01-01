@@ -92,11 +92,11 @@ const createMockDirectoryHandle = (
     resolve: vi.fn(),
     keys: vi.fn(),
     values: vi.fn(),
-    entries: vi.fn(function* () {
+    entries: vi.fn(async function* () {
       for (const entry of files.entries()) {
         yield entry;
       }
-    }) as unknown as () => AsyncIterableIterator<[string, FileSystemHandle]>,
+    }),
     isSameEntry: vi.fn(),
     queryPermission: vi.fn(),
     requestPermission: vi.fn()
