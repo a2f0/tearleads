@@ -1,5 +1,5 @@
 ---
-description: Update all dependencies (project)
+description: Update all dependencies
 ---
 
 # Update
