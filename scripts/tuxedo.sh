@@ -56,7 +56,11 @@ ensure_symlinks() {
             rm "$link"
         elif [ -d "$link" ]; then
             # It's a real directory - back it up and remove
-            echo "Warning: $link is a directory, backing up to ${link}.bak"
+            if [ -e "${link}.bak" ]; then
+                echo "Error: Cannot back up '$link' because '${link}.bak' already exists. Please remove it and rerun." >&2
+                exit 1
+            fi
+            echo "Warning: '$link' is a directory, backing up to '${link}.bak'"
             mv "$link" "${link}.bak"
         elif [ -e "$link" ]; then
             # Some other file exists, remove it
