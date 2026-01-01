@@ -68,6 +68,8 @@ export function Analytics() {
 
   // Use ref to prevent duplicate fetches during React strict mode or re-renders
   const fetchingRef = useRef(false);
+  // Track initial load to distinguish from user-cleared selections
+  const isInitialLoad = useRef(true);
 
   const fetchData = useCallback(async () => {
     if (!isUnlocked || fetchingRef.current) return;
@@ -90,16 +92,24 @@ export function Analytics() {
       setStats(statsData);
       setEventTypes(typesData);
 
-      // Auto-select all types on initial load (when no types were previously selected)
-      setSelectedEventTypes((prev) => {
-        if (prev.size === 0 && typesData.length > 0) {
-          return new Set(typesData);
-        }
-        // Keep existing selection, but remove any types that no longer exist
-        const validTypes = new Set(typesData);
-        const filtered = new Set([...prev].filter((t) => validTypes.has(t)));
-        return filtered.size > 0 ? filtered : new Set(typesData);
-      });
+      // Auto-select all types on initial load only
+      if (isInitialLoad.current && typesData.length > 0) {
+        setSelectedEventTypes(new Set(typesData));
+        isInitialLoad.current = false;
+      } else {
+        // On subsequent fetches, prune selection of any types that no longer exist
+        setSelectedEventTypes((prev) => {
+          const validTypes = new Set(typesData);
+          const filtered = new Set([...prev].filter((t) => validTypes.has(t)));
+
+          // If user's selection became empty because types disappeared, reset to all.
+          // Otherwise, respect user's empty selection (e.g. from "Clear All").
+          if (prev.size > 0 && filtered.size === 0 && typesData.length > 0) {
+            return new Set(typesData);
+          }
+          return filtered;
+        });
+      }
     } catch (err) {
       console.error('Failed to fetch analytics:', err);
       setError(err instanceof Error ? err.message : String(err));
