@@ -1,6 +1,6 @@
 #!/bin/sh
-# Mark workspace as waiting for user input: updates VS Code title and tmux window name,
-# then moves tmux window to the front of the window list.
+# Mark workspace as waiting for user input: updates VS Code title, tmux window name,
+# and sets pane background color to indicate waiting for input.
 # Skips if already in queued state (queued takes precedence).
 set -eu
 
@@ -92,11 +92,8 @@ if [ -n "${TMUX:-}" ]; then
     # Rename window with waiting prefix
     tmux rename-window "(waiting) $BASE_NAME"
 
-    # Move window to the front of the list (if not already)
-    FIRST_WINDOW=$(tmux list-windows -F '#I' | sort -n | head -1)
-    if [ "$CURRENT_WINDOW" != "$FIRST_WINDOW" ]; then
-        tmux swap-window -t "$FIRST_WINDOW"
-    fi
+    # Set background color to indicate waiting status (dark blue)
+    tmux select-pane -P 'bg=colour17'
 
-    echo "Tmux window marked as waiting and moved to front"
+    echo "Tmux window marked as waiting"
 fi

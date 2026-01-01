@@ -1,6 +1,6 @@
 #!/bin/sh
-# Mark workspace as queued: updates VS Code title and tmux window name,
-# then moves tmux window to the front of the window list.
+# Mark workspace as queued: updates VS Code title, tmux window name,
+# and sets pane background color to indicate queued status.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -45,11 +45,8 @@ if [ -n "${TMUX:-}" ]; then
     # Rename window with queued prefix
     tmux rename-window "(queued) $BASE_NAME"
 
-    # Move window to the front of the list by swapping with the first window
-    FIRST_WINDOW=$(tmux list-windows -F '#I' | sort -n | head -1)
-    if [ "$CURRENT_WINDOW" != "$FIRST_WINDOW" ]; then
-        tmux swap-window -t "$FIRST_WINDOW"
-    fi
+    # Set background color to indicate queued status (dark green)
+    tmux select-pane -P 'bg=colour22'
 
-    echo "Tmux window marked as queued and moved to front"
+    echo "Tmux window marked as queued"
 fi
