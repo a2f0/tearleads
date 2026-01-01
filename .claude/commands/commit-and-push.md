@@ -1,5 +1,5 @@
 ---
-description: Commit staged changes and push to remote using conventional commits. (project)
+description: Commit staged changes and push to remote using conventional commits
 ---
 
 # Commit and Push
