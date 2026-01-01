@@ -1,5 +1,7 @@
 /// <reference types="@webgpu/types" />
 import { useCallback, useSyncExternalStore } from 'react';
+import { getDatabase } from '@/db';
+import { logEvent as logAnalyticsEvent } from '@/db/analytics';
 
 // Types for worker messages
 interface ChatMessage {
@@ -17,9 +19,14 @@ type ModelType = 'chat' | 'vision' | 'paligemma';
 
 type WorkerResponse =
   | { type: 'progress'; file: string; progress: number; total: number }
-  | { type: 'loaded'; modelId: string; modelType: ModelType }
+  | {
+      type: 'loaded';
+      modelId: string;
+      modelType: ModelType;
+      durationMs: number;
+    }
   | { type: 'token'; text: string }
-  | { type: 'done' }
+  | { type: 'done'; durationMs: number; promptType: 'text' | 'multimodal' }
   | { type: 'error'; message: string }
   | { type: 'unloaded' };
 
@@ -61,6 +68,25 @@ const store: LLMState = {
 
 // Pub-sub mechanism for useSyncExternalStore
 const listeners = new Set<() => void>();
+
+/**
+ * Log an analytics event for LLM operations.
+ * Silently fails if database is not available.
+ */
+async function logLLMAnalytics(
+  eventName: string,
+  durationMs: number,
+  success: boolean
+): Promise<void> {
+  try {
+    const db = getDatabase();
+    if (db) {
+      await logAnalyticsEvent(db, eventName, durationMs, success);
+    }
+  } catch {
+    // Silently ignore - analytics should never break main functionality
+  }
+}
 
 function subscribe(callback: () => void): () => void {
   listeners.add(callback);
@@ -125,6 +151,9 @@ function getWorker(): Worker {
           loadingModelId = null;
           emitChange();
 
+          // Log analytics for model loading
+          logLLMAnalytics('llm_model_load', response.durationMs, true);
+
           if (loadResolve) {
             loadResolve();
             loadResolve = null;
@@ -141,6 +170,13 @@ function getWorker(): Worker {
         }
 
         case 'done': {
+          // Log analytics based on prompt type
+          const eventName =
+            response.promptType === 'multimodal'
+              ? 'llm_prompt_multimodal'
+              : 'llm_prompt_text';
+          logLLMAnalytics(eventName, response.durationMs, true);
+
           if (currentGenerateResolve) {
             currentGenerateResolve();
             currentGenerateResolve = null;
