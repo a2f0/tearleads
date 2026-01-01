@@ -262,8 +262,25 @@ async function generate(
 
       // Pass text and images separately to processor
       inputs = await processor(text, [image]);
+    } else if (currentModelType === 'vision' && processor && !imageBase64) {
+      // Vision model without image - use text-only format
+      // SmolVLM's processor tokenizer may not have chat_template set,
+      // so we construct a simple prompt format
+      const formattedMessages = messages.map((m) => ({
+        role: m.role,
+        content: [{ type: 'text', text: m.content }]
+      }));
+
+      // Use processor.apply_chat_template for text-only vision model queries
+      // @ts-expect-error - SmolVLM uses multimodal content format
+      const text = processor.apply_chat_template(formattedMessages, {
+        add_generation_prompt: true
+      });
+
+      // Process text-only (no images)
+      inputs = await processor(text);
     } else {
-      // Text-only chat
+      // Text-only chat (standard chat models like Phi-3)
       const prompt = tokenizer.apply_chat_template(messages, {
         tokenize: false,
         add_generation_prompt: true
