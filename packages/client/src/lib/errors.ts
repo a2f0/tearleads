@@ -3,6 +3,36 @@
  */
 
 /**
+ * Type guard to check if a value is an Error instance.
+ */
+export function isError(value: unknown): value is Error {
+  return value instanceof Error;
+}
+
+/**
+ * Safely extract an error message from an unknown error value.
+ * Handles Error instances, error-like objects with a message property,
+ * and falls back to String() for other values.
+ */
+export function getErrorMessage(error: unknown): string {
+  if (isError(error)) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return String(error);
+}
+
+/**
+ * Convert an unknown value to an Error instance.
+ * Returns the value unchanged if it's already an Error,
+ * otherwise wraps it in a new Error with the best message extracted.
+ */
+export function toError(value: unknown): Error {
+  if (isError(value)) return value;
+  return new Error(getErrorMessage(value));
+}
+
+/**
  * Error thrown when a file's type cannot be detected from its content.
  * This typically happens when the file has no recognizable magic bytes.
  */
