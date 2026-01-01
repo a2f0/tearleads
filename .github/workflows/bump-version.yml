@@ -1,0 +1,58 @@
+name: Bump Version
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    name: Bump Version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Check if last commit was a version bump
+        id: check_skip
+        run: |
+          LAST_COMMIT_MSG=$(git log -1 --pretty=%s)
+          if [[ "$LAST_COMMIT_MSG" == "chore: bump version"* ]]; then
+            echo "Last commit was a version bump, skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install jq
+        if: steps.check_skip.outputs.skip != 'true'
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Bump versions
+        if: steps.check_skip.outputs.skip != 'true'
+        run: ./scripts/bumpVersion.sh
+
+      - name: Commit and push version bump
+        if: steps.check_skip.outputs.skip != 'true'
+        run: |
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: bump version [skip ci]"
+            git push
+          fi

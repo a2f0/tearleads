@@ -2,7 +2,7 @@ name: Deploy iOS to TestFlight
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["Bump Version"]
     types: [completed]
     branches: [main]
 
@@ -67,19 +67,44 @@ jobs:
           mkdir -p .secrets
           echo "${{ secrets.APP_STORE_CONNECT_API_KEY }}" | base64 -d > .secrets/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
 
-      - name: Check if build exists in TestFlight
-        id: check_build
+      - name: Get local and TestFlight build numbers
+        id: version_check
         run: |
-          if bundle exec fastlane ios build_exists_in_testflight; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
+          # Get local build number from Xcode project
+          LOCAL_VERSION=$(grep -E 'CURRENT_PROJECT_VERSION = [0-9]+' ios/App/App.xcodeproj/project.pbxproj | head -1 | sed 's/.*= \([0-9]*\).*/\1/')
+          echo "local_version=$LOCAL_VERSION" >> $GITHUB_OUTPUT
+          echo "Local build number: $LOCAL_VERSION"
+
+          # Get latest TestFlight build number via fastlane
+          TESTFLIGHT_VERSION=$(bundle exec fastlane ios get_testflight_build_number 2>&1 | grep -oE 'Latest TestFlight build number: [0-9]+' | grep -oE '[0-9]+' || echo "0")
+          echo "testflight_version=$TESTFLIGHT_VERSION" >> $GITHUB_OUTPUT
+          echo "TestFlight build number: $TESTFLIGHT_VERSION"
         working-directory: packages/client
         env:
           CI: true
           APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+
+      - name: Validate version is newer than TestFlight
+        id: check_build
+        run: |
+          LOCAL=${{ steps.version_check.outputs.local_version }}
+          TESTFLIGHT=${{ steps.version_check.outputs.testflight_version }}
+
+          echo "Comparing: local=$LOCAL vs TestFlight=$TESTFLIGHT"
+
+          if [ "$LOCAL" -lt "$TESTFLIGHT" ]; then
+            echo "ERROR: Local version ($LOCAL) is OLDER than TestFlight ($TESTFLIGHT)."
+            echo "This can happen when manually re-running an old workflow."
+            echo "Refusing to deploy an older version."
+            exit 1
+          elif [ "$LOCAL" -eq "$TESTFLIGHT" ]; then
+            echo "Local version ($LOCAL) already exists in TestFlight. Skipping."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Local version ($LOCAL) is newer than TestFlight ($TESTFLIGHT). Proceeding."
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Cache CocoaPods
         if: steps.check_build.outputs.skip != 'true'
