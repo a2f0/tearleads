@@ -77,8 +77,5 @@ if [ -n "${TMUX:-}" ]; then
     tmux set-option -wu @waiting_status 2>/dev/null || true
     tmux set-option -wu @queued_status 2>/dev/null || true
 
-    # Reset background color to default
-    tmux select-pane -P 'bg=default'
-
     echo "Tmux window cleaned up"
 fi
