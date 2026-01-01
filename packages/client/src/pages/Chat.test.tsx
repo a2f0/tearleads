@@ -50,7 +50,21 @@ vi.mock('@assistant-ui/react', () => ({
     Empty: ({ children }: { children: React.ReactNode }) => (
       <div data-testid="thread-empty">{children}</div>
     ),
-    Messages: () => <div data-testid="thread-messages">Messages</div>
+    Messages: ({
+      components
+    }: {
+      components?: {
+        UserMessage?: React.ComponentType;
+        AssistantMessage?: React.ComponentType;
+      };
+    }) => {
+      const AssistantMsg = components?.AssistantMessage;
+      return (
+        <div data-testid="thread-messages">
+          {AssistantMsg && <AssistantMsg />}
+        </div>
+      );
+    }
   },
   MessagePrimitive: {
     Root: ({
@@ -60,7 +74,24 @@ vi.mock('@assistant-ui/react', () => ({
       children: React.ReactNode;
       className?: string;
     }) => <div className={className}>{children}</div>,
-    Content: () => <span>Message content</span>
+    Content: ({
+      components
+    }: {
+      components?: { Text?: React.ComponentType };
+    }) => {
+      const TextComponent = components?.Text;
+      return (
+        <span data-testid="message-content">
+          {TextComponent ? <TextComponent /> : 'Message content'}
+        </span>
+      );
+    }
+  },
+  MessagePartPrimitive: {
+    Text: () => <span data-testid="message-part-text">Text content</span>,
+    InProgress: ({ children }: { children: React.ReactNode }) => (
+      <span data-testid="message-part-in-progress">{children}</span>
+    )
   },
   ComposerPrimitive: {
     Root: ({
@@ -270,6 +301,53 @@ describe('Chat', () => {
       renderChat();
 
       expect(screen.getByText('Paligemma Model')).toBeInTheDocument();
+    });
+  });
+
+  describe('CustomText loading spinner', () => {
+    beforeEach(() => {
+      vi.mocked(useLLM).mockReturnValue({
+        loadedModel: 'onnx-community/Phi-3-mini-4k-instruct',
+        modelType: 'chat',
+        isLoading: false,
+        loadProgress: null,
+        error: null,
+        loadModel: vi.fn(),
+        unloadModel: vi.fn(),
+        generate: vi.fn(),
+        abort: vi.fn(),
+        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+      });
+    });
+
+    it('renders the message content with custom text component', () => {
+      renderChat();
+
+      expect(screen.getByTestId('message-content')).toBeInTheDocument();
+    });
+
+    it('renders the text part primitive', () => {
+      renderChat();
+
+      expect(screen.getByTestId('message-part-text')).toBeInTheDocument();
+    });
+
+    it('renders the in-progress indicator container', () => {
+      renderChat();
+
+      expect(
+        screen.getByTestId('message-part-in-progress')
+      ).toBeInTheDocument();
+    });
+
+    it('renders the animated spinner inside in-progress indicator', () => {
+      renderChat();
+
+      const inProgressContainer = screen.getByTestId(
+        'message-part-in-progress'
+      );
+      const spinner = inProgressContainer.querySelector('.animate-spin');
+      expect(spinner).toBeInTheDocument();
     });
   });
 });
