@@ -4,6 +4,13 @@
  */
 
 /**
+ * Type guard to check if a value is a record (object with string keys).
+ */
+function isRecordRow(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/**
  * Extract column names from a SELECT statement.
  * Returns column names in the order they appear in the SELECT clause.
  * Handles:
@@ -87,15 +94,19 @@ export function convertRowsToArrays(sql: string, rows: unknown[]): unknown[] {
 
   // If columns can't be parsed (e.g. SELECT *) and we have rows,
   // derive column order from the keys of the first row.
-  if (!columns && rows.length > 0) {
-    columns = Object.keys(rows[0] as Record<string, unknown>);
+  const firstRow = rows[0];
+  if (!columns && rows.length > 0 && isRecordRow(firstRow)) {
+    columns = Object.keys(firstRow);
   }
 
   if (columns && rows.length > 0) {
     // Convert object rows to array rows in the correct column order
-    return rows.map((row) =>
-      rowToArray(row as Record<string, unknown>, columns)
-    );
+    return rows.map((row) => {
+      if (!isRecordRow(row)) {
+        return columns.map(() => undefined);
+      }
+      return rowToArray(row, columns);
+    });
   }
 
   // For non-SELECT queries or if there are no rows, return as-is
