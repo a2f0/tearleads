@@ -43,6 +43,7 @@ ensure_symlinks() {
     # Only symlink .secrets (not version controlled)
     target="$SHARED_DIR/.secrets"
     link="$workspace/.secrets"
+    relative_path="../rapid-shared/.secrets"
 
     # Skip if shared folder doesn't exist
     [ -d "$target" ] || return 0
@@ -50,7 +51,7 @@ ensure_symlinks() {
     # If it's already a correct symlink, skip
     if [ -L "$link" ]; then
         current_target=$(readlink "$link")
-        if [ "$current_target" = "$target" ] || [ "$current_target" = "../rapid-shared/.secrets" ]; then
+        if [ "$current_target" = "$target" ] || [ "$current_target" = "$relative_path" ]; then
             return 0
         fi
         # Wrong symlink, remove it
@@ -65,8 +66,8 @@ ensure_symlinks() {
     fi
 
     # Create the symlink (relative path for portability)
-    ln -s "../rapid-shared/.secrets" "$link"
-    echo "Symlinked $link -> ../rapid-shared/.secrets"
+    ln -s "$relative_path" "$link"
+    echo "Symlinked $link -> $relative_path"
 }
 
 # Use local configs
