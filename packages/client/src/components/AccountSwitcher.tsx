@@ -33,14 +33,17 @@ export function AccountSwitcher() {
       const rect = menuRef.current.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
 
-      if (menuPosition.top + rect.height > viewportHeight) {
-        setMenuPosition((prev) => ({
-          ...prev,
-          top: Math.max(8, viewportHeight - rect.height - 8)
-        }));
-      }
+      setMenuPosition((prev) => {
+        if (prev.top + rect.height > viewportHeight) {
+          return {
+            ...prev,
+            top: Math.max(8, viewportHeight - rect.height - 8)
+          };
+        }
+        return prev;
+      });
     }
-  }, [isOpen, menuPosition.top]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {

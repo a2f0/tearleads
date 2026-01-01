@@ -225,4 +225,69 @@ describe('AccountSwitcher', () => {
 
     Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;
   });
+
+  it('adjusts dropdown position when it would overflow viewport bottom', async () => {
+    const user = userEvent.setup();
+
+    const originalGetBoundingClientRect =
+      Element.prototype.getBoundingClientRect;
+    let callCount = 0;
+    Element.prototype.getBoundingClientRect = () => {
+      callCount++;
+      // First call is for the button (positioned near bottom of viewport)
+      if (callCount === 1) {
+        return {
+          width: 36,
+          height: 36,
+          top: 450,
+          left: 800,
+          right: 836,
+          bottom: 486,
+          x: 800,
+          y: 450,
+          toJSON: () => ({})
+        };
+      }
+      // Subsequent calls are for the menu
+      return {
+        width: 192,
+        height: 80,
+        top: 490,
+        left: 644,
+        right: 836,
+        bottom: 570,
+        x: 644,
+        y: 490,
+        toJSON: () => ({})
+      };
+    };
+
+    // Set viewport height so menu would overflow
+    Object.defineProperty(window, 'innerWidth', {
+      value: 1024,
+      writable: true
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      value: 500,
+      writable: true
+    });
+
+    render(<AccountSwitcher />);
+
+    await user.click(screen.getByTestId('account-switcher-button'));
+
+    const menu = screen.getByText('Change instance').closest('div[style]');
+
+    // Menu should be repositioned to avoid overflow
+    // With viewport height 500 and menu height 80, adjusted top should be max(8, 500 - 80 - 8) = 412
+    await waitFor(() => {
+      const style = menu?.getAttribute('style');
+      const topValue = style
+        ? parseFloat(style.match(/top: ([\d.]+)px/)?.[1] ?? '490')
+        : 490;
+      expect(topValue).toBeLessThan(490);
+    });
+
+    Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+  });
 });
