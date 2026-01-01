@@ -366,13 +366,15 @@ describe('Photos', () => {
   });
 
   describe('download functionality', () => {
-    it('shows download button for each photo', async () => {
+    beforeEach(async () => {
       renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
       });
+    });
 
+    it('shows download button for each photo', () => {
       // Download button should be present for each photo (visible on hover via CSS)
       const downloadButtons = screen.getAllByTitle('Download');
       expect(downloadButtons.length).toBe(2); // One for each photo
@@ -381,18 +383,10 @@ describe('Photos', () => {
     it('downloads photo when download button is clicked', async () => {
       const user = userEvent.setup();
 
-      renderPhotos();
-
-      await waitFor(() => {
-        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
-      });
-
       // Get the first download button
       const downloadButtons = screen.getAllByTitle('Download');
-      const firstButton = downloadButtons[0];
-      if (firstButton) {
-        await user.click(firstButton);
-      }
+      expect(downloadButtons.length).toBeGreaterThan(0);
+      await user.click(downloadButtons[0] as HTMLElement);
 
       await waitFor(() => {
         // Should retrieve the full image, not thumbnail
