@@ -8,6 +8,7 @@ import { type ChangeEvent, useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
+import { getErrorMessage } from '@/lib/errors';
 import { detectPlatform } from '@/lib/utils';
 
 async function copyToClipboard(text: string): Promise<boolean> {
@@ -75,7 +76,7 @@ export function DatabaseTest() {
     } catch (err) {
       setTestResult({
         status: 'error',
-        message: `Setup error: ${(err as Error).message}`
+        message: `Setup error: ${getErrorMessage(err)}`
       });
     }
   }, [password, setup]);
@@ -98,7 +99,7 @@ export function DatabaseTest() {
     } catch (err) {
       setTestResult({
         status: 'error',
-        message: `Unlock error: ${(err as Error).message}`
+        message: `Unlock error: ${getErrorMessage(err)}`
       });
     }
   }, [password, persistUnlock, unlock]);
@@ -123,7 +124,7 @@ export function DatabaseTest() {
     } catch (err) {
       setTestResult({
         status: 'error',
-        message: `Restore error: ${(err as Error).message}`
+        message: `Restore error: ${getErrorMessage(err)}`
       });
     }
   }, [restoreSession]);
@@ -142,7 +143,7 @@ export function DatabaseTest() {
       } catch (err) {
         setTestResult({
           status: 'error',
-          message: `Lock error: ${(err as Error).message}`
+          message: `Lock error: ${getErrorMessage(err)}`
         });
       }
     },
@@ -158,7 +159,7 @@ export function DatabaseTest() {
     } catch (err) {
       setTestResult({
         status: 'error',
-        message: `Reset error: ${(err as Error).message}`
+        message: `Reset error: ${getErrorMessage(err)}`
       });
     }
   }, [reset]);
@@ -188,7 +189,7 @@ export function DatabaseTest() {
     } catch (err) {
       setTestResult({
         status: 'error',
-        message: `Write error: ${(err as Error).message}`
+        message: `Write error: ${getErrorMessage(err)}`
       });
     }
   }, [isUnlocked]);
@@ -208,7 +209,11 @@ export function DatabaseTest() {
       );
 
       if (result.rows.length > 0) {
-        const value = (result.rows[0] as { value: string }).value;
+        const row = result.rows[0];
+        const value =
+          row && typeof row === 'object' && 'value' in row
+            ? String(row['value'])
+            : '';
         setTestData(value);
         setTestResult({
           status: 'success',
@@ -221,7 +226,7 @@ export function DatabaseTest() {
     } catch (err) {
       setTestResult({
         status: 'error',
-        message: `Read error: ${(err as Error).message}`
+        message: `Read error: ${getErrorMessage(err)}`
       });
     }
   }, [isUnlocked]);
@@ -260,7 +265,7 @@ export function DatabaseTest() {
     } catch (err) {
       setTestResult({
         status: 'error',
-        message: `Change password error: ${(err as Error).message}`
+        message: `Change password error: ${getErrorMessage(err)}`
       });
     }
   }, [isUnlocked, password, newPassword, changePassword]);
