@@ -150,4 +150,52 @@ describe('DebugMenu', () => {
       expect(screen.queryByText('Debug Menu')).not.toBeInTheDocument();
     });
   });
+
+  it('clears localStorage and reloads when Clear Local Storage is clicked', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
+
+    // Mock localStorage.clear directly on the localStorage object
+    const localStorageClearSpy = vi.spyOn(localStorage, 'clear');
+
+    // Mock window.location.reload
+    const reloadMock = vi.fn();
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, reload: reloadMock },
+      configurable: true
+    });
+
+    render(<DebugMenu />);
+
+    await user.click(screen.getByRole('button', { name: /open debug menu/i }));
+    await user.click(
+      screen.getByRole('button', { name: /clear local storage/i })
+    );
+
+    expect(localStorageClearSpy).toHaveBeenCalled();
+    expect(reloadMock).toHaveBeenCalled();
+
+    localStorageClearSpy.mockRestore();
+  });
+
+  it('throws an error when Throw Error button is clicked', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
+
+    // Suppress error boundary console errors for this test
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    render(<DebugMenu />);
+
+    await user.click(screen.getByRole('button', { name: /open debug menu/i }));
+
+    // Clicking this button should cause the component to throw
+    await expect(async () => {
+      await user.click(screen.getByTestId('throw-error-button'));
+    }).rejects.toThrow('Test error from debug menu');
+
+    consoleError.mockRestore();
+  });
 });

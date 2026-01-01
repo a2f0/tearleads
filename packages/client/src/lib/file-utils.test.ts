@@ -5,8 +5,16 @@ import {
   downloadFile,
   generateBackupFilename,
   readFileAsUint8Array,
+  saveFile,
   shareFile
 } from './file-utils';
+
+// Mock Capacitor
+vi.mock('@capacitor/core', () => ({
+  Capacitor: {
+    getPlatform: vi.fn(() => 'web')
+  }
+}));
 
 describe('file-utils', () => {
   describe('generateBackupFilename', () => {
@@ -166,6 +174,60 @@ describe('file-utils', () => {
       for (let i = 0; i < 256; i++) {
         expect(result[i]).toBe(i);
       }
+    });
+
+    it('rejects when FileReader result is not ArrayBuffer', async () => {
+      // Mock FileReader to return a string instead of ArrayBuffer
+      const OriginalFileReader = globalThis.FileReader;
+
+      class MockFileReader {
+        result: string | ArrayBuffer | null = 'not an ArrayBuffer';
+        onload: (() => void) | null = null;
+        onerror: (() => void) | null = null;
+        error: Error | null = null;
+
+        readAsArrayBuffer() {
+          setTimeout(() => {
+            this.onload?.();
+          }, 0);
+        }
+      }
+
+      globalThis.FileReader = MockFileReader as unknown as typeof FileReader;
+
+      const file = new File(['test'], 'test.db');
+
+      await expect(readFileAsUint8Array(file)).rejects.toThrow(
+        'Failed to read file as ArrayBuffer'
+      );
+
+      globalThis.FileReader = OriginalFileReader;
+    });
+
+    it('rejects when FileReader encounters an error', async () => {
+      const OriginalFileReader = globalThis.FileReader;
+      const testError = new Error('File read failed');
+
+      class MockFileReader {
+        result: ArrayBuffer | null = null;
+        onload: (() => void) | null = null;
+        onerror: (() => void) | null = null;
+        error: Error | null = testError;
+
+        readAsArrayBuffer() {
+          setTimeout(() => {
+            this.onerror?.();
+          }, 0);
+        }
+      }
+
+      globalThis.FileReader = MockFileReader as unknown as typeof FileReader;
+
+      const file = new File(['test'], 'test.db');
+
+      await expect(readFileAsUint8Array(file)).rejects.toThrow(testError);
+
+      globalThis.FileReader = OriginalFileReader;
     });
   });
 
@@ -365,6 +427,57 @@ describe('file-utils', () => {
       expect(mockShare).toHaveBeenCalledWith({
         files: expect.arrayContaining([expect.any(File)])
       });
+    });
+  });
+
+  describe('saveFile', () => {
+    let createObjectURLSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      // Mock URL methods for downloadFile
+      createObjectURLSpy = vi
+        .spyOn(URL, 'createObjectURL')
+        .mockReturnValue('blob:test-url');
+      vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+      // Mock document methods
+      const originalCreateElement = document.createElement.bind(document);
+      vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+        const element = originalCreateElement(tagName);
+        if (tagName === 'a') {
+          vi.spyOn(element, 'click').mockImplementation(() => {});
+        }
+        return element;
+      });
+
+      vi.spyOn(document.body, 'appendChild').mockImplementation((node) => node);
+      vi.spyOn(document.body, 'removeChild').mockImplementation((node) => node);
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('uses downloadFile for web platform', async () => {
+      const { Capacitor } = await import('@capacitor/core');
+      vi.mocked(Capacitor.getPlatform).mockReturnValue('web');
+
+      const data = new Uint8Array([1, 2, 3]);
+      await saveFile(data, 'test.db');
+
+      // downloadFile should have been called, which creates a blob URL
+      expect(createObjectURLSpy).toHaveBeenCalled();
+    });
+
+    it('uses downloadFile for electron platform', async () => {
+      const { Capacitor } = await import('@capacitor/core');
+      vi.mocked(Capacitor.getPlatform).mockReturnValue('electron');
+
+      const data = new Uint8Array([1, 2, 3]);
+      await saveFile(data, 'test.db');
+
+      // downloadFile should have been called
+      expect(createObjectURLSpy).toHaveBeenCalled();
     });
   });
 });
