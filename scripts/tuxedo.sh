@@ -75,6 +75,35 @@ TMUX_CONF="$CONFIG_DIR/tmux.conf"
 NVIM_INIT="$CONFIG_DIR/neovim.lua"
 EDITOR="${TUXEDO_EDITOR:-nvim -u $NVIM_INIT}"
 
+# Sync VS Code window title to tmux window name
+# If .vscode/settings.json has a window.title, use it for tmux
+sync_vscode_title() {
+    workspace="$1"
+    window_name="$2"
+    settings_file="$workspace/.vscode/settings.json"
+
+    # Skip if no settings file or jq not available
+    [ -f "$settings_file" ] && command -v jq >/dev/null 2>&1 || return 0
+
+    # Read the window.title from VS Code settings
+    vscode_title=$(jq -r '.["window.title"] // empty' "$settings_file" 2>/dev/null)
+
+    # If a title is set, rename the tmux window
+    if [ -n "$vscode_title" ]; then
+        tmux rename-window -t "$SESSION_NAME:$window_name" "$vscode_title" 2>/dev/null || true
+    fi
+}
+
+# Sync all workspace titles from VS Code to tmux
+sync_all_titles() {
+    sync_vscode_title "$BASE_DIR/rapid-main" "rapid-main"
+    i=2
+    while [ "$i" -le "$NUM_WORKSPACES" ]; do
+        sync_vscode_title "$BASE_DIR/rapid${i}" "rapid${i}"
+        i=$((i + 1))
+    done
+}
+
 # Export for tmux config reload binding
 export TUXEDO_TMUX_CONF="$TMUX_CONF"
 
@@ -92,6 +121,8 @@ if [ -d "$SHARED_DIR" ]; then
 fi
 
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    # Sync VS Code titles before attaching
+    sync_all_titles
     tmux attach-session -t "$SESSION_NAME"
     exit 0
 fi
@@ -116,6 +147,9 @@ done
 
 # Enable mouse support for this session only (not globally)
 tmux set-option -t "$SESSION_NAME" mouse on
+
+# Sync VS Code titles to tmux window names
+sync_all_titles
 
 tmux select-window -t "$SESSION_NAME:0"
 tmux attach-session -t "$SESSION_NAME"
