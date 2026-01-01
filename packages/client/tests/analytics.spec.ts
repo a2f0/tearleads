@@ -326,7 +326,7 @@ test.describe('Analytics page', () => {
     await expect(page.getByText('Recent Events')).toBeVisible({ timeout: 10000 });
 
     // Clear events
-    const clearButton = page.getByRole('button', { name: 'Clear' });
+    const clearButton = page.getByRole('button', { name: 'Clear', exact: true });
     await expect(clearButton).toBeEnabled({ timeout: 5000 });
     await clearButton.click();
 
