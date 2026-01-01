@@ -1,4 +1,4 @@
--- Tuxedo neovim configuration
+-- Tuxedo neovim configuration (neovim.lua)
 
 -- disable builtin file browser
 vim.g.loaded_netrw = 1
