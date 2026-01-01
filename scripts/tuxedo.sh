@@ -26,12 +26,19 @@ EDITOR="${TUXEDO_EDITOR:-nvim -u $NVIM_INIT}"
 # Export for tmux config reload binding
 export TUXEDO_TMUX_CONF="$TMUX_CONF"
 
+# Scripts directories to add to PATH
+SCRIPTS_PATH="$BASE_DIR/rapid/scripts:$BASE_DIR/rapid/scripts/agents"
+
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     tmux attach-session -t "$SESSION_NAME"
     exit 0
 fi
 
 tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main
+
+# Add scripts directories to PATH for all windows in this session
+tmux set-environment -t "$SESSION_NAME" PATH "$SCRIPTS_PATH:$PATH"
+
 tmux split-window -h -t "$SESSION_NAME:rapid-main" -c "$BASE_DIR/rapid-main" "$EDITOR"
 
 i=2
