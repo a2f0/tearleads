@@ -20,7 +20,7 @@ export const navItems = [
   { path: '/', icon: FileIcon, label: 'Files' },
   { path: '/contacts', icon: Users, label: 'Contacts' },
   { path: '/photos', icon: ImageIcon, label: 'Photos' },
-  { path: '/music', icon: Music, label: 'Music' },
+  { path: '/audio', icon: Music, label: 'Audio' },
   { path: '/tables', icon: Table2, label: 'Tables' },
   { path: '/analytics', icon: BarChart3, label: 'Analytics' },
   { path: '/sqlite', icon: Database, label: 'SQLite' },

@@ -9,6 +9,7 @@ import {
 } from './components/ui/error-boundary';
 import { DatabaseProvider } from './db/hooks';
 import { Analytics } from './pages/Analytics';
+import { AudioPage } from './pages/Audio';
 import { CacheStorage } from './pages/CacheStorage';
 import { Chat } from './pages/Chat';
 import { ContactDetail } from './pages/ContactDetail';
@@ -17,7 +18,6 @@ import { Debug } from './pages/Debug';
 import { Files } from './pages/Files';
 import { LocalStorage } from './pages/LocalStorage';
 import { Models } from './pages/Models';
-import { MusicPage } from './pages/Music';
 import { Opfs } from './pages/Opfs';
 import { PhotoDetail } from './pages/PhotoDetail';
 import { Photos } from './pages/Photos';
@@ -61,7 +61,7 @@ if (rootElement) {
                   <Route path="contacts/:id" element={<ContactDetail />} />
                   <Route path="photos" element={<Photos />} />
                   <Route path="photos/:id" element={<PhotoDetail />} />
-                  <Route path="music" element={<MusicPage />} />
+                  <Route path="audio" element={<AudioPage />} />
                   <Route path="sqlite" element={<Sqlite />} />
                   <Route path="debug" element={<Debug />} />
                   <Route path="chat" element={<Chat />} />

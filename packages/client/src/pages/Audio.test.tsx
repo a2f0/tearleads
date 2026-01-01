@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MusicPage } from './Music';
+import { AudioPage } from './Audio';
 
 // Mock the database context
 const mockUseDatabaseContext = vi.fn();
@@ -79,15 +79,15 @@ function createMockQueryChain(result: unknown[]) {
   };
 }
 
-function renderMusic() {
+function renderAudio() {
   return render(
     <MemoryRouter>
-      <MusicPage />
+      <AudioPage />
     </MemoryRouter>
   );
 }
 
-describe('MusicPage', () => {
+describe('AudioPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -110,13 +110,13 @@ describe('MusicPage', () => {
 
   describe('page rendering', () => {
     it('renders the page title', async () => {
-      renderMusic();
+      renderAudio();
 
-      expect(screen.getByText('Music')).toBeInTheDocument();
+      expect(screen.getByText('Audio')).toBeInTheDocument();
     });
 
     it('renders Refresh button when unlocked', async () => {
-      renderMusic();
+      renderAudio();
 
       expect(screen.getByText('Refresh')).toBeInTheDocument();
     });
@@ -132,13 +132,13 @@ describe('MusicPage', () => {
     });
 
     it('shows loading message', () => {
-      renderMusic();
+      renderAudio();
 
       expect(screen.getByText('Loading database...')).toBeInTheDocument();
     });
 
     it('does not show Refresh button', () => {
-      renderMusic();
+      renderAudio();
 
       expect(screen.queryByText('Refresh')).not.toBeInTheDocument();
     });
@@ -154,15 +154,17 @@ describe('MusicPage', () => {
     });
 
     it('shows locked message', () => {
-      renderMusic();
+      renderAudio();
 
       expect(
-        screen.getByText(/Database is locked. Unlock it from the SQLite page/)
+        screen.getByText(
+          /Database is locked. Unlock it from the SQLite page to view audio/
+        )
       ).toBeInTheDocument();
     });
 
     it('does not show Refresh button', () => {
-      renderMusic();
+      renderAudio();
 
       expect(screen.queryByText('Refresh')).not.toBeInTheDocument();
     });
@@ -176,7 +178,7 @@ describe('MusicPage', () => {
     });
 
     it('displays track names', async () => {
-      renderMusic();
+      renderAudio();
 
       await waitFor(() => {
         expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
@@ -185,7 +187,7 @@ describe('MusicPage', () => {
     });
 
     it('displays track sizes', async () => {
-      renderMusic();
+      renderAudio();
 
       await waitFor(() => {
         expect(screen.getByText('5 MB')).toBeInTheDocument();
@@ -194,7 +196,7 @@ describe('MusicPage', () => {
     });
 
     it('renders audio elements', async () => {
-      renderMusic();
+      renderAudio();
 
       await waitFor(() => {
         const audioElements = screen.getAllByRole('generic', { hidden: true });
@@ -204,7 +206,7 @@ describe('MusicPage', () => {
     });
 
     it('fetches audio data from storage', async () => {
-      renderMusic();
+      renderAudio();
 
       await waitFor(() => {
         expect(mockRetrieve).toHaveBeenCalledWith('/music/test-song.mp3');
@@ -213,7 +215,7 @@ describe('MusicPage', () => {
     });
 
     it('creates object URLs for audio playback', async () => {
-      renderMusic();
+      renderAudio();
 
       await waitFor(() => {
         expect(URL.createObjectURL).toHaveBeenCalled();
@@ -221,7 +223,7 @@ describe('MusicPage', () => {
     });
 
     it('revokes object URLs on unmount', async () => {
-      const { unmount } = renderMusic();
+      const { unmount } = renderAudio();
 
       await waitFor(() => {
         expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
@@ -239,7 +241,7 @@ describe('MusicPage', () => {
     });
 
     it('shows dropzone when no tracks', async () => {
-      renderMusic();
+      renderAudio();
 
       await waitFor(() => {
         expect(
@@ -259,10 +261,10 @@ describe('MusicPage', () => {
         })
       });
 
-      renderMusic();
+      renderAudio();
 
       await waitFor(() => {
-        expect(screen.getByText('Loading music...')).toBeInTheDocument();
+        expect(screen.getByText('Loading audio...')).toBeInTheDocument();
       });
     });
   });
@@ -277,7 +279,7 @@ describe('MusicPage', () => {
         })
       });
 
-      renderMusic();
+      renderAudio();
 
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
@@ -287,7 +289,7 @@ describe('MusicPage', () => {
     it('handles track load failure gracefully', async () => {
       mockRetrieve.mockRejectedValue(new Error('Storage error'));
 
-      renderMusic();
+      renderAudio();
 
       // Should not crash, but track won't be displayed
       await waitFor(() => {
@@ -299,7 +301,7 @@ describe('MusicPage', () => {
   describe('refresh functionality', () => {
     it('refreshes track list when Refresh is clicked', async () => {
       const user = userEvent.setup();
-      renderMusic();
+      renderAudio();
 
       await waitFor(() => {
         expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
@@ -324,10 +326,10 @@ describe('MusicPage', () => {
         })
       });
 
-      renderMusic();
+      renderAudio();
 
       await waitFor(() => {
-        expect(screen.getByText('Loading music...')).toBeInTheDocument();
+        expect(screen.getByText('Loading audio...')).toBeInTheDocument();
       });
 
       expect(screen.getByRole('button', { name: /refresh/i })).toBeDisabled();
@@ -338,7 +340,7 @@ describe('MusicPage', () => {
     it('initializes file storage if not initialized', async () => {
       mockIsFileStorageInitialized.mockReturnValue(false);
 
-      renderMusic();
+      renderAudio();
 
       await waitFor(() => {
         expect(mockInitializeFileStorage).toHaveBeenCalledWith(
