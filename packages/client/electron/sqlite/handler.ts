@@ -209,21 +209,31 @@ function rekey(newKey: number[]): void {
  * The key check value is a hash used only for password verification.
  * We use safeStorage when available for extra protection, but fall back to
  * plain JSON storage when not available (e.g., in CI environments).
+ *
+ * Storage is namespaced by instance ID for multi-instance support.
  */
-const SALT_FILE = '.salt';
-const KCV_FILE = '.kcv';
+const SALT_PREFIX = '.salt';
+const KCV_PREFIX = '.kcv';
 
 function getStoragePath(filename: string): string {
   return path.join(app.getPath('userData'), filename);
 }
 
-function storeSalt(salt: number[]): void {
-  const saltPath = getStoragePath(SALT_FILE);
+function getSaltFilename(instanceId: string): string {
+  return `${SALT_PREFIX}_${instanceId}`;
+}
+
+function getKcvFilename(instanceId: string): string {
+  return `${KCV_PREFIX}_${instanceId}`;
+}
+
+function storeSalt(salt: number[], instanceId: string): void {
+  const saltPath = getStoragePath(getSaltFilename(instanceId));
   fs.writeFileSync(saltPath, JSON.stringify(salt), 'utf8');
 }
 
-function getSalt(): number[] | null {
-  const saltPath = getStoragePath(SALT_FILE);
+function getSalt(instanceId: string): number[] | null {
+  const saltPath = getStoragePath(getSaltFilename(instanceId));
   try {
     return JSON.parse(fs.readFileSync(saltPath, 'utf8'));
   } catch {
@@ -231,13 +241,13 @@ function getSalt(): number[] | null {
   }
 }
 
-function storeKeyCheckValue(kcv: string): void {
-  const kcvPath = getStoragePath(KCV_FILE);
+function storeKeyCheckValue(kcv: string, instanceId: string): void {
+  const kcvPath = getStoragePath(getKcvFilename(instanceId));
   fs.writeFileSync(kcvPath, kcv, 'utf8');
 }
 
-function getKeyCheckValue(): string | null {
-  const kcvPath = getStoragePath(KCV_FILE);
+function getKeyCheckValue(instanceId: string): string | null {
+  const kcvPath = getStoragePath(getKcvFilename(instanceId));
   try {
     return fs.readFileSync(kcvPath, 'utf8');
   } catch {
@@ -245,9 +255,9 @@ function getKeyCheckValue(): string | null {
   }
 }
 
-function clearKeyStorage(): void {
-  const saltPath = getStoragePath(SALT_FILE);
-  const kcvPath = getStoragePath(KCV_FILE);
+function clearKeyStorage(instanceId: string): void {
+  const saltPath = getStoragePath(getSaltFilename(instanceId));
+  const kcvPath = getStoragePath(getKcvFilename(instanceId));
 
   fs.rmSync(saltPath, { force: true });
   fs.rmSync(kcvPath, { force: true });
@@ -301,25 +311,25 @@ export function registerSqliteHandlers(): void {
     rekey(newKey);
   });
 
-  // Key storage operations
-  ipcMain.handle('sqlite:getSalt', () => {
-    return getSalt();
+  // Key storage operations (namespaced by instanceId)
+  ipcMain.handle('sqlite:getSalt', (_event, instanceId: string) => {
+    return getSalt(instanceId);
   });
 
-  ipcMain.handle('sqlite:setSalt', (_event, salt: number[]) => {
-    storeSalt(salt);
+  ipcMain.handle('sqlite:setSalt', (_event, salt: number[], instanceId: string) => {
+    storeSalt(salt, instanceId);
   });
 
-  ipcMain.handle('sqlite:getKeyCheckValue', () => {
-    return getKeyCheckValue();
+  ipcMain.handle('sqlite:getKeyCheckValue', (_event, instanceId: string) => {
+    return getKeyCheckValue(instanceId);
   });
 
-  ipcMain.handle('sqlite:setKeyCheckValue', (_event, kcv: string) => {
-    storeKeyCheckValue(kcv);
+  ipcMain.handle('sqlite:setKeyCheckValue', (_event, kcv: string, instanceId: string) => {
+    storeKeyCheckValue(kcv, instanceId);
   });
 
-  ipcMain.handle('sqlite:clearKeyStorage', () => {
-    clearKeyStorage();
+  ipcMain.handle('sqlite:clearKeyStorage', (_event, instanceId: string) => {
+    clearKeyStorage(instanceId);
   });
 
   ipcMain.handle('sqlite:deleteDatabase', (_event, name: string) => {

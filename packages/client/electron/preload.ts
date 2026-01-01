@@ -27,21 +27,21 @@ const sqlite = {
   rekey: (newKey: number[]): Promise<void> => {
     return ipcRenderer.invoke('sqlite:rekey', newKey);
   },
-  // Key storage
-  getSalt: (): Promise<number[] | null> => {
-    return ipcRenderer.invoke('sqlite:getSalt');
+  // Key storage (namespaced by instanceId)
+  getSalt: (instanceId: string): Promise<number[] | null> => {
+    return ipcRenderer.invoke('sqlite:getSalt', instanceId);
   },
-  setSalt: (salt: number[]): Promise<void> => {
-    return ipcRenderer.invoke('sqlite:setSalt', salt);
+  setSalt: (salt: number[], instanceId: string): Promise<void> => {
+    return ipcRenderer.invoke('sqlite:setSalt', salt, instanceId);
   },
-  getKeyCheckValue: (): Promise<string | null> => {
-    return ipcRenderer.invoke('sqlite:getKeyCheckValue');
+  getKeyCheckValue: (instanceId: string): Promise<string | null> => {
+    return ipcRenderer.invoke('sqlite:getKeyCheckValue', instanceId);
   },
-  setKeyCheckValue: (kcv: string): Promise<void> => {
-    return ipcRenderer.invoke('sqlite:setKeyCheckValue', kcv);
+  setKeyCheckValue: (kcv: string, instanceId: string): Promise<void> => {
+    return ipcRenderer.invoke('sqlite:setKeyCheckValue', kcv, instanceId);
   },
-  clearKeyStorage: (): Promise<void> => {
-    return ipcRenderer.invoke('sqlite:clearKeyStorage');
+  clearKeyStorage: (instanceId: string): Promise<void> => {
+    return ipcRenderer.invoke('sqlite:clearKeyStorage', instanceId);
   },
   deleteDatabase: (name: string): Promise<void> => {
     return ipcRenderer.invoke('sqlite:deleteDatabase', name);

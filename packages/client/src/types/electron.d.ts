@@ -16,11 +16,11 @@ export interface ElectronSqliteApi {
   commit: () => Promise<void>;
   rollback: () => Promise<void>;
   rekey: (newKey: number[]) => Promise<void>;
-  getSalt: () => Promise<number[] | null>;
-  setSalt: (salt: number[]) => Promise<void>;
-  getKeyCheckValue: () => Promise<string | null>;
-  setKeyCheckValue: (kcv: string) => Promise<void>;
-  clearKeyStorage: () => Promise<void>;
+  getSalt: (instanceId: string) => Promise<number[] | null>;
+  setSalt: (salt: number[], instanceId: string) => Promise<void>;
+  getKeyCheckValue: (instanceId: string) => Promise<string | null>;
+  setKeyCheckValue: (kcv: string, instanceId: string) => Promise<void>;
+  clearKeyStorage: (instanceId: string) => Promise<void>;
   deleteDatabase: (name: string) => Promise<void>;
   export: (name: string) => Promise<number[]>;
   import: (name: string, data: number[], key: number[]) => Promise<void>;

@@ -51,7 +51,7 @@ interface UploadingFile {
 }
 
 export function Files() {
-  const { isUnlocked, isLoading } = useDatabaseContext();
+  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [files, setFiles] = useState<FileWithThumbnail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -98,9 +98,10 @@ export function Files() {
       const keyManager = getKeyManager();
       const encryptionKey = keyManager.getCurrentKey();
       if (!encryptionKey) throw new Error('Database not unlocked');
+      if (!currentInstanceId) throw new Error('No active instance');
 
       if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey);
+        await initializeFileStorage(encryptionKey, currentInstanceId);
       }
 
       const storage = getFileStorage();
@@ -131,7 +132,7 @@ export function Files() {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked]);
+  }, [isUnlocked, currentInstanceId]);
 
   useEffect(() => {
     if (isUnlocked && !hasFetched && !loading) {
@@ -220,52 +221,60 @@ export function Files() {
     (f) => f.status === 'complete' || f.status === 'duplicate'
   );
 
-  const handleView = useCallback(async (file: FileInfo) => {
-    try {
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
+  const handleView = useCallback(
+    async (file: FileInfo) => {
+      try {
+        const keyManager = getKeyManager();
+        const encryptionKey = keyManager.getCurrentKey();
+        if (!encryptionKey) throw new Error('Database not unlocked');
+        if (!currentInstanceId) throw new Error('No active instance');
 
-      if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey);
+        if (!isFileStorageInitialized()) {
+          await initializeFileStorage(encryptionKey, currentInstanceId);
+        }
+
+        const storage = getFileStorage();
+        const data = await storage.retrieve(file.storagePath);
+
+        // Create blob and open in new tab (copy for TypeScript compatibility)
+        const buffer = new ArrayBuffer(data.byteLength);
+        new Uint8Array(buffer).set(data);
+        const blob = new Blob([buffer], { type: file.mimeType });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        // Clean up after a delay to allow the tab to load
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      } catch (err) {
+        console.error('Failed to view file:', err);
+        setError(err instanceof Error ? err.message : String(err));
       }
+    },
+    [currentInstanceId]
+  );
 
-      const storage = getFileStorage();
-      const data = await storage.retrieve(file.storagePath);
+  const handleDownload = useCallback(
+    async (file: FileInfo) => {
+      try {
+        const keyManager = getKeyManager();
+        const encryptionKey = keyManager.getCurrentKey();
+        if (!encryptionKey) throw new Error('Database not unlocked');
+        if (!currentInstanceId) throw new Error('No active instance');
 
-      // Create blob and open in new tab (copy for TypeScript compatibility)
-      const buffer = new ArrayBuffer(data.byteLength);
-      new Uint8Array(buffer).set(data);
-      const blob = new Blob([buffer], { type: file.mimeType });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      // Clean up after a delay to allow the tab to load
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (err) {
-      console.error('Failed to view file:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, []);
+        if (!isFileStorageInitialized()) {
+          await initializeFileStorage(encryptionKey, currentInstanceId);
+        }
 
-  const handleDownload = useCallback(async (file: FileInfo) => {
-    try {
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
+        const storage = getFileStorage();
+        const data = await storage.retrieve(file.storagePath);
 
-      if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey);
+        downloadFile(data, file.name);
+      } catch (err) {
+        console.error('Failed to download file:', err);
+        setError(err instanceof Error ? err.message : String(err));
       }
-
-      const storage = getFileStorage();
-      const data = await storage.retrieve(file.storagePath);
-
-      downloadFile(data, file.name);
-    } catch (err) {
-      console.error('Failed to download file:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, []);
+    },
+    [currentInstanceId]
+  );
 
   const handleDelete = useCallback(async (file: FileInfo) => {
     try {

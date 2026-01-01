@@ -40,7 +40,7 @@ interface PhotoWithUrl extends PhotoInfo {
 
 export function Photos() {
   const navigate = useNavigate();
-  const { isUnlocked, isLoading } = useDatabaseContext();
+  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [photos, setPhotos] = useState<PhotoWithUrl[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,9 +65,10 @@ export function Photos() {
         const keyManager = getKeyManager();
         const encryptionKey = keyManager.getCurrentKey();
         if (!encryptionKey) throw new Error('Database not unlocked');
+        if (!currentInstanceId) throw new Error('No active instance');
 
         if (!isFileStorageInitialized()) {
-          await initializeFileStorage(encryptionKey);
+          await initializeFileStorage(encryptionKey, currentInstanceId);
         }
 
         const storage = getFileStorage();
@@ -79,7 +80,7 @@ export function Photos() {
         setError(err instanceof Error ? err.message : String(err));
       }
     },
-    []
+    [currentInstanceId]
   );
 
   const handleShare = useCallback(
@@ -90,9 +91,10 @@ export function Photos() {
         const keyManager = getKeyManager();
         const encryptionKey = keyManager.getCurrentKey();
         if (!encryptionKey) throw new Error('Database not unlocked');
+        if (!currentInstanceId) throw new Error('No active instance');
 
         if (!isFileStorageInitialized()) {
-          await initializeFileStorage(encryptionKey);
+          await initializeFileStorage(encryptionKey, currentInstanceId);
         }
 
         const storage = getFileStorage();
@@ -108,7 +110,7 @@ export function Photos() {
         setError(err instanceof Error ? err.message : String(err));
       }
     },
-    []
+    [currentInstanceId]
   );
 
   const fetchPhotos = useCallback(async () => {
@@ -148,9 +150,10 @@ export function Photos() {
       const keyManager = getKeyManager();
       const encryptionKey = keyManager.getCurrentKey();
       if (!encryptionKey) throw new Error('Database not unlocked');
+      if (!currentInstanceId) throw new Error('No active instance');
 
       if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey);
+        await initializeFileStorage(encryptionKey, currentInstanceId);
       }
 
       const storage = getFileStorage();
@@ -185,7 +188,7 @@ export function Photos() {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked]);
+  }, [isUnlocked, currentInstanceId]);
 
   useEffect(() => {
     if (isUnlocked && !hasFetched && !loading) {

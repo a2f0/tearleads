@@ -1,9 +1,45 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountSwitcher } from './AccountSwitcher';
 
+// Mock functions for tracking calls
+const mockCreateInstance = vi.fn(async () => 'new-instance');
+const mockSwitchInstance = vi.fn(async () => true);
+const mockDeleteInstance = vi.fn(async () => {});
+
+// Mock the database context
+vi.mock('@/db/hooks/useDatabase', () => ({
+  useDatabaseContext: vi.fn(() => ({
+    currentInstanceId: 'test-instance',
+    currentInstanceName: 'Instance 1',
+    instances: [
+      {
+        id: 'test-instance',
+        name: 'Instance 1',
+        createdAt: Date.now(),
+        lastAccessedAt: Date.now()
+      },
+      {
+        id: 'second-instance',
+        name: 'Instance 2',
+        createdAt: Date.now(),
+        lastAccessedAt: Date.now()
+      }
+    ],
+    createInstance: mockCreateInstance,
+    switchInstance: mockSwitchInstance,
+    deleteInstance: mockDeleteInstance,
+    refreshInstances: vi.fn(async () => {}),
+    isLoading: false
+  }))
+}));
+
 describe('AccountSwitcher', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('renders the account button', () => {
     render(<AccountSwitcher />);
 
@@ -26,7 +62,9 @@ describe('AccountSwitcher', () => {
 
     await user.click(screen.getByTestId('account-switcher-button'));
 
-    expect(screen.getByText('Change instance')).toBeInTheDocument();
+    // Check for instance names in dropdown (Instance 1 appears twice - in button and dropdown)
+    expect(screen.getAllByText('Instance 1')).toHaveLength(2);
+    expect(screen.getByText('Instance 2')).toBeInTheDocument();
     expect(screen.getByText('Create new instance')).toBeInTheDocument();
   });
 
@@ -47,14 +85,14 @@ describe('AccountSwitcher', () => {
     render(<AccountSwitcher />);
 
     await user.click(screen.getByTestId('account-switcher-button'));
-    expect(screen.getByText('Change instance')).toBeInTheDocument();
+    expect(screen.getByText('Create new instance')).toBeInTheDocument();
 
     await user.click(
       screen.getByRole('button', { name: /close account menu/i })
     );
 
     await waitFor(() => {
-      expect(screen.queryByText('Change instance')).not.toBeInTheDocument();
+      expect(screen.queryByText('Create new instance')).not.toBeInTheDocument();
     });
   });
 
@@ -63,12 +101,12 @@ describe('AccountSwitcher', () => {
     render(<AccountSwitcher />);
 
     await user.click(screen.getByTestId('account-switcher-button'));
-    expect(screen.getByText('Change instance')).toBeInTheDocument();
+    expect(screen.getByText('Create new instance')).toBeInTheDocument();
 
     await user.keyboard('{Escape}');
 
     await waitFor(() => {
-      expect(screen.queryByText('Change instance')).not.toBeInTheDocument();
+      expect(screen.queryByText('Create new instance')).not.toBeInTheDocument();
     });
   });
 
@@ -77,76 +115,59 @@ describe('AccountSwitcher', () => {
     render(<AccountSwitcher />);
 
     await user.click(screen.getByTestId('account-switcher-button'));
-    expect(screen.getByText('Change instance')).toBeInTheDocument();
+    expect(screen.getByText('Create new instance')).toBeInTheDocument();
 
     await user.click(screen.getByTestId('account-switcher-button'));
-
-    await waitFor(() => {
-      expect(screen.queryByText('Change instance')).not.toBeInTheDocument();
-    });
-  });
-
-  it('calls console.log when Change instance is clicked', async () => {
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const user = userEvent.setup();
-    render(<AccountSwitcher />);
-
-    await user.click(screen.getByTestId('account-switcher-button'));
-    await user.click(screen.getByTestId('change-instance-button'));
-
-    expect(consoleSpy).toHaveBeenCalledWith('Change instance');
-    consoleSpy.mockRestore();
-  });
-
-  it('calls console.log when Create new instance is clicked', async () => {
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const user = userEvent.setup();
-    render(<AccountSwitcher />);
-
-    await user.click(screen.getByTestId('account-switcher-button'));
-    await user.click(screen.getByTestId('create-instance-button'));
-
-    expect(consoleSpy).toHaveBeenCalledWith('Create new instance');
-    consoleSpy.mockRestore();
-  });
-
-  it('closes dropdown after Change instance is clicked', async () => {
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const user = userEvent.setup();
-    render(<AccountSwitcher />);
-
-    await user.click(screen.getByTestId('account-switcher-button'));
-    await user.click(screen.getByTestId('change-instance-button'));
-
-    await waitFor(() => {
-      expect(screen.queryByText('Change instance')).not.toBeInTheDocument();
-    });
-    consoleSpy.mockRestore();
-  });
-
-  it('closes dropdown after Create new instance is clicked', async () => {
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const user = userEvent.setup();
-    render(<AccountSwitcher />);
-
-    await user.click(screen.getByTestId('account-switcher-button'));
-    await user.click(screen.getByTestId('create-instance-button'));
 
     await waitFor(() => {
       expect(screen.queryByText('Create new instance')).not.toBeInTheDocument();
     });
-    consoleSpy.mockRestore();
   });
 
-  it('renders menu items with correct icons', async () => {
+  it('calls createInstance when New Instance is clicked', async () => {
+    const user = userEvent.setup();
+    render(<AccountSwitcher />);
+
+    await user.click(screen.getByTestId('account-switcher-button'));
+    await user.click(screen.getByText('Create new instance'));
+
+    expect(mockCreateInstance).toHaveBeenCalled();
+  });
+
+  it('calls switchInstance when a different instance is clicked', async () => {
+    const user = userEvent.setup();
+    render(<AccountSwitcher />);
+
+    await user.click(screen.getByTestId('account-switcher-button'));
+    await user.click(screen.getByText('Instance 2'));
+
+    expect(mockSwitchInstance).toHaveBeenCalledWith('second-instance');
+  });
+
+  it('closes dropdown after New Instance is clicked', async () => {
+    const user = userEvent.setup();
+    render(<AccountSwitcher />);
+
+    await user.click(screen.getByTestId('account-switcher-button'));
+    await user.click(screen.getByText('Create new instance'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Create new instance')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows checkmark for active instance', async () => {
     const user = userEvent.setup();
     render(<AccountSwitcher />);
 
     await user.click(screen.getByTestId('account-switcher-button'));
 
-    // Check that menu items are rendered as buttons
-    expect(screen.getByTestId('change-instance-button')).toBeInTheDocument();
-    expect(screen.getByTestId('create-instance-button')).toBeInTheDocument();
+    // The active instance should have a checkmark (SVG)
+    const instanceButtons = screen.getAllByRole('button');
+    const activeButton = instanceButtons.find((btn) =>
+      btn.textContent?.includes('Instance 1')
+    );
+    expect(activeButton?.querySelector('svg')).toBeInTheDocument();
   });
 
   it('cleans up event listener on unmount when open', async () => {
@@ -156,7 +177,7 @@ describe('AccountSwitcher', () => {
     const { unmount } = render(<AccountSwitcher />);
 
     await user.click(screen.getByTestId('account-switcher-button'));
-    expect(screen.getByText('Change instance')).toBeInTheDocument();
+    expect(screen.getByText('Create new instance')).toBeInTheDocument();
 
     unmount();
 
@@ -220,7 +241,7 @@ describe('AccountSwitcher', () => {
 
     await user.click(screen.getByTestId('account-switcher-button'));
 
-    const menu = screen.getByText('Change instance').closest('div[style]');
+    const menu = screen.getByText('Create new instance').closest('div[style]');
     expect(menu).toHaveStyle({ top: '60px' });
 
     Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;
@@ -276,10 +297,9 @@ describe('AccountSwitcher', () => {
 
     await user.click(screen.getByTestId('account-switcher-button'));
 
-    const menu = screen.getByText('Change instance').closest('div[style]');
+    const menu = screen.getByText('Create new instance').closest('div[style]');
 
     // Menu should be repositioned to avoid overflow
-    // With viewport height 500 and menu height 80, adjusted top should be max(8, 500 - 80 - 8) = 412
     await waitFor(() => {
       const style = menu?.getAttribute('style');
       const topValue = style

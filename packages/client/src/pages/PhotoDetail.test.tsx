@@ -92,7 +92,8 @@ describe('PhotoDetail', () => {
     // Default mocks for unlocked database with photo
     mockUseDatabaseContext.mockReturnValue({
       isUnlocked: true,
-      isLoading: false
+      isLoading: false,
+      currentInstanceId: 'test-instance'
     });
     mockGetCurrentKey.mockReturnValue(TEST_ENCRYPTION_KEY);
     mockIsFileStorageInitialized.mockReturnValue(true);
@@ -106,7 +107,8 @@ describe('PhotoDetail', () => {
     beforeEach(() => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
-        isLoading: true
+        isLoading: true,
+        currentInstanceId: null
       });
     });
 
@@ -120,7 +122,8 @@ describe('PhotoDetail', () => {
     beforeEach(() => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
-        isLoading: false
+        isLoading: false,
+        currentInstanceId: null
       });
     });
 
