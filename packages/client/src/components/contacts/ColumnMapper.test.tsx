@@ -57,11 +57,9 @@ describe('ColumnMapper', () => {
 
     const firstNameLabel = screen.getByText('First Name');
     const parent = firstNameLabel.parentElement;
-    expect(parent).not.toBeNull();
-    if (parent) {
-      const required = within(parent).getByText('*');
-      expect(required).toBeInTheDocument();
-    }
+    expect(parent).toBeInTheDocument();
+    const required = within(parent as HTMLElement).getByText('*');
+    expect(required).toBeInTheDocument();
   });
 
   it('renders email field groups', () => {
@@ -157,7 +155,7 @@ describe('ColumnMapper', () => {
       expect(importButton).not.toBeDisabled();
     });
 
-    it('auto-maps phone columns', () => {
+    it('auto-maps phone columns and disables them', () => {
       const googleData = createMockCSVData([
         'First Name',
         'Phone 1 - Label',
@@ -167,9 +165,17 @@ describe('ColumnMapper', () => {
       ]);
       render(<ColumnMapper {...defaultProps} data={googleData} />);
 
-      // Columns that are mapped should be disabled in the source list
-      const mappedColumns = screen.getAllByText(/Phone \d - (Label|Value)/);
-      expect(mappedColumns.length).toBeGreaterThanOrEqual(4);
+      // The CSV Columns section contains draggable columns
+      // Mapped columns should be disabled (have cursor-not-allowed and opacity-50)
+      const csvColumnsSection = screen.getByText('CSV Columns').parentElement;
+      expect(csvColumnsSection).toBeInTheDocument();
+
+      // Find columns with disabled styling in the source list
+      const disabledColumns = csvColumnsSection?.querySelectorAll(
+        '.cursor-not-allowed'
+      );
+      // Phone 1-2 Label and Value = 4 columns, plus First Name = 5 total mapped
+      expect(disabledColumns?.length).toBe(5);
     });
   });
 

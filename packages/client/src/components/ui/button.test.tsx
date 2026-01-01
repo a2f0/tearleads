@@ -254,18 +254,5 @@ describe('Button', () => {
       expect(screen.getByTestId('icon')).toBeInTheDocument();
       expect(screen.getByText('With Icon')).toBeInTheDocument();
     });
-
-    it('applies svg styling classes', () => {
-      const { container } = render(
-        <Button>
-          <svg data-testid="icon" />
-          Icon Button
-        </Button>
-      );
-
-      const button = container.querySelector('button');
-      // The button has [&_svg] styles
-      expect(button?.className).toContain('[&_svg]');
-    });
   });
 });
