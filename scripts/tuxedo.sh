@@ -1,3 +1,4 @@
+#!/bin/sh
 SESSION_NAME="tuxedo"
 # To detach - tmux detach
 # To destroy - tmux kill-session
