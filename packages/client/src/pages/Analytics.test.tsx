@@ -489,28 +489,89 @@ describe('Analytics', () => {
   });
 
   describe('column sorting', () => {
-    const mockEvents: AnalyticsEvent[] = [
-      {
-        id: '1',
-        eventName: 'db_setup',
-        durationMs: 150,
-        success: true,
-        timestamp: new Date('2025-01-01T12:00:00Z')
-      },
-      {
-        id: '2',
-        eventName: 'db_unlock',
-        durationMs: 50,
-        success: false,
-        timestamp: new Date('2025-01-01T14:00:00Z')
-      },
-      {
-        id: '3',
-        eventName: 'db_query',
-        durationMs: 200,
-        success: true,
-        timestamp: new Date('2025-01-01T10:00:00Z')
-      }
+    // Define individual events to avoid non-null assertions
+    const mockEventSetup: AnalyticsEvent = {
+      id: '1',
+      eventName: 'db_setup',
+      durationMs: 150,
+      success: true,
+      timestamp: new Date('2025-01-01T12:00:00Z')
+    };
+    const mockEventUnlock: AnalyticsEvent = {
+      id: '2',
+      eventName: 'db_unlock',
+      durationMs: 50,
+      success: false,
+      timestamp: new Date('2025-01-01T14:00:00Z')
+    };
+    const mockEventQuery: AnalyticsEvent = {
+      id: '3',
+      eventName: 'db_query',
+      durationMs: 200,
+      success: true,
+      timestamp: new Date('2025-01-01T10:00:00Z')
+    };
+
+    const mockEventsOriginal: AnalyticsEvent[] = [
+      mockEventSetup,
+      mockEventUnlock,
+      mockEventQuery
+    ];
+
+    // Events sorted by eventName ascending (alphabetically: query, setup, unlock)
+    const mockEventsSortedByNameAsc: AnalyticsEvent[] = [
+      mockEventQuery,
+      mockEventSetup,
+      mockEventUnlock
+    ];
+
+    // Events sorted by eventName descending
+    const mockEventsSortedByNameDesc: AnalyticsEvent[] = [
+      mockEventUnlock,
+      mockEventSetup,
+      mockEventQuery
+    ];
+
+    // Events sorted by durationMs ascending (50, 150, 200)
+    const mockEventsSortedByDurationAsc: AnalyticsEvent[] = [
+      mockEventUnlock, // 50ms
+      mockEventSetup, // 150ms
+      mockEventQuery // 200ms
+    ];
+
+    // Events sorted by durationMs descending (200, 150, 50)
+    const mockEventsSortedByDurationDesc: AnalyticsEvent[] = [
+      mockEventQuery, // 200ms
+      mockEventSetup, // 150ms
+      mockEventUnlock // 50ms
+    ];
+
+    // Events sorted by success ascending (failed first: unlock, then setup, query)
+    const mockEventsSortedBySuccessAsc: AnalyticsEvent[] = [
+      mockEventUnlock, // failed
+      mockEventSetup, // success
+      mockEventQuery // success
+    ];
+
+    // Events sorted by success descending (success first)
+    const mockEventsSortedBySuccessDesc: AnalyticsEvent[] = [
+      mockEventSetup, // success
+      mockEventQuery, // success
+      mockEventUnlock // failed
+    ];
+
+    // Events sorted by timestamp ascending (oldest first: query at 10:00)
+    const mockEventsSortedByTimestampAsc: AnalyticsEvent[] = [
+      mockEventQuery, // 10:00
+      mockEventSetup, // 12:00
+      mockEventUnlock // 14:00
+    ];
+
+    // Events sorted by timestamp descending (newest first: unlock at 14:00)
+    const mockEventsSortedByTimestampDesc: AnalyticsEvent[] = [
+      mockEventUnlock, // 14:00
+      mockEventSetup, // 12:00
+      mockEventQuery // 10:00
     ];
 
     beforeEach(() => {
@@ -518,7 +579,38 @@ describe('Analytics', () => {
         isUnlocked: true,
         isLoading: false
       });
-      mockGetEvents.mockResolvedValue(mockEvents);
+      // Return original order by default, then return sorted based on parameters
+      mockGetEvents.mockImplementation((_db, options) => {
+        if (options?.sortColumn === 'eventName') {
+          return Promise.resolve(
+            options.sortDirection === 'asc'
+              ? mockEventsSortedByNameAsc
+              : mockEventsSortedByNameDesc
+          );
+        }
+        if (options?.sortColumn === 'durationMs') {
+          return Promise.resolve(
+            options.sortDirection === 'asc'
+              ? mockEventsSortedByDurationAsc
+              : mockEventsSortedByDurationDesc
+          );
+        }
+        if (options?.sortColumn === 'success') {
+          return Promise.resolve(
+            options.sortDirection === 'asc'
+              ? mockEventsSortedBySuccessAsc
+              : mockEventsSortedBySuccessDesc
+          );
+        }
+        if (options?.sortColumn === 'timestamp') {
+          return Promise.resolve(
+            options.sortDirection === 'asc'
+              ? mockEventsSortedByTimestampAsc
+              : mockEventsSortedByTimestampDesc
+          );
+        }
+        return Promise.resolve(mockEventsOriginal);
+      });
       mockGetEventStats.mockResolvedValue([]);
     });
 
@@ -712,6 +804,111 @@ describe('Analytics', () => {
         expect(dataRows[0]).toHaveTextContent('50ms');
         expect(dataRows[1]).toHaveTextContent('150ms');
         expect(dataRows[2]).toHaveTextContent('200ms');
+      });
+    });
+
+    it('calls getEvents with sort parameters when sorting', async () => {
+      const user = userEvent.setup();
+      renderAnalytics();
+
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledTimes(1);
+      });
+
+      // Initial call should have no sort parameters
+      expect(mockGetEvents).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          sortColumn: undefined,
+          sortDirection: undefined
+        })
+      );
+
+      // Click to sort by eventName ascending
+      await user.click(screen.getByTestId('sort-eventName'));
+
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: 'eventName',
+            sortDirection: 'asc'
+          })
+        );
+      });
+
+      // Click again to sort descending
+      await user.click(screen.getByTestId('sort-eventName'));
+
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: 'eventName',
+            sortDirection: 'desc'
+          })
+        );
+      });
+
+      // Click again to clear sort
+      await user.click(screen.getByTestId('sort-eventName'));
+
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: undefined,
+            sortDirection: undefined
+          })
+        );
+      });
+    });
+
+    it('calls getEvents with sort parameters for each column type', async () => {
+      const user = userEvent.setup();
+      renderAnalytics();
+
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledTimes(1);
+      });
+
+      // Test durationMs column
+      await user.click(screen.getByTestId('sort-durationMs'));
+
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: 'durationMs',
+            sortDirection: 'asc'
+          })
+        );
+      });
+
+      // Test success column
+      await user.click(screen.getByTestId('sort-success'));
+
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: 'success',
+            sortDirection: 'asc'
+          })
+        );
+      });
+
+      // Test timestamp column
+      await user.click(screen.getByTestId('sort-timestamp'));
+
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: 'timestamp',
+            sortDirection: 'asc'
+          })
+        );
       });
     });
   });
