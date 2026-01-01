@@ -36,7 +36,7 @@ Commit and push the current changes following these rules:
 
 7. **Open PR**: If a PR doesn't already exist for this branch, create one using `gh pr create`. Skip if already on `main` or PR exists.
 
-   **Important**: If you created a GitHub issue to track this work, include `Closes #<issue-number>` in the PR body to auto-close the issue when merged:
+   **Important**: If you created a GitHub issue to track this work, include `Closes #<issue-number>` in the PR body to auto-close the issue when merged. To close multiple issues, you can list them (e.g., `Closes #123, #456`):
 
    ```bash
    gh pr create --title "<type>(<scope>): <description>" --body "$(cat <<'EOF'
