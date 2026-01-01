@@ -20,7 +20,7 @@ SESSION_NAME="tuxedo"
 
 # Use local configs
 TMUX_CONF="$CONFIG_DIR/tmux.conf"
-NVIM_INIT="$CONFIG_DIR/init.lua"
+NVIM_INIT="$CONFIG_DIR/neovim.lua"
 EDITOR="${TUXEDO_EDITOR:-nvim -u $NVIM_INIT}"
 
 # Export for tmux config reload binding
