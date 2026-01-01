@@ -16,14 +16,14 @@ const defaultMockContext = {
     {
       id: 'test-instance',
       name: 'Instance 1',
-      createdAt: Date.now(),
-      lastAccessedAt: Date.now()
+      createdAt: new Date('2023-01-01T00:00:00.000Z').getTime(),
+      lastAccessedAt: new Date('2023-01-01T00:00:00.000Z').getTime()
     },
     {
       id: 'second-instance',
       name: 'Instance 2',
-      createdAt: Date.now(),
-      lastAccessedAt: Date.now()
+      createdAt: new Date('2023-01-01T00:00:00.000Z').getTime(),
+      lastAccessedAt: new Date('2023-01-01T00:00:00.000Z').getTime()
     }
   ],
   createInstance: mockCreateInstance,
@@ -320,10 +320,6 @@ describe('AccountSwitcher', () => {
   describe('lock status indicators', () => {
     it('shows lock icon for current instance when database is locked', async () => {
       const user = userEvent.setup();
-      mockUseDatabaseContext.mockReturnValue({
-        ...defaultMockContext,
-        isUnlocked: false
-      });
 
       render(<AccountSwitcher />);
       await user.click(screen.getByTestId('account-switcher-button'));

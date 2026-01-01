@@ -154,15 +154,23 @@ export function AccountSwitcher() {
                     )}
                     <span className="truncate">{instance.name}</span>
                     {instance.id === currentInstanceId && isUnlocked ? (
-                      <LockOpen
-                        className="h-3.5 w-3.5 flex-shrink-0 text-green-600"
-                        data-testid={`instance-unlocked-${instance.id}`}
-                      />
+                      <>
+                        <LockOpen
+                          className="h-3.5 w-3.5 flex-shrink-0 text-green-600"
+                          data-testid={`instance-unlocked-${instance.id}`}
+                          aria-hidden="true"
+                        />
+                        <span className="sr-only">Unlocked</span>
+                      </>
                     ) : (
-                      <Lock
-                        className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground"
-                        data-testid={`instance-locked-${instance.id}`}
-                      />
+                      <>
+                        <Lock
+                          className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground"
+                          data-testid={`instance-locked-${instance.id}`}
+                          aria-hidden="true"
+                        />
+                        <span className="sr-only">Locked</span>
+                      </>
                     )}
                   </div>
                   {instances.length > 1 && (
