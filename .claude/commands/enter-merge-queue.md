@@ -31,15 +31,25 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Address Gemini feedback (step 4c/4d), then wait for CI (step 4e)
    - If `mergeStateStatus` is `CLEAN`: Ensure auto-merge is enabled and wait (step 4f)
 
-   ### 4b. Update from base branch
+   ### 4b. Update from base branch (rebase)
+
+   Use rebase to keep the branch history clean (no merge commits for updates):
 
    ```bash
    git fetch origin <baseRefName>
-   git merge origin/<baseRefName> --no-edit
+   git rebase origin/<baseRefName>
    ```
 
-   - If merge conflicts occur, list them, clear the queued status with `./scripts/agents/clearQueued.sh`, and stop. Do NOT auto-resolve without user input.
-   - If successful, push and continue to step 4c.
+   - If rebase conflicts occur:
+     1. Run `git rebase --abort` to restore the branch
+     2. List the conflicting files
+     3. Clear the queued status with `./scripts/agents/clearQueued.sh`
+     4. Stop and ask the user for help. Do NOT auto-resolve conflicts.
+   - If successful, force push (required after rebase) and continue to step 4c:
+
+     ```bash
+     git push --force-with-lease
+     ```
 
    ### 4c. Wait for Gemini review (first iteration only)
 
@@ -48,7 +58,6 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    On the first pass through the loop, poll for Gemini's review:
 
    ```bash
-   git push
    gh pr view <pr-number> --json reviews
    ```
 
@@ -97,7 +106,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    ### 4f. Enable auto-merge and wait
 
    ```bash
-   gh pr merge --auto --squash
+   gh pr merge --auto --merge
    ```
 
    Then poll for merge completion:
