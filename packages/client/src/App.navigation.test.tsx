@@ -11,12 +11,34 @@ import { Settings } from './pages/Settings';
 import { Sqlite } from './pages/Sqlite';
 import { Tables } from './pages/Tables';
 
-// Mock database context
+// Mock database context - shared mock factory
+const createDatabaseContextMock = () => ({
+  isUnlocked: true,
+  isLoading: false,
+  currentInstanceId: 'test-instance',
+  currentInstanceName: 'Instance 1',
+  instances: [
+    {
+      id: 'test-instance',
+      name: 'Instance 1',
+      createdAt: Date.now(),
+      lastAccessedAt: Date.now()
+    }
+  ],
+  createInstance: vi.fn(async () => 'new-instance'),
+  switchInstance: vi.fn(async () => true),
+  deleteInstance: vi.fn(async () => {}),
+  refreshInstances: vi.fn(async () => {})
+});
+
 vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: () => ({
-    isUnlocked: true,
-    isLoading: false
-  }),
+  useDatabaseContext: () => createDatabaseContextMock(),
+  DatabaseProvider: ({ children }: { children: React.ReactNode }) => children
+}));
+
+// Also mock the direct import path used by AccountSwitcher
+vi.mock('@/db/hooks/useDatabase', () => ({
+  useDatabaseContext: () => createDatabaseContextMock(),
   DatabaseProvider: ({ children }: { children: React.ReactNode }) => children
 }));
 
