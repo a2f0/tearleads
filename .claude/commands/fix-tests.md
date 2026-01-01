@@ -1,5 +1,5 @@
 ---
-description: Fix failing tests from CI (project)
+description: Fix failing tests from CI
 ---
 
 # Fix Failing Tests
