@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./scripts/agents/setWorking.sh"
+            "command": "./scripts/agents/setReady.sh"
           }
         ]
       }
