@@ -1,7 +1,6 @@
 #!/bin/sh
 # Cleanup script for SessionEnd hook
-# Removes all status prefixes (working/waiting/queued) from VS Code title and tmux window,
-# and resets pane background color to default.
+# Removes all status prefixes (working/waiting/queued) from VS Code title and tmux window.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -76,9 +75,6 @@ if [ -n "${TMUX:-}" ]; then
     tmux set-option -wu @working_status 2>/dev/null || true
     tmux set-option -wu @waiting_status 2>/dev/null || true
     tmux set-option -wu @queued_status 2>/dev/null || true
-
-    # Reset background color to default
-    tmux select-pane -P 'bg=default'
 
     echo "Tmux window cleaned up"
 fi

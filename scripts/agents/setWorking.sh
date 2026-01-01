@@ -1,6 +1,5 @@
 #!/bin/sh
-# Mark workspace as working: updates VS Code title, tmux window name,
-# and sets pane background color to indicate active work.
+# Mark workspace as working: updates VS Code title and tmux window name.
 # Skips if already in queued state (queued takes precedence).
 set -eu
 
@@ -91,9 +90,6 @@ if [ -n "${TMUX:-}" ]; then
 
     # Rename window with working prefix
     tmux rename-window "(working) $BASE_NAME"
-
-    # Set background color to indicate working status (dark amber/orange)
-    tmux select-pane -P 'bg=colour52'
 
     echo "Tmux window marked as working"
 fi
