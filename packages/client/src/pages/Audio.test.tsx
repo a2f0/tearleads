@@ -349,4 +349,97 @@ describe('AudioPage', () => {
       });
     });
   });
+
+  describe('file upload', () => {
+    beforeEach(() => {
+      mockSelect.mockReturnValue(createMockQueryChain([]));
+    });
+
+    it('uploads valid audio file when dropped', async () => {
+      const user = userEvent.setup();
+      renderAudio();
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Drop an audio file here to add it to your library')
+        ).toBeInTheDocument();
+      });
+
+      // Create a mock audio file
+      const audioFile = new File(['audio content'], 'test.mp3', {
+        type: 'audio/mpeg'
+      });
+
+      // Find the dropzone input using data-testid
+      const input = screen.getByTestId('dropzone-input');
+      expect(input).toBeInTheDocument();
+
+      // Upload file
+      await user.upload(input as HTMLInputElement, audioFile);
+
+      await waitFor(() => {
+        expect(mockUploadFile).toHaveBeenCalledWith(
+          expect.objectContaining({ name: 'test.mp3' }),
+          expect.any(Function)
+        );
+      });
+    });
+
+    it('refreshes tracks after successful upload', async () => {
+      const user = userEvent.setup();
+      renderAudio();
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Drop an audio file here to add it to your library')
+        ).toBeInTheDocument();
+      });
+
+      const audioFile = new File(['audio content'], 'test.mp3', {
+        type: 'audio/mpeg'
+      });
+
+      const input = screen.getByTestId('dropzone-input');
+
+      mockSelect.mockClear();
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_TRACK]));
+
+      await user.upload(input as HTMLInputElement, audioFile);
+
+      await waitFor(() => {
+        expect(mockSelect).toHaveBeenCalled();
+      });
+    });
+
+    it('handles upload error gracefully', async () => {
+      const user = userEvent.setup();
+      mockUploadFile.mockRejectedValue(new Error('Upload failed'));
+
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      renderAudio();
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Drop an audio file here to add it to your library')
+        ).toBeInTheDocument();
+      });
+
+      const audioFile = new File(['audio content'], 'test.mp3', {
+        type: 'audio/mpeg'
+      });
+
+      const input = screen.getByTestId('dropzone-input');
+
+      await user.upload(input as HTMLInputElement, audioFile);
+
+      await waitFor(() => {
+        expect(screen.getByText('Upload failed')).toBeInTheDocument();
+      });
+
+      consoleSpy.mockRestore();
+    });
+  });
 });
