@@ -13,6 +13,12 @@ set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONFIG_DIR="$SCRIPT_DIR/config"
+GHOSTTY_CONF="$CONFIG_DIR/ghostty.conf"
+
+# If not in a terminal, launch Ghostty with this script
+if [ ! -t 1 ] && command -v ghostty >/dev/null 2>&1; then
+    exec ghostty --config-file="$GHOSTTY_CONF" -e "$0" "$@"
+fi
 
 BASE_DIR="${TUXEDO_BASE_DIR:-$HOME/github}"
 NUM_WORKSPACES="${TUXEDO_WORKSPACES:-20}"
