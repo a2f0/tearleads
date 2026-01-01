@@ -61,7 +61,7 @@ if (rootElement) {
                   <Route path="contacts/:id" element={<ContactDetail />} />
                   <Route path="photos" element={<Photos />} />
                   <Route path="photos/:id" element={<PhotoDetail />} />
-                  <Route path="music" element={<MusicPage />} />
+                  <Route path="audio" element={<MusicPage />} />
                   <Route path="sqlite" element={<Sqlite />} />
                   <Route path="debug" element={<Debug />} />
                   <Route path="chat" element={<Chat />} />

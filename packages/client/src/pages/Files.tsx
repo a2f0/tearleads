@@ -6,6 +6,7 @@ import {
   Eye,
   FileIcon,
   Loader2,
+  Music,
   RefreshCw,
   RotateCcw,
   Trash2,
@@ -447,6 +448,8 @@ export function Files() {
                       alt=""
                       className="h-8 w-8 shrink-0 rounded object-cover"
                     />
+                  ) : file.mimeType.startsWith('audio/') ? (
+                    <Music className="h-5 w-5 shrink-0 text-muted-foreground" />
                   ) : (
                     <FileIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
                   )}
