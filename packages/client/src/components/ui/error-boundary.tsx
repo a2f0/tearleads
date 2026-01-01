@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { Component, type ReactNode } from 'react';
+import { Component, createRef, type ReactNode, type RefObject } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -9,15 +9,45 @@ interface State {
   error: Error | null;
 }
 
+export interface ErrorBoundaryHandle {
+  setError: (error: Error) => void;
+  clearError: () => void;
+}
+
+export const errorBoundaryRef: RefObject<ErrorBoundaryHandle | null> =
+  createRef();
+
 export class ErrorBoundary extends Component<Props, State> {
+  private readonly handle: ErrorBoundaryHandle;
+
   constructor(props: Props) {
     super(props);
     this.state = { error: null };
+    this.handle = {
+      setError: this.setError,
+      clearError: this.clearError
+    };
+  }
+
+  override componentDidMount() {
+    (errorBoundaryRef as { current: ErrorBoundaryHandle | null }).current =
+      this.handle;
+  }
+
+  override componentWillUnmount() {
+    if (errorBoundaryRef.current === this.handle) {
+      (errorBoundaryRef as { current: ErrorBoundaryHandle | null }).current =
+        null;
+    }
   }
 
   static getDerivedStateFromError(error: Error): State {
     return { error };
   }
+
+  setError = (error: Error) => {
+    this.setState({ error });
+  };
 
   clearError = () => {
     this.setState({ error: null });
