@@ -98,10 +98,8 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
      ```
 
    - If CI **fails**:
-     1. Download logs: `gh run view <run-id> --log-failed`
-     2. Analyze the failure and fix the issue
-     3. Run `/commit-and-push` to push the fix
-     4. Return to monitoring CI status
+     1. Run `/fix-tests` to diagnose and fix the failure
+     2. Return to monitoring CI status
 
    ### 4f. Enable auto-merge and wait
 
