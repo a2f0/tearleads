@@ -1,13 +1,23 @@
 #!/bin/bash
 set -e
 
-LOGFILE="/var/log/auto-patch.log"
+LOGFILE="{{ auto_patch_logfile | default('/var/log/auto-patch.log') }}"
+
+# Redirect stdout and stderr to the log file and the original stdout
+exec > >(tee -a "$LOGFILE")
+exec 2>&1
 
 log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOGFILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"
 }
 
 log "Starting automatic patching"
+
+# Wait for any other package manager to finish
+while fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+    log "Waiting for other package manager to finish..."
+    sleep 30
+done
 
 log "Updating package lists"
 apt-get update
