@@ -670,23 +670,24 @@ describe('ContactDetail', () => {
 
       // Find the radio buttons for primary email
       const radioButtons = screen.getAllByRole('radio', { name: /primary/i });
-      // The first email is already primary, so click the second one
-      const secondEmailRadio = radioButtons.find(
-        (radio) =>
-          radio.getAttribute('name') === 'primaryEmail' &&
-          !radio.hasAttribute('checked')
-      );
-
-      if (secondEmailRadio) {
-        await user.click(secondEmailRadio);
-      }
-
-      // Verify the change was reflected (second radio should now be checked)
-      const updatedRadios = screen.getAllByRole('radio', { name: /primary/i });
-      const emailRadios = updatedRadios.filter(
+      const emailRadios = radioButtons.filter(
         (r) => r.getAttribute('name') === 'primaryEmail'
       );
       expect(emailRadios.length).toBe(2);
+
+      // The first email is already primary, so click the second one
+      const secondEmailRadio = emailRadios.find(
+        (radio) => !(radio as HTMLInputElement).checked
+      );
+
+      if (!secondEmailRadio) {
+        throw new Error('Could not find second email radio button to test');
+      }
+
+      await user.click(secondEmailRadio);
+
+      // Verify that the second radio button is now checked
+      expect(secondEmailRadio).toBeChecked();
     });
   });
 
@@ -738,6 +739,20 @@ describe('ContactDetail', () => {
         (r) => r.getAttribute('name') === 'primaryPhone'
       );
       expect(phoneRadios.length).toBe(2);
+
+      // Click the non-primary phone radio button
+      const secondPhoneRadio = phoneRadios.find(
+        (radio) => !(radio as HTMLInputElement).checked
+      );
+
+      if (!secondPhoneRadio) {
+        throw new Error('Could not find second phone radio button to test');
+      }
+
+      await user.click(secondPhoneRadio);
+
+      // Verify that the second radio button is now checked
+      expect(secondPhoneRadio).toBeChecked();
     });
   });
 

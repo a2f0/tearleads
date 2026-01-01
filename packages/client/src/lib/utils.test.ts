@@ -113,34 +113,30 @@ describe('detectPlatform', () => {
     });
 
     it('detects iOS from user agent when isNativePlatform is true', () => {
-      Object.defineProperty(navigator, 'userAgent', {
-        value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
-        configurable: true
-      });
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)'
+      );
       expect(detectPlatform()).toBe('ios');
     });
 
     it('detects iPad from user agent when isNativePlatform is true', () => {
-      Object.defineProperty(navigator, 'userAgent', {
-        value: 'Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X)',
-        configurable: true
-      });
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X)'
+      );
       expect(detectPlatform()).toBe('ios');
     });
 
     it('detects Android from user agent when isNativePlatform is true', () => {
-      Object.defineProperty(navigator, 'userAgent', {
-        value: 'Mozilla/5.0 (Linux; Android 11; Pixel 5)',
-        configurable: true
-      });
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (Linux; Android 11; Pixel 5)'
+      );
       expect(detectPlatform()).toBe('android');
     });
 
     it('defaults to android when isNativePlatform is true but UA is unknown', () => {
-      Object.defineProperty(navigator, 'userAgent', {
-        value: 'Mozilla/5.0 (Unknown Platform)',
-        configurable: true
-      });
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (Unknown Platform)'
+      );
       expect(detectPlatform()).toBe('android');
     });
   });
@@ -152,47 +148,37 @@ describe('detectPlatform', () => {
     });
 
     it('detects Android WebView from user agent', () => {
-      Object.defineProperty(navigator, 'userAgent', {
-        value:
-          'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/91.0.4472.120 Mobile wv',
-        configurable: true
-      });
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/91.0.4472.120 Mobile wv'
+      );
       expect(detectPlatform()).toBe('android');
     });
 
     it('detects Android WebView with version/ indicator', () => {
-      Object.defineProperty(navigator, 'userAgent', {
-        value:
-          'Mozilla/5.0 (Linux; Android 11) AppleWebKit/537.36 Version/4.0 Chrome/91.0.4472.120',
-        configurable: true
-      });
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (Linux; Android 11) AppleWebKit/537.36 Version/4.0 Chrome/91.0.4472.120'
+      );
       expect(detectPlatform()).toBe('android');
     });
 
     it('detects iOS WebView (no Safari in UA)', () => {
-      Object.defineProperty(navigator, 'userAgent', {
-        value:
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148',
-        configurable: true
-      });
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
+      );
       expect(detectPlatform()).toBe('ios');
     });
 
     it('returns web for regular iOS Safari', () => {
-      Object.defineProperty(navigator, 'userAgent', {
-        value:
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1',
-        configurable: true
-      });
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1'
+      );
       expect(detectPlatform()).toBe('web');
     });
 
     it('returns web for desktop browser', () => {
-      Object.defineProperty(navigator, 'userAgent', {
-        value:
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        configurable: true
-      });
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      );
       expect(detectPlatform()).toBe('web');
     });
   });
