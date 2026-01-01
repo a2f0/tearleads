@@ -104,6 +104,44 @@ screen_cmd() {
     fi
 }
 
+# Update a workspace from main if it's on main branch with no uncommitted changes
+update_from_main() {
+    workspace="$1"
+
+    # Skip if workspace doesn't exist or isn't a git repo
+    [ -d "$workspace/.git" ] || return 0
+
+    # Get current branch
+    current_branch=$(git -C "$workspace" rev-parse --abbrev-ref HEAD 2>/dev/null)
+    [ "$current_branch" = "main" ] || return 0
+
+    # Check for uncommitted changes (staged or unstaged)
+    if ! git -C "$workspace" diff --quiet 2>/dev/null || ! git -C "$workspace" diff --cached --quiet 2>/dev/null; then
+        return 0  # Has uncommitted changes, skip
+    fi
+
+    # Check for untracked files (optional - skip if any exist)
+    # if [ -n "$(git -C "$workspace" ls-files --others --exclude-standard 2>/dev/null)" ]; then
+    #     return 0
+    # fi
+
+    # Fetch and pull from main
+    echo "Updating $(basename "$workspace") from main..."
+    git -C "$workspace" fetch origin main --quiet 2>/dev/null || true
+    git -C "$workspace" pull origin main --quiet 2>/dev/null || true
+}
+
+# Update all workspaces that are on main with no uncommitted changes
+update_all_workspaces() {
+    echo "Checking workspaces for updates..."
+    update_from_main "$BASE_DIR/rapid-main"
+    i=2
+    while [ "$i" -le "$NUM_WORKSPACES" ]; do
+        update_from_main "$BASE_DIR/rapid${i}"
+        i=$((i + 1))
+    done
+}
+
 # Sync VS Code window title to tmux window name
 # If .vscode/settings.json has a window.title, use it for tmux
 sync_vscode_title() {
@@ -148,6 +186,9 @@ if [ -d "$SHARED_DIR" ]; then
         i=$((i + 1))
     done
 fi
+
+# Update workspaces that are on main with no uncommitted changes
+update_all_workspaces
 
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     # Sync VS Code titles before attaching
