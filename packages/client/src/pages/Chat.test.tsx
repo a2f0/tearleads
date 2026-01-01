@@ -201,4 +201,75 @@ describe('Chat', () => {
       expect(screen.getByTestId('composer')).toBeInTheDocument();
     });
   });
+
+  describe('model display name parsing', () => {
+    const testCases = [
+      {
+        modelId: 'onnx-community/Phi-3-mini-4k-instruct',
+        expectedName: 'Phi 3 Mini'
+      },
+      {
+        modelId: 'HuggingFaceTB/SmolVLM-256M-Instruct',
+        expectedName: 'SmolVLM 256M Instruct'
+      },
+      {
+        modelId: 'simple-model',
+        expectedName: 'Simple Model'
+      },
+      {
+        modelId: 'org/model-name-instruct',
+        expectedName: 'Model Name'
+      }
+    ];
+
+    for (const { modelId, expectedName } of testCases) {
+      it(`parses "${modelId}" to "${expectedName}"`, () => {
+        vi.mocked(useLLM).mockReturnValue({
+          loadedModel: modelId,
+          modelType: 'chat',
+          isLoading: false,
+          loadProgress: null,
+          error: null,
+          loadModel: vi.fn(),
+          unloadModel: vi.fn(),
+          generate: vi.fn(),
+          abort: vi.fn(),
+          isWebGPUSupported: vi.fn().mockResolvedValue(true)
+        });
+
+        renderChat();
+
+        expect(screen.getByText(expectedName)).toBeInTheDocument();
+      });
+    }
+  });
+
+  describe('when a paligemma model is loaded', () => {
+    beforeEach(() => {
+      vi.mocked(useLLM).mockReturnValue({
+        loadedModel: 'google/paligemma-model',
+        modelType: 'paligemma',
+        isLoading: false,
+        loadProgress: null,
+        error: null,
+        loadModel: vi.fn(),
+        unloadModel: vi.fn(),
+        generate: vi.fn(),
+        abort: vi.fn(),
+        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+      });
+    });
+
+    it('renders the chat interface', () => {
+      renderChat();
+
+      expect(screen.getByTestId('thread-root')).toBeInTheDocument();
+    });
+
+    it('shows the model name', () => {
+      renderChat();
+
+      expect(screen.getByText('Paligemma Model')).toBeInTheDocument();
+    });
+  });
 });
