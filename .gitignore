@@ -16,7 +16,7 @@ dist-electron/
 .env
 .env.local
 .env.*.local
-.secrets/
+.secrets
 
 # Logs
 logs
