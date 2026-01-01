@@ -283,4 +283,204 @@ describe('Photos', () => {
       expect(photoContainer).toHaveAttribute('role', 'button');
     });
   });
+
+  describe('empty state', () => {
+    it('shows empty message when no photos exist', async () => {
+      mockDb.orderBy.mockResolvedValue([]);
+
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/No photos found. Upload images from the Files page/)
+        ).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('refresh button', () => {
+    it('renders refresh button when unlocked', async () => {
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('button', { name: /refresh/i })
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('does not render refresh button when locked', () => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: false,
+        isLoading: false,
+        currentInstanceId: null
+      });
+
+      renderPhotos();
+
+      expect(
+        screen.queryByRole('button', { name: /refresh/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it('refetches photos when refresh is clicked', async () => {
+      const user = userEvent.setup();
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      // Clear mock calls
+      mockDb.orderBy.mockClear();
+      mockDb.orderBy.mockResolvedValue(mockPhotos);
+
+      await user.click(screen.getByRole('button', { name: /refresh/i }));
+
+      await waitFor(() => {
+        expect(mockDb.orderBy).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('error handling', () => {
+    it('displays error when photo fetch fails', async () => {
+      mockDb.orderBy.mockRejectedValue(new Error('Failed to load'));
+
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByText('Failed to load')).toBeInTheDocument();
+      });
+    });
+
+    it('handles non-Error objects in catch block', async () => {
+      mockDb.orderBy.mockRejectedValue('String error');
+
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByText('String error')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('download functionality', () => {
+    it('shows download button for each photo', async () => {
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      // Download button should be present for each photo (visible on hover via CSS)
+      const downloadButtons = screen.getAllByTitle('Download');
+      expect(downloadButtons.length).toBe(2); // One for each photo
+    });
+
+    it('downloads photo when download button is clicked', async () => {
+      const user = userEvent.setup();
+
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      // Get the first download button
+      const downloadButtons = screen.getAllByTitle('Download');
+      const firstButton = downloadButtons[0];
+      if (firstButton) {
+        await user.click(firstButton);
+      }
+
+      await waitFor(() => {
+        // Should retrieve the full image, not thumbnail
+        expect(mockStorage.retrieve).toHaveBeenCalledWith(
+          '/photos/test-image.jpg'
+        );
+      });
+    });
+  });
+
+  describe('thumbnail loading', () => {
+    it('uses thumbnail path when available', async () => {
+      const photosWithThumbnails = [
+        {
+          id: 'photo-1',
+          name: 'test-image.jpg',
+          size: 1024,
+          mimeType: 'image/jpeg',
+          uploadDate: new Date('2025-01-01'),
+          storagePath: '/photos/test-image.jpg',
+          thumbnailPath: '/thumbnails/test-image.jpg'
+        }
+      ];
+      mockDb.orderBy.mockResolvedValue(photosWithThumbnails);
+
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      // Should use thumbnail path
+      expect(mockStorage.retrieve).toHaveBeenCalledWith(
+        '/thumbnails/test-image.jpg'
+      );
+    });
+
+    it('falls back to storage path when no thumbnail exists', async () => {
+      const photosWithoutThumbnails = [
+        {
+          id: 'photo-1',
+          name: 'test-image.jpg',
+          size: 1024,
+          mimeType: 'image/jpeg',
+          uploadDate: new Date('2025-01-01'),
+          storagePath: '/photos/test-image.jpg',
+          thumbnailPath: null
+        }
+      ];
+      mockDb.orderBy.mockResolvedValue(photosWithoutThumbnails);
+
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      expect(mockStorage.retrieve).toHaveBeenCalledWith(
+        '/photos/test-image.jpg'
+      );
+    });
+
+    it('skips photos that fail to load', async () => {
+      // First photo fails, second succeeds
+      mockStorage.retrieve
+        .mockRejectedValueOnce(new Error('Load failed'))
+        .mockResolvedValueOnce(new Uint8Array([1, 2, 3]));
+
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      renderPhotos();
+
+      await waitFor(() => {
+        // Only the second photo should be displayed
+        expect(screen.getByAltText('another-image.png')).toBeInTheDocument();
+      });
+
+      // First photo should not be rendered
+      expect(screen.queryByAltText('test-image.jpg')).not.toBeInTheDocument();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to load photo test-image.jpg:',
+        expect.any(Error)
+      );
+
+      consoleSpy.mockRestore();
+    });
+  });
 });
