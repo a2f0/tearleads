@@ -4,6 +4,15 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Cross-platform sed -i (macOS needs '', Linux doesn't)
+sedi() {
+  if [ "$(uname)" = "Darwin" ]; then
+    sed -i '' "$@"
+  else
+    sed -i "$@"
+  fi
+}
+
 ANDROID_GRADLE="$REPO_ROOT/packages/client/android/app/build.gradle"
 IOS_PBXPROJ="$REPO_ROOT/packages/client/ios/App/App.xcodeproj/project.pbxproj"
 API_PACKAGE="$REPO_ROOT/packages/api/package.json"
@@ -40,16 +49,16 @@ echo "  API:     $API_VERSION -> $NEW_API_VERSION"
 echo "  Client:  $CLIENT_VERSION -> $NEW_CLIENT_VERSION"
 
 # Update Android versionCode and versionName
-sed -i '' "s/versionCode $ANDROID_VERSION/versionCode $NEW_ANDROID_VERSION/" "$ANDROID_GRADLE"
-sed -i '' "s/versionName \"1.0.$ANDROID_VERSION\"/versionName \"1.0.$NEW_ANDROID_VERSION\"/" "$ANDROID_GRADLE"
+sedi "s/versionCode $ANDROID_VERSION/versionCode $NEW_ANDROID_VERSION/" "$ANDROID_GRADLE"
+sedi "s/versionName \"1.0.$ANDROID_VERSION\"/versionName \"1.0.$NEW_ANDROID_VERSION\"/" "$ANDROID_GRADLE"
 
 # Update iOS CURRENT_PROJECT_VERSION (appears twice: Debug and Release)
-sed -i '' "s/CURRENT_PROJECT_VERSION = $IOS_VERSION/CURRENT_PROJECT_VERSION = $NEW_IOS_VERSION/g" "$IOS_PBXPROJ"
+sedi "s/CURRENT_PROJECT_VERSION = $IOS_VERSION/CURRENT_PROJECT_VERSION = $NEW_IOS_VERSION/g" "$IOS_PBXPROJ"
 
 # Update API version
-sed -i '' "s/\"version\": \"$API_VERSION\"/\"version\": \"$NEW_API_VERSION\"/" "$API_PACKAGE"
+sedi "s/\"version\": \"$API_VERSION\"/\"version\": \"$NEW_API_VERSION\"/" "$API_PACKAGE"
 
 # Update Client version
-sed -i '' "s/\"version\": \"$CLIENT_VERSION\"/\"version\": \"$NEW_CLIENT_VERSION\"/" "$CLIENT_PACKAGE"
+sedi "s/\"version\": \"$CLIENT_VERSION\"/\"version\": \"$NEW_CLIENT_VERSION\"/" "$CLIENT_PACKAGE"
 
 echo "Done."
