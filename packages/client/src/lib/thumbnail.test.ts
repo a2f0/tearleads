@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   calculateScaledDimensions,
   DEFAULT_THUMBNAIL_OPTIONS,
+  generateThumbnail,
   isThumbnailSupported
 } from './thumbnail';
 
@@ -108,6 +109,150 @@ describe('thumbnail', () => {
       const result = calculateScaledDimensions(333, 333, 200, 200);
       expect(result.width).toBe(200);
       expect(result.height).toBe(200);
+    });
+  });
+
+  describe('generateThumbnail', () => {
+    let mockBitmap: {
+      width: number;
+      height: number;
+      close: ReturnType<typeof vi.fn>;
+    };
+    let mockContext: {
+      drawImage: ReturnType<typeof vi.fn>;
+    };
+    let mockCanvas: {
+      width: number;
+      height: number;
+      getContext: ReturnType<typeof vi.fn>;
+      toBlob: ReturnType<typeof vi.fn>;
+    };
+
+    beforeEach(() => {
+      mockBitmap = {
+        width: 400,
+        height: 300,
+        close: vi.fn()
+      };
+
+      mockContext = {
+        drawImage: vi.fn()
+      };
+
+      mockCanvas = {
+        width: 0,
+        height: 0,
+        getContext: vi.fn().mockReturnValue(mockContext),
+        toBlob: vi.fn()
+      };
+
+      vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue(mockBitmap));
+
+      vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+        if (tagName === 'canvas') {
+          return mockCanvas as unknown as HTMLCanvasElement;
+        }
+        return document.createElement(tagName);
+      });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    });
+
+    it('generates thumbnail from image data', async () => {
+      const resultData = new Uint8Array([1, 2, 3, 4]);
+      const mockBlob = {
+        arrayBuffer: vi.fn().mockResolvedValue(resultData.buffer)
+      };
+
+      mockCanvas.toBlob.mockImplementation(
+        (callback: (blob: Blob | null) => void) => {
+          callback(mockBlob as unknown as Blob);
+        }
+      );
+
+      const imageData = new Uint8Array([10, 20, 30]);
+      const result = await generateThumbnail(imageData, 'image/jpeg');
+
+      expect(result).toBeInstanceOf(Uint8Array);
+      expect(createImageBitmap).toHaveBeenCalled();
+      expect(mockContext.drawImage).toHaveBeenCalled();
+      expect(mockBitmap.close).toHaveBeenCalled();
+    });
+
+    it('uses custom options when provided', async () => {
+      const resultData = new Uint8Array([1]);
+      const mockBlob = {
+        arrayBuffer: vi.fn().mockResolvedValue(resultData.buffer)
+      };
+
+      mockCanvas.toBlob.mockImplementation(
+        (callback: (blob: Blob | null) => void) => {
+          callback(mockBlob as unknown as Blob);
+        }
+      );
+
+      const imageData = new Uint8Array([10, 20, 30]);
+      await generateThumbnail(imageData, 'image/jpeg', {
+        maxWidth: 100,
+        maxHeight: 100,
+        quality: 0.5
+      });
+
+      // Verify toBlob was called with custom quality
+      expect(mockCanvas.toBlob).toHaveBeenCalledWith(
+        expect.any(Function),
+        'image/jpeg',
+        0.5
+      );
+    });
+
+    it('throws error when canvas context is null', async () => {
+      mockCanvas.getContext.mockReturnValue(null);
+
+      const imageData = new Uint8Array([10, 20, 30]);
+
+      await expect(generateThumbnail(imageData, 'image/jpeg')).rejects.toThrow(
+        'Failed to get canvas 2d context'
+      );
+
+      expect(mockBitmap.close).toHaveBeenCalled();
+    });
+
+    it('throws error when toBlob returns null', async () => {
+      mockCanvas.toBlob.mockImplementation(
+        (callback: (blob: Blob | null) => void) => {
+          callback(null);
+        }
+      );
+
+      const imageData = new Uint8Array([10, 20, 30]);
+
+      await expect(generateThumbnail(imageData, 'image/jpeg')).rejects.toThrow(
+        'Failed to export canvas to blob'
+      );
+    });
+
+    it('scales canvas dimensions based on image size', async () => {
+      const resultData = new Uint8Array([1]);
+      const mockBlob = {
+        arrayBuffer: vi.fn().mockResolvedValue(resultData.buffer)
+      };
+
+      mockCanvas.toBlob.mockImplementation(
+        (callback: (blob: Blob | null) => void) => {
+          callback(mockBlob as unknown as Blob);
+        }
+      );
+
+      // 400x300 image with max 200x200 should scale to 200x150
+      const imageData = new Uint8Array([10, 20, 30]);
+      await generateThumbnail(imageData, 'image/jpeg');
+
+      expect(mockCanvas.width).toBe(200);
+      expect(mockCanvas.height).toBe(150);
     });
   });
 });
