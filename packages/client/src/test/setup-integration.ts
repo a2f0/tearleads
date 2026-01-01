@@ -41,7 +41,8 @@ vi.mock('@/db/crypto', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/db/crypto')>();
   return {
     ...original,
-    getKeyManager: vi.fn(() => getTestKeyManager()),
+    getKeyManagerForInstance: vi.fn(() => getTestKeyManager()),
+    setCurrentInstanceId: vi.fn(),
     KeyManager: TestKeyManager
   };
 });
@@ -54,7 +55,7 @@ beforeEach(async () => {
   // This ensures each test starts with a clean slate
   try {
     const { resetDatabase } = await import('@/db');
-    await resetDatabase();
+    await resetDatabase('test-instance');
   } catch {
     // Ignore if database wasn't initialized
   }

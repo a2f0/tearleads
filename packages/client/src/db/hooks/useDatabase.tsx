@@ -1,5 +1,6 @@
 /**
  * React hooks for database access.
+ * Supports multi-instance with instance switching.
  */
 
 import type { ReactNode } from 'react';
@@ -11,6 +12,7 @@ import {
   useMemo,
   useState
 } from 'react';
+import { deleteFileStorageForInstance } from '@/storage/opfs';
 import type { Database } from '../index';
 import {
   changePassword,
@@ -25,6 +27,15 @@ import {
   setupDatabase,
   unlockDatabase
 } from '../index';
+import type { InstanceMetadata } from '../instance-registry';
+import {
+  createInstance as createRegistryInstance,
+  deleteInstanceFromRegistry,
+  getInstances,
+  initializeRegistry,
+  setActiveInstanceId,
+  touchInstance
+} from '../instance-registry';
 
 interface DatabaseContextValue {
   /** The database instance (null if not unlocked) */
@@ -39,6 +50,15 @@ interface DatabaseContextValue {
   isUnlocked: boolean;
   /** Whether there's a persisted session available (web only) */
   hasPersistedSession: boolean;
+
+  // Multi-instance fields
+  /** Current instance ID */
+  currentInstanceId: string | null;
+  /** Current instance name */
+  currentInstanceName: string | null;
+  /** List of all instances */
+  instances: InstanceMetadata[];
+
   /** Set up a new database with a password */
   setup: (password: string) => Promise<boolean>;
   /** Unlock an existing database with a password */
@@ -52,12 +72,22 @@ interface DatabaseContextValue {
     oldPassword: string,
     newPassword: string
   ) => Promise<boolean>;
-  /** Reset the database (wipe everything) */
+  /** Reset the current database (wipe everything) */
   reset: () => Promise<void>;
   /** Export the database to a byte array */
   exportDatabase: () => Promise<Uint8Array>;
   /** Import a database from a byte array */
   importDatabase: (data: Uint8Array) => Promise<void>;
+
+  // Multi-instance methods
+  /** Create a new instance and switch to it */
+  createInstance: () => Promise<string>;
+  /** Switch to a different instance */
+  switchInstance: (instanceId: string) => Promise<boolean>;
+  /** Delete an instance */
+  deleteInstance: (instanceId: string) => Promise<void>;
+  /** Refresh the instances list */
+  refreshInstances: () => Promise<void>;
 }
 
 const DatabaseContext = createContext<DatabaseContextValue | null>(null);
@@ -68,6 +98,7 @@ interface DatabaseProviderProps {
 
 /**
  * Provider component for database access.
+ * Supports multi-instance with instance switching.
  */
 export function DatabaseProvider({ children }: DatabaseProviderProps) {
   const [db, setDb] = useState<Database | null>(null);
@@ -76,23 +107,44 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
   const [isSetUp, setIsSetUp] = useState(false);
   const [hasPersisted, setHasPersisted] = useState(false);
 
-  // Check if database is set up on mount and auto-restore session if available
+  // Multi-instance state
+  const [currentInstanceId, setCurrentInstanceId] = useState<string | null>(
+    null
+  );
+  const [currentInstanceName, setCurrentInstanceName] = useState<string | null>(
+    null
+  );
+  const [instances, setInstances] = useState<InstanceMetadata[]>([]);
+
+  // Initialize registry and check for active instance on mount
   useEffect(() => {
-    async function checkSetupAndRestore() {
+    async function initializeAndRestore() {
       try {
-        // Check for setup status and persisted session in parallel
+        // Initialize the instance registry (creates default instance if needed)
+        const activeInstance = await initializeRegistry();
+
+        // Load all instances
+        const allInstances = await getInstances();
+        setInstances(allInstances);
+
+        // Set current instance
+        setCurrentInstanceId(activeInstance.id);
+        setCurrentInstanceName(activeInstance.name);
+
+        // Check setup status and persisted session for active instance
         const [setup, persisted] = await Promise.all([
-          isDatabaseSetUp(),
-          hasPersistedSession()
+          isDatabaseSetUp(activeInstance.id),
+          hasPersistedSession(activeInstance.id)
         ]);
         setIsSetUp(setup);
         setHasPersisted(persisted);
 
         // Auto-restore session if available
         if (persisted) {
-          const database = await restoreDatabaseSession();
+          const database = await restoreDatabaseSession(activeInstance.id);
           if (database) {
             setDb(database);
+            await touchInstance(activeInstance.id);
           } else {
             // Session restore failed, clear the invalid session
             setHasPersisted(false);
@@ -105,39 +157,61 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       }
     }
 
-    checkSetupAndRestore();
+    initializeAndRestore();
   }, []);
 
-  const setup = useCallback(async (password: string): Promise<boolean> => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const database = await setupDatabase(password);
-      setDb(database);
-      setIsSetUp(true);
-      return true;
-    } catch (err) {
-      console.error('Database setup error:', err);
-      setError(err as Error);
-      throw err; // Re-throw so caller can see the error
-    } finally {
-      setIsLoading(false);
-    }
+  const refreshInstances = useCallback(async (): Promise<void> => {
+    const allInstances = await getInstances();
+    setInstances(allInstances);
   }, []);
 
-  const unlock = useCallback(
-    async (password: string, persistSession = false): Promise<boolean> => {
+  const setup = useCallback(
+    async (password: string): Promise<boolean> => {
+      if (!currentInstanceId) {
+        throw new Error('No active instance');
+      }
+
       setIsLoading(true);
       setError(null);
 
       try {
-        const result = await unlockDatabase(password, persistSession);
+        const database = await setupDatabase(password, currentInstanceId);
+        setDb(database);
+        setIsSetUp(true);
+        await touchInstance(currentInstanceId);
+        return true;
+      } catch (err) {
+        console.error('Database setup error:', err);
+        setError(err as Error);
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [currentInstanceId]
+  );
+
+  const unlock = useCallback(
+    async (password: string, persistSession = false): Promise<boolean> => {
+      if (!currentInstanceId) {
+        throw new Error('No active instance');
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const result = await unlockDatabase(
+          password,
+          currentInstanceId,
+          persistSession
+        );
         if (result) {
           setDb(result.db);
           if (result.sessionPersisted) {
             setHasPersisted(true);
           }
+          await touchInstance(currentInstanceId);
           return true;
         }
         return false; // Wrong password
@@ -148,17 +222,22 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         setIsLoading(false);
       }
     },
-    []
+    [currentInstanceId]
   );
 
   const restoreSession = useCallback(async (): Promise<boolean> => {
+    if (!currentInstanceId) {
+      return false;
+    }
+
     setIsLoading(true);
     setError(null);
 
     try {
-      const database = await restoreDatabaseSession();
+      const database = await restoreDatabaseSession(currentInstanceId);
       if (database) {
         setDb(database);
+        await touchInstance(currentInstanceId);
         return true;
       }
       // No persisted session or restoration failed
@@ -171,21 +250,24 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentInstanceId]);
 
-  const lock = useCallback(async (clearSession = false): Promise<void> => {
-    try {
-      await closeDatabase();
-      setDb(null);
+  const lock = useCallback(
+    async (clearSessionFlag = false): Promise<void> => {
+      try {
+        await closeDatabase();
+        setDb(null);
 
-      if (clearSession) {
-        await clearPersistedSession();
-        setHasPersisted(false);
+        if (clearSessionFlag && currentInstanceId) {
+          await clearPersistedSession(currentInstanceId);
+          setHasPersisted(false);
+        }
+      } catch (err) {
+        setError(err as Error);
       }
-    } catch (err) {
-      setError(err as Error);
-    }
-  }, []);
+    },
+    [currentInstanceId]
+  );
 
   const handleChangePassword = useCallback(
     async (oldPassword: string, newPassword: string): Promise<boolean> => {
@@ -200,15 +282,19 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
   );
 
   const reset = useCallback(async (): Promise<void> => {
+    if (!currentInstanceId) {
+      return;
+    }
+
     try {
-      await resetDatabase();
+      await resetDatabase(currentInstanceId);
       setDb(null);
       setIsSetUp(false);
       setHasPersisted(false);
     } catch (err) {
       setError(err as Error);
     }
-  }, []);
+  }, [currentInstanceId]);
 
   const handleExportDatabase = useCallback(async (): Promise<Uint8Array> => {
     try {
@@ -236,6 +322,150 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
     []
   );
 
+  // Multi-instance methods
+
+  const createInstance = useCallback(async (): Promise<string> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Close current database if open
+      if (db) {
+        await closeDatabase();
+        setDb(null);
+      }
+
+      // Create new instance in registry
+      const newInstance = await createRegistryInstance();
+
+      // Update state
+      await setActiveInstanceId(newInstance.id);
+      setCurrentInstanceId(newInstance.id);
+      setCurrentInstanceName(newInstance.name);
+      setIsSetUp(false);
+      setHasPersisted(false);
+
+      // Refresh instances list
+      await refreshInstances();
+
+      return newInstance.id;
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [db, refreshInstances]);
+
+  const switchInstance = useCallback(
+    async (targetInstanceId: string): Promise<boolean> => {
+      if (targetInstanceId === currentInstanceId) {
+        return true; // Already on this instance
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        // Close current database if open
+        if (db) {
+          await closeDatabase();
+          setDb(null);
+        }
+
+        // Update active instance in registry
+        await setActiveInstanceId(targetInstanceId);
+
+        // Find instance metadata
+        const allInstances = await getInstances();
+        const targetInstance = allInstances.find(
+          (i) => i.id === targetInstanceId
+        );
+
+        if (!targetInstance) {
+          throw new Error(`Instance not found: ${targetInstanceId}`);
+        }
+
+        // Update state
+        setCurrentInstanceId(targetInstanceId);
+        setCurrentInstanceName(targetInstance.name);
+        setInstances(allInstances);
+
+        // Check setup status and persisted session for target instance
+        const [setup, persisted] = await Promise.all([
+          isDatabaseSetUp(targetInstanceId),
+          hasPersistedSession(targetInstanceId)
+        ]);
+        setIsSetUp(setup);
+        setHasPersisted(persisted);
+
+        // Try session restore if available
+        if (persisted) {
+          const database = await restoreDatabaseSession(targetInstanceId);
+          if (database) {
+            setDb(database);
+            await touchInstance(targetInstanceId);
+            setIsLoading(false);
+            return true;
+          }
+          // Session restore failed
+          setHasPersisted(false);
+        }
+
+        setIsLoading(false);
+        // Return true if set up (needs unlock), false if not set up (needs setup)
+        return setup;
+      } catch (err) {
+        setError(err as Error);
+        setIsLoading(false);
+        return false;
+      }
+    },
+    [currentInstanceId, db]
+  );
+
+  const deleteInstance = useCallback(
+    async (instanceId: string): Promise<void> => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const allInstances = await getInstances();
+
+        // Can't delete the last instance
+        if (allInstances.length <= 1) {
+          throw new Error('Cannot delete the last instance');
+        }
+
+        // If deleting current instance, switch to another first
+        if (instanceId === currentInstanceId) {
+          const otherInstance = allInstances.find((i) => i.id !== instanceId);
+          if (otherInstance) {
+            await switchInstance(otherInstance.id);
+          }
+        }
+
+        // Delete database and key storage
+        await resetDatabase(instanceId);
+
+        // Delete file storage
+        await deleteFileStorageForInstance(instanceId);
+
+        // Remove from registry
+        await deleteInstanceFromRegistry(instanceId);
+
+        // Refresh instances list
+        await refreshInstances();
+      } catch (err) {
+        setError(err as Error);
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [currentInstanceId, switchInstance, refreshInstances]
+  );
+
   const value = useMemo(
     (): DatabaseContextValue => ({
       db,
@@ -244,6 +474,9 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       isSetUp,
       isUnlocked: db !== null,
       hasPersistedSession: hasPersisted,
+      currentInstanceId,
+      currentInstanceName,
+      instances,
       setup,
       unlock,
       restoreSession,
@@ -251,7 +484,11 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       changePassword: handleChangePassword,
       reset,
       exportDatabase: handleExportDatabase,
-      importDatabase: handleImportDatabase
+      importDatabase: handleImportDatabase,
+      createInstance,
+      switchInstance,
+      deleteInstance,
+      refreshInstances
     }),
     [
       db,
@@ -259,6 +496,9 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       error,
       isSetUp,
       hasPersisted,
+      currentInstanceId,
+      currentInstanceName,
+      instances,
       setup,
       unlock,
       restoreSession,
@@ -266,7 +506,11 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       handleChangePassword,
       reset,
       handleExportDatabase,
-      handleImportDatabase
+      handleImportDatabase,
+      createInstance,
+      switchInstance,
+      deleteInstance,
+      refreshInstances
     ]
   );
 

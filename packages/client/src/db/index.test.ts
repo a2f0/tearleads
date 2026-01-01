@@ -55,7 +55,8 @@ const mockKeyManager = {
 };
 
 vi.mock('./crypto', () => ({
-  getKeyManager: vi.fn(() => mockKeyManager)
+  getKeyManagerForInstance: vi.fn(() => mockKeyManager),
+  setCurrentInstanceId: vi.fn()
 }));
 
 // Import after mocks are set up
@@ -73,6 +74,8 @@ import {
   unlockDatabase
 } from './index';
 
+const TEST_INSTANCE_ID = 'test-instance';
+
 describe('Database API', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -80,7 +83,7 @@ describe('Database API', () => {
     // Reset the module state by re-importing
     // Since we can't easily reset module state, we'll reset via resetDatabase
     try {
-      await resetDatabase();
+      await resetDatabase(TEST_INSTANCE_ID);
     } catch {
       // Ignore errors from reset
     }
@@ -100,20 +103,20 @@ describe('Database API', () => {
   describe('isDatabaseSetUp', () => {
     it('returns false when no key exists', async () => {
       mockKeyManager.hasExistingKey.mockResolvedValueOnce(false);
-      const result = await isDatabaseSetUp();
+      const result = await isDatabaseSetUp(TEST_INSTANCE_ID);
       expect(result).toBe(false);
     });
 
     it('returns true when key exists', async () => {
       mockKeyManager.hasExistingKey.mockResolvedValueOnce(true);
-      const result = await isDatabaseSetUp();
+      const result = await isDatabaseSetUp(TEST_INSTANCE_ID);
       expect(result).toBe(true);
     });
   });
 
   describe('setupDatabase', () => {
     it('creates encryption key and initializes database', async () => {
-      const db = await setupDatabase('password123');
+      const db = await setupDatabase('password123', TEST_INSTANCE_ID);
 
       expect(mockKeyManager.setupNewKey).toHaveBeenCalledWith('password123');
       expect(mockAdapter.initialize).toHaveBeenCalled();
@@ -121,27 +124,27 @@ describe('Database API', () => {
     });
 
     it('runs migrations after initialization', async () => {
-      await setupDatabase('password123');
+      await setupDatabase('password123', TEST_INSTANCE_ID);
       expect(mockAdapter.executeMany).toHaveBeenCalled();
     });
 
     it('throws if database already initialized', async () => {
-      await setupDatabase('password123');
-      await expect(setupDatabase('password123')).rejects.toThrow(
-        'Database already initialized'
-      );
+      await setupDatabase('password123', TEST_INSTANCE_ID);
+      await expect(
+        setupDatabase('password123', TEST_INSTANCE_ID)
+      ).rejects.toThrow('Database already initialized');
     });
   });
 
   describe('unlockDatabase', () => {
     it('returns null for wrong password', async () => {
       mockKeyManager.unlockWithPassword.mockResolvedValueOnce(null);
-      const result = await unlockDatabase('wrongpassword');
+      const result = await unlockDatabase('wrongpassword', TEST_INSTANCE_ID);
       expect(result).toBeNull();
     });
 
     it('initializes database with correct password', async () => {
-      const result = await unlockDatabase('correctpassword');
+      const result = await unlockDatabase('correctpassword', TEST_INSTANCE_ID);
 
       expect(mockKeyManager.unlockWithPassword).toHaveBeenCalledWith(
         'correctpassword'
@@ -153,8 +156,8 @@ describe('Database API', () => {
     });
 
     it('returns existing database if already unlocked', async () => {
-      const result1 = await unlockDatabase('password');
-      const result2 = await unlockDatabase('password');
+      const result1 = await unlockDatabase('password', TEST_INSTANCE_ID);
+      const result2 = await unlockDatabase('password', TEST_INSTANCE_ID);
 
       expect(result1?.db).toBe(result2?.db);
       // Should only initialize once
@@ -163,7 +166,7 @@ describe('Database API', () => {
 
     it('returns sessionPersisted true when persist succeeds', async () => {
       mockKeyManager.persistSession.mockResolvedValueOnce(true);
-      const result = await unlockDatabase('password', true);
+      const result = await unlockDatabase('password', TEST_INSTANCE_ID, true);
 
       expect(result?.sessionPersisted).toBe(true);
       expect(mockKeyManager.persistSession).toHaveBeenCalled();
@@ -171,7 +174,7 @@ describe('Database API', () => {
 
     it('returns sessionPersisted false when persist fails', async () => {
       mockKeyManager.persistSession.mockResolvedValueOnce(false);
-      const result = await unlockDatabase('password', true);
+      const result = await unlockDatabase('password', TEST_INSTANCE_ID, true);
 
       expect(result?.sessionPersisted).toBe(false);
     });
@@ -183,7 +186,7 @@ describe('Database API', () => {
     });
 
     it('returns database instance after setup', async () => {
-      await setupDatabase('password');
+      await setupDatabase('password', TEST_INSTANCE_ID);
       const db = getDatabase();
       expect(db).toBeDefined();
     });
@@ -195,7 +198,7 @@ describe('Database API', () => {
     });
 
     it('returns adapter after setup', async () => {
-      await setupDatabase('password');
+      await setupDatabase('password', TEST_INSTANCE_ID);
       const adapter = getDatabaseAdapter();
       expect(adapter).toBeDefined();
     });
@@ -203,7 +206,7 @@ describe('Database API', () => {
 
   describe('closeDatabase', () => {
     it('closes the adapter', async () => {
-      await setupDatabase('password');
+      await setupDatabase('password', TEST_INSTANCE_ID);
       await closeDatabase();
 
       expect(mockAdapter.close).toHaveBeenCalled();
@@ -211,7 +214,7 @@ describe('Database API', () => {
     });
 
     it('clears the database instance', async () => {
-      await setupDatabase('password');
+      await setupDatabase('password', TEST_INSTANCE_ID);
       await closeDatabase();
 
       expect(() => getDatabase()).toThrow('Database not initialized');
@@ -226,7 +229,7 @@ describe('Database API', () => {
     });
 
     it('returns false for wrong old password', async () => {
-      await setupDatabase('password');
+      await setupDatabase('password', TEST_INSTANCE_ID);
       mockKeyManager.changePassword.mockResolvedValueOnce(null);
 
       const result = await changePassword('wrongpassword', 'newpassword');
@@ -234,7 +237,7 @@ describe('Database API', () => {
     });
 
     it('rekeys database on successful password change', async () => {
-      await setupDatabase('password');
+      await setupDatabase('password', TEST_INSTANCE_ID);
 
       const result = await changePassword('oldpassword', 'newpassword');
 
@@ -249,17 +252,19 @@ describe('Database API', () => {
 
   describe('resetDatabase', () => {
     it('closes database and deletes files', async () => {
-      await setupDatabase('password');
-      await resetDatabase();
+      await setupDatabase('password', TEST_INSTANCE_ID);
+      await resetDatabase(TEST_INSTANCE_ID);
 
       expect(mockAdapter.close).toHaveBeenCalled();
-      expect(mockAdapter.deleteDatabase).toHaveBeenCalledWith('rapid');
+      expect(mockAdapter.deleteDatabase).toHaveBeenCalledWith(
+        `rapid-${TEST_INSTANCE_ID}`
+      );
       expect(mockKeyManager.reset).toHaveBeenCalled();
     });
 
     it('terminates worker on web platform', async () => {
-      await setupDatabase('password');
-      await resetDatabase();
+      await setupDatabase('password', TEST_INSTANCE_ID);
+      await resetDatabase(TEST_INSTANCE_ID);
 
       expect(mockAdapter.terminate).toHaveBeenCalled();
     });
@@ -273,7 +278,7 @@ describe('Database API', () => {
     });
 
     it('returns exported data', async () => {
-      await setupDatabase('password');
+      await setupDatabase('password', TEST_INSTANCE_ID);
       const data = await exportDatabase();
 
       expect(mockAdapter.exportDatabase).toHaveBeenCalled();
@@ -281,7 +286,7 @@ describe('Database API', () => {
     });
 
     it('throws if export not supported', async () => {
-      await setupDatabase('password');
+      await setupDatabase('password', TEST_INSTANCE_ID);
 
       // Temporarily remove exportDatabase
       const originalExport = mockAdapter.exportDatabase;
@@ -304,7 +309,7 @@ describe('Database API', () => {
     });
 
     it('imports data and runs migrations', async () => {
-      await setupDatabase('password');
+      await setupDatabase('password', TEST_INSTANCE_ID);
       mockAdapter.executeMany.mockClear();
 
       await importDatabase(new Uint8Array([1, 2, 3]));
@@ -318,7 +323,7 @@ describe('Database API', () => {
     });
 
     it('throws if import not supported', async () => {
-      await setupDatabase('password');
+      await setupDatabase('password', TEST_INSTANCE_ID);
 
       // Temporarily remove importDatabase
       const originalImport = mockAdapter.importDatabase;

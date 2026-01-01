@@ -45,7 +45,7 @@ interface AudioWithUrl extends AudioInfo {
 }
 
 export function MusicPage() {
-  const { isUnlocked, isLoading } = useDatabaseContext();
+  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [tracks, setTracks] = useState<AudioWithUrl[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,9 +89,10 @@ export function MusicPage() {
       const keyManager = getKeyManager();
       const encryptionKey = keyManager.getCurrentKey();
       if (!encryptionKey) throw new Error('Database not unlocked');
+      if (!currentInstanceId) throw new Error('No active instance');
 
       if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey);
+        await initializeFileStorage(encryptionKey, currentInstanceId);
       }
 
       const storage = getFileStorage();
@@ -121,7 +122,7 @@ export function MusicPage() {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked]);
+  }, [isUnlocked, currentInstanceId]);
 
   const handleFilesSelected = useCallback(
     async (files: File[]) => {

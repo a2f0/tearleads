@@ -1,6 +1,7 @@
 /**
  * Key management for database encryption.
  * Handles key derivation and secure storage per platform.
+ * Supports multi-instance with namespaced storage keys.
  */
 
 import { detectPlatform } from '@/lib/utils';
@@ -15,10 +16,18 @@ import {
   wrapKey
 } from './web-crypto';
 
-const SALT_STORAGE_KEY = 'rapid_db_salt';
-const KEY_CHECK_VALUE = 'rapid_db_kcv';
-const WRAPPING_KEY_STORAGE = 'rapid_session_wrapping_key';
-const WRAPPED_KEY_STORAGE = 'rapid_session_wrapped_key';
+// Base storage key prefixes - instanceId is appended
+const SALT_STORAGE_PREFIX = 'rapid_db_salt';
+const KEY_CHECK_VALUE_PREFIX = 'rapid_db_kcv';
+const WRAPPING_KEY_STORAGE_PREFIX = 'rapid_session_wrapping_key';
+const WRAPPED_KEY_STORAGE_PREFIX = 'rapid_session_wrapped_key';
+
+/**
+ * Get namespaced storage key for an instance.
+ */
+function getStorageKey(prefix: string, instanceId: string): string {
+  return `${prefix}_${instanceId}`;
+}
 
 export interface KeyManagerConfig {
   databaseName: string;
@@ -32,21 +41,24 @@ export interface StoredKeyData {
 /**
  * Get the storage adapter based on platform.
  */
-async function getStorageAdapter(): Promise<KeyStorageAdapter> {
+async function getStorageAdapter(
+  instanceId: string
+): Promise<KeyStorageAdapter> {
   const platform = detectPlatform();
 
   switch (platform) {
     case 'electron':
-      return new ElectronKeyStorage();
+      return new ElectronKeyStorage(instanceId);
     case 'ios':
     case 'android':
-      return new CapacitorKeyStorage();
+      return new CapacitorKeyStorage(instanceId);
     default:
-      return new WebKeyStorage();
+      return new WebKeyStorage(instanceId);
   }
 }
 
 interface KeyStorageAdapter {
+  instanceId: string;
   getSalt(): Promise<Uint8Array | null>;
   setSalt(salt: Uint8Array): Promise<void>;
   getKeyCheckValue(): Promise<string | null>;
@@ -66,6 +78,24 @@ interface KeyStorageAdapter {
 class WebKeyStorage implements KeyStorageAdapter {
   private dbName = 'rapid_key_storage';
   private storeName = 'keys';
+  public instanceId: string;
+
+  // Namespaced storage keys
+  private saltKey: string;
+  private kcvKey: string;
+  private wrappingKeyKey: string;
+  private wrappedKeyKey: string;
+
+  constructor(instanceId: string) {
+    this.instanceId = instanceId;
+    this.saltKey = getStorageKey(SALT_STORAGE_PREFIX, instanceId);
+    this.kcvKey = getStorageKey(KEY_CHECK_VALUE_PREFIX, instanceId);
+    this.wrappingKeyKey = getStorageKey(
+      WRAPPING_KEY_STORAGE_PREFIX,
+      instanceId
+    );
+    this.wrappedKeyKey = getStorageKey(WRAPPED_KEY_STORAGE_PREFIX, instanceId);
+  }
 
   private async openDB(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
@@ -112,29 +142,12 @@ class WebKeyStorage implements KeyStorageAdapter {
     });
   }
 
-  async getSalt(): Promise<Uint8Array | null> {
-    const stored = await this.get<number[]>(SALT_STORAGE_KEY);
-    return stored ? new Uint8Array(stored) : null;
-  }
-
-  async setSalt(salt: Uint8Array): Promise<void> {
-    await this.set(SALT_STORAGE_KEY, Array.from(salt));
-  }
-
-  async getKeyCheckValue(): Promise<string | null> {
-    return this.get<string>(KEY_CHECK_VALUE);
-  }
-
-  async setKeyCheckValue(kcv: string): Promise<void> {
-    await this.set(KEY_CHECK_VALUE, kcv);
-  }
-
-  async clear(): Promise<void> {
+  private async deleteKey(key: string): Promise<void> {
     const db = await this.openDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.storeName, 'readwrite');
       const store = tx.objectStore(this.storeName);
-      const request = store.clear();
+      const request = store.delete(key);
 
       request.onerror = () => reject(request.error);
       tx.oncomplete = () => {
@@ -144,39 +157,56 @@ class WebKeyStorage implements KeyStorageAdapter {
     });
   }
 
+  async getSalt(): Promise<Uint8Array | null> {
+    const stored = await this.get<number[]>(this.saltKey);
+    return stored ? new Uint8Array(stored) : null;
+  }
+
+  async setSalt(salt: Uint8Array): Promise<void> {
+    await this.set(this.saltKey, Array.from(salt));
+  }
+
+  async getKeyCheckValue(): Promise<string | null> {
+    return this.get<string>(this.kcvKey);
+  }
+
+  async setKeyCheckValue(kcv: string): Promise<void> {
+    await this.set(this.kcvKey, kcv);
+  }
+
+  async clear(): Promise<void> {
+    // Delete only keys for this instance, not all keys
+    await Promise.all([
+      this.deleteKey(this.saltKey),
+      this.deleteKey(this.kcvKey),
+      this.deleteKey(this.wrappingKeyKey),
+      this.deleteKey(this.wrappedKeyKey)
+    ]);
+  }
+
   async getWrappingKey(): Promise<CryptoKey | null> {
-    return this.get<CryptoKey>(WRAPPING_KEY_STORAGE);
+    return this.get<CryptoKey>(this.wrappingKeyKey);
   }
 
   async setWrappingKey(key: CryptoKey): Promise<void> {
-    await this.set(WRAPPING_KEY_STORAGE, key);
+    await this.set(this.wrappingKeyKey, key);
   }
 
   async getWrappedKey(): Promise<Uint8Array | null> {
-    const stored = await this.get<number[]>(WRAPPED_KEY_STORAGE);
+    const stored = await this.get<number[]>(this.wrappedKeyKey);
     return stored ? new Uint8Array(stored) : null;
   }
 
   async setWrappedKey(wrappedKey: Uint8Array): Promise<void> {
-    await this.set(WRAPPED_KEY_STORAGE, Array.from(wrappedKey));
+    await this.set(this.wrappedKeyKey, Array.from(wrappedKey));
   }
 
   async clearSession(): Promise<void> {
-    const db = await this.openDB();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction(this.storeName, 'readwrite');
-      const store = tx.objectStore(this.storeName);
-
-      // Delete only session-related keys, not the salt/kcv
-      store.delete(WRAPPING_KEY_STORAGE);
-      store.delete(WRAPPED_KEY_STORAGE);
-
-      tx.onerror = () => reject(tx.error);
-      tx.oncomplete = () => {
-        db.close();
-        resolve();
-      };
-    });
+    // Delete only session-related keys for this instance
+    await Promise.all([
+      this.deleteKey(this.wrappingKeyKey),
+      this.deleteKey(this.wrappedKeyKey)
+    ]);
   }
 }
 
@@ -184,6 +214,12 @@ class WebKeyStorage implements KeyStorageAdapter {
  * Electron storage adapter using safeStorage API via IPC.
  */
 class ElectronKeyStorage implements KeyStorageAdapter {
+  public instanceId: string;
+
+  constructor(instanceId: string) {
+    this.instanceId = instanceId;
+  }
+
   private getApi() {
     return window.electron?.sqlite;
   }
@@ -191,34 +227,34 @@ class ElectronKeyStorage implements KeyStorageAdapter {
   async getSalt(): Promise<Uint8Array | null> {
     const api = this.getApi();
     if (!api?.getSalt) return null;
-    const stored = await api.getSalt();
+    const stored = await api.getSalt(this.instanceId);
     return stored ? new Uint8Array(stored) : null;
   }
 
   async setSalt(salt: Uint8Array): Promise<void> {
     const api = this.getApi();
     if (api?.setSalt) {
-      await api.setSalt(Array.from(salt));
+      await api.setSalt(Array.from(salt), this.instanceId);
     }
   }
 
   async getKeyCheckValue(): Promise<string | null> {
     const api = this.getApi();
     if (!api?.getKeyCheckValue) return null;
-    return api.getKeyCheckValue();
+    return api.getKeyCheckValue(this.instanceId);
   }
 
   async setKeyCheckValue(kcv: string): Promise<void> {
     const api = this.getApi();
     if (api?.setKeyCheckValue) {
-      await api.setKeyCheckValue(kcv);
+      await api.setKeyCheckValue(kcv, this.instanceId);
     }
   }
 
   async clear(): Promise<void> {
     const api = this.getApi();
     if (api?.clearKeyStorage) {
-      await api.clearKeyStorage();
+      await api.clearKeyStorage(this.instanceId);
     }
   }
 
@@ -241,8 +277,14 @@ class ElectronKeyStorage implements KeyStorageAdapter {
  * and IndexedDB provides sufficient persistence for encryption salt storage.
  */
 class CapacitorKeyStorage implements KeyStorageAdapter {
+  public instanceId: string;
   // Use IndexedDB directly - it works well in Capacitor WebViews
-  private storage = new WebKeyStorage();
+  private storage: WebKeyStorage;
+
+  constructor(instanceId: string) {
+    this.instanceId = instanceId;
+    this.storage = new WebKeyStorage(instanceId);
+  }
 
   async getSalt(): Promise<Uint8Array | null> {
     return this.storage.getSalt();
@@ -278,13 +320,26 @@ class CapacitorKeyStorage implements KeyStorageAdapter {
 
 /**
  * Key manager class for handling encryption key lifecycle.
+ * Each instance has its own isolated key storage.
  */
 export class KeyManager {
   private storage: KeyStorageAdapter | null = null;
   private currentKey: Uint8Array | null = null;
+  private instanceId: string;
+
+  constructor(instanceId: string) {
+    this.instanceId = instanceId;
+  }
+
+  /**
+   * Get the instance ID this key manager is associated with.
+   */
+  getInstanceId(): string {
+    return this.instanceId;
+  }
 
   async initialize(): Promise<void> {
-    this.storage = await getStorageAdapter();
+    this.storage = await getStorageAdapter(this.instanceId);
   }
 
   /**
@@ -494,12 +549,69 @@ export class KeyManager {
   }
 }
 
-// Singleton instance
-let keyManagerInstance: KeyManager | null = null;
+// Map of instanceId -> KeyManager for multi-instance support
+const keyManagerInstances = new Map<string, KeyManager>();
 
-export function getKeyManager(): KeyManager {
-  if (!keyManagerInstance) {
-    keyManagerInstance = new KeyManager();
+// Track the current active instance ID
+let currentInstanceId: string | null = null;
+
+/**
+ * Get a KeyManager for a specific instance.
+ */
+export function getKeyManagerForInstance(instanceId: string): KeyManager {
+  let manager = keyManagerInstances.get(instanceId);
+  if (!manager) {
+    manager = new KeyManager(instanceId);
+    keyManagerInstances.set(instanceId, manager);
   }
-  return keyManagerInstance;
+  return manager;
+}
+
+/**
+ * Get the KeyManager for the current active instance.
+ * Throws if no instance is active.
+ */
+export function getKeyManager(): KeyManager {
+  if (!currentInstanceId) {
+    throw new Error(
+      'No active instance. Call setCurrentInstanceId first or use getKeyManagerForInstance.'
+    );
+  }
+  return getKeyManagerForInstance(currentInstanceId);
+}
+
+/**
+ * Set the current active instance ID.
+ */
+export function setCurrentInstanceId(instanceId: string | null): void {
+  currentInstanceId = instanceId;
+}
+
+/**
+ * Get the current active instance ID.
+ */
+export function getCurrentInstanceId(): string | null {
+  return currentInstanceId;
+}
+
+/**
+ * Clear a specific key manager instance.
+ */
+export function clearKeyManagerForInstance(instanceId: string): void {
+  const manager = keyManagerInstances.get(instanceId);
+  if (manager) {
+    manager.clearKey();
+    keyManagerInstances.delete(instanceId);
+  }
+}
+
+/**
+ * Clear all key manager instances.
+ */
+export function clearAllKeyManagers(): void {
+  for (const manager of keyManagerInstances.values()) {
+    manager.clearKey();
+  }
+  keyManagerInstances.clear();
+  currentInstanceId = null;
 }
