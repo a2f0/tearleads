@@ -31,9 +31,18 @@ type ModelType = 'chat' | 'vision' | 'paligemma';
 
 type WorkerResponse =
   | { type: 'progress'; file: string; progress: number; total: number }
-  | { type: 'loaded'; modelId: string; modelType: ModelType }
+  | {
+      type: 'loaded';
+      modelId: string;
+      modelType: ModelType;
+      durationMs: number;
+    }
   | { type: 'token'; text: string }
-  | { type: 'done' }
+  | {
+      type: 'done';
+      durationMs: number;
+      promptType: 'text' | 'multimodal';
+    }
   | { type: 'error'; message: string }
   | { type: 'unloaded' };
 
@@ -65,12 +74,15 @@ function getModelType(modelId: string): ModelType {
 }
 
 async function loadModel(modelId: string): Promise<void> {
+  const startTime = performance.now();
+
   // Skip if already loaded
   if (currentModelId === modelId && model) {
     postResponse({
       type: 'loaded',
       modelId,
-      modelType: currentModelType ?? 'chat'
+      modelType: currentModelType ?? 'chat',
+      durationMs: 0
     });
     return;
   }
@@ -147,10 +159,12 @@ async function loadModel(modelId: string): Promise<void> {
     currentModelId = modelId;
     currentModelType = modelType;
 
+    const durationMs = performance.now() - startTime;
     postResponse({
       type: 'loaded',
       modelId,
-      modelType: currentModelType
+      modelType: currentModelType,
+      durationMs
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -194,6 +208,8 @@ async function generate(
     return;
   }
 
+  const startTime = performance.now();
+  const isMultimodal = Boolean(imageBase64);
   abortController = new AbortController();
 
   try {
@@ -219,7 +235,8 @@ async function generate(
       });
 
       if (abortController.signal.aborted) {
-        postResponse({ type: 'done' });
+        const durationMs = performance.now() - startTime;
+        postResponse({ type: 'done', durationMs, promptType: 'multimodal' });
         return;
       }
 
@@ -236,34 +253,39 @@ async function generate(
 
       const answer = decoded[0] ?? '';
       postResponse({ type: 'token', text: answer });
-      postResponse({ type: 'done' });
+      const durationMs = performance.now() - startTime;
+      postResponse({ type: 'done', durationMs, promptType: 'multimodal' });
       return;
-    } else if (currentModelType === 'vision' && processor && imageBase64) {
-      // Vision model with image (SmolVLM format)
-      const image = await RawImage.fromURL(imageBase64);
+    } else if (currentModelType === 'vision' && processor) {
+      // Vision models require a multimodal message format even for text-only prompts.
+      // We format the messages accordingly and use the processor to apply the chat template.
+      const hasImage = Boolean(imageBase64);
+      const image =
+        hasImage && imageBase64 ? await RawImage.fromURL(imageBase64) : null;
 
-      // Format messages for SmolVLM - use type markers, not actual images
-      // The images are passed separately to the processor
+      // Format messages with multimodal content structure
+      // Include image marker only when an image is provided
       const formattedMessages = messages.map((m) => {
         if (m.role === 'user') {
-          return {
-            role: m.role,
-            content: [{ type: 'image' }, { type: 'text', text: m.content }]
-          };
+          const content: Array<{ type: string; text?: string }> = [];
+          if (hasImage) {
+            content.push({ type: 'image' });
+          }
+          content.push({ type: 'text', text: m.content });
+          return { role: m.role, content };
         }
         return m;
       });
 
-      // Use processor.apply_chat_template for vision models
       // @ts-expect-error - SmolVLM uses multimodal content format
       const text = processor.apply_chat_template(formattedMessages, {
         add_generation_prompt: true
       });
 
-      // Pass text and images separately to processor
-      inputs = await processor(text, [image]);
+      // Process with or without images
+      inputs = image ? await processor(text, [image]) : await processor(text);
     } else {
-      // Text-only chat
+      // Text-only chat (standard chat models like Phi-3)
       const prompt = tokenizer.apply_chat_template(messages, {
         tokenize: false,
         add_generation_prompt: true
@@ -293,12 +315,16 @@ async function generate(
       streamer
     });
 
+    const durationMs = performance.now() - startTime;
+    const promptType = isMultimodal ? 'multimodal' : 'text';
     if (!abortController.signal.aborted) {
-      postResponse({ type: 'done' });
+      postResponse({ type: 'done', durationMs, promptType });
     }
   } catch (error) {
     if (abortController?.signal.aborted) {
-      postResponse({ type: 'done' });
+      const durationMs = performance.now() - startTime;
+      const promptType = isMultimodal ? 'multimodal' : 'text';
+      postResponse({ type: 'done', durationMs, promptType });
       return;
     }
 

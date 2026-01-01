@@ -55,15 +55,31 @@ describe('formatFileSize', () => {
   });
 });
 
+// Mock Capacitor before importing detectPlatform
+vi.mock('@capacitor/core', () => ({
+  Capacitor: {
+    getPlatform: vi.fn(),
+    isNativePlatform: vi.fn()
+  }
+}));
+
+import { Capacitor } from '@capacitor/core';
+
 describe('detectPlatform', () => {
+  const mockGetPlatform = vi.mocked(Capacitor.getPlatform);
+  const mockIsNativePlatform = vi.mocked(Capacitor.isNativePlatform);
+
   beforeEach(() => {
-    // Reset mocks between tests
     vi.restoreAllMocks();
 
     // Clear window.electron if it exists
     if (typeof window !== 'undefined' && 'electron' in window) {
       delete (window as unknown as Record<string, unknown>)['electron'];
     }
+
+    // Reset Capacitor mocks to defaults
+    mockGetPlatform.mockReturnValue('web');
+    mockIsNativePlatform.mockReturnValue(false);
   });
 
   describe('Electron detection', () => {
@@ -74,14 +90,98 @@ describe('detectPlatform', () => {
     });
 
     it('returns web when window.electron is undefined', () => {
-      // Default case - Capacitor returns 'web' by default in jsdom
       expect(detectPlatform()).toBe('web');
     });
   });
 
-  // Note: Full Capacitor platform detection tests require mocking
-  // the @capacitor/core module, which is complex. The basic detection
-  // is tested in integration tests where Capacitor is properly initialized.
+  describe('Capacitor native platform detection', () => {
+    it('detects iOS when Capacitor returns ios', () => {
+      mockGetPlatform.mockReturnValue('ios');
+      expect(detectPlatform()).toBe('ios');
+    });
+
+    it('detects Android when Capacitor returns android', () => {
+      mockGetPlatform.mockReturnValue('android');
+      expect(detectPlatform()).toBe('android');
+    });
+  });
+
+  describe('isNativePlatform fallback detection', () => {
+    beforeEach(() => {
+      mockGetPlatform.mockReturnValue('web');
+      mockIsNativePlatform.mockReturnValue(true);
+    });
+
+    it('detects iOS from user agent when isNativePlatform is true', () => {
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)'
+      );
+      expect(detectPlatform()).toBe('ios');
+    });
+
+    it('detects iPad from user agent when isNativePlatform is true', () => {
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X)'
+      );
+      expect(detectPlatform()).toBe('ios');
+    });
+
+    it('detects Android from user agent when isNativePlatform is true', () => {
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (Linux; Android 11; Pixel 5)'
+      );
+      expect(detectPlatform()).toBe('android');
+    });
+
+    it('defaults to android when isNativePlatform is true but UA is unknown', () => {
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (Unknown Platform)'
+      );
+      expect(detectPlatform()).toBe('android');
+    });
+  });
+
+  describe('WebView detection fallback', () => {
+    beforeEach(() => {
+      mockGetPlatform.mockReturnValue('web');
+      mockIsNativePlatform.mockReturnValue(false);
+    });
+
+    it('detects Android WebView from user agent', () => {
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (Linux; Android 11; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/91.0.4472.120 Mobile wv'
+      );
+      expect(detectPlatform()).toBe('android');
+    });
+
+    it('detects Android WebView with version/ indicator', () => {
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (Linux; Android 11) AppleWebKit/537.36 Version/4.0 Chrome/91.0.4472.120'
+      );
+      expect(detectPlatform()).toBe('android');
+    });
+
+    it('detects iOS WebView (no Safari in UA)', () => {
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148'
+      );
+      expect(detectPlatform()).toBe('ios');
+    });
+
+    it('returns web for regular iOS Safari', () => {
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1'
+      );
+      expect(detectPlatform()).toBe('web');
+    });
+
+    it('returns web for desktop browser', () => {
+      vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      );
+      expect(detectPlatform()).toBe('web');
+    });
+  });
 });
 
 describe('formatDate', () => {
