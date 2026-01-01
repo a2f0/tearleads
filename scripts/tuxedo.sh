@@ -131,15 +131,16 @@ update_from_main() {
     git -C "$workspace" pull origin main --quiet 2>/dev/null || true
 }
 
-# Update all workspaces that are on main with no uncommitted changes
+# Update all workspaces that are on main with no uncommitted changes (parallel)
 update_all_workspaces() {
     echo "Checking workspaces for updates..."
-    update_from_main "$BASE_DIR/rapid-main"
+    update_from_main "$BASE_DIR/rapid-main" &
     i=2
     while [ "$i" -le "$NUM_WORKSPACES" ]; do
-        update_from_main "$BASE_DIR/rapid${i}"
+        update_from_main "$BASE_DIR/rapid${i}" &
         i=$((i + 1))
     done
+    wait  # Wait for all background updates to complete
 }
 
 # Sync VS Code window title to tmux window name
