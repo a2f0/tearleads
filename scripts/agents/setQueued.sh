@@ -1,6 +1,5 @@
 #!/bin/sh
-# Mark workspace as queued: updates VS Code title, tmux window name,
-# and sets pane background color to indicate queued status.
+# Mark workspace as queued: updates VS Code title and tmux window name.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -44,9 +43,6 @@ if [ -n "${TMUX:-}" ]; then
 
     # Rename window with queued prefix
     tmux rename-window "(queued) $BASE_NAME"
-
-    # Set background color to indicate queued status (dark green)
-    tmux select-pane -P 'bg=colour22'
 
     echo "Tmux window marked as queued"
 fi

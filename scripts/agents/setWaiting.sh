@@ -1,6 +1,5 @@
 #!/bin/sh
-# Mark workspace as waiting for user input: updates VS Code title, tmux window name,
-# and sets pane background color to indicate waiting for input.
+# Mark workspace as waiting for user input: updates VS Code title and tmux window name.
 # Skips if already in queued state (queued takes precedence).
 set -eu
 
@@ -91,9 +90,6 @@ if [ -n "${TMUX:-}" ]; then
 
     # Rename window with waiting prefix
     tmux rename-window "(waiting) $BASE_NAME"
-
-    # Set background color to indicate waiting status (dark blue)
-    tmux select-pane -P 'bg=colour17'
 
     echo "Tmux window marked as waiting"
 fi
