@@ -1,6 +1,14 @@
 export type { KeyManagerConfig, StoredKeyData } from './key-manager';
 
-export { getKeyManager, KeyManager } from './key-manager';
+export {
+  clearAllKeyManagers,
+  clearKeyManagerForInstance,
+  getCurrentInstanceId,
+  getKeyManager,
+  getKeyManagerForInstance,
+  KeyManager,
+  setCurrentInstanceId
+} from './key-manager';
 export {
   decrypt,
   decryptString,

@@ -13,6 +13,27 @@ vi.mock('@/lib/api', () => ({
   }
 }));
 
+// Mock the database context for AccountSwitcher
+vi.mock('@/db/hooks/useDatabase', () => ({
+  useDatabaseContext: vi.fn(() => ({
+    currentInstanceId: 'test-instance',
+    currentInstanceName: 'Instance 1',
+    instances: [
+      {
+        id: 'test-instance',
+        name: 'Instance 1',
+        createdAt: Date.now(),
+        lastAccessedAt: Date.now()
+      }
+    ],
+    createInstance: vi.fn(async () => 'new-instance'),
+    switchInstance: vi.fn(async () => true),
+    deleteInstance: vi.fn(async () => {}),
+    refreshInstances: vi.fn(async () => {}),
+    isLoading: false
+  }))
+}));
+
 function renderApp() {
   return render(
     <MemoryRouter>

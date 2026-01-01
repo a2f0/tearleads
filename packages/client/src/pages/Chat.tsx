@@ -84,7 +84,7 @@ interface PhotoPickerProps {
 }
 
 function PhotoPicker({ onSelect, onClose }: PhotoPickerProps) {
-  const { isUnlocked } = useDatabaseContext();
+  const { isUnlocked, currentInstanceId } = useDatabaseContext();
   const [photos, setPhotos] = useState<PhotoInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -112,9 +112,10 @@ function PhotoPicker({ onSelect, onClose }: PhotoPickerProps) {
       const keyManager = getKeyManager();
       const encryptionKey = keyManager.getCurrentKey();
       if (!encryptionKey) throw new Error('Database not unlocked');
+      if (!currentInstanceId) throw new Error('No active instance');
 
       if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey);
+        await initializeFileStorage(encryptionKey, currentInstanceId);
       }
 
       const storage = getFileStorage();
@@ -145,7 +146,7 @@ function PhotoPicker({ onSelect, onClose }: PhotoPickerProps) {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked]);
+  }, [isUnlocked, currentInstanceId]);
 
   useEffect(() => {
     fetchPhotos();
@@ -165,9 +166,10 @@ function PhotoPicker({ onSelect, onClose }: PhotoPickerProps) {
         const keyManager = getKeyManager();
         const encryptionKey = keyManager.getCurrentKey();
         if (!encryptionKey) throw new Error('Database not unlocked');
+        if (!currentInstanceId) throw new Error('No active instance');
 
         if (!isFileStorageInitialized()) {
-          await initializeFileStorage(encryptionKey);
+          await initializeFileStorage(encryptionKey, currentInstanceId);
         }
 
         const storage = getFileStorage();
@@ -188,7 +190,7 @@ function PhotoPicker({ onSelect, onClose }: PhotoPickerProps) {
         setError(err instanceof Error ? err.message : String(err));
       }
     },
-    [onSelect]
+    [onSelect, currentInstanceId]
   );
 
   const thumbnailStyle = {

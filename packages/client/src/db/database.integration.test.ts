@@ -29,31 +29,32 @@ import {
 
 const TEST_PASSWORD = 'test-password-123';
 const NEW_PASSWORD = 'new-password-456';
+const TEST_INSTANCE_ID = 'test-instance';
 
 describe('Database Integration Tests', () => {
   beforeEach(async () => {
     await resetTestKeyManager();
-    await resetDatabase();
+    await resetDatabase(TEST_INSTANCE_ID);
   });
 
   describe('setupDatabase', () => {
     it('sets up a new database with password', async () => {
-      const db = await setupDatabase(TEST_PASSWORD);
+      const db = await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
 
       expect(db).toBeDefined();
-      expect(await isDatabaseSetUp()).toBe(true);
+      expect(await isDatabaseSetUp(TEST_INSTANCE_ID)).toBe(true);
     });
 
     it('throws if database already initialized', async () => {
-      await setupDatabase(TEST_PASSWORD);
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
 
-      await expect(setupDatabase(TEST_PASSWORD)).rejects.toThrow(
-        'Database already initialized'
-      );
+      await expect(
+        setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID)
+      ).rejects.toThrow('Database already initialized');
     });
 
     it('creates schema tables during setup', async () => {
-      await setupDatabase(TEST_PASSWORD);
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
 
       const adapter = getDatabaseAdapter();
       const result = await adapter.execute(
@@ -73,20 +74,20 @@ describe('Database Integration Tests', () => {
   describe('unlockDatabase', () => {
     it('unlocks an existing database', async () => {
       // Setup first
-      await setupDatabase(TEST_PASSWORD);
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
       await closeDatabase();
 
       // Unlock
-      const result = await unlockDatabase(TEST_PASSWORD);
+      const result = await unlockDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
 
       expect(result).not.toBeNull();
       expect(result?.db).toBeDefined();
     });
 
     it('returns existing db if already unlocked', async () => {
-      await setupDatabase(TEST_PASSWORD);
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
 
-      const result = await unlockDatabase(TEST_PASSWORD);
+      const result = await unlockDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
 
       expect(result).not.toBeNull();
       expect(result?.db).toBeDefined();
@@ -95,17 +96,17 @@ describe('Database Integration Tests', () => {
 
   describe('closeDatabase', () => {
     it('closes the database and clears instance', async () => {
-      await setupDatabase(TEST_PASSWORD);
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
       await closeDatabase();
 
       expect(() => getDatabase()).toThrow('Database not initialized');
     });
 
     it('allows re-unlocking after close', async () => {
-      await setupDatabase(TEST_PASSWORD);
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
       await closeDatabase();
 
-      const result = await unlockDatabase(TEST_PASSWORD);
+      const result = await unlockDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
       expect(result?.db).toBeDefined();
     });
   });
@@ -113,7 +114,7 @@ describe('Database Integration Tests', () => {
   describe('data persistence', () => {
     it('persists data within the same session', async () => {
       // Setup and write data
-      const db = await setupDatabase(TEST_PASSWORD);
+      const db = await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
 
       const testKey = 'test_persistence_key';
       const testValue = `test-value-${Date.now()}`;
@@ -147,7 +148,7 @@ describe('Database Integration Tests', () => {
 
   describe('write and read operations', () => {
     it('writes and reads data using Drizzle ORM', async () => {
-      const db = await setupDatabase(TEST_PASSWORD);
+      const db = await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
 
       const testKey = 'drizzle_test_key';
       const testValue = 'drizzle_test_value';
@@ -170,7 +171,7 @@ describe('Database Integration Tests', () => {
     });
 
     it('writes and reads data using raw SQL', async () => {
-      await setupDatabase(TEST_PASSWORD);
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
       const adapter = getDatabaseAdapter();
 
       const testKey = 'raw_sql_test_key';
@@ -195,7 +196,7 @@ describe('Database Integration Tests', () => {
     });
 
     it('handles INSERT OR REPLACE correctly', async () => {
-      await setupDatabase(TEST_PASSWORD);
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
       const adapter = getDatabaseAdapter();
 
       const testKey = 'replace_test_key';
@@ -227,7 +228,7 @@ describe('Database Integration Tests', () => {
 
   describe('changePassword', () => {
     it('changes password successfully', async () => {
-      await setupDatabase(TEST_PASSWORD);
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
 
       const success = await changePassword(TEST_PASSWORD, NEW_PASSWORD);
 
@@ -235,7 +236,7 @@ describe('Database Integration Tests', () => {
     });
 
     it('preserves data after password change', async () => {
-      const db = await setupDatabase(TEST_PASSWORD);
+      const db = await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
 
       // Write test data
       const testKey = 'password_change_test';
@@ -267,77 +268,81 @@ describe('Database Integration Tests', () => {
 
   describe('resetDatabase', () => {
     it('clears all data and state', async () => {
-      await setupDatabase(TEST_PASSWORD);
-      await resetDatabase();
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
+      await resetDatabase(TEST_INSTANCE_ID);
 
-      expect(await isDatabaseSetUp()).toBe(false);
+      expect(await isDatabaseSetUp(TEST_INSTANCE_ID)).toBe(false);
       expect(() => getDatabase()).toThrow('Database not initialized');
     });
 
     it('allows setting up again after reset', async () => {
-      await setupDatabase(TEST_PASSWORD);
-      await resetDatabase();
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
+      await resetDatabase(TEST_INSTANCE_ID);
 
-      const db = await setupDatabase(NEW_PASSWORD);
+      const db = await setupDatabase(NEW_PASSWORD, TEST_INSTANCE_ID);
 
       expect(db).toBeDefined();
-      expect(await isDatabaseSetUp()).toBe(true);
+      expect(await isDatabaseSetUp(TEST_INSTANCE_ID)).toBe(true);
     });
   });
 
   describe('session persistence', () => {
     it('reports no persisted session initially', async () => {
-      await setupDatabase(TEST_PASSWORD);
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
 
-      expect(await hasPersistedSession()).toBe(false);
+      expect(await hasPersistedSession(TEST_INSTANCE_ID)).toBe(false);
     });
 
     it('persists session when unlock is called with persistSession=true', async () => {
-      await setupDatabase(TEST_PASSWORD);
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
       await closeDatabase();
 
-      const result = await unlockDatabase(TEST_PASSWORD, true);
+      const result = await unlockDatabase(
+        TEST_PASSWORD,
+        TEST_INSTANCE_ID,
+        true
+      );
 
       expect(result?.sessionPersisted).toBe(true);
-      expect(await hasPersistedSession()).toBe(true);
+      expect(await hasPersistedSession(TEST_INSTANCE_ID)).toBe(true);
     });
 
     it('restores session from persisted state', async () => {
-      await setupDatabase(TEST_PASSWORD);
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
       await closeDatabase();
-      await unlockDatabase(TEST_PASSWORD, true);
+      await unlockDatabase(TEST_PASSWORD, TEST_INSTANCE_ID, true);
       await closeDatabase();
 
-      const db = await restoreDatabaseSession();
+      const db = await restoreDatabaseSession(TEST_INSTANCE_ID);
 
       expect(db).toBeDefined();
     });
 
     it('returns null when no persisted session exists', async () => {
-      await setupDatabase(TEST_PASSWORD);
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
       await closeDatabase();
 
-      const db = await restoreDatabaseSession();
+      const db = await restoreDatabaseSession(TEST_INSTANCE_ID);
 
       expect(db).toBeNull();
     });
 
     it('clears persisted session', async () => {
-      await setupDatabase(TEST_PASSWORD);
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
       await closeDatabase();
-      await unlockDatabase(TEST_PASSWORD, true);
-      await clearPersistedSession();
+      await unlockDatabase(TEST_PASSWORD, TEST_INSTANCE_ID, true);
+      await clearPersistedSession(TEST_INSTANCE_ID);
 
-      expect(await hasPersistedSession()).toBe(false);
+      expect(await hasPersistedSession(TEST_INSTANCE_ID)).toBe(false);
     });
 
     it('clears persisted session on database reset', async () => {
-      await setupDatabase(TEST_PASSWORD);
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
       await closeDatabase();
-      await unlockDatabase(TEST_PASSWORD, true);
-      await resetDatabase();
+      await unlockDatabase(TEST_PASSWORD, TEST_INSTANCE_ID, true);
+      await resetDatabase(TEST_INSTANCE_ID);
 
-      expect(await hasPersistedSession()).toBe(false);
+      expect(await hasPersistedSession(TEST_INSTANCE_ID)).toBe(false);
     });
   });
 

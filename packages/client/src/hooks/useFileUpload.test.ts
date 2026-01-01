@@ -15,7 +15,8 @@ vi.mock('@/db', () => ({
 
 // Mock key manager
 vi.mock('@/db/crypto', () => ({
-  getKeyManager: vi.fn()
+  getKeyManager: vi.fn(),
+  getCurrentInstanceId: vi.fn(() => 'test-instance')
 }));
 
 // Mock file utils

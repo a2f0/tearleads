@@ -7,7 +7,7 @@ import { fileTypeFromBuffer } from 'file-type';
 import { useCallback } from 'react';
 import { getDatabase } from '@/db';
 import { logEvent } from '@/db/analytics';
-import { getKeyManager } from '@/db/crypto';
+import { getCurrentInstanceId, getKeyManager } from '@/db/crypto';
 import { files } from '@/db/schema';
 import { UnsupportedFileTypeError } from '@/lib/errors';
 import { computeContentHash, readFileAsUint8Array } from '@/lib/file-utils';
@@ -36,8 +36,12 @@ export function useFileUpload() {
       }
 
       // Initialize file storage if needed
+      const instanceId = getCurrentInstanceId();
+      if (!instanceId) {
+        throw new Error('No active instance');
+      }
       if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey);
+        await initializeFileStorage(encryptionKey, instanceId);
       }
 
       // Read file data
