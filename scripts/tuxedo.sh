@@ -10,8 +10,14 @@
 #   rapid-shared/ is the source of truth for .secrets (not version controlled).
 #   .claude and CLAUDE.md are NOT symlinked since they're tracked in git.
 #
+# Screen session persistence:
+#   Each workspace runs inside a GNU screen session. If you kill tmux,
+#   the screen sessions survive. When you restart tuxedo.sh, it reattaches
+#   to existing screen sessions, preserving running processes (like Claude agents).
+#
 # To detach: tmux detach (or Ctrl+B, D)
 # To destroy: tmux kill-session -t tuxedo
+# To kill screens too: screen -ls | grep tux- | cut -d. -f1 | xargs -I{} screen -X -S {} quit
 
 set -eu
 
@@ -75,6 +81,29 @@ TMUX_CONF="$CONFIG_DIR/tmux.conf"
 NVIM_INIT="$CONFIG_DIR/neovim.lua"
 EDITOR="${TUXEDO_EDITOR:-nvim -u $NVIM_INIT}"
 
+# Check if screen is available for session persistence
+if command -v screen >/dev/null 2>&1; then
+    USE_SCREEN=true
+else
+    USE_SCREEN=false
+    echo "Note: GNU screen not found. Sessions won't persist across tmux restarts."
+    echo "Install with: brew install screen"
+fi
+
+# Get or create a screen session for a workspace
+# Returns the command to run in a tmux pane
+screen_cmd() {
+    screen_name="$1"
+    if [ "$USE_SCREEN" = true ]; then
+        # -d -RR: detach from elsewhere if attached, reattach or create new
+        # -c /dev/null: don't read .screenrc (use defaults)
+        echo "screen -d -RR $screen_name -c /dev/null"
+    else
+        # Fallback: just run the shell
+        echo ""
+    fi
+}
+
 # Sync VS Code window title to tmux window name
 # If .vscode/settings.json has a window.title, use it for tmux
 sync_vscode_title() {
@@ -128,11 +157,22 @@ if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
 fi
 
 # Create session starting with rapid-shared (source of truth)
-tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n rapid-shared
+# Terminal pane runs in a persistent screen session
+screen_shared=$(screen_cmd tux-shared)
+if [ -n "$screen_shared" ]; then
+    tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n rapid-shared "$screen_shared"
+else
+    tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n rapid-shared
+fi
 tmux split-window -h -t "$SESSION_NAME:rapid-shared" -c "$SHARED_DIR" "$EDITOR"
 
 # Add rapid-main as second window
-tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main
+screen_main=$(screen_cmd tux-main)
+if [ -n "$screen_main" ]; then
+    tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main "$screen_main"
+else
+    tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main
+fi
 tmux split-window -h -t "$SESSION_NAME:rapid-main" -c "$BASE_DIR/rapid-main" "$EDITOR"
 
 # Add scripts directories to PATH for all windows in this session
@@ -140,7 +180,12 @@ tmux set-environment -t "$SESSION_NAME" PATH "$SCRIPTS_PATH:$PATH"
 
 i=2
 while [ "$i" -le "$NUM_WORKSPACES" ]; do
-    tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid${i}" -n "rapid${i}"
+    screen_i=$(screen_cmd "tux-${i}")
+    if [ -n "$screen_i" ]; then
+        tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid${i}" -n "rapid${i}" "$screen_i"
+    else
+        tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid${i}" -n "rapid${i}"
+    fi
     tmux split-window -h -t "$SESSION_NAME:rapid${i}" -c "$BASE_DIR/rapid${i}" "$EDITOR"
     i=$((i + 1))
 done
