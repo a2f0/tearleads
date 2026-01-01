@@ -323,6 +323,141 @@ describe('analytics', () => {
       expect(sql).toContain('timestamp <= ?');
       expect(sql).toContain('AND');
     });
+
+    it('defaults to ORDER BY timestamp DESC when no sort specified', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEvents(mockDb);
+
+      const sql = mockAdapter.execute.mock.calls[0]?.[0] as string;
+      expect(sql).toContain('ORDER BY timestamp DESC');
+    });
+
+    it('sorts by eventName ascending', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEvents(mockDb, {
+        sortColumn: 'eventName',
+        sortDirection: 'asc'
+      });
+
+      const sql = mockAdapter.execute.mock.calls[0]?.[0] as string;
+      expect(sql).toContain('ORDER BY event_name ASC');
+    });
+
+    it('sorts by eventName descending', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEvents(mockDb, {
+        sortColumn: 'eventName',
+        sortDirection: 'desc'
+      });
+
+      const sql = mockAdapter.execute.mock.calls[0]?.[0] as string;
+      expect(sql).toContain('ORDER BY event_name DESC');
+    });
+
+    it('sorts by durationMs ascending', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEvents(mockDb, {
+        sortColumn: 'durationMs',
+        sortDirection: 'asc'
+      });
+
+      const sql = mockAdapter.execute.mock.calls[0]?.[0] as string;
+      expect(sql).toContain('ORDER BY duration_ms ASC');
+    });
+
+    it('sorts by durationMs descending', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEvents(mockDb, {
+        sortColumn: 'durationMs',
+        sortDirection: 'desc'
+      });
+
+      const sql = mockAdapter.execute.mock.calls[0]?.[0] as string;
+      expect(sql).toContain('ORDER BY duration_ms DESC');
+    });
+
+    it('sorts by success ascending', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEvents(mockDb, { sortColumn: 'success', sortDirection: 'asc' });
+
+      const sql = mockAdapter.execute.mock.calls[0]?.[0] as string;
+      expect(sql).toContain('ORDER BY success ASC');
+    });
+
+    it('sorts by success descending', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEvents(mockDb, { sortColumn: 'success', sortDirection: 'desc' });
+
+      const sql = mockAdapter.execute.mock.calls[0]?.[0] as string;
+      expect(sql).toContain('ORDER BY success DESC');
+    });
+
+    it('sorts by timestamp ascending', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEvents(mockDb, {
+        sortColumn: 'timestamp',
+        sortDirection: 'asc'
+      });
+
+      const sql = mockAdapter.execute.mock.calls[0]?.[0] as string;
+      expect(sql).toContain('ORDER BY timestamp ASC');
+    });
+
+    it('sorts by timestamp descending', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEvents(mockDb, {
+        sortColumn: 'timestamp',
+        sortDirection: 'desc'
+      });
+
+      const sql = mockAdapter.execute.mock.calls[0]?.[0] as string;
+      expect(sql).toContain('ORDER BY timestamp DESC');
+    });
+
+    it('combines sort with filters', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+      const startTime = new Date('2024-01-01');
+
+      await getEvents(mockDb, {
+        startTime,
+        sortColumn: 'durationMs',
+        sortDirection: 'desc'
+      });
+
+      const sql = mockAdapter.execute.mock.calls[0]?.[0] as string;
+      expect(sql).toContain('WHERE');
+      expect(sql).toContain('timestamp >= ?');
+      expect(sql).toContain('ORDER BY duration_ms DESC');
+    });
+
+    it('uses default sort when only sortColumn is provided', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEvents(mockDb, { sortColumn: 'eventName' });
+
+      const sql = mockAdapter.execute.mock.calls[0]?.[0] as string;
+      // Should use default since sortDirection is missing
+      expect(sql).toContain('ORDER BY timestamp DESC');
+    });
+
+    it('uses default sort when only sortDirection is provided', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEvents(mockDb, { sortDirection: 'asc' });
+
+      const sql = mockAdapter.execute.mock.calls[0]?.[0] as string;
+      // Should use default since sortColumn is missing
+      expect(sql).toContain('ORDER BY timestamp DESC');
+    });
   });
 
   describe('getEventStats', () => {
