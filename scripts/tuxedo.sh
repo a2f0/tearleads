@@ -7,7 +7,7 @@
 #   TUXEDO_WORKSPACES   - Number of workspaces to create (default: 20)
 #
 # Shared resources:
-#   rapid-shared/ is the source of truth for .secrets and .claude folders.
+#   rapid-shared/ is the source of truth for .secrets, .claude, and CLAUDE.md.
 #   These are symlinked into each workspace (rapid-main, rapid2, etc.)
 #
 # To detach: tmux detach (or Ctrl+B, D)
@@ -39,6 +39,7 @@ ensure_symlinks() {
     # Skip rapid-shared itself
     [ "$workspace" = "$SHARED_DIR" ] && return 0
 
+    # Symlink directories
     for folder in .secrets .claude; do
         target="$SHARED_DIR/$folder"
         link="$workspace/$folder"
@@ -67,6 +68,26 @@ ensure_symlinks() {
         ln -s "../rapid-shared/$folder" "$link"
         echo "Symlinked $link -> ../rapid-shared/$folder"
     done
+
+    # Symlink CLAUDE.md
+    if [ -f "$SHARED_DIR/CLAUDE.md" ]; then
+        link="$workspace/CLAUDE.md"
+        if [ -L "$link" ]; then
+            current_target=$(readlink "$link")
+            if [ "$current_target" != "../rapid-shared/CLAUDE.md" ]; then
+                rm "$link"
+                ln -s "../rapid-shared/CLAUDE.md" "$link"
+                echo "Symlinked $link -> ../rapid-shared/CLAUDE.md"
+            fi
+        elif [ -e "$link" ]; then
+            rm "$link"
+            ln -s "../rapid-shared/CLAUDE.md" "$link"
+            echo "Symlinked $link -> ../rapid-shared/CLAUDE.md"
+        else
+            ln -s "../rapid-shared/CLAUDE.md" "$link"
+            echo "Symlinked $link -> ../rapid-shared/CLAUDE.md"
+        fi
+    fi
 }
 
 # Use local configs
