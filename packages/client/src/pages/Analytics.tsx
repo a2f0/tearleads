@@ -54,7 +54,7 @@ export function sortEvents(
       case 'durationMs':
         return multiplier * (a.durationMs - b.durationMs);
       case 'success':
-        // true (success) comes before false (failed) in ascending order
+        // false (failed) comes before true (success) in ascending order
         return multiplier * (Number(a.success) - Number(b.success));
       case 'timestamp':
         return multiplier * (a.timestamp.getTime() - b.timestamp.getTime());
@@ -94,6 +94,17 @@ function getTimeRange(filter: TimeFilter): Date | undefined {
     case 'all':
       return undefined;
   }
+}
+
+function SortIcon({ column, sort }: { column: SortColumn; sort: SortState }) {
+  if (sort.column !== column) {
+    return <ArrowUpDown className="h-3 w-3 opacity-50" />;
+  }
+  return sort.direction === 'asc' ? (
+    <ArrowUp className="h-3 w-3" />
+  ) : (
+    <ArrowDown className="h-3 w-3" />
+  );
 }
 
 export function Analytics() {
@@ -345,15 +356,7 @@ export function Analytics() {
                           data-testid="sort-eventName"
                         >
                           Event
-                          {sort.column === 'eventName' ? (
-                            sort.direction === 'asc' ? (
-                              <ArrowUp className="h-3 w-3" />
-                            ) : (
-                              <ArrowDown className="h-3 w-3" />
-                            )
-                          ) : (
-                            <ArrowUpDown className="h-3 w-3 opacity-50" />
-                          )}
+                          <SortIcon column="eventName" sort={sort} />
                         </button>
                       </th>
                       <th className="px-4 py-3 text-left font-medium">
@@ -364,15 +367,7 @@ export function Analytics() {
                           data-testid="sort-durationMs"
                         >
                           Duration
-                          {sort.column === 'durationMs' ? (
-                            sort.direction === 'asc' ? (
-                              <ArrowUp className="h-3 w-3" />
-                            ) : (
-                              <ArrowDown className="h-3 w-3" />
-                            )
-                          ) : (
-                            <ArrowUpDown className="h-3 w-3 opacity-50" />
-                          )}
+                          <SortIcon column="durationMs" sort={sort} />
                         </button>
                       </th>
                       <th className="px-4 py-3 text-left font-medium">
@@ -383,15 +378,7 @@ export function Analytics() {
                           data-testid="sort-success"
                         >
                           Status
-                          {sort.column === 'success' ? (
-                            sort.direction === 'asc' ? (
-                              <ArrowUp className="h-3 w-3" />
-                            ) : (
-                              <ArrowDown className="h-3 w-3" />
-                            )
-                          ) : (
-                            <ArrowUpDown className="h-3 w-3 opacity-50" />
-                          )}
+                          <SortIcon column="success" sort={sort} />
                         </button>
                       </th>
                       <th className="px-4 py-3 text-left font-medium">
@@ -402,15 +389,7 @@ export function Analytics() {
                           data-testid="sort-timestamp"
                         >
                           Time
-                          {sort.column === 'timestamp' ? (
-                            sort.direction === 'asc' ? (
-                              <ArrowUp className="h-3 w-3" />
-                            ) : (
-                              <ArrowDown className="h-3 w-3" />
-                            )
-                          ) : (
-                            <ArrowUpDown className="h-3 w-3 opacity-50" />
-                          )}
+                          <SortIcon column="timestamp" sort={sort} />
                         </button>
                       </th>
                     </tr>
