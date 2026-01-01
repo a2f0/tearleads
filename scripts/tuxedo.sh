@@ -72,20 +72,16 @@ ensure_symlinks() {
     # Symlink CLAUDE.md
     if [ -f "$SHARED_DIR/CLAUDE.md" ]; then
         link="$workspace/CLAUDE.md"
-        if [ -L "$link" ]; then
-            current_target=$(readlink "$link")
-            if [ "$current_target" != "../rapid-shared/CLAUDE.md" ]; then
-                rm "$link"
-                ln -s "../rapid-shared/CLAUDE.md" "$link"
-                echo "Symlinked $link -> ../rapid-shared/CLAUDE.md"
-            fi
-        elif [ -e "$link" ]; then
-            rm "$link"
-            ln -s "../rapid-shared/CLAUDE.md" "$link"
-            echo "Symlinked $link -> ../rapid-shared/CLAUDE.md"
+        target="../rapid-shared/CLAUDE.md"
+
+        # Do nothing if the link is already correct
+        if [ -L "$link" ] && [ "$(readlink "$link")" = "$target" ]; then
+            :
         else
-            ln -s "../rapid-shared/CLAUDE.md" "$link"
-            echo "Symlinked $link -> ../rapid-shared/CLAUDE.md"
+            # Remove whatever is there (file, directory, or broken symlink)
+            rm -rf "$link"
+            ln -s "$target" "$link"
+            echo "Symlinked $link -> $target"
         fi
     fi
 }
