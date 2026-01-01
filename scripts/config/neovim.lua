@@ -1,5 +1,8 @@
 -- Tuxedo neovim configuration (neovim.lua)
 
+-- Disable ShaDa to prevent corruption from multiple concurrent neovim instances
+vim.opt.shadafile = "NONE"
+
 -- disable builtin file browser
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1

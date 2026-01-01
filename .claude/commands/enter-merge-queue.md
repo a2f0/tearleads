@@ -121,6 +121,8 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    - Show the PR URL
    - Output a brief description of what was merged (1-3 sentences summarizing the changes based on the PR title and commits)
 
+7. **Compact the conversation**: Run `/compact` to summarize the conversation and free up context for new tasks. This is important because merge queue sessions can consume significant context with CI logs, Gemini feedback, and iterative fixes.
+
 ## Opening GitHub Issues
 
 Create GitHub issues to track problems discovered during the merge queue process that shouldn't block the current PR:
