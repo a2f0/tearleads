@@ -92,8 +92,5 @@ if [ -n "${TMUX:-}" ]; then
     # Rename window with working prefix
     tmux rename-window "(working) $BASE_NAME"
 
-    # Set background color to indicate working status (dark amber/orange)
-    tmux select-pane -P 'bg=colour52'
-
     echo "Tmux window marked as working"
 fi
