@@ -318,31 +318,24 @@ describe('Chat', () => {
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true)
       });
+      renderChat();
     });
 
     it('renders the message content with custom text component', () => {
-      renderChat();
-
       expect(screen.getByTestId('message-content')).toBeInTheDocument();
     });
 
     it('renders the text part primitive', () => {
-      renderChat();
-
       expect(screen.getByTestId('message-part-text')).toBeInTheDocument();
     });
 
     it('renders the in-progress indicator container', () => {
-      renderChat();
-
       expect(
         screen.getByTestId('message-part-in-progress')
       ).toBeInTheDocument();
     });
 
     it('renders the animated spinner inside in-progress indicator', () => {
-      renderChat();
-
       const inProgressContainer = screen.getByTestId(
         'message-part-in-progress'
       );
