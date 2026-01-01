@@ -9,16 +9,55 @@ server {
     root /var/www/{{ item }};
     index index.html;
 
-    # Static assets - fingerprinted, cache aggressively
+{% if item == 'app' %}
+    # Service worker - never cache, always fetch fresh
+    location = /sw.js {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Cross-Origin-Embedder-Policy "require-corp" always;
+    }
+
+    # Manifest and registerSW - short cache
+    location ~* ^/(manifest\.webmanifest|registerSW\.js)$ {
+        add_header Cache-Control "no-cache";
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Cross-Origin-Embedder-Policy "require-corp" always;
+    }
+
+    # Static assets - fingerprinted, cache aggressively (Vite uses /assets/)
+    location /assets/ {
+        try_files $uri =404;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Cross-Origin-Embedder-Policy "require-corp" always;
+    }
+{% else %}
+    # Static assets - fingerprinted, cache aggressively (Astro uses /_astro/)
     location /_astro/ {
         try_files $uri =404;
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
+{% endif %}
 
-    # SPA fallback for client-side routing
+    # SPA fallback for client-side routing - no cache for HTML
     location / {
         try_files $uri $uri/ /index.html;
+{% if item == 'app' %}
+        add_header Cache-Control "no-cache";
+{% endif %}
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Cross-Origin-Embedder-Policy "require-corp" always;
     }
 
     # Serve .mjs files with correct MIME type for ES modules
@@ -26,11 +65,4 @@ server {
         types { application/javascript mjs; }
         default_type application/javascript;
     }
-
-    # Security Headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Cross-Origin-Opener-Policy "same-origin" always;
-    add_header Cross-Origin-Embedder-Policy "require-corp" always;
 }
