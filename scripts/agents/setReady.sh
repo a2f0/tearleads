@@ -32,20 +32,22 @@ if is_queued; then
     exit 0
 fi
 
-# Get title based on git state
+# Get title based on git state (runs in subshell to isolate cd)
 get_title() {
-    cd "$REPO_ROOT"
-    BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
-    if [ "$BRANCH" = "main" ]; then
-        echo "ready"
-    else
-        PR_NUM=$(gh pr view --json number -q .number 2>/dev/null || true)
-        if [ -n "$PR_NUM" ]; then
-            echo "#$PR_NUM - $BRANCH"
+    (
+        cd "$REPO_ROOT"
+        BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
+        if [ "$BRANCH" = "main" ]; then
+            echo "ready"
         else
-            echo "$BRANCH"
+            PR_NUM=$(gh pr view --json number -q .number 2>/dev/null || true)
+            if [ -n "$PR_NUM" ]; then
+                echo "#$PR_NUM - $BRANCH"
+            else
+                echo "$BRANCH"
+            fi
         fi
-    fi
+    )
 }
 
 TITLE=$(get_title)
