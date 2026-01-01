@@ -441,6 +441,9 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         if (instanceId === currentInstanceId) {
           const otherInstance = allInstances.find((i) => i.id !== instanceId);
           if (otherInstance) {
+            // switchInstance returns false if target isn't set up yet, which is
+            // fine when deleting - we just need to switch away from the deleted one.
+            // Actual errors throw and are caught by the try/catch block.
             await switchInstance(otherInstance.id);
           }
         }

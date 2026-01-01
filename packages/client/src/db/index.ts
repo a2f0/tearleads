@@ -501,15 +501,17 @@ export async function resetDatabase(instanceId: string): Promise<void> {
     }
   }
 
-  // Terminate the worker to destroy WASM memory (web platform) only if this was the current instance
+  // Terminate the worker to destroy WASM memory (web platform)
   if (
     adapter &&
     'terminate' in adapter &&
     typeof adapter.terminate === 'function'
   ) {
     adapter.terminate();
-    adapterInstance = null;
   }
+
+  // Always clear the adapter instance on reset
+  adapterInstance = null;
 
   const keyManager = getKeyManagerForInstance(instanceId);
   // Clear any persisted session before full reset

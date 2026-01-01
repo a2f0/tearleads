@@ -10,6 +10,7 @@
 
 import { afterEach, beforeEach, vi } from 'vitest';
 import { NodeAdapter } from '@/db/adapters/node.adapter';
+import type { InstanceMetadata } from '@/db/instance-registry';
 import {
   getTestKeyManager,
   resetTestKeyManager,
@@ -18,6 +19,102 @@ import {
 
 // Store active adapter for cleanup
 let activeAdapter: NodeAdapter | null = null;
+
+// In-memory instance registry for tests (avoids IndexedDB dependency)
+const TEST_INSTANCE_ID = 'test-instance';
+let testInstances: InstanceMetadata[] = [
+  {
+    id: TEST_INSTANCE_ID,
+    name: 'Instance 1',
+    createdAt: Date.now(),
+    lastAccessedAt: Date.now()
+  }
+];
+let testActiveInstanceId: string | null = TEST_INSTANCE_ID;
+
+// Mock the instance registry to avoid IndexedDB
+vi.mock('@/db/instance-registry', () => ({
+  getInstances: vi.fn(async () => testInstances),
+  getActiveInstanceId: vi.fn(async () => testActiveInstanceId),
+  getActiveInstance: vi.fn(
+    async () => testInstances.find((i) => i.id === testActiveInstanceId) ?? null
+  ),
+  setActiveInstanceId: vi.fn(async (id: string | null) => {
+    testActiveInstanceId = id;
+  }),
+  createInstance: vi.fn(async () => {
+    const newInstance: InstanceMetadata = {
+      id: `instance-${Date.now()}`,
+      name: `Instance ${testInstances.length + 1}`,
+      createdAt: Date.now(),
+      lastAccessedAt: Date.now()
+    };
+    testInstances.push(newInstance);
+    return newInstance;
+  }),
+  updateInstance: vi.fn(
+    async (id: string, updates: Partial<InstanceMetadata>) => {
+      const idx = testInstances.findIndex((i) => i.id === id);
+      if (idx !== -1) {
+        const existing = testInstances[idx];
+        if (existing) {
+          testInstances[idx] = { ...existing, ...updates };
+        }
+      }
+    }
+  ),
+  touchInstance: vi.fn(async (id: string) => {
+    const idx = testInstances.findIndex((i) => i.id === id);
+    if (idx !== -1) {
+      const existing = testInstances[idx];
+      if (existing) {
+        testInstances[idx] = { ...existing, lastAccessedAt: Date.now() };
+      }
+    }
+  }),
+  deleteInstanceFromRegistry: vi.fn(async (id: string) => {
+    testInstances = testInstances.filter((i) => i.id !== id);
+    if (testActiveInstanceId === id) {
+      testActiveInstanceId = testInstances[0]?.id ?? null;
+    }
+  }),
+  getInstance: vi.fn(
+    async (id: string) => testInstances.find((i) => i.id === id) ?? null
+  ),
+  initializeRegistry: vi.fn(async () => {
+    if (testInstances.length === 0) {
+      const newInstance: InstanceMetadata = {
+        id: TEST_INSTANCE_ID,
+        name: 'Instance 1',
+        createdAt: Date.now(),
+        lastAccessedAt: Date.now()
+      };
+      testInstances.push(newInstance);
+      testActiveInstanceId = newInstance.id;
+    }
+    return (
+      testInstances.find((i) => i.id === testActiveInstanceId) ??
+      testInstances[0]
+    );
+  }),
+  clearRegistry: vi.fn(async () => {
+    testInstances = [];
+    testActiveInstanceId = null;
+  }),
+  getRegistryData: vi.fn(async () => ({
+    instances: testInstances,
+    activeInstanceId: testActiveInstanceId
+  }))
+}));
+
+// Mock file storage (OPFS) functions since they're not available in Node.js
+vi.mock('@/storage/opfs', () => ({
+  deleteFileStorageForInstance: vi.fn(async () => {}),
+  getFileStorageRoot: vi.fn(async () => null),
+  saveFileToStorage: vi.fn(async () => ''),
+  loadFileFromStorage: vi.fn(async () => null),
+  deleteFileFromStorage: vi.fn(async () => {})
+}));
 
 // Mock the adapter factory to use NodeAdapter
 vi.mock('@/db/adapters', async (importOriginal) => {
@@ -47,9 +144,25 @@ vi.mock('@/db/crypto', async (importOriginal) => {
   };
 });
 
+/**
+ * Reset the test instance registry to initial state.
+ */
+export function resetTestInstanceRegistry(): void {
+  testInstances = [
+    {
+      id: TEST_INSTANCE_ID,
+      name: 'Instance 1',
+      createdAt: Date.now(),
+      lastAccessedAt: Date.now()
+    }
+  ];
+  testActiveInstanceId = TEST_INSTANCE_ID;
+}
+
 // Reset state between tests
 beforeEach(async () => {
   resetTestKeyManager();
+  resetTestInstanceRegistry();
 
   // Reset the database module's internal state
   // This ensures each test starts with a clean slate

@@ -158,16 +158,13 @@ export async function updateInstance(
   updates: Partial<Pick<InstanceMetadata, 'name' | 'lastAccessedAt'>>
 ): Promise<void> {
   const instances = await getInstances();
-  const index = instances.findIndex((inst) => inst.id === instanceId);
+  const existingInstance = instances.find((inst) => inst.id === instanceId);
 
-  if (index === -1) {
+  if (!existingInstance) {
     throw new Error(`Instance not found: ${instanceId}`);
   }
 
-  const existingInstance = instances[index];
-  if (!existingInstance) {
-    throw new Error(`Instance not found at index: ${index}`);
-  }
+  const index = instances.indexOf(existingInstance);
   instances[index] = {
     id: existingInstance.id,
     name: updates.name ?? existingInstance.name,

@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState
 } from 'react';
@@ -92,9 +93,10 @@ export function AccountSwitcher() {
     closeDropdown();
   };
 
-  const instanceToDeleteName = instances.find(
-    (i) => i.id === instanceToDelete
-  )?.name;
+  const instanceToDeleteName = useMemo(
+    () => instances.find((i) => i.id === instanceToDelete)?.name,
+    [instances, instanceToDelete]
+  );
 
   return (
     <>
