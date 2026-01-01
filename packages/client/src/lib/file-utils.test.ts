@@ -177,57 +177,60 @@ describe('file-utils', () => {
     });
 
     it('rejects when FileReader result is not ArrayBuffer', async () => {
-      // Mock FileReader to return a string instead of ArrayBuffer
       const OriginalFileReader = globalThis.FileReader;
 
-      class MockFileReader {
-        result: string | ArrayBuffer | null = 'not an ArrayBuffer';
-        onload: (() => void) | null = null;
-        onerror: (() => void) | null = null;
-        error: Error | null = null;
+      try {
+        class MockFileReader {
+          result: string | ArrayBuffer | null = 'not an ArrayBuffer';
+          onload: (() => void) | null = null;
+          onerror: (() => void) | null = null;
+          error: Error | null = null;
 
-        readAsArrayBuffer() {
-          setTimeout(() => {
-            this.onload?.();
-          }, 0);
+          readAsArrayBuffer() {
+            setTimeout(() => {
+              this.onload?.();
+            }, 0);
+          }
         }
+
+        globalThis.FileReader = MockFileReader as unknown as typeof FileReader;
+
+        const file = new File(['test'], 'test.db');
+
+        await expect(readFileAsUint8Array(file)).rejects.toThrow(
+          'Failed to read file as ArrayBuffer'
+        );
+      } finally {
+        globalThis.FileReader = OriginalFileReader;
       }
-
-      globalThis.FileReader = MockFileReader as unknown as typeof FileReader;
-
-      const file = new File(['test'], 'test.db');
-
-      await expect(readFileAsUint8Array(file)).rejects.toThrow(
-        'Failed to read file as ArrayBuffer'
-      );
-
-      globalThis.FileReader = OriginalFileReader;
     });
 
     it('rejects when FileReader encounters an error', async () => {
       const OriginalFileReader = globalThis.FileReader;
       const testError = new Error('File read failed');
 
-      class MockFileReader {
-        result: ArrayBuffer | null = null;
-        onload: (() => void) | null = null;
-        onerror: (() => void) | null = null;
-        error: Error | null = testError;
+      try {
+        class MockFileReader {
+          result: ArrayBuffer | null = null;
+          onload: (() => void) | null = null;
+          onerror: (() => void) | null = null;
+          error: Error | null = testError;
 
-        readAsArrayBuffer() {
-          setTimeout(() => {
-            this.onerror?.();
-          }, 0);
+          readAsArrayBuffer() {
+            setTimeout(() => {
+              this.onerror?.();
+            }, 0);
+          }
         }
+
+        globalThis.FileReader = MockFileReader as unknown as typeof FileReader;
+
+        const file = new File(['test'], 'test.db');
+
+        await expect(readFileAsUint8Array(file)).rejects.toThrow(testError);
+      } finally {
+        globalThis.FileReader = OriginalFileReader;
       }
-
-      globalThis.FileReader = MockFileReader as unknown as typeof FileReader;
-
-      const file = new File(['test'], 'test.db');
-
-      await expect(readFileAsUint8Array(file)).rejects.toThrow(testError);
-
-      globalThis.FileReader = OriginalFileReader;
     });
   });
 
@@ -458,25 +461,17 @@ describe('file-utils', () => {
       vi.restoreAllMocks();
     });
 
-    it('uses downloadFile for web platform', async () => {
+    it.each([
+      'web',
+      'electron'
+    ] as const)('uses downloadFile for %s platform', async (platform) => {
       const { Capacitor } = await import('@capacitor/core');
-      vi.mocked(Capacitor.getPlatform).mockReturnValue('web');
+      vi.mocked(Capacitor.getPlatform).mockReturnValue(platform);
 
       const data = new Uint8Array([1, 2, 3]);
       await saveFile(data, 'test.db');
 
       // downloadFile should have been called, which creates a blob URL
-      expect(createObjectURLSpy).toHaveBeenCalled();
-    });
-
-    it('uses downloadFile for electron platform', async () => {
-      const { Capacitor } = await import('@capacitor/core');
-      vi.mocked(Capacitor.getPlatform).mockReturnValue('electron');
-
-      const data = new Uint8Array([1, 2, 3]);
-      await saveFile(data, 'test.db');
-
-      // downloadFile should have been called
       expect(createObjectURLSpy).toHaveBeenCalled();
     });
   });
