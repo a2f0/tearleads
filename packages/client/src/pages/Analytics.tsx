@@ -1,4 +1,7 @@
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   BarChart3,
   CheckCircle,
   Clock,
@@ -7,7 +10,7 @@ import {
   Trash2,
   XCircle
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { getDatabase } from '@/db';
 import {
@@ -20,6 +23,46 @@ import {
 import { useDatabaseContext } from '@/db/hooks';
 
 type TimeFilter = 'hour' | 'day' | 'week' | 'all';
+
+export type SortColumn = 'eventName' | 'durationMs' | 'success' | 'timestamp';
+export type SortDirection = 'asc' | 'desc';
+
+export interface SortState {
+  column: SortColumn | null;
+  direction: SortDirection | null;
+}
+
+/**
+ * Sort analytics events by the specified column and direction.
+ * Exported for testing.
+ */
+export function sortEvents(
+  events: AnalyticsEvent[],
+  sort: SortState
+): AnalyticsEvent[] {
+  if (!sort.column || !sort.direction) {
+    return events;
+  }
+
+  const { column, direction } = sort;
+  const multiplier = direction === 'asc' ? 1 : -1;
+
+  return [...events].sort((a, b) => {
+    switch (column) {
+      case 'eventName':
+        return multiplier * a.eventName.localeCompare(b.eventName);
+      case 'durationMs':
+        return multiplier * (a.durationMs - b.durationMs);
+      case 'success':
+        // true (success) comes before false (failed) in ascending order
+        return multiplier * (Number(a.success) - Number(b.success));
+      case 'timestamp':
+        return multiplier * (a.timestamp.getTime() - b.timestamp.getTime());
+      default:
+        return 0;
+    }
+  });
+}
 
 const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
   hour: 'Last Hour',
@@ -60,6 +103,10 @@ export function Analytics() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('day');
+  const [sort, setSort] = useState<SortState>({
+    column: null,
+    direction: null
+  });
 
   // Use ref to prevent duplicate fetches during React strict mode or re-renders
   const fetchingRef = useRef(false);
@@ -104,6 +151,20 @@ export function Analytics() {
       setError(err instanceof Error ? err.message : String(err));
     }
   }, [isUnlocked]);
+
+  const handleSort = useCallback((column: SortColumn) => {
+    setSort((prev) => {
+      if (prev.column !== column) {
+        return { column, direction: 'asc' };
+      }
+      if (prev.direction === 'asc') {
+        return { column, direction: 'desc' };
+      }
+      return { column: null, direction: null };
+    });
+  }, []);
+
+  const sortedEvents = useMemo(() => sortEvents(events, sort), [events, sort]);
 
   // Fetch data when unlocked state or time filter changes
   useEffect(() => {
@@ -276,18 +337,86 @@ export function Analytics() {
                 <table className="w-full text-sm">
                   <thead className="border-b bg-muted/50">
                     <tr>
-                      <th className="px-4 py-3 text-left font-medium">Event</th>
                       <th className="px-4 py-3 text-left font-medium">
-                        Duration
+                        <button
+                          type="button"
+                          onClick={() => handleSort('eventName')}
+                          className="inline-flex items-center gap-1 hover:text-foreground"
+                          data-testid="sort-eventName"
+                        >
+                          Event
+                          {sort.column === 'eventName' ? (
+                            sort.direction === 'asc' ? (
+                              <ArrowUp className="h-3 w-3" />
+                            ) : (
+                              <ArrowDown className="h-3 w-3" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3 opacity-50" />
+                          )}
+                        </button>
                       </th>
                       <th className="px-4 py-3 text-left font-medium">
-                        Status
+                        <button
+                          type="button"
+                          onClick={() => handleSort('durationMs')}
+                          className="inline-flex items-center gap-1 hover:text-foreground"
+                          data-testid="sort-durationMs"
+                        >
+                          Duration
+                          {sort.column === 'durationMs' ? (
+                            sort.direction === 'asc' ? (
+                              <ArrowUp className="h-3 w-3" />
+                            ) : (
+                              <ArrowDown className="h-3 w-3" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3 opacity-50" />
+                          )}
+                        </button>
                       </th>
-                      <th className="px-4 py-3 text-left font-medium">Time</th>
+                      <th className="px-4 py-3 text-left font-medium">
+                        <button
+                          type="button"
+                          onClick={() => handleSort('success')}
+                          className="inline-flex items-center gap-1 hover:text-foreground"
+                          data-testid="sort-success"
+                        >
+                          Status
+                          {sort.column === 'success' ? (
+                            sort.direction === 'asc' ? (
+                              <ArrowUp className="h-3 w-3" />
+                            ) : (
+                              <ArrowDown className="h-3 w-3" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3 opacity-50" />
+                          )}
+                        </button>
+                      </th>
+                      <th className="px-4 py-3 text-left font-medium">
+                        <button
+                          type="button"
+                          onClick={() => handleSort('timestamp')}
+                          className="inline-flex items-center gap-1 hover:text-foreground"
+                          data-testid="sort-timestamp"
+                        >
+                          Time
+                          {sort.column === 'timestamp' ? (
+                            sort.direction === 'asc' ? (
+                              <ArrowUp className="h-3 w-3" />
+                            ) : (
+                              <ArrowDown className="h-3 w-3" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-3 w-3 opacity-50" />
+                          )}
+                        </button>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {events.map((event) => (
+                    {sortedEvents.map((event) => (
                       <tr key={event.id} className="border-b last:border-0">
                         <td className="px-4 py-3 font-medium">
                           {formatEventName(event.eventName)}
