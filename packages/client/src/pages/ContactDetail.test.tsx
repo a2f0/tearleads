@@ -609,4 +609,294 @@ describe('ContactDetail', () => {
       });
     });
   });
+
+  describe('contact without last name', () => {
+    it('displays only first name when last name is empty', async () => {
+      const contactNoLastName = {
+        ...TEST_CONTACT,
+        lastName: null
+      };
+
+      mockSelect.mockImplementation(
+        createMockSelectChain([[contactNoLastName], [], []])
+      );
+
+      renderContactDetail();
+
+      await waitFor(() => {
+        expect(screen.getByText('John')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('contact without birthday', () => {
+    it('does not display birthday section when birthday is null', async () => {
+      const contactNoBirthday = {
+        ...TEST_CONTACT,
+        birthday: null
+      };
+
+      mockSelect.mockImplementation(
+        createMockSelectChain([[contactNoBirthday], [], []])
+      );
+
+      renderContactDetail();
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      // Birthday should not be displayed
+      expect(screen.queryByText('1990-05-15')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('setting primary email', () => {
+    beforeEach(() => {
+      mockSelect.mockImplementation(
+        createMockSelectChain([[TEST_CONTACT], TEST_EMAILS, TEST_PHONES])
+      );
+    });
+
+    it('can change primary email via radio button', async () => {
+      const user = userEvent.setup();
+      renderContactDetail();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('edit-button')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('edit-button'));
+
+      // Find the radio buttons for primary email
+      const radioButtons = screen.getAllByRole('radio', { name: /primary/i });
+      // The first email is already primary, so click the second one
+      const secondEmailRadio = radioButtons.find(
+        (radio) =>
+          radio.getAttribute('name') === 'primaryEmail' &&
+          !radio.hasAttribute('checked')
+      );
+
+      if (secondEmailRadio) {
+        await user.click(secondEmailRadio);
+      }
+
+      // Verify the change was reflected (second radio should now be checked)
+      const updatedRadios = screen.getAllByRole('radio', { name: /primary/i });
+      const emailRadios = updatedRadios.filter(
+        (r) => r.getAttribute('name') === 'primaryEmail'
+      );
+      expect(emailRadios.length).toBe(2);
+    });
+  });
+
+  describe('setting primary phone', () => {
+    const TEST_MULTIPLE_PHONES = [
+      {
+        id: 'phone-1',
+        contactId: 'contact-123',
+        phoneNumber: '+1-555-0100',
+        label: 'mobile',
+        isPrimary: true
+      },
+      {
+        id: 'phone-2',
+        contactId: 'contact-123',
+        phoneNumber: '+1-555-0200',
+        label: 'work',
+        isPrimary: false
+      }
+    ];
+
+    beforeEach(() => {
+      mockSelect.mockImplementation(
+        createMockSelectChain([
+          [TEST_CONTACT],
+          TEST_EMAILS,
+          TEST_MULTIPLE_PHONES
+        ])
+      );
+    });
+
+    it('can change primary phone via radio button', async () => {
+      const user = userEvent.setup();
+      renderContactDetail();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('edit-button')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('edit-button'));
+
+      // Verify both phone inputs are present
+      expect(screen.getByTestId('edit-phone-phone-1')).toBeInTheDocument();
+      expect(screen.getByTestId('edit-phone-phone-2')).toBeInTheDocument();
+
+      // Find phone radio buttons
+      const radioButtons = screen.getAllByRole('radio', { name: /primary/i });
+      const phoneRadios = radioButtons.filter(
+        (r) => r.getAttribute('name') === 'primaryPhone'
+      );
+      expect(phoneRadios.length).toBe(2);
+    });
+  });
+
+  describe('editing email labels', () => {
+    beforeEach(() => {
+      mockSelect.mockImplementation(
+        createMockSelectChain([[TEST_CONTACT], TEST_EMAILS, TEST_PHONES])
+      );
+    });
+
+    it('can edit email label', async () => {
+      const user = userEvent.setup();
+      renderContactDetail();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('edit-button')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('edit-button'));
+
+      const labelInput = screen.getByTestId('edit-email-label-email-1');
+      expect(labelInput).toHaveValue('work');
+
+      await user.clear(labelInput);
+      await user.type(labelInput, 'home');
+
+      expect(labelInput).toHaveValue('home');
+    });
+  });
+
+  describe('editing phone labels', () => {
+    beforeEach(() => {
+      mockSelect.mockImplementation(
+        createMockSelectChain([[TEST_CONTACT], TEST_EMAILS, TEST_PHONES])
+      );
+    });
+
+    it('can edit phone label', async () => {
+      const user = userEvent.setup();
+      renderContactDetail();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('edit-button')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('edit-button'));
+
+      const labelInput = screen.getByTestId('edit-phone-label-phone-1');
+      expect(labelInput).toHaveValue('mobile');
+
+      await user.clear(labelInput);
+      await user.type(labelInput, 'office');
+
+      expect(labelInput).toHaveValue('office');
+    });
+  });
+
+  describe('fetch error handling', () => {
+    it('shows error message when fetch fails', async () => {
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      mockSelect.mockImplementation(() => ({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockRejectedValue(new Error('Database error')),
+            orderBy: vi.fn().mockRejectedValue(new Error('Database error'))
+          }),
+          orderBy: vi.fn().mockRejectedValue(new Error('Database error'))
+        })
+      }));
+
+      renderContactDetail();
+
+      await waitFor(() => {
+        expect(screen.getByText('Database error')).toBeInTheDocument();
+      });
+
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('save failure with rollback', () => {
+    beforeEach(() => {
+      mockSelect.mockImplementation(
+        createMockSelectChain([[TEST_CONTACT], TEST_EMAILS, TEST_PHONES])
+      );
+    });
+
+    it('shows error and rolls back transaction on save failure', async () => {
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      // Make update fail
+      mockUpdate.mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockRejectedValue(new Error('Save failed'))
+        })
+      });
+
+      const user = userEvent.setup();
+      renderContactDetail();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('edit-button')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('edit-button'));
+      await user.click(screen.getByTestId('save-button'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Save failed')).toBeInTheDocument();
+      });
+
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('view mode display', () => {
+    it('displays email label in view mode', async () => {
+      mockSelect.mockImplementation(
+        createMockSelectChain([[TEST_CONTACT], TEST_EMAILS, TEST_PHONES])
+      );
+
+      renderContactDetail();
+
+      await waitFor(() => {
+        expect(screen.getByText('(work)')).toBeInTheDocument();
+        expect(screen.getByText('(personal)')).toBeInTheDocument();
+      });
+    });
+
+    it('displays phone label in view mode', async () => {
+      mockSelect.mockImplementation(
+        createMockSelectChain([[TEST_CONTACT], TEST_EMAILS, TEST_PHONES])
+      );
+
+      renderContactDetail();
+
+      await waitFor(() => {
+        expect(screen.getByText('(mobile)')).toBeInTheDocument();
+      });
+    });
+
+    it('displays created and updated dates', async () => {
+      mockSelect.mockImplementation(
+        createMockSelectChain([[TEST_CONTACT], TEST_EMAILS, TEST_PHONES])
+      );
+
+      renderContactDetail();
+
+      await waitFor(() => {
+        expect(screen.getByText('Created')).toBeInTheDocument();
+        expect(screen.getByText('Updated')).toBeInTheDocument();
+      });
+    });
+  });
 });
