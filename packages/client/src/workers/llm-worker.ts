@@ -31,9 +31,18 @@ type ModelType = 'chat' | 'vision' | 'paligemma';
 
 type WorkerResponse =
   | { type: 'progress'; file: string; progress: number; total: number }
-  | { type: 'loaded'; modelId: string; modelType: ModelType }
+  | {
+      type: 'loaded';
+      modelId: string;
+      modelType: ModelType;
+      durationMs: number;
+    }
   | { type: 'token'; text: string }
-  | { type: 'done' }
+  | {
+      type: 'done';
+      durationMs: number;
+      promptType: 'text' | 'multimodal';
+    }
   | { type: 'error'; message: string }
   | { type: 'unloaded' };
 
@@ -65,12 +74,15 @@ function getModelType(modelId: string): ModelType {
 }
 
 async function loadModel(modelId: string): Promise<void> {
+  const startTime = performance.now();
+
   // Skip if already loaded
   if (currentModelId === modelId && model) {
     postResponse({
       type: 'loaded',
       modelId,
-      modelType: currentModelType ?? 'chat'
+      modelType: currentModelType ?? 'chat',
+      durationMs: 0
     });
     return;
   }
@@ -147,10 +159,12 @@ async function loadModel(modelId: string): Promise<void> {
     currentModelId = modelId;
     currentModelType = modelType;
 
+    const durationMs = performance.now() - startTime;
     postResponse({
       type: 'loaded',
       modelId,
-      modelType: currentModelType
+      modelType: currentModelType,
+      durationMs
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -194,6 +208,8 @@ async function generate(
     return;
   }
 
+  const startTime = performance.now();
+  const isMultimodal = Boolean(imageBase64);
   abortController = new AbortController();
 
   try {
@@ -219,7 +235,8 @@ async function generate(
       });
 
       if (abortController.signal.aborted) {
-        postResponse({ type: 'done' });
+        const durationMs = performance.now() - startTime;
+        postResponse({ type: 'done', durationMs, promptType: 'multimodal' });
         return;
       }
 
@@ -236,7 +253,8 @@ async function generate(
 
       const answer = decoded[0] ?? '';
       postResponse({ type: 'token', text: answer });
-      postResponse({ type: 'done' });
+      const durationMs = performance.now() - startTime;
+      postResponse({ type: 'done', durationMs, promptType: 'multimodal' });
       return;
     } else if (currentModelType === 'vision' && processor) {
       // Vision models require a multimodal message format even for text-only prompts.
@@ -297,12 +315,16 @@ async function generate(
       streamer
     });
 
+    const durationMs = performance.now() - startTime;
+    const promptType = isMultimodal ? 'multimodal' : 'text';
     if (!abortController.signal.aborted) {
-      postResponse({ type: 'done' });
+      postResponse({ type: 'done', durationMs, promptType });
     }
   } catch (error) {
     if (abortController?.signal.aborted) {
-      postResponse({ type: 'done' });
+      const durationMs = performance.now() - startTime;
+      const promptType = isMultimodal ? 'multimodal' : 'text';
+      postResponse({ type: 'done', durationMs, promptType });
       return;
     }
 
