@@ -3,7 +3,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import App from './App';
-import { ErrorBoundary } from './components/ui/error-boundary';
+import {
+  ErrorBoundary,
+  errorBoundaryRef
+} from './components/ui/error-boundary';
 import { DatabaseProvider } from './db/hooks';
 import { Analytics } from './pages/Analytics';
 import { CacheStorage } from './pages/CacheStorage';
@@ -23,6 +26,25 @@ import { Sqlite } from './pages/Sqlite';
 import { TableRows } from './pages/TableRows';
 import { Tables } from './pages/Tables';
 import './index.css';
+
+// Global error handlers for async errors (not caught by React error boundaries)
+window.addEventListener(
+  'unhandledrejection',
+  (event: PromiseRejectionEvent) => {
+    const error =
+      event.reason instanceof Error
+        ? event.reason
+        : new Error(String(event.reason));
+    errorBoundaryRef.current?.setError(error);
+  }
+);
+
+window.addEventListener('error', (event: ErrorEvent) => {
+  // Only handle errors that aren't already caught by React
+  if (event.error) {
+    errorBoundaryRef.current?.setError(event.error);
+  }
+});
 
 const rootElement = document.getElementById('root');
 if (rootElement) {
