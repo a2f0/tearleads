@@ -44,7 +44,7 @@ interface AudioWithUrl extends AudioInfo {
   objectUrl: string;
 }
 
-export function MusicPage() {
+export function AudioPage() {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [tracks, setTracks] = useState<AudioWithUrl[]>([]);
   const [loading, setLoading] = useState(false);
@@ -177,7 +177,7 @@ export function MusicPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Music className="h-8 w-8 text-muted-foreground" />
-          <h1 className="font-bold text-2xl tracking-tight">Music</h1>
+          <h1 className="font-bold text-2xl tracking-tight">Audio</h1>
         </div>
         {isUnlocked && (
           <Button
@@ -204,7 +204,7 @@ export function MusicPage() {
         <div className="rounded-lg border p-8 text-center">
           <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
           <p className="mt-4 text-muted-foreground">
-            Database is locked. Unlock it from the SQLite page to view music.
+            Database is locked. Unlock it from the SQLite page to view audio.
           </p>
         </div>
       )}
@@ -219,7 +219,7 @@ export function MusicPage() {
         (loading && !hasFetched ? (
           <div className="flex items-center justify-center gap-2 rounded-lg border p-8 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            Loading music...
+            Loading audio...
           </div>
         ) : uploading ? (
           <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-8">

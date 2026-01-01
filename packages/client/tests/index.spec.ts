@@ -837,30 +837,30 @@ test.describe('Models page', () => {
   });
 });
 
-test.describe('Music page', () => {
+test.describe('Audio page', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
   });
 
-  test('should navigate to music page when music link is clicked', async ({
+  test('should navigate to audio page when audio link is clicked', async ({
     page
   }) => {
-    const musicLink = page.locator('aside nav').getByRole('link', { name: 'Music' });
-    await expect(musicLink).toBeVisible();
+    const audioLink = page.locator('aside nav').getByRole('link', { name: 'Audio' });
+    await expect(audioLink).toBeVisible();
 
-    await musicLink.click();
+    await audioLink.click();
 
-    await expect(page.getByRole('heading', { name: 'Music' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Audio' })).toBeVisible();
   });
 
   test('should show locked message when database is not unlocked', async ({
     page
   }) => {
-    await navigateTo(page, 'Music');
+    await navigateTo(page, 'Audio');
 
-    await expect(page.getByRole('heading', { name: 'Music' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Audio' })).toBeVisible();
     await expect(
-      page.getByText('Database is locked. Unlock it from the SQLite page to view music.')
+      page.getByText('Database is locked. Unlock it from the SQLite page to view audio.')
     ).toBeVisible();
   });
 
@@ -870,9 +870,9 @@ test.describe('Music page', () => {
     // Setup and unlock the database
     await setupAndUnlockDatabase(page);
 
-    // Navigate to music page
-    await navigateTo(page, 'Music');
-    await expect(page.getByRole('heading', { name: 'Music' })).toBeVisible();
+    // Navigate to audio page
+    await navigateTo(page, 'Audio');
+    await expect(page.getByRole('heading', { name: 'Audio' })).toBeVisible();
 
     // Should show dropzone for uploading audio
     await expect(page.getByText('Drop an audio file here to add it to your library')).toBeVisible({
@@ -886,9 +886,9 @@ test.describe('Music page', () => {
     // Setup and unlock the database
     await setupAndUnlockDatabase(page);
 
-    // Navigate to music page
-    await navigateTo(page, 'Music');
-    await expect(page.getByRole('heading', { name: 'Music' })).toBeVisible();
+    // Navigate to audio page
+    await navigateTo(page, 'Audio');
+    await expect(page.getByRole('heading', { name: 'Audio' })).toBeVisible();
 
     // Should show refresh button
     await expect(page.getByRole('button', { name: 'Refresh' })).toBeVisible();
@@ -898,8 +898,8 @@ test.describe('Music page', () => {
     // Setup and unlock the database
     await setupAndUnlockDatabase(page);
 
-    // Navigate to music page
-    await navigateTo(page, 'Music');
+    // Navigate to audio page
+    await navigateTo(page, 'Audio');
     await expect(page.getByText('Drop an audio file here to add it to your library')).toBeVisible({
       timeout: 10000
     });
