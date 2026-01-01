@@ -2,7 +2,7 @@ name: Deploy Android to Play Store
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["Bump Version"]
     types: [completed]
     branches: [main]
 
@@ -94,18 +94,43 @@ jobs:
         run: |
           echo "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}" | base64 -d > .secrets/google-play-service-account.json
 
-      - name: Check if build exists in Play Store
-        id: check_build
+      - name: Get local and Play Store version codes
+        id: version_check
         run: |
-          if bundle exec fastlane android build_exists_in_play_store; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-          fi
+          # Get local versionCode from build.gradle
+          LOCAL_VERSION=$(grep -E 'versionCode [0-9]+' android/app/build.gradle | head -1 | sed 's/.*versionCode \([0-9]*\).*/\1/')
+          echo "local_version=$LOCAL_VERSION" >> $GITHUB_OUTPUT
+          echo "Local versionCode: $LOCAL_VERSION"
+
+          # Get latest Play Store versionCode via fastlane
+          PLAY_STORE_VERSION=$(bundle exec fastlane android get_play_store_version_code 2>&1 | grep -oE 'Latest Play Store versionCode: [0-9]+' | grep -oE '[0-9]+' || echo "0")
+          echo "play_store_version=$PLAY_STORE_VERSION" >> $GITHUB_OUTPUT
+          echo "Play Store versionCode: $PLAY_STORE_VERSION"
         working-directory: packages/client
         env:
           CI: true
           GOOGLE_PLAY_JSON_KEY_FILE: ${{ github.workspace }}/.secrets/google-play-service-account.json
+
+      - name: Validate version is newer than Play Store
+        id: check_build
+        run: |
+          LOCAL=${{ steps.version_check.outputs.local_version }}
+          PLAY_STORE=${{ steps.version_check.outputs.play_store_version }}
+
+          echo "Comparing: local=$LOCAL vs Play Store=$PLAY_STORE"
+
+          if [ "$LOCAL" -lt "$PLAY_STORE" ]; then
+            echo "ERROR: Local version ($LOCAL) is OLDER than Play Store ($PLAY_STORE)."
+            echo "This can happen when manually re-running an old workflow."
+            echo "Refusing to deploy an older version."
+            exit 1
+          elif [ "$LOCAL" -eq "$PLAY_STORE" ]; then
+            echo "Local version ($LOCAL) already exists in Play Store. Skipping."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Local version ($LOCAL) is newer than Play Store ($PLAY_STORE). Proceeding."
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build release AAB
         if: steps.check_build.outputs.skip != 'true'
