@@ -248,3 +248,16 @@ export async function getEventCount(_db: Database): Promise<number> {
   const row = result.rows[0] as { count: number } | undefined;
   return row?.count ?? 0;
 }
+
+/**
+ * Get all distinct event types.
+ */
+export async function getDistinctEventTypes(_db: Database): Promise<string[]> {
+  const adapter = getDatabaseAdapter();
+  const result = await adapter.execute(
+    `SELECT DISTINCT event_name as eventName FROM analytics_events ORDER BY event_name`,
+    []
+  );
+  const rows = result.rows as unknown as Array<{ eventName: string }>;
+  return rows.map((row) => row.eventName);
+}

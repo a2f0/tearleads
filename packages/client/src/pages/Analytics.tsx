@@ -14,6 +14,7 @@ import {
   type AnalyticsEvent,
   clearEvents,
   type EventStats,
+  getDistinctEventTypes,
   getEventStats,
   getEvents
 } from '@/db/analytics';
@@ -60,6 +61,10 @@ export function Analytics() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('day');
+  const [eventTypes, setEventTypes] = useState<string[]>([]);
+  const [selectedEventTypes, setSelectedEventTypes] = useState<Set<string>>(
+    new Set()
+  );
 
   // Use ref to prevent duplicate fetches during React strict mode or re-renders
   const fetchingRef = useRef(false);
@@ -75,13 +80,26 @@ export function Analytics() {
       const db = getDatabase();
       const startTime = getTimeRange(timeFilter);
 
-      const [eventsData, statsData] = await Promise.all([
+      const [eventsData, statsData, typesData] = await Promise.all([
         getEvents(db, { startTime, limit: 100 }),
-        getEventStats(db, { startTime })
+        getEventStats(db, { startTime }),
+        getDistinctEventTypes(db)
       ]);
 
       setEvents(eventsData);
       setStats(statsData);
+      setEventTypes(typesData);
+
+      // Auto-select all types on initial load (when no types were previously selected)
+      setSelectedEventTypes((prev) => {
+        if (prev.size === 0 && typesData.length > 0) {
+          return new Set(typesData);
+        }
+        // Keep existing selection, but remove any types that no longer exist
+        const validTypes = new Set(typesData);
+        const filtered = new Set([...prev].filter((t) => validTypes.has(t)));
+        return filtered.size > 0 ? filtered : new Set(typesData);
+      });
     } catch (err) {
       console.error('Failed to fetch analytics:', err);
       setError(err instanceof Error ? err.message : String(err));
@@ -99,11 +117,37 @@ export function Analytics() {
       await clearEvents(db);
       setEvents([]);
       setStats([]);
+      setEventTypes([]);
+      setSelectedEventTypes(new Set());
     } catch (err) {
       console.error('Failed to clear analytics:', err);
       setError(err instanceof Error ? err.message : String(err));
     }
   }, [isUnlocked]);
+
+  const toggleEventType = useCallback((eventType: string) => {
+    setSelectedEventTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(eventType)) {
+        next.delete(eventType);
+      } else {
+        next.add(eventType);
+      }
+      return next;
+    });
+  }, []);
+
+  const selectAllEventTypes = useCallback(() => {
+    setSelectedEventTypes(new Set(eventTypes));
+  }, [eventTypes]);
+
+  const clearAllEventTypes = useCallback(() => {
+    setSelectedEventTypes(new Set());
+  }, []);
+
+  const filteredStats = stats.filter((stat) =>
+    selectedEventTypes.has(stat.eventName)
+  );
 
   // Fetch data when unlocked state or time filter changes
   useEffect(() => {
@@ -211,12 +255,53 @@ export function Analytics() {
             ))}
           </div>
 
+          {/* Event type picker */}
+          {eventTypes.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold text-lg">Event Types</h2>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllEventTypes}
+                    disabled={selectedEventTypes.size === eventTypes.length}
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearAllEventTypes}
+                    disabled={selectedEventTypes.size === 0}
+                  >
+                    Clear All
+                  </Button>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {eventTypes.map((eventType) => (
+                  <Button
+                    key={eventType}
+                    variant={
+                      selectedEventTypes.has(eventType) ? 'default' : 'outline'
+                    }
+                    size="sm"
+                    onClick={() => toggleEventType(eventType)}
+                  >
+                    {formatEventName(eventType)}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Stats summary */}
-          {stats.length > 0 && (
+          {filteredStats.length > 0 && (
             <div className="space-y-2">
               <h2 className="font-semibold text-lg">Summary</h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {stats.map((stat, index) => (
+                {filteredStats.map((stat, index) => (
                   <div
                     key={`stat-${index}-${stat.eventName}`}
                     className="rounded-lg border bg-muted/50 p-4"
