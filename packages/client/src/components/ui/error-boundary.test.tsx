@@ -1,8 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ErrorBoundary } from './error-boundary';
+import { ErrorBoundary, errorBoundaryRef } from './error-boundary';
 
 function SafeComponent() {
   return <div>Safe content</div>;
@@ -88,6 +88,52 @@ describe('ErrorBoundary', () => {
     expect(screen.getByTestId('error-boundary-bar')).toBeInTheDocument();
 
     await user.click(screen.getByTestId('error-boundary-dismiss'));
+    expect(screen.queryByTestId('error-boundary-bar')).not.toBeInTheDocument();
+  });
+
+  it('exposes setError via errorBoundaryRef after mount', () => {
+    render(
+      <ErrorBoundary>
+        <SafeComponent />
+      </ErrorBoundary>
+    );
+
+    expect(errorBoundaryRef.current).not.toBeNull();
+    expect(errorBoundaryRef.current?.setError).toBeInstanceOf(Function);
+    expect(errorBoundaryRef.current?.clearError).toBeInstanceOf(Function);
+  });
+
+  it('displays error when setError is called via ref', () => {
+    render(
+      <ErrorBoundary>
+        <SafeComponent />
+      </ErrorBoundary>
+    );
+
+    act(() => {
+      errorBoundaryRef.current?.setError(new Error('Async error from GPU'));
+    });
+
+    const errorBar = screen.getByTestId('error-boundary-bar');
+    expect(errorBar).toBeInTheDocument();
+    expect(errorBar).toHaveTextContent('Async error from GPU');
+  });
+
+  it('clears error when clearError is called via ref', () => {
+    render(
+      <ErrorBoundary>
+        <SafeComponent />
+      </ErrorBoundary>
+    );
+
+    act(() => {
+      errorBoundaryRef.current?.setError(new Error('Error to clear'));
+    });
+    expect(screen.getByTestId('error-boundary-bar')).toBeInTheDocument();
+
+    act(() => {
+      errorBoundaryRef.current?.clearError();
+    });
     expect(screen.queryByTestId('error-boundary-bar')).not.toBeInTheDocument();
   });
 });
