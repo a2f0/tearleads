@@ -8,4 +8,4 @@
 - Do NOT use `--no-verify` to bypass git hooks.
 - Do NOT commit or push to the `main` branch, if you are on `main`, create a new branch.
 - Do NOT use `any` typings or `as` TypesScript assertions.
-- Do NOT decrease code coverage thresholds. Always write tests for new code.
+- Do NOT decrease code coverage thresholds; always write tests for new code.
