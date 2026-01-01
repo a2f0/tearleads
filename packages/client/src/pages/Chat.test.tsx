@@ -6,13 +6,15 @@ import { Chat } from './Chat';
 // Mock useLLM hook
 vi.mock('@/hooks/useLLM', () => ({
   useLLM: vi.fn(() => ({
-    engine: null,
     loadedModel: null,
+    modelType: null,
     isLoading: false,
     loadProgress: null,
     error: null,
     loadModel: vi.fn(),
     unloadModel: vi.fn(),
+    generate: vi.fn(),
+    abort: vi.fn(),
     isWebGPUSupported: vi.fn().mockResolvedValue(true)
   }))
 }));
@@ -127,13 +129,15 @@ describe('Chat', () => {
   describe('when a model is loaded', () => {
     beforeEach(() => {
       vi.mocked(useLLM).mockReturnValue({
-        engine: {} as ReturnType<typeof useLLM>['engine'],
-        loadedModel: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+        loadedModel: 'onnx-community/Phi-3-mini-4k-instruct',
+        modelType: 'chat',
         isLoading: false,
         loadProgress: null,
         error: null,
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
+        generate: vi.fn(),
+        abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true)
       });
     });
@@ -147,7 +151,7 @@ describe('Chat', () => {
     it('shows the loaded model name', () => {
       renderChat();
 
-      expect(screen.getByText('Llama 3.2 1B')).toBeInTheDocument();
+      expect(screen.getByText('Phi 3 Mini')).toBeInTheDocument();
     });
 
     it('does not show the no model loaded message', () => {
@@ -160,6 +164,41 @@ describe('Chat', () => {
       renderChat();
 
       expect(screen.getByTestId('composer-input')).toBeInTheDocument();
+    });
+  });
+
+  describe('when a vision model is loaded', () => {
+    beforeEach(() => {
+      vi.mocked(useLLM).mockReturnValue({
+        loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
+        modelType: 'vision',
+        isLoading: false,
+        loadProgress: null,
+        error: null,
+        loadModel: vi.fn(),
+        unloadModel: vi.fn(),
+        generate: vi.fn(),
+        abort: vi.fn(),
+        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+      });
+    });
+
+    it('shows the vision model name', () => {
+      renderChat();
+
+      expect(screen.getByText('SmolVLM 256M Instruct')).toBeInTheDocument();
+    });
+
+    it('renders chat interface with thread empty state', () => {
+      renderChat();
+
+      expect(screen.getByTestId('thread-empty')).toBeInTheDocument();
+    });
+
+    it('renders the composer for vision models', () => {
+      renderChat();
+
+      expect(screen.getByTestId('composer')).toBeInTheDocument();
     });
   });
 });

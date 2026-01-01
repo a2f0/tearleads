@@ -25,13 +25,18 @@ export default defineConfig({
         'src/test/**/*',
         'src/types/**/*',
         'src/main.tsx',
-        'src/vite-env.d.ts'
+        'src/vite-env.d.ts',
+        // LLM files are excluded because they rely on web workers and WebGPU
+        // which require integration/e2e testing rather than unit tests
+        'src/workers/llm-worker.ts',
+        'src/hooks/useLLM.ts',
+        'src/lib/llm-runtime.ts'
       ],
       thresholds: {
-        statements: 28,
-        branches: 29,
-        functions: 29,
-        lines: 28
+        statements: 51,
+        branches: 54,
+        functions: 54,
+        lines: 52
       }
     }
   },

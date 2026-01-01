@@ -1,17 +1,120 @@
-import { deleteModelInCache, hasModelInCache } from '@mlc-ai/web-llm';
 import {
   Bot,
   Check,
+  ChevronDown,
+  ChevronUp,
   Download,
   Eye,
   Loader2,
-  Play,
-  Square,
-  Trash2
+  Square
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useLLM } from '@/hooks/useLLM';
+
+interface WebGPUInfo {
+  adapterName: string;
+  vendor: string;
+  architecture: string;
+  maxBufferSize: number;
+  maxStorageBufferBindingSize: number;
+  maxComputeWorkgroupStorageSize: number;
+  maxComputeInvocationsPerWorkgroup: number;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
+  }
+  return `${(bytes / 1024).toFixed(0)} KB`;
+}
+
+async function getWebGPUInfo(): Promise<WebGPUInfo | null> {
+  if (!('gpu' in navigator)) return null;
+
+  try {
+    const adapter = await navigator.gpu.requestAdapter();
+    if (!adapter) return null;
+
+    const info = adapter.info;
+    const limits = adapter.limits;
+
+    return {
+      adapterName: info.device || 'Unknown',
+      vendor: info.vendor || 'Unknown',
+      architecture: info.architecture || 'Unknown',
+      maxBufferSize: limits.maxBufferSize,
+      maxStorageBufferBindingSize: limits.maxStorageBufferBindingSize,
+      maxComputeWorkgroupStorageSize: limits.maxComputeWorkgroupStorageSize,
+      maxComputeInvocationsPerWorkgroup:
+        limits.maxComputeInvocationsPerWorkgroup
+    };
+  } catch {
+    return null;
+  }
+}
+
+function WebGPUInfoPanel({ info }: { info: WebGPUInfo }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="rounded-lg border bg-card p-4">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center justify-between text-left"
+      >
+        <div>
+          <h3 className="font-medium text-sm">WebGPU Device</h3>
+          <p className="text-muted-foreground text-xs">
+            {info.adapterName} ({info.vendor})
+          </p>
+        </div>
+        {expanded ? (
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        )}
+      </button>
+
+      {expanded && (
+        <div className="mt-3 space-y-2 border-t pt-3">
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span className="text-muted-foreground">Architecture:</span>
+              <span className="ml-2 font-mono">{info.architecture}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Max Buffer:</span>
+              <span className="ml-2 font-mono">
+                {formatBytes(info.maxBufferSize)}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Max Storage Buffer:</span>
+              <span className="ml-2 font-mono">
+                {formatBytes(info.maxStorageBufferBindingSize)}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Workgroup Storage:</span>
+              <span className="ml-2 font-mono">
+                {formatBytes(info.maxComputeWorkgroupStorageSize)}
+              </span>
+            </div>
+          </div>
+          <p className="text-muted-foreground text-xs">
+            Note: Browser ArrayBuffer limit (~2.15GB) may restrict model loading
+            regardless of GPU memory.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface ModelInfo {
   id: string;
@@ -21,54 +124,31 @@ interface ModelInfo {
   isVision?: boolean;
 }
 
-// Curated list of recommended models
+// Recommended models: chat and vision options
 const RECOMMENDED_MODELS: ModelInfo[] = [
   {
-    id: 'Phi-3.5-vision-instruct-q4f32_1-MLC',
-    name: 'Phi 3.5 Vision',
-    size: '~3GB',
-    description: 'Vision model for image understanding',
+    id: 'onnx-community/Phi-3-mini-4k-instruct',
+    name: 'Phi-3 Mini',
+    size: '~2GB',
+    description: 'Fast chat model for general tasks'
+  },
+  {
+    id: 'HuggingFaceTB/SmolVLM-256M-Instruct',
+    name: 'SmolVLM 256M',
+    size: '~500MB',
+    description: 'Compact vision model for image understanding',
     isVision: true
   },
   {
-    id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
-    name: 'Llama 3.2 1B Instruct',
-    size: '~700MB',
-    description: 'Small and fast, good for basic tasks'
-  },
-  {
-    id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
-    name: 'Llama 3.2 3B Instruct',
-    size: '~1.8GB',
-    description: 'Good balance of speed and capability'
-  },
-  {
-    id: 'gemma-2-2b-it-q4f32_1-MLC',
-    name: 'Gemma 2 2B',
-    size: '~1.6GB',
-    description: "Google's efficient open model"
-  },
-  {
-    id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',
-    name: 'Phi 3.5 Mini',
-    size: '~2GB',
-    description: "Microsoft's efficient reasoning model"
-  },
-  {
-    id: 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC',
-    name: 'Qwen 2.5 1.5B Instruct',
-    size: '~1GB',
-    description: "Alibaba's multilingual model"
-  },
-  {
-    id: 'SmolLM2-1.7B-Instruct-q4f16_1-MLC',
-    name: 'SmolLM2 1.7B Instruct',
-    size: '~1GB',
-    description: "HuggingFace's efficient small model"
+    id: 'onnx-community/paligemma2-3b-ft-docci-448',
+    name: 'PaliGemma 2 3B',
+    size: '~3GB',
+    description: 'Google vision model for detailed captions',
+    isVision: true
   }
 ];
 
-type ModelStatus = 'not_downloaded' | 'downloading' | 'ready' | 'loaded';
+type ModelStatus = 'not_downloaded' | 'downloading' | 'loaded';
 
 interface ModelCardProps {
   model: ModelInfo;
@@ -77,7 +157,6 @@ interface ModelCardProps {
   disabled: boolean;
   onLoad: () => void;
   onUnload: () => void;
-  onDelete: () => void;
 }
 
 function ModelCard({
@@ -86,8 +165,7 @@ function ModelCard({
   loadProgress,
   disabled,
   onLoad,
-  onUnload,
-  onDelete
+  onUnload
 }: ModelCardProps) {
   const isLoaded = status === 'loaded';
   const isDownloading = status === 'downloading';
@@ -130,11 +208,6 @@ function ModelCard({
               Loaded
             </span>
           )}
-          {status === 'ready' && !isLoaded && (
-            <span className="rounded-full bg-muted px-2 py-1 text-muted-foreground text-xs">
-              Ready
-            </span>
-          )}
         </div>
       </div>
 
@@ -173,27 +246,8 @@ function ModelCard({
             onClick={onLoad}
             disabled={disabled}
           >
-            {status === 'ready' ? (
-              <>
-                <Play className="mr-2 h-4 w-4" />
-                Load
-              </>
-            ) : (
-              <>
-                <Download className="mr-2 h-4 w-4" />
-                Download
-              </>
-            )}
-          </Button>
-        )}
-        {status === 'ready' && !isLoaded && !isDownloading && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDelete}
-            disabled={disabled}
-          >
-            <Trash2 className="h-4 w-4" />
+            <Download className="mr-2 h-4 w-4" />
+            Download
           </Button>
         )}
       </div>
@@ -212,47 +266,21 @@ export function Models() {
   } = useLLM();
 
   const [webGPUSupported, setWebGPUSupported] = useState<boolean | null>(null);
+  const [webGPUInfo, setWebGPUInfo] = useState<WebGPUInfo | null>(null);
   const [loadingModelId, setLoadingModelId] = useState<string | null>(null);
-  const [cachedModels, setCachedModels] = useState<Set<string>>(new Set());
-  const [isCheckingCache, setIsCheckingCache] = useState(true);
 
-  // Check WebGPU support on mount
+  // Check WebGPU support and get adapter info on mount
   useEffect(() => {
     isWebGPUSupported().then(setWebGPUSupported);
+    getWebGPUInfo().then(setWebGPUInfo);
   }, [isWebGPUSupported]);
-
-  // Check for cached models using web-llm's official API on mount
-  useEffect(() => {
-    async function checkCachedModels() {
-      try {
-        const cacheCheckPromises = RECOMMENDED_MODELS.map(async (model) => {
-          const isCached = await hasModelInCache(model.id);
-          return isCached ? model.id : null;
-        });
-        const cachedIds = (await Promise.all(cacheCheckPromises)).filter(
-          (id): id is string => id !== null
-        );
-        setCachedModels(new Set(cachedIds));
-      } catch (err) {
-        console.error('Failed to check cached models:', err);
-      } finally {
-        setIsCheckingCache(false);
-      }
-    }
-
-    checkCachedModels();
-  }, []);
 
   const handleLoad = useCallback(
     async (modelId: string) => {
       setLoadingModelId(modelId);
       try {
         await loadModel(modelId);
-        // After successful load, mark as cached
-        setCachedModels((prev) => new Set(prev).add(modelId));
       } finally {
-        // Only clear loading state if this was the model being loaded
-        // (prevents race condition if user starts loading a different model)
         setLoadingModelId((currentId) =>
           currentId === modelId ? null : currentId
         );
@@ -265,25 +293,9 @@ export function Models() {
     await unloadModel();
   }, [unloadModel]);
 
-  const handleDelete = useCallback(async (modelId: string) => {
-    try {
-      await deleteModelInCache(modelId);
-      setCachedModels((prev) => {
-        const next = new Set(prev);
-        next.delete(modelId);
-        return next;
-      });
-    } catch (err) {
-      console.error('Failed to delete cached model:', err);
-    }
-  }, []);
-
   const getModelStatus = (modelId: string): ModelStatus => {
     if (loadedModel === modelId) return 'loaded';
-    // Use local loadingModelId as source of truth for downloading status
-    // (isLoading from hook may have timing lag)
     if (loadingModelId === modelId) return 'downloading';
-    if (cachedModels.has(modelId)) return 'ready';
     return 'not_downloaded';
   };
 
@@ -329,29 +341,21 @@ export function Models() {
         cached for future use.
       </p>
 
-      {isCheckingCache ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-muted-foreground text-sm">
-            Checking cached models...
-          </span>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {RECOMMENDED_MODELS.map((model) => (
-            <ModelCard
-              key={model.id}
-              model={model}
-              status={getModelStatus(model.id)}
-              loadProgress={loadingModelId === model.id ? loadProgress : null}
-              disabled={loadingModelId !== null}
-              onLoad={() => handleLoad(model.id)}
-              onUnload={handleUnload}
-              onDelete={() => handleDelete(model.id)}
-            />
-          ))}
-        </div>
-      )}
+      {webGPUInfo && <WebGPUInfoPanel info={webGPUInfo} />}
+
+      <div className="space-y-3">
+        {RECOMMENDED_MODELS.map((model) => (
+          <ModelCard
+            key={model.id}
+            model={model}
+            status={getModelStatus(model.id)}
+            loadProgress={loadingModelId === model.id ? loadProgress : null}
+            disabled={loadingModelId !== null}
+            onLoad={() => handleLoad(model.id)}
+            onUnload={handleUnload}
+          />
+        ))}
+      </div>
     </div>
   );
 }

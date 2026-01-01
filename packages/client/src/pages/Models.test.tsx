@@ -1,34 +1,43 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Models } from './Models';
 
-// Mock web-llm cache functions
-vi.mock('@mlc-ai/web-llm', () => ({
-  hasModelInCache: vi.fn().mockResolvedValue(false),
-  deleteModelInCache: vi.fn().mockResolvedValue(undefined)
-}));
-
-import { deleteModelInCache, hasModelInCache } from '@mlc-ai/web-llm';
-
-const mockHasModelInCache = vi.mocked(hasModelInCache);
-const mockDeleteModelInCache = vi.mocked(deleteModelInCache);
+// Mock WebGPU API
+const mockGPUAdapter = {
+  info: {
+    device: 'Apple M2',
+    vendor: 'apple',
+    architecture: 'gpu'
+  },
+  limits: {
+    maxBufferSize: 4294967296,
+    maxStorageBufferBindingSize: 134217728,
+    maxComputeWorkgroupStorageSize: 32768,
+    maxComputeInvocationsPerWorkgroup: 1024
+  },
+  requestDevice: vi.fn()
+};
 
 // Mock useLLM hook
 const mockLoadModel = vi.fn();
 const mockUnloadModel = vi.fn();
 const mockIsWebGPUSupported = vi.fn();
+const mockGenerate = vi.fn();
+const mockAbort = vi.fn();
 
 vi.mock('@/hooks/useLLM', () => ({
   useLLM: vi.fn(() => ({
-    engine: null,
     loadedModel: null,
+    modelType: null,
     isLoading: false,
     loadProgress: null,
     error: null,
     loadModel: mockLoadModel,
     unloadModel: mockUnloadModel,
+    generate: mockGenerate,
+    abort: mockAbort,
     isWebGPUSupported: mockIsWebGPUSupported
   }))
 }));
@@ -47,15 +56,30 @@ describe('Models', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsWebGPUSupported.mockResolvedValue(true);
-    mockHasModelInCache.mockResolvedValue(false);
-    mockDeleteModelInCache.mockResolvedValue(undefined);
+
+    // Setup WebGPU mock
+    Object.defineProperty(navigator, 'gpu', {
+      value: {
+        requestAdapter: vi.fn().mockResolvedValue(mockGPUAdapter)
+      },
+      writable: true,
+      configurable: true
+    });
+  });
+
+  afterEach(() => {
+    // Clean up WebGPU mock
+    Object.defineProperty(navigator, 'gpu', {
+      value: undefined,
+      writable: true,
+      configurable: true
+    });
   });
 
   describe('page rendering', () => {
     it('renders the page title', async () => {
       renderModels();
 
-      // Wait for async effects to settle
       await waitFor(() => {
         expect(screen.getByText('Models')).toBeInTheDocument();
       });
@@ -64,7 +88,6 @@ describe('Models', () => {
     it('renders the description text', async () => {
       renderModels();
 
-      // Wait for async effects to settle
       await waitFor(() => {
         expect(
           screen.getByText(/Download and run LLMs locally/)
@@ -76,9 +99,9 @@ describe('Models', () => {
       renderModels();
 
       await waitFor(() => {
-        expect(screen.getByText('Llama 3.2 1B Instruct')).toBeInTheDocument();
-        expect(screen.getByText('Llama 3.2 3B Instruct')).toBeInTheDocument();
-        expect(screen.getByText('Phi 3.5 Mini')).toBeInTheDocument();
+        expect(screen.getByText('Phi-3 Mini')).toBeInTheDocument();
+        expect(screen.getByText('SmolVLM 256M')).toBeInTheDocument();
+        expect(screen.getByText('PaliGemma 2 3B')).toBeInTheDocument();
       });
     });
 
@@ -86,8 +109,40 @@ describe('Models', () => {
       renderModels();
 
       await waitFor(() => {
-        expect(screen.getByText(/~700MB/)).toBeInTheDocument();
-        expect(screen.getByText(/~1.8GB/)).toBeInTheDocument();
+        expect(screen.getByText(/~2GB/)).toBeInTheDocument();
+        expect(screen.getByText(/~500MB/)).toBeInTheDocument();
+        expect(screen.getByText(/~3GB/)).toBeInTheDocument();
+      });
+    });
+
+    it('shows vision badge for vision models', async () => {
+      renderModels();
+
+      await waitFor(() => {
+        // Verify total count of vision badges
+        const visionBadges = screen.getAllByText('Vision');
+        expect(visionBadges.length).toBe(2);
+
+        // Verify vision badges are on the correct model cards
+        const smolVLMCard = screen
+          .getByText('SmolVLM 256M')
+          .closest('.rounded-lg');
+        expect(smolVLMCard).toHaveTextContent('Vision');
+
+        const paligemmaCard = screen
+          .getByText('PaliGemma 2 3B')
+          .closest('.rounded-lg');
+        expect(paligemmaCard).toHaveTextContent('Vision');
+
+        // Verify non-vision model doesn't have vision badge
+        const phi3Card = screen.getByText('Phi-3 Mini').closest('.rounded-lg');
+        const phi3VisionBadges = phi3Card?.querySelectorAll(
+          '.text-purple-500'
+        ) as NodeListOf<HTMLElement>;
+        const hasVisionBadge = Array.from(phi3VisionBadges).some(
+          (el) => el.textContent === 'Vision'
+        );
+        expect(hasVisionBadge).toBe(false);
       });
     });
   });
@@ -110,8 +165,6 @@ describe('Models', () => {
       mockIsWebGPUSupported.mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
-      // Also make cache check never resolve to prevent state updates
-      mockHasModelInCache.mockImplementation(() => new Promise(() => {}));
 
       renderModels();
 
@@ -140,7 +193,7 @@ describe('Models', () => {
       renderModels();
 
       await waitFor(() => {
-        expect(screen.getByText('Llama 3.2 1B Instruct')).toBeInTheDocument();
+        expect(screen.getByText('Phi-3 Mini')).toBeInTheDocument();
       });
 
       const downloadButtons = screen.getAllByRole('button', {
@@ -154,12 +207,6 @@ describe('Models', () => {
     });
 
     it('shows loading button when model is being downloaded', async () => {
-      // To test the loading state, we need to simulate:
-      // 1. User clicks download -> sets loadingModelId in component state
-      // 2. Hook's isLoading becomes true -> getModelStatus returns 'downloading'
-      //
-      // We achieve this by making loadModel not resolve immediately,
-      // then updating the mock to show isLoading: true, triggering a re-render
       let resolveLoad: (() => void) | undefined;
       const loadPromise = new Promise<void>((resolve) => {
         resolveLoad = resolve;
@@ -167,15 +214,16 @@ describe('Models', () => {
 
       const loadModelMock = vi.fn().mockImplementation(() => loadPromise);
 
-      // Start with isLoading: false
       vi.mocked(useLLM).mockReturnValue({
-        engine: null,
         loadedModel: null,
+        modelType: null,
         isLoading: false,
         loadProgress: null,
         error: null,
         loadModel: loadModelMock,
         unloadModel: mockUnloadModel,
+        generate: mockGenerate,
+        abort: mockAbort,
         isWebGPUSupported: mockIsWebGPUSupported
       });
 
@@ -187,10 +235,9 @@ describe('Models', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Llama 3.2 1B Instruct')).toBeInTheDocument();
+        expect(screen.getByText('Phi-3 Mini')).toBeInTheDocument();
       });
 
-      // Click the download button - this sets loadingModelId in component state
       const downloadButtons = screen.getAllByRole('button', {
         name: /download/i
       });
@@ -198,21 +245,20 @@ describe('Models', () => {
       // biome-ignore lint/style/noNonNullAssertion: checked above
       await user.click(downloadButtons[0]!);
 
-      // Now update the mock to show loading state and re-render
-      // Wrap in act() to handle React state updates
       await act(async () => {
         vi.mocked(useLLM).mockReturnValue({
-          engine: null,
           loadedModel: null,
+          modelType: null,
           isLoading: true,
           loadProgress: { text: 'Downloading weights...', progress: 0.45 },
           error: null,
           loadModel: loadModelMock,
           unloadModel: mockUnloadModel,
+          generate: mockGenerate,
+          abort: mockAbort,
           isWebGPUSupported: mockIsWebGPUSupported
         });
 
-        // Trigger re-render
         rerender(
           <MemoryRouter>
             <Models />
@@ -220,17 +266,14 @@ describe('Models', () => {
         );
       });
 
-      // Verify the loading button is shown
       await waitFor(() => {
         expect(
           screen.getByRole('button', { name: /loading/i })
         ).toBeInTheDocument();
       });
 
-      // Verify the progress bar is rendered with correct progress text
       expect(screen.getByText('Downloading weights...')).toBeInTheDocument();
 
-      // Cleanup: resolve the promise in act to handle any resulting state updates
       await act(async () => {
         resolveLoad?.();
       });
@@ -238,13 +281,15 @@ describe('Models', () => {
 
     it('shows loaded badge when model is loaded', async () => {
       vi.mocked(useLLM).mockReturnValue({
-        engine: {} as ReturnType<typeof useLLM>['engine'],
-        loadedModel: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+        loadedModel: 'onnx-community/Phi-3-mini-4k-instruct',
+        modelType: 'chat',
         isLoading: false,
         loadProgress: null,
         error: null,
         loadModel: mockLoadModel,
         unloadModel: mockUnloadModel,
+        generate: mockGenerate,
+        abort: mockAbort,
         isWebGPUSupported: mockIsWebGPUSupported
       });
 
@@ -257,13 +302,15 @@ describe('Models', () => {
 
     it('shows unload button for loaded model', async () => {
       vi.mocked(useLLM).mockReturnValue({
-        engine: {} as ReturnType<typeof useLLM>['engine'],
-        loadedModel: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+        loadedModel: 'onnx-community/Phi-3-mini-4k-instruct',
+        modelType: 'chat',
         isLoading: false,
         loadProgress: null,
         error: null,
         loadModel: mockLoadModel,
         unloadModel: mockUnloadModel,
+        generate: mockGenerate,
+        abort: mockAbort,
         isWebGPUSupported: mockIsWebGPUSupported
       });
 
@@ -279,13 +326,15 @@ describe('Models', () => {
     it('calls unloadModel when unload button is clicked', async () => {
       const user = userEvent.setup();
       vi.mocked(useLLM).mockReturnValue({
-        engine: {} as ReturnType<typeof useLLM>['engine'],
-        loadedModel: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+        loadedModel: 'onnx-community/Phi-3-mini-4k-instruct',
+        modelType: 'chat',
         isLoading: false,
         loadProgress: null,
         error: null,
         loadModel: mockLoadModel,
         unloadModel: mockUnloadModel,
+        generate: mockGenerate,
+        abort: mockAbort,
         isWebGPUSupported: mockIsWebGPUSupported
       });
 
@@ -306,13 +355,15 @@ describe('Models', () => {
   describe('error handling', () => {
     it('displays error message when there is an error', async () => {
       vi.mocked(useLLM).mockReturnValue({
-        engine: null,
         loadedModel: null,
+        modelType: null,
         isLoading: false,
         loadProgress: null,
         error: 'Failed to load model: Network error',
         loadModel: mockLoadModel,
         unloadModel: mockUnloadModel,
+        generate: mockGenerate,
+        abort: mockAbort,
         isWebGPUSupported: mockIsWebGPUSupported
       });
 
@@ -326,100 +377,73 @@ describe('Models', () => {
     });
   });
 
-  describe('model cache persistence', () => {
-    it('checks cache for all models on mount', async () => {
+  describe('WebGPU info panel', () => {
+    it('displays WebGPU device info when available', async () => {
       renderModels();
 
       await waitFor(() => {
-        // Should check cache for each recommended model
-        expect(mockHasModelInCache).toHaveBeenCalledWith(
-          'Llama-3.2-1B-Instruct-q4f16_1-MLC'
-        );
-        expect(mockHasModelInCache).toHaveBeenCalledWith(
-          'Llama-3.2-3B-Instruct-q4f16_1-MLC'
-        );
-        expect(mockHasModelInCache).toHaveBeenCalledWith(
-          'Phi-3.5-mini-instruct-q4f16_1-MLC'
-        );
+        expect(screen.getByText('WebGPU Device')).toBeInTheDocument();
+        expect(screen.getByText(/Apple M2/)).toBeInTheDocument();
+        expect(screen.getByText(/apple/)).toBeInTheDocument();
       });
     });
 
-    it('shows Ready status for cached models', async () => {
-      // Only the first model is cached
-      mockHasModelInCache.mockImplementation((modelId: string) =>
-        Promise.resolve(modelId === 'Llama-3.2-1B-Instruct-q4f16_1-MLC')
-      );
-
-      renderModels();
-
-      await waitFor(() => {
-        // First model should show "Ready" and "Load" button
-        expect(screen.getByText('Ready')).toBeInTheDocument();
-        expect(
-          screen.getByRole('button', { name: /^Load$/i })
-        ).toBeInTheDocument();
-      });
-    });
-
-    it('shows Load button instead of Download for cached models', async () => {
-      mockHasModelInCache.mockResolvedValue(true);
-
-      renderModels();
-
-      await waitFor(() => {
-        // All models are cached, so no Download buttons
-        expect(
-          screen.queryByRole('button', { name: /download/i })
-        ).not.toBeInTheDocument();
-        // Should have Load buttons instead
-        const loadButtons = screen.getAllByRole('button', { name: /^Load$/i });
-        expect(loadButtons.length).toBeGreaterThan(0);
-      });
-    });
-
-    it('shows delete button for cached models', async () => {
-      mockHasModelInCache.mockImplementation((modelId: string) =>
-        Promise.resolve(modelId === 'Llama-3.2-1B-Instruct-q4f16_1-MLC')
-      );
-
-      renderModels();
-
-      await waitFor(() => {
-        // Should have a delete button (trash icon) for the cached model
-        const deleteButtons = screen.getAllByRole('button');
-        // Look for button that contains trash icon (it's an icon button without text)
-        const trashButton = deleteButtons.find(
-          (btn) => btn.querySelector('svg.lucide-trash-2') !== null
-        );
-        expect(trashButton).toBeDefined();
-      });
-    });
-
-    it('calls deleteModelInCache when delete button is clicked', async () => {
+    it('expands to show detailed limits when clicked', async () => {
       const user = userEvent.setup();
-      mockHasModelInCache.mockImplementation((modelId: string) =>
-        Promise.resolve(modelId === 'Llama-3.2-1B-Instruct-q4f16_1-MLC')
-      );
+      renderModels();
+
+      await waitFor(() => {
+        expect(screen.getByText('WebGPU Device')).toBeInTheDocument();
+      });
+
+      // Click to expand
+      await user.click(screen.getByText('WebGPU Device'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Architecture:')).toBeInTheDocument();
+        expect(screen.getByText('Max Buffer:')).toBeInTheDocument();
+        expect(screen.getByText('4.00 GB')).toBeInTheDocument();
+        expect(screen.getByText(/ArrayBuffer limit/)).toBeInTheDocument();
+      });
+    });
+
+    it('collapses when clicked again', async () => {
+      const user = userEvent.setup();
+      renderModels();
+
+      await waitFor(() => {
+        expect(screen.getByText('WebGPU Device')).toBeInTheDocument();
+      });
+
+      // Click to expand
+      await user.click(screen.getByText('WebGPU Device'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Architecture:')).toBeInTheDocument();
+      });
+
+      // Click to collapse
+      await user.click(screen.getByText('WebGPU Device'));
+
+      await waitFor(() => {
+        expect(screen.queryByText('Architecture:')).not.toBeInTheDocument();
+      });
+    });
+
+    it('does not show panel when WebGPU is not available', async () => {
+      Object.defineProperty(navigator, 'gpu', {
+        value: undefined,
+        writable: true,
+        configurable: true
+      });
 
       renderModels();
 
       await waitFor(() => {
-        expect(screen.getByText('Ready')).toBeInTheDocument();
+        expect(screen.getByText('Models')).toBeInTheDocument();
       });
 
-      // Find and click the delete button (trash icon)
-      const deleteButtons = screen.getAllByRole('button');
-      const trashButton = deleteButtons.find(
-        (btn) => btn.querySelector('svg.lucide-trash-2') !== null
-      );
-      expect(trashButton).toBeDefined();
-      if (trashButton) {
-        await user.click(trashButton);
-      }
-
-      expect(mockDeleteModelInCache).toHaveBeenCalledWith(
-        'Llama-3.2-1B-Instruct-q4f16_1-MLC'
-      );
+      expect(screen.queryByText('WebGPU Device')).not.toBeInTheDocument();
     });
   });
 });
