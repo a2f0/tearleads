@@ -52,6 +52,16 @@ require("lazy").setup({
       "nvim-tree/nvim-web-devicons",
       "MunifTanjim/nui.nvim",
     },
+    opts = {
+      filesystem = {
+        use_libuv_file_watcher = true,
+      },
+      git_status = {
+        window = {
+          position = "float",
+        },
+      },
+    },
   },
   {
     "nvim-telescope/telescope.nvim",
