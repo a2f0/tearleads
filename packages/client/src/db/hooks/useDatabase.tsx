@@ -11,6 +11,7 @@ import {
   useMemo,
   useState
 } from 'react';
+import { toError } from '@/lib/errors';
 import type { Database } from '../index';
 import {
   changePassword,
@@ -99,7 +100,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
           }
         }
       } catch (err) {
-        setError(err as Error);
+        setError(toError(err));
       } finally {
         setIsLoading(false);
       }
@@ -119,7 +120,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       return true;
     } catch (err) {
       console.error('Database setup error:', err);
-      setError(err as Error);
+      setError(toError(err));
       throw err; // Re-throw so caller can see the error
     } finally {
       setIsLoading(false);
@@ -142,7 +143,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         }
         return false; // Wrong password
       } catch (err) {
-        setError(err as Error);
+        setError(toError(err));
         return false;
       } finally {
         setIsLoading(false);
@@ -165,7 +166,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       setHasPersisted(false);
       return false;
     } catch (err) {
-      setError(err as Error);
+      setError(toError(err));
       setHasPersisted(false);
       return false;
     } finally {
@@ -183,7 +184,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         setHasPersisted(false);
       }
     } catch (err) {
-      setError(err as Error);
+      setError(toError(err));
     }
   }, []);
 
@@ -192,7 +193,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       try {
         return await changePassword(oldPassword, newPassword);
       } catch (err) {
-        setError(err as Error);
+        setError(toError(err));
         return false;
       }
     },
@@ -206,7 +207,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       setIsSetUp(false);
       setHasPersisted(false);
     } catch (err) {
-      setError(err as Error);
+      setError(toError(err));
     }
   }, []);
 
@@ -214,7 +215,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
     try {
       return await exportDatabase();
     } catch (err) {
-      setError(err as Error);
+      setError(toError(err));
       throw err;
     }
   }, []);
@@ -227,7 +228,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         // Clear db state - user will need to unlock again with same password
         setDb(null);
       } catch (err) {
-        setError(err as Error);
+        setError(toError(err));
         throw err;
       } finally {
         setIsLoading(false);
