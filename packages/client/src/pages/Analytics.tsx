@@ -10,7 +10,7 @@ import {
   Trash2,
   XCircle
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { getDatabase } from '@/db';
 import {
@@ -19,14 +19,16 @@ import {
   type EventStats,
   getDistinctEventTypes,
   getEventStats,
-  getEvents
+  getEvents,
+  type SortColumn,
+  type SortDirection
 } from '@/db/analytics';
 import { useDatabaseContext } from '@/db/hooks';
 
 type TimeFilter = 'hour' | 'day' | 'week' | 'all';
 
-export type SortColumn = 'eventName' | 'durationMs' | 'success' | 'timestamp';
-export type SortDirection = 'asc' | 'desc';
+// Re-export for backwards compatibility with tests
+export type { SortColumn, SortDirection };
 
 export interface SortState {
   column: SortColumn | null;
@@ -141,7 +143,12 @@ export function Analytics() {
       const startTime = getTimeRange(timeFilter);
 
       const [eventsData, statsData, typesData] = await Promise.all([
-        getEvents(db, { startTime, limit: 100 }),
+        getEvents(db, {
+          startTime,
+          limit: 100,
+          sortColumn: sort.column ?? undefined,
+          sortDirection: sort.direction ?? undefined
+        }),
         getEventStats(db, { startTime }),
         getDistinctEventTypes(db)
       ]);
@@ -175,7 +182,7 @@ export function Analytics() {
       setLoading(false);
       fetchingRef.current = false;
     }
-  }, [isUnlocked, timeFilter]);
+  }, [isUnlocked, timeFilter, sort]);
 
   const handleClear = useCallback(async () => {
     if (!isUnlocked) return;
@@ -205,7 +212,8 @@ export function Analytics() {
     });
   }, []);
 
-  const sortedEvents = useMemo(() => sortEvents(events, sort), [events, sort]);
+  // Sorting is now done at the database level via getEvents() sortColumn/sortDirection options
+  // The sortEvents function is kept for backwards compatibility with tests
 
   const toggleEventType = useCallback((eventType: string) => {
     setSelectedEventTypes((prev) => {
@@ -490,7 +498,7 @@ export function Analytics() {
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedEvents.map((event) => (
+                    {events.map((event) => (
                       <tr key={event.id} className="border-b last:border-0">
                         <td className="px-4 py-3 font-medium">
                           {formatEventName(event.eventName)}
