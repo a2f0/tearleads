@@ -1,0 +1,33 @@
+#!/bin/bash
+set -e
+
+LOGFILE="/var/log/auto-patch.log"
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOGFILE"
+}
+
+log "Starting automatic patching"
+
+log "Updating package lists"
+apt-get update
+
+log "Upgrading packages"
+DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -y \
+    -o Dpkg::Options::="--force-confdef" \
+    -o Dpkg::Options::="--force-confold"
+
+log "Removing unused packages"
+apt-get autoremove -y
+
+log "Cleaning package cache"
+apt-get autoclean
+
+if [ -f /var/run/reboot-required ]; then
+    log "Reboot required - scheduling reboot in 1 minute"
+    shutdown -r +1 "System rebooting after automatic patching"
+else
+    log "No reboot required"
+fi
+
+log "Patching complete"
