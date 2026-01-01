@@ -1,19 +1,37 @@
 #!/bin/sh
-# Configurable via environment variables
+# Tuxedo - tmux session manager for rapid development
+#
+# Configurable via environment variables:
+#   TUXEDO_BASE_DIR     - Base directory for workspaces (default: $HOME/github)
+#   TUXEDO_EDITOR       - Editor command (default: uses local nvim config)
+#   TUXEDO_WORKSPACES   - Number of workspaces to create (default: 20)
+#
+# To detach: tmux detach (or Ctrl+B, D)
+# To destroy: tmux kill-session -t tuxedo
+
+set -eu
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONFIG_DIR="$SCRIPT_DIR/config"
+
 BASE_DIR="${TUXEDO_BASE_DIR:-$HOME/github}"
-EDITOR="${TUXEDO_EDITOR:-nvim}"
 NUM_WORKSPACES="${TUXEDO_WORKSPACES:-20}"
 SESSION_NAME="tuxedo"
 
-# To detach - tmux detach
-# To destroy - tmux kill-session
+# Use local configs
+TMUX_CONF="$CONFIG_DIR/tmux.conf"
+NVIM_INIT="$CONFIG_DIR/init.lua"
+EDITOR="${TUXEDO_EDITOR:-nvim -u $NVIM_INIT}"
+
+# Export for tmux config reload binding
+export TUXEDO_TMUX_CONF="$TMUX_CONF"
 
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     tmux attach-session -t "$SESSION_NAME"
     exit 0
 fi
 
-tmux new-session -d -s "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main
+tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main
 tmux split-window -h -t "$SESSION_NAME:rapid-main" -c "$BASE_DIR/rapid-main" "$EDITOR"
 
 i=2
