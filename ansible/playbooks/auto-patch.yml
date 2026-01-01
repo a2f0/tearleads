@@ -1,0 +1,51 @@
+---
+- name: Configure automatic daily patching and reboot
+  hosts: all
+  become: true
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    patch_time: "03:00"
+    patch_timezone: "UTC"
+
+  tasks:
+    - name: Deploy auto-patch script
+      ansible.builtin.template:
+        src: auto-patch.sh.j2
+        dest: /usr/local/sbin/auto-patch.sh
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy auto-patch systemd service
+      ansible.builtin.template:
+        src: auto-patch.service.j2
+        dest: /etc/systemd/system/auto-patch.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload systemd
+
+    - name: Deploy auto-patch systemd timer
+      ansible.builtin.template:
+        src: auto-patch.timer.j2
+        dest: /etc/systemd/system/auto-patch.timer
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload systemd
+
+    - name: Flush handlers before enabling timer
+      ansible.builtin.meta: flush_handlers
+
+    - name: Enable and start auto-patch timer
+      ansible.builtin.systemd:
+        name: auto-patch.timer
+        enabled: true
+        state: started
+        daemon_reload: true
+
+  handlers:
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
