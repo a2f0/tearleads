@@ -81,7 +81,8 @@ describe('Photos', () => {
     vi.clearAllMocks();
     mockUseDatabaseContext.mockReturnValue({
       isUnlocked: true,
-      isLoading: false
+      isLoading: false,
+      currentInstanceId: 'test-instance'
     });
 
     // Mock database query
@@ -107,7 +108,8 @@ describe('Photos', () => {
     it('shows loading state when database is loading', async () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
-        isLoading: true
+        isLoading: true,
+        currentInstanceId: null
       });
 
       renderPhotos();
@@ -118,7 +120,8 @@ describe('Photos', () => {
     it('shows locked message when database is locked', async () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
-        isLoading: false
+        isLoading: false,
+        currentInstanceId: null
       });
 
       renderPhotos();
