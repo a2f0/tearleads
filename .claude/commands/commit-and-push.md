@@ -34,7 +34,21 @@ Commit and push the current changes following these rules:
 
 6. **Push**: After successful commit, push to the current branch's remote.
 
-7. **Open PR**: If a PR doesn't already exist for this branch, create one using `gh pr create`. Skip if already on `main` or PR exists. After creating a PR, update the VS Code title to show the PR number:
+7. **Open PR**: If a PR doesn't already exist for this branch, create one using `gh pr create`. Skip if already on `main` or PR exists.
+
+   **Important**: If you created a GitHub issue to track this work, include `Closes #<issue-number>` in the PR body to auto-close the issue when merged. To close multiple issues, you can list them (e.g., `Closes #123, #456`):
+
+   ```bash
+   gh pr create --title "<type>(<scope>): <description>" --body "$(cat <<'EOF'
+   ## Summary
+   - Brief description of changes
+
+   Closes #<issue-number>
+   EOF
+   )"
+   ```
+
+   After creating a PR, update the VS Code title to show the PR number:
 
    ```bash
    ./scripts/agents/setVscodeTitle.sh

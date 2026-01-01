@@ -6,7 +6,7 @@ When the user requests a change or new feature:
 
 1. **Check for existing issue**: Search for a related open issue first
 2. **Create an issue if none exists**: Before starting work, create a GitHub issue to track the request
-3. **Reference the issue**: Include the issue number in commits and PR descriptions
+3. **Reference the issue**: Include `Closes #<issue>` in the PR description body to auto-close the issue when merged. To close multiple issues, you can list them (e.g., `Closes #123, #456`).
 
 ```bash
 # Create an issue for the user's request
