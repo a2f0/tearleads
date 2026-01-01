@@ -28,7 +28,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 
    - If `state` is `MERGED`: Exit loop and proceed to step 5
    - If `mergeStateStatus` is `BEHIND`: Update from base (step 4b)
-   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Check CI and reviews (step 4c)
+   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Address Gemini feedback (step 4c/4d), then wait for CI (step 4e)
    - If `mergeStateStatus` is `CLEAN`: Ensure auto-merge is enabled and wait (step 4f)
 
    ### 4b. Update from base branch
@@ -41,41 +41,20 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    - If merge conflicts occur, list them, clear the queued status with `./scripts/agents/clearQueued.sh`, and stop. Do NOT auto-resolve without user input.
    - If successful, push and continue to step 4c.
 
-   ### 4c. Wait for CI
-
-   ```bash
-   git push
-   git rev-parse HEAD
-   gh run list --commit <commit-sha> --limit 1 --json status,conclusion,databaseId
-   ```
-
-   - If CI is **in_progress** or **queued**: Wait 30 seconds and check again
-   - If CI **passes**: Continue to step 4d
-   - If CI is **cancelled**: Rerun CI using the CLI (do NOT push empty commits):
-
-     ```bash
-     gh run rerun <run-id>
-     ```
-
-   - If CI **fails**:
-     1. Download logs: `gh run view <run-id> --log-failed`
-     2. Analyze the failure and fix the issue
-     3. Run `/commit-and-push` to push the fix
-     4. Return to monitoring CI status
-
-   ### 4d. Wait for Gemini review (first iteration only)
+   ### 4c. Wait for Gemini review (first iteration only)
 
    Gemini Code Assist is a GitHub App that automatically reviews PRs - do NOT use `gh pr edit --add-reviewer` as it doesn't work with GitHub App bots.
 
    On the first pass through the loop, poll for Gemini's review:
 
    ```bash
+   git push
    gh pr view <pr-number> --json reviews
    ```
 
    Check every 30 seconds until a review from `gemini-code-assist` is found (timeout: 5 minutes).
 
-   ### 4e. Address Gemini feedback
+   ### 4d. Address Gemini feedback
 
    Run `/address-gemini-feedback` to handle any unresolved comments, then `/follow-up-with-gemini` to:
    - Notify Gemini that feedback has been addressed
@@ -92,7 +71,28 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
      '
      ```
 
-   - If Gemini requests further changes, repeat step 4e
+   - If Gemini requests further changes, repeat step 4d
+
+   ### 4e. Wait for CI
+
+   ```bash
+   git rev-parse HEAD
+   gh run list --commit <commit-sha> --limit 1 --json status,conclusion,databaseId
+   ```
+
+   - If CI is **in_progress** or **queued**: Wait 30 seconds and check again
+   - If CI **passes**: Continue to step 4f
+   - If CI is **cancelled**: Rerun CI using the CLI (do NOT push empty commits):
+
+     ```bash
+     gh run rerun <run-id>
+     ```
+
+   - If CI **fails**:
+     1. Download logs: `gh run view <run-id> --log-failed`
+     2. Analyze the failure and fix the issue
+     3. Commit and push the fix
+     4. Return to monitoring CI status
 
    ### 4f. Enable auto-merge and wait
 
