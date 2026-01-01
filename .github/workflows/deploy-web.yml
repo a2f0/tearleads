@@ -2,7 +2,7 @@ name: Deploy Web
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["Bump Version"]
     types: [completed]
     branches: [main]
 
