@@ -8,36 +8,42 @@ const mockCreateInstance = vi.fn(async () => 'new-instance');
 const mockSwitchInstance = vi.fn(async () => true);
 const mockDeleteInstance = vi.fn(async () => {});
 
+// Default mock values
+const defaultMockContext = {
+  currentInstanceId: 'test-instance',
+  currentInstanceName: 'Instance 1',
+  instances: [
+    {
+      id: 'test-instance',
+      name: 'Instance 1',
+      createdAt: Date.now(),
+      lastAccessedAt: Date.now()
+    },
+    {
+      id: 'second-instance',
+      name: 'Instance 2',
+      createdAt: Date.now(),
+      lastAccessedAt: Date.now()
+    }
+  ],
+  createInstance: mockCreateInstance,
+  switchInstance: mockSwitchInstance,
+  deleteInstance: mockDeleteInstance,
+  refreshInstances: vi.fn(async () => {}),
+  isLoading: false,
+  isUnlocked: false
+};
+
 // Mock the database context
+const mockUseDatabaseContext = vi.fn(() => defaultMockContext);
 vi.mock('@/db/hooks/useDatabase', () => ({
-  useDatabaseContext: vi.fn(() => ({
-    currentInstanceId: 'test-instance',
-    currentInstanceName: 'Instance 1',
-    instances: [
-      {
-        id: 'test-instance',
-        name: 'Instance 1',
-        createdAt: Date.now(),
-        lastAccessedAt: Date.now()
-      },
-      {
-        id: 'second-instance',
-        name: 'Instance 2',
-        createdAt: Date.now(),
-        lastAccessedAt: Date.now()
-      }
-    ],
-    createInstance: mockCreateInstance,
-    switchInstance: mockSwitchInstance,
-    deleteInstance: mockDeleteInstance,
-    refreshInstances: vi.fn(async () => {}),
-    isLoading: false
-  }))
+  useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
 describe('AccountSwitcher', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseDatabaseContext.mockReturnValue(defaultMockContext);
   });
 
   it('renders the account button', () => {
@@ -309,5 +315,53 @@ describe('AccountSwitcher', () => {
     });
 
     Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+  });
+
+  describe('lock status indicators', () => {
+    it('shows lock icon for current instance when database is locked', async () => {
+      const user = userEvent.setup();
+      mockUseDatabaseContext.mockReturnValue({
+        ...defaultMockContext,
+        isUnlocked: false
+      });
+
+      render(<AccountSwitcher />);
+      await user.click(screen.getByTestId('account-switcher-button'));
+
+      expect(
+        screen.getByTestId('instance-locked-test-instance')
+      ).toBeInTheDocument();
+    });
+
+    it('shows unlock icon for current instance when database is unlocked', async () => {
+      const user = userEvent.setup();
+      mockUseDatabaseContext.mockReturnValue({
+        ...defaultMockContext,
+        isUnlocked: true
+      });
+
+      render(<AccountSwitcher />);
+      await user.click(screen.getByTestId('account-switcher-button'));
+
+      expect(
+        screen.getByTestId('instance-unlocked-test-instance')
+      ).toBeInTheDocument();
+    });
+
+    it('shows lock icon for non-current instances regardless of unlock status', async () => {
+      const user = userEvent.setup();
+      mockUseDatabaseContext.mockReturnValue({
+        ...defaultMockContext,
+        isUnlocked: true
+      });
+
+      render(<AccountSwitcher />);
+      await user.click(screen.getByTestId('account-switcher-button'));
+
+      // Second instance should always show locked
+      expect(
+        screen.getByTestId('instance-locked-second-instance')
+      ).toBeInTheDocument();
+    });
   });
 });
