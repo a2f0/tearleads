@@ -7,8 +7,8 @@
 #   TUXEDO_WORKSPACES   - Number of workspaces to create (default: 20)
 #
 # Shared resources:
-#   rapid-shared/ is the source of truth for .secrets, .claude, and CLAUDE.md.
-#   These are symlinked into each workspace (rapid-main, rapid2, etc.)
+#   rapid-shared/ is the source of truth for .secrets (not version controlled).
+#   .claude and CLAUDE.md are NOT symlinked since they're tracked in git.
 #
 # To detach: tmux detach (or Ctrl+B, D)
 # To destroy: tmux kill-session -t tuxedo
@@ -29,7 +29,8 @@ NUM_WORKSPACES="${TUXEDO_WORKSPACES:-20}"
 SESSION_NAME="tuxedo"
 SHARED_DIR="$BASE_DIR/rapid-shared"
 
-# Ensure symlinks from a workspace to rapid-shared for .secrets and .claude
+# Ensure symlinks from a workspace to rapid-shared for .secrets only
+# (.claude and CLAUDE.md are version controlled, so not symlinked)
 ensure_symlinks() {
     workspace="$1"
 
@@ -39,51 +40,33 @@ ensure_symlinks() {
     # Skip rapid-shared itself
     [ "$workspace" = "$SHARED_DIR" ] && return 0
 
-    # Symlink directories
-    for folder in .secrets .claude; do
-        target="$SHARED_DIR/$folder"
-        link="$workspace/$folder"
+    # Only symlink .secrets (not version controlled)
+    target="$SHARED_DIR/.secrets"
+    link="$workspace/.secrets"
 
-        # Skip if shared folder doesn't exist
-        [ -d "$target" ] || continue
+    # Skip if shared folder doesn't exist
+    [ -d "$target" ] || return 0
 
-        # If it's already a correct symlink, skip
-        if [ -L "$link" ]; then
-            current_target=$(readlink "$link")
-            if [ "$current_target" = "$target" ] || [ "$current_target" = "../rapid-shared/$folder" ]; then
-                continue
-            fi
-            # Wrong symlink, remove it
-            rm "$link"
-        elif [ -d "$link" ]; then
-            # It's a real directory - remove it (symlink to shared will replace it)
-            echo "Removing directory '$link' (will be symlinked to shared)"
-            rm -rf "$link"
-        elif [ -e "$link" ]; then
-            # Some other file exists, remove it
-            rm "$link"
+    # If it's already a correct symlink, skip
+    if [ -L "$link" ]; then
+        current_target=$(readlink "$link")
+        if [ "$current_target" = "$target" ] || [ "$current_target" = "../rapid-shared/.secrets" ]; then
+            return 0
         fi
-
-        # Create the symlink (relative path for portability)
-        ln -s "../rapid-shared/$folder" "$link"
-        echo "Symlinked $link -> ../rapid-shared/$folder"
-    done
-
-    # Symlink CLAUDE.md
-    if [ -f "$SHARED_DIR/CLAUDE.md" ]; then
-        link="$workspace/CLAUDE.md"
-        target="../rapid-shared/CLAUDE.md"
-
-        # Do nothing if the link is already correct
-        if [ -L "$link" ] && [ "$(readlink "$link")" = "$target" ]; then
-            :
-        else
-            # Remove whatever is there (file, directory, or broken symlink)
-            rm -rf "$link"
-            ln -s "$target" "$link"
-            echo "Symlinked $link -> $target"
-        fi
+        # Wrong symlink, remove it
+        rm "$link"
+    elif [ -d "$link" ]; then
+        # It's a real directory - remove it (symlink to shared will replace it)
+        echo "Removing directory '$link' (will be symlinked to shared)"
+        rm -rf "$link"
+    elif [ -e "$link" ]; then
+        # Some other file exists, remove it
+        rm "$link"
     fi
+
+    # Create the symlink (relative path for portability)
+    ln -s "../rapid-shared/.secrets" "$link"
+    echo "Symlinked $link -> ../rapid-shared/.secrets"
 }
 
 # Use local configs
