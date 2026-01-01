@@ -254,7 +254,7 @@ EOF
 
 Guidelines:
 
-- **Always preserve the `Closes #<issue>` line** if the PR was opened to address a GitHub issue
+- **Always preserve the `Closes #<issue>` line(s)** if the PR was opened to address one or more GitHub issues
 - Add bullet points for significant changes made during the merge queue process
 - Document CI fixes, Gemini feedback addressed, and any scope changes
 - Keep it concise - the commit history has the details
