@@ -2,6 +2,7 @@ import { Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
 import { Bug, Database, Settings, Table2, Users } from 'lucide-react';
 import { Link, Outlet } from 'react-router-dom';
+import { AccountSwitcher } from './components/AccountSwitcher';
 import { Sidebar } from './components/Sidebar';
 import { useAppVersion } from './hooks/useAppVersion';
 
@@ -24,47 +25,50 @@ function App() {
               <h1 className="font-bold text-4xl tracking-tight">Tearleads</h1>
             </Link>
           </div>
-          <div className="flex items-center gap-1 lg:hidden">
-            <Link
-              to="/contacts"
-              className={navLinkClassName}
-              aria-label="Contacts"
-              data-testid="contacts-link"
-            >
-              <Users className="h-5 w-5" />
-            </Link>
-            <Link
-              to="/tables"
-              className={navLinkClassName}
-              aria-label="Tables"
-              data-testid="tables-link"
-            >
-              <Table2 className="h-5 w-5" />
-            </Link>
-            <Link
-              to="/sqlite"
-              className={navLinkClassName}
-              aria-label="SQLite"
-              data-testid="sqlite-link"
-            >
-              <Database className="h-5 w-5" />
-            </Link>
-            <Link
-              to="/debug"
-              className={navLinkClassName}
-              aria-label="Debug"
-              data-testid="debug-link"
-            >
-              <Bug className="h-5 w-5" />
-            </Link>
-            <Link
-              to="/settings"
-              className={navLinkClassName}
-              aria-label="Settings"
-              data-testid="settings-link"
-            >
-              <Settings className="h-5 w-5" />
-            </Link>
+          <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 lg:hidden">
+              <Link
+                to="/contacts"
+                className={navLinkClassName}
+                aria-label="Contacts"
+                data-testid="contacts-link"
+              >
+                <Users className="h-5 w-5" />
+              </Link>
+              <Link
+                to="/tables"
+                className={navLinkClassName}
+                aria-label="Tables"
+                data-testid="tables-link"
+              >
+                <Table2 className="h-5 w-5" />
+              </Link>
+              <Link
+                to="/sqlite"
+                className={navLinkClassName}
+                aria-label="SQLite"
+                data-testid="sqlite-link"
+              >
+                <Database className="h-5 w-5" />
+              </Link>
+              <Link
+                to="/debug"
+                className={navLinkClassName}
+                aria-label="Debug"
+                data-testid="debug-link"
+              >
+                <Bug className="h-5 w-5" />
+              </Link>
+              <Link
+                to="/settings"
+                className={navLinkClassName}
+                aria-label="Settings"
+                data-testid="settings-link"
+              >
+                <Settings className="h-5 w-5" />
+              </Link>
+            </div>
+            <AccountSwitcher />
           </div>
         </div>
       </header>
