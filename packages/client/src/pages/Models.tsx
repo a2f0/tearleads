@@ -138,6 +138,13 @@ const RECOMMENDED_MODELS: ModelInfo[] = [
     size: '~500MB',
     description: 'Compact vision model for image understanding',
     isVision: true
+  },
+  {
+    id: 'onnx-community/paligemma2-3b-ft-docci-448',
+    name: 'PaliGemma 2 3B',
+    size: '~3GB',
+    description: 'Google vision model for detailed captions',
+    isVision: true
   }
 ];
 

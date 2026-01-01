@@ -98,13 +98,18 @@ async function loadModel(modelId: string): Promise<void> {
     };
 
     if (modelType === 'paligemma') {
-      // Load PaliGemma model - use q4 for memory efficiency
+      // Load PaliGemma model with mixed dtype to avoid ArrayBuffer limit
+      // embed_tokens_fp16.onnx is 1.19GB (fits), embed_tokens_q4.onnx_data is 2.37GB (exceeds ~2.15GB limit)
       [processor, model] = await Promise.all([
         AutoProcessor.from_pretrained(modelId, {
           progress_callback: progressCallback
         }),
         PaliGemmaForConditionalGeneration.from_pretrained(modelId, {
-          dtype: 'q4',
+          dtype: {
+            embed_tokens: 'fp16',
+            vision_encoder: 'q4',
+            decoder_model_merged: 'q4'
+          },
           device: 'webgpu',
           progress_callback: progressCallback
         })
