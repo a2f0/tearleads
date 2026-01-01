@@ -1,5 +1,30 @@
 # Claude Code Notes
 
+## Issue Tracking
+
+When the user requests a change or new feature:
+
+1. **Check for existing issue**: Search for a related open issue first
+2. **Create an issue if none exists**: Before starting work, create a GitHub issue to track the request
+3. **Reference the issue**: Include the issue number in commits and PR descriptions
+
+```bash
+# Create an issue for the user's request
+gh issue create --title "feat: <brief description>" --body "## Description
+<what the user requested>
+
+## Tasks
+- [ ] Implementation task 1
+- [ ] Implementation task 2
+"
+```
+
+Skip issue creation for:
+
+- Trivial fixes (typos, formatting)
+- Questions or research tasks
+- Tasks that are part of an existing issue/PR
+
 ## Commit Guidelines
 
 - Do NOT add co-author lines to commits (no "Co-Authored-By: Claude" or similar)

@@ -38,7 +38,15 @@ description: Query the open PR and resolve Gemini's feedback.
    - Make the necessary code changes
    - Make sure linting passes and TypeScript compiles
 
-4. **Commit and push**: If changes were made, commit with a conventional commit message (e.g., `fix: address Gemini review feedback`) and push directly. Do NOT run `/commit-and-push` to avoid circular loops.
+4. **Commit and push**: If changes were made:
+   - Commit with a conventional commit message (e.g., `fix: address Gemini review feedback`)
+   - **Track which commit fixes which feedback** - you'll need this when resolving threads
+   - Push directly. Do NOT run `/commit-and-push` to avoid circular loops.
+
+   ```bash
+   # After committing, note the SHA for use in thread replies
+   git log --oneline -1
+   ```
 
 5. **Update PR description**: If the changes are significant or alter the original scope, update the PR body to reflect what was done:
 
