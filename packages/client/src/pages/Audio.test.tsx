@@ -98,7 +98,8 @@ describe('AudioPage', () => {
     // Default mocks for unlocked database
     mockUseDatabaseContext.mockReturnValue({
       isUnlocked: true,
-      isLoading: false
+      isLoading: false,
+      currentInstanceId: 'test-instance'
     });
     mockGetCurrentKey.mockReturnValue(TEST_ENCRYPTION_KEY);
     mockIsFileStorageInitialized.mockReturnValue(true);
@@ -125,7 +126,8 @@ describe('AudioPage', () => {
     beforeEach(() => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
-        isLoading: true
+        isLoading: true,
+        currentInstanceId: null
       });
     });
 
@@ -146,7 +148,8 @@ describe('AudioPage', () => {
     beforeEach(() => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
-        isLoading: false
+        isLoading: false,
+        currentInstanceId: null
       });
     });
 

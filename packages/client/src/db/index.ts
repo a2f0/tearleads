@@ -1,6 +1,7 @@
 /**
  * Database initialization and factory.
  * Provides a unified API for SQLite across all platforms.
+ * Supports multi-instance with namespaced database files.
  */
 
 import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';
@@ -8,7 +9,7 @@ import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import type { DatabaseAdapter, PlatformInfo } from './adapters';
 import { createAdapter, getPlatformInfo } from './adapters';
 import { logEvent } from './analytics';
-import { getKeyManager } from './crypto';
+import { getKeyManagerForInstance, setCurrentInstanceId } from './crypto';
 import * as schema from './schema';
 
 export type Database = SqliteRemoteDatabase<typeof schema>;
@@ -16,6 +17,21 @@ export type Database = SqliteRemoteDatabase<typeof schema>;
 let databaseInstance: Database | null = null;
 let adapterInstance: DatabaseAdapter | null = null;
 let platformInfoCache: PlatformInfo | null = null;
+let currentInstanceId: string | null = null;
+
+/**
+ * Get the database name for an instance.
+ */
+function getDatabaseName(instanceId: string): string {
+  return `rapid-${instanceId}`;
+}
+
+/**
+ * Get the current instance ID.
+ */
+export function getCurrentInstanceId(): string | null {
+  return currentInstanceId;
+}
 
 /**
  * Get the current platform info.
@@ -29,27 +45,42 @@ export function getCurrentPlatform(): PlatformInfo {
 
 /**
  * Check if the database has been set up (has an encryption key).
+ * @param instanceId The instance to check
  */
-export async function isDatabaseSetUp(): Promise<boolean> {
-  const keyManager = getKeyManager();
+export async function isDatabaseSetUp(instanceId: string): Promise<boolean> {
+  const keyManager = getKeyManagerForInstance(instanceId);
   return keyManager.hasExistingKey();
 }
 
 /**
  * Set up a new database with a password.
  * Creates the encryption key and initializes the database.
+ * @param password The encryption password
+ * @param instanceId The instance ID to set up
  */
-export async function setupDatabase(password: string): Promise<Database> {
-  if (databaseInstance) {
-    throw new Error('Database already initialized');
+export async function setupDatabase(
+  password: string,
+  instanceId: string
+): Promise<Database> {
+  if (databaseInstance && currentInstanceId === instanceId) {
+    throw new Error('Database already initialized for this instance');
+  }
+
+  // Close existing database if switching instances
+  if (databaseInstance && currentInstanceId !== instanceId) {
+    await closeDatabase();
   }
 
   const startTime = performance.now();
 
-  const keyManager = getKeyManager();
+  // Set current instance
+  currentInstanceId = instanceId;
+  setCurrentInstanceId(instanceId);
+
+  const keyManager = getKeyManagerForInstance(instanceId);
   const encryptionKey = await keyManager.setupNewKey(password);
 
-  const db = await initializeDatabaseWithKey(encryptionKey);
+  const db = await initializeDatabaseWithKey(encryptionKey, instanceId);
 
   // Log the setup event
   const durationMs = performance.now() - startTime;
@@ -70,23 +101,35 @@ export interface UnlockResult {
 
 /**
  * Unlock an existing database with a password.
+ * @param password The encryption password
+ * @param instanceId The instance ID to unlock
  * @param persistSession If true, persist the key for session restoration on reload (web only)
  * @returns Object with db instance and whether session was persisted, or null if wrong password
  */
 export async function unlockDatabase(
   password: string,
+  instanceId: string,
   persistSession = false
 ): Promise<UnlockResult | null> {
-  const keyManager = getKeyManager();
+  const keyManager = getKeyManagerForInstance(instanceId);
 
-  if (databaseInstance) {
+  if (databaseInstance && currentInstanceId === instanceId) {
     return {
       db: databaseInstance,
       sessionPersisted: await keyManager.hasPersistedSession()
     };
   }
 
+  // Close existing database if switching instances
+  if (databaseInstance && currentInstanceId !== instanceId) {
+    await closeDatabase();
+  }
+
   const startTime = performance.now();
+
+  // Set current instance
+  currentInstanceId = instanceId;
+  setCurrentInstanceId(instanceId);
 
   const encryptionKey = await keyManager.unlockWithPassword(password);
 
@@ -94,7 +137,7 @@ export async function unlockDatabase(
     return null; // Wrong password
   }
 
-  const db = await initializeDatabaseWithKey(encryptionKey);
+  const db = await initializeDatabaseWithKey(encryptionKey, instanceId);
 
   // Log the unlock event
   const durationMs = performance.now() - startTime;
@@ -116,24 +159,39 @@ export async function unlockDatabase(
 
 /**
  * Check if there's a persisted session available (web only).
+ * @param instanceId The instance to check
  */
-export async function hasPersistedSession(): Promise<boolean> {
-  const keyManager = getKeyManager();
+export async function hasPersistedSession(
+  instanceId: string
+): Promise<boolean> {
+  const keyManager = getKeyManagerForInstance(instanceId);
   return keyManager.hasPersistedSession();
 }
 
 /**
  * Restore the database from a persisted session (web only).
  * Returns the database if successful, null if no persisted session or restoration failed.
+ * @param instanceId The instance ID to restore
  */
-export async function restoreDatabaseSession(): Promise<Database | null> {
-  if (databaseInstance) {
+export async function restoreDatabaseSession(
+  instanceId: string
+): Promise<Database | null> {
+  if (databaseInstance && currentInstanceId === instanceId) {
     return databaseInstance;
+  }
+
+  // Close existing database if switching instances
+  if (databaseInstance && currentInstanceId !== instanceId) {
+    await closeDatabase();
   }
 
   const startTime = performance.now();
 
-  const keyManager = getKeyManager();
+  // Set current instance
+  currentInstanceId = instanceId;
+  setCurrentInstanceId(instanceId);
+
+  const keyManager = getKeyManagerForInstance(instanceId);
   const encryptionKey = await keyManager.restoreSession();
 
   if (!encryptionKey) {
@@ -141,7 +199,7 @@ export async function restoreDatabaseSession(): Promise<Database | null> {
   }
 
   try {
-    const db = await initializeDatabaseWithKey(encryptionKey);
+    const db = await initializeDatabaseWithKey(encryptionKey, instanceId);
 
     // Log the session restore event
     const durationMs = performance.now() - startTime;
@@ -164,25 +222,31 @@ export async function restoreDatabaseSession(): Promise<Database | null> {
 
 /**
  * Clear any persisted session data (web only).
+ * @param instanceId The instance to clear session for
  */
-export async function clearPersistedSession(): Promise<void> {
-  const keyManager = getKeyManager();
+export async function clearPersistedSession(instanceId: string): Promise<void> {
+  const keyManager = getKeyManagerForInstance(instanceId);
   await keyManager.clearPersistedSession();
 }
 
 /**
  * Initialize the database with an encryption key.
+ * @param encryptionKey The encryption key
+ * @param instanceId The instance ID for database naming
  */
 async function initializeDatabaseWithKey(
-  encryptionKey: Uint8Array
+  encryptionKey: Uint8Array,
+  instanceId: string
 ): Promise<Database> {
   const platformInfo = getCurrentPlatform();
 
   // Reuse existing adapter if available (keeps worker/WASM memory alive on web)
   const adapter = adapterInstance ?? (await createAdapter(platformInfo));
 
+  const dbName = getDatabaseName(instanceId);
+
   await adapter.initialize({
-    name: 'rapid',
+    name: dbName,
     encryptionKey,
     location: platformInfo.platform === 'ios' ? 'library' : 'default'
   });
@@ -359,9 +423,11 @@ export async function closeDatabase(): Promise<void> {
   }
   databaseInstance = null;
 
-  // Clear the encryption key from memory
-  const keyManager = getKeyManager();
-  keyManager.clearKey();
+  // Clear the encryption key from memory for current instance
+  if (currentInstanceId) {
+    const keyManager = getKeyManagerForInstance(currentInstanceId);
+    keyManager.clearKey();
+  }
 }
 
 /**
@@ -371,13 +437,13 @@ export async function changePassword(
   oldPassword: string,
   newPassword: string
 ): Promise<boolean> {
-  if (!adapterInstance || !databaseInstance) {
+  if (!adapterInstance || !databaseInstance || !currentInstanceId) {
     throw new Error('Database not initialized');
   }
 
   const startTime = performance.now();
 
-  const keyManager = getKeyManager();
+  const keyManager = getKeyManagerForInstance(currentInstanceId);
   const keys = await keyManager.changePassword(oldPassword, newPassword);
 
   if (!keys) {
@@ -401,17 +467,25 @@ export async function changePassword(
 }
 
 /**
- * Reset the database (for testing or complete wipe).
+ * Reset a specific database instance (for testing or complete wipe).
+ * @param instanceId The instance ID to reset
  */
-export async function resetDatabase(): Promise<void> {
+export async function resetDatabase(instanceId: string): Promise<void> {
   // Store adapter reference before closing
   const adapter = adapterInstance;
 
-  await closeDatabase();
+  // Only close if this is the current instance
+  if (currentInstanceId === instanceId) {
+    await closeDatabase();
+    currentInstanceId = null;
+    setCurrentInstanceId(null);
+  }
+
+  const dbName = getDatabaseName(instanceId);
 
   // Delete the database file if adapter supports it
   if (adapter?.deleteDatabase) {
-    await adapter.deleteDatabase('rapid');
+    await adapter.deleteDatabase(dbName);
   } else {
     // For Electron, try to delete the database file directly
     // even if no adapter was initialized
@@ -419,7 +493,7 @@ export async function resetDatabase(): Promise<void> {
     if (platformInfo.platform === 'electron') {
       try {
         if (window.electron?.sqlite?.deleteDatabase) {
-          await window.electron.sqlite.deleteDatabase('rapid');
+          await window.electron.sqlite.deleteDatabase(dbName);
         }
       } catch {
         // Ignore errors if the file doesn't exist
@@ -435,9 +509,11 @@ export async function resetDatabase(): Promise<void> {
   ) {
     adapter.terminate();
   }
+
+  // Always clear the adapter instance on reset
   adapterInstance = null;
 
-  const keyManager = getKeyManager();
+  const keyManager = getKeyManagerForInstance(instanceId);
   // Clear any persisted session before full reset
   await keyManager.clearPersistedSession();
   await keyManager.reset();
@@ -466,7 +542,7 @@ export async function exportDatabase(): Promise<Uint8Array> {
  * @param data The encrypted database backup as a Uint8Array
  */
 export async function importDatabase(data: Uint8Array): Promise<void> {
-  if (!adapterInstance) {
+  if (!adapterInstance || !currentInstanceId) {
     throw new Error('Database not initialized');
   }
 
@@ -475,7 +551,7 @@ export async function importDatabase(data: Uint8Array): Promise<void> {
   }
 
   // Get the current encryption key for adapters that need it (e.g., Electron)
-  const keyManager = getKeyManager();
+  const keyManager = getKeyManagerForInstance(currentInstanceId);
   const encryptionKey = keyManager.getCurrentKey();
 
   await adapterInstance.importDatabase(data, encryptionKey ?? undefined);

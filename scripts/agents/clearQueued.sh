@@ -1,6 +1,6 @@
 #!/bin/sh
-# Clear queued status: resets VS Code title and tmux window name,
-# then moves tmux window to the back of the window list.
+# Clear queued status: resets VS Code title, tmux window name,
+# and resets pane background color to default.
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -34,13 +34,8 @@ if [ -n "${TMUX:-}" ]; then
         tmux set-option -wu @queued_status 2>/dev/null || true
     fi
 
-    # Move window to the back of the list by swapping with the last window
-    # Re-fetch current position (may have changed after rename)
-    CURRENT_WINDOW=$(tmux display-message -p '#I')
-    LAST_WINDOW=$(tmux list-windows -F '#I' | sort -n | tail -1)
-    if [ "$CURRENT_WINDOW" != "$LAST_WINDOW" ]; then
-        tmux swap-window -t "$LAST_WINDOW"
-    fi
+    # Reset background color to default
+    tmux select-pane -P 'bg=default'
 
-    echo "Tmux window cleared from queue and moved to back"
+    echo "Tmux window cleared from queue"
 fi
