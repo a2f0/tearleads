@@ -33,7 +33,7 @@ EDITOR="${TUXEDO_EDITOR:-nvim -u $NVIM_INIT}"
 export TUXEDO_TMUX_CONF="$TMUX_CONF"
 
 # Scripts directories to add to PATH
-SCRIPTS_PATH="$BASE_DIR/rapid/scripts:$BASE_DIR/rapid/scripts/agents"
+SCRIPTS_PATH="$SCRIPT_DIR:$SCRIPT_DIR/agents"
 
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     tmux attach-session -t "$SESSION_NAME"
