@@ -246,12 +246,15 @@ gh pr edit <pr-number> --body "$(cat <<'EOF'
 - Original feature/fix description
 - Additional: fixed CI lint errors
 - Additional: addressed Gemini feedback on error handling
+
+Closes #<issue-number>
 EOF
 )"
 ```
 
 Guidelines:
 
+- **Always preserve the `Closes #<issue>` line(s)** if the PR was opened to address one or more GitHub issues
 - Add bullet points for significant changes made during the merge queue process
 - Document CI fixes, Gemini feedback addressed, and any scope changes
 - Keep it concise - the commit history has the details
