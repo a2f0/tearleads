@@ -129,6 +129,50 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    - Show the PR URL
    - Output a brief description of what was merged (1-3 sentences summarizing the changes based on the PR title and commits)
 
+## Opening GitHub Issues
+
+Create GitHub issues to track problems discovered during the merge queue process that shouldn't block the current PR:
+
+### When to Open Issues
+
+- **Flaky tests**: Tests that fail intermittently but pass on retry
+- **Infrastructure issues**: CI runner timeouts, resource exhaustion, network failures
+- **Technical debt**: Code quality issues noticed but out of scope for current PR
+- **Future improvements**: Ideas or optimizations that should be tracked
+- **Recurring failures**: Same test/job failing across multiple PRs
+
+### How to Create Issues
+
+```bash
+gh issue create --title "flaky: iOS Maestro test intermittent failure" --body "$(cat <<'EOF'
+## Description
+The iOS Maestro test `login_flow.yaml` failed during PR #273 merge queue but passed on retry.
+
+## Evidence
+- CI run: https://github.com/a2f0/rapid/actions/runs/12345
+- Error: `Timeout waiting for element`
+
+## Suggested Fix
+Increase timeout or add retry logic for slow simulator startup.
+EOF
+)"
+```
+
+### Issue Labels
+
+Use appropriate labels when creating issues:
+
+- `flaky-test` - Intermittent test failures
+- `ci` - CI/infrastructure related
+- `bug` - Actual bugs discovered
+- `enhancement` - Improvements to track
+
+### Important
+
+- Do NOT let issue creation block the merge queue
+- Create the issue, note its number, and continue with the merge
+- Reference the issue in the PR description if relevant
+
 ## Notes
 
 - This skill loops until the PR is **actually merged**, not just until auto-merge is enabled
