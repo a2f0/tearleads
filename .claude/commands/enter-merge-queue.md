@@ -1,5 +1,5 @@
 ---
-description: Guarantee PR merge by cycling until merged. (project)
+description: Guarantee PR merge by cycling until merged
 ---
 
 # Enter Merge Queue
