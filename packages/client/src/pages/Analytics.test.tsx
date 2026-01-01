@@ -26,6 +26,7 @@ vi.mock('@/db', () => ({
 const mockGetEvents = vi.fn();
 const mockGetEventStats = vi.fn();
 const mockClearEvents = vi.fn();
+const mockGetDistinctEventTypes = vi.fn();
 
 vi.mock('@/db/analytics', () => ({
   getEvents: (...args: unknown[]) => {
@@ -36,7 +37,9 @@ vi.mock('@/db/analytics', () => ({
     getEventStatsCallCount++;
     return mockGetEventStats(...args);
   },
-  clearEvents: (...args: unknown[]) => mockClearEvents(...args)
+  clearEvents: (...args: unknown[]) => mockClearEvents(...args),
+  getDistinctEventTypes: (...args: unknown[]) =>
+    mockGetDistinctEventTypes(...args)
 }));
 
 function renderAnalytics() {
@@ -58,6 +61,7 @@ describe('Analytics', () => {
     mockGetEvents.mockResolvedValue([]);
     mockGetEventStats.mockResolvedValue([]);
     mockClearEvents.mockResolvedValue(undefined);
+    mockGetDistinctEventTypes.mockResolvedValue([]);
   });
 
   describe('when database is loading', () => {
@@ -182,6 +186,7 @@ describe('Analytics', () => {
 
       mockGetEvents.mockResolvedValue(mockEvents);
       mockGetEventStats.mockResolvedValue(mockStats);
+      mockGetDistinctEventTypes.mockResolvedValue(['db_setup']);
 
       renderAnalytics();
 
@@ -261,6 +266,7 @@ describe('Analytics', () => {
           successRate: 100
         }
       ]);
+      mockGetDistinctEventTypes.mockResolvedValue(['db_setup']);
 
       renderAnalytics();
 
