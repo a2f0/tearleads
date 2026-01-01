@@ -14,7 +14,6 @@ vim.opt.number = true
 vim.opt.wrap = true
 
 vim.cmd([[ let g:neo_tree_remove_legacy_commands = 1 ]])
-vim.cmd('colorscheme habamax')
 
 -- spacing and indentation
 vim.opt.tabstop = 2
@@ -23,7 +22,7 @@ vim.opt.shiftwidth = 2
 vim.opt.list = true
 
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
-if not vim.loop.fs_stat(lazypath) then
+if not vim.uv.fs_stat(lazypath) then
   vim.fn.system({
     "git",
     "clone",
@@ -35,22 +34,37 @@ if not vim.loop.fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
-require("lazy").setup({{
-  "nvim-neo-tree/neo-tree.nvim",
+require("lazy").setup({
+  {
+    "folke/tokyonight.nvim",
+    lazy = false,
+    priority = 1000,
+    opts = {
+      style = "night",
+      transparent = false,
+    },
+  },
+  {
+    "nvim-neo-tree/neo-tree.nvim",
     branch = "v3.x",
     dependencies = {
       "nvim-lua/plenary.nvim",
       "nvim-tree/nvim-web-devicons",
       "MunifTanjim/nui.nvim",
     },
-  },{
-  "nvim-telescope/telescope.nvim", tag = "0.1.5",
-     dependencies = { "nvim-lua/plenary.nvim" }
-  }
+  },
+  {
+    "nvim-telescope/telescope.nvim",
+    tag = "0.1.8",
+    dependencies = { "nvim-lua/plenary.nvim" },
+  },
 })
 
+-- Set colorscheme after plugins load
+vim.cmd('colorscheme tokyonight-night')
+
 -- ripgrep is required for live_grep and grep_string
--- sudo apt install ripgrep
+-- brew install ripgrep (macOS) or apt install ripgrep (Linux)
 require('telescope').setup{
   defaults = {
     file_ignore_patterns = {
