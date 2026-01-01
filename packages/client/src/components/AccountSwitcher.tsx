@@ -1,4 +1,4 @@
-import { Check, CircleUser, Plus, Trash2 } from 'lucide-react';
+import { Check, CircleUser, Lock, LockOpen, Plus, Trash2 } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -16,6 +16,7 @@ export function AccountSwitcher() {
     currentInstanceName,
     instances,
     isLoading,
+    isUnlocked,
     createInstance,
     switchInstance
   } = useDatabaseContext();
@@ -152,6 +153,25 @@ export function AccountSwitcher() {
                       <div className="w-4" />
                     )}
                     <span className="truncate">{instance.name}</span>
+                    {instance.id === currentInstanceId && isUnlocked ? (
+                      <>
+                        <LockOpen
+                          className="h-3.5 w-3.5 flex-shrink-0 text-green-600"
+                          data-testid={`instance-unlocked-${instance.id}`}
+                          aria-hidden="true"
+                        />
+                        <span className="sr-only">Unlocked</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock
+                          className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground"
+                          data-testid={`instance-locked-${instance.id}`}
+                          aria-hidden="true"
+                        />
+                        <span className="sr-only">Locked</span>
+                      </>
+                    )}
                   </div>
                   {instances.length > 1 && (
                     <button
