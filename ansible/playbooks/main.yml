@@ -193,7 +193,6 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Reload systemd
 
     - name: Deploy auto-patch systemd timer
       ansible.builtin.template:
@@ -202,7 +201,6 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Reload systemd
 
     - name: Enable and start auto-patch timer
       ansible.builtin.systemd:
