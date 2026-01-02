@@ -3,7 +3,8 @@ import {
   calculateScaledDimensions,
   DEFAULT_THUMBNAIL_OPTIONS,
   generateThumbnail,
-  isThumbnailSupported
+  isThumbnailSupported,
+  THUMBNAIL_DISPLAY_SIZE
 } from './thumbnail';
 
 describe('thumbnail', () => {
@@ -42,12 +43,22 @@ describe('thumbnail', () => {
   });
 
   describe('DEFAULT_THUMBNAIL_OPTIONS', () => {
-    it('has expected default values', () => {
+    it('has expected default values for high-DPI support', () => {
       expect(DEFAULT_THUMBNAIL_OPTIONS).toEqual({
-        maxWidth: 400,
-        maxHeight: 400,
+        maxWidth: 800,
+        maxHeight: 800,
         quality: 0.92
       });
+    });
+  });
+
+  describe('THUMBNAIL_DISPLAY_SIZE', () => {
+    it('provides appropriate display size with high-res generation for Retina support', () => {
+      expect(THUMBNAIL_DISPLAY_SIZE).toBe(200);
+      // Generation is 4x display area (800x800 vs 200x200) for crisp display on high-DPI screens
+      expect(DEFAULT_THUMBNAIL_OPTIONS.maxWidth).toBeGreaterThanOrEqual(
+        THUMBNAIL_DISPLAY_SIZE * 2
+      );
     });
   });
 
@@ -249,7 +260,7 @@ describe('thumbnail', () => {
         }
       );
 
-      // 400x300 image with max 400x400 stays at 400x300 (fits within bounds)
+      // 400x300 image with max 800x800 stays at 400x300 (fits within bounds)
       const imageData = new Uint8Array([10, 20, 30]);
       await generateThumbnail(imageData, 'image/jpeg');
 

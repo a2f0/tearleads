@@ -22,7 +22,7 @@ import {
   getAttachedImage,
   setAttachedImage
 } from '@/lib/llm-runtime';
-import { DEFAULT_THUMBNAIL_OPTIONS } from '@/lib/thumbnail';
+import { THUMBNAIL_DISPLAY_SIZE } from '@/lib/thumbnail';
 import {
   getFileStorage,
   initializeFileStorage,
@@ -204,8 +204,8 @@ function PhotoPicker({ onSelect, onClose }: PhotoPickerProps) {
   );
 
   const thumbnailStyle = {
-    width: DEFAULT_THUMBNAIL_OPTIONS.maxWidth,
-    height: DEFAULT_THUMBNAIL_OPTIONS.maxHeight
+    width: THUMBNAIL_DISPLAY_SIZE,
+    height: THUMBNAIL_DISPLAY_SIZE
   };
 
   return (
