@@ -74,14 +74,21 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    - When Gemini confirms a fix is satisfactory, resolve the thread (see "Resolving Conversation Threads" below)
    - If Gemini requests further changes, repeat step 4d
 
-   ### 4e. Wait for CI
+   ### 4e. Wait for CI (with branch freshness checks)
+
+   **Important**: Check if branch is behind BEFORE waiting for CI, and periodically during CI. This prevents wasting time on CI runs that will be obsolete.
 
    ```bash
    git rev-parse HEAD
    gh run list --commit <commit-sha> --limit 1 --json status,conclusion,databaseId
    ```
 
-   - If CI is **in_progress** or **queued**: Wait 30 seconds and check again
+   **While CI is running**:
+   - Every 2-3 minutes, check if branch is behind: `gh pr view --json mergeStateStatus`
+   - If `mergeStateStatus` is `BEHIND`: **Immediately** go back to step 4b (don't wait for CI to finish)
+   - This avoids wasting 15-20 minutes on a CI run that will need to be rerun anyway
+
+   **When CI completes**:
    - If CI **passes**: Continue to step 4f
    - If CI is **cancelled**: Rerun CI using the CLI (do NOT push empty commits):
 
@@ -226,6 +233,7 @@ gh api graphql -f query='
 
 - This skill loops until the PR is **actually merged**, not just until auto-merge is enabled
 - If multiple PRs are in the queue, this PR may need to update from main multiple times as others merge
+- **Congested queue efficiency**: When multiple PRs are merging, prioritize staying up-to-date over waiting for CI. It's better to cancel a CI run and rebase than to wait 20 minutes for CI that will be invalidated by another merge.
 - Common fixable issues: lint errors, type errors, test failures, code style suggestions
 - Non-fixable issues: merge conflicts, infrastructure failures, architectural disagreements
 - If stuck in a loop (same fix attempted twice), ask the user for help
