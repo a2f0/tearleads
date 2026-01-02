@@ -97,7 +97,8 @@ screen_cmd() {
     if [ "$USE_SCREEN" = true ]; then
         # -d -RR: detach from elsewhere if attached, reattach or create new
         # -c /dev/null: don't read .screenrc (use defaults)
-        echo "screen -d -RR $screen_name -c /dev/null"
+        # -T screen-256color: enable 256 color support for proper terminal colors
+        echo "screen -T screen-256color -d -RR $screen_name -c /dev/null"
     else
         # Fallback: just run the shell
         echo ""
@@ -147,10 +148,12 @@ update_all_workspaces() {
 
 # Sync VS Code window title to tmux window name
 # If .vscode/settings.json has a window.title, use it for tmux
+# Truncates long titles to keep tmux tab bar readable
 sync_vscode_title() {
     workspace="$1"
     window_name="$2"
     settings_file="$workspace/.vscode/settings.json"
+    max_length=25
 
     # Skip if no settings file or jq not available
     [ -f "$settings_file" ] && command -v jq >/dev/null 2>&1 || return 0
@@ -158,8 +161,13 @@ sync_vscode_title() {
     # Read the window.title from VS Code settings
     vscode_title=$(jq -r '.["window.title"] // empty' "$settings_file" 2>/dev/null)
 
-    # If a title is set, rename the tmux window
+    # If a title is set, truncate and rename the tmux window
     if [ -n "$vscode_title" ]; then
+        # Truncate to max_length chars, add ellipsis if truncated
+        if [ ${#vscode_title} -gt $max_length ]; then
+            truncate_len=$((max_length - 3))
+            vscode_title="$(printf '%.*s' "$truncate_len" "$vscode_title")..."
+        fi
         tmux rename-window -t "$SESSION_NAME:$window_name" "$vscode_title" 2>/dev/null || true
     fi
 }
