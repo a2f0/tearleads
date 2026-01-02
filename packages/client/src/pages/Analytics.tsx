@@ -27,44 +27,9 @@ import { useDatabaseContext } from '@/db/hooks';
 
 type TimeFilter = 'hour' | 'day' | 'week' | 'all';
 
-// Re-export for backwards compatibility with tests
-export type { SortColumn, SortDirection };
-
 export interface SortState {
   column: SortColumn | null;
   direction: SortDirection | null;
-}
-
-/**
- * Sort analytics events by the specified column and direction.
- * Exported for testing.
- */
-export function sortEvents(
-  events: AnalyticsEvent[],
-  sort: SortState
-): AnalyticsEvent[] {
-  if (!sort.column || !sort.direction) {
-    return events;
-  }
-
-  const { column, direction } = sort;
-  const multiplier = direction === 'asc' ? 1 : -1;
-
-  return [...events].sort((a, b) => {
-    switch (column) {
-      case 'eventName':
-        return multiplier * a.eventName.localeCompare(b.eventName);
-      case 'durationMs':
-        return multiplier * (a.durationMs - b.durationMs);
-      case 'success':
-        // false (failed) comes before true (success) in ascending order
-        return multiplier * (Number(a.success) - Number(b.success));
-      case 'timestamp':
-        return multiplier * (a.timestamp.getTime() - b.timestamp.getTime());
-      default:
-        return 0;
-    }
-  });
 }
 
 const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
@@ -211,9 +176,6 @@ export function Analytics() {
       return { column: null, direction: null };
     });
   }, []);
-
-  // Sorting is now done at the database level via getEvents() sortColumn/sortDirection options
-  // The sortEvents function is kept for backwards compatibility with tests
 
   const toggleEventType = useCallback((eventType: string) => {
     setSelectedEventTypes((prev) => {
