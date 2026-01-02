@@ -1,17 +1,15 @@
 import {
   test,
   expect,
-  _electron as electron,
   ElectronApplication,
   Page
 } from '@playwright/test';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import {dirname, join} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import * as fs from 'node:fs';
+import {launchElectronApp} from './electron-test-helper';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const mainPath = join(__dirname, '../../out/main/main.js');
-const isCI = !!process.env['CI'];
 
 const TEST_PASSWORD = 'testpassword123';
 const DB_OPERATION_TIMEOUT = 15000;
@@ -30,10 +28,7 @@ test.describe('Backup & Restore (Electron)', () => {
   let window: Page;
 
   test.beforeEach(async () => {
-
-    electronApp = await electron.launch({
-      args: isCI ? [mainPath, '--no-sandbox', '--disable-gpu'] : [mainPath]
-    });
+    electronApp = await launchElectronApp();
     window = await electronApp.firstWindow();
 
     // Wait for app to load
