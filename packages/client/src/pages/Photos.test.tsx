@@ -292,7 +292,7 @@ describe('Photos', () => {
   });
 
   describe('empty state', () => {
-    it('shows dropzone when no photos exist', async () => {
+    it('shows full-width dropzone when no photos exist', async () => {
       mockDb.orderBy.mockResolvedValue([]);
 
       renderPhotos();
@@ -303,8 +303,46 @@ describe('Photos', () => {
         ).toBeInTheDocument();
       });
 
-      // Should also show the dropzone input
+      // Should show the dropzone input
       expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
+
+      // The dropzone should be in a space-y-4 container (full-width layout)
+      const dropzone = screen.getByTestId('dropzone');
+      expect(dropzone.parentElement).toHaveClass('space-y-4');
+    });
+  });
+
+  describe('dropzone with existing photos', () => {
+    it('shows thumbnail-sized dropzone in gallery when photos exist', async () => {
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      // Should show the dropzone input
+      expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
+
+      // The dropzone should be in the gallery (flex container with gap-4)
+      const dropzone = screen.getByTestId('dropzone');
+      expect(dropzone.parentElement).toHaveClass('flex', 'flex-wrap', 'gap-4');
+
+      // Should NOT show the empty state message
+      expect(
+        screen.queryByText(/Drop images here to add them to your library/)
+      ).not.toBeInTheDocument();
+    });
+
+    it('dropzone has thumbnail dimensions when photos exist', async () => {
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      const dropzone = screen.getByTestId('dropzone');
+      // The dropzone should have inline styles for width and height (thumbnail size)
+      expect(dropzone).toHaveStyle({ width: '200px', height: '200px' });
     });
   });
 

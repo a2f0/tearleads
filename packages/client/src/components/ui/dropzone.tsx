@@ -10,6 +10,7 @@ export interface DropzoneProps {
   multiple?: boolean;
   className?: string;
   disabled?: boolean;
+  style?: React.CSSProperties;
 }
 
 export function Dropzone({
@@ -17,7 +18,8 @@ export function Dropzone({
   accept,
   multiple = true,
   className,
-  disabled = false
+  disabled = false,
+  style
 }: DropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -126,6 +128,7 @@ export function Dropzone({
         isDragging && !disabled && 'border-primary bg-primary/5',
         className
       )}
+      style={style}
     >
       <Upload
         className={cn(
