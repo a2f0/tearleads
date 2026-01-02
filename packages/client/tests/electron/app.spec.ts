@@ -1,14 +1,10 @@
-import {test, expect, _electron as electron, ElectronApplication, Page} from '@playwright/test';
-import {dirname, join} from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {test, expect, ElectronApplication, Page} from '@playwright/test';
 import {createRequire} from 'node:module';
+import {launchElectronApp} from './electron-test-helper';
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../../package.json') as {version: string};
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const mainPath = join(__dirname, '../../out/main/main.js');
-const isCI = !!process.env['CI'];
 const APP_LOAD_TIMEOUT = 10000;
 const DB_OPERATION_TIMEOUT = 15000;
 
@@ -17,9 +13,7 @@ test.describe('Electron App', () => {
   let window: Page;
 
   test.beforeEach(async () => {
-    electronApp = await electron.launch({
-      args: isCI ? [mainPath, '--no-sandbox', '--disable-gpu'] : [mainPath],
-    });
+    electronApp = await launchElectronApp();
     window = await electronApp.firstWindow();
   });
 

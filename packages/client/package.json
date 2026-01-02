@@ -34,6 +34,7 @@
     "electron:dist": "electron-vite build && electron-builder --config electron-builder.config.ts --publish=never",
     "electron:dist:unsigned": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-vite build && electron-builder --config electron-builder.config.ts --publish=never",
     "electron:test": "pnpm electron:build && playwright test --config=playwright.electron.config.ts",
+    "electron:test:headed": "pnpm electron:build && HEADED=true playwright test --config=playwright.electron.config.ts",
     "electron:test:ui": "pnpm electron:build && playwright test --config=playwright.electron.config.ts --ui",
     "postinstall": "electron-rebuild -o better-sqlite3-multiple-ciphers"
   },
