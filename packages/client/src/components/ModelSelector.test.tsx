@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModelSelector } from './ModelSelector';
@@ -164,14 +164,10 @@ describe('ModelSelector', () => {
       render(<ModelSelector modelDisplayName="Phi-3 Mini" />);
 
       await user.click(screen.getByRole('button'));
-      // Get the Phi-3 Mini option in the dropdown (not the trigger button)
-      const dropdownOptions = screen.getAllByText('Phi-3 Mini');
-      // The second one is in the dropdown
-      expect(dropdownOptions.length).toBeGreaterThan(1);
-      const dropdownOption = dropdownOptions[1];
-      if (dropdownOption) {
-        await user.click(dropdownOption);
-      }
+      // Get the dropdown menu and find the option within it
+      const dropdownMenu = screen.getByRole('menu');
+      const dropdownOption = within(dropdownMenu).getByText('Phi-3 Mini');
+      await user.click(dropdownOption);
 
       expect(mockLoadModel).not.toHaveBeenCalled();
     });
@@ -197,18 +193,21 @@ describe('ModelSelector', () => {
 
       await user.click(screen.getByRole('button'));
 
-      // Find the Phi-3 Mini option in the dropdown (skip the trigger button)
-      const allButtons = screen.getAllByRole('button');
-      // Filter to find buttons that contain 'Phi-3 Mini' and have the loaded styling
-      const phi3DropdownOption = allButtons.find(
-        (btn) =>
-          btn.textContent?.includes('Phi-3 Mini') &&
-          btn.textContent?.includes('~2GB')
-      );
-      expect(phi3DropdownOption).toBeDefined();
-      if (phi3DropdownOption) {
-        expect(phi3DropdownOption).toHaveClass('bg-green-500/5');
-      }
+      // Find the Phi-3 Mini option in the dropdown menu
+      const dropdownMenu = screen.getByRole('menu');
+      const phi3DropdownOption = within(dropdownMenu)
+        .getAllByRole('menuitem')
+        .find(
+          (btn) =>
+            btn.textContent?.includes('Phi-3 Mini') &&
+            btn.textContent?.includes('~2GB')
+        );
+
+      expect(phi3DropdownOption).toBeInTheDocument();
+
+      // Assert that the checkmark icon is present within the button
+      const checkmarkIcon = phi3DropdownOption?.querySelector('.lucide-check');
+      expect(checkmarkIcon).toBeInTheDocument();
     });
   });
 
