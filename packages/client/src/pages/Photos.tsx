@@ -26,18 +26,8 @@ import {
   isFileStorageInitialized
 } from '@/storage/opfs';
 
-const IMAGE_MIME_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'image/svg+xml',
-  'image/bmp',
-  'image/tiff',
-  'image/heic',
-  'image/heif',
-  'image/avif'
-];
+// Only include formats that have thumbnail generation support
+const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 interface PhotoInfo {
   id: string;
@@ -139,27 +129,46 @@ export function Photos() {
       setUploading(true);
       setUploadProgress(0);
 
-      try {
-        for (const file of selectedFiles) {
-          // Validate that the file type is one of the supported image MIME types
-          if (!IMAGE_MIME_TYPES.includes(file.type)) {
-            throw new Error(
-              `"${file.name}" has an unsupported image format. Supported formats: JPEG, PNG, GIF, WebP, SVG, BMP, TIFF, HEIC, HEIF, AVIF.`
-            );
-          }
+      const errors: string[] = [];
+      const totalFiles = selectedFiles.length;
+      let uploadedCount = 0;
 
-          await uploadFile(file, setUploadProgress);
+      for (const [i, file] of selectedFiles.entries()) {
+        // Validate that the file type is one of the supported image MIME types
+        if (!IMAGE_MIME_TYPES.includes(file.type)) {
+          errors.push(
+            `"${file.name}" has an unsupported format. Supported: JPEG, PNG, GIF, WebP.`
+          );
+          continue;
         }
 
-        // Refresh photos after successful upload
-        setHasFetched(false);
-      } catch (err) {
-        console.error('Failed to upload file:', err);
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setUploading(false);
-        setUploadProgress(0);
+        try {
+          const fileProgressCallback = (progress: number) => {
+            const overallProgress = ((i + progress / 100) / totalFiles) * 100;
+            setUploadProgress(Math.round(overallProgress));
+          };
+          await uploadFile(file, fileProgressCallback);
+          uploadedCount++;
+        } catch (err) {
+          console.error(`Failed to upload ${file.name}:`, err);
+          errors.push(
+            `"${file.name}": ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
       }
+
+      // Refresh photos if any uploads succeeded
+      if (uploadedCount > 0) {
+        setHasFetched(false);
+      }
+
+      // Show errors if any occurred
+      if (errors.length > 0) {
+        setError(errors.join('\n'));
+      }
+
+      setUploading(false);
+      setUploadProgress(0);
     },
     [uploadFile]
   );
@@ -347,18 +356,6 @@ export function Photos() {
               </p>
             </div>
           </div>
-        ) : photos.length === 0 && hasFetched ? (
-          <div className="space-y-4">
-            <Dropzone
-              onFilesSelected={handleFilesSelected}
-              accept="image/*"
-              multiple={true}
-              disabled={uploading}
-            />
-            <p className="text-center text-muted-foreground text-sm">
-              Drop images here to add them to your library
-            </p>
-          </div>
         ) : (
           <div className="space-y-4">
             <Dropzone
@@ -367,57 +364,63 @@ export function Photos() {
               multiple={true}
               disabled={uploading}
             />
-            <div className="flex flex-wrap gap-4">
-              {photos.map((photo) => (
-                // biome-ignore lint/a11y/useSemanticElements: Cannot use button here because this container has nested Download/Share buttons
-                <div
-                  key={photo.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => handlePhotoClick(photo)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handlePhotoClick(photo);
-                    }
-                  }}
-                  onContextMenu={(e) => handleContextMenu(e, photo)}
-                  className="group relative cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
-                  style={thumbnailStyle}
-                >
-                  <img
-                    src={photo.objectUrl}
-                    alt={photo.name}
-                    className="h-full w-full object-cover"
-                  />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
-                    <div className="flex items-center gap-1">
-                      <p className="min-w-0 flex-1 truncate text-white text-xs">
-                        {photo.name}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={(e) => handleDownload(photo, e)}
-                        className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
-                        title="Download"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                      </button>
-                      {canShare && (
+            {photos.length === 0 && hasFetched ? (
+              <p className="text-center text-muted-foreground text-sm">
+                Drop images here to add them to your library
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-4">
+                {photos.map((photo) => (
+                  // biome-ignore lint/a11y/useSemanticElements: Cannot use button here because this container has nested Download/Share buttons
+                  <div
+                    key={photo.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handlePhotoClick(photo)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handlePhotoClick(photo);
+                      }
+                    }}
+                    onContextMenu={(e) => handleContextMenu(e, photo)}
+                    className="group relative cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
+                    style={thumbnailStyle}
+                  >
+                    <img
+                      src={photo.objectUrl}
+                      alt={photo.name}
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="flex items-center gap-1">
+                        <p className="min-w-0 flex-1 truncate text-white text-xs">
+                          {photo.name}
+                        </p>
                         <button
                           type="button"
-                          onClick={(e) => handleShare(photo, e)}
+                          onClick={(e) => handleDownload(photo, e)}
                           className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
-                          title="Share"
+                          title="Download"
                         >
-                          <Share2 className="h-3.5 w-3.5" />
+                          <Download className="h-3.5 w-3.5" />
                         </button>
-                      )}
+                        {canShare && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleShare(photo, e)}
+                            className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
+                            title="Share"
+                          >
+                            <Share2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
 
