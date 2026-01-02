@@ -104,9 +104,8 @@ type SQLite3InitModule = (options: {
   wasmBinary?: ArrayBuffer;
 }) => Promise<SQLite3Module>;
 
-// Module-level state
+// Module-level state for caching the initialized SQLite module
 let sqlite3: SQLite3Module | null = null;
-let sqlite3InitModule: SQLite3InitModule | null = null;
 
 /**
  * Get the path to the WASM files directory.
@@ -160,16 +159,16 @@ async function initializeSqliteWasm(): Promise<SQLite3Module> {
 
     // Import the WASM module
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const module = await import(/* @vite-ignore */ modulePath);
+    const wasmModule = await import(/* @vite-ignore */ modulePath);
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-    sqlite3InitModule = module.default;
+    const initModule: SQLite3InitModule | undefined = wasmModule.default;
 
-    if (!sqlite3InitModule) {
+    if (!initModule) {
       throw new Error('Failed to load sqlite3InitModule from module');
     }
 
     // Initialize with Node.js-compatible settings
-    sqlite3 = await sqlite3InitModule({
+    sqlite3 = await initModule({
       print: console.log,
       printErr: console.error
     });
@@ -294,9 +293,18 @@ export class WasmNodeAdapter implements DatabaseAdapter {
       ...(params ? { bind: params } : {})
     });
 
+    // Get last insert rowid using SQLite's built-in function
+    const lastInsertRowId = Number(
+      this.db.exec({
+        sql: 'SELECT last_insert_rowid()',
+        returnValue: 'resultRows'
+      })[0]?.[0] ?? 0
+    );
+
     return {
       rows: [],
-      changes: this.db.changes()
+      changes: this.db.changes(),
+      lastInsertRowId
     };
   }
 
@@ -400,12 +408,16 @@ export class WasmNodeAdapter implements DatabaseAdapter {
     // then open it with the encryption key
     const tempFilename = `import-${Date.now()}.sqlite3`;
 
-    // Write the imported data using Emscripten's FS if available
+    // Write the imported data using Emscripten's FS
     const wasmModule = sqlite as unknown as {
       FS?: { writeFile: (path: string, data: Uint8Array) => void };
     };
     if (wasmModule.FS) {
       wasmModule.FS.writeFile(tempFilename, data);
+    } else {
+      throw new Error(
+        'Emscripten FS is not available, cannot import database.'
+      );
     }
 
     try {
