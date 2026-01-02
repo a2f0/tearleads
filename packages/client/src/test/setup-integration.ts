@@ -1,6 +1,6 @@
 /**
  * Integration test setup for Vitest.
- * Sets up mocks for database adapter and key manager to use Node.js-compatible implementations.
+ * Sets up mocks for database adapter and key manager to use WASM-based implementations.
  *
  * Usage: Import this file in tests that need real database I/O:
  *   import '@/test/setup-integration';
@@ -9,7 +9,7 @@
  */
 
 import { afterEach, beforeEach, vi } from 'vitest';
-import { NodeAdapter } from '@/db/adapters/node.adapter';
+import { WasmNodeAdapter } from '@/db/adapters/wasm-node.adapter';
 import type { InstanceMetadata } from '@/db/instance-registry';
 import {
   getTestKeyManager,
@@ -18,7 +18,7 @@ import {
 } from './test-key-manager';
 
 // Store active adapter for cleanup
-let activeAdapter: NodeAdapter | null = null;
+let activeAdapter: WasmNodeAdapter | null = null;
 
 // In-memory instance registry for tests (avoids IndexedDB dependency)
 const TEST_INSTANCE_ID = 'test-instance';
@@ -116,13 +116,13 @@ vi.mock('@/storage/opfs', () => ({
   deleteFileFromStorage: vi.fn(async () => {})
 }));
 
-// Mock the adapter factory to use NodeAdapter
+// Mock the adapter factory to use WasmNodeAdapter
 vi.mock('@/db/adapters', async (importOriginal) => {
   const original = await importOriginal<typeof import('@/db/adapters')>();
   return {
     ...original,
     createAdapter: vi.fn(async () => {
-      activeAdapter = new NodeAdapter();
+      activeAdapter = new WasmNodeAdapter();
       return activeAdapter;
     }),
     getPlatformInfo: vi.fn(() => ({
@@ -189,7 +189,7 @@ afterEach(async () => {
 /**
  * Helper to get the currently active adapter (for test assertions).
  */
-export function getActiveAdapter(): NodeAdapter | null {
+export function getActiveAdapter(): WasmNodeAdapter | null {
   return activeAdapter;
 }
 
@@ -197,7 +197,7 @@ export function getActiveAdapter(): NodeAdapter | null {
  * Helper to manually create a fresh adapter for tests that need explicit control.
  */
 export function createTestAdapter(
-  options?: ConstructorParameters<typeof NodeAdapter>[0]
-): NodeAdapter {
-  return new NodeAdapter(options);
+  options?: ConstructorParameters<typeof WasmNodeAdapter>[0]
+): WasmNodeAdapter {
+  return new WasmNodeAdapter(options);
 }

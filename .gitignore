@@ -62,9 +62,6 @@ coverage/
 # Ansible
 .ansible/
 
-# Native module binaries (compiled per-platform, not portable)
-packages/client/native/
-
 # Terraform
 **/.terraform/
 *.tfstate
