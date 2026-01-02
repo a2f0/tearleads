@@ -9,7 +9,7 @@ export interface ModelInfo {
 export const RECOMMENDED_MODELS: ModelInfo[] = [
   {
     id: 'onnx-community/Phi-3.5-mini-instruct-onnx-web',
-    name: 'Phi-3.5 Mini',
+    name: 'Phi 3.5 Mini',
     size: '~2GB',
     description: 'Fast chat model for general tasks'
   },

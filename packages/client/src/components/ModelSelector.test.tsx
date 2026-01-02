@@ -53,9 +53,9 @@ describe('ModelSelector', () => {
         loadedModel: 'onnx-community/Phi-3.5-mini-instruct-onnx-web'
       });
 
-      render(<ModelSelector modelDisplayName="Phi-3.5 Mini" />);
+      render(<ModelSelector modelDisplayName="Phi 3.5 Mini" />);
 
-      expect(screen.getByText('Phi-3.5 Mini')).toBeInTheDocument();
+      expect(screen.getByText('Phi 3.5 Mini')).toBeInTheDocument();
     });
 
     it('applies green styling when model is loaded', () => {
@@ -64,7 +64,7 @@ describe('ModelSelector', () => {
         loadedModel: 'onnx-community/Phi-3.5-mini-instruct-onnx-web'
       });
 
-      render(<ModelSelector modelDisplayName="Phi-3.5 Mini" />);
+      render(<ModelSelector modelDisplayName="Phi 3.5 Mini" />);
 
       const button = screen.getByRole('button');
       expect(button).toHaveClass('bg-green-500/10');
@@ -88,7 +88,7 @@ describe('ModelSelector', () => {
 
       await user.click(screen.getByRole('button'));
 
-      expect(screen.getByText('Phi-3.5 Mini')).toBeInTheDocument();
+      expect(screen.getByText('Phi 3.5 Mini')).toBeInTheDocument();
       expect(screen.getByText('SmolVLM 256M')).toBeInTheDocument();
       expect(screen.getByText('PaliGemma 2 3B')).toBeInTheDocument();
     });
@@ -145,7 +145,7 @@ describe('ModelSelector', () => {
       await waitFor(() => {
         expect(screen.getByText('Available Models')).toBeInTheDocument();
       });
-      await user.click(screen.getByText('Phi-3.5 Mini'));
+      await user.click(screen.getByText('Phi 3.5 Mini'));
 
       await waitFor(() => {
         expect(mockLoadModel).toHaveBeenCalledWith(
@@ -161,12 +161,12 @@ describe('ModelSelector', () => {
       });
 
       const user = userEvent.setup();
-      render(<ModelSelector modelDisplayName="Phi-3.5 Mini" />);
+      render(<ModelSelector modelDisplayName="Phi 3.5 Mini" />);
 
       await user.click(screen.getByRole('button'));
       // Get the dropdown menu and find the option within it
       const dropdownMenu = screen.getByRole('menu');
-      const dropdownOption = within(dropdownMenu).getByText('Phi-3.5 Mini');
+      const dropdownOption = within(dropdownMenu).getByText('Phi 3.5 Mini');
       await user.click(dropdownOption);
 
       expect(mockLoadModel).not.toHaveBeenCalled();
@@ -189,17 +189,17 @@ describe('ModelSelector', () => {
       });
 
       const user = userEvent.setup();
-      render(<ModelSelector modelDisplayName="Phi-3.5 Mini" />);
+      render(<ModelSelector modelDisplayName="Phi 3.5 Mini" />);
 
       await user.click(screen.getByRole('button'));
 
-      // Find the Phi-3.5 Mini option in the dropdown menu
+      // Find the Phi 3.5 Mini option in the dropdown menu
       const dropdownMenu = screen.getByRole('menu');
       const phi3DropdownOption = within(dropdownMenu)
         .getAllByRole('menuitem')
         .find(
           (btn) =>
-            btn.textContent?.includes('Phi-3.5 Mini') &&
+            btn.textContent?.includes('Phi 3.5 Mini') &&
             btn.textContent?.includes('~2GB')
         );
 

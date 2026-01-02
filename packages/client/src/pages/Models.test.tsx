@@ -99,7 +99,7 @@ describe('Models', () => {
       renderModels();
 
       await waitFor(() => {
-        expect(screen.getByText('Phi-3.5 Mini')).toBeInTheDocument();
+        expect(screen.getByText('Phi 3.5 Mini')).toBeInTheDocument();
         expect(screen.getByText('SmolVLM 256M')).toBeInTheDocument();
         expect(screen.getByText('PaliGemma 2 3B')).toBeInTheDocument();
       });
@@ -136,7 +136,7 @@ describe('Models', () => {
 
         // Verify non-vision model doesn't have vision badge
         const phi3Card = screen
-          .getByText('Phi-3.5 Mini')
+          .getByText('Phi 3.5 Mini')
           .closest('.rounded-lg');
         const phi3VisionBadges = phi3Card?.querySelectorAll(
           '.text-purple-500'
@@ -195,7 +195,7 @@ describe('Models', () => {
       renderModels();
 
       await waitFor(() => {
-        expect(screen.getByText('Phi-3.5 Mini')).toBeInTheDocument();
+        expect(screen.getByText('Phi 3.5 Mini')).toBeInTheDocument();
       });
 
       const downloadButtons = screen.getAllByRole('button', {
@@ -237,7 +237,7 @@ describe('Models', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText('Phi-3.5 Mini')).toBeInTheDocument();
+        expect(screen.getByText('Phi 3.5 Mini')).toBeInTheDocument();
       });
 
       const downloadButtons = screen.getAllByRole('button', {
