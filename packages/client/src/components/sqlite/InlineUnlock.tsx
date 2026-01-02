@@ -10,6 +10,8 @@ import { useDatabaseContext } from '@/db/hooks';
 import { getErrorMessage } from '@/lib/errors';
 import { detectPlatform } from '@/lib/utils';
 
+const isWeb = detectPlatform() === 'web';
+
 interface InlineUnlockProps {
   /** Description of what will be accessible after unlocking */
   description?: string;
@@ -24,12 +26,24 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
   const [error, setError] = useState<string | null>(null);
   const [persistUnlock, setPersistUnlock] = useState(false);
 
-  const isWeb = detectPlatform() === 'web';
+  const handlePasswordChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      setPassword(e.target.value);
+      setError(null);
+    },
+    []
+  );
 
-  const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setPassword(e.target.value);
-    setError(null);
-  };
+  const handleTogglePassword = useCallback(() => {
+    setShowPassword((prev) => !prev);
+  }, []);
+
+  const handlePersistChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      setPersistUnlock(e.target.checked);
+    },
+    []
+  );
 
   const handleUnlock = useCallback(
     async (e: FormEvent) => {
@@ -107,7 +121,7 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
           />
           <button
             type="button"
-            onClick={() => setShowPassword(!showPassword)}
+            onClick={handleTogglePassword}
             className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
@@ -124,9 +138,9 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
             <input
               type="checkbox"
               checked={persistUnlock}
-              onChange={(e) => setPersistUnlock(e.target.checked)}
+              onChange={handlePersistChange}
               data-testid="inline-unlock-persist"
-              className="h-4 w-4 rounded border-gray-300"
+              className="h-4 w-4 rounded border border-input"
             />
             <span>Keep unlocked across reloads</span>
           </label>
