@@ -569,15 +569,52 @@ describe('ContactDetail', () => {
   });
 
   describe('database locked state', () => {
-    it('shows locked message when database is locked', async () => {
+    it('shows inline unlock when database is locked', async () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
-        isLoading: false
+        isLoading: false,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
       });
 
       renderContactDetail();
 
-      expect(screen.getByText(/Database is locked/)).toBeInTheDocument();
+      expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
+      expect(
+        screen.getByText(/Database is locked. Enter your password to view this contact./i)
+      ).toBeInTheDocument();
+    });
+
+    it('shows password input for unlocking', async () => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: false,
+        isLoading: false,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
+      });
+
+      renderContactDetail();
+
+      expect(screen.getByTestId('inline-unlock-password')).toBeInTheDocument();
+    });
+
+    it('shows unlock button', async () => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: false,
+        isLoading: false,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
+      });
+
+      renderContactDetail();
+
+      expect(screen.getByTestId('inline-unlock-button')).toBeInTheDocument();
     });
 
     it('shows loading message when database is loading', async () => {

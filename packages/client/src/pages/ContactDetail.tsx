@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   Cake,
   Calendar,
-  Database,
   Loader2,
   Mail,
   Pencil,
@@ -16,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
@@ -409,13 +409,7 @@ export function ContactDetail() {
       )}
 
       {!isLoading && !isUnlocked && (
-        <div className="rounded-lg border p-8 text-center">
-          <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <p className="mt-4 text-muted-foreground">
-            Database is locked. Unlock it from the SQLite page to view this
-            contact.
-          </p>
-        </div>
+        <InlineUnlock description="this contact" />
       )}
 
       {error && (

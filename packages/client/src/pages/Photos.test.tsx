@@ -117,17 +117,22 @@ describe('Photos', () => {
       expect(screen.getByText('Loading database...')).toBeInTheDocument();
     });
 
-    it('shows locked message when database is locked', async () => {
+    it('shows inline unlock when database is locked', async () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
         isLoading: false,
-        currentInstanceId: null
+        currentInstanceId: null,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
       });
 
       renderPhotos();
 
+      expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
-        screen.getByText(/Database is locked. Unlock it/)
+        screen.getByText(/Database is locked. Enter your password to view photos./i)
       ).toBeInTheDocument();
     });
   });
