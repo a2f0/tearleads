@@ -214,8 +214,9 @@ export TUXEDO_TMUX_CONF="$TMUX_CONF"
 # Enable true color for apps like Claude Code running inside screen
 export COLORTERM=truecolor
 
-# Scripts directories to add to PATH
+# Add scripts directories to PATH (export so screen sessions inherit it)
 SCRIPTS_PATH="$SCRIPT_DIR:$SCRIPT_DIR/agents"
+export PATH="$SCRIPTS_PATH:$PATH"
 
 # Update workspaces that are on main with no uncommitted changes FIRST
 # This ensures .gitignore changes are pulled before symlinks are created
@@ -257,8 +258,8 @@ else
 fi
 tmux split-window -h -t "$SESSION_NAME:rapid-main" -c "$BASE_DIR/rapid-main" "$EDITOR"
 
-# Add scripts directories to PATH and enable true color for all windows
-tmux set-environment -t "$SESSION_NAME" PATH "$SCRIPTS_PATH:$PATH"
+# Set tmux session environment for any new windows created later
+tmux set-environment -t "$SESSION_NAME" PATH "$PATH"
 tmux set-environment -t "$SESSION_NAME" COLORTERM truecolor
 
 i=2
