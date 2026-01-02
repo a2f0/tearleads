@@ -90,7 +90,13 @@ if (rootElement) {
         <ThemeProvider>
           <DatabaseProvider>
             <BrowserRouter>
-              <Suspense fallback={null}>
+              <Suspense
+                fallback={
+                  <div className="p-8 text-center text-muted-foreground">
+                    Loading...
+                  </div>
+                }
+              >
                 <Routes>
                   <Route path="/" element={<App />}>
                     <Route index element={<Files />} />

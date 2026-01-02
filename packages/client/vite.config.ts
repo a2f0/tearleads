@@ -49,7 +49,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       output: {
-manualChunks: {
+        manualChunks: {
           // Core React dependencies
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           // Chat/AI dependencies (only used in Chat page)
