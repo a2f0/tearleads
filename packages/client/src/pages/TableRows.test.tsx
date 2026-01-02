@@ -367,9 +367,6 @@ describe('TableRows', () => {
         if (query.includes('DELETE FROM "test_table"')) {
           return Promise.resolve({ rows: [] });
         }
-        if (query.includes('SELECT *')) {
-          return Promise.resolve({ rows: [] });
-        }
         return Promise.resolve({ rows: [] });
       });
 
@@ -460,9 +457,6 @@ describe('TableRows', () => {
         if (query.includes('PRAGMA table_info')) {
           return Promise.resolve({ rows: mockColumns });
         }
-        if (query.includes('SELECT *')) {
-          return Promise.resolve({ rows: [] });
-        }
         return Promise.resolve({ rows: [] });
       });
 
@@ -531,13 +525,12 @@ describe('TableRows', () => {
       await user.click(screen.getByTestId('column-settings-button'));
       await user.click(screen.getByTestId('column-toggle-name'));
 
-      // Sort should be cleared - next query should not have ORDER BY
+      // Sort should be cleared - last query should not have ORDER BY
       await waitFor(() => {
-        const calls = mockExecute.mock.calls.filter(
-          (call) =>
-            call[0].includes('SELECT *') && !call[0].includes('ORDER BY')
-        );
-        expect(calls.length).toBeGreaterThan(0);
+        const lastCall =
+          mockExecute.mock.calls[mockExecute.mock.calls.length - 1];
+        expect(lastCall?.[0]).toContain('SELECT *');
+        expect(lastCall?.[0]).not.toContain('ORDER BY');
       });
     });
 
