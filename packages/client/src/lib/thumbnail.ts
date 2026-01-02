@@ -10,10 +10,14 @@ export interface ThumbnailOptions {
 }
 
 export const DEFAULT_THUMBNAIL_OPTIONS: ThumbnailOptions = {
-  maxWidth: 400,
-  maxHeight: 400,
+  maxWidth: 800,
+  maxHeight: 800,
   quality: 0.92
 };
+
+// Display size for thumbnail UI elements (CSS pixels)
+// Generation size is 2x this for Retina/high-DPI support
+export const THUMBNAIL_DISPLAY_SIZE = 200;
 
 const SUPPORTED_MIME_TYPES = new Set([
   'image/jpeg',
