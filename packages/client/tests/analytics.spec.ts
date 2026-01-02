@@ -62,13 +62,12 @@ test.describe('Analytics page', () => {
     await navigateTo(page, 'Analytics');
 
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
-    // Should show inline unlock component with password field
+    // Should show inline unlock component
     await expect(page.getByTestId('inline-unlock')).toBeVisible();
+    // Database may be "not set up" (never initialized) or "locked" (set up but not unlocked)
     await expect(
-      page.getByText('Database is locked. Enter your password to view analytics.')
+      page.getByText(/Database is (locked|not set up)/)
     ).toBeVisible();
-    await expect(page.getByTestId('inline-unlock-password')).toBeVisible();
-    await expect(page.getByTestId('inline-unlock-button')).toBeVisible();
   });
 
   test('should display analytics UI when database is unlocked', async ({
