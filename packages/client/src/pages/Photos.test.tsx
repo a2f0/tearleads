@@ -285,16 +285,19 @@ describe('Photos', () => {
   });
 
   describe('empty state', () => {
-    it('shows empty message when no photos exist', async () => {
+    it('shows dropzone when no photos exist', async () => {
       mockDb.orderBy.mockResolvedValue([]);
 
       renderPhotos();
 
       await waitFor(() => {
         expect(
-          screen.getByText(/No photos found. Upload images from the Files page/)
+          screen.getByText(/Drop images here to add them to your library/)
         ).toBeInTheDocument();
       });
+
+      // Should also show the dropzone input
+      expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
     });
   });
 
