@@ -125,10 +125,12 @@ update_from_main() {
     #     return 0
     # fi
 
-    # Fetch and pull from main
+    # Fetch and fast-forward pull from main (no merge commits)
     echo "Updating $(basename "$workspace") from main..."
     git -C "$workspace" fetch origin main --quiet 2>/dev/null || true
-    git -C "$workspace" pull origin main --quiet 2>/dev/null || true
+    if ! git -C "$workspace" pull --ff-only origin main --quiet 2>/dev/null; then
+        echo "Warning: Failed to fast-forward $(basename "$workspace"). May have diverged." >&2
+    fi
 }
 
 # Update all workspaces that are on main with no uncommitted changes (parallel)
