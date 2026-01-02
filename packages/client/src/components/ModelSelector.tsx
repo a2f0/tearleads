@@ -21,12 +21,10 @@ export function ModelSelector({ modelDisplayName }: ModelSelectorProps) {
 
   const handleSelectModel = useCallback(
     async (modelId: string) => {
-      if (loadedModel === modelId) {
-        setIsOpen(false);
-        return;
-      }
       setIsOpen(false);
-      await loadModel(modelId);
+      if (loadedModel !== modelId) {
+        await loadModel(modelId);
+      }
     },
     [loadedModel, loadModel]
   );
@@ -61,9 +59,12 @@ export function ModelSelector({ modelDisplayName }: ModelSelectorProps) {
   return (
     <div className="relative" ref={dropdownRef}>
       <button
+        id="model-selector-trigger"
         type="button"
         onClick={handleToggle}
         disabled={isLoading}
+        aria-haspopup="true"
+        aria-expanded={isOpen}
         className={`flex items-center gap-2 rounded-full px-3 py-1 font-medium text-sm transition-colors ${
           modelDisplayName
             ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20'
@@ -84,7 +85,12 @@ export function ModelSelector({ modelDisplayName }: ModelSelectorProps) {
       </button>
 
       {isOpen && (
-        <div className="absolute top-full right-0 z-50 mt-2 min-w-64 rounded-lg border bg-background shadow-lg">
+        <div
+          role="menu"
+          aria-orientation="vertical"
+          aria-labelledby="model-selector-trigger"
+          className="absolute top-full right-0 z-50 mt-2 min-w-64 rounded-lg border bg-background shadow-lg"
+        >
           <div className="p-2">
             <p className="mb-2 px-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
               Available Models
@@ -114,6 +120,7 @@ function ModelOption({ model, isLoaded, onSelect }: ModelOptionProps) {
   return (
     <button
       type="button"
+      role="menuitem"
       onClick={onSelect}
       className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent ${
         isLoaded ? 'bg-green-500/5' : ''
