@@ -25,7 +25,7 @@
     "test:maestro:ios": "../../scripts/runMaestroIosTests.sh",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:integration": "../../scripts/rebuildSqliteForNode.sh && vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest",
     "electron:dev": "electron-vite dev",
     "electron:build": "electron-vite build",
