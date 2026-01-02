@@ -55,9 +55,9 @@ describe('thumbnail', () => {
   describe('THUMBNAIL_DISPLAY_SIZE', () => {
     it('provides appropriate display size with high-res generation for Retina support', () => {
       expect(THUMBNAIL_DISPLAY_SIZE).toBe(200);
-      // Generation is 4x display area (800x800 vs 200x200) for crisp display on high-DPI screens
-      expect(DEFAULT_THUMBNAIL_OPTIONS.maxWidth).toBeGreaterThanOrEqual(
-        THUMBNAIL_DISPLAY_SIZE * 2
+      // Generation is 4x the linear display dimension (800px vs 200px) for crisp display on high-DPI screens
+      expect(DEFAULT_THUMBNAIL_OPTIONS.maxWidth).toBe(
+        THUMBNAIL_DISPLAY_SIZE * 4
       );
     });
   });

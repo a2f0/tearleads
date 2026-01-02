@@ -16,7 +16,7 @@ export const DEFAULT_THUMBNAIL_OPTIONS: ThumbnailOptions = {
 };
 
 // Display size for thumbnail UI elements (CSS pixels)
-// Generation size is 2x this for Retina/high-DPI support
+// Generation size is 4x this for Retina/high-DPI support
 export const THUMBNAIL_DISPLAY_SIZE = 200;
 
 const SUPPORTED_MIME_TYPES = new Set([
