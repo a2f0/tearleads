@@ -360,4 +360,112 @@ describe('AccountSwitcher', () => {
       ).toBeInTheDocument();
     });
   });
+
+  describe('delete functionality', () => {
+    it('shows delete buttons when there are multiple instances', async () => {
+      const user = userEvent.setup();
+      render(<AccountSwitcher />);
+
+      await user.click(screen.getByTestId('account-switcher-button'));
+
+      expect(
+        screen.getByTestId('delete-instance-test-instance')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId('delete-instance-second-instance')
+      ).toBeInTheDocument();
+    });
+
+    it('does not show delete buttons when there is only one instance', async () => {
+      const user = userEvent.setup();
+      mockUseDatabaseContext.mockReturnValue({
+        ...defaultMockContext,
+        instances: [
+          {
+            id: 'test-instance',
+            name: 'Instance 1',
+            createdAt: new Date('2023-01-01T00:00:00.000Z').getTime(),
+            lastAccessedAt: new Date('2023-01-01T00:00:00.000Z').getTime()
+          }
+        ]
+      });
+
+      render(<AccountSwitcher />);
+
+      await user.click(screen.getByTestId('account-switcher-button'));
+
+      expect(
+        screen.queryByTestId('delete-instance-test-instance')
+      ).not.toBeInTheDocument();
+    });
+
+    it('opens delete dialog when delete button is clicked', async () => {
+      const user = userEvent.setup();
+      render(<AccountSwitcher />);
+
+      await user.click(screen.getByTestId('account-switcher-button'));
+      await user.click(screen.getByTestId('delete-instance-second-instance'));
+
+      // Delete dialog should be visible
+      await waitFor(() => {
+        expect(
+          screen.getByText(/are you sure you want to delete/i)
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('closes dropdown when delete button is clicked', async () => {
+      const user = userEvent.setup();
+      render(<AccountSwitcher />);
+
+      await user.click(screen.getByTestId('account-switcher-button'));
+      expect(screen.getByText('Create new instance')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('delete-instance-second-instance'));
+
+      // Dropdown should be closed
+      await waitFor(() => {
+        expect(
+          screen.queryByText('Create new instance')
+        ).not.toBeInTheDocument();
+      });
+    });
+
+    it('passes correct instance name to delete dialog', async () => {
+      const user = userEvent.setup();
+      render(<AccountSwitcher />);
+
+      await user.click(screen.getByTestId('account-switcher-button'));
+      await user.click(screen.getByTestId('delete-instance-second-instance'));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Instance 2/)).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('disabled state', () => {
+    it('disables button when loading', () => {
+      mockUseDatabaseContext.mockReturnValue({
+        ...defaultMockContext,
+        isLoading: true
+      });
+
+      render(<AccountSwitcher />);
+
+      expect(screen.getByTestId('account-switcher-button')).toBeDisabled();
+    });
+  });
+
+  describe('instance switching', () => {
+    it('does not call switchInstance when clicking the current instance', async () => {
+      const user = userEvent.setup();
+      render(<AccountSwitcher />);
+
+      await user.click(screen.getByTestId('account-switcher-button'));
+      await user.click(screen.getByTestId('instance-test-instance'));
+
+      expect(mockSwitchInstance).not.toHaveBeenCalled();
+    });
+  });
 });
