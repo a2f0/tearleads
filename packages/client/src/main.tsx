@@ -1,5 +1,5 @@
 import { ThemeProvider } from '@rapid/ui';
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import App from './App';
@@ -8,24 +8,60 @@ import {
   errorBoundaryRef
 } from './components/ui/error-boundary';
 import { DatabaseProvider } from './db/hooks';
-import { Analytics } from './pages/Analytics';
-import { AudioPage } from './pages/Audio';
-import { CacheStorage } from './pages/CacheStorage';
-import { Chat } from './pages/Chat';
-import { ContactDetail } from './pages/ContactDetail';
-import { Contacts } from './pages/Contacts';
-import { Debug } from './pages/Debug';
-import { Files } from './pages/Files';
-import { LocalStorage } from './pages/LocalStorage';
-import { Models } from './pages/Models';
-import { Opfs } from './pages/Opfs';
-import { PhotoDetail } from './pages/PhotoDetail';
-import { Photos } from './pages/Photos';
-import { Settings } from './pages/Settings';
-import { Sqlite } from './pages/Sqlite';
-import { TableRows } from './pages/TableRows';
-import { Tables } from './pages/Tables';
 import './index.css';
+
+// Lazy-loaded pages for code splitting
+const Analytics = lazy(() =>
+  import('./pages/Analytics').then((m) => ({ default: m.Analytics }))
+);
+const AudioPage = lazy(() =>
+  import('./pages/Audio').then((m) => ({ default: m.AudioPage }))
+);
+const CacheStorage = lazy(() =>
+  import('./pages/CacheStorage').then((m) => ({ default: m.CacheStorage }))
+);
+const Chat = lazy(() =>
+  import('./pages/Chat').then((m) => ({ default: m.Chat }))
+);
+const ContactDetail = lazy(() =>
+  import('./pages/ContactDetail').then((m) => ({ default: m.ContactDetail }))
+);
+const Contacts = lazy(() =>
+  import('./pages/Contacts').then((m) => ({ default: m.Contacts }))
+);
+const Debug = lazy(() =>
+  import('./pages/Debug').then((m) => ({ default: m.Debug }))
+);
+const Files = lazy(() =>
+  import('./pages/Files').then((m) => ({ default: m.Files }))
+);
+const LocalStorage = lazy(() =>
+  import('./pages/LocalStorage').then((m) => ({ default: m.LocalStorage }))
+);
+const Models = lazy(() =>
+  import('./pages/Models').then((m) => ({ default: m.Models }))
+);
+const Opfs = lazy(() =>
+  import('./pages/Opfs').then((m) => ({ default: m.Opfs }))
+);
+const PhotoDetail = lazy(() =>
+  import('./pages/PhotoDetail').then((m) => ({ default: m.PhotoDetail }))
+);
+const Photos = lazy(() =>
+  import('./pages/Photos').then((m) => ({ default: m.Photos }))
+);
+const Settings = lazy(() =>
+  import('./pages/Settings').then((m) => ({ default: m.Settings }))
+);
+const Sqlite = lazy(() =>
+  import('./pages/Sqlite').then((m) => ({ default: m.Sqlite }))
+);
+const TableRows = lazy(() =>
+  import('./pages/TableRows').then((m) => ({ default: m.TableRows }))
+);
+const Tables = lazy(() =>
+  import('./pages/Tables').then((m) => ({ default: m.Tables }))
+);
 
 // Global error handlers for async errors (not caught by React error boundaries)
 window.addEventListener(
@@ -54,27 +90,35 @@ if (rootElement) {
         <ThemeProvider>
           <DatabaseProvider>
             <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<App />}>
-                  <Route index element={<Files />} />
-                  <Route path="contacts" element={<Contacts />} />
-                  <Route path="contacts/:id" element={<ContactDetail />} />
-                  <Route path="photos" element={<Photos />} />
-                  <Route path="photos/:id" element={<PhotoDetail />} />
-                  <Route path="audio" element={<AudioPage />} />
-                  <Route path="sqlite" element={<Sqlite />} />
-                  <Route path="debug" element={<Debug />} />
-                  <Route path="chat" element={<Chat />} />
-                  <Route path="models" element={<Models />} />
-                  <Route path="settings" element={<Settings />} />
-                  <Route path="tables" element={<Tables />} />
-                  <Route path="tables/:tableName" element={<TableRows />} />
-                  <Route path="analytics" element={<Analytics />} />
-                  <Route path="opfs" element={<Opfs />} />
-                  <Route path="cache-storage" element={<CacheStorage />} />
-                  <Route path="local-storage" element={<LocalStorage />} />
-                </Route>
-              </Routes>
+              <Suspense
+                fallback={
+                  <div className="p-8 text-center text-muted-foreground">
+                    Loading...
+                  </div>
+                }
+              >
+                <Routes>
+                  <Route path="/" element={<App />}>
+                    <Route index element={<Files />} />
+                    <Route path="contacts" element={<Contacts />} />
+                    <Route path="contacts/:id" element={<ContactDetail />} />
+                    <Route path="photos" element={<Photos />} />
+                    <Route path="photos/:id" element={<PhotoDetail />} />
+                    <Route path="audio" element={<AudioPage />} />
+                    <Route path="sqlite" element={<Sqlite />} />
+                    <Route path="debug" element={<Debug />} />
+                    <Route path="chat" element={<Chat />} />
+                    <Route path="models" element={<Models />} />
+                    <Route path="settings" element={<Settings />} />
+                    <Route path="tables" element={<Tables />} />
+                    <Route path="tables/:tableName" element={<TableRows />} />
+                    <Route path="analytics" element={<Analytics />} />
+                    <Route path="opfs" element={<Opfs />} />
+                    <Route path="cache-storage" element={<CacheStorage />} />
+                    <Route path="local-storage" element={<LocalStorage />} />
+                  </Route>
+                </Routes>
+              </Suspense>
             </BrowserRouter>
           </DatabaseProvider>
         </ThemeProvider>
