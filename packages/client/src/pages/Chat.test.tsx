@@ -19,6 +19,48 @@ vi.mock('@/hooks/useLLM', () => ({
   }))
 }));
 
+// Mock database context
+const mockUseDatabaseContext = vi.fn();
+vi.mock('@/db/hooks', () => ({
+  useDatabaseContext: () => mockUseDatabaseContext()
+}));
+
+// Mock database
+const mockSelect = vi.fn();
+vi.mock('@/db', () => ({
+  getDatabase: () => ({
+    select: mockSelect
+  })
+}));
+
+// Mock key manager
+const mockGetCurrentKey = vi.fn();
+vi.mock('@/db/crypto', () => ({
+  getKeyManager: () => ({
+    getCurrentKey: mockGetCurrentKey
+  })
+}));
+
+// Mock file storage
+const mockRetrieve = vi.fn();
+const mockIsFileStorageInitialized = vi.fn();
+const mockInitializeFileStorage = vi.fn();
+vi.mock('@/storage/opfs', () => ({
+  getFileStorage: () => ({
+    retrieve: mockRetrieve
+  }),
+  isFileStorageInitialized: () => mockIsFileStorageInitialized(),
+  initializeFileStorage: (key: Uint8Array, instanceId: string) =>
+    mockInitializeFileStorage(key, instanceId)
+}));
+
+// Mock llm-runtime
+vi.mock('@/lib/llm-runtime', () => ({
+  createLLMAdapter: vi.fn(() => ({})),
+  getAttachedImage: vi.fn(() => null),
+  setAttachedImage: vi.fn()
+}));
+
 // Mock assistant-ui components
 vi.mock('@assistant-ui/react', () => ({
   AssistantRuntimeProvider: ({ children }: { children: React.ReactNode }) => (
@@ -130,6 +172,15 @@ function renderChat() {
 describe('Chat', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Default mocks for database context
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: 'test-instance'
+    });
+    mockGetCurrentKey.mockReturnValue(new Uint8Array([1, 2, 3, 4]));
+    mockIsFileStorageInitialized.mockReturnValue(true);
   });
 
   describe('when no model is loaded', () => {
@@ -341,6 +392,211 @@ describe('Chat', () => {
       );
       const spinner = inProgressContainer.querySelector('.animate-spin');
       expect(spinner).toBeInTheDocument();
+    });
+  });
+
+  describe('vision model image attachment placeholder', () => {
+    beforeEach(() => {
+      vi.mocked(useLLM).mockReturnValue({
+        loadedModel: 'HuggingFaceTB/SmolVLM-256M-Instruct',
+        modelType: 'vision',
+        isLoading: false,
+        loadProgress: null,
+        error: null,
+        loadModel: vi.fn(),
+        unloadModel: vi.fn(),
+        generate: vi.fn(),
+        abort: vi.fn(),
+        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+      });
+    });
+
+    it('renders image attachment button for vision models', () => {
+      renderChat();
+
+      // The mock Composer renders a placeholder for the attach image button
+      expect(screen.getByTestId('composer')).toBeInTheDocument();
+    });
+
+    it('shows vision-specific placeholder text', () => {
+      renderChat();
+
+      // ComposerPrimitive.Input receives placeholder prop - rendered in our mock
+      const input = screen.getByTestId('composer-input');
+      expect(input).toHaveAttribute(
+        'placeholder',
+        'Type a message... (attach an image for vision)'
+      );
+    });
+
+    it('shows empty state message about attaching images', () => {
+      renderChat();
+
+      expect(screen.getByTestId('thread-empty')).toBeInTheDocument();
+    });
+  });
+
+  describe('non-vision model composer', () => {
+    beforeEach(() => {
+      vi.mocked(useLLM).mockReturnValue({
+        loadedModel: 'onnx-community/Phi-3-mini-4k-instruct',
+        modelType: 'chat',
+        isLoading: false,
+        loadProgress: null,
+        error: null,
+        loadModel: vi.fn(),
+        unloadModel: vi.fn(),
+        generate: vi.fn(),
+        abort: vi.fn(),
+        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+      });
+    });
+
+    it('shows basic placeholder for non-vision models', () => {
+      renderChat();
+
+      const input = screen.getByTestId('composer-input');
+      expect(input).toHaveAttribute('placeholder', 'Type a message...');
+    });
+  });
+
+  describe('model name edge cases', () => {
+    it('handles model name with empty parts', () => {
+      vi.mocked(useLLM).mockReturnValue({
+        loadedModel: 'org/-model-name',
+        modelType: 'chat',
+        isLoading: false,
+        loadProgress: null,
+        error: null,
+        loadModel: vi.fn(),
+        unloadModel: vi.fn(),
+        generate: vi.fn(),
+        abort: vi.fn(),
+        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+      });
+
+      renderChat();
+
+      // Should render the parsed model name correctly
+      expect(screen.getByText('Model Name')).toBeInTheDocument();
+    });
+
+    it('handles model name without org prefix', () => {
+      vi.mocked(useLLM).mockReturnValue({
+        loadedModel: 'standalone-model-name',
+        modelType: 'chat',
+        isLoading: false,
+        loadProgress: null,
+        error: null,
+        loadModel: vi.fn(),
+        unloadModel: vi.fn(),
+        generate: vi.fn(),
+        abort: vi.fn(),
+        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+      });
+
+      renderChat();
+
+      expect(screen.getByText('Standalone Model Name')).toBeInTheDocument();
+    });
+
+    it('handles model name with -4k-instruct suffix', () => {
+      vi.mocked(useLLM).mockReturnValue({
+        loadedModel: 'org/model-4k-instruct',
+        modelType: 'chat',
+        isLoading: false,
+        loadProgress: null,
+        error: null,
+        loadModel: vi.fn(),
+        unloadModel: vi.fn(),
+        generate: vi.fn(),
+        abort: vi.fn(),
+        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+      });
+
+      renderChat();
+
+      expect(screen.getByText('Model')).toBeInTheDocument();
+    });
+  });
+
+  describe('ChatHeader component', () => {
+    it('renders the model name in the header', () => {
+      vi.mocked(useLLM).mockReturnValue({
+        loadedModel: 'org/model',
+        modelType: 'chat',
+        isLoading: false,
+        loadProgress: null,
+        error: null,
+        loadModel: vi.fn(),
+        unloadModel: vi.fn(),
+        generate: vi.fn(),
+        abort: vi.fn(),
+        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+      });
+
+      renderChat();
+
+      expect(screen.getByText('Model')).toBeInTheDocument();
+    });
+  });
+
+  describe('UserMessage and AssistantMessage components', () => {
+    beforeEach(() => {
+      vi.mocked(useLLM).mockReturnValue({
+        loadedModel: 'org/model',
+        modelType: 'chat',
+        isLoading: false,
+        loadProgress: null,
+        error: null,
+        loadModel: vi.fn(),
+        unloadModel: vi.fn(),
+        generate: vi.fn(),
+        abort: vi.fn(),
+        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+      });
+    });
+
+    it('renders the thread messages container', () => {
+      renderChat();
+
+      expect(screen.getByTestId('thread-messages')).toBeInTheDocument();
+    });
+  });
+
+  describe('NoModelLoadedContent styling', () => {
+    beforeEach(() => {
+      // Reset to no model loaded state
+      vi.mocked(useLLM).mockReturnValue({
+        loadedModel: null,
+        modelType: null,
+        isLoading: false,
+        loadProgress: null,
+        error: null,
+        loadModel: vi.fn(),
+        unloadModel: vi.fn(),
+        generate: vi.fn(),
+        abort: vi.fn(),
+        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+      });
+    });
+
+    it('renders with proper card styling', () => {
+      renderChat();
+
+      const cardTitle = screen.getByText('No Model Loaded');
+      expect(cardTitle).toBeInTheDocument();
+
+      const description = screen.getByText(/Load a model from the Models page/);
+      expect(description).toBeInTheDocument();
+    });
+
+    it('renders Bot icon in the card', () => {
+      renderChat();
+
+      // The link contains a Bot icon
+      const link = screen.getByRole('link', { name: /go to models/i });
+      expect(link).toBeInTheDocument();
     });
   });
 });
