@@ -45,5 +45,21 @@ export default defineConfig(({ mode }) => ({
     // Don't pre-bundle WASM modules - they need special handling
     exclude: ['@/workers/sqlite-wasm']
   },
-  assetsInclude: ['**/*.wasm']
+  assetsInclude: ['**/*.wasm'],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Core React dependencies
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          // Chat/AI dependencies (only used in Chat page)
+          'vendor-chat': ['@assistant-ui/react'],
+          // Database dependencies
+          'vendor-db': ['drizzle-orm'],
+          // UI dependencies
+          'vendor-ui': ['lucide-react', 'class-variance-authority']
+        }
+      }
+    }
+  }
 }));
