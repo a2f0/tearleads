@@ -8,7 +8,9 @@ export function useAppVersion(): string | undefined {
   useEffect(() => {
     const platform = detectPlatform();
 
-    if (platform === 'web') {
+    // Web and Electron use the build-time version
+    // Only iOS and Android use the native Capacitor App API
+    if (platform === 'web' || platform === 'electron') {
       setVersion(__APP_VERSION__);
     } else {
       App.getInfo().then((info) => {
