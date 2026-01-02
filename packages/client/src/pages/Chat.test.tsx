@@ -160,7 +160,7 @@ describe('Chat', () => {
   describe('when a model is loaded', () => {
     beforeEach(() => {
       vi.mocked(useLLM).mockReturnValue({
-        loadedModel: 'onnx-community/Phi-3-mini-4k-instruct',
+        loadedModel: 'onnx-community/Phi-3.5-mini-instruct-onnx-web',
         modelType: 'chat',
         isLoading: false,
         loadProgress: null,
@@ -182,7 +182,7 @@ describe('Chat', () => {
     it('shows the loaded model name', () => {
       renderChat();
 
-      expect(screen.getByText('Phi 3 Mini')).toBeInTheDocument();
+      expect(screen.getByText('Phi 3.5 Mini')).toBeInTheDocument();
     });
 
     it('does not show the no model loaded message', () => {
@@ -236,8 +236,8 @@ describe('Chat', () => {
   describe('model display name parsing', () => {
     const testCases = [
       {
-        modelId: 'onnx-community/Phi-3-mini-4k-instruct',
-        expectedName: 'Phi 3 Mini'
+        modelId: 'onnx-community/Phi-3.5-mini-instruct-onnx-web',
+        expectedName: 'Phi 3.5 Mini'
       },
       {
         modelId: 'HuggingFaceTB/SmolVLM-256M-Instruct',
@@ -307,7 +307,7 @@ describe('Chat', () => {
   describe('CustomText loading spinner', () => {
     beforeEach(() => {
       vi.mocked(useLLM).mockReturnValue({
-        loadedModel: 'onnx-community/Phi-3-mini-4k-instruct',
+        loadedModel: 'onnx-community/Phi-3.5-mini-instruct-onnx-web',
         modelType: 'chat',
         isLoading: false,
         loadProgress: null,
