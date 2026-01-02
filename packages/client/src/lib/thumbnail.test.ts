@@ -43,9 +43,11 @@ describe('thumbnail', () => {
 
   describe('DEFAULT_THUMBNAIL_OPTIONS', () => {
     it('has expected default values', () => {
-      expect(DEFAULT_THUMBNAIL_OPTIONS.maxWidth).toBe(400);
-      expect(DEFAULT_THUMBNAIL_OPTIONS.maxHeight).toBe(400);
-      expect(DEFAULT_THUMBNAIL_OPTIONS.quality).toBe(0.92);
+      expect(DEFAULT_THUMBNAIL_OPTIONS).toEqual({
+        maxWidth: 400,
+        maxHeight: 400,
+        quality: 0.92
+      });
     });
   });
 
