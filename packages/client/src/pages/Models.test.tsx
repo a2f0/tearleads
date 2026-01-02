@@ -135,7 +135,9 @@ describe('Models', () => {
         expect(paligemmaCard).toHaveTextContent('Vision');
 
         // Verify non-vision model doesn't have vision badge
-        const phi3Card = screen.getByText('Phi-3.5 Mini').closest('.rounded-lg');
+        const phi3Card = screen
+          .getByText('Phi-3.5 Mini')
+          .closest('.rounded-lg');
         const phi3VisionBadges = phi3Card?.querySelectorAll(
           '.text-purple-500'
         ) as NodeListOf<HTMLElement>;
