@@ -34,3 +34,8 @@ Skip issue creation for:
 - Do NOT commit or push to the `main` branch, if you are on `main`, create a new branch.
 - Do NOT use `any` typings or `as` TypesScript assertions.
 - Do NOT decrease code coverage thresholds; always write tests for new code.
+
+## PR Guidelines
+
+- Do NOT add "Generated with Claude Code" footers to PR descriptions
+- Always reference issues with `Closes #<issue>` when applicable
