@@ -147,19 +147,20 @@ update_all_workspaces() {
 }
 
 # Get title for a workspace based on git state
-# Priority: main branch -> "ready", else VS Code title -> branch name -> fallback
+# Priority: main branch -> "project - ready", else VS Code title -> branch name -> fallback
 get_workspace_title() {
     workspace="$1"
     fallback_name="$2"
-    max_length=25
+    max_length=30
+    project_name=$(basename "$workspace")
 
     # Check git branch if it's a git repo
     if [ -d "$workspace/.git" ]; then
         branch=$(git -C "$workspace" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 
-        # On main = ready (ignore any stale VS Code title)
+        # On main = "project - ready" (ignore any stale VS Code title)
         if [ "$branch" = "main" ]; then
-            echo "ready"
+            echo "$project_name - ready"
             return 0
         fi
 
@@ -171,8 +172,8 @@ get_workspace_title() {
             [ -n "$vscode_title" ] && title="$vscode_title"
         fi
 
-        # Fall back to branch name if no VS Code title
-        [ -z "$title" ] && [ -n "$branch" ] && title="$branch"
+        # Fall back to "project - branch" if no VS Code title
+        [ -z "$title" ] && [ -n "$branch" ] && title="$project_name - $branch"
 
         # Truncate and return if we have a title
         if [ -n "$title" ]; then
