@@ -19,7 +19,7 @@ import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
-import { DEFAULT_THUMBNAIL_OPTIONS } from '@/lib/thumbnail';
+import { THUMBNAIL_DISPLAY_SIZE } from '@/lib/thumbnail';
 import {
   getFileStorage,
   initializeFileStorage,
@@ -273,8 +273,8 @@ export function Photos() {
   );
 
   const thumbnailStyle = {
-    width: DEFAULT_THUMBNAIL_OPTIONS.maxWidth,
-    height: DEFAULT_THUMBNAIL_OPTIONS.maxHeight
+    width: THUMBNAIL_DISPLAY_SIZE,
+    height: THUMBNAIL_DISPLAY_SIZE
   };
 
   const handleContextMenu = useCallback(
