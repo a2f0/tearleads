@@ -178,7 +178,11 @@ export TUXEDO_TMUX_CONF="$TMUX_CONF"
 # Scripts directories to add to PATH
 SCRIPTS_PATH="$SCRIPT_DIR:$SCRIPT_DIR/agents"
 
-# Enforce symlinks for all workspaces before starting
+# Update workspaces that are on main with no uncommitted changes FIRST
+# This ensures .gitignore changes are pulled before symlinks are created
+update_all_workspaces
+
+# Enforce symlinks for all workspaces after updating from main
 if [ -d "$SHARED_DIR" ]; then
     ensure_symlinks "$BASE_DIR/rapid-main"
     i=2
@@ -187,9 +191,6 @@ if [ -d "$SHARED_DIR" ]; then
         i=$((i + 1))
     done
 fi
-
-# Update workspaces that are on main with no uncommitted changes
-update_all_workspaces
 
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     # Sync VS Code titles before attaching
