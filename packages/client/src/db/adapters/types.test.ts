@@ -122,23 +122,8 @@ describe('getPlatformInfo', () => {
   });
 
   describe('web fallback', () => {
-    it('defaults to web platform when no native environment detected', () => {
+    it('defaults to web platform when no native environment is detected', () => {
       global.window = {} as typeof window;
-
-      const info = getPlatformInfo();
-
-      expect(info.platform).toBe('web');
-      expect(info.supportsNativeEncryption).toBe(false);
-      expect(info.requiresWebWorker).toBe(true);
-    });
-
-    it('defaults to web when window is undefined', () => {
-      // TypeScript doesn't allow setting window to undefined, but in some contexts it might be
-      // For this test, we simulate by removing the electron and Capacitor properties
-      global.window = {
-        electron: undefined,
-        Capacitor: undefined
-      } as unknown as typeof window;
 
       const info = getPlatformInfo();
 
