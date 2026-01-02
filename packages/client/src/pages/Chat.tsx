@@ -10,6 +10,7 @@ import { and, desc, eq, like } from 'drizzle-orm';
 import { Bot, ImageIcon, Loader2, MessageSquare, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ModelSelector } from '@/components/ModelSelector';
 import { Button } from '@/components/ui/button';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
@@ -49,12 +50,7 @@ function ChatHeader({ modelDisplayName }: ChatHeaderProps) {
   return (
     <div className="flex items-center justify-between border-b px-4 py-3">
       <h1 className="font-bold text-2xl tracking-tight">Chat</h1>
-      {modelDisplayName && (
-        <span className="flex items-center gap-2 rounded-full bg-green-500/10 px-3 py-1 font-medium text-green-500 text-sm">
-          <Bot className="h-4 w-4" />
-          {modelDisplayName}
-        </span>
-      )}
+      <ModelSelector modelDisplayName={modelDisplayName} />
     </div>
   );
 }
