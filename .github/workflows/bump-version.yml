@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   bump:
@@ -21,11 +22,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Check if last commit was a version bump
         id: check_skip
@@ -46,13 +42,20 @@ jobs:
         if: steps.check_skip.outputs.skip != 'true'
         run: ./scripts/bumpVersion.sh
 
-      - name: Commit and push version bump
+      - name: Create Pull Request
+        id: create-pr
         if: steps.check_skip.outputs.skip != 'true'
-        run: |
-          git add -A
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "chore: bump version [skip ci]"
-            git push
-          fi
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: bump version [skip ci]"
+          title: "chore: bump version"
+          body: "Automated version bump"
+          branch: chore/bump-version
+          delete-branch: true
+
+      - name: Enable auto-merge
+        if: steps.create-pr.outputs.pull-request-number
+        run: gh pr merge --auto --squash "${{ steps.create-pr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
