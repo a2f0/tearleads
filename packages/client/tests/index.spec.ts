@@ -203,20 +203,30 @@ test.describe('Dropzone', () => {
     await page.goto('/');
   });
 
-  test('should display the dropzone', async ({ page }) => {
+  test('should display inline unlock when database is locked', async ({ page }) => {
+    // When database is locked, dropzone should be hidden and inline unlock shown
+    await expect(page.getByTestId('dropzone')).not.toBeVisible();
+    await expect(page.getByTestId('inline-unlock')).toBeVisible();
+    await expect(
+      page.getByText('Database is locked. Enter your password to view files.')
+    ).toBeVisible();
+  });
+
+  test('should display the dropzone when database is unlocked', async ({ page }) => {
+    // First unlock the database
+    await navigateTo(page, 'SQLite');
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Go back to home
+    await page.getByRole('link', { name: 'Tearleads' }).click();
+
     const dropzone = page.getByTestId('dropzone');
     await expect(dropzone).toBeVisible();
     await expect(page.getByText('Drag and drop files here')).toBeVisible();
     await expect(page.getByText('or click to browse')).toBeVisible();
-  });
-
-  test('should be disabled when database is locked', async ({ page }) => {
-    const dropzone = page.getByTestId('dropzone');
-    // Dropzone should be disabled (has opacity-50 class) when database is locked
-    await expect(dropzone).toHaveClass(/opacity-50/);
-    await expect(
-      page.getByText('Unlock the database to upload files')
-    ).toBeVisible();
   });
 
   test('should open file picker when dropzone is clicked (unlocked)', async ({
@@ -247,6 +257,16 @@ test.describe('Dropzone', () => {
   });
 
   test('should accept files via file input', async ({ page }) => {
+    // First unlock the database (dropzone is hidden when locked)
+    await navigateTo(page, 'SQLite');
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Go back to home
+    await page.getByRole('link', { name: 'Tearleads' }).click();
+
     const fileInput = page.getByTestId('dropzone-input');
 
     // Create a test file and set it on the input
@@ -257,7 +277,6 @@ test.describe('Dropzone', () => {
     });
 
     // Verify the dropzone is still functional after file selection
-    // (without database unlocked, files won't be processed but UI stays stable)
     await expect(page.getByTestId('dropzone')).toBeVisible();
   });
 
@@ -493,8 +512,8 @@ test.describe('Debug page', () => {
     // Click the logo/title to go back home
     await page.getByRole('link', { name: 'Tearleads' }).click();
 
-    // Should be back on the home page with dropzone visible
-    await expect(page.getByTestId('dropzone')).toBeVisible();
+    // Should be back on the home page (shows inline unlock when database is locked)
+    await expect(page.getByTestId('inline-unlock')).toBeVisible();
   });
 });
 
@@ -514,14 +533,16 @@ test.describe('Tables page', () => {
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
   });
 
-  test('should show locked message when database is not unlocked', async ({
+  test('should show inline unlock when database is not unlocked', async ({
     page
   }) => {
     await navigateTo(page, 'Tables');
 
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
+    // Should show inline unlock component
+    await expect(page.getByTestId('inline-unlock')).toBeVisible();
     await expect(
-      page.getByText('Database is locked. Unlock it from the SQLite page')
+      page.getByText('Database is locked. Enter your password to view tables.')
     ).toBeVisible();
   });
 
@@ -853,14 +874,16 @@ test.describe('Audio page', () => {
     await expect(page.getByRole('heading', { name: 'Audio' })).toBeVisible();
   });
 
-  test('should show locked message when database is not unlocked', async ({
+  test('should show inline unlock when database is not unlocked', async ({
     page
   }) => {
     await navigateTo(page, 'Audio');
 
     await expect(page.getByRole('heading', { name: 'Audio' })).toBeVisible();
+    // Should show inline unlock component
+    await expect(page.getByTestId('inline-unlock')).toBeVisible();
     await expect(
-      page.getByText('Database is locked. Unlock it from the SQLite page to view audio.')
+      page.getByText('Database is locked. Enter your password to view audio.')
     ).toBeVisible();
   });
 
@@ -936,14 +959,16 @@ test.describe('Contacts page', () => {
     await expect(page.getByRole('heading', { name: 'Contacts' })).toBeVisible();
   });
 
-  test('should show locked message when database is not unlocked', async ({
+  test('should show inline unlock when database is not unlocked', async ({
     page
   }) => {
     await navigateTo(page, 'Contacts');
 
     await expect(page.getByRole('heading', { name: 'Contacts' })).toBeVisible();
+    // Should show inline unlock component
+    await expect(page.getByTestId('inline-unlock')).toBeVisible();
     await expect(
-      page.getByText('Database is locked. Unlock it from the SQLite page to view contacts.')
+      page.getByText('Database is locked. Enter your password to view contacts.')
     ).toBeVisible();
   });
 
@@ -1075,14 +1100,16 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
   });
 
-  test('should show locked message when database is not unlocked', async ({
+  test('should show inline unlock when database is not unlocked', async ({
     page
   }) => {
     await navigateTo(page, 'Analytics');
 
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
+    // Should show inline unlock component
+    await expect(page.getByTestId('inline-unlock')).toBeVisible();
     await expect(
-      page.getByText('Database is locked. Unlock it from the SQLite page to view analytics.')
+      page.getByText('Database is locked. Enter your password to view analytics.')
     ).toBeVisible();
   });
 

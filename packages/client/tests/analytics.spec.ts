@@ -56,17 +56,19 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
   });
 
-  test('should show locked message when database is not unlocked', async ({
+  test('should show inline unlock when database is not unlocked', async ({
     page
   }) => {
     await navigateTo(page, 'Analytics');
 
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
+    // Should show inline unlock component with password field
+    await expect(page.getByTestId('inline-unlock')).toBeVisible();
     await expect(
-      page.getByText(
-        'Database is locked. Unlock it from the SQLite page to view analytics.'
-      )
+      page.getByText('Database is locked. Enter your password to view analytics.')
     ).toBeVisible();
+    await expect(page.getByTestId('inline-unlock-password')).toBeVisible();
+    await expect(page.getByTestId('inline-unlock-button')).toBeVisible();
   });
 
   test('should display analytics UI when database is unlocked', async ({
