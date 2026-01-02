@@ -477,8 +477,8 @@ describe('Chat', () => {
 
       renderChat();
 
-      // Should still render without crashing
-      expect(screen.getByText('Chat')).toBeInTheDocument();
+      // Should render the parsed model name correctly
+      expect(screen.getByText('Model Name')).toBeInTheDocument();
     });
 
     it('handles model name without org prefix', () => {
@@ -521,7 +521,7 @@ describe('Chat', () => {
   });
 
   describe('ChatHeader component', () => {
-    it('renders border styling', () => {
+    it('renders the model name in the header', () => {
       vi.mocked(useLLM).mockReturnValue({
         loadedModel: 'org/model',
         modelType: 'chat',
@@ -537,7 +537,7 @@ describe('Chat', () => {
 
       renderChat();
 
-      expect(screen.getByText('Chat')).toBeInTheDocument();
+      expect(screen.getByText('Model')).toBeInTheDocument();
     });
   });
 
