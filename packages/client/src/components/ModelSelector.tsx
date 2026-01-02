@@ -77,7 +77,7 @@ export function ModelSelector({ modelDisplayName }: ModelSelectorProps) {
         )}
         {isLoading && loadProgress
           ? `Loading ${Math.round(loadProgress.progress * 100)}%`
-          : modelDisplayName ?? 'Select Model'}
+          : (modelDisplayName ?? 'Select Model')}
         <ChevronDown
           className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-180' : ''}`}
         />

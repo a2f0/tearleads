@@ -168,7 +168,10 @@ describe('ModelSelector', () => {
       const dropdownOptions = screen.getAllByText('Phi-3 Mini');
       // The second one is in the dropdown
       expect(dropdownOptions.length).toBeGreaterThan(1);
-      await user.click(dropdownOptions[1]!);
+      const dropdownOption = dropdownOptions[1];
+      if (dropdownOption) {
+        await user.click(dropdownOption);
+      }
 
       expect(mockLoadModel).not.toHaveBeenCalled();
     });
@@ -203,7 +206,9 @@ describe('ModelSelector', () => {
           btn.textContent?.includes('~2GB')
       );
       expect(phi3DropdownOption).toBeDefined();
-      expect(phi3DropdownOption!).toHaveClass('bg-green-500/5');
+      if (phi3DropdownOption) {
+        expect(phi3DropdownOption).toHaveClass('bg-green-500/5');
+      }
     });
   });
 
