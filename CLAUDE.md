@@ -38,4 +38,3 @@ Skip issue creation for:
 ## PR Guidelines
 
 - Do NOT add "Generated with Claude Code" footers to PR descriptions
-- Always reference issues with `Closes #<issue>` when applicable
