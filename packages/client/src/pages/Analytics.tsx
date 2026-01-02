@@ -5,12 +5,12 @@ import {
   BarChart3,
   CheckCircle,
   Clock,
-  Database,
   RefreshCw,
   Trash2,
   XCircle
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { getDatabase } from '@/db';
 import {
@@ -275,15 +275,7 @@ export function Analytics() {
         </div>
       )}
 
-      {!isLoading && !isUnlocked && (
-        <div className="rounded-lg border p-8 text-center">
-          <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <p className="mt-4 text-muted-foreground">
-            Database is locked. Unlock it from the SQLite page to view
-            analytics.
-          </p>
-        </div>
-      )}
+      {!isLoading && !isUnlocked && <InlineUnlock description="analytics" />}
 
       {error && (
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
