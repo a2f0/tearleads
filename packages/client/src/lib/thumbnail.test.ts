@@ -43,9 +43,11 @@ describe('thumbnail', () => {
 
   describe('DEFAULT_THUMBNAIL_OPTIONS', () => {
     it('has expected default values', () => {
-      expect(DEFAULT_THUMBNAIL_OPTIONS.maxWidth).toBe(200);
-      expect(DEFAULT_THUMBNAIL_OPTIONS.maxHeight).toBe(200);
-      expect(DEFAULT_THUMBNAIL_OPTIONS.quality).toBe(0.8);
+      expect(DEFAULT_THUMBNAIL_OPTIONS).toEqual({
+        maxWidth: 400,
+        maxHeight: 400,
+        quality: 0.92
+      });
     });
   });
 
@@ -247,12 +249,12 @@ describe('thumbnail', () => {
         }
       );
 
-      // 400x300 image with max 200x200 should scale to 200x150
+      // 400x300 image with max 400x400 stays at 400x300 (fits within bounds)
       const imageData = new Uint8Array([10, 20, 30]);
       await generateThumbnail(imageData, 'image/jpeg');
 
-      expect(mockCanvas.width).toBe(200);
-      expect(mockCanvas.height).toBe(150);
+      expect(mockCanvas.width).toBe(400);
+      expect(mockCanvas.height).toBe(300);
     });
   });
 });
