@@ -1,8 +1,18 @@
 import { ThemeProvider } from '@rapid/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Files } from './Files';
+
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate
+  };
+});
 
 // Mock the database context
 const mockUseDatabaseContext = vi.fn();
@@ -115,9 +125,11 @@ let objectUrlCounter = 0;
 
 function renderFiles() {
   return render(
-    <ThemeProvider>
-      <Files />
-    </ThemeProvider>
+    <MemoryRouter>
+      <ThemeProvider>
+        <Files />
+      </ThemeProvider>
+    </MemoryRouter>
   );
 }
 
@@ -383,12 +395,42 @@ describe('Files', () => {
   });
 
   describe('file actions', () => {
-    it('renders View button for non-deleted files', async () => {
+    it('renders View button only for image files', async () => {
       renderFiles();
 
       await waitFor(() => {
-        expect(screen.getAllByTitle('View').length).toBeGreaterThan(0);
+        // Only the image file (photo.jpg) should have View button
+        expect(screen.getAllByTitle('View').length).toBe(1);
       });
+    });
+
+    it('does not render View button for non-image files', async () => {
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
+      );
+      renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('document.pdf')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByTitle('View')).not.toBeInTheDocument();
+    });
+
+    it('navigates to photo detail when View button is clicked', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
+      );
+      renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('photo.jpg')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTitle('View'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/photos/file-1');
     });
 
     it('renders Download button for non-deleted files', async () => {
@@ -452,6 +494,22 @@ describe('Files', () => {
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('upload success badge', () => {
+    it('does not show success badge initially', async () => {
+      // Success badge should not be present initially for existing files
+      renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('photo.jpg')).toBeInTheDocument();
+      });
+
+      // Initially, no success badge should be present
+      expect(
+        screen.queryByTestId('upload-success-badge')
+      ).not.toBeInTheDocument();
     });
   });
 });
