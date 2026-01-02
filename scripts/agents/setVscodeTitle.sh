@@ -36,6 +36,9 @@ if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
     usage
 fi
 
+# Get project directory name (e.g., rapid, rapid2, rapid-main)
+PROJECT_NAME=$(basename "$REPO_ROOT")
+
 # Determine title
 if [ "$#" -eq 0 ]; then
     # Auto-detect based on branch/PR
@@ -43,18 +46,23 @@ if [ "$#" -eq 0 ]; then
     BRANCH=$(git branch --show-current)
 
     if [ "$BRANCH" = "main" ]; then
-        TITLE="ready"
+        TITLE="$PROJECT_NAME - ready"
     else
         # Check if a PR exists for this branch
         PR_NUM=$(gh pr view --json number -q .number 2>/dev/null || true)
         if [ -n "$PR_NUM" ]; then
-            TITLE="#$PR_NUM - $BRANCH"
+            TITLE="$PROJECT_NAME - #$PR_NUM - $BRANCH"
         else
-            TITLE="$BRANCH"
+            TITLE="$PROJECT_NAME - $BRANCH"
         fi
     fi
 else
-    TITLE="$1"
+    # For manual titles, still prefix with project name unless already prefixed
+    if printf '%s' "$1" | grep -q "^$PROJECT_NAME"; then
+        TITLE="$1"
+    else
+        TITLE="$PROJECT_NAME - $1"
+    fi
 fi
 
 # Set the VS Code title
