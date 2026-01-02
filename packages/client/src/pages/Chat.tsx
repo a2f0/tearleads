@@ -446,7 +446,7 @@ function NoModelLoadedContent() {
 
 /**
  * Derives a display name from an ONNX model ID.
- * Example: onnx-community/Phi-3-mini-4k-instruct -> Phi-3 Mini
+ * Example: onnx-community/Phi-3.5-mini-instruct-onnx-web -> Phi-3 Mini
  */
 function getModelDisplayName(modelId: string): string {
   // Extract the model name part after the org/
