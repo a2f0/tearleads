@@ -165,7 +165,8 @@ sync_vscode_title() {
     if [ -n "$vscode_title" ]; then
         # Truncate to max_length chars, add ellipsis if truncated
         if [ ${#vscode_title} -gt $max_length ]; then
-            vscode_title="$(printf '%.22s' "$vscode_title")..."
+            truncate_len=$((max_length - 3))
+            vscode_title="$(printf '%.*s' "$truncate_len" "$vscode_title")..."
         fi
         tmux rename-window -t "$SESSION_NAME:$window_name" "$vscode_title" 2>/dev/null || true
     fi
