@@ -1,0 +1,428 @@
+/**
+ * WASM-based SQLite adapter for Node.js/Vitest integration tests.
+ *
+ * This adapter uses the same SQLite WASM module (with SQLite3MultipleCiphers
+ * encryption) as the web app, avoiding the need for native module compilation.
+ * It runs SQLite WASM directly in Node.js without Web Workers.
+ */
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
+import { convertRowsToArrays } from './utils';
+
+// Store original fetch to restore later
+const originalFetch = globalThis.fetch;
+
+/**
+ * Polyfill fetch for file:// URLs in Node.js.
+ * The SQLite WASM module uses fetch to load the .wasm file, which doesn't work
+ * with file:// URLs in Node.js. This polyfill handles that case.
+ */
+function patchFetchForFileUrls(): void {
+  (globalThis as unknown as { fetch: typeof fetch }).fetch = async (
+    input: RequestInfo | URL,
+    init?: RequestInit
+  ): Promise<Response> => {
+    const url = typeof input === 'string' ? input : input.toString();
+
+    // Handle file:// URLs by reading from filesystem
+    if (url.startsWith('file://')) {
+      const filePath = fileURLToPath(url);
+      const buffer = fs.readFileSync(filePath);
+      return new Response(buffer, {
+        status: 200,
+        statusText: 'OK',
+        headers: { 'Content-Type': 'application/wasm' }
+      });
+    }
+
+    // Fall back to original fetch for other URLs
+    return originalFetch(input, init);
+  };
+}
+
+/**
+ * Restore the original fetch function.
+ */
+function restoreFetch(): void {
+  globalThis.fetch = originalFetch;
+}
+
+/**
+ * SQLite WASM Database instance type.
+ */
+interface SQLiteDatabase {
+  exec(options: {
+    sql: string;
+    bind?: unknown[];
+    rowMode?: 'object' | 'array';
+    callback?: (row: Record<string, unknown>) => boolean | undefined;
+    returnValue?: 'resultRows';
+  }): unknown[][];
+  exec(sql: string): void;
+  changes(): number;
+  close(): void;
+  pointer: number;
+}
+
+/**
+ * SQLite WASM OO1 API (Object-Oriented API Level 1).
+ */
+interface SQLiteOO1 {
+  DB: new (options: {
+    filename: string;
+    flags: string;
+    hexkey?: string;
+  }) => SQLiteDatabase;
+}
+
+/**
+ * SQLite WASM C API bindings.
+ */
+interface SQLiteCAPI {
+  sqlite3_libversion(): string;
+  sqlite3_js_db_export(db: SQLiteDatabase): Uint8Array;
+}
+
+/**
+ * SQLite WASM module instance.
+ */
+interface SQLite3Module {
+  oo1: SQLiteOO1;
+  capi: SQLiteCAPI;
+}
+
+/**
+ * SQLite WASM initialization function type.
+ */
+type SQLite3InitModule = (options: {
+  print: typeof console.log;
+  printErr: typeof console.error;
+  locateFile?: (path: string) => string;
+  wasmBinary?: ArrayBuffer;
+}) => Promise<SQLite3Module>;
+
+// Module-level state
+let sqlite3: SQLite3Module | null = null;
+let sqlite3InitModule: SQLite3InitModule | null = null;
+
+/**
+ * Get the path to the WASM files directory.
+ */
+function getWasmDir(): string {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  return path.resolve(__dirname, '../../workers/sqlite-wasm');
+}
+
+/**
+ * Initialize the SQLite WASM module for Node.js.
+ * This only needs to run once per process.
+ */
+async function initializeSqliteWasm(): Promise<SQLite3Module> {
+  if (sqlite3) {
+    return sqlite3;
+  }
+
+  const wasmDir = getWasmDir();
+  const modulePath = path.join(wasmDir, 'sqlite3.mjs');
+  const wasmPath = path.join(wasmDir, 'sqlite3.wasm');
+
+  // Verify the files exist
+  if (!fs.existsSync(modulePath)) {
+    throw new Error(
+      `SQLite WASM module not found at ${modulePath}. ` +
+        'Run ./scripts/downloadSqliteWasm.sh to download it.'
+    );
+  }
+  if (!fs.existsSync(wasmPath)) {
+    throw new Error(
+      `SQLite WASM binary not found at ${wasmPath}. ` +
+        'Run ./scripts/downloadSqliteWasm.sh to download it.'
+    );
+  }
+
+  // Patch fetch to handle file:// URLs before importing the module
+  // The sqlite3.mjs module uses fetch internally to load the .wasm file
+  patchFetchForFileUrls();
+
+  try {
+    // Set up globalThis.sqlite3InitModuleState BEFORE importing the module
+    // The module reads this during import to configure instantiateWasm
+    (globalThis as unknown as Record<string, unknown>)[
+      'sqlite3InitModuleState'
+    ] = {
+      wasmFilename: 'sqlite3.wasm',
+      debugModule: () => {}
+    };
+
+    // Import the WASM module
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const module = await import(/* @vite-ignore */ modulePath);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+    sqlite3InitModule = module.default;
+
+    if (!sqlite3InitModule) {
+      throw new Error('Failed to load sqlite3InitModule from module');
+    }
+
+    // Initialize with Node.js-compatible settings
+    sqlite3 = await sqlite3InitModule({
+      print: console.log,
+      printErr: console.error
+    });
+
+    if (!sqlite3 || !sqlite3.oo1 || !sqlite3.capi) {
+      throw new Error('SQLite module loaded but missing expected properties');
+    }
+
+    return sqlite3;
+  } finally {
+    // Restore original fetch
+    restoreFetch();
+  }
+}
+
+/**
+ * Convert a Uint8Array encryption key to a hex string for SQLite.
+ */
+function keyToHex(key: Uint8Array): string {
+  return Array.from(key)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+export interface WasmNodeAdapterOptions {
+  /**
+   * Skip encryption (for testing without encryption overhead). Default: false.
+   */
+  skipEncryption?: boolean;
+}
+
+export class WasmNodeAdapter implements DatabaseAdapter {
+  private db: SQLiteDatabase | null = null;
+  private encryptionKey: string | null = null;
+  private options: WasmNodeAdapterOptions;
+
+  constructor(options: WasmNodeAdapterOptions = {}) {
+    this.options = {
+      skipEncryption: false,
+      ...options
+    };
+  }
+
+  async initialize(config: DatabaseConfig): Promise<void> {
+    if (this.db) {
+      throw new Error('Database already initialized');
+    }
+
+    // Initialize the WASM module
+    const sqlite = await initializeSqliteWasm();
+
+    // Convert key to hex format for SQLite encryption
+    if (!this.options.skipEncryption) {
+      this.encryptionKey = keyToHex(config.encryptionKey);
+    }
+
+    // Use unique filename for each adapter instance
+    // SQLite3MultipleCiphers requires a file (not :memory:) for encryption
+    // Using a unique name per instance ensures test isolation
+    const filename = `${config.name}-${Date.now()}-${Math.random().toString(36).slice(2)}.sqlite3`;
+
+    try {
+      // Create/open encrypted database
+      this.db = new sqlite.oo1.DB({
+        filename,
+        flags: 'c', // Create if not exists
+        ...(this.encryptionKey ? { hexkey: this.encryptionKey } : {})
+      });
+
+      // Verify encryption is working
+      this.db.exec('SELECT 1;');
+
+      // Enable foreign keys
+      this.db.exec('PRAGMA foreign_keys = ON;');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to open encrypted database: ${message}`);
+    }
+  }
+
+  async close(): Promise<void> {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+      this.encryptionKey = null;
+    }
+  }
+
+  isOpen(): boolean {
+    return this.db !== null;
+  }
+
+  async execute(sql: string, params?: unknown[]): Promise<QueryResult> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    const isSelect =
+      sql.trim().toUpperCase().startsWith('SELECT') ||
+      sql.trim().toUpperCase().startsWith('PRAGMA');
+
+    if (isSelect) {
+      // Execute and collect results
+      const rows: Record<string, unknown>[] = [];
+
+      this.db.exec({
+        sql,
+        ...(params ? { bind: params } : {}),
+        rowMode: 'object',
+        callback: (row: Record<string, unknown>) => {
+          rows.push(row);
+          return undefined; // Continue iterating
+        }
+      });
+
+      return { rows };
+    }
+
+    // Non-SELECT: execute without returning rows
+    this.db.exec({
+      sql,
+      ...(params ? { bind: params } : {})
+    });
+
+    return {
+      rows: [],
+      changes: this.db.changes()
+    };
+  }
+
+  async executeMany(statements: string[]): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    // Execute statements in a transaction for atomicity
+    this.db.exec('BEGIN TRANSACTION;');
+    try {
+      for (const sql of statements) {
+        this.db.exec(sql);
+      }
+      this.db.exec('COMMIT;');
+    } catch (error) {
+      this.db.exec('ROLLBACK;');
+      throw error;
+    }
+  }
+
+  async beginTransaction(): Promise<void> {
+    await this.execute('BEGIN TRANSACTION');
+  }
+
+  async commitTransaction(): Promise<void> {
+    await this.execute('COMMIT');
+  }
+
+  async rollbackTransaction(): Promise<void> {
+    await this.execute('ROLLBACK');
+  }
+
+  async rekeyDatabase(newKey: Uint8Array, _oldKey?: Uint8Array): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    if (this.options.skipEncryption) {
+      // Can't rekey an unencrypted database
+      return;
+    }
+
+    const newHexKey = keyToHex(newKey);
+
+    // Checkpoint WAL data before rekey
+    this.db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
+
+    // Use PRAGMA hexrekey for hex-encoded keys
+    this.db.exec(`PRAGMA hexrekey = '${newHexKey}';`);
+
+    this.encryptionKey = newHexKey;
+  }
+
+  getConnection(): unknown {
+    // For Drizzle sqlite-proxy, return a function that always returns { rows: any[] }
+    // IMPORTANT: Drizzle sqlite-proxy expects rows as ARRAYS of values, not objects.
+    return async (
+      sql: string,
+      params: unknown[],
+      _method: 'all' | 'get' | 'run' | 'values'
+    ): Promise<{ rows: unknown[] }> => {
+      const result = await this.execute(sql, params);
+
+      // Drizzle sqlite-proxy expects { rows: any[] } for ALL methods
+      // The rows must be ARRAYS of values in SELECT column order, not objects.
+      const arrayRows = convertRowsToArrays(sql, result.rows);
+      return { rows: arrayRows };
+    };
+  }
+
+  async deleteDatabase(_name: string): Promise<void> {
+    // For in-memory databases, just close
+    await this.close();
+  }
+
+  async exportDatabase(): Promise<Uint8Array> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    const sqlite = await initializeSqliteWasm();
+    return sqlite.capi.sqlite3_js_db_export(this.db);
+  }
+
+  async importDatabase(
+    data: Uint8Array,
+    encryptionKey?: Uint8Array
+  ): Promise<void> {
+    // Close current database
+    await this.close();
+
+    const sqlite = await initializeSqliteWasm();
+
+    // Set encryption key if provided
+    if (!this.options.skipEncryption && encryptionKey) {
+      this.encryptionKey = keyToHex(encryptionKey);
+    }
+
+    // For WASM, we need to write the data to the virtual file system first
+    // then open it with the encryption key
+    const tempFilename = `import-${Date.now()}.sqlite3`;
+
+    // Write the imported data using Emscripten's FS if available
+    const wasmModule = sqlite as unknown as {
+      FS?: { writeFile: (path: string, data: Uint8Array) => void };
+    };
+    if (wasmModule.FS) {
+      wasmModule.FS.writeFile(tempFilename, data);
+    }
+
+    try {
+      // Open the imported database
+      this.db = new sqlite.oo1.DB({
+        filename: tempFilename,
+        flags: 'c',
+        ...(this.encryptionKey ? { hexkey: this.encryptionKey } : {})
+      });
+
+      // Verify it works
+      this.db.exec('SELECT 1;');
+      this.db.exec('PRAGMA foreign_keys = ON;');
+    } catch (error) {
+      this.db = null;
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to open imported database: ${message}`);
+    }
+  }
+}
