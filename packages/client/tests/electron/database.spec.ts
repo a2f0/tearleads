@@ -1,16 +1,10 @@
 import {
   test,
   expect,
-  _electron as electron,
   ElectronApplication,
   Page
 } from '@playwright/test';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const mainPath = join(__dirname, '../../out/main/main.js');
-const isCI = !!process.env['CI'];
+import {launchElectronApp} from './electron-test-helper';
 
 const TEST_PASSWORD = 'testpassword123';
 const NEW_PASSWORD = 'newpassword456';
@@ -22,9 +16,7 @@ test.describe('Database (Electron)', () => {
   let window: Page;
 
   test.beforeEach(async () => {
-    electronApp = await electron.launch({
-      args: isCI ? [mainPath, '--no-sandbox', '--disable-gpu'] : [mainPath]
-    });
+    electronApp = await launchElectronApp();
     window = await electronApp.firstWindow();
 
     // Wait for app to load
@@ -234,9 +226,7 @@ test.describe('Database (Electron)', () => {
     await electronApp.close();
 
     // Relaunch the app
-    electronApp = await electron.launch({
-      args: isCI ? [mainPath, '--no-sandbox', '--disable-gpu'] : [mainPath]
-    });
+    electronApp = await launchElectronApp();
     window = await electronApp.firstWindow();
 
     // Navigate to SQLite page via sidebar
@@ -375,9 +365,7 @@ test.describe('Database (Electron)', () => {
     await electronApp.close();
 
     // Relaunch the app
-    electronApp = await electron.launch({
-      args: isCI ? [mainPath, '--no-sandbox', '--disable-gpu'] : [mainPath]
-    });
+    electronApp = await launchElectronApp();
     window = await electronApp.firstWindow();
 
     // Navigate to SQLite page via sidebar
