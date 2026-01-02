@@ -146,38 +146,68 @@ update_all_workspaces() {
     wait  # Wait for all background updates to complete
 }
 
-# Sync VS Code window title to tmux window name
-# If .vscode/settings.json has a window.title, use it for tmux
-# Truncates long titles to keep tmux tab bar readable
-sync_vscode_title() {
+# Get title for a workspace based on git state
+# Priority: main branch -> "ready", else VS Code title -> branch name -> fallback
+get_workspace_title() {
     workspace="$1"
-    window_name="$2"
-    settings_file="$workspace/.vscode/settings.json"
+    fallback_name="$2"
     max_length=25
 
-    # Skip if no settings file or jq not available
-    [ -f "$settings_file" ] && command -v jq >/dev/null 2>&1 || return 0
+    # Check git branch if it's a git repo
+    if [ -d "$workspace/.git" ]; then
+        branch=$(git -C "$workspace" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 
-    # Read the window.title from VS Code settings
-    vscode_title=$(jq -r '.["window.title"] // empty' "$settings_file" 2>/dev/null)
-
-    # If a title is set, truncate and rename the tmux window
-    if [ -n "$vscode_title" ]; then
-        # Truncate to max_length chars, add ellipsis if truncated
-        if [ ${#vscode_title} -gt $max_length ]; then
-            truncate_len=$((max_length - 3))
-            vscode_title="$(printf '%.*s' "$truncate_len" "$vscode_title")..."
+        # On main = ready (ignore any stale VS Code title)
+        if [ "$branch" = "main" ]; then
+            echo "ready"
+            return 0
         fi
-        tmux rename-window -t "$SESSION_NAME:$window_name" "$vscode_title" 2>/dev/null || true
+
+        # Not on main - try VS Code title first
+        settings_file="$workspace/.vscode/settings.json"
+        if [ -f "$settings_file" ] && command -v jq >/dev/null 2>&1; then
+            vscode_title=$(jq -r '.["window.title"] // empty' "$settings_file" 2>/dev/null)
+            if [ -n "$vscode_title" ]; then
+                # Truncate if needed
+                if [ ${#vscode_title} -gt $max_length ]; then
+                    truncate_len=$((max_length - 3))
+                    vscode_title="$(printf '%.*s' "$truncate_len" "$vscode_title")..."
+                fi
+                echo "$vscode_title"
+                return 0
+            fi
+        fi
+
+        # Fall back to branch name
+        if [ -n "$branch" ]; then
+            if [ ${#branch} -gt $max_length ]; then
+                truncate_len=$((max_length - 3))
+                branch="$(printf '%.*s' "$truncate_len" "$branch")..."
+            fi
+            echo "$branch"
+            return 0
+        fi
     fi
+
+    # Not a git repo or couldn't determine - use fallback
+    echo "$fallback_name"
 }
 
-# Sync all workspace titles from VS Code to tmux
+# Sync workspace title to tmux window
+sync_workspace_title() {
+    workspace="$1"
+    window_name="$2"
+    title=$(get_workspace_title "$workspace" "$window_name")
+    tmux rename-window -t "$SESSION_NAME:$window_name" "$title" 2>/dev/null || true
+}
+
+# Sync all workspace titles to tmux
 sync_all_titles() {
-    sync_vscode_title "$BASE_DIR/rapid-main" "rapid-main"
+    sync_workspace_title "$SHARED_DIR" "rapid-shared"
+    sync_workspace_title "$BASE_DIR/rapid-main" "rapid-main"
     i=2
     while [ "$i" -le "$NUM_WORKSPACES" ]; do
-        sync_vscode_title "$BASE_DIR/rapid${i}" "rapid${i}"
+        sync_workspace_title "$BASE_DIR/rapid${i}" "rapid${i}"
         i=$((i + 1))
     done
 }
