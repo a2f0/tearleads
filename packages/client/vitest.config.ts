@@ -33,10 +33,10 @@ export default defineConfig({
         'src/lib/llm-runtime.ts'
       ],
       thresholds: {
-        statements: 60,
-        branches: 61,
-        functions: 65,
-        lines: 61
+        statements: 61,
+        branches: 62,
+        functions: 66,
+        lines: 62
       }
     }
   },
