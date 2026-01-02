@@ -109,16 +109,16 @@ describe('Tables', () => {
 
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
-        screen.getByText(/Database is locked. Enter your password to view tables./i)
+        screen.getByText(
+          /Database is locked. Enter your password to view tables./i
+        )
       ).toBeInTheDocument();
     });
 
     it('shows password input for unlocking', () => {
       renderTables();
 
-      expect(
-        screen.getByTestId('inline-unlock-password')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('inline-unlock-password')).toBeInTheDocument();
     });
 
     it('shows unlock button', () => {

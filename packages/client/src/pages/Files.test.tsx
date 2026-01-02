@@ -183,7 +183,9 @@ describe('Files', () => {
       renderFiles();
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
-        screen.getByText(/Database is locked. Enter your password to view files./i)
+        screen.getByText(
+          /Database is locked. Enter your password to view files./i
+        )
       ).toBeInTheDocument();
     });
 
@@ -194,9 +196,7 @@ describe('Files', () => {
 
     it('shows password input for unlocking', () => {
       renderFiles();
-      expect(
-        screen.getByTestId('inline-unlock-password')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('inline-unlock-password')).toBeInTheDocument();
     });
 
     it('shows unlock button', () => {

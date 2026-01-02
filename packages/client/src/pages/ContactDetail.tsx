@@ -408,9 +408,7 @@ export function ContactDetail() {
         </div>
       )}
 
-      {!isLoading && !isUnlocked && (
-        <InlineUnlock description="this contact" />
-      )}
+      {!isLoading && !isUnlocked && <InlineUnlock description="this contact" />}
 
       {error && (
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive text-sm">

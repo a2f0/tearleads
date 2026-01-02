@@ -583,7 +583,9 @@ describe('ContactDetail', () => {
 
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
-        screen.getByText(/Database is locked. Enter your password to view this contact./i)
+        screen.getByText(
+          /Database is locked. Enter your password to view this contact./i
+        )
       ).toBeInTheDocument();
     });
 
