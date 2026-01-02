@@ -125,10 +125,12 @@ update_from_main() {
     #     return 0
     # fi
 
-    # Fetch and pull from main
+    # Fetch and fast-forward pull from main (no merge commits)
     echo "Updating $(basename "$workspace") from main..."
     git -C "$workspace" fetch origin main --quiet 2>/dev/null || true
-    git -C "$workspace" pull origin main --quiet 2>/dev/null || true
+    if ! git -C "$workspace" pull --ff-only origin main --quiet 2>/dev/null; then
+        echo "Warning: Failed to fast-forward $(basename "$workspace"). May have diverged." >&2
+    fi
 }
 
 # Update all workspaces that are on main with no uncommitted changes (parallel)
@@ -178,7 +180,11 @@ export TUXEDO_TMUX_CONF="$TMUX_CONF"
 # Scripts directories to add to PATH
 SCRIPTS_PATH="$SCRIPT_DIR:$SCRIPT_DIR/agents"
 
-# Enforce symlinks for all workspaces before starting
+# Update workspaces that are on main with no uncommitted changes FIRST
+# This ensures .gitignore changes are pulled before symlinks are created
+update_all_workspaces
+
+# Enforce symlinks for all workspaces after updating from main
 if [ -d "$SHARED_DIR" ]; then
     ensure_symlinks "$BASE_DIR/rapid-main"
     i=2
@@ -187,9 +193,6 @@ if [ -d "$SHARED_DIR" ]; then
         i=$((i + 1))
     done
 fi
-
-# Update workspaces that are on main with no uncommitted changes
-update_all_workspaces
 
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     # Sync VS Code titles before attaching
