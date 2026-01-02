@@ -10,7 +10,7 @@ import {
   Trash2,
   XCircle
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { getDatabase } from '@/db';
 import {
@@ -19,50 +19,17 @@ import {
   type EventStats,
   getDistinctEventTypes,
   getEventStats,
-  getEvents
+  getEvents,
+  type SortColumn,
+  type SortDirection
 } from '@/db/analytics';
 import { useDatabaseContext } from '@/db/hooks';
 
 type TimeFilter = 'hour' | 'day' | 'week' | 'all';
 
-export type SortColumn = 'eventName' | 'durationMs' | 'success' | 'timestamp';
-export type SortDirection = 'asc' | 'desc';
-
 export interface SortState {
   column: SortColumn | null;
   direction: SortDirection | null;
-}
-
-/**
- * Sort analytics events by the specified column and direction.
- * Exported for testing.
- */
-export function sortEvents(
-  events: AnalyticsEvent[],
-  sort: SortState
-): AnalyticsEvent[] {
-  if (!sort.column || !sort.direction) {
-    return events;
-  }
-
-  const { column, direction } = sort;
-  const multiplier = direction === 'asc' ? 1 : -1;
-
-  return [...events].sort((a, b) => {
-    switch (column) {
-      case 'eventName':
-        return multiplier * a.eventName.localeCompare(b.eventName);
-      case 'durationMs':
-        return multiplier * (a.durationMs - b.durationMs);
-      case 'success':
-        // false (failed) comes before true (success) in ascending order
-        return multiplier * (Number(a.success) - Number(b.success));
-      case 'timestamp':
-        return multiplier * (a.timestamp.getTime() - b.timestamp.getTime());
-      default:
-        return 0;
-    }
-  });
 }
 
 const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
@@ -141,7 +108,12 @@ export function Analytics() {
       const startTime = getTimeRange(timeFilter);
 
       const [eventsData, statsData, typesData] = await Promise.all([
-        getEvents(db, { startTime, limit: 100 }),
+        getEvents(db, {
+          startTime,
+          limit: 100,
+          sortColumn: sort.column ?? undefined,
+          sortDirection: sort.direction ?? undefined
+        }),
         getEventStats(db, { startTime }),
         getDistinctEventTypes(db)
       ]);
@@ -175,7 +147,7 @@ export function Analytics() {
       setLoading(false);
       fetchingRef.current = false;
     }
-  }, [isUnlocked, timeFilter]);
+  }, [isUnlocked, timeFilter, sort]);
 
   const handleClear = useCallback(async () => {
     if (!isUnlocked) return;
@@ -204,8 +176,6 @@ export function Analytics() {
       return { column: null, direction: null };
     });
   }, []);
-
-  const sortedEvents = useMemo(() => sortEvents(events, sort), [events, sort]);
 
   const toggleEventType = useCallback((eventType: string) => {
     setSelectedEventTypes((prev) => {
@@ -490,7 +460,7 @@ export function Analytics() {
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedEvents.map((event) => (
+                    {events.map((event) => (
                       <tr key={event.id} className="border-b last:border-0">
                         <td className="px-4 py-3 font-medium">
                           {formatEventName(event.eventName)}
