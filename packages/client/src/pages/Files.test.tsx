@@ -587,9 +587,12 @@ describe('Files', () => {
       });
 
       // Click delete on the first file
-      const deleteButton = screen.getAllByTitle('Delete')[0];
-      expect(deleteButton).toBeDefined();
-      await user.click(deleteButton as HTMLElement);
+      const deleteButtons = screen.getAllByTitle('Delete');
+      expect(deleteButtons.length).toBeGreaterThan(0);
+      const firstDeleteButton = deleteButtons[0];
+      if (firstDeleteButton) {
+        await user.click(firstDeleteButton);
+      }
 
       await waitFor(() => {
         expect(mockUpdate).toHaveBeenCalled();
@@ -610,9 +613,12 @@ describe('Files', () => {
         expect(screen.getByText('photo.jpg')).toBeInTheDocument();
       });
 
-      const deleteButton = screen.getAllByTitle('Delete')[0];
-      expect(deleteButton).toBeDefined();
-      await user.click(deleteButton as HTMLElement);
+      const deleteButtons = screen.getAllByTitle('Delete');
+      expect(deleteButtons.length).toBeGreaterThan(0);
+      const firstDeleteButton = deleteButtons[0];
+      if (firstDeleteButton) {
+        await user.click(firstDeleteButton);
+      }
 
       await waitFor(() => {
         expect(screen.getByText('Delete failed')).toBeInTheDocument();
