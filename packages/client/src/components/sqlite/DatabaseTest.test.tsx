@@ -296,10 +296,23 @@ describe('DatabaseTest', () => {
   });
 
   describe('status color', () => {
-    it('uses correct color classes for different statuses', async () => {
+    it.each([
+      {
+        status: 'success',
+        mock: () => vi.fn().mockResolvedValue(undefined),
+        expectedClass: 'text-green-600'
+      },
+      {
+        status: 'error',
+        mock: () => vi.fn().mockRejectedValue(new Error('Setup failed')),
+        expectedClass: 'text-red-600'
+      }
+    ])('uses correct color class for $status status', async ({
+      mock,
+      expectedClass
+    }) => {
       const user = userEvent.setup();
-      const setup = vi.fn().mockResolvedValue(undefined);
-      setupMockContext({ setup, isSetUp: false, isUnlocked: false });
+      setupMockContext({ setup: mock(), isSetUp: false, isUnlocked: false });
 
       render(<DatabaseTest />);
 
@@ -308,7 +321,7 @@ describe('DatabaseTest', () => {
 
       await waitFor(() => {
         const result = screen.getByTestId('db-test-result');
-        expect(result).toHaveClass('text-green-600');
+        expect(result).toHaveClass(expectedClass);
       });
     });
   });
