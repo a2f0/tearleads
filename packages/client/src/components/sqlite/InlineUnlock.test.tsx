@@ -49,9 +49,7 @@ describe('InlineUnlock', () => {
     it('shows not set up message', () => {
       render(<InlineUnlock />);
 
-      expect(
-        screen.getByText(/Database is not set up/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Database is not set up/i)).toBeInTheDocument();
       expect(
         screen.getByText(/Go to the SQLite page to set up your database/i)
       ).toBeInTheDocument();
@@ -71,7 +69,9 @@ describe('InlineUnlock', () => {
       render(<InlineUnlock />);
 
       expect(
-        screen.getByText(/Database is locked. Enter your password to view content./i)
+        screen.getByText(
+          /Database is locked. Enter your password to view content./i
+        )
       ).toBeInTheDocument();
     });
 
@@ -79,7 +79,9 @@ describe('InlineUnlock', () => {
       render(<InlineUnlock description="files" />);
 
       expect(
-        screen.getByText(/Database is locked. Enter your password to view files./i)
+        screen.getByText(
+          /Database is locked. Enter your password to view files./i
+        )
       ).toBeInTheDocument();
     });
 
