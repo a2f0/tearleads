@@ -97,7 +97,7 @@ screen_cmd() {
     if [ "$USE_SCREEN" = true ]; then
         # -d -RR: detach from elsewhere if attached, reattach or create new
         # -c /dev/null: don't read .screenrc (use defaults)
-        # -T screen-256color: enable 256 color support for proper terminal colors
+        # -T screen-256color: set terminal type (true color via COLORTERM env var)
         echo "screen -T screen-256color -d -RR $screen_name -c /dev/null"
     else
         # Fallback: just run the shell
@@ -185,6 +185,9 @@ sync_all_titles() {
 # Export for tmux config reload binding
 export TUXEDO_TMUX_CONF="$TMUX_CONF"
 
+# Enable true color for apps like Claude Code running inside screen
+export COLORTERM=truecolor
+
 # Scripts directories to add to PATH
 SCRIPTS_PATH="$SCRIPT_DIR:$SCRIPT_DIR/agents"
 
@@ -228,8 +231,9 @@ else
 fi
 tmux split-window -h -t "$SESSION_NAME:rapid-main" -c "$BASE_DIR/rapid-main" "$EDITOR"
 
-# Add scripts directories to PATH for all windows in this session
+# Add scripts directories to PATH and enable true color for all windows
 tmux set-environment -t "$SESSION_NAME" PATH "$SCRIPTS_PATH:$PATH"
+tmux set-environment -t "$SESSION_NAME" COLORTERM truecolor
 
 i=2
 while [ "$i" -le "$NUM_WORKSPACES" ]; do
