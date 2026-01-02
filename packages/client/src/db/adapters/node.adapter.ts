@@ -1,14 +1,44 @@
 /**
  * Node.js adapter for SQLite using better-sqlite3-multiple-ciphers.
  * Used for Vitest integration tests to provide real database I/O.
+ *
+ * This adapter uses a separate Node.js-compiled native module stored in
+ * packages/client/native/node/ to avoid conflicts with the Electron-compiled
+ * module in node_modules. Run scripts/rebuildSqliteForNode.sh to build it.
  */
 
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3-multiple-ciphers';
 import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
 import { convertRowsToArrays } from './utils';
+
+/**
+ * Get the path to the Node.js-compiled native binding.
+ * Falls back to the default module location if the custom path doesn't exist.
+ */
+function getNativeBindingPath(): string | undefined {
+  // Get the directory of this file
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+
+  // Navigate to packages/client/native/node/better_sqlite3.node
+  const nativeNodePath = path.resolve(
+    __dirname,
+    '../../..',
+    'native/node/better_sqlite3.node'
+  );
+
+  // Use the custom path if it exists, otherwise let better-sqlite3 use its default
+  if (fs.existsSync(nativeNodePath)) {
+    return nativeNodePath;
+  }
+
+  // Return undefined to use default (will fail if Electron binary is loaded)
+  return undefined;
+}
 
 export interface NodeAdapterOptions {
   /**
@@ -57,7 +87,9 @@ export class NodeAdapter implements DatabaseAdapter {
 
     this.dbPath = filename;
 
-    this.db = new Database(filename);
+    // Use the Node.js-compiled native binding if available
+    const nativeBinding = getNativeBindingPath();
+    this.db = new Database(filename, { nativeBinding });
 
     if (!this.options.skipEncryption) {
       // Set up encryption using SQLite3MultipleCiphers (same as Electron)
@@ -210,7 +242,9 @@ export class NodeAdapter implements DatabaseAdapter {
     await this.close();
 
     // Create new database from the serialized data
-    this.db = new Database(Buffer.from(data));
+    // Use the Node.js-compiled native binding if available
+    const nativeBinding = getNativeBindingPath();
+    this.db = new Database(Buffer.from(data), { nativeBinding });
 
     if (!this.options.skipEncryption && encryptionKey) {
       const keyHex = Buffer.from(encryptionKey).toString('hex');
