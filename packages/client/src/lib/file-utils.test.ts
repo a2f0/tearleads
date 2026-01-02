@@ -524,7 +524,7 @@ describe('file-utils', () => {
       });
     });
 
-    it('converts data to base64 in chunks for mobile platforms', async () => {
+    it('correctly converts data to base64 for mobile platforms', async () => {
       const { Capacitor } = await import('@capacitor/core');
       vi.mocked(Capacitor.getPlatform).mockReturnValue('ios');
 
@@ -561,17 +561,19 @@ describe('file-utils', () => {
       );
       await saveFileMobile(data, 'test.db');
 
-      // Verify the base64 encoding is correct
+      // Verify the base64 encoding is correct and mocks were called
       expect(capturedBase64).toBe(btoa(testString));
+      expect(mockWriteFile).toHaveBeenCalled();
+      expect(mockShare).toHaveBeenCalled();
     });
 
     it('handles large data with chunked base64 encoding on mobile', async () => {
       const { Capacitor } = await import('@capacitor/core');
       vi.mocked(Capacitor.getPlatform).mockReturnValue('android');
 
-      let capturedBase64Length = 0;
+      let capturedBase64: string | undefined;
       const mockWriteFile = vi.fn().mockImplementation(({ data }) => {
-        capturedBase64Length = data.length;
+        capturedBase64 = data;
         return Promise.resolve({ uri: 'file:///cache/large.db' });
       });
       const mockShare = vi.fn().mockResolvedValue(undefined);
@@ -603,8 +605,15 @@ describe('file-utils', () => {
 
       await saveFileMobile(largeData, 'large.db');
 
-      // Base64 encoding increases size by ~33%
-      expect(capturedBase64Length).toBeGreaterThan(0);
+      // Verify data integrity by decoding and comparing with original
+      expect(capturedBase64).toBeDefined();
+      const decodedString = atob(capturedBase64!);
+      const decodedData = new Uint8Array(decodedString.length).map((_, i) =>
+        decodedString.charCodeAt(i)
+      );
+      expect(decodedData).toEqual(largeData);
+
+      // Verify mocks were called
       expect(mockWriteFile).toHaveBeenCalled();
       expect(mockShare).toHaveBeenCalled();
     });
