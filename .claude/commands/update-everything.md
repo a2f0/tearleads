@@ -27,4 +27,4 @@ When updating `electron`, ensure Node.js versions are aligned:
 2. Update `.nvmrc` to match Electron's Node.js version (e.g., `v22.21.1`)
 3. Update `engines.node` in root `package.json` to enforce the same major version (e.g., `>=22.21.1 <23`)
 
-This alignment is critical because `electron-rebuild` compiles native modules (like `better-sqlite3-multiple-ciphers`) for Electron's bundled Node.js. If the system Node.js has a different `NODE_MODULE_VERSION`, integration tests will fail.
+This alignment is recommended for consistency between development and production environments. While integration tests use SQLite WASM (avoiding native module ABI issues), Electron's production build uses native modules compiled for its bundled Node.js version. Keeping versions aligned ensures consistent behavior across all environments.
