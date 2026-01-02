@@ -512,4 +512,198 @@ describe('Files', () => {
       ).not.toBeInTheDocument();
     });
   });
+
+  describe('download functionality', () => {
+    it('downloads file when Download button is clicked', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
+      );
+      mockRetrieve.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
+
+      renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('document.pdf')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTitle('Download'));
+
+      await waitFor(() => {
+        expect(mockRetrieve).toHaveBeenCalledWith('/files/document.pdf');
+        expect(mockDownloadFile).toHaveBeenCalled();
+      });
+    });
+
+    it('initializes file storage if not initialized before download', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
+      );
+      mockIsFileStorageInitialized.mockReturnValue(false);
+      mockRetrieve.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
+
+      renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('document.pdf')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTitle('Download'));
+
+      await waitFor(() => {
+        expect(mockInitializeFileStorage).toHaveBeenCalled();
+      });
+    });
+
+    it('displays error when download fails', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
+      );
+      mockRetrieve.mockRejectedValue(new Error('Download failed'));
+
+      renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('document.pdf')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTitle('Download'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Download failed')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('delete functionality', () => {
+    it('soft deletes file when Delete button is clicked', async () => {
+      const user = userEvent.setup();
+      renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('photo.jpg')).toBeInTheDocument();
+      });
+
+      // Click delete on the first file
+      const deleteButtons = screen.getAllByTitle('Delete');
+      expect(deleteButtons.length).toBeGreaterThan(0);
+      const firstDeleteButton = deleteButtons[0];
+      if (firstDeleteButton) {
+        await user.click(firstDeleteButton);
+      }
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalled();
+      });
+    });
+
+    it('displays error when delete fails', async () => {
+      const user = userEvent.setup();
+      mockUpdate.mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockRejectedValue(new Error('Delete failed'))
+        })
+      });
+
+      renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('photo.jpg')).toBeInTheDocument();
+      });
+
+      const deleteButtons = screen.getAllByTitle('Delete');
+      expect(deleteButtons.length).toBeGreaterThan(0);
+      const firstDeleteButton = deleteButtons[0];
+      if (firstDeleteButton) {
+        await user.click(firstDeleteButton);
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete failed')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('restore functionality', () => {
+    it('restores deleted file when Restore button is clicked', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_DELETED_FILE]));
+
+      renderFiles();
+
+      // Enable show deleted toggle
+      await waitFor(() => {
+        expect(screen.getByRole('switch')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('switch'));
+
+      await waitFor(() => {
+        expect(screen.getByText('deleted.jpg')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTitle('Restore'));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalled();
+      });
+    });
+
+    it('displays error when restore fails', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_DELETED_FILE]));
+      mockUpdate.mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockRejectedValue(new Error('Restore failed'))
+        })
+      });
+
+      renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByRole('switch')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('switch'));
+
+      await waitFor(() => {
+        expect(screen.getByTitle('Restore')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTitle('Restore'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Restore failed')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('audio file display', () => {
+    const TEST_AUDIO_FILE = {
+      id: 'audio-1',
+      name: 'song.mp3',
+      size: 5000,
+      mimeType: 'audio/mpeg',
+      uploadDate: new Date('2024-01-16'),
+      storagePath: '/files/song.mp3',
+      thumbnailPath: null,
+      deleted: false
+    };
+
+    it('renders music icon for audio files', async () => {
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_FILE]));
+
+      renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('song.mp3')).toBeInTheDocument();
+      });
+
+      // Should show music icon (not FileIcon)
+      const musicIcon = document.querySelector('.lucide-music');
+      expect(musicIcon).toBeInTheDocument();
+    });
+  });
 });
