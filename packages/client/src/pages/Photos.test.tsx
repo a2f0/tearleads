@@ -132,7 +132,9 @@ describe('Photos', () => {
 
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
-        screen.getByText(/Database is locked. Enter your password to view photos./i)
+        screen.getByText(
+          /Database is locked. Enter your password to view photos./i
+        )
       ).toBeInTheDocument();
     });
   });
