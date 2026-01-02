@@ -607,7 +607,8 @@ describe('file-utils', () => {
 
       // Verify data integrity by decoding and comparing with original
       expect(capturedBase64).toBeDefined();
-      const decodedString = atob(capturedBase64!);
+      if (!capturedBase64) throw new Error('capturedBase64 should be defined');
+      const decodedString = atob(capturedBase64);
       const decodedData = new Uint8Array(decodedString.length).map((_, i) =>
         decodedString.charCodeAt(i)
       );

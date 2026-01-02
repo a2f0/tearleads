@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.21.1 <23"
+  },
   "scripts": {
     "postinstall": "pnpm build:shared && pnpm build:ui",
     "build:shared": "pnpm --filter @rapid/shared build",
