@@ -1,7 +1,6 @@
 import { desc, eq } from 'drizzle-orm';
 import {
   CheckCircle,
-  Database,
   Download,
   Eye,
   FileIcon,
@@ -13,6 +12,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
 import { getDatabase } from '@/db';
@@ -355,12 +355,8 @@ export function Files() {
         )}
       </div>
 
-      <Dropzone onFilesSelected={handleFilesSelected} disabled={!isUnlocked} />
-
-      {!isUnlocked && (
-        <p className="text-center text-muted-foreground text-sm">
-          Unlock the database to upload files
-        </p>
+      {isUnlocked && (
+        <Dropzone onFilesSelected={handleFilesSelected} disabled={false} />
       )}
 
       {uploadingFiles.length > 0 && (
@@ -416,14 +412,7 @@ export function Files() {
         </div>
       )}
 
-      {!isLoading && !isUnlocked && (
-        <div className="rounded-lg border p-8 text-center">
-          <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <p className="mt-4 text-muted-foreground">
-            Database is locked. Unlock it from the SQLite page to view files.
-          </p>
-        </div>
-      )}
+      {!isLoading && !isUnlocked && <InlineUnlock description="files" />}
 
       {error && (
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
