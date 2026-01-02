@@ -115,17 +115,22 @@ describe('Contacts', () => {
   });
 
   describe('database locked state', () => {
-    it('shows locked message when database is locked', async () => {
+    it('shows inline unlock when database is locked', async () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
-        isLoading: false
+        isLoading: false,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
       });
 
       renderContacts();
 
+      expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
         screen.getByText(
-          'Database is locked. Unlock it from the SQLite page to view contacts.'
+          /Database is locked. Enter your password to view contacts./i
         )
       ).toBeInTheDocument();
     });
@@ -133,7 +138,11 @@ describe('Contacts', () => {
     it('does not show search input when database is locked', async () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
-        isLoading: false
+        isLoading: false,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
       });
 
       renderContacts();
@@ -146,7 +155,11 @@ describe('Contacts', () => {
     it('does not show Import CSV section when database is locked', async () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
-        isLoading: false
+        isLoading: false,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
       });
 
       renderContacts();

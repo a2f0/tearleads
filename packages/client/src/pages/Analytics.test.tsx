@@ -89,17 +89,32 @@ describe('Analytics', () => {
     beforeEach(() => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
-        isLoading: false
+        isLoading: false,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
       });
     });
 
-    it('shows locked message', () => {
+    it('shows inline unlock component', () => {
       renderAnalytics();
+      expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
         screen.getByText(
-          'Database is locked. Unlock it from the SQLite page to view analytics.'
+          /Database is locked. Enter your password to view analytics./i
         )
       ).toBeInTheDocument();
+    });
+
+    it('shows password input for unlocking', () => {
+      renderAnalytics();
+      expect(screen.getByTestId('inline-unlock-password')).toBeInTheDocument();
+    });
+
+    it('shows unlock button', () => {
+      renderAnalytics();
+      expect(screen.getByTestId('inline-unlock-button')).toBeInTheDocument();
     });
 
     it('does not fetch analytics data', () => {

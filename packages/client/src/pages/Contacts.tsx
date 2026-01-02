@@ -1,6 +1,5 @@
 import { and, asc, eq, like, or, type SQL } from 'drizzle-orm';
 import {
-  Database,
   Loader2,
   Mail,
   Phone,
@@ -13,6 +12,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ColumnMapper } from '@/components/contacts/ColumnMapper';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
 import { getDatabase } from '@/db';
@@ -273,14 +273,7 @@ export function Contacts() {
         </div>
       )}
 
-      {!isLoading && !isUnlocked && (
-        <div className="rounded-lg border p-8 text-center">
-          <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <p className="mt-4 text-muted-foreground">
-            Database is locked. Unlock it from the SQLite page to view contacts.
-          </p>
-        </div>
-      )}
+      {!isLoading && !isUnlocked && <InlineUnlock description="contacts" />}
 
       {isUnlocked && parsedData && (
         <div className="rounded-lg border p-4">

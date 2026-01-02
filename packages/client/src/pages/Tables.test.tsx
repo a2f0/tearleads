@@ -96,16 +96,35 @@ describe('Tables', () => {
     beforeEach(() => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
-        isLoading: false
+        isLoading: false,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
       });
     });
 
-    it('shows locked message', () => {
+    it('shows inline unlock component', () => {
       renderTables();
 
+      expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
-        screen.getByText(/Database is locked. Unlock it from the SQLite page/)
+        screen.getByText(
+          /Database is locked. Enter your password to view tables./i
+        )
       ).toBeInTheDocument();
+    });
+
+    it('shows password input for unlocking', () => {
+      renderTables();
+
+      expect(screen.getByTestId('inline-unlock-password')).toBeInTheDocument();
+    });
+
+    it('shows unlock button', () => {
+      renderTables();
+
+      expect(screen.getByTestId('inline-unlock-button')).toBeInTheDocument();
     });
 
     it('does not show Refresh button', () => {
