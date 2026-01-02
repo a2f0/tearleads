@@ -14,12 +14,27 @@ export interface AnalyticsEvent {
   timestamp: Date;
 }
 
+export type SortColumn = 'eventName' | 'durationMs' | 'success' | 'timestamp';
+export type SortDirection = 'asc' | 'desc';
+
 export interface GetEventsOptions {
   eventName?: string | undefined;
   startTime?: Date | undefined;
   endTime?: Date | undefined;
   limit?: number | undefined;
+  sortColumn?: SortColumn | undefined;
+  sortDirection?: SortDirection | undefined;
 }
+
+/**
+ * Maps sort column names to SQL column names.
+ */
+const SORT_COLUMN_MAP: Record<SortColumn, string> = {
+  eventName: 'event_name',
+  durationMs: 'duration_ms',
+  success: 'success',
+  timestamp: 'timestamp'
+};
 
 export interface EventStats {
   eventName: string;
@@ -104,7 +119,14 @@ export async function getEvents(
   _db: Database,
   options: GetEventsOptions = {}
 ): Promise<AnalyticsEvent[]> {
-  const { eventName, startTime, endTime, limit = 100 } = options;
+  const {
+    eventName,
+    startTime,
+    endTime,
+    limit = 100,
+    sortColumn,
+    sortDirection
+  } = options;
   const adapter = getDatabaseAdapter();
 
   // Build SQL query with conditions - use explicit aliases for camelCase property names
@@ -131,7 +153,16 @@ export async function getEvents(
     sql += ` WHERE ${conditions.join(' AND ')}`;
   }
 
-  sql += ` ORDER BY timestamp DESC LIMIT ?`;
+  // Build ORDER BY clause - use dynamic column if specified, otherwise default to timestamp DESC
+  if (sortColumn && sortDirection) {
+    const sqlColumn = SORT_COLUMN_MAP[sortColumn];
+    const sqlDirection = sortDirection === 'asc' ? 'ASC' : 'DESC';
+    sql += ` ORDER BY ${sqlColumn} ${sqlDirection}`;
+  } else {
+    sql += ` ORDER BY timestamp DESC`;
+  }
+
+  sql += ` LIMIT ?`;
   params.push(limit);
 
   // Execute raw SQL via adapter

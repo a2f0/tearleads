@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnalyticsEvent } from '@/db/analytics';
-import { Analytics, type SortState, sortEvents } from './Analytics';
+import { Analytics } from './Analytics';
 
 // Track how many times getEvents is called to detect infinite loops
 let getEventsCallCount = 0;
@@ -489,28 +489,89 @@ describe('Analytics', () => {
   });
 
   describe('column sorting', () => {
-    const mockEvents: AnalyticsEvent[] = [
-      {
-        id: '1',
-        eventName: 'db_setup',
-        durationMs: 150,
-        success: true,
-        timestamp: new Date('2025-01-01T12:00:00Z')
-      },
-      {
-        id: '2',
-        eventName: 'db_unlock',
-        durationMs: 50,
-        success: false,
-        timestamp: new Date('2025-01-01T14:00:00Z')
-      },
-      {
-        id: '3',
-        eventName: 'db_query',
-        durationMs: 200,
-        success: true,
-        timestamp: new Date('2025-01-01T10:00:00Z')
-      }
+    // Define individual events to avoid non-null assertions
+    const mockEventSetup: AnalyticsEvent = {
+      id: '1',
+      eventName: 'db_setup',
+      durationMs: 150,
+      success: true,
+      timestamp: new Date('2025-01-01T12:00:00Z')
+    };
+    const mockEventUnlock: AnalyticsEvent = {
+      id: '2',
+      eventName: 'db_unlock',
+      durationMs: 50,
+      success: false,
+      timestamp: new Date('2025-01-01T14:00:00Z')
+    };
+    const mockEventQuery: AnalyticsEvent = {
+      id: '3',
+      eventName: 'db_query',
+      durationMs: 200,
+      success: true,
+      timestamp: new Date('2025-01-01T10:00:00Z')
+    };
+
+    const mockEventsOriginal: AnalyticsEvent[] = [
+      mockEventSetup,
+      mockEventUnlock,
+      mockEventQuery
+    ];
+
+    // Events sorted by eventName ascending (alphabetically: query, setup, unlock)
+    const mockEventsSortedByNameAsc: AnalyticsEvent[] = [
+      mockEventQuery,
+      mockEventSetup,
+      mockEventUnlock
+    ];
+
+    // Events sorted by eventName descending
+    const mockEventsSortedByNameDesc: AnalyticsEvent[] = [
+      mockEventUnlock,
+      mockEventSetup,
+      mockEventQuery
+    ];
+
+    // Events sorted by durationMs ascending (50, 150, 200)
+    const mockEventsSortedByDurationAsc: AnalyticsEvent[] = [
+      mockEventUnlock, // 50ms
+      mockEventSetup, // 150ms
+      mockEventQuery // 200ms
+    ];
+
+    // Events sorted by durationMs descending (200, 150, 50)
+    const mockEventsSortedByDurationDesc: AnalyticsEvent[] = [
+      mockEventQuery, // 200ms
+      mockEventSetup, // 150ms
+      mockEventUnlock // 50ms
+    ];
+
+    // Events sorted by success ascending (failed first: unlock, then setup, query)
+    const mockEventsSortedBySuccessAsc: AnalyticsEvent[] = [
+      mockEventUnlock, // failed
+      mockEventSetup, // success
+      mockEventQuery // success
+    ];
+
+    // Events sorted by success descending (success first)
+    const mockEventsSortedBySuccessDesc: AnalyticsEvent[] = [
+      mockEventSetup, // success
+      mockEventQuery, // success
+      mockEventUnlock // failed
+    ];
+
+    // Events sorted by timestamp ascending (oldest first: query at 10:00)
+    const mockEventsSortedByTimestampAsc: AnalyticsEvent[] = [
+      mockEventQuery, // 10:00
+      mockEventSetup, // 12:00
+      mockEventUnlock // 14:00
+    ];
+
+    // Events sorted by timestamp descending (newest first: unlock at 14:00)
+    const mockEventsSortedByTimestampDesc: AnalyticsEvent[] = [
+      mockEventUnlock, // 14:00
+      mockEventSetup, // 12:00
+      mockEventQuery // 10:00
     ];
 
     beforeEach(() => {
@@ -518,7 +579,38 @@ describe('Analytics', () => {
         isUnlocked: true,
         isLoading: false
       });
-      mockGetEvents.mockResolvedValue(mockEvents);
+      // Return original order by default, then return sorted based on parameters
+      mockGetEvents.mockImplementation((_db, options) => {
+        const sortedMocks: Record<string, Record<string, AnalyticsEvent[]>> = {
+          eventName: {
+            asc: mockEventsSortedByNameAsc,
+            desc: mockEventsSortedByNameDesc
+          },
+          durationMs: {
+            asc: mockEventsSortedByDurationAsc,
+            desc: mockEventsSortedByDurationDesc
+          },
+          success: {
+            asc: mockEventsSortedBySuccessAsc,
+            desc: mockEventsSortedBySuccessDesc
+          },
+          timestamp: {
+            asc: mockEventsSortedByTimestampAsc,
+            desc: mockEventsSortedByTimestampDesc
+          }
+        };
+
+        const { sortColumn, sortDirection } = options ?? {};
+        if (
+          sortColumn &&
+          sortDirection &&
+          sortedMocks[sortColumn]?.[sortDirection]
+        ) {
+          return Promise.resolve(sortedMocks[sortColumn][sortDirection]);
+        }
+
+        return Promise.resolve(mockEventsOriginal);
+      });
       mockGetEventStats.mockResolvedValue([]);
     });
 
@@ -714,108 +806,110 @@ describe('Analytics', () => {
         expect(dataRows[2]).toHaveTextContent('200ms');
       });
     });
-  });
-});
 
-describe('sortEvents', () => {
-  const events: AnalyticsEvent[] = [
-    {
-      id: '1',
-      eventName: 'db_setup',
-      durationMs: 150,
-      success: true,
-      timestamp: new Date('2025-01-01T12:00:00Z')
-    },
-    {
-      id: '2',
-      eventName: 'db_unlock',
-      durationMs: 50,
-      success: false,
-      timestamp: new Date('2025-01-01T14:00:00Z')
-    },
-    {
-      id: '3',
-      eventName: 'db_query',
-      durationMs: 200,
-      success: true,
-      timestamp: new Date('2025-01-01T10:00:00Z')
-    }
-  ];
+    it('calls getEvents with sort parameters when sorting', async () => {
+      const user = userEvent.setup();
+      renderAnalytics();
 
-  it('returns original order when no sort is applied', () => {
-    const sort: SortState = { column: null, direction: null };
-    const result = sortEvents(events, sort);
-    expect(result.map((e) => e.id)).toEqual(['1', '2', '3']);
-  });
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledTimes(1);
+      });
 
-  it('does not mutate the original array', () => {
-    const sort: SortState = { column: 'eventName', direction: 'asc' };
-    const original = [...events];
-    sortEvents(events, sort);
-    expect(events).toEqual(original);
-  });
+      // Initial call should have no sort parameters
+      expect(mockGetEvents).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          sortColumn: undefined,
+          sortDirection: undefined
+        })
+      );
 
-  describe('sorting by eventName', () => {
-    it('sorts ascending', () => {
-      const sort: SortState = { column: 'eventName', direction: 'asc' };
-      const result = sortEvents(events, sort);
-      expect(result.map((e) => e.eventName)).toEqual([
-        'db_query',
-        'db_setup',
-        'db_unlock'
-      ]);
+      // Click to sort by eventName ascending
+      await user.click(screen.getByTestId('sort-eventName'));
+
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: 'eventName',
+            sortDirection: 'asc'
+          })
+        );
+      });
+
+      // Click again to sort descending
+      await user.click(screen.getByTestId('sort-eventName'));
+
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: 'eventName',
+            sortDirection: 'desc'
+          })
+        );
+      });
+
+      // Click again to clear sort
+      await user.click(screen.getByTestId('sort-eventName'));
+
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: undefined,
+            sortDirection: undefined
+          })
+        );
+      });
     });
 
-    it('sorts descending', () => {
-      const sort: SortState = { column: 'eventName', direction: 'desc' };
-      const result = sortEvents(events, sort);
-      expect(result.map((e) => e.eventName)).toEqual([
-        'db_unlock',
-        'db_setup',
-        'db_query'
-      ]);
-    });
-  });
+    it('calls getEvents with sort parameters for each column type', async () => {
+      const user = userEvent.setup();
+      renderAnalytics();
 
-  describe('sorting by durationMs', () => {
-    it('sorts ascending', () => {
-      const sort: SortState = { column: 'durationMs', direction: 'asc' };
-      const result = sortEvents(events, sort);
-      expect(result.map((e) => e.durationMs)).toEqual([50, 150, 200]);
-    });
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledTimes(1);
+      });
 
-    it('sorts descending', () => {
-      const sort: SortState = { column: 'durationMs', direction: 'desc' };
-      const result = sortEvents(events, sort);
-      expect(result.map((e) => e.durationMs)).toEqual([200, 150, 50]);
-    });
-  });
+      // Test durationMs column
+      await user.click(screen.getByTestId('sort-durationMs'));
 
-  describe('sorting by success', () => {
-    it('sorts ascending (failed first)', () => {
-      const sort: SortState = { column: 'success', direction: 'asc' };
-      const result = sortEvents(events, sort);
-      expect(result.map((e) => e.success)).toEqual([false, true, true]);
-    });
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: 'durationMs',
+            sortDirection: 'asc'
+          })
+        );
+      });
 
-    it('sorts descending (success first)', () => {
-      const sort: SortState = { column: 'success', direction: 'desc' };
-      const result = sortEvents(events, sort);
-      expect(result.map((e) => e.success)).toEqual([true, true, false]);
-    });
-  });
+      // Test success column
+      await user.click(screen.getByTestId('sort-success'));
 
-  describe('sorting by timestamp', () => {
-    it('sorts ascending (oldest first)', () => {
-      const sort: SortState = { column: 'timestamp', direction: 'asc' };
-      const result = sortEvents(events, sort);
-      expect(result.map((e) => e.id)).toEqual(['3', '1', '2']);
-    });
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: 'success',
+            sortDirection: 'asc'
+          })
+        );
+      });
 
-    it('sorts descending (newest first)', () => {
-      const sort: SortState = { column: 'timestamp', direction: 'desc' };
-      const result = sortEvents(events, sort);
-      expect(result.map((e) => e.id)).toEqual(['2', '1', '3']);
+      // Test timestamp column
+      await user.click(screen.getByTestId('sort-timestamp'));
+
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: 'timestamp',
+            sortDirection: 'asc'
+          })
+        );
+      });
     });
   });
 });
