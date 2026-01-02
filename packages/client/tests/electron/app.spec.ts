@@ -10,6 +10,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const mainPath = join(__dirname, '../../out/main/main.js');
 const isCI = !!process.env['CI'];
 const APP_LOAD_TIMEOUT = 10000;
+const DB_OPERATION_TIMEOUT = 15000;
 
 test.describe('Electron App', () => {
   let electronApp: ElectronApplication;
@@ -78,20 +79,31 @@ test.describe('Electron App', () => {
     await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
     await expect(window.getByTestId('database-test')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
 
-    // Reset and setup
+    // Reset and wait for reset to complete
     await window.getByTestId('db-reset-button').click();
-    await expect(window.getByTestId('db-status')).toContainText('Not Set Up', {timeout: 10000});
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      {timeout: DB_OPERATION_TIMEOUT}
+    );
+    await expect(window.getByTestId('db-status')).toContainText('Not Set Up', {timeout: APP_LOAD_TIMEOUT});
 
+    // Setup database and wait for setup to complete
     await window.getByTestId('db-password-input').fill('testpassword123');
     await window.getByTestId('db-setup-button').click();
-    await expect(window.getByTestId('db-status')).toContainText('Unlocked', {timeout: 10000});
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      {timeout: DB_OPERATION_TIMEOUT}
+    );
+    await expect(window.getByTestId('db-status')).toContainText('Unlocked', {timeout: APP_LOAD_TIMEOUT});
 
     // Navigate to tables page via sidebar
     await window.locator('nav').getByRole('link', { name: 'Tables' }).click();
     await expect(window.getByRole('heading', {name: 'Tables'})).toBeVisible();
 
     // Should show tables
-    await expect(window.getByText('user_settings')).toBeVisible({timeout: 10000});
+    await expect(window.getByText('user_settings')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
     await expect(window.getByText('schema_migrations')).toBeVisible();
   });
 });
