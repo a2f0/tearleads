@@ -1,0 +1,41 @@
+#!/bin/bash
+set -e
+
+# Logging is handled by systemd/journald.
+# To view logs, run: journalctl -u auto-patch.service
+
+log() {
+    # Timestamps are automatically added by journald.
+    echo "$1"
+}
+
+log "Starting automatic patching"
+
+# Wait for any other package manager to finish
+while fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+    log "Waiting for other package manager to finish..."
+    sleep 30
+done
+
+log "Updating package lists"
+apt-get update
+
+log "Upgrading packages"
+DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -y \
+    -o Dpkg::Options::="--force-confdef" \
+    -o Dpkg::Options::="--force-confold"
+
+log "Removing unused packages"
+apt-get autoremove -y
+
+log "Cleaning package cache"
+apt-get autoclean
+
+if [ -f /var/run/reboot-required ]; then
+    log "Reboot required - scheduling reboot in 1 minute"
+    shutdown -r +1 "System rebooting after automatic patching"
+else
+    log "No reboot required"
+fi
+
+log "Patching complete"

@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily automatic patching timer
+
+[Timer]
+OnCalendar={{ patch_timezone }} *-*-* {{ patch_time }}:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

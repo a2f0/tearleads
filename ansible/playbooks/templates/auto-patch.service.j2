@@ -1,0 +1,10 @@
+[Unit]
+Description=Automatic system patching
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/auto-patch.sh
+StandardOutput=journal
+StandardError=journal
