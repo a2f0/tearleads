@@ -56,16 +56,17 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
   });
 
-  test('should show locked message when database is not unlocked', async ({
+  test('should show inline unlock when database is not unlocked', async ({
     page
   }) => {
     await navigateTo(page, 'Analytics');
 
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
+    // Should show inline unlock component
+    await expect(page.getByTestId('inline-unlock')).toBeVisible();
+    // Database may be "not set up" (never initialized) or "locked" (set up but not unlocked)
     await expect(
-      page.getByText(
-        'Database is locked. Unlock it from the SQLite page to view analytics.'
-      )
+      page.getByText(/Database is (locked|not set up)/)
     ).toBeVisible();
   });
 

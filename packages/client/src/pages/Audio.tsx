@@ -1,6 +1,7 @@
 import { and, desc, eq, like } from 'drizzle-orm';
-import { Database, Loader2, Music, RefreshCw } from 'lucide-react';
+import { Loader2, Music, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
 import { getDatabase } from '@/db';
@@ -200,14 +201,7 @@ export function AudioPage() {
         </div>
       )}
 
-      {!isLoading && !isUnlocked && (
-        <div className="rounded-lg border p-8 text-center">
-          <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <p className="mt-4 text-muted-foreground">
-            Database is locked. Unlock it from the SQLite page to view audio.
-          </p>
-        </div>
-      )}
+      {!isLoading && !isUnlocked && <InlineUnlock description="audio" />}
 
       {error && (
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive text-sm">

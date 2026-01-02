@@ -149,18 +149,35 @@ describe('AudioPage', () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
         isLoading: false,
-        currentInstanceId: null
+        currentInstanceId: null,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
       });
     });
 
-    it('shows locked message', () => {
+    it('shows inline unlock component', () => {
       renderAudio();
 
+      expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
         screen.getByText(
-          /Database is locked. Unlock it from the SQLite page to view audio/
+          /Database is locked. Enter your password to view audio./i
         )
       ).toBeInTheDocument();
+    });
+
+    it('shows password input for unlocking', () => {
+      renderAudio();
+
+      expect(screen.getByTestId('inline-unlock-password')).toBeInTheDocument();
+    });
+
+    it('shows unlock button', () => {
+      renderAudio();
+
+      expect(screen.getByTestId('inline-unlock-button')).toBeInTheDocument();
     });
 
     it('does not show Refresh button', () => {

@@ -2,7 +2,6 @@ import { and, eq, like } from 'drizzle-orm';
 import {
   ArrowLeft,
   Calendar,
-  Database,
   Download,
   FileType,
   HardDrive,
@@ -11,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
@@ -215,15 +215,7 @@ export function PhotoDetail() {
         </div>
       )}
 
-      {!isLoading && !isUnlocked && (
-        <div className="rounded-lg border p-8 text-center">
-          <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <p className="mt-4 text-muted-foreground">
-            Database is locked. Unlock it from the SQLite page to view this
-            photo.
-          </p>
-        </div>
-      )}
+      {!isLoading && !isUnlocked && <InlineUnlock description="this photo" />}
 
       {error && (
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive text-sm">

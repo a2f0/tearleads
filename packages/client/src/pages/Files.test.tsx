@@ -171,22 +171,37 @@ describe('Files', () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
         isLoading: false,
-        currentInstanceId: null
+        currentInstanceId: null,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
       });
     });
 
-    it('shows locked message', () => {
+    it('shows inline unlock component', () => {
       renderFiles();
+      expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
-        screen.getByText(/Database is locked. Unlock it from the SQLite page/)
+        screen.getByText(
+          /Database is locked. Enter your password to view files./i
+        )
       ).toBeInTheDocument();
     });
 
-    it('disables file upload', () => {
+    it('hides dropzone when locked', () => {
       renderFiles();
-      expect(
-        screen.getByText('Unlock the database to upload files')
-      ).toBeInTheDocument();
+      expect(screen.queryByTestId('dropzone')).not.toBeInTheDocument();
+    });
+
+    it('shows password input for unlocking', () => {
+      renderFiles();
+      expect(screen.getByTestId('inline-unlock-password')).toBeInTheDocument();
+    });
+
+    it('shows unlock button', () => {
+      renderFiles();
+      expect(screen.getByTestId('inline-unlock-button')).toBeInTheDocument();
     });
   });
 
