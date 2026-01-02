@@ -36,7 +36,7 @@ for arg in "$@"; do
 done
 
 # Find and kill screen sessions
-screen_sessions=$(screen -ls 2>/dev/null | grep 'tux-' | cut -d. -f1 | tr -d '\t' || true)
+screen_sessions=$(screen -ls 2>/dev/null | awk '/tux-/ {print $1}')
 
 if [ -n "$screen_sessions" ]; then
     count=0
