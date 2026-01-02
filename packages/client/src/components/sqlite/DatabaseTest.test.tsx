@@ -175,4 +175,154 @@ describe('DatabaseTest', () => {
       expect(screen.getByTestId('db-status')).toHaveTextContent('Loading...');
     });
   });
+
+  describe('setup', () => {
+    it('calls setup with password when setup button is clicked', async () => {
+      const user = userEvent.setup();
+      const setup = vi.fn().mockResolvedValue(undefined);
+      setupMockContext({ setup, isSetUp: false, isUnlocked: false });
+
+      render(<DatabaseTest />);
+
+      const passwordInput = screen.getByTestId('db-password-input');
+      await user.clear(passwordInput);
+      await user.type(passwordInput, 'mypassword');
+
+      const setupButton = screen.getByTestId('db-setup-button');
+      await user.click(setupButton);
+
+      await waitFor(() => {
+        expect(setup).toHaveBeenCalledWith('mypassword');
+        const result = screen.getByTestId('db-test-result');
+        expect(result).toHaveTextContent('Database setup complete');
+        expect(result).toHaveAttribute('data-status', 'success');
+      });
+    });
+
+    it('shows error message when setup fails', async () => {
+      const user = userEvent.setup();
+      const setup = vi.fn().mockRejectedValue(new Error('Setup failed'));
+      setupMockContext({ setup, isSetUp: false, isUnlocked: false });
+
+      render(<DatabaseTest />);
+
+      const setupButton = screen.getByTestId('db-setup-button');
+      await user.click(setupButton);
+
+      await waitFor(() => {
+        const result = screen.getByTestId('db-test-result');
+        expect(result).toHaveTextContent('Setup error: Setup failed');
+        expect(result).toHaveAttribute('data-status', 'error');
+      });
+    });
+  });
+
+  describe('reset', () => {
+    it('calls reset when reset button is clicked', async () => {
+      const user = userEvent.setup();
+      const reset = vi.fn().mockResolvedValue(undefined);
+      setupMockContext({ reset, isSetUp: true, isUnlocked: true });
+
+      render(<DatabaseTest />);
+
+      const resetButton = screen.getByTestId('db-reset-button');
+      await user.click(resetButton);
+
+      await waitFor(() => {
+        expect(reset).toHaveBeenCalled();
+        const result = screen.getByTestId('db-test-result');
+        expect(result).toHaveTextContent('Database reset complete');
+        expect(result).toHaveAttribute('data-status', 'success');
+      });
+    });
+
+    it('shows error message when reset fails', async () => {
+      const user = userEvent.setup();
+      const reset = vi.fn().mockRejectedValue(new Error('Reset failed'));
+      setupMockContext({ reset, isSetUp: true, isUnlocked: true });
+
+      render(<DatabaseTest />);
+
+      const resetButton = screen.getByTestId('db-reset-button');
+      await user.click(resetButton);
+
+      await waitFor(() => {
+        const result = screen.getByTestId('db-test-result');
+        expect(result).toHaveTextContent('Reset error: Reset failed');
+        expect(result).toHaveAttribute('data-status', 'error');
+      });
+    });
+  });
+
+  describe('password visibility toggle', () => {
+    it('toggles password visibility when eye button is clicked', async () => {
+      const user = userEvent.setup();
+      setupMockContext({ isSetUp: true, isUnlocked: false });
+
+      render(<DatabaseTest />);
+
+      const passwordInput = screen.getByTestId('db-password-input');
+      expect(passwordInput).toHaveAttribute('type', 'password');
+
+      const toggleButton = screen.getByLabelText('Show password');
+      await user.click(toggleButton);
+
+      expect(passwordInput).toHaveAttribute('type', 'text');
+
+      const hideButton = screen.getByLabelText('Hide password');
+      await user.click(hideButton);
+
+      expect(passwordInput).toHaveAttribute('type', 'password');
+    });
+  });
+
+  describe('lock error handling', () => {
+    it('shows error message when lock fails', async () => {
+      const user = userEvent.setup();
+      const lock = vi.fn().mockRejectedValue(new Error('Lock failed'));
+      setupMockContext({ lock, isSetUp: true, isUnlocked: true });
+
+      render(<DatabaseTest />);
+
+      const lockButton = screen.getByTestId('db-lock-button');
+      await user.click(lockButton);
+
+      await waitFor(() => {
+        const result = screen.getByTestId('db-test-result');
+        expect(result).toHaveTextContent('Lock error: Lock failed');
+        expect(result).toHaveAttribute('data-status', 'error');
+      });
+    });
+  });
+
+  describe('status color', () => {
+    it.each([
+      {
+        status: 'success',
+        mock: () => vi.fn().mockResolvedValue(undefined),
+        expectedClass: 'text-green-600'
+      },
+      {
+        status: 'error',
+        mock: () => vi.fn().mockRejectedValue(new Error('Setup failed')),
+        expectedClass: 'text-red-600'
+      }
+    ])('uses correct color class for $status status', async ({
+      mock,
+      expectedClass
+    }) => {
+      const user = userEvent.setup();
+      setupMockContext({ setup: mock(), isSetUp: false, isUnlocked: false });
+
+      render(<DatabaseTest />);
+
+      const setupButton = screen.getByTestId('db-setup-button');
+      await user.click(setupButton);
+
+      await waitFor(() => {
+        const result = screen.getByTestId('db-test-result');
+        expect(result).toHaveClass(expectedClass);
+      });
+    });
+  });
 });
