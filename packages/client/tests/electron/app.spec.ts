@@ -67,8 +67,9 @@ test.describe('Electron App', () => {
 
     // Should show inline unlock component
     await expect(window.getByTestId('inline-unlock')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+    // Database may be "not set up" (never initialized) or "locked" (set up but not unlocked)
     await expect(
-      window.getByText('Database is locked. Enter your password to view tables.')
+      window.getByText(/Database is (locked|not set up)/)
     ).toBeVisible({timeout: APP_LOAD_TIMEOUT});
   });
 

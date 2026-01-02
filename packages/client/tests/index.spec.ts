@@ -203,12 +203,13 @@ test.describe('Dropzone', () => {
     await page.goto('/');
   });
 
-  test('should display inline unlock when database is locked', async ({ page }) => {
-    // When database is locked, dropzone should be hidden and inline unlock shown
+  test('should display inline unlock when database is not unlocked', async ({ page }) => {
+    // When database is not unlocked, dropzone should be hidden and inline unlock shown
     await expect(page.getByTestId('dropzone')).not.toBeVisible();
     await expect(page.getByTestId('inline-unlock')).toBeVisible();
+    // Database may be "not set up" (never initialized) or "locked" (set up but not unlocked)
     await expect(
-      page.getByText('Database is locked. Enter your password to view files.')
+      page.getByText(/Database is (locked|not set up)/)
     ).toBeVisible();
   });
 
@@ -541,8 +542,9 @@ test.describe('Tables page', () => {
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
     // Should show inline unlock component
     await expect(page.getByTestId('inline-unlock')).toBeVisible();
+    // Database may be "not set up" (never initialized) or "locked" (set up but not unlocked)
     await expect(
-      page.getByText('Database is locked. Enter your password to view tables.')
+      page.getByText(/Database is (locked|not set up)/)
     ).toBeVisible();
   });
 
@@ -882,8 +884,9 @@ test.describe('Audio page', () => {
     await expect(page.getByRole('heading', { name: 'Audio' })).toBeVisible();
     // Should show inline unlock component
     await expect(page.getByTestId('inline-unlock')).toBeVisible();
+    // Database may be "not set up" (never initialized) or "locked" (set up but not unlocked)
     await expect(
-      page.getByText('Database is locked. Enter your password to view audio.')
+      page.getByText(/Database is (locked|not set up)/)
     ).toBeVisible();
   });
 
@@ -967,8 +970,9 @@ test.describe('Contacts page', () => {
     await expect(page.getByRole('heading', { name: 'Contacts' })).toBeVisible();
     // Should show inline unlock component
     await expect(page.getByTestId('inline-unlock')).toBeVisible();
+    // Database may be "not set up" (never initialized) or "locked" (set up but not unlocked)
     await expect(
-      page.getByText('Database is locked. Enter your password to view contacts.')
+      page.getByText(/Database is (locked|not set up)/)
     ).toBeVisible();
   });
 
@@ -1108,8 +1112,9 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
     // Should show inline unlock component
     await expect(page.getByTestId('inline-unlock')).toBeVisible();
+    // Database may be "not set up" (never initialized) or "locked" (set up but not unlocked)
     await expect(
-      page.getByText('Database is locked. Enter your password to view analytics.')
+      page.getByText(/Database is (locked|not set up)/)
     ).toBeVisible();
   });
 
