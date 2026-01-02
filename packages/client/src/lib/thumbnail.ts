@@ -10,9 +10,9 @@ export interface ThumbnailOptions {
 }
 
 export const DEFAULT_THUMBNAIL_OPTIONS: ThumbnailOptions = {
-  maxWidth: 200,
-  maxHeight: 200,
-  quality: 0.8
+  maxWidth: 400,
+  maxHeight: 400,
+  quality: 0.92
 };
 
 const SUPPORTED_MIME_TYPES = new Set([
@@ -65,6 +65,10 @@ export async function generateThumbnail(
     bitmap.close();
     throw new Error('Failed to get canvas 2d context');
   }
+
+  // Use high-quality image smoothing for better downscaling
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
 
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
