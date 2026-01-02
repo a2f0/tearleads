@@ -163,28 +163,24 @@ get_workspace_title() {
             return 0
         fi
 
-        # Not on main - try VS Code title first
+        # Not on main - try VS Code title first, then fall back to branch name
+        title=""
         settings_file="$workspace/.vscode/settings.json"
         if [ -f "$settings_file" ] && command -v jq >/dev/null 2>&1; then
             vscode_title=$(jq -r '.["window.title"] // empty' "$settings_file" 2>/dev/null)
-            if [ -n "$vscode_title" ]; then
-                # Truncate if needed
-                if [ ${#vscode_title} -gt $max_length ]; then
-                    truncate_len=$((max_length - 3))
-                    vscode_title="$(printf '%.*s' "$truncate_len" "$vscode_title")..."
-                fi
-                echo "$vscode_title"
-                return 0
-            fi
+            [ -n "$vscode_title" ] && title="$vscode_title"
         fi
 
-        # Fall back to branch name
-        if [ -n "$branch" ]; then
-            if [ ${#branch} -gt $max_length ]; then
+        # Fall back to branch name if no VS Code title
+        [ -z "$title" ] && [ -n "$branch" ] && title="$branch"
+
+        # Truncate and return if we have a title
+        if [ -n "$title" ]; then
+            if [ ${#title} -gt $max_length ]; then
                 truncate_len=$((max_length - 3))
-                branch="$(printf '%.*s' "$truncate_len" "$branch")..."
+                title="$(printf '%.*s' "$truncate_len" "$title")..."
             fi
-            echo "$branch"
+            echo "$title"
             return 0
         fi
     fi
