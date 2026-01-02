@@ -349,7 +349,7 @@ export function Photos() {
               </p>
             </div>
           </div>
-        ) : (
+        ) : photos.length === 0 && hasFetched ? (
           <div className="space-y-4">
             <Dropzone
               onFilesSelected={handleFilesSelected}
@@ -357,63 +357,69 @@ export function Photos() {
               multiple={true}
               disabled={uploading}
             />
-            {photos.length === 0 && hasFetched ? (
-              <p className="text-center text-muted-foreground text-sm">
-                Drop images here to add them to your library
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-4">
-                {photos.map((photo) => (
-                  // biome-ignore lint/a11y/useSemanticElements: Cannot use button here because this container has nested Download/Share buttons
-                  <div
-                    key={photo.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handlePhotoClick(photo)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handlePhotoClick(photo);
-                      }
-                    }}
-                    onContextMenu={(e) => handleContextMenu(e, photo)}
-                    className="group relative cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
-                    style={thumbnailStyle}
-                  >
-                    <img
-                      src={photo.objectUrl}
-                      alt={photo.name}
-                      className="h-full w-full object-cover"
-                    />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
-                      <div className="flex items-center gap-1">
-                        <p className="min-w-0 flex-1 truncate text-white text-xs">
-                          {photo.name}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={(e) => handleDownload(photo, e)}
-                          className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
-                          title="Download"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                        </button>
-                        {canShare && (
-                          <button
-                            type="button"
-                            onClick={(e) => handleShare(photo, e)}
-                            className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
-                            title="Share"
-                          >
-                            <Share2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
+            <p className="text-center text-muted-foreground text-sm">
+              Drop images here to add them to your library
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-4">
+            {photos.map((photo) => (
+              // biome-ignore lint/a11y/useSemanticElements: Cannot use button here because this container has nested Download/Share buttons
+              <div
+                key={photo.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => handlePhotoClick(photo)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handlePhotoClick(photo);
+                  }
+                }}
+                onContextMenu={(e) => handleContextMenu(e, photo)}
+                className="group relative cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
+                style={thumbnailStyle}
+              >
+                <img
+                  src={photo.objectUrl}
+                  alt={photo.name}
+                  className="h-full w-full object-cover"
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
+                  <div className="flex items-center gap-1">
+                    <p className="min-w-0 flex-1 truncate text-white text-xs">
+                      {photo.name}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDownload(photo, e)}
+                      className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
+                      title="Download"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </button>
+                    {canShare && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleShare(photo, e)}
+                        className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
+                        title="Share"
+                      >
+                        <Share2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
-                ))}
+                </div>
               </div>
-            )}
+            ))}
+            <Dropzone
+              onFilesSelected={handleFilesSelected}
+              accept="image/*"
+              multiple={true}
+              disabled={uploading}
+              className="flex items-center justify-center gap-2 p-0 [&>div]:hidden [&>svg]:h-6 [&>svg]:w-6"
+              style={thumbnailStyle}
+            />
           </div>
         ))}
 
