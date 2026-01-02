@@ -62,11 +62,13 @@ test.describe('Electron App', () => {
     ).toBeVisible();
   });
 
-  test('should show locked message on tables page when database not unlocked', async () => {
+  test('should show inline unlock on tables page when database not unlocked', async () => {
     await window.locator('nav').getByRole('link', { name: 'Tables' }).click();
 
+    // Should show inline unlock component
+    await expect(window.getByTestId('inline-unlock')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
     await expect(
-      window.getByText('Database is locked. Unlock it from the SQLite page')
+      window.getByText('Database is locked. Enter your password to view tables.')
     ).toBeVisible({timeout: APP_LOAD_TIMEOUT});
   });
 
