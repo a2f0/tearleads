@@ -97,8 +97,8 @@ screen_cmd() {
     if [ "$USE_SCREEN" = true ]; then
         # -d -RR: detach from elsewhere if attached, reattach or create new
         # -c /dev/null: don't read .screenrc (use defaults)
-        # -T screen-256color: set terminal type (true color via COLORTERM env var)
-        echo "screen -T screen-256color -d -RR $screen_name -c /dev/null"
+        # -T tmux-256color: enable true color support for proper terminal colors
+        echo "screen -T tmux-256color -d -RR $screen_name -c /dev/null"
     else
         # Fallback: just run the shell
         echo ""
@@ -146,65 +146,38 @@ update_all_workspaces() {
     wait  # Wait for all background updates to complete
 }
 
-# Get title for a workspace based on git state
-# Priority: main branch -> "project - ready", else VS Code title -> branch name -> fallback
-get_workspace_title() {
-    workspace="$1"
-    fallback_name="$2"
-    max_length=30
-    project_name=$(basename "$workspace")
-
-    # Check git branch if it's a git repo
-    if [ -d "$workspace/.git" ]; then
-        branch=$(git -C "$workspace" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-
-        # On main = "project - ready" (ignore any stale VS Code title)
-        if [ "$branch" = "main" ]; then
-            echo "$project_name - ready"
-            return 0
-        fi
-
-        # Not on main - try VS Code title first, then fall back to branch name
-        title=""
-        settings_file="$workspace/.vscode/settings.json"
-        if [ -f "$settings_file" ] && command -v jq >/dev/null 2>&1; then
-            vscode_title=$(jq -r '.["window.title"] // empty' "$settings_file" 2>/dev/null)
-            [ -n "$vscode_title" ] && title="$vscode_title"
-        fi
-
-        # Fall back to "project - branch" if no VS Code title
-        [ -z "$title" ] && [ -n "$branch" ] && title="$project_name - $branch"
-
-        # Truncate and return if we have a title
-        if [ -n "$title" ]; then
-            if [ ${#title} -gt $max_length ]; then
-                truncate_len=$((max_length - 3))
-                title="$(printf '%.*s' "$truncate_len" "$title")..."
-            fi
-            echo "$title"
-            return 0
-        fi
-    fi
-
-    # Not a git repo or couldn't determine - use fallback
-    echo "$fallback_name"
-}
-
-# Sync workspace title to tmux window
-sync_workspace_title() {
+# Sync VS Code window title to tmux window name
+# If .vscode/settings.json has a window.title, use it for tmux
+# Truncates long titles to keep tmux tab bar readable
+sync_vscode_title() {
     workspace="$1"
     window_name="$2"
-    title=$(get_workspace_title "$workspace" "$window_name")
-    tmux rename-window -t "$SESSION_NAME:$window_name" "$title" 2>/dev/null || true
+    settings_file="$workspace/.vscode/settings.json"
+    max_length=25
+
+    # Skip if no settings file or jq not available
+    [ -f "$settings_file" ] && command -v jq >/dev/null 2>&1 || return 0
+
+    # Read the window.title from VS Code settings
+    vscode_title=$(jq -r '.["window.title"] // empty' "$settings_file" 2>/dev/null)
+
+    # If a title is set, truncate and rename the tmux window
+    if [ -n "$vscode_title" ]; then
+        # Truncate to max_length chars, add ellipsis if truncated
+        if [ ${#vscode_title} -gt $max_length ]; then
+            truncate_len=$((max_length - 3))
+            vscode_title="$(printf '%.*s' "$truncate_len" "$vscode_title")..."
+        fi
+        tmux rename-window -t "$SESSION_NAME:$window_name" "$vscode_title" 2>/dev/null || true
+    fi
 }
 
-# Sync all workspace titles to tmux
+# Sync all workspace titles from VS Code to tmux
 sync_all_titles() {
-    sync_workspace_title "$SHARED_DIR" "rapid-shared"
-    sync_workspace_title "$BASE_DIR/rapid-main" "rapid-main"
+    sync_vscode_title "$BASE_DIR/rapid-main" "rapid-main"
     i=2
     while [ "$i" -le "$NUM_WORKSPACES" ]; do
-        sync_workspace_title "$BASE_DIR/rapid${i}" "rapid${i}"
+        sync_vscode_title "$BASE_DIR/rapid${i}" "rapid${i}"
         i=$((i + 1))
     done
 }
@@ -212,12 +185,8 @@ sync_all_titles() {
 # Export for tmux config reload binding
 export TUXEDO_TMUX_CONF="$TMUX_CONF"
 
-# Enable true color for apps like Claude Code running inside screen
-export COLORTERM=truecolor
-
-# Add scripts directories to PATH (export so screen sessions inherit it)
+# Scripts directories to add to PATH
 SCRIPTS_PATH="$SCRIPT_DIR:$SCRIPT_DIR/agents"
-export PATH="$SCRIPTS_PATH:$PATH"
 
 # Update workspaces that are on main with no uncommitted changes FIRST
 # This ensures .gitignore changes are pulled before symlinks are created
@@ -259,9 +228,8 @@ else
 fi
 tmux split-window -h -t "$SESSION_NAME:rapid-main" -c "$BASE_DIR/rapid-main" "$EDITOR"
 
-# Set tmux session environment for any new windows created later
-tmux set-environment -t "$SESSION_NAME" PATH "$PATH"
-tmux set-environment -t "$SESSION_NAME" COLORTERM truecolor
+# Add scripts directories to PATH for all windows in this session
+tmux set-environment -t "$SESSION_NAME" PATH "$SCRIPTS_PATH:$PATH"
 
 i=2
 while [ "$i" -le "$NUM_WORKSPACES" ]; do
