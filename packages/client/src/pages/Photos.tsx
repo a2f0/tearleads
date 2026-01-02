@@ -12,10 +12,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
+import { Dropzone } from '@/components/ui/dropzone';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
+import { useFileUpload } from '@/hooks/useFileUpload';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { DEFAULT_THUMBNAIL_OPTIONS } from '@/lib/thumbnail';
 import {
@@ -23,6 +25,9 @@ import {
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
+
+// Only include formats that have thumbnail generation support
+const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 interface PhotoInfo {
   id: string;
@@ -51,6 +56,9 @@ export function Photos() {
     y: number;
   } | null>(null);
   const [canShare, setCanShare] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const { uploadFile } = useFileUpload();
 
   // Check if Web Share API is available on mount
   useEffect(() => {
@@ -111,6 +119,58 @@ export function Photos() {
       }
     },
     [currentInstanceId]
+  );
+
+  const handleFilesSelected = useCallback(
+    async (selectedFiles: File[]) => {
+      if (selectedFiles.length === 0) return;
+
+      setError(null);
+      setUploading(true);
+      setUploadProgress(0);
+
+      const errors: string[] = [];
+      const totalFiles = selectedFiles.length;
+      let uploadedCount = 0;
+
+      for (const [i, file] of selectedFiles.entries()) {
+        // Validate that the file type is one of the supported image MIME types
+        if (!IMAGE_MIME_TYPES.includes(file.type)) {
+          errors.push(
+            `"${file.name}" has an unsupported format. Supported: JPEG, PNG, GIF, WebP.`
+          );
+          continue;
+        }
+
+        try {
+          const fileProgressCallback = (progress: number) => {
+            const overallProgress = ((i + progress / 100) / totalFiles) * 100;
+            setUploadProgress(Math.round(overallProgress));
+          };
+          await uploadFile(file, fileProgressCallback);
+          uploadedCount++;
+        } catch (err) {
+          console.error(`Failed to upload ${file.name}:`, err);
+          errors.push(
+            `"${file.name}": ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
+      }
+
+      // Refresh photos if any uploads succeeded
+      if (uploadedCount > 0) {
+        setHasFetched(false);
+      }
+
+      // Show errors if any occurred
+      if (errors.length > 0) {
+        setError(errors.join('\n'));
+      }
+
+      setUploading(false);
+      setUploadProgress(0);
+    },
+    [uploadFile]
   );
 
   const fetchPhotos = useCallback(async () => {
@@ -286,61 +346,81 @@ export function Photos() {
             <Loader2 className="h-5 w-5 animate-spin" />
             Loading photos...
           </div>
-        ) : photos.length === 0 && hasFetched ? (
-          <div className="rounded-lg border p-8 text-center text-muted-foreground">
-            No photos found. Upload images from the Files page to see them here.
+        ) : uploading ? (
+          <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="text-center">
+              <p className="font-medium">Uploading...</p>
+              <p className="text-muted-foreground text-sm">
+                {uploadProgress}% complete
+              </p>
+            </div>
           </div>
         ) : (
-          <div className="flex flex-wrap gap-4">
-            {photos.map((photo) => (
-              // biome-ignore lint/a11y/useSemanticElements: Cannot use button here because this container has nested Download/Share buttons
-              <div
-                key={photo.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => handlePhotoClick(photo)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handlePhotoClick(photo);
-                  }
-                }}
-                onContextMenu={(e) => handleContextMenu(e, photo)}
-                className="group relative cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
-                style={thumbnailStyle}
-              >
-                <img
-                  src={photo.objectUrl}
-                  alt={photo.name}
-                  className="h-full w-full object-cover"
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
-                  <div className="flex items-center gap-1">
-                    <p className="min-w-0 flex-1 truncate text-white text-xs">
-                      {photo.name}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={(e) => handleDownload(photo, e)}
-                      className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
-                      title="Download"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                    </button>
-                    {canShare && (
-                      <button
-                        type="button"
-                        onClick={(e) => handleShare(photo, e)}
-                        className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
-                        title="Share"
-                      >
-                        <Share2 className="h-3.5 w-3.5" />
-                      </button>
-                    )}
+          <div className="space-y-4">
+            <Dropzone
+              onFilesSelected={handleFilesSelected}
+              accept="image/*"
+              multiple={true}
+              disabled={uploading}
+            />
+            {photos.length === 0 && hasFetched ? (
+              <p className="text-center text-muted-foreground text-sm">
+                Drop images here to add them to your library
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-4">
+                {photos.map((photo) => (
+                  // biome-ignore lint/a11y/useSemanticElements: Cannot use button here because this container has nested Download/Share buttons
+                  <div
+                    key={photo.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handlePhotoClick(photo)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handlePhotoClick(photo);
+                      }
+                    }}
+                    onContextMenu={(e) => handleContextMenu(e, photo)}
+                    className="group relative cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
+                    style={thumbnailStyle}
+                  >
+                    <img
+                      src={photo.objectUrl}
+                      alt={photo.name}
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
+                      <div className="flex items-center gap-1">
+                        <p className="min-w-0 flex-1 truncate text-white text-xs">
+                          {photo.name}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDownload(photo, e)}
+                          className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
+                          title="Download"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </button>
+                        {canShare && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleShare(photo, e)}
+                            className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
+                            title="Share"
+                          >
+                            <Share2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         ))}
 
