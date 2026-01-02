@@ -76,19 +76,21 @@ describe('useAppVersion', () => {
   describe('on electron platform', () => {
     beforeEach(() => {
       vi.mocked(detectPlatform).mockReturnValue('electron');
-      vi.mocked(App.getInfo).mockResolvedValue({
-        name: 'Electron App',
-        id: 'com.electron.app',
-        build: '2.0.0',
-        version: '2.0.0'
-      });
     });
 
-    it('returns build version from Capacitor', async () => {
+    it('returns __APP_VERSION__ after mount', async () => {
       const { result } = renderHook(() => useAppVersion());
 
       await waitFor(() => {
-        expect(result.current).toBe('2.0.0');
+        expect(result.current).toBe(__APP_VERSION__);
+      });
+    });
+
+    it('does not call Capacitor App.getInfo', async () => {
+      renderHook(() => useAppVersion());
+
+      await waitFor(() => {
+        expect(App.getInfo).not.toHaveBeenCalled();
       });
     });
   });
