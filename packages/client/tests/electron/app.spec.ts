@@ -78,12 +78,23 @@ test.describe('Electron App', () => {
     await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
     await expect(window.getByTestId('database-test')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
 
-    // Reset and setup
+    // Reset and wait for reset to complete
     await window.getByTestId('db-reset-button').click();
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      {timeout: 15000}
+    );
     await expect(window.getByTestId('db-status')).toContainText('Not Set Up', {timeout: 10000});
 
+    // Setup database and wait for setup to complete
     await window.getByTestId('db-password-input').fill('testpassword123');
     await window.getByTestId('db-setup-button').click();
+    await expect(window.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      {timeout: 15000}
+    );
     await expect(window.getByTestId('db-status')).toContainText('Unlocked', {timeout: 10000});
 
     // Navigate to tables page via sidebar
