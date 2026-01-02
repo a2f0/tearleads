@@ -341,8 +341,8 @@ describe('Photos', () => {
       });
 
       const dropzone = screen.getByTestId('dropzone');
-      // The dropzone should have inline styles for width and height (thumbnail size)
-      expect(dropzone).toHaveStyle({ width: '400px', height: '400px' });
+      // The dropzone should have inline styles for width and height (display size, not generation size)
+      expect(dropzone).toHaveStyle({ width: '200px', height: '200px' });
     });
   });
 
