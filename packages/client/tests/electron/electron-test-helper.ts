@@ -19,15 +19,14 @@ const isHeaded = process.env['HEADED'] === 'true';
  * - HEADED=true: visible window mode
  */
 export function getElectronArgs(): string[] {
-  const baseArgs = [mainPath];
+  const args = [mainPath];
 
-  if (isHeaded) {
-    // Headed mode: just launch with the main path
-    return baseArgs;
+  if (!isHeaded) {
+    // Headless mode: disable GPU and sandbox for stability
+    args.push('--no-sandbox', '--disable-gpu');
   }
 
-  // Headless mode: disable GPU and sandbox for stability
-  return [...baseArgs, '--no-sandbox', '--disable-gpu'];
+  return args;
 }
 
 /**
