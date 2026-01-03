@@ -379,6 +379,130 @@ describe('Models', () => {
     });
   });
 
+  describe('cached models', () => {
+    const mockCacheStorage = {
+      keys: vi.fn(),
+      open: vi.fn(),
+      has: vi.fn()
+    };
+
+    const mockCache = {
+      keys: vi.fn()
+    };
+
+    beforeEach(() => {
+      Object.defineProperty(window, 'caches', {
+        value: mockCacheStorage,
+        writable: true,
+        configurable: true
+      });
+      mockCacheStorage.keys.mockResolvedValue([]);
+      mockCacheStorage.open.mockResolvedValue(mockCache);
+      mockCacheStorage.has.mockResolvedValue(false);
+      mockCache.keys.mockResolvedValue([]);
+    });
+
+    afterEach(() => {
+      Object.defineProperty(window, 'caches', {
+        value: undefined,
+        writable: true,
+        configurable: true
+      });
+    });
+
+    it('shows Load button for cached models', async () => {
+      // Mock a cached model in transformers-cache
+      mockCacheStorage.has.mockResolvedValue(true);
+      mockCache.keys.mockResolvedValue([
+        {
+          url: 'https://huggingface.co/onnx-community/Phi-3.5-mini-instruct-onnx-web/resolve/main/model.onnx'
+        }
+      ]);
+
+      renderModels();
+
+      await waitFor(() => {
+        // The Phi 3.5 model should show "Load" instead of "Download"
+        expect(
+          screen.getByRole('button', { name: /^Load$/i })
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('shows Downloaded badge for cached models', async () => {
+      // Mock a cached model in transformers-cache
+      mockCacheStorage.has.mockResolvedValue(true);
+      mockCache.keys.mockResolvedValue([
+        {
+          url: 'https://huggingface.co/onnx-community/Phi-3.5-mini-instruct-onnx-web/resolve/main/model.onnx'
+        }
+      ]);
+
+      renderModels();
+
+      await waitFor(() => {
+        expect(screen.getByText('Downloaded')).toBeInTheDocument();
+      });
+    });
+
+    it('shows Download button for non-cached models', async () => {
+      // No models cached (has returns false by default in beforeEach)
+      renderModels();
+
+      await waitFor(() => {
+        // All models should show "Download" buttons
+        const downloadButtons = screen.getAllByRole('button', {
+          name: /download/i
+        });
+        expect(downloadButtons.length).toBe(3); // All 3 recommended models
+      });
+    });
+
+    it('calls loadModel when Load button is clicked for cached model', async () => {
+      const user = userEvent.setup();
+
+      // Mock a cached model in transformers-cache
+      mockCacheStorage.has.mockResolvedValue(true);
+      mockCache.keys.mockResolvedValue([
+        {
+          url: 'https://huggingface.co/onnx-community/Phi-3.5-mini-instruct-onnx-web/resolve/main/model.onnx'
+        }
+      ]);
+
+      renderModels();
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('button', { name: /^Load$/i })
+        ).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /^Load$/i }));
+
+      expect(mockLoadModel).toHaveBeenCalledWith(
+        'onnx-community/Phi-3.5-mini-instruct-onnx-web'
+      );
+    });
+
+    it('handles cache API not available gracefully', async () => {
+      Object.defineProperty(window, 'caches', {
+        value: undefined,
+        writable: true,
+        configurable: true
+      });
+
+      renderModels();
+
+      await waitFor(() => {
+        // Should still render with Download buttons
+        const downloadButtons = screen.getAllByRole('button', {
+          name: /download/i
+        });
+        expect(downloadButtons.length).toBe(3);
+      });
+    });
+  });
+
   describe('WebGPU info panel', () => {
     it('displays WebGPU device info when available', async () => {
       renderModels();
