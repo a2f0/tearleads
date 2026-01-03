@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { MobileMenu } from './MobileMenu';
+import { navItems } from './Sidebar';
 
 function renderMobileMenu(initialRoute = '/') {
   return render(
@@ -55,20 +56,11 @@ describe('MobileMenu', () => {
 
     await user.click(screen.getByTestId('mobile-menu-button'));
 
-    expect(screen.getByTestId('files-link')).toBeInTheDocument();
-    expect(screen.getByTestId('contacts-link')).toBeInTheDocument();
-    expect(screen.getByTestId('photos-link')).toBeInTheDocument();
-    expect(screen.getByTestId('audio-link')).toBeInTheDocument();
-    expect(screen.getByTestId('tables-link')).toBeInTheDocument();
-    expect(screen.getByTestId('analytics-link')).toBeInTheDocument();
-    expect(screen.getByTestId('sqlite-link')).toBeInTheDocument();
-    expect(screen.getByTestId('debug-link')).toBeInTheDocument();
-    expect(screen.getByTestId('opfs-link')).toBeInTheDocument();
-    expect(screen.getByTestId('cache-storage-link')).toBeInTheDocument();
-    expect(screen.getByTestId('local-storage-link')).toBeInTheDocument();
-    expect(screen.getByTestId('chat-link')).toBeInTheDocument();
-    expect(screen.getByTestId('models-link')).toBeInTheDocument();
-    expect(screen.getByTestId('settings-link')).toBeInTheDocument();
+    for (const item of navItems.filter((i) => i.inMobileMenu)) {
+      if (item.testId) {
+        expect(screen.getByTestId(item.testId)).toBeInTheDocument();
+      }
+    }
   });
 
   it('renders links with correct text and href', async () => {
