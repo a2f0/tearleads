@@ -27,6 +27,8 @@ const EVENT_COLORS = [
   '#65a30d' // lime
 ];
 
+const SCATTER_DOT_RADIUS = 4;
+
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
@@ -180,7 +182,7 @@ export function DurationChart({
                 name={formatEventName(eventType)}
                 data={data}
                 fill={eventTypeColors.get(eventType) ?? '#2563eb'}
-                shape={<circle r={4} />}
+                shape={<circle r={SCATTER_DOT_RADIUS} />}
               />
             ))}
           </ScatterChart>
