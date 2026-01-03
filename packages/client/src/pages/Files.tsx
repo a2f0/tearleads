@@ -2,7 +2,6 @@ import { desc, eq } from 'drizzle-orm';
 import {
   Check,
   Download,
-  Eye,
   FileIcon,
   Loader2,
   Music,
@@ -425,44 +424,89 @@ export function Files() {
                       file.deleted ? 'opacity-60' : ''
                     }`}
                   >
-                    <div className="relative shrink-0">
-                      {file.thumbnailUrl ? (
-                        <img
-                          src={file.thumbnailUrl}
-                          alt=""
-                          className="h-8 w-8 rounded object-cover"
-                        />
-                      ) : file.mimeType.startsWith('audio/') ? (
-                        <Music className="h-5 w-5 text-muted-foreground" />
-                      ) : (
-                        <FileIcon className="h-5 w-5 text-muted-foreground" />
-                      )}
-                      {isRecentlyUploaded && (
-                        <button
-                          type="button"
-                          onClick={() => clearRecentlyUploaded(file.id)}
-                          className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-white"
-                          title="Upload successful - click to dismiss"
-                          data-testid="upload-success-badge"
-                        >
-                          <Check className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p
-                        className={`truncate font-medium text-sm ${
-                          file.deleted ? 'line-through' : ''
-                        }`}
+                    {isImage && !file.deleted ? (
+                      <button
+                        type="button"
+                        className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+                        onClick={() => handleView(file)}
                       >
-                        {file.name}
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        {formatFileSize(file.size)} ·{' '}
-                        {file.uploadDate.toLocaleDateString()}
-                        {file.deleted && ' · Deleted'}
-                      </p>
-                    </div>
+                        <div className="relative shrink-0">
+                          {file.thumbnailUrl ? (
+                            <img
+                              src={file.thumbnailUrl}
+                              alt=""
+                              className="h-8 w-8 rounded object-cover"
+                            />
+                          ) : (
+                            <FileIcon className="h-5 w-5 text-muted-foreground" />
+                          )}
+                          {isRecentlyUploaded && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                clearRecentlyUploaded(file.id);
+                              }}
+                              className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-white"
+                              title="Upload successful - click to dismiss"
+                              data-testid="upload-success-badge"
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium text-sm">
+                            {file.name}
+                          </p>
+                          <p className="text-muted-foreground text-xs">
+                            {formatFileSize(file.size)} ·{' '}
+                            {file.uploadDate.toLocaleDateString()}
+                          </p>
+                        </div>
+                      </button>
+                    ) : (
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className="relative shrink-0">
+                          {file.thumbnailUrl ? (
+                            <img
+                              src={file.thumbnailUrl}
+                              alt=""
+                              className="h-8 w-8 rounded object-cover"
+                            />
+                          ) : file.mimeType.startsWith('audio/') ? (
+                            <Music className="h-5 w-5 text-muted-foreground" />
+                          ) : (
+                            <FileIcon className="h-5 w-5 text-muted-foreground" />
+                          )}
+                          {isRecentlyUploaded && (
+                            <button
+                              type="button"
+                              onClick={() => clearRecentlyUploaded(file.id)}
+                              className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-white"
+                              title="Upload successful - click to dismiss"
+                              data-testid="upload-success-badge"
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`truncate font-medium text-sm ${
+                              file.deleted ? 'line-through' : ''
+                            }`}
+                          >
+                            {file.name}
+                          </p>
+                          <p className="text-muted-foreground text-xs">
+                            {formatFileSize(file.size)} ·{' '}
+                            {file.uploadDate.toLocaleDateString()}
+                            {file.deleted && ' · Deleted'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                     <div className="flex gap-1">
                       {file.deleted ? (
                         <Button
@@ -476,17 +520,6 @@ export function Files() {
                         </Button>
                       ) : (
                         <>
-                          {isImage && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleView(file)}
-                              title="View"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          )}
                           <Button
                             variant="ghost"
                             size="icon"
