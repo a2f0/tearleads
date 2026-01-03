@@ -68,15 +68,16 @@ jobs:
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
             "chgrp -R www-data /var/www/app && chmod -R u=rwX,g=rX,o= /var/www/app"
 
-      - name: Create API deployment package
-        run: |
-          pnpm --filter @rapid/api deploy /tmp/api-deploy
+      - name: Build API bundle
+        run: pnpm --filter @rapid/api build:bundle
 
       - name: Deploy API
         run: |
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+            "mkdir -p /opt/rapid-api/dist"
           rsync -avz --delete -e "ssh -i ~/.ssh/deploy.key" \
-            /tmp/api-deploy/ \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/opt/rapid-api/
+            packages/api/dist/ \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/opt/rapid-api/dist/
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
             "chgrp -R www-data /opt/rapid-api && chmod -R u=rwX,g=rX,o= /opt/rapid-api"
 
