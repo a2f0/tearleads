@@ -6,6 +6,7 @@ import {
   Download,
   Eye,
   Loader2,
+  Play,
   Square
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -57,6 +58,44 @@ async function getWebGPUInfo(): Promise<WebGPUInfo | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Check if a model has been cached in browser storage.
+ * Transformers.js caches model files under URLs containing the model ID.
+ */
+async function isModelCached(modelId: string): Promise<boolean> {
+  if (!('caches' in window)) return false;
+
+  const TRANSFORMERS_CACHE_NAME = 'transformers-cache';
+
+  try {
+    if (!(await window.caches.has(TRANSFORMERS_CACHE_NAME))) {
+      return false;
+    }
+
+    const cache = await window.caches.open(TRANSFORMERS_CACHE_NAME);
+    const keys = await cache.keys();
+
+    // Check if any cached URL contains the model ID
+    // Transformers.js caches files under huggingface.co URLs
+    return keys.some((request) => request.url.includes(modelId));
+  } catch (error) {
+    console.error('Failed to check model cache:', error);
+    return false;
+  }
+}
+
+/**
+ * Check cache status for all recommended models.
+ */
+async function getModelCacheStatus(
+  modelIds: string[]
+): Promise<Record<string, boolean>> {
+  const results = await Promise.all(
+    modelIds.map(async (id) => [id, await isModelCached(id)] as const)
+  );
+  return Object.fromEntries(results);
 }
 
 function WebGPUInfoPanel({ info }: { info: WebGPUInfo }) {
@@ -118,7 +157,7 @@ function WebGPUInfoPanel({ info }: { info: WebGPUInfo }) {
   );
 }
 
-type ModelStatus = 'not_downloaded' | 'downloading' | 'loaded';
+type ModelStatus = 'not_downloaded' | 'cached' | 'downloading' | 'loaded';
 
 interface ModelCardProps {
   model: ModelInfo;
@@ -139,6 +178,7 @@ function ModelCard({
 }: ModelCardProps) {
   const isLoaded = status === 'loaded';
   const isDownloading = status === 'downloading';
+  const isCached = status === 'cached';
 
   return (
     <div className="rounded-lg border bg-card p-4">
@@ -147,6 +187,7 @@ function ModelCard({
           <div
             className={`flex h-10 w-10 items-center justify-center rounded-lg ${(() => {
               if (isLoaded) return 'bg-green-500/10 text-green-500';
+              if (isCached) return 'bg-blue-500/10 text-blue-500';
               if (model.isVision) return 'bg-purple-500/10 text-purple-500';
               return 'bg-muted text-muted-foreground';
             })()}`}
@@ -176,6 +217,12 @@ function ModelCard({
             <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1 font-medium text-green-500 text-xs">
               <Check className="h-3 w-3" />
               Loaded
+            </span>
+          )}
+          {isCached && (
+            <span className="flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-1 font-medium text-blue-500 text-xs">
+              <Check className="h-3 w-3" />
+              Downloaded
             </span>
           )}
         </div>
@@ -209,6 +256,16 @@ function ModelCard({
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Loading...
           </Button>
+        ) : isCached ? (
+          <Button
+            variant="default"
+            size="sm"
+            onClick={onLoad}
+            disabled={disabled}
+          >
+            <Play className="mr-2 h-4 w-4" />
+            Load
+          </Button>
         ) : (
           <Button
             variant="default"
@@ -238,6 +295,7 @@ export function Models() {
   const [webGPUSupported, setWebGPUSupported] = useState<boolean | null>(null);
   const [webGPUInfo, setWebGPUInfo] = useState<WebGPUInfo | null>(null);
   const [loadingModelId, setLoadingModelId] = useState<string | null>(null);
+  const [cachedModels, setCachedModels] = useState<Record<string, boolean>>({});
 
   // Check WebGPU support and get adapter info on mount
   useEffect(() => {
@@ -245,11 +303,19 @@ export function Models() {
     getWebGPUInfo().then(setWebGPUInfo);
   }, [isWebGPUSupported]);
 
+  // Check which models are cached in browser storage on mount
+  useEffect(() => {
+    const modelIds = RECOMMENDED_MODELS.map((m) => m.id);
+    getModelCacheStatus(modelIds).then(setCachedModels);
+  }, []);
+
   const handleLoad = useCallback(
     async (modelId: string) => {
       setLoadingModelId(modelId);
       try {
         await loadModel(modelId);
+        // Mark the model as cached after successful load
+        setCachedModels((prev) => ({ ...prev, [modelId]: true }));
       } finally {
         setLoadingModelId((currentId) =>
           currentId === modelId ? null : currentId
@@ -266,6 +332,7 @@ export function Models() {
   const getModelStatus = (modelId: string): ModelStatus => {
     if (loadedModel === modelId) return 'loaded';
     if (loadingModelId === modelId) return 'downloading';
+    if (cachedModels[modelId]) return 'cached';
     return 'not_downloaded';
   };
 
