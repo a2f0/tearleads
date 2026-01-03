@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -79,12 +79,21 @@ function createMockQueryChain(result: unknown[]) {
   };
 }
 
-function renderAudio() {
+function renderAudioRaw() {
   return render(
     <MemoryRouter>
       <AudioPage />
     </MemoryRouter>
   );
+}
+
+async function renderAudio() {
+  const result = renderAudioRaw();
+  // Wait for initial async effects to complete
+  await waitFor(() => {
+    expect(screen.queryByText('Loading audio...')).not.toBeInTheDocument();
+  });
+  return result;
 }
 
 describe('AudioPage', () => {
@@ -110,13 +119,13 @@ describe('AudioPage', () => {
 
   describe('page rendering', () => {
     it('renders the page title', async () => {
-      renderAudio();
+      await renderAudio();
 
       expect(screen.getByText('Audio')).toBeInTheDocument();
     });
 
     it('renders Refresh button when unlocked', async () => {
-      renderAudio();
+      await renderAudio();
 
       expect(screen.getByText('Refresh')).toBeInTheDocument();
     });
@@ -132,13 +141,13 @@ describe('AudioPage', () => {
     });
 
     it('shows loading message', () => {
-      renderAudio();
+      renderAudioRaw();
 
       expect(screen.getByText('Loading database...')).toBeInTheDocument();
     });
 
     it('does not show Refresh button', () => {
-      renderAudio();
+      renderAudioRaw();
 
       expect(screen.queryByText('Refresh')).not.toBeInTheDocument();
     });
@@ -158,7 +167,7 @@ describe('AudioPage', () => {
     });
 
     it('shows inline unlock component', () => {
-      renderAudio();
+      renderAudioRaw();
 
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
@@ -169,19 +178,19 @@ describe('AudioPage', () => {
     });
 
     it('shows password input for unlocking', () => {
-      renderAudio();
+      renderAudioRaw();
 
       expect(screen.getByTestId('inline-unlock-password')).toBeInTheDocument();
     });
 
     it('shows unlock button', () => {
-      renderAudio();
+      renderAudioRaw();
 
       expect(screen.getByTestId('inline-unlock-button')).toBeInTheDocument();
     });
 
     it('does not show Refresh button', () => {
-      renderAudio();
+      renderAudioRaw();
 
       expect(screen.queryByText('Refresh')).not.toBeInTheDocument();
     });
@@ -195,58 +204,48 @@ describe('AudioPage', () => {
     });
 
     it('displays track names', async () => {
-      renderAudio();
+      await renderAudio();
 
-      await waitFor(() => {
-        expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
-        expect(screen.getByText('another-song.wav')).toBeInTheDocument();
-      });
+      expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
+      expect(screen.getByText('another-song.wav')).toBeInTheDocument();
     });
 
     it('displays track sizes', async () => {
-      renderAudio();
+      await renderAudio();
 
-      await waitFor(() => {
-        expect(screen.getByText('5 MB')).toBeInTheDocument();
-        expect(screen.getByText('10 MB')).toBeInTheDocument();
-      });
+      expect(screen.getByText('5 MB')).toBeInTheDocument();
+      expect(screen.getByText('10 MB')).toBeInTheDocument();
     });
 
     it('renders audio elements', async () => {
-      renderAudio();
+      await renderAudio();
 
-      await waitFor(() => {
-        const audioElements = screen.getAllByRole('generic', { hidden: true });
-        // Audio elements should be present (they're role="generic" in jsdom)
-        expect(audioElements.length).toBeGreaterThan(0);
-      });
+      const audioElements = screen.getAllByRole('generic', { hidden: true });
+      // Audio elements should be present (they're role="generic" in jsdom)
+      expect(audioElements.length).toBeGreaterThan(0);
     });
 
     it('fetches audio data from storage', async () => {
-      renderAudio();
+      await renderAudio();
 
-      await waitFor(() => {
-        expect(mockRetrieve).toHaveBeenCalledWith('/music/test-song.mp3');
-        expect(mockRetrieve).toHaveBeenCalledWith('/music/another-song.wav');
-      });
+      expect(mockRetrieve).toHaveBeenCalledWith('/music/test-song.mp3');
+      expect(mockRetrieve).toHaveBeenCalledWith('/music/another-song.wav');
     });
 
     it('creates object URLs for audio playback', async () => {
-      renderAudio();
+      await renderAudio();
 
-      await waitFor(() => {
-        expect(URL.createObjectURL).toHaveBeenCalled();
-      });
+      expect(URL.createObjectURL).toHaveBeenCalled();
     });
 
     it('revokes object URLs on unmount', async () => {
-      const { unmount } = renderAudio();
+      const { unmount } = await renderAudio();
 
-      await waitFor(() => {
-        expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
+      expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
+
+      await act(async () => {
+        unmount();
       });
-
-      unmount();
 
       expect(URL.revokeObjectURL).toHaveBeenCalled();
     });
@@ -258,18 +257,16 @@ describe('AudioPage', () => {
     });
 
     it('shows dropzone when no tracks', async () => {
-      renderAudio();
+      await renderAudio();
 
-      await waitFor(() => {
-        expect(
-          screen.getByText('Drop an audio file here to add it to your library')
-        ).toBeInTheDocument();
-      });
+      expect(
+        screen.getByText('Drop an audio file here to add it to your library')
+      ).toBeInTheDocument();
     });
   });
 
   describe('loading state', () => {
-    it('shows loading message while fetching tracks', async () => {
+    it('shows loading message while fetching tracks', () => {
       mockSelect.mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -278,11 +275,9 @@ describe('AudioPage', () => {
         })
       });
 
-      renderAudio();
+      renderAudioRaw();
 
-      await waitFor(() => {
-        expect(screen.getByText('Loading audio...')).toBeInTheDocument();
-      });
+      expect(screen.getByText('Loading audio...')).toBeInTheDocument();
     });
   });
 
@@ -296,7 +291,7 @@ describe('AudioPage', () => {
         })
       });
 
-      renderAudio();
+      renderAudioRaw();
 
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
@@ -306,7 +301,7 @@ describe('AudioPage', () => {
     it('handles track load failure gracefully', async () => {
       mockRetrieve.mockRejectedValue(new Error('Storage error'));
 
-      renderAudio();
+      renderAudioRaw();
 
       // Should not crash, but track won't be displayed
       await waitFor(() => {
@@ -318,11 +313,9 @@ describe('AudioPage', () => {
   describe('refresh functionality', () => {
     it('refreshes track list when Refresh is clicked', async () => {
       const user = userEvent.setup();
-      renderAudio();
+      await renderAudio();
 
-      await waitFor(() => {
-        expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
-      });
+      expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
 
       mockSelect.mockClear();
       mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_TRACK]));
@@ -334,7 +327,7 @@ describe('AudioPage', () => {
       });
     });
 
-    it('disables Refresh button while loading', async () => {
+    it('disables Refresh button while loading', () => {
       mockSelect.mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -343,12 +336,9 @@ describe('AudioPage', () => {
         })
       });
 
-      renderAudio();
+      renderAudioRaw();
 
-      await waitFor(() => {
-        expect(screen.getByText('Loading audio...')).toBeInTheDocument();
-      });
-
+      expect(screen.getByText('Loading audio...')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /refresh/i })).toBeDisabled();
     });
   });
@@ -357,13 +347,11 @@ describe('AudioPage', () => {
     it('initializes file storage if not initialized', async () => {
       mockIsFileStorageInitialized.mockReturnValue(false);
 
-      renderAudio();
+      await renderAudio();
 
-      await waitFor(() => {
-        expect(mockInitializeFileStorage).toHaveBeenCalledWith(
-          TEST_ENCRYPTION_KEY
-        );
-      });
+      expect(mockInitializeFileStorage).toHaveBeenCalledWith(
+        TEST_ENCRYPTION_KEY
+      );
     });
   });
 
@@ -377,13 +365,11 @@ describe('AudioPage', () => {
     beforeEach(async () => {
       mockSelect.mockReturnValue(createMockQueryChain([]));
       user = userEvent.setup();
-      renderAudio();
+      await renderAudio();
 
-      await waitFor(() => {
-        expect(
-          screen.getByText('Drop an audio file here to add it to your library')
-        ).toBeInTheDocument();
-      });
+      expect(
+        screen.getByText('Drop an audio file here to add it to your library')
+      ).toBeInTheDocument();
 
       input = screen.getByTestId('dropzone-input');
     });

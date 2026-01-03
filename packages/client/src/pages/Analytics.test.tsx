@@ -43,7 +43,7 @@ vi.mock('@/db/analytics', () => ({
     mockGetDistinctEventTypes(...args)
 }));
 
-function renderAnalytics() {
+function renderAnalyticsRaw() {
   return render(
     <MemoryRouter>
       <ThemeProvider>
@@ -51,6 +51,15 @@ function renderAnalytics() {
       </ThemeProvider>
     </MemoryRouter>
   );
+}
+
+async function renderAnalytics() {
+  const result = renderAnalyticsRaw();
+  // Wait for initial async effects to complete
+  await waitFor(() => {
+    expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+  });
+  return result;
 }
 
 describe('Analytics', () => {
@@ -74,12 +83,12 @@ describe('Analytics', () => {
     });
 
     it('shows loading message', () => {
-      renderAnalytics();
+      renderAnalyticsRaw();
       expect(screen.getByText('Loading database...')).toBeInTheDocument();
     });
 
     it('does not fetch analytics data', () => {
-      renderAnalytics();
+      renderAnalyticsRaw();
       expect(mockGetEvents).not.toHaveBeenCalled();
       expect(mockGetEventStats).not.toHaveBeenCalled();
     });
@@ -98,7 +107,7 @@ describe('Analytics', () => {
     });
 
     it('shows inline unlock component', () => {
-      renderAnalytics();
+      renderAnalyticsRaw();
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
         screen.getByText(
@@ -108,17 +117,17 @@ describe('Analytics', () => {
     });
 
     it('shows password input for unlocking', () => {
-      renderAnalytics();
+      renderAnalyticsRaw();
       expect(screen.getByTestId('inline-unlock-password')).toBeInTheDocument();
     });
 
     it('shows unlock button', () => {
-      renderAnalytics();
+      renderAnalyticsRaw();
       expect(screen.getByTestId('inline-unlock-button')).toBeInTheDocument();
     });
 
     it('does not fetch analytics data', () => {
-      renderAnalytics();
+      renderAnalyticsRaw();
       expect(mockGetEvents).not.toHaveBeenCalled();
       expect(mockGetEventStats).not.toHaveBeenCalled();
     });
@@ -133,12 +142,12 @@ describe('Analytics', () => {
     });
 
     it('renders the analytics title', async () => {
-      renderAnalytics();
+      await renderAnalytics();
       expect(screen.getByText('Analytics')).toBeInTheDocument();
     });
 
     it('fetches analytics data on mount', async () => {
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         expect(mockGetEvents).toHaveBeenCalledTimes(1);
@@ -147,7 +156,7 @@ describe('Analytics', () => {
     });
 
     it('does not cause infinite re-fetches', async () => {
-      renderAnalytics();
+      await renderAnalytics();
 
       // Wait for initial fetch
       await waitFor(() => {
@@ -168,7 +177,7 @@ describe('Analytics', () => {
       mockGetEvents.mockResolvedValue([]);
       mockGetEventStats.mockResolvedValue([]);
 
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         expect(
@@ -204,7 +213,7 @@ describe('Analytics', () => {
       mockGetEventStats.mockResolvedValue(mockStats);
       mockGetDistinctEventTypes.mockResolvedValue(['db_setup']);
 
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         // Event name appears in both summary and table, so use getAllByText
@@ -229,7 +238,7 @@ describe('Analytics', () => {
       mockGetEventStats.mockResolvedValue(mockStats);
       mockGetDistinctEventTypes.mockResolvedValue(['db_setup']);
 
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         const successRateElement = screen.getByText('75%');
@@ -253,7 +262,7 @@ describe('Analytics', () => {
       mockGetEventStats.mockResolvedValue(mockStats);
       mockGetDistinctEventTypes.mockResolvedValue(['db_setup']);
 
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         const successRateElement = screen.getByText('50%');
@@ -261,8 +270,8 @@ describe('Analytics', () => {
       });
     });
 
-    it('renders time filter buttons', () => {
-      renderAnalytics();
+    it('renders time filter buttons', async () => {
+      await renderAnalytics();
 
       expect(screen.getByText('Last Hour')).toBeInTheDocument();
       expect(screen.getByText('Last 24h')).toBeInTheDocument();
@@ -272,7 +281,7 @@ describe('Analytics', () => {
 
     it('refetches data when time filter changes', async () => {
       const user = userEvent.setup();
-      renderAnalytics();
+      await renderAnalytics();
 
       // Wait for initial fetch
       await waitFor(() => {
@@ -290,7 +299,7 @@ describe('Analytics', () => {
 
     it('fetches all events when All Time filter is selected', async () => {
       const user = userEvent.setup();
-      renderAnalytics();
+      await renderAnalytics();
 
       // Wait for initial fetch
       await waitFor(() => {
@@ -312,7 +321,7 @@ describe('Analytics', () => {
 
     it('fetches events when Last Week filter is selected', async () => {
       const user = userEvent.setup();
-      renderAnalytics();
+      await renderAnalytics();
 
       // Wait for initial fetch
       await waitFor(() => {
@@ -337,7 +346,7 @@ describe('Analytics', () => {
     it('displays error when fetch fails', async () => {
       mockGetEvents.mockRejectedValueOnce(new Error('Fetch failed'));
 
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         expect(screen.getByText('Fetch failed')).toBeInTheDocument();
@@ -346,7 +355,7 @@ describe('Analytics', () => {
 
     it('refetches data when refresh button is clicked', async () => {
       const user = userEvent.setup();
-      renderAnalytics();
+      await renderAnalytics();
 
       // Wait for initial fetch
       await waitFor(() => {
@@ -388,7 +397,7 @@ describe('Analytics', () => {
       ]);
       mockGetDistinctEventTypes.mockResolvedValue(['db_setup']);
 
-      renderAnalytics();
+      await renderAnalytics();
 
       // Wait for events to load
       await waitFor(() => {
@@ -421,7 +430,7 @@ describe('Analytics', () => {
       mockGetEventStats.mockResolvedValue([]);
       mockClearEvents.mockRejectedValueOnce(new Error('Clear failed'));
 
-      renderAnalytics();
+      await renderAnalytics();
 
       // Wait for events to load
       await waitFor(() => {
@@ -451,7 +460,7 @@ describe('Analytics', () => {
       mockGetEvents.mockResolvedValue(mockEvents);
       mockGetEventStats.mockResolvedValue([]);
 
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         expect(screen.getByText('2.50s')).toBeInTheDocument();
@@ -630,7 +639,7 @@ describe('Analytics', () => {
     });
 
     it('renders sort buttons for all columns', async () => {
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-eventName')).toBeInTheDocument();
@@ -642,7 +651,7 @@ describe('Analytics', () => {
 
     it('sorts by event name ascending then descending', async () => {
       const user = userEvent.setup();
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-eventName')).toBeInTheDocument();
@@ -675,7 +684,7 @@ describe('Analytics', () => {
 
     it('sorts by duration ascending then descending', async () => {
       const user = userEvent.setup();
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-durationMs')).toBeInTheDocument();
@@ -706,7 +715,7 @@ describe('Analytics', () => {
 
     it('clears sort on third click', async () => {
       const user = userEvent.setup();
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-eventName')).toBeInTheDocument();
@@ -729,7 +738,7 @@ describe('Analytics', () => {
 
     it('sorts by success status ascending then descending', async () => {
       const user = userEvent.setup();
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-success')).toBeInTheDocument();
@@ -761,7 +770,7 @@ describe('Analytics', () => {
 
     it('sorts by timestamp ascending then descending', async () => {
       const user = userEvent.setup();
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-timestamp')).toBeInTheDocument();
@@ -794,7 +803,7 @@ describe('Analytics', () => {
 
     it('switches sort column when clicking a different header', async () => {
       const user = userEvent.setup();
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-eventName')).toBeInTheDocument();
@@ -824,7 +833,7 @@ describe('Analytics', () => {
 
     it('calls getEvents with sort parameters when sorting', async () => {
       const user = userEvent.setup();
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         expect(mockGetEvents).toHaveBeenCalledTimes(1);
@@ -881,7 +890,7 @@ describe('Analytics', () => {
 
     it('calls getEvents with sort parameters for each column type', async () => {
       const user = userEvent.setup();
-      renderAnalytics();
+      await renderAnalytics();
 
       await waitFor(() => {
         expect(mockGetEvents).toHaveBeenCalledTimes(1);

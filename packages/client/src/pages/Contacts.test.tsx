@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -46,12 +46,21 @@ vi.mock('@/hooks/useContactsImport', () => ({
   })
 }));
 
-function renderContacts() {
+function renderContactsRaw() {
   return render(
     <MemoryRouter>
       <Contacts />
     </MemoryRouter>
   );
+}
+
+async function renderContacts() {
+  const result = renderContactsRaw();
+  // Wait for initial async effects to complete
+  await waitFor(() => {
+    expect(screen.queryByText('Loading database...')).not.toBeInTheDocument();
+  });
+  return result;
 }
 
 describe('Contacts', () => {
@@ -75,13 +84,13 @@ describe('Contacts', () => {
 
   describe('page rendering', () => {
     it('renders the page title', async () => {
-      renderContacts();
+      await renderContacts();
 
       expect(screen.getByText('Contacts')).toBeInTheDocument();
     });
 
     it('renders search input when database is unlocked', async () => {
-      renderContacts();
+      await renderContacts();
 
       expect(
         screen.getByPlaceholderText('Search contacts...')
@@ -89,33 +98,33 @@ describe('Contacts', () => {
     });
 
     it('renders refresh button when database is unlocked', async () => {
-      renderContacts();
+      await renderContacts();
 
       expect(screen.getByText('Refresh')).toBeInTheDocument();
     });
 
     it('renders Import CSV section when database is unlocked', async () => {
-      renderContacts();
+      await renderContacts();
 
       expect(screen.getByText('Import CSV')).toBeInTheDocument();
     });
   });
 
   describe('database loading state', () => {
-    it('shows loading message when database is loading', async () => {
+    it('shows loading message when database is loading', () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
         isLoading: true
       });
 
-      renderContacts();
+      renderContactsRaw();
 
       expect(screen.getByText('Loading database...')).toBeInTheDocument();
     });
   });
 
   describe('database locked state', () => {
-    it('shows inline unlock when database is locked', async () => {
+    it('shows inline unlock when database is locked', () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
         isLoading: false,
@@ -125,7 +134,7 @@ describe('Contacts', () => {
         restoreSession: vi.fn()
       });
 
-      renderContacts();
+      renderContactsRaw();
 
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
@@ -135,7 +144,7 @@ describe('Contacts', () => {
       ).toBeInTheDocument();
     });
 
-    it('does not show search input when database is locked', async () => {
+    it('does not show search input when database is locked', () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
         isLoading: false,
@@ -145,14 +154,14 @@ describe('Contacts', () => {
         restoreSession: vi.fn()
       });
 
-      renderContacts();
+      renderContactsRaw();
 
       expect(
         screen.queryByPlaceholderText('Search contacts...')
       ).not.toBeInTheDocument();
     });
 
-    it('does not show Import CSV section when database is locked', async () => {
+    it('does not show Import CSV section when database is locked', () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
         isLoading: false,
@@ -162,7 +171,7 @@ describe('Contacts', () => {
         restoreSession: vi.fn()
       });
 
-      renderContacts();
+      renderContactsRaw();
 
       expect(screen.queryByText('Import CSV')).not.toBeInTheDocument();
     });
@@ -172,32 +181,34 @@ describe('Contacts', () => {
     it('shows empty message when no contacts exist', async () => {
       mockOrderBy.mockResolvedValue([]);
 
-      renderContacts();
+      await renderContacts();
 
-      await waitFor(() => {
-        expect(
-          screen.getByText('No contacts yet. Import a CSV to get started.')
-        ).toBeInTheDocument();
-      });
+      expect(
+        screen.getByText('No contacts yet. Import a CSV to get started.')
+      ).toBeInTheDocument();
     });
 
     it('shows no results message when search has no matches', async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       mockOrderBy.mockResolvedValue([]);
 
-      renderContacts();
+      await renderContacts();
 
       const searchInput = screen.getByPlaceholderText('Search contacts...');
       await user.type(searchInput, 'nonexistent');
 
-      // Advance timers for debounce
-      await vi.advanceTimersByTimeAsync(300);
-
-      await waitFor(() => {
-        expect(
-          screen.getByText('No contacts found matching "nonexistent"')
-        ).toBeInTheDocument();
+      // Advance timers for debounce wrapped in act() to handle state updates
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(300);
       });
+      // Wait for debounced fetch to complete
+      await waitFor(() => {
+        expect(mockOrderBy).toHaveBeenCalledTimes(2);
+      });
+
+      expect(
+        screen.getByText('No contacts found matching "nonexistent"')
+      ).toBeInTheDocument();
     });
   });
 
@@ -226,44 +237,36 @@ describe('Contacts', () => {
     it('displays contacts when they exist', async () => {
       mockOrderBy.mockResolvedValue(mockContacts);
 
-      renderContacts();
+      await renderContacts();
 
-      await waitFor(() => {
-        expect(screen.getByText('John Doe')).toBeInTheDocument();
-        expect(screen.getByText('Jane')).toBeInTheDocument();
-      });
+      expect(screen.getByText('John Doe')).toBeInTheDocument();
+      expect(screen.getByText('Jane')).toBeInTheDocument();
     });
 
     it('displays contact email when available', async () => {
       mockOrderBy.mockResolvedValue(mockContacts);
 
-      renderContacts();
+      await renderContacts();
 
-      await waitFor(() => {
-        expect(screen.getByText('john@example.com')).toBeInTheDocument();
-        expect(screen.getByText('jane@example.com')).toBeInTheDocument();
-      });
+      expect(screen.getByText('john@example.com')).toBeInTheDocument();
+      expect(screen.getByText('jane@example.com')).toBeInTheDocument();
     });
 
     it('displays contact phone when available', async () => {
       mockOrderBy.mockResolvedValue(mockContacts);
 
-      renderContacts();
+      await renderContacts();
 
-      await waitFor(() => {
-        expect(screen.getByText('555-1234')).toBeInTheDocument();
-      });
+      expect(screen.getByText('555-1234')).toBeInTheDocument();
     });
 
     it('navigates to contact detail when clicked', async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       mockOrderBy.mockResolvedValue(mockContacts);
 
-      renderContacts();
+      await renderContacts();
 
-      await waitFor(() => {
-        expect(screen.getByText('John Doe')).toBeInTheDocument();
-      });
+      expect(screen.getByText('John Doe')).toBeInTheDocument();
 
       await user.click(screen.getByText('John Doe'));
 
@@ -275,7 +278,7 @@ describe('Contacts', () => {
     it('updates search query on input', async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-      renderContacts();
+      await renderContacts();
 
       const searchInput = screen.getByPlaceholderText('Search contacts...');
       await user.type(searchInput, 'test');
@@ -286,7 +289,7 @@ describe('Contacts', () => {
     it('clears search when X button is clicked', async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-      renderContacts();
+      await renderContacts();
 
       const searchInput = screen.getByPlaceholderText('Search contacts...');
       await user.type(searchInput, 'test');
@@ -303,12 +306,10 @@ describe('Contacts', () => {
     it('debounces search queries', async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-      renderContacts();
+      await renderContacts();
 
-      // Initial fetch
-      await waitFor(() => {
-        expect(mockOrderBy).toHaveBeenCalledTimes(1);
-      });
+      // Initial fetch already happened in renderContacts
+      expect(mockOrderBy).toHaveBeenCalledTimes(1);
 
       const searchInput = screen.getByPlaceholderText('Search contacts...');
 
@@ -318,11 +319,13 @@ describe('Contacts', () => {
       // Should not have made additional queries yet (debounced)
       expect(mockOrderBy).toHaveBeenCalledTimes(1);
 
-      // Advance timers past debounce
-      await vi.advanceTimersByTimeAsync(300);
+      // Advance timers past debounce wrapped in act() to handle state updates
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(300);
+      });
 
+      // Wait for debounced fetch to complete
       await waitFor(() => {
-        // After debounce, should have made one more query
         expect(mockOrderBy).toHaveBeenCalledTimes(2);
       });
     });
@@ -332,11 +335,9 @@ describe('Contacts', () => {
     it('refreshes contacts when Refresh button is clicked', async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
-      renderContacts();
+      await renderContacts();
 
-      await waitFor(() => {
-        expect(mockOrderBy).toHaveBeenCalledTimes(1);
-      });
+      expect(mockOrderBy).toHaveBeenCalledTimes(1);
 
       await user.click(screen.getByText('Refresh'));
 
@@ -350,7 +351,7 @@ describe('Contacts', () => {
     it('displays error message when fetch fails', async () => {
       mockOrderBy.mockRejectedValue(new Error('Database error'));
 
-      renderContacts();
+      renderContactsRaw();
 
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
@@ -371,7 +372,7 @@ describe('Contacts', () => {
         rows: [['John', 'Doe', 'john@example.com']]
       });
 
-      renderContacts();
+      await renderContacts();
 
       // Note: Full CSV import testing would require more complex file input simulation
       // This test verifies the import section is rendered
