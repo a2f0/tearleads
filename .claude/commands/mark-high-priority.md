@@ -8,7 +8,7 @@ Add the `high-priority` label to the current PR so that other PRs in the merge q
 
 ## Steps
 
-1. **Get PR info**: Run `gh pr view --json number,url,labels | cat` to get the PR number and current labels.
+1. **Get PR info**: Run `gh pr view --json number,labels` to get the PR number and current labels.
 
 2. **Check if already high-priority**: If the PR already has the `high-priority` label, inform the user and exit.
 
