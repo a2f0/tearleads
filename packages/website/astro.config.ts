@@ -11,6 +11,10 @@ export default defineConfig({
     resolve: {
       alias: {
         '@docs': path.resolve(import.meta.dirname, '../../docs'),
+        '@rapid/ui/logo.svg': path.resolve(
+          import.meta.dirname,
+          '../ui/src/images/logo.svg'
+        ),
       },
     },
   },
