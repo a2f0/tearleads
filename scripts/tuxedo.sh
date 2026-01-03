@@ -96,9 +96,9 @@ screen_cmd() {
     screen_name="$1"
     if [ "$USE_SCREEN" = true ]; then
         # -d -RR: detach from elsewhere if attached, reattach or create new
-        # -c /dev/null: don't read .screenrc (use defaults)
+        # -c $CONFIG_DIR/screenrc: use our config for scrollback and mouse support
         # -T tmux-256color: enable true color support for proper terminal colors
-        echo "screen -T tmux-256color -d -RR $screen_name -c /dev/null"
+        echo "screen -T tmux-256color -d -RR $screen_name -c $CONFIG_DIR/screenrc"
     else
         # Fallback: just run the shell
         echo ""
