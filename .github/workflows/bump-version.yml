@@ -48,6 +48,7 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          sign-commits: true
           commit-message: "chore: bump version [skip ci]"
           title: "chore: bump version"
           body: "Automated version bump"
