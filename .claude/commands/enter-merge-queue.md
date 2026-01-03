@@ -130,76 +130,15 @@ Track the following state during execution:
 
    ### 4g. Bump version (once per PR)
 
-   **Only run this step if `has_bumped_version` is `false`.**
+   **Only run if `has_bumped_version` is `false`.**
 
-   Before enabling auto-merge, bump all package versions and amend the last commit:
+   1. Run `./scripts/bumpVersion.sh` and capture its output (shows old -> new versions for Android, iOS, API, Client)
+   2. Stage version files: `packages/client/android/app/build.gradle`, `packages/client/ios/App/App.xcodeproj/project.pbxproj`, `packages/api/package.json`, `packages/client/package.json`
+   3. Amend the last commit with version bump info in the body (GPG signed)
+   4. Force push with `--force-with-lease`
+   5. Set `has_bumped_version = true`
 
-   1. Run the bump script and capture its output:
-
-      ```bash
-      BUMP_OUTPUT=$(./scripts/bumpVersion.sh)
-      ```
-
-      This outputs the version changes, e.g.:
-
-      ```text
-      Bumping versions:
-        Android: 123 -> 124
-        iOS: 123 -> 124
-        API: 1.0.0 -> 1.0.1
-        Client: 1.0.0 -> 1.0.1
-      ```
-
-   2. Parse the versions from the output:
-
-      ```bash
-      OLD_ANDROID=$(echo "$BUMP_OUTPUT" | grep 'Android:' | awk '{print $2}')
-      NEW_ANDROID=$(echo "$BUMP_OUTPUT" | grep 'Android:' | awk '{print $4}')
-      OLD_IOS=$(echo "$BUMP_OUTPUT" | grep 'iOS:' | awk '{print $2}')
-      NEW_IOS=$(echo "$BUMP_OUTPUT" | grep 'iOS:' | awk '{print $4}')
-      OLD_API=$(echo "$BUMP_OUTPUT" | grep 'API:' | awk '{print $2}')
-      NEW_API=$(echo "$BUMP_OUTPUT" | grep 'API:' | awk '{print $4}')
-      OLD_CLIENT=$(echo "$BUMP_OUTPUT" | grep 'Client:' | awk '{print $2}')
-      NEW_CLIENT=$(echo "$BUMP_OUTPUT" | grep 'Client:' | awk '{print $4}')
-      ```
-
-   3. Stage all version-related changes:
-
-      ```bash
-      git add packages/client/android/app/build.gradle \
-              packages/client/ios/App/App.xcodeproj/project.pbxproj \
-              packages/api/package.json \
-              packages/client/package.json
-      ```
-
-   4. Get the current commit subject and body:
-
-      ```bash
-      COMMIT_SUBJECT=$(git log -1 --pretty=%s)
-      COMMIT_BODY=$(git log -1 --pretty=%b)
-      ```
-
-   5. Amend the commit with version info in the body:
-
-      ```bash
-      printf "%s\n\n%s\n\nVersion bump:\n- Android: %s -> %s\n- iOS: %s -> %s\n- API: %s -> %s\n- Client: %s -> %s" \
-        "$COMMIT_SUBJECT" "$COMMIT_BODY" \
-        "$OLD_ANDROID" "$NEW_ANDROID" \
-        "$OLD_IOS" "$NEW_IOS" \
-        "$OLD_API" "$NEW_API" \
-        "$OLD_CLIENT" "$NEW_CLIENT" \
-        | timeout 5 git commit --amend -S -F -
-      ```
-
-   6. Force push the amended commit:
-
-      ```bash
-      git push --force-with-lease
-      ```
-
-   7. Set `has_bumped_version = true` to prevent re-bumping on subsequent loop iterations.
-
-   **Note**: After force pushing, CI will restart. Return to step 4f to wait for CI again.
+   After force pushing, CI restarts - return to step 4f.
 
    ### 4h. Enable auto-merge and wait
 
@@ -233,165 +172,27 @@ Track the following state during execution:
 
 ## Opening GitHub Issues
 
-Create GitHub issues to track problems discovered during the merge queue process that shouldn't block the current PR:
-
-### When to Open Issues
-
-- **Flaky tests**: Tests that fail intermittently but pass on retry
-- **Infrastructure issues**: CI runner timeouts, resource exhaustion, network failures
-- **Technical debt**: Code quality issues noticed but out of scope for current PR
-- **Future improvements**: Ideas or optimizations that should be tracked
-- **Recurring failures**: Same test/job failing across multiple PRs
-
-### How to Create Issues
-
-```bash
-gh issue create --title "flaky: iOS Maestro test intermittent failure" --body "$(cat <<'EOF'
-## Description
-The iOS Maestro test `login_flow.yaml` failed during PR #273 merge queue but passed on retry.
-
-## Evidence
-- CI run: https://github.com/a2f0/rapid/actions/runs/12345
-- Error: `Timeout waiting for element`
-
-## Suggested Fix
-Increase timeout or add retry logic for slow simulator startup.
-EOF
-)"
-```
-
-### Issue Labels
-
-Use appropriate labels when creating issues:
-
-- `flaky-test` - Intermittent test failures
-- `ci` - CI/infrastructure related
-- `bug` - Actual bugs discovered
-- `enhancement` - Improvements to track
-
-### Important
-
-- Do NOT let issue creation block the merge queue
-- Create the issue, note its number, and continue with the merge
-- When resolving a conversation with an issue, link the issue in the thread reply (NOT in PR body)
+Create issues for problems that shouldn't block the PR (flaky tests, infrastructure issues, tech debt). Use labels: `flaky-test`, `ci`, `bug`, `enhancement`. Don't let issue creation block the merge - create it and continue.
 
 ## Resolving Conversation Threads
 
-**All conversation threads must be resolved before the PR can merge.** When resolving a thread, provide context in the thread itself (not the PR body).
-
-### Before Resolving a Thread
-
-Reply to the thread with:
-
-1. **The commit(s) that fixed the issue** - Link to the specific commit(s) that addressed the feedback
-2. **If an issue was opened** - Link the issue that will track the work
-
-### Reply Format
-
-```bash
-# Get the commit SHA for the fix
-git log --oneline -1
-
-# Reply to the thread with context
-gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies \
-  -f body="Fixed in commit abc1234. @gemini-code-assist Please confirm."
-```
-
-If an issue was created instead of a direct fix:
-
-```bash
-gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies \
-  -f body="Tracked in #456 for follow-up. Resolving as out of scope for this PR."
-```
-
-### Then Resolve the Thread
-
-```bash
-gh api graphql -f query='
-  mutation {
-    resolveReviewThread(input: {threadId: "<thread_node_id>"}) {
-      thread { isResolved }
-    }
-  }
-'
-```
-
-### Examples
-
-**Fixed with a commit:**
-
-> Fixed in commit e6aabdb. The error handling now catches the edge case you identified. @gemini-code-assist Please confirm.
-
-**Deferred to an issue:**
-
-> This is a broader architectural concern. Tracked in #789 for follow-up. Resolving as out of scope for this PR.
-
-**Fixed across multiple commits:**
-
-> Addressed in commits abc1234 and def5678. The first commit adds the validation, the second adds tests. @gemini-code-assist Please confirm.
+All threads must be resolved before merge. Use `/follow-up-with-gemini` which handles replying with commit SHAs, waiting for confirmation, and resolving threads via GraphQL.
 
 ## Notes
 
-- This skill loops until the PR is **actually merged**, not just until auto-merge is enabled
-- **High-priority yielding**: PRs without the `high-priority` label will pause and wait when a high-priority PR is actively merging. This ensures urgent fixes get through the queue faster.
-- If multiple PRs are in the queue, this PR may need to update from main multiple times as others merge
-- **Congested queue efficiency**: When multiple PRs are merging, prioritize staying up-to-date over waiting for CI. It's better to cancel a CI run and rebase than to wait 20 minutes for CI that will be invalidated by another merge.
-- Common fixable issues: lint errors, type errors, test failures, code style suggestions
-- Non-fixable issues: merge conflicts, infrastructure failures, architectural disagreements
-- If stuck in a loop (same fix attempted twice), ask the user for help
-- **Always clear queued status when exiting early**: If you exit the merge queue before the PR is merged (conflicts, user intervention needed, etc.), run `./scripts/agents/clearQueued.sh` to remove the "(queued)" prefix from both VS Code and tmux, and move the tmux window to the back
-- When Gemini confirms a fix, resolve the thread via GraphQL. To detect confirmation:
-  1. Look for positive phrases: "looks good", "resolved", "satisfied", "fixed", "approved", "thank you", "lgtm"
-  2. Ensure the response does NOT contain negative qualifiers: "but", "however", "still", "issue", "problem", "not yet", "almost"
-  3. Only resolve if both conditions are met (positive phrase present AND no negative qualifiers)
-- Only resolve threads after explicit confirmation from Gemini - do not auto-resolve based on your own assessment
+- Loops until PR is **actually merged**, not just auto-merge enabled
+- Non-high-priority PRs yield to high-priority ones (check every 2 min)
+- Prioritize staying up-to-date over waiting for CI in congested queues
+- Fixable: lint/type errors, test failures. Non-fixable: merge conflicts, infra failures
+- If stuck (same fix attempted twice), ask user for help
+- On early exit, run `./scripts/agents/clearQueued.sh`
+- Gemini confirmation detection: positive phrases ("looks good", "lgtm", etc.) WITHOUT negative qualifiers ("but", "however", "still")
+- Only resolve threads after explicit Gemini confirmation
 
 ## Keeping PR Description Updated
 
-As you iterate through fixes, keep the PR description accurate:
-
-```bash
-gh pr edit <pr-number> --body "$(cat <<'EOF'
-## Summary
-- Original feature/fix description
-- Additional: fixed CI lint errors
-- Additional: addressed Gemini feedback on error handling
-
-Closes #<issue-number>
-EOF
-)"
-```
-
-Guidelines:
-
-- **Always preserve the `Closes #<issue>` line(s)** if the PR was opened to address one or more GitHub issues
-- Add bullet points for significant changes made during the merge queue process
-- Document CI fixes, Gemini feedback addressed, and any scope changes
-- Keep it concise - the commit history has the details
+As you iterate, update the PR body with `gh pr edit --body`. Preserve any `Closes #<issue>` lines and add bullets for significant changes (CI fixes, Gemini feedback addressed).
 
 ## Commit Rules
 
-When committing fixes during the merge queue process:
-
-### Conventional Commit Format
-
-- Subject line: `<type>(<scope>): <description>` (max 50 chars)
-- Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`
-- Scope: prefer feature-based (`pwa`, `auth`, `settings`) over package-based when possible
-- Description should be imperative mood ("add" not "added")
-- Body can contain detailed explanation (wrap at 72 chars)
-
-### GPG Signing
-
-The commit MUST be signed. Use a 5-second timeout. For multi-line messages, pipe the content to `git commit`:
-
-```bash
-printf "subject\n\nbody" | timeout 5 git commit -S -F -
-```
-
-### DO NOT
-
-- Add `Co-Authored-By` headers
-- Add emoji or "Generated with Claude Code" footers
-- Use `--no-gpg-sign` or skip signing
-- Do NOT commit binary files (PNG, JPG, ICO, etc.) - use SVG for icons/badges or external URLs
+Follow commit guidelines in `CLAUDE.md`: conventional commits, GPG signed with 5s timeout, no co-author lines or footers.

@@ -14,55 +14,14 @@ Commit and push the current changes following these rules:
 
 2. **Analyze changes**: Run `git status` and `git diff --staged` to understand what's being committed.
 
-3. **Conventional commit format**:
-   - Subject line: `<type>(<scope>): <description>` (max 50 chars)
-   - Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`
-   - Scope: prefer feature-based (`pwa`, `auth`, `settings`) over package-based when possible
-   - Description should be imperative mood ("add" not "added")
-   - Body can contain detailed explanation (wrap at 72 chars)
+3. **Commit format**: Follow `CLAUDE.md` guidelines (conventional commits, GPG signed with 5s timeout, no co-author/footers, no binary files). Don't bump versions - that happens in `/enter-merge-queue`.
 
-4. **DO NOT**:
-   - Add `Co-Authored-By` headers
-   - Add emoji or "Generated with Claude Code" footers
-   - Use `--no-gpg-sign` or skip signing
-   - Do NOT commit binary files (PNG, JPG, ICO, etc.) - use SVG for icons/badges or external URLs
-   - Bump version numbers (this happens automatically in `/enter-merge-queue`)
+4. **Push**: After successful commit, push to the current branch's remote.
 
-5. **GPG signing**: The commit MUST be signed. Use a 5-second timeout. For multi-line messages, pipe the content to `git commit`:
+5. **Open PR**: If no PR exists for this branch, create one with `gh pr create`. Include `Closes #<issue-number>` in the body if tracking an issue. After creating, run `./scripts/agents/setVscodeTitle.sh`.
 
-   ```bash
-   printf "subject\n\nbody" | timeout 5 git commit -S -F -
-   ```
+6. **Wait for Gemini**: Wait 60 seconds for Gemini Code Assist to review.
 
-6. **Push**: After successful commit, push to the current branch's remote.
+7. **Address feedback**: Run `/address-gemini-feedback` to handle unresolved comments.
 
-7. **Open PR**: If a PR doesn't already exist for this branch, create one using `gh pr create`. Skip if already on `main` or PR exists.
-
-   **Important**: If you created a GitHub issue to track this work, include `Closes #<issue-number>` in the PR body to auto-close the issue when merged. To close multiple issues, you can list them (e.g., `Closes #123, #456`):
-
-   ```bash
-   gh pr create --title "<type>(<scope>): <description>" --body "$(cat <<'EOF'
-   ## Summary
-   - Brief description of changes
-
-   Closes #<issue-number>
-   EOF
-   )"
-   ```
-
-   After creating a PR, update the VS Code title to show the PR number:
-
-   ```bash
-   ./scripts/agents/setVscodeTitle.sh
-   ```
-
-8. **Wait for Gemini feedback**: After the push completes (and PR is created/updated), wait 60 seconds for Gemini Code Assist to post its review comments.
-
-9. **Address Gemini feedback**: Run `/address-gemini-feedback` to enter the feedback resolution loop. This will:
-   - Fetch unresolved review comments
-   - Make necessary code changes
-   - Commit and push fixes
-   - Reply to addressed comments
-   - Repeat until all feedback is resolved
-
-10. **Enter merge queue**: Run `/enter-merge-queue` to automate the merge process. This will continuously update from base, fix CI issues, address reviews, bump versions, and wait until the PR is actually merged.
+8. **Merge**: Run `/enter-merge-queue` to automate merging (updates from base, fixes CI, bumps versions, waits for merge).
