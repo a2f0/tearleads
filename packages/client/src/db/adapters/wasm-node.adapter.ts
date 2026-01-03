@@ -208,6 +208,17 @@ export interface WasmNodeAdapterOptions {
   skipEncryption?: boolean;
 }
 
+/**
+ * JSON backup format for WASM SQLite databases.
+ * Used by exportDatabaseAsJson/importDatabaseFromJson.
+ */
+export type JsonBackupData = {
+  version: number;
+  tables: { name: string; sql: string }[];
+  indexes: { name: string; sql: string }[];
+  data: Record<string, Record<string, unknown>[]>;
+};
+
 export class WasmNodeAdapter implements DatabaseAdapter {
   private db: SQLiteDatabase | null = null;
   private encryptionKey: string | null = null;
@@ -411,12 +422,7 @@ export class WasmNodeAdapter implements DatabaseAdapter {
       throw new Error('Database not initialized');
     }
 
-    const result: {
-      version: number;
-      tables: { name: string; sql: string }[];
-      indexes: { name: string; sql: string }[];
-      data: Record<string, Record<string, unknown>[]>;
-    } = {
+    const result: JsonBackupData = {
       version: 1,
       tables: [],
       indexes: [],
@@ -490,12 +496,7 @@ export class WasmNodeAdapter implements DatabaseAdapter {
 
     try {
       // Parse the JSON data
-      const data = JSON.parse(jsonData) as {
-        version: number;
-        tables: { name: string; sql: string }[];
-        indexes: { name: string; sql: string }[];
-        data: Record<string, Record<string, unknown>[]>;
-      };
+      const data = JSON.parse(jsonData) as JsonBackupData;
 
       if (data.version !== 1) {
         throw new Error(`Unsupported backup version: ${data.version}`);
@@ -508,34 +509,43 @@ export class WasmNodeAdapter implements DatabaseAdapter {
         ...(this.encryptionKey ? { hexkey: this.encryptionKey } : {})
       });
 
-      // Create tables
-      for (const table of data.tables) {
-        if (table.sql) {
-          this.db.exec(table.sql);
+      // Wrap all schema/data operations in a transaction for atomicity and performance
+      this.db.exec('BEGIN TRANSACTION;');
+      try {
+        // Create tables
+        for (const table of data.tables) {
+          if (table.sql) {
+            this.db.exec(table.sql);
+          }
         }
-      }
 
-      // Insert data
-      for (const [tableName, rows] of Object.entries(data.data)) {
-        for (const row of rows) {
-          const columns = Object.keys(row);
-          if (columns.length === 0) continue;
+        // Insert data
+        for (const [tableName, rows] of Object.entries(data.data)) {
+          for (const row of rows) {
+            const columns = Object.keys(row);
+            if (columns.length === 0) continue;
 
-          const placeholders = columns.map(() => '?').join(', ');
-          const values = columns.map((col) => row[col]);
+            const placeholders = columns.map(() => '?').join(', ');
+            const values = columns.map((col) => row[col]);
 
-          this.db.exec({
-            sql: `INSERT INTO "${tableName}" (${columns.map((c) => `"${c}"`).join(', ')}) VALUES (${placeholders})`,
-            bind: values
-          });
+            this.db.exec({
+              sql: `INSERT INTO "${tableName}" (${columns.map((c) => `"${c}"`).join(', ')}) VALUES (${placeholders})`,
+              bind: values
+            });
+          }
         }
-      }
 
-      // Create indexes
-      for (const index of data.indexes) {
-        if (index.sql) {
-          this.db.exec(index.sql);
+        // Create indexes
+        for (const index of data.indexes) {
+          if (index.sql) {
+            this.db.exec(index.sql);
+          }
         }
+
+        this.db.exec('COMMIT;');
+      } catch (txError) {
+        this.db.exec('ROLLBACK;');
+        throw txError;
       }
 
       // Enable foreign keys
