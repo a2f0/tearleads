@@ -149,7 +149,9 @@ export function DurationChart({
               dataKey="timestamp"
               type="number"
               domain={['dataMin', 'dataMax']}
-              tickFormatter={(value) => formatXAxisTick(value, timeFilter)}
+              tickFormatter={(value: number) =>
+                formatXAxisTick(value, timeFilter)
+              }
               className="text-xs"
               stroke="currentColor"
             />
