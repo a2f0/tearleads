@@ -1,7 +1,5 @@
 # Database Encryption Architecture
 
-Rapid uses industry-standard encryption to protect your data at rest. Your password never leaves your device - instead, it's used to derive a 256-bit encryption key using PBKDF2 with 600,000 iterations. This key encrypts your entire SQLite database using platform-native encryption libraries.
-
 ## Web (Browser)
 
 ```mermaid
@@ -170,15 +168,7 @@ flowchart TB
     KEY --> ZERO
 ```
 
-## Key Components
-
-### Key Derivation
-
-PBKDF2-SHA256 with 600,000 iterations transforms your password into a cryptographically secure 256-bit key, following OWASP 2023 recommendations.
-
-### Platform Security
-
-Each platform uses native encryption:
+## Platform Reference
 
 | Platform | Encryption Library                         | Salt/KCV Storage    |
 | -------- | ------------------------------------------ | ------------------- |
@@ -186,7 +176,3 @@ Each platform uses native encryption:
 | Electron | ChaCha20 (better-sqlite3-multiple-ciphers) | File System         |
 | iOS      | SQLCipher                                  | IndexedDB (WebView) |
 | Android  | SQLCipher                                  | IndexedDB (WebView) |
-
-### Memory Safety
-
-Encryption keys are securely zeroed from memory after use, preventing extraction from memory dumps or swap files.
