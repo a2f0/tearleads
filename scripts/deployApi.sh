@@ -28,11 +28,11 @@ pnpm --filter @rapid/shared build
 # Build the bundled API (single file, no node_modules needed)
 pnpm --filter @rapid/api build:bundle
 
-# Upload bundled file to server
+# Upload bundled files to server
 echo "Deploying to ${HOSTNAME}..."
 ssh "${USERNAME}@${HOSTNAME}" "mkdir -p /opt/rapid-api/dist"
 rsync -avz --delete \
-  packages/api/dist/server.cjs \
+  packages/api/dist/ \
   "${USERNAME}@${HOSTNAME}:/opt/rapid-api/dist/"
 
 # Set ownership and permissions
