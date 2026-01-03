@@ -4,6 +4,15 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AudioPage } from './Audio';
 
+// Mock the audio context
+const mockPlay = vi.fn();
+const mockPause = vi.fn();
+const mockResume = vi.fn();
+const mockUseAudio = vi.fn();
+vi.mock('@/audio', () => ({
+  useAudio: () => mockUseAudio()
+}));
+
 // Mock the database context
 const mockUseDatabaseContext = vi.fn();
 vi.mock('@/db/hooks', () => ({
@@ -103,6 +112,15 @@ describe('AudioPage', () => {
     // Mock URL methods
     vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:test-url');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    // Default mock for audio context
+    mockUseAudio.mockReturnValue({
+      currentTrack: null,
+      isPlaying: false,
+      play: mockPlay,
+      pause: mockPause,
+      resume: mockResume
+    });
 
     // Default mocks for unlocked database
     mockUseDatabaseContext.mockReturnValue({
@@ -217,12 +235,11 @@ describe('AudioPage', () => {
       expect(screen.getByText('10 MB')).toBeInTheDocument();
     });
 
-    it('renders audio elements', async () => {
+    it('renders play buttons for tracks', async () => {
       await renderAudio();
 
-      const audioElements = screen.getAllByRole('generic', { hidden: true });
-      // Audio elements should be present (they're role="generic" in jsdom)
-      expect(audioElements.length).toBeGreaterThan(0);
+      const playButtons = screen.getAllByRole('button', { name: /play/i });
+      expect(playButtons.length).toBeGreaterThan(0);
     });
 
     it('fetches audio data from storage', async () => {
@@ -410,6 +427,104 @@ describe('AudioPage', () => {
       });
 
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe('audio context integration', () => {
+    beforeEach(() => {
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_TRACK]));
+    });
+
+    it('calls play when play button is clicked', async () => {
+      const user = userEvent.setup();
+      renderAudio();
+
+      await waitFor(() => {
+        expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('audio-play-track-1'));
+
+      expect(mockPlay).toHaveBeenCalledWith({
+        id: 'track-1',
+        name: 'test-song.mp3',
+        objectUrl: 'blob:test-url',
+        mimeType: 'audio/mpeg'
+      });
+    });
+
+    it('calls pause when pause button is clicked on playing track', async () => {
+      mockUseAudio.mockReturnValue({
+        currentTrack: {
+          id: 'track-1',
+          name: 'test-song.mp3',
+          objectUrl: 'blob:test-url',
+          mimeType: 'audio/mpeg'
+        },
+        isPlaying: true,
+        play: mockPlay,
+        pause: mockPause,
+        resume: mockResume
+      });
+
+      const user = userEvent.setup();
+      renderAudio();
+
+      await waitFor(() => {
+        expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('audio-play-track-1'));
+
+      expect(mockPause).toHaveBeenCalled();
+    });
+
+    it('calls resume when play button is clicked on paused track', async () => {
+      mockUseAudio.mockReturnValue({
+        currentTrack: {
+          id: 'track-1',
+          name: 'test-song.mp3',
+          objectUrl: 'blob:test-url',
+          mimeType: 'audio/mpeg'
+        },
+        isPlaying: false,
+        play: mockPlay,
+        pause: mockPause,
+        resume: mockResume
+      });
+
+      const user = userEvent.setup();
+      renderAudio();
+
+      await waitFor(() => {
+        expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('audio-play-track-1'));
+
+      expect(mockResume).toHaveBeenCalled();
+    });
+
+    it('highlights the currently playing track', async () => {
+      mockUseAudio.mockReturnValue({
+        currentTrack: {
+          id: 'track-1',
+          name: 'test-song.mp3',
+          objectUrl: 'blob:test-url',
+          mimeType: 'audio/mpeg'
+        },
+        isPlaying: true,
+        play: mockPlay,
+        pause: mockPause,
+        resume: mockResume
+      });
+
+      renderAudio();
+
+      await waitFor(() => {
+        const trackElement = screen.getByTestId('audio-track-track-1');
+        expect(trackElement).toHaveClass('border-primary');
+      });
     });
   });
 });
