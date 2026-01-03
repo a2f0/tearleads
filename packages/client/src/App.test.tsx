@@ -1,5 +1,6 @@
 import { ThemeProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import App from './App';
@@ -66,10 +67,10 @@ describe('App', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders the settings link in header', () => {
+  it('renders the mobile menu button in header', () => {
     renderApp();
 
-    expect(screen.getByTestId('settings-link')).toBeInTheDocument();
+    expect(screen.getByTestId('mobile-menu-button')).toBeInTheDocument();
   });
 
   it('renders the sidebar with navigation links', () => {
@@ -83,35 +84,39 @@ describe('App', () => {
     expect(sidebarLinks).toHaveLength(navItems.length);
   });
 
-  it('renders navigation in both header and sidebar', () => {
+  it('renders navigation in both mobile menu and sidebar', async () => {
+    const user = userEvent.setup();
     renderApp();
 
-    // Header nav links (with test IDs)
+    // Open mobile menu to access header nav links
+    await user.click(screen.getByTestId('mobile-menu-button'));
+
+    // Header nav links (with test IDs) inside mobile menu dropdown
     expect(screen.getByTestId('contacts-link')).toBeInTheDocument();
     expect(screen.getByTestId('tables-link')).toBeInTheDocument();
     expect(screen.getByTestId('sqlite-link')).toBeInTheDocument();
     expect(screen.getByTestId('debug-link')).toBeInTheDocument();
     expect(screen.getByTestId('settings-link')).toBeInTheDocument();
 
-    // Sidebar nav links (by text)
+    // Sidebar nav links (by text) - some items appear in both mobile menu and sidebar
     expect(screen.getByText('Files')).toBeInTheDocument();
-    expect(screen.getByText('Contacts')).toBeInTheDocument();
+    expect(screen.getAllByText('Contacts')).toHaveLength(2); // Mobile menu + sidebar
     expect(screen.getByText('Photos')).toBeInTheDocument();
-    expect(screen.getByText('Tables')).toBeInTheDocument();
-    expect(screen.getByText('SQLite')).toBeInTheDocument();
-    expect(screen.getByText('Debug')).toBeInTheDocument();
+    expect(screen.getAllByText('Tables')).toHaveLength(2); // Mobile menu + sidebar
+    expect(screen.getAllByText('SQLite')).toHaveLength(2); // Mobile menu + sidebar
+    expect(screen.getAllByText('Debug')).toHaveLength(2); // Mobile menu + sidebar
     expect(screen.getByText('OPFS')).toBeInTheDocument();
     expect(screen.getByText('Chat')).toBeInTheDocument();
     expect(screen.getByText('Models')).toBeInTheDocument();
-    expect(screen.getByText('Settings')).toBeInTheDocument();
+    expect(screen.getAllByText('Settings')).toHaveLength(2); // Mobile menu + sidebar
   });
 
-  it('header nav has lg:hidden class for mobile-only display', () => {
+  it('mobile menu has lg:hidden class for mobile-only display', () => {
     renderApp();
 
-    const headerNavContainer =
-      screen.getByTestId('settings-link').parentElement;
-    expect(headerNavContainer).toHaveClass('lg:hidden');
+    const mobileMenuContainer =
+      screen.getByTestId('mobile-menu-button').parentElement;
+    expect(mobileMenuContainer).toHaveClass('lg:hidden');
   });
 
   it('sidebar has hidden lg:flex classes for desktop-only display', () => {

@@ -1,14 +1,11 @@
 import { Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
-import { Bug, Database, Settings, Table2, Users } from 'lucide-react';
 import { Link, Outlet } from 'react-router-dom';
 import { AccountSwitcher } from './components/AccountSwitcher';
 import { MiniPlayer } from './components/audio/MiniPlayer';
+import { MobileMenu } from './components/MobileMenu';
 import { Sidebar } from './components/Sidebar';
 import { useAppVersion } from './hooks/useAppVersion';
-
-const navLinkClassName =
-  'inline-flex h-9 w-9 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground';
 
 function App() {
   const version = useAppVersion();
@@ -27,48 +24,7 @@ function App() {
             </Link>
           </div>
           <div className="flex items-center gap-1">
-            <div className="flex items-center gap-1 lg:hidden">
-              <Link
-                to="/contacts"
-                className={navLinkClassName}
-                aria-label="Contacts"
-                data-testid="contacts-link"
-              >
-                <Users className="h-5 w-5" />
-              </Link>
-              <Link
-                to="/tables"
-                className={navLinkClassName}
-                aria-label="Tables"
-                data-testid="tables-link"
-              >
-                <Table2 className="h-5 w-5" />
-              </Link>
-              <Link
-                to="/sqlite"
-                className={navLinkClassName}
-                aria-label="SQLite"
-                data-testid="sqlite-link"
-              >
-                <Database className="h-5 w-5" />
-              </Link>
-              <Link
-                to="/debug"
-                className={navLinkClassName}
-                aria-label="Debug"
-                data-testid="debug-link"
-              >
-                <Bug className="h-5 w-5" />
-              </Link>
-              <Link
-                to="/settings"
-                className={navLinkClassName}
-                aria-label="Settings"
-                data-testid="settings-link"
-              >
-                <Settings className="h-5 w-5" />
-              </Link>
-            </div>
+            <MobileMenu />
             <AccountSwitcher />
           </div>
         </div>

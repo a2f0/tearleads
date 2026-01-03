@@ -28,8 +28,12 @@ describe('App Integration Tests', () => {
     expect(screen.getByTestId('app-container')).toBeInTheDocument();
   });
 
-  it('shows navigation links', async () => {
+  it('shows navigation links in mobile menu', async () => {
+    const user = userEvent.setup();
     await renderWithDatabase(<App />);
+
+    // Open mobile menu first
+    await user.click(screen.getByTestId('mobile-menu-button'));
 
     // Check for navigation links
     expect(screen.getByTestId('contacts-link')).toBeInTheDocument();
@@ -41,6 +45,9 @@ describe('App Integration Tests', () => {
     const user = userEvent.setup();
 
     await renderWithDatabase(<App />, { initialRoute: '/' });
+
+    // Open mobile menu first
+    await user.click(screen.getByTestId('mobile-menu-button'));
 
     // Click on contacts link
     const contactsLink = screen.getByTestId('contacts-link');
