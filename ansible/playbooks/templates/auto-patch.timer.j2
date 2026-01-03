@@ -2,7 +2,7 @@
 Description=Daily automatic patching timer
 
 [Timer]
-OnCalendar={{ patch_timezone }} *-*-* {{ patch_time }}:00
+OnCalendar=*-*-* {{ (patch_time.split(':') + ['00','00'])[:3] | join(':') }} {{ patch_timezone }}
 Persistent=true
 RandomizedDelaySec=300
 
