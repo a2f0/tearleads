@@ -29,6 +29,17 @@ const EVENT_COLORS = [
 
 const SCATTER_DOT_RADIUS = 4;
 
+interface CustomDotProps {
+  cx?: number;
+  cy?: number;
+  fill?: string;
+}
+
+function CustomDot({ cx, cy, fill }: CustomDotProps) {
+  if (cx === undefined || cy === undefined) return null;
+  return <circle cx={cx} cy={cy} r={SCATTER_DOT_RADIUS} fill={fill} />;
+}
+
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
@@ -182,7 +193,7 @@ export function DurationChart({
                 name={formatEventName(eventType)}
                 data={data}
                 fill={eventTypeColors.get(eventType) ?? '#2563eb'}
-                shape={<circle r={SCATTER_DOT_RADIUS} />}
+                shape={<CustomDot />}
               />
             ))}
           </ScatterChart>
