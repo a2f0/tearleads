@@ -1,5 +1,5 @@
 import { ThemeProvider } from '@rapid/ui';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -176,7 +176,9 @@ describe('Settings', () => {
         configurable: true
       });
       await user.click(input);
-      input.dispatchEvent(new Event('change', { bubbles: true }));
+      await act(async () => {
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      });
 
       await waitFor(() => {
         expect(
