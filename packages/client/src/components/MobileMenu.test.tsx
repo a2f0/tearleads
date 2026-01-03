@@ -188,4 +188,18 @@ describe('MobileMenu', () => {
     const menuItems = screen.getAllByRole('menuitem');
     expect(menuItems).toHaveLength(5);
   });
+
+  it('closes dropdown on window resize', async () => {
+    const user = userEvent.setup();
+    renderMobileMenu();
+
+    await user.click(screen.getByTestId('mobile-menu-button'));
+    expect(screen.getByTestId('mobile-menu-dropdown')).toBeInTheDocument();
+
+    fireEvent(window, new Event('resize'));
+
+    expect(
+      screen.queryByTestId('mobile-menu-dropdown')
+    ).not.toBeInTheDocument();
+  });
 });
