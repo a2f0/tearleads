@@ -50,10 +50,10 @@ export default defineConfig({
         'src/db/adapters/web.adapter.ts'
       ],
       thresholds: {
-        statements: 79,
-        branches: 74,
-        functions: 80,
-        lines: 80
+        statements: 81,
+        branches: 76,
+        functions: 81,
+        lines: 82
       }
     }
   },
