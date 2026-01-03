@@ -22,7 +22,7 @@ const TEST_ENCRYPTION_KEY = new Uint8Array([
 function createTestConfig(name: string): DatabaseConfig {
   return {
     name,
-    encryptionKey: new Uint8Array(TEST_ENCRYPTION_KEY)
+    encryptionKey: TEST_ENCRYPTION_KEY
   };
 }
 
