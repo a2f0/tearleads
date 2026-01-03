@@ -36,7 +36,7 @@ export function MiniPlayer() {
           aria-label="Rewind"
           data-testid="mini-player-rewind"
         >
-          <SkipBack className="h-4 w-4" />
+          <SkipBack />
         </Button>
         <Button
           variant="ghost"
@@ -45,11 +45,7 @@ export function MiniPlayer() {
           aria-label={isPlaying ? 'Pause' : 'Play'}
           data-testid="mini-player-play-pause"
         >
-          {isPlaying ? (
-            <Pause className="h-4 w-4" />
-          ) : (
-            <Play className="h-4 w-4" />
-          )}
+          {isPlaying ? <Pause /> : <Play />}
         </Button>
         <Button
           variant="ghost"
@@ -58,7 +54,7 @@ export function MiniPlayer() {
           aria-label="Close"
           data-testid="mini-player-close"
         >
-          <X className="h-4 w-4" />
+          <X />
         </Button>
       </div>
     </div>
