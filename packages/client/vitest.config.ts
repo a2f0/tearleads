@@ -12,6 +12,9 @@ export default defineConfig({
     // Integration tests use SQLite WASM (no native module compilation needed).
     include: ['src/**/*.test.{ts,tsx}', 'src/**/*.integration.test.{ts,tsx}'],
     exclude: ['tests/**/*', 'node_modules/**/*'],
+    // Increase timeout for integration tests that use WASM-based SQLite
+    // Default is 5000ms, but integration tests need more time for database setup
+    testTimeout: 15000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'json-summary', 'html'],
