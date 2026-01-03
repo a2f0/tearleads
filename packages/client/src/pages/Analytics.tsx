@@ -10,6 +10,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { DurationChart } from '@/components/DurationChart';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { getDatabase } from '@/db';
@@ -387,6 +388,13 @@ export function Analytics() {
               </div>
             </div>
           )}
+
+          {/* Duration chart */}
+          <DurationChart
+            events={events}
+            selectedEventTypes={selectedEventTypes}
+            timeFilter={timeFilter}
+          />
 
           {/* Events table */}
           <div className="space-y-2">
