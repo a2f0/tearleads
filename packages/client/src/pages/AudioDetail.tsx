@@ -183,7 +183,8 @@ export function AudioDetail() {
 
       // Load audio data and create object URL
       const data = await retrieveFileData(audioInfo.storagePath);
-      // Copy to ArrayBuffer for TypeScript compatibility with Blob constructor
+      // Copy to ArrayBuffer - required because Uint8Array<ArrayBufferLike> is not
+      // assignable to BlobPart in strict TypeScript (SharedArrayBuffer incompatibility)
       const buffer = new ArrayBuffer(data.byteLength);
       new Uint8Array(buffer).set(data);
       const blob = new Blob([buffer], { type: audioInfo.mimeType });
