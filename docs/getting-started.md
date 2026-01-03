@@ -25,7 +25,7 @@ A personal access token is required for Fastlane Match, which is used for signin
 1. Create a new GitHub Repository
 2. Go to [Personal Access Tokens](https://github.com/settings/personal-access-tokens)
 3. Give the token the following permissions:
-   a. Read access to metadata
-   b. Read and Write access to code
+  a. Read access to metadata
+  b. Read and Write access to code
 4. Encode the token with `echo -n "<github handle>:<personal access token>" | base64 | pbcopy` and set it to `MATCH_GIT_BASIC_AUTHORIZATION`
 5. Use [scripts/setGithubVars.sh](../scripts/setGithubVars.sh) to set it in GitHub (for GitHub Actions).
