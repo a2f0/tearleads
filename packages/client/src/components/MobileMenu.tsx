@@ -1,39 +1,14 @@
-import {
-  Bug,
-  Database,
-  MoreVertical,
-  Settings,
-  Table2,
-  Users
-} from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState
 } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-
-interface MenuItem {
-  to: string;
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  testId: string;
-}
-
-const menuItems: MenuItem[] = [
-  { to: '/contacts', icon: Users, label: 'Contacts', testId: 'contacts-link' },
-  { to: '/tables', icon: Table2, label: 'Tables', testId: 'tables-link' },
-  { to: '/sqlite', icon: Database, label: 'SQLite', testId: 'sqlite-link' },
-  { to: '/debug', icon: Bug, label: 'Debug', testId: 'debug-link' },
-  {
-    to: '/settings',
-    icon: Settings,
-    label: 'Settings',
-    testId: 'settings-link'
-  }
-];
+import { navItems } from './Sidebar';
 
 export function MobileMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -41,6 +16,11 @@ export function MobileMenu() {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
+
+  const menuItems = useMemo(
+    () => navItems.filter((item) => item.inMobileMenu),
+    []
+  );
 
   const toggleDropdown = () => {
     if (!isOpen && buttonRef.current) {
@@ -89,6 +69,16 @@ export function MobileMenu() {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, closeDropdown]);
 
+  // Close menu on window resize to prevent misalignment
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleResize = () => closeDropdown();
+    window.addEventListener('resize', handleResize);
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isOpen, closeDropdown]);
+
   return (
     <div className="relative lg:hidden">
       <button
@@ -121,11 +111,11 @@ export function MobileMenu() {
           >
             {menuItems.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.to;
+              const isActive = location.pathname === item.path;
               return (
                 <Link
-                  key={item.to}
-                  to={item.to}
+                  key={item.path}
+                  to={item.path}
                   className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-accent ${
                     isActive ? 'bg-accent/50 font-medium' : ''
                   }`}
