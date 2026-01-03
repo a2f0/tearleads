@@ -842,14 +842,22 @@ describe('DatabaseTest', () => {
       });
     });
 
-    it('copies error message to clipboard when copy button is clicked', async () => {
-      const user = userEvent.setup();
-      const writeText = vi.fn().mockResolvedValue(undefined);
+    function setupClipboardMock(
+      mockFn: ReturnType<typeof vi.fn>
+    ): ReturnType<typeof vi.fn> {
       Object.defineProperty(navigator, 'clipboard', {
-        value: { writeText },
+        value: { writeText: mockFn },
         writable: true,
         configurable: true
       });
+      return mockFn;
+    }
+
+    it('copies error message to clipboard when copy button is clicked', async () => {
+      const user = userEvent.setup();
+      const writeText = setupClipboardMock(
+        vi.fn().mockResolvedValue(undefined)
+      );
 
       const setup = vi.fn().mockRejectedValue(new Error('Test error'));
       setupMockContext({ setup, isSetUp: false, isUnlocked: false });
@@ -876,12 +884,9 @@ describe('DatabaseTest', () => {
 
     it('handles clipboard write failure gracefully', async () => {
       const user = userEvent.setup();
-      const writeText = vi.fn().mockRejectedValue(new Error('Clipboard error'));
-      Object.defineProperty(navigator, 'clipboard', {
-        value: { writeText },
-        writable: true,
-        configurable: true
-      });
+      const writeText = setupClipboardMock(
+        vi.fn().mockRejectedValue(new Error('Clipboard error'))
+      );
 
       const setup = vi.fn().mockRejectedValue(new Error('Test error'));
       setupMockContext({ setup, isSetUp: false, isUnlocked: false });
