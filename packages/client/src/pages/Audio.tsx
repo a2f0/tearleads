@@ -1,6 +1,7 @@
 import { and, desc, eq, like } from 'drizzle-orm';
 import { Loader2, Music, Pause, Play, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
@@ -279,9 +280,19 @@ export function AudioPage() {
                   }`}
                   data-testid={`audio-track-${track.id}`}
                 >
-                  <Music className="h-8 w-8 shrink-0 text-muted-foreground" />
+                  <Link
+                    to={`/audio/${track.id}`}
+                    className="flex shrink-0 items-center"
+                  >
+                    <Music className="h-8 w-8 text-muted-foreground" />
+                  </Link>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{track.name}</p>
+                    <Link
+                      to={`/audio/${track.id}`}
+                      className="block truncate font-medium hover:underline"
+                    >
+                      {track.name}
+                    </Link>
                     <p className="text-muted-foreground text-sm">
                       {formatFileSize(track.size)}
                     </p>
