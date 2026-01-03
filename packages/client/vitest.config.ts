@@ -34,8 +34,8 @@ export default defineConfig({
         'src/lib/llm-runtime.ts',
         // SQLite worker files require web worker environment and WASM runtime
         // that cannot be tested in jsdom
-        'src/workers/sqlite.worker.ts',
         'src/workers/sqlite.worker.interface.ts',
+        'src/workers/sqlite.worker.ts',
         // Platform-specific adapters require their native runtime environments
         // (Capacitor for mobile, Electron for desktop, Web for browser OPFS)
         'src/db/adapters/capacitor.adapter.ts',
