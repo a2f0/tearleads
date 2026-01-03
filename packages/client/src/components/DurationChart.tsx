@@ -100,7 +100,10 @@ export function DurationChart({
     const uniqueTypes = [...new Set(filteredEvents.map((e) => e.eventName))];
     const colorMap = new Map<string, string>();
     uniqueTypes.forEach((type, index) => {
-      colorMap.set(type, EVENT_COLORS[index % EVENT_COLORS.length]!);
+      colorMap.set(
+        type,
+        EVENT_COLORS[index % EVENT_COLORS.length] ?? '#2563eb'
+      );
     });
 
     // Transform events to chart data
@@ -164,7 +167,7 @@ export function DurationChart({
                 key={eventType}
                 name={formatEventName(eventType)}
                 data={data}
-                fill={eventTypeColors.get(eventType)!}
+                fill={eventTypeColors.get(eventType) ?? '#2563eb'}
               />
             ))}
           </ScatterChart>
