@@ -26,6 +26,7 @@ Commit and push the current changes following these rules:
    - Add emoji or "Generated with Claude Code" footers
    - Use `--no-gpg-sign` or skip signing
    - Do NOT commit binary files (PNG, JPG, ICO, etc.) - use SVG for icons/badges or external URLs
+   - Bump version numbers (this happens automatically in `/enter-merge-queue`)
 
 5. **GPG signing**: The commit MUST be signed. Use a 5-second timeout. For multi-line messages, pipe the content to `git commit`:
 
@@ -64,4 +65,4 @@ Commit and push the current changes following these rules:
    - Reply to addressed comments
    - Repeat until all feedback is resolved
 
-10. **Enter merge queue**: Run `/enter-merge-queue` to automate the merge process. This will continuously update from base, fix CI issues, address reviews, and wait until the PR is actually merged.
+10. **Enter merge queue**: Run `/enter-merge-queue` to automate the merge process. This will continuously update from base, fix CI issues, address reviews, bump versions, and wait until the PR is actually merged.
