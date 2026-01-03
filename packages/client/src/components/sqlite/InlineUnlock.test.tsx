@@ -295,7 +295,7 @@ describe('InlineUnlock', () => {
       expect(screen.getByText('Unlocking...')).toBeInTheDocument();
 
       // Resolve the promise and wait for state update
-      resolveUnlock!(true);
+      resolveUnlock?.(true);
       await waitFor(() => {
         expect(screen.queryByText('Unlocking...')).not.toBeInTheDocument();
       });
@@ -313,7 +313,7 @@ describe('InlineUnlock', () => {
       expect(screen.getByTestId('inline-unlock-button')).toBeDisabled();
 
       // Resolve the promise and wait for state update
-      resolveUnlock!(true);
+      resolveUnlock?.(true);
       await waitFor(() => {
         expect(passwordInput).not.toBeDisabled();
       });
