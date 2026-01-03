@@ -1,0 +1,344 @@
+import { and, eq, like } from 'drizzle-orm';
+import {
+  ArrowLeft,
+  Calendar,
+  Download,
+  FileType,
+  HardDrive,
+  Loader2,
+  Music,
+  Pause,
+  Play,
+  Share2
+} from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { useAudio } from '@/audio';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { Button } from '@/components/ui/button';
+import { getDatabase } from '@/db';
+import { getKeyManager } from '@/db/crypto';
+import { useDatabaseContext } from '@/db/hooks';
+import { files } from '@/db/schema';
+import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { formatDate, formatFileSize } from '@/lib/utils';
+import {
+  getFileStorage,
+  initializeFileStorage,
+  isFileStorageInitialized
+} from '@/storage/opfs';
+
+interface AudioInfo {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  uploadDate: Date;
+  storagePath: string;
+}
+
+export function AudioDetail() {
+  const { id } = useParams<{ id: string }>();
+  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const { currentTrack, isPlaying, play, pause, resume } = useAudio();
+  const [audio, setAudio] = useState<AudioInfo | null>(null);
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [canShare, setCanShare] = useState(false);
+  const [actionLoading, setActionLoading] = useState<
+    'download' | 'share' | null
+  >(null);
+
+  const isCurrentTrack = currentTrack?.id === id;
+  const isTrackPlaying = isCurrentTrack && isPlaying;
+
+  // Check if Web Share API is available on mount
+  useEffect(() => {
+    setCanShare(canShareFiles());
+  }, []);
+
+  // Helper to retrieve and decrypt file data from storage
+  const retrieveFileData = useCallback(
+    async (storagePath: string): Promise<Uint8Array> => {
+      const keyManager = getKeyManager();
+      const encryptionKey = keyManager.getCurrentKey();
+      if (!encryptionKey) throw new Error('Database not unlocked');
+      if (!currentInstanceId) throw new Error('No active instance');
+
+      if (!isFileStorageInitialized()) {
+        await initializeFileStorage(encryptionKey, currentInstanceId);
+      }
+
+      const storage = getFileStorage();
+      return storage.retrieve(storagePath);
+    },
+    [currentInstanceId]
+  );
+
+  const handlePlayPause = useCallback(() => {
+    if (!audio || !objectUrl) return;
+
+    if (isCurrentTrack) {
+      if (isPlaying) {
+        pause();
+      } else {
+        resume();
+      }
+    } else {
+      play({
+        id: audio.id,
+        name: audio.name,
+        objectUrl: objectUrl,
+        mimeType: audio.mimeType
+      });
+    }
+  }, [audio, objectUrl, isCurrentTrack, isPlaying, play, pause, resume]);
+
+  const handleDownload = useCallback(async () => {
+    if (!audio) return;
+
+    setActionLoading('download');
+    try {
+      const data = await retrieveFileData(audio.storagePath);
+      downloadFile(data, audio.name);
+    } catch (err) {
+      console.error('Failed to download audio:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActionLoading(null);
+    }
+  }, [audio, retrieveFileData]);
+
+  const handleShare = useCallback(async () => {
+    if (!audio) return;
+
+    setActionLoading('share');
+    try {
+      const data = await retrieveFileData(audio.storagePath);
+      const shared = await shareFile(data, audio.name, audio.mimeType);
+      if (!shared) {
+        setError('Sharing is not supported on this device');
+      }
+    } catch (err) {
+      // User cancelled share - don't show error
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+      console.error('Failed to share audio:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActionLoading(null);
+    }
+  }, [audio, retrieveFileData]);
+
+  const fetchAudio = useCallback(async () => {
+    if (!isUnlocked || !id) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const db = getDatabase();
+
+      const result = await db
+        .select({
+          id: files.id,
+          name: files.name,
+          size: files.size,
+          mimeType: files.mimeType,
+          uploadDate: files.uploadDate,
+          storagePath: files.storagePath
+        })
+        .from(files)
+        .where(
+          and(
+            eq(files.id, id),
+            like(files.mimeType, 'audio/%'),
+            eq(files.deleted, false)
+          )
+        )
+        .limit(1);
+
+      if (result.length === 0) {
+        setError('Audio file not found');
+        return;
+      }
+
+      const row = result[0];
+      if (!row) {
+        setError('Audio file not found');
+        return;
+      }
+
+      const audioInfo: AudioInfo = {
+        id: row.id,
+        name: row.name,
+        size: row.size,
+        mimeType: row.mimeType,
+        uploadDate: row.uploadDate,
+        storagePath: row.storagePath
+      };
+      setAudio(audioInfo);
+
+      // Load audio data and create object URL
+      const data = await retrieveFileData(audioInfo.storagePath);
+      // Copy to ArrayBuffer - required because Uint8Array<ArrayBufferLike> is not
+      // assignable to BlobPart in strict TypeScript (SharedArrayBuffer incompatibility)
+      const buffer = new ArrayBuffer(data.byteLength);
+      new Uint8Array(buffer).set(data);
+      const blob = new Blob([buffer], { type: audioInfo.mimeType });
+      const url = URL.createObjectURL(blob);
+      setObjectUrl(url);
+    } catch (err) {
+      console.error('Failed to fetch audio:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [isUnlocked, id, retrieveFileData]);
+
+  useEffect(() => {
+    if (isUnlocked && id) {
+      fetchAudio();
+    }
+  }, [isUnlocked, id, fetchAudio]);
+
+  // Cleanup object URL on unmount (only if not currently playing)
+  useEffect(() => {
+    return () => {
+      if (objectUrl && currentTrack?.id !== id) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [objectUrl, currentTrack?.id, id]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link
+          to="/audio"
+          className="inline-flex items-center text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Audio
+        </Link>
+      </div>
+
+      {isLoading && (
+        <div className="rounded-lg border p-8 text-center text-muted-foreground">
+          Loading database...
+        </div>
+      )}
+
+      {!isLoading && !isUnlocked && (
+        <InlineUnlock description="this audio file" />
+      )}
+
+      {error && (
+        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive text-sm">
+          {error}
+        </div>
+      )}
+
+      {isUnlocked && loading && (
+        <div className="flex items-center justify-center gap-2 rounded-lg border p-8 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Loading audio...
+        </div>
+      )}
+
+      {isUnlocked && !loading && !error && audio && (
+        <div className="space-y-6">
+          <h1 className="font-bold text-2xl tracking-tight">{audio.name}</h1>
+
+          {objectUrl && (
+            <div className="flex flex-col items-center gap-4 overflow-hidden rounded-lg border bg-muted p-8">
+              <Music className="h-24 w-24 text-muted-foreground" />
+              <Button
+                variant={isTrackPlaying ? 'default' : 'outline'}
+                size="lg"
+                onClick={handlePlayPause}
+                aria-label={isTrackPlaying ? 'Pause' : 'Play'}
+                data-testid="play-pause-button"
+                className="gap-2"
+              >
+                {isTrackPlaying ? (
+                  <>
+                    <Pause className="h-5 w-5" />
+                    Pause
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-5 w-5" />
+                    Play
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleDownload}
+              disabled={actionLoading !== null}
+              data-testid="download-button"
+            >
+              {actionLoading === 'download' ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Download
+            </Button>
+            {canShare && (
+              <Button
+                variant="outline"
+                onClick={handleShare}
+                disabled={actionLoading !== null}
+                data-testid="share-button"
+              >
+                {actionLoading === 'share' ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Share2 className="mr-2 h-4 w-4" />
+                )}
+                Share
+              </Button>
+            )}
+          </div>
+
+          <div className="rounded-lg border">
+            <div className="border-b px-4 py-3">
+              <h2 className="font-semibold">Audio Details</h2>
+            </div>
+            <div className="divide-y">
+              <div className="flex items-center gap-3 px-4 py-3">
+                <FileType className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground text-sm">Type</span>
+                <span className="ml-auto font-mono text-sm">
+                  {audio.mimeType}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 px-4 py-3">
+                <HardDrive className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground text-sm">Size</span>
+                <span className="ml-auto font-mono text-sm">
+                  {formatFileSize(audio.size)}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 px-4 py-3">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground text-sm">Uploaded</span>
+                <span className="ml-auto text-sm">
+                  {formatDate(audio.uploadDate)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
