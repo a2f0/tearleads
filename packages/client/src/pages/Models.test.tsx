@@ -382,7 +382,8 @@ describe('Models', () => {
   describe('cached models', () => {
     const mockCacheStorage = {
       keys: vi.fn(),
-      open: vi.fn()
+      open: vi.fn(),
+      has: vi.fn()
     };
 
     const mockCache = {
@@ -397,6 +398,7 @@ describe('Models', () => {
       });
       mockCacheStorage.keys.mockResolvedValue([]);
       mockCacheStorage.open.mockResolvedValue(mockCache);
+      mockCacheStorage.has.mockResolvedValue(false);
       mockCache.keys.mockResolvedValue([]);
     });
 
@@ -409,8 +411,8 @@ describe('Models', () => {
     });
 
     it('shows Load button for cached models', async () => {
-      // Mock a cached model
-      mockCacheStorage.keys.mockResolvedValue(['transformers-cache']);
+      // Mock a cached model in transformers-cache
+      mockCacheStorage.has.mockResolvedValue(true);
       mockCache.keys.mockResolvedValue([
         {
           url: 'https://huggingface.co/onnx-community/Phi-3.5-mini-instruct-onnx-web/resolve/main/model.onnx'
@@ -428,8 +430,8 @@ describe('Models', () => {
     });
 
     it('shows Downloaded badge for cached models', async () => {
-      // Mock a cached model
-      mockCacheStorage.keys.mockResolvedValue(['transformers-cache']);
+      // Mock a cached model in transformers-cache
+      mockCacheStorage.has.mockResolvedValue(true);
       mockCache.keys.mockResolvedValue([
         {
           url: 'https://huggingface.co/onnx-community/Phi-3.5-mini-instruct-onnx-web/resolve/main/model.onnx'
@@ -444,9 +446,7 @@ describe('Models', () => {
     });
 
     it('shows Download button for non-cached models', async () => {
-      // No models cached
-      mockCacheStorage.keys.mockResolvedValue([]);
-
+      // No models cached (has returns false by default in beforeEach)
       renderModels();
 
       await waitFor(() => {
@@ -461,8 +461,8 @@ describe('Models', () => {
     it('calls loadModel when Load button is clicked for cached model', async () => {
       const user = userEvent.setup();
 
-      // Mock a cached model
-      mockCacheStorage.keys.mockResolvedValue(['transformers-cache']);
+      // Mock a cached model in transformers-cache
+      mockCacheStorage.has.mockResolvedValue(true);
       mockCache.keys.mockResolvedValue([
         {
           url: 'https://huggingface.co/onnx-community/Phi-3.5-mini-instruct-onnx-web/resolve/main/model.onnx'
