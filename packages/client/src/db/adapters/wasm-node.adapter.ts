@@ -84,6 +84,14 @@ interface SQLiteOO1 {
 interface SQLiteCAPI {
   sqlite3_libversion(): string;
   sqlite3_js_db_export(db: SQLiteDatabase): Uint8Array;
+  sqlite3_deserialize(
+    dbPointer: number,
+    schema: string,
+    data: Uint8Array,
+    dataSize: number,
+    bufferSize: number,
+    flags: number
+  ): number;
 }
 
 /**
@@ -390,8 +398,82 @@ export class WasmNodeAdapter implements DatabaseAdapter {
     return sqlite.capi.sqlite3_js_db_export(this.db);
   }
 
-  async importDatabase(
-    data: Uint8Array,
+  /**
+   * Export the database as a JSON string containing schema and data.
+   *
+   * This is an alternative to exportDatabase() that works around the
+   * sqlite3_deserialize limitation in SQLite3MultipleCiphers WASM.
+   *
+   * The format is: { version: 1, tables: [...], indexes: [...], data: {...} }
+   */
+  async exportDatabaseAsJson(): Promise<string> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+
+    const result: {
+      version: number;
+      tables: { name: string; sql: string }[];
+      indexes: { name: string; sql: string }[];
+      data: Record<string, Record<string, unknown>[]>;
+    } = {
+      version: 1,
+      tables: [],
+      indexes: [],
+      data: {}
+    };
+
+    // Export table schemas
+    this.db.exec({
+      sql: "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+      rowMode: 'object',
+      callback: (row: Record<string, unknown>) => {
+        result.tables.push({
+          name: row['name'] as string,
+          sql: row['sql'] as string
+        });
+        return undefined;
+      }
+    });
+
+    // Export index schemas
+    this.db.exec({
+      sql: "SELECT name, sql FROM sqlite_master WHERE type='index' AND sql IS NOT NULL ORDER BY name",
+      rowMode: 'object',
+      callback: (row: Record<string, unknown>) => {
+        result.indexes.push({
+          name: row['name'] as string,
+          sql: row['sql'] as string
+        });
+        return undefined;
+      }
+    });
+
+    // Export data from each table
+    for (const table of result.tables) {
+      const rows: Record<string, unknown>[] = [];
+      this.db.exec({
+        sql: `SELECT * FROM "${table.name}"`,
+        rowMode: 'object',
+        callback: (row: Record<string, unknown>) => {
+          rows.push(row);
+          return undefined;
+        }
+      });
+      result.data[table.name] = rows;
+    }
+
+    return JSON.stringify(result);
+  }
+
+  /**
+   * Import a database from a JSON string (from exportDatabaseAsJson).
+   *
+   * This method closes the current database and creates a new one with the
+   * imported schema and data.
+   */
+  async importDatabaseFromJson(
+    jsonData: string,
     encryptionKey?: Uint8Array
   ): Promise<void> {
     // Close current database
@@ -399,42 +481,107 @@ export class WasmNodeAdapter implements DatabaseAdapter {
 
     const sqlite = await initializeSqliteWasm();
 
-    // Set encryption key if provided
+    // Determine the encryption key to use
     if (!this.options.skipEncryption && encryptionKey) {
       this.encryptionKey = keyToHex(encryptionKey);
     }
 
-    // For WASM, we need to write the data to the virtual file system first
-    // then open it with the encryption key
-    const tempFilename = `import-${Date.now()}.sqlite3`;
-
-    // Write the imported data using Emscripten's FS
-    const wasmModule = sqlite as unknown as {
-      FS?: { writeFile: (path: string, data: Uint8Array) => void };
-    };
-    if (wasmModule.FS) {
-      wasmModule.FS.writeFile(tempFilename, data);
-    } else {
-      throw new Error(
-        'Emscripten FS is not available, cannot import database.'
-      );
-    }
+    const filename = `import-${Date.now()}-${Math.random().toString(36).slice(2)}.sqlite3`;
 
     try {
-      // Open the imported database
+      // Parse the JSON data
+      const data = JSON.parse(jsonData) as {
+        version: number;
+        tables: { name: string; sql: string }[];
+        indexes: { name: string; sql: string }[];
+        data: Record<string, Record<string, unknown>[]>;
+      };
+
+      if (data.version !== 1) {
+        throw new Error(`Unsupported backup version: ${data.version}`);
+      }
+
+      // Create new database with encryption
       this.db = new sqlite.oo1.DB({
-        filename: tempFilename,
+        filename,
         flags: 'c',
         ...(this.encryptionKey ? { hexkey: this.encryptionKey } : {})
       });
 
-      // Verify it works
-      this.db.exec('SELECT 1;');
+      // Create tables
+      for (const table of data.tables) {
+        if (table.sql) {
+          this.db.exec(table.sql);
+        }
+      }
+
+      // Insert data
+      for (const [tableName, rows] of Object.entries(data.data)) {
+        for (const row of rows) {
+          const columns = Object.keys(row);
+          if (columns.length === 0) continue;
+
+          const placeholders = columns.map(() => '?').join(', ');
+          const values = columns.map((col) => row[col]);
+
+          this.db.exec({
+            sql: `INSERT INTO "${tableName}" (${columns.map((c) => `"${c}"`).join(', ')}) VALUES (${placeholders})`,
+            bind: values
+          });
+        }
+      }
+
+      // Create indexes
+      for (const index of data.indexes) {
+        if (index.sql) {
+          this.db.exec(index.sql);
+        }
+      }
+
+      // Enable foreign keys
       this.db.exec('PRAGMA foreign_keys = ON;');
     } catch (error) {
-      this.db = null;
+      if (this.db) {
+        try {
+          this.db.close();
+        } catch {
+          // Ignore close error
+        }
+        this.db = null;
+      }
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to open imported database: ${message}`);
+      throw new Error(`Failed to import database from JSON: ${message}`);
     }
+  }
+
+  async importDatabase(
+    data: Uint8Array,
+    encryptionKey?: Uint8Array
+  ): Promise<void> {
+    // IMPORTANT: sqlite3_js_db_export returns UNENCRYPTED data (serialized in-memory pages).
+    // However, sqlite3_deserialize does NOT work with SQLite3MultipleCiphers WASM
+    // (returns SQLITE_NOTADB error).
+    //
+    // WORKAROUND: Check if the data is our JSON format first (for compatibility with
+    // exportDatabaseAsJson). If it's a binary SQLite file, we currently cannot import it.
+    //
+    // For proper backup/restore support, use exportDatabaseAsJson/importDatabaseFromJson instead.
+
+    // Try to detect if this is JSON data
+    const textDecoder = new TextDecoder();
+    const firstChars = textDecoder.decode(data.slice(0, 20));
+
+    if (firstChars.startsWith('{"version":')) {
+      // This is our JSON backup format
+      const jsonStr = textDecoder.decode(data);
+      return this.importDatabaseFromJson(jsonStr, encryptionKey);
+    }
+
+    // Binary SQLite format - currently not supported due to sqlite3_deserialize limitations
+    throw new Error(
+      'Binary SQLite database import is not supported with SQLite3MultipleCiphers WASM. ' +
+        'The sqlite3_deserialize function does not work with this build. ' +
+        'Use exportDatabaseAsJson/importDatabaseFromJson for backup/restore functionality.'
+    );
   }
 }
