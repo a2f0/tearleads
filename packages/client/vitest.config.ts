@@ -29,9 +29,16 @@ export default defineConfig({
         'src/vite-env.d.ts',
         // LLM files are excluded because they rely on web workers and WebGPU
         // which require integration/e2e testing rather than unit tests
-        'src/workers/llm-worker.ts',
         'src/hooks/useLLM.ts',
         'src/lib/llm-runtime.ts',
+        'src/workers/llm-worker.ts',
+        // Browser-specific APIs that cannot be tested in jsdom:
+        // - OPFS (Origin Private File System) for encrypted file storage
+        // - Canvas/createImageBitmap for image thumbnail generation
+        // - useDatabase hook orchestrates multiple browser APIs (IndexedDB, OPFS)
+        'src/db/hooks/useDatabase.tsx',
+        'src/lib/thumbnail.ts',
+        'src/storage/opfs.ts',
         // SQLite worker files require web worker environment and WASM runtime
         // that cannot be tested in jsdom
         'src/workers/sqlite.worker.interface.ts',
