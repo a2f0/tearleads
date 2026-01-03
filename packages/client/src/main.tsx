@@ -15,6 +15,9 @@ import './index.css';
 const Analytics = lazy(() =>
   import('./pages/Analytics').then((m) => ({ default: m.Analytics }))
 );
+const AudioDetail = lazy(() =>
+  import('./pages/AudioDetail').then((m) => ({ default: m.AudioDetail }))
+);
 const AudioPage = lazy(() =>
   import('./pages/Audio').then((m) => ({ default: m.AudioPage }))
 );
@@ -107,6 +110,7 @@ if (rootElement) {
                       <Route path="photos" element={<Photos />} />
                       <Route path="photos/:id" element={<PhotoDetail />} />
                       <Route path="audio" element={<AudioPage />} />
+                      <Route path="audio/:id" element={<AudioDetail />} />
                       <Route path="sqlite" element={<Sqlite />} />
                       <Route path="debug" element={<Debug />} />
                       <Route path="chat" element={<Chat />} />
