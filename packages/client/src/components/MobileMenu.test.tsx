@@ -55,10 +55,19 @@ describe('MobileMenu', () => {
 
     await user.click(screen.getByTestId('mobile-menu-button'));
 
+    expect(screen.getByTestId('files-link')).toBeInTheDocument();
     expect(screen.getByTestId('contacts-link')).toBeInTheDocument();
+    expect(screen.getByTestId('photos-link')).toBeInTheDocument();
+    expect(screen.getByTestId('audio-link')).toBeInTheDocument();
     expect(screen.getByTestId('tables-link')).toBeInTheDocument();
+    expect(screen.getByTestId('analytics-link')).toBeInTheDocument();
     expect(screen.getByTestId('sqlite-link')).toBeInTheDocument();
     expect(screen.getByTestId('debug-link')).toBeInTheDocument();
+    expect(screen.getByTestId('opfs-link')).toBeInTheDocument();
+    expect(screen.getByTestId('cache-storage-link')).toBeInTheDocument();
+    expect(screen.getByTestId('local-storage-link')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-link')).toBeInTheDocument();
+    expect(screen.getByTestId('models-link')).toBeInTheDocument();
     expect(screen.getByTestId('settings-link')).toBeInTheDocument();
   });
 
@@ -186,7 +195,7 @@ describe('MobileMenu', () => {
     await user.click(screen.getByTestId('mobile-menu-button'));
 
     const menuItems = screen.getAllByRole('menuitem');
-    expect(menuItems).toHaveLength(5);
+    expect(menuItems).toHaveLength(14);
   });
 
   it('closes dropdown on window resize', async () => {
