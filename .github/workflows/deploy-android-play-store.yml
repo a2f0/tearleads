@@ -2,7 +2,7 @@ name: Deploy Android to Play Store
 
 on:
   workflow_run:
-    workflows: ["Bump Version"]
+    workflows: ["CI"]
     types: [completed]
     branches: [main]
 
