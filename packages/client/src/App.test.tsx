@@ -91,24 +91,13 @@ describe('App', () => {
     // Open mobile menu to access header nav links
     await user.click(screen.getByTestId('mobile-menu-button'));
 
-    // Header nav links (with test IDs) inside mobile menu dropdown
-    expect(screen.getByTestId('contacts-link')).toBeInTheDocument();
-    expect(screen.getByTestId('tables-link')).toBeInTheDocument();
-    expect(screen.getByTestId('sqlite-link')).toBeInTheDocument();
-    expect(screen.getByTestId('debug-link')).toBeInTheDocument();
-    expect(screen.getByTestId('settings-link')).toBeInTheDocument();
-
-    // Sidebar nav links (by text) - some items appear in both mobile menu and sidebar
-    expect(screen.getByText('Files')).toBeInTheDocument();
-    expect(screen.getAllByText('Contacts')).toHaveLength(2); // Mobile menu + sidebar
-    expect(screen.getByText('Photos')).toBeInTheDocument();
-    expect(screen.getAllByText('Tables')).toHaveLength(2); // Mobile menu + sidebar
-    expect(screen.getAllByText('SQLite')).toHaveLength(2); // Mobile menu + sidebar
-    expect(screen.getAllByText('Debug')).toHaveLength(2); // Mobile menu + sidebar
-    expect(screen.getByText('OPFS')).toBeInTheDocument();
-    expect(screen.getByText('Chat')).toBeInTheDocument();
-    expect(screen.getByText('Models')).toBeInTheDocument();
-    expect(screen.getAllByText('Settings')).toHaveLength(2); // Mobile menu + sidebar
+    // All nav items have test IDs and appear in both mobile menu and sidebar
+    for (const item of navItems) {
+      if (item.testId) {
+        expect(screen.getByTestId(item.testId)).toBeInTheDocument();
+      }
+      expect(screen.getAllByText(item.label)).toHaveLength(2);
+    }
   });
 
   it('mobile menu has lg:hidden class for mobile-only display', () => {
