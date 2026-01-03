@@ -33,6 +33,7 @@ app.use((_req: Request, res: Response) => {
 export { app };
 
 // Start server only when run directly
+/* istanbul ignore next -- @preserve server startup for production */
 if (process.env['NODE_ENV'] !== 'test') {
   app.listen(PORT, () => {
     console.log(`API server running on http://localhost:${PORT}`);
