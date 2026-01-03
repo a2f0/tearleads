@@ -1,6 +1,6 @@
 {
   "name": "@rapid/api",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "Express API for Rapid",
   "main": "dist/index.js",
   "type": "module",
@@ -26,8 +26,7 @@
     "@rapid/shared": "workspace:*",
     "cors": "2.8.5",
     "dotenv": "17.2.3",
-    "express": "5.2.1",
-    "mongodb": "7.0.0"
+    "express": "5.2.1"
   },
   "devDependencies": {
     "@types/cors": "2.8.19",
