@@ -16,21 +16,59 @@ import {
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
-export const navItems = [
+export interface NavItem {
+  path: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  inMobileMenu?: boolean;
+  testId?: string;
+}
+
+export const navItems: NavItem[] = [
   { path: '/', icon: FileIcon, label: 'Files' },
-  { path: '/contacts', icon: Users, label: 'Contacts' },
+  {
+    path: '/contacts',
+    icon: Users,
+    label: 'Contacts',
+    inMobileMenu: true,
+    testId: 'contacts-link'
+  },
   { path: '/photos', icon: ImageIcon, label: 'Photos' },
   { path: '/audio', icon: Music, label: 'Audio' },
-  { path: '/tables', icon: Table2, label: 'Tables' },
+  {
+    path: '/tables',
+    icon: Table2,
+    label: 'Tables',
+    inMobileMenu: true,
+    testId: 'tables-link'
+  },
   { path: '/analytics', icon: BarChart3, label: 'Analytics' },
-  { path: '/sqlite', icon: Database, label: 'SQLite' },
-  { path: '/debug', icon: Bug, label: 'Debug' },
+  {
+    path: '/sqlite',
+    icon: Database,
+    label: 'SQLite',
+    inMobileMenu: true,
+    testId: 'sqlite-link'
+  },
+  {
+    path: '/debug',
+    icon: Bug,
+    label: 'Debug',
+    inMobileMenu: true,
+    testId: 'debug-link'
+  },
   { path: '/opfs', icon: HardDrive, label: 'OPFS' },
   { path: '/cache-storage', icon: Archive, label: 'Cache Storage' },
   { path: '/local-storage', icon: Database, label: 'Local Storage' },
   { path: '/chat', icon: MessageSquare, label: 'Chat' },
   { path: '/models', icon: Bot, label: 'Models' },
-  { path: '/settings', icon: Settings, label: 'Settings' }
+  {
+    path: '/settings',
+    icon: Settings,
+    label: 'Settings',
+    inMobileMenu: true,
+    testId: 'settings-link'
+  }
 ];
 
 export function Sidebar() {

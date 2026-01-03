@@ -143,50 +143,49 @@ describe('App Integration', () => {
       });
     });
 
-    it('navigates to SQLite page when clicking mobile menu link', async () => {
-      // Open mobile menu first
-      await user.click(screen.getByTestId('mobile-menu-button'));
-      const sqliteLink = screen.getByTestId('sqlite-link');
-      await user.click(sqliteLink);
-
-      await waitFor(() => {
-        expect(screen.getByTestId('database-test')).toBeInTheDocument();
+    describe('mobile menu navigation', () => {
+      beforeEach(async () => {
+        // Open mobile menu for all tests in this block
+        await user.click(screen.getByTestId('mobile-menu-button'));
       });
-    });
 
-    it('navigates to Debug page and displays debug info', async () => {
-      // Open mobile menu first
-      await user.click(screen.getByTestId('mobile-menu-button'));
-      const debugLink = screen.getByTestId('debug-link');
-      await user.click(debugLink);
+      it('navigates to SQLite page', async () => {
+        const sqliteLink = screen.getByTestId('sqlite-link');
+        await user.click(sqliteLink);
 
-      await waitFor(() => {
-        expect(screen.getByText('Environment Info')).toBeInTheDocument();
-        expect(screen.getByText('Device Info')).toBeInTheDocument();
+        await waitFor(() => {
+          expect(screen.getByTestId('database-test')).toBeInTheDocument();
+        });
       });
-    });
 
-    it('navigates to Settings page', async () => {
-      // Open mobile menu first
-      await user.click(screen.getByTestId('mobile-menu-button'));
-      const settingsLink = screen.getByTestId('settings-link');
-      await user.click(settingsLink);
+      it('navigates to Debug page and displays debug info', async () => {
+        const debugLink = screen.getByTestId('debug-link');
+        await user.click(debugLink);
 
-      await waitFor(() => {
-        expect(screen.getByText('Dark Mode')).toBeInTheDocument();
+        await waitFor(() => {
+          expect(screen.getByText('Environment Info')).toBeInTheDocument();
+          expect(screen.getByText('Device Info')).toBeInTheDocument();
+        });
       });
-    });
 
-    it('navigates to Tables page', async () => {
-      // Open mobile menu first
-      await user.click(screen.getByTestId('mobile-menu-button'));
-      const tablesLink = screen.getByTestId('tables-link');
-      await user.click(tablesLink);
+      it('navigates to Settings page', async () => {
+        const settingsLink = screen.getByTestId('settings-link');
+        await user.click(settingsLink);
 
-      await waitFor(() => {
-        expect(
-          screen.getByRole('heading', { name: 'Tables' })
-        ).toBeInTheDocument();
+        await waitFor(() => {
+          expect(screen.getByText('Dark Mode')).toBeInTheDocument();
+        });
+      });
+
+      it('navigates to Tables page', async () => {
+        const tablesLink = screen.getByTestId('tables-link');
+        await user.click(tablesLink);
+
+        await waitFor(() => {
+          expect(
+            screen.getByRole('heading', { name: 'Tables' })
+          ).toBeInTheDocument();
+        });
       });
     });
   });
