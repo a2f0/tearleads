@@ -92,23 +92,36 @@ describe('App', () => {
     await user.click(screen.getByTestId('mobile-menu-button'));
 
     // Header nav links (with test IDs) inside mobile menu dropdown
+    expect(screen.getByTestId('files-link')).toBeInTheDocument();
     expect(screen.getByTestId('contacts-link')).toBeInTheDocument();
+    expect(screen.getByTestId('photos-link')).toBeInTheDocument();
+    expect(screen.getByTestId('audio-link')).toBeInTheDocument();
     expect(screen.getByTestId('tables-link')).toBeInTheDocument();
+    expect(screen.getByTestId('analytics-link')).toBeInTheDocument();
     expect(screen.getByTestId('sqlite-link')).toBeInTheDocument();
     expect(screen.getByTestId('debug-link')).toBeInTheDocument();
+    expect(screen.getByTestId('opfs-link')).toBeInTheDocument();
+    expect(screen.getByTestId('cache-storage-link')).toBeInTheDocument();
+    expect(screen.getByTestId('local-storage-link')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-link')).toBeInTheDocument();
+    expect(screen.getByTestId('models-link')).toBeInTheDocument();
     expect(screen.getByTestId('settings-link')).toBeInTheDocument();
 
-    // Sidebar nav links (by text) - some items appear in both mobile menu and sidebar
-    expect(screen.getByText('Files')).toBeInTheDocument();
-    expect(screen.getAllByText('Contacts')).toHaveLength(2); // Mobile menu + sidebar
-    expect(screen.getByText('Photos')).toBeInTheDocument();
-    expect(screen.getAllByText('Tables')).toHaveLength(2); // Mobile menu + sidebar
-    expect(screen.getAllByText('SQLite')).toHaveLength(2); // Mobile menu + sidebar
-    expect(screen.getAllByText('Debug')).toHaveLength(2); // Mobile menu + sidebar
-    expect(screen.getByText('OPFS')).toBeInTheDocument();
-    expect(screen.getByText('Chat')).toBeInTheDocument();
-    expect(screen.getByText('Models')).toBeInTheDocument();
-    expect(screen.getAllByText('Settings')).toHaveLength(2); // Mobile menu + sidebar
+    // All nav items appear in both mobile menu and sidebar (2 instances each)
+    expect(screen.getAllByText('Files')).toHaveLength(2);
+    expect(screen.getAllByText('Contacts')).toHaveLength(2);
+    expect(screen.getAllByText('Photos')).toHaveLength(2);
+    expect(screen.getAllByText('Audio')).toHaveLength(2);
+    expect(screen.getAllByText('Tables')).toHaveLength(2);
+    expect(screen.getAllByText('Analytics')).toHaveLength(2);
+    expect(screen.getAllByText('SQLite')).toHaveLength(2);
+    expect(screen.getAllByText('Debug')).toHaveLength(2);
+    expect(screen.getAllByText('OPFS')).toHaveLength(2);
+    expect(screen.getAllByText('Cache Storage')).toHaveLength(2);
+    expect(screen.getAllByText('Local Storage')).toHaveLength(2);
+    expect(screen.getAllByText('Chat')).toHaveLength(2);
+    expect(screen.getAllByText('Models')).toHaveLength(2);
+    expect(screen.getAllByText('Settings')).toHaveLength(2);
   });
 
   it('mobile menu has lg:hidden class for mobile-only display', () => {
