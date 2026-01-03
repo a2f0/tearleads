@@ -54,8 +54,8 @@ export function createLLMAdapter(generate: GenerateFunction): ChatModelAdapter {
       let hasNewToken = false;
 
       const onToken: GenerateCallback = (text: string) => {
-        // TextStreamer sends cumulative text, not deltas
-        textContent = text;
+        // TextStreamer sends individual tokens (deltas), accumulate them
+        textContent += text;
         hasNewToken = true;
         if (resolveNext) {
           resolveNext({ done: false });
