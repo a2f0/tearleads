@@ -299,3 +299,4 @@ printf "subject\n\nbody" | timeout 5 git commit -S -F -
 - Add `Co-Authored-By` headers
 - Add emoji or "Generated with Claude Code" footers
 - Use `--no-gpg-sign` or skip signing
+- Do NOT commit binary files (PNG, JPG, ICO, etc.) - use SVG for icons/badges or external URLs
