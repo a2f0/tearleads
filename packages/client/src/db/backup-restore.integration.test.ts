@@ -49,7 +49,6 @@ describe('Backup/Restore Integration Tests', () => {
 
       // Check if it's the SQLite header (unencrypted)
       const headerStr = new TextDecoder().decode(exported.slice(0, 15));
-      console.log('Header string:', headerStr);
       expect(headerStr).toBe('SQLite format 3');
 
       // This confirms sqlite3_js_db_export returns UNENCRYPTED data
@@ -112,7 +111,6 @@ describe('Backup/Restore Integration Tests', () => {
 
       // Export as JSON
       const jsonExport = await adapter.exportDatabaseAsJson();
-      console.log('JSON export size:', jsonExport.length);
 
       // Parse and verify structure
       const parsed = JSON.parse(jsonExport);
@@ -129,7 +127,7 @@ describe('Backup/Restore Integration Tests', () => {
         // (or pass the JSON as a Uint8Array which will be auto-detected)
         await newAdapter.importDatabaseFromJson(
           jsonExport,
-          new Uint8Array(TEST_ENCRYPTION_KEY)
+          TEST_ENCRYPTION_KEY
         );
 
         // Verify data
@@ -168,15 +166,10 @@ describe('Backup/Restore Integration Tests', () => {
       expect(exportedData).toBeInstanceOf(Uint8Array);
       expect(exportedData.length).toBeGreaterThan(0);
 
-      // SQLite database files start with the header string "SQLite format 3\x00"
-      // But encrypted databases have different headers
-      console.log('Exported database size:', exportedData.length, 'bytes');
-      console.log(
-        'First 16 bytes (hex):',
-        Array.from(exportedData.slice(0, 16))
-          .map((b) => b.toString(16).padStart(2, '0'))
-          .join(' ')
-      );
+      // sqlite3_js_db_export returns UNENCRYPTED data (serializes in-memory pages)
+      // so the exported data has the standard SQLite header, not an encrypted one
+      const header = new TextDecoder().decode(exportedData.slice(0, 15));
+      expect(header).toBe('SQLite format 3');
     });
   });
 
@@ -208,7 +201,6 @@ describe('Backup/Restore Integration Tests', () => {
 
       // Step 2: Export the database as JSON
       const jsonExport = await adapter.exportDatabaseAsJson();
-      console.log('Exported database size:', jsonExport.length, 'chars');
 
       // Step 3: Close the original adapter
       await adapter.close();
@@ -219,7 +211,7 @@ describe('Backup/Restore Integration Tests', () => {
         // Import from JSON - creates a new encrypted database
         await newAdapter.importDatabaseFromJson(
           jsonExport,
-          new Uint8Array(TEST_ENCRYPTION_KEY)
+          TEST_ENCRYPTION_KEY
         );
 
         // Step 5: Verify the data was restored
@@ -262,7 +254,7 @@ describe('Backup/Restore Integration Tests', () => {
         // Import directly from JSON - no need to initialize first!
         await freshAdapter.importDatabaseFromJson(
           jsonExport,
-          new Uint8Array(TEST_ENCRYPTION_KEY)
+          TEST_ENCRYPTION_KEY
         );
 
         // Verify data
@@ -319,7 +311,7 @@ describe('Backup/Restore Integration Tests', () => {
       try {
         await newAdapter.importDatabaseFromJson(
           jsonExport,
-          new Uint8Array(TEST_ENCRYPTION_KEY)
+          TEST_ENCRYPTION_KEY
         );
 
         // Verify all tables exist and have correct data
@@ -363,7 +355,7 @@ describe('Backup/Restore Integration Tests', () => {
 
       // Binary import is not supported with SQLite3MultipleCiphers WASM
       await expect(
-        adapter.importDatabase(binaryData, new Uint8Array(TEST_ENCRYPTION_KEY))
+        adapter.importDatabase(binaryData, TEST_ENCRYPTION_KEY)
       ).rejects.toThrow('Binary SQLite database import is not supported');
     });
 
@@ -373,7 +365,7 @@ describe('Backup/Restore Integration Tests', () => {
       await expect(
         freshAdapter.importDatabaseFromJson(
           '{"version": 1, "tables": [CORRUPT',
-          new Uint8Array(TEST_ENCRYPTION_KEY)
+          TEST_ENCRYPTION_KEY
         )
       ).rejects.toThrow('Failed to import database from JSON');
     });
@@ -384,7 +376,7 @@ describe('Backup/Restore Integration Tests', () => {
       await expect(
         freshAdapter.importDatabaseFromJson(
           JSON.stringify({ version: 999, tables: [], indexes: [], data: {} }),
-          new Uint8Array(TEST_ENCRYPTION_KEY)
+          TEST_ENCRYPTION_KEY
         )
       ).rejects.toThrow('Unsupported backup version: 999');
     });
