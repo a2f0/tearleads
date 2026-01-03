@@ -31,6 +31,7 @@ export default defineConfig({
         // which require integration/e2e testing rather than unit tests
         'src/hooks/useLLM.ts',
         'src/lib/llm-runtime.ts',
+        'src/workers/llm-worker.ts',
         // Browser-specific APIs that cannot be tested in jsdom:
         // - OPFS (Origin Private File System) for encrypted file storage
         // - Canvas/createImageBitmap for image thumbnail generation
@@ -40,7 +41,6 @@ export default defineConfig({
         'src/storage/opfs.ts',
         // SQLite worker files require web worker environment and WASM runtime
         // that cannot be tested in jsdom
-        'src/workers/llm-worker.ts',
         'src/workers/sqlite.worker.interface.ts',
         'src/workers/sqlite.worker.ts',
         // Platform-specific adapters require their native runtime environments
