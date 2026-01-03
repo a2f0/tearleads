@@ -1,6 +1,20 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterEach, vi } from 'vitest';
+import { afterEach, beforeAll, vi } from 'vitest';
+
+// Fail tests on React act() warnings
+beforeAll(() => {
+  const originalError = console.error;
+  console.error = (...args: unknown[]) => {
+    const message = typeof args[0] === 'string' ? args[0] : '';
+    if (message.includes('not wrapped in act(')) {
+      throw new Error(
+        `React act() warning detected. Wrap state updates in act():\n${args.join(' ')}`
+      );
+    }
+    originalError.apply(console, args);
+  };
+});
 
 afterEach(() => {
   cleanup();

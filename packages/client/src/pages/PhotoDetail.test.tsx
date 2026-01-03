@@ -73,7 +73,7 @@ function createMockQueryChain(result: unknown[]) {
   };
 }
 
-function renderPhotoDetail(photoId: string = 'photo-123') {
+function renderPhotoDetailRaw(photoId: string = 'photo-123') {
   return render(
     <ThemeProvider>
       <MemoryRouter initialEntries={[`/photos/${photoId}`]}>
@@ -83,6 +83,15 @@ function renderPhotoDetail(photoId: string = 'photo-123') {
       </MemoryRouter>
     </ThemeProvider>
   );
+}
+
+async function renderPhotoDetail(photoId: string = 'photo-123') {
+  const result = renderPhotoDetailRaw(photoId);
+  // Wait for initial async effects to complete
+  await waitFor(() => {
+    expect(screen.queryByText('Loading photo...')).not.toBeInTheDocument();
+  });
+  return result;
 }
 
 describe('PhotoDetail', () => {
@@ -113,7 +122,7 @@ describe('PhotoDetail', () => {
     });
 
     it('shows loading message', () => {
-      renderPhotoDetail();
+      renderPhotoDetailRaw();
       expect(screen.getByText('Loading database...')).toBeInTheDocument();
     });
   });
@@ -132,7 +141,7 @@ describe('PhotoDetail', () => {
     });
 
     it('shows inline unlock component', () => {
-      renderPhotoDetail();
+      renderPhotoDetailRaw();
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
         screen.getByText(
@@ -142,61 +151,50 @@ describe('PhotoDetail', () => {
     });
 
     it('shows password input for unlocking', () => {
-      renderPhotoDetail();
+      renderPhotoDetailRaw();
       expect(screen.getByTestId('inline-unlock-password')).toBeInTheDocument();
     });
 
     it('shows unlock button', () => {
-      renderPhotoDetail();
+      renderPhotoDetailRaw();
       expect(screen.getByTestId('inline-unlock-button')).toBeInTheDocument();
     });
   });
 
   describe('when photo is loaded', () => {
     it('renders photo name', async () => {
-      renderPhotoDetail();
+      await renderPhotoDetail();
 
-      await waitFor(() => {
-        expect(screen.getByText('test-photo.jpg')).toBeInTheDocument();
-      });
+      expect(screen.getByText('test-photo.jpg')).toBeInTheDocument();
     });
 
     it('renders photo details', async () => {
-      renderPhotoDetail();
+      await renderPhotoDetail();
 
-      await waitFor(() => {
-        expect(screen.getByText('image/jpeg')).toBeInTheDocument();
-        expect(screen.getByText('1 KB')).toBeInTheDocument();
-      });
+      expect(screen.getByText('image/jpeg')).toBeInTheDocument();
+      expect(screen.getByText('1 KB')).toBeInTheDocument();
     });
 
     it('renders download button', async () => {
-      renderPhotoDetail();
+      await renderPhotoDetail();
 
-      await waitFor(() => {
-        expect(screen.getByTestId('download-button')).toBeInTheDocument();
-        expect(screen.getByText('Download')).toBeInTheDocument();
-      });
+      expect(screen.getByTestId('download-button')).toBeInTheDocument();
+      expect(screen.getByText('Download')).toBeInTheDocument();
     });
 
     it('renders share button when Web Share API is supported', async () => {
       mockCanShareFiles.mockReturnValue(true);
-      renderPhotoDetail();
+      await renderPhotoDetail();
 
-      await waitFor(() => {
-        expect(screen.getByTestId('share-button')).toBeInTheDocument();
-        expect(screen.getByText('Share')).toBeInTheDocument();
-      });
+      expect(screen.getByTestId('share-button')).toBeInTheDocument();
+      expect(screen.getByText('Share')).toBeInTheDocument();
     });
 
     it('hides share button when Web Share API is not supported', async () => {
       mockCanShareFiles.mockReturnValue(false);
-      renderPhotoDetail();
+      await renderPhotoDetail();
 
-      await waitFor(() => {
-        expect(screen.getByTestId('download-button')).toBeInTheDocument();
-      });
-
+      expect(screen.getByTestId('download-button')).toBeInTheDocument();
       expect(screen.queryByTestId('share-button')).not.toBeInTheDocument();
     });
   });
@@ -204,11 +202,9 @@ describe('PhotoDetail', () => {
   describe('download functionality', () => {
     it('downloads file when download button is clicked', async () => {
       const user = userEvent.setup();
-      renderPhotoDetail();
+      await renderPhotoDetail();
 
-      await waitFor(() => {
-        expect(screen.getByTestId('download-button')).toBeInTheDocument();
-      });
+      expect(screen.getByTestId('download-button')).toBeInTheDocument();
 
       await user.click(screen.getByTestId('download-button'));
 
@@ -224,11 +220,9 @@ describe('PhotoDetail', () => {
     it('initializes file storage if not initialized', async () => {
       mockIsFileStorageInitialized.mockReturnValue(false);
       const user = userEvent.setup();
-      renderPhotoDetail();
+      await renderPhotoDetail();
 
-      await waitFor(() => {
-        expect(screen.getByTestId('download-button')).toBeInTheDocument();
-      });
+      expect(screen.getByTestId('download-button')).toBeInTheDocument();
 
       await user.click(screen.getByTestId('download-button'));
 
@@ -245,11 +239,9 @@ describe('PhotoDetail', () => {
         .mockResolvedValueOnce(TEST_IMAGE_DATA)
         .mockRejectedValueOnce(new Error('Storage read failed'));
       const user = userEvent.setup();
-      renderPhotoDetail();
+      await renderPhotoDetail();
 
-      await waitFor(() => {
-        expect(screen.getByTestId('download-button')).toBeInTheDocument();
-      });
+      expect(screen.getByTestId('download-button')).toBeInTheDocument();
 
       await user.click(screen.getByTestId('download-button'));
 
@@ -262,11 +254,9 @@ describe('PhotoDetail', () => {
   describe('share functionality', () => {
     it('shares file when share button is clicked', async () => {
       const user = userEvent.setup();
-      renderPhotoDetail();
+      await renderPhotoDetail();
 
-      await waitFor(() => {
-        expect(screen.getByTestId('share-button')).toBeInTheDocument();
-      });
+      expect(screen.getByTestId('share-button')).toBeInTheDocument();
 
       await user.click(screen.getByTestId('share-button'));
 
@@ -286,11 +276,9 @@ describe('PhotoDetail', () => {
       mockShareFile.mockRejectedValue(abortError);
 
       const user = userEvent.setup();
-      renderPhotoDetail();
+      await renderPhotoDetail();
 
-      await waitFor(() => {
-        expect(screen.getByTestId('share-button')).toBeInTheDocument();
-      });
+      expect(screen.getByTestId('share-button')).toBeInTheDocument();
 
       await user.click(screen.getByTestId('share-button'));
 
@@ -306,11 +294,9 @@ describe('PhotoDetail', () => {
     it('shows error when share fails', async () => {
       mockShareFile.mockRejectedValue(new Error('Share failed'));
       const user = userEvent.setup();
-      renderPhotoDetail();
+      await renderPhotoDetail();
 
-      await waitFor(() => {
-        expect(screen.getByTestId('share-button')).toBeInTheDocument();
-      });
+      expect(screen.getByTestId('share-button')).toBeInTheDocument();
 
       await user.click(screen.getByTestId('share-button'));
 
@@ -322,11 +308,9 @@ describe('PhotoDetail', () => {
     it('shows error when sharing is not supported on device', async () => {
       mockShareFile.mockResolvedValue(false);
       const user = userEvent.setup();
-      renderPhotoDetail();
+      await renderPhotoDetail();
 
-      await waitFor(() => {
-        expect(screen.getByTestId('share-button')).toBeInTheDocument();
-      });
+      expect(screen.getByTestId('share-button')).toBeInTheDocument();
 
       await user.click(screen.getByTestId('share-button'));
 
@@ -344,17 +328,15 @@ describe('PhotoDetail', () => {
     });
 
     it('shows not found error', async () => {
-      renderPhotoDetail();
+      await renderPhotoDetail();
 
-      await waitFor(() => {
-        expect(screen.getByText('Photo not found')).toBeInTheDocument();
-      });
+      expect(screen.getByText('Photo not found')).toBeInTheDocument();
     });
   });
 
   describe('back navigation', () => {
     it('renders back link to photos page', async () => {
-      renderPhotoDetail();
+      await renderPhotoDetail();
 
       const backLink = screen.getByText('Back to Photos');
       expect(backLink).toBeInTheDocument();

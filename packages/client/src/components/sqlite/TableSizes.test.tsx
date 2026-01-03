@@ -15,12 +15,21 @@ vi.mock('@/db', () => ({
   getDatabaseAdapter: () => mockGetDatabaseAdapter()
 }));
 
-function renderTableSizes() {
+function renderTableSizesRaw() {
   return render(
     <MemoryRouter>
       <TableSizes />
     </MemoryRouter>
   );
+}
+
+async function renderTableSizes() {
+  const result = renderTableSizesRaw();
+  // Wait for initial async effects to complete
+  await waitFor(() => {
+    expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+  });
+  return result;
 }
 
 describe('TableSizes', () => {
@@ -71,14 +80,14 @@ describe('TableSizes', () => {
   describe('visibility', () => {
     it('returns null when database is not unlocked', () => {
       setupMockContext({ isUnlocked: false });
-      const { container } = renderTableSizes();
+      const { container } = renderTableSizesRaw();
       expect(container.querySelector('[data-testid="table-sizes"]')).toBeNull();
     });
 
-    it('renders when database is unlocked', () => {
+    it('renders when database is unlocked', async () => {
       setupMockContext({ isUnlocked: true });
       setupMockAdapter({});
-      renderTableSizes();
+      await renderTableSizes();
       expect(screen.getByTestId('table-sizes')).toBeInTheDocument();
     });
   });
@@ -87,11 +96,10 @@ describe('TableSizes', () => {
     it('shows loading message initially when unlocked', async () => {
       setupMockContext({ isUnlocked: true });
       setupMockAdapter({});
-      renderTableSizes();
+      await renderTableSizes();
 
-      await waitFor(() => {
-        expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
-      });
+      // After loading completes, loading message should not be present
+      expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
     });
   });
 
@@ -104,11 +112,9 @@ describe('TableSizes', () => {
         tables: { rows: [] }
       });
 
-      renderTableSizes();
+      await renderTableSizes();
 
-      await waitFor(() => {
-        expect(screen.getByText('1 MB')).toBeInTheDocument();
-      });
+      expect(screen.getByText('1 MB')).toBeInTheDocument();
     });
 
     it('handles empty PRAGMA results with error', async () => {
@@ -118,13 +124,11 @@ describe('TableSizes', () => {
         page_count: { rows: [] }
       });
 
-      renderTableSizes();
+      await renderTableSizes();
 
-      await waitFor(() => {
-        expect(
-          screen.getByText('Failed to retrieve database page size or count.')
-        ).toBeInTheDocument();
-      });
+      expect(
+        screen.getByText('Failed to retrieve database page size or count.')
+      ).toBeInTheDocument();
     });
   });
 
@@ -136,12 +140,10 @@ describe('TableSizes', () => {
         dbstat: { rows: [{ size: 2048 }] }
       });
 
-      renderTableSizes();
+      await renderTableSizes();
 
-      await waitFor(() => {
-        expect(screen.getByText('users')).toBeInTheDocument();
-        expect(screen.getByText('2 KB')).toBeInTheDocument();
-      });
+      expect(screen.getByText('users')).toBeInTheDocument();
+      expect(screen.getByText('2 KB')).toBeInTheDocument();
     });
 
     it('does not show estimated indicator when dbstat is available', async () => {
@@ -151,12 +153,9 @@ describe('TableSizes', () => {
         dbstat: { rows: [{ size: 2048 }] }
       });
 
-      renderTableSizes();
+      await renderTableSizes();
 
-      await waitFor(() => {
-        expect(screen.getByText('users')).toBeInTheDocument();
-      });
-
+      expect(screen.getByText('users')).toBeInTheDocument();
       expect(
         screen.queryByText('* Sizes are estimated (dbstat unavailable)')
       ).not.toBeInTheDocument();
@@ -172,13 +171,11 @@ describe('TableSizes', () => {
         count: { rows: [{ count: 100 }] }
       });
 
-      renderTableSizes();
+      await renderTableSizes();
 
-      await waitFor(() => {
-        expect(screen.getByText('users')).toBeInTheDocument();
-        // 100 rows * 100 bytes = 10000 bytes ≈ 9.77 KB
-        expect(screen.getByText('~9.77 KB')).toBeInTheDocument();
-      });
+      expect(screen.getByText('users')).toBeInTheDocument();
+      // 100 rows * 100 bytes = 10000 bytes ≈ 9.77 KB
+      expect(screen.getByText('~9.77 KB')).toBeInTheDocument();
     });
 
     it('shows estimated indicator when using fallback', async () => {
@@ -189,13 +186,11 @@ describe('TableSizes', () => {
         count: { rows: [{ count: 100 }] }
       });
 
-      renderTableSizes();
+      await renderTableSizes();
 
-      await waitFor(() => {
-        expect(
-          screen.getByText('* Sizes are estimated (dbstat unavailable)')
-        ).toBeInTheDocument();
-      });
+      expect(
+        screen.getByText('* Sizes are estimated (dbstat unavailable)')
+      ).toBeInTheDocument();
     });
 
     it('prefixes estimated sizes with tilde', async () => {
@@ -206,12 +201,10 @@ describe('TableSizes', () => {
         count: { rows: [{ count: 100 }] }
       });
 
-      renderTableSizes();
+      await renderTableSizes();
 
-      await waitFor(() => {
-        const sizeElement = screen.getByText(/^~\d/);
-        expect(sizeElement).toBeInTheDocument();
-      });
+      const sizeElement = screen.getByText(/^~\d/);
+      expect(sizeElement).toBeInTheDocument();
     });
   });
 
@@ -224,11 +217,9 @@ describe('TableSizes', () => {
         dbstat: { rows: [{ size: 1024 }] }
       });
 
-      renderTableSizes();
+      await renderTableSizes();
 
-      await waitFor(() => {
-        expect(screen.getByText('users')).toBeInTheDocument();
-      });
+      expect(screen.getByText('users')).toBeInTheDocument();
 
       const initialCallCount = execute.mock.calls.length;
 
@@ -248,11 +239,9 @@ describe('TableSizes', () => {
         tables: { rows: [] }
       });
 
-      renderTableSizes();
+      await renderTableSizes();
 
-      await waitFor(() => {
-        expect(screen.getByText('No tables found')).toBeInTheDocument();
-      });
+      expect(screen.getByText('No tables found')).toBeInTheDocument();
     });
   });
 
@@ -283,13 +272,11 @@ describe('TableSizes', () => {
 
       mockGetDatabaseAdapter.mockReturnValue({ execute });
 
-      renderTableSizes();
+      await renderTableSizes();
 
-      await waitFor(() => {
-        const tableNames = screen.getAllByText(/small|large/);
-        expect(tableNames[0]).toHaveTextContent('large');
-        expect(tableNames[1]).toHaveTextContent('small');
-      });
+      const tableNames = screen.getAllByText(/small|large/);
+      expect(tableNames[0]).toHaveTextContent('large');
+      expect(tableNames[1]).toHaveTextContent('small');
     });
   });
 
@@ -301,12 +288,10 @@ describe('TableSizes', () => {
         dbstat: { rows: [{ size: 1024 }] }
       });
 
-      renderTableSizes();
+      await renderTableSizes();
 
-      await waitFor(() => {
-        const link = screen.getByRole('link', { name: 'users' });
-        expect(link).toBeInTheDocument();
-      });
+      const link = screen.getByRole('link', { name: 'users' });
+      expect(link).toBeInTheDocument();
     });
 
     it('links navigate to /tables/{tableName}', async () => {
@@ -316,12 +301,10 @@ describe('TableSizes', () => {
         dbstat: { rows: [{ size: 1024 }] }
       });
 
-      renderTableSizes();
+      await renderTableSizes();
 
-      await waitFor(() => {
-        const link = screen.getByRole('link', { name: 'users' });
-        expect(link).toHaveAttribute('href', '/tables/users');
-      });
+      const link = screen.getByRole('link', { name: 'users' });
+      expect(link).toHaveAttribute('href', '/tables/users');
     });
 
     it('URL encodes special characters in table names', async () => {
@@ -331,12 +314,10 @@ describe('TableSizes', () => {
         dbstat: { rows: [{ size: 1024 }] }
       });
 
-      renderTableSizes();
+      await renderTableSizes();
 
-      await waitFor(() => {
-        const link = screen.getByRole('link', { name: 'my table' });
-        expect(link).toHaveAttribute('href', '/tables/my%20table');
-      });
+      const link = screen.getByRole('link', { name: 'my table' });
+      expect(link).toHaveAttribute('href', '/tables/my%20table');
     });
 
     it('renders multiple table links correctly', async () => {
@@ -346,14 +327,12 @@ describe('TableSizes', () => {
         dbstat: { rows: [{ size: 1024 }] }
       });
 
-      renderTableSizes();
+      await renderTableSizes();
 
-      await waitFor(() => {
-        const usersLink = screen.getByRole('link', { name: 'users' });
-        const postsLink = screen.getByRole('link', { name: 'posts' });
-        expect(usersLink).toHaveAttribute('href', '/tables/users');
-        expect(postsLink).toHaveAttribute('href', '/tables/posts');
-      });
+      const usersLink = screen.getByRole('link', { name: 'users' });
+      const postsLink = screen.getByRole('link', { name: 'posts' });
+      expect(usersLink).toHaveAttribute('href', '/tables/users');
+      expect(postsLink).toHaveAttribute('href', '/tables/posts');
     });
   });
 });
