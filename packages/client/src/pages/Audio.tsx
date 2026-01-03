@@ -1,6 +1,7 @@
 import { and, desc, eq, like } from 'drizzle-orm';
-import { Loader2, Music, RefreshCw } from 'lucide-react';
+import { Loader2, Music, Pause, Play, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
@@ -47,6 +48,7 @@ interface AudioWithUrl extends AudioInfo {
 
 export function AudioPage() {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const { currentTrack, isPlaying, play, pause, resume } = useAudio();
   const [tracks, setTracks] = useState<AudioWithUrl[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -239,25 +241,58 @@ export function AudioPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {tracks.map((track) => (
-              <div
-                key={track.id}
-                className="flex items-center gap-4 rounded-lg border p-4"
-              >
-                <Music className="h-8 w-8 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{track.name}</p>
-                  <p className="text-muted-foreground text-sm">
-                    {formatFileSize(track.size)}
-                  </p>
+            {tracks.map((track) => {
+              const isCurrentTrack = currentTrack?.id === track.id;
+              const isTrackPlaying = isCurrentTrack && isPlaying;
+
+              const handlePlayPause = () => {
+                if (isCurrentTrack) {
+                  if (isPlaying) {
+                    pause();
+                  } else {
+                    resume();
+                  }
+                } else {
+                  play({
+                    id: track.id,
+                    name: track.name,
+                    objectUrl: track.objectUrl,
+                    mimeType: track.mimeType
+                  });
+                }
+              };
+
+              return (
+                <div
+                  key={track.id}
+                  className={`flex items-center gap-4 rounded-lg border p-4 ${
+                    isCurrentTrack ? 'border-primary bg-primary/5' : ''
+                  }`}
+                  data-testid={`audio-track-${track.id}`}
+                >
+                  <Music className="h-8 w-8 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{track.name}</p>
+                    <p className="text-muted-foreground text-sm">
+                      {formatFileSize(track.size)}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handlePlayPause}
+                    aria-label={isTrackPlaying ? 'Pause' : 'Play'}
+                    data-testid={`audio-play-${track.id}`}
+                  >
+                    {isTrackPlaying ? (
+                      <Pause className="h-4 w-4" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
-                {/* biome-ignore lint/a11y/useMediaCaption: Music files typically don't have caption tracks */}
-                <audio controls className="h-8 w-48 shrink-0">
-                  <source src={track.objectUrl} type={track.mimeType} />
-                  Your browser does not support the audio element.
-                </audio>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ))}
     </div>
