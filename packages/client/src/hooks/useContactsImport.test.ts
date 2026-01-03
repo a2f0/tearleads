@@ -568,8 +568,9 @@ describe('useContactsImport', () => {
         await result.current.importContacts(data, mapping);
       });
 
-      // After import completes, importing should be false
+      // After import completes, importing should be false and progress 100
       expect(result.current.importing).toBe(false);
+      expect(result.current.progress).toBe(100);
     });
 
     it('handles emails without labels', async () => {
@@ -709,6 +710,7 @@ describe('useContactsImport', () => {
 
       expect(importResult.skipped).toBe(1);
       expect(importResult.errors[0]).toContain('Unknown error');
+      expect(mockAdapter.rollbackTransaction).toHaveBeenCalled();
     });
   });
 });
