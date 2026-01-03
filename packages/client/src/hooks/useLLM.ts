@@ -1,5 +1,5 @@
 /// <reference types="@webgpu/types" />
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { getDatabase } from '@/db';
 import { logEvent as logAnalyticsEvent } from '@/db/analytics';
 
@@ -353,14 +353,17 @@ export function useLLM(): UseLLMReturn {
     return checkWebGPUSupport();
   }, []);
 
-  return {
-    ...state,
-    loadModel,
-    unloadModel,
-    generate,
-    abort,
-    isWebGPUSupported
-  };
+  return useMemo(
+    () => ({
+      ...state,
+      loadModel,
+      unloadModel,
+      generate,
+      abort,
+      isWebGPUSupported
+    }),
+    [state, loadModel, unloadModel, generate, abort, isWebGPUSupported]
+  );
 }
 
 // Re-export ChatMessage type for consumers

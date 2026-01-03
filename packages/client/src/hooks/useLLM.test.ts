@@ -51,7 +51,7 @@ describe('useLLM', () => {
   });
 
   describe('snapshot immutability', () => {
-    it('returns different object references when state changes', async () => {
+    it('updates state correctly during model loading', async () => {
       // Import fresh module
       const { useLLM } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
@@ -111,7 +111,7 @@ describe('useLLM', () => {
   });
 
   describe('state updates during model loading', () => {
-    it('does not cause unnecessary re-renders when unload message is received during loading', async () => {
+    it('handles state transitions correctly when loading a new model', async () => {
       // Import fresh module
       const { useLLM } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
