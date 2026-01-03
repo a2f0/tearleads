@@ -10,4 +10,5 @@ defscrollback 10000
 # Disable alternate screen - allows tmux to capture scrollback
 # ti@ disables the "enter alternate screen" sequence
 # te@ disables the "exit alternate screen" sequence
-termcapinfo xterm* ti@:te@
+# Match xterm, tmux, and screen terminal types
+termcapinfo xterm*,tmux*,screen* ti@:te@
