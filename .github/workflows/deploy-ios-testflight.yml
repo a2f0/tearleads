@@ -2,7 +2,7 @@ name: Deploy iOS to TestFlight
 
 on:
   workflow_run:
-    workflows: ["Bump Version"]
+    workflows: ["CI"]
     types: [completed]
     branches: [main]
 
