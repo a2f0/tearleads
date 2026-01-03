@@ -276,9 +276,12 @@ describe('InlineUnlock', () => {
 
   describe('loading states', () => {
     it('shows loading state when unlocking', async () => {
-      mockUnlock.mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve(true), 100))
-      );
+      let resolveUnlock: (value: boolean) => void;
+      const unlockPromise = new Promise<boolean>((resolve) => {
+        resolveUnlock = resolve;
+      });
+      mockUnlock.mockReturnValue(unlockPromise);
+
       const user = userEvent.setup();
       render(<InlineUnlock />);
 
@@ -287,12 +290,21 @@ describe('InlineUnlock', () => {
       await user.click(screen.getByTestId('inline-unlock-button'));
 
       expect(screen.getByText('Unlocking...')).toBeInTheDocument();
+
+      // Resolve the promise and wait for state update
+      resolveUnlock!(true);
+      await waitFor(() => {
+        expect(screen.queryByText('Unlocking...')).not.toBeInTheDocument();
+      });
     });
 
     it('disables input and button while loading', async () => {
-      mockUnlock.mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve(true), 100))
-      );
+      let resolveUnlock: (value: boolean) => void;
+      const unlockPromise = new Promise<boolean>((resolve) => {
+        resolveUnlock = resolve;
+      });
+      mockUnlock.mockReturnValue(unlockPromise);
+
       const user = userEvent.setup();
       render(<InlineUnlock />);
 
@@ -302,6 +314,12 @@ describe('InlineUnlock', () => {
 
       expect(passwordInput).toBeDisabled();
       expect(screen.getByTestId('inline-unlock-button')).toBeDisabled();
+
+      // Resolve the promise and wait for state update
+      resolveUnlock!(true);
+      await waitFor(() => {
+        expect(passwordInput).not.toBeDisabled();
+      });
     });
   });
 });
