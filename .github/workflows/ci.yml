@@ -14,6 +14,47 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      core: ${{ steps.filter.outputs.core }}
+      client-src: ${{ steps.filter.outputs.client-src }}
+      api: ${{ steps.filter.outputs.api }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+      electron: ${{ steps.filter.outputs.electron }}
+      web-e2e-tests: ${{ steps.filter.outputs.web-e2e-tests }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            core:
+              - 'packages/shared/**'
+              - 'packages/ui/**'
+              - '.github/workflows/ci.yml'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+            client-src:
+              - 'packages/client/src/**'
+            api:
+              - 'packages/api/**'
+            mobile:
+              - 'packages/client/android/**'
+              - 'packages/client/ios/**'
+              - 'packages/client/.maestro/**'
+              - 'packages/client/capacitor.config.ts'
+              - 'packages/client/fastlane/**'
+            electron:
+              - 'packages/client/electron/**'
+              - 'packages/client/tests/electron/**'
+            web-e2e-tests:
+              - 'packages/client/tests/*.spec.ts'
+              - 'packages/client/playwright.config.ts'
+
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -119,6 +160,13 @@ jobs:
 
   web-e2e:
     name: Web E2E Tests
+    needs: [detect-changes]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.client-src == 'true' ||
+      needs.detect-changes.outputs.api == 'true' ||
+      needs.detect-changes.outputs.web-e2e-tests == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -174,6 +222,12 @@ jobs:
 
   electron-e2e:
     name: Electron E2E Tests
+    needs: [detect-changes]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.client-src == 'true' ||
+      needs.detect-changes.outputs.electron == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -203,6 +257,12 @@ jobs:
 
   android:
     name: Android Instrumented Tests
+    needs: [detect-changes]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.client-src == 'true' ||
+      needs.detect-changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -285,6 +345,12 @@ jobs:
 
   android-maestro:
     name: Android Maestro Tests
+    needs: [detect-changes]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.client-src == 'true' ||
+      needs.detect-changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -377,6 +443,12 @@ jobs:
 
   ios-maestro:
     name: iOS Maestro Tests
+    needs: [detect-changes]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.client-src == 'true' ||
+      needs.detect-changes.outputs.mobile == 'true'
     runs-on: macos-latest
     timeout-minutes: 30
 
