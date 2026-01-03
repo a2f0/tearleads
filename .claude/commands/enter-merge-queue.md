@@ -8,7 +8,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 
 ## Steps
 
-1. **Verify PR exists**: Run `gh pr view --json number,title,headRefName,baseRefName,url,state` to get PR info. If no PR exists, abort with a message. Store the `baseRefName` for use in subsequent steps.
+1. **Verify PR exists**: Run `gh pr view --json number,title,headRefName,baseRefName,url,state,labels` to get PR info. If no PR exists, abort with a message. Store the `baseRefName` for use in subsequent steps. Also check if this PR has the `high-priority` label.
 
 2. **Check current branch**: Ensure you're on the PR's head branch, not `main`.
 
@@ -20,18 +20,33 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 
 4. **Main loop** - Repeat until PR is merged:
 
-   ### 4a. Check PR state
+   ### 4a. Yield to high-priority PRs
+
+   If the current PR does NOT have the `high-priority` label, check if any other open PRs do:
+
+   ```bash
+   gh pr list --label "high-priority" --state open --json number,headRefName,mergeStateStatus
+   ```
+
+   - If high-priority PRs exist and any have `mergeStateStatus` of `CLEAN` or `BLOCKED` (meaning they're actively trying to merge):
+     1. Log: "Yielding to high-priority PR #X"
+     2. Wait 2 minutes before rechecking
+     3. Repeat this check until no high-priority PRs are actively merging
+   - If no high-priority PRs exist, or they're all `BEHIND` or `DIRTY`, proceed normally
+   - If the current PR IS high-priority, skip this check entirely
+
+   ### 4b. Check PR state
 
    ```bash
    gh pr view --json state,mergeStateStatus,mergeable
    ```
 
    - If `state` is `MERGED`: Exit loop and proceed to step 5
-   - If `mergeStateStatus` is `BEHIND`: Update from base (step 4b)
-   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Address Gemini feedback (step 4c/4d), then wait for CI (step 4e)
-   - If `mergeStateStatus` is `CLEAN`: Ensure auto-merge is enabled and wait (step 4f)
+   - If `mergeStateStatus` is `BEHIND`: Update from base (step 4c)
+   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Address Gemini feedback (step 4d/4e), then wait for CI (step 4f)
+   - If `mergeStateStatus` is `CLEAN`: Ensure auto-merge is enabled and wait (step 4g)
 
-   ### 4b. Update from base branch (rebase)
+   ### 4c. Update from base branch (rebase)
 
    Use rebase to keep the branch history clean (no merge commits for updates):
 
@@ -45,13 +60,13 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
      2. List the conflicting files
      3. Clear the queued status with `./scripts/agents/clearQueued.sh`
      4. Stop and ask the user for help. Do NOT auto-resolve conflicts.
-   - If successful, force push (required after rebase) and continue to step 4c:
+   - If successful, force push (required after rebase) and continue to step 4d:
 
      ```bash
      git push --force-with-lease
      ```
 
-   ### 4c. Wait for Gemini review (first iteration only)
+   ### 4d. Wait for Gemini review (first iteration only)
 
    Gemini Code Assist is a GitHub App that automatically reviews PRs - do NOT use `gh pr edit --add-reviewer` as it doesn't work with GitHub App bots.
 
@@ -68,9 +83,9 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    If Gemini's review contains:
    > "Gemini is unable to generate a review for this pull request due to the file types involved not being currently supported."
 
-   This means Gemini cannot review the PR (e.g., only config files, images, or other non-code changes). Skip step 4d entirely and proceed directly to step 4e (wait for CI).
+   This means Gemini cannot review the PR (e.g., only config files, images, or other non-code changes). Skip step 4d entirely and proceed directly to step 4f (wait for CI).
 
-   ### 4d. Address Gemini feedback
+   ### 4e. Address Gemini feedback
 
    **Important**: All conversation threads must be resolved before the PR can merge.
 
@@ -79,9 +94,9 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    - Notify Gemini that feedback has been addressed
    - Wait for Gemini's response (polling every 30 seconds, up to 5 minutes)
    - When Gemini confirms a fix is satisfactory, resolve the thread (see "Resolving Conversation Threads" below)
-   - If Gemini requests further changes, repeat step 4d
+   - If Gemini requests further changes, repeat step 4e
 
-   ### 4e. Wait for CI (with branch freshness checks)
+   ### 4f. Wait for CI (with branch freshness checks)
 
    **Important**: Check if branch is behind BEFORE waiting for CI, and periodically during CI. This prevents wasting time on CI runs that will be obsolete.
 
@@ -92,11 +107,11 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 
    **While CI is running**:
    - Every 2-3 minutes, check if branch is behind: `gh pr view --json mergeStateStatus`
-   - If `mergeStateStatus` is `BEHIND`: **Immediately** go back to step 4b (don't wait for CI to finish)
+   - If `mergeStateStatus` is `BEHIND`: **Immediately** go back to step 4c (don't wait for CI to finish)
    - This avoids wasting 15-20 minutes on a CI run that will need to be rerun anyway
 
    **When CI completes**:
-   - If CI **passes**: Continue to step 4f
+   - If CI **passes**: Continue to step 4g
    - If CI is **cancelled**: Rerun CI using the CLI (do NOT push empty commits):
 
      ```bash
@@ -107,7 +122,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
      1. Run `/fix-tests` to diagnose and fix the failure
      2. Return to monitoring CI status
 
-   ### 4f. Enable auto-merge and wait
+   ### 4g. Enable auto-merge and wait
 
    ```bash
    gh pr merge --auto --merge
@@ -120,7 +135,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    ```
 
    - If `state` is `MERGED`: Exit loop
-   - If `mergeStateStatus` is `BEHIND`: Go back to step 4b
+   - If `mergeStateStatus` is `BEHIND`: Go back to step 4c
    - Otherwise: Wait 30 seconds and check again
 
 5. **Refresh workspace**: Once the PR is merged, run:
@@ -239,6 +254,7 @@ gh api graphql -f query='
 ## Notes
 
 - This skill loops until the PR is **actually merged**, not just until auto-merge is enabled
+- **High-priority yielding**: PRs without the `high-priority` label will pause and wait when a high-priority PR is actively merging. This ensures urgent fixes get through the queue faster.
 - If multiple PRs are in the queue, this PR may need to update from main multiple times as others merge
 - **Congested queue efficiency**: When multiple PRs are merging, prioritize staying up-to-date over waiting for CI. It's better to cancel a CI run and rebase than to wait 20 minutes for CI that will be invalidated by another merge.
 - Common fixable issues: lint errors, type errors, test failures, code style suggestions
