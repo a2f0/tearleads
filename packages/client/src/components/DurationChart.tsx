@@ -140,9 +140,19 @@ export function DurationChart({
 
   return (
     <div className="space-y-2">
-      <h2 className="font-semibold text-lg">Duration Over Time</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold text-lg">Duration Over Time</h2>
+        <span className="text-muted-foreground text-sm">
+          {chartData.length} event{chartData.length !== 1 ? 's' : ''}
+        </span>
+      </div>
       <div className="h-64 w-full">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer
+          width="100%"
+          height="100%"
+          minWidth={0}
+          minHeight={0}
+        >
           <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis
@@ -170,6 +180,7 @@ export function DurationChart({
                 name={formatEventName(eventType)}
                 data={data}
                 fill={eventTypeColors.get(eventType) ?? '#2563eb'}
+                shape={<circle r={4} />}
               />
             ))}
           </ScatterChart>
