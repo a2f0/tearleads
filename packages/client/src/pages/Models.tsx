@@ -67,26 +67,21 @@ async function getWebGPUInfo(): Promise<WebGPUInfo | null> {
 async function isModelCached(modelId: string): Promise<boolean> {
   if (!('caches' in window)) return false;
 
+  const TRANSFORMERS_CACHE_NAME = 'transformers-cache';
+
   try {
-    const cacheNames = await window.caches.keys();
-
-    for (const cacheName of cacheNames) {
-      const cache = await window.caches.open(cacheName);
-      const keys = await cache.keys();
-
-      // Check if any cached URL contains the model ID
-      // Transformers.js caches files under huggingface.co URLs
-      const hasModelFiles = keys.some((request) =>
-        request.url.includes(modelId)
-      );
-
-      if (hasModelFiles) {
-        return true;
-      }
+    if (!(await window.caches.has(TRANSFORMERS_CACHE_NAME))) {
+      return false;
     }
 
-    return false;
-  } catch {
+    const cache = await window.caches.open(TRANSFORMERS_CACHE_NAME);
+    const keys = await cache.keys();
+
+    // Check if any cached URL contains the model ID
+    // Transformers.js caches files under huggingface.co URLs
+    return keys.some((request) => request.url.includes(modelId));
+  } catch (error) {
+    console.error('Failed to check model cache:', error);
     return false;
   }
 }
