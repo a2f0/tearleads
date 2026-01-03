@@ -1,6 +1,9 @@
 # Screen configuration for tuxedo workspaces
 # Enables mouse wheel scrolling through tmux by disabling alternate screen
 
+# Start shell as login shell (-$SHELL) so nvm and other tools initialize properly
+shell -$SHELL
+
 # Large scrollback buffer (10k lines)
 defscrollback 10000
 
