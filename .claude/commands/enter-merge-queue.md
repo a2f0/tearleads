@@ -63,6 +63,11 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 
    Check every 30 seconds until a review from `gemini-code-assist` is found (timeout: 5 minutes).
 
+   **Special case - unsupported file types**: If Gemini's review contains:
+   > "Gemini is unable to generate a review for this pull request due to the file types involved not being currently supported."
+
+   This means Gemini cannot review the PR (e.g., only config files, images, or other non-code changes). Skip step 4d entirely and proceed directly to step 4e (wait for CI).
+
    ### 4d. Address Gemini feedback
 
    **Important**: All conversation threads must be resolved before the PR can merge.
