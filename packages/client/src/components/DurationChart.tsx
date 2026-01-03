@@ -34,10 +34,7 @@ function formatDuration(ms: number): string {
 
 function formatXAxisTick(timestamp: number, timeFilter: string): string {
   const date = new Date(timestamp);
-  if (timeFilter === 'hour') {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-  if (timeFilter === 'day') {
+  if (timeFilter === 'hour' || timeFilter === 'day') {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
@@ -94,7 +91,7 @@ export function DurationChart({
   selectedEventTypes,
   timeFilter
 }: DurationChartProps) {
-  const { chartData, eventTypeColors } = useMemo(() => {
+  const { chartData, eventTypeColors, dataByEventType } = useMemo(() => {
     const filteredEvents = events.filter((e) =>
       selectedEventTypes.has(e.eventName)
     );
@@ -103,10 +100,7 @@ export function DurationChart({
     const uniqueTypes = [...new Set(filteredEvents.map((e) => e.eventName))];
     const colorMap = new Map<string, string>();
     uniqueTypes.forEach((type, index) => {
-      colorMap.set(
-        type,
-        EVENT_COLORS[index % EVENT_COLORS.length] ?? '#2563eb'
-      );
+      colorMap.set(type, EVENT_COLORS[index % EVENT_COLORS.length]!);
     });
 
     // Transform events to chart data
@@ -118,7 +112,19 @@ export function DurationChart({
       color: colorMap.get(event.eventName)
     }));
 
-    return { chartData: data, eventTypeColors: colorMap };
+    // Group data by event type for separate scatter series
+    const groupedData = new Map<string, (typeof data)[number][]>();
+    data.forEach((point) => {
+      const existing = groupedData.get(point.eventName) ?? [];
+      existing.push(point);
+      groupedData.set(point.eventName, existing);
+    });
+
+    return {
+      chartData: data,
+      eventTypeColors: colorMap,
+      dataByEventType: groupedData
+    };
   }, [events, selectedEventTypes]);
 
   if (chartData.length === 0) {
@@ -128,22 +134,6 @@ export function DurationChart({
       </div>
     );
   }
-
-  // Group data by event type for separate scatter series
-  const dataByEventType = new Map<
-    string,
-    Array<{
-      timestamp: number;
-      durationMs: number;
-      eventName: string;
-      success: boolean;
-    }>
-  >();
-  chartData.forEach((point) => {
-    const existing = dataByEventType.get(point.eventName) ?? [];
-    existing.push(point);
-    dataByEventType.set(point.eventName, existing);
-  });
 
   return (
     <div className="space-y-2">
@@ -174,7 +164,7 @@ export function DurationChart({
                 key={eventType}
                 name={formatEventName(eventType)}
                 data={data}
-                fill={eventTypeColors.get(eventType) ?? '#2563eb'}
+                fill={eventTypeColors.get(eventType)!}
               />
             ))}
           </ScatterChart>
