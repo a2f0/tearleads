@@ -275,13 +275,16 @@ describe('InlineUnlock', () => {
   });
 
   describe('loading states', () => {
-    it('shows loading state when unlocking', async () => {
-      let resolveUnlock: (value: boolean) => void;
+    let resolveUnlock: (value: boolean) => void;
+
+    beforeEach(() => {
       const unlockPromise = new Promise<boolean>((resolve) => {
         resolveUnlock = resolve;
       });
       mockUnlock.mockReturnValue(unlockPromise);
+    });
 
+    it('shows loading state when unlocking', async () => {
       const user = userEvent.setup();
       render(<InlineUnlock />);
 
@@ -299,12 +302,6 @@ describe('InlineUnlock', () => {
     });
 
     it('disables input and button while loading', async () => {
-      let resolveUnlock: (value: boolean) => void;
-      const unlockPromise = new Promise<boolean>((resolve) => {
-        resolveUnlock = resolve;
-      });
-      mockUnlock.mockReturnValue(unlockPromise);
-
       const user = userEvent.setup();
       render(<InlineUnlock />);
 
