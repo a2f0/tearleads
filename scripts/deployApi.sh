@@ -25,22 +25,15 @@ fi
 # Build shared package (API dependency)
 pnpm --filter @rapid/shared build
 
-# Build the API
-pnpm --filter @rapid/api build
+# Build the bundled API (single file, no node_modules needed)
+pnpm --filter @rapid/api build:bundle
 
-# Create deployment package using pnpm deploy
-echo "Creating deployment package..."
-DEPLOY_DIR=$(mktemp -d)
-trap 'rm -rf "$DEPLOY_DIR"' EXIT
-
-# Use pnpm deploy to create a deployment-ready package with all dependencies
-pnpm --filter @rapid/api deploy "$DEPLOY_DIR"
-
-# Upload to server
+# Upload bundled files to server
 echo "Deploying to ${HOSTNAME}..."
+ssh "${USERNAME}@${HOSTNAME}" "mkdir -p /opt/rapid-api/dist"
 rsync -avz --delete \
-  "$DEPLOY_DIR/" \
-  "${USERNAME}@${HOSTNAME}:/opt/rapid-api/"
+  packages/api/dist/ \
+  "${USERNAME}@${HOSTNAME}:/opt/rapid-api/dist/"
 
 # Set ownership and permissions
 ssh "${USERNAME}@${HOSTNAME}" "chgrp -R www-data /opt/rapid-api && chmod -R u=rwX,g=rX,o= /opt/rapid-api"
