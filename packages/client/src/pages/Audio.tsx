@@ -282,21 +282,18 @@ export function AudioPage() {
                 >
                   <Link
                     to={`/audio/${track.id}`}
-                    className="flex shrink-0 items-center"
+                    className="group flex min-w-0 flex-1 items-center gap-4"
                   >
-                    <Music className="h-8 w-8 text-muted-foreground" />
+                    <Music className="h-8 w-8 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
+                      <p className="truncate font-medium group-hover:underline">
+                        {track.name}
+                      </p>
+                      <p className="text-muted-foreground text-sm">
+                        {formatFileSize(track.size)}
+                      </p>
+                    </div>
                   </Link>
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      to={`/audio/${track.id}`}
-                      className="block truncate font-medium hover:underline"
-                    >
-                      {track.name}
-                    </Link>
-                    <p className="text-muted-foreground text-sm">
-                      {formatFileSize(track.size)}
-                    </p>
-                  </div>
                   <Button
                     variant="outline"
                     size="icon"
