@@ -1,0 +1,10 @@
+# Screen configuration for tuxedo workspaces
+# Enables mouse wheel scrolling through tmux by disabling alternate screen
+
+# Large scrollback buffer (10k lines)
+defscrollback 10000
+
+# Disable alternate screen - allows tmux to capture scrollback
+# ti@ disables the "enter alternate screen" sequence
+# te@ disables the "exit alternate screen" sequence
+termcapinfo xterm* ti@:te@
