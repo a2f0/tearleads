@@ -3,6 +3,7 @@ import logo from '@rapid/ui/logo.svg';
 import { Bug, Database, Settings, Table2, Users } from 'lucide-react';
 import { Link, Outlet } from 'react-router-dom';
 import { AccountSwitcher } from './components/AccountSwitcher';
+import { MiniPlayer } from './components/audio/MiniPlayer';
 import { Sidebar } from './components/Sidebar';
 import { useAppVersion } from './hooks/useAppVersion';
 
@@ -83,6 +84,7 @@ function App() {
       <Footer version={version} className="lg:left-64">
         <p>&copy; {new Date().getFullYear()} Tearleads. All rights reserved.</p>
       </Footer>
+      <MiniPlayer />
     </div>
   );
 }

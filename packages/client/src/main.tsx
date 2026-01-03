@@ -3,6 +3,7 @@ import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import App from './App';
+import { AudioProvider } from './audio';
 import {
   ErrorBoundary,
   errorBoundaryRef
@@ -89,37 +90,39 @@ if (rootElement) {
       <ErrorBoundary>
         <ThemeProvider>
           <DatabaseProvider>
-            <BrowserRouter>
-              <Suspense
-                fallback={
-                  <div className="p-8 text-center text-muted-foreground">
-                    Loading...
-                  </div>
-                }
-              >
-                <Routes>
-                  <Route path="/" element={<App />}>
-                    <Route index element={<Files />} />
-                    <Route path="contacts" element={<Contacts />} />
-                    <Route path="contacts/:id" element={<ContactDetail />} />
-                    <Route path="photos" element={<Photos />} />
-                    <Route path="photos/:id" element={<PhotoDetail />} />
-                    <Route path="audio" element={<AudioPage />} />
-                    <Route path="sqlite" element={<Sqlite />} />
-                    <Route path="debug" element={<Debug />} />
-                    <Route path="chat" element={<Chat />} />
-                    <Route path="models" element={<Models />} />
-                    <Route path="settings" element={<Settings />} />
-                    <Route path="tables" element={<Tables />} />
-                    <Route path="tables/:tableName" element={<TableRows />} />
-                    <Route path="analytics" element={<Analytics />} />
-                    <Route path="opfs" element={<Opfs />} />
-                    <Route path="cache-storage" element={<CacheStorage />} />
-                    <Route path="local-storage" element={<LocalStorage />} />
-                  </Route>
-                </Routes>
-              </Suspense>
-            </BrowserRouter>
+            <AudioProvider>
+              <BrowserRouter>
+                <Suspense
+                  fallback={
+                    <div className="p-8 text-center text-muted-foreground">
+                      Loading...
+                    </div>
+                  }
+                >
+                  <Routes>
+                    <Route path="/" element={<App />}>
+                      <Route index element={<Files />} />
+                      <Route path="contacts" element={<Contacts />} />
+                      <Route path="contacts/:id" element={<ContactDetail />} />
+                      <Route path="photos" element={<Photos />} />
+                      <Route path="photos/:id" element={<PhotoDetail />} />
+                      <Route path="audio" element={<AudioPage />} />
+                      <Route path="sqlite" element={<Sqlite />} />
+                      <Route path="debug" element={<Debug />} />
+                      <Route path="chat" element={<Chat />} />
+                      <Route path="models" element={<Models />} />
+                      <Route path="settings" element={<Settings />} />
+                      <Route path="tables" element={<Tables />} />
+                      <Route path="tables/:tableName" element={<TableRows />} />
+                      <Route path="analytics" element={<Analytics />} />
+                      <Route path="opfs" element={<Opfs />} />
+                      <Route path="cache-storage" element={<CacheStorage />} />
+                      <Route path="local-storage" element={<LocalStorage />} />
+                    </Route>
+                  </Routes>
+                </Suspense>
+              </BrowserRouter>
+            </AudioProvider>
           </DatabaseProvider>
         </ThemeProvider>
       </ErrorBoundary>

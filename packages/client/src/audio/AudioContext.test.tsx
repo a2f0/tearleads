@@ -1,0 +1,384 @@
+import { act, render, renderHook, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AudioProvider, useAudio } from './AudioContext';
+
+// Mock HTMLAudioElement methods
+const mockPlay = vi.fn().mockResolvedValue(undefined);
+const mockPause = vi.fn();
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.spyOn(window.HTMLMediaElement.prototype, 'play').mockImplementation(
+    mockPlay
+  );
+  vi.spyOn(window.HTMLMediaElement.prototype, 'pause').mockImplementation(
+    mockPause
+  );
+  vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:test-url');
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+});
+
+const TEST_TRACK = {
+  id: 'track-1',
+  name: 'Test Song.mp3',
+  objectUrl: 'blob:test-song-url',
+  mimeType: 'audio/mpeg'
+};
+
+const TEST_TRACK_2 = {
+  id: 'track-2',
+  name: 'Another Song.mp3',
+  objectUrl: 'blob:another-song-url',
+  mimeType: 'audio/mpeg'
+};
+
+function wrapper({ children }: { children: React.ReactNode }) {
+  return <AudioProvider>{children}</AudioProvider>;
+}
+
+describe('AudioProvider', () => {
+  it('renders children', () => {
+    render(
+      <AudioProvider>
+        <div data-testid="child">Test Child</div>
+      </AudioProvider>
+    );
+
+    expect(screen.getByTestId('child')).toBeInTheDocument();
+  });
+
+  it('renders a hidden audio element', () => {
+    render(
+      <AudioProvider>
+        <div>Test</div>
+      </AudioProvider>
+    );
+
+    const audio = document.querySelector('audio');
+    expect(audio).toBeInTheDocument();
+    expect(audio).toHaveClass('hidden');
+  });
+});
+
+describe('useAudio', () => {
+  it('throws error when used outside AudioProvider', () => {
+    expect(() => {
+      renderHook(() => useAudio());
+    }).toThrow('useAudio must be used within an AudioProvider');
+  });
+
+  describe('initial state', () => {
+    it('has no current track', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      expect(result.current.currentTrack).toBeNull();
+    });
+
+    it('is not playing', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      expect(result.current.isPlaying).toBe(false);
+    });
+
+    it('has zero current time', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      expect(result.current.currentTime).toBe(0);
+    });
+
+    it('has zero duration', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      expect(result.current.duration).toBe(0);
+    });
+  });
+
+  describe('play', () => {
+    it('sets current track', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      expect(result.current.currentTrack).toEqual(TEST_TRACK);
+    });
+
+    it('calls audio element play', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      expect(mockPlay).toHaveBeenCalled();
+    });
+
+    it('sets audio element src', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      const audio = document.querySelector('audio');
+      expect(audio?.src).toBe(TEST_TRACK.objectUrl);
+    });
+  });
+
+  describe('pause', () => {
+    it('calls audio element pause', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      act(() => {
+        result.current.pause();
+      });
+
+      expect(mockPause).toHaveBeenCalled();
+    });
+
+    it('does not clear current track', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      act(() => {
+        result.current.pause();
+      });
+
+      expect(result.current.currentTrack).toEqual(TEST_TRACK);
+    });
+  });
+
+  describe('resume', () => {
+    it('calls audio element play', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      mockPlay.mockClear();
+
+      act(() => {
+        result.current.resume();
+      });
+
+      expect(mockPlay).toHaveBeenCalled();
+    });
+  });
+
+  describe('stop', () => {
+    it('calls audio element pause', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      act(() => {
+        result.current.stop();
+      });
+
+      expect(mockPause).toHaveBeenCalled();
+    });
+
+    it('clears current track', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      act(() => {
+        result.current.stop();
+      });
+
+      expect(result.current.currentTrack).toBeNull();
+    });
+
+    it('resets isPlaying to false', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      // Simulate play event
+      const audio = document.querySelector('audio');
+      act(() => {
+        audio?.dispatchEvent(new Event('play'));
+      });
+
+      act(() => {
+        result.current.stop();
+      });
+
+      expect(result.current.isPlaying).toBe(false);
+    });
+
+    it('revokes object URL', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      act(() => {
+        result.current.stop();
+      });
+
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith(TEST_TRACK.objectUrl);
+    });
+  });
+
+  describe('seek', () => {
+    it('sets audio element currentTime', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      act(() => {
+        result.current.seek(30);
+      });
+
+      const audio = document.querySelector('audio');
+      expect(audio?.currentTime).toBe(30);
+    });
+  });
+
+  describe('track switching', () => {
+    it('revokes previous track URL when switching', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      act(() => {
+        result.current.play(TEST_TRACK_2);
+      });
+
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith(TEST_TRACK.objectUrl);
+    });
+
+    it('updates current track when switching', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      act(() => {
+        result.current.play(TEST_TRACK_2);
+      });
+
+      expect(result.current.currentTrack).toEqual(TEST_TRACK_2);
+    });
+  });
+
+  describe('audio events', () => {
+    it('sets isPlaying to true on play event', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      const audio = document.querySelector('audio');
+      act(() => {
+        audio?.dispatchEvent(new Event('play'));
+      });
+
+      expect(result.current.isPlaying).toBe(true);
+    });
+
+    it('sets isPlaying to false on pause event', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      const audio = document.querySelector('audio');
+      act(() => {
+        audio?.dispatchEvent(new Event('play'));
+      });
+
+      act(() => {
+        audio?.dispatchEvent(new Event('pause'));
+      });
+
+      expect(result.current.isPlaying).toBe(false);
+    });
+
+    it('sets isPlaying to false on ended event', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      const audio = document.querySelector('audio');
+      act(() => {
+        audio?.dispatchEvent(new Event('play'));
+      });
+
+      act(() => {
+        audio?.dispatchEvent(new Event('ended'));
+      });
+
+      expect(result.current.isPlaying).toBe(false);
+    });
+
+    it('updates duration on loadedmetadata event', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      const audio = document.querySelector('audio') as HTMLAudioElement;
+
+      // Mock the duration property
+      Object.defineProperty(audio, 'duration', {
+        value: 180,
+        writable: true
+      });
+
+      act(() => {
+        audio.dispatchEvent(new Event('loadedmetadata'));
+      });
+
+      expect(result.current.duration).toBe(180);
+    });
+  });
+
+  describe('play error handling', () => {
+    it('sets isPlaying to false when play fails', async () => {
+      mockPlay.mockRejectedValueOnce(new Error('Autoplay blocked'));
+
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      await act(async () => {
+        result.current.play(TEST_TRACK);
+      });
+
+      expect(result.current.isPlaying).toBe(false);
+
+      consoleSpy.mockRestore();
+    });
+  });
+});
