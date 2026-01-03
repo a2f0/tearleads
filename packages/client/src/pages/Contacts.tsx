@@ -362,6 +362,10 @@ export function Contacts() {
 
           {contacts.length > 0 && (
             <div className="space-y-2">
+              <p className="text-muted-foreground text-sm">
+                {contacts.length} contact{contacts.length !== 1 ? 's' : ''}
+                {searchQuery && ' found'}
+              </p>
               {contacts.map((contact) => (
                 <button
                   type="button"
