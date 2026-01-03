@@ -27,6 +27,12 @@ description: Respond to Gemini's comments after resolving and pushing feedback.
      3. Only treat as confirmation if both conditions are met (positive phrase present AND no negative qualifiers)
    - Example of false positive to avoid: "Thank you for the update, but I still see an issue" contains "thank you" but also "but" and "still" - do NOT resolve
 
-6. **Resolve satisfied comments**: When Gemini confirms, resolve the thread via GraphQL mutation `resolveReviewThread`. Get thread IDs from the `reviewThreads` query (handle pagination via `endCursor`).
+6. **Resolve satisfied comments**: When Gemini confirms, resolve the thread via GraphQL:
+
+   ```bash
+   gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "<thread_id>"}) { thread { isResolved } } }'
+   ```
+
+   Get thread IDs from `repository.pullRequest.reviewThreads` query (handle pagination via `endCursor`).
 
 7. If Gemini requests further changes, do NOT resolve - return to `/address-gemini-feedback`.
