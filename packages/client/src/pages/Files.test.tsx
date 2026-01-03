@@ -404,29 +404,7 @@ describe('Files', () => {
   });
 
   describe('file actions', () => {
-    it('renders View button only for image files', async () => {
-      await renderFiles();
-
-      await waitFor(() => {
-        // Only the image file (photo.jpg) should have View button
-        expect(screen.getAllByTitle('View').length).toBe(1);
-      });
-    });
-
-    it('does not render View button for non-image files', async () => {
-      mockSelect.mockReturnValue(
-        createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
-      );
-      await renderFiles();
-
-      await waitFor(() => {
-        expect(screen.getByText('document.pdf')).toBeInTheDocument();
-      });
-
-      expect(screen.queryByTitle('View')).not.toBeInTheDocument();
-    });
-
-    it('navigates to photo detail when View button is clicked', async () => {
+    it('navigates to photo detail when image card is clicked', async () => {
       const user = userEvent.setup();
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
@@ -437,9 +415,27 @@ describe('Files', () => {
         expect(screen.getByText('photo.jpg')).toBeInTheDocument();
       });
 
-      await user.click(screen.getByTitle('View'));
+      // Click on the file name to navigate to detail view
+      await user.click(screen.getByText('photo.jpg'));
 
       expect(mockNavigate).toHaveBeenCalledWith('/photos/file-1');
+    });
+
+    it('does not navigate when non-image file card is clicked', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
+      );
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('document.pdf')).toBeInTheDocument();
+      });
+
+      // Click on the file name - should not navigate for non-image files
+      await user.click(screen.getByText('document.pdf'));
+
+      expect(mockNavigate).not.toHaveBeenCalled();
     });
 
     it('renders Download button for non-deleted files', async () => {
