@@ -25,6 +25,7 @@ Commit and push the current changes following these rules:
    - Add `Co-Authored-By` headers
    - Add emoji or "Generated with Claude Code" footers
    - Use `--no-gpg-sign` or skip signing
+   - Do NOT commit binary files (PNG, JPG, ICO, etc.) - use SVG for icons/badges or external URLs
 
 5. **GPG signing**: The commit MUST be signed. Use a 5-second timeout. For multi-line messages, pipe the content to `git commit`:
 
