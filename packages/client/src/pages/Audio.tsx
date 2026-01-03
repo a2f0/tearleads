@@ -1,6 +1,6 @@
 import { and, desc, eq, like } from 'drizzle-orm';
 import { Loader2, Music, Pause, Play, RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
@@ -49,6 +49,7 @@ interface AudioWithUrl extends AudioInfo {
 export function AudioPage() {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
+  const currentTrackRef = useRef(currentTrack);
   const [tracks, setTracks] = useState<AudioWithUrl[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -166,11 +167,19 @@ export function AudioPage() {
     }
   }, [isUnlocked, hasFetched, loading, fetchTracks]);
 
-  // Cleanup object URLs on unmount
+  // Keep currentTrackRef in sync with currentTrack
+  useEffect(() => {
+    currentTrackRef.current = currentTrack;
+  }, [currentTrack]);
+
+  // Cleanup object URLs on unmount, except for the currently playing track
+  // (AudioContext is responsible for the playing track's lifecycle)
   useEffect(() => {
     return () => {
       for (const t of tracks) {
-        URL.revokeObjectURL(t.objectUrl);
+        if (t.id !== currentTrackRef.current?.id) {
+          URL.revokeObjectURL(t.objectUrl);
+        }
       }
     };
   }, [tracks]);
