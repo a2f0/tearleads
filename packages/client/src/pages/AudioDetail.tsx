@@ -58,6 +58,24 @@ export function AudioDetail() {
     setCanShare(canShareFiles());
   }, []);
 
+  // Helper to retrieve and decrypt file data from storage
+  const retrieveFileData = useCallback(
+    async (storagePath: string): Promise<Uint8Array> => {
+      const keyManager = getKeyManager();
+      const encryptionKey = keyManager.getCurrentKey();
+      if (!encryptionKey) throw new Error('Database not unlocked');
+      if (!currentInstanceId) throw new Error('No active instance');
+
+      if (!isFileStorageInitialized()) {
+        await initializeFileStorage(encryptionKey, currentInstanceId);
+      }
+
+      const storage = getFileStorage();
+      return storage.retrieve(storagePath);
+    },
+    [currentInstanceId]
+  );
+
   const handlePlayPause = useCallback(() => {
     if (!audio || !objectUrl) return;
 
@@ -82,17 +100,7 @@ export function AudioDetail() {
 
     setActionLoading('download');
     try {
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
-      if (!currentInstanceId) throw new Error('No active instance');
-
-      if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey, currentInstanceId);
-      }
-
-      const storage = getFileStorage();
-      const data = await storage.retrieve(audio.storagePath);
+      const data = await retrieveFileData(audio.storagePath);
       downloadFile(data, audio.name);
     } catch (err) {
       console.error('Failed to download audio:', err);
@@ -100,24 +108,14 @@ export function AudioDetail() {
     } finally {
       setActionLoading(null);
     }
-  }, [audio, currentInstanceId]);
+  }, [audio, retrieveFileData]);
 
   const handleShare = useCallback(async () => {
     if (!audio) return;
 
     setActionLoading('share');
     try {
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
-      if (!currentInstanceId) throw new Error('No active instance');
-
-      if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey, currentInstanceId);
-      }
-
-      const storage = getFileStorage();
-      const data = await storage.retrieve(audio.storagePath);
+      const data = await retrieveFileData(audio.storagePath);
       const shared = await shareFile(data, audio.name, audio.mimeType);
       if (!shared) {
         setError('Sharing is not supported on this device');
@@ -132,7 +130,7 @@ export function AudioDetail() {
     } finally {
       setActionLoading(null);
     }
-  }, [audio, currentInstanceId]);
+  }, [audio, retrieveFileData]);
 
   const fetchAudio = useCallback(async () => {
     if (!isUnlocked || !id) return;
@@ -184,17 +182,7 @@ export function AudioDetail() {
       setAudio(audioInfo);
 
       // Load audio data and create object URL
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
-      if (!currentInstanceId) throw new Error('No active instance');
-
-      if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey, currentInstanceId);
-      }
-
-      const storage = getFileStorage();
-      const data = await storage.retrieve(audioInfo.storagePath);
+      const data = await retrieveFileData(audioInfo.storagePath);
       // Copy to ArrayBuffer for TypeScript compatibility with Blob constructor
       const buffer = new ArrayBuffer(data.byteLength);
       new Uint8Array(buffer).set(data);
@@ -207,7 +195,7 @@ export function AudioDetail() {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, id, currentInstanceId]);
+  }, [isUnlocked, id, retrieveFileData]);
 
   useEffect(() => {
     if (isUnlocked && id) {
