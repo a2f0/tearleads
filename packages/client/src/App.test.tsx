@@ -91,37 +91,13 @@ describe('App', () => {
     // Open mobile menu to access header nav links
     await user.click(screen.getByTestId('mobile-menu-button'));
 
-    // Header nav links (with test IDs) inside mobile menu dropdown
-    expect(screen.getByTestId('files-link')).toBeInTheDocument();
-    expect(screen.getByTestId('contacts-link')).toBeInTheDocument();
-    expect(screen.getByTestId('photos-link')).toBeInTheDocument();
-    expect(screen.getByTestId('audio-link')).toBeInTheDocument();
-    expect(screen.getByTestId('tables-link')).toBeInTheDocument();
-    expect(screen.getByTestId('analytics-link')).toBeInTheDocument();
-    expect(screen.getByTestId('sqlite-link')).toBeInTheDocument();
-    expect(screen.getByTestId('debug-link')).toBeInTheDocument();
-    expect(screen.getByTestId('opfs-link')).toBeInTheDocument();
-    expect(screen.getByTestId('cache-storage-link')).toBeInTheDocument();
-    expect(screen.getByTestId('local-storage-link')).toBeInTheDocument();
-    expect(screen.getByTestId('chat-link')).toBeInTheDocument();
-    expect(screen.getByTestId('models-link')).toBeInTheDocument();
-    expect(screen.getByTestId('settings-link')).toBeInTheDocument();
-
-    // All nav items appear in both mobile menu and sidebar (2 instances each)
-    expect(screen.getAllByText('Files')).toHaveLength(2);
-    expect(screen.getAllByText('Contacts')).toHaveLength(2);
-    expect(screen.getAllByText('Photos')).toHaveLength(2);
-    expect(screen.getAllByText('Audio')).toHaveLength(2);
-    expect(screen.getAllByText('Tables')).toHaveLength(2);
-    expect(screen.getAllByText('Analytics')).toHaveLength(2);
-    expect(screen.getAllByText('SQLite')).toHaveLength(2);
-    expect(screen.getAllByText('Debug')).toHaveLength(2);
-    expect(screen.getAllByText('OPFS')).toHaveLength(2);
-    expect(screen.getAllByText('Cache Storage')).toHaveLength(2);
-    expect(screen.getAllByText('Local Storage')).toHaveLength(2);
-    expect(screen.getAllByText('Chat')).toHaveLength(2);
-    expect(screen.getAllByText('Models')).toHaveLength(2);
-    expect(screen.getAllByText('Settings')).toHaveLength(2);
+    // All nav items have test IDs and appear in both mobile menu and sidebar
+    for (const item of navItems) {
+      if (item.testId) {
+        expect(screen.getByTestId(item.testId)).toBeInTheDocument();
+      }
+      expect(screen.getAllByText(item.label)).toHaveLength(2);
+    }
   });
 
   it('mobile menu has lg:hidden class for mobile-only display', () => {
