@@ -31,13 +31,22 @@ export default defineConfig({
         // which require integration/e2e testing rather than unit tests
         'src/workers/llm-worker.ts',
         'src/hooks/useLLM.ts',
-        'src/lib/llm-runtime.ts'
+        'src/lib/llm-runtime.ts',
+        // SQLite worker files require web worker environment and WASM runtime
+        // that cannot be tested in jsdom
+        'src/workers/sqlite.worker.ts',
+        'src/workers/sqlite.worker.interface.ts',
+        // Platform-specific adapters require their native runtime environments
+        // (Capacitor for mobile, Electron for desktop, Web for browser OPFS)
+        'src/db/adapters/capacitor.adapter.ts',
+        'src/db/adapters/electron.adapter.ts',
+        'src/db/adapters/web.adapter.ts'
       ],
       thresholds: {
-        statements: 68,
-        branches: 67,
-        functions: 72,
-        lines: 69
+        statements: 79,
+        branches: 74,
+        functions: 80,
+        lines: 80
       }
     }
   },
