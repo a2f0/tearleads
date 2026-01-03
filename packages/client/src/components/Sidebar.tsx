@@ -25,7 +25,13 @@ export interface NavItem {
 }
 
 export const navItems: NavItem[] = [
-  { path: '/', icon: FileIcon, label: 'Files' },
+  {
+    path: '/',
+    icon: FileIcon,
+    label: 'Files',
+    inMobileMenu: true,
+    testId: 'files-link'
+  },
   {
     path: '/contacts',
     icon: Users,
@@ -33,8 +39,20 @@ export const navItems: NavItem[] = [
     inMobileMenu: true,
     testId: 'contacts-link'
   },
-  { path: '/photos', icon: ImageIcon, label: 'Photos' },
-  { path: '/audio', icon: Music, label: 'Audio' },
+  {
+    path: '/photos',
+    icon: ImageIcon,
+    label: 'Photos',
+    inMobileMenu: true,
+    testId: 'photos-link'
+  },
+  {
+    path: '/audio',
+    icon: Music,
+    label: 'Audio',
+    inMobileMenu: true,
+    testId: 'audio-link'
+  },
   {
     path: '/tables',
     icon: Table2,
@@ -42,7 +60,13 @@ export const navItems: NavItem[] = [
     inMobileMenu: true,
     testId: 'tables-link'
   },
-  { path: '/analytics', icon: BarChart3, label: 'Analytics' },
+  {
+    path: '/analytics',
+    icon: BarChart3,
+    label: 'Analytics',
+    inMobileMenu: true,
+    testId: 'analytics-link'
+  },
   {
     path: '/sqlite',
     icon: Database,
@@ -57,11 +81,41 @@ export const navItems: NavItem[] = [
     inMobileMenu: true,
     testId: 'debug-link'
   },
-  { path: '/opfs', icon: HardDrive, label: 'OPFS' },
-  { path: '/cache-storage', icon: Archive, label: 'Cache Storage' },
-  { path: '/local-storage', icon: Database, label: 'Local Storage' },
-  { path: '/chat', icon: MessageSquare, label: 'Chat' },
-  { path: '/models', icon: Bot, label: 'Models' },
+  {
+    path: '/opfs',
+    icon: HardDrive,
+    label: 'OPFS',
+    inMobileMenu: true,
+    testId: 'opfs-link'
+  },
+  {
+    path: '/cache-storage',
+    icon: Archive,
+    label: 'Cache Storage',
+    inMobileMenu: true,
+    testId: 'cache-storage-link'
+  },
+  {
+    path: '/local-storage',
+    icon: Database,
+    label: 'Local Storage',
+    inMobileMenu: true,
+    testId: 'local-storage-link'
+  },
+  {
+    path: '/chat',
+    icon: MessageSquare,
+    label: 'Chat',
+    inMobileMenu: true,
+    testId: 'chat-link'
+  },
+  {
+    path: '/models',
+    icon: Bot,
+    label: 'Models',
+    inMobileMenu: true,
+    testId: 'models-link'
+  },
   {
     path: '/settings',
     icon: Settings,

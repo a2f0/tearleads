@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { MobileMenu } from './MobileMenu';
+import { navItems } from './Sidebar';
 
 function renderMobileMenu(initialRoute = '/') {
   return render(
@@ -55,11 +56,11 @@ describe('MobileMenu', () => {
 
     await user.click(screen.getByTestId('mobile-menu-button'));
 
-    expect(screen.getByTestId('contacts-link')).toBeInTheDocument();
-    expect(screen.getByTestId('tables-link')).toBeInTheDocument();
-    expect(screen.getByTestId('sqlite-link')).toBeInTheDocument();
-    expect(screen.getByTestId('debug-link')).toBeInTheDocument();
-    expect(screen.getByTestId('settings-link')).toBeInTheDocument();
+    for (const item of navItems.filter((i) => i.inMobileMenu)) {
+      if (item.testId) {
+        expect(screen.getByTestId(item.testId)).toBeInTheDocument();
+      }
+    }
   });
 
   it('renders links with correct text and href', async () => {
@@ -186,7 +187,7 @@ describe('MobileMenu', () => {
     await user.click(screen.getByTestId('mobile-menu-button'));
 
     const menuItems = screen.getAllByRole('menuitem');
-    expect(menuItems).toHaveLength(5);
+    expect(menuItems).toHaveLength(14);
   });
 
   it('closes dropdown on window resize', async () => {
