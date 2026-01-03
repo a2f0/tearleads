@@ -27,14 +27,24 @@ Skip issue creation for:
 
 ## Commit Guidelines
 
-- Do NOT add co-author lines to commits (no "Co-Authored-By: Claude" or similar)
-- Do NOT add "Generated with Claude Code" footers to commit messages
-- Do NOT force push unless explicitly instructed to do so.
-- Do NOT use `--no-verify` to bypass git hooks.
-- Do NOT commit or push to the `main` branch, if you are on `main`, create a new branch.
-- Do NOT use `any` typings or `as` TypesScript assertions.
-- Do NOT decrease code coverage thresholds; always write tests for new code.
-- Do NOT commit binary files (images like PNG, JPG, ICO, etc.) to source control. Use SVG for icons and badges, or reference external URLs for other images.
+### Format
+
+- Use conventional commits: `<type>(<scope>): <description>` (max 50 chars subject)
+- Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`
+- Scope: prefer feature-based (`pwa`, `auth`, `settings`) over package-based
+- Description in imperative mood ("add" not "added")
+- GPG signing required with 5s timeout: `printf "message" | timeout 5 git commit -S -F -`
+
+### Do NOT
+
+- Add co-author lines (no "Co-Authored-By: Claude" or similar)
+- Add "Generated with Claude Code" footers
+- Force push unless explicitly instructed
+- Use `--no-verify` to bypass git hooks
+- Commit or push to `main` branch; create a new branch instead
+- Use `any` typings or `as` TypeScript assertions
+- Decrease code coverage thresholds; always write tests for new code
+- Commit binary files (PNG, JPG, ICO, etc.); use SVG or external URLs
 
 ## PR Guidelines
 
