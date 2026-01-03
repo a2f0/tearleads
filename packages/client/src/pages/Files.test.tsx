@@ -123,7 +123,7 @@ function createMockUpdateChain() {
 // Mock URL.createObjectURL and URL.revokeObjectURL
 let objectUrlCounter = 0;
 
-function renderFiles() {
+function renderFilesRaw() {
   return render(
     <MemoryRouter>
       <ThemeProvider>
@@ -131,6 +131,15 @@ function renderFiles() {
       </ThemeProvider>
     </MemoryRouter>
   );
+}
+
+async function renderFiles() {
+  const result = renderFilesRaw();
+  // Wait for initial async effects to complete
+  await waitFor(() => {
+    expect(screen.queryByText('Loading files...')).not.toBeInTheDocument();
+  });
+  return result;
 }
 
 describe('Files', () => {
@@ -173,7 +182,7 @@ describe('Files', () => {
     });
 
     it('shows loading message', () => {
-      renderFiles();
+      renderFilesRaw();
       expect(screen.getByText('Loading database...')).toBeInTheDocument();
     });
   });
@@ -192,7 +201,7 @@ describe('Files', () => {
     });
 
     it('shows inline unlock component', () => {
-      renderFiles();
+      renderFilesRaw();
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
         screen.getByText(
@@ -202,24 +211,24 @@ describe('Files', () => {
     });
 
     it('hides dropzone when locked', () => {
-      renderFiles();
+      renderFilesRaw();
       expect(screen.queryByTestId('dropzone')).not.toBeInTheDocument();
     });
 
     it('shows password input for unlocking', () => {
-      renderFiles();
+      renderFilesRaw();
       expect(screen.getByTestId('inline-unlock-password')).toBeInTheDocument();
     });
 
     it('shows unlock button', () => {
-      renderFiles();
+      renderFilesRaw();
       expect(screen.getByTestId('inline-unlock-button')).toBeInTheDocument();
     });
   });
 
   describe('when files are loaded', () => {
     it('renders file list with names', async () => {
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('photo.jpg')).toBeInTheDocument();
@@ -228,7 +237,7 @@ describe('Files', () => {
     });
 
     it('renders file sizes', async () => {
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText(/1 KB/)).toBeInTheDocument();
@@ -236,13 +245,13 @@ describe('Files', () => {
       });
     });
 
-    it('renders page title', () => {
-      renderFiles();
+    it('renders page title', async () => {
+      await renderFiles();
       expect(screen.getByText('Files')).toBeInTheDocument();
     });
 
-    it('renders Refresh button', () => {
-      renderFiles();
+    it('renders Refresh button', async () => {
+      await renderFiles();
       expect(screen.getByText('Refresh')).toBeInTheDocument();
     });
   });
@@ -252,7 +261,7 @@ describe('Files', () => {
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
       );
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('photo.jpg')).toBeInTheDocument();
@@ -268,7 +277,7 @@ describe('Files', () => {
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
       );
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('document.pdf')).toBeInTheDocument();
@@ -283,7 +292,7 @@ describe('Files', () => {
         createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
       );
       mockRetrieve.mockRejectedValue(new Error('Storage error'));
-      renderFiles();
+      await renderFiles();
 
       // File should still render even if thumbnail fails
       await waitFor(() => {
@@ -298,7 +307,7 @@ describe('Files', () => {
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
       );
-      const { unmount } = renderFiles();
+      const { unmount } = await renderFiles();
 
       // Wait for thumbnail to load
       await waitFor(() => {
@@ -323,7 +332,7 @@ describe('Files', () => {
     });
 
     it('shows empty state message when no files', async () => {
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(
@@ -347,7 +356,7 @@ describe('Files', () => {
     });
 
     it('hides deleted files by default', async () => {
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('photo.jpg')).toBeInTheDocument();
@@ -359,7 +368,7 @@ describe('Files', () => {
 
     it('shows deleted files when toggle is enabled', async () => {
       const user = userEvent.setup();
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('photo.jpg')).toBeInTheDocument();
@@ -378,7 +387,7 @@ describe('Files', () => {
   describe('refresh functionality', () => {
     it('refetches files when Refresh is clicked', async () => {
       const user = userEvent.setup();
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('photo.jpg')).toBeInTheDocument();
@@ -396,7 +405,7 @@ describe('Files', () => {
 
   describe('file actions', () => {
     it('renders View button only for image files', async () => {
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         // Only the image file (photo.jpg) should have View button
@@ -408,7 +417,7 @@ describe('Files', () => {
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
       );
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('document.pdf')).toBeInTheDocument();
@@ -422,7 +431,7 @@ describe('Files', () => {
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
       );
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('photo.jpg')).toBeInTheDocument();
@@ -434,7 +443,7 @@ describe('Files', () => {
     });
 
     it('renders Download button for non-deleted files', async () => {
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getAllByTitle('Download').length).toBeGreaterThan(0);
@@ -442,7 +451,7 @@ describe('Files', () => {
     });
 
     it('renders Delete button for non-deleted files', async () => {
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getAllByTitle('Delete').length).toBeGreaterThan(0);
@@ -451,7 +460,7 @@ describe('Files', () => {
 
     it('renders Restore button for deleted files', async () => {
       mockSelect.mockReturnValue(createMockQueryChain([TEST_DELETED_FILE]));
-      renderFiles();
+      await renderFiles();
 
       // Enable show deleted toggle first
       const user = userEvent.setup();
@@ -471,7 +480,7 @@ describe('Files', () => {
   describe('file storage initialization', () => {
     it('initializes file storage if not initialized', async () => {
       mockIsFileStorageInitialized.mockReturnValue(false);
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(mockInitializeFileStorage).toHaveBeenCalledWith(
@@ -489,7 +498,7 @@ describe('Files', () => {
         })
       });
 
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
@@ -500,7 +509,7 @@ describe('Files', () => {
   describe('upload success badge', () => {
     it('does not show success badge initially', async () => {
       // Success badge should not be present initially for existing files
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('photo.jpg')).toBeInTheDocument();
@@ -521,7 +530,7 @@ describe('Files', () => {
       );
       mockRetrieve.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
 
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('document.pdf')).toBeInTheDocument();
@@ -543,7 +552,7 @@ describe('Files', () => {
       mockIsFileStorageInitialized.mockReturnValue(false);
       mockRetrieve.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
 
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('document.pdf')).toBeInTheDocument();
@@ -563,7 +572,7 @@ describe('Files', () => {
       );
       mockRetrieve.mockRejectedValue(new Error('Download failed'));
 
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('document.pdf')).toBeInTheDocument();
@@ -580,7 +589,7 @@ describe('Files', () => {
   describe('delete functionality', () => {
     it('soft deletes file when Delete button is clicked', async () => {
       const user = userEvent.setup();
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('photo.jpg')).toBeInTheDocument();
@@ -607,7 +616,7 @@ describe('Files', () => {
         })
       });
 
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('photo.jpg')).toBeInTheDocument();
@@ -631,7 +640,7 @@ describe('Files', () => {
       const user = userEvent.setup();
       mockSelect.mockReturnValue(createMockQueryChain([TEST_DELETED_FILE]));
 
-      renderFiles();
+      await renderFiles();
 
       // Enable show deleted toggle
       await waitFor(() => {
@@ -660,7 +669,7 @@ describe('Files', () => {
         })
       });
 
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByRole('switch')).toBeInTheDocument();
@@ -695,7 +704,7 @@ describe('Files', () => {
     it('renders music icon for audio files', async () => {
       mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_FILE]));
 
-      renderFiles();
+      await renderFiles();
 
       await waitFor(() => {
         expect(screen.getByText('song.mp3')).toBeInTheDocument();

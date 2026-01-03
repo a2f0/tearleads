@@ -18,12 +18,21 @@ vi.mock('@/db', () => ({
   })
 }));
 
-function renderTables() {
+function renderTablesRaw() {
   return render(
     <MemoryRouter>
       <Tables />
     </MemoryRouter>
   );
+}
+
+async function renderTables() {
+  const result = renderTablesRaw();
+  // Wait for initial async effects to complete
+  await waitFor(() => {
+    expect(screen.queryByText('Loading tables...')).not.toBeInTheDocument();
+  });
+  return result;
 }
 
 describe('Tables', () => {
@@ -59,13 +68,13 @@ describe('Tables', () => {
 
   describe('page rendering', () => {
     it('renders the page title', async () => {
-      renderTables();
+      await renderTables();
 
       expect(screen.getByText('Tables')).toBeInTheDocument();
     });
 
     it('renders Refresh button when unlocked', async () => {
-      renderTables();
+      await renderTables();
 
       expect(screen.getByText('Refresh')).toBeInTheDocument();
     });
@@ -80,13 +89,13 @@ describe('Tables', () => {
     });
 
     it('shows loading message', () => {
-      renderTables();
+      renderTablesRaw();
 
       expect(screen.getByText('Loading database...')).toBeInTheDocument();
     });
 
     it('does not show Refresh button', () => {
-      renderTables();
+      renderTablesRaw();
 
       expect(screen.queryByText('Refresh')).not.toBeInTheDocument();
     });
@@ -105,7 +114,7 @@ describe('Tables', () => {
     });
 
     it('shows inline unlock component', () => {
-      renderTables();
+      renderTablesRaw();
 
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
@@ -116,19 +125,19 @@ describe('Tables', () => {
     });
 
     it('shows password input for unlocking', () => {
-      renderTables();
+      renderTablesRaw();
 
       expect(screen.getByTestId('inline-unlock-password')).toBeInTheDocument();
     });
 
     it('shows unlock button', () => {
-      renderTables();
+      renderTablesRaw();
 
       expect(screen.getByTestId('inline-unlock-button')).toBeInTheDocument();
     });
 
     it('does not show Refresh button', () => {
-      renderTables();
+      renderTablesRaw();
 
       expect(screen.queryByText('Refresh')).not.toBeInTheDocument();
     });
@@ -136,34 +145,28 @@ describe('Tables', () => {
 
   describe('when database is unlocked', () => {
     it('fetches tables on mount', async () => {
-      renderTables();
+      await renderTables();
 
-      await waitFor(() => {
-        expect(mockExecute).toHaveBeenCalledWith(
-          expect.stringContaining('sqlite_master'),
-          []
-        );
-      });
+      expect(mockExecute).toHaveBeenCalledWith(
+        expect.stringContaining('sqlite_master'),
+        []
+      );
     });
 
     it('displays table names', async () => {
-      renderTables();
+      await renderTables();
 
-      await waitFor(() => {
-        expect(screen.getByText('users')).toBeInTheDocument();
-        expect(screen.getByText('files')).toBeInTheDocument();
-        expect(screen.getByText('settings')).toBeInTheDocument();
-      });
+      expect(screen.getByText('users')).toBeInTheDocument();
+      expect(screen.getByText('files')).toBeInTheDocument();
+      expect(screen.getByText('settings')).toBeInTheDocument();
     });
 
     it('displays row counts', async () => {
-      renderTables();
+      await renderTables();
 
-      await waitFor(() => {
-        expect(screen.getByText('100 rows')).toBeInTheDocument();
-        expect(screen.getByText('50 rows')).toBeInTheDocument();
-        expect(screen.getByText('5 rows')).toBeInTheDocument();
-      });
+      expect(screen.getByText('100 rows')).toBeInTheDocument();
+      expect(screen.getByText('50 rows')).toBeInTheDocument();
+      expect(screen.getByText('5 rows')).toBeInTheDocument();
     });
 
     it('shows singular "row" for 1 row', async () => {
@@ -179,19 +182,15 @@ describe('Tables', () => {
         return Promise.resolve({ rows: [] });
       });
 
-      renderTables();
+      await renderTables();
 
-      await waitFor(() => {
-        expect(screen.getByText('1 row')).toBeInTheDocument();
-      });
+      expect(screen.getByText('1 row')).toBeInTheDocument();
     });
 
     it('renders tables as links', async () => {
-      renderTables();
+      await renderTables();
 
-      await waitFor(() => {
-        expect(screen.getByText('users')).toBeInTheDocument();
-      });
+      expect(screen.getByText('users')).toBeInTheDocument();
 
       const usersLink = screen.getByRole('link', { name: /users/i });
       expect(usersLink).toHaveAttribute('href', '/tables/users');
@@ -204,25 +203,21 @@ describe('Tables', () => {
     });
 
     it('shows empty message when no tables', async () => {
-      renderTables();
+      await renderTables();
 
-      await waitFor(() => {
-        expect(screen.getByText('No tables found')).toBeInTheDocument();
-      });
+      expect(screen.getByText('No tables found')).toBeInTheDocument();
     });
   });
 
   describe('loading state', () => {
-    it('shows loading message while fetching tables', async () => {
+    it('shows loading message while fetching tables', () => {
       mockExecute.mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
 
-      renderTables();
+      renderTablesRaw();
 
-      await waitFor(() => {
-        expect(screen.getByText('Loading tables...')).toBeInTheDocument();
-      });
+      expect(screen.getByText('Loading tables...')).toBeInTheDocument();
     });
   });
 
@@ -230,7 +225,7 @@ describe('Tables', () => {
     it('displays error message when fetch fails', async () => {
       mockExecute.mockRejectedValue(new Error('Database error'));
 
-      renderTables();
+      renderTablesRaw();
 
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
@@ -241,11 +236,9 @@ describe('Tables', () => {
   describe('refresh functionality', () => {
     it('refreshes table list when Refresh is clicked', async () => {
       const user = userEvent.setup();
-      renderTables();
+      await renderTables();
 
-      await waitFor(() => {
-        expect(screen.getByText('users')).toBeInTheDocument();
-      });
+      expect(screen.getByText('users')).toBeInTheDocument();
 
       mockExecute.mockClear();
 
@@ -256,17 +249,14 @@ describe('Tables', () => {
       });
     });
 
-    it('disables Refresh button while loading', async () => {
+    it('disables Refresh button while loading', () => {
       mockExecute.mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
 
-      renderTables();
+      renderTablesRaw();
 
-      await waitFor(() => {
-        expect(screen.getByText('Loading tables...')).toBeInTheDocument();
-      });
-
+      expect(screen.getByText('Loading tables...')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /refresh/i })).toBeDisabled();
     });
   });

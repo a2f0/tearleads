@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,12 +24,21 @@ vi.mock('@/lib/utils', async () => {
   };
 });
 
-function renderDebug() {
+function renderDebugRaw() {
   return render(
     <MemoryRouter>
       <Debug />
     </MemoryRouter>
   );
+}
+
+async function renderDebug() {
+  const result = renderDebugRaw();
+  // Wait for initial async effects (fetchPing) to complete
+  await waitFor(() => {
+    expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+  });
+  return result;
 }
 
 describe('Debug', () => {
@@ -40,20 +49,20 @@ describe('Debug', () => {
 
   describe('page rendering', () => {
     it('renders the page title', async () => {
-      renderDebug();
+      await renderDebug();
 
       expect(screen.getByText('Debug')).toBeInTheDocument();
     });
 
     it('renders environment info section', async () => {
-      renderDebug();
+      await renderDebug();
 
       expect(screen.getByText('Environment Info')).toBeInTheDocument();
       expect(screen.getByText('Environment:')).toBeInTheDocument();
     });
 
     it('renders device info section', async () => {
-      renderDebug();
+      await renderDebug();
 
       expect(screen.getByText('Device Info')).toBeInTheDocument();
       expect(screen.getByText('Platform:')).toBeInTheDocument();
@@ -65,14 +74,14 @@ describe('Debug', () => {
     });
 
     it('renders API status section', async () => {
-      renderDebug();
+      await renderDebug();
 
       expect(screen.getByText('API Status')).toBeInTheDocument();
       expect(screen.getByText('API URL')).toBeInTheDocument();
     });
 
     it('renders actions section', async () => {
-      renderDebug();
+      await renderDebug();
 
       expect(screen.getByText('Actions')).toBeInTheDocument();
       expect(screen.getByText('Clear Local Storage')).toBeInTheDocument();
@@ -82,20 +91,20 @@ describe('Debug', () => {
 
   describe('environment info', () => {
     it('displays the current environment mode', async () => {
-      renderDebug();
+      await renderDebug();
 
       expect(screen.getByText('test')).toBeInTheDocument();
     });
 
     it('displays the screen size', async () => {
-      renderDebug();
+      await renderDebug();
 
       // Screen size is displayed
       expect(screen.getByText('Screen:')).toBeInTheDocument();
     });
 
     it('displays user agent', async () => {
-      renderDebug();
+      await renderDebug();
 
       expect(screen.getByText('User Agent:')).toBeInTheDocument();
     });
@@ -103,20 +112,20 @@ describe('Debug', () => {
 
   describe('device info', () => {
     it('displays platform', async () => {
-      renderDebug();
+      await renderDebug();
 
       expect(screen.getByText('web')).toBeInTheDocument();
     });
 
     it('displays pixel ratio', async () => {
-      renderDebug();
+      await renderDebug();
 
       // window.devicePixelRatio default value
       expect(screen.getByText('Pixel Ratio:')).toBeInTheDocument();
     });
 
     it('displays online status', async () => {
-      renderDebug();
+      await renderDebug();
 
       // Check that the 'Online' row specifically shows 'Yes'
       const onlineLabel = screen.getByText('Online:');
@@ -127,27 +136,23 @@ describe('Debug', () => {
 
   describe('API status', () => {
     it('fetches ping on mount', async () => {
-      renderDebug();
+      await renderDebug();
 
-      await waitFor(() => {
-        expect(mockPingGet).toHaveBeenCalled();
-      });
+      expect(mockPingGet).toHaveBeenCalled();
     });
 
     it('displays API version when ping succeeds', async () => {
-      renderDebug();
+      await renderDebug();
 
-      await waitFor(() => {
-        expect(screen.getByText('1.0.0')).toBeInTheDocument();
-      });
+      expect(screen.getByText('1.0.0')).toBeInTheDocument();
     });
 
-    it('displays loading state while fetching', async () => {
+    it('displays loading state while fetching', () => {
       mockPingGet.mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
 
-      renderDebug();
+      renderDebugRaw();
 
       expect(screen.getByText('Loading...')).toBeInTheDocument();
     });
@@ -155,7 +160,7 @@ describe('Debug', () => {
     it('displays error message when ping fails', async () => {
       mockPingGet.mockRejectedValue(new Error('Network error'));
 
-      renderDebug();
+      renderDebugRaw();
 
       await waitFor(() => {
         expect(
@@ -166,11 +171,9 @@ describe('Debug', () => {
 
     it('refreshes API status when Refresh button is clicked', async () => {
       const user = userEvent.setup();
-      renderDebug();
+      await renderDebug();
 
-      await waitFor(() => {
-        expect(screen.getByText('1.0.0')).toBeInTheDocument();
-      });
+      expect(screen.getByText('1.0.0')).toBeInTheDocument();
 
       mockPingGet.mockClear();
       mockPingGet.mockResolvedValue({ version: '1.0.1' });
@@ -186,12 +189,12 @@ describe('Debug', () => {
       });
     });
 
-    it('disables Refresh button while loading', async () => {
+    it('disables Refresh button while loading', () => {
       mockPingGet.mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
 
-      renderDebug();
+      renderDebugRaw();
 
       expect(screen.getByText('Refreshing...')).toBeInTheDocument();
       expect(
@@ -215,11 +218,9 @@ describe('Debug', () => {
       // Set something in localStorage
       localStorage.setItem('test-key', 'test-value');
 
-      renderDebug();
+      await renderDebug();
 
-      await waitFor(() => {
-        expect(screen.getByText('1.0.0')).toBeInTheDocument();
-      });
+      expect(screen.getByText('1.0.0')).toBeInTheDocument();
 
       await user.click(screen.getByText('Clear Local Storage'));
 
@@ -239,11 +240,9 @@ describe('Debug', () => {
         .spyOn(console, 'error')
         .mockImplementation(() => {});
 
-      renderDebug();
+      await renderDebug();
 
-      await waitFor(() => {
-        expect(screen.getByText('1.0.0')).toBeInTheDocument();
-      });
+      expect(screen.getByText('1.0.0')).toBeInTheDocument();
 
       // Clicking the button should throw an error
       expect(screen.getByTestId('throw-error-button')).toBeInTheDocument();
@@ -258,7 +257,7 @@ describe('Debug', () => {
 
   describe('resize handling', () => {
     it('updates screen size on window resize', async () => {
-      renderDebug();
+      await renderDebug();
 
       // Trigger resize event
       Object.defineProperty(window, 'innerWidth', {
@@ -270,11 +269,11 @@ describe('Debug', () => {
         writable: true
       });
 
-      window.dispatchEvent(new Event('resize'));
-
-      await waitFor(() => {
-        expect(screen.getByText(/800 x 600/)).toBeInTheDocument();
+      act(() => {
+        window.dispatchEvent(new Event('resize'));
       });
+
+      expect(screen.getByText(/800 x 600/)).toBeInTheDocument();
     });
   });
 });
