@@ -328,9 +328,6 @@ describe('Contacts', () => {
       await waitFor(() => {
         expect(mockOrderBy).toHaveBeenCalledTimes(2);
       });
-
-      // Ensure no pending state updates
-      expect(mockOrderBy).toHaveBeenCalledTimes(2);
     });
   });
 
