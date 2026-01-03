@@ -7,6 +7,7 @@ import { MiniPlayer } from './MiniPlayer';
 const mockPause = vi.fn();
 const mockResume = vi.fn();
 const mockStop = vi.fn();
+const mockSeek = vi.fn();
 const mockUseAudioContext = vi.fn();
 
 vi.mock('@/audio', () => ({
@@ -44,7 +45,8 @@ describe('MiniPlayer', () => {
         isPlaying: false,
         pause: mockPause,
         resume: mockResume,
-        stop: mockStop
+        stop: mockStop,
+        seek: mockSeek
       });
     });
 
@@ -62,7 +64,8 @@ describe('MiniPlayer', () => {
         isPlaying: true,
         pause: mockPause,
         resume: mockResume,
-        stop: mockStop
+        stop: mockStop,
+        seek: mockSeek
       });
     });
 
@@ -95,6 +98,23 @@ describe('MiniPlayer', () => {
       expect(mockPause).toHaveBeenCalled();
     });
 
+    it('renders rewind button', () => {
+      render(<MiniPlayer />);
+
+      expect(
+        screen.getByRole('button', { name: /rewind/i })
+      ).toBeInTheDocument();
+    });
+
+    it('calls seek with 0 when rewind button is clicked', async () => {
+      const user = userEvent.setup();
+      render(<MiniPlayer />);
+
+      await user.click(screen.getByRole('button', { name: /rewind/i }));
+
+      expect(mockSeek).toHaveBeenCalledWith(0);
+    });
+
     it('renders close button', () => {
       render(<MiniPlayer />);
 
@@ -120,7 +140,8 @@ describe('MiniPlayer', () => {
         isPlaying: false,
         pause: mockPause,
         resume: mockResume,
-        stop: mockStop
+        stop: mockStop,
+        seek: mockSeek
       });
     });
 
@@ -151,7 +172,8 @@ describe('MiniPlayer', () => {
         isPlaying: true,
         pause: mockPause,
         resume: mockResume,
-        stop: mockStop
+        stop: mockStop,
+        seek: mockSeek
       });
 
       render(<MiniPlayer />);

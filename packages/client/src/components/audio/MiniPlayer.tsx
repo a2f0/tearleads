@@ -1,4 +1,4 @@
-import { Music, Pause, Play, X } from 'lucide-react';
+import { Music, Pause, Play, SkipBack, X } from 'lucide-react';
 import { useAudioContext } from '@/audio';
 import { Button } from '@/components/ui/button';
 
@@ -14,7 +14,7 @@ export function MiniPlayer() {
     return null;
   }
 
-  const { currentTrack, isPlaying, pause, resume, stop } = audio;
+  const { currentTrack, isPlaying, pause, resume, stop, seek } = audio;
 
   return (
     <div
@@ -32,15 +32,20 @@ export function MiniPlayer() {
         <Button
           variant="ghost"
           size="icon"
+          onClick={() => seek(0)}
+          aria-label="Rewind"
+          data-testid="mini-player-rewind"
+        >
+          <SkipBack />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={isPlaying ? pause : resume}
           aria-label={isPlaying ? 'Pause' : 'Play'}
           data-testid="mini-player-play-pause"
         >
-          {isPlaying ? (
-            <Pause className="h-4 w-4" />
-          ) : (
-            <Play className="h-4 w-4" />
-          )}
+          {isPlaying ? <Pause /> : <Play />}
         </Button>
         <Button
           variant="ghost"
@@ -49,7 +54,7 @@ export function MiniPlayer() {
           aria-label="Close"
           data-testid="mini-player-close"
         >
-          <X className="h-4 w-4" />
+          <X />
         </Button>
       </div>
     </div>
