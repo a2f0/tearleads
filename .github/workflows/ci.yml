@@ -469,19 +469,11 @@ jobs:
           mkdir -p maestro-debug
           xcrun simctl io "$SIMULATOR_UDID" screenshot maestro-debug/01-before-tests.png || true
 
-      - name: Run Maestro tests with video recording
+      - name: Run Maestro tests
         run: |
-          # Start screen recording in background
-          xcrun simctl io "$SIMULATOR_UDID" recordVideo maestro-debug/test-recording.mov &
-          RECORD_PID=$!
-
           # Run Maestro tests
           $HOME/.maestro/bin/maestro test .maestro/ --output maestro-debug/report.xml --debug-output maestro-debug --format junit || true
           MAESTRO_EXIT=$?
-
-          # Stop recording
-          kill $RECORD_PID 2>/dev/null || true
-          sleep 2
 
           # Capture final screenshot
           xcrun simctl io "$SIMULATOR_UDID" screenshot maestro-debug/02-after-tests.png || true
