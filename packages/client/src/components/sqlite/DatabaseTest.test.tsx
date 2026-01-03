@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DatabaseTest } from './DatabaseTest';
 
 const mockUseDatabaseContext = vi.fn();
@@ -613,6 +613,10 @@ describe('DatabaseTest', () => {
   });
 
   describe('restore session', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     it('shows restore session button when persisted session exists', () => {
       setupMockContext({
         isSetUp: true,
@@ -630,9 +634,7 @@ describe('DatabaseTest', () => {
     it('restores session successfully', async () => {
       const user = userEvent.setup();
       let mockTime = 0;
-      const mockNow = vi
-        .spyOn(performance, 'now')
-        .mockImplementation(() => mockTime);
+      vi.spyOn(performance, 'now').mockImplementation(() => mockTime);
 
       const restoreSession = vi.fn().mockImplementation(async () => {
         mockTime = 200;
@@ -656,8 +658,6 @@ describe('DatabaseTest', () => {
         expect(result).toHaveTextContent('Session restored (200ms)');
         expect(result).toHaveAttribute('data-status', 'success');
       });
-
-      mockNow.mockRestore();
     });
 
     it('shows error when no persisted session found', async () => {
@@ -832,12 +832,23 @@ describe('DatabaseTest', () => {
   });
 
   describe('copy error to clipboard', () => {
+    const originalClipboard = navigator.clipboard;
+
+    afterEach(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: originalClipboard,
+        writable: true,
+        configurable: true
+      });
+    });
+
     it('copies error message to clipboard when copy button is clicked', async () => {
       const user = userEvent.setup();
       const writeText = vi.fn().mockResolvedValue(undefined);
-      vi.stubGlobal('navigator', {
-        ...navigator,
-        clipboard: { writeText }
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText },
+        writable: true,
+        configurable: true
       });
 
       const setup = vi.fn().mockRejectedValue(new Error('Test error'));
@@ -861,16 +872,15 @@ describe('DatabaseTest', () => {
       await waitFor(() => {
         expect(writeText).toHaveBeenCalledWith('Setup error: Test error');
       });
-
-      vi.unstubAllGlobals();
     });
 
     it('handles clipboard write failure gracefully', async () => {
       const user = userEvent.setup();
       const writeText = vi.fn().mockRejectedValue(new Error('Clipboard error'));
-      vi.stubGlobal('navigator', {
-        ...navigator,
-        clipboard: { writeText }
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText },
+        writable: true,
+        configurable: true
       });
 
       const setup = vi.fn().mockRejectedValue(new Error('Test error'));
@@ -895,8 +905,6 @@ describe('DatabaseTest', () => {
       await waitFor(() => {
         expect(writeText).toHaveBeenCalled();
       });
-
-      vi.unstubAllGlobals();
     });
   });
 
