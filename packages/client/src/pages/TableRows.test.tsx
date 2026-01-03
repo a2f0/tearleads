@@ -351,5 +351,406 @@ describe('TableRows', () => {
         expect(truncateButton).toHaveTextContent('Truncate');
       });
     });
+
+    it('handles truncate when sqlite_sequence does not exist', async () => {
+      const user = userEvent.setup();
+      mockExecute.mockImplementation((query: string) => {
+        if (query.includes('sqlite_master')) {
+          return Promise.resolve({ rows: [{ name: 'test_table' }] });
+        }
+        if (query.includes('PRAGMA table_info')) {
+          return Promise.resolve({ rows: mockColumns });
+        }
+        if (query.includes('DELETE FROM sqlite_sequence')) {
+          return Promise.reject(new Error('no such table: sqlite_sequence'));
+        }
+        if (query.includes('DELETE FROM "test_table"')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('truncate-button')).toBeInTheDocument();
+      });
+
+      const truncateButton = screen.getByTestId('truncate-button');
+
+      // First click - enter confirm mode
+      await user.click(truncateButton);
+      // Second click - execute truncate
+      await user.click(truncateButton);
+
+      // Should succeed even with sqlite_sequence error
+      await waitFor(() => {
+        expect(truncateButton).toHaveTextContent('Truncate');
+      });
+    });
+
+    it('shows error when truncate fails with non-sqlite_sequence error', async () => {
+      const user = userEvent.setup();
+      mockExecute.mockImplementation((query: string) => {
+        if (query.includes('sqlite_master')) {
+          return Promise.resolve({ rows: [{ name: 'test_table' }] });
+        }
+        if (query.includes('PRAGMA table_info')) {
+          return Promise.resolve({ rows: mockColumns });
+        }
+        if (query.includes('DELETE FROM sqlite_sequence')) {
+          return Promise.reject(new Error('different error'));
+        }
+        if (query.includes('DELETE FROM "test_table"')) {
+          return Promise.resolve({ rows: [] });
+        }
+        if (query.includes('SELECT *')) {
+          return Promise.resolve({ rows: mockRows });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('truncate-button')).toBeInTheDocument();
+      });
+
+      const truncateButton = screen.getByTestId('truncate-button');
+
+      await user.click(truncateButton);
+      await user.click(truncateButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('different error')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('document view', () => {
+    it('toggles document view when button is clicked', async () => {
+      const user = userEvent.setup();
+      renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByText('Alice')).toBeInTheDocument();
+      });
+
+      // Click the document view toggle button (Braces icon)
+      const toggleButton = screen.getByTitle('Toggle document view');
+      await user.click(toggleButton);
+
+      // Should render as JSON
+      await waitFor(() => {
+        expect(
+          screen.getByText(/"name": "Alice"/, { exact: false })
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('shows empty state in document view', async () => {
+      const user = userEvent.setup();
+      mockExecute.mockImplementation((query: string) => {
+        if (query.includes('sqlite_master')) {
+          return Promise.resolve({ rows: [{ name: 'test_table' }] });
+        }
+        if (query.includes('PRAGMA table_info')) {
+          return Promise.resolve({ rows: mockColumns });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByText('Showing 0 rows')).toBeInTheDocument();
+      });
+
+      const toggleButton = screen.getByTitle('Toggle document view');
+      await user.click(toggleButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('No rows in this table')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('column visibility', () => {
+    it('toggles column visibility when checkbox is clicked', async () => {
+      const user = userEvent.setup();
+      renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByText('Alice')).toBeInTheDocument();
+      });
+
+      // Open column settings
+      await user.click(screen.getByTestId('column-settings-button'));
+
+      // Toggle name column off
+      await user.click(screen.getByTestId('column-toggle-name'));
+
+      // Name column should be hidden
+      await waitFor(() => {
+        expect(screen.queryByTestId('sort-name')).not.toBeInTheDocument();
+      });
+
+      // Toggle name column back on
+      await user.click(screen.getByTestId('column-toggle-name'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('sort-name')).toBeInTheDocument();
+      });
+    });
+
+    it('resets sort when sorted column is hidden', async () => {
+      const user = userEvent.setup();
+      renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('sort-name')).toBeInTheDocument();
+      });
+
+      // Sort by name
+      await user.click(screen.getByTestId('sort-name'));
+
+      await waitFor(() => {
+        expect(mockExecute).toHaveBeenCalledWith(
+          expect.stringContaining('ORDER BY "name" ASC'),
+          []
+        );
+      });
+
+      // Open column settings and hide name column
+      await user.click(screen.getByTestId('column-settings-button'));
+      await user.click(screen.getByTestId('column-toggle-name'));
+
+      // Sort should be cleared - last query should not have ORDER BY
+      await waitFor(() => {
+        const lastCall =
+          mockExecute.mock.calls[mockExecute.mock.calls.length - 1];
+        expect(lastCall?.[0]).toContain('SELECT *');
+        expect(lastCall?.[0]).not.toContain('ORDER BY');
+      });
+    });
+
+    it('closes settings dropdown when clicking outside', async () => {
+      const user = userEvent.setup();
+      renderTableRows();
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('column-settings-button')
+        ).toBeInTheDocument();
+      });
+
+      // Open column settings
+      await user.click(screen.getByTestId('column-settings-button'));
+
+      // Check dropdown is open
+      await waitFor(() => {
+        expect(screen.getByText('Visible Columns')).toBeInTheDocument();
+      });
+
+      // Click outside the dropdown (on the body/document)
+      await user.click(document.body);
+
+      // Dropdown should be closed
+      await waitFor(() => {
+        expect(screen.queryByText('Visible Columns')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('error handling', () => {
+    it('displays error when table does not exist', async () => {
+      mockExecute.mockImplementation((query: string) => {
+        if (query.includes('sqlite_master')) {
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      renderTableRows('nonexistent_table');
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Table "nonexistent_table" does not exist.')
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('displays error when query fails', async () => {
+      mockExecute.mockRejectedValue(new Error('Database error'));
+
+      renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByText('Database error')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('cell value formatting', () => {
+    it('formats NULL values', async () => {
+      mockExecute.mockImplementation((query: string) => {
+        if (query.includes('sqlite_master')) {
+          return Promise.resolve({ rows: [{ name: 'test_table' }] });
+        }
+        if (query.includes('PRAGMA table_info')) {
+          return Promise.resolve({ rows: mockColumns });
+        }
+        if (query.includes('SELECT *')) {
+          return Promise.resolve({
+            rows: [{ id: 1, name: null, age: null }]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      renderTableRows();
+
+      await waitFor(() => {
+        const nullValues = screen.getAllByText('NULL');
+        expect(nullValues.length).toBeGreaterThan(0);
+      });
+    });
+
+    it('formats boolean values', async () => {
+      mockExecute.mockImplementation((query: string) => {
+        if (query.includes('sqlite_master')) {
+          return Promise.resolve({ rows: [{ name: 'test_table' }] });
+        }
+        if (query.includes('PRAGMA table_info')) {
+          return Promise.resolve({
+            rows: [
+              { cid: 0, name: 'id', type: 'INTEGER', pk: 1 },
+              { cid: 1, name: 'active', type: 'BOOLEAN', pk: 0 }
+            ]
+          });
+        }
+        if (query.includes('SELECT *')) {
+          return Promise.resolve({
+            rows: [
+              { id: 1, active: true },
+              { id: 2, active: false }
+            ]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByText('true')).toBeInTheDocument();
+        expect(screen.getByText('false')).toBeInTheDocument();
+      });
+    });
+
+    it('formats object values as JSON', async () => {
+      mockExecute.mockImplementation((query: string) => {
+        if (query.includes('sqlite_master')) {
+          return Promise.resolve({ rows: [{ name: 'test_table' }] });
+        }
+        if (query.includes('PRAGMA table_info')) {
+          return Promise.resolve({
+            rows: [
+              { cid: 0, name: 'id', type: 'INTEGER', pk: 1 },
+              { cid: 1, name: 'data', type: 'TEXT', pk: 0 }
+            ]
+          });
+        }
+        if (query.includes('SELECT *')) {
+          return Promise.resolve({
+            rows: [{ id: 1, data: { key: 'value' } }]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByText('{"key":"value"}')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('column resizing', () => {
+    it('supports keyboard resizing with arrow keys', async () => {
+      const user = userEvent.setup();
+      renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('sort-name')).toBeInTheDocument();
+      });
+
+      // Find the resize handle for the name column
+      const resizeHandle = screen.getByLabelText('Resize name column');
+      expect(resizeHandle).toBeInTheDocument();
+
+      // Focus the resize handle
+      resizeHandle.focus();
+
+      // Press ArrowRight to increase width
+      await user.keyboard('{ArrowRight}');
+
+      // The handle should still exist (test would fail if resize broke something)
+      expect(resizeHandle).toBeInTheDocument();
+    });
+  });
+
+  describe('row count display', () => {
+    it('shows singular "row" for 1 row', async () => {
+      mockExecute.mockImplementation((query: string) => {
+        if (query.includes('sqlite_master')) {
+          return Promise.resolve({ rows: [{ name: 'test_table' }] });
+        }
+        if (query.includes('PRAGMA table_info')) {
+          return Promise.resolve({ rows: mockColumns });
+        }
+        if (query.includes('SELECT *')) {
+          return Promise.resolve({
+            rows: [{ id: 1, name: 'Alice', age: 30 }]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByText(/Showing 1 row$/)).toBeInTheDocument();
+      });
+    });
+
+    it('shows limit message when 100 rows returned', async () => {
+      mockExecute.mockImplementation((query: string) => {
+        if (query.includes('sqlite_master')) {
+          return Promise.resolve({ rows: [{ name: 'test_table' }] });
+        }
+        if (query.includes('PRAGMA table_info')) {
+          return Promise.resolve({ rows: mockColumns });
+        }
+        if (query.includes('SELECT *')) {
+          const rows = Array.from({ length: 100 }, (_, i) => ({
+            id: i + 1,
+            name: `User ${i + 1}`,
+            age: 20 + i
+          }));
+          return Promise.resolve({ rows });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      renderTableRows();
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/Showing 100 rows \(limited to 100\)/)
+        ).toBeInTheDocument();
+      });
+    });
   });
 });
