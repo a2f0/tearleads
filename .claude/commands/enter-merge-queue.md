@@ -6,6 +6,12 @@ description: Guarantee PR merge by cycling until merged
 
 This skill guarantees a PR gets merged by continuously updating from base, fixing CI, addressing reviews, and waiting until the PR is actually merged.
 
+## State Tracking
+
+Track the following state during execution:
+
+- `has_bumped_version`: Boolean, starts `false`. Set to `true` after version bump is applied. This ensures we only bump once per PR, even if we loop through multiple CI fixes or rebases.
+
 ## Steps
 
 1. **Verify PR exists**: Run `gh pr view --json number,title,headRefName,baseRefName,url,state,labels` to get PR info. If no PR exists, abort with a message. Store the `baseRefName` for use in subsequent steps. Also check if this PR has the `high-priority` label.
@@ -44,7 +50,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    - If `state` is `MERGED`: Exit loop and proceed to step 5
    - If `mergeStateStatus` is `BEHIND`: Update from base (step 4c)
    - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Address Gemini feedback (step 4d/4e), then wait for CI (step 4f)
-   - If `mergeStateStatus` is `CLEAN`: Ensure auto-merge is enabled and wait (step 4g)
+   - If `mergeStateStatus` is `CLEAN`: Bump version if needed (step 4g), then enable auto-merge (step 4h)
 
    ### 4c. Update from base branch (rebase)
 
@@ -111,7 +117,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
    - This avoids wasting 15-20 minutes on a CI run that will need to be rerun anyway
 
    **When CI completes**:
-   - If CI **passes**: Continue to step 4g
+   - If CI **passes**: Continue to step 4g (bump version)
    - If CI is **cancelled**: Rerun CI using the CLI (do NOT push empty commits):
 
      ```bash
@@ -122,7 +128,80 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
      1. Run `/fix-tests` to diagnose and fix the failure
      2. Return to monitoring CI status
 
-   ### 4g. Enable auto-merge and wait
+   ### 4g. Bump version (once per PR)
+
+   **Only run this step if `has_bumped_version` is `false`.**
+
+   Before enabling auto-merge, bump all package versions and amend the last commit:
+
+   1. Run the bump script and capture its output:
+
+      ```bash
+      BUMP_OUTPUT=$(./scripts/bumpVersion.sh)
+      ```
+
+      This outputs the version changes, e.g.:
+
+      ```text
+      Bumping versions:
+        Android: 123 -> 124
+        iOS: 123 -> 124
+        API: 1.0.0 -> 1.0.1
+        Client: 1.0.0 -> 1.0.1
+      ```
+
+   2. Parse the versions from the output:
+
+      ```bash
+      OLD_ANDROID=$(echo "$BUMP_OUTPUT" | grep 'Android:' | awk '{print $2}')
+      NEW_ANDROID=$(echo "$BUMP_OUTPUT" | grep 'Android:' | awk '{print $4}')
+      OLD_IOS=$(echo "$BUMP_OUTPUT" | grep 'iOS:' | awk '{print $2}')
+      NEW_IOS=$(echo "$BUMP_OUTPUT" | grep 'iOS:' | awk '{print $4}')
+      OLD_API=$(echo "$BUMP_OUTPUT" | grep 'API:' | awk '{print $2}')
+      NEW_API=$(echo "$BUMP_OUTPUT" | grep 'API:' | awk '{print $4}')
+      OLD_CLIENT=$(echo "$BUMP_OUTPUT" | grep 'Client:' | awk '{print $2}')
+      NEW_CLIENT=$(echo "$BUMP_OUTPUT" | grep 'Client:' | awk '{print $4}')
+      ```
+
+   3. Stage all version-related changes:
+
+      ```bash
+      git add packages/client/android/app/build.gradle \
+              packages/client/ios/App/App.xcodeproj/project.pbxproj \
+              packages/api/package.json \
+              packages/client/package.json
+      ```
+
+   4. Get the current commit subject and body:
+
+      ```bash
+      COMMIT_SUBJECT=$(git log -1 --pretty=%s)
+      COMMIT_BODY=$(git log -1 --pretty=%b)
+      ```
+
+   5. Amend the commit with version info in the body:
+
+      ```bash
+      printf "%s\n\n%s\n\nVersion bump:\n- Android: %s -> %s\n- iOS: %s -> %s\n- API: %s -> %s\n- Client: %s -> %s" \
+        "$COMMIT_SUBJECT" "$COMMIT_BODY" \
+        "$OLD_ANDROID" "$NEW_ANDROID" \
+        "$OLD_IOS" "$NEW_IOS" \
+        "$OLD_API" "$NEW_API" \
+        "$OLD_CLIENT" "$NEW_CLIENT" \
+        | timeout 5 git commit --amend -S -F -
+      ```
+
+   6. Force push the amended commit:
+
+      ```bash
+      git push --force-with-lease
+      ```
+
+   7. Set `has_bumped_version = true` to prevent re-bumping on subsequent loop iterations.
+
+   **Note**: After force pushing, CI will restart. Return to step 4f to wait for CI again.
+
+   ### 4h. Enable auto-merge and wait
 
    ```bash
    gh pr merge --auto --merge
