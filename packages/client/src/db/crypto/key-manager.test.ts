@@ -261,6 +261,45 @@ describe('KeyManager', () => {
       await expect(keyManager.clearPersistedSession()).resolves.toBeUndefined();
     });
   });
+
+  describe('changePassword error cases', () => {
+    it('returns null when old password is incorrect', async () => {
+      await keyManager.setupNewKey('correct-password');
+
+      // Create a fresh key manager and try to change password with wrong old password
+      const freshKeyManager = new KeyManager(TEST_INSTANCE_ID);
+
+      // Mock the KCV to make the password verification fail
+      mockIDBStore.set(`rapid_db_kcv_${TEST_INSTANCE_ID}`, 'different-kcv');
+
+      const result = await freshKeyManager.changePassword(
+        'wrong-password',
+        'new-password'
+      );
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('initialize behavior', () => {
+    it('auto-initializes storage on hasExistingKey', async () => {
+      // Create a new key manager that hasn't been initialized
+      const freshKeyManager = new KeyManager('fresh-instance');
+
+      // This should auto-initialize storage
+      const result = await freshKeyManager.hasExistingKey();
+
+      expect(result).toBe(false);
+    });
+
+    it('auto-initializes storage on setupNewKey', async () => {
+      const freshKeyManager = new KeyManager('fresh-instance-2');
+
+      const key = await freshKeyManager.setupNewKey('password');
+
+      expect(key).toBeInstanceOf(Uint8Array);
+    });
+  });
 });
 
 describe('key manager module functions', () => {

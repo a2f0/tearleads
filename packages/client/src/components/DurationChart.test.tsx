@@ -174,4 +174,121 @@ describe('DurationChart', () => {
     // Only 1 db_unlock event
     expect(screen.getByText('1 event')).toBeInTheDocument();
   });
+
+  describe('legend formatting', () => {
+    it('formats event names by removing db_ prefix and capitalizing', () => {
+      render(
+        <DurationChart
+          events={mockEvents}
+          selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
+          timeFilter="day"
+        />
+      );
+
+      // db_setup -> Setup, db_unlock -> Unlock
+      expect(screen.getByText('Setup')).toBeInTheDocument();
+      expect(screen.getByText('Unlock')).toBeInTheDocument();
+    });
+
+    it('handles underscores in event names', () => {
+      const eventsWithUnderscores = [
+        {
+          id: '1',
+          eventName: 'db_file_upload',
+          durationMs: 100,
+          success: true,
+          timestamp: new Date('2024-01-15T10:00:00Z')
+        }
+      ];
+
+      render(
+        <DurationChart
+          events={eventsWithUnderscores}
+          selectedEventTypes={new Set(['db_file_upload'])}
+          timeFilter="day"
+        />
+      );
+
+      // db_file_upload -> File Upload
+      expect(screen.getByText('File Upload')).toBeInTheDocument();
+    });
+  });
+
+  describe('color cycling', () => {
+    it('cycles through colors for many event types', () => {
+      const manyEventTypes = Array.from({ length: 10 }, (_, i) => ({
+        id: String(i),
+        eventName: `event_type_${i}`,
+        durationMs: 100 + i,
+        success: true,
+        timestamp: new Date('2024-01-15T10:00:00Z')
+      }));
+
+      const selectedTypes = new Set(manyEventTypes.map((e) => e.eventName));
+
+      render(
+        <DurationChart
+          events={manyEventTypes}
+          selectedEventTypes={selectedTypes}
+          timeFilter="day"
+        />
+      );
+
+      // Should render all 10 legend items
+      const legendItems = screen.getAllByText(/Type \d/);
+      expect(legendItems.length).toBe(10);
+    });
+  });
+
+  describe('failed event handling', () => {
+    it('renders events with success=false', () => {
+      const failedEvents = [
+        {
+          id: '1',
+          eventName: 'db_operation',
+          durationMs: 150,
+          success: false,
+          timestamp: new Date('2024-01-15T10:00:00Z')
+        }
+      ];
+
+      render(
+        <DurationChart
+          events={failedEvents}
+          selectedEventTypes={new Set(['db_operation'])}
+          timeFilter="day"
+        />
+      );
+
+      expect(screen.getByText('Operation')).toBeInTheDocument();
+      expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
+    });
+  });
+
+  describe('data grouping', () => {
+    it('groups events by event type correctly', () => {
+      const groupedEvents = [
+        ...mockEvents,
+        {
+          id: '4',
+          eventName: 'db_setup',
+          durationMs: 175,
+          success: true,
+          timestamp: new Date('2024-01-15T10:15:00Z')
+        }
+      ];
+
+      render(
+        <DurationChart
+          events={groupedEvents}
+          selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
+          timeFilter="day"
+        />
+      );
+
+      // Should still show only 2 legend items even with 4 events
+      expect(screen.getByText('Setup')).toBeInTheDocument();
+      expect(screen.getByText('Unlock')).toBeInTheDocument();
+    });
+  });
 });
