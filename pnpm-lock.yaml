@@ -102,6 +102,9 @@ importers:
       '@capacitor/share':
         specifier: 8.0.0
         version: 8.0.0(@capacitor/core@8.0.0)
+      '@capgo/capacitor-native-biometric':
+        specifier: 8.0.3
+        version: 8.0.3(@capacitor/core@8.0.0)
       '@dnd-kit/core':
         specifier: 6.3.1
         version: 6.3.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -1060,6 +1063,11 @@ packages:
 
   '@capacitor/synapse@1.0.4':
     resolution: {integrity: sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw==}
+
+  '@capgo/capacitor-native-biometric@8.0.3':
+    resolution: {integrity: sha512-ffV38FOS8mGxU3TMEiezQWtlDfwOOKTFJQoGGKXcpUgn1wmmHpl9dvlIpkVN3hxcCilXfsJ/Cn7KpDx9eU+Syg==}
+    peerDependencies:
+      '@capacitor/core': '>=8.0.0'
 
   '@capsizecss/unpack@3.0.1':
     resolution: {integrity: sha512-8XqW8xGn++Eqqbz3e9wKuK7mxryeRjs4LOHLxbh2lwKeSbuNR4NFifDZT4KzvjU6HMOPbiNTsWpniK5EJfTWkg==}
@@ -8366,6 +8374,10 @@ snapshots:
       '@capacitor/core': 8.0.0
 
   '@capacitor/synapse@1.0.4': {}
+
+  '@capgo/capacitor-native-biometric@8.0.3(@capacitor/core@8.0.0)':
+    dependencies:
+      '@capacitor/core': 8.0.0
 
   '@capsizecss/unpack@3.0.1':
     dependencies:

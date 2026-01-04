@@ -5,12 +5,16 @@
  */
 
 import { detectPlatform } from '@/lib/utils';
+import * as nativeSecureStorage from './native-secure-storage';
 import {
   deriveKeyFromPassword,
   exportKey,
+  exportWrappingKey,
+  generateExtractableWrappingKey,
   generateSalt,
   generateWrappingKey,
   importKey,
+  importWrappingKey,
   secureZero,
   unwrapKey,
   wrapKey
@@ -271,19 +275,21 @@ class ElectronKeyStorage implements KeyStorageAdapter {
 }
 
 /**
- * Capacitor storage adapter.
- * Uses IndexedDB (WebKeyStorage) which works reliably in mobile WebViews.
- * Note: @capacitor/preferences has compatibility issues with dynamic imports,
- * and IndexedDB provides sufficient persistence for encryption salt storage.
+ * Capacitor storage adapter for iOS and Android.
+ * Uses IndexedDB for salt/KCV (don't need biometric protection).
+ * Uses native Keychain/Keystore for session keys (biometric protected).
  */
 class CapacitorKeyStorage implements KeyStorageAdapter {
   public instanceId: string;
-  // Use IndexedDB directly - it works well in Capacitor WebViews
+  // Use IndexedDB for salt and KCV - they don't need biometric protection
   private storage: WebKeyStorage;
+  // Whether to use biometric authentication for session restoration
+  private useBiometric: boolean;
 
-  constructor(instanceId: string) {
+  constructor(instanceId: string, useBiometric = true) {
     this.instanceId = instanceId;
     this.storage = new WebKeyStorage(instanceId);
+    this.useBiometric = useBiometric;
   }
 
   async getSalt(): Promise<Uint8Array | null> {
@@ -303,19 +309,77 @@ class CapacitorKeyStorage implements KeyStorageAdapter {
   }
 
   async clear(): Promise<void> {
-    return this.storage.clear();
+    await this.storage.clear();
+    await nativeSecureStorage.clearSession(this.instanceId);
   }
 
-  // Session persistence not supported on mobile (security concern)
+  /**
+   * Get the wrapping key from native secure storage.
+   * On mobile, we store an extractable wrapping key in Keychain/Keystore.
+   */
   async getWrappingKey(): Promise<CryptoKey | null> {
-    return null;
+    try {
+      const keyBytes = await nativeSecureStorage.retrieveWrappingKeyBytes(
+        this.instanceId
+      );
+      if (!keyBytes) return null;
+      return importWrappingKey(keyBytes);
+    } catch (error) {
+      console.error('Failed to get wrapping key from secure storage:', error);
+      return null;
+    }
   }
-  async setWrappingKey(_key: CryptoKey): Promise<void> {}
+
+  /**
+   * Store the wrapping key in native secure storage.
+   * On mobile, we export the key to bytes and store in Keychain/Keystore.
+   */
+  async setWrappingKey(key: CryptoKey): Promise<void> {
+    try {
+      const keyBytes = await exportWrappingKey(key);
+      await nativeSecureStorage.storeWrappingKeyBytes(
+        this.instanceId,
+        keyBytes
+      );
+    } catch (error) {
+      console.error('Failed to store wrapping key in secure storage:', error);
+    }
+  }
+
+  /**
+   * Get the wrapped key from native secure storage.
+   * Optionally requires biometric authentication.
+   */
   async getWrappedKey(): Promise<Uint8Array | null> {
-    return null;
+    try {
+      return nativeSecureStorage.retrieveWrappedKey(this.instanceId, {
+        useBiometric: this.useBiometric,
+        biometricTitle: 'Unlock Database',
+        biometricSubtitle: 'Authenticate to restore your session'
+      });
+    } catch (error) {
+      console.error('Failed to get wrapped key from secure storage:', error);
+      return null;
+    }
   }
-  async setWrappedKey(_wrappedKey: Uint8Array): Promise<void> {}
-  async clearSession(): Promise<void> {}
+
+  /**
+   * Store the wrapped key in native secure storage.
+   */
+  async setWrappedKey(wrappedKey: Uint8Array): Promise<void> {
+    try {
+      await nativeSecureStorage.storeWrappedKey(this.instanceId, wrappedKey);
+    } catch (error) {
+      console.error('Failed to store wrapped key in secure storage:', error);
+    }
+  }
+
+  /**
+   * Clear session data from native secure storage.
+   */
+  async clearSession(): Promise<void> {
+    await nativeSecureStorage.clearSession(this.instanceId);
+  }
 }
 
 /**
@@ -454,21 +518,29 @@ export class KeyManager {
   }
 
   /**
-   * Persist the current key for session restoration (web only).
-   * Uses a non-extractable wrapping key to securely store the database key.
+   * Persist the current key for session restoration.
+   * On web: Uses a non-extractable wrapping key stored in IndexedDB.
+   * On mobile: Uses an extractable wrapping key stored in Keychain/Keystore.
    */
   async persistSession(): Promise<boolean> {
     if (!this.currentKey) return false;
     if (!this.storage) await this.initialize();
 
     try {
-      // Generate a non-extractable wrapping key
-      const wrappingKey = await generateWrappingKey();
+      const platform = detectPlatform();
+      const isMobile = platform === 'ios' || platform === 'android';
+
+      // Generate appropriate wrapping key based on platform
+      // Mobile: extractable (stored in native secure storage)
+      // Web: non-extractable (stored in IndexedDB, can't export bytes)
+      const wrappingKey = isMobile
+        ? await generateExtractableWrappingKey()
+        : await generateWrappingKey();
 
       // Wrap (encrypt) the database key
       const wrappedKey = await wrapKey(this.currentKey, wrappingKey);
 
-      // Store both in IndexedDB
+      // Store both keys using platform-appropriate storage
       await this.storage?.setWrappingKey(wrappingKey);
       await this.storage?.setWrappedKey(wrappedKey);
 
@@ -481,10 +553,20 @@ export class KeyManager {
 
   /**
    * Check if a persisted session exists.
+   * On mobile, this checks native secure storage without triggering biometric prompt.
    */
   async hasPersistedSession(): Promise<boolean> {
     if (!this.storage) await this.initialize();
 
+    const platform = detectPlatform();
+    const isMobile = platform === 'ios' || platform === 'android';
+
+    if (isMobile) {
+      // On mobile, check native storage directly without biometric prompt
+      return nativeSecureStorage.hasSession(this.instanceId);
+    }
+
+    // On web, check IndexedDB
     const wrappingKey = await this.storage?.getWrappingKey();
     const wrappedKey = await this.storage?.getWrappedKey();
 
@@ -492,7 +574,8 @@ export class KeyManager {
   }
 
   /**
-   * Restore a persisted session (web only).
+   * Restore a persisted session.
+   * On mobile, this triggers biometric authentication.
    * Returns the unwrapped database key if successful.
    */
   async restoreSession(): Promise<Uint8Array | null> {
@@ -614,4 +697,16 @@ export function clearAllKeyManagers(): void {
   }
   keyManagerInstances.clear();
   currentInstanceId = null;
+}
+
+/**
+ * Check if biometric authentication is available on this device.
+ * Only applicable on iOS and Android.
+ */
+export async function isBiometricAvailable(): Promise<nativeSecureStorage.BiometricAvailability> {
+  const platform = detectPlatform();
+  if (platform !== 'ios' && platform !== 'android') {
+    return { isAvailable: false };
+  }
+  return nativeSecureStorage.isBiometricAvailable();
 }
