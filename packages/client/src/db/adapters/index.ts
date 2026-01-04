@@ -1,10 +1,20 @@
 /**
  * Database adapter factory.
  * Creates the appropriate adapter based on the current platform.
+ *
+ * Note: We use static imports instead of dynamic imports because Android WebView
+ * has issues loading dynamically chunked modules. The platform-specific code is
+ * still only executed on the appropriate platform.
  */
 
-import type { DatabaseAdapter, PlatformInfo } from './types';
-import { getPlatformInfo } from './types';
+import { CapacitorAdapter } from './capacitor.adapter';
+import { ElectronAdapter } from './electron.adapter';
+import {
+  type DatabaseAdapter,
+  getPlatformInfo,
+  type PlatformInfo
+} from './types';
+import { WebAdapter } from './web.adapter';
 
 // Note: NodeAdapter is intentionally NOT exported here.
 // It uses Node.js-only modules (fs, os, path, better-sqlite3-multiple-ciphers)
@@ -29,20 +39,21 @@ export async function createAdapter(
   const info = platformInfo ?? getPlatformInfo();
 
   switch (info.platform) {
-    case 'electron': {
-      const { ElectronAdapter } = await import('./electron.adapter');
+    case 'electron':
       return new ElectronAdapter();
-    }
 
     case 'ios':
-    case 'android': {
-      const { CapacitorAdapter } = await import('./capacitor.adapter');
+    case 'android':
       return new CapacitorAdapter();
-    }
 
-    default: {
-      const { WebAdapter } = await import('./web.adapter');
+    case 'web':
       return new WebAdapter();
-    }
+
+    default:
+      // The 'node' platform should use direct import of NodeAdapter, not this factory.
+      // Throw for any other unexpected platform to avoid silent failures.
+      throw new Error(
+        `Unsupported platform in createAdapter: ${info.platform}`
+      );
   }
 }
