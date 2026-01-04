@@ -243,9 +243,6 @@ while [ "$i" -le "$NUM_WORKSPACES" ]; do
     i=$((i + 1))
 done
 
-# Enable mouse support for this session only (not globally)
-tmux set-option -t "$SESSION_NAME" mouse on
-
 # Sync VS Code titles to tmux window names
 sync_all_titles
 
