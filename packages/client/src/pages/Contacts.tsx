@@ -239,7 +239,7 @@ export function Contacts() {
                 placeholder="Search contacts..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-9 w-48 rounded-md border bg-background py-2 pr-8 pl-9 text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="h-9 w-48 rounded-md border bg-background py-2 pr-10 pl-9 text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
               {searchQuery && (
                 <button
