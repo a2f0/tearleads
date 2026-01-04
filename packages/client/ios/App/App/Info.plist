@@ -43,5 +43,7 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Unlock your database with Face ID or Touch ID</string>
 </dict>
 </plist>
