@@ -196,6 +196,44 @@ describe('useFileUpload', () => {
       // Should insert file (Drizzle-style)
       expect(mockDb.insert).toHaveBeenCalled();
     });
+
+    it.each([
+      {
+        type: 'HEIC',
+        mime: 'image/heic',
+        data: 'fake-heic-data',
+        name: 'IMG_1234.HEIC'
+      },
+      {
+        type: 'HEIF',
+        mime: 'image/heif',
+        data: 'fake-heif-data',
+        name: 'photo.heif'
+      }
+    ])('successfully uploads when file type is detected as $type (iOS photo format)', async ({
+      type,
+      mime,
+      data,
+      name
+    }) => {
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+        ext: type.toLowerCase(),
+        mime: mime
+      });
+      // HEIC/HEIF thumbnails are not supported
+      vi.mocked(isThumbnailSupported).mockReturnValue(false);
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File([data], name, { type: mime });
+
+      const uploadResult = await result.current.uploadFile(file);
+
+      expect(uploadResult.isDuplicate).toBe(false);
+      expect(mockDb.insert).toHaveBeenCalled();
+      // Should store original but no thumbnail
+      expect(mockStorage.store).toHaveBeenCalledTimes(1);
+      expect(generateThumbnail).not.toHaveBeenCalled();
+    });
   });
 
   describe('error handling', () => {
@@ -209,6 +247,63 @@ describe('useFileUpload', () => {
 
       await expect(result.current.uploadFile(file)).rejects.toThrow(
         'Database not unlocked'
+      );
+    });
+
+    it('throws error when file read fails', async () => {
+      vi.mocked(readFileAsUint8Array).mockRejectedValue(
+        new Error('Failed to read file')
+      );
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+      await expect(result.current.uploadFile(file)).rejects.toThrow(
+        'Failed to read file'
+      );
+    });
+
+    it('throws error when storage fails', async () => {
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+        ext: 'png',
+        mime: 'image/png'
+      });
+      vi.mocked(mockStorage.store).mockRejectedValue(
+        new Error('Storage quota exceeded')
+      );
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+      await expect(result.current.uploadFile(file)).rejects.toThrow(
+        'Storage quota exceeded'
+      );
+    });
+
+    it('throws UnsupportedFileTypeError with descriptive message', async () => {
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['unknown data'], 'mystery_file.xyz', {
+        type: 'application/octet-stream'
+      });
+
+      await expect(result.current.uploadFile(file)).rejects.toThrow(
+        'Unable to detect file type for "mystery_file.xyz". Only files with recognizable formats are supported.'
+      );
+    });
+
+    it('throws UnsupportedFileTypeError for files with no magic bytes', async () => {
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useFileUpload());
+      // Plain text files have no magic bytes
+      const file = new File(['Hello, world!'], 'notes.txt', {
+        type: 'text/plain'
+      });
+
+      await expect(result.current.uploadFile(file)).rejects.toBeInstanceOf(
+        UnsupportedFileTypeError
       );
     });
   });
