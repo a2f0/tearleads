@@ -554,8 +554,11 @@ describe('Photos', () => {
   });
 
   describe('file upload', () => {
-    it('uploads valid image files', async () => {
-      const user = userEvent.setup();
+    let user: ReturnType<typeof userEvent.setup>;
+    let input: HTMLElement;
+
+    beforeEach(async () => {
+      user = userEvent.setup();
       mockDb.orderBy.mockResolvedValue([]);
 
       renderPhotos();
@@ -564,10 +567,13 @@ describe('Photos', () => {
         expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
       });
 
+      input = screen.getByTestId('dropzone-input');
+    });
+
+    it('uploads valid image files', async () => {
       const file = new File(['test content'], 'test.jpg', {
         type: 'image/jpeg'
       });
-      const input = screen.getByTestId('dropzone-input');
 
       await user.upload(input, file);
 
@@ -577,20 +583,10 @@ describe('Photos', () => {
     });
 
     it('rejects unsupported file types with image/* MIME type', async () => {
-      const user = userEvent.setup();
-      mockDb.orderBy.mockResolvedValue([]);
-
-      renderPhotos();
-
-      await waitFor(() => {
-        expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
-      });
-
       // Use image/tiff which passes the accept="image/*" filter but is not in the allowed list
       const file = new File(['test content'], 'test.tiff', {
         type: 'image/tiff'
       });
-      const input = screen.getByTestId('dropzone-input');
 
       await user.upload(input, file);
 
@@ -606,20 +602,11 @@ describe('Photos', () => {
     });
 
     it('shows upload errors', async () => {
-      const user = userEvent.setup();
-      mockDb.orderBy.mockResolvedValue([]);
       mockUploadFile.mockRejectedValue(new Error('Upload failed'));
-
-      renderPhotos();
-
-      await waitFor(() => {
-        expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
-      });
 
       const file = new File(['test content'], 'test.jpg', {
         type: 'image/jpeg'
       });
-      const input = screen.getByTestId('dropzone-input');
 
       const consoleSpy = vi
         .spyOn(console, 'error')
@@ -635,20 +622,10 @@ describe('Photos', () => {
     });
 
     it('supports multiple file uploads', async () => {
-      const user = userEvent.setup();
-      mockDb.orderBy.mockResolvedValue([]);
-
-      renderPhotos();
-
-      await waitFor(() => {
-        expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
-      });
-
       const files = [
         new File(['content1'], 'test1.jpg', { type: 'image/jpeg' }),
         new File(['content2'], 'test2.png', { type: 'image/png' })
       ];
-      const input = screen.getByTestId('dropzone-input');
 
       await user.upload(input, files);
 
@@ -658,9 +635,6 @@ describe('Photos', () => {
     });
 
     it('shows uploading state during upload', async () => {
-      const user = userEvent.setup();
-      mockDb.orderBy.mockResolvedValue([]);
-
       // Make upload take some time - use object to avoid TS2454
       const uploadControl = { resolve: () => {} };
       mockUploadFile.mockImplementation(
@@ -670,16 +644,9 @@ describe('Photos', () => {
           })
       );
 
-      renderPhotos();
-
-      await waitFor(() => {
-        expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
-      });
-
       const file = new File(['test content'], 'test.jpg', {
         type: 'image/jpeg'
       });
-      const input = screen.getByTestId('dropzone-input');
 
       await user.upload(input, file);
 
@@ -695,30 +662,27 @@ describe('Photos', () => {
   });
 
   describe('share functionality', () => {
-    beforeEach(() => {
-      mockCanShareFiles.mockReturnValue(true);
-    });
+    let user: ReturnType<typeof userEvent.setup>;
+    let shareButtons: HTMLElement[];
 
-    it('shows share button when sharing is available', async () => {
+    beforeEach(async () => {
+      user = userEvent.setup();
+      mockCanShareFiles.mockReturnValue(true);
+
       renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
       });
 
-      const shareButtons = screen.getAllByTitle('Share');
+      shareButtons = screen.getAllByTitle('Share');
+    });
+
+    it('shows share button when sharing is available', () => {
       expect(shareButtons.length).toBeGreaterThan(0);
     });
 
     it('shares photo when share button is clicked', async () => {
-      const user = userEvent.setup();
-      renderPhotos();
-
-      await waitFor(() => {
-        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
-      });
-
-      const shareButtons = screen.getAllByTitle('Share');
       await user.click(shareButtons[0] as HTMLElement);
 
       await waitFor(() => {
@@ -731,18 +695,10 @@ describe('Photos', () => {
     });
 
     it('handles share cancellation gracefully', async () => {
-      const user = userEvent.setup();
       const abortError = new Error('Share cancelled');
       abortError.name = 'AbortError';
       mockShareFile.mockRejectedValue(abortError);
 
-      renderPhotos();
-
-      await waitFor(() => {
-        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
-      });
-
-      const shareButtons = screen.getAllByTitle('Share');
       await user.click(shareButtons[0] as HTMLElement);
 
       // Should NOT show an error for AbortError
@@ -754,20 +710,12 @@ describe('Photos', () => {
     });
 
     it('shows error when share fails', async () => {
-      const user = userEvent.setup();
       mockShareFile.mockRejectedValue(new Error('Share failed'));
 
       const consoleSpy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => {});
 
-      renderPhotos();
-
-      await waitFor(() => {
-        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
-      });
-
-      const shareButtons = screen.getAllByTitle('Share');
       await user.click(shareButtons[0] as HTMLElement);
 
       await waitFor(() => {
@@ -781,7 +729,6 @@ describe('Photos', () => {
   describe('storage initialization', () => {
     it('initializes storage when not already initialized', async () => {
       mockIsFileStorageInitialized.mockReturnValue(false);
-
       renderPhotos();
 
       await waitFor(() => {
@@ -790,15 +737,13 @@ describe('Photos', () => {
     });
 
     it('skips storage initialization when already initialized', async () => {
-      mockIsFileStorageInitialized.mockReturnValue(true);
-
+      // mockIsFileStorageInitialized already returns true from parent beforeEach
       renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
       });
 
-      // initializeFileStorage should NOT be called when already initialized
       expect(mockInitializeFileStorage).not.toHaveBeenCalled();
     });
   });
