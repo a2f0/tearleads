@@ -1,5 +1,5 @@
 /// <reference types="@webgpu/types" />
-import { useCallback, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { getDatabase } from '@/db';
 import { logEvent as logAnalyticsEvent } from '@/db/analytics';
 
@@ -57,7 +57,7 @@ export interface UseLLMReturn extends LLMState {
   isWebGPUSupported: () => Promise<boolean>;
 }
 
-// Shared store for LLM state - enables reactive updates across all hook consumers
+// Mutable store for LLM state - only modified internally
 const store: LLMState = {
   loadedModel: null,
   modelType: null,
@@ -65,6 +65,10 @@ const store: LLMState = {
   loadProgress: null,
   error: null
 };
+
+// Immutable snapshot for React - recreated on each state change
+// This ensures useSyncExternalStore can properly detect changes via Object.is comparison
+let snapshot: LLMState = { ...store };
 
 // Pub-sub mechanism for useSyncExternalStore
 const listeners = new Set<() => void>();
@@ -94,13 +98,16 @@ function subscribe(callback: () => void): () => void {
 }
 
 function emitChange(): void {
+  // Create a new immutable snapshot before notifying listeners
+  // This ensures React can detect changes via reference comparison
+  snapshot = { ...store };
   for (const listener of listeners) {
     listener();
   }
 }
 
 function getSnapshot(): LLMState {
-  return store;
+  return snapshot;
 }
 
 // Track current loading operation to handle cancellation
@@ -346,14 +353,17 @@ export function useLLM(): UseLLMReturn {
     return checkWebGPUSupport();
   }, []);
 
-  return {
-    ...state,
-    loadModel,
-    unloadModel,
-    generate,
-    abort,
-    isWebGPUSupported
-  };
+  return useMemo(
+    () => ({
+      ...state,
+      loadModel,
+      unloadModel,
+      generate,
+      abort,
+      isWebGPUSupported
+    }),
+    [state, loadModel, unloadModel, generate, abort, isWebGPUSupported]
+  );
 }
 
 // Re-export ChatMessage type for consumers
