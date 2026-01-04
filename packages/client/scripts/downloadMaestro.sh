@@ -31,24 +31,12 @@ if [ -f "$BIN_DIR/maestro" ]; then
     exit 0
 fi
 
-# Get latest version from GitHub API
-echo "Fetching latest Maestro version..."
-if [ "$DOWNLOADER" = "curl" ]; then
-    MAESTRO_VERSION=$(curl -fsSL https://api.github.com/repos/mobile-dev-inc/maestro/releases/latest | grep '"tag_name"' | sed 's/.*"tag_name": *"cli-\([^"]*\)".*/\1/')
-else
-    MAESTRO_VERSION=$(wget -qO- https://api.github.com/repos/mobile-dev-inc/maestro/releases/latest | grep '"tag_name"' | sed 's/.*"tag_name": *"cli-\([^"]*\)".*/\1/')
-fi
+# Use direct download URL that bypasses GitHub API (avoids rate limiting)
+# This URL auto-redirects to the latest release
+DOWNLOAD_URL="https://github.com/mobile-dev-inc/maestro/releases/latest/download/maestro.zip"
 
-if [ -z "$MAESTRO_VERSION" ]; then
-    echo "Error: Could not determine latest Maestro version" >&2
-    exit 1
-fi
-
-echo "Installing Maestro version: $MAESTRO_VERSION"
-
-DOWNLOAD_URL="https://github.com/mobile-dev-inc/maestro/releases/download/cli-$MAESTRO_VERSION/maestro.zip"
-
-echo "Downloading Maestro from GitHub..."
+echo "Installing latest Maestro version..."
+echo "Downloading from GitHub..."
 echo "  URL: $DOWNLOAD_URL"
 
 # Create temp directory
