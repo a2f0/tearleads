@@ -47,13 +47,15 @@ export default defineConfig({
         // (Capacitor for mobile, Electron for desktop, Web for browser OPFS)
         'src/db/adapters/capacitor.adapter.ts',
         'src/db/adapters/electron.adapter.ts',
-        'src/db/adapters/web.adapter.ts'
+        'src/db/adapters/web.adapter.ts',
+        // Native secure storage requires Capacitor native biometric APIs
+        'src/db/crypto/native-secure-storage.ts'
       ],
       thresholds: {
-        statements: 81,
-        branches: 76,
-        functions: 81,
-        lines: 82
+        statements: 83,
+        branches: 77,
+        functions: 83,
+        lines: 86
       }
     }
   },
