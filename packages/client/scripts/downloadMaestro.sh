@@ -35,7 +35,8 @@ fi
 # This URL auto-redirects to the latest release
 DOWNLOAD_URL="https://github.com/mobile-dev-inc/maestro/releases/latest/download/maestro.zip"
 
-echo "Downloading Maestro from GitHub..."
+echo "Installing latest Maestro version..."
+echo "Downloading from GitHub..."
 echo "  URL: $DOWNLOAD_URL"
 
 # Create temp directory
