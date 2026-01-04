@@ -227,8 +227,13 @@ export function Analytics() {
     return name
       .replace('db_', '')
       .replace(/_/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase())
-      .replace(/\bLlm\b/g, 'LLM');
+      .replace(/\b\w+/g, (word) => {
+        const acronyms = ['llm'];
+        if (acronyms.includes(word.toLowerCase())) {
+          return word.toUpperCase();
+        }
+        return word.charAt(0).toUpperCase() + word.substring(1);
+      });
   };
 
   const formatCount = (count: number) => {
