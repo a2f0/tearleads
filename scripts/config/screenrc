@@ -4,6 +4,10 @@
 # Start shell as login shell (-$SHELL) so nvm and other tools initialize properly
 shell -$SHELL
 
+# Enable truecolor support for Claude Code and other terminal apps
+truecolor on
+setenv COLORTERM truecolor
+
 # Large scrollback buffer (10k lines)
 defscrollback 10000
 
