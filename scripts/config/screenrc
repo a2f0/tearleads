@@ -5,6 +5,7 @@
 shell -$SHELL
 
 # Enable truecolor support for Claude Code and other terminal apps
+truecolor on
 setenv COLORTERM truecolor
 
 # Large scrollback buffer (10k lines)
