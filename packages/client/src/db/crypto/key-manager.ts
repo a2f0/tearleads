@@ -335,14 +335,13 @@ class CapacitorKeyStorage implements KeyStorageAdapter {
    * On mobile, we export the key to bytes and store in Keychain/Keystore.
    */
   async setWrappingKey(key: CryptoKey): Promise<void> {
-    try {
-      const keyBytes = await exportWrappingKey(key);
-      await nativeSecureStorage.storeWrappingKeyBytes(
-        this.instanceId,
-        keyBytes
-      );
-    } catch (error) {
-      console.error('Failed to store wrapping key in secure storage:', error);
+    const keyBytes = await exportWrappingKey(key);
+    const success = await nativeSecureStorage.storeWrappingKeyBytes(
+      this.instanceId,
+      keyBytes
+    );
+    if (!success) {
+      throw new Error('Failed to store wrapping key in native secure storage.');
     }
   }
 
@@ -367,10 +366,12 @@ class CapacitorKeyStorage implements KeyStorageAdapter {
    * Store the wrapped key in native secure storage.
    */
   async setWrappedKey(wrappedKey: Uint8Array): Promise<void> {
-    try {
-      await nativeSecureStorage.storeWrappedKey(this.instanceId, wrappedKey);
-    } catch (error) {
-      console.error('Failed to store wrapped key in secure storage:', error);
+    const success = await nativeSecureStorage.storeWrappedKey(
+      this.instanceId,
+      wrappedKey
+    );
+    if (!success) {
+      throw new Error('Failed to store wrapped key in native secure storage.');
     }
   }
 
