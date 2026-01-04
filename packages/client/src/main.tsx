@@ -39,6 +39,9 @@ const Debug = lazy(() =>
 const Files = lazy(() =>
   import('./pages/Files').then((m) => ({ default: m.Files }))
 );
+const Home = lazy(() =>
+  import('./pages/Home').then((m) => ({ default: m.Home }))
+);
 const LocalStorage = lazy(() =>
   import('./pages/LocalStorage').then((m) => ({ default: m.LocalStorage }))
 );
@@ -104,7 +107,8 @@ if (rootElement) {
                 >
                   <Routes>
                     <Route path="/" element={<App />}>
-                      <Route index element={<Files />} />
+                      <Route index element={<Home />} />
+                      <Route path="files" element={<Files />} />
                       <Route path="contacts" element={<Contacts />} />
                       <Route path="contacts/:id" element={<ContactDetail />} />
                       <Route path="photos" element={<Photos />} />
