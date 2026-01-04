@@ -9,8 +9,11 @@
 
 import { CapacitorAdapter } from './capacitor.adapter';
 import { ElectronAdapter } from './electron.adapter';
-import type { DatabaseAdapter, PlatformInfo } from './types';
-import { getPlatformInfo } from './types';
+import {
+  type DatabaseAdapter,
+  getPlatformInfo,
+  type PlatformInfo
+} from './types';
 import { WebAdapter } from './web.adapter';
 
 // Note: NodeAdapter is intentionally NOT exported here.
@@ -43,7 +46,14 @@ export async function createAdapter(
     case 'android':
       return new CapacitorAdapter();
 
-    default:
+    case 'web':
       return new WebAdapter();
+
+    default:
+      // The 'node' platform should use direct import of NodeAdapter, not this factory.
+      // Throw for any other unexpected platform to avoid silent failures.
+      throw new Error(
+        `Unsupported platform in createAdapter: ${info.platform}`
+      );
   }
 }
