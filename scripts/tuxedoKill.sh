@@ -10,6 +10,13 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SESSION_NAME="tuxedo"
 
+# Check for pgrep/pkill availability (used to kill neovim sessions)
+if command -v pgrep >/dev/null 2>&1 && command -v pkill >/dev/null 2>&1; then
+    HAS_PGREP=true
+else
+    HAS_PGREP=false
+fi
+
 # Parse arguments
 for arg in "$@"; do
     case "$arg" in
@@ -32,13 +39,18 @@ for arg in "$@"; do
 done
 
 # Kill neovim processes started by tuxedo (identified by config path)
-nvim_pattern="nvim.*$SCRIPT_DIR/config/neovim.lua"
-nvim_count=$(pgrep -f "$nvim_pattern" 2>/dev/null | wc -l | tr -d ' ')
-if [ "$nvim_count" -gt 0 ]; then
-    pkill -f "$nvim_pattern" 2>/dev/null || true
-    echo "Killed $nvim_count neovim session(s)"
+if [ "$HAS_PGREP" = true ]; then
+    nvim_pattern="nvim.*$SCRIPT_DIR/config/neovim.lua"
+    nvim_count=$(pgrep -f "$nvim_pattern" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$nvim_count" -gt 0 ]; then
+        pkill -f "$nvim_pattern" 2>/dev/null || true
+        echo "Killed $nvim_count neovim session(s)"
+    else
+        echo "No tuxedo neovim sessions found"
+    fi
 else
-    echo "No tuxedo neovim sessions found"
+    echo "Note: pgrep/pkill not found. Neovim sessions not terminated."
+    echo "Install with: brew install proctools (macOS) or apt install procps (Linux)"
 fi
 
 # Find and kill screen sessions
