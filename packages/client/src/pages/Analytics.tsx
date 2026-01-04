@@ -227,7 +227,8 @@ export function Analytics() {
     return name
       .replace('db_', '')
       .replace(/_/g, ' ')
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .replace(/\bLlm\b/g, 'LLM');
   };
 
   const formatCount = (count: number) => {
