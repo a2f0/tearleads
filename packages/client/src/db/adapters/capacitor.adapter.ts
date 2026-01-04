@@ -98,6 +98,21 @@ async function getSQLiteConnection(): Promise<SQLiteConnectionWrapper> {
   const { CapacitorSQLite, SQLiteConnection } = await import(
     '@capacitor-community/sqlite'
   );
+
+  // Test that the plugin is properly initialized by calling echo
+  // This catches the "CapacitorSQLitePlugin: null" error early with a better message
+  try {
+    await CapacitorSQLite.echo({ value: 'test' });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('CapacitorSQLitePlugin') && message.includes('null')) {
+      throw new Error(
+        'SQLite plugin failed to initialize. Try clearing app data in Settings > Apps > Tearleads > Clear Storage, then reopen the app.'
+      );
+    }
+    throw err;
+  }
+
   sqliteConnection = new SQLiteConnection(
     CapacitorSQLite
   ) as unknown as SQLiteConnectionWrapper;
