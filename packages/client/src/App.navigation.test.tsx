@@ -7,6 +7,7 @@ import App from './App';
 import { Contacts } from './pages/Contacts';
 import { Debug } from './pages/Debug';
 import { Files } from './pages/Files';
+import { Home } from './pages/Home';
 import { Settings } from './pages/Settings';
 import { Sqlite } from './pages/Sqlite';
 import { Tables } from './pages/Tables';
@@ -96,7 +97,8 @@ function renderAppWithRoutes(initialPath = '/') {
       <ThemeProvider>
         <Routes>
           <Route path="/" element={<App />}>
-            <Route index element={<Files />} />
+            <Route index element={<Home />} />
+            <Route path="files" element={<Files />} />
             <Route path="contacts" element={<Contacts />} />
             <Route path="sqlite" element={<Sqlite />} />
             <Route path="debug" element={<Debug />} />
@@ -126,10 +128,13 @@ describe('App Integration', () => {
       });
     });
 
-    it('renders home page (Files) by default', () => {
-      expect(
-        screen.getByRole('heading', { name: 'Files' })
-      ).toBeInTheDocument();
+    it('renders home page with app icons by default', () => {
+      // Home page should display app icon links (multiple links due to sidebar + home icons)
+      const filesLinks = screen.getAllByRole('link', { name: 'Files' });
+      const contactsLinks = screen.getAllByRole('link', { name: 'Contacts' });
+      // Should have at least 2 each (sidebar + home page icon)
+      expect(filesLinks.length).toBeGreaterThanOrEqual(2);
+      expect(contactsLinks.length).toBeGreaterThanOrEqual(2);
     });
 
     it('navigates to Contacts page when clicking sidebar link', async () => {
@@ -246,7 +251,7 @@ describe('App Integration', () => {
       });
     });
 
-    it('home link navigates back to Files', async () => {
+    it('home link navigates back to Home', async () => {
       const user = userEvent.setup();
       renderAppWithRoutes('/debug');
 
@@ -259,7 +264,7 @@ describe('App Integration', () => {
       await user.click(homeLink);
 
       await waitFor(() => {
-        // Should be back at Files page
+        // Should be back at Home page with app icons
         expect(screen.queryByText('Environment Info')).not.toBeInTheDocument();
       });
     });

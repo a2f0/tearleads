@@ -200,7 +200,7 @@ test.describe('Index page', () => {
 
 test.describe('Dropzone', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/files');
   });
 
   test('should display inline unlock when database is not unlocked', async ({ page }) => {
@@ -221,8 +221,8 @@ test.describe('Dropzone', () => {
       timeout: 10000
     });
 
-    // Go back to home
-    await page.getByRole('link', { name: 'Tearleads' }).click();
+    // Go to Files page
+    await navigateTo(page, 'Files');
 
     const dropzone = page.getByTestId('dropzone');
     await expect(dropzone).toBeVisible();
@@ -240,8 +240,8 @@ test.describe('Dropzone', () => {
       timeout: 10000
     });
 
-    // Go back to home
-    await page.getByRole('link', { name: 'Tearleads' }).click();
+    // Go to Files page
+    await navigateTo(page, 'Files');
 
     const dropzone = page.getByTestId('dropzone');
 
@@ -265,8 +265,8 @@ test.describe('Dropzone', () => {
       timeout: 10000
     });
 
-    // Go back to home
-    await page.getByRole('link', { name: 'Tearleads' }).click();
+    // Go to Files page
+    await navigateTo(page, 'Files');
 
     const fileInput = page.getByTestId('dropzone-input');
 
@@ -291,8 +291,8 @@ test.describe('Dropzone', () => {
       timeout: 10000
     });
 
-    // Go back to home
-    await page.getByRole('link', { name: 'Tearleads' }).click();
+    // Go to Files page
+    await navigateTo(page, 'Files');
 
     const dropzone = page.getByTestId('dropzone');
 
@@ -317,8 +317,8 @@ test.describe('Dropzone', () => {
       timeout: 10000
     });
 
-    // Go back to home
-    await page.getByRole('link', { name: 'Tearleads' }).click();
+    // Go to Files page
+    await navigateTo(page, 'Files');
 
     const dropzone = page.getByTestId('dropzone');
 
@@ -341,8 +341,8 @@ test.describe('Dropzone', () => {
       timeout: 10000
     });
 
-    // Go back to home
-    await page.getByRole('link', { name: 'Tearleads' }).click();
+    // Go to Files page
+    await navigateTo(page, 'Files');
 
     const fileInput = page.getByTestId('dropzone-input');
 
@@ -366,8 +366,8 @@ test.describe('Dropzone', () => {
       timeout: 10000
     });
 
-    // Go back to home
-    await page.getByRole('link', { name: 'Tearleads' }).click();
+    // Go to Files page
+    await navigateTo(page, 'Files');
 
     const fileInput = page.getByTestId('dropzone-input');
 
@@ -391,8 +391,8 @@ test.describe('Dropzone', () => {
       timeout: 10000
     });
 
-    // Go back to home
-    await page.getByRole('link', { name: 'Tearleads' }).click();
+    // Go to Files page
+    await navigateTo(page, 'Files');
 
     const fileInput = page.getByTestId('dropzone-input');
 
@@ -421,8 +421,8 @@ test.describe('Dropzone', () => {
       timeout: 10000
     });
 
-    // Go back to home (which is now the Files page)
-    await page.getByRole('link', { name: 'Tearleads' }).click();
+    // Go to Files page
+    await navigateTo(page, 'Files');
 
     const fileInput = page.getByTestId('dropzone-input');
 
@@ -513,8 +513,9 @@ test.describe('Debug page', () => {
     // Click the logo/title to go back home
     await page.getByRole('link', { name: 'Tearleads' }).click();
 
-    // Should be back on the home page (shows inline unlock when database is locked)
-    await expect(page.getByTestId('inline-unlock')).toBeVisible();
+    // Should be back on the home page (shows app icons grid)
+    // Verify by checking for one of the app icons
+    await expect(page.getByRole('link', { name: 'Files' })).toBeVisible();
   });
 });
 
@@ -595,8 +596,8 @@ test.describe('Tables page', () => {
     // Setup and unlock the database
     await setupAndUnlockDatabase(page);
 
-    // Navigate to home using client-side navigation (preserves db session)
-    await page.getByRole('link', { name: 'Tearleads Tearleads' }).click();
+    // Navigate to Files page using client-side navigation (preserves db session)
+    await navigateTo(page, 'Files');
     await expect(page.getByRole('heading', { name: 'Files' })).toBeVisible();
     const fileInput = page.getByTestId('dropzone-input');
     // Use a minimal valid PNG (1x1 transparent pixel) for file type detection
@@ -669,8 +670,8 @@ test.describe('Tables page', () => {
     // Setup and unlock the database
     await setupAndUnlockDatabase(page);
 
-    // Navigate to home and upload a file
-    await page.getByRole('link', { name: 'Tearleads Tearleads' }).click();
+    // Navigate to Files page and upload a file
+    await navigateTo(page, 'Files');
     await expect(page.getByRole('heading', { name: 'Files' })).toBeVisible();
     const fileInput = page.getByTestId('dropzone-input');
     // Use a minimal valid PNG for file type detection
