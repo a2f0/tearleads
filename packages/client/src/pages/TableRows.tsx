@@ -368,10 +368,10 @@ export function TableRows() {
                           type="checkbox"
                           checked={!hiddenColumns.has(col.name)}
                           onChange={() => toggleColumnVisibility(col.name)}
-                          className="h-4 w-4 rounded border-input"
+                          className="h-5 w-5 rounded border-input"
                           data-testid={`column-toggle-${col.name}`}
                         />
-                        <span className="font-mono text-sm">{col.name}</span>
+                        <span className="font-mono text-base">{col.name}</span>
                         {col.pk > 0 && (
                           <span className="ml-auto text-primary text-xs">
                             PK
