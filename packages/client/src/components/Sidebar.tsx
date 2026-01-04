@@ -6,6 +6,7 @@ import {
   Database,
   FileIcon,
   HardDrive,
+  Home,
   ImageIcon,
   MessageSquare,
   Music,
@@ -27,6 +28,13 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   {
     path: '/',
+    icon: Home,
+    label: 'Home',
+    inMobileMenu: true,
+    testId: 'home-link'
+  },
+  {
+    path: '/files',
     icon: FileIcon,
     label: 'Files',
     inMobileMenu: true,
