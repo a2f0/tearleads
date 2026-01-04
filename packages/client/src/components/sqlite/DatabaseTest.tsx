@@ -61,11 +61,15 @@ export function DatabaseTest() {
   // Check biometric availability on mobile
   useEffect(() => {
     if (isMobile) {
-      isBiometricAvailable().then((result) => {
-        if (result.isAvailable && result.biometryType) {
-          setBiometryType(result.biometryType);
-        }
-      });
+      isBiometricAvailable()
+        .then((result) => {
+          if (result.isAvailable && result.biometryType) {
+            setBiometryType(result.biometryType);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to check biometric availability:', err);
+        });
     }
   }, [isMobile]);
 
