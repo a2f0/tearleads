@@ -3,6 +3,17 @@
 -- Disable ShaDa to prevent corruption from multiple concurrent neovim instances
 vim.opt.shadafile = "NONE"
 
+-- Auto-reload files when changed externally (e.g., git pull)
+vim.opt.autoread = true
+vim.api.nvim_create_autocmd({"FocusGained", "BufEnter", "CursorHold", "CursorHoldI"}, {
+  pattern = "*",
+  callback = function()
+    if vim.fn.mode() ~= 'c' then
+      vim.cmd('checktime')
+    end
+  end,
+})
+
 -- disable builtin file browser
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1
