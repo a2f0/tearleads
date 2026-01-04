@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+
+PACKAGE_ID="com.tearleads.rapid"
+
+# Check for connected device
+if ! adb devices 2>/dev/null | grep -q "device$"; then
+    echo "Error: No Android device connected"
+    exit 1
+fi
+
+echo "Uninstalling $PACKAGE_ID..."
+adb shell am force-stop "$PACKAGE_ID" 2>/dev/null || true
+if adb uninstall "$PACKAGE_ID" 2>/dev/null; then
+    echo "Successfully uninstalled $PACKAGE_ID"
+else
+    echo "App was not installed or already uninstalled"
+fi
+
+echo "Opening Play Store..."
+adb shell am start -a android.intent.action.VIEW -d "market://details?id=$PACKAGE_ID"
+
+echo "Done. Please tap 'Install' in the Play Store to reinstall the app."
