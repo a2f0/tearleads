@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-PACKAGE_ID="com.tearleads.rapid"
+PACKAGE_ID=${1:-"com.tearleads.rapid"}
 
 # Check for connected device
 if ! adb devices 2>/dev/null | grep -q "device$"; then
@@ -11,10 +11,10 @@ fi
 
 echo "Uninstalling $PACKAGE_ID..."
 adb shell am force-stop "$PACKAGE_ID" 2>/dev/null || true
-if adb uninstall "$PACKAGE_ID" 2>/dev/null; then
+if adb uninstall "$PACKAGE_ID"; then
     echo "Successfully uninstalled $PACKAGE_ID"
 else
-    echo "App was not installed or already uninstalled"
+    echo "App was not installed or uninstall failed. Continuing..."
 fi
 
 echo "Opening Play Store..."
