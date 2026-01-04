@@ -14,5 +14,11 @@ defscrollback 10000
 # Disable alternate screen - allows tmux to capture scrollback
 # ti@ disables the "enter alternate screen" sequence
 # te@ disables the "exit alternate screen" sequence
-# Match xterm, tmux, and screen terminal types
-termcapinfo xterm*,tmux*,screen* ti@:te@
+# Match all common terminal types
+termcapinfo * ti@:te@
+
+# Disable screen's own visual bell and other UI that might interfere
+vbell off
+
+# Make screen not grab mouse events - let tmux handle them
+mousetrack off
