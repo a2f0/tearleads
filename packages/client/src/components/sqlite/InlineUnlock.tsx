@@ -3,14 +3,22 @@
  * Used on pages that require database access when the database is locked.
  */
 
-import { Database, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { type ChangeEvent, type FormEvent, useCallback, useState } from 'react';
+import { Database, Eye, EyeOff, Fingerprint, Loader2 } from 'lucide-react';
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useState
+} from 'react';
 import { Button } from '@/components/ui/button';
+import { isBiometricAvailable } from '@/db/crypto/key-manager';
 import { useDatabaseContext } from '@/db/hooks';
 import { getErrorMessage } from '@/lib/errors';
 import { detectPlatform } from '@/lib/utils';
 
-const isWeb = detectPlatform() === 'web';
+const platform = detectPlatform();
+const isMobile = platform === 'ios' || platform === 'android';
 
 interface InlineUnlockProps {
   /** Description of what will be accessible after unlocking */
@@ -25,6 +33,34 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [persistUnlock, setPersistUnlock] = useState(false);
+  const [biometryType, setBiometryType] = useState<string | null>(null);
+
+  // Check biometric availability on mobile
+  useEffect(() => {
+    if (isMobile) {
+      isBiometricAvailable().then((result) => {
+        if (result.isAvailable && result.biometryType) {
+          setBiometryType(result.biometryType);
+        }
+      });
+    }
+  }, []);
+
+  // Get user-friendly biometric label
+  const getBiometricLabel = useCallback(() => {
+    switch (biometryType) {
+      case 'faceId':
+        return 'Face ID';
+      case 'touchId':
+        return 'Touch ID';
+      case 'fingerprint':
+        return 'Fingerprint';
+      case 'iris':
+        return 'Iris';
+      default:
+        return 'Biometric';
+    }
+  }, [biometryType]);
 
   const handlePasswordChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
@@ -133,18 +169,20 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
           </button>
         </div>
 
-        {isWeb && (
-          <label className="flex cursor-pointer items-center justify-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={persistUnlock}
-              onChange={handlePersistChange}
-              data-testid="inline-unlock-persist"
-              className="h-4 w-4 rounded border border-input"
-            />
-            <span>Keep unlocked across reloads</span>
-          </label>
-        )}
+        <label className="flex cursor-pointer items-center justify-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={persistUnlock}
+            onChange={handlePersistChange}
+            data-testid="inline-unlock-persist"
+            className="h-4 w-4 rounded border border-input"
+          />
+          <span>
+            {isMobile && biometryType
+              ? `Remember with ${getBiometricLabel()}`
+              : 'Keep unlocked across reloads'}
+          </span>
+        </label>
 
         <div className="flex justify-center gap-2">
           <Button
@@ -173,7 +211,14 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
               disabled={isLoading}
               data-testid="inline-unlock-restore"
             >
-              Restore Session
+              {isMobile && biometryType ? (
+                <>
+                  <Fingerprint className="mr-1 h-4 w-4" />
+                  {getBiometricLabel()}
+                </>
+              ) : (
+                'Restore Session'
+              )}
             </Button>
           )}
         </div>
