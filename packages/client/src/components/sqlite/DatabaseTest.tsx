@@ -3,10 +3,11 @@
  * Provides UI for testing database operations across all platforms.
  */
 
-import { Check, Copy, Eye, EyeOff } from 'lucide-react';
+import { Check, Copy, Eye, EyeOff, Fingerprint } from 'lucide-react';
 import { type ChangeEvent, useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
+import { isBiometricAvailable } from '@/db/crypto/key-manager';
 import { useDatabaseContext } from '@/db/hooks';
 import { getErrorMessage } from '@/lib/errors';
 import { detectPlatform } from '@/lib/utils';
@@ -52,8 +53,25 @@ export function DatabaseTest() {
   });
   const [testData, setTestData] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [biometryType, setBiometryType] = useState<string | null>(null);
 
-  const isWeb = detectPlatform() === 'web';
+  const platform = detectPlatform();
+  const isMobile = platform === 'ios' || platform === 'android';
+
+  // Check biometric availability on mobile
+  useEffect(() => {
+    if (isMobile) {
+      isBiometricAvailable()
+        .then((result) => {
+          if (result.isAvailable && result.biometryType) {
+            setBiometryType(result.biometryType);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to check biometric availability:', err);
+        });
+    }
+  }, [isMobile]);
 
   useEffect(() => {
     if (!copied) return;
@@ -64,6 +82,22 @@ export function DatabaseTest() {
 
     return () => clearTimeout(timerId);
   }, [copied]);
+
+  // Get user-friendly biometric label
+  const getBiometricLabel = useCallback(() => {
+    switch (biometryType) {
+      case 'faceId':
+        return 'Face ID';
+      case 'touchId':
+        return 'Touch ID';
+      case 'fingerprint':
+        return 'Fingerprint';
+      case 'iris':
+        return 'Iris';
+      default:
+        return 'Biometric';
+    }
+  }, [biometryType]);
 
   const handleSetup = useCallback(async () => {
     setTestResult({ status: 'running', message: 'Setting up database...' });
@@ -307,14 +341,12 @@ export function DatabaseTest() {
                   : 'Not Set Up'}
           </span>
         </div>
-        {isWeb && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Session Persisted</span>
-            <span data-testid="db-session-status">
-              {hasPersistedSession ? 'Yes' : 'No'}
-            </span>
-          </div>
-        )}
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Session Persisted</span>
+          <span data-testid="db-session-status">
+            {hasPersistedSession ? 'Yes' : 'No'}
+          </span>
+        </div>
         {testData && (
           <div className="flex justify-between gap-2">
             <span className="shrink-0 text-muted-foreground">Test Data</span>
@@ -363,7 +395,7 @@ export function DatabaseTest() {
           </button>
         </div>
 
-        {isWeb && isSetUp && !isUnlocked && (
+        {isSetUp && !isUnlocked && (
           <label className="flex cursor-pointer items-center gap-2 text-base">
             <input
               type="checkbox"
@@ -372,7 +404,11 @@ export function DatabaseTest() {
               data-testid="db-persist-checkbox"
               className="h-5 w-5 rounded border-gray-300"
             />
-            <span>Keep unlocked across reloads</span>
+            <span>
+              {isMobile && biometryType
+                ? `Remember with ${getBiometricLabel()}`
+                : 'Keep unlocked'}
+            </span>
           </label>
         )}
 
@@ -409,7 +445,14 @@ export function DatabaseTest() {
                   disabled={isLoading}
                   data-testid="db-restore-session-button"
                 >
-                  Restore Session
+                  {isMobile && biometryType ? (
+                    <>
+                      <Fingerprint className="mr-1 h-4 w-4" />
+                      {getBiometricLabel()}
+                    </>
+                  ) : (
+                    'Restore Session'
+                  )}
                 </Button>
               )}
             </>
@@ -427,7 +470,7 @@ export function DatabaseTest() {
               >
                 Lock
               </Button>
-              {isWeb && hasPersistedSession && (
+              {hasPersistedSession && (
                 <Button
                   type="button"
                   variant="outline"
