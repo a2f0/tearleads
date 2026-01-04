@@ -317,4 +317,28 @@ describe('InlineUnlock', () => {
       });
     });
   });
+
+  describe('restore session error handling', () => {
+    it('shows error when restoreSession throws an exception', async () => {
+      mockRestoreSession.mockRejectedValue(new Error('Session expired'));
+      mockUseDatabaseContext.mockReturnValue({
+        isSetUp: true,
+        isUnlocked: false,
+        hasPersistedSession: true,
+        unlock: mockUnlock,
+        restoreSession: mockRestoreSession
+      });
+
+      const user = userEvent.setup();
+      render(<InlineUnlock />);
+
+      await user.click(screen.getByTestId('inline-unlock-restore'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('inline-unlock-error')).toHaveTextContent(
+          'Session expired'
+        );
+      });
+    });
+  });
 });
