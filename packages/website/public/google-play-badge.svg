@@ -1,14 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 53" width="180" height="53">
-  <rect width="180" height="53" rx="5" fill="#000"/>
-  <rect x="1" y="1" width="178" height="51" rx="4" fill="none" stroke="#a6a6a6" stroke-width="0.5"/>
-  <!-- Google Play triangle icon placeholder -->
-  <g transform="translate(12, 10)">
-    <path d="M0 2 L0 31 L22 16.5 Z" fill="#00d9ff"/>
-    <path d="M0 2 L12 16.5 L22 6 Z" fill="#00ff90"/>
-    <path d="M0 31 L12 16.5 L22 27 Z" fill="#ff3c3c"/>
-    <path d="M12 16.5 L22 6 L22 27 Z" fill="#ffbd00"/>
+  <title>Get it on Google Play</title>
+  <!-- Background -->
+  <rect width="180" height="53" rx="6" fill="#000"/>
+  <rect x="0.5" y="0.5" width="179" height="52" rx="5.5" fill="none" stroke="#a6a6a6" stroke-width="1"/>
+  <!-- Google Play icon - centered vertically -->
+  <g transform="translate(14, 10.5)">
+    <!-- Blue (left edge) -->
+    <path d="M1 3.5c-.6.6-1 1.5-1 2.7v20.6c0 1.2.4 2.1 1 2.7l.1.1 11.6-11.6v-.3L1 3.5z" fill="#4285F4"/>
+    <!-- Green (top right) -->
+    <path d="M16.6 21.8L12.7 18v-.3l3.9-3.9.1.1 4.6 2.6c1.3.7 1.3 2 0 2.7l-4.6 2.6-.1.1z" fill="#34A853"/>
+    <!-- Red (bottom left) -->
+    <path d="M16.7 21.7L12.7 17.7 1 29.4c.4.5 1.2.5 2 0l13.7-7.7" fill="#EA4335"/>
+    <!-- Yellow (top left) -->
+    <path d="M16.7 13.9L3 6.2c-.9-.5-1.6-.4-2 0l11.7 11.7 4-4z" fill="#FBBC04"/>
   </g>
   <!-- Text -->
-  <text x="42" y="18" fill="#fff" font-family="sans-serif" font-size="8" font-weight="400">GET IT ON</text>
-  <text x="42" y="36" fill="#fff" font-family="sans-serif" font-size="16" font-weight="500">Google Play</text>
+  <text x="44" y="18" fill="#fff" font-family="'Roboto', 'Product Sans', 'Helvetica Neue', Arial, sans-serif" font-size="8" font-weight="400" letter-spacing="0.05em" text-transform="uppercase">GET IT ON</text>
+  <text x="44" y="37" fill="#fff" font-family="'Roboto', 'Product Sans', 'Helvetica Neue', Arial, sans-serif" font-size="18" font-weight="500" letter-spacing="-0.01em">Google Play</text>
 </svg>
