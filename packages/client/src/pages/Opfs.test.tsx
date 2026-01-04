@@ -65,9 +65,11 @@ class MockFileSystemDirectoryHandle {
     throw new Error(`Directory not found: ${name}`);
   }
 
-  async removeEntry(_name: string, _options?: { recursive?: boolean }) {
-    // Mock implementation
-  }
+  removeEntry = vi.fn(
+    async (_name: string, _options?: { recursive?: boolean }) => {
+      // Mock implementation
+    }
+  );
 }
 
 function createMockRootDirectory(
@@ -330,6 +332,263 @@ describe('Opfs', () => {
       await waitFor(() => {
         expect(screen.getByText(/1 file \(100 B\)/)).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('directory toggle functionality', () => {
+    beforeEach(() => {
+      const subEntries = new Map<
+        string,
+        MockFileSystemFileHandle | MockFileSystemDirectoryHandle
+      >();
+      subEntries.set(
+        'nested.txt',
+        new MockFileSystemFileHandle('nested.txt', 512)
+      );
+      const entries = new Map<
+        string,
+        MockFileSystemFileHandle | MockFileSystemDirectoryHandle
+      >();
+      entries.set(
+        'folder',
+        new MockFileSystemDirectoryHandle('folder', subEntries)
+      );
+
+      const mockRoot = createMockRootDirectory(entries);
+      mockNavigatorStorage({
+        getDirectory: vi.fn().mockResolvedValue(mockRoot),
+        estimate: vi.fn().mockResolvedValue({ usage: 512, quota: 5368709120 })
+      } as unknown as StorageManager);
+    });
+
+    it('collapses directory when clicked', async () => {
+      const user = userEvent.setup();
+      renderOpfs();
+
+      await waitFor(() => {
+        expect(screen.getByText('folder')).toBeInTheDocument();
+        expect(screen.getByText('nested.txt')).toBeInTheDocument();
+      });
+
+      // Click the directory to collapse it
+      const folderButton = screen.getByRole('button', { name: /folder/i });
+      await user.click(folderButton);
+
+      await waitFor(() => {
+        expect(screen.queryByText('nested.txt')).not.toBeInTheDocument();
+      });
+    });
+
+    it('expands directory when clicked again', async () => {
+      const user = userEvent.setup();
+      renderOpfs();
+
+      await waitFor(() => {
+        expect(screen.getByText('nested.txt')).toBeInTheDocument();
+      });
+
+      // Click to collapse
+      const folderButton = screen.getByRole('button', { name: /folder/i });
+      await user.click(folderButton);
+
+      await waitFor(() => {
+        expect(screen.queryByText('nested.txt')).not.toBeInTheDocument();
+      });
+
+      // Click to expand again
+      await user.click(folderButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('nested.txt')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('delete functionality', () => {
+    describe('file deletion', () => {
+      let mockRoot: MockFileSystemDirectoryHandle;
+
+      beforeEach(() => {
+        const entries = new Map<
+          string,
+          MockFileSystemFileHandle | MockFileSystemDirectoryHandle
+        >();
+        entries.set('file.txt', new MockFileSystemFileHandle('file.txt', 1024));
+
+        mockRoot = createMockRootDirectory(entries);
+        mockRoot.removeEntry.mockResolvedValue(undefined);
+
+        mockNavigatorStorage({
+          getDirectory: vi.fn().mockResolvedValue(mockRoot),
+          estimate: vi
+            .fn()
+            .mockResolvedValue({ usage: 1024, quota: 5368709120 })
+        } as unknown as StorageManager);
+      });
+
+      it('shows confirmation dialog when deleting a file', async () => {
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+        const user = userEvent.setup();
+        renderOpfs();
+
+        await waitFor(() => {
+          expect(screen.getByText('file.txt')).toBeInTheDocument();
+        });
+
+        // Find and click the delete button for file.txt
+        const deleteButton = screen.getByTitle('Delete');
+        await user.click(deleteButton);
+
+        expect(confirmSpy).toHaveBeenCalledWith(
+          'Are you sure you want to delete the file "file.txt"?'
+        );
+        confirmSpy.mockRestore();
+      });
+
+      it('does not delete when confirmation is cancelled', async () => {
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+        const user = userEvent.setup();
+        renderOpfs();
+
+        await waitFor(() => {
+          expect(screen.getByText('file.txt')).toBeInTheDocument();
+        });
+
+        const deleteButton = screen.getByTitle('Delete');
+        await user.click(deleteButton);
+
+        expect(mockRoot.removeEntry).not.toHaveBeenCalled();
+        confirmSpy.mockRestore();
+      });
+
+      it('deletes file when confirmation is accepted', async () => {
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const user = userEvent.setup();
+        renderOpfs();
+
+        await waitFor(() => {
+          expect(screen.getByText('file.txt')).toBeInTheDocument();
+        });
+
+        const deleteButton = screen.getByTitle('Delete');
+        await user.click(deleteButton);
+
+        await waitFor(() => {
+          expect(mockRoot.removeEntry).toHaveBeenCalledWith('file.txt', {
+            recursive: false
+          });
+        });
+        confirmSpy.mockRestore();
+      });
+    });
+
+    describe('directory deletion', () => {
+      let mockRoot: MockFileSystemDirectoryHandle;
+
+      beforeEach(() => {
+        const entries = new Map<
+          string,
+          MockFileSystemFileHandle | MockFileSystemDirectoryHandle
+        >();
+        entries.set(
+          'mydir',
+          new MockFileSystemDirectoryHandle('mydir', new Map())
+        );
+
+        mockRoot = createMockRootDirectory(entries);
+        mockRoot.removeEntry.mockResolvedValue(undefined);
+
+        mockNavigatorStorage({
+          getDirectory: vi.fn().mockResolvedValue(mockRoot),
+          estimate: vi.fn().mockResolvedValue({ usage: 0, quota: 5368709120 })
+        } as unknown as StorageManager);
+      });
+
+      it('shows confirmation dialog when deleting a directory', async () => {
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+        const user = userEvent.setup();
+        renderOpfs();
+
+        await waitFor(() => {
+          expect(screen.getByText('mydir')).toBeInTheDocument();
+        });
+
+        const deleteButton = screen.getByTitle('Delete');
+        await user.click(deleteButton);
+
+        expect(confirmSpy).toHaveBeenCalledWith(
+          'Are you sure you want to delete the directory "mydir" and all its contents?'
+        );
+        confirmSpy.mockRestore();
+      });
+
+      it('deletes directory recursively when confirmation is accepted', async () => {
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const user = userEvent.setup();
+        renderOpfs();
+
+        await waitFor(() => {
+          expect(screen.getByText('mydir')).toBeInTheDocument();
+        });
+
+        const deleteButton = screen.getByTitle('Delete');
+        await user.click(deleteButton);
+
+        await waitFor(() => {
+          expect(mockRoot.removeEntry).toHaveBeenCalledWith('mydir', {
+            recursive: true
+          });
+        });
+        confirmSpy.mockRestore();
+      });
+    });
+  });
+
+  describe('error handling', () => {
+    it('displays error message when OPFS read fails', async () => {
+      mockNavigatorStorage({
+        getDirectory: vi.fn().mockRejectedValue(new Error('Access denied')),
+        estimate: vi.fn().mockResolvedValue({ usage: 0, quota: 5368709120 })
+      } as unknown as StorageManager);
+
+      renderOpfs();
+
+      await waitFor(() => {
+        expect(screen.getByText('Access denied')).toBeInTheDocument();
+      });
+    });
+
+    it('displays error message when delete fails', async () => {
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      const user = userEvent.setup();
+
+      const entries = new Map<
+        string,
+        MockFileSystemFileHandle | MockFileSystemDirectoryHandle
+      >();
+      entries.set('file.txt', new MockFileSystemFileHandle('file.txt', 1024));
+
+      const mockRoot = createMockRootDirectory(entries);
+      mockRoot.removeEntry.mockRejectedValue(new Error('Delete failed'));
+
+      mockNavigatorStorage({
+        getDirectory: vi.fn().mockResolvedValue(mockRoot),
+        estimate: vi.fn().mockResolvedValue({ usage: 1024, quota: 5368709120 })
+      } as unknown as StorageManager);
+
+      renderOpfs();
+
+      await waitFor(() => {
+        expect(screen.getByText('file.txt')).toBeInTheDocument();
+      });
+
+      const deleteButton = screen.getByTitle('Delete');
+      await user.click(deleteButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete failed')).toBeInTheDocument();
+      });
+      confirmSpy.mockRestore();
     });
   });
 });
