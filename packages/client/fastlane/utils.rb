@@ -9,7 +9,7 @@ def generate_release_notes(platform)
   UI.user_error!('Failed to generate release notes') unless $?.success? && !notes.empty?
 
   # Clean up AI output: remove carriage returns and collapse multiple newlines
-  notes = notes.gsub("\r", '').gsub(/\n{2,}/, "\n")
+  notes = notes.gsub("\r", '').squeeze("\n")
 
   UI.success("Generated release notes:\n#{notes}")
   notes
