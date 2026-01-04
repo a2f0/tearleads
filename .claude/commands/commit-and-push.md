@@ -18,7 +18,7 @@ Commit and push the current changes following these rules:
 
 4. **Push**: After successful commit, push to the current branch's remote.
 
-5. **Open PR**: If no PR exists for this branch, create one with `gh pr create`. Include `Closes #<issue-number>` in the body if tracking an issue. After creating, run `./scripts/agents/setVscodeTitle.sh`.
+5. **Open PR**: If no PR exists for this branch, create one with `gh pr create`. Include `Closes #<issue-number>` in the body if tracking an issue. Include agent tracking: `Agent: $(basename "$(git rev-parse --show-toplevel)")` at the bottom. After creating, run `./scripts/agents/setVscodeTitle.sh`.
 
 6. **Wait for Gemini**: Wait 60 seconds for Gemini Code Assist to review.
 
