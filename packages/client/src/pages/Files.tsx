@@ -20,6 +20,7 @@ import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files as filesTable } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { getErrorMessage } from '@/lib/errors';
 import { downloadFile } from '@/lib/file-utils';
 import { formatFileSize } from '@/lib/utils';
 import {
@@ -207,7 +208,7 @@ export function Files() {
           setUploadingFiles((prev) =>
             prev.map((f) =>
               f.id === fileEntry.id
-                ? { ...f, status: 'error', error: String(err) }
+                ? { ...f, status: 'error', error: getErrorMessage(err) }
                 : f
             )
           );

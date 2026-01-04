@@ -1,9 +1,11 @@
 /**
- * OPFS (Origin Private File System) storage adapter for encrypted file storage.
- * Used on web platforms to persist files across browser sessions.
+ * File storage adapters for encrypted file storage.
+ * - OPFSStorage: Used on web/electron platforms using Origin Private File System
+ * - CapacitorStorage: Used on iOS/Android using Capacitor Filesystem API
  * Supports multi-instance with namespaced directories.
  */
 
+import { Capacitor } from '@capacitor/core';
 import { decrypt, encrypt, importKey } from '@/db/crypto/web-crypto';
 
 /**
@@ -145,6 +147,183 @@ class OPFSStorage implements FileStorage {
   }
 }
 
+/**
+ * Capacitor Filesystem-based storage for iOS/Android.
+ * Uses the app's Documents directory which persists across app updates.
+ */
+class CapacitorStorage implements FileStorage {
+  public instanceId: string;
+  private encryptionKey: CryptoKey | null = null;
+  private filesDirectory: string;
+  private Filesystem: typeof import('@capacitor/filesystem').Filesystem | null =
+    null;
+  private Directory: typeof import('@capacitor/filesystem').Directory | null =
+    null;
+
+  constructor(instanceId: string) {
+    this.instanceId = instanceId;
+    this.filesDirectory = getFilesDirectory(instanceId);
+  }
+
+  async initialize(encryptionKey: Uint8Array): Promise<void> {
+    // Dynamically import Capacitor Filesystem to avoid loading on web
+    const { Filesystem, Directory } = await import('@capacitor/filesystem');
+    this.Filesystem = Filesystem;
+    this.Directory = Directory;
+
+    // Create the files directory if it doesn't exist
+    try {
+      await this.Filesystem.mkdir({
+        path: this.filesDirectory,
+        directory: this.Directory.Documents,
+        recursive: true
+      });
+    } catch {
+      // Directory might already exist, ignore error
+    }
+
+    this.encryptionKey = await importKey(encryptionKey);
+  }
+
+  async store(id: string, data: Uint8Array): Promise<string> {
+    if (!this.Filesystem || !this.Directory || !this.encryptionKey) {
+      throw new Error('Storage not initialized');
+    }
+
+    const encrypted = await encrypt(data, this.encryptionKey);
+    const filename = `${id}.enc`;
+    const filePath = `${this.filesDirectory}/${filename}`;
+
+    // Convert to base64 in chunks to avoid stack overflow
+    const CHUNK_SIZE = 0x8000; // 32k characters
+    let binary = '';
+    for (let i = 0; i < encrypted.length; i += CHUNK_SIZE) {
+      binary += String.fromCharCode.apply(
+        null,
+        Array.from(encrypted.subarray(i, i + CHUNK_SIZE))
+      );
+    }
+    const base64Data = btoa(binary);
+
+    await this.Filesystem.writeFile({
+      path: filePath,
+      data: base64Data,
+      directory: this.Directory.Documents
+    });
+
+    return filename;
+  }
+
+  async retrieve(storagePath: string): Promise<Uint8Array> {
+    if (!this.Filesystem || !this.Directory || !this.encryptionKey) {
+      throw new Error('Storage not initialized');
+    }
+
+    const filePath = `${this.filesDirectory}/${storagePath}`;
+    const result = await this.Filesystem.readFile({
+      path: filePath,
+      directory: this.Directory.Documents
+    });
+
+    // Convert base64 back to Uint8Array
+    const binary = atob(result.data as string);
+    const encrypted = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      encrypted[i] = binary.charCodeAt(i);
+    }
+
+    return decrypt(encrypted, this.encryptionKey);
+  }
+
+  async delete(storagePath: string): Promise<void> {
+    if (!this.Filesystem || !this.Directory) {
+      throw new Error('Storage not initialized');
+    }
+
+    const filePath = `${this.filesDirectory}/${storagePath}`;
+    await this.Filesystem.deleteFile({
+      path: filePath,
+      directory: this.Directory.Documents
+    });
+  }
+
+  async exists(storagePath: string): Promise<boolean> {
+    if (!this.Filesystem || !this.Directory) {
+      throw new Error('Storage not initialized');
+    }
+
+    try {
+      const filePath = `${this.filesDirectory}/${storagePath}`;
+      await this.Filesystem.stat({
+        path: filePath,
+        directory: this.Directory.Documents
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async getStorageUsed(): Promise<number> {
+    if (!this.Filesystem || !this.Directory) {
+      throw new Error('Storage not initialized');
+    }
+
+    try {
+      const result = await this.Filesystem.readdir({
+        path: this.filesDirectory,
+        directory: this.Directory.Documents
+      });
+
+      let totalSize = 0;
+      for (const file of result.files) {
+        if (file.type === 'file') {
+          const stat = await this.Filesystem.stat({
+            path: `${this.filesDirectory}/${file.name}`,
+            directory: this.Directory.Documents
+          });
+          totalSize += stat.size;
+        }
+      }
+      return totalSize;
+    } catch {
+      return 0;
+    }
+  }
+
+  async clearAll(): Promise<void> {
+    if (!this.Filesystem || !this.Directory) {
+      throw new Error('Storage not initialized');
+    }
+
+    try {
+      const result = await this.Filesystem.readdir({
+        path: this.filesDirectory,
+        directory: this.Directory.Documents
+      });
+
+      for (const file of result.files) {
+        if (file.type === 'file') {
+          await this.Filesystem.deleteFile({
+            path: `${this.filesDirectory}/${file.name}`,
+            directory: this.Directory.Documents
+          });
+        }
+      }
+    } catch {
+      // Directory might not exist, ignore
+    }
+  }
+}
+
+/**
+ * Determine which storage adapter to use based on platform.
+ */
+function shouldUseCapacitorStorage(): boolean {
+  const platform = Capacitor.getPlatform();
+  return platform === 'ios' || platform === 'android';
+}
+
 // Map of instanceId -> FileStorage for multi-instance support
 const storageInstances = new Map<string, FileStorage>();
 
@@ -180,6 +359,9 @@ export function getFileStorage(): FileStorage {
 
 /**
  * Initialize the file storage with an encryption key.
+ * Automatically selects the appropriate storage adapter based on platform:
+ * - iOS/Android: Uses Capacitor Filesystem API
+ * - Web/Electron: Uses OPFS (Origin Private File System)
  * @param encryptionKey The encryption key
  * @param instanceId The instance ID
  */
@@ -194,7 +376,11 @@ export async function initializeFileStorage(
     return existing;
   }
 
-  const storage = new OPFSStorage(instanceId);
+  // Select storage adapter based on platform
+  const storage = shouldUseCapacitorStorage()
+    ? new CapacitorStorage(instanceId)
+    : new OPFSStorage(instanceId);
+
   await storage.initialize(encryptionKey);
   storageInstances.set(instanceId, storage);
   currentStorageInstanceId = instanceId;
