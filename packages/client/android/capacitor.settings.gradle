@@ -16,3 +16,6 @@ project(':capacitor-preferences').projectDir = new File('../../../node_modules/.
 
 include ':capacitor-share'
 project(':capacitor-share').projectDir = new File('../../../node_modules/.pnpm/@capacitor+share@8.0.0_@capacitor+core@8.0.0/node_modules/@capacitor/share/android')
+
+include ':capgo-capacitor-native-biometric'
+project(':capgo-capacitor-native-biometric').projectDir = new File('../../../node_modules/.pnpm/@capgo+capacitor-native-biometric@8.0.3_@capacitor+core@8.0.0/node_modules/@capgo/capacitor-native-biometric/android')
