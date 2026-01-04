@@ -191,7 +191,7 @@ All threads must be resolved before merge. Use `/follow-up-with-gemini` which ha
 
 ## Keeping PR Description Updated
 
-As you iterate, update the PR body with `gh pr edit --body`. Preserve any `Closes #<issue>` lines and add bullets for significant changes (CI fixes, Gemini feedback addressed).
+As you iterate, update the PR body with `gh pr edit --body`. Preserve any `Closes #<issue>` lines and the `Agent:` line at the bottom. Add bullets for significant changes (CI fixes, Gemini feedback addressed).
 
 ## Commit Rules
 
