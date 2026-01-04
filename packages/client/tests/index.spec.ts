@@ -421,8 +421,8 @@ test.describe('Dropzone', () => {
       timeout: 10000
     });
 
-    // Go back to home (which is now the Files page)
-    await page.getByRole('link', { name: 'Tearleads' }).click();
+    // Go to Files page
+    await navigateTo(page, 'Files');
 
     const fileInput = page.getByTestId('dropzone-input');
 
