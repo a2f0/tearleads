@@ -206,6 +206,46 @@ export async function generateWrappingKey(): Promise<CryptoKey> {
 }
 
 /**
+ * Generate an extractable wrapping key for mobile platforms.
+ * This key can be exported to raw bytes for storage in native secure storage.
+ * Security on mobile relies on Keychain/Keystore hardware protection rather than
+ * Web Crypto's non-extractable property.
+ */
+export async function generateExtractableWrappingKey(): Promise<CryptoKey> {
+  return crypto.subtle.generateKey(
+    { name: 'AES-KW', length: 256 },
+    true, // extractable - needed for native storage
+    ['wrapKey', 'unwrapKey']
+  );
+}
+
+/**
+ * Export a wrapping key to raw bytes.
+ */
+export async function exportWrappingKey(key: CryptoKey): Promise<Uint8Array> {
+  const exported = await crypto.subtle.exportKey('raw', key);
+  return new Uint8Array(exported);
+}
+
+/**
+ * Import raw bytes as a wrapping key.
+ */
+export async function importWrappingKey(
+  keyBytes: Uint8Array
+): Promise<CryptoKey> {
+  const keyBuffer = new ArrayBuffer(keyBytes.byteLength);
+  new Uint8Array(keyBuffer).set(keyBytes);
+
+  return crypto.subtle.importKey(
+    'raw',
+    keyBuffer,
+    { name: 'AES-KW', length: 256 },
+    true, // extractable for re-export if needed
+    ['wrapKey', 'unwrapKey']
+  );
+}
+
+/**
  * Wrap (encrypt) a key using a wrapping key.
  * Returns the wrapped key as a Uint8Array.
  */
