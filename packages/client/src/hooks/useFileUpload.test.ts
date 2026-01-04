@@ -197,18 +197,34 @@ describe('useFileUpload', () => {
       expect(mockDb.insert).toHaveBeenCalled();
     });
 
-    it('successfully uploads when file type is detected as HEIC (iOS photo format)', async () => {
+    it.each([
+      {
+        type: 'HEIC',
+        mime: 'image/heic',
+        data: 'fake-heic-data',
+        name: 'IMG_1234.HEIC'
+      },
+      {
+        type: 'HEIF',
+        mime: 'image/heif',
+        data: 'fake-heif-data',
+        name: 'photo.heif'
+      }
+    ])('successfully uploads when file type is detected as $type (iOS photo format)', async ({
+      type,
+      mime,
+      data,
+      name
+    }) => {
       vi.mocked(fileTypeFromBuffer).mockResolvedValue({
-        ext: 'heic',
-        mime: 'image/heic'
+        ext: type.toLowerCase(),
+        mime: mime
       });
-      // HEIC thumbnails are not supported
+      // HEIC/HEIF thumbnails are not supported
       vi.mocked(isThumbnailSupported).mockReturnValue(false);
 
       const { result } = renderHook(() => useFileUpload());
-      const file = new File(['fake-heic-data'], 'IMG_1234.HEIC', {
-        type: 'image/heic'
-      });
+      const file = new File([data], name, { type: mime });
 
       const uploadResult = await result.current.uploadFile(file);
 
@@ -217,24 +233,6 @@ describe('useFileUpload', () => {
       // Should store original but no thumbnail
       expect(mockStorage.store).toHaveBeenCalledTimes(1);
       expect(generateThumbnail).not.toHaveBeenCalled();
-    });
-
-    it('successfully uploads when file type is detected as HEIF', async () => {
-      vi.mocked(fileTypeFromBuffer).mockResolvedValue({
-        ext: 'heif',
-        mime: 'image/heif'
-      });
-      vi.mocked(isThumbnailSupported).mockReturnValue(false);
-
-      const { result } = renderHook(() => useFileUpload());
-      const file = new File(['fake-heif-data'], 'photo.heif', {
-        type: 'image/heif'
-      });
-
-      const uploadResult = await result.current.uploadFile(file);
-
-      expect(uploadResult.isDuplicate).toBe(false);
-      expect(mockDb.insert).toHaveBeenCalled();
     });
   });
 
@@ -304,14 +302,9 @@ describe('useFileUpload', () => {
         type: 'text/plain'
       });
 
-      let caughtError: Error | null = null;
-      try {
-        await result.current.uploadFile(file);
-      } catch (e) {
-        caughtError = e as Error;
-      }
-      expect(caughtError).toBeInstanceOf(UnsupportedFileTypeError);
-      expect(caughtError?.name).toBe('UnsupportedFileTypeError');
+      await expect(result.current.uploadFile(file)).rejects.toBeInstanceOf(
+        UnsupportedFileTypeError
+      );
     });
   });
 
