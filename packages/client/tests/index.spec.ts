@@ -426,15 +426,92 @@ test.describe('Dropzone', () => {
 
     const fileInput = page.getByTestId('dropzone-input');
 
+    // Use valid PNG magic bytes for successful file type detection
+    const pngMagicBytes = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
+      0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
+      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1x1 dimensions
+      0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, // bit depth, etc.
+      0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54, // IDAT chunk
+      0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, // data
+      0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, // IEND chunk
+      0xae, 0x42, 0x60, 0x82
+    ]);
     await fileInput.setInputFiles({
-      name: 'uploaded-file.txt',
-      mimeType: 'text/plain',
-      buffer: Buffer.from('test content for files page')
+      name: 'uploaded-file.png',
+      mimeType: 'image/png',
+      buffer: pngMagicBytes
     });
 
     // Wait for upload to complete and verify file appears in the listing
     // The file list auto-refreshes after upload completes
-    await expect(page.getByText('uploaded-file.txt', { exact: true })).toBeVisible();
+    await expect(page.getByText('uploaded-file.png', { exact: true })).toBeVisible();
+  });
+
+  test('should show error when file type cannot be detected', async ({ page }) => {
+    // First unlock the database
+    await navigateTo(page, 'SQLite');
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Go to Files page
+    await navigateTo(page, 'Files');
+
+    const fileInput = page.getByTestId('dropzone-input');
+
+    // Upload a plain text file (no magic bytes, so file-type cannot detect it)
+    await fileInput.setInputFiles({
+      name: 'notes.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('This is just plain text with no magic bytes')
+    });
+
+    // Should show error message for unsupported file type
+    await expect(page.getByText(/Unable to detect file type/)).toBeVisible({
+      timeout: 10000
+    });
+    await expect(page.getByText('notes.txt', { exact: true })).toBeVisible();
+  });
+
+  test('should show green check badge after successful upload', async ({
+    page
+  }) => {
+    // First unlock the database
+    await navigateTo(page, 'SQLite');
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Go to Files page
+    await navigateTo(page, 'Files');
+
+    const fileInput = page.getByTestId('dropzone-input');
+
+    // Use valid PNG magic bytes
+    const pngMagicBytes = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+      0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+      0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89,
+      0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54,
+      0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01,
+      0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44,
+      0xae, 0x42, 0x60, 0x82
+    ]);
+    await fileInput.setInputFiles({
+      name: 'success-badge-test.png',
+      mimeType: 'image/png',
+      buffer: pngMagicBytes
+    });
+
+    // Wait for upload to complete and verify green check badge appears
+    await expect(page.getByTestId('upload-success-badge')).toBeVisible({
+      timeout: 10000
+    });
+    await expect(page.getByText('success-badge-test.png')).toBeVisible();
   });
 });
 
