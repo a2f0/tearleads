@@ -235,7 +235,7 @@ describe('DurationChart', () => {
       );
 
       // Should render all 10 legend items
-      const legendItems = screen.getAllByText(/Type \d/);
+      const legendItems = screen.getAllByText(/Event Type \d/);
       expect(legendItems.length).toBe(10);
     });
   });
