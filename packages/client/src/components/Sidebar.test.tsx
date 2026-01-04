@@ -50,17 +50,17 @@ describe('Sidebar', () => {
   it('applies inactive styles to non-current routes', () => {
     renderSidebar('/contacts');
 
-    const filesLink = screen.getByRole('link', { name: 'Files' });
-    expect(filesLink).toHaveClass('text-muted-foreground');
-    expect(filesLink).not.toHaveClass('bg-accent');
+    const homeLink = screen.getByRole('link', { name: 'Home' });
+    expect(homeLink).toHaveClass('text-muted-foreground');
+    expect(homeLink).not.toHaveClass('bg-accent');
   });
 
   it('uses end matching for the root route', () => {
     renderSidebar('/contacts');
 
-    // When on /contacts, the Files link (/) should not be active
-    const filesLink = screen.getByRole('link', { name: 'Files' });
-    expect(filesLink).not.toHaveClass('bg-accent');
+    // When on /contacts, the Home link (/) should not be active
+    const homeLink = screen.getByRole('link', { name: 'Home' });
+    expect(homeLink).not.toHaveClass('bg-accent');
   });
 
   it('renders as an aside element', () => {
