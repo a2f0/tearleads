@@ -148,4 +148,30 @@ describe('DurationChart', () => {
       expect(item).toHaveStyle({ backgroundColor: expect.any(String) });
     }
   });
+
+  it('displays total events count', () => {
+    render(
+      <DurationChart
+        events={mockEvents}
+        selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
+        timeFilter="day"
+      />
+    );
+
+    // 3 events total (2 db_setup + 1 db_unlock)
+    expect(screen.getByText('3 events')).toBeInTheDocument();
+  });
+
+  it('displays singular event count for one event', () => {
+    render(
+      <DurationChart
+        events={mockEvents}
+        selectedEventTypes={new Set(['db_unlock'])}
+        timeFilter="day"
+      />
+    );
+
+    // Only 1 db_unlock event
+    expect(screen.getByText('1 event')).toBeInTheDocument();
+  });
 });
