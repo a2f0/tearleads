@@ -180,7 +180,7 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
           <span>
             {isMobile && biometryType
               ? `Remember with ${getBiometricLabel()}`
-              : 'Keep unlocked across reloads'}
+              : 'Keep unlocked'}
           </span>
         </label>
 

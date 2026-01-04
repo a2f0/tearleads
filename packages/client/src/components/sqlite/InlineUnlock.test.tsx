@@ -101,9 +101,7 @@ describe('InlineUnlock', () => {
       render(<InlineUnlock />);
 
       expect(screen.getByTestId('inline-unlock-persist')).toBeInTheDocument();
-      expect(
-        screen.getByText(/Keep unlocked across reloads/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Keep unlocked/i)).toBeInTheDocument();
     });
 
     it('unlock button is disabled when password is empty', () => {
