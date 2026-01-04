@@ -233,6 +233,7 @@ export async function exportWrappingKey(key: CryptoKey): Promise<Uint8Array> {
 export async function importWrappingKey(
   keyBytes: Uint8Array
 ): Promise<CryptoKey> {
+  // Copy to ArrayBuffer for Web Crypto API compatibility
   const keyBuffer = new ArrayBuffer(keyBytes.byteLength);
   new Uint8Array(keyBuffer).set(keyBytes);
 
