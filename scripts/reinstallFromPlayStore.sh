@@ -17,7 +17,12 @@ else
     echo "App was not installed or uninstall failed. Continuing..."
 fi
 
-echo "Opening Play Store..."
-adb shell am start -a android.intent.action.VIEW -d "market://details?id=$PACKAGE_ID"
-
-echo "Done. Please tap 'Install' in the Play Store to reinstall the app."
+if [ -n "${ANDROID_INTERNAL_TESTING_URL:-}" ]; then
+    echo "Opening internal testing URL..."
+    adb shell am start -a android.intent.action.VIEW -d "$ANDROID_INTERNAL_TESTING_URL"
+    echo "Done. Please tap 'Install' on the internal testing page to reinstall the app."
+else
+    echo "Opening Play Store..."
+    adb shell am start -a android.intent.action.VIEW -d "market://details?id=$PACKAGE_ID"
+    echo "Done. Please tap 'Install' in the Play Store to reinstall the app."
+fi
