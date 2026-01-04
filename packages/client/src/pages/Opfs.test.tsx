@@ -446,7 +446,7 @@ describe('Opfs', () => {
       });
 
       it('does not delete when confirmation is cancelled', async () => {
-        vi.spyOn(window, 'confirm').mockReturnValue(false);
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
         const user = userEvent.setup();
         renderOpfs();
 
@@ -458,10 +458,11 @@ describe('Opfs', () => {
         await user.click(deleteButton);
 
         expect(mockRoot.removeEntry).not.toHaveBeenCalled();
+        confirmSpy.mockRestore();
       });
 
       it('deletes file when confirmation is accepted', async () => {
-        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
         const user = userEvent.setup();
         renderOpfs();
 
@@ -477,6 +478,7 @@ describe('Opfs', () => {
             recursive: false
           });
         });
+        confirmSpy.mockRestore();
       });
     });
 
@@ -521,7 +523,7 @@ describe('Opfs', () => {
       });
 
       it('deletes directory recursively when confirmation is accepted', async () => {
-        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
         const user = userEvent.setup();
         renderOpfs();
 
@@ -537,6 +539,7 @@ describe('Opfs', () => {
             recursive: true
           });
         });
+        confirmSpy.mockRestore();
       });
     });
   });
@@ -556,7 +559,7 @@ describe('Opfs', () => {
     });
 
     it('displays error message when delete fails', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
       const user = userEvent.setup();
 
       const entries = new Map<
@@ -585,6 +588,7 @@ describe('Opfs', () => {
       await waitFor(() => {
         expect(screen.getByText('Delete failed')).toBeInTheDocument();
       });
+      confirmSpy.mockRestore();
     });
   });
 });
