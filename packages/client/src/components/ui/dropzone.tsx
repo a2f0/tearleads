@@ -11,6 +11,8 @@ export interface DropzoneProps {
   className?: string;
   disabled?: boolean;
   style?: React.CSSProperties;
+  /** Label for the files (e.g., "files", "photos", "documents"). Defaults to "files". */
+  label?: string;
 }
 
 export function Dropzone({
@@ -19,7 +21,8 @@ export function Dropzone({
   multiple = true,
   className,
   disabled = false,
-  style
+  style,
+  label = 'files'
 }: DropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -103,7 +106,7 @@ export function Dropzone({
           data-testid="dropzone-choose-files"
         >
           <Upload className="mr-2 h-5 w-5" />
-          Choose Files
+          Choose {label}
         </Button>
         {fileInput}
       </div>
@@ -138,7 +141,7 @@ export function Dropzone({
       />
       <div className="text-center">
         <p className="font-medium text-sm">
-          {isDragging ? 'Drop files here' : 'Drag and drop files here'}
+          {isDragging ? `Drop ${label} here` : `Drag and drop ${label} here`}
         </p>
         <p className="text-muted-foreground text-xs">or click to browse</p>
       </div>
