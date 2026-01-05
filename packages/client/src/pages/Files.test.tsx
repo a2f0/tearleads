@@ -711,4 +711,53 @@ describe('Files', () => {
       expect(musicIcon).toBeInTheDocument();
     });
   });
+
+  describe('file upload progress', () => {
+    it('renders dropzone for file uploads', async () => {
+      await renderFiles();
+
+      const dropzone = screen.getByTestId('dropzone');
+      expect(dropzone).toBeInTheDocument();
+
+      // Verify dropzone has the expected structure
+      expect(screen.getByText(/Drag and drop files here/i)).toBeInTheDocument();
+    });
+
+    it('hides dropzone when database is locked', () => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: false,
+        isLoading: false,
+        currentInstanceId: null,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
+      });
+
+      renderFilesRaw();
+
+      expect(screen.queryByTestId('dropzone')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('recently uploaded badge', () => {
+    it('does not show success badge for existing files', async () => {
+      // Success badge only appears for newly uploaded files tracked in recentlyUploadedIds
+      // Existing files in the database don't have this badge
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
+      );
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('photo.jpg')).toBeInTheDocument();
+      });
+
+      // Existing files don't have the success badge
+      expect(
+        screen.queryByTestId('upload-success-badge')
+      ).not.toBeInTheDocument();
+    });
+  });
 });
