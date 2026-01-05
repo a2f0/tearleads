@@ -57,6 +57,8 @@ jobs:
 
       - name: Build web assets
         run: pnpm --filter @rapid/client build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - name: Generate Android images
         run: ./packages/client/scripts/buildAndroidImageAssets.sh
