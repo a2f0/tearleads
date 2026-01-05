@@ -5,7 +5,7 @@
  * the KeyManager's logic in isolation.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearAllKeyManagers,
   clearKeyManagerForInstance,
@@ -22,7 +22,13 @@ vi.mock('./web-crypto', () => ({
   deriveKeyFromPassword: vi.fn(async () => ({}) as CryptoKey),
   exportKey: vi.fn(async () => new Uint8Array(32).fill(2)),
   importKey: vi.fn(async () => ({}) as CryptoKey),
-  secureZero: vi.fn()
+  secureZero: vi.fn(),
+  generateWrappingKey: vi.fn(async () => ({}) as CryptoKey),
+  generateExtractableWrappingKey: vi.fn(async () => ({}) as CryptoKey),
+  wrapKey: vi.fn(async () => new Uint8Array(48).fill(3)),
+  unwrapKey: vi.fn(async () => new Uint8Array(32).fill(2)),
+  exportWrappingKey: vi.fn(async () => new Uint8Array(32).fill(4)),
+  importWrappingKey: vi.fn(async () => ({}) as CryptoKey)
 }));
 
 // Mock crypto.subtle for KCV generation
@@ -394,6 +400,148 @@ describe('key manager module functions', () => {
       const newManager2 = getKeyManagerForInstance('instance-2');
       expect(newManager1.getCurrentKey()).toBeNull();
       expect(newManager2.getCurrentKey()).toBeNull();
+    });
+  });
+});
+
+describe('ElectronKeyStorage session persistence', () => {
+  const ELECTRON_INSTANCE_ID = 'electron-test-instance';
+
+  // Mock Electron API
+  const mockElectronApi = {
+    getSalt: vi.fn(),
+    setSalt: vi.fn(),
+    getKeyCheckValue: vi.fn(),
+    setKeyCheckValue: vi.fn(),
+    clearKeyStorage: vi.fn(),
+    getWrappingKey: vi.fn(),
+    setWrappingKey: vi.fn(),
+    getWrappedKey: vi.fn(),
+    setWrappedKey: vi.fn(),
+    hasSession: vi.fn(),
+    clearSession: vi.fn()
+  };
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    clearAllKeyManagers();
+
+    // Reset all mock return values
+    mockElectronApi.getSalt.mockResolvedValue(null);
+    mockElectronApi.getKeyCheckValue.mockResolvedValue(null);
+    mockElectronApi.getWrappingKey.mockResolvedValue(null);
+    mockElectronApi.getWrappedKey.mockResolvedValue(null);
+    mockElectronApi.hasSession.mockResolvedValue(false);
+
+    // Set up window.electron.sqlite mock
+    (
+      window as unknown as { electron: { sqlite: typeof mockElectronApi } }
+    ).electron = {
+      sqlite: mockElectronApi
+    };
+
+    // Mock detectPlatform to return 'electron'
+    const utils = await import('@/lib/utils');
+    vi.mocked(utils.detectPlatform).mockReturnValue('electron');
+  });
+
+  afterEach(() => {
+    // Clean up window.electron
+    delete (window as unknown as { electron?: unknown }).electron;
+  });
+
+  describe('hasPersistedSession', () => {
+    it('returns false when no session exists', async () => {
+      mockElectronApi.hasSession.mockResolvedValue(false);
+
+      const keyManager = new KeyManager(ELECTRON_INSTANCE_ID);
+      const result = await keyManager.hasPersistedSession();
+
+      expect(result).toBe(false);
+      expect(mockElectronApi.hasSession).toHaveBeenCalledWith(
+        ELECTRON_INSTANCE_ID
+      );
+    });
+
+    it('returns true when session exists', async () => {
+      mockElectronApi.hasSession.mockResolvedValue(true);
+
+      const keyManager = new KeyManager(ELECTRON_INSTANCE_ID);
+      const result = await keyManager.hasPersistedSession();
+
+      expect(result).toBe(true);
+      expect(mockElectronApi.hasSession).toHaveBeenCalledWith(
+        ELECTRON_INSTANCE_ID
+      );
+    });
+  });
+
+  describe('persistSession', () => {
+    it('stores wrapping key and wrapped key via IPC', async () => {
+      mockElectronApi.getSalt.mockResolvedValue([1, 2, 3]);
+      mockElectronApi.getKeyCheckValue.mockResolvedValue('test-kcv');
+
+      const keyManager = new KeyManager(ELECTRON_INSTANCE_ID);
+      await keyManager.setupNewKey('password');
+
+      const result = await keyManager.persistSession();
+
+      expect(result).toBe(true);
+      expect(mockElectronApi.setWrappingKey).toHaveBeenCalledWith(
+        expect.any(Array),
+        ELECTRON_INSTANCE_ID
+      );
+      expect(mockElectronApi.setWrappedKey).toHaveBeenCalledWith(
+        expect.any(Array),
+        ELECTRON_INSTANCE_ID
+      );
+    });
+
+    it('returns false when no current key', async () => {
+      const keyManager = new KeyManager(ELECTRON_INSTANCE_ID);
+      const result = await keyManager.persistSession();
+
+      expect(result).toBe(false);
+      expect(mockElectronApi.setWrappingKey).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('restoreSession', () => {
+    it('retrieves and unwraps the session key', async () => {
+      mockElectronApi.getWrappingKey.mockResolvedValue([4, 4, 4]);
+      mockElectronApi.getWrappedKey.mockResolvedValue([3, 3, 3]);
+
+      const keyManager = new KeyManager(ELECTRON_INSTANCE_ID);
+      const result = await keyManager.restoreSession();
+
+      expect(result).toBeInstanceOf(Uint8Array);
+      expect(mockElectronApi.getWrappingKey).toHaveBeenCalledWith(
+        ELECTRON_INSTANCE_ID
+      );
+      expect(mockElectronApi.getWrappedKey).toHaveBeenCalledWith(
+        ELECTRON_INSTANCE_ID
+      );
+    });
+
+    it('returns null when no session stored', async () => {
+      mockElectronApi.getWrappingKey.mockResolvedValue(null);
+      mockElectronApi.getWrappedKey.mockResolvedValue(null);
+
+      const keyManager = new KeyManager(ELECTRON_INSTANCE_ID);
+      const result = await keyManager.restoreSession();
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('clearPersistedSession', () => {
+    it('clears session data via IPC', async () => {
+      const keyManager = new KeyManager(ELECTRON_INSTANCE_ID);
+      await keyManager.clearPersistedSession();
+
+      expect(mockElectronApi.clearSession).toHaveBeenCalledWith(
+        ELECTRON_INSTANCE_ID
+      );
     });
   });
 });

@@ -214,6 +214,8 @@ function rekey(newKey: number[]): void {
  */
 const SALT_PREFIX = '.salt';
 const KCV_PREFIX = '.kcv';
+const WRAPPING_KEY_PREFIX = '.wrapping_key';
+const WRAPPED_KEY_PREFIX = '.wrapped_key';
 
 function getStoragePath(filename: string): string {
   return path.join(app.getPath('userData'), filename);
@@ -225,6 +227,14 @@ function getSaltFilename(instanceId: string): string {
 
 function getKcvFilename(instanceId: string): string {
   return `${KCV_PREFIX}_${instanceId}`;
+}
+
+function getWrappingKeyFilename(instanceId: string): string {
+  return `${WRAPPING_KEY_PREFIX}_${instanceId}`;
+}
+
+function getWrappedKeyFilename(instanceId: string): string {
+  return `${WRAPPED_KEY_PREFIX}_${instanceId}`;
 }
 
 function storeSalt(salt: number[], instanceId: string): void {
@@ -261,6 +271,90 @@ function clearKeyStorage(instanceId: string): void {
 
   fs.rmSync(saltPath, { force: true });
   fs.rmSync(kcvPath, { force: true });
+}
+
+/**
+ * Session persistence storage using Electron's safeStorage API.
+ * safeStorage encrypts data using OS-level encryption:
+ * - macOS: Keychain
+ * - Windows: DPAPI
+ * - Linux: libsecret or kwallet
+ */
+
+function storeWrappingKey(keyBytes: number[], instanceId: string): void {
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error('Secure storage is not available on this system');
+  }
+
+  const keyPath = getStoragePath(getWrappingKeyFilename(instanceId));
+  const buffer = Buffer.from(keyBytes);
+  const encrypted = safeStorage.encryptString(buffer.toString('base64'));
+  secureZeroBuffer(buffer);
+
+  fs.writeFileSync(keyPath, encrypted);
+}
+
+function getWrappingKey(instanceId: string): number[] | null {
+  if (!safeStorage.isEncryptionAvailable()) {
+    return null;
+  }
+
+  const keyPath = getStoragePath(getWrappingKeyFilename(instanceId));
+  try {
+    const encrypted = fs.readFileSync(keyPath);
+    const decrypted = safeStorage.decryptString(encrypted);
+    const buffer = Buffer.from(decrypted, 'base64');
+    const result = Array.from(buffer);
+    secureZeroBuffer(buffer);
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+function storeWrappedKey(wrappedKey: number[], instanceId: string): void {
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error('Secure storage is not available on this system');
+  }
+
+  const keyPath = getStoragePath(getWrappedKeyFilename(instanceId));
+  const buffer = Buffer.from(wrappedKey);
+  const encrypted = safeStorage.encryptString(buffer.toString('base64'));
+  secureZeroBuffer(buffer);
+
+  fs.writeFileSync(keyPath, encrypted);
+}
+
+function getWrappedKey(instanceId: string): number[] | null {
+  if (!safeStorage.isEncryptionAvailable()) {
+    return null;
+  }
+
+  const keyPath = getStoragePath(getWrappedKeyFilename(instanceId));
+  try {
+    const encrypted = fs.readFileSync(keyPath);
+    const decrypted = safeStorage.decryptString(encrypted);
+    const buffer = Buffer.from(decrypted, 'base64');
+    const result = Array.from(buffer);
+    secureZeroBuffer(buffer);
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+function hasSession(instanceId: string): boolean {
+  const wrappingKeyPath = getStoragePath(getWrappingKeyFilename(instanceId));
+  const wrappedKeyPath = getStoragePath(getWrappedKeyFilename(instanceId));
+  return fs.existsSync(wrappingKeyPath) && fs.existsSync(wrappedKeyPath);
+}
+
+function clearSession(instanceId: string): void {
+  const wrappingKeyPath = getStoragePath(getWrappingKeyFilename(instanceId));
+  const wrappedKeyPath = getStoragePath(getWrappedKeyFilename(instanceId));
+
+  fs.rmSync(wrappingKeyPath, { force: true });
+  fs.rmSync(wrappedKeyPath, { force: true });
 }
 
 /**
@@ -330,6 +424,37 @@ export function registerSqliteHandlers(): void {
 
   ipcMain.handle('sqlite:clearKeyStorage', (_event, instanceId: string) => {
     clearKeyStorage(instanceId);
+  });
+
+  // Session persistence operations (namespaced by instanceId)
+  ipcMain.handle('sqlite:getWrappingKey', (_event, instanceId: string) => {
+    return getWrappingKey(instanceId);
+  });
+
+  ipcMain.handle(
+    'sqlite:setWrappingKey',
+    (_event, keyBytes: number[], instanceId: string) => {
+      storeWrappingKey(keyBytes, instanceId);
+    }
+  );
+
+  ipcMain.handle('sqlite:getWrappedKey', (_event, instanceId: string) => {
+    return getWrappedKey(instanceId);
+  });
+
+  ipcMain.handle(
+    'sqlite:setWrappedKey',
+    (_event, wrappedKey: number[], instanceId: string) => {
+      storeWrappedKey(wrappedKey, instanceId);
+    }
+  );
+
+  ipcMain.handle('sqlite:hasSession', (_event, instanceId: string) => {
+    return hasSession(instanceId);
+  });
+
+  ipcMain.handle('sqlite:clearSession', (_event, instanceId: string) => {
+    clearSession(instanceId);
   });
 
   ipcMain.handle('sqlite:deleteDatabase', (_event, name: string) => {
