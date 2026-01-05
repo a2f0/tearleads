@@ -45,6 +45,7 @@ export async function generateThumbnail(
 ): Promise<Uint8Array> {
   const opts = { ...DEFAULT_THUMBNAIL_OPTIONS, ...options };
 
+  // Create blob from image data (slice creates a copy with proper ArrayBuffer)
   const blob = new Blob([imageData.slice()], { type: mimeType });
   const bitmap = await createImageBitmap(blob);
   const { width, height } = calculateScaledDimensions(
