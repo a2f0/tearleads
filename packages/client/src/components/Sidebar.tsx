@@ -8,6 +8,7 @@ import {
   HardDrive,
   Home,
   ImageIcon,
+  Key,
   MessageSquare,
   Music,
   Settings,
@@ -109,6 +110,13 @@ export const navItems: NavItem[] = [
     label: 'Local Storage',
     inMobileMenu: true,
     testId: 'local-storage-link'
+  },
+  {
+    path: '/keychain',
+    icon: Key,
+    label: 'Keychain',
+    inMobileMenu: true,
+    testId: 'keychain-link'
   },
   {
     path: '/chat',
