@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import { MINIMAL_PNG } from './test-utils';
 
 // Helper to check if viewport is mobile (sidebar hidden at lg breakpoint = 1024px)
 function isMobileViewport(page: Page): boolean {
@@ -6,19 +7,24 @@ function isMobileViewport(page: Page): boolean {
   return (viewport?.width ?? 0) < 1024;
 }
 
-// Helper to reset, setup, and unlock the database
-async function setupAndUnlockDatabase(page: Page, password = 'testpassword123') {
+// Helper to navigate to a page, handling mobile/desktop differences
+async function navigateToPage(page: Page, pageName: 'SQLite' | 'Photos') {
   const isMobile = isMobileViewport(page);
 
   if (isMobile) {
     await page.getByTestId('mobile-menu-button').click();
-    await page.getByTestId('sqlite-link').click();
+    await page.getByTestId(`${pageName.toLowerCase()}-link`).click();
   } else {
     const link = page
       .locator('aside nav')
-      .getByRole('link', { name: 'SQLite' });
+      .getByRole('link', { name: pageName });
     await link.click();
   }
+}
+
+// Helper to reset, setup, and unlock the database
+async function setupAndUnlockDatabase(page: Page, password = 'testpassword123') {
+  await navigateToPage(page, 'SQLite');
 
   await page.getByTestId('db-reset-button').click();
   await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
@@ -33,30 +39,8 @@ async function setupAndUnlockDatabase(page: Page, password = 'testpassword123') 
 
 // Helper to navigate to Photos page
 async function navigateToPhotos(page: Page) {
-  const isMobile = isMobileViewport(page);
-
-  if (isMobile) {
-    await page.getByTestId('mobile-menu-button').click();
-    await page.getByTestId('photos-link').click();
-  } else {
-    const link = page
-      .locator('aside nav')
-      .getByRole('link', { name: 'Photos' });
-    await link.click();
-  }
+  await navigateToPage(page, 'Photos');
 }
-
-// Minimal valid PNG (1x1 transparent pixel) - same format as index.spec.ts
-const MINIMAL_PNG = Buffer.from([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
-  0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
-  0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1x1 dimensions
-  0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, // bit depth, color type, etc.
-  0x00, 0x00, 0x00, 0x0a, 0x49, 0x44, 0x41, 0x54, // IDAT chunk
-  0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, // compressed data
-  0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, // IEND chunk
-  0xae, 0x42, 0x60, 0x82
-]);
 
 // Helper to upload a single test image and wait for grid to appear
 async function uploadTestImage(page: Page) {
@@ -117,7 +101,7 @@ test.describe('Photos page responsive layout', () => {
   test.describe('Tablet viewport (768px - iPad)', () => {
     test.use({ viewport: { width: 768, height: 1024 } });
 
-    test('should display photos grid with 4 columns on tablet (sm breakpoint)', async ({
+    test('should display photos grid with 5 columns on tablet (md breakpoint)', async ({
       page
     }) => {
       await page.goto('/');
@@ -129,8 +113,11 @@ test.describe('Photos page responsive layout', () => {
       const grid = page.getByTestId('photos-grid');
       await expect(grid).toBeVisible();
 
-      // At sm breakpoint (640px+), should have 4 columns
-      await expect(grid).toHaveClass(/sm:grid-cols-4/);
+      // At md breakpoint (768px+), the grid should compute to 5 columns
+      await expect(grid).toHaveCSS(
+        'grid-template-columns',
+        /repeat\(5,.*\)|(\d+(\.\d+)?px\s+){4}\d+(\.\d+)?px/
+      );
     });
   });
 
