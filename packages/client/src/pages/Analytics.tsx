@@ -489,13 +489,23 @@ export function Analytics() {
                         <td className="px-2 py-2 sm:px-4 sm:py-3">
                           {event.success ? (
                             <span className="inline-flex items-center gap-1 text-green-600">
-                              <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-                              <span className="hidden sm:inline">Success</span>
+                              <CheckCircle
+                                className="h-3 w-3 sm:h-4 sm:w-4"
+                                aria-hidden="true"
+                              />
+                              <span className="sr-only sm:not-sr-only">
+                                Success
+                              </span>
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-red-600">
-                              <XCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-                              <span className="hidden sm:inline">Failed</span>
+                              <XCircle
+                                className="h-3 w-3 sm:h-4 sm:w-4"
+                                aria-hidden="true"
+                              />
+                              <span className="sr-only sm:not-sr-only">
+                                Failed
+                              </span>
                             </span>
                           )}
                         </td>
