@@ -165,4 +165,265 @@ describe('useAppLifecycle utilities', () => {
       expect(onPause).toHaveBeenCalled();
     });
   });
+
+  describe('useAppLifecycle hook on mobile', () => {
+    beforeEach(() => {
+      vi.resetModules();
+      mockDetectPlatform.mockReturnValue('ios');
+    });
+
+    it('registers app state change listener on iOS', async () => {
+      vi.doMock('@/lib/utils', () => ({
+        detectPlatform: () => 'ios'
+      }));
+
+      const mockRemove = vi.fn().mockResolvedValue(undefined);
+      const mockStateListener = vi
+        .fn()
+        .mockResolvedValue({ remove: mockRemove });
+      vi.doMock('@capacitor/app', () => ({
+        App: {
+          addListener: mockStateListener
+        }
+      }));
+
+      const { useAppLifecycle } = await import('./useAppLifecycle');
+      const onResume = vi.fn();
+      const onPause = vi.fn();
+
+      await act(async () => {
+        renderHook(() => useAppLifecycle({ onResume, onPause }));
+        // Wait for async setup
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      });
+
+      expect(mockStateListener).toHaveBeenCalledWith(
+        'appStateChange',
+        expect.any(Function)
+      );
+    });
+
+    it('calls onResume when app becomes active on mobile', async () => {
+      let stateChangeCallback: ((state: { isActive: boolean }) => void) | null =
+        null;
+      const mockRemove = vi.fn().mockResolvedValue(undefined);
+
+      vi.doMock('@/lib/utils', () => ({
+        detectPlatform: () => 'ios'
+      }));
+
+      vi.doMock('@capacitor/app', () => ({
+        App: {
+          addListener: vi
+            .fn()
+            .mockImplementation(
+              (
+                _event: string,
+                callback: (state: { isActive: boolean }) => void
+              ) => {
+                stateChangeCallback = callback;
+                return Promise.resolve({ remove: mockRemove });
+              }
+            )
+        }
+      }));
+
+      const { useAppLifecycle } = await import('./useAppLifecycle');
+      const onResume = vi.fn();
+      const onPause = vi.fn();
+
+      await act(async () => {
+        renderHook(() => useAppLifecycle({ onResume, onPause }));
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      });
+
+      // Simulate app becoming active
+      await act(async () => {
+        stateChangeCallback?.({ isActive: true });
+      });
+
+      expect(onResume).toHaveBeenCalled();
+    });
+
+    it('calls onPause when app becomes inactive on mobile', async () => {
+      let stateChangeCallback: ((state: { isActive: boolean }) => void) | null =
+        null;
+      const mockRemove = vi.fn().mockResolvedValue(undefined);
+
+      vi.doMock('@/lib/utils', () => ({
+        detectPlatform: () => 'android'
+      }));
+
+      vi.doMock('@capacitor/app', () => ({
+        App: {
+          addListener: vi
+            .fn()
+            .mockImplementation(
+              (
+                _event: string,
+                callback: (state: { isActive: boolean }) => void
+              ) => {
+                stateChangeCallback = callback;
+                return Promise.resolve({ remove: mockRemove });
+              }
+            )
+        }
+      }));
+
+      const { useAppLifecycle } = await import('./useAppLifecycle');
+      const onResume = vi.fn();
+      const onPause = vi.fn();
+
+      await act(async () => {
+        renderHook(() => useAppLifecycle({ onResume, onPause }));
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      });
+
+      // Simulate app becoming inactive
+      await act(async () => {
+        stateChangeCallback?.({ isActive: false });
+      });
+
+      expect(onPause).toHaveBeenCalled();
+    });
+
+    it('removes listener on unmount (mobile)', async () => {
+      const mockRemove = vi.fn().mockResolvedValue(undefined);
+
+      vi.doMock('@/lib/utils', () => ({
+        detectPlatform: () => 'ios'
+      }));
+
+      vi.doMock('@capacitor/app', () => ({
+        App: {
+          addListener: vi.fn().mockResolvedValue({ remove: mockRemove })
+        }
+      }));
+
+      const { useAppLifecycle } = await import('./useAppLifecycle');
+
+      let unmountFn: () => void;
+      await act(async () => {
+        const { unmount } = renderHook(() => useAppLifecycle());
+        unmountFn = unmount;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      });
+
+      await act(async () => {
+        unmountFn();
+      });
+
+      expect(mockRemove).toHaveBeenCalled();
+    });
+
+    it('handles App.addListener errors gracefully', async () => {
+      const consoleWarnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => {});
+
+      vi.doMock('@/lib/utils', () => ({
+        detectPlatform: () => 'ios'
+      }));
+
+      vi.doMock('@capacitor/app', () => ({
+        App: {
+          addListener: vi.fn().mockRejectedValue(new Error('Capacitor error'))
+        }
+      }));
+
+      const { useAppLifecycle } = await import('./useAppLifecycle');
+
+      await act(async () => {
+        renderHook(() => useAppLifecycle());
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      });
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Failed to set up app lifecycle listeners:',
+        expect.any(Error)
+      );
+
+      consoleWarnSpy.mockRestore();
+    });
+  });
+
+  describe('storage error handling', () => {
+    it('markSessionActive handles storage errors gracefully', async () => {
+      const { markSessionActive } = await import('./useAppLifecycle');
+      const originalSetItem = sessionStorage.setItem;
+      sessionStorage.setItem = vi.fn().mockImplementation(() => {
+        throw new Error('Storage quota exceeded');
+      });
+
+      // Should not throw
+      expect(() => markSessionActive()).not.toThrow();
+
+      sessionStorage.setItem = originalSetItem;
+    });
+
+    it('clearSessionActive handles storage errors gracefully', async () => {
+      const { clearSessionActive } = await import('./useAppLifecycle');
+      const originalRemoveItem = sessionStorage.removeItem;
+      sessionStorage.removeItem = vi.fn().mockImplementation(() => {
+        throw new Error('Storage error');
+      });
+
+      // Should not throw
+      expect(() => clearSessionActive()).not.toThrow();
+
+      sessionStorage.removeItem = originalRemoveItem;
+    });
+
+    it('wasSessionActive handles storage errors gracefully', async () => {
+      const { wasSessionActive } = await import('./useAppLifecycle');
+      const originalGetItem = sessionStorage.getItem;
+      sessionStorage.getItem = vi.fn().mockImplementation(() => {
+        throw new Error('Storage error');
+      });
+
+      // Should return false instead of throwing
+      expect(wasSessionActive()).toBe(false);
+
+      sessionStorage.getItem = originalGetItem;
+    });
+
+    it('saveLastLoadedModel handles storage errors gracefully', async () => {
+      const { saveLastLoadedModel } = await import('./useAppLifecycle');
+      const originalSetItem = localStorage.setItem;
+      localStorage.setItem = vi.fn().mockImplementation(() => {
+        throw new Error('Storage quota exceeded');
+      });
+
+      // Should not throw
+      expect(() => saveLastLoadedModel('model-id')).not.toThrow();
+
+      localStorage.setItem = originalSetItem;
+    });
+
+    it('getLastLoadedModel handles storage errors gracefully', async () => {
+      const { getLastLoadedModel } = await import('./useAppLifecycle');
+      const originalGetItem = localStorage.getItem;
+      localStorage.getItem = vi.fn().mockImplementation(() => {
+        throw new Error('Storage error');
+      });
+
+      // Should return null instead of throwing
+      expect(getLastLoadedModel()).toBeNull();
+
+      localStorage.getItem = originalGetItem;
+    });
+
+    it('clearLastLoadedModel handles storage errors gracefully', async () => {
+      const { clearLastLoadedModel } = await import('./useAppLifecycle');
+      const originalRemoveItem = localStorage.removeItem;
+      localStorage.removeItem = vi.fn().mockImplementation(() => {
+        throw new Error('Storage error');
+      });
+
+      // Should not throw
+      expect(() => clearLastLoadedModel()).not.toThrow();
+
+      localStorage.removeItem = originalRemoveItem;
+    });
+  });
 });
