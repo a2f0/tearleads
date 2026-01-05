@@ -74,6 +74,8 @@ interface KeyStorageAdapter {
   getWrappedKey(): Promise<Uint8Array | null>;
   setWrappedKey(wrappedKey: Uint8Array): Promise<void>;
   clearSession(): Promise<void>;
+  // Check session key existence without triggering biometric (for status display)
+  hasSessionKeys(): Promise<{ wrappingKey: boolean; wrappedKey: boolean }>;
 }
 
 /**
@@ -212,6 +214,18 @@ class WebKeyStorage implements KeyStorageAdapter {
       this.deleteKey(this.wrappedKeyKey)
     ]);
   }
+
+  async hasSessionKeys(): Promise<{
+    wrappingKey: boolean;
+    wrappedKey: boolean;
+  }> {
+    const wrappingKey = await this.get<CryptoKey>(this.wrappingKeyKey);
+    const wrappedKey = await this.get<number[]>(this.wrappedKeyKey);
+    return {
+      wrappingKey: wrappingKey !== null,
+      wrappedKey: wrappedKey !== null
+    };
+  }
 }
 
 /**
@@ -331,6 +345,21 @@ class ElectronKeyStorage implements KeyStorageAdapter {
       await api.clearSession(this.instanceId);
     }
   }
+
+  /**
+   * Check if session keys exist via hasSession IPC.
+   */
+  async hasSessionKeys(): Promise<{
+    wrappingKey: boolean;
+    wrappedKey: boolean;
+  }> {
+    const api = this.getApi();
+    if (!api?.hasSession) {
+      return { wrappingKey: false, wrappedKey: false };
+    }
+    const hasSession = await api.hasSession(this.instanceId);
+    return { wrappingKey: hasSession, wrappedKey: hasSession };
+  }
 }
 
 /**
@@ -439,6 +468,21 @@ class CapacitorKeyStorage implements KeyStorageAdapter {
    */
   async clearSession(): Promise<void> {
     await nativeSecureStorage.clearSession(this.instanceId);
+  }
+
+  /**
+   * Check if session keys exist without triggering biometric.
+   */
+  async hasSessionKeys(): Promise<{
+    wrappingKey: boolean;
+    wrappedKey: boolean;
+  }> {
+    const hasSession = await nativeSecureStorage.hasSession(this.instanceId);
+    // If hasSession returns true, both wrapping and wrapped keys exist
+    return {
+      wrappingKey: hasSession,
+      wrappedKey: hasSession
+    };
   }
 }
 
@@ -795,115 +839,35 @@ export interface KeyStatus {
 /**
  * Check which keys exist for an instance without unlocking.
  * Safe to call without authentication - only returns boolean existence.
+ * Uses the platform-aware storage adapter for cross-platform compatibility.
  */
 export async function getKeyStatusForInstance(
   instanceId: string
 ): Promise<KeyStatus> {
-  const dbName = 'rapid_key_storage';
-  const storeName = 'keys';
+  const storage = await getStorageAdapter(instanceId);
 
-  const saltKey = getStorageKey(SALT_STORAGE_PREFIX, instanceId);
-  const kcvKey = getStorageKey(KEY_CHECK_VALUE_PREFIX, instanceId);
-  const wrappingKeyKey = getStorageKey(WRAPPING_KEY_STORAGE_PREFIX, instanceId);
-  const wrappedKeyKey = getStorageKey(WRAPPED_KEY_STORAGE_PREFIX, instanceId);
+  const [salt, keyCheckValue, sessionKeys] = await Promise.all([
+    storage.getSalt(),
+    storage.getKeyCheckValue(),
+    storage.hasSessionKeys()
+  ]);
 
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(dbName, 1);
-
-    request.onerror = () => reject(request.error);
-
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(storeName)) {
-        db.createObjectStore(storeName);
-      }
-    };
-
-    request.onsuccess = () => {
-      const db = request.result;
-      const tx = db.transaction(storeName, 'readonly');
-      const store = tx.objectStore(storeName);
-
-      const results: KeyStatus = {
-        salt: false,
-        keyCheckValue: false,
-        wrappingKey: false,
-        wrappedKey: false
-      };
-
-      const saltRequest = store.get(saltKey);
-      const kcvRequest = store.get(kcvKey);
-      const wrappingRequest = store.get(wrappingKeyKey);
-      const wrappedRequest = store.get(wrappedKeyKey);
-
-      saltRequest.onsuccess = () => {
-        results.salt = saltRequest.result !== undefined;
-      };
-      kcvRequest.onsuccess = () => {
-        results.keyCheckValue = kcvRequest.result !== undefined;
-      };
-      wrappingRequest.onsuccess = () => {
-        results.wrappingKey = wrappingRequest.result !== undefined;
-      };
-      wrappedRequest.onsuccess = () => {
-        results.wrappedKey = wrappedRequest.result !== undefined;
-      };
-
-      tx.oncomplete = () => {
-        db.close();
-        resolve(results);
-      };
-
-      tx.onerror = () => {
-        db.close();
-        reject(tx.error);
-      };
-    };
-  });
+  return {
+    salt: salt !== null,
+    keyCheckValue: keyCheckValue !== null,
+    wrappingKey: sessionKeys.wrappingKey,
+    wrappedKey: sessionKeys.wrappedKey
+  };
 }
 
 /**
  * Delete only session keys (wrapping key + wrapped key) for an instance.
  * This ends the session but preserves the database encryption setup.
+ * Uses the platform-aware storage adapter for cross-platform compatibility.
  */
 export async function deleteSessionKeysForInstance(
   instanceId: string
 ): Promise<void> {
-  const dbName = 'rapid_key_storage';
-  const storeName = 'keys';
-
-  const wrappingKeyKey = getStorageKey(WRAPPING_KEY_STORAGE_PREFIX, instanceId);
-  const wrappedKeyKey = getStorageKey(WRAPPED_KEY_STORAGE_PREFIX, instanceId);
-
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(dbName, 1);
-
-    request.onerror = () => reject(request.error);
-
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(storeName)) {
-        db.createObjectStore(storeName);
-      }
-    };
-
-    request.onsuccess = () => {
-      const db = request.result;
-      const tx = db.transaction(storeName, 'readwrite');
-      const store = tx.objectStore(storeName);
-
-      store.delete(wrappingKeyKey);
-      store.delete(wrappedKeyKey);
-
-      tx.oncomplete = () => {
-        db.close();
-        resolve();
-      };
-
-      tx.onerror = () => {
-        db.close();
-        reject(tx.error);
-      };
-    };
-  });
+  const storage = await getStorageAdapter(instanceId);
+  await storage.clearSession();
 }
