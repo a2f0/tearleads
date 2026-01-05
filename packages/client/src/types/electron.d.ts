@@ -21,6 +21,13 @@ export interface ElectronSqliteApi {
   getKeyCheckValue: (instanceId: string) => Promise<string | null>;
   setKeyCheckValue: (kcv: string, instanceId: string) => Promise<void>;
   clearKeyStorage: (instanceId: string) => Promise<void>;
+  // Session persistence operations
+  getWrappingKey: (instanceId: string) => Promise<number[] | null>;
+  setWrappingKey: (keyBytes: number[], instanceId: string) => Promise<void>;
+  getWrappedKey: (instanceId: string) => Promise<number[] | null>;
+  setWrappedKey: (wrappedKey: number[], instanceId: string) => Promise<void>;
+  hasSession: (instanceId: string) => Promise<boolean>;
+  clearSession: (instanceId: string) => Promise<void>;
   deleteDatabase: (name: string) => Promise<void>;
   export: (name: string) => Promise<number[]>;
   import: (name: string, data: number[], key: number[]) => Promise<void>;
