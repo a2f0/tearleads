@@ -39,6 +39,22 @@ vi.mock('@/db', () => ({
   getDatabase: vi.fn().mockReturnValue(null)
 }));
 
+// Mock useAppLifecycle
+vi.mock('./useAppLifecycle', () => ({
+  saveLastLoadedModel: vi.fn(),
+  getLastLoadedModel: vi.fn().mockReturnValue(null),
+  clearLastLoadedModel: vi.fn()
+}));
+
+// Mock sonner
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn()
+  }
+}));
+
 describe('useLLM', () => {
   beforeEach(() => {
     vi.clearAllMocks();

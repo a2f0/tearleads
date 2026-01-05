@@ -38,7 +38,8 @@ vi.mock('@/hooks/useLLM', () => ({
     unloadModel: mockUnloadModel,
     generate: mockGenerate,
     abort: mockAbort,
-    isWebGPUSupported: mockIsWebGPUSupported
+    isWebGPUSupported: mockIsWebGPUSupported,
+    previouslyLoadedModel: null
   }))
 }));
 
@@ -226,7 +227,8 @@ describe('Models', () => {
         unloadModel: mockUnloadModel,
         generate: mockGenerate,
         abort: mockAbort,
-        isWebGPUSupported: mockIsWebGPUSupported
+        isWebGPUSupported: mockIsWebGPUSupported,
+        previouslyLoadedModel: null
       });
 
       const user = userEvent.setup();
@@ -258,7 +260,8 @@ describe('Models', () => {
           unloadModel: mockUnloadModel,
           generate: mockGenerate,
           abort: mockAbort,
-          isWebGPUSupported: mockIsWebGPUSupported
+          isWebGPUSupported: mockIsWebGPUSupported,
+          previouslyLoadedModel: null
         });
 
         rerender(
@@ -292,7 +295,8 @@ describe('Models', () => {
         unloadModel: mockUnloadModel,
         generate: mockGenerate,
         abort: mockAbort,
-        isWebGPUSupported: mockIsWebGPUSupported
+        isWebGPUSupported: mockIsWebGPUSupported,
+        previouslyLoadedModel: null
       });
 
       renderModels();
@@ -313,7 +317,8 @@ describe('Models', () => {
         unloadModel: mockUnloadModel,
         generate: mockGenerate,
         abort: mockAbort,
-        isWebGPUSupported: mockIsWebGPUSupported
+        isWebGPUSupported: mockIsWebGPUSupported,
+        previouslyLoadedModel: null
       });
 
       renderModels();
@@ -337,7 +342,8 @@ describe('Models', () => {
         unloadModel: mockUnloadModel,
         generate: mockGenerate,
         abort: mockAbort,
-        isWebGPUSupported: mockIsWebGPUSupported
+        isWebGPUSupported: mockIsWebGPUSupported,
+        previouslyLoadedModel: null
       });
 
       renderModels();
@@ -366,7 +372,8 @@ describe('Models', () => {
         unloadModel: mockUnloadModel,
         generate: mockGenerate,
         abort: mockAbort,
-        isWebGPUSupported: mockIsWebGPUSupported
+        isWebGPUSupported: mockIsWebGPUSupported,
+        previouslyLoadedModel: null
       });
 
       renderModels();
