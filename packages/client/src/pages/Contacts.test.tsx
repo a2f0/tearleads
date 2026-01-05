@@ -1,4 +1,10 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -377,6 +383,257 @@ describe('Contacts', () => {
       // Note: Full CSV import testing would require more complex file input simulation
       // This test verifies the import section is rendered
       expect(screen.getByText('Import CSV')).toBeInTheDocument();
+    });
+  });
+
+  describe('contact count display', () => {
+    it('shows singular contact count', async () => {
+      mockOrderBy.mockResolvedValue([
+        {
+          id: '1',
+          firstName: 'John',
+          lastName: 'Doe',
+          birthday: null,
+          primaryEmail: 'john@example.com',
+          primaryPhone: null,
+          createdAt: new Date()
+        }
+      ]);
+
+      await renderContacts();
+
+      await waitFor(() => {
+        expect(screen.getByText('1 contact')).toBeInTheDocument();
+      });
+    });
+
+    it('shows plural contact count', async () => {
+      mockOrderBy.mockResolvedValue([
+        {
+          id: '1',
+          firstName: 'John',
+          lastName: 'Doe',
+          birthday: null,
+          primaryEmail: 'john@example.com',
+          primaryPhone: null,
+          createdAt: new Date()
+        },
+        {
+          id: '2',
+          firstName: 'Jane',
+          lastName: 'Smith',
+          birthday: null,
+          primaryEmail: 'jane@example.com',
+          primaryPhone: null,
+          createdAt: new Date()
+        }
+      ]);
+
+      await renderContacts();
+
+      await waitFor(() => {
+        expect(screen.getByText('2 contacts')).toBeInTheDocument();
+      });
+    });
+
+    it('shows contact count with "found" when searching', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue([
+        {
+          id: '1',
+          firstName: 'John',
+          lastName: 'Doe',
+          birthday: null,
+          primaryEmail: 'john@example.com',
+          primaryPhone: null,
+          createdAt: new Date()
+        }
+      ]);
+
+      await renderContacts();
+
+      const searchInput = screen.getByPlaceholderText('Search contacts...');
+      await user.type(searchInput, 'john');
+
+      // Advance timers for debounce
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(300);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('1 contact found')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('import result display', () => {
+    it('shows import result with skipped count', async () => {
+      mockParseFile.mockResolvedValue({
+        headers: ['First Name', 'Last Name', 'Email'],
+        rows: [['John', 'Doe', 'john@example.com']]
+      });
+      mockImportContacts.mockResolvedValue({
+        imported: 5,
+        skipped: 3,
+        errors: []
+      });
+
+      const { container } = await renderContacts();
+
+      // Find the dropzone input and upload a file
+      const input = container.querySelector('input[type="file"]');
+      expect(input).toBeInTheDocument();
+
+      const csvFile = new File(['name,email'], 'contacts.csv', {
+        type: 'text/csv'
+      });
+
+      if (input) {
+        fireEvent.change(input, { target: { files: [csvFile] } });
+      }
+
+      // Wait for parsed data to show column mapper
+      await waitFor(() => {
+        expect(screen.getByText('Map CSV Columns')).toBeInTheDocument();
+      });
+    });
+
+    it('shows import result with errors', async () => {
+      mockParseFile.mockResolvedValue({
+        headers: ['First Name', 'Email'],
+        rows: [['John', 'invalid-email']]
+      });
+      mockImportContacts.mockResolvedValue({
+        imported: 3,
+        skipped: 0,
+        errors: [
+          'Row 5: Invalid email format',
+          'Row 10: Missing required field'
+        ]
+      });
+
+      const { container } = await renderContacts();
+
+      const input = container.querySelector('input[type="file"]');
+      const csvFile = new File(['name,email'], 'contacts.csv', {
+        type: 'text/csv'
+      });
+
+      if (input) {
+        fireEvent.change(input, { target: { files: [csvFile] } });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Map CSV Columns')).toBeInTheDocument();
+      });
+    });
+
+    it('handles empty CSV file error', async () => {
+      mockParseFile.mockResolvedValue({
+        headers: [],
+        rows: []
+      });
+
+      const { container } = await renderContacts();
+
+      const input = container.querySelector('input[type="file"]');
+      const csvFile = new File([''], 'empty.csv', { type: 'text/csv' });
+
+      if (input) {
+        fireEvent.change(input, { target: { files: [csvFile] } });
+      }
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('CSV file is empty or has no headers')
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('handles CSV parse error', async () => {
+      mockParseFile.mockRejectedValue(new Error('Invalid CSV format'));
+
+      const { container } = await renderContacts();
+
+      const input = container.querySelector('input[type="file"]');
+      const csvFile = new File(['bad data'], 'bad.csv', { type: 'text/csv' });
+
+      if (input) {
+        fireEvent.change(input, { target: { files: [csvFile] } });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Invalid CSV format')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('column mapper UI', () => {
+    it('shows column mapper when CSV is parsed', async () => {
+      mockParseFile.mockResolvedValue({
+        headers: ['First Name', 'Last Name', 'Email', 'Phone'],
+        rows: [
+          ['John', 'Doe', 'john@example.com', '555-1234'],
+          ['Jane', 'Smith', 'jane@example.com', '555-5678']
+        ]
+      });
+
+      const { container } = await renderContacts();
+
+      const input = container.querySelector('input[type="file"]');
+      const csvFile = new File(['name,email'], 'contacts.csv', {
+        type: 'text/csv'
+      });
+
+      if (input) {
+        fireEvent.change(input, { target: { files: [csvFile] } });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Map CSV Columns')).toBeInTheDocument();
+      });
+
+      // Search input should be hidden when column mapper is shown
+      expect(
+        screen.queryByPlaceholderText('Search contacts...')
+      ).not.toBeInTheDocument();
+    });
+
+    it('hides column mapper when cancelled', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockParseFile.mockResolvedValue({
+        headers: ['First Name', 'Email'],
+        rows: [['John', 'john@example.com']]
+      });
+
+      const { container } = await renderContacts();
+
+      const input = container.querySelector('input[type="file"]');
+      const csvFile = new File(['name,email'], 'contacts.csv', {
+        type: 'text/csv'
+      });
+
+      if (input) {
+        fireEvent.change(input, { target: { files: [csvFile] } });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Map CSV Columns')).toBeInTheDocument();
+      });
+
+      // Click cancel button
+      const cancelButton = screen.getByText('Cancel');
+      await user.click(cancelButton);
+
+      // Column mapper should be hidden
+      await waitFor(() => {
+        expect(screen.queryByText('Map CSV Columns')).not.toBeInTheDocument();
+      });
+
+      // Search input should be visible again
+      expect(
+        screen.getByPlaceholderText('Search contacts...')
+      ).toBeInTheDocument();
     });
   });
 });
