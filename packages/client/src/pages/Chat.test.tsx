@@ -17,9 +17,11 @@ vi.mock('@/hooks/useLLM', () => ({
     isLoading: false,
     loadProgress: null,
     error: null,
+    isClassifying: false,
     loadModel: vi.fn(),
     unloadModel: vi.fn(),
     generate: vi.fn(),
+    classify: vi.fn(),
     abort: vi.fn(),
     isWebGPUSupported: vi.fn().mockResolvedValue(true),
     previouslyLoadedModel: null
@@ -245,8 +247,10 @@ describe('Chat', () => {
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
         generate: vi.fn(),
+        classify: vi.fn(),
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
         previouslyLoadedModel: null
       });
     });
@@ -287,8 +291,10 @@ describe('Chat', () => {
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
         generate: vi.fn(),
+        classify: vi.fn(),
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
         previouslyLoadedModel: null
       });
     });
@@ -340,9 +346,11 @@ describe('Chat', () => {
           isLoading: false,
           loadProgress: null,
           error: null,
+          isClassifying: false,
           loadModel: vi.fn(),
           unloadModel: vi.fn(),
           generate: vi.fn(),
+          classify: vi.fn(),
           abort: vi.fn(),
           isWebGPUSupported: vi.fn().mockResolvedValue(true),
           previouslyLoadedModel: null
@@ -366,8 +374,10 @@ describe('Chat', () => {
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
         generate: vi.fn(),
+        classify: vi.fn(),
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
         previouslyLoadedModel: null
       });
     });
@@ -396,8 +406,10 @@ describe('Chat', () => {
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
         generate: vi.fn(),
+        classify: vi.fn(),
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
         previouslyLoadedModel: null
       });
       renderChat();
@@ -437,8 +449,10 @@ describe('Chat', () => {
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
         generate: vi.fn(),
+        classify: vi.fn(),
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
         previouslyLoadedModel: null
       });
     });
@@ -479,8 +493,10 @@ describe('Chat', () => {
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
         generate: vi.fn(),
+        classify: vi.fn(),
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
         previouslyLoadedModel: null
       });
     });
@@ -504,8 +520,10 @@ describe('Chat', () => {
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
         generate: vi.fn(),
+        classify: vi.fn(),
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
         previouslyLoadedModel: null
       });
 
@@ -525,8 +543,10 @@ describe('Chat', () => {
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
         generate: vi.fn(),
+        classify: vi.fn(),
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
         previouslyLoadedModel: null
       });
 
@@ -545,8 +565,10 @@ describe('Chat', () => {
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
         generate: vi.fn(),
+        classify: vi.fn(),
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
         previouslyLoadedModel: null
       });
 
@@ -567,8 +589,10 @@ describe('Chat', () => {
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
         generate: vi.fn(),
+        classify: vi.fn(),
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
         previouslyLoadedModel: null
       });
 
@@ -589,8 +613,10 @@ describe('Chat', () => {
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
         generate: vi.fn(),
+        classify: vi.fn(),
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
         previouslyLoadedModel: null
       });
     });
@@ -614,8 +640,10 @@ describe('Chat', () => {
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
         generate: vi.fn(),
+        classify: vi.fn(),
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
         previouslyLoadedModel: null
       });
     });
@@ -650,8 +678,10 @@ describe('Chat', () => {
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
         generate: vi.fn(),
+        classify: vi.fn(),
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
         previouslyLoadedModel: null
       });
     });
@@ -1062,8 +1092,10 @@ describe('Chat', () => {
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
         generate: vi.fn(),
+        classify: vi.fn(),
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
         previouslyLoadedModel: null
       });
     });
@@ -1098,8 +1130,10 @@ describe('Chat', () => {
         loadModel: vi.fn(),
         unloadModel: vi.fn(),
         generate: vi.fn(),
+        classify: vi.fn(),
         abort: vi.fn(),
         isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        isClassifying: false,
         previouslyLoadedModel: null
       });
     });
