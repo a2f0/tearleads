@@ -187,23 +187,11 @@ function renderChat() {
 }
 
 function findImageButton(): HTMLElement {
-  const buttons = screen.getAllByRole('button');
-  const button = buttons.find((btn) => {
-    const svg = btn.querySelector('svg');
-    return svg?.classList.contains('lucide-image');
-  });
-  if (!button) throw new Error('Image button not found');
-  return button;
+  return screen.getByRole('button', { name: /attach image/i });
 }
 
 function findCloseButton(): HTMLElement {
-  const buttons = screen.getAllByRole('button');
-  const button = buttons.find((btn) => {
-    const svg = btn.querySelector('svg');
-    return svg?.classList.contains('lucide-x');
-  });
-  if (!button) throw new Error('Close button not found');
-  return button;
+  return screen.getByRole('button', { name: /close/i });
 }
 
 describe('Chat', () => {
@@ -1073,21 +1061,13 @@ describe('Chat', () => {
       renderChat();
 
       // The attached image should trigger a state sync in useEffect
-      // We need to wait for the component to sync with the getAttachedImage result
-      await waitFor(() => {
-        // Look for the remove button (X button on the attached image)
-        const allButtons = screen.getAllByRole('button');
-        const removeButton = allButtons.find((btn) => {
-          const hasXIcon = btn.querySelector('svg.lucide-x') !== null;
-          const isInDestructiveClass = btn.className.includes('bg-destructive');
-          return hasXIcon && isInDestructiveClass;
-        });
-
-        if (removeButton) {
-          fireEvent.click(removeButton);
-          expect(mockSetAttachedImage).toHaveBeenCalledWith(null);
-        }
+      // Wait for the remove button to appear
+      const removeButton = await screen.findByRole('button', {
+        name: /remove attached image/i
       });
+
+      fireEvent.click(removeButton);
+      expect(mockSetAttachedImage).toHaveBeenCalledWith(null);
     });
   });
 
@@ -1119,8 +1099,7 @@ describe('Chat', () => {
         const attachedImg = imgs.find(
           (img) => img.getAttribute('alt') === 'Attached'
         );
-        // Component should have synced
-        expect(attachedImg || mockGetAttachedImage).toBeTruthy();
+        expect(attachedImg).toBeInTheDocument();
       });
     });
   });

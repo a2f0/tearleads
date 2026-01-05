@@ -213,7 +213,12 @@ function PhotoPicker({ onSelect, onClose }: PhotoPickerProps) {
       <div className="max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-lg border bg-background shadow-lg">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <h2 className="font-semibold">Select a Photo</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            aria-label="Close"
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -286,6 +291,7 @@ function Composer({
               type="button"
               onClick={onRemoveImage}
               className="absolute -top-2 -right-2 rounded-full bg-destructive p-1 text-destructive-foreground shadow-sm hover:bg-destructive/90"
+              aria-label="Remove attached image"
             >
               <X className="h-3 w-3" />
             </button>
@@ -294,7 +300,12 @@ function Composer({
       )}
       <div className="flex items-end gap-2">
         {isVisionModel && !attachedImage && (
-          <Button variant="outline" size="icon" onClick={onAttachImage}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onAttachImage}
+            aria-label="Attach image"
+          >
             <ImageIcon className="h-4 w-4" />
           </Button>
         )}
