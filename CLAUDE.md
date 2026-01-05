@@ -45,6 +45,7 @@ Skip issue creation for:
 - Use `any` typings or `as` TypeScript assertions
 - Decrease code coverage thresholds; always write tests for new code
 - Commit binary files (PNG, JPG, ICO, etc.); use SVG or external URLs
+- Add comments that restate what code does; only comment non-obvious logic
 
 ## PR Guidelines
 

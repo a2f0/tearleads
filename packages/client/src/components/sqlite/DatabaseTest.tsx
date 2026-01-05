@@ -83,7 +83,6 @@ export function DatabaseTest() {
     return () => clearTimeout(timerId);
   }, [copied]);
 
-  // Get user-friendly biometric label
   const getBiometricLabel = useCallback(() => {
     switch (biometryType) {
       case 'faceId':

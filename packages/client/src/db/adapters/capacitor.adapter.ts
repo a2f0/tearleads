@@ -142,7 +142,6 @@ export class CapacitorAdapter implements DatabaseAdapter {
       }
     }
 
-    // Set the encryption key as hex string for SQLCipher
     const keyHex = Array.from(config.encryptionKey)
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
@@ -183,7 +182,6 @@ export class CapacitorAdapter implements DatabaseAdapter {
       false // readonly
     );
 
-    // Open the database
     await this.db.open();
 
     // Note: PRAGMA statements are not supported via the plugin's query/execute methods
@@ -336,8 +334,6 @@ export class CapacitorAdapter implements DatabaseAdapter {
       }
     }
 
-    // Delete the database file
-    // Note: deleteDatabase is on CapacitorSQLite, not SQLiteConnection
     try {
       await CapacitorSQLite.deleteDatabase({ database: name });
     } catch (error: unknown) {
@@ -351,7 +347,6 @@ export class CapacitorAdapter implements DatabaseAdapter {
       }
     }
 
-    // Clear the stored encryption secret so a new one can be set
     try {
       await CapacitorSQLite.clearEncryptionSecret();
     } catch (error: unknown) {
@@ -362,7 +357,6 @@ export class CapacitorAdapter implements DatabaseAdapter {
       }
     }
 
-    // Reset the module-level connection to force fresh state
     sqliteConnection = null;
 
     this.db = null;
