@@ -247,30 +247,32 @@ export function Analytics() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-bold text-2xl tracking-tight">Analytics</h1>
+        <h1 className="font-bold text-xl tracking-tight sm:text-2xl">
+          Analytics
+        </h1>
         {isUnlocked && (
           <div className="flex gap-2">
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={handleClear}
               disabled={loading || events.length === 0}
+              aria-label="Clear events"
             >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Clear
+              <Trash2 className="h-4 w-4" />
             </Button>
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={fetchData}
               disabled={loading}
+              aria-label="Refresh"
             >
               <RefreshCw
-                className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+                className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
               />
-              Refresh
             </Button>
           </div>
         )}
@@ -293,12 +295,13 @@ export function Analytics() {
       {isUnlocked && !error && (
         <>
           {/* Time filter */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {(['hour', 'day', 'week', 'all'] as TimeFilter[]).map((filter) => (
               <Button
                 key={filter}
                 variant={timeFilter === filter ? 'default' : 'outline'}
                 size="sm"
+                className="text-xs sm:text-sm"
                 onClick={() => setTimeFilter(filter)}
               >
                 {TIME_FILTER_LABELS[filter]}
@@ -309,12 +312,15 @@ export function Analytics() {
           {/* Event type picker */}
           {eventTypes.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-lg">Event Types</h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-semibold text-base sm:text-lg">
+                  Event Types
+                </h2>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
+                    className="text-xs sm:text-sm"
                     onClick={selectAllEventTypes}
                     disabled={selectedEventTypes.size === eventTypes.length}
                   >
@@ -323,6 +329,7 @@ export function Analytics() {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="text-xs sm:text-sm"
                     onClick={clearAllEventTypes}
                     disabled={selectedEventTypes.size === 0}
                   >
@@ -338,6 +345,7 @@ export function Analytics() {
                       selectedEventTypes.has(eventType) ? 'default' : 'outline'
                     }
                     size="sm"
+                    className="text-xs sm:text-sm"
                     onClick={() => toggleEventType(eventType)}
                   >
                     {formatEventName(eventType)}
@@ -350,20 +358,20 @@ export function Analytics() {
           {/* Stats summary */}
           {filteredStats.length > 0 && (
             <div className="space-y-2">
-              <h2 className="font-semibold text-lg">Summary</h2>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <h2 className="font-semibold text-base sm:text-lg">Summary</h2>
+              <div className="grid gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
                 {filteredStats.map((stat, index) => (
                   <div
                     key={`stat-${index}-${stat.eventName}`}
-                    className="rounded-lg border bg-muted/50 p-4"
+                    className="rounded-lg border bg-muted/50 p-3 sm:p-4"
                   >
                     <div className="flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">
+                      <BarChart3 className="h-3 w-3 text-muted-foreground sm:h-4 sm:w-4" />
+                      <span className="truncate font-medium text-sm sm:text-base">
                         {formatEventName(stat.eventName)}
                       </span>
                     </div>
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                    <div className="mt-2 grid grid-cols-2 gap-1 text-xs sm:gap-2 sm:text-sm">
                       <div>
                         <span className="text-muted-foreground">Count:</span>{' '}
                         {formatCount(stat.count)}
@@ -381,10 +389,8 @@ export function Analytics() {
                         {formatDuration(stat.maxDurationMs)}
                       </div>
                     </div>
-                    <div className="mt-2 text-sm">
-                      <span className="text-muted-foreground">
-                        Success Rate:
-                      </span>{' '}
+                    <div className="mt-2 text-xs sm:text-sm">
+                      <span className="text-muted-foreground">Success:</span>{' '}
                       <span className={getSuccessRateColor(stat.successRate)}>
                         {formatSuccessRate(stat.successRate)}
                       </span>
@@ -404,7 +410,9 @@ export function Analytics() {
 
           {/* Events table */}
           <div className="space-y-2">
-            <h2 className="font-semibold text-lg">Recent Events</h2>
+            <h2 className="font-semibold text-base sm:text-lg">
+              Recent Events
+            </h2>
             {loading && events.length === 0 ? (
               <div className="rounded-lg border p-8 text-center text-muted-foreground">
                 Loading events...
@@ -416,10 +424,10 @@ export function Analytics() {
               </div>
             ) : (
               <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full text-sm">
+                <table className="w-full text-xs sm:text-sm">
                   <thead className="border-b bg-muted/50">
                     <tr>
-                      <th className="px-4 py-3 text-left font-medium">
+                      <th className="px-2 py-2 text-left font-medium sm:px-4 sm:py-3">
                         <button
                           type="button"
                           onClick={() => handleSort('eventName')}
@@ -430,18 +438,19 @@ export function Analytics() {
                           <SortIcon column="eventName" sort={sort} />
                         </button>
                       </th>
-                      <th className="px-4 py-3 text-left font-medium">
+                      <th className="px-2 py-2 text-left font-medium sm:px-4 sm:py-3">
                         <button
                           type="button"
                           onClick={() => handleSort('durationMs')}
                           className="inline-flex items-center gap-1 hover:text-foreground"
                           data-testid="sort-durationMs"
                         >
-                          Duration
+                          <span className="hidden sm:inline">Duration</span>
+                          <span className="sm:hidden">Dur</span>
                           <SortIcon column="durationMs" sort={sort} />
                         </button>
                       </th>
-                      <th className="px-4 py-3 text-left font-medium">
+                      <th className="px-2 py-2 text-left font-medium sm:px-4 sm:py-3">
                         <button
                           type="button"
                           onClick={() => handleSort('success')}
@@ -452,7 +461,7 @@ export function Analytics() {
                           <SortIcon column="success" sort={sort} />
                         </button>
                       </th>
-                      <th className="px-4 py-3 text-left font-medium">
+                      <th className="hidden px-2 py-2 text-left font-medium sm:table-cell sm:px-4 sm:py-3">
                         <button
                           type="button"
                           onClick={() => handleSort('timestamp')}
@@ -468,29 +477,39 @@ export function Analytics() {
                   <tbody>
                     {events.map((event) => (
                       <tr key={event.id} className="border-b last:border-0">
-                        <td className="px-4 py-3 font-medium">
+                        <td className="px-2 py-2 font-medium sm:px-4 sm:py-3">
                           {formatEventName(event.eventName)}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2 sm:px-4 sm:py-3">
                           <span className="inline-flex items-center gap-1">
                             <Clock className="h-3 w-3 text-muted-foreground" />
                             {formatDuration(event.durationMs)}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 py-2 sm:px-4 sm:py-3">
                           {event.success ? (
                             <span className="inline-flex items-center gap-1 text-green-600">
-                              <CheckCircle className="h-4 w-4" />
-                              Success
+                              <CheckCircle
+                                className="h-3 w-3 sm:h-4 sm:w-4"
+                                aria-hidden="true"
+                              />
+                              <span className="sr-only sm:not-sr-only">
+                                Success
+                              </span>
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 text-red-600">
-                              <XCircle className="h-4 w-4" />
-                              Failed
+                              <XCircle
+                                className="h-3 w-3 sm:h-4 sm:w-4"
+                                aria-hidden="true"
+                              />
+                              <span className="sr-only sm:not-sr-only">
+                                Failed
+                              </span>
                             </span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground">
+                        <td className="hidden px-2 py-2 text-muted-foreground sm:table-cell sm:px-4 sm:py-3">
                           {formatTime(event.timestamp)}
                         </td>
                       </tr>

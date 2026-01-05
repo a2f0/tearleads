@@ -362,8 +362,8 @@ describe('Analytics', () => {
         expect(mockGetEvents).toHaveBeenCalledTimes(1);
       });
 
-      // Click refresh button
-      await user.click(screen.getByText('Refresh'));
+      // Click refresh button (icon-only with aria-label)
+      await user.click(screen.getByRole('button', { name: 'Refresh' }));
 
       // Should fetch again
       await waitFor(() => {
@@ -405,8 +405,8 @@ describe('Analytics', () => {
         expect(setupElements.length).toBeGreaterThan(0);
       });
 
-      // Click clear button
-      await user.click(screen.getByText('Clear'));
+      // Click clear button (icon-only with aria-label)
+      await user.click(screen.getByRole('button', { name: 'Clear events' }));
 
       await waitFor(() => {
         expect(mockClearEvents).toHaveBeenCalledTimes(1);
@@ -434,11 +434,13 @@ describe('Analytics', () => {
 
       // Wait for events to load
       await waitFor(() => {
-        expect(screen.getByText('Clear')).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: 'Clear events' })
+        ).toBeInTheDocument();
       });
 
-      // Click clear button
-      await user.click(screen.getByText('Clear'));
+      // Click clear button (icon-only with aria-label)
+      await user.click(screen.getByRole('button', { name: 'Clear events' }));
 
       // Should show error message
       await waitFor(() => {
