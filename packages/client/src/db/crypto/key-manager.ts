@@ -365,19 +365,21 @@ class ElectronKeyStorage implements KeyStorageAdapter {
 /**
  * Capacitor storage adapter for iOS and Android.
  * Uses IndexedDB for salt/KCV (don't need biometric protection).
- * Uses native Keychain/Keystore for session keys (biometric protected).
+ * Uses native Keychain/Keystore for session keys (secure storage).
+ *
+ * Note: iOS Keychain and Android Keystore provide secure storage by default.
+ * We don't require biometric verification for key retrieval during auto-restore
+ * because biometric checks can silently fail during app cold start (plugin not ready).
+ * The Keychain/Keystore security is sufficient for session persistence.
  */
 class CapacitorKeyStorage implements KeyStorageAdapter {
   public instanceId: string;
   // Use IndexedDB for salt and KCV - they don't need biometric protection
   private storage: WebKeyStorage;
-  // Whether to use biometric authentication for session restoration
-  private useBiometric: boolean;
 
-  constructor(instanceId: string, useBiometric = true) {
+  constructor(instanceId: string) {
     this.instanceId = instanceId;
     this.storage = new WebKeyStorage(instanceId);
-    this.useBiometric = useBiometric;
   }
 
   async getSalt(): Promise<Uint8Array | null> {
@@ -435,14 +437,13 @@ class CapacitorKeyStorage implements KeyStorageAdapter {
 
   /**
    * Get the wrapped key from native secure storage.
-   * Optionally requires biometric authentication.
+   * Does not require biometric - the Keychain/Keystore security is sufficient.
+   * Biometric checks can fail silently during cold start when the plugin isn't ready.
    */
   async getWrappedKey(): Promise<Uint8Array | null> {
     try {
       return nativeSecureStorage.retrieveWrappedKey(this.instanceId, {
-        useBiometric: this.useBiometric,
-        biometricTitle: 'Unlock Database',
-        biometricSubtitle: 'Authenticate to restore your session'
+        useBiometric: false
       });
     } catch (error) {
       console.error('Failed to get wrapped key from secure storage:', error);
