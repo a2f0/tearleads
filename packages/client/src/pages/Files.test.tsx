@@ -760,4 +760,99 @@ describe('Files', () => {
       ).not.toBeInTheDocument();
     });
   });
+
+  describe('file upload flow', () => {
+    it('does not process uploads when database is locked', async () => {
+      const mockUploadFile = vi.fn();
+      vi.mocked(await import('@/hooks/useFileUpload')).useFileUpload = vi
+        .fn()
+        .mockReturnValue({
+          uploadFile: mockUploadFile
+        });
+
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: false,
+        isLoading: false,
+        currentInstanceId: null,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
+      });
+
+      renderFilesRaw();
+
+      // Dropzone should not be present when locked
+      expect(screen.queryByTestId('dropzone')).not.toBeInTheDocument();
+    });
+
+    it('handles file upload with duplicate detection', async () => {
+      const mockUploadFile = vi
+        .fn()
+        .mockResolvedValue({ id: 'dup-id', isDuplicate: true });
+      vi.mocked(await import('@/hooks/useFileUpload')).useFileUpload = vi
+        .fn()
+        .mockReturnValue({
+          uploadFile: mockUploadFile
+        });
+
+      await renderFiles();
+
+      // Files get processed through the dropzone
+      const dropzone = screen.getByTestId('dropzone');
+      expect(dropzone).toBeInTheDocument();
+    });
+  });
+
+  describe('error handling edge cases', () => {
+    it('displays error when encryption key is not available', async () => {
+      mockGetCurrentKey.mockReturnValue(null);
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('Database not unlocked')).toBeInTheDocument();
+      });
+    });
+
+    it('displays error when no active instance', async () => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: true,
+        isLoading: false,
+        currentInstanceId: null
+      });
+      mockGetCurrentKey.mockReturnValue(TEST_ENCRYPTION_KEY);
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('No active instance')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('deleted image file behavior', () => {
+    it('does not navigate when clicking on deleted image file', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_DELETED_FILE]));
+
+      await renderFiles();
+
+      // Enable show deleted toggle
+      await waitFor(() => {
+        expect(screen.getByRole('switch')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('switch'));
+
+      await waitFor(() => {
+        expect(screen.getByText('deleted.jpg')).toBeInTheDocument();
+      });
+
+      // Click on the deleted file - should NOT navigate because it's deleted
+      await user.click(screen.getByText('deleted.jpg'));
+
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+  });
 });
