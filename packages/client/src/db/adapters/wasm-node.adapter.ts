@@ -312,7 +312,6 @@ export class WasmNodeAdapter implements DatabaseAdapter {
       ...(params ? { bind: params } : {})
     });
 
-    // Get last insert rowid using SQLite's built-in function
     const lastInsertRowId = Number(
       this.db.exec({
         sql: 'SELECT last_insert_rowid()',
@@ -495,7 +494,6 @@ export class WasmNodeAdapter implements DatabaseAdapter {
     const filename = `import-${Date.now()}-${Math.random().toString(36).slice(2)}.sqlite3`;
 
     try {
-      // Parse the JSON data
       const data = JSON.parse(jsonData) as JsonBackupData;
 
       if (data.version !== 1) {

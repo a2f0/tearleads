@@ -46,7 +46,6 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
     }
   }, []);
 
-  // Get user-friendly biometric label
   const getBiometricLabel = useCallback(() => {
     switch (biometryType) {
       case 'faceId':
