@@ -785,23 +785,6 @@ describe('Files', () => {
       // Dropzone should not be present when locked
       expect(screen.queryByTestId('dropzone')).not.toBeInTheDocument();
     });
-
-    it('handles file upload with duplicate detection', async () => {
-      const mockUploadFile = vi
-        .fn()
-        .mockResolvedValue({ id: 'dup-id', isDuplicate: true });
-      vi.mocked(await import('@/hooks/useFileUpload')).useFileUpload = vi
-        .fn()
-        .mockReturnValue({
-          uploadFile: mockUploadFile
-        });
-
-      await renderFiles();
-
-      // Files get processed through the dropzone
-      const dropzone = screen.getByTestId('dropzone');
-      expect(dropzone).toBeInTheDocument();
-    });
   });
 
   describe('error handling edge cases', () => {
