@@ -326,7 +326,7 @@ describe('Photos', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/Drop images here to add them to your library/)
+          screen.getByText(/Drop photos here to add them to your library/)
         ).toBeInTheDocument();
       });
 
@@ -356,7 +356,7 @@ describe('Photos', () => {
 
       // Should NOT show the empty state message
       expect(
-        screen.queryByText(/Drop images here to add them to your library/)
+        screen.queryByText(/Drop photos here to add them to your library/)
       ).not.toBeInTheDocument();
     });
 

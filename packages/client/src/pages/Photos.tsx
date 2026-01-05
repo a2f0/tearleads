@@ -350,9 +350,10 @@ export function Photos() {
               accept="image/*"
               multiple={true}
               disabled={uploading}
+              label="photos"
             />
             <p className="text-center text-muted-foreground text-sm">
-              Drop images here to add them to your library
+              Drop photos here to add them to your library
             </p>
           </div>
         ) : (
@@ -413,6 +414,7 @@ export function Photos() {
               accept="image/*"
               multiple={true}
               disabled={uploading}
+              label="photos"
               className="flex aspect-square items-center justify-center gap-2 p-0 [&>div]:hidden [&>svg]:h-6 [&>svg]:w-6"
             />
           </div>
