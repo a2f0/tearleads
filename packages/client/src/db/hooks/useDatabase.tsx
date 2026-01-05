@@ -178,27 +178,21 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
           } else {
             // Session restore failed, clear the invalid session
             setHasPersisted(false);
-
-            // Show recovery toast if there was an active session
-            if (hadActiveSession && !hasShownRecoveryToast.current) {
-              hasShownRecoveryToast.current = true;
-              toast.warning(
-                'App reloaded unexpectedly. Please unlock your database to continue.',
-                { duration: 5000 }
-              );
-            }
+            showUnexpectedReloadToast();
           }
-        } else if (
-          setup &&
-          hadActiveSession &&
-          !hasShownRecoveryToast.current
-        ) {
-          // Database is set up but no persisted session, and there was an active session
-          hasShownRecoveryToast.current = true;
-          toast.warning(
-            'App reloaded unexpectedly. Please unlock your database to continue.',
-            { duration: 5000 }
-          );
+        } else if (setup) {
+          showUnexpectedReloadToast();
+        }
+
+        // Helper to show toast for unexpected reloads (DRY)
+        function showUnexpectedReloadToast() {
+          if (hadActiveSession && !hasShownRecoveryToast.current) {
+            hasShownRecoveryToast.current = true;
+            toast.warning(
+              'App reloaded unexpectedly. Please unlock your database to continue.',
+              { duration: 5000 }
+            );
+          }
         }
       } catch (err) {
         setError(toError(err));
