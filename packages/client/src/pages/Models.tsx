@@ -348,8 +348,11 @@ export function Models() {
             LLM inference.
           </p>
           <p className="mt-2 text-muted-foreground text-sm">
-            Please use Chrome 113+, Edge 113+, or another WebGPU-enabled
-            browser.
+            Supported browsers: Chrome 113+, Edge 113+, Firefox 141+, Safari
+            26+.
+          </p>
+          <p className="mt-1 text-muted-foreground text-sm">
+            On mobile: iOS 26+ (Safari) or Android 12+ (Chrome 121+).
           </p>
         </div>
       </div>
