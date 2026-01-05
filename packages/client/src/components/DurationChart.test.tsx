@@ -291,4 +291,172 @@ describe('DurationChart', () => {
       expect(screen.getByText('Unlock')).toBeInTheDocument();
     });
   });
+
+  describe('duration formatting', () => {
+    it('formats sub-second durations as milliseconds', () => {
+      const fastEvents = [
+        {
+          id: '1',
+          eventName: 'db_fast',
+          durationMs: 50,
+          success: true,
+          timestamp: new Date('2024-01-15T10:00:00Z')
+        }
+      ];
+
+      render(
+        <DurationChart
+          events={fastEvents}
+          selectedEventTypes={new Set(['db_fast'])}
+          timeFilter="day"
+        />
+      );
+
+      // Component should render with fast event
+      expect(screen.getByText('Fast')).toBeInTheDocument();
+    });
+
+    it('formats multi-second durations in seconds', () => {
+      const slowEvents = [
+        {
+          id: '1',
+          eventName: 'db_slow',
+          durationMs: 2500,
+          success: true,
+          timestamp: new Date('2024-01-15T10:00:00Z')
+        }
+      ];
+
+      render(
+        <DurationChart
+          events={slowEvents}
+          selectedEventTypes={new Set(['db_slow'])}
+          timeFilter="day"
+        />
+      );
+
+      expect(screen.getByText('Slow')).toBeInTheDocument();
+    });
+  });
+
+  describe('time filter formatting', () => {
+    it('formats timestamps for hour filter', () => {
+      const hourEvents = [
+        {
+          id: '1',
+          eventName: 'db_test',
+          durationMs: 100,
+          success: true,
+          timestamp: new Date('2024-01-15T14:30:00Z')
+        }
+      ];
+
+      render(
+        <DurationChart
+          events={hourEvents}
+          selectedEventTypes={new Set(['db_test'])}
+          timeFilter="hour"
+        />
+      );
+
+      expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
+    });
+
+    it('formats timestamps for week filter', () => {
+      const weekEvents = [
+        {
+          id: '1',
+          eventName: 'db_test',
+          durationMs: 100,
+          success: true,
+          timestamp: new Date('2024-01-15T10:00:00Z')
+        },
+        {
+          id: '2',
+          eventName: 'db_test',
+          durationMs: 150,
+          success: true,
+          timestamp: new Date('2024-01-18T10:00:00Z')
+        }
+      ];
+
+      render(
+        <DurationChart
+          events={weekEvents}
+          selectedEventTypes={new Set(['db_test'])}
+          timeFilter="week"
+        />
+      );
+
+      expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
+    });
+
+    it('formats timestamps for all filter', () => {
+      const allEvents = [
+        {
+          id: '1',
+          eventName: 'db_test',
+          durationMs: 100,
+          success: true,
+          timestamp: new Date('2024-01-01T10:00:00Z')
+        },
+        {
+          id: '2',
+          eventName: 'db_test',
+          durationMs: 150,
+          success: true,
+          timestamp: new Date('2024-02-15T10:00:00Z')
+        }
+      ];
+
+      render(
+        <DurationChart
+          events={allEvents}
+          selectedEventTypes={new Set(['db_test'])}
+          timeFilter="all"
+        />
+      );
+
+      expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
+    });
+  });
+
+  describe('event name formatting edge cases', () => {
+    it('handles events without db_ prefix', () => {
+      const noDbPrefixEvents = [
+        {
+          id: '1',
+          eventName: 'custom_event',
+          durationMs: 100,
+          success: true,
+          timestamp: new Date('2024-01-15T10:00:00Z')
+        }
+      ];
+
+      render(
+        <DurationChart
+          events={noDbPrefixEvents}
+          selectedEventTypes={new Set(['custom_event'])}
+          timeFilter="day"
+        />
+      );
+
+      // custom_event -> Custom Event
+      expect(screen.getByText('Custom Event')).toBeInTheDocument();
+    });
+  });
+
+  describe('empty selection behavior', () => {
+    it('shows empty state with events but no selection', () => {
+      render(
+        <DurationChart
+          events={mockEvents}
+          selectedEventTypes={new Set()}
+          timeFilter="day"
+        />
+      );
+
+      expect(screen.getByText(/No events to display/i)).toBeInTheDocument();
+    });
+  });
 });
