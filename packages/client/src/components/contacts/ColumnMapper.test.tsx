@@ -338,4 +338,121 @@ describe('ColumnMapper', () => {
       expect(valuePlaceholders.length).toBeGreaterThan(0);
     });
   });
+
+  describe('remove mapping functionality', () => {
+    it('renders remove buttons for mapped columns', () => {
+      const googleData = createMockCSVData(
+        ['First Name', 'Last Name'],
+        [['John', 'Doe']]
+      );
+      render(<ColumnMapper {...defaultProps} data={googleData} />);
+
+      // Find the Contact Fields section which contains the mapped fields
+      const contactFieldsSection =
+        screen.getByText('Contact Fields').parentElement;
+
+      // Look for X buttons (SVG icons inside buttons) in the drop zones
+      const xButtons = contactFieldsSection?.querySelectorAll('button svg');
+      // First Name and Last Name are auto-mapped, so there should be 2 X buttons
+      expect(xButtons?.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('can remove a mapped column by clicking X button', async () => {
+      const user = userEvent.setup();
+      const googleData = createMockCSVData(
+        ['First Name', 'Last Name'],
+        [['John', 'Doe']]
+      );
+      render(<ColumnMapper {...defaultProps} data={googleData} />);
+
+      // Find the Contact Fields section which contains the mapped fields
+      const contactFieldsSection =
+        screen.getByText('Contact Fields').parentElement;
+
+      // Look for X buttons (SVG icons inside buttons) in the drop zones
+      const xButtons = contactFieldsSection?.querySelectorAll('button svg');
+      expect(xButtons?.length).toBeGreaterThanOrEqual(2);
+
+      // Click the first X button to remove the First Name mapping
+      if (xButtons?.[0]) {
+        await user.click(xButtons[0].parentElement as HTMLElement);
+      }
+
+      // Import button should be disabled after removing First Name mapping
+      const importButton = screen.getByRole('button', { name: /import/i });
+      expect(importButton).toBeDisabled();
+    });
+  });
+
+  describe('preview table with empty values', () => {
+    it('displays dash for empty cell values', () => {
+      const data = createMockCSVData(
+        ['First Name', 'Last Name'],
+        [['John', '']]
+      );
+      render(<ColumnMapper {...defaultProps} data={data} />);
+
+      const table = screen.getByRole('table');
+      // The empty Last Name should show as '-'
+      expect(within(table).getByText('John')).toBeInTheDocument();
+      // Find all dashes in the table
+      const cells = within(table).getAllByRole('cell');
+      const dashCell = cells.find((cell) => cell.textContent === '-');
+      expect(dashCell).toBeDefined();
+    });
+  });
+
+  describe('Email 2 and Phone 3 mappings', () => {
+    it('auto-maps Email 2 columns', () => {
+      const googleData = createMockCSVData([
+        'First Name',
+        'E-mail 2 - Label',
+        'E-mail 2 - Value'
+      ]);
+      render(<ColumnMapper {...defaultProps} data={googleData} />);
+
+      // All 3 columns should be mapped and disabled
+      const csvColumnsSection = screen.getByText('CSV Columns').parentElement;
+      const disabledColumns = csvColumnsSection?.querySelectorAll(
+        '.cursor-not-allowed'
+      );
+      expect(disabledColumns?.length).toBe(3);
+    });
+
+    it('auto-maps Phone 3 columns', () => {
+      const googleData = createMockCSVData([
+        'First Name',
+        'Phone 3 - Label',
+        'Phone 3 - Value'
+      ]);
+      render(<ColumnMapper {...defaultProps} data={googleData} />);
+
+      // All 3 columns should be mapped and disabled
+      const csvColumnsSection = screen.getByText('CSV Columns').parentElement;
+      const disabledColumns = csvColumnsSection?.querySelectorAll(
+        '.cursor-not-allowed'
+      );
+      expect(disabledColumns?.length).toBe(3);
+    });
+  });
+
+  describe('edge cases', () => {
+    it('handles CSV with no matching Google Contacts headers', () => {
+      const data = createMockCSVData(['Random Column', 'Another Column']);
+      render(<ColumnMapper {...defaultProps} data={data} />);
+
+      // Import should be disabled as nothing is mapped
+      const importButton = screen.getByRole('button', { name: /import/i });
+      expect(importButton).toBeDisabled();
+    });
+
+    it('handles single row preview', () => {
+      const data = createMockCSVData(['First Name'], [['OnlyRow']]);
+      render(<ColumnMapper {...defaultProps} data={data} />);
+
+      const table = screen.getByRole('table');
+      expect(within(table).getByText('OnlyRow')).toBeInTheDocument();
+      expect(screen.getByText('1 total rows')).toBeInTheDocument();
+    });
+  });
 });
