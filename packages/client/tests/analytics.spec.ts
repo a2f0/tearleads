@@ -2,6 +2,7 @@ import { test, expect, type Page, type ConsoleMessage } from '@playwright/test';
 
 const TEST_PASSWORD = 'testpassword123';
 const DB_OPERATION_TIMEOUT = 15000;
+const PAGE_LOAD_TIMEOUT = 5000;
 
 // Helper to wait for successful database operation
 const waitForSuccess = (page: Page) =>
@@ -83,7 +84,7 @@ test.describe('Analytics page', () => {
       page
         .getByText('No events recorded yet')
         .or(page.getByText('Recent Events'))
-    ).toBeVisible({ timeout: 10000 });
+    ).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // Time filter buttons should be visible
     await expect(page.getByRole('button', { name: 'Last Hour' })).toBeVisible();
@@ -214,7 +215,7 @@ test.describe('Analytics page', () => {
       page
         .getByText('No events recorded yet')
         .or(page.getByText('Recent Events'))
-    ).toBeVisible({ timeout: 10000 });
+    ).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // Should show Recent Events section (db operations should have generated events)
     await expect(page.getByText('Recent Events')).toBeVisible({ timeout: 5000 });
@@ -244,17 +245,12 @@ test.describe('Analytics page', () => {
       page
         .getByText('No events recorded yet')
         .or(page.getByText('Recent Events'))
-    ).toBeVisible({ timeout: 10000 });
+    ).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // Helper to click a time filter and wait for loading to complete
     const clickTimeFilter = async (name: string) => {
       await page.getByRole('button', { name }).click();
-      // Wait for loading spinner to appear and disappear
-      const spinner = page.locator('svg.animate-spin');
-      await expect(spinner).toBeVisible({ timeout: 5000 }).catch(() => {
-        // Spinner may be too fast to catch, which is fine
-      });
-      await expect(spinner).not.toBeVisible({ timeout: 10000 });
+      await page.waitForLoadState('networkidle', { timeout: PAGE_LOAD_TIMEOUT });
     };
 
     // Click through different time filters
@@ -294,7 +290,7 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for initial data to load
-    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // Click refresh multiple times rapidly to test stability
     const refreshButton = page.getByRole('button', { name: 'Refresh' });
@@ -305,7 +301,7 @@ test.describe('Analytics page', () => {
     await refreshButton.click();
 
     // Wait for loading to complete (spinner disappears)
-    await expect(spinner).not.toBeVisible({ timeout: 10000 });
+    await expect(spinner).not.toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     expect(
       consoleErrors,
@@ -324,7 +320,7 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for events to load
-    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // Clear events
     const clearButton = page.getByRole('button', { name: 'Clear events' });
@@ -391,7 +387,7 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for events to load
-    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // The event names should be formatted (e.g., "db_write" -> "Write")
     // At least one formatted event name should be visible
@@ -421,7 +417,7 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for events table to load
-    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
     const eventTable = page.locator('table');
     await expect(eventTable).toBeVisible({ timeout: 5000 });
 
@@ -498,7 +494,7 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for data to load
-    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // Check that the page content doesn't overflow horizontally
     const scrollWidth = await page.evaluate(() => document.body.scrollWidth);
