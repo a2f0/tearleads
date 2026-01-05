@@ -19,7 +19,6 @@ import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
-import { THUMBNAIL_DISPLAY_SIZE } from '@/lib/thumbnail';
 import {
   getFileStorage,
   initializeFileStorage,
@@ -272,11 +271,6 @@ export function Photos() {
     [navigate]
   );
 
-  const thumbnailStyle = {
-    width: THUMBNAIL_DISPLAY_SIZE,
-    height: THUMBNAIL_DISPLAY_SIZE
-  };
-
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, photo: PhotoWithUrl) => {
       e.preventDefault();
@@ -362,7 +356,10 @@ export function Photos() {
             </p>
           </div>
         ) : (
-          <div className="flex flex-wrap gap-4">
+          <div
+            className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
+            data-testid="photos-grid"
+          >
             {photos.map((photo) => (
               // biome-ignore lint/a11y/useSemanticElements: Cannot use button here because this container has nested Download/Share buttons
               <div
@@ -377,8 +374,7 @@ export function Photos() {
                   }
                 }}
                 onContextMenu={(e) => handleContextMenu(e, photo)}
-                className="group relative cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
-                style={thumbnailStyle}
+                className="group relative aspect-square cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
               >
                 <img
                   src={photo.objectUrl}
@@ -417,8 +413,7 @@ export function Photos() {
               accept="image/*"
               multiple={true}
               disabled={uploading}
-              className="flex items-center justify-center gap-2 p-0 [&>div]:hidden [&>svg]:h-6 [&>svg]:w-6"
-              style={thumbnailStyle}
+              className="flex aspect-square items-center justify-center gap-2 p-0 [&>div]:hidden [&>svg]:h-6 [&>svg]:w-6"
             />
           </div>
         ))}
