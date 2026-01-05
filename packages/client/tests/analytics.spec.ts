@@ -244,17 +244,12 @@ test.describe('Analytics page', () => {
       page
         .getByText('No events recorded yet')
         .or(page.getByText('Recent Events'))
-    ).toBeVisible({ timeout: 10000 });
+    ).toBeVisible({ timeout: 5000 });
 
     // Helper to click a time filter and wait for loading to complete
     const clickTimeFilter = async (name: string) => {
       await page.getByRole('button', { name }).click();
-      // Wait for loading spinner to appear and disappear
-      const spinner = page.locator('svg.animate-spin');
-      await expect(spinner).toBeVisible({ timeout: 5000 }).catch(() => {
-        // Spinner may be too fast to catch, which is fine
-      });
-      await expect(spinner).not.toBeVisible({ timeout: 10000 });
+      await page.waitForLoadState('networkidle', { timeout: 5000 });
     };
 
     // Click through different time filters
