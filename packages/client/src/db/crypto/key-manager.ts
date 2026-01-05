@@ -74,6 +74,8 @@ interface KeyStorageAdapter {
   getWrappedKey(): Promise<Uint8Array | null>;
   setWrappedKey(wrappedKey: Uint8Array): Promise<void>;
   clearSession(): Promise<void>;
+  // Check session key existence without triggering biometric (for status display)
+  hasSessionKeys(): Promise<{ wrappingKey: boolean; wrappedKey: boolean }>;
 }
 
 /**
@@ -212,6 +214,18 @@ class WebKeyStorage implements KeyStorageAdapter {
       this.deleteKey(this.wrappedKeyKey)
     ]);
   }
+
+  async hasSessionKeys(): Promise<{
+    wrappingKey: boolean;
+    wrappedKey: boolean;
+  }> {
+    const wrappingKey = await this.get<CryptoKey>(this.wrappingKeyKey);
+    const wrappedKey = await this.get<number[]>(this.wrappedKeyKey);
+    return {
+      wrappingKey: wrappingKey !== null,
+      wrappedKey: wrappedKey !== null
+    };
+  }
 }
 
 /**
@@ -331,6 +345,21 @@ class ElectronKeyStorage implements KeyStorageAdapter {
       await api.clearSession(this.instanceId);
     }
   }
+
+  /**
+   * Check if session keys exist via hasSession IPC.
+   */
+  async hasSessionKeys(): Promise<{
+    wrappingKey: boolean;
+    wrappedKey: boolean;
+  }> {
+    const api = this.getApi();
+    if (!api?.hasSession) {
+      return { wrappingKey: false, wrappedKey: false };
+    }
+    const hasSession = await api.hasSession(this.instanceId);
+    return { wrappingKey: hasSession, wrappedKey: hasSession };
+  }
 }
 
 /**
@@ -439,6 +468,21 @@ class CapacitorKeyStorage implements KeyStorageAdapter {
    */
   async clearSession(): Promise<void> {
     await nativeSecureStorage.clearSession(this.instanceId);
+  }
+
+  /**
+   * Check if session keys exist without triggering biometric.
+   */
+  async hasSessionKeys(): Promise<{
+    wrappingKey: boolean;
+    wrappedKey: boolean;
+  }> {
+    const hasSession = await nativeSecureStorage.hasSession(this.instanceId);
+    // If hasSession returns true, both wrapping and wrapped keys exist
+    return {
+      wrappingKey: hasSession,
+      wrappedKey: hasSession
+    };
   }
 }
 
@@ -780,4 +824,50 @@ export async function isBiometricAvailable(): Promise<nativeSecureStorage.Biomet
     return { isAvailable: false };
   }
   return nativeSecureStorage.isBiometricAvailable();
+}
+
+/**
+ * Key status for an instance (existence only, no values).
+ */
+export interface KeyStatus {
+  salt: boolean;
+  keyCheckValue: boolean;
+  wrappingKey: boolean;
+  wrappedKey: boolean;
+}
+
+/**
+ * Check which keys exist for an instance without unlocking.
+ * Safe to call without authentication - only returns boolean existence.
+ * Uses the platform-aware storage adapter for cross-platform compatibility.
+ */
+export async function getKeyStatusForInstance(
+  instanceId: string
+): Promise<KeyStatus> {
+  const storage = await getStorageAdapter(instanceId);
+
+  const [salt, keyCheckValue, sessionKeys] = await Promise.all([
+    storage.getSalt(),
+    storage.getKeyCheckValue(),
+    storage.hasSessionKeys()
+  ]);
+
+  return {
+    salt: salt !== null,
+    keyCheckValue: keyCheckValue !== null,
+    wrappingKey: sessionKeys.wrappingKey,
+    wrappedKey: sessionKeys.wrappedKey
+  };
+}
+
+/**
+ * Delete only session keys (wrapping key + wrapped key) for an instance.
+ * This ends the session but preserves the database encryption setup.
+ * Uses the platform-aware storage adapter for cross-platform compatibility.
+ */
+export async function deleteSessionKeysForInstance(
+  instanceId: string
+): Promise<void> {
+  const storage = await getStorageAdapter(instanceId);
+  await storage.clearSession();
 }
