@@ -29,6 +29,12 @@ describe('Dropzone', () => {
       expect(screen.getByText('or click to browse')).toBeInTheDocument();
     });
 
+    it('uses custom label in drag and drop text', () => {
+      render(<Dropzone onFilesSelected={mockOnFilesSelected} label="photos" />);
+
+      expect(screen.getByText('Drag and drop photos here')).toBeInTheDocument();
+    });
+
     it('has the correct data-testid', () => {
       render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
 
@@ -161,6 +167,12 @@ describe('Dropzone', () => {
 
       expect(screen.getByTestId('dropzone-choose-files')).toBeInTheDocument();
       expect(screen.getByText('Choose Files')).toBeInTheDocument();
+    });
+
+    it('uses custom label in button text with capitalized first letter', () => {
+      render(<Dropzone onFilesSelected={mockOnFilesSelected} label="photos" />);
+
+      expect(screen.getByText('Choose Photos')).toBeInTheDocument();
     });
 
     it('does not show drag and drop text', () => {
