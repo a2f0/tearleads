@@ -8,7 +8,7 @@ import {
   Trash2,
   X
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   deleteSessionKeysForInstance,
@@ -124,7 +124,6 @@ export function Keychain() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const isMountedRef = useRef(true);
 
   const fetchKeychainData = useCallback(async () => {
     setLoading(true);
@@ -140,30 +139,19 @@ export function Keychain() {
 
       const infos = await Promise.all(keyInfoPromises);
 
-      if (isMountedRef.current) {
-        setInstanceKeyInfos(infos);
-        // Expand all by default
-        setExpandedIds(new Set(infos.map((i) => i.instance.id)));
-      }
+      setInstanceKeyInfos(infos);
+      // Expand all by default
+      setExpandedIds(new Set(infos.map((i) => i.instance.id)));
     } catch (err) {
       console.error('Failed to fetch keychain data:', err);
-      if (isMountedRef.current) {
-        setError(err instanceof Error ? err.message : String(err));
-      }
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      if (isMountedRef.current) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    isMountedRef.current = true;
     fetchKeychainData();
-
-    return () => {
-      isMountedRef.current = false;
-    };
   }, [fetchKeychainData]);
 
   const handleDeleteSessionKeys = async (instanceId: string) => {
