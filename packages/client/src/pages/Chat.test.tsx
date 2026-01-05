@@ -21,7 +21,8 @@ vi.mock('@/hooks/useLLM', () => ({
     unloadModel: vi.fn(),
     generate: vi.fn(),
     abort: vi.fn(),
-    isWebGPUSupported: vi.fn().mockResolvedValue(true)
+    isWebGPUSupported: vi.fn().mockResolvedValue(true),
+    previouslyLoadedModel: null
   }))
 }));
 
@@ -245,7 +246,8 @@ describe('Chat', () => {
         unloadModel: vi.fn(),
         generate: vi.fn(),
         abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+        isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        previouslyLoadedModel: null
       });
     });
 
@@ -286,7 +288,8 @@ describe('Chat', () => {
         unloadModel: vi.fn(),
         generate: vi.fn(),
         abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+        isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        previouslyLoadedModel: null
       });
     });
 
@@ -341,7 +344,8 @@ describe('Chat', () => {
           unloadModel: vi.fn(),
           generate: vi.fn(),
           abort: vi.fn(),
-          isWebGPUSupported: vi.fn().mockResolvedValue(true)
+          isWebGPUSupported: vi.fn().mockResolvedValue(true),
+          previouslyLoadedModel: null
         });
 
         renderChat();
@@ -363,7 +367,8 @@ describe('Chat', () => {
         unloadModel: vi.fn(),
         generate: vi.fn(),
         abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+        isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        previouslyLoadedModel: null
       });
     });
 
@@ -392,7 +397,8 @@ describe('Chat', () => {
         unloadModel: vi.fn(),
         generate: vi.fn(),
         abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+        isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        previouslyLoadedModel: null
       });
       renderChat();
     });
@@ -432,7 +438,8 @@ describe('Chat', () => {
         unloadModel: vi.fn(),
         generate: vi.fn(),
         abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+        isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        previouslyLoadedModel: null
       });
     });
 
@@ -473,7 +480,8 @@ describe('Chat', () => {
         unloadModel: vi.fn(),
         generate: vi.fn(),
         abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+        isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        previouslyLoadedModel: null
       });
     });
 
@@ -497,7 +505,8 @@ describe('Chat', () => {
         unloadModel: vi.fn(),
         generate: vi.fn(),
         abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+        isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        previouslyLoadedModel: null
       });
 
       renderChat();
@@ -517,7 +526,8 @@ describe('Chat', () => {
         unloadModel: vi.fn(),
         generate: vi.fn(),
         abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+        isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        previouslyLoadedModel: null
       });
 
       renderChat();
@@ -536,7 +546,8 @@ describe('Chat', () => {
         unloadModel: vi.fn(),
         generate: vi.fn(),
         abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+        isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        previouslyLoadedModel: null
       });
 
       renderChat();
@@ -557,7 +568,8 @@ describe('Chat', () => {
         unloadModel: vi.fn(),
         generate: vi.fn(),
         abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+        isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        previouslyLoadedModel: null
       });
 
       renderChat();
@@ -578,7 +590,8 @@ describe('Chat', () => {
         unloadModel: vi.fn(),
         generate: vi.fn(),
         abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+        isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        previouslyLoadedModel: null
       });
     });
 
@@ -602,7 +615,8 @@ describe('Chat', () => {
         unloadModel: vi.fn(),
         generate: vi.fn(),
         abort: vi.fn(),
-        isWebGPUSupported: vi.fn().mockResolvedValue(true)
+        isWebGPUSupported: vi.fn().mockResolvedValue(true),
+        previouslyLoadedModel: null
       });
     });
 

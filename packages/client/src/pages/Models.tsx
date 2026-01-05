@@ -7,6 +7,7 @@ import {
   Eye,
   Loader2,
   Play,
+  RefreshCw,
   Square
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -289,7 +290,8 @@ export function Models() {
     error,
     loadModel,
     unloadModel,
-    isWebGPUSupported
+    isWebGPUSupported,
+    previouslyLoadedModel
   } = useLLM();
 
   const [webGPUSupported, setWebGPUSupported] = useState<boolean | null>(null);
@@ -373,6 +375,28 @@ export function Models() {
       {error && (
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
           {error}
+        </div>
+      )}
+
+      {previouslyLoadedModel && !loadedModel && !loadingModelId && (
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="h-5 w-5 text-blue-500" />
+              <div>
+                <p className="font-medium text-sm">
+                  Model was unloaded after app reload
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Your previously loaded model can be reloaded
+                </p>
+              </div>
+            </div>
+            <Button size="sm" onClick={() => handleLoad(previouslyLoadedModel)}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reload Model
+            </Button>
+          </div>
         </div>
       )}
 
