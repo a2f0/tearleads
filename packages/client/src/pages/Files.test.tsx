@@ -741,9 +741,9 @@ describe('Files', () => {
   });
 
   describe('recently uploaded badge', () => {
-    it('can dismiss the success badge', async () => {
-      // This test verifies the clearRecentlyUploaded callback works
-      // by simulating the state and clicking the badge
+    it('does not show success badge for existing files', async () => {
+      // Success badge only appears for newly uploaded files tracked in recentlyUploadedIds
+      // Existing files in the database don't have this badge
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
       );
@@ -754,7 +754,7 @@ describe('Files', () => {
         expect(screen.getByText('photo.jpg')).toBeInTheDocument();
       });
 
-      // Initially no success badge
+      // Existing files don't have the success badge
       expect(
         screen.queryByTestId('upload-success-badge')
       ).not.toBeInTheDocument();
