@@ -18,10 +18,11 @@ interface ChatMessage {
 type WorkerRequest =
   | { type: 'load'; modelId: string }
   | { type: 'generate'; messages: ChatMessage[]; image?: string }
+  | { type: 'classify'; image: string; candidateLabels: string[] }
   | { type: 'unload' }
   | { type: 'abort' };
 
-type ModelType = 'chat' | 'vision' | 'paligemma';
+type ModelType = 'chat' | 'vision' | 'paligemma' | 'clip';
 
 type WorkerResponse =
   | { type: 'progress'; file: string; progress: number; total: number }
@@ -33,6 +34,12 @@ type WorkerResponse =
     }
   | { type: 'token'; text: string }
   | { type: 'done'; durationMs: number; promptType: 'text' | 'multimodal' }
+  | {
+      type: 'classification';
+      labels: string[];
+      scores: number[];
+      durationMs: number;
+    }
   | { type: 'error'; message: string }
   | { type: 'unloaded' };
 
@@ -41,12 +48,18 @@ export interface LoadProgress {
   progress: number;
 }
 
+export interface ClassificationResult {
+  labels: string[];
+  scores: number[];
+}
+
 export interface LLMState {
   loadedModel: string | null;
   modelType: ModelType | null;
   isLoading: boolean;
   loadProgress: LoadProgress | null;
   error: string | null;
+  isClassifying: boolean;
 }
 
 export type GenerateCallback = (text: string) => void;
@@ -59,6 +72,10 @@ export interface UseLLMReturn extends LLMState {
     onToken: GenerateCallback,
     image?: string
   ) => Promise<void>;
+  classify: (
+    image: string,
+    candidateLabels: string[]
+  ) => Promise<ClassificationResult>;
   abort: () => void;
   isWebGPUSupported: () => Promise<boolean>;
   /** Model ID that was loaded before page reload (if any) */
@@ -71,7 +88,8 @@ const store: LLMState = {
   modelType: null,
   isLoading: false,
   loadProgress: null,
-  error: null
+  error: null,
+  isClassifying: false
 };
 
 // Immutable snapshot for React - recreated on each state change
@@ -128,6 +146,11 @@ let worker: Worker | null = null;
 let currentTokenCallback: GenerateCallback | null = null;
 let currentGenerateResolve: (() => void) | null = null;
 let currentGenerateReject: ((error: Error) => void) | null = null;
+
+// Callbacks for classification
+let currentClassifyResolve: ((result: ClassificationResult) => void) | null =
+  null;
+let currentClassifyReject: ((error: Error) => void) | null = null;
 
 // Promise for load operation
 let loadResolve: (() => void) | null = null;
@@ -204,9 +227,28 @@ function getWorker(): Worker {
           break;
         }
 
+        case 'classification': {
+          store.isClassifying = false;
+          emitChange();
+
+          // Log analytics for classification
+          logLLMAnalytics('llm_classify_image', response.durationMs, true);
+
+          if (currentClassifyResolve) {
+            currentClassifyResolve({
+              labels: response.labels,
+              scores: response.scores
+            });
+            currentClassifyResolve = null;
+            currentClassifyReject = null;
+          }
+          break;
+        }
+
         case 'error': {
           store.error = response.message;
           store.isLoading = false;
+          store.isClassifying = false;
           store.loadProgress = null;
           loadingModelId = null;
           emitChange();
@@ -222,6 +264,12 @@ function getWorker(): Worker {
             currentGenerateResolve = null;
             currentGenerateReject = null;
             currentTokenCallback = null;
+          }
+
+          if (currentClassifyReject) {
+            currentClassifyReject(new Error(response.message));
+            currentClassifyResolve = null;
+            currentClassifyReject = null;
           }
           break;
         }
@@ -244,6 +292,7 @@ function getWorker(): Worker {
       const errorMessage = `Worker error: ${error.message}`;
       store.error = errorMessage;
       store.isLoading = false;
+      store.isClassifying = false;
       store.loadProgress = null;
       loadingModelId = null;
       emitChange();
@@ -264,6 +313,12 @@ function getWorker(): Worker {
         currentGenerateResolve = null;
         currentGenerateReject = null;
         currentTokenCallback = null;
+      }
+
+      if (currentClassifyReject) {
+        currentClassifyReject(new Error(errorMessage));
+        currentClassifyResolve = null;
+        currentClassifyReject = null;
       }
     };
   }
@@ -342,6 +397,29 @@ function abortInternal(): void {
   sendRequest({ type: 'abort' });
 }
 
+async function classifyInternal(
+  image: string,
+  candidateLabels: string[]
+): Promise<ClassificationResult> {
+  if (!store.loadedModel) {
+    throw new Error('No model loaded');
+  }
+
+  if (store.modelType !== 'clip') {
+    throw new Error('Loaded model is not a CLIP model');
+  }
+
+  store.isClassifying = true;
+  store.error = null;
+  emitChange();
+
+  return new Promise<ClassificationResult>((resolve, reject) => {
+    currentClassifyResolve = resolve;
+    currentClassifyReject = reject;
+    sendRequest({ type: 'classify', image, candidateLabels });
+  });
+}
+
 export function useLLM(): UseLLMReturn {
   const state = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
@@ -360,6 +438,16 @@ export function useLLM(): UseLLMReturn {
       image?: string
     ) => {
       await generateInternal(messages, onToken, image);
+    },
+    []
+  );
+
+  const classify = useCallback(
+    async (
+      image: string,
+      candidateLabels: string[]
+    ): Promise<ClassificationResult> => {
+      return classifyInternal(image, candidateLabels);
     },
     []
   );
@@ -385,6 +473,7 @@ export function useLLM(): UseLLMReturn {
       loadModel,
       unloadModel,
       generate,
+      classify,
       abort,
       isWebGPUSupported,
       previouslyLoadedModel
@@ -394,6 +483,7 @@ export function useLLM(): UseLLMReturn {
       loadModel,
       unloadModel,
       generate,
+      classify,
       abort,
       isWebGPUSupported,
       previouslyLoadedModel

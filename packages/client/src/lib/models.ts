@@ -4,7 +4,18 @@ export interface ModelInfo {
   size: string;
   description: string;
   isVision?: boolean;
+  isClassification?: boolean;
 }
+
+export const DOCUMENT_LABELS = [
+  'passport',
+  'drivers license',
+  'identity card',
+  'credit card',
+  'bank statement',
+  'utility bill',
+  'other document'
+];
 
 export const RECOMMENDED_MODELS: ModelInfo[] = [
   {
@@ -26,5 +37,12 @@ export const RECOMMENDED_MODELS: ModelInfo[] = [
     size: '~3GB',
     description: 'Google vision model for detailed captions',
     isVision: true
+  },
+  {
+    id: 'Xenova/clip-vit-base-patch32',
+    name: 'CLIP ViT-B/32',
+    size: '~350MB',
+    description: 'Zero-shot image classification for documents',
+    isClassification: true
   }
 ];
