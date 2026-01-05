@@ -327,7 +327,7 @@ test.describe('Analytics page', () => {
     await expect(page.getByText('Recent Events')).toBeVisible({ timeout: 10000 });
 
     // Clear events
-    const clearButton = page.getByRole('button', { name: 'Clear', exact: true });
+    const clearButton = page.getByRole('button', { name: 'Clear events' });
     await expect(clearButton).toBeEnabled({ timeout: 5000 });
     await clearButton.click();
 
@@ -454,5 +454,64 @@ test.describe('Analytics page', () => {
     await expect(eventTable.getByText('Success').first()).toBeVisible({
       timeout: 5000
     });
+  });
+
+  /**
+   * Regression test for mobile responsive layout.
+   * Ensures the analytics page does not have horizontal scroll on mobile devices.
+   */
+  test('should not have horizontal scroll on mobile viewport', async ({
+    page
+  }) => {
+    // Set viewport to iPhone SE dimensions (smallest common mobile viewport)
+    await page.setViewportSize({ width: 375, height: 667 });
+
+    await page.goto('/');
+
+    // On mobile, use the mobile menu instead of sidebar
+    const mobileMenuButton = page.getByTestId('mobile-menu-button');
+
+    // Navigate to SQLite via mobile menu
+    await mobileMenuButton.click();
+    await page.getByTestId('sqlite-link').click();
+    await expect(page.getByTestId('database-test')).toBeVisible();
+
+    // Reset and setup database
+    await page.getByTestId('db-reset-button').click();
+    await waitForSuccess(page);
+    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Generate some analytics events for a more realistic test
+    await page.getByTestId('db-write-button').click();
+    await waitForSuccess(page);
+    await page.getByTestId('db-read-button').click();
+    await waitForSuccess(page);
+
+    // Navigate to Analytics via mobile menu
+    await mobileMenuButton.click();
+    await page.getByTestId('analytics-link').click();
+    await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
+
+    // Wait for data to load
+    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: 10000 });
+
+    // Check that the page content doesn't overflow horizontally
+    const scrollWidth = await page.evaluate(() => document.body.scrollWidth);
+    const clientWidth = await page.evaluate(() => document.body.clientWidth);
+
+    // scrollWidth should equal clientWidth (no horizontal overflow)
+    expect(
+      scrollWidth,
+      `Horizontal scroll detected: scrollWidth (${scrollWidth}) > clientWidth (${clientWidth})`
+    ).toBeLessThanOrEqual(clientWidth);
+
+    // Verify key UI elements are still visible and usable
+    await expect(page.getByRole('button', { name: 'Last Hour' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Refresh' })).toBeVisible();
+    await expect(page.getByText('Duration Over Time')).toBeVisible();
   });
 });
