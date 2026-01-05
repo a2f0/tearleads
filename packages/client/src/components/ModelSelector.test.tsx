@@ -10,6 +10,7 @@ import { useLLM } from '@/hooks/useLLM';
 const mockLoadModel = vi.fn();
 const mockUnloadModel = vi.fn();
 const mockGenerate = vi.fn();
+const mockClassify = vi.fn();
 const mockAbort = vi.fn();
 const mockIsWebGPUSupported = vi.fn().mockResolvedValue(true);
 
@@ -19,9 +20,11 @@ const defaultMockReturn = {
   isLoading: false,
   loadProgress: null,
   error: null,
+  isClassifying: false,
   loadModel: mockLoadModel,
   unloadModel: mockUnloadModel,
   generate: mockGenerate,
+  classify: mockClassify,
   abort: mockAbort,
   isWebGPUSupported: mockIsWebGPUSupported,
   previouslyLoadedModel: null
