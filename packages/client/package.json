@@ -61,7 +61,8 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-router-dom": "7.11.0",
-    "recharts": "3.6.0"
+    "recharts": "3.6.0",
+    "sonner": "2.0.7"
   },
   "devDependencies": {
     "@capacitor/android": "8.0.0",
