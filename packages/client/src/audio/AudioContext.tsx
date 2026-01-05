@@ -78,7 +78,6 @@ export function AudioProvider({ children }: AudioProviderProps) {
         cleanupPreviousUrl();
       }
 
-      // Store the new URL for future cleanup
       previousUrlRef.current = track.objectUrl;
 
       setCurrentTrack(track);

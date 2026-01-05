@@ -171,7 +171,6 @@ class CapacitorStorage implements FileStorage {
     this.Filesystem = Filesystem;
     this.Directory = Directory;
 
-    // Create the files directory if it doesn't exist
     try {
       await this.Filesystem.mkdir({
         path: this.filesDirectory,
@@ -425,10 +424,8 @@ export function clearFileStorageInstance(): void {
 export async function deleteFileStorageForInstance(
   instanceId: string
 ): Promise<void> {
-  // Clear the storage instance first
   clearFileStorageForInstance(instanceId);
 
-  // Delete the directory from OPFS
   if (!('storage' in navigator) || !navigator.storage.getDirectory) {
     return; // OPFS not supported
   }
