@@ -35,17 +35,20 @@ interface CustomDotProps {
   fill?: string;
 }
 
-function CustomDot({ cx, cy, fill }: CustomDotProps) {
+/** @internal Exported for testing */
+export function CustomDot({ cx, cy, fill }: CustomDotProps) {
   if (cx === undefined || cy === undefined) return null;
   return <circle cx={cx} cy={cy} r={SCATTER_DOT_RADIUS} fill={fill} />;
 }
 
-function formatDuration(ms: number): string {
+/** @internal Exported for testing */
+export function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
 }
 
-function formatXAxisTick(timestamp: number, timeFilter: string): string {
+/** @internal Exported for testing */
+export function formatXAxisTick(timestamp: number, timeFilter: string): string {
   const date = new Date(timestamp);
   if (timeFilter === 'hour' || timeFilter === 'day') {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -53,7 +56,8 @@ function formatXAxisTick(timestamp: number, timeFilter: string): string {
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
-function formatEventName(name: string): string {
+/** @internal Exported for testing */
+export function formatEventName(name: string): string {
   return name
     .replace('db_', '')
     .replace(/_/g, ' ')
