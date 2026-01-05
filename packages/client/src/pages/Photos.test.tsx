@@ -350,9 +350,9 @@ describe('Photos', () => {
       // Should show the dropzone input
       expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
 
-      // The dropzone should be in the gallery (flex container with gap-4)
+      // The dropzone should be in the gallery (grid container)
       const dropzone = screen.getByTestId('dropzone');
-      expect(dropzone.parentElement).toHaveClass('flex', 'flex-wrap', 'gap-4');
+      expect(dropzone.parentElement).toHaveClass('grid', 'gap-2');
 
       // Should NOT show the empty state message
       expect(
@@ -360,7 +360,7 @@ describe('Photos', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('dropzone has thumbnail dimensions when photos exist', async () => {
+    it('dropzone has aspect-square class when photos exist', async () => {
       renderPhotos();
 
       await waitFor(() => {
@@ -368,8 +368,8 @@ describe('Photos', () => {
       });
 
       const dropzone = screen.getByTestId('dropzone');
-      // The dropzone should have inline styles for width and height (display size, not generation size)
-      expect(dropzone).toHaveStyle({ width: '200px', height: '200px' });
+      // The dropzone should have aspect-square class for responsive sizing
+      expect(dropzone).toHaveClass('aspect-square');
     });
   });
 
