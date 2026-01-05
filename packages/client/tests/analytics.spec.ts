@@ -463,17 +463,19 @@ test.describe('Analytics page', () => {
   test('should not have horizontal scroll on mobile viewport', async ({
     page
   }) => {
+    const navigateMobile = async (testId: string) => {
+      const mobileMenuButton = page.getByTestId('mobile-menu-button');
+      await mobileMenuButton.click();
+      await page.getByTestId(testId).click();
+    };
+
     // Set viewport to iPhone SE dimensions (smallest common mobile viewport)
     await page.setViewportSize({ width: 375, height: 667 });
 
     await page.goto('/');
 
-    // On mobile, use the mobile menu instead of sidebar
-    const mobileMenuButton = page.getByTestId('mobile-menu-button');
-
     // Navigate to SQLite via mobile menu
-    await mobileMenuButton.click();
-    await page.getByTestId('sqlite-link').click();
+    await navigateMobile('sqlite-link');
     await expect(page.getByTestId('database-test')).toBeVisible();
 
     // Reset and setup database
@@ -492,8 +494,7 @@ test.describe('Analytics page', () => {
     await waitForSuccess(page);
 
     // Navigate to Analytics via mobile menu
-    await mobileMenuButton.click();
-    await page.getByTestId('analytics-link').click();
+    await navigateMobile('analytics-link');
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for data to load
