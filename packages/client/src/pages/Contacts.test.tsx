@@ -468,6 +468,7 @@ describe('Contacts', () => {
 
   describe('import result display', () => {
     it('shows import result with skipped count', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       mockParseFile.mockResolvedValue({
         headers: ['First Name', 'Last Name', 'Email'],
         rows: [['John', 'Doe', 'john@example.com']]
@@ -492,13 +493,22 @@ describe('Contacts', () => {
         fireEvent.change(input, { target: { files: [csvFile] } });
       }
 
-      // Wait for parsed data to show column mapper
+      // Wait for column mapper to appear and click import
+      const importButton = await screen.findByRole('button', {
+        name: /Import \d+ Contacts/i
+      });
+      await user.click(importButton);
+
+      // Assert that the import result is shown
       await waitFor(() => {
-        expect(screen.getByText('Map CSV Columns')).toBeInTheDocument();
+        expect(
+          screen.getByText(/Imported 5 contacts?, skipped 3/i)
+        ).toBeInTheDocument();
       });
     });
 
     it('shows import result with errors', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
       mockParseFile.mockResolvedValue({
         headers: ['First Name', 'Email'],
         rows: [['John', 'invalid-email']]
@@ -523,8 +533,21 @@ describe('Contacts', () => {
         fireEvent.change(input, { target: { files: [csvFile] } });
       }
 
+      // Wait for column mapper to appear and click import
+      const importButton = await screen.findByRole('button', {
+        name: /Import \d+ Contacts/i
+      });
+      await user.click(importButton);
+
+      // Assert that the import result and errors are shown
       await waitFor(() => {
-        expect(screen.getByText('Map CSV Columns')).toBeInTheDocument();
+        expect(screen.getByText(/Imported 3 contacts?/i)).toBeInTheDocument();
+        expect(
+          screen.getByText('Row 5: Invalid email format')
+        ).toBeInTheDocument();
+        expect(
+          screen.getByText('Row 10: Missing required field')
+        ).toBeInTheDocument();
       });
     });
 
