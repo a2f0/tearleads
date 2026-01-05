@@ -19,6 +19,11 @@ import { cn } from '@/lib/utils';
 const MIN_COLUMN_WIDTH = 50;
 const KEYBOARD_RESIZE_STEP = 10;
 const CONFIRM_TRUNCATE_TIMEOUT_MS = 3000;
+const MOBILE_BREAKPOINT = 640; // Tailwind's sm breakpoint
+
+function isMobileViewport(): boolean {
+  return typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT;
+}
 
 interface ColumnInfo {
   name: string;
@@ -60,7 +65,7 @@ export function TableRows() {
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [documentView, setDocumentView] = useState(false);
+  const [documentView, setDocumentView] = useState(isMobileViewport);
   const [sort, setSort] = useState<SortState>({
     column: null,
     direction: null
@@ -328,7 +333,7 @@ export function TableRows() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-4">
           <Link
             to="/tables"
@@ -342,7 +347,7 @@ export function TableRows() {
           </h1>
         </div>
         {isUnlocked && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative" ref={settingsRef}>
               <Button
                 variant={showColumnSettings ? 'default' : 'outline'}
