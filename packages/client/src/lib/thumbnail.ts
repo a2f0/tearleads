@@ -45,13 +45,8 @@ export async function generateThumbnail(
 ): Promise<Uint8Array> {
   const opts = { ...DEFAULT_THUMBNAIL_OPTIONS, ...options };
 
-  // Create blob from image data (slice creates a copy with proper ArrayBuffer)
   const blob = new Blob([imageData.slice()], { type: mimeType });
-
-  // Decode image using createImageBitmap
   const bitmap = await createImageBitmap(blob);
-
-  // Calculate scaled dimensions while preserving aspect ratio
   const { width, height } = calculateScaledDimensions(
     bitmap.width,
     bitmap.height,
@@ -59,7 +54,6 @@ export async function generateThumbnail(
     opts.maxHeight
   );
 
-  // Create canvas and draw scaled image
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
