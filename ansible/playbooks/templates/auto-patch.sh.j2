@@ -31,11 +31,7 @@ apt-get autoremove -y
 log "Cleaning package cache"
 apt-get autoclean
 
-if [ -f /var/run/reboot-required ]; then
-    log "Reboot required - scheduling reboot in 1 minute"
-    shutdown -r +1 "System rebooting after automatic patching"
-else
-    log "No reboot required"
-fi
+log "Scheduling daily reboot in 5 minutes"
+shutdown -r +5 "System rebooting after automatic patching"
 
 log "Patching complete"
