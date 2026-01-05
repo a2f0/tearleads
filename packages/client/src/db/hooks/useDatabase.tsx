@@ -10,8 +10,16 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from 'react';
+import { toast } from 'sonner';
+import {
+  clearSessionActive,
+  getLastLoadedModel,
+  markSessionActive,
+  wasSessionActive
+} from '@/hooks/useAppLifecycle';
 import { toError } from '@/lib/errors';
 import { deleteFileStorageForInstance } from '@/storage/opfs';
 import type { Database } from '../index';
@@ -117,9 +125,16 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
   );
   const [instances, setInstances] = useState<InstanceMetadata[]>([]);
 
+  // Track if we've shown the recovery toast (to avoid duplicates)
+  const hasShownRecoveryToast = useRef(false);
+
   // Initialize registry and check for active instance on mount
   useEffect(() => {
     async function initializeAndRestore() {
+      // Check if there was an active session before page load
+      const hadActiveSession = wasSessionActive();
+      const previousModel = getLastLoadedModel();
+
       try {
         // Initialize the instance registry (creates default instance if needed)
         const activeInstance = await initializeRegistry();
@@ -145,11 +160,45 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
           const database = await restoreDatabaseSession(activeInstance.id);
           if (database) {
             setDb(database);
+            markSessionActive();
             await touchInstance(activeInstance.id);
+
+            // If session restored but model was lost, notify user
+            if (
+              previousModel &&
+              hadActiveSession &&
+              !hasShownRecoveryToast.current
+            ) {
+              hasShownRecoveryToast.current = true;
+              toast.info(
+                'App reloaded. Your session was restored, but the model needs to be reloaded.',
+                { duration: 5000 }
+              );
+            }
           } else {
             // Session restore failed, clear the invalid session
             setHasPersisted(false);
+
+            // Show recovery toast if there was an active session
+            if (hadActiveSession && !hasShownRecoveryToast.current) {
+              hasShownRecoveryToast.current = true;
+              toast.warning(
+                'App reloaded unexpectedly. Please unlock your database to continue.',
+                { duration: 5000 }
+              );
+            }
           }
+        } else if (
+          setup &&
+          hadActiveSession &&
+          !hasShownRecoveryToast.current
+        ) {
+          // Database is set up but no persisted session, and there was an active session
+          hasShownRecoveryToast.current = true;
+          toast.warning(
+            'App reloaded unexpectedly. Please unlock your database to continue.',
+            { duration: 5000 }
+          );
         }
       } catch (err) {
         setError(toError(err));
@@ -179,6 +228,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         const database = await setupDatabase(password, currentInstanceId);
         setDb(database);
         setIsSetUp(true);
+        markSessionActive();
         await touchInstance(currentInstanceId);
         return true;
       } catch (err) {
@@ -209,6 +259,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         );
         if (result) {
           setDb(result.db);
+          markSessionActive();
           if (result.sessionPersisted) {
             setHasPersisted(true);
           }
@@ -238,6 +289,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       const database = await restoreDatabaseSession(currentInstanceId);
       if (database) {
         setDb(database);
+        markSessionActive();
         await touchInstance(currentInstanceId);
         return true;
       }
@@ -258,6 +310,8 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       try {
         await closeDatabase();
         setDb(null);
+        // Clear session active flag when user explicitly locks
+        clearSessionActive();
 
         if (clearSessionFlag && currentInstanceId) {
           await clearPersistedSession(currentInstanceId);

@@ -2,6 +2,7 @@ import { ThemeProvider } from '@rapid/ui';
 import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import App from './App';
 import { AudioProvider } from './audio';
 import {
@@ -98,6 +99,7 @@ if (rootElement) {
     <React.StrictMode>
       <ErrorBoundary>
         <ThemeProvider>
+          <Toaster richColors closeButton position="top-center" />
           <DatabaseProvider>
             <AudioProvider>
               <BrowserRouter>

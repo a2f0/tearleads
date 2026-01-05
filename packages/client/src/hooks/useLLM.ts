@@ -1,7 +1,13 @@
 /// <reference types="@webgpu/types" />
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { toast } from 'sonner';
 import { getDatabase } from '@/db';
 import { logEvent as logAnalyticsEvent } from '@/db/analytics';
+import {
+  clearLastLoadedModel,
+  getLastLoadedModel,
+  saveLastLoadedModel
+} from './useAppLifecycle';
 
 // Types for worker messages
 interface ChatMessage {
@@ -55,6 +61,8 @@ export interface UseLLMReturn extends LLMState {
   ) => Promise<void>;
   abort: () => void;
   isWebGPUSupported: () => Promise<boolean>;
+  /** Model ID that was loaded before page reload (if any) */
+  previouslyLoadedModel: string | null;
 }
 
 // Mutable store for LLM state - only modified internally
@@ -158,6 +166,9 @@ function getWorker(): Worker {
           loadingModelId = null;
           emitChange();
 
+          // Persist model ID for recovery after page reload
+          saveLastLoadedModel(response.modelId);
+
           // Log analytics for model loading
           logLLMAnalytics('llm_model_load', response.durationMs, true);
 
@@ -221,6 +232,9 @@ function getWorker(): Worker {
           store.error = null;
           store.loadProgress = null;
           emitChange();
+
+          // Clear persisted model
+          clearLastLoadedModel();
           break;
         }
       }
@@ -233,6 +247,11 @@ function getWorker(): Worker {
       store.loadProgress = null;
       loadingModelId = null;
       emitChange();
+
+      // Show toast for worker errors
+      toast.error('Model worker crashed. Please reload the model.', {
+        duration: 5000
+      });
 
       if (loadReject) {
         loadReject(new Error(errorMessage));
@@ -353,6 +372,13 @@ export function useLLM(): UseLLMReturn {
     return checkWebGPUSupport();
   }, []);
 
+  // Check for previously loaded model (from before page reload)
+  const previouslyLoadedModel = useMemo(() => {
+    // Only return if no model is currently loaded
+    if (state.loadedModel) return null;
+    return getLastLoadedModel();
+  }, [state.loadedModel]);
+
   return useMemo(
     () => ({
       ...state,
@@ -360,9 +386,18 @@ export function useLLM(): UseLLMReturn {
       unloadModel,
       generate,
       abort,
-      isWebGPUSupported
+      isWebGPUSupported,
+      previouslyLoadedModel
     }),
-    [state, loadModel, unloadModel, generate, abort, isWebGPUSupported]
+    [
+      state,
+      loadModel,
+      unloadModel,
+      generate,
+      abort,
+      isWebGPUSupported,
+      previouslyLoadedModel
+    ]
   );
 }
 
