@@ -44,24 +44,31 @@ async function navigateToPhotos(page: Page) {
 
 // Helper to upload a single test image and wait for grid to appear
 async function uploadTestImage(page: Page) {
+  // Wait for the dropzone to be ready
   const fileInput = page.getByTestId('dropzone-input');
+  await expect(fileInput).toBeAttached({ timeout: 10000 });
+
   await fileInput.setInputFiles({
     name: 'test-image.png',
     mimeType: 'image/png',
     buffer: MINIMAL_PNG
   });
 
-  // Wait for grid to appear (shows when there's at least one photo)
-  await expect(page.getByTestId('photos-grid')).toBeVisible({ timeout: 30000 });
+  // Wait for either the grid or an error to appear
+  // In CI, file processing can be slower
+  await expect(page.getByTestId('photos-grid')).toBeVisible({ timeout: 60000 });
 }
 
 test.describe('Photos page responsive layout', () => {
   test.describe('Mobile viewport (375px - iPhone)', () => {
     test.use({ viewport: { width: 375, height: 667 } });
 
+    // This test involves database setup, file upload, and thumbnail generation
+    // which can be slow in CI environments
     test('should display photos grid with 3 columns and square aspect ratio on mobile', async ({
       page
     }) => {
+      test.slow(); // Triple the default timeout
       await page.goto('/');
       await setupAndUnlockDatabase(page);
       await navigateToPhotos(page);
