@@ -292,8 +292,14 @@ describe('DurationChart', () => {
     });
   });
 
-  describe('duration formatting', () => {
-    it('formats sub-second durations as milliseconds', () => {
+  // Note: Recharts' ResponsiveContainer doesn't render actual chart elements (axes,
+  // tooltips, data points) in jsdom, so we can only verify the component mounts
+  // correctly with different data/props. The internal formatting functions
+  // (formatDuration, formatXAxisTick, CustomTooltip) are exercised during render
+  // but their output cannot be asserted in unit tests - this would require
+  // integration tests in a real browser environment.
+  describe('renders with various duration ranges', () => {
+    it('mounts with sub-second duration events', () => {
       const fastEvents = [
         {
           id: '1',
@@ -312,11 +318,11 @@ describe('DurationChart', () => {
         />
       );
 
-      // Component should render with fast event
       expect(screen.getByText('Fast')).toBeInTheDocument();
+      expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
     });
 
-    it('formats multi-second durations in seconds', () => {
+    it('mounts with multi-second duration events', () => {
       const slowEvents = [
         {
           id: '1',
@@ -339,8 +345,8 @@ describe('DurationChart', () => {
     });
   });
 
-  describe('time filter formatting', () => {
-    it('formats timestamps for hour filter', () => {
+  describe('renders with different time filters', () => {
+    it('mounts with hour time filter', () => {
       const hourEvents = [
         {
           id: '1',
@@ -362,7 +368,7 @@ describe('DurationChart', () => {
       expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
     });
 
-    it('formats timestamps for week filter', () => {
+    it('mounts with week time filter', () => {
       const weekEvents = [
         {
           id: '1',
@@ -391,7 +397,7 @@ describe('DurationChart', () => {
       expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
     });
 
-    it('formats timestamps for all filter', () => {
+    it('mounts with all time filter', () => {
       const allEvents = [
         {
           id: '1',
