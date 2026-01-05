@@ -12,6 +12,12 @@ import {
   RawImage,
   TextStreamer
 } from '@huggingface/transformers';
+import {
+  cosineSimilarity,
+  getModelType,
+  type ModelType,
+  softmax
+} from './llm-worker-utils';
 
 // Disable local model check since we're always fetching from HuggingFace
 env.allowLocalModels = false;
@@ -28,8 +34,6 @@ type WorkerRequest =
   | { type: 'classify'; image: string; candidateLabels: string[] }
   | { type: 'unload' }
   | { type: 'abort' };
-
-type ModelType = 'chat' | 'vision' | 'paligemma' | 'clip';
 
 type WorkerResponse =
   | { type: 'progress'; file: string; progress: number; total: number }
@@ -64,26 +68,6 @@ let abortController: AbortController | null = null;
 
 function postResponse(response: WorkerResponse): void {
   self.postMessage(response);
-}
-
-function isPaliGemmaModel(modelId: string): boolean {
-  return modelId.toLowerCase().includes('paligemma');
-}
-
-function isVisionModel(modelId: string): boolean {
-  const lowerModelId = modelId.toLowerCase();
-  return lowerModelId.includes('vision') || lowerModelId.includes('vlm');
-}
-
-function isClipModel(modelId: string): boolean {
-  return modelId.toLowerCase().includes('clip');
-}
-
-function getModelType(modelId: string): ModelType {
-  if (isClipModel(modelId)) return 'clip';
-  if (isPaliGemmaModel(modelId)) return 'paligemma';
-  if (isVisionModel(modelId)) return 'vision';
-  return 'chat';
 }
 
 async function loadModel(modelId: string): Promise<void> {
@@ -361,28 +345,6 @@ async function generate(
   } finally {
     abortController = null;
   }
-}
-
-// Helper functions for CLIP zero-shot classification
-function softmax(arr: number[]): number[] {
-  const max = Math.max(...arr);
-  const exps = arr.map((x) => Math.exp(x - max));
-  const sum = exps.reduce((a, b) => a + b, 0);
-  return exps.map((x) => x / sum);
-}
-
-function cosineSimilarity(a: Float32Array, b: Float32Array): number {
-  let dotProduct = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < a.length; i++) {
-    const aVal = a[i] ?? 0;
-    const bVal = b[i] ?? 0;
-    dotProduct += aVal * bVal;
-    normA += aVal * aVal;
-    normB += bVal * bVal;
-  }
-  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
 async function classifyImage(

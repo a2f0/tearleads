@@ -401,6 +401,10 @@ async function classifyInternal(
   image: string,
   candidateLabels: string[]
 ): Promise<ClassificationResult> {
+  if (store.isClassifying) {
+    throw new Error('A classification is already in progress');
+  }
+
   if (!store.loadedModel) {
     throw new Error('No model loaded');
   }

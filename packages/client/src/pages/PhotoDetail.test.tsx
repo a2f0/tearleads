@@ -51,6 +51,20 @@ vi.mock('@/lib/file-utils', () => ({
   canShareFiles: () => mockCanShareFiles()
 }));
 
+// Mock useLLM
+const mockLoadModel = vi.fn();
+const mockClassify = vi.fn();
+vi.mock('@/hooks/useLLM', () => ({
+  useLLM: () => ({
+    loadedModel: null,
+    isClassifying: false,
+    loadModel: mockLoadModel,
+    classify: mockClassify,
+    isLoading: false,
+    loadProgress: null
+  })
+}));
+
 const TEST_PHOTO = {
   id: 'photo-123',
   name: 'test-photo.jpg',
@@ -110,6 +124,11 @@ describe('PhotoDetail', () => {
     mockSelect.mockReturnValue(createMockQueryChain([TEST_PHOTO]));
     mockCanShareFiles.mockReturnValue(true);
     mockShareFile.mockResolvedValue(true);
+    mockLoadModel.mockResolvedValue(undefined);
+    mockClassify.mockResolvedValue({
+      labels: ['passport', 'drivers license'],
+      scores: [0.8, 0.2]
+    });
   });
 
   describe('when database is loading', () => {
@@ -341,6 +360,58 @@ describe('PhotoDetail', () => {
       const backLink = screen.getByText('Back to Photos');
       expect(backLink).toBeInTheDocument();
       expect(backLink.closest('a')).toHaveAttribute('href', '/photos');
+    });
+  });
+
+  describe('classification functionality', () => {
+    it('renders classify button', async () => {
+      await renderPhotoDetail();
+
+      expect(screen.getByTestId('classify-button')).toBeInTheDocument();
+      expect(screen.getByText('Classify Document')).toBeInTheDocument();
+    });
+
+    it('loads model and classifies when classify button is clicked', async () => {
+      const user = userEvent.setup();
+      await renderPhotoDetail();
+
+      expect(screen.getByTestId('classify-button')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('classify-button'));
+
+      await waitFor(() => {
+        expect(mockLoadModel).toHaveBeenCalledWith(
+          'Xenova/clip-vit-base-patch32'
+        );
+        expect(mockClassify).toHaveBeenCalled();
+      });
+    });
+
+    it('displays classification results', async () => {
+      const user = userEvent.setup();
+      await renderPhotoDetail();
+
+      await user.click(screen.getByTestId('classify-button'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Document Classification')).toBeInTheDocument();
+        expect(screen.getByText('passport')).toBeInTheDocument();
+        expect(screen.getByText('drivers license')).toBeInTheDocument();
+        expect(screen.getByText('80.0%')).toBeInTheDocument();
+        expect(screen.getByText('20.0%')).toBeInTheDocument();
+      });
+    });
+
+    it('shows error when classification fails', async () => {
+      mockClassify.mockRejectedValue(new Error('Classification failed'));
+      const user = userEvent.setup();
+      await renderPhotoDetail();
+
+      await user.click(screen.getByTestId('classify-button'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Classification failed')).toBeInTheDocument();
+      });
     });
   });
 });

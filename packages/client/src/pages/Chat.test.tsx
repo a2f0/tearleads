@@ -23,7 +23,8 @@ vi.mock('@/hooks/useLLM', () => ({
     generate: vi.fn(),
     classify: vi.fn(),
     abort: vi.fn(),
-    isWebGPUSupported: vi.fn().mockResolvedValue(true)
+    isWebGPUSupported: vi.fn().mockResolvedValue(true),
+    previouslyLoadedModel: null
   }))
 }));
 
@@ -351,7 +352,8 @@ describe('Chat', () => {
           generate: vi.fn(),
           classify: vi.fn(),
           abort: vi.fn(),
-          isWebGPUSupported: vi.fn().mockResolvedValue(true)
+          isWebGPUSupported: vi.fn().mockResolvedValue(true),
+          previouslyLoadedModel: null
         });
 
         renderChat();

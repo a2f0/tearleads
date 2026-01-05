@@ -17,6 +17,14 @@ export const DOCUMENT_LABELS = [
   'other document'
 ];
 
+export const CLASSIFICATION_MODEL: ModelInfo = {
+  id: 'Xenova/clip-vit-base-patch32',
+  name: 'CLIP ViT-B/32',
+  size: '~350MB',
+  description: 'Zero-shot image classification for documents',
+  isClassification: true
+};
+
 export const RECOMMENDED_MODELS: ModelInfo[] = [
   {
     id: 'onnx-community/Phi-3.5-mini-instruct-onnx-web',
@@ -38,11 +46,5 @@ export const RECOMMENDED_MODELS: ModelInfo[] = [
     description: 'Google vision model for detailed captions',
     isVision: true
   },
-  {
-    id: 'Xenova/clip-vit-base-patch32',
-    name: 'CLIP ViT-B/32',
-    size: '~350MB',
-    description: 'Zero-shot image classification for documents',
-    isClassification: true
-  }
+  CLASSIFICATION_MODEL
 ];

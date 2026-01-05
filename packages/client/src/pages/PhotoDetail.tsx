@@ -19,7 +19,7 @@ import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { type ClassificationResult, useLLM } from '@/hooks/useLLM';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
-import { DOCUMENT_LABELS } from '@/lib/models';
+import { CLASSIFICATION_MODEL, DOCUMENT_LABELS } from '@/lib/models';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import {
   getFileStorage,
@@ -128,9 +128,8 @@ export function PhotoDetail() {
 
     try {
       // Load CLIP model if not already loaded
-      const clipModelId = 'Xenova/clip-vit-base-patch32';
-      if (loadedModel !== clipModelId) {
-        await loadModel(clipModelId);
+      if (loadedModel !== CLASSIFICATION_MODEL.id) {
+        await loadModel(CLASSIFICATION_MODEL.id);
       }
 
       // Run classification
