@@ -23,7 +23,8 @@ const defaultMockReturn = {
   unloadModel: mockUnloadModel,
   generate: mockGenerate,
   abort: mockAbort,
-  isWebGPUSupported: mockIsWebGPUSupported
+  isWebGPUSupported: mockIsWebGPUSupported,
+  previouslyLoadedModel: null
 };
 
 describe('ModelSelector', () => {
