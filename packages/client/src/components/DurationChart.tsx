@@ -27,7 +27,7 @@ const EVENT_COLORS = [
   '#65a30d' // lime
 ];
 
-const SCATTER_DOT_RADIUS = 4;
+const SCATTER_DOT_RADIUS = 3;
 
 interface CustomDotProps {
   cx?: number;
@@ -145,7 +145,7 @@ export function DurationChart({
 
   if (chartData.length === 0) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-lg border bg-muted/50 text-muted-foreground">
+      <div className="flex h-48 items-center justify-center rounded-lg border bg-muted/50 text-muted-foreground text-sm sm:h-56">
         No events to display. Select event types above to see the chart.
       </div>
     );
@@ -154,19 +154,21 @@ export function DurationChart({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-lg">Duration Over Time</h2>
-        <span className="text-muted-foreground text-sm">
+        <h2 className="font-medium text-muted-foreground text-sm">
+          Duration Over Time
+        </h2>
+        <span className="text-muted-foreground text-xs">
           {chartData.length} event{chartData.length !== 1 ? 's' : ''}
         </span>
       </div>
-      <div className="h-64 w-full">
+      <div className="h-48 w-full sm:h-56">
         <ResponsiveContainer
           width="100%"
           height="100%"
           minWidth={0}
           minHeight={0}
         >
-          <ScatterChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+          <ScatterChart margin={{ top: 8, right: 4, bottom: 4, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis
               dataKey="timestamp"
@@ -175,16 +177,16 @@ export function DurationChart({
               tickFormatter={(value: number) =>
                 formatXAxisTick(value, timeFilter)
               }
-              className="text-xs"
+              tick={{ fontSize: 10 }}
               stroke="currentColor"
             />
             <YAxis
               dataKey="durationMs"
               type="number"
               tickFormatter={formatDuration}
-              className="text-xs"
+              tick={{ fontSize: 10 }}
               stroke="currentColor"
-              width={60}
+              width={45}
             />
             <Tooltip content={<CustomTooltip />} />
             {[...dataByEventType.entries()].map(([eventType, data]) => (
@@ -200,14 +202,16 @@ export function DurationChart({
         </ResponsiveContainer>
       </div>
       {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-sm">
+      <div className="flex flex-wrap gap-3 text-xs">
         {[...eventTypeColors.entries()].map(([eventType, color]) => (
           <div key={eventType} className="flex items-center gap-1">
             <div
-              className="h-3 w-3 rounded-full"
+              className="h-2 w-2 rounded-full"
               style={{ backgroundColor: color }}
             />
-            <span>{formatEventName(eventType)}</span>
+            <span className="text-muted-foreground">
+              {formatEventName(eventType)}
+            </span>
           </div>
         ))}
       </div>
