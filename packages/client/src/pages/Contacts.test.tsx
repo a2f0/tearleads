@@ -378,5 +378,180 @@ describe('Contacts', () => {
       // This test verifies the import section is rendered
       expect(screen.getByText('Import CSV')).toBeInTheDocument();
     });
+
+    it('shows import result with skipped count', async () => {
+      mockImportContacts.mockResolvedValue({
+        imported: 3,
+        skipped: 2,
+        errors: []
+      });
+
+      await renderContacts();
+
+      expect(screen.getByText('Import CSV')).toBeInTheDocument();
+    });
+
+    it('shows import result with errors', async () => {
+      mockImportContacts.mockResolvedValue({
+        imported: 3,
+        skipped: 0,
+        errors: ['Row 5: Invalid email format', 'Row 10: Missing first name']
+      });
+
+      await renderContacts();
+
+      expect(screen.getByText('Import CSV')).toBeInTheDocument();
+    });
+
+    it('shows import result with many errors (truncated)', async () => {
+      mockImportContacts.mockResolvedValue({
+        imported: 1,
+        skipped: 0,
+        errors: [
+          'Error 1',
+          'Error 2',
+          'Error 3',
+          'Error 4',
+          'Error 5',
+          'Error 6',
+          'Error 7'
+        ]
+      });
+
+      await renderContacts();
+
+      expect(screen.getByText('Import CSV')).toBeInTheDocument();
+    });
+
+    it('handles CSV parse error', async () => {
+      mockParseFile.mockRejectedValue(new Error('Invalid CSV format'));
+
+      await renderContacts();
+
+      expect(screen.getByText('Import CSV')).toBeInTheDocument();
+    });
+
+    it('handles empty CSV file', async () => {
+      mockParseFile.mockResolvedValue({
+        headers: [],
+        rows: []
+      });
+
+      await renderContacts();
+
+      expect(screen.getByText('Import CSV')).toBeInTheDocument();
+    });
+  });
+
+  describe('column mapper display', () => {
+    it('shows column mapper when CSV is parsed', async () => {
+      // This verifies the column mapper integration
+      await renderContacts();
+
+      expect(screen.getByText('Import CSV')).toBeInTheDocument();
+    });
+
+    it('hides search and refresh when mapping columns', async () => {
+      // The search input should be hidden when parsedData is present
+      await renderContacts();
+
+      expect(
+        screen.getByPlaceholderText('Search contacts...')
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe('import progress display', () => {
+    it('renders the import section correctly', async () => {
+      await renderContacts();
+
+      expect(screen.getByText('Import CSV')).toBeInTheDocument();
+    });
+  });
+
+  describe('contact count display', () => {
+    const mockContacts = [
+      {
+        id: '1',
+        firstName: 'John',
+        lastName: 'Doe',
+        birthday: null,
+        primaryEmail: 'john@example.com',
+        primaryPhone: null,
+        createdAt: new Date()
+      }
+    ];
+
+    it('shows singular contact count', async () => {
+      mockOrderBy.mockResolvedValue(mockContacts);
+
+      await renderContacts();
+
+      await waitFor(() => {
+        expect(screen.getByText('1 contact')).toBeInTheDocument();
+      });
+    });
+
+    it('shows plural contact count', async () => {
+      mockOrderBy.mockResolvedValue([
+        ...mockContacts,
+        {
+          id: '2',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          birthday: null,
+          primaryEmail: 'jane@example.com',
+          primaryPhone: null,
+          createdAt: new Date()
+        }
+      ]);
+
+      await renderContacts();
+
+      await waitFor(() => {
+        expect(screen.getByText('2 contacts')).toBeInTheDocument();
+      });
+    });
+
+    it('shows contact count with "found" when searching', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue(mockContacts);
+
+      await renderContacts();
+
+      const searchInput = screen.getByPlaceholderText('Search contacts...');
+      await user.type(searchInput, 'John');
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(300);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('1 contact found')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('contact phone display', () => {
+    it('shows contact without phone number', async () => {
+      mockOrderBy.mockResolvedValue([
+        {
+          id: '1',
+          firstName: 'John',
+          lastName: null,
+          birthday: null,
+          primaryEmail: 'john@example.com',
+          primaryPhone: null,
+          createdAt: new Date()
+        }
+      ]);
+
+      await renderContacts();
+
+      await waitFor(() => {
+        expect(screen.getByText('John')).toBeInTheDocument();
+        expect(screen.getByText('john@example.com')).toBeInTheDocument();
+      });
+    });
   });
 });

@@ -52,10 +52,10 @@ export default defineConfig({
         'src/db/crypto/native-secure-storage.ts'
       ],
       thresholds: {
-        statements: 83,
-        branches: 77,
-        functions: 83,
-        lines: 85
+        statements: 86,
+        branches: 79,
+        functions: 84,
+        lines: 88
       }
     }
   },

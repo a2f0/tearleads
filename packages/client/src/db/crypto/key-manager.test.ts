@@ -12,6 +12,7 @@ import {
   getCurrentInstanceId,
   getKeyManager,
   getKeyManagerForInstance,
+  isBiometricAvailable,
   KeyManager,
   setCurrentInstanceId
 } from './key-manager';
@@ -301,6 +302,54 @@ describe('KeyManager', () => {
   });
 });
 
+describe('ElectronKeyStorage behavior', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockIDBStore.clear();
+
+    // Mock detectPlatform to return 'electron'
+    vi.doMock('@/lib/utils', () => ({
+      detectPlatform: vi.fn(() => 'electron')
+    }));
+  });
+
+  it('handles missing electron API gracefully', async () => {
+    // Clear any existing window.electron mock
+    Object.defineProperty(window, 'electron', {
+      value: undefined,
+      writable: true,
+      configurable: true
+    });
+
+    // Create a key manager instance
+    const keyManager = new KeyManager('electron-test');
+
+    // Should not throw even when electron API is missing
+    const hasKey = await keyManager.hasExistingKey();
+    expect(hasKey).toBe(false);
+  });
+});
+
+describe('platform storage adapters', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockIDBStore.clear();
+  });
+
+  it('uses WebKeyStorage for web platform', async () => {
+    vi.doMock('@/lib/utils', () => ({
+      detectPlatform: vi.fn(() => 'web')
+    }));
+
+    const keyManager = new KeyManager('web-test');
+    await keyManager.initialize();
+
+    // Should work without errors
+    const hasKey = await keyManager.hasExistingKey();
+    expect(hasKey).toBe(false);
+  });
+});
+
 describe('key manager module functions', () => {
   beforeEach(() => {
     clearAllKeyManagers();
@@ -395,5 +444,25 @@ describe('key manager module functions', () => {
       expect(newManager1.getCurrentKey()).toBeNull();
       expect(newManager2.getCurrentKey()).toBeNull();
     });
+  });
+});
+
+describe('isBiometricAvailable', () => {
+  it('returns not available for web platform', async () => {
+    vi.doMock('@/lib/utils', () => ({
+      detectPlatform: vi.fn(() => 'web')
+    }));
+
+    const result = await isBiometricAvailable();
+    expect(result.isAvailable).toBe(false);
+  });
+
+  it('returns not available for electron platform', async () => {
+    vi.doMock('@/lib/utils', () => ({
+      detectPlatform: vi.fn(() => 'electron')
+    }));
+
+    const result = await isBiometricAvailable();
+    expect(result.isAvailable).toBe(false);
   });
 });
