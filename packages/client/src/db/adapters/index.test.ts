@@ -68,6 +68,8 @@ describe('createAdapter', () => {
     expect(adapter).toBeDefined();
     expect(adapter.initialize).toBeDefined();
     expect(adapter.close).toBeDefined();
+    expect(adapter.isOpen).toBeDefined();
+    expect(adapter.execute).toBeDefined();
   });
 
   it('creates CapacitorAdapter when platform is android', async () => {
@@ -82,6 +84,8 @@ describe('createAdapter', () => {
     expect(adapter).toBeDefined();
     expect(adapter.initialize).toBeDefined();
     expect(adapter.close).toBeDefined();
+    expect(adapter.isOpen).toBeDefined();
+    expect(adapter.execute).toBeDefined();
   });
 
   it('creates WebAdapter when platform is web', async () => {
@@ -96,6 +100,8 @@ describe('createAdapter', () => {
     expect(adapter).toBeDefined();
     expect(adapter.initialize).toBeDefined();
     expect(adapter.close).toBeDefined();
+    expect(adapter.isOpen).toBeDefined();
+    expect(adapter.execute).toBeDefined();
   });
 
   it('throws error for unsupported platform', async () => {
