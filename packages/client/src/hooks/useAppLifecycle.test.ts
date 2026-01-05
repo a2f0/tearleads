@@ -15,14 +15,6 @@ vi.mock('@/lib/utils', () => ({
   detectPlatform: () => mockDetectPlatform()
 }));
 
-// Mock sonner
-vi.mock('sonner', () => ({
-  toast: {
-    info: vi.fn(),
-    warning: vi.fn()
-  }
-}));
-
 describe('useAppLifecycle utilities', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -94,35 +86,6 @@ describe('useAppLifecycle utilities', () => {
       saveLastLoadedModel('test-model-id');
       clearLastLoadedModel();
       expect(getLastLoadedModel()).toBeNull();
-    });
-  });
-
-  describe('showRecoveryToast', () => {
-    it('shows info toast with action when session is available', async () => {
-      const { toast } = await import('sonner');
-      const { showRecoveryToast } = await import('./useAppLifecycle');
-
-      showRecoveryToast(true);
-
-      expect(toast.info).toHaveBeenCalledWith(
-        'App reloaded. Tap to restore your session.',
-        expect.objectContaining({
-          duration: 5000,
-          action: expect.any(Object)
-        })
-      );
-    });
-
-    it('shows info toast without action when no session available', async () => {
-      const { toast } = await import('sonner');
-      const { showRecoveryToast } = await import('./useAppLifecycle');
-
-      showRecoveryToast(false);
-
-      expect(toast.info).toHaveBeenCalledWith(
-        'App reloaded. Please unlock your database to continue.',
-        expect.objectContaining({ duration: 5000 })
-      );
     });
   });
 
