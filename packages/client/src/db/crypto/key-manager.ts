@@ -216,6 +216,8 @@ class WebKeyStorage implements KeyStorageAdapter {
 
 /**
  * Electron storage adapter using safeStorage API via IPC.
+ * Session persistence uses extractable wrapping keys stored via main process
+ * with Electron's safeStorage API (OS-level encryption).
  */
 class ElectronKeyStorage implements KeyStorageAdapter {
   public instanceId: string;
@@ -260,18 +262,75 @@ class ElectronKeyStorage implements KeyStorageAdapter {
     if (api?.clearKeyStorage) {
       await api.clearKeyStorage(this.instanceId);
     }
+    // Also clear session data
+    await this.clearSession();
   }
 
-  // Session persistence not supported on Electron (uses native secure storage)
+  /**
+   * Get the wrapping key from Electron's secure storage.
+   * The key is stored as extractable bytes and imported back to a CryptoKey.
+   */
   async getWrappingKey(): Promise<CryptoKey | null> {
-    return null;
+    const api = this.getApi();
+    if (!api?.getWrappingKey) return null;
+
+    try {
+      const keyBytes = await api.getWrappingKey(this.instanceId);
+      if (!keyBytes) return null;
+      return importWrappingKey(new Uint8Array(keyBytes));
+    } catch (error) {
+      console.error('Failed to get wrapping key from Electron storage:', error);
+      return null;
+    }
   }
-  async setWrappingKey(_key: CryptoKey): Promise<void> {}
+
+  /**
+   * Store the wrapping key in Electron's secure storage.
+   * The key is exported to bytes and stored via IPC.
+   */
+  async setWrappingKey(key: CryptoKey): Promise<void> {
+    const api = this.getApi();
+    if (!api?.setWrappingKey) return;
+
+    const keyBytes = await exportWrappingKey(key);
+    await api.setWrappingKey(Array.from(keyBytes), this.instanceId);
+  }
+
+  /**
+   * Get the wrapped key from Electron's secure storage.
+   */
   async getWrappedKey(): Promise<Uint8Array | null> {
-    return null;
+    const api = this.getApi();
+    if (!api?.getWrappedKey) return null;
+
+    try {
+      const stored = await api.getWrappedKey(this.instanceId);
+      return stored ? new Uint8Array(stored) : null;
+    } catch (error) {
+      console.error('Failed to get wrapped key from Electron storage:', error);
+      return null;
+    }
   }
-  async setWrappedKey(_wrappedKey: Uint8Array): Promise<void> {}
-  async clearSession(): Promise<void> {}
+
+  /**
+   * Store the wrapped key in Electron's secure storage.
+   */
+  async setWrappedKey(wrappedKey: Uint8Array): Promise<void> {
+    const api = this.getApi();
+    if (!api?.setWrappedKey) return;
+
+    await api.setWrappedKey(Array.from(wrappedKey), this.instanceId);
+  }
+
+  /**
+   * Clear session data from Electron's secure storage.
+   */
+  async clearSession(): Promise<void> {
+    const api = this.getApi();
+    if (api?.clearSession) {
+      await api.clearSession(this.instanceId);
+    }
+  }
 }
 
 /**
@@ -522,6 +581,7 @@ export class KeyManager {
    * Persist the current key for session restoration.
    * On web: Uses a non-extractable wrapping key stored in IndexedDB.
    * On mobile: Uses an extractable wrapping key stored in Keychain/Keystore.
+   * On Electron: Uses an extractable wrapping key stored via safeStorage API.
    */
   async persistSession(): Promise<boolean> {
     if (!this.currentKey) return false;
@@ -529,12 +589,13 @@ export class KeyManager {
 
     try {
       const platform = detectPlatform();
-      const isMobile = platform === 'ios' || platform === 'android';
+      const useExtractableKey =
+        platform === 'ios' || platform === 'android' || platform === 'electron';
 
       // Generate appropriate wrapping key based on platform
-      // Mobile: extractable (stored in native secure storage)
+      // Mobile/Electron: extractable (stored in native secure storage)
       // Web: non-extractable (stored in IndexedDB, can't export bytes)
-      const wrappingKey = isMobile
+      const wrappingKey = useExtractableKey
         ? await generateExtractableWrappingKey()
         : await generateWrappingKey();
 
@@ -555,16 +616,25 @@ export class KeyManager {
   /**
    * Check if a persisted session exists.
    * On mobile, this checks native secure storage without triggering biometric prompt.
+   * On Electron, this checks file existence via IPC without decryption.
    */
   async hasPersistedSession(): Promise<boolean> {
     if (!this.storage) await this.initialize();
 
     const platform = detectPlatform();
-    const isMobile = platform === 'ios' || platform === 'android';
 
-    if (isMobile) {
+    if (platform === 'ios' || platform === 'android') {
       // On mobile, check native storage directly without biometric prompt
       return nativeSecureStorage.hasSession(this.instanceId);
+    }
+
+    if (platform === 'electron') {
+      // On Electron, use efficient file existence check via IPC
+      const api = window.electron?.sqlite;
+      if (api?.hasSession) {
+        return api.hasSession(this.instanceId);
+      }
+      return false;
     }
 
     // On web, check IndexedDB

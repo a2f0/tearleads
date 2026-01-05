@@ -43,6 +43,25 @@ const sqlite = {
   clearKeyStorage: (instanceId: string): Promise<void> => {
     return ipcRenderer.invoke('sqlite:clearKeyStorage', instanceId);
   },
+  // Session persistence operations (namespaced by instanceId)
+  getWrappingKey: (instanceId: string): Promise<number[] | null> => {
+    return ipcRenderer.invoke('sqlite:getWrappingKey', instanceId);
+  },
+  setWrappingKey: (keyBytes: number[], instanceId: string): Promise<void> => {
+    return ipcRenderer.invoke('sqlite:setWrappingKey', keyBytes, instanceId);
+  },
+  getWrappedKey: (instanceId: string): Promise<number[] | null> => {
+    return ipcRenderer.invoke('sqlite:getWrappedKey', instanceId);
+  },
+  setWrappedKey: (wrappedKey: number[], instanceId: string): Promise<void> => {
+    return ipcRenderer.invoke('sqlite:setWrappedKey', wrappedKey, instanceId);
+  },
+  hasSession: (instanceId: string): Promise<boolean> => {
+    return ipcRenderer.invoke('sqlite:hasSession', instanceId);
+  },
+  clearSession: (instanceId: string): Promise<void> => {
+    return ipcRenderer.invoke('sqlite:clearSession', instanceId);
+  },
   deleteDatabase: (name: string): Promise<void> => {
     return ipcRenderer.invoke('sqlite:deleteDatabase', name);
   },
