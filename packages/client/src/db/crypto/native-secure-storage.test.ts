@@ -62,45 +62,36 @@ describe('native-secure-storage', () => {
   });
 
   describe('isBiometricAvailable', () => {
-    it('returns isAvailable true with biometryType when Face ID is available', async () => {
+    it.each([
+      {
+        type: BiometryType.FACE_ID,
+        name: 'faceId',
+        description: 'Face ID'
+      },
+      {
+        type: BiometryType.TOUCH_ID,
+        name: 'touchId',
+        description: 'Touch ID'
+      },
+      {
+        type: BiometryType.FINGERPRINT,
+        name: 'fingerprint',
+        description: 'fingerprint'
+      }
+    ])('returns isAvailable true with biometryType when $description is available', async ({
+      type,
+      name
+    }) => {
       mockIsAvailable.mockResolvedValue({
         isAvailable: true,
-        biometryType: BiometryType.FACE_ID
+        biometryType: type
       });
 
       const result = await isBiometricAvailable();
 
       expect(result).toEqual({
         isAvailable: true,
-        biometryType: 'faceId'
-      });
-    });
-
-    it('returns isAvailable true with biometryType when Touch ID is available', async () => {
-      mockIsAvailable.mockResolvedValue({
-        isAvailable: true,
-        biometryType: BiometryType.TOUCH_ID
-      });
-
-      const result = await isBiometricAvailable();
-
-      expect(result).toEqual({
-        isAvailable: true,
-        biometryType: 'touchId'
-      });
-    });
-
-    it('returns isAvailable true with biometryType when fingerprint is available', async () => {
-      mockIsAvailable.mockResolvedValue({
-        isAvailable: true,
-        biometryType: BiometryType.FINGERPRINT
-      });
-
-      const result = await isBiometricAvailable();
-
-      expect(result).toEqual({
-        isAvailable: true,
-        biometryType: 'fingerprint'
+        biometryType: name
       });
     });
 
@@ -198,51 +189,39 @@ describe('native-secure-storage', () => {
     });
   });
 
-  describe('storeWrappedKey', () => {
-    it('stores wrapped key successfully', async () => {
+  describe.each([
+    {
+      fn: storeWrappedKey,
+      fnName: 'storeWrappedKey',
+      keyName: 'wrapped_key',
+      keyBytes: new Uint8Array([1, 2, 3, 4, 5]),
+      keyHex: '0102030405'
+    },
+    {
+      fn: storeWrappingKeyBytes,
+      fnName: 'storeWrappingKeyBytes',
+      keyName: 'wrapping_key',
+      keyBytes: new Uint8Array([10, 20, 30, 40]),
+      keyHex: '0a141e28'
+    }
+  ])('$fnName', ({ fn, keyName, keyBytes, keyHex }) => {
+    it('stores key successfully', async () => {
       mockSetCredentials.mockResolvedValue(undefined);
 
-      const wrappedKey = new Uint8Array([1, 2, 3, 4, 5]);
-      const result = await storeWrappedKey(TEST_INSTANCE_ID, wrappedKey);
+      const result = await fn(TEST_INSTANCE_ID, keyBytes);
 
       expect(result).toBe(true);
       expect(mockSetCredentials).toHaveBeenCalledWith({
-        username: 'wrapped_key',
-        password: '0102030405',
-        server: `com.tearleads.rapid.wrapped_key.${TEST_INSTANCE_ID}`
-      });
-    });
-
-    it('returns false when storage fails', async () => {
-      mockSetCredentials.mockRejectedValue(new Error('Keychain error'));
-
-      const wrappedKey = new Uint8Array([1, 2, 3]);
-      const result = await storeWrappedKey(TEST_INSTANCE_ID, wrappedKey);
-
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('storeWrappingKeyBytes', () => {
-    it('stores wrapping key bytes successfully', async () => {
-      mockSetCredentials.mockResolvedValue(undefined);
-
-      const keyBytes = new Uint8Array([10, 20, 30, 40]);
-      const result = await storeWrappingKeyBytes(TEST_INSTANCE_ID, keyBytes);
-
-      expect(result).toBe(true);
-      expect(mockSetCredentials).toHaveBeenCalledWith({
-        username: 'wrapping_key',
-        password: '0a141e28',
-        server: `com.tearleads.rapid.wrapping_key.${TEST_INSTANCE_ID}`
+        username: keyName,
+        password: keyHex,
+        server: `com.tearleads.rapid.${keyName}.${TEST_INSTANCE_ID}`
       });
     });
 
     it('returns false when storage fails', async () => {
       mockSetCredentials.mockRejectedValue(new Error('Storage error'));
 
-      const keyBytes = new Uint8Array([1, 2, 3]);
-      const result = await storeWrappingKeyBytes(TEST_INSTANCE_ID, keyBytes);
+      const result = await fn(TEST_INSTANCE_ID, new Uint8Array([1, 2, 3]));
 
       expect(result).toBe(false);
     });
