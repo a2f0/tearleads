@@ -41,7 +41,8 @@ vi.mock('@/hooks/useLLM', () => ({
     generate: mockGenerate,
     classify: mockClassify,
     abort: mockAbort,
-    isWebGPUSupported: mockIsWebGPUSupported
+    isWebGPUSupported: mockIsWebGPUSupported,
+    previouslyLoadedModel: null
   }))
 }));
 
@@ -231,7 +232,8 @@ describe('Models', () => {
         generate: mockGenerate,
         classify: mockClassify,
         abort: mockAbort,
-        isWebGPUSupported: mockIsWebGPUSupported
+        isWebGPUSupported: mockIsWebGPUSupported,
+        previouslyLoadedModel: null
       });
 
       const user = userEvent.setup();
@@ -265,7 +267,8 @@ describe('Models', () => {
           generate: mockGenerate,
           classify: mockClassify,
           abort: mockAbort,
-          isWebGPUSupported: mockIsWebGPUSupported
+          isWebGPUSupported: mockIsWebGPUSupported,
+          previouslyLoadedModel: null
         });
 
         rerender(

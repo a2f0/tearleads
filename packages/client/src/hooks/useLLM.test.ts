@@ -402,5 +402,56 @@ describe('useLLM', () => {
       expect(result.current.isClassifying).toBe(false);
       expect(result.current.error).toBe('Classification failed: Invalid image');
     });
+
+    it('prevents concurrent classification requests', async () => {
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      // Load CLIP model first
+      await act(async () => {
+        result.current.loadModel('Xenova/clip-vit-base-patch32');
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        mockOnMessage?.({
+          data: {
+            type: 'loaded',
+            modelId: 'Xenova/clip-vit-base-patch32',
+            modelType: 'clip',
+            durationMs: 100
+          }
+        } as MessageEvent);
+      });
+
+      // Start first classification (don't await yet)
+      let firstPromise: Promise<ClassificationResult> | undefined;
+      await act(async () => {
+        firstPromise = result.current.classify('data:image/png;base64,...', [
+          'passport'
+        ]);
+        await Promise.resolve();
+      });
+
+      // Try to start second classification while first is in progress
+      await act(async () => {
+        await expect(
+          result.current.classify('data:image/png;base64,...', ['license'])
+        ).rejects.toThrow('A classification is already in progress');
+      });
+
+      // Complete first classification
+      await act(async () => {
+        mockOnMessage?.({
+          data: {
+            type: 'classification',
+            labels: ['passport'],
+            scores: [1.0],
+            durationMs: 50
+          }
+        } as MessageEvent);
+        await firstPromise;
+      });
+    });
   });
 });

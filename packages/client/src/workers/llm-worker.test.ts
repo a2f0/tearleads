@@ -1,4 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  cosineSimilarity,
+  getModelType,
+  isClipModel,
+  isPaliGemmaModel,
+  isVisionModel,
+  softmax
+} from './llm-worker-utils';
 
 // Mock transformers.js
 vi.mock('@huggingface/transformers', () => ({
@@ -13,18 +21,10 @@ vi.mock('@huggingface/transformers', () => ({
   env: { allowLocalModels: false }
 }));
 
-// Test helper functions directly
-describe('llm-worker helper functions', () => {
+// Test the actual helper functions from llm-worker-utils
+describe('llm-worker-utils', () => {
   describe('softmax', () => {
     it('normalizes array to probabilities that sum to 1', () => {
-      // Inline the softmax function for testing
-      function softmax(arr: number[]): number[] {
-        const max = Math.max(...arr);
-        const exps = arr.map((x) => Math.exp(x - max));
-        const sum = exps.reduce((a, b) => a + b, 0);
-        return exps.map((x) => x / sum);
-      }
-
       const input = [1, 2, 3];
       const result = softmax(input);
 
@@ -39,13 +39,6 @@ describe('llm-worker helper functions', () => {
     });
 
     it('handles negative values', () => {
-      function softmax(arr: number[]): number[] {
-        const max = Math.max(...arr);
-        const exps = arr.map((x) => Math.exp(x - max));
-        const sum = exps.reduce((a, b) => a + b, 0);
-        return exps.map((x) => x / sum);
-      }
-
       const input = [-1, 0, 1];
       const result = softmax(input);
 
@@ -54,13 +47,6 @@ describe('llm-worker helper functions', () => {
     });
 
     it('handles equal values', () => {
-      function softmax(arr: number[]): number[] {
-        const max = Math.max(...arr);
-        const exps = arr.map((x) => Math.exp(x - max));
-        const sum = exps.reduce((a, b) => a + b, 0);
-        return exps.map((x) => x / sum);
-      }
-
       const input = [2, 2, 2];
       const result = softmax(input);
 
@@ -74,40 +60,12 @@ describe('llm-worker helper functions', () => {
 
   describe('cosineSimilarity', () => {
     it('returns 1 for identical vectors', () => {
-      function cosineSimilarity(a: Float32Array, b: Float32Array): number {
-        let dotProduct = 0;
-        let normA = 0;
-        let normB = 0;
-        for (let i = 0; i < a.length; i++) {
-          const aVal = a[i] ?? 0;
-          const bVal = b[i] ?? 0;
-          dotProduct += aVal * bVal;
-          normA += aVal * aVal;
-          normB += bVal * bVal;
-        }
-        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-      }
-
       const vec = new Float32Array([1, 2, 3]);
       const result = cosineSimilarity(vec, vec);
       expect(result).toBeCloseTo(1, 5);
     });
 
     it('returns -1 for opposite vectors', () => {
-      function cosineSimilarity(a: Float32Array, b: Float32Array): number {
-        let dotProduct = 0;
-        let normA = 0;
-        let normB = 0;
-        for (let i = 0; i < a.length; i++) {
-          const aVal = a[i] ?? 0;
-          const bVal = b[i] ?? 0;
-          dotProduct += aVal * bVal;
-          normA += aVal * aVal;
-          normB += bVal * bVal;
-        }
-        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-      }
-
       const vec1 = new Float32Array([1, 2, 3]);
       const vec2 = new Float32Array([-1, -2, -3]);
       const result = cosineSimilarity(vec1, vec2);
@@ -115,20 +73,6 @@ describe('llm-worker helper functions', () => {
     });
 
     it('returns 0 for orthogonal vectors', () => {
-      function cosineSimilarity(a: Float32Array, b: Float32Array): number {
-        let dotProduct = 0;
-        let normA = 0;
-        let normB = 0;
-        for (let i = 0; i < a.length; i++) {
-          const aVal = a[i] ?? 0;
-          const bVal = b[i] ?? 0;
-          dotProduct += aVal * bVal;
-          normA += aVal * aVal;
-          normB += bVal * bVal;
-        }
-        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-      }
-
       const vec1 = new Float32Array([1, 0, 0]);
       const vec2 = new Float32Array([0, 1, 0]);
       const result = cosineSimilarity(vec1, vec2);
@@ -138,20 +82,12 @@ describe('llm-worker helper functions', () => {
 
   describe('model type detection', () => {
     it('detects CLIP models', () => {
-      function isClipModel(modelId: string): boolean {
-        return modelId.toLowerCase().includes('clip');
-      }
-
       expect(isClipModel('Xenova/clip-vit-base-patch32')).toBe(true);
       expect(isClipModel('openai/CLIP-model')).toBe(true);
       expect(isClipModel('some-other-model')).toBe(false);
     });
 
     it('detects PaliGemma models', () => {
-      function isPaliGemmaModel(modelId: string): boolean {
-        return modelId.toLowerCase().includes('paligemma');
-      }
-
       expect(isPaliGemmaModel('google/paligemma-3b')).toBe(true);
       expect(
         isPaliGemmaModel('onnx-community/paligemma2-3b-ft-docci-448')
@@ -160,39 +96,12 @@ describe('llm-worker helper functions', () => {
     });
 
     it('detects vision models', () => {
-      function isVisionModel(modelId: string): boolean {
-        const lowerModelId = modelId.toLowerCase();
-        return lowerModelId.includes('vision') || lowerModelId.includes('vlm');
-      }
-
       expect(isVisionModel('HuggingFaceTB/SmolVLM-256M-Instruct')).toBe(true);
       expect(isVisionModel('some-vision-model')).toBe(true);
       expect(isVisionModel('chat-model')).toBe(false);
     });
 
     it('returns correct model type', () => {
-      function isClipModel(modelId: string): boolean {
-        return modelId.toLowerCase().includes('clip');
-      }
-
-      function isPaliGemmaModel(modelId: string): boolean {
-        return modelId.toLowerCase().includes('paligemma');
-      }
-
-      function isVisionModel(modelId: string): boolean {
-        const lowerModelId = modelId.toLowerCase();
-        return lowerModelId.includes('vision') || lowerModelId.includes('vlm');
-      }
-
-      function getModelType(
-        modelId: string
-      ): 'chat' | 'vision' | 'paligemma' | 'clip' {
-        if (isClipModel(modelId)) return 'clip';
-        if (isPaliGemmaModel(modelId)) return 'paligemma';
-        if (isVisionModel(modelId)) return 'vision';
-        return 'chat';
-      }
-
       expect(getModelType('Xenova/clip-vit-base-patch32')).toBe('clip');
       expect(getModelType('onnx-community/paligemma2-3b-ft-docci-448')).toBe(
         'paligemma'
@@ -213,27 +122,6 @@ describe('classification scoring', () => {
   });
 
   it('computes similarity scores for multiple labels', () => {
-    function cosineSimilarity(a: Float32Array, b: Float32Array): number {
-      let dotProduct = 0;
-      let normA = 0;
-      let normB = 0;
-      for (let i = 0; i < a.length; i++) {
-        const aVal = a[i] ?? 0;
-        const bVal = b[i] ?? 0;
-        dotProduct += aVal * bVal;
-        normA += aVal * aVal;
-        normB += bVal * bVal;
-      }
-      return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
-    }
-
-    function softmax(arr: number[]): number[] {
-      const max = Math.max(...arr);
-      const exps = arr.map((x) => Math.exp(x - max));
-      const sum = exps.reduce((a, b) => a + b, 0);
-      return exps.map((x) => x / sum);
-    }
-
     // Simulate embeddings
     const imageEmbed = new Float32Array([0.8, 0.1, 0.1]); // Similar to "passport"
     const passportEmbed = new Float32Array([0.9, 0.1, 0.0]); // passport text embed
