@@ -9,6 +9,12 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
+// Mock isBiometricAvailable from key-manager
+const mockIsBiometricAvailable = vi.fn();
+vi.mock('@/db/crypto/key-manager', () => ({
+  isBiometricAvailable: () => mockIsBiometricAvailable()
+}));
+
 // Mock detectPlatform to return 'web' while preserving other exports
 vi.mock('@/lib/utils', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/utils')>();
@@ -24,6 +30,10 @@ describe('InlineUnlock', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockIsBiometricAvailable.mockResolvedValue({
+      isAvailable: false,
+      biometryType: null
+    });
 
     // Default mocks for a locked, set-up database
     mockUseDatabaseContext.mockReturnValue({
@@ -342,3 +352,9 @@ describe('InlineUnlock', () => {
     });
   });
 });
+
+// Note: Mobile biometric flows (lines 40-46, 49-62 in InlineUnlock.tsx) are hard to
+// test because the platform is determined at module load time with `detectPlatform()`.
+// Testing these would require completely reloading the module with different mocks,
+// which adds complexity. The getBiometricLabel function and biometric availability
+// check are integration-tested on actual mobile devices.
