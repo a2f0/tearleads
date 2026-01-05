@@ -245,7 +245,7 @@ test.describe('Analytics page', () => {
       page
         .getByText('No events recorded yet')
         .or(page.getByText('Recent Events'))
-    ).toBeVisible({ timeout: 5000 });
+    ).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // Helper to click a time filter and wait for loading to complete
     const clickTimeFilter = async (name: string) => {
