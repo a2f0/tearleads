@@ -344,17 +344,13 @@ export function Photos() {
             </div>
           </div>
         ) : photos.length === 0 && hasFetched ? (
-          <div className="space-y-4">
-            <Dropzone
-              onFilesSelected={handleFilesSelected}
-              accept="image/*"
-              multiple={true}
-              disabled={uploading}
-            />
-            <p className="text-center text-muted-foreground text-sm">
-              Drop images here to add them to your library
-            </p>
-          </div>
+          <Dropzone
+            onFilesSelected={handleFilesSelected}
+            accept="image/*"
+            multiple={true}
+            disabled={uploading}
+            label="photos"
+          />
         ) : (
           <div
             className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6"
@@ -413,6 +409,7 @@ export function Photos() {
               accept="image/*"
               multiple={true}
               disabled={uploading}
+              label="photos"
               className="flex aspect-square items-center justify-center gap-2 p-0 [&>div]:hidden [&>svg]:h-6 [&>svg]:w-6"
             />
           </div>
