@@ -66,6 +66,7 @@ export function TableRows() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [documentView, setDocumentView] = useState(isMobileViewport);
+  const userToggledViewRef = useRef(false);
   const [sort, setSort] = useState<SortState>({
     column: null,
     direction: null
@@ -214,6 +215,18 @@ export function TableRows() {
         clearTimeout(truncateTimeoutRef.current);
       }
     };
+  }, []);
+
+  // Update document view on window resize (only if user hasn't manually toggled)
+  useEffect(() => {
+    const handleResize = () => {
+      if (!userToggledViewRef.current) {
+        setDocumentView(isMobileViewport());
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const toggleColumnVisibility = useCallback((columnName: string) => {
@@ -391,7 +404,10 @@ export function TableRows() {
             <Button
               variant={documentView ? 'default' : 'outline'}
               size="icon"
-              onClick={() => setDocumentView(!documentView)}
+              onClick={() => {
+                userToggledViewRef.current = true;
+                setDocumentView(!documentView);
+              }}
               title="Toggle document view"
             >
               <Braces className="h-4 w-4" />
