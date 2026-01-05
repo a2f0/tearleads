@@ -42,6 +42,9 @@ const Files = lazy(() =>
 const Home = lazy(() =>
   import('./pages/Home').then((m) => ({ default: m.Home }))
 );
+const Keychain = lazy(() =>
+  import('./pages/Keychain').then((m) => ({ default: m.Keychain }))
+);
 const LocalStorage = lazy(() =>
   import('./pages/LocalStorage').then((m) => ({ default: m.LocalStorage }))
 );
@@ -126,6 +129,7 @@ if (rootElement) {
                       <Route path="opfs" element={<Opfs />} />
                       <Route path="cache-storage" element={<CacheStorage />} />
                       <Route path="local-storage" element={<LocalStorage />} />
+                      <Route path="keychain" element={<Keychain />} />
                     </Route>
                   </Routes>
                 </Suspense>

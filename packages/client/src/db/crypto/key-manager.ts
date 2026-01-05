@@ -781,3 +781,129 @@ export async function isBiometricAvailable(): Promise<nativeSecureStorage.Biomet
   }
   return nativeSecureStorage.isBiometricAvailable();
 }
+
+/**
+ * Key status for an instance (existence only, no values).
+ */
+export interface KeyStatus {
+  salt: boolean;
+  keyCheckValue: boolean;
+  wrappingKey: boolean;
+  wrappedKey: boolean;
+}
+
+/**
+ * Check which keys exist for an instance without unlocking.
+ * Safe to call without authentication - only returns boolean existence.
+ */
+export async function getKeyStatusForInstance(
+  instanceId: string
+): Promise<KeyStatus> {
+  const dbName = 'rapid_key_storage';
+  const storeName = 'keys';
+
+  const saltKey = getStorageKey(SALT_STORAGE_PREFIX, instanceId);
+  const kcvKey = getStorageKey(KEY_CHECK_VALUE_PREFIX, instanceId);
+  const wrappingKeyKey = getStorageKey(WRAPPING_KEY_STORAGE_PREFIX, instanceId);
+  const wrappedKeyKey = getStorageKey(WRAPPED_KEY_STORAGE_PREFIX, instanceId);
+
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(dbName, 1);
+
+    request.onerror = () => reject(request.error);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(storeName)) {
+        db.createObjectStore(storeName);
+      }
+    };
+
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction(storeName, 'readonly');
+      const store = tx.objectStore(storeName);
+
+      const results: KeyStatus = {
+        salt: false,
+        keyCheckValue: false,
+        wrappingKey: false,
+        wrappedKey: false
+      };
+
+      const saltRequest = store.get(saltKey);
+      const kcvRequest = store.get(kcvKey);
+      const wrappingRequest = store.get(wrappingKeyKey);
+      const wrappedRequest = store.get(wrappedKeyKey);
+
+      saltRequest.onsuccess = () => {
+        results.salt = saltRequest.result !== undefined;
+      };
+      kcvRequest.onsuccess = () => {
+        results.keyCheckValue = kcvRequest.result !== undefined;
+      };
+      wrappingRequest.onsuccess = () => {
+        results.wrappingKey = wrappingRequest.result !== undefined;
+      };
+      wrappedRequest.onsuccess = () => {
+        results.wrappedKey = wrappedRequest.result !== undefined;
+      };
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve(results);
+      };
+
+      tx.onerror = () => {
+        db.close();
+        reject(tx.error);
+      };
+    };
+  });
+}
+
+/**
+ * Delete only session keys (wrapping key + wrapped key) for an instance.
+ * This ends the session but preserves the database encryption setup.
+ */
+export async function deleteSessionKeysForInstance(
+  instanceId: string
+): Promise<void> {
+  const dbName = 'rapid_key_storage';
+  const storeName = 'keys';
+
+  const wrappingKeyKey = getStorageKey(WRAPPING_KEY_STORAGE_PREFIX, instanceId);
+  const wrappedKeyKey = getStorageKey(WRAPPED_KEY_STORAGE_PREFIX, instanceId);
+
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(dbName, 1);
+
+    request.onerror = () => reject(request.error);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(storeName)) {
+        db.createObjectStore(storeName);
+      }
+    };
+
+    request.onsuccess = () => {
+      const db = request.result;
+      const tx = db.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+
+      store.delete(wrappingKeyKey);
+      store.delete(wrappedKeyKey);
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+
+      tx.onerror = () => {
+        db.close();
+        reject(tx.error);
+      };
+    };
+  });
+}
