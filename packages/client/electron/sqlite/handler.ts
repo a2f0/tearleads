@@ -281,66 +281,58 @@ function clearKeyStorage(instanceId: string): void {
  * - Linux: libsecret or kwallet
  */
 
-function storeWrappingKey(keyBytes: number[], instanceId: string): void {
+/**
+ * Helper to store encrypted data using safeStorage.
+ */
+function storeEncryptedData(data: number[], filename: string): void {
   if (!safeStorage.isEncryptionAvailable()) {
     throw new Error('Secure storage is not available on this system');
   }
-
-  const keyPath = getStoragePath(getWrappingKeyFilename(instanceId));
-  const buffer = Buffer.from(keyBytes);
+  const keyPath = getStoragePath(filename);
+  const buffer = Buffer.from(data);
   const encrypted = safeStorage.encryptString(buffer.toString('base64'));
   secureZeroBuffer(buffer);
-
   fs.writeFileSync(keyPath, encrypted);
+}
+
+/**
+ * Helper to retrieve encrypted data using safeStorage.
+ */
+function getEncryptedData(filename: string): number[] | null {
+  if (!safeStorage.isEncryptionAvailable()) {
+    return null;
+  }
+  const keyPath = getStoragePath(filename);
+  try {
+    const encrypted = fs.readFileSync(keyPath);
+    const decrypted = safeStorage.decryptString(encrypted);
+    const buffer = Buffer.from(decrypted, 'base64');
+    const result = Array.from(buffer);
+    secureZeroBuffer(buffer);
+    return result;
+  } catch (error: unknown) {
+    // It's normal for the file not to exist. Only log other errors.
+    if (error instanceof Error && (error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.error(`Failed to read or decrypt session data from ${keyPath}:`, error);
+    }
+    return null;
+  }
+}
+
+function storeWrappingKey(keyBytes: number[], instanceId: string): void {
+  storeEncryptedData(keyBytes, getWrappingKeyFilename(instanceId));
 }
 
 function getWrappingKey(instanceId: string): number[] | null {
-  if (!safeStorage.isEncryptionAvailable()) {
-    return null;
-  }
-
-  const keyPath = getStoragePath(getWrappingKeyFilename(instanceId));
-  try {
-    const encrypted = fs.readFileSync(keyPath);
-    const decrypted = safeStorage.decryptString(encrypted);
-    const buffer = Buffer.from(decrypted, 'base64');
-    const result = Array.from(buffer);
-    secureZeroBuffer(buffer);
-    return result;
-  } catch {
-    return null;
-  }
+  return getEncryptedData(getWrappingKeyFilename(instanceId));
 }
 
 function storeWrappedKey(wrappedKey: number[], instanceId: string): void {
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('Secure storage is not available on this system');
-  }
-
-  const keyPath = getStoragePath(getWrappedKeyFilename(instanceId));
-  const buffer = Buffer.from(wrappedKey);
-  const encrypted = safeStorage.encryptString(buffer.toString('base64'));
-  secureZeroBuffer(buffer);
-
-  fs.writeFileSync(keyPath, encrypted);
+  storeEncryptedData(wrappedKey, getWrappedKeyFilename(instanceId));
 }
 
 function getWrappedKey(instanceId: string): number[] | null {
-  if (!safeStorage.isEncryptionAvailable()) {
-    return null;
-  }
-
-  const keyPath = getStoragePath(getWrappedKeyFilename(instanceId));
-  try {
-    const encrypted = fs.readFileSync(keyPath);
-    const decrypted = safeStorage.decryptString(encrypted);
-    const buffer = Buffer.from(decrypted, 'base64');
-    const result = Array.from(buffer);
-    secureZeroBuffer(buffer);
-    return result;
-  } catch {
-    return null;
-  }
+  return getEncryptedData(getWrappedKeyFilename(instanceId));
 }
 
 function hasSession(instanceId: string): boolean {
