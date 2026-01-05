@@ -35,7 +35,6 @@ export function useFileUpload() {
         throw new Error('Database not unlocked');
       }
 
-      // Initialize file storage if needed
       const instanceId = getCurrentInstanceId();
       if (!instanceId) {
         throw new Error('No active instance');
@@ -59,7 +58,6 @@ export function useFileUpload() {
       const contentHash = await computeContentHash(data);
       onProgress?.(40);
 
-      // Check for duplicate
       const db = getDatabase();
       const existing = await db
         .select({ id: files.id })
