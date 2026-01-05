@@ -334,6 +334,7 @@ export class CapacitorAdapter implements DatabaseAdapter {
       }
     }
 
+    // Note: deleteDatabase is on CapacitorSQLite, not SQLiteConnection
     try {
       await CapacitorSQLite.deleteDatabase({ database: name });
     } catch (error: unknown) {
