@@ -586,7 +586,6 @@ export class KeyManager {
     const newKey = await exportKey(newCryptoKey);
     const newKcv = await this.createKeyCheckValue(newKey);
 
-    // Update storage
     await this.storage?.setSalt(newSalt);
     await this.storage?.setKeyCheckValue(newKcv);
 

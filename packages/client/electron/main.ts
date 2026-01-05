@@ -11,7 +11,6 @@ let mainWindow: BrowserWindow | null = null;
 
 const protocolScheme = getElectronProtocolScheme(is.dev);
 
-// Get the app icon path - works for both dev and production
 function getIconPath(): string {
   // In dev: __dirname is .../out/main, so ../../build/icons
   // In prod: __dirname is .../app.asar/out/main, so ../../build/icons

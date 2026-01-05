@@ -49,14 +49,12 @@ export class WebAdapter implements DatabaseAdapter {
   private readyReject: ((error: Error) => void) | null = null;
 
   async initialize(config: DatabaseConfig): Promise<void> {
-    // Create worker if it doesn't exist
     if (!this.worker) {
       this.worker = new Worker(
         new URL('../../workers/sqlite.worker.ts', import.meta.url),
         { type: 'module' }
       );
 
-      // Set up message handler
       this.worker.onmessage = this.handleMessage.bind(this);
       this.worker.onerror = this.handleError.bind(this);
 
@@ -113,14 +111,12 @@ export class WebAdapter implements DatabaseAdapter {
     // Skip READY messages (handled separately)
     if (response.type === 'READY') return;
 
-    // Find the pending request
     const id = 'id' in response ? response.id : null;
     if (!id) return;
 
     const pending = this.pending.get(id);
     if (!pending) return;
 
-    // Clear timeout and remove from pending
     clearTimeout(pending.timeout);
     this.pending.delete(id);
 
