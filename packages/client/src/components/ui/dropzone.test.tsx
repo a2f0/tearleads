@@ -162,17 +162,17 @@ describe('Dropzone', () => {
       vi.mocked(detectPlatform).mockReturnValue(platform);
     });
 
-    it('renders the Choose files button', () => {
+    it('renders the Choose Files button', () => {
       render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
 
       expect(screen.getByTestId('dropzone-choose-files')).toBeInTheDocument();
-      expect(screen.getByText('Choose files')).toBeInTheDocument();
+      expect(screen.getByText('Choose Files')).toBeInTheDocument();
     });
 
-    it('uses custom label in button text', () => {
+    it('uses custom label in button text with capitalized first letter', () => {
       render(<Dropzone onFilesSelected={mockOnFilesSelected} label="photos" />);
 
-      expect(screen.getByText('Choose photos')).toBeInTheDocument();
+      expect(screen.getByText('Choose Photos')).toBeInTheDocument();
     });
 
     it('does not show drag and drop text', () => {
