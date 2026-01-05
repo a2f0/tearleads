@@ -25,6 +25,7 @@ const mockLoadModel = vi.fn();
 const mockUnloadModel = vi.fn();
 const mockIsWebGPUSupported = vi.fn();
 const mockGenerate = vi.fn();
+const mockClassify = vi.fn();
 const mockAbort = vi.fn();
 
 vi.mock('@/hooks/useLLM', () => ({
@@ -34,12 +35,13 @@ vi.mock('@/hooks/useLLM', () => ({
     isLoading: false,
     loadProgress: null,
     error: null,
+    isClassifying: false,
     loadModel: mockLoadModel,
     unloadModel: mockUnloadModel,
     generate: mockGenerate,
+    classify: mockClassify,
     abort: mockAbort,
-    isWebGPUSupported: mockIsWebGPUSupported,
-    previouslyLoadedModel: null
+    isWebGPUSupported: mockIsWebGPUSupported
   }))
 }));
 
@@ -223,12 +225,13 @@ describe('Models', () => {
         isLoading: false,
         loadProgress: null,
         error: null,
+        isClassifying: false,
         loadModel: loadModelMock,
         unloadModel: mockUnloadModel,
         generate: mockGenerate,
+        classify: mockClassify,
         abort: mockAbort,
-        isWebGPUSupported: mockIsWebGPUSupported,
-        previouslyLoadedModel: null
+        isWebGPUSupported: mockIsWebGPUSupported
       });
 
       const user = userEvent.setup();
@@ -256,12 +259,13 @@ describe('Models', () => {
           isLoading: true,
           loadProgress: { text: 'Downloading weights...', progress: 0.45 },
           error: null,
+          isClassifying: false,
           loadModel: loadModelMock,
           unloadModel: mockUnloadModel,
           generate: mockGenerate,
+          classify: mockClassify,
           abort: mockAbort,
-          isWebGPUSupported: mockIsWebGPUSupported,
-          previouslyLoadedModel: null
+          isWebGPUSupported: mockIsWebGPUSupported
         });
 
         rerender(
@@ -294,8 +298,10 @@ describe('Models', () => {
         loadModel: mockLoadModel,
         unloadModel: mockUnloadModel,
         generate: mockGenerate,
+        classify: mockClassify,
         abort: mockAbort,
         isWebGPUSupported: mockIsWebGPUSupported,
+        isClassifying: false,
         previouslyLoadedModel: null
       });
 
@@ -316,8 +322,10 @@ describe('Models', () => {
         loadModel: mockLoadModel,
         unloadModel: mockUnloadModel,
         generate: mockGenerate,
+        classify: mockClassify,
         abort: mockAbort,
         isWebGPUSupported: mockIsWebGPUSupported,
+        isClassifying: false,
         previouslyLoadedModel: null
       });
 
@@ -341,8 +349,10 @@ describe('Models', () => {
         loadModel: mockLoadModel,
         unloadModel: mockUnloadModel,
         generate: mockGenerate,
+        classify: mockClassify,
         abort: mockAbort,
         isWebGPUSupported: mockIsWebGPUSupported,
+        isClassifying: false,
         previouslyLoadedModel: null
       });
 
@@ -371,8 +381,10 @@ describe('Models', () => {
         loadModel: mockLoadModel,
         unloadModel: mockUnloadModel,
         generate: mockGenerate,
+        classify: mockClassify,
         abort: mockAbort,
         isWebGPUSupported: mockIsWebGPUSupported,
+        isClassifying: false,
         previouslyLoadedModel: null
       });
 
@@ -461,7 +473,7 @@ describe('Models', () => {
         const downloadButtons = screen.getAllByRole('button', {
           name: /download/i
         });
-        expect(downloadButtons.length).toBe(3); // All 3 recommended models
+        expect(downloadButtons.length).toBe(4); // All 3 recommended models
       });
     });
 
@@ -505,7 +517,7 @@ describe('Models', () => {
         const downloadButtons = screen.getAllByRole('button', {
           name: /download/i
         });
-        expect(downloadButtons.length).toBe(3);
+        expect(downloadButtons.length).toBe(4);
       });
     });
   });

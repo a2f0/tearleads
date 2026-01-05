@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ClassificationResult } from './useLLM';
 
 // Mock the worker
 const mockPostMessage = vi.fn();
@@ -244,6 +245,162 @@ describe('useLLM', () => {
       // Error state should be updated
       expect(result.current.error).toBe('Test error');
       expect(result.current.isLoading).toBe(false);
+    });
+  });
+
+  describe('classification', () => {
+    it('sends classify request to worker after loading CLIP model', async () => {
+      // Import fresh module
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      // Load CLIP model first
+      await act(async () => {
+        result.current.loadModel('Xenova/clip-vit-base-patch32');
+        await Promise.resolve();
+      });
+
+      // Simulate model loaded
+      await act(async () => {
+        mockOnMessage?.({
+          data: {
+            type: 'loaded',
+            modelId: 'Xenova/clip-vit-base-patch32',
+            modelType: 'clip',
+            durationMs: 100
+          }
+        } as MessageEvent);
+      });
+
+      expect(result.current.loadedModel).toBe('Xenova/clip-vit-base-patch32');
+      expect(result.current.modelType).toBe('clip');
+
+      // Call classify
+      let classifyPromise: Promise<ClassificationResult> | undefined;
+      await act(async () => {
+        classifyPromise = result.current.classify('data:image/png;base64,...', [
+          'passport',
+          'license'
+        ]);
+        await Promise.resolve();
+      });
+
+      expect(result.current.isClassifying).toBe(true);
+      expect(mockPostMessage).toHaveBeenCalledWith({
+        type: 'classify',
+        image: 'data:image/png;base64,...',
+        candidateLabels: ['passport', 'license']
+      });
+
+      // Simulate classification response
+      await act(async () => {
+        mockOnMessage?.({
+          data: {
+            type: 'classification',
+            labels: ['passport', 'license'],
+            scores: [0.8, 0.2],
+            durationMs: 50
+          }
+        } as MessageEvent);
+      });
+
+      expect(result.current.isClassifying).toBe(false);
+
+      const classificationResult = await classifyPromise;
+      expect(classificationResult?.labels).toEqual(['passport', 'license']);
+      expect(classificationResult?.scores[0]).toBeGreaterThan(
+        classificationResult?.scores[1] ?? 0
+      );
+    });
+
+    it('throws error when classifying without a loaded model', async () => {
+      // Import fresh module
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      // Try to classify without loading a model
+      await expect(
+        result.current.classify('data:image/png;base64,...', ['passport'])
+      ).rejects.toThrow('No model loaded');
+    });
+
+    it('throws error when classifying with non-CLIP model', async () => {
+      // Import fresh module
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      // Load a chat model
+      await act(async () => {
+        result.current.loadModel('test-chat-model');
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        mockOnMessage?.({
+          data: {
+            type: 'loaded',
+            modelId: 'test-chat-model',
+            modelType: 'chat',
+            durationMs: 100
+          }
+        } as MessageEvent);
+      });
+
+      // Try to classify with wrong model type
+      await expect(
+        result.current.classify('data:image/png;base64,...', ['passport'])
+      ).rejects.toThrow('Loaded model is not a CLIP model');
+    });
+
+    it('handles classification errors correctly', async () => {
+      // Import fresh module
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      // Load CLIP model
+      await act(async () => {
+        result.current.loadModel('Xenova/clip-vit-base-patch32');
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        mockOnMessage?.({
+          data: {
+            type: 'loaded',
+            modelId: 'Xenova/clip-vit-base-patch32',
+            modelType: 'clip',
+            durationMs: 100
+          }
+        } as MessageEvent);
+      });
+
+      // Start classification
+      let classifyPromise: Promise<ClassificationResult> | undefined;
+      await act(async () => {
+        classifyPromise = result.current.classify('data:image/png;base64,...', [
+          'passport'
+        ]);
+        await Promise.resolve();
+      });
+
+      // Simulate error
+      await act(async () => {
+        mockOnMessage?.({
+          data: {
+            type: 'error',
+            message: 'Classification failed: Invalid image'
+          }
+        } as MessageEvent);
+
+        try {
+          await classifyPromise;
+        } catch {
+          // Expected rejection
+        }
+      });
+
+      expect(result.current.isClassifying).toBe(false);
+      expect(result.current.error).toBe('Classification failed: Invalid image');
     });
   });
 });

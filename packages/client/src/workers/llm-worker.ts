@@ -3,6 +3,7 @@ import {
   AutoModelForVision2Seq,
   AutoProcessor,
   AutoTokenizer,
+  CLIPModel,
   env,
   PaliGemmaForConditionalGeneration,
   type PreTrainedModel,
@@ -24,10 +25,11 @@ interface ChatMessage {
 type WorkerRequest =
   | { type: 'load'; modelId: string }
   | { type: 'generate'; messages: ChatMessage[]; image?: string }
+  | { type: 'classify'; image: string; candidateLabels: string[] }
   | { type: 'unload' }
   | { type: 'abort' };
 
-type ModelType = 'chat' | 'vision' | 'paligemma';
+type ModelType = 'chat' | 'vision' | 'paligemma' | 'clip';
 
 type WorkerResponse =
   | { type: 'progress'; file: string; progress: number; total: number }
@@ -42,6 +44,12 @@ type WorkerResponse =
       type: 'done';
       durationMs: number;
       promptType: 'text' | 'multimodal';
+    }
+  | {
+      type: 'classification';
+      labels: string[];
+      scores: number[];
+      durationMs: number;
     }
   | { type: 'error'; message: string }
   | { type: 'unloaded' };
@@ -67,7 +75,12 @@ function isVisionModel(modelId: string): boolean {
   return lowerModelId.includes('vision') || lowerModelId.includes('vlm');
 }
 
+function isClipModel(modelId: string): boolean {
+  return modelId.toLowerCase().includes('clip');
+}
+
 function getModelType(modelId: string): ModelType {
+  if (isClipModel(modelId)) return 'clip';
   if (isPaliGemmaModel(modelId)) return 'paligemma';
   if (isVisionModel(modelId)) return 'vision';
   return 'chat';
@@ -142,6 +155,21 @@ async function loadModel(modelId: string): Promise<void> {
       ]);
       // Vision models use processor's tokenizer
       tokenizer = processor.tokenizer ?? null;
+    } else if (modelType === 'clip') {
+      // Load CLIP model for zero-shot classification
+      [processor, tokenizer, model] = await Promise.all([
+        AutoProcessor.from_pretrained(modelId, {
+          progress_callback: progressCallback
+        }),
+        AutoTokenizer.from_pretrained(modelId, {
+          progress_callback: progressCallback
+        }),
+        CLIPModel.from_pretrained(modelId, {
+          dtype: 'fp32',
+          device: 'webgpu',
+          progress_callback: progressCallback
+        })
+      ]);
     } else {
       // Load chat model
       [tokenizer, model] = await Promise.all([
@@ -335,6 +363,102 @@ async function generate(
   }
 }
 
+// Helper functions for CLIP zero-shot classification
+function softmax(arr: number[]): number[] {
+  const max = Math.max(...arr);
+  const exps = arr.map((x) => Math.exp(x - max));
+  const sum = exps.reduce((a, b) => a + b, 0);
+  return exps.map((x) => x / sum);
+}
+
+function cosineSimilarity(a: Float32Array, b: Float32Array): number {
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    const aVal = a[i] ?? 0;
+    const bVal = b[i] ?? 0;
+    dotProduct += aVal * bVal;
+    normA += aVal * aVal;
+    normB += bVal * bVal;
+  }
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+async function classifyImage(
+  imageBase64: string,
+  candidateLabels: string[]
+): Promise<void> {
+  if (!model || !tokenizer || !processor) {
+    postResponse({ type: 'error', message: 'CLIP model not loaded' });
+    return;
+  }
+
+  if (currentModelType !== 'clip') {
+    postResponse({
+      type: 'error',
+      message: 'Loaded model is not a CLIP model'
+    });
+    return;
+  }
+
+  const startTime = performance.now();
+
+  try {
+    // Process image
+    const image = await RawImage.fromURL(imageBase64);
+    const imageInputs = await processor(image);
+
+    // Process text labels with prompt template
+    const textInputs = tokenizer(
+      candidateLabels.map((label) => `a photo of a ${label}`),
+      { padding: true, truncation: true }
+    );
+
+    // Get embeddings from CLIP model
+    // @ts-expect-error - CLIPModel has get_image_features and get_text_features methods
+    const imageOutputs = await model.get_image_features(imageInputs);
+    // @ts-expect-error - CLIPModel has get_image_features and get_text_features methods
+    const textOutputs = await model.get_text_features(textInputs);
+
+    // Extract embeddings from outputs
+    const imageEmbeds = imageOutputs.image_embeds.data as Float32Array;
+    const textEmbeds = textOutputs.text_embeds.data as Float32Array;
+
+    // Get embedding dimension
+    const embedDim = imageOutputs.image_embeds.dims[1];
+    const numLabels = candidateLabels.length;
+
+    // Compute cosine similarity between image and each text embedding
+    const similarities: number[] = [];
+    for (let i = 0; i < numLabels; i++) {
+      const textEmbed = textEmbeds.slice(i * embedDim, (i + 1) * embedDim);
+      const similarity = cosineSimilarity(
+        imageEmbeds as Float32Array,
+        textEmbed as Float32Array
+      );
+      similarities.push(similarity);
+    }
+
+    // Apply softmax to get probabilities
+    const scores = softmax(similarities);
+
+    const durationMs = performance.now() - startTime;
+    postResponse({
+      type: 'classification',
+      labels: candidateLabels,
+      scores,
+      durationMs
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    postResponse({
+      type: 'error',
+      message: `Classification failed: ${message}`
+    });
+  }
+}
+
 // Message handler
 self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const request = event.data;
@@ -346,6 +470,10 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 
     case 'generate':
       await generate(request.messages, request.image);
+      break;
+
+    case 'classify':
+      await classifyImage(request.image, request.candidateLabels);
       break;
 
     case 'unload':
