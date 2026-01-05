@@ -5,7 +5,6 @@
 
 import { App, type AppState } from '@capacitor/app';
 import { useEffect } from 'react';
-import { toast } from 'sonner';
 import { detectPlatform } from '@/lib/utils';
 
 const platform = detectPlatform();
@@ -144,24 +143,5 @@ export function clearLastLoadedModel(): void {
     localStorage.removeItem(LAST_MODEL_KEY);
   } catch {
     // localStorage may not be available
-  }
-}
-
-/**
- * Show a toast indicating the app recovered from an unexpected reload.
- */
-export function showRecoveryToast(hasPersistedSession: boolean): void {
-  if (hasPersistedSession) {
-    toast.info('App reloaded. Tap to restore your session.', {
-      duration: 5000,
-      action: {
-        label: 'Dismiss',
-        onClick: () => {}
-      }
-    });
-  } else {
-    toast.info('App reloaded. Please unlock your database to continue.', {
-      duration: 5000
-    });
   }
 }
