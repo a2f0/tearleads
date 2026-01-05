@@ -493,30 +493,17 @@ describe('formatXAxisTick', () => {
   // Use a fixed date for consistent testing
   const timestamp = new Date('2024-01-15T14:30:00Z').getTime();
 
-  it('formats hour filter as time', () => {
-    const result = formatXAxisTick(timestamp, 'hour');
-    // Should contain time format (varies by locale)
-    expect(result).toBeTruthy();
-    expect(typeof result).toBe('string');
+  it.each(['hour', 'day'])('formats %s filter as time', (filter) => {
+    const result = formatXAxisTick(timestamp, filter);
+    // Should contain time format (e.g., 02:30 PM or 14:30)
+    expect(result).toMatch(/\d{1,2}:\d{2}/);
   });
 
-  it('formats day filter as time', () => {
-    const result = formatXAxisTick(timestamp, 'day');
-    expect(result).toBeTruthy();
-    expect(typeof result).toBe('string');
-  });
-
-  it('formats week filter as date', () => {
-    const result = formatXAxisTick(timestamp, 'week');
-    // Should contain month and day
-    expect(result).toBeTruthy();
-    expect(typeof result).toBe('string');
-  });
-
-  it('formats all filter as date', () => {
-    const result = formatXAxisTick(timestamp, 'all');
-    expect(result).toBeTruthy();
-    expect(typeof result).toBe('string');
+  it.each(['week', 'all'])('formats %s filter as date', (filter) => {
+    const result = formatXAxisTick(timestamp, filter);
+    // Should contain month and day (e.g., Jan 15)
+    expect(result).toContain('Jan');
+    expect(result).toMatch(/\d{1,2}/);
   });
 });
 
