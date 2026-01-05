@@ -12,6 +12,8 @@ let mainWindow: BrowserWindow | null = null;
 const protocolScheme = getElectronProtocolScheme(is.dev);
 
 function getIconPath(): string {
+  // In dev: __dirname is .../out/main, so ../../build/icons
+  // In prod: __dirname is .../app.asar/out/main, so ../../build/icons
   return resolve(__dirname, '../../build/icons/icon.png');
 }
 
