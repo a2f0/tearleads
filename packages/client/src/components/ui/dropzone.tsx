@@ -106,7 +106,7 @@ export function Dropzone({
           data-testid="dropzone-choose-files"
         >
           <Upload className="mr-2 h-5 w-5" />
-          Choose {label}
+          Choose {label.charAt(0).toUpperCase() + label.slice(1)}
         </Button>
         {fileInput}
       </div>

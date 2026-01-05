@@ -326,16 +326,12 @@ describe('Photos', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/Drop photos here to add them to your library/)
+          screen.getByText(/Drag and drop photos here/)
         ).toBeInTheDocument();
       });
 
       // Should show the dropzone input
       expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
-
-      // The dropzone should be in a space-y-4 container (full-width layout)
-      const dropzone = screen.getByTestId('dropzone');
-      expect(dropzone.parentElement).toHaveClass('space-y-4');
     });
   });
 
@@ -353,11 +349,6 @@ describe('Photos', () => {
       // The dropzone should be in the gallery (grid container)
       const dropzone = screen.getByTestId('dropzone');
       expect(dropzone.parentElement).toHaveClass('grid', 'gap-2');
-
-      // Should NOT show the empty state message
-      expect(
-        screen.queryByText(/Drop photos here to add them to your library/)
-      ).not.toBeInTheDocument();
     });
 
     it('dropzone has aspect-square class when photos exist', async () => {
