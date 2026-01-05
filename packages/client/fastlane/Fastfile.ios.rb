@@ -99,17 +99,6 @@ platform :ios do
     )
   end
 
-  desc 'Promote TestFlight build to App Store'
-  lane :promote_to_production do
-    deliver(
-      skip_binary_upload: true,
-      skip_screenshots: true,
-      skip_metadata: true,
-      submit_for_review: true,
-      automatic_release: false
-    )
-  end
-
   desc 'Sync certificates and provisioning profiles'
   lane :sync_certs do
     match(type: 'development')
@@ -129,13 +118,6 @@ platform :ios do
     match(type: 'development', force_for_new_devices: true)
   end
 
-  desc 'Increment build number'
-  lane :bump_build do
-    increment_build_number(
-      xcodeproj: './ios/App/App.xcodeproj'
-    )
-  end
-
   desc 'Get latest build number from TestFlight'
   lane :get_testflight_build_number do
     setup_ci_environment
@@ -148,44 +130,6 @@ platform :ios do
     rescue StandardError => e
       UI.user_error!("Failed to fetch TestFlight build number: #{e.message}")
     end
-  end
-
-  desc 'Sync local build number to TestFlight + 1'
-  lane :sync_build_from_testflight do
-    testflight_build = get_testflight_build_number.to_i
-    new_build = testflight_build + 1
-    increment_build_number(xcodeproj: './ios/App/App.xcodeproj', build_number: new_build)
-    UI.success("Updated local build number to #{new_build}")
-  end
-
-  desc 'Check if current build number already exists in TestFlight (exits 0 if exists, 1 if new)'
-  lane :build_exists_in_testflight do
-    setup_ci_environment
-    ensure_app_store_connect_api
-
-    current_build_number = get_build_number(xcodeproj: './ios/App/App.xcodeproj')
-
-    begin
-      testflight_build_number = latest_testflight_build_number(app_identifier: APP_ID)
-
-      if current_build_number.to_i <= testflight_build_number.to_i
-        UI.important("Build #{current_build_number} already exists in TestFlight (latest: #{testflight_build_number}). Skipping deployment.")
-      else
-        UI.user_error!("Build #{current_build_number} is new (TestFlight latest: #{testflight_build_number}). Proceeding with deployment.")
-      end
-    rescue FastlaneCore::Interface::FastlaneError => e
-      UI.user_error!("Build is new as no builds were found in TestFlight: #{e.message}")
-    rescue StandardError => e
-      UI.user_error!("Failed to fetch TestFlight build number: #{e.message}")
-    end
-  end
-
-  desc 'Increment version number'
-  lane :bump_version do |options|
-    increment_version_number(
-      xcodeproj: './ios/App/App.xcodeproj',
-      bump_type: options[:type] || 'patch'
-    )
   end
 
   desc 'Clean build artifacts'
