@@ -51,6 +51,7 @@ export default defineConfig({
         // Native secure storage requires Capacitor native biometric APIs
         'src/db/crypto/native-secure-storage.ts',
         // Barrel files that only re-export from other modules
+        // (footer.tsx re-exports Footer from @rapid/ui package)
         'src/audio/index.ts',
         'src/db/crypto/index.ts',
         'src/db/hooks/index.ts',

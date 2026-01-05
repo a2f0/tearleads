@@ -340,18 +340,21 @@ describe('ColumnMapper', () => {
   });
 
   describe('remove mapping functionality', () => {
-    it('renders remove button for mapped columns', () => {
+    it('renders remove buttons for mapped columns', () => {
       const googleData = createMockCSVData(
         ['First Name', 'Last Name'],
         [['John', 'Doe']]
       );
       render(<ColumnMapper {...defaultProps} data={googleData} />);
 
-      // The mapped columns should have X buttons to remove them
-      // First Name and Last Name are auto-mapped
-      const removeButtons = screen.getAllByRole('button', { name: '' });
-      // There should be at least 2 X buttons for First Name and Last Name mappings
-      expect(removeButtons.length).toBeGreaterThanOrEqual(2);
+      // Find the Contact Fields section which contains the mapped fields
+      const contactFieldsSection =
+        screen.getByText('Contact Fields').parentElement;
+
+      // Look for X buttons (SVG icons inside buttons) in the drop zones
+      const xButtons = contactFieldsSection?.querySelectorAll('button svg');
+      // First Name and Last Name are auto-mapped, so there should be 2 X buttons
+      expect(xButtons?.length).toBeGreaterThanOrEqual(2);
     });
 
     it('can remove a mapped column by clicking X button', async () => {
@@ -362,15 +365,15 @@ describe('ColumnMapper', () => {
       );
       render(<ColumnMapper {...defaultProps} data={googleData} />);
 
-      // Find the X buttons in the drop zones (not the columns)
+      // Find the Contact Fields section which contains the mapped fields
       const contactFieldsSection =
         screen.getByText('Contact Fields').parentElement;
-      const xButtons = contactFieldsSection?.querySelectorAll('button svg');
 
-      // There should be X buttons for the mapped fields
+      // Look for X buttons (SVG icons inside buttons) in the drop zones
+      const xButtons = contactFieldsSection?.querySelectorAll('button svg');
       expect(xButtons?.length).toBeGreaterThanOrEqual(2);
 
-      // Click the first X button to remove a mapping
+      // Click the first X button to remove the First Name mapping
       if (xButtons?.[0]) {
         await user.click(xButtons[0].parentElement as HTMLElement);
       }
