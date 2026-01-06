@@ -126,6 +126,12 @@ jobs:
           pnpm --filter @rapid/api test:coverage
           pnpm --filter @rapid/client test:coverage
 
+      # Temporary: Test release notes generation (remove after PR #426 merges)
+      - name: Test Release Notes Generation
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: ./packages/client/scripts/generateReleaseNotes.sh ios
+
       - name: Upload Coverage Reports
         uses: actions/upload-artifact@v4
         with:
