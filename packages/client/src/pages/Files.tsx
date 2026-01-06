@@ -439,7 +439,7 @@ export function Files() {
                 return (
                   <div
                     key={file.id}
-                    className={`flex items-center gap-3 rounded-lg border bg-muted/50 p-3 ${
+                    className={`flex items-center gap-3 overflow-hidden rounded-lg border bg-muted/50 p-3 ${
                       file.deleted ? 'opacity-60' : ''
                     }`}
                   >
@@ -507,7 +507,7 @@ export function Files() {
                         </div>
                       );
                     })()}
-                    <div className="flex gap-1">
+                    <div className="flex shrink-0 gap-1">
                       {file.deleted ? (
                         <Button
                           variant="ghost"
