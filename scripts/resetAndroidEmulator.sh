@@ -7,9 +7,13 @@ AVD_CONFIG="$HOME/.android/avd/${DEVICE}.avd/config.ini"
 echo "Resetting Android emulator: $DEVICE"
 
 # Disable "always on top" behavior
-if ! grep -q "set.android.emulator.qt.window.on.top" "$AVD_CONFIG" 2>/dev/null; then
+if [ -f "$AVD_CONFIG" ] && ! grep -Fxq "set.android.emulator.qt.window.on.top=false" "$AVD_CONFIG"; then
     echo "Disabling always-on-top window behavior..."
+    # Remove any existing line and append the correct one to ensure the setting is correct.
+    # The .bak extension for sed -i is for macOS compatibility.
+    sed -i.bak '/^set\.android\.emulator\.qt\.window\.on\.top=/d' "$AVD_CONFIG"
     echo "set.android.emulator.qt.window.on.top=false" >> "$AVD_CONFIG"
+    rm -f "${AVD_CONFIG}.bak"
 fi
 
 # Kill any running emulator
