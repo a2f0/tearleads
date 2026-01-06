@@ -8,7 +8,10 @@ set -e
 # Requires ANTHROPIC_API_KEY environment variable
 
 PLATFORM="$1"
-ANTHROPIC_MODEL="claude-3-5-haiku-20241022"
+# Use Claude 3 Haiku as primary (most cost-effective)
+# Claude 3.5 Haiku requires tier 2+ API access
+ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-claude-3-haiku-20240307}"
+FALLBACK_MODEL="${FALLBACK_MODEL:-claude-3-5-sonnet-latest}"
 
 if [ -z "$PLATFORM" ]; then
     echo "Usage: generateReleaseNotes.sh <platform>" >&2
@@ -53,7 +56,13 @@ PREVIOUS_BUMP=$(echo "$BUMP_COMMITS" | tail -1)
 # Build JSON payload and pipe directly to curl to avoid argument length limits
 # Using -d @- reads the JSON from stdin
 # Note: We use commit messages only (no diffs) and Haiku model to stay within API rate limits
-RESPONSE=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" --no-merges --format="- %s%n%b" 2>/dev/null | jq -Rs --arg model "$ANTHROPIC_MODEL" '
+
+# Exclude version bump commits from the release notes
+COMMITS=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" --no-merges --invert-grep --grep="bump.*build number" --format="- %s%n%b" 2>/dev/null)
+
+call_anthropic_api() {
+    model="$1"
+    printf '%s' "$COMMITS" | jq -Rs --arg model "$model" '
 {
     model: $model,
     max_tokens: 256,
@@ -62,21 +71,44 @@ RESPONSE=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" --no-merges --format="- %s%
         content: ("Generate brief, user-friendly release notes for a mobile app based on these git commit messages. Focus on what users will notice, not technical details. Use simple language. Keep it to 2-4 bullet points max. No markdown formatting, just plain text with bullet points using • character. Do not include a header or version number.\n\nCommit messages:\n" + .)
     }]
 }' | curl -s https://api.anthropic.com/v1/messages \
-    -H "Content-Type: application/json" \
-    -H "x-api-key: $ANTHROPIC_API_KEY" \
-    -H "anthropic-version: 2023-06-01" \
-    -d @-)
+        -H "Content-Type: application/json" \
+        -H "x-api-key: $ANTHROPIC_API_KEY" \
+        -H "anthropic-version: 2023-06-01" \
+        -d @-
+}
 
-# Extract the text from response using printf to avoid echo issues
-RELEASE_NOTES=$(printf '%s' "$RESPONSE" | jq -r '.content[0].text // empty')
+extract_notes() {
+    printf '%s' "$1" | jq -r '.content[0].text // empty'
+}
+
+extract_error() {
+    printf '%s' "$1" | jq -r '.error.message // .error.type // empty'
+}
+
+# Try primary model
+echo "Trying model: $ANTHROPIC_MODEL" >&2
+RESPONSE=$(call_anthropic_api "$ANTHROPIC_MODEL")
+RELEASE_NOTES=$(extract_notes "$RESPONSE")
+
+# If primary fails, try fallback model
+if [ -z "$RELEASE_NOTES" ]; then
+    ERROR=$(extract_error "$RESPONSE")
+    printf "Primary model failed: %s\n" "$ERROR" >&2
+    printf "Full response: %s\n" "$RESPONSE" >&2
+    printf "Trying fallback model: %s\n" "$FALLBACK_MODEL" >&2
+
+    RESPONSE=$(call_anthropic_api "$FALLBACK_MODEL")
+    RELEASE_NOTES=$(extract_notes "$RESPONSE")
+fi
 
 if [ -z "$RELEASE_NOTES" ]; then
-    ERROR=$(printf '%s' "$RESPONSE" | jq -r '.error.message // empty')
+    ERROR=$(extract_error "$RESPONSE")
     if [ -n "$ERROR" ]; then
-        echo "Error from Anthropic API: $ERROR" >&2
+        printf "Error from Anthropic API: %s\n" "$ERROR" >&2
     else
         echo "Error: No release notes returned from API" >&2
     fi
+    printf "Full response: %s\n" "$RESPONSE" >&2
     exit 1
 fi
 
