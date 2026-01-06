@@ -1,7 +1,10 @@
 /**
- * Thumbnail generation utility for images.
+ * Thumbnail generation utility for images and audio files.
  * Uses Canvas API with createImageBitmap() for cross-platform support.
+ * For audio files, extracts embedded cover art and generates a thumbnail from it.
  */
+
+import { extractAudioCoverArt, isAudioMimeType } from './audio-metadata';
 
 export interface ThumbnailOptions {
   maxWidth: number;
@@ -19,7 +22,7 @@ export const DEFAULT_THUMBNAIL_OPTIONS: ThumbnailOptions = {
 // Generation size is 4x this for Retina/high-DPI support
 export const THUMBNAIL_DISPLAY_SIZE = 200;
 
-const SUPPORTED_MIME_TYPES = new Set([
+const SUPPORTED_IMAGE_MIME_TYPES = new Set([
   'image/jpeg',
   'image/png',
   'image/gif',
@@ -28,25 +31,42 @@ const SUPPORTED_MIME_TYPES = new Set([
 
 /**
  * Check if a MIME type is supported for thumbnail generation.
+ * Supports both images (direct) and audio files (via embedded cover art).
  */
 export function isThumbnailSupported(mimeType: string): boolean {
-  return SUPPORTED_MIME_TYPES.has(mimeType);
+  return SUPPORTED_IMAGE_MIME_TYPES.has(mimeType) || isAudioMimeType(mimeType);
 }
 
 /**
- * Generate a thumbnail from image data.
- * Returns the thumbnail as a Uint8Array (JPEG format).
- * @throws Error if the image cannot be processed
+ * Generate a thumbnail from image or audio data.
+ * For audio files, extracts embedded cover art first.
+ * Returns the thumbnail as a Uint8Array (JPEG format), or null if no thumbnail could be generated.
+ * @throws Error if image processing fails (not thrown for missing audio cover art)
  */
 export async function generateThumbnail(
-  imageData: Uint8Array,
+  fileData: Uint8Array,
   mimeType: string,
   options?: Partial<ThumbnailOptions>
-): Promise<Uint8Array> {
+): Promise<Uint8Array | null> {
   const opts = { ...DEFAULT_THUMBNAIL_OPTIONS, ...options };
 
+  let imageData: Uint8Array;
+  let imageMimeType: string;
+
+  if (isAudioMimeType(mimeType)) {
+    const coverArt = await extractAudioCoverArt(fileData, mimeType);
+    if (!coverArt) {
+      return null;
+    }
+    imageData = coverArt;
+    imageMimeType = 'image/jpeg';
+  } else {
+    imageData = fileData;
+    imageMimeType = mimeType;
+  }
+
   // Create blob from image data (slice creates a copy with proper ArrayBuffer)
-  const blob = new Blob([imageData.slice()], { type: mimeType });
+  const blob = new Blob([imageData.slice()], { type: imageMimeType });
   const bitmap = await createImageBitmap(blob);
   const { width, height } = calculateScaledDimensions(
     bitmap.width,
