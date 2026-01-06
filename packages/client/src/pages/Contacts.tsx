@@ -10,6 +10,7 @@ import {
   X
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ColumnMapper } from '@/components/contacts/ColumnMapper';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Dropzone } from '@/components/ui/dropzone';
@@ -62,6 +63,7 @@ interface ContactInfo {
 }
 
 export function Contacts() {
+  const navigate = useNavigate();
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading } = useDatabaseContext();
   const [contacts, setContacts] = useState<ContactInfo[]>([]);

@@ -1,11 +1,6 @@
 import { ArrowLeft } from 'lucide-react';
 import { Link, type LinkProps, useLocation } from 'react-router-dom';
 
-interface BackLinkState {
-  from?: string;
-  fromLabel?: string;
-}
-
 interface BackLinkProps {
   defaultTo: string;
   defaultLabel: string;
@@ -13,10 +8,14 @@ interface BackLinkProps {
 
 export function BackLink({ defaultTo, defaultLabel }: BackLinkProps) {
   const location = useLocation();
-  const state = location.state as BackLinkState | null;
+  const state = location.state as {
+    from?: unknown;
+    fromLabel?: unknown;
+  } | null;
 
-  const to = state?.from ?? defaultTo;
-  const label = state?.fromLabel ?? defaultLabel;
+  const to = typeof state?.from === 'string' ? state.from : defaultTo;
+  const label =
+    typeof state?.fromLabel === 'string' ? state.fromLabel : defaultLabel;
 
   return (
     <Link
