@@ -3,6 +3,7 @@ import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { getDatabase } from '@/db';
 import { logEvent as logAnalyticsEvent } from '@/db/analytics';
+import { getWebGPUErrorInfo } from '@/lib/utils';
 import {
   clearLastLoadedModel,
   getLastLoadedModel,
@@ -350,8 +351,8 @@ async function loadModelInternal(modelId: string): Promise<void> {
   // Check WebGPU support
   const supported = await checkWebGPUSupport();
   if (!supported) {
-    store.error =
-      'WebGPU is not supported. Required for desktop: Chrome 113+, Edge 113+, Firefox 141+, Safari 26+. For mobile: iOS 26+ (Safari) or Android 12+ (Chrome 121+).';
+    const errorInfo = getWebGPUErrorInfo();
+    store.error = `${errorInfo.message} ${errorInfo.requirement}`;
     emitChange();
     return;
   }
