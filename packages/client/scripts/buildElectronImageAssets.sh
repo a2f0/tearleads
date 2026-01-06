@@ -24,6 +24,12 @@ OUTPUT_DIR="$CLIENT_DIR/build/icons"
 # Colors
 BACKGROUND_COLOR="#FFFFFF"
 
+# Icon generation settings
+LOGO_SCALE_PERCENT=65
+MACOS_CORNER_RADIUS_PERCENT=22
+SUPERSAMPLING_FACTOR=4
+RENDER_DENSITY=1200
+
 # Check for ImageMagick (magick for v7+, convert for v6)
 if command -v magick > /dev/null 2>&1; then
     MAGICK_CMD="magick"
@@ -56,38 +62,21 @@ generate_icon_png() {
     output_file=$2
     squircle=${3:-0}
 
-    # Logo takes up 65% of the icon, centered on background
-    icon_size=$((size * 65 / 100))
-
-    # Render at 4x resolution then downscale for crisp edges
-    render_size=$((icon_size * 4))
+    icon_size=$((size * LOGO_SCALE_PERCENT / 100))
+    render_size=$((icon_size * SUPERSAMPLING_FACTOR))
 
     if [ "$squircle" = "1" ]; then
-        # macOS Big Sur+ style: squircle with ~22% corner radius
-        corner_radius=$((size * 22 / 100))
+        # macOS Big Sur+ style: squircle with rounded corners
+        corner_radius=$((size * MACOS_CORNER_RADIUS_PERCENT / 100))
 
-        # Step 1: Create squircle background
-        $MAGICK_CMD -size "${size}x${size}" xc:none \
-            -fill "$BACKGROUND_COLOR" \
-            -draw "roundrectangle 0,0,$((size-1)),$((size-1)),$corner_radius,$corner_radius" \
-            "${output_file}.bg.png"
-
-        # Step 2: Render logo at 4x size then downscale sharply
-        $MAGICK_CMD -background none -density 1200 "$SVG_SOURCE" \
-            -resize "${render_size}x${render_size}" \
-            -filter Lanczos -resize "${icon_size}x${icon_size}" \
-            "${output_file}.logo.png"
-
-        # Step 3: Composite logo centered on background
-        $MAGICK_CMD "${output_file}.bg.png" "${output_file}.logo.png" \
-            -gravity center -composite \
-            "$output_file"
-
-        # Clean up temp files
-        rm -f "${output_file}.bg.png" "${output_file}.logo.png"
+        # Create squircle background, render logo, and composite in one command
+        $MAGICK_CMD \
+            \( -size "${size}x${size}" xc:none -fill "$BACKGROUND_COLOR" -draw "roundrectangle 0,0,$((size-1)),$((size-1)),$corner_radius,$corner_radius" \) \
+            \( -background none -density $RENDER_DENSITY "$SVG_SOURCE" -resize "${render_size}x${render_size}" -filter Lanczos -resize "${icon_size}x${icon_size}" \) \
+            -gravity center -composite "$output_file"
     else
         # Square icon (Windows/Linux) - render at 4x then downscale
-        $MAGICK_CMD -background none -density 1200 "$SVG_SOURCE" \
+        $MAGICK_CMD -background none -density $RENDER_DENSITY "$SVG_SOURCE" \
             -resize "${render_size}x${render_size}" \
             -filter Lanczos -resize "${icon_size}x${icon_size}" \
             -gravity center -background "$BACKGROUND_COLOR" -extent "${size}x${size}" \
