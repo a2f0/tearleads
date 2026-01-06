@@ -579,8 +579,10 @@ test.describe('Debug page', () => {
     await page.getByRole('link', { name: 'Tearleads' }).click();
 
     // Should be back on the home page (shows app icons grid)
-    // Verify by checking for one of the app icons
-    await expect(page.getByRole('link', { name: 'Files' })).toBeVisible();
+    // Verify by checking for one of the app icons in the main content area
+    await expect(
+      page.getByRole('main').getByRole('link', { name: 'Files' })
+    ).toBeVisible();
   });
 });
 
@@ -817,15 +819,15 @@ test.describe('Models page', () => {
 
     // Wait for page to load - either model cards or WebGPU error
     await expect(
-      page.getByText('Llama 3.2 1B Instruct').or(page.getByText('WebGPU Not Supported'))
+      page.getByText('Phi 3.5 Mini').or(page.getByText('WebGPU Not Supported'))
     ).toBeVisible({ timeout: 10000 });
 
     // If WebGPU is supported, verify model cards are shown
     const webGPUNotSupported = await page.getByText('WebGPU Not Supported').isVisible();
     if (!webGPUNotSupported) {
-      await expect(page.getByText('Llama 3.2 1B Instruct')).toBeVisible();
-      await expect(page.getByText('Llama 3.2 3B Instruct')).toBeVisible();
       await expect(page.getByText('Phi 3.5 Mini')).toBeVisible();
+      await expect(page.getByText('SmolVLM 256M')).toBeVisible();
+      await expect(page.getByText('PaliGemma 2 3B')).toBeVisible();
     }
   });
 
@@ -834,14 +836,14 @@ test.describe('Models page', () => {
 
     // Wait for page to load
     await expect(
-      page.getByText(/~700MB/).or(page.getByText('WebGPU Not Supported'))
+      page.getByText(/~2GB/).or(page.getByText('WebGPU Not Supported'))
     ).toBeVisible({ timeout: 10000 });
 
     // If WebGPU is supported, verify sizes are shown
     const webGPUNotSupported = await page.getByText('WebGPU Not Supported').isVisible();
     if (!webGPUNotSupported) {
-      await expect(page.getByText(/~700MB/)).toBeVisible();
-      await expect(page.getByText(/~1\.8GB/)).toBeVisible();
+      await expect(page.getByText(/~2GB/)).toBeVisible();
+      await expect(page.getByText(/~500MB/)).toBeVisible();
     }
   });
 
@@ -861,7 +863,7 @@ test.describe('Models page', () => {
 
     // Wait for page to load
     await expect(
-      page.getByText('Llama 3.2 1B Instruct').or(page.getByText('WebGPU Not Supported'))
+      page.getByText('Phi 3.5 Mini').or(page.getByText('WebGPU Not Supported'))
     ).toBeVisible({ timeout: 10000 });
 
     // Skip rest of test if WebGPU not supported
@@ -882,7 +884,7 @@ test.describe('Models page', () => {
 
     // Wait for page to load
     await expect(
-      page.getByText('Llama 3.2 1B Instruct').or(page.getByText('WebGPU Not Supported'))
+      page.getByText('Phi 3.5 Mini').or(page.getByText('WebGPU Not Supported'))
     ).toBeVisible({ timeout: 10000 });
 
     // Skip rest of test if WebGPU not supported
@@ -898,7 +900,7 @@ test.describe('Models page', () => {
     await page.reload();
 
     // Wait for models page to load again
-    await expect(page.getByText('Llama 3.2 1B Instruct')).toBeVisible({
+    await expect(page.getByText('Phi 3.5 Mini')).toBeVisible({
       timeout: 10000
     });
 
@@ -914,11 +916,11 @@ test.describe('Models page', () => {
 
     // Page should show either model cards (WebGPU supported) or error message (not supported)
     await expect(
-      page.getByText('Llama 3.2 1B Instruct').or(page.getByText('WebGPU Not Supported'))
+      page.getByText('Phi 3.5 Mini').or(page.getByText('WebGPU Not Supported'))
     ).toBeVisible({ timeout: 10000 });
 
     // Verify the two states are mutually exclusive
-    const hasModelCards = await page.getByText('Llama 3.2 1B Instruct').isVisible();
+    const hasModelCards = await page.getByText('Phi 3.5 Mini').isVisible();
     const hasWebGPUError = await page.getByText('WebGPU Not Supported').isVisible();
 
     // Exactly one should be true
