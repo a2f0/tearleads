@@ -243,9 +243,15 @@ export function Files() {
 
   const handleView = useCallback(
     (file: FileInfo) => {
-      // For images, navigate to the photo detail page
-      if (file.mimeType.startsWith('image/')) {
-        navigate(`/photos/${file.id}`);
+      const fileType = file.mimeType.split('/')[0] ?? '';
+      const routeMapping: Record<string, string> = {
+        image: '/photos',
+        audio: '/audio'
+      };
+
+      const basePath = routeMapping[fileType];
+      if (basePath) {
+        navigate(`${basePath}/${file.id}`);
       }
     },
     [navigate]
@@ -417,7 +423,8 @@ export function Files() {
               .filter((f) => showDeleted || !f.deleted)
               .map((file) => {
                 const isRecentlyUploaded = recentlyUploadedIds.has(file.id);
-                const isImage = file.mimeType.startsWith('image/');
+                const fileType = file.mimeType.split('/')[0] ?? '';
+                const viewableTypes = ['image', 'audio'];
                 return (
                   <div
                     key={file.id}
@@ -426,7 +433,8 @@ export function Files() {
                     }`}
                   >
                     {(() => {
-                      const isClickable = isImage && !file.deleted;
+                      const isClickable =
+                        viewableTypes.includes(fileType) && !file.deleted;
 
                       const content = (
                         <>
