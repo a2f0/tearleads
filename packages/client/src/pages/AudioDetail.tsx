@@ -11,7 +11,7 @@ import {
   Play,
   Share2
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -41,6 +41,7 @@ export function AudioDetail() {
   const { id } = useParams<{ id: string }>();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
+  const currentTrackRef = useRef(currentTrack);
   const [audio, setAudio] = useState<AudioInfo | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -204,14 +205,20 @@ export function AudioDetail() {
     }
   }, [isUnlocked, id, fetchAudio]);
 
+  // Keep currentTrackRef in sync with currentTrack
+  useEffect(() => {
+    currentTrackRef.current = currentTrack;
+  }, [currentTrack]);
+
   // Cleanup object URL on unmount (only if not currently playing)
+  // Uses ref to avoid stale closure when currentTrack changes
   useEffect(() => {
     return () => {
-      if (objectUrl && currentTrack?.id !== id) {
+      if (objectUrl && currentTrackRef.current?.id !== id) {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [objectUrl, currentTrack?.id, id]);
+  }, [objectUrl, id]);
 
   return (
     <div className="space-y-6">
