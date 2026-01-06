@@ -240,7 +240,8 @@ describe('Dropzone', () => {
 
       expect(mockPickFiles).toHaveBeenCalledWith({
         accept: 'audio/*',
-        multiple: false
+        multiple: false,
+        source: undefined
       });
       expect(clickSpy).not.toHaveBeenCalled();
       expect(mockOnFilesSelected).toHaveBeenCalledWith([testFile]);
@@ -288,6 +289,69 @@ describe('Dropzone', () => {
       await act(async () => {
         resolvePickFiles([]);
       });
+    });
+
+    it('passes source prop to native picker', async () => {
+      const user = userEvent.setup();
+      const testFile = new File(['test'], 'photo.jpg', { type: 'image/jpeg' });
+      mockPickFiles.mockResolvedValue([testFile]);
+
+      render(
+        <Dropzone
+          onFilesSelected={mockOnFilesSelected}
+          accept="image/*"
+          source="photos"
+        />
+      );
+
+      const button = screen.getByTestId('dropzone-choose-files');
+      await user.click(button);
+
+      expect(mockPickFiles).toHaveBeenCalledWith({
+        accept: 'image/*',
+        multiple: true,
+        source: 'photos'
+      });
+    });
+
+    it('renders compact mode as square icon button', () => {
+      render(
+        <Dropzone
+          onFilesSelected={mockOnFilesSelected}
+          accept="image/*"
+          source="photos"
+          compact
+        />
+      );
+
+      const dropzone = screen.getByTestId('dropzone-native');
+      expect(dropzone).toHaveClass('aspect-square');
+      expect(screen.queryByText('Choose Photos')).not.toBeInTheDocument();
+    });
+
+    it('compact mode triggers native picker when clicked', async () => {
+      const user = userEvent.setup();
+      const testFile = new File(['test'], 'photo.jpg', { type: 'image/jpeg' });
+      mockPickFiles.mockResolvedValue([testFile]);
+
+      render(
+        <Dropzone
+          onFilesSelected={mockOnFilesSelected}
+          accept="image/*"
+          source="photos"
+          compact
+        />
+      );
+
+      const dropzone = screen.getByTestId('dropzone-native');
+      await user.click(dropzone);
+
+      expect(mockPickFiles).toHaveBeenCalledWith({
+        accept: 'image/*',
+        multiple: true,
+        source: 'photos'
+      });
+      expect(mockOnFilesSelected).toHaveBeenCalledWith([testFile]);
     });
   });
 

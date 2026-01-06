@@ -8,7 +8,9 @@ vi.mock('../lib/utils', () => ({
 
 vi.mock('@capawesome/capacitor-file-picker', () => ({
   FilePicker: {
-    pickFiles: vi.fn()
+    pickFiles: vi.fn(),
+    pickImages: vi.fn(),
+    pickMedia: vi.fn()
   }
 }));
 
@@ -159,6 +161,91 @@ describe('useNativeFilePicker', () => {
         limit: 1,
         readData: true
       });
+    });
+
+    it('pickFiles with source="photos" calls FilePicker.pickImages', async () => {
+      vi.mocked(FilePicker.pickImages).mockResolvedValue({
+        files: [
+          {
+            name: 'photo.jpg',
+            mimeType: 'image/jpeg',
+            size: 2048,
+            data: btoa('photo content')
+          }
+        ]
+      });
+
+      const { result } = renderHook(() => useNativeFilePicker());
+
+      const filesResult: { value: File[] | null } = { value: null };
+      await act(async () => {
+        filesResult.value = await result.current.pickFiles({
+          source: 'photos',
+          multiple: true
+        });
+      });
+
+      expect(FilePicker.pickImages).toHaveBeenCalledWith({
+        limit: 0,
+        readData: true
+      });
+      expect(FilePicker.pickFiles).not.toHaveBeenCalled();
+      expect(filesResult.value).toHaveLength(1);
+      expect(filesResult.value?.[0]?.name).toBe('photo.jpg');
+    });
+
+    it('pickFiles with source="media" calls FilePicker.pickMedia', async () => {
+      vi.mocked(FilePicker.pickMedia).mockResolvedValue({
+        files: [
+          {
+            name: 'video.mp4',
+            mimeType: 'video/mp4',
+            size: 4096,
+            data: btoa('video content')
+          }
+        ]
+      });
+
+      const { result } = renderHook(() => useNativeFilePicker());
+
+      const filesResult: { value: File[] | null } = { value: null };
+      await act(async () => {
+        filesResult.value = await result.current.pickFiles({
+          source: 'media',
+          multiple: false
+        });
+      });
+
+      expect(FilePicker.pickMedia).toHaveBeenCalledWith({
+        limit: 1,
+        readData: true
+      });
+      expect(FilePicker.pickFiles).not.toHaveBeenCalled();
+      expect(filesResult.value).toHaveLength(1);
+      expect(filesResult.value?.[0]?.name).toBe('video.mp4');
+    });
+
+    it('pickFiles with source="files" (default) calls FilePicker.pickFiles', async () => {
+      vi.mocked(FilePicker.pickFiles).mockResolvedValue({
+        files: []
+      });
+
+      const { result } = renderHook(() => useNativeFilePicker());
+
+      await act(async () => {
+        await result.current.pickFiles({
+          source: 'files',
+          accept: 'audio/*'
+        });
+      });
+
+      expect(FilePicker.pickFiles).toHaveBeenCalledWith({
+        types: ['audio/*'],
+        limit: 1,
+        readData: true
+      });
+      expect(FilePicker.pickImages).not.toHaveBeenCalled();
+      expect(FilePicker.pickMedia).not.toHaveBeenCalled();
     });
   });
 

@@ -1,6 +1,9 @@
 import { Upload } from 'lucide-react';
 import { useCallback, useId, useRef, useState } from 'react';
-import { useNativeFilePicker } from '@/hooks/useNativeFilePicker';
+import {
+  type FilePickerSource,
+  useNativeFilePicker
+} from '@/hooks/useNativeFilePicker';
 import { cn, detectPlatform } from '@/lib/utils';
 
 import { Button } from './button';
@@ -14,6 +17,15 @@ export interface DropzoneProps {
   style?: React.CSSProperties;
   /** Label for the files (e.g., "files", "photos", "documents"). Defaults to "files". */
   label?: string;
+  /**
+   * The source to pick files from on iOS:
+   * - 'files': Document picker (Files app) - default
+   * - 'photos': Photo library (images only)
+   * - 'media': Photo library (images and videos)
+   */
+  source?: FilePickerSource;
+  /** Show icon-only compact version (for grid layouts) */
+  compact?: boolean;
 }
 
 export function Dropzone({
@@ -23,7 +35,9 @@ export function Dropzone({
   className,
   disabled = false,
   style,
-  label = 'files'
+  label = 'files',
+  source,
+  compact = false
 }: DropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -72,7 +86,7 @@ export function Dropzone({
     if (isNativePicker) {
       setIsPickerOpen(true);
       try {
-        const files = await pickFiles({ accept, multiple });
+        const files = await pickFiles({ accept, multiple, source });
         if (files && files.length > 0) {
           onFilesSelected(files);
         }
@@ -101,6 +115,7 @@ export function Dropzone({
     pickFiles,
     accept,
     multiple,
+    source,
     onFilesSelected
   ]);
 
@@ -129,6 +144,32 @@ export function Dropzone({
   );
 
   if (isNative) {
+    if (compact) {
+      return (
+        <button
+          type="button"
+          onClick={handleClick}
+          disabled={disabled || isPickerOpen}
+          data-testid="dropzone-native"
+          data-platform={platform}
+          className={cn(
+            'flex aspect-square cursor-pointer items-center justify-center rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2',
+            disabled && 'cursor-not-allowed opacity-50',
+            className
+          )}
+          style={style}
+        >
+          <Upload
+            className={cn(
+              'h-6 w-6 text-muted-foreground/50',
+              isPickerOpen && 'animate-pulse'
+            )}
+          />
+          {fileInput}
+        </button>
+      );
+    }
+
     return (
       <div
         data-testid="dropzone-native"

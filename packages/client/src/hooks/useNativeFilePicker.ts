@@ -7,11 +7,20 @@ import { FilePicker, type PickedFile } from '@capawesome/capacitor-file-picker';
 import { useCallback } from 'react';
 import { detectPlatform } from '@/lib/utils';
 
+export type FilePickerSource = 'files' | 'photos' | 'media';
+
 export interface NativeFilePickerOptions {
-  /** MIME types to accept (e.g., 'audio/*', 'image/*') */
+  /** MIME types to accept (e.g., 'audio/*', 'image/*'). Only used when source is 'files'. */
   accept?: string | undefined;
   /** Allow multiple file selection */
   multiple?: boolean | undefined;
+  /**
+   * The source to pick files from:
+   * - 'files': Document picker (Files app) - default
+   * - 'photos': Photo library (images only)
+   * - 'media': Photo library (images and videos)
+   */
+  source?: FilePickerSource | undefined;
 }
 
 export interface NativeFilePickerResult {
@@ -55,14 +64,32 @@ export function useNativeFilePicker() {
         return null; // Signal to use fallback (HTML input)
       }
 
-      const types = parseAcceptTypes(options.accept);
+      const source = options.source ?? 'files';
+      const limit = options.multiple ? 0 : 1;
 
-      const result = await FilePicker.pickFiles({
-        ...(types.length > 0 ? { types } : {}),
-        // limit: 0 = unlimited, 1 = single file
-        limit: options.multiple ? 0 : 1,
-        readData: true
-      });
+      let result: { files: PickedFile[] };
+
+      if (source === 'photos') {
+        // Use photo library picker for images only
+        result = await FilePicker.pickImages({
+          limit,
+          readData: true
+        });
+      } else if (source === 'media') {
+        // Use photo library picker for images and videos
+        result = await FilePicker.pickMedia({
+          limit,
+          readData: true
+        });
+      } else {
+        // Use document picker (Files app) for other file types
+        const types = parseAcceptTypes(options.accept);
+        result = await FilePicker.pickFiles({
+          ...(types.length > 0 ? { types } : {}),
+          limit,
+          readData: true
+        });
+      }
 
       if (!result.files || result.files.length === 0) {
         return [];
