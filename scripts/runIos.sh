@@ -8,5 +8,5 @@ DEVICE="iPhone 16 Pro"
 
 pnpm build && pnpm exec cap sync ios
 xcrun simctl terminate booted "$BUNDLE_ID" 2>/dev/null || true
-xcrun simctl uninstall booted "$BUNDLE_ID" 2>/dev/null || true
+# Note: Don't uninstall - it wipes app data. Use resetIosSimulator.sh for clean slate.
 pnpm exec cap run ios --target-name "$DEVICE"
