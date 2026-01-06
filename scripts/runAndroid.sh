@@ -19,7 +19,7 @@ fi
 
 pnpm build && pnpm exec cap sync android
 adb shell am force-stop "$PACKAGE_ID" 2>/dev/null || true
-adb uninstall "$PACKAGE_ID" 2>/dev/null || true
+# Note: Don't uninstall - it wipes app data. Use resetAndroidEmulator.sh for clean slate.
 pnpm exec cap run android --target "$DEVICE"
 
 # Keep script running with emulator in foreground
