@@ -13,7 +13,6 @@ import { DeleteInstanceDialog } from './DeleteInstanceDialog';
 export function AccountSwitcher() {
   const {
     currentInstanceId,
-    currentInstanceName,
     instances,
     isLoading,
     isUnlocked,
@@ -107,18 +106,13 @@ export function AccountSwitcher() {
           type="button"
           onClick={toggleDropdown}
           disabled={isLoading}
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-md px-2 hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+          className="inline-flex h-9 items-center justify-center rounded-md px-2 hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
           aria-label="Account menu"
           aria-expanded={isOpen}
           aria-haspopup="true"
           data-testid="account-switcher-button"
         >
           <CircleUser className="h-5 w-5" />
-          {currentInstanceName && (
-            <span className="max-w-24 truncate font-medium text-sm">
-              {currentInstanceName}
-            </span>
-          )}
         </button>
 
         {isOpen && (
