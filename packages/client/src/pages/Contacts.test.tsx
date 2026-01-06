@@ -296,7 +296,9 @@ describe('Contacts', () => {
 
       await user.click(screen.getByText('John Doe'));
 
-      expect(mockNavigate).toHaveBeenCalledWith('/contacts/1');
+      expect(mockNavigate).toHaveBeenCalledWith('/contacts/1', {
+        state: { from: '/', fromLabel: 'Back to Contacts' }
+      });
     });
 
     it('shows add contact card at the bottom of the list', async () => {
