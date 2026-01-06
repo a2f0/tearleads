@@ -246,6 +246,8 @@ export function Files() {
       // For images, navigate to the photo detail page
       if (file.mimeType.startsWith('image/')) {
         navigate(`/photos/${file.id}`);
+      } else if (file.mimeType.startsWith('audio/')) {
+        navigate(`/audio/${file.id}`);
       }
     },
     [navigate]
@@ -418,6 +420,7 @@ export function Files() {
               .map((file) => {
                 const isRecentlyUploaded = recentlyUploadedIds.has(file.id);
                 const isImage = file.mimeType.startsWith('image/');
+                const isAudio = file.mimeType.startsWith('audio/');
                 return (
                   <div
                     key={file.id}
@@ -426,7 +429,7 @@ export function Files() {
                     }`}
                   >
                     {(() => {
-                      const isClickable = isImage && !file.deleted;
+                      const isClickable = (isImage || isAudio) && !file.deleted;
 
                       const content = (
                         <>
