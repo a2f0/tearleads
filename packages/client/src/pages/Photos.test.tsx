@@ -49,7 +49,8 @@ vi.mock('@/storage/opfs', () => ({
   isFileStorageInitialized: () => mockIsFileStorageInitialized(),
   initializeFileStorage: (...args: unknown[]) =>
     mockInitializeFileStorage(...args),
-  getFileStorage: vi.fn(() => mockStorage)
+  getFileStorage: vi.fn(() => mockStorage),
+  createRetrieveLogger: () => vi.fn()
 }));
 
 // Mock file upload hook

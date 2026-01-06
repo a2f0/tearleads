@@ -43,10 +43,12 @@ const mockInitializeFileStorage = vi.fn();
 vi.mock('@/storage/opfs', () => ({
   getFileStorage: () => ({
     retrieve: mockRetrieve,
+    measureRetrieve: mockRetrieve,
     store: mockStore
   }),
   isFileStorageInitialized: () => mockIsFileStorageInitialized(),
-  initializeFileStorage: (key: Uint8Array) => mockInitializeFileStorage(key)
+  initializeFileStorage: (key: Uint8Array) => mockInitializeFileStorage(key),
+  createRetrieveLogger: () => vi.fn()
 }));
 
 // Mock useFileUpload hook
@@ -245,8 +247,14 @@ describe('AudioPage', () => {
     it('fetches audio data from storage', async () => {
       await renderAudio();
 
-      expect(mockRetrieve).toHaveBeenCalledWith('/music/test-song.mp3');
-      expect(mockRetrieve).toHaveBeenCalledWith('/music/another-song.wav');
+      expect(mockRetrieve).toHaveBeenCalledWith(
+        '/music/test-song.mp3',
+        expect.any(Function)
+      );
+      expect(mockRetrieve).toHaveBeenCalledWith(
+        '/music/another-song.wav',
+        expect.any(Function)
+      );
     });
 
     it('creates object URLs for audio playback', async () => {

@@ -13,6 +13,7 @@ import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { formatFileSize } from '@/lib/utils';
 import {
+  createRetrieveLogger,
   getFileStorage,
   initializeFileStorage,
   isFileStorageInitialized
@@ -105,11 +106,15 @@ export function AudioPage() {
       }
 
       const storage = getFileStorage();
+      const logger = createRetrieveLogger(db);
       const tracksWithUrls = (
         await Promise.all(
           trackList.map(async (track) => {
             try {
-              const data = await storage.retrieve(track.storagePath);
+              const data = await storage.measureRetrieve(
+                track.storagePath,
+                logger
+              );
               const buffer = new ArrayBuffer(data.byteLength);
               new Uint8Array(buffer).set(data);
               const blob = new Blob([buffer], { type: track.mimeType });
@@ -118,7 +123,10 @@ export function AudioPage() {
               let thumbnailUrl: string | null = null;
               if (track.thumbnailPath) {
                 try {
-                  const thumbData = await storage.retrieve(track.thumbnailPath);
+                  const thumbData = await storage.measureRetrieve(
+                    track.thumbnailPath,
+                    logger
+                  );
                   const thumbBuffer = new ArrayBuffer(thumbData.byteLength);
                   new Uint8Array(thumbBuffer).set(thumbData);
                   const thumbBlob = new Blob([thumbBuffer], {
