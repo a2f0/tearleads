@@ -351,7 +351,7 @@ describe('Photos', () => {
       expect(dropzone.parentElement).toHaveClass('grid', 'gap-2');
     });
 
-    it('dropzone has aspect-square class when photos exist', async () => {
+    it('dropzone in gallery uses compact mode prop', async () => {
       renderPhotos();
 
       await waitFor(() => {
@@ -359,8 +359,10 @@ describe('Photos', () => {
       });
 
       const dropzone = screen.getByTestId('dropzone');
-      // The dropzone should have aspect-square class for responsive sizing
-      expect(dropzone).toHaveClass('aspect-square');
+      // On web, the dropzone keeps drag-and-drop styling for better UX
+      // On native (iOS/Android), compact mode renders a square icon button
+      expect(dropzone).toBeInTheDocument();
+      expect(dropzone.parentElement).toHaveClass('grid');
     });
   });
 
