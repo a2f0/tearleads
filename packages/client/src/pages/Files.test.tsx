@@ -697,6 +697,17 @@ describe('Files', () => {
       deleted: false
     };
 
+    const TEST_DELETED_AUDIO_FILE = {
+      id: 'audio-2',
+      name: 'deleted-song.mp3',
+      size: 3000,
+      mimeType: 'audio/mpeg',
+      uploadDate: new Date('2024-01-15'),
+      storagePath: '/files/deleted-song.mp3',
+      thumbnailPath: null,
+      deleted: true
+    };
+
     it('renders music icon for audio files', async () => {
       mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_FILE]));
 
@@ -709,6 +720,47 @@ describe('Files', () => {
       // Should show music icon (not FileIcon)
       const musicIcon = document.querySelector('.lucide-music');
       expect(musicIcon).toBeInTheDocument();
+    });
+
+    it('navigates to audio detail when audio file is clicked', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_FILE]));
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('song.mp3')).toBeInTheDocument();
+      });
+
+      // Click on the audio file name to navigate to detail view
+      await user.click(screen.getByText('song.mp3'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/audio/audio-1');
+    });
+
+    it('does not navigate when clicking on deleted audio file', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_DELETED_AUDIO_FILE])
+      );
+
+      await renderFiles();
+
+      // Enable show deleted toggle
+      await waitFor(() => {
+        expect(screen.getByRole('switch')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('switch'));
+
+      await waitFor(() => {
+        expect(screen.getByText('deleted-song.mp3')).toBeInTheDocument();
+      });
+
+      // Click on the deleted audio file - should NOT navigate because it's deleted
+      await user.click(screen.getByText('deleted-song.mp3'));
+
+      expect(mockNavigate).not.toHaveBeenCalled();
     });
   });
 
