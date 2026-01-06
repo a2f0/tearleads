@@ -4,7 +4,7 @@ set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TEST_FILES_DIR="$SCRIPT_DIR/../.test_files"
-BUNDLE_ID="com.tearleads.rapid"
+BUNDLE_ID="${1:-com.tearleads.rapid}"
 
 if [ ! -d "$TEST_FILES_DIR" ]; then
     echo "Error: Test files directory not found at $TEST_FILES_DIR"
@@ -30,6 +30,6 @@ mkdir -p "$DOCUMENTS_DIR"
 
 # Copy all files recursively
 echo "Copying test files to iOS simulator..."
-cp -Rv "$TEST_FILES_DIR"/* "$DOCUMENTS_DIR"/
+cp -Rv "$TEST_FILES_DIR/." "$DOCUMENTS_DIR/"
 
 echo "Done! Files copied to: $DOCUMENTS_DIR"
