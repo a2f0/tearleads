@@ -26,15 +26,10 @@ async function pickedFileToFile(picked: PickedFile): Promise<File> {
     throw new Error(`No data returned for file: ${picked.name}`);
   }
 
-  // The data is base64 encoded
-  const binaryString = atob(picked.data);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-
-  const blob = new Blob([bytes], { type: picked.mimeType });
-  return new File([blob], picked.name, { type: picked.mimeType });
+  // Use fetch with data URL for efficient base64 to blob conversion
+  const response = await fetch(`data:${picked.mimeType};base64,${picked.data}`);
+  const blob = await response.blob();
+  return new File([blob], picked.name, { type: blob.type });
 }
 
 /**
