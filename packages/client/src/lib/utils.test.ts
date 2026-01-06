@@ -3,7 +3,12 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { detectPlatform, formatDate, formatFileSize } from './utils';
+import {
+  detectPlatform,
+  formatDate,
+  formatFileSize,
+  getWebGPUErrorInfo
+} from './utils';
 
 describe('formatFileSize', () => {
   it('formats 0 bytes', () => {
@@ -204,5 +209,55 @@ describe('formatDate', () => {
     expect(formatted2.length).toBeGreaterThan(0);
     // Different dates should produce different output
     expect(formatted1).not.toBe(formatted2);
+  });
+});
+
+describe('getWebGPUErrorInfo', () => {
+  const mockGetPlatform = vi.mocked(Capacitor.getPlatform);
+  const mockIsNativePlatform = vi.mocked(Capacitor.isNativePlatform);
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockGetPlatform.mockReturnValue('web');
+    mockIsNativePlatform.mockReturnValue(false);
+  });
+
+  it('returns iOS-specific error info on iOS', () => {
+    mockGetPlatform.mockReturnValue('ios');
+    const info = getWebGPUErrorInfo();
+    expect(info.title).toBe('WebGPU Not Supported on iOS');
+    expect(info.message).toContain('iOS device');
+    expect(info.requirement).toContain('iOS 18+');
+  });
+
+  it('returns Android-specific error info on Android', () => {
+    mockGetPlatform.mockReturnValue('android');
+    const info = getWebGPUErrorInfo();
+    expect(info.title).toBe('WebGPU Not Supported on Android');
+    expect(info.message).toContain('Android device');
+    expect(info.requirement).toContain('Android 12+');
+    expect(info.requirement).toContain('Chrome 121+');
+  });
+
+  it('returns generic error info on web/desktop', () => {
+    mockGetPlatform.mockReturnValue('web');
+    const info = getWebGPUErrorInfo();
+    expect(info.title).toBe('WebGPU Not Supported');
+    expect(info.message).toContain('browser');
+    expect(info.requirement).toContain('Chrome 113+');
+    expect(info.requirement).toContain('Edge 113+');
+    expect(info.requirement).toContain('Firefox 121+');
+    expect(info.requirement).toContain('Safari 18+');
+  });
+
+  it('returns generic error info on electron', () => {
+    // Electron is treated like desktop/web for WebGPU purposes
+    // @ts-expect-error - electron is added dynamically
+    window.electron = {};
+    const info = getWebGPUErrorInfo();
+    expect(info.title).toBe('WebGPU Not Supported');
+    expect(info.message).toContain('browser');
+    // Clean up
+    delete (window as unknown as Record<string, unknown>)['electron'];
   });
 });
