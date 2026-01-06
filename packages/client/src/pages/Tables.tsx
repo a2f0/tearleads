@@ -1,7 +1,7 @@
 import { ChevronRight, RefreshCw, Table2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { LinkWithFrom } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
@@ -117,9 +117,10 @@ export function Tables() {
             </div>
           ) : (
             tables.map((table) => (
-              <Link
+              <LinkWithFrom
                 key={table.name}
                 to={`/tables/${encodeURIComponent(table.name)}`}
+                fromLabel="Back to Tables"
                 className="flex items-center gap-3 rounded-lg border bg-muted/50 p-3 transition-colors hover:bg-muted"
               >
                 <Table2 className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -132,7 +133,7 @@ export function Tables() {
                   </p>
                 </div>
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </Link>
+              </LinkWithFrom>
             ))
           )}
         </div>

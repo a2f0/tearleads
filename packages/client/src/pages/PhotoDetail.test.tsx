@@ -365,9 +365,10 @@ describe('PhotoDetail', () => {
     it('renders back link to photos page', async () => {
       await renderPhotoDetail();
 
-      const backLink = screen.getByText('Back to Photos');
+      const backLink = screen.getByTestId('back-link');
       expect(backLink).toBeInTheDocument();
-      expect(backLink.closest('a')).toHaveAttribute('href', '/photos');
+      expect(backLink).toHaveAttribute('href', '/photos');
+      expect(backLink).toHaveTextContent('Back to Photos');
     });
   });
 

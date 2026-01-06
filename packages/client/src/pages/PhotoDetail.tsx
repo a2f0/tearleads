@@ -1,6 +1,5 @@
 import { and, eq, like } from 'drizzle-orm';
 import {
-  ArrowLeft,
   Calendar,
   Download,
   FileType,
@@ -10,8 +9,9 @@ import {
   Share2
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
@@ -246,13 +246,7 @@ export function PhotoDetail() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link
-          to="/photos"
-          className="inline-flex items-center text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Photos
-        </Link>
+        <BackLink defaultTo="/photos" defaultLabel="Back to Photos" />
       </div>
 
       {isLoading && (
