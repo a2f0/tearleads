@@ -80,3 +80,39 @@ export function formatDate(date: Date): string {
     minute: '2-digit'
   });
 }
+
+export interface WebGPUErrorInfo {
+  title: string;
+  message: string;
+  requirement: string;
+}
+
+export function getWebGPUErrorInfo(): WebGPUErrorInfo {
+  const platform = detectPlatform();
+
+  switch (platform) {
+    case 'ios':
+      return {
+        title: 'WebGPU Not Supported on iOS',
+        message:
+          'Your iOS device does not support WebGPU, which is required for local AI model inference.',
+        requirement: 'iOS 26+ with Safari is required for WebGPU support.'
+      };
+    case 'android':
+      return {
+        title: 'WebGPU Not Supported on Android',
+        message:
+          'Your Android device does not support WebGPU, which is required for local AI model inference.',
+        requirement:
+          'Android 12+ with Chrome 121+ is required for WebGPU support.'
+      };
+    default:
+      return {
+        title: 'WebGPU Not Supported',
+        message:
+          'Your browser does not support WebGPU, which is required for local AI model inference.',
+        requirement:
+          'Supported browsers: Chrome 113+, Edge 113+, Firefox 141+, Safari 26+.'
+      };
+  }
+}
