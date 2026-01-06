@@ -22,6 +22,7 @@ import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { CLASSIFICATION_MODEL, DOCUMENT_LABELS } from '@/lib/models';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import {
+  createRetrieveLogger,
   getFileStorage,
   initializeFileStorage,
   isFileStorageInitialized
@@ -68,6 +69,7 @@ export function PhotoDetail() {
 
     setActionLoading('download');
     try {
+      const db = getDatabase();
       const keyManager = getKeyManager();
       const encryptionKey = keyManager.getCurrentKey();
       if (!encryptionKey) throw new Error('Database not unlocked');
@@ -78,7 +80,10 @@ export function PhotoDetail() {
       }
 
       const storage = getFileStorage();
-      const data = await storage.retrieve(photo.storagePath);
+      const data = await storage.measureRetrieve(
+        photo.storagePath,
+        createRetrieveLogger(db)
+      );
       downloadFile(data, photo.name);
     } catch (err) {
       console.error('Failed to download photo:', err);
@@ -93,6 +98,7 @@ export function PhotoDetail() {
 
     setActionLoading('share');
     try {
+      const db = getDatabase();
       const keyManager = getKeyManager();
       const encryptionKey = keyManager.getCurrentKey();
       if (!encryptionKey) throw new Error('Database not unlocked');
@@ -103,7 +109,10 @@ export function PhotoDetail() {
       }
 
       const storage = getFileStorage();
-      const data = await storage.retrieve(photo.storagePath);
+      const data = await storage.measureRetrieve(
+        photo.storagePath,
+        createRetrieveLogger(db)
+      );
       const shared = await shareFile(data, photo.name, photo.mimeType);
       if (!shared) {
         setError('Sharing is not supported on this device');
@@ -201,7 +210,10 @@ export function PhotoDetail() {
       }
 
       const storage = getFileStorage();
-      const data = await storage.retrieve(photoInfo.storagePath);
+      const data = await storage.measureRetrieve(
+        photoInfo.storagePath,
+        createRetrieveLogger(db)
+      );
       // Copy to ArrayBuffer for TypeScript compatibility with Blob constructor
       const buffer = new ArrayBuffer(data.byteLength);
       new Uint8Array(buffer).set(data);

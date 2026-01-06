@@ -33,10 +33,12 @@ const mockIsFileStorageInitialized = vi.fn();
 const mockInitializeFileStorage = vi.fn();
 vi.mock('@/storage/opfs', () => ({
   getFileStorage: () => ({
-    retrieve: mockRetrieve
+    retrieve: mockRetrieve,
+    measureRetrieve: mockRetrieve
   }),
   isFileStorageInitialized: () => mockIsFileStorageInitialized(),
-  initializeFileStorage: (key: Uint8Array) => mockInitializeFileStorage(key)
+  initializeFileStorage: (key: Uint8Array) => mockInitializeFileStorage(key),
+  createRetrieveLogger: () => vi.fn()
 }));
 
 // Mock file-utils
@@ -228,7 +230,10 @@ describe('PhotoDetail', () => {
       await user.click(screen.getByTestId('download-button'));
 
       await waitFor(() => {
-        expect(mockRetrieve).toHaveBeenCalledWith('/photos/test-photo.jpg');
+        expect(mockRetrieve).toHaveBeenCalledWith(
+          '/photos/test-photo.jpg',
+          expect.any(Function)
+        );
         expect(mockDownloadFile).toHaveBeenCalledWith(
           TEST_IMAGE_DATA,
           'test-photo.jpg'
@@ -280,7 +285,10 @@ describe('PhotoDetail', () => {
       await user.click(screen.getByTestId('share-button'));
 
       await waitFor(() => {
-        expect(mockRetrieve).toHaveBeenCalledWith('/photos/test-photo.jpg');
+        expect(mockRetrieve).toHaveBeenCalledWith(
+          '/photos/test-photo.jpg',
+          expect.any(Function)
+        );
         expect(mockShareFile).toHaveBeenCalledWith(
           TEST_IMAGE_DATA,
           'test-photo.jpg',

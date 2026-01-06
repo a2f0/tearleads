@@ -56,11 +56,13 @@ const mockIsFileStorageInitialized = vi.fn();
 const mockInitializeFileStorage = vi.fn();
 vi.mock('@/storage/opfs', () => ({
   getFileStorage: () => ({
-    retrieve: mockRetrieve
+    retrieve: mockRetrieve,
+    measureRetrieve: mockRetrieve
   }),
   isFileStorageInitialized: () => mockIsFileStorageInitialized(),
   initializeFileStorage: (key: Uint8Array, instanceId: string) =>
-    mockInitializeFileStorage(key, instanceId)
+    mockInitializeFileStorage(key, instanceId),
+  createRetrieveLogger: () => vi.fn()
 }));
 
 // Mock llm-runtime
