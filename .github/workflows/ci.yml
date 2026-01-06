@@ -61,8 +61,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Needed for release notes generation test
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -127,12 +125,6 @@ jobs:
           pnpm --filter @rapid/ui test:coverage
           pnpm --filter @rapid/api test:coverage
           pnpm --filter @rapid/client test:coverage
-
-      # Temporary: Test release notes generation (remove after PR #426 merges)
-      - name: Test Release Notes Generation
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: ./packages/client/scripts/generateReleaseNotes.sh ios
 
       - name: Upload Coverage Reports
         uses: actions/upload-artifact@v4
