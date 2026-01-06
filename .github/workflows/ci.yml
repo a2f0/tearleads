@@ -349,7 +349,6 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       needs.detect-changes.outputs.core == 'true' ||
-      needs.detect-changes.outputs.client-src == 'true' ||
       needs.detect-changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -447,7 +446,6 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       needs.detect-changes.outputs.core == 'true' ||
-      needs.detect-changes.outputs.client-src == 'true' ||
       needs.detect-changes.outputs.mobile == 'true'
     runs-on: macos-latest
     timeout-minutes: 30
@@ -535,11 +533,6 @@ jobs:
           fi
           echo "Installing app from: $APP_PATH"
           xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
-
-      - name: Capture pre-test screenshot
-        run: |
-          mkdir -p maestro-debug
-          xcrun simctl io "$SIMULATOR_UDID" screenshot maestro-debug/01-before-tests.png || true
 
       - name: Run Maestro tests
         run: |
