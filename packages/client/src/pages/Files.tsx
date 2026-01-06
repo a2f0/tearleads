@@ -24,6 +24,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { downloadFile } from '@/lib/file-utils';
 import { formatFileSize } from '@/lib/utils';
 import {
+  createRetrieveLogger,
   getFileStorage,
   initializeFileStorage,
   isFileStorageInitialized
@@ -111,13 +112,17 @@ export function Files() {
       }
 
       const storage = getFileStorage();
+      const logger = createRetrieveLogger(db);
       const filesWithThumbnails: FileWithThumbnail[] = await Promise.all(
         fileList.map(async (file) => {
           if (!file.thumbnailPath) {
             return { ...file, thumbnailUrl: null };
           }
           try {
-            const data = await storage.retrieve(file.thumbnailPath);
+            const data = await storage.measureRetrieve(
+              file.thumbnailPath,
+              logger
+            );
             const blob = new Blob([new Uint8Array(data)], {
               type: 'image/jpeg'
             });
@@ -260,6 +265,7 @@ export function Files() {
   const handleDownload = useCallback(
     async (file: FileInfo) => {
       try {
+        const db = getDatabase();
         const keyManager = getKeyManager();
         const encryptionKey = keyManager.getCurrentKey();
         if (!encryptionKey) throw new Error('Database not unlocked');
@@ -270,7 +276,10 @@ export function Files() {
         }
 
         const storage = getFileStorage();
-        const data = await storage.retrieve(file.storagePath);
+        const data = await storage.measureRetrieve(
+          file.storagePath,
+          createRetrieveLogger(db)
+        );
 
         downloadFile(data, file.name);
       } catch (err) {

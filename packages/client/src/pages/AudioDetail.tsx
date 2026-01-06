@@ -23,9 +23,11 @@ import { files } from '@/db/schema';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import {
+  createRetrieveLogger,
   getFileStorage,
   initializeFileStorage,
-  isFileStorageInitialized
+  isFileStorageInitialized,
+  type RetrieveMetrics
 } from '@/storage/opfs';
 
 interface AudioInfo {
@@ -63,7 +65,10 @@ export function AudioDetail() {
 
   // Helper to retrieve and decrypt file data from storage
   const retrieveFileData = useCallback(
-    async (storagePath: string): Promise<Uint8Array> => {
+    async (
+      storagePath: string,
+      onMetrics?: (metrics: RetrieveMetrics) => void | Promise<void>
+    ): Promise<Uint8Array> => {
       const keyManager = getKeyManager();
       const encryptionKey = keyManager.getCurrentKey();
       if (!encryptionKey) throw new Error('Database not unlocked');
@@ -74,7 +79,7 @@ export function AudioDetail() {
       }
 
       const storage = getFileStorage();
-      return storage.retrieve(storagePath);
+      return storage.measureRetrieve(storagePath, onMetrics);
     },
     [currentInstanceId]
   );
@@ -103,7 +108,11 @@ export function AudioDetail() {
 
     setActionLoading('download');
     try {
-      const data = await retrieveFileData(audio.storagePath);
+      const db = getDatabase();
+      const data = await retrieveFileData(
+        audio.storagePath,
+        createRetrieveLogger(db)
+      );
       downloadFile(data, audio.name);
     } catch (err) {
       console.error('Failed to download audio:', err);
@@ -118,7 +127,11 @@ export function AudioDetail() {
 
     setActionLoading('share');
     try {
-      const data = await retrieveFileData(audio.storagePath);
+      const db = getDatabase();
+      const data = await retrieveFileData(
+        audio.storagePath,
+        createRetrieveLogger(db)
+      );
       const shared = await shareFile(data, audio.name, audio.mimeType);
       if (!shared) {
         setError('Sharing is not supported on this device');
@@ -187,7 +200,8 @@ export function AudioDetail() {
       setAudio(audioInfo);
 
       // Load audio data and create object URL
-      const data = await retrieveFileData(audioInfo.storagePath);
+      const logger = createRetrieveLogger(db);
+      const data = await retrieveFileData(audioInfo.storagePath, logger);
       // Copy to ArrayBuffer - required because Uint8Array<ArrayBufferLike> is not
       // assignable to BlobPart in strict TypeScript (SharedArrayBuffer incompatibility)
       const buffer = new ArrayBuffer(data.byteLength);
@@ -199,7 +213,10 @@ export function AudioDetail() {
       // Load thumbnail if available
       if (audioInfo.thumbnailPath) {
         try {
-          const thumbData = await retrieveFileData(audioInfo.thumbnailPath);
+          const thumbData = await retrieveFileData(
+            audioInfo.thumbnailPath,
+            logger
+          );
           const thumbBuffer = new ArrayBuffer(thumbData.byteLength);
           new Uint8Array(thumbBuffer).set(thumbData);
           const thumbBlob = new Blob([thumbBuffer], { type: 'image/jpeg' });
