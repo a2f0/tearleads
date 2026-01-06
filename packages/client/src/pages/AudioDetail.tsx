@@ -35,6 +35,7 @@ interface AudioInfo {
   mimeType: string;
   uploadDate: Date;
   storagePath: string;
+  thumbnailPath: string | null;
 }
 
 export function AudioDetail() {
@@ -44,6 +45,7 @@ export function AudioDetail() {
   const currentTrackRef = useRef(currentTrack);
   const [audio, setAudio] = useState<AudioInfo | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [canShare, setCanShare] = useState(false);
@@ -149,7 +151,8 @@ export function AudioDetail() {
           size: files.size,
           mimeType: files.mimeType,
           uploadDate: files.uploadDate,
-          storagePath: files.storagePath
+          storagePath: files.storagePath,
+          thumbnailPath: files.thumbnailPath
         })
         .from(files)
         .where(
@@ -178,7 +181,8 @@ export function AudioDetail() {
         size: row.size,
         mimeType: row.mimeType,
         uploadDate: row.uploadDate,
-        storagePath: row.storagePath
+        storagePath: row.storagePath,
+        thumbnailPath: row.thumbnailPath
       };
       setAudio(audioInfo);
 
@@ -191,6 +195,20 @@ export function AudioDetail() {
       const blob = new Blob([buffer], { type: audioInfo.mimeType });
       const url = URL.createObjectURL(blob);
       setObjectUrl(url);
+
+      // Load thumbnail if available
+      if (audioInfo.thumbnailPath) {
+        try {
+          const thumbData = await retrieveFileData(audioInfo.thumbnailPath);
+          const thumbBuffer = new ArrayBuffer(thumbData.byteLength);
+          new Uint8Array(thumbBuffer).set(thumbData);
+          const thumbBlob = new Blob([thumbBuffer], { type: 'image/jpeg' });
+          const thumbUrl = URL.createObjectURL(thumbBlob);
+          setThumbnailUrl(thumbUrl);
+        } catch (err) {
+          console.warn('Failed to load thumbnail:', err);
+        }
+      }
     } catch (err) {
       console.error('Failed to fetch audio:', err);
       setError(err instanceof Error ? err.message : String(err));
@@ -210,15 +228,18 @@ export function AudioDetail() {
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
 
-  // Cleanup object URL on unmount (only if not currently playing)
+  // Cleanup object URLs on unmount (only if not currently playing)
   // Uses ref to avoid stale closure when currentTrack changes
   useEffect(() => {
     return () => {
       if (objectUrl && currentTrackRef.current?.id !== id) {
         URL.revokeObjectURL(objectUrl);
       }
+      if (thumbnailUrl) {
+        URL.revokeObjectURL(thumbnailUrl);
+      }
     };
-  }, [objectUrl, id]);
+  }, [objectUrl, thumbnailUrl, id]);
 
   return (
     <div className="space-y-6">
@@ -261,7 +282,15 @@ export function AudioDetail() {
 
           {objectUrl && (
             <div className="flex flex-col items-center gap-4 overflow-hidden rounded-lg border bg-muted p-8">
-              <Music className="h-24 w-24 text-muted-foreground" />
+              {thumbnailUrl ? (
+                <img
+                  src={thumbnailUrl}
+                  alt="Album cover"
+                  className="h-48 w-48 rounded-lg object-cover"
+                />
+              ) : (
+                <Music className="h-24 w-24 text-muted-foreground" />
+              )}
               <Button
                 variant={isTrackPlaying ? 'default' : 'outline'}
                 size="lg"
