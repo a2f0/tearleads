@@ -373,12 +373,13 @@ export function Photos() {
                   }
                 }}
                 onContextMenu={(e) => handleContextMenu(e, photo)}
-                className="group relative aspect-square cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
+                className="group relative cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
+                style={{ aspectRatio: '1 / 1' }}
               >
                 <img
                   src={photo.objectUrl}
                   alt={photo.name}
-                  className="h-full w-full object-cover"
+                  className="absolute inset-0 h-full w-full object-cover"
                 />
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
                   <div className="flex items-center gap-1">
