@@ -46,10 +46,12 @@ const mockInitializeFileStorage = vi.fn();
 vi.mock('@/storage/opfs', () => ({
   getFileStorage: () => ({
     retrieve: mockRetrieve,
+    measureRetrieve: mockRetrieve,
     store: mockStore
   }),
   isFileStorageInitialized: () => mockIsFileStorageInitialized(),
-  initializeFileStorage: (key: Uint8Array) => mockInitializeFileStorage(key)
+  initializeFileStorage: (key: Uint8Array) => mockInitializeFileStorage(key),
+  createRetrieveLogger: () => vi.fn()
 }));
 
 // Mock file-utils
@@ -269,7 +271,10 @@ describe('Files', () => {
 
       // Verify storage retrieve was called for the thumbnail
       await waitFor(() => {
-        expect(mockRetrieve).toHaveBeenCalledWith('/files/photo-thumb.jpg');
+        expect(mockRetrieve).toHaveBeenCalledWith(
+          '/files/photo-thumb.jpg',
+          expect.any(Function)
+        );
       });
     });
 
@@ -535,7 +540,10 @@ describe('Files', () => {
       await user.click(screen.getByTitle('Download'));
 
       await waitFor(() => {
-        expect(mockRetrieve).toHaveBeenCalledWith('/files/document.pdf');
+        expect(mockRetrieve).toHaveBeenCalledWith(
+          '/files/document.pdf',
+          expect.any(Function)
+        );
         expect(mockDownloadFile).toHaveBeenCalled();
       });
     });
