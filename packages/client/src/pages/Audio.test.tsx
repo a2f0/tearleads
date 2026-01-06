@@ -302,40 +302,24 @@ describe('AudioPage', () => {
       expect(screen.getByTestId('dropzone')).toBeInTheDocument();
     });
 
-    it('shows drag and drop hint on web', async () => {
-      mockDetectPlatform.mockReturnValue('web');
-      await renderAudio();
+    const hintText = 'Drop an audio file here to add it to your library';
 
-      expect(
-        screen.getByText('Drop an audio file here to add it to your library')
-      ).toBeInTheDocument();
+    it.each([
+      'web',
+      'electron'
+    ])('shows drag and drop hint on %s', async (platform) => {
+      mockDetectPlatform.mockReturnValue(platform);
+      await renderAudio();
+      expect(screen.getByText(hintText)).toBeInTheDocument();
     });
 
-    it('shows drag and drop hint on electron', async () => {
-      mockDetectPlatform.mockReturnValue('electron');
+    it.each([
+      'ios',
+      'android'
+    ])('hides drag and drop hint on %s', async (platform) => {
+      mockDetectPlatform.mockReturnValue(platform);
       await renderAudio();
-
-      expect(
-        screen.getByText('Drop an audio file here to add it to your library')
-      ).toBeInTheDocument();
-    });
-
-    it('hides drag and drop hint on iOS', async () => {
-      mockDetectPlatform.mockReturnValue('ios');
-      await renderAudio();
-
-      expect(
-        screen.queryByText('Drop an audio file here to add it to your library')
-      ).not.toBeInTheDocument();
-    });
-
-    it('hides drag and drop hint on Android', async () => {
-      mockDetectPlatform.mockReturnValue('android');
-      await renderAudio();
-
-      expect(
-        screen.queryByText('Drop an audio file here to add it to your library')
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText(hintText)).not.toBeInTheDocument();
     });
   });
 

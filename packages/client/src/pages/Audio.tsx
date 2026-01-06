@@ -1,6 +1,6 @@
 import { and, desc, eq, like } from 'drizzle-orm';
 import { Loader2, Music, Pause, Play, RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -61,6 +61,11 @@ export function AudioPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const { uploadFile } = useFileUpload();
+
+  const supportsDragDrop = useMemo(() => {
+    const platform = detectPlatform();
+    return platform === 'web' || platform === 'electron';
+  }, []);
 
   const fetchTracks = useCallback(async () => {
     if (!isUnlocked) return;
@@ -272,26 +277,19 @@ export function AudioPage() {
             </div>
           </div>
         ) : tracks.length === 0 && hasFetched ? (
-          (() => {
-            const platform = detectPlatform();
-            const supportsDragDrop =
-              platform === 'web' || platform === 'electron';
-            return (
-              <div className="space-y-4">
-                <Dropzone
-                  onFilesSelected={handleFilesSelected}
-                  accept="audio/*"
-                  multiple={false}
-                  disabled={uploading}
-                />
-                {supportsDragDrop && (
-                  <p className="text-center text-muted-foreground text-sm">
-                    Drop an audio file here to add it to your library
-                  </p>
-                )}
-              </div>
-            );
-          })()
+          <div className="space-y-4">
+            <Dropzone
+              onFilesSelected={handleFilesSelected}
+              accept="audio/*"
+              multiple={false}
+              disabled={uploading}
+            />
+            {supportsDragDrop && (
+              <p className="text-center text-muted-foreground text-sm">
+                Drop an audio file here to add it to your library
+              </p>
+            )}
+          </div>
         ) : (
           <div className="space-y-2">
             {tracks.map((track) => {
