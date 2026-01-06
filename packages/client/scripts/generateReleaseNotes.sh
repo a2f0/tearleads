@@ -57,7 +57,8 @@ PREVIOUS_BUMP=$(echo "$BUMP_COMMITS" | tail -1)
 # Using -d @- reads the JSON from stdin
 # Note: We use commit messages only (no diffs) and Haiku model to stay within API rate limits
 
-COMMITS=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" --no-merges --format="- %s%n%b" 2>/dev/null)
+# Exclude version bump commits from the release notes
+COMMITS=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" --no-merges --invert-grep --grep="bump.*build number" --format="- %s%n%b" 2>/dev/null)
 
 call_anthropic_api() {
     model="$1"
