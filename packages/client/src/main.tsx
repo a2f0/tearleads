@@ -31,6 +31,9 @@ const Chat = lazy(() =>
 const ContactDetail = lazy(() =>
   import('./pages/ContactDetail').then((m) => ({ default: m.ContactDetail }))
 );
+const ContactNew = lazy(() =>
+  import('./pages/ContactNew').then((m) => ({ default: m.ContactNew }))
+);
 const Contacts = lazy(() =>
   import('./pages/Contacts').then((m) => ({ default: m.Contacts }))
 );
@@ -115,6 +118,7 @@ if (rootElement) {
                       <Route index element={<Home />} />
                       <Route path="files" element={<Files />} />
                       <Route path="contacts" element={<Contacts />} />
+                      <Route path="contacts/new" element={<ContactNew />} />
                       <Route path="contacts/:id" element={<ContactDetail />} />
                       <Route path="photos" element={<Photos />} />
                       <Route path="photos/:id" element={<PhotoDetail />} />
