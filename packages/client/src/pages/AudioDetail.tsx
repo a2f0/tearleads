@@ -228,18 +228,27 @@ export function AudioDetail() {
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
 
-  // Cleanup object URLs on unmount (only if not currently playing)
+  // Cleanup audio object URL on unmount (only if not currently playing)
   // Uses ref to avoid stale closure when currentTrack changes
+  // Separate from thumbnail cleanup to avoid revoking audio URL when thumbnail loads
   useEffect(() => {
+    const urlToCleanup = objectUrl;
     return () => {
-      if (objectUrl && currentTrackRef.current?.id !== id) {
-        URL.revokeObjectURL(objectUrl);
-      }
-      if (thumbnailUrl) {
-        URL.revokeObjectURL(thumbnailUrl);
+      if (urlToCleanup && currentTrackRef.current?.id !== id) {
+        URL.revokeObjectURL(urlToCleanup);
       }
     };
-  }, [objectUrl, thumbnailUrl, id]);
+  }, [objectUrl, id]);
+
+  // Cleanup thumbnail URL on unmount
+  useEffect(() => {
+    const urlToCleanup = thumbnailUrl;
+    return () => {
+      if (urlToCleanup) {
+        URL.revokeObjectURL(urlToCleanup);
+      }
+    };
+  }, [thumbnailUrl]);
 
   return (
     <div className="space-y-6">
