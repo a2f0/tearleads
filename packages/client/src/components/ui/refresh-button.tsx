@@ -1,4 +1,5 @@
 import { RefreshCw } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from './button';
 
 interface RefreshButtonProps {
@@ -20,7 +21,7 @@ export function RefreshButton({
       disabled={disabled || loading}
       aria-label="Refresh"
     >
-      <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+      <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
     </Button>
   );
 }
