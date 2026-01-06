@@ -32,7 +32,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - Config files: `.json`, `.yaml`, `.yml`, `.toml`, `.ini`, `.env*`
    - Docs: `.md`, `.txt`, `.rst`
    - Assets: `.png`, `.jpg`, `.svg`, `.ico`, `.gif`
-   - Build/CI: `Dockerfile`, `.dockerignore`, `.gitignore`, `.github/*`
+   - Build/CI: `Dockerfile`, `.dockerignore`, `.gitignore`
 
    This avoids waiting 5 minutes for Gemini to respond with "unsupported file types".
 
@@ -171,7 +171,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    ### 4g. Enable auto-merge and wait
 
-   **Version bump note**: If `has_bumped_version` is still `false` at this point (rare edge case where PR started CLEAN), bump version now using the process in step 4c, then return to step 4f to wait for CI.
+   **Version bump note**: If `has_bumped_version` is still `false` at this point (a rare edge case, e.g., if the PR started `CLEAN`), perform the version bump now. Run the bump script, stage the version files, amend the last commit, and **force push** the changes. Then, return to step 4f to wait for the new CI run.
 
    Enable auto-merge:
 
