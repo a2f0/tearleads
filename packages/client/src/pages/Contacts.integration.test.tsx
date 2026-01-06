@@ -65,15 +65,14 @@ describe('Contacts Page Integration Tests', () => {
   });
 
   describe('when database is unlocked', () => {
-    it('shows empty state when no contacts exist', async () => {
+    it('shows add contact card when no contacts exist', async () => {
       await renderWithDatabase(<Contacts />, {
         initialRoute: '/contacts'
       });
 
       await waitFor(() => {
-        expect(
-          screen.getByText(/No contacts yet\. Import a CSV to get started\./i)
-        ).toBeInTheDocument();
+        expect(screen.getByTestId('add-contact-card')).toBeInTheDocument();
+        expect(screen.getByText('Add new contact')).toBeInTheDocument();
       });
     });
 
@@ -119,11 +118,9 @@ describe('Contacts Page Integration Tests', () => {
         initialRoute: '/contacts'
       });
 
-      // Wait for empty state
+      // Wait for empty state (add contact card)
       await waitFor(() => {
-        expect(
-          screen.getByText(/No contacts yet\. Import a CSV to get started\./i)
-        ).toBeInTheDocument();
+        expect(screen.getByTestId('add-contact-card')).toBeInTheDocument();
       });
 
       // Add test contacts to the database
