@@ -11,7 +11,7 @@ PLATFORM="$1"
 # Use Claude 3 Haiku as primary (most cost-effective)
 # Claude 3.5 Haiku requires tier 2+ API access
 ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-claude-3-haiku-20240307}"
-FALLBACK_MODEL="claude-3-5-sonnet-latest"
+FALLBACK_MODEL="${FALLBACK_MODEL:-claude-3-5-sonnet-latest}"
 
 if [ -z "$PLATFORM" ]; then
     echo "Usage: generateReleaseNotes.sh <platform>" >&2
@@ -93,9 +93,9 @@ RELEASE_NOTES=$(extract_notes "$RESPONSE")
 # If primary fails, try fallback model
 if [ -z "$RELEASE_NOTES" ]; then
     ERROR=$(extract_error "$RESPONSE")
-    echo "Primary model failed: $ERROR" >&2
-    echo "Full response: $RESPONSE" >&2
-    echo "Trying fallback model: $FALLBACK_MODEL" >&2
+    printf "Primary model failed: %s\n" "$ERROR" >&2
+    printf "Full response: %s\n" "$RESPONSE" >&2
+    printf "Trying fallback model: %s\n" "$FALLBACK_MODEL" >&2
 
     RESPONSE=$(call_anthropic_api "$FALLBACK_MODEL")
     RELEASE_NOTES=$(extract_notes "$RESPONSE")
@@ -104,11 +104,11 @@ fi
 if [ -z "$RELEASE_NOTES" ]; then
     ERROR=$(extract_error "$RESPONSE")
     if [ -n "$ERROR" ]; then
-        echo "Error from Anthropic API: $ERROR" >&2
+        printf "Error from Anthropic API: %s\n" "$ERROR" >&2
     else
         echo "Error: No release notes returned from API" >&2
     fi
-    echo "Full response: $RESPONSE" >&2
+    printf "Full response: %s\n" "$RESPONSE" >&2
     exit 1
 fi
 
