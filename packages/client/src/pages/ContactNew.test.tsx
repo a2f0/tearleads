@@ -178,13 +178,8 @@ describe('ContactNew', () => {
       const emailInputs = screen.getAllByPlaceholderText('Email address');
       expect(emailInputs.length).toBe(1);
 
-      const deleteButtons = screen.getAllByRole('button', { name: '' });
-      const deleteButton = deleteButtons.find((btn) =>
-        btn.getAttribute('data-testid')?.startsWith('delete-email-')
-      );
-      if (deleteButton) {
-        await user.click(deleteButton);
-      }
+      const deleteButton = screen.getByRole('button', { name: 'Delete email' });
+      await user.click(deleteButton);
 
       expect(
         screen.queryByPlaceholderText('Email address')
@@ -212,13 +207,8 @@ describe('ContactNew', () => {
       const phoneInputs = screen.getAllByPlaceholderText('Phone number');
       expect(phoneInputs.length).toBe(1);
 
-      const deleteButtons = screen.getAllByRole('button', { name: '' });
-      const deleteButton = deleteButtons.find((btn) =>
-        btn.getAttribute('data-testid')?.startsWith('delete-phone-')
-      );
-      if (deleteButton) {
-        await user.click(deleteButton);
-      }
+      const deleteButton = screen.getByRole('button', { name: 'Delete phone' });
+      await user.click(deleteButton);
 
       expect(
         screen.queryByPlaceholderText('Phone number')

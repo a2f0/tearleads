@@ -137,9 +137,14 @@ export function ContactNew() {
       return;
     }
 
+    const emailRegex = /\S+@\S+\.\S+/;
     for (const email of emailsForm) {
       if (!email.email.trim()) {
         setError('Email address cannot be empty');
+        return;
+      }
+      if (!emailRegex.test(email.email)) {
+        setError('Please enter a valid email address');
         return;
       }
     }
@@ -249,7 +254,11 @@ export function ContactNew() {
                 New Contact
               </h1>
               <div className="space-y-3">
+                <label htmlFor="new-first-name" className="sr-only">
+                  First name
+                </label>
                 <input
+                  id="new-first-name"
                   type="text"
                   value={formData.firstName}
                   onChange={(e) =>
@@ -259,7 +268,11 @@ export function ContactNew() {
                   className="h-9 w-full rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
                   data-testid="new-first-name"
                 />
+                <label htmlFor="new-last-name" className="sr-only">
+                  Last name
+                </label>
                 <input
+                  id="new-last-name"
                   type="text"
                   value={formData.lastName}
                   onChange={(e) => handleFormChange('lastName', e.target.value)}
@@ -269,13 +282,16 @@ export function ContactNew() {
                 />
                 <div className="flex items-center gap-2">
                   <Cake className="h-4 w-4 text-muted-foreground" />
+                  <label htmlFor="new-birthday" className="sr-only">
+                    Birthday
+                  </label>
                   <input
-                    type="text"
+                    id="new-birthday"
+                    type="date"
                     value={formData.birthday}
                     onChange={(e) =>
                       handleFormChange('birthday', e.target.value)
                     }
-                    placeholder="Birthday (YYYY-MM-DD)"
                     className="h-9 flex-1 rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
                     data-testid="new-birthday"
                   />
@@ -359,6 +375,7 @@ export function ContactNew() {
                     onClick={() => handleDeleteEmail(email.id)}
                     className="h-8 w-8 shrink-0"
                     data-testid={`delete-email-${email.id}`}
+                    aria-label="Delete email"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -426,6 +443,7 @@ export function ContactNew() {
                     onClick={() => handleDeletePhone(phone.id)}
                     className="h-8 w-8 shrink-0"
                     data-testid={`delete-phone-${phone.id}`}
+                    aria-label="Delete phone"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
