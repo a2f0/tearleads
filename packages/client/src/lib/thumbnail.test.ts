@@ -25,6 +25,18 @@ describe('thumbnail', () => {
       expect(isThumbnailSupported('image/webp')).toBe(true);
     });
 
+    it('returns true for audio/mpeg (MP3)', () => {
+      expect(isThumbnailSupported('audio/mpeg')).toBe(true);
+    });
+
+    it('returns true for audio/flac', () => {
+      expect(isThumbnailSupported('audio/flac')).toBe(true);
+    });
+
+    it('returns true for audio/mp4 (M4A)', () => {
+      expect(isThumbnailSupported('audio/mp4')).toBe(true);
+    });
+
     it('returns false for PDF', () => {
       expect(isThumbnailSupported('application/pdf')).toBe(false);
     });
