@@ -30,11 +30,45 @@ export function createRetrieveLogger(
   return async (metrics: RetrieveMetrics) => {
     try {
       await logEvent(db, 'file_decrypt', metrics.durationMs, metrics.success);
-    } catch {
+    } catch (err) {
       // Don't let logging errors affect the main operation
-      console.warn('Failed to log file_decrypt analytics event');
+      console.warn('Failed to log file_decrypt analytics event:', err);
     }
   };
+}
+
+/**
+ * Shared helper to measure retrieve operations.
+ * Used by both OPFSStorage and CapacitorStorage.
+ */
+async function measureRetrieveHelper(
+  retrieveFn: () => Promise<Uint8Array>,
+  storagePath: string,
+  onMetrics?: (metrics: RetrieveMetrics) => void | Promise<void>
+): Promise<Uint8Array> {
+  const startTime = performance.now();
+  let success = true;
+  let fileSize = 0;
+
+  try {
+    const data = await retrieveFn();
+    fileSize = data.byteLength;
+    return data;
+  } catch (error) {
+    success = false;
+    throw error;
+  } finally {
+    const durationMs = performance.now() - startTime;
+    if (onMetrics) {
+      // Fire and forget - don't block on metrics callback
+      Promise.resolve(
+        onMetrics({ storagePath, durationMs, success, fileSize })
+      ).catch((err) => {
+        // Don't block on callback errors, but log for debugging
+        console.warn('onMetrics callback failed in measureRetrieve:', err);
+      });
+    }
+  }
 }
 
 /**
@@ -120,28 +154,11 @@ class OPFSStorage implements FileStorage {
     storagePath: string,
     onMetrics?: (metrics: RetrieveMetrics) => void | Promise<void>
   ): Promise<Uint8Array> {
-    const startTime = performance.now();
-    let success = true;
-    let fileSize = 0;
-
-    try {
-      const data = await this.retrieve(storagePath);
-      fileSize = data.byteLength;
-      return data;
-    } catch (error) {
-      success = false;
-      throw error;
-    } finally {
-      const durationMs = performance.now() - startTime;
-      if (onMetrics) {
-        // Fire and forget - don't block on metrics callback
-        Promise.resolve(
-          onMetrics({ storagePath, durationMs, success, fileSize })
-        ).catch(() => {
-          // Silently ignore callback errors
-        });
-      }
-    }
+    return measureRetrieveHelper(
+      () => this.retrieve(storagePath),
+      storagePath,
+      onMetrics
+    );
   }
 
   async delete(storagePath: string): Promise<void> {
@@ -299,28 +316,11 @@ class CapacitorStorage implements FileStorage {
     storagePath: string,
     onMetrics?: (metrics: RetrieveMetrics) => void | Promise<void>
   ): Promise<Uint8Array> {
-    const startTime = performance.now();
-    let success = true;
-    let fileSize = 0;
-
-    try {
-      const data = await this.retrieve(storagePath);
-      fileSize = data.byteLength;
-      return data;
-    } catch (error) {
-      success = false;
-      throw error;
-    } finally {
-      const durationMs = performance.now() - startTime;
-      if (onMetrics) {
-        // Fire and forget - don't block on metrics callback
-        Promise.resolve(
-          onMetrics({ storagePath, durationMs, success, fileSize })
-        ).catch(() => {
-          // Silently ignore callback errors
-        });
-      }
-    }
+    return measureRetrieveHelper(
+      () => this.retrieve(storagePath),
+      storagePath,
+      onMetrics
+    );
   }
 
   async delete(storagePath: string): Promise<void> {
