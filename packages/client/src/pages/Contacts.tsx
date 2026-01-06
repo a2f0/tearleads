@@ -1,20 +1,11 @@
 import { and, asc, eq, like, or, type SQL } from 'drizzle-orm';
-import {
-  Loader2,
-  Mail,
-  Phone,
-  RefreshCw,
-  Search,
-  Upload,
-  User,
-  X
-} from 'lucide-react';
+import { Loader2, Mail, Phone, Search, Upload, User, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ColumnMapper } from '@/components/contacts/ColumnMapper';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import {
@@ -224,14 +215,14 @@ export function Contacts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <User className="h-8 w-8 text-muted-foreground" />
           <h1 className="font-bold text-2xl tracking-tight">Contacts</h1>
         </div>
         {isUnlocked && !parsedData && (
           <div className="flex items-center gap-2">
-            <div className="relative">
+            <div className="relative min-w-0 flex-1 sm:flex-initial">
               <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 ref={searchInputRef}
@@ -239,7 +230,7 @@ export function Contacts() {
                 placeholder="Search contacts..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-9 w-48 rounded-md border bg-background py-2 pr-10 pl-9 text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="h-9 w-full rounded-md border bg-background py-2 pr-10 pl-9 text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring sm:w-48"
               />
               {searchQuery && (
                 <button
@@ -252,17 +243,10 @@ export function Contacts() {
                 </button>
               )}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
+            <RefreshButton
               onClick={() => fetchContacts(debouncedSearch)}
-              disabled={loading}
-            >
-              <RefreshCw
-                className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-              />
-              Refresh
-            </Button>
+              loading={loading}
+            />
           </div>
         )}
       </div>
