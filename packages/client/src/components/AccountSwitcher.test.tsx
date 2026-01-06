@@ -68,8 +68,8 @@ describe('AccountSwitcher', () => {
 
     await user.click(screen.getByTestId('account-switcher-button'));
 
-    // Check for instance names in dropdown (Instance 1 appears twice - in button and dropdown)
-    expect(screen.getAllByText('Instance 1')).toHaveLength(2);
+    // Check for instance names in dropdown
+    expect(screen.getByText('Instance 1')).toBeInTheDocument();
     expect(screen.getByText('Instance 2')).toBeInTheDocument();
     expect(screen.getByText('Create new instance')).toBeInTheDocument();
   });
