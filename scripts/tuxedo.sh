@@ -35,7 +35,7 @@ NUM_WORKSPACES="${TUXEDO_WORKSPACES:-20}"
 SESSION_NAME="tuxedo"
 SHARED_DIR="$BASE_DIR/rapid-shared"
 
-# Ensure symlinks from a workspace to rapid-shared for .secrets only
+# Ensure symlinks from a workspace to rapid-shared for shared directories
 # (.claude and CLAUDE.md are version controlled, so not symlinked)
 ensure_symlinks() {
     workspace="$1"
@@ -46,34 +46,36 @@ ensure_symlinks() {
     # Skip rapid-shared itself
     [ "$workspace" = "$SHARED_DIR" ] && return 0
 
-    # Only symlink .secrets (not version controlled)
-    target="$SHARED_DIR/.secrets"
-    link="$workspace/.secrets"
-    relative_path="../rapid-shared/.secrets"
+    # Symlink these directories (not version controlled in workspaces)
+    for item in .secrets .test_files; do
+        target="$SHARED_DIR/$item"
+        link="$workspace/$item"
+        relative_path="../rapid-shared/$item"
 
-    # Skip if shared folder doesn't exist
-    [ -d "$target" ] || return 0
+        # Skip if shared folder doesn't exist
+        [ -d "$target" ] || continue
 
-    # If it's already a correct symlink, skip
-    if [ -L "$link" ]; then
-        current_target=$(readlink "$link")
-        if [ "$current_target" = "$target" ] || [ "$current_target" = "$relative_path" ]; then
-            return 0
+        # If it's already a correct symlink, skip
+        if [ -L "$link" ]; then
+            current_target=$(readlink "$link")
+            if [ "$current_target" = "$target" ] || [ "$current_target" = "$relative_path" ]; then
+                continue
+            fi
+            # Wrong symlink, remove it
+            rm "$link"
+        elif [ -d "$link" ]; then
+            # It's a real directory - remove it (symlink to shared will replace it)
+            echo "Removing directory '$link' (will be symlinked to shared)"
+            rm -rf "$link"
+        elif [ -e "$link" ]; then
+            # Some other file exists, remove it
+            rm "$link"
         fi
-        # Wrong symlink, remove it
-        rm "$link"
-    elif [ -d "$link" ]; then
-        # It's a real directory - remove it (symlink to shared will replace it)
-        echo "Removing directory '$link' (will be symlinked to shared)"
-        rm -rf "$link"
-    elif [ -e "$link" ]; then
-        # Some other file exists, remove it
-        rm "$link"
-    fi
 
-    # Create the symlink (relative path for portability)
-    ln -s "$relative_path" "$link"
-    echo "Symlinked $link -> $relative_path"
+        # Create the symlink (relative path for portability)
+        ln -s "$relative_path" "$link"
+        echo "Symlinked $link -> $relative_path"
+    done
 }
 
 # Use local configs
