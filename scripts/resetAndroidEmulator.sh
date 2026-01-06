@@ -2,8 +2,19 @@
 set -eu
 
 DEVICE="Maestro_Pixel_6_API_33_1"
+AVD_CONFIG="$HOME/.android/avd/${DEVICE}.avd/config.ini"
 
 echo "Resetting Android emulator: $DEVICE"
+
+# Disable "always on top" behavior
+if [ -f "$AVD_CONFIG" ] && ! grep -Fxq "set.android.emulator.qt.window.on.top=false" "$AVD_CONFIG"; then
+    echo "Disabling always-on-top window behavior..."
+    # Remove any existing line and append the correct one to ensure the setting is correct.
+    # The .bak extension for sed -i is for macOS compatibility.
+    sed -i.bak '/^set\.android\.emulator\.qt\.window\.on\.top=/d' "$AVD_CONFIG"
+    echo "set.android.emulator.qt.window.on.top=false" >> "$AVD_CONFIG"
+    rm -f "${AVD_CONFIG}.bak"
+fi
 
 # Kill any running emulator
 if adb devices 2>/dev/null | grep -q "emulator"; then
@@ -17,8 +28,10 @@ pkill -f "qemu.*$DEVICE" 2>/dev/null || true
 sleep 1
 
 # Wipe emulator data and restart
+# -no-snapshot-save: prevents saving state on shutdown
+# -no-boot-anim: faster startup
 echo "Wiping emulator data and starting fresh..."
-emulator -avd "$DEVICE" -wipe-data &
+emulator -avd "$DEVICE" -wipe-data -no-snapshot-save -no-boot-anim &
 EMULATOR_PID=$!
 
 echo "Waiting for emulator to boot..."
