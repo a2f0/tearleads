@@ -96,7 +96,7 @@ export function getWebGPUErrorInfo(): WebGPUErrorInfo {
         title: 'WebGPU Not Supported on iOS',
         message:
           'Your iOS device does not support WebGPU, which is required for local AI model inference.',
-        requirement: 'iOS 26+ with Safari is required for WebGPU support.'
+        requirement: 'iOS 18+ with Safari is required for WebGPU support.'
       };
     case 'android':
       return {
@@ -112,7 +112,7 @@ export function getWebGPUErrorInfo(): WebGPUErrorInfo {
         message:
           'Your browser does not support WebGPU, which is required for local AI model inference.',
         requirement:
-          'Supported browsers: Chrome 113+, Edge 113+, Firefox 141+, Safari 26+.'
+          'Supported browsers: Chrome 113+, Edge 113+, Firefox 121+, Safari 18+.'
       };
   }
 }
