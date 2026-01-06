@@ -8,7 +8,6 @@ import {
   Share2
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
@@ -19,6 +18,7 @@ import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { useNavigateWithFrom } from '@/lib/navigation';
 import {
   getFileStorage,
   initializeFileStorage,
@@ -43,7 +43,7 @@ interface PhotoWithUrl extends PhotoInfo {
 }
 
 export function Photos() {
-  const navigate = useNavigate();
+  const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [photos, setPhotos] = useState<PhotoWithUrl[]>([]);
   const [loading, setLoading] = useState(false);
@@ -266,9 +266,9 @@ export function Photos() {
 
   const handlePhotoClick = useCallback(
     (photo: PhotoWithUrl) => {
-      navigate(`/photos/${photo.id}`);
+      navigateWithFrom(`/photos/${photo.id}`, { fromLabel: 'Back to Photos' });
     },
-    [navigate]
+    [navigateWithFrom]
   );
 
   const handleContextMenu = useCallback(
@@ -281,10 +281,12 @@ export function Photos() {
 
   const handleGetInfo = useCallback(() => {
     if (contextMenu) {
-      navigate(`/photos/${contextMenu.photo.id}`);
+      navigateWithFrom(`/photos/${contextMenu.photo.id}`, {
+        fromLabel: 'Back to Photos'
+      });
       setContextMenu(null);
     }
-  }, [contextMenu, navigate]);
+  }, [contextMenu, navigateWithFrom]);
 
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);

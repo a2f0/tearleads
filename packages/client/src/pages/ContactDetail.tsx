@@ -1,6 +1,5 @@
 import { and, asc, desc, eq, type InferSelectModel } from 'drizzle-orm';
 import {
-  ArrowLeft,
   Cake,
   Calendar,
   Loader2,
@@ -14,8 +13,9 @@ import {
   X
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
@@ -393,13 +393,7 @@ export function ContactDetail() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link
-          to="/contacts"
-          className="inline-flex items-center text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Contacts
-        </Link>
+        <BackLink defaultTo="/contacts" defaultLabel="Back to Contacts" />
       </div>
 
       {isLoading && (
