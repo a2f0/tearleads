@@ -27,20 +27,11 @@ ANDROID_DOCS_DIR="/sdcard/Download"
 
 echo "Copying test files to Android emulator..."
 
-# Push files recursively
-find "$TEST_FILES_DIR" -type f | while read -r file; do
-    relative_path="${file#"$TEST_FILES_DIR"/}"
-    target_dir="$ANDROID_DOCS_DIR/$(dirname "$relative_path")"
-
-    # Create directory structure on device
-    adb shell "mkdir -p '$target_dir'" 2>/dev/null || true
-
-    # Push the file
-    echo "Copying: $relative_path"
-    adb push "$file" "$ANDROID_DOCS_DIR/$relative_path"
-done
+# Push files recursively. The "/." ensures the contents of the directory are copied.
+adb push "$TEST_FILES_DIR/." "$ANDROID_DOCS_DIR/"
 
 # Trigger media scan so files appear in file pickers
+# Note: MEDIA_SCANNER_SCAN_FILE scans a single path; files may take time to appear in pickers
 echo "Triggering media scan..."
 adb shell "am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file://$ANDROID_DOCS_DIR"
 
