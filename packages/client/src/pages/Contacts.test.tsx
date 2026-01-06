@@ -52,6 +52,14 @@ vi.mock('@/hooks/useContactsImport', () => ({
   })
 }));
 
+// Mock useNativeFilePicker to avoid Capacitor dependency
+vi.mock('@/hooks/useNativeFilePicker', () => ({
+  useNativeFilePicker: vi.fn(() => ({
+    pickFiles: vi.fn(),
+    isNativePicker: false
+  }))
+}));
+
 function renderContactsRaw() {
   return render(
     <MemoryRouter>
@@ -186,14 +194,24 @@ describe('Contacts', () => {
   });
 
   describe('empty state', () => {
-    it('shows empty message when no contacts exist', async () => {
+    it('shows add contact card when no contacts exist', async () => {
       mockOrderBy.mockResolvedValue([]);
 
       await renderContacts();
 
-      expect(
-        screen.getByText('No contacts yet. Import a CSV to get started.')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('add-contact-card')).toBeInTheDocument();
+      expect(screen.getByText('Add new contact')).toBeInTheDocument();
+    });
+
+    it('navigates to new contact page when add card is clicked', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue([]);
+
+      await renderContacts();
+
+      await user.click(screen.getByTestId('add-contact-card'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/contacts/new');
     });
 
     it('shows no results message when search has no matches', async () => {
@@ -279,6 +297,25 @@ describe('Contacts', () => {
       await user.click(screen.getByText('John Doe'));
 
       expect(mockNavigate).toHaveBeenCalledWith('/contacts/1');
+    });
+
+    it('shows add contact card at the bottom of the list', async () => {
+      mockOrderBy.mockResolvedValue(mockContacts);
+
+      await renderContacts();
+
+      expect(screen.getByTestId('add-contact-card')).toBeInTheDocument();
+    });
+
+    it('navigates to new contact from list view', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue(mockContacts);
+
+      await renderContacts();
+
+      await user.click(screen.getByTestId('add-contact-card'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/contacts/new');
     });
   });
 
