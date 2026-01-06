@@ -6,7 +6,70 @@
  */
 
 import { Capacitor } from '@capacitor/core';
+import type { Database } from '@/db';
+import { logEvent } from '@/db/analytics';
 import { decrypt, encrypt, importKey } from '@/db/crypto/web-crypto';
+
+/**
+ * Metrics from a file retrieval operation.
+ */
+export interface RetrieveMetrics {
+  storagePath: string;
+  durationMs: number;
+  success: boolean;
+  fileSize: number;
+}
+
+/**
+ * Create a logger callback for file retrieval metrics.
+ * Use this with measureRetrieve() to log decryption times to analytics.
+ */
+export function createRetrieveLogger(
+  db: Database
+): (metrics: RetrieveMetrics) => Promise<void> {
+  return async (metrics: RetrieveMetrics) => {
+    try {
+      await logEvent(db, 'file_decrypt', metrics.durationMs, metrics.success);
+    } catch (err) {
+      // Don't let logging errors affect the main operation
+      console.warn('Failed to log file_decrypt analytics event:', err);
+    }
+  };
+}
+
+/**
+ * Shared helper to measure retrieve operations.
+ * Used by both OPFSStorage and CapacitorStorage.
+ */
+async function measureRetrieveHelper(
+  retrieveFn: () => Promise<Uint8Array>,
+  storagePath: string,
+  onMetrics?: (metrics: RetrieveMetrics) => void | Promise<void>
+): Promise<Uint8Array> {
+  const startTime = performance.now();
+  let success = true;
+  let fileSize = 0;
+
+  try {
+    const data = await retrieveFn();
+    fileSize = data.byteLength;
+    return data;
+  } catch (error) {
+    success = false;
+    throw error;
+  } finally {
+    const durationMs = performance.now() - startTime;
+    if (onMetrics) {
+      // Fire and forget - don't block on metrics callback
+      Promise.resolve(
+        onMetrics({ storagePath, durationMs, success, fileSize })
+      ).catch((err) => {
+        // Don't block on callback errors, but log for debugging
+        console.warn('onMetrics callback failed in measureRetrieve:', err);
+      });
+    }
+  }
+}
 
 /**
  * Get the directory name for an instance.
@@ -20,6 +83,10 @@ export interface FileStorage {
   initialize(encryptionKey: Uint8Array): Promise<void>;
   store(id: string, data: Uint8Array): Promise<string>;
   retrieve(storagePath: string): Promise<Uint8Array>;
+  measureRetrieve(
+    storagePath: string,
+    onMetrics?: (metrics: RetrieveMetrics) => void | Promise<void>
+  ): Promise<Uint8Array>;
   delete(storagePath: string): Promise<void>;
   exists(storagePath: string): Promise<boolean>;
   getStorageUsed(): Promise<number>;
@@ -81,6 +148,17 @@ class OPFSStorage implements FileStorage {
     const encrypted = new Uint8Array(await file.arrayBuffer());
 
     return decrypt(encrypted, this.encryptionKey);
+  }
+
+  async measureRetrieve(
+    storagePath: string,
+    onMetrics?: (metrics: RetrieveMetrics) => void | Promise<void>
+  ): Promise<Uint8Array> {
+    return measureRetrieveHelper(
+      () => this.retrieve(storagePath),
+      storagePath,
+      onMetrics
+    );
   }
 
   async delete(storagePath: string): Promise<void> {
@@ -232,6 +310,17 @@ class CapacitorStorage implements FileStorage {
     }
 
     return decrypt(encrypted, this.encryptionKey);
+  }
+
+  async measureRetrieve(
+    storagePath: string,
+    onMetrics?: (metrics: RetrieveMetrics) => void | Promise<void>
+  ): Promise<Uint8Array> {
+    return measureRetrieveHelper(
+      () => this.retrieve(storagePath),
+      storagePath,
+      onMetrics
+    );
   }
 
   async delete(storagePath: string): Promise<void> {

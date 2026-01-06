@@ -33,10 +33,12 @@ const mockIsFileStorageInitialized = vi.fn();
 const mockInitializeFileStorage = vi.fn();
 vi.mock('@/storage/opfs', () => ({
   getFileStorage: () => ({
-    retrieve: mockRetrieve
+    retrieve: mockRetrieve,
+    measureRetrieve: mockRetrieve
   }),
   isFileStorageInitialized: () => mockIsFileStorageInitialized(),
-  initializeFileStorage: (key: Uint8Array) => mockInitializeFileStorage(key)
+  initializeFileStorage: (key: Uint8Array) => mockInitializeFileStorage(key),
+  createRetrieveLogger: () => vi.fn()
 }));
 
 // Mock file-utils
@@ -284,7 +286,10 @@ describe('AudioDetail', () => {
       await user.click(screen.getByTestId('download-button'));
 
       await waitFor(() => {
-        expect(mockRetrieve).toHaveBeenCalledWith('/audio/test-audio.mp3');
+        expect(mockRetrieve).toHaveBeenCalledWith(
+          '/audio/test-audio.mp3',
+          expect.any(Function)
+        );
         expect(mockDownloadFile).toHaveBeenCalledWith(
           TEST_AUDIO_DATA,
           'test-audio.mp3'
@@ -336,7 +341,10 @@ describe('AudioDetail', () => {
       await user.click(screen.getByTestId('share-button'));
 
       await waitFor(() => {
-        expect(mockRetrieve).toHaveBeenCalledWith('/audio/test-audio.mp3');
+        expect(mockRetrieve).toHaveBeenCalledWith(
+          '/audio/test-audio.mp3',
+          expect.any(Function)
+        );
         expect(mockShareFile).toHaveBeenCalledWith(
           TEST_AUDIO_DATA,
           'test-audio.mp3',
