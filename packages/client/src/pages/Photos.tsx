@@ -350,6 +350,7 @@ export function Photos() {
             multiple={true}
             disabled={uploading}
             label="photos"
+            source="photos"
           />
         ) : (
           <div
@@ -410,7 +411,8 @@ export function Photos() {
               multiple={true}
               disabled={uploading}
               label="photos"
-              className="flex aspect-square items-center justify-center gap-2 p-0 [&>div]:hidden [&>svg]:h-6 [&>svg]:w-6"
+              source="photos"
+              compact
             />
           </div>
         ))}
