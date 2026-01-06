@@ -77,8 +77,15 @@ export function Dropzone({
           onFilesSelected(files);
         }
       } catch (err) {
-        // User cancelled or picker failed - ignore
-        console.debug('Native file picker cancelled or failed:', err);
+        // Distinguish between user cancellation and actual errors
+        if (
+          err instanceof Error &&
+          (err as Error & { code?: string }).code === 'CANCELLED'
+        ) {
+          console.debug('Native file picker cancelled by user.');
+        } else {
+          console.error('Native file picker failed:', err);
+        }
       } finally {
         setIsPickerOpen(false);
       }
