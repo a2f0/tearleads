@@ -15,6 +15,8 @@ PODS:
     - Capacitor
   - CapacitorShare (8.0.0):
     - Capacitor
+  - CapawesomeCapacitorFilePicker (8.0.0):
+    - Capacitor
   - CapgoCapacitorNativeBiometric (7.1.13):
     - Capacitor
   - IONFilesystemLib (1.0.1)
@@ -33,6 +35,7 @@ DEPENDENCIES:
   - "CapacitorFilesystem (from `../../../../node_modules/.pnpm/@capacitor+filesystem@8.0.0_@capacitor+core@8.0.0/node_modules/@capacitor/filesystem`)"
   - "CapacitorPreferences (from `../../../../node_modules/.pnpm/@capacitor+preferences@8.0.0_@capacitor+core@8.0.0/node_modules/@capacitor/preferences`)"
   - "CapacitorShare (from `../../../../node_modules/.pnpm/@capacitor+share@8.0.0_@capacitor+core@8.0.0/node_modules/@capacitor/share`)"
+  - "CapawesomeCapacitorFilePicker (from `../../../../node_modules/.pnpm/@capawesome+capacitor-file-picker@8.0.0_@capacitor+core@8.0.0/node_modules/@capawesome/capacitor-file-picker`)"
   - "CapgoCapacitorNativeBiometric (from `../../../../node_modules/.pnpm/@capgo+capacitor-native-biometric@8.0.3_@capacitor+core@8.0.0/node_modules/@capgo/capacitor-native-biometric`)"
 
 SPEC REPOS:
@@ -56,6 +59,8 @@ EXTERNAL SOURCES:
     :path: "../../../../node_modules/.pnpm/@capacitor+preferences@8.0.0_@capacitor+core@8.0.0/node_modules/@capacitor/preferences"
   CapacitorShare:
     :path: "../../../../node_modules/.pnpm/@capacitor+share@8.0.0_@capacitor+core@8.0.0/node_modules/@capacitor/share"
+  CapawesomeCapacitorFilePicker:
+    :path: "../../../../node_modules/.pnpm/@capawesome+capacitor-file-picker@8.0.0_@capacitor+core@8.0.0/node_modules/@capawesome/capacitor-file-picker"
   CapgoCapacitorNativeBiometric:
     :path: "../../../../node_modules/.pnpm/@capgo+capacitor-native-biometric@8.0.3_@capacitor+core@8.0.0/node_modules/@capgo/capacitor-native-biometric"
 
@@ -67,11 +72,12 @@ SPEC CHECKSUMS:
   CapacitorFilesystem: 2cb7c29536024668f333266a2177f8c10bbd9c98
   CapacitorPreferences: 443fabe9670226200e595658a87ef0b1566716d4
   CapacitorShare: 12f1d192170cbcf9f108fd675ac8e343761a4638
+  CapawesomeCapacitorFilePicker: 43c2f2e86e9722b2ea22d69abc8c09fe158bfc86
   CapgoCapacitorNativeBiometric: c9a116d9516b3f52dd335aea6a0c5073be36fe5a
   IONFilesystemLib: 89258b8e3e85465da93127d25d7ce37f977e8a6f
   SQLCipher: eb79c64049cb002b4e9fcb30edb7979bf4706dfc
   ZIPFoundation: dfd3d681c4053ff7e2f7350bc4e53b5dba3f5351
 
-PODFILE CHECKSUM: a6bec09a432785a4c370531b6d3fded77d586679
+PODFILE CHECKSUM: 643183873c9177d2becf5f27292710d664b2821d
 
 COCOAPODS: 1.16.2
