@@ -1,5 +1,14 @@
 import { and, asc, eq, like, or, type SQL } from 'drizzle-orm';
-import { Loader2, Mail, Phone, Search, Upload, User, X } from 'lucide-react';
+import {
+  Loader2,
+  Mail,
+  Phone,
+  Plus,
+  Search,
+  Upload,
+  User,
+  X
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ColumnMapper } from '@/components/contacts/ColumnMapper';
@@ -331,11 +340,18 @@ export function Contacts() {
             </div>
           )}
 
-          {/* Contacts List */}
+          {/* Add New Contact Card (shown when empty) */}
           {!loading && contacts.length === 0 && hasFetched && !searchQuery && (
-            <div className="rounded-lg border p-8 text-center text-muted-foreground">
-              No contacts yet. Import a CSV to get started.
-            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/contacts/new')}
+              className="flex w-full items-center justify-center gap-4 rounded-lg border-2 border-dashed p-8 text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+              data-testid="add-contact-card"
+            >
+              <User className="h-8 w-8" />
+              <span className="font-medium">Add new contact</span>
+              <Plus className="h-6 w-6" />
+            </button>
           )}
 
           {!loading && contacts.length === 0 && hasFetched && searchQuery && (
@@ -380,6 +396,17 @@ export function Contacts() {
                   </div>
                 </button>
               ))}
+              {/* Add New Contact Card (always at bottom) */}
+              <button
+                type="button"
+                onClick={() => navigate('/contacts/new')}
+                className="flex w-full items-center justify-center gap-4 rounded-lg border-2 border-dashed p-4 text-muted-foreground transition-colors hover:border-primary hover:text-foreground"
+                data-testid="add-contact-card"
+              >
+                <User className="h-5 w-5" />
+                <span className="font-medium text-sm">Add new contact</span>
+                <Plus className="h-4 w-4" />
+              </button>
             </div>
           )}
         </>
