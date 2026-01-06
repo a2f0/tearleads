@@ -11,7 +11,7 @@ import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
-import { formatFileSize } from '@/lib/utils';
+import { detectPlatform, formatFileSize } from '@/lib/utils';
 import {
   createRetrieveLogger,
   getFileStorage,
@@ -272,17 +272,26 @@ export function AudioPage() {
             </div>
           </div>
         ) : tracks.length === 0 && hasFetched ? (
-          <div className="space-y-4">
-            <Dropzone
-              onFilesSelected={handleFilesSelected}
-              accept="audio/*"
-              multiple={false}
-              disabled={uploading}
-            />
-            <p className="text-center text-muted-foreground text-sm">
-              Drop an audio file here to add it to your library
-            </p>
-          </div>
+          (() => {
+            const platform = detectPlatform();
+            const supportsDragDrop =
+              platform === 'web' || platform === 'electron';
+            return (
+              <div className="space-y-4">
+                <Dropzone
+                  onFilesSelected={handleFilesSelected}
+                  accept="audio/*"
+                  multiple={false}
+                  disabled={uploading}
+                />
+                {supportsDragDrop && (
+                  <p className="text-center text-muted-foreground text-sm">
+                    Drop an audio file here to add it to your library
+                  </p>
+                )}
+              </div>
+            );
+          })()
         ) : (
           <div className="space-y-2">
             {tracks.map((track) => {
