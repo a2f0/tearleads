@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { useLLM } from '@/hooks/useLLM';
 import type { ModelInfo } from '@/lib/models';
 import { RECOMMENDED_MODELS } from '@/lib/models';
+import { getWebGPUErrorInfo } from '@/lib/utils';
 
 interface WebGPUInfo {
   adapterName: string;
@@ -339,22 +340,16 @@ export function Models() {
   };
 
   if (webGPUSupported === false) {
+    const errorInfo = getWebGPUErrorInfo();
     return (
       <div className="space-y-6">
         <h1 className="font-bold text-2xl tracking-tight">Models</h1>
         <div className="rounded-lg border border-destructive bg-destructive/10 p-8 text-center">
           <Bot className="mx-auto h-12 w-12 text-destructive" />
-          <h2 className="mt-4 font-semibold text-lg">WebGPU Not Supported</h2>
-          <p className="mt-2 text-muted-foreground">
-            Your browser does not support WebGPU, which is required for local
-            LLM inference.
-          </p>
+          <h2 className="mt-4 font-semibold text-lg">{errorInfo.title}</h2>
+          <p className="mt-2 text-muted-foreground">{errorInfo.message}</p>
           <p className="mt-2 text-muted-foreground text-sm">
-            Supported browsers: Chrome 113+, Edge 113+, Firefox 141+, Safari
-            26+.
-          </p>
-          <p className="mt-1 text-muted-foreground text-sm">
-            On mobile: iOS 26+ (Safari) or Android 12+ (Chrome 121+).
+            {errorInfo.requirement}
           </p>
         </div>
       </div>
