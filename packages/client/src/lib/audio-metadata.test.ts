@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { extractAudioCoverArt, isAudioMimeType } from './audio-metadata';
 
-vi.mock('music-metadata-browser', () => ({
+vi.mock('music-metadata', () => ({
   parseBuffer: vi.fn()
 }));
 
-import { parseBuffer } from 'music-metadata-browser';
+import { parseBuffer } from 'music-metadata';
 
 describe('audio-metadata', () => {
   afterEach(() => {
@@ -80,7 +80,7 @@ describe('audio-metadata', () => {
   });
 
   describe('extractAudioCoverArt', () => {
-    it('returns cover art data when present', async () => {
+    it('returns cover art data and format when present', async () => {
       const coverArtData = new Uint8Array([1, 2, 3, 4, 5]);
       vi.mocked(parseBuffer).mockResolvedValue({
         common: {
@@ -91,8 +91,9 @@ describe('audio-metadata', () => {
       const audioData = new Uint8Array([10, 20, 30]);
       const result = await extractAudioCoverArt(audioData, 'audio/mpeg');
 
-      expect(result).toBeInstanceOf(Uint8Array);
-      expect(result).toEqual(coverArtData);
+      expect(result).not.toBeNull();
+      expect(result?.data).toEqual(coverArtData);
+      expect(result?.format).toBe('image/jpeg');
       expect(parseBuffer).toHaveBeenCalledWith(audioData, {
         mimeType: 'audio/mpeg'
       });
@@ -131,14 +132,14 @@ describe('audio-metadata', () => {
       expect(result).toBeNull();
     });
 
-    it('returns the first picture when multiple are present', async () => {
+    it('returns the first picture with its format when multiple are present', async () => {
       const firstCoverArt = new Uint8Array([1, 2, 3]);
       const secondCoverArt = new Uint8Array([4, 5, 6]);
       vi.mocked(parseBuffer).mockResolvedValue({
         common: {
           picture: [
-            { data: firstCoverArt, format: 'image/jpeg' },
-            { data: secondCoverArt, format: 'image/png' }
+            { data: firstCoverArt, format: 'image/png' },
+            { data: secondCoverArt, format: 'image/jpeg' }
           ]
         }
       } as never);
@@ -146,7 +147,8 @@ describe('audio-metadata', () => {
       const audioData = new Uint8Array([10, 20, 30]);
       const result = await extractAudioCoverArt(audioData, 'audio/flac');
 
-      expect(result).toEqual(firstCoverArt);
+      expect(result?.data).toEqual(firstCoverArt);
+      expect(result?.format).toBe('image/png');
     });
   });
 });

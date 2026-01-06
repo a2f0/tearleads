@@ -54,12 +54,12 @@ export async function generateThumbnail(
   let imageMimeType: string;
 
   if (isAudioMimeType(mimeType)) {
-    const coverArt = await extractAudioCoverArt(fileData, mimeType);
-    if (!coverArt) {
+    const coverArtInfo = await extractAudioCoverArt(fileData, mimeType);
+    if (!coverArtInfo) {
       return null;
     }
-    imageData = coverArt;
-    imageMimeType = 'image/jpeg';
+    imageData = coverArtInfo.data;
+    imageMimeType = coverArtInfo.format;
   } else {
     imageData = fileData;
     imageMimeType = mimeType;
