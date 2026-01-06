@@ -50,20 +50,49 @@ echo "Output directory: $OUTPUT_DIR"
 echo ""
 
 # Helper function to generate a PNG at a specific size with logo centered
+# For macOS, use squircle=1 to create rounded corners (Big Sur+ style)
 generate_icon_png() {
     size=$1
     output_file=$2
+    squircle=${3:-0}
 
-    # Logo takes up 70% of the icon, centered on white background
-    icon_size=$((size * 70 / 100))
+    # Logo takes up 65% of the icon, centered on background
+    icon_size=$((size * 65 / 100))
 
-    # SVG viewBox is ~33px, calculate density for quality rendering
-    density=$((icon_size * 72 / 33))
+    # Render at 4x resolution then downscale for crisp edges
+    render_size=$((icon_size * 4))
 
-    $MAGICK_CMD -background "$BACKGROUND_COLOR" -density "$density" "$SVG_SOURCE" \
-        -resize "${icon_size}x${icon_size}" \
-        -gravity center -extent "${size}x${size}" \
-        "$output_file"
+    if [ "$squircle" = "1" ]; then
+        # macOS Big Sur+ style: squircle with ~22% corner radius
+        corner_radius=$((size * 22 / 100))
+
+        # Step 1: Create squircle background
+        $MAGICK_CMD -size "${size}x${size}" xc:none \
+            -fill "$BACKGROUND_COLOR" \
+            -draw "roundrectangle 0,0,$((size-1)),$((size-1)),$corner_radius,$corner_radius" \
+            "${output_file}.bg.png"
+
+        # Step 2: Render logo at 4x size then downscale sharply
+        $MAGICK_CMD -background none -density 1200 "$SVG_SOURCE" \
+            -resize "${render_size}x${render_size}" \
+            -filter Lanczos -resize "${icon_size}x${icon_size}" \
+            "${output_file}.logo.png"
+
+        # Step 3: Composite logo centered on background
+        $MAGICK_CMD "${output_file}.bg.png" "${output_file}.logo.png" \
+            -gravity center -composite \
+            "$output_file"
+
+        # Clean up temp files
+        rm -f "${output_file}.bg.png" "${output_file}.logo.png"
+    else
+        # Square icon (Windows/Linux) - render at 4x then downscale
+        $MAGICK_CMD -background none -density 1200 "$SVG_SOURCE" \
+            -resize "${render_size}x${render_size}" \
+            -filter Lanczos -resize "${icon_size}x${icon_size}" \
+            -gravity center -background "$BACKGROUND_COLOR" -extent "${size}x${size}" \
+            "$output_file"
+    fi
 }
 
 # Generate macOS .icns file
@@ -81,15 +110,15 @@ generate_macos_icns() {
     ICONSET_DIR="$OUTPUT_DIR/icon.iconset"
     mkdir -p "$ICONSET_DIR"
 
-    # Generate all required iconset sizes
+    # Generate all required iconset sizes with squircle shape (Big Sur+ style)
     # Format: icon_NxN.png and icon_NxN@2x.png
     for size in 16 32 128 256 512; do
-        generate_icon_png "$size" "$ICONSET_DIR/icon_${size}x${size}.png"
+        generate_icon_png "$size" "$ICONSET_DIR/icon_${size}x${size}.png" 1
         echo "    Created icon_${size}x${size}.png"
 
         # @2x versions
         double_size=$((size * 2))
-        generate_icon_png "$double_size" "$ICONSET_DIR/icon_${size}x${size}@2x.png"
+        generate_icon_png "$double_size" "$ICONSET_DIR/icon_${size}x${size}@2x.png" 1
         echo "    Created icon_${size}x${size}@2x.png"
     done
 
