@@ -59,6 +59,20 @@ vi.mock('@/hooks/useFileUpload', () => ({
   })
 }));
 
+// Mock detectPlatform to return 'web' by default (supports drag and drop)
+vi.mock('@/lib/utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/utils')>();
+  return {
+    ...actual,
+    detectPlatform: vi.fn(() => 'web')
+  };
+});
+
+// Get the mocked detectPlatform for test manipulation
+import { detectPlatform as mockDetectPlatformFn } from '@/lib/utils';
+
+const mockDetectPlatform = mockDetectPlatformFn as ReturnType<typeof vi.fn>;
+
 const TEST_AUDIO_TRACK = {
   id: 'track-1',
   name: 'test-song.mp3',
@@ -135,6 +149,7 @@ describe('AudioPage', () => {
     mockRetrieve.mockResolvedValue(TEST_AUDIO_DATA);
     mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_TRACK]));
     mockUploadFile.mockResolvedValue({ id: 'new-id', isDuplicate: false });
+    mockDetectPlatform.mockReturnValue('web');
   });
 
   describe('page rendering', () => {
@@ -284,9 +299,27 @@ describe('AudioPage', () => {
     it('shows dropzone when no tracks', async () => {
       await renderAudio();
 
-      expect(
-        screen.getByText('Drop an audio file here to add it to your library')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('dropzone')).toBeInTheDocument();
+    });
+
+    const hintText = 'Drop an audio file here to add it to your library';
+
+    it.each([
+      'web',
+      'electron'
+    ])('shows drag and drop hint on %s', async (platform) => {
+      mockDetectPlatform.mockReturnValue(platform);
+      await renderAudio();
+      expect(screen.getByText(hintText)).toBeInTheDocument();
+    });
+
+    it.each([
+      'ios',
+      'android'
+    ])('hides drag and drop hint on %s', async (platform) => {
+      mockDetectPlatform.mockReturnValue(platform);
+      await renderAudio();
+      expect(screen.queryByText(hintText)).not.toBeInTheDocument();
     });
   });
 
@@ -389,12 +422,11 @@ describe('AudioPage', () => {
 
     beforeEach(async () => {
       mockSelect.mockReturnValue(createMockQueryChain([]));
+      mockDetectPlatform.mockReturnValue('web');
       user = userEvent.setup();
       await renderAudio();
 
-      expect(
-        screen.getByText('Drop an audio file here to add it to your library')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('dropzone')).toBeInTheDocument();
 
       input = screen.getByTestId('dropzone-input');
     });
