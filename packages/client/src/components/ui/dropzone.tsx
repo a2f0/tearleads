@@ -1,5 +1,6 @@
 import { Upload } from 'lucide-react';
 import { useCallback, useId, useRef, useState } from 'react';
+import { useNativeFilePicker } from '@/hooks/useNativeFilePicker';
 import { cn, detectPlatform } from '@/lib/utils';
 
 import { Button } from './button';
@@ -25,10 +26,12 @@ export function Dropzone({
   label = 'files'
 }: DropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
   const platform = detectPlatform();
   const isNative = platform === 'ios' || platform === 'android';
+  const { pickFiles, isNativePicker } = useNativeFilePicker();
 
   const handleFiles = useCallback(
     (files: FileList | null) => {
@@ -62,10 +65,37 @@ export function Dropzone({
     [handleFiles]
   );
 
-  const handleClick = useCallback(() => {
-    if (disabled) return;
+  const handleClick = useCallback(async () => {
+    if (disabled || isPickerOpen) return;
+
+    // Use native file picker on iOS
+    if (isNativePicker) {
+      setIsPickerOpen(true);
+      try {
+        const files = await pickFiles({ accept, multiple });
+        if (files && files.length > 0) {
+          onFilesSelected(files);
+        }
+      } catch (err) {
+        // User cancelled or picker failed - ignore
+        console.debug('Native file picker cancelled or failed:', err);
+      } finally {
+        setIsPickerOpen(false);
+      }
+      return;
+    }
+
+    // Fall back to HTML input for other platforms
     inputRef.current?.click();
-  }, [disabled]);
+  }, [
+    disabled,
+    isPickerOpen,
+    isNativePicker,
+    pickFiles,
+    accept,
+    multiple,
+    onFilesSelected
+  ]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -102,11 +132,13 @@ export function Dropzone({
           onClick={handleClick}
           variant="outline"
           size="lg"
-          disabled={disabled}
+          disabled={disabled || isPickerOpen}
           data-testid="dropzone-choose-files"
         >
           <Upload className="mr-2 h-5 w-5" />
-          Choose {label.charAt(0).toUpperCase() + label.slice(1)}
+          {isPickerOpen
+            ? 'Selecting...'
+            : `Choose ${label.charAt(0).toUpperCase() + label.slice(1)}`}
         </Button>
         {fileInput}
       </div>
