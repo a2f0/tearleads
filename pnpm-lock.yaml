@@ -144,9 +144,6 @@ importers:
       lucide-react:
         specifier: 0.562.0
         version: 0.562.0(react@19.2.3)
-      music-metadata:
-        specifier: 11.10.5
-        version: 11.10.5
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -241,6 +238,9 @@ importers:
       jsdom:
         specifier: 27.4.0
         version: 27.4.0
+      music-metadata:
+        specifier: 11.10.5
+        version: 11.10.5
       svgo:
         specifier: 4.0.0
         version: 4.0.0
