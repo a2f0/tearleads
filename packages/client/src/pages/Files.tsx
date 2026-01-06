@@ -11,7 +11,6 @@ import {
   XCircle
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
@@ -22,6 +21,7 @@ import { files as filesTable } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { getErrorMessage } from '@/lib/errors';
 import { downloadFile } from '@/lib/file-utils';
+import { useNavigateWithFrom } from '@/lib/navigation';
 import { formatFileSize } from '@/lib/utils';
 import {
   createRetrieveLogger,
@@ -54,7 +54,7 @@ interface UploadingFile {
 }
 
 export function Files() {
-  const navigate = useNavigate();
+  const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [files, setFiles] = useState<FileWithThumbnail[]>([]);
   const [loading, setLoading] = useState(false);
@@ -256,10 +256,12 @@ export function Files() {
 
       const basePath = routeMapping[fileType];
       if (basePath) {
-        navigate(`${basePath}/${file.id}`);
+        navigateWithFrom(`${basePath}/${file.id}`, {
+          fromLabel: 'Back to Files'
+        });
       }
     },
-    [navigate]
+    [navigateWithFrom]
   );
 
   const handleDownload = useCallback(

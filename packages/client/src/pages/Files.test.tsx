@@ -423,7 +423,9 @@ describe('Files', () => {
       // Click on the file name to navigate to detail view
       await user.click(screen.getByText('photo.jpg'));
 
-      expect(mockNavigate).toHaveBeenCalledWith('/photos/file-1');
+      expect(mockNavigate).toHaveBeenCalledWith('/photos/file-1', {
+        state: { from: '/', fromLabel: 'Back to Files' }
+      });
     });
 
     it('does not navigate when non-image file card is clicked', async () => {
@@ -743,7 +745,9 @@ describe('Files', () => {
       // Click on the audio file name to navigate to detail view
       await user.click(screen.getByText('song.mp3'));
 
-      expect(mockNavigate).toHaveBeenCalledWith('/audio/audio-1');
+      expect(mockNavigate).toHaveBeenCalledWith('/audio/audio-1', {
+        state: { from: '/', fromLabel: 'Back to Files' }
+      });
     });
 
     it('does not navigate when clicking on deleted audio file', async () => {
