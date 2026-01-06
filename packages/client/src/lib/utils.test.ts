@@ -227,7 +227,7 @@ describe('getWebGPUErrorInfo', () => {
     const info = getWebGPUErrorInfo();
     expect(info.title).toBe('WebGPU Not Supported on iOS');
     expect(info.message).toContain('iOS device');
-    expect(info.requirement).toContain('iOS 26+');
+    expect(info.requirement).toContain('iOS 18+');
   });
 
   it('returns Android-specific error info on Android', () => {
@@ -246,8 +246,8 @@ describe('getWebGPUErrorInfo', () => {
     expect(info.message).toContain('browser');
     expect(info.requirement).toContain('Chrome 113+');
     expect(info.requirement).toContain('Edge 113+');
-    expect(info.requirement).toContain('Firefox 141+');
-    expect(info.requirement).toContain('Safari 26+');
+    expect(info.requirement).toContain('Firefox 121+');
+    expect(info.requirement).toContain('Safari 18+');
   });
 
   it('returns generic error info on electron', () => {
