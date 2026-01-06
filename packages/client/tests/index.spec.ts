@@ -1095,10 +1095,11 @@ test.describe('Contacts page', () => {
     await navigateTo(page, 'Contacts');
     await expect(page.getByRole('heading', { name: 'Contacts' })).toBeVisible();
 
-    // Should show empty state message
-    await expect(page.getByText('No contacts yet. Import a CSV to get started.')).toBeVisible({
+    // Should show add contact card when empty
+    await expect(page.getByTestId('add-contact-card')).toBeVisible({
       timeout: 10000
     });
+    await expect(page.getByText('Add new contact')).toBeVisible();
   });
 
   test('should show column mapper when CSV is uploaded', async ({ page }) => {
