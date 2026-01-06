@@ -1,5 +1,14 @@
 import { and, asc, eq, like, or, type SQL } from 'drizzle-orm';
-import { Loader2, Mail, Phone, Search, Upload, User, X } from 'lucide-react';
+import {
+  Loader2,
+  Mail,
+  Phone,
+  Plus,
+  Search,
+  Upload,
+  User,
+  X
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ColumnMapper } from '@/components/contacts/ColumnMapper';
@@ -18,6 +27,29 @@ import {
   type ParsedCSV,
   useContactsImport
 } from '@/hooks/useContactsImport';
+
+interface AddContactCardProps {
+  onClick: () => void;
+  size?: 'large' | 'small';
+}
+
+function AddContactCard({ onClick, size = 'large' }: AddContactCardProps) {
+  const isLarge = size === 'large';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center justify-center gap-4 rounded-lg border-2 border-dashed text-muted-foreground transition-colors hover:border-primary hover:text-foreground ${isLarge ? 'p-8' : 'p-4'}`}
+      data-testid="add-contact-card"
+    >
+      <User className={isLarge ? 'h-8 w-8' : 'h-5 w-5'} />
+      <span className={`font-medium ${isLarge ? '' : 'text-sm'}`}>
+        Add new contact
+      </span>
+      <Plus className={isLarge ? 'h-6 w-6' : 'h-4 w-4'} />
+    </button>
+  );
+}
 
 interface ContactInfo {
   id: string;
@@ -331,11 +363,12 @@ export function Contacts() {
             </div>
           )}
 
-          {/* Contacts List */}
+          {/* Add New Contact Card (shown when empty) */}
           {!loading && contacts.length === 0 && hasFetched && !searchQuery && (
-            <div className="rounded-lg border p-8 text-center text-muted-foreground">
-              No contacts yet. Import a CSV to get started.
-            </div>
+            <AddContactCard
+              onClick={() => navigate('/contacts/new')}
+              size="large"
+            />
           )}
 
           {!loading && contacts.length === 0 && hasFetched && searchQuery && (
@@ -380,6 +413,11 @@ export function Contacts() {
                   </div>
                 </button>
               ))}
+              {/* Add New Contact Card (always at bottom) */}
+              <AddContactCard
+                onClick={() => navigate('/contacts/new')}
+                size="small"
+              />
             </div>
           )}
         </>
