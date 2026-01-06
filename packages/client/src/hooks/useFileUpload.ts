@@ -80,16 +80,18 @@ export function useFileUpload() {
       const storagePath = await storage.store(id, data);
       onProgress?.(65);
 
-      // Generate thumbnail for supported image types
+      // Generate thumbnail for supported types (images and audio with cover art)
       let thumbnailPath: string | null = null;
       if (isThumbnailSupported(mimeType)) {
         const thumbnailStartTime = performance.now();
         let thumbnailSuccess = false;
         try {
           const thumbnailData = await generateThumbnail(data, mimeType);
-          const thumbnailId = `${id}-thumb`;
-          thumbnailPath = await storage.store(thumbnailId, thumbnailData);
-          thumbnailSuccess = true;
+          if (thumbnailData) {
+            const thumbnailId = `${id}-thumb`;
+            thumbnailPath = await storage.store(thumbnailId, thumbnailData);
+            thumbnailSuccess = true;
+          }
         } catch (err) {
           console.warn(`Failed to generate thumbnail for ${file.name}:`, err);
           // Continue without thumbnail

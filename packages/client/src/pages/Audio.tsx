@@ -41,10 +41,12 @@ interface AudioInfo {
   mimeType: string;
   uploadDate: Date;
   storagePath: string;
+  thumbnailPath: string | null;
 }
 
 interface AudioWithUrl extends AudioInfo {
   objectUrl: string;
+  thumbnailUrl: string | null;
 }
 
 export function AudioPage() {
@@ -75,7 +77,8 @@ export function AudioPage() {
           size: files.size,
           mimeType: files.mimeType,
           uploadDate: files.uploadDate,
-          storagePath: files.storagePath
+          storagePath: files.storagePath,
+          thumbnailPath: files.thumbnailPath
         })
         .from(files)
         .where(and(like(files.mimeType, 'audio/%'), eq(files.deleted, false)))
@@ -87,7 +90,8 @@ export function AudioPage() {
         size: row.size,
         mimeType: row.mimeType,
         uploadDate: row.uploadDate,
-        storagePath: row.storagePath
+        storagePath: row.storagePath,
+        thumbnailPath: row.thumbnailPath
       }));
 
       // Load audio data and create object URLs
@@ -110,7 +114,26 @@ export function AudioPage() {
               new Uint8Array(buffer).set(data);
               const blob = new Blob([buffer], { type: track.mimeType });
               const objectUrl = URL.createObjectURL(blob);
-              return { ...track, objectUrl };
+
+              let thumbnailUrl: string | null = null;
+              if (track.thumbnailPath) {
+                try {
+                  const thumbData = await storage.retrieve(track.thumbnailPath);
+                  const thumbBuffer = new ArrayBuffer(thumbData.byteLength);
+                  new Uint8Array(thumbBuffer).set(thumbData);
+                  const thumbBlob = new Blob([thumbBuffer], {
+                    type: 'image/jpeg'
+                  });
+                  thumbnailUrl = URL.createObjectURL(thumbBlob);
+                } catch (err) {
+                  console.warn(
+                    `Failed to load thumbnail for ${track.name}:`,
+                    err
+                  );
+                }
+              }
+
+              return { ...track, objectUrl, thumbnailUrl };
             } catch (err) {
               console.error(`Failed to load track ${track.name}:`, err);
               return null;
@@ -180,6 +203,9 @@ export function AudioPage() {
       for (const t of tracks) {
         if (t.id !== currentTrackRef.current?.id) {
           URL.revokeObjectURL(t.objectUrl);
+        }
+        if (t.thumbnailUrl) {
+          URL.revokeObjectURL(t.thumbnailUrl);
         }
       }
     };
@@ -284,7 +310,15 @@ export function AudioPage() {
                     to={`/audio/${track.id}`}
                     className="group flex min-w-0 flex-1 items-center gap-4"
                   >
-                    <Music className="h-8 w-8 shrink-0 text-muted-foreground" />
+                    {track.thumbnailUrl ? (
+                      <img
+                        src={track.thumbnailUrl}
+                        alt=""
+                        className="h-10 w-10 shrink-0 rounded object-cover"
+                      />
+                    ) : (
+                      <Music className="h-8 w-8 shrink-0 text-muted-foreground" />
+                    )}
                     <div className="min-w-0">
                       <p className="truncate font-medium group-hover:underline">
                         {track.name}
