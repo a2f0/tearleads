@@ -732,7 +732,8 @@ describe('opfs storage', () => {
         })
       };
 
-      // Mock the logEvent import
+      // Reset modules and mock before re-importing
+      vi.resetModules();
       vi.doMock('@/db/analytics', () => ({
         logEvent: mockLogEvent
       }));
@@ -750,9 +751,12 @@ describe('opfs storage', () => {
 
       await logger(metrics);
 
-      // Note: This test verifies the function structure.
-      // The actual logEvent call is tested through integration.
-      expect(logger).toBeInstanceOf(Function);
+      expect(mockLogEvent).toHaveBeenCalledWith(
+        mockDb,
+        'file_decrypt',
+        150,
+        true
+      );
     });
 
     it('returns an async function', () => {
