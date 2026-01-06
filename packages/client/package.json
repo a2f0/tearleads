@@ -1,6 +1,6 @@
 {
   "name": "@rapid/client",
-  "version": "0.0.45",
+  "version": "0.0.46",
   "description": "React client application for Rapid",
   "main": "out/main/main.js",
   "type": "module",
@@ -59,7 +59,7 @@
     "file-type": "21.2.0",
     "invariant": "2.2.4",
     "lucide-react": "0.562.0",
-    "music-metadata-browser": "2.5.11",
+    "music-metadata": "11.10.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-router-dom": "7.11.0",

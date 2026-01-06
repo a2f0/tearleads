@@ -1,9 +1,9 @@
 /**
  * Audio metadata extraction utility.
- * Uses music-metadata-browser to parse ID3 tags and extract embedded cover art.
+ * Uses music-metadata to parse ID3 tags and extract embedded cover art.
  */
 
-import { parseBuffer } from 'music-metadata-browser';
+import { parseBuffer } from 'music-metadata';
 
 const AUDIO_MIME_TYPES = new Set([
   'audio/mpeg',
@@ -21,6 +21,11 @@ const AUDIO_MIME_TYPES = new Set([
   'audio/x-aiff'
 ]);
 
+export interface CoverArtInfo {
+  data: Uint8Array;
+  format: string;
+}
+
 /**
  * Check if a MIME type is an audio format that may contain embedded cover art.
  */
@@ -30,23 +35,30 @@ export function isAudioMimeType(mimeType: string): boolean {
 
 /**
  * Extract embedded cover art from audio file data.
- * Returns the cover art as a Uint8Array, or null if none exists.
+ * Returns the cover art data and format, or null if none exists.
  */
 export async function extractAudioCoverArt(
   audioData: Uint8Array,
   mimeType: string
-): Promise<Uint8Array | null> {
+): Promise<CoverArtInfo | null> {
   try {
     const metadata = await parseBuffer(audioData, { mimeType });
 
     const pictures = metadata.common.picture;
     const coverArt = pictures?.[0];
-    if (!coverArt) {
+    if (!coverArt?.data) {
       return null;
     }
 
-    return new Uint8Array(coverArt.data);
-  } catch {
+    return {
+      data: new Uint8Array(coverArt.data),
+      format: coverArt.format
+    };
+  } catch (err) {
+    console.warn(
+      `Failed to extract audio cover art for mimeType ${mimeType}:`,
+      err
+    );
     return null;
   }
 }
