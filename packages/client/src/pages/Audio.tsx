@@ -1,9 +1,9 @@
 import { and, desc, eq, like } from 'drizzle-orm';
 import { Loader2, Music, Pause, Play, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { LinkWithFrom } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
 import { getDatabase } from '@/db';
@@ -321,8 +321,9 @@ export function AudioPage() {
                   }`}
                   data-testid={`audio-track-${track.id}`}
                 >
-                  <Link
+                  <LinkWithFrom
                     to={`/audio/${track.id}`}
+                    fromLabel="Back to Audio"
                     className="group flex min-w-0 flex-1 items-center gap-4"
                   >
                     {track.thumbnailUrl ? (
@@ -342,7 +343,7 @@ export function AudioPage() {
                         {formatFileSize(track.size)}
                       </p>
                     </div>
-                  </Link>
+                  </LinkWithFrom>
                   <Button
                     variant="outline"
                     size="icon"

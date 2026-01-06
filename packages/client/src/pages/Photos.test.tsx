@@ -201,7 +201,9 @@ describe('Photos', () => {
 
       await user.click(screen.getByText('Get info'));
 
-      expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1');
+      expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1', {
+        state: { from: '/', fromLabel: 'Back to Photos' }
+      });
     });
 
     it('closes context menu when clicking elsewhere', async () => {
@@ -263,7 +265,9 @@ describe('Photos', () => {
 
       await user.click(screen.getByAltText('test-image.jpg'));
 
-      expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1');
+      expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1', {
+        state: { from: '/', fromLabel: 'Back to Photos' }
+      });
     });
 
     it.each([
@@ -282,7 +286,9 @@ describe('Photos', () => {
       photoContainer?.focus();
       await user.keyboard(key);
 
-      expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1');
+      expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-1', {
+        state: { from: '/', fromLabel: 'Back to Photos' }
+      });
     });
   });
 

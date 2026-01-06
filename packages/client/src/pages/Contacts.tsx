@@ -10,7 +10,6 @@ import {
   X
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { ColumnMapper } from '@/components/contacts/ColumnMapper';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Dropzone } from '@/components/ui/dropzone';
@@ -27,6 +26,7 @@ import {
   type ParsedCSV,
   useContactsImport
 } from '@/hooks/useContactsImport';
+import { useNavigateWithFrom } from '@/lib/navigation';
 
 interface AddContactCardProps {
   onClick: () => void;
@@ -62,7 +62,7 @@ interface ContactInfo {
 }
 
 export function Contacts() {
-  const navigate = useNavigate();
+  const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading } = useDatabaseContext();
   const [contacts, setContacts] = useState<ContactInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -387,7 +387,11 @@ export function Contacts() {
                   type="button"
                   key={contact.id}
                   className="flex w-full items-center justify-between rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
-                  onClick={() => navigate(`/contacts/${contact.id}`)}
+                  onClick={() =>
+                    navigateWithFrom(`/contacts/${contact.id}`, {
+                      fromLabel: 'Back to Contacts'
+                    })
+                  }
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">
