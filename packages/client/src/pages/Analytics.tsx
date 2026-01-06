@@ -5,7 +5,6 @@ import {
   BarChart3,
   CheckCircle,
   Clock,
-  RefreshCw,
   Trash2,
   XCircle
 } from 'lucide-react';
@@ -13,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DurationChart } from '@/components/DurationChart';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabase } from '@/db';
 import {
   type AnalyticsEvent,
@@ -263,17 +263,7 @@ export function Analytics() {
             >
               <Trash2 className="h-4 w-4" />
             </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={fetchData}
-              disabled={loading}
-              aria-label="Refresh"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-              />
-            </Button>
+            <RefreshButton onClick={fetchData} loading={loading} />
           </div>
         )}
       </div>

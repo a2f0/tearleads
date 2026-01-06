@@ -106,7 +106,9 @@ describe('Contacts', () => {
     it('renders refresh button when database is unlocked', async () => {
       await renderContacts();
 
-      expect(screen.getByText('Refresh')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Refresh' })
+      ).toBeInTheDocument();
     });
 
     it('renders Import CSV section when database is unlocked', async () => {
@@ -345,7 +347,7 @@ describe('Contacts', () => {
 
       expect(mockOrderBy).toHaveBeenCalledTimes(1);
 
-      await user.click(screen.getByText('Refresh'));
+      await user.click(screen.getByRole('button', { name: 'Refresh' }));
 
       await waitFor(() => {
         expect(mockOrderBy).toHaveBeenCalledTimes(2);
