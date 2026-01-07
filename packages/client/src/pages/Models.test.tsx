@@ -595,18 +595,42 @@ describe('Models', () => {
 
       renderModels();
 
+      // Wait for the cached model to show with Delete and Downloaded badge
       await waitFor(() => {
         expect(screen.getByTitle('Delete from cache')).toBeInTheDocument();
         expect(screen.getByText('Downloaded')).toBeInTheDocument();
       });
 
-      await user.click(screen.getByTitle('Delete from cache'));
+      // Get the Phi 3.5 model card container by finding the delete button's parent
+      const deleteButton = screen.getByTitle('Delete from cache');
+      const modelCard = deleteButton.closest('.bg-card');
 
+      // Verify we're on the right card before deletion
+      expect(modelCard).toBeInTheDocument();
+      expect(
+        modelCard?.querySelector('[class*="lucide-play"]')
+      ).toBeInTheDocument();
+
+      await user.click(deleteButton);
+
+      // Wait for the cache delete to be called
       await waitFor(() => {
-        // After deletion, the Downloaded badge should be gone
-        // and Download button should appear instead of Load
-        expect(screen.queryByText('Downloaded')).not.toBeInTheDocument();
+        expect(mockCache.delete).toHaveBeenCalled();
       });
+
+      // After deletion, the Phi 3.5 card should show Download button (with download icon)
+      // instead of Load button (with play icon)
+      await waitFor(
+        () => {
+          expect(
+            modelCard?.querySelector('[class*="lucide-download"]')
+          ).toBeInTheDocument();
+          expect(
+            modelCard?.querySelector('[class*="lucide-play"]')
+          ).not.toBeInTheDocument();
+        },
+        { timeout: 3000 }
+      );
     });
   });
 
