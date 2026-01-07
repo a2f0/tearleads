@@ -290,8 +290,9 @@ export async function logApiEvent(
         Date.now()
       ]
     );
-  } catch {
-    // Silently fail - don't let logging errors affect API calls
+  } catch (error) {
+    // Don't let logging errors affect API calls, but log for debugging
+    console.warn(`Failed to log API event '${eventName}':`, error);
   }
 }
 
