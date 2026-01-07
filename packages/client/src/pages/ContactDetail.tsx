@@ -17,6 +17,7 @@ import { useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
@@ -427,36 +428,34 @@ export function ContactDetail() {
             <div className="min-w-0 flex-1">
               {isEditing && formData ? (
                 <div className="space-y-3">
-                  <input
+                  <Input
                     type="text"
                     value={formData.firstName}
                     onChange={(e) =>
                       handleFormChange('firstName', e.target.value)
                     }
                     placeholder="First name *"
-                    className="h-9 w-full rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
                     data-testid="edit-first-name"
                   />
-                  <input
+                  <Input
                     type="text"
                     value={formData.lastName}
                     onChange={(e) =>
                       handleFormChange('lastName', e.target.value)
                     }
                     placeholder="Last name"
-                    className="h-9 w-full rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
                     data-testid="edit-last-name"
                   />
                   <div className="flex items-center gap-2">
                     <Cake className="h-4 w-4 text-muted-foreground" />
-                    <input
+                    <Input
                       type="text"
                       value={formData.birthday}
                       onChange={(e) =>
                         handleFormChange('birthday', e.target.value)
                       }
                       placeholder="Birthday (YYYY-MM-DD)"
-                      className="h-9 flex-1 rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
+                      className="flex-1"
                       data-testid="edit-birthday"
                     />
                   </div>
@@ -531,24 +530,24 @@ export function ContactDetail() {
                       className="flex items-center gap-2 px-4 py-3"
                     >
                       <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <input
+                      <Input
                         type="email"
                         value={email.email}
                         onChange={(e) =>
                           handleEmailChange(email.id, 'email', e.target.value)
                         }
                         placeholder="Email address"
-                        className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="min-w-0 flex-1"
                         data-testid={`edit-email-${email.id}`}
                       />
-                      <input
+                      <Input
                         type="text"
                         value={email.label}
                         onChange={(e) =>
                           handleEmailChange(email.id, 'label', e.target.value)
                         }
                         placeholder="Label"
-                        className="h-9 w-24 rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-24"
                         data-testid={`edit-email-label-${email.id}`}
                       />
                       <label className="flex shrink-0 items-center gap-1 text-base">
@@ -638,7 +637,7 @@ export function ContactDetail() {
                       className="flex items-center gap-2 px-4 py-3"
                     >
                       <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <input
+                      <Input
                         type="tel"
                         value={phone.phoneNumber}
                         onChange={(e) =>
@@ -649,17 +648,17 @@ export function ContactDetail() {
                           )
                         }
                         placeholder="Phone number"
-                        className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="min-w-0 flex-1"
                         data-testid={`edit-phone-${phone.id}`}
                       />
-                      <input
+                      <Input
                         type="text"
                         value={phone.label}
                         onChange={(e) =>
                           handlePhoneChange(phone.id, 'label', e.target.value)
                         }
                         placeholder="Label"
-                        className="h-9 w-24 rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-24"
                         data-testid={`edit-phone-label-${phone.id}`}
                       />
                       <label className="flex shrink-0 items-center gap-1 text-base">
