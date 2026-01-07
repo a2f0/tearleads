@@ -21,6 +21,7 @@ import {
   getEventCount,
   getEventStats,
   getEvents,
+  logApiEvent,
   logEvent,
   measureOperation
 } from './analytics';
@@ -191,6 +192,75 @@ describe('analytics', () => {
       );
 
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe('logApiEvent', () => {
+    it('inserts event via database adapter', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await logApiEvent('api_get_ping', 150.5, true);
+
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO analytics_events'),
+        expect.arrayContaining([
+          expect.any(String), // id (UUID)
+          'api_get_ping',
+          151, // Rounded duration
+          1, // success as 1
+          expect.any(Number) // timestamp
+        ])
+      );
+    });
+
+    it('rounds duration to nearest integer', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await logApiEvent('api_get_users', 99.4, true);
+
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining([99])
+      );
+    });
+
+    it('logs failure as 0', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await logApiEvent('api_post_data', 200, false);
+
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.arrayContaining([0])
+      );
+    });
+
+    it('silently fails when adapter throws', async () => {
+      mockAdapter.execute.mockRejectedValue(
+        new Error('Database not initialized')
+      );
+
+      // Should not throw
+      await expect(
+        logApiEvent('api_get_test', 100, true)
+      ).resolves.toBeUndefined();
+    });
+
+    it('generates unique IDs for each event', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await logApiEvent('event1', 100, true);
+      await logApiEvent('event2', 200, true);
+
+      const call1 = mockAdapter.execute.mock.calls[0]?.[1] as unknown[];
+      const call2 = mockAdapter.execute.mock.calls[1]?.[1] as unknown[];
+
+      const id1 = call1[0] as string;
+      const id2 = call2[0] as string;
+
+      expect(id1).toBeDefined();
+      expect(id2).toBeDefined();
+      expect(id1).not.toBe(id2);
     });
   });
 
