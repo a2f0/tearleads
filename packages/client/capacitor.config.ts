@@ -10,6 +10,8 @@ const config: CapacitorConfig = {
   },
   plugins: {
     CapacitorSQLite: {
+      // Store database in Library (hidden from Files app) instead of Documents
+      iosDatabaseLocation: 'Library/CapacitorDatabase',
       // Enable encryption on iOS
       iosIsEncryption: true,
       // Enable encryption on Android
