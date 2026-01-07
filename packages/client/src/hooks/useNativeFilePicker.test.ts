@@ -1,6 +1,9 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useNativeFilePicker } from './useNativeFilePicker';
+import {
+  COMMON_AUDIO_MIME_TYPES,
+  useNativeFilePicker
+} from './useNativeFilePicker';
 
 vi.mock('../lib/utils', () => ({
   detectPlatform: vi.fn()
@@ -79,18 +82,7 @@ describe('useNativeFilePicker', () => {
 
       // audio/* is expanded to specific MIME types for better iOS filtering
       expect(FilePicker.pickFiles).toHaveBeenCalledWith({
-        types: [
-          'audio/mpeg',
-          'audio/mp4',
-          'audio/aac',
-          'audio/wav',
-          'audio/x-wav',
-          'audio/aiff',
-          'audio/x-aiff',
-          'audio/flac',
-          'audio/x-flac',
-          'audio/ogg'
-        ],
+        types: COMMON_AUDIO_MIME_TYPES,
         limit: 1,
         readData: true
       });
@@ -117,18 +109,7 @@ describe('useNativeFilePicker', () => {
       });
 
       expect(FilePicker.pickFiles).toHaveBeenCalledWith({
-        types: [
-          'audio/mpeg',
-          'audio/mp4',
-          'audio/aac',
-          'audio/wav',
-          'audio/x-wav',
-          'audio/aiff',
-          'audio/x-aiff',
-          'audio/flac',
-          'audio/x-flac',
-          'audio/ogg'
-        ],
+        types: COMMON_AUDIO_MIME_TYPES,
         limit: 0,
         readData: true
       });
@@ -164,19 +145,7 @@ describe('useNativeFilePicker', () => {
 
       // audio/* is expanded, video/* passes through as-is
       expect(FilePicker.pickFiles).toHaveBeenCalledWith({
-        types: [
-          'audio/mpeg',
-          'audio/mp4',
-          'audio/aac',
-          'audio/wav',
-          'audio/x-wav',
-          'audio/aiff',
-          'audio/x-aiff',
-          'audio/flac',
-          'audio/x-flac',
-          'audio/ogg',
-          'video/*'
-        ],
+        types: [...COMMON_AUDIO_MIME_TYPES, 'video/*'],
         limit: 1,
         readData: true
       });
@@ -276,18 +245,7 @@ describe('useNativeFilePicker', () => {
       });
 
       expect(FilePicker.pickFiles).toHaveBeenCalledWith({
-        types: [
-          'audio/mpeg',
-          'audio/mp4',
-          'audio/aac',
-          'audio/wav',
-          'audio/x-wav',
-          'audio/aiff',
-          'audio/x-aiff',
-          'audio/flac',
-          'audio/x-flac',
-          'audio/ogg'
-        ],
+        types: COMMON_AUDIO_MIME_TYPES,
         limit: 1,
         readData: true
       });
