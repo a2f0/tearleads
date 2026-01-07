@@ -133,11 +133,19 @@ export function AccountSwitcher() {
                 Instances
               </div>
               {instances.map((instance) => (
-                <button
+                // biome-ignore lint/a11y/useSemanticElements: div with role="button" required to avoid nested button with delete action
+                <div
                   key={instance.id}
-                  type="button"
-                  className="group flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
+                  role="button"
+                  tabIndex={0}
+                  className="group flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
                   onClick={() => handleSwitchInstance(instance.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSwitchInstance(instance.id);
+                    }
+                  }}
                   data-testid={`instance-${instance.id}`}
                 >
                   <div className="flex min-w-0 items-center gap-2">
@@ -178,7 +186,7 @@ export function AccountSwitcher() {
                       <Trash2 className="h-3.5 w-3.5 text-destructive" />
                     </button>
                   )}
-                </button>
+                </div>
               ))}
 
               <div className="my-1 h-px bg-border" />
