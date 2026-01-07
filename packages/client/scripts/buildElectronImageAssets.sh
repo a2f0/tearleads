@@ -68,29 +68,34 @@ generate_icon_png() {
 
     if [ "$squircle" = "1" ]; then
         # macOS Big Sur+ style: squircle with rounded corners and padding
-        inset=$((size * MACOS_INSET_PERCENT / 100))
-        squircle_size=$((size - inset * 2))
-        corner_radius=$((squircle_size * MACOS_CORNER_RADIUS_PERCENT / 100))
+        # Use subshell with trap to ensure temp files are cleaned up on failure
+        (
+            set -e
+            temp_bg="${output_file}.bg.png"
+            temp_logo="${output_file}.logo.png"
+            trap 'rm -f "$temp_bg" "$temp_logo"' EXIT
 
-        # Step 1: Create squircle background with inset padding
-        $MAGICK_CMD -size "${size}x${size}" xc:none \
-            -fill "$BACKGROUND_COLOR" \
-            -draw "roundrectangle $inset,$inset,$((size-1-inset)),$((size-1-inset)),$corner_radius,$corner_radius" \
-            "${output_file}.bg.png"
+            inset=$((size * MACOS_INSET_PERCENT / 100))
+            squircle_size=$((size - inset * 2))
+            corner_radius=$((squircle_size * MACOS_CORNER_RADIUS_PERCENT / 100))
 
-        # Step 2: Render logo at high resolution then downscale
-        $MAGICK_CMD -background none -density $RENDER_DENSITY "$SVG_SOURCE" \
-            -resize "${render_size}x${render_size}" \
-            -filter Lanczos -resize "${icon_size}x${icon_size}" \
-            "${output_file}.logo.png"
+            # Step 1: Create squircle background with inset padding
+            $MAGICK_CMD -size "${size}x${size}" xc:none \
+                -fill "$BACKGROUND_COLOR" \
+                -draw "roundrectangle $inset,$inset,$((size-1-inset)),$((size-1-inset)),$corner_radius,$corner_radius" \
+                "$temp_bg"
 
-        # Step 3: Composite logo centered on background
-        $MAGICK_CMD "${output_file}.bg.png" "${output_file}.logo.png" \
-            -gravity center -composite \
-            "$output_file"
+            # Step 2: Render logo at high resolution then downscale
+            $MAGICK_CMD -background none -density $RENDER_DENSITY "$SVG_SOURCE" \
+                -resize "${render_size}x${render_size}" \
+                -filter Lanczos -resize "${icon_size}x${icon_size}" \
+                "$temp_logo"
 
-        # Clean up temp files
-        rm -f "${output_file}.bg.png" "${output_file}.logo.png"
+            # Step 3: Composite logo centered on background
+            $MAGICK_CMD "$temp_bg" "$temp_logo" \
+                -gravity center -composite \
+                "$output_file"
+        )
     else
         # Square icon (Windows/Linux) - render at 4x then downscale
         $MAGICK_CMD -background none -density $RENDER_DENSITY "$SVG_SOURCE" \
