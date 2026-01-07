@@ -1,9 +1,8 @@
 import { and, desc, eq, like } from 'drizzle-orm';
-import { Loader2, Music, Pause, Play, RefreshCw } from 'lucide-react';
+import { ChevronRight, Loader2, Music, Pause, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { LinkWithFrom } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
 import { getDatabase } from '@/db';
@@ -11,6 +10,7 @@ import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { useNavigateWithFrom } from '@/lib/navigation';
 import { detectPlatform, formatFileSize } from '@/lib/utils';
 import {
   createRetrieveLogger,
@@ -51,6 +51,7 @@ interface AudioWithUrl extends AudioInfo {
 }
 
 export function AudioPage() {
+  const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
   const currentTrackRef = useRef(currentTrack);
@@ -224,6 +225,35 @@ export function AudioPage() {
     };
   }, [tracks]);
 
+  const handlePlayPause = useCallback(
+    (track: AudioWithUrl) => {
+      if (currentTrack?.id === track.id) {
+        if (isPlaying) {
+          pause();
+        } else {
+          resume();
+        }
+      } else {
+        play({
+          id: track.id,
+          name: track.name,
+          objectUrl: track.objectUrl,
+          mimeType: track.mimeType
+        });
+      }
+    },
+    [currentTrack?.id, isPlaying, pause, resume, play]
+  );
+
+  const handleNavigateToDetail = useCallback(
+    (trackId: string) => {
+      navigateWithFrom(`/audio/${trackId}`, {
+        fromLabel: 'Back to Audio'
+      });
+    },
+    [navigateWithFrom]
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -296,66 +326,53 @@ export function AudioPage() {
               const isCurrentTrack = currentTrack?.id === track.id;
               const isTrackPlaying = isCurrentTrack && isPlaying;
 
-              const handlePlayPause = () => {
-                if (isCurrentTrack) {
-                  if (isPlaying) {
-                    pause();
-                  } else {
-                    resume();
-                  }
-                } else {
-                  play({
-                    id: track.id,
-                    name: track.name,
-                    objectUrl: track.objectUrl,
-                    mimeType: track.mimeType
-                  });
-                }
-              };
-
               return (
                 <div
                   key={track.id}
-                  className={`flex items-center gap-4 rounded-lg border p-4 ${
+                  className={`flex items-center gap-3 rounded-lg border bg-muted/50 p-3 ${
                     isCurrentTrack ? 'border-primary bg-primary/5' : ''
                   }`}
                   data-testid={`audio-track-${track.id}`}
                 >
-                  <LinkWithFrom
-                    to={`/audio/${track.id}`}
-                    fromLabel="Back to Audio"
-                    className="group flex min-w-0 flex-1 items-center gap-4"
+                  <button
+                    type="button"
+                    onClick={() => handlePlayPause(track)}
+                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+                    data-testid={`audio-play-${track.id}`}
                   >
-                    {track.thumbnailUrl ? (
-                      <img
-                        src={track.thumbnailUrl}
-                        alt=""
-                        className="h-10 w-10 shrink-0 rounded object-cover"
-                      />
-                    ) : (
-                      <Music className="h-8 w-8 shrink-0 text-muted-foreground" />
-                    )}
-                    <div className="min-w-0">
-                      <p className="truncate font-medium group-hover:underline">
+                    <div className="relative shrink-0">
+                      {track.thumbnailUrl ? (
+                        <img
+                          src={track.thumbnailUrl}
+                          alt=""
+                          className="h-8 w-8 rounded object-cover"
+                        />
+                      ) : (
+                        <Music className="h-5 w-5 text-muted-foreground" />
+                      )}
+                      {isTrackPlaying && (
+                        <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                          <Pause className="h-2.5 w-2.5" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-sm">
                         {track.name}
                       </p>
-                      <p className="text-muted-foreground text-sm">
+                      <p className="text-muted-foreground text-xs">
                         {formatFileSize(track.size)}
                       </p>
                     </div>
-                  </LinkWithFrom>
+                  </button>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
-                    onClick={handlePlayPause}
-                    aria-label={isTrackPlaying ? 'Pause' : 'Play'}
-                    data-testid={`audio-play-${track.id}`}
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => handleNavigateToDetail(track.id)}
+                    aria-label="View details"
                   >
-                    {isTrackPlaying ? (
-                      <Pause className="h-4 w-4" />
-                    ) : (
-                      <Play className="h-4 w-4" />
-                    )}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </div>
               );

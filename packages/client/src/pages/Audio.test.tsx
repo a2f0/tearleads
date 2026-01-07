@@ -255,8 +255,18 @@ describe('AudioPage', () => {
     it('renders play buttons for tracks', async () => {
       await renderAudio();
 
-      const playButtons = screen.getAllByRole('button', { name: /play/i });
-      expect(playButtons.length).toBeGreaterThan(0);
+      // The card area itself is now the play button
+      expect(screen.getByTestId('audio-play-track-1')).toBeInTheDocument();
+      expect(screen.getByTestId('audio-play-track-2')).toBeInTheDocument();
+    });
+
+    it('renders detail navigation buttons for tracks', async () => {
+      await renderAudio();
+
+      const detailButtons = screen.getAllByRole('button', {
+        name: /view details/i
+      });
+      expect(detailButtons).toHaveLength(2);
     });
 
     it('fetches audio data from storage', async () => {
