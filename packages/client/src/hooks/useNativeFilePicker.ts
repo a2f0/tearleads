@@ -9,6 +9,23 @@ import { detectPlatform } from '@/lib/utils';
 
 export type FilePickerSource = 'files' | 'photos' | 'media';
 
+/**
+ * Common audio MIME types for file picker filtering.
+ * Exported for use in tests and other modules.
+ */
+export const COMMON_AUDIO_MIME_TYPES = [
+  'audio/mpeg', // .mp3
+  'audio/mp4', // .m4a
+  'audio/aac', // .aac
+  'audio/wav', // .wav
+  'audio/x-wav',
+  'audio/aiff', // .aiff
+  'audio/x-aiff',
+  'audio/flac', // .flac
+  'audio/x-flac',
+  'audio/ogg' // .ogg
+];
+
 export interface NativeFilePickerOptions {
   /** MIME types to accept (e.g., 'audio/*', 'image/*'). Only used when source is 'files'. */
   accept?: string | undefined;
@@ -60,19 +77,7 @@ function parseAcceptTypes(accept?: string): string[] {
   return types.flatMap((type) => {
     switch (type) {
       case 'audio/*':
-        // Expand to common audio MIME types
-        return [
-          'audio/mpeg', // .mp3
-          'audio/mp4', // .m4a
-          'audio/aac', // .aac
-          'audio/wav', // .wav
-          'audio/x-wav',
-          'audio/aiff', // .aiff
-          'audio/x-aiff',
-          'audio/flac', // .flac
-          'audio/x-flac',
-          'audio/ogg' // .ogg
-        ];
+        return COMMON_AUDIO_MIME_TYPES;
       default:
         return [type];
     }
