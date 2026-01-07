@@ -225,6 +225,35 @@ export function AudioPage() {
     };
   }, [tracks]);
 
+  const handlePlayPause = useCallback(
+    (track: AudioWithUrl) => {
+      if (currentTrack?.id === track.id) {
+        if (isPlaying) {
+          pause();
+        } else {
+          resume();
+        }
+      } else {
+        play({
+          id: track.id,
+          name: track.name,
+          objectUrl: track.objectUrl,
+          mimeType: track.mimeType
+        });
+      }
+    },
+    [currentTrack?.id, isPlaying, pause, resume, play]
+  );
+
+  const handleNavigateToDetail = useCallback(
+    (trackId: string) => {
+      navigateWithFrom(`/audio/${trackId}`, {
+        fromLabel: 'Back to Audio'
+      });
+    },
+    [navigateWithFrom]
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -297,29 +326,6 @@ export function AudioPage() {
               const isCurrentTrack = currentTrack?.id === track.id;
               const isTrackPlaying = isCurrentTrack && isPlaying;
 
-              const handlePlayPause = () => {
-                if (isCurrentTrack) {
-                  if (isPlaying) {
-                    pause();
-                  } else {
-                    resume();
-                  }
-                } else {
-                  play({
-                    id: track.id,
-                    name: track.name,
-                    objectUrl: track.objectUrl,
-                    mimeType: track.mimeType
-                  });
-                }
-              };
-
-              const handleNavigateToDetail = () => {
-                navigateWithFrom(`/audio/${track.id}`, {
-                  fromLabel: 'Back to Audio'
-                });
-              };
-
               return (
                 <div
                   key={track.id}
@@ -330,7 +336,7 @@ export function AudioPage() {
                 >
                   <button
                     type="button"
-                    onClick={handlePlayPause}
+                    onClick={() => handlePlayPause(track)}
                     className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
                     data-testid={`audio-play-${track.id}`}
                   >
@@ -363,7 +369,7 @@ export function AudioPage() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 shrink-0"
-                    onClick={handleNavigateToDetail}
+                    onClick={() => handleNavigateToDetail(track.id)}
                     aria-label="View details"
                   >
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
