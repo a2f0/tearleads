@@ -21,11 +21,18 @@ export interface AudioTrack {
   mimeType: string;
 }
 
+export interface AudioError {
+  message: string;
+  trackId: string;
+  trackName: string;
+}
+
 interface AudioState {
   currentTrack: AudioTrack | null;
   isPlaying: boolean;
   currentTime: number;
   duration: number;
+  error: AudioError | null;
 }
 
 interface AudioContextValue extends AudioState {
@@ -39,6 +46,8 @@ interface AudioContextValue extends AudioState {
   stop: () => void;
   /** Seek to a specific time in seconds */
   seek: (time: number) => void;
+  /** Clear any playback error */
+  clearError: () => void;
 }
 
 const AudioContext = createContext<AudioContextValue | null>(null);
@@ -53,19 +62,27 @@ interface AudioProviderProps {
  */
 export function AudioProvider({ children }: AudioProviderProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const previousUrlRef = useRef<string | null>(null);
+  const currentTrackRef = useRef<AudioTrack | null>(null);
 
   const [currentTrack, setCurrentTrack] = useState<AudioTrack | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [error, setError] = useState<AudioError | null>(null);
 
-  // Cleanup previous object URL when track changes
-  const cleanupPreviousUrl = useCallback(() => {
-    if (previousUrlRef.current) {
-      URL.revokeObjectURL(previousUrlRef.current);
-      previousUrlRef.current = null;
-    }
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  const handlePlaybackError = useCallback((err: unknown, track: AudioTrack) => {
+    const message = err instanceof Error ? err.message : 'Failed to play audio';
+    console.error('Failed to play audio:', err);
+    setError({
+      message,
+      trackId: track.id,
+      trackName: track.name
+    });
+    setIsPlaying(false);
   }, []);
 
   const play = useCallback(
@@ -73,21 +90,13 @@ export function AudioProvider({ children }: AudioProviderProps) {
       const audio = audioRef.current;
       if (!audio) return;
 
-      // If switching tracks, cleanup the previous URL
-      if (currentTrack && currentTrack.objectUrl !== track.objectUrl) {
-        cleanupPreviousUrl();
-      }
-
-      previousUrlRef.current = track.objectUrl;
-
+      // Clear any previous error when starting new playback
+      setError(null);
       setCurrentTrack(track);
       audio.src = track.objectUrl;
-      audio.play().catch((err) => {
-        console.error('Failed to play audio:', err);
-        setIsPlaying(false);
-      });
+      audio.play().catch((err) => handlePlaybackError(err, track));
     },
-    [currentTrack, cleanupPreviousUrl]
+    [handlePlaybackError]
   );
 
   const pause = useCallback(() => {
@@ -98,12 +107,10 @@ export function AudioProvider({ children }: AudioProviderProps) {
 
   const resume = useCallback(() => {
     const audio = audioRef.current;
-    if (!audio) return;
-    audio.play().catch((err) => {
-      console.error('Failed to resume audio:', err);
-      setIsPlaying(false);
-    });
-  }, []);
+    if (!audio || !currentTrack) return;
+    setError(null);
+    audio.play().catch((err) => handlePlaybackError(err, currentTrack));
+  }, [currentTrack, handlePlaybackError]);
 
   const stop = useCallback(() => {
     const audio = audioRef.current;
@@ -113,18 +120,23 @@ export function AudioProvider({ children }: AudioProviderProps) {
     audio.src = '';
     audio.currentTime = 0;
 
-    cleanupPreviousUrl();
     setCurrentTrack(null);
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(0);
-  }, [cleanupPreviousUrl]);
+    setError(null);
+  }, []);
 
   const seek = useCallback((time: number) => {
     const audio = audioRef.current;
     if (!audio) return;
     audio.currentTime = time;
   }, []);
+
+  // Keep currentTrackRef in sync with currentTrack for error handler
+  useEffect(() => {
+    currentTrackRef.current = currentTrack;
+  }, [currentTrack]);
 
   // Audio event handlers
   useEffect(() => {
@@ -151,11 +163,44 @@ export function AudioProvider({ children }: AudioProviderProps) {
       }
     };
 
+    const handleError = () => {
+      const track = currentTrackRef.current;
+      if (!track) return;
+
+      const mediaError = audio.error;
+      let message = 'Failed to load audio';
+      if (mediaError) {
+        // MediaError constants: ABORTED=1, NETWORK=2, DECODE=3, SRC_NOT_SUPPORTED=4
+        switch (mediaError.code) {
+          case 1: // MEDIA_ERR_ABORTED
+            message = 'Audio playback was aborted';
+            break;
+          case 2: // MEDIA_ERR_NETWORK
+            message = 'A network error occurred while loading audio';
+            break;
+          case 3: // MEDIA_ERR_DECODE
+            message = 'Audio file could not be decoded';
+            break;
+          case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
+            message = 'Audio file not found or format not supported';
+            break;
+        }
+      }
+      console.error('Audio error:', message, mediaError);
+      setError({
+        message,
+        trackId: track.id,
+        trackName: track.name
+      });
+      setIsPlaying(false);
+    };
+
     audio.addEventListener('play', handlePlay);
     audio.addEventListener('pause', handlePause);
     audio.addEventListener('ended', handleEnded);
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('error', handleError);
 
     return () => {
       audio.removeEventListener('play', handlePlay);
@@ -163,15 +208,9 @@ export function AudioProvider({ children }: AudioProviderProps) {
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('error', handleError);
     };
   }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      cleanupPreviousUrl();
-    };
-  }, [cleanupPreviousUrl]);
 
   const value = useMemo<AudioContextValue>(
     () => ({
@@ -179,22 +218,26 @@ export function AudioProvider({ children }: AudioProviderProps) {
       isPlaying,
       currentTime,
       duration,
+      error,
       play,
       pause,
       resume,
       stop,
-      seek
+      seek,
+      clearError
     }),
     [
       currentTrack,
       isPlaying,
       currentTime,
       duration,
+      error,
       play,
       pause,
       resume,
       stop,
-      seek
+      seek,
+      clearError
     ]
   );
 
