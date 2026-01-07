@@ -53,15 +53,30 @@ else
     echo "Install with: brew install proctools (macOS) or apt install procps (Linux)"
 fi
 
+# Clean up dead screen sessions first
+screen -wipe >/dev/null 2>&1 || true
+
 # Find and kill screen sessions
 screen_sessions=$(screen -ls 2>/dev/null | awk '/tux-/ {print $1}')
 
 if [ -n "$screen_sessions" ]; then
-    count=0
+    killed=0
+    removed=0
     for session in $screen_sessions; do
-        screen -X -S "$session" quit 2>/dev/null && count=$((count + 1))
+        # Try graceful quit first (works for live sessions)
+        if screen -X -S "$session" quit >/dev/null 2>&1; then
+            killed=$((killed + 1))
+        else
+            # For dead sessions, remove the socket file directly
+            socket_file="$HOME/.screen/$session"
+            if [ -e "$socket_file" ]; then
+                rm -f "$socket_file" && removed=$((removed + 1))
+            fi
+        fi
     done
-    echo "Killed $count screen session(s)"
+    [ "$killed" -gt 0 ] && echo "Killed $killed screen session(s)"
+    [ "$removed" -gt 0 ] && echo "Removed $removed dead screen session(s)"
+    [ "$killed" -eq 0 ] && [ "$removed" -eq 0 ] && echo "No screen sessions to clean up"
 else
     echo "No tux-* screen sessions found"
 fi
