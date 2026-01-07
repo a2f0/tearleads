@@ -14,7 +14,12 @@ const protocolScheme = getElectronProtocolScheme(is.dev);
 function getIconPath(): string {
   // In dev: __dirname is .../out/main, so ../../build/icons
   // In prod: __dirname is .../app.asar/out/main, so ../../build/icons
-  return resolve(__dirname, '../../build/icons/icon.png');
+  const iconsDir = resolve(__dirname, '../../build/icons');
+  // Use squircle PNG on macOS for proper dock icon with rounded corners
+  if (process.platform === 'darwin') {
+    return resolve(iconsDir, 'icon-macos.png');
+  }
+  return resolve(iconsDir, 'icon.png');
 }
 
 function getContentType(filePath: string): string {
