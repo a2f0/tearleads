@@ -268,6 +268,34 @@ export async function clearEvents(_db: Database): Promise<void> {
 }
 
 /**
+ * Log an API call event directly via the database adapter.
+ * This function can be called from modules that don't have access to the Database instance.
+ * Uses raw SQL via adapter to avoid needing the Drizzle db instance.
+ */
+export async function logApiEvent(
+  eventName: string,
+  durationMs: number,
+  success: boolean
+): Promise<void> {
+  try {
+    const adapter = getDatabaseAdapter();
+    await adapter.execute(
+      `INSERT INTO analytics_events (id, event_name, duration_ms, success, timestamp)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        crypto.randomUUID(),
+        eventName,
+        Math.round(durationMs),
+        success ? 1 : 0,
+        Date.now()
+      ]
+    );
+  } catch {
+    // Silently fail - don't let logging errors affect API calls
+  }
+}
+
+/**
  * Get the count of events.
  */
 export async function getEventCount(_db: Database): Promise<number> {
