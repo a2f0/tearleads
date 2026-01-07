@@ -27,6 +27,7 @@ BACKGROUND_COLOR="#FFFFFF"
 # Icon generation settings
 LOGO_SCALE_PERCENT=65
 MACOS_CORNER_RADIUS_PERCENT=22
+MACOS_INSET_PERCENT=5
 SUPERSAMPLING_FACTOR=4
 RENDER_DENSITY=1200
 
@@ -66,14 +67,30 @@ generate_icon_png() {
     render_size=$((icon_size * SUPERSAMPLING_FACTOR))
 
     if [ "$squircle" = "1" ]; then
-        # macOS Big Sur+ style: squircle with rounded corners
-        corner_radius=$((size * MACOS_CORNER_RADIUS_PERCENT / 100))
+        # macOS Big Sur+ style: squircle with rounded corners and padding
+        inset=$((size * MACOS_INSET_PERCENT / 100))
+        squircle_size=$((size - inset * 2))
+        corner_radius=$((squircle_size * MACOS_CORNER_RADIUS_PERCENT / 100))
 
-        # Create squircle background, render logo, and composite in one command
-        $MAGICK_CMD \
-            \( -size "${size}x${size}" xc:none -fill "$BACKGROUND_COLOR" -draw "roundrectangle 0,0,$((size-1)),$((size-1)),$corner_radius,$corner_radius" \) \
-            \( -background none -density $RENDER_DENSITY "$SVG_SOURCE" -resize "${render_size}x${render_size}" -filter Lanczos -resize "${icon_size}x${icon_size}" \) \
-            -gravity center -composite "$output_file"
+        # Step 1: Create squircle background with inset padding
+        $MAGICK_CMD -size "${size}x${size}" xc:none \
+            -fill "$BACKGROUND_COLOR" \
+            -draw "roundrectangle $inset,$inset,$((size-1-inset)),$((size-1-inset)),$corner_radius,$corner_radius" \
+            "${output_file}.bg.png"
+
+        # Step 2: Render logo at high resolution then downscale
+        $MAGICK_CMD -background none -density $RENDER_DENSITY "$SVG_SOURCE" \
+            -resize "${render_size}x${render_size}" \
+            -filter Lanczos -resize "${icon_size}x${icon_size}" \
+            "${output_file}.logo.png"
+
+        # Step 3: Composite logo centered on background
+        $MAGICK_CMD "${output_file}.bg.png" "${output_file}.logo.png" \
+            -gravity center -composite \
+            "$output_file"
+
+        # Clean up temp files
+        rm -f "${output_file}.bg.png" "${output_file}.logo.png"
     else
         # Square icon (Windows/Linux) - render at 4x then downscale
         $MAGICK_CMD -background none -density $RENDER_DENSITY "$SVG_SOURCE" \
@@ -164,8 +181,20 @@ generate_linux_png() {
     section_end
 }
 
+# Generate macOS dock PNG (512x512 with squircle for dev mode)
+generate_macos_dock_png() {
+    echo "Generating macOS dock .png..."
+    section_start
+
+    generate_icon_png 512 "$OUTPUT_DIR/icon-macos.png" 1
+    echo "  Created icon-macos.png (512x512 with squircle)"
+
+    section_end
+}
+
 # Run all generators
 generate_macos_icns
+generate_macos_dock_png
 generate_windows_ico
 generate_linux_png
 
