@@ -235,15 +235,23 @@ describe('analytics', () => {
       );
     });
 
-    it('silently fails when adapter throws', async () => {
-      mockAdapter.execute.mockRejectedValue(
-        new Error('Database not initialized')
-      );
+    it('logs warning when adapter throws but does not throw', async () => {
+      const error = new Error('Database not initialized');
+      mockAdapter.execute.mockRejectedValue(error);
+
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       // Should not throw
       await expect(
         logApiEvent('api_get_test', 100, true)
       ).resolves.toBeUndefined();
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Failed to log API event 'api_get_test':",
+        error
+      );
+
+      consoleSpy.mockRestore();
     });
 
     it('generates unique IDs for each event', async () => {

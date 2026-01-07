@@ -20,11 +20,12 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
       throw new Error(`API error: ${response.status}`);
     }
 
+    const data = await response.json();
     success = true;
-    return response.json();
+    return data;
   } finally {
     const durationMs = performance.now() - startTime;
-    logApiEvent(eventName, durationMs, success);
+    void logApiEvent(eventName, durationMs, success);
   }
 }
 
