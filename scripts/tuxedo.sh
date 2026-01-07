@@ -196,6 +196,9 @@ update_all_workspaces
 
 # Enforce symlinks for all workspaces after updating from main
 if [ -d "$SHARED_DIR" ]; then
+    # Ensure .test_files and .secrets exist in shared directory
+    mkdir -p "$SHARED_DIR/.test_files" "$SHARED_DIR/.secrets"
+
     ensure_symlinks "$BASE_DIR/rapid-main"
     i=2
     while [ "$i" -le "$NUM_WORKSPACES" ]; do
