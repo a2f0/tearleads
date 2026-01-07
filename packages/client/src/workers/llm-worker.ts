@@ -12,12 +12,7 @@ import {
   RawImage,
   TextStreamer
 } from '@huggingface/transformers';
-import {
-  cosineSimilarity,
-  getModelType,
-  type ModelType,
-  softmax
-} from './llm-worker-utils';
+import { getModelType, type ModelType, softmax } from './llm-worker-utils';
 
 // Disable local model check since we're always fetching from HuggingFace
 env.allowLocalModels = false;
@@ -377,33 +372,19 @@ async function classifyImage(
       { padding: true, truncation: true }
     );
 
-    // Get embeddings from CLIP model
-    // @ts-expect-error - CLIPModel has get_image_features and get_text_features methods
-    const imageOutputs = await model.get_image_features(imageInputs);
-    // @ts-expect-error - CLIPModel has get_image_features and get_text_features methods
-    const textOutputs = await model.get_text_features(textInputs);
+    // Run CLIP model with both text and image inputs
+    // CLIPModel returns logits_per_image which contains similarity scores
+    const output = await model({ ...textInputs, ...imageInputs });
 
-    // Extract embeddings from outputs
-    const imageEmbeds = imageOutputs.image_embeds.data as Float32Array;
-    const textEmbeds = textOutputs.text_embeds.data as Float32Array;
+    // Extract logits_per_image - shape is [1, num_labels]
+    // These are already cosine similarities scaled by temperature
+    const logitsData = output.logits_per_image.data as Float32Array;
 
-    // Get embedding dimension
-    const embedDim = imageOutputs.image_embeds.dims[1];
-    const numLabels = candidateLabels.length;
-
-    // Compute cosine similarity between image and each text embedding
-    const similarities: number[] = [];
-    for (let i = 0; i < numLabels; i++) {
-      const textEmbed = textEmbeds.slice(i * embedDim, (i + 1) * embedDim);
-      const similarity = cosineSimilarity(
-        imageEmbeds as Float32Array,
-        textEmbed as Float32Array
-      );
-      similarities.push(similarity);
-    }
+    // Convert to array for softmax
+    const logits: number[] = Array.from(logitsData);
 
     // Apply softmax to get probabilities
-    const scores = softmax(similarities);
+    const scores = softmax(logits);
 
     const durationMs = performance.now() - startTime;
     postResponse({
