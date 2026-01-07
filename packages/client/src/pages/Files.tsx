@@ -379,7 +379,7 @@ export function Files() {
           {uploadingFiles.map((entry) => (
             <div
               key={entry.id}
-              className="flex items-center gap-3 rounded-lg border bg-muted/50 p-3"
+              className="flex min-w-0 items-center gap-3 overflow-hidden rounded-lg border bg-muted/50 p-3"
             >
               {entry.status === 'uploading' && (
                 <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted-foreground" />
@@ -391,7 +391,7 @@ export function Files() {
                 <FileIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-sm">
+                <p className="max-w-[45vw] truncate font-medium text-sm sm:max-w-none">
                   {entry.file.name}
                 </p>
                 <p className="text-muted-foreground text-xs">
@@ -439,7 +439,7 @@ export function Files() {
                 return (
                   <div
                     key={file.id}
-                    className={`flex items-center gap-3 overflow-hidden rounded-lg border bg-muted/50 p-3 ${
+                    className={`flex min-w-0 items-center gap-3 overflow-hidden rounded-lg border bg-muted/50 p-3 ${
                       file.deleted ? 'opacity-60' : ''
                     }`}
                   >
@@ -478,7 +478,7 @@ export function Files() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <p
-                              className={`truncate font-medium text-sm ${
+                              className={`max-w-[45vw] truncate font-medium text-sm sm:max-w-none ${
                                 file.deleted ? 'line-through' : ''
                               }`}
                             >
