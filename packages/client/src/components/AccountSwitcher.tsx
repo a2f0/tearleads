@@ -1,5 +1,6 @@
 import { Check, CircleUser, Lock, LockOpen, Plus, Trash2 } from 'lucide-react';
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -9,6 +10,96 @@ import {
 } from 'react';
 import { useDatabaseContext } from '@/db/hooks/useDatabase';
 import { DeleteInstanceDialog } from './DeleteInstanceDialog';
+
+interface InstanceItemProps {
+  instance: { id: string; name: string };
+  isSelected: boolean;
+  isUnlocked: boolean;
+  showDeleteButton: boolean;
+  onSwitch: (instanceId: string) => void;
+  onDelete: (e: React.MouseEvent, instanceId: string) => void;
+}
+
+const InstanceItem = memo(function InstanceItem({
+  instance,
+  isSelected,
+  isUnlocked,
+  showDeleteButton,
+  onSwitch,
+  onDelete
+}: InstanceItemProps) {
+  const handleClick = useCallback(() => {
+    onSwitch(instance.id);
+  }, [onSwitch, instance.id]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        onSwitch(instance.id);
+      }
+    },
+    [onSwitch, instance.id]
+  );
+
+  const handleDeleteClick = useCallback(
+    (e: React.MouseEvent) => {
+      onDelete(e, instance.id);
+    },
+    [onDelete, instance.id]
+  );
+
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: div with role="button" required to avoid nested button with delete action
+    <div
+      role="button"
+      tabIndex={0}
+      className="group flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      data-testid={`instance-${instance.id}`}
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        {isSelected ? (
+          <Check className="h-4 w-4 flex-shrink-0 text-primary" />
+        ) : (
+          <div className="w-4" />
+        )}
+        <span className="truncate">{instance.name}</span>
+        {isSelected && isUnlocked ? (
+          <>
+            <LockOpen
+              className="h-3.5 w-3.5 flex-shrink-0 text-green-600"
+              data-testid={`instance-unlocked-${instance.id}`}
+              aria-hidden="true"
+            />
+            <span className="sr-only">Unlocked</span>
+          </>
+        ) : (
+          <>
+            <Lock
+              className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground"
+              data-testid={`instance-locked-${instance.id}`}
+              aria-hidden="true"
+            />
+            <span className="sr-only">Locked</span>
+          </>
+        )}
+      </div>
+      {showDeleteButton && (
+        <button
+          type="button"
+          className="rounded p-1 opacity-0 transition-opacity hover:bg-destructive/10 group-hover:opacity-100"
+          onClick={handleDeleteClick}
+          aria-label={`Delete ${instance.name}`}
+          data-testid={`delete-instance-${instance.id}`}
+        >
+          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+        </button>
+      )}
+    </div>
+  );
+});
 
 export function AccountSwitcher() {
   const {
@@ -74,24 +165,30 @@ export function AccountSwitcher() {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [isOpen, closeDropdown]);
 
-  const handleSwitchInstance = async (instanceId: string) => {
-    closeDropdown();
-    if (instanceId !== currentInstanceId) {
-      await switchInstance(instanceId);
-    }
-  };
+  const handleSwitchInstance = useCallback(
+    async (instanceId: string) => {
+      closeDropdown();
+      if (instanceId !== currentInstanceId) {
+        await switchInstance(instanceId);
+      }
+    },
+    [closeDropdown, currentInstanceId, switchInstance]
+  );
 
   const handleCreateInstance = async () => {
     closeDropdown();
     await createInstance();
   };
 
-  const handleDeleteClick = (e: React.MouseEvent, instanceId: string) => {
-    e.stopPropagation();
-    setInstanceToDelete(instanceId);
-    setDeleteDialogOpen(true);
-    closeDropdown();
-  };
+  const handleDeleteClick = useCallback(
+    (e: React.MouseEvent, instanceId: string) => {
+      e.stopPropagation();
+      setInstanceToDelete(instanceId);
+      setDeleteDialogOpen(true);
+      closeDropdown();
+    },
+    [closeDropdown]
+  );
 
   const instanceToDeleteName = useMemo(
     () => instances.find((i) => i.id === instanceToDelete)?.name,
@@ -133,60 +230,15 @@ export function AccountSwitcher() {
                 Instances
               </div>
               {instances.map((instance) => (
-                // biome-ignore lint/a11y/useSemanticElements: div with role="button" required to avoid nested button with delete action
-                <div
+                <InstanceItem
                   key={instance.id}
-                  role="button"
-                  tabIndex={0}
-                  className="group flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
-                  onClick={() => handleSwitchInstance(instance.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleSwitchInstance(instance.id);
-                    }
-                  }}
-                  data-testid={`instance-${instance.id}`}
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    {instance.id === currentInstanceId ? (
-                      <Check className="h-4 w-4 flex-shrink-0 text-primary" />
-                    ) : (
-                      <div className="w-4" />
-                    )}
-                    <span className="truncate">{instance.name}</span>
-                    {instance.id === currentInstanceId && isUnlocked ? (
-                      <>
-                        <LockOpen
-                          className="h-3.5 w-3.5 flex-shrink-0 text-green-600"
-                          data-testid={`instance-unlocked-${instance.id}`}
-                          aria-hidden="true"
-                        />
-                        <span className="sr-only">Unlocked</span>
-                      </>
-                    ) : (
-                      <>
-                        <Lock
-                          className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground"
-                          data-testid={`instance-locked-${instance.id}`}
-                          aria-hidden="true"
-                        />
-                        <span className="sr-only">Locked</span>
-                      </>
-                    )}
-                  </div>
-                  {instances.length > 1 && (
-                    <button
-                      type="button"
-                      className="rounded p-1 opacity-0 transition-opacity hover:bg-destructive/10 group-hover:opacity-100"
-                      onClick={(e) => handleDeleteClick(e, instance.id)}
-                      aria-label={`Delete ${instance.name}`}
-                      data-testid={`delete-instance-${instance.id}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                    </button>
-                  )}
-                </div>
+                  instance={instance}
+                  isSelected={instance.id === currentInstanceId}
+                  isUnlocked={isUnlocked}
+                  showDeleteButton={instances.length > 1}
+                  onSwitch={handleSwitchInstance}
+                  onDelete={handleDeleteClick}
+                />
               ))}
 
               <div className="my-1 h-px bg-border" />
