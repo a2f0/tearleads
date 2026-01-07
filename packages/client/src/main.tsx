@@ -12,6 +12,20 @@ import {
 import { DatabaseProvider } from './db/hooks';
 import './index.css';
 
+// Check for service worker updates when tab gains focus
+if ('serviceWorker' in navigator) {
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible') {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        await registration.update();
+      } catch {
+        // Ignore update errors (e.g., offline, SW disabled)
+      }
+    }
+  });
+}
+
 // Lazy-loaded pages for code splitting
 const Analytics = lazy(() =>
   import('./pages/Analytics').then((m) => ({ default: m.Analytics }))

@@ -25,9 +25,14 @@ fi
 # Build the website
 pnpm --filter @rapid/website build
 
-rsync -avz --delete \
+# Sync files, but protect /_astro/ directory from immediate deletion to avoid
+# breaking users with cached HTML that references old hashed bundles
+rsync -avz --delete --filter='P /_astro/' \
   packages/website/dist/ \
   "${USERNAME}@${HOSTNAME}:/var/www/www/"
+
+# Clean up assets older than 7 days (10080 minutes) for consistency with client
+ssh "${USERNAME}@${HOSTNAME}" "find /var/www/www/_astro -type f -mmin +10080 -delete 2>/dev/null || true"
 
 ssh "${USERNAME}@${HOSTNAME}" "chgrp -R www-data /var/www/www && chmod -R u=rwX,g=rX,o= /var/www/www"
 
