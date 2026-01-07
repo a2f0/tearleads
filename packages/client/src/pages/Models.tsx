@@ -8,7 +8,8 @@ import {
   Loader2,
   Play,
   RefreshCw,
-  Square
+  Square,
+  Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -100,6 +101,36 @@ async function getModelCacheStatus(
   return Object.fromEntries(results);
 }
 
+/**
+ * Delete a model from the browser cache.
+ * Removes all cached files associated with the given model ID.
+ */
+async function deleteModelFromCache(modelId: string): Promise<boolean> {
+  if (!('caches' in window)) return false;
+
+  const TRANSFORMERS_CACHE_NAME = 'transformers-cache';
+
+  try {
+    if (!(await window.caches.has(TRANSFORMERS_CACHE_NAME))) {
+      return false;
+    }
+
+    const cache = await window.caches.open(TRANSFORMERS_CACHE_NAME);
+    const keys = await cache.keys();
+
+    // Delete all cached entries that contain the model ID
+    const deletePromises = keys
+      .filter((request) => request.url.includes(modelId))
+      .map((request) => cache.delete(request));
+
+    await Promise.all(deletePromises);
+    return deletePromises.length > 0;
+  } catch (error) {
+    console.error('Failed to delete model from cache:', error);
+    return false;
+  }
+}
+
 function WebGPUInfoPanel({ info }: { info: WebGPUInfo }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -168,6 +199,7 @@ interface ModelCardProps {
   disabled: boolean;
   onLoad: () => void;
   onUnload: () => void;
+  onDelete: () => void;
 }
 
 function ModelCard({
@@ -176,7 +208,8 @@ function ModelCard({
   loadProgress,
   disabled,
   onLoad,
-  onUnload
+  onUnload,
+  onDelete
 }: ModelCardProps) {
   const isLoaded = status === 'loaded';
   const isDownloading = status === 'downloading';
@@ -259,15 +292,26 @@ function ModelCard({
             Loading...
           </Button>
         ) : isCached ? (
-          <Button
-            variant="default"
-            size="sm"
-            onClick={onLoad}
-            disabled={disabled}
-          >
-            <Play className="mr-2 h-4 w-4" />
-            Load
-          </Button>
+          <>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onLoad}
+              disabled={disabled}
+            >
+              <Play className="mr-2 h-4 w-4" />
+              Load
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onDelete}
+              disabled={disabled}
+              title="Delete from cache"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </>
         ) : (
           <Button
             variant="default"
@@ -331,6 +375,13 @@ export function Models() {
   const handleUnload = useCallback(async () => {
     await unloadModel();
   }, [unloadModel]);
+
+  const handleDelete = useCallback(async (modelId: string) => {
+    const deleted = await deleteModelFromCache(modelId);
+    if (deleted) {
+      setCachedModels((prev) => ({ ...prev, [modelId]: false }));
+    }
+  }, []);
 
   const getModelStatus = (modelId: string): ModelStatus => {
     if (loadedModel === modelId) return 'loaded';
@@ -412,6 +463,7 @@ export function Models() {
             disabled={loadingModelId !== null}
             onLoad={() => handleLoad(model.id)}
             onUnload={handleUnload}
+            onDelete={() => handleDelete(model.id)}
           />
         ))}
       </div>
