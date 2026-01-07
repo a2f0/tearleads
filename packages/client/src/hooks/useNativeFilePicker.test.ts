@@ -77,8 +77,20 @@ describe('useNativeFilePicker', () => {
         });
       });
 
+      // audio/* is expanded to specific MIME types for better iOS filtering
       expect(FilePicker.pickFiles).toHaveBeenCalledWith({
-        types: ['audio/*'],
+        types: [
+          'audio/mpeg',
+          'audio/mp4',
+          'audio/aac',
+          'audio/wav',
+          'audio/x-wav',
+          'audio/aiff',
+          'audio/x-aiff',
+          'audio/flac',
+          'audio/x-flac',
+          'audio/ogg'
+        ],
         limit: 1,
         readData: true
       });
@@ -105,7 +117,18 @@ describe('useNativeFilePicker', () => {
       });
 
       expect(FilePicker.pickFiles).toHaveBeenCalledWith({
-        types: ['audio/*'],
+        types: [
+          'audio/mpeg',
+          'audio/mp4',
+          'audio/aac',
+          'audio/wav',
+          'audio/x-wav',
+          'audio/aiff',
+          'audio/x-aiff',
+          'audio/flac',
+          'audio/x-flac',
+          'audio/ogg'
+        ],
         limit: 0,
         readData: true
       });
@@ -139,8 +162,21 @@ describe('useNativeFilePicker', () => {
         });
       });
 
+      // audio/* is expanded, video/* passes through as-is
       expect(FilePicker.pickFiles).toHaveBeenCalledWith({
-        types: ['audio/*', 'video/*'],
+        types: [
+          'audio/mpeg',
+          'audio/mp4',
+          'audio/aac',
+          'audio/wav',
+          'audio/x-wav',
+          'audio/aiff',
+          'audio/x-aiff',
+          'audio/flac',
+          'audio/x-flac',
+          'audio/ogg',
+          'video/*'
+        ],
         limit: 1,
         readData: true
       });
@@ -240,7 +276,18 @@ describe('useNativeFilePicker', () => {
       });
 
       expect(FilePicker.pickFiles).toHaveBeenCalledWith({
-        types: ['audio/*'],
+        types: [
+          'audio/mpeg',
+          'audio/mp4',
+          'audio/aac',
+          'audio/wav',
+          'audio/x-wav',
+          'audio/aiff',
+          'audio/x-aiff',
+          'audio/flac',
+          'audio/x-flac',
+          'audio/ogg'
+        ],
         limit: 1,
         readData: true
       });
