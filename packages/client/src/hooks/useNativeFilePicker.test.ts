@@ -1,6 +1,9 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useNativeFilePicker } from './useNativeFilePicker';
+import {
+  COMMON_AUDIO_MIME_TYPES,
+  useNativeFilePicker
+} from './useNativeFilePicker';
 
 vi.mock('../lib/utils', () => ({
   detectPlatform: vi.fn()
@@ -77,8 +80,9 @@ describe('useNativeFilePicker', () => {
         });
       });
 
+      // audio/* is expanded to specific MIME types for better iOS filtering
       expect(FilePicker.pickFiles).toHaveBeenCalledWith({
-        types: ['audio/*'],
+        types: COMMON_AUDIO_MIME_TYPES,
         limit: 1,
         readData: true
       });
@@ -105,7 +109,7 @@ describe('useNativeFilePicker', () => {
       });
 
       expect(FilePicker.pickFiles).toHaveBeenCalledWith({
-        types: ['audio/*'],
+        types: COMMON_AUDIO_MIME_TYPES,
         limit: 0,
         readData: true
       });
@@ -139,8 +143,9 @@ describe('useNativeFilePicker', () => {
         });
       });
 
+      // audio/* is expanded, video/* passes through as-is
       expect(FilePicker.pickFiles).toHaveBeenCalledWith({
-        types: ['audio/*', 'video/*'],
+        types: [...COMMON_AUDIO_MIME_TYPES, 'video/*'],
         limit: 1,
         readData: true
       });
@@ -240,7 +245,7 @@ describe('useNativeFilePicker', () => {
       });
 
       expect(FilePicker.pickFiles).toHaveBeenCalledWith({
-        types: ['audio/*'],
+        types: COMMON_AUDIO_MIME_TYPES,
         limit: 1,
         readData: true
       });

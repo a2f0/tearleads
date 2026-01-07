@@ -9,6 +9,23 @@ import { detectPlatform } from '@/lib/utils';
 
 export type FilePickerSource = 'files' | 'photos' | 'media';
 
+/**
+ * Common audio MIME types for file picker filtering.
+ * Exported for use in tests and other modules.
+ */
+export const COMMON_AUDIO_MIME_TYPES = [
+  'audio/mpeg', // .mp3
+  'audio/mp4', // .m4a
+  'audio/aac', // .aac
+  'audio/wav', // .wav
+  'audio/x-wav',
+  'audio/aiff', // .aiff
+  'audio/x-aiff',
+  'audio/flac', // .flac
+  'audio/x-flac',
+  'audio/ogg' // .ogg
+];
+
 export interface NativeFilePickerOptions {
   /** MIME types to accept (e.g., 'audio/*', 'image/*'). Only used when source is 'files'. */
   accept?: string | undefined;
@@ -44,14 +61,27 @@ async function pickedFileToFile(picked: PickedFile): Promise<File> {
 /**
  * Parse accept string into array of MIME types for the native picker.
  * Handles formats like "audio/*", "image/*,video/*", ".mp3,.wav"
+ *
+ * Note: The Capacitor File Picker plugin accepts MIME types on iOS and handles
+ * UTI conversion internally. We expand wildcards to concrete types for better filtering.
  */
 function parseAcceptTypes(accept?: string): string[] {
   if (!accept) return [];
 
-  return accept
+  const types = accept
     .split(',')
     .map((type) => type.trim())
     .filter((type) => type.length > 0);
+
+  // Expand wildcard MIME types to concrete types for better iOS filtering
+  return types.flatMap((type) => {
+    switch (type) {
+      case 'audio/*':
+        return COMMON_AUDIO_MIME_TYPES;
+      default:
+        return [type];
+    }
+  });
 }
 
 export function useNativeFilePicker() {
