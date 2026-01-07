@@ -409,7 +409,8 @@ describe('Models', () => {
     };
 
     const mockCache = {
-      keys: vi.fn()
+      keys: vi.fn(),
+      delete: vi.fn()
     };
 
     beforeEach(() => {
@@ -522,6 +523,114 @@ describe('Models', () => {
         });
         expect(downloadButtons.length).toBe(4);
       });
+    });
+
+    it('shows delete button for cached models', async () => {
+      // Mock a cached model in transformers-cache
+      mockCacheStorage.has.mockResolvedValue(true);
+      mockCache.keys.mockResolvedValue([
+        {
+          url: 'https://huggingface.co/onnx-community/Phi-3.5-mini-instruct-onnx-web/resolve/main/model.onnx'
+        }
+      ]);
+
+      renderModels();
+
+      await waitFor(() => {
+        // Should show delete button (trash icon) for cached model
+        const deleteButton = screen.getByTitle('Delete from cache');
+        expect(deleteButton).toBeInTheDocument();
+      });
+    });
+
+    it('does not show delete button for non-cached models', async () => {
+      // No models cached
+      mockCacheStorage.has.mockResolvedValue(false);
+      mockCache.keys.mockResolvedValue([]);
+
+      renderModels();
+
+      await waitFor(() => {
+        expect(screen.getByText('Phi 3.5 Mini')).toBeInTheDocument();
+      });
+
+      // Should not show any delete buttons
+      expect(screen.queryByTitle('Delete from cache')).not.toBeInTheDocument();
+    });
+
+    it('removes model from cache when delete button is clicked', async () => {
+      const user = userEvent.setup();
+
+      // Mock a cached model in transformers-cache
+      mockCacheStorage.has.mockResolvedValue(true);
+      const cachedRequest = {
+        url: 'https://huggingface.co/onnx-community/Phi-3.5-mini-instruct-onnx-web/resolve/main/model.onnx'
+      };
+      mockCache.keys.mockResolvedValue([cachedRequest]);
+      mockCache.delete.mockResolvedValue(true);
+
+      renderModels();
+
+      await waitFor(() => {
+        expect(screen.getByTitle('Delete from cache')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTitle('Delete from cache'));
+
+      await waitFor(() => {
+        expect(mockCache.delete).toHaveBeenCalledWith(cachedRequest);
+      });
+    });
+
+    it('updates UI to show Download button after deleting cached model', async () => {
+      const user = userEvent.setup();
+
+      // Mock a cached model in transformers-cache
+      mockCacheStorage.has.mockResolvedValue(true);
+      const cachedRequest = {
+        url: 'https://huggingface.co/onnx-community/Phi-3.5-mini-instruct-onnx-web/resolve/main/model.onnx'
+      };
+      mockCache.keys.mockResolvedValue([cachedRequest]);
+      mockCache.delete.mockResolvedValue(true);
+
+      renderModels();
+
+      // Wait for the cached model to show with Delete and Downloaded badge
+      await waitFor(() => {
+        expect(screen.getByTitle('Delete from cache')).toBeInTheDocument();
+        expect(screen.getByText('Downloaded')).toBeInTheDocument();
+      });
+
+      // Get the Phi 3.5 model card container by finding the delete button's parent
+      const deleteButton = screen.getByTitle('Delete from cache');
+      const modelCard = deleteButton.closest('.bg-card');
+
+      // Verify we're on the right card before deletion
+      expect(modelCard).toBeInTheDocument();
+      expect(
+        modelCard?.querySelector('[class*="lucide-play"]')
+      ).toBeInTheDocument();
+
+      await user.click(deleteButton);
+
+      // Wait for the cache delete to be called
+      await waitFor(() => {
+        expect(mockCache.delete).toHaveBeenCalled();
+      });
+
+      // After deletion, the Phi 3.5 card should show Download button (with download icon)
+      // instead of Load button (with play icon)
+      await waitFor(
+        () => {
+          expect(
+            modelCard?.querySelector('[class*="lucide-download"]')
+          ).toBeInTheDocument();
+          expect(
+            modelCard?.querySelector('[class*="lucide-play"]')
+          ).not.toBeInTheDocument();
+        },
+        { timeout: 3000 }
+      );
     });
   });
 
