@@ -1,5 +1,5 @@
 import { act, render, renderHook, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AudioProvider, useAudio } from './AudioContext';
 
 // Mock HTMLAudioElement methods
@@ -223,7 +223,7 @@ describe('useAudio', () => {
       expect(result.current.isPlaying).toBe(false);
     });
 
-    it('revokes object URL', () => {
+    it('clears any error', () => {
       const { result } = renderHook(() => useAudio(), { wrapper });
 
       act(() => {
@@ -234,7 +234,7 @@ describe('useAudio', () => {
         result.current.stop();
       });
 
-      expect(URL.revokeObjectURL).toHaveBeenCalledWith(TEST_TRACK.objectUrl);
+      expect(result.current.error).toBeNull();
     });
   });
 
@@ -256,7 +256,7 @@ describe('useAudio', () => {
   });
 
   describe('track switching', () => {
-    it('revokes previous track URL when switching', () => {
+    it('clears error when switching tracks', () => {
       const { result } = renderHook(() => useAudio(), { wrapper });
 
       act(() => {
@@ -267,7 +267,7 @@ describe('useAudio', () => {
         result.current.play(TEST_TRACK_2);
       });
 
-      expect(URL.revokeObjectURL).toHaveBeenCalledWith(TEST_TRACK.objectUrl);
+      expect(result.current.error).toBeNull();
     });
 
     it('updates current track when switching', () => {
@@ -363,12 +363,18 @@ describe('useAudio', () => {
   });
 
   describe('play error handling', () => {
+    let consoleSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      consoleSpy.mockRestore();
+    });
+
     it('sets isPlaying to false when play fails', async () => {
       mockPlay.mockRejectedValueOnce(new Error('Autoplay blocked'));
-
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
 
       const { result } = renderHook(() => useAudio(), { wrapper });
 
@@ -377,8 +383,179 @@ describe('useAudio', () => {
       });
 
       expect(result.current.isPlaying).toBe(false);
+    });
 
+    it('sets error state with track info when play fails', async () => {
+      mockPlay.mockRejectedValueOnce(new Error('Autoplay blocked'));
+
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      await act(async () => {
+        result.current.play(TEST_TRACK);
+      });
+
+      expect(result.current.error).toEqual({
+        message: 'Autoplay blocked',
+        trackId: TEST_TRACK.id,
+        trackName: TEST_TRACK.name
+      });
+    });
+
+    it('sets error state when resume fails', async () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      await act(async () => {
+        result.current.play(TEST_TRACK);
+      });
+
+      mockPlay.mockRejectedValueOnce(new Error('Resume failed'));
+
+      await act(async () => {
+        result.current.resume();
+      });
+
+      expect(result.current.error).toEqual({
+        message: 'Resume failed',
+        trackId: TEST_TRACK.id,
+        trackName: TEST_TRACK.name
+      });
+    });
+  });
+
+  describe('clearError', () => {
+    let consoleSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
       consoleSpy.mockRestore();
+    });
+
+    it('clears the error state', async () => {
+      mockPlay.mockRejectedValueOnce(new Error('Autoplay blocked'));
+
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      await act(async () => {
+        result.current.play(TEST_TRACK);
+      });
+
+      expect(result.current.error).not.toBeNull();
+
+      act(() => {
+        result.current.clearError();
+      });
+
+      expect(result.current.error).toBeNull();
+    });
+  });
+
+  describe('audio error event', () => {
+    // MediaError constants: ABORTED=1, NETWORK=2, DECODE=3, SRC_NOT_SUPPORTED=4
+    const MEDIA_ERR_NETWORK = 2;
+    const MEDIA_ERR_DECODE = 3;
+    const MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
+
+    let consoleSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      consoleSpy.mockRestore();
+    });
+
+    it('sets error state when audio element emits error', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      const audio = document.querySelector('audio') as HTMLAudioElement;
+
+      // Mock the error property
+      Object.defineProperty(audio, 'error', {
+        value: {
+          code: MEDIA_ERR_SRC_NOT_SUPPORTED,
+          message: 'Source not supported'
+        },
+        configurable: true
+      });
+
+      act(() => {
+        audio.dispatchEvent(new Event('error'));
+      });
+
+      expect(result.current.error).toEqual({
+        message: 'Audio file not found or format not supported',
+        trackId: TEST_TRACK.id,
+        trackName: TEST_TRACK.name
+      });
+      expect(result.current.isPlaying).toBe(false);
+    });
+
+    it('handles network error', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      const audio = document.querySelector('audio') as HTMLAudioElement;
+
+      Object.defineProperty(audio, 'error', {
+        value: {
+          code: MEDIA_ERR_NETWORK,
+          message: 'Network error'
+        },
+        configurable: true
+      });
+
+      act(() => {
+        audio.dispatchEvent(new Event('error'));
+      });
+
+      expect(result.current.error?.message).toBe(
+        'A network error occurred while loading audio'
+      );
+    });
+
+    it('handles decode error', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      const audio = document.querySelector('audio') as HTMLAudioElement;
+
+      Object.defineProperty(audio, 'error', {
+        value: {
+          code: MEDIA_ERR_DECODE,
+          message: 'Decode error'
+        },
+        configurable: true
+      });
+
+      act(() => {
+        audio.dispatchEvent(new Event('error'));
+      });
+
+      expect(result.current.error?.message).toBe(
+        'Audio file could not be decoded'
+      );
+    });
+  });
+
+  describe('initial state', () => {
+    it('has null error', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      expect(result.current.error).toBeNull();
     });
   });
 });
