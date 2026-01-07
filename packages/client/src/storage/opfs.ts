@@ -227,7 +227,8 @@ class OPFSStorage implements FileStorage {
 
 /**
  * Capacitor Filesystem-based storage for iOS/Android.
- * Uses the app's Documents directory which persists across app updates.
+ * Uses the app's Library directory which is hidden from the Files app
+ * but still persists across app updates and is backed up.
  */
 class CapacitorStorage implements FileStorage {
   public instanceId: string;
@@ -252,7 +253,7 @@ class CapacitorStorage implements FileStorage {
     try {
       await this.Filesystem.mkdir({
         path: this.filesDirectory,
-        directory: this.Directory.Documents,
+        directory: this.Directory.Library,
         recursive: true
       });
     } catch {
@@ -285,7 +286,7 @@ class CapacitorStorage implements FileStorage {
     await this.Filesystem.writeFile({
       path: filePath,
       data: base64Data,
-      directory: this.Directory.Documents
+      directory: this.Directory.Library
     });
 
     return filename;
@@ -299,7 +300,7 @@ class CapacitorStorage implements FileStorage {
     const filePath = `${this.filesDirectory}/${storagePath}`;
     const result = await this.Filesystem.readFile({
       path: filePath,
-      directory: this.Directory.Documents
+      directory: this.Directory.Library
     });
 
     // Convert base64 back to Uint8Array
@@ -331,7 +332,7 @@ class CapacitorStorage implements FileStorage {
     const filePath = `${this.filesDirectory}/${storagePath}`;
     await this.Filesystem.deleteFile({
       path: filePath,
-      directory: this.Directory.Documents
+      directory: this.Directory.Library
     });
   }
 
@@ -344,7 +345,7 @@ class CapacitorStorage implements FileStorage {
       const filePath = `${this.filesDirectory}/${storagePath}`;
       await this.Filesystem.stat({
         path: filePath,
-        directory: this.Directory.Documents
+        directory: this.Directory.Library
       });
       return true;
     } catch {
@@ -360,7 +361,7 @@ class CapacitorStorage implements FileStorage {
     try {
       const result = await this.Filesystem.readdir({
         path: this.filesDirectory,
-        directory: this.Directory.Documents
+        directory: this.Directory.Library
       });
 
       let totalSize = 0;
@@ -368,7 +369,7 @@ class CapacitorStorage implements FileStorage {
         if (file.type === 'file') {
           const stat = await this.Filesystem.stat({
             path: `${this.filesDirectory}/${file.name}`,
-            directory: this.Directory.Documents
+            directory: this.Directory.Library
           });
           totalSize += stat.size;
         }
@@ -387,14 +388,14 @@ class CapacitorStorage implements FileStorage {
     try {
       const result = await this.Filesystem.readdir({
         path: this.filesDirectory,
-        directory: this.Directory.Documents
+        directory: this.Directory.Library
       });
 
       for (const file of result.files) {
         if (file.type === 'file') {
           await this.Filesystem.deleteFile({
             path: `${this.filesDirectory}/${file.name}`,
-            directory: this.Directory.Documents
+            directory: this.Directory.Library
           });
         }
       }
