@@ -391,7 +391,7 @@ export function Files() {
                 <FileIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="max-w-[45vw] truncate font-medium text-sm sm:max-w-none">
+                <p className="truncate font-medium text-sm">
                   {entry.file.name}
                 </p>
                 <p className="text-muted-foreground text-xs">
@@ -478,7 +478,7 @@ export function Files() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <p
-                              className={`max-w-[45vw] truncate font-medium text-sm sm:max-w-none ${
+                              className={`truncate font-medium text-sm ${
                                 file.deleted ? 'line-through' : ''
                               }`}
                             >

@@ -331,7 +331,7 @@ export function AudioPage() {
               return (
                 <div
                   key={track.id}
-                  className={`flex items-center gap-3 rounded-lg border bg-muted/50 p-3 ${
+                  className={`flex min-w-0 items-center gap-3 overflow-hidden rounded-lg border bg-muted/50 p-3 ${
                     isCurrentTrack ? 'border-primary bg-primary/5' : ''
                   }`}
                   data-testid={`audio-track-${track.id}`}
