@@ -1,4 +1,5 @@
 import { cva, type VariantProps } from 'class-variance-authority';
+import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -18,23 +19,23 @@ const inputVariants = cva(
   }
 );
 
-function Input({
-  className,
-  size,
-  type,
-  ref,
-  ...props
-}: Omit<React.ComponentProps<'input'>, 'size'> &
-  VariantProps<typeof inputVariants>) {
-  return (
-    <input
-      data-slot="input"
-      type={type}
-      className={cn(inputVariants({ size, className }))}
-      ref={ref}
-      {...props}
-    />
-  );
-}
+export interface InputProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'>,
+    VariantProps<typeof inputVariants> {}
+
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, size, type, ...props }, ref) => {
+    return (
+      <input
+        data-slot="input"
+        type={type}
+        className={cn(inputVariants({ size, className }))}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+Input.displayName = 'Input';
 
 export { Input, inputVariants };
