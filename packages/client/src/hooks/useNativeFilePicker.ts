@@ -45,13 +45,37 @@ async function pickedFileToFile(picked: PickedFile): Promise<File> {
  * Parse accept string into array of MIME types for the native picker.
  * Handles formats like "audio/*", "image/*,video/*", ".mp3,.wav"
  */
-function parseAcceptTypes(accept?: string): string[] {
+function parseAcceptTypes(accept?: string, platform?: string): string[] {
   if (!accept) return [];
 
-  return accept
+  const types = accept
     .split(',')
     .map((type) => type.trim())
     .filter((type) => type.length > 0);
+
+  // On iOS, we need to convert MIME types to UTIs
+  if (platform === 'ios') {
+    return types.map((type) => {
+      switch (type) {
+        case 'audio/*':
+          return 'public.audio';
+        case 'image/*':
+          return 'public.image';
+        case 'video/*':
+          return 'public.movie';
+        case 'text/*':
+          return 'public.text';
+        case 'application/pdf':
+          return 'com.adobe.pdf';
+        case 'application/json':
+          return 'public.json';
+        default:
+          return type;
+      }
+    });
+  }
+
+  return types;
 }
 
 export function useNativeFilePicker() {
@@ -83,7 +107,7 @@ export function useNativeFilePicker() {
         });
       } else {
         // Use document picker (Files app) for other file types
-        const types = parseAcceptTypes(options.accept);
+        const types = parseAcceptTypes(options.accept, platform);
         result = await FilePicker.pickFiles({
           ...(types.length > 0 ? { types } : {}),
           limit,
