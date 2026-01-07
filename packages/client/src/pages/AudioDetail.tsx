@@ -20,6 +20,7 @@ import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
+import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import {
@@ -44,6 +45,7 @@ export function AudioDetail() {
   const { id } = useParams<{ id: string }>();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
+  useAudioErrorHandler();
   const currentTrackRef = useRef(currentTrack);
   const [audio, setAudio] = useState<AudioInfo | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
