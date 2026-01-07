@@ -16,11 +16,11 @@ import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
-import { errorBoundaryRef } from '@/components/ui/error-boundary';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
+import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import {
@@ -44,15 +44,8 @@ interface AudioInfo {
 export function AudioDetail() {
   const { id } = useParams<{ id: string }>();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
-  const {
-    currentTrack,
-    isPlaying,
-    error: audioError,
-    play,
-    pause,
-    resume,
-    clearError
-  } = useAudio();
+  const { currentTrack, isPlaying, play, pause, resume } = useAudio();
+  useAudioErrorHandler();
   const currentTrackRef = useRef(currentTrack);
   const [audio, setAudio] = useState<AudioInfo | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
@@ -253,16 +246,6 @@ export function AudioDetail() {
   useEffect(() => {
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
-
-  // Surface audio playback errors to the error boundary
-  useEffect(() => {
-    if (audioError) {
-      errorBoundaryRef.current?.setError(
-        new Error(`${audioError.trackName}: ${audioError.message}`)
-      );
-      clearError();
-    }
-  }, [audioError, clearError]);
 
   // Cleanup audio object URL on unmount (only if not currently playing)
   // Uses ref to avoid stale closure when currentTrack changes
