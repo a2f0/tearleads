@@ -28,6 +28,8 @@ interface WebGPUInfo {
   maxComputeInvocationsPerWorkgroup: number;
 }
 
+const TRANSFORMERS_CACHE_NAME = 'transformers-cache';
+
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) {
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
@@ -70,8 +72,6 @@ async function getWebGPUInfo(): Promise<WebGPUInfo | null> {
 async function isModelCached(modelId: string): Promise<boolean> {
   if (!('caches' in window)) return false;
 
-  const TRANSFORMERS_CACHE_NAME = 'transformers-cache';
-
   try {
     if (!(await window.caches.has(TRANSFORMERS_CACHE_NAME))) {
       return false;
@@ -107,8 +107,6 @@ async function getModelCacheStatus(
  */
 async function deleteModelFromCache(modelId: string): Promise<boolean> {
   if (!('caches' in window)) return false;
-
-  const TRANSFORMERS_CACHE_NAME = 'transformers-cache';
 
   try {
     if (!(await window.caches.has(TRANSFORMERS_CACHE_NAME))) {
@@ -295,7 +293,7 @@ function ModelCard({
           <>
             <Button
               variant="default"
-              size="sm"
+              size="default"
               onClick={onLoad}
               disabled={disabled}
             >
@@ -304,7 +302,7 @@ function ModelCard({
             </Button>
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={onDelete}
               disabled={disabled}
               title="Delete from cache"
