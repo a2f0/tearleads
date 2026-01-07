@@ -50,3 +50,11 @@ Skip issue creation for:
 ## PR Guidelines
 
 - Do NOT add "Generated with Claude Code" footers to PR descriptions
+
+## UI Guidelines
+
+### Input Fields
+
+- Use the shared `Input` component from `@/components/ui/input` for all form inputs
+- Input fields must use `text-base` (16px) minimum font size to prevent iOS Safari auto-zoom on focus
+- Never use `text-sm` or `text-xs` on input, textarea, or select elements
