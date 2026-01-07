@@ -44,8 +44,11 @@ async function pickedFileToFile(picked: PickedFile): Promise<File> {
 /**
  * Parse accept string into array of MIME types for the native picker.
  * Handles formats like "audio/*", "image/*,video/*", ".mp3,.wav"
+ *
+ * Note: The Capacitor File Picker plugin accepts MIME types on iOS and handles
+ * UTI conversion internally. We expand wildcards to concrete types for better filtering.
  */
-function parseAcceptTypes(accept?: string, platform?: string): string[] {
+function parseAcceptTypes(accept?: string): string[] {
   if (!accept) return [];
 
   const types = accept
@@ -53,29 +56,27 @@ function parseAcceptTypes(accept?: string, platform?: string): string[] {
     .map((type) => type.trim())
     .filter((type) => type.length > 0);
 
-  // On iOS, we need to convert MIME types to UTIs
-  if (platform === 'ios') {
-    return types.map((type) => {
-      switch (type) {
-        case 'audio/*':
-          return 'public.audio';
-        case 'image/*':
-          return 'public.image';
-        case 'video/*':
-          return 'public.movie';
-        case 'text/*':
-          return 'public.text';
-        case 'application/pdf':
-          return 'com.adobe.pdf';
-        case 'application/json':
-          return 'public.json';
-        default:
-          return type;
-      }
-    });
-  }
-
-  return types;
+  // Expand wildcard MIME types to concrete types for better iOS filtering
+  return types.flatMap((type) => {
+    switch (type) {
+      case 'audio/*':
+        // Expand to common audio MIME types
+        return [
+          'audio/mpeg', // .mp3
+          'audio/mp4', // .m4a
+          'audio/aac', // .aac
+          'audio/wav', // .wav
+          'audio/x-wav',
+          'audio/aiff', // .aiff
+          'audio/x-aiff',
+          'audio/flac', // .flac
+          'audio/x-flac',
+          'audio/ogg' // .ogg
+        ];
+      default:
+        return [type];
+    }
+  });
 }
 
 export function useNativeFilePicker() {
@@ -107,7 +108,7 @@ export function useNativeFilePicker() {
         });
       } else {
         // Use document picker (Files app) for other file types
-        const types = parseAcceptTypes(options.accept, platform);
+        const types = parseAcceptTypes(options.accept);
         result = await FilePicker.pickFiles({
           ...(types.length > 0 ? { types } : {}),
           limit,
