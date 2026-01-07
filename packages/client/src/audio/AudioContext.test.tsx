@@ -1,5 +1,5 @@
 import { act, render, renderHook, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AudioProvider, useAudio } from './AudioContext';
 
 // Mock HTMLAudioElement methods
@@ -363,12 +363,18 @@ describe('useAudio', () => {
   });
 
   describe('play error handling', () => {
+    let consoleSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      consoleSpy.mockRestore();
+    });
+
     it('sets isPlaying to false when play fails', async () => {
       mockPlay.mockRejectedValueOnce(new Error('Autoplay blocked'));
-
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
 
       const { result } = renderHook(() => useAudio(), { wrapper });
 
@@ -377,16 +383,10 @@ describe('useAudio', () => {
       });
 
       expect(result.current.isPlaying).toBe(false);
-
-      consoleSpy.mockRestore();
     });
 
     it('sets error state with track info when play fails', async () => {
       mockPlay.mockRejectedValueOnce(new Error('Autoplay blocked'));
-
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
 
       const { result } = renderHook(() => useAudio(), { wrapper });
 
@@ -399,15 +399,9 @@ describe('useAudio', () => {
         trackId: TEST_TRACK.id,
         trackName: TEST_TRACK.name
       });
-
-      consoleSpy.mockRestore();
     });
 
     it('sets error state when resume fails', async () => {
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
-
       const { result } = renderHook(() => useAudio(), { wrapper });
 
       await act(async () => {
@@ -425,18 +419,22 @@ describe('useAudio', () => {
         trackId: TEST_TRACK.id,
         trackName: TEST_TRACK.name
       });
-
-      consoleSpy.mockRestore();
     });
   });
 
   describe('clearError', () => {
+    let consoleSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      consoleSpy.mockRestore();
+    });
+
     it('clears the error state', async () => {
       mockPlay.mockRejectedValueOnce(new Error('Autoplay blocked'));
-
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
 
       const { result } = renderHook(() => useAudio(), { wrapper });
 
@@ -451,8 +449,6 @@ describe('useAudio', () => {
       });
 
       expect(result.current.error).toBeNull();
-
-      consoleSpy.mockRestore();
     });
   });
 
@@ -462,11 +458,17 @@ describe('useAudio', () => {
     const MEDIA_ERR_DECODE = 3;
     const MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
 
-    it('sets error state when audio element emits error', () => {
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+    let consoleSpy: ReturnType<typeof vi.spyOn>;
 
+    beforeEach(() => {
+      consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      consoleSpy.mockRestore();
+    });
+
+    it('sets error state when audio element emits error', () => {
       const { result } = renderHook(() => useAudio(), { wrapper });
 
       act(() => {
@@ -494,15 +496,9 @@ describe('useAudio', () => {
         trackName: TEST_TRACK.name
       });
       expect(result.current.isPlaying).toBe(false);
-
-      consoleSpy.mockRestore();
     });
 
     it('handles network error', () => {
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
-
       const { result } = renderHook(() => useAudio(), { wrapper });
 
       act(() => {
@@ -526,15 +522,9 @@ describe('useAudio', () => {
       expect(result.current.error?.message).toBe(
         'A network error occurred while loading audio'
       );
-
-      consoleSpy.mockRestore();
     });
 
     it('handles decode error', () => {
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
-
       const { result } = renderHook(() => useAudio(), { wrapper });
 
       act(() => {
@@ -558,8 +548,6 @@ describe('useAudio', () => {
       expect(result.current.error?.message).toBe(
         'Audio file could not be decoded'
       );
-
-      consoleSpy.mockRestore();
     });
   });
 

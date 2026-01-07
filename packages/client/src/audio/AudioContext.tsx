@@ -21,6 +21,12 @@ export interface AudioTrack {
   mimeType: string;
 }
 
+// MediaError code constants for cross-browser compatibility
+const MEDIA_ERR_ABORTED = 1;
+const MEDIA_ERR_NETWORK = 2;
+const MEDIA_ERR_DECODE = 3;
+const MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
+
 export interface AudioError {
   message: string;
   trackId: string;
@@ -170,18 +176,17 @@ export function AudioProvider({ children }: AudioProviderProps) {
       const mediaError = audio.error;
       let message = 'Failed to load audio';
       if (mediaError) {
-        // MediaError constants: ABORTED=1, NETWORK=2, DECODE=3, SRC_NOT_SUPPORTED=4
         switch (mediaError.code) {
-          case 1: // MEDIA_ERR_ABORTED
+          case MEDIA_ERR_ABORTED:
             message = 'Audio playback was aborted';
             break;
-          case 2: // MEDIA_ERR_NETWORK
+          case MEDIA_ERR_NETWORK:
             message = 'A network error occurred while loading audio';
             break;
-          case 3: // MEDIA_ERR_DECODE
+          case MEDIA_ERR_DECODE:
             message = 'Audio file could not be decoded';
             break;
-          case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
+          case MEDIA_ERR_SRC_NOT_SUPPORTED:
             message = 'Audio file not found or format not supported';
             break;
         }

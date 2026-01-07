@@ -5,11 +5,11 @@ import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
-import { errorBoundaryRef } from '@/components/ui/error-boundary';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
+import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { detectPlatform, formatFileSize } from '@/lib/utils';
@@ -54,15 +54,8 @@ interface AudioWithUrl extends AudioInfo {
 export function AudioPage() {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
-  const {
-    currentTrack,
-    isPlaying,
-    error: audioError,
-    play,
-    pause,
-    resume,
-    clearError
-  } = useAudio();
+  const { currentTrack, isPlaying, play, pause, resume } = useAudio();
+  useAudioErrorHandler();
   const currentTrackRef = useRef(currentTrack);
   const [tracks, setTracks] = useState<AudioWithUrl[]>([]);
   const [loading, setLoading] = useState(false);
@@ -218,16 +211,6 @@ export function AudioPage() {
   useEffect(() => {
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
-
-  // Surface audio playback errors to the error boundary
-  useEffect(() => {
-    if (audioError) {
-      errorBoundaryRef.current?.setError(
-        new Error(`${audioError.trackName}: ${audioError.message}`)
-      );
-      clearError();
-    }
-  }, [audioError, clearError]);
 
   // Cleanup object URLs on unmount, except for the currently playing track
   // (AudioContext is responsible for the playing track's lifecycle)
