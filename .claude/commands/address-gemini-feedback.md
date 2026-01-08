@@ -4,9 +4,46 @@ description: Query the open PR and resolve Gemini's feedback.
 
 # Address Gemini Feedback
 
+## CRITICAL: Never Create Pending/Draft Reviews
+
+When replying to Gemini comments, you MUST use the REST API to create immediate comment replies. Do NOT use `gh pr review` or GraphQL review mutations - these create pending/draft reviews that remain invisible until submitted, and Gemini will never see them.
+
+See `/follow-up-with-gemini` for the correct API usage.
+
+## Steps
+
 1. **Get PR info**: Run `gh pr view --json number,title,url | cat` to obtain the PR number for this branch.
 
-2. **Fetch unresolved comments**: Use GitHub GraphQL API to get `reviewThreads` and filter by `isResolved: false`. Handle pagination via `pageInfo.hasNextPage` and `endCursor`.
+2. **Fetch unresolved comments**: Use GitHub GraphQL API to get `reviewThreads` and filter by `isResolved: false`:
+
+   ```bash
+   gh api graphql -f query='
+     query($owner: String!, $repo: String!, $pr: Int!) {
+       repository(owner: $owner, name: $repo) {
+         pullRequest(number: $pr) {
+           reviewThreads(first: 50) {
+             nodes {
+               id
+               isResolved
+               path
+               line
+               comments(first: 10) {
+                 nodes {
+                   id
+                   databaseId
+                   author { login }
+                   body
+                 }
+               }
+             }
+             pageInfo { hasNextPage endCursor }
+           }
+         }
+       }
+     }' -f owner=OWNER -f repo=REPO -F pr=PR_NUMBER
+   ```
+
+   Handle pagination via `pageInfo.hasNextPage` and `endCursor`.
 
 3. **Address feedback**: For each unresolved comment that you think is relevant/important:
    - Make the necessary code changes
