@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CustomDot } from './CustomDot';
+import { SCATTER_DOT_RADIUS } from './constants';
 
 describe('CustomDot', () => {
   it('returns null when cx is undefined', () => {
@@ -19,6 +20,6 @@ describe('CustomDot', () => {
     expect(result?.props.cx).toBe(100);
     expect(result?.props.cy).toBe(50);
     expect(result?.props.fill).toBe('blue');
-    expect(result?.props.r).toBe(3); // SCATTER_DOT_RADIUS
+    expect(result?.props.r).toBe(SCATTER_DOT_RADIUS);
   });
 });
