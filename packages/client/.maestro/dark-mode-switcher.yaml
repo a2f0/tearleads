@@ -5,49 +5,8 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Navigate to settings - check if sidebar is visible, use mobile menu if not
-- evalScript: |
-    (async () => {
-      const sidebar = document.querySelector('aside');
-      const sidebarDisplay = sidebar ? getComputedStyle(sidebar).display : 'no-sidebar';
-      const isSidebarVisible = sidebar && sidebarDisplay !== 'none';
-      console.log('Sidebar visibility:', sidebarDisplay, 'visible:', isSidebarVisible);
-
-      if (isSidebarVisible) {
-        const link = document.querySelector('aside [data-testid="settings-link"]');
-        if (link) {
-          link.scrollIntoView({ behavior: 'instant', block: 'center' });
-          link.click();
-          return 'sidebar-clicked';
-        }
-        return 'sidebar-visible-but-no-link';
-      }
-
-      const menuButton = document.querySelector('[data-testid="mobile-menu-button"]');
-      console.log('Menu button found:', !!menuButton);
-      if (!menuButton) {
-        return 'no-menu-button';
-      }
-
-      menuButton.click();
-      console.log('Clicked menu button');
-
-      for (let i = 0; i < 30; i++) {
-        await new Promise(r => setTimeout(r, 100));
-        const dropdown = document.querySelector('[data-testid="mobile-menu-dropdown"]');
-        if (dropdown) {
-          console.log('Dropdown found at iteration', i);
-          const link = dropdown.querySelector('[data-testid="settings-link"]');
-          if (link) {
-            console.log('Settings link found, clicking...');
-            link.click();
-            return 'mobile-clicked';
-          }
-          return 'dropdown-no-link';
-        }
-      }
-      return 'dropdown-never-appeared';
-    })()
+# Navigate to settings
+- evalScript: document.querySelector('[data-testid="settings-link"]').click()
 
 # Wait for Settings page to load
 - extendedWaitUntil:
