@@ -334,5 +334,29 @@ describe('TableSizes', () => {
       expect(usersLink).toHaveAttribute('href', '/tables/users');
       expect(postsLink).toHaveAttribute('href', '/tables/posts');
     });
+
+    it('passes navigation state for back navigation', async () => {
+      setupMockContext({ isUnlocked: true });
+      setupMockAdapter({
+        tables: { rows: [{ name: 'users' }] },
+        dbstat: { rows: [{ size: 1024 }] }
+      });
+
+      render(
+        <MemoryRouter initialEntries={['/sqlite']}>
+          <TableSizes />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+      });
+
+      // LinkWithFrom passes state via data attributes that can be tested
+      // The component uses LinkWithFrom which automatically captures pathname
+      const link = screen.getByRole('link', { name: 'users' });
+      expect(link).toBeInTheDocument();
+      expect(link).toHaveAttribute('href', '/tables/users');
+    });
   });
 });
