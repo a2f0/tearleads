@@ -53,12 +53,17 @@ BUMP_COMMITS=$(git log -2 --format="%H" -- "$VERSION_FILE" 2>/dev/null || echo "
 CURRENT_BUMP=$(echo "$BUMP_COMMITS" | head -1)
 PREVIOUS_BUMP=$(echo "$BUMP_COMMITS" | tail -1)
 
+if [ "$CURRENT_BUMP" = "$PREVIOUS_BUMP" ]; then
+    echo "Error: Could not find two distinct version bump commits for $PLATFORM. Unable to determine commit range." >&2
+    exit 1
+fi
+
 # Build JSON payload and pipe directly to curl to avoid argument length limits
 # Using -d @- reads the JSON from stdin
 # Note: We use commit messages only (no diffs) and Haiku model to stay within API rate limits
 
-# Get commits between version bumps (excludes merge commits)
-COMMITS=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" --no-merges --format="- %s" 2>/dev/null)
+# Get commits between version bumps, excluding the current bump commit itself
+COMMITS=$(git log "${PREVIOUS_BUMP}..${CURRENT_BUMP}~1" --no-merges --format="- %s" 2>/dev/null)
 
 call_anthropic_api() {
     model="$1"
