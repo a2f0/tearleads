@@ -47,7 +47,7 @@ ensure_symlinks() {
     [ "$workspace" = "$SHARED_DIR" ] && return 0
 
     # Symlink these directories (not version controlled in workspaces)
-    for item in .secrets .test_files; do
+    for item in .secrets .test_files .claude; do
         target="$SHARED_DIR/$item"
         link="$workspace/$item"
         relative_path="../rapid-shared/$item"

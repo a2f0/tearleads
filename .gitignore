@@ -18,6 +18,7 @@ dist-electron/
 .env.*.local
 .secrets
 /.test_files
+/.claude
 
 # Logs
 logs
