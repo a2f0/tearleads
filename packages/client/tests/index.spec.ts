@@ -138,63 +138,54 @@ test.describe('Index page', () => {
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
   });
 
-  test('should toggle dark mode from settings', async ({ page }) => {
+  test('should switch themes from settings', async ({ page }) => {
     // Navigate to settings
     await navigateTo(page, 'Settings');
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
 
-    const toggleSwitch = page.getByTestId('dark-mode-switch');
-    await expect(toggleSwitch).toBeVisible();
+    // Verify theme selector is visible
+    const themeGrid = page.getByTestId('theme-selector-grid');
+    await expect(themeGrid).toBeVisible();
 
-    // Get initial state
+    // Click dark theme option
+    const darkOption = page.getByTestId('theme-option-dark');
+    await darkOption.click();
+
+    // Verify dark class is applied
     const htmlElement = page.locator('html');
-    const initialDark = await htmlElement.evaluate((el) =>
-      el.classList.contains('dark')
-    );
+    await expect(htmlElement).toHaveClass(/dark/);
 
-    // Toggle
-    await toggleSwitch.click();
+    // Switch to light theme
+    const lightOption = page.getByTestId('theme-option-light');
+    await lightOption.click();
 
-    // Verify class changed
-    const afterToggle = await htmlElement.evaluate((el) =>
-      el.classList.contains('dark')
-    );
-    expect(afterToggle).toBe(!initialDark);
+    // Verify light class is applied
+    await expect(htmlElement).toHaveClass(/light/);
   });
 
-  test('should change background color when dark mode is toggled', async ({
-    page
-  }) => {
+  test('should apply correct theme class to html element', async ({ page }) => {
     // Navigate to settings
     await navigateTo(page, 'Settings');
 
-    const toggleSwitch = page.getByTestId('dark-mode-switch');
-    const body = page.locator('body');
+    const htmlElement = page.locator('html');
 
-    // Get initial background color
-    const initialBgColor = await body.evaluate((el) =>
-      window.getComputedStyle(el).backgroundColor
-    );
+    // Switch to light theme
+    await page.getByTestId('theme-option-light').click();
+    await expect(htmlElement).toHaveClass(/light/);
+    await expect(htmlElement).not.toHaveClass(/dark/);
+    await expect(htmlElement).not.toHaveClass(/tokyo-night/);
 
-    // Toggle dark mode
-    await toggleSwitch.click();
+    // Switch to dark theme
+    await page.getByTestId('theme-option-dark').click();
+    await expect(htmlElement).toHaveClass(/dark/);
+    await expect(htmlElement).not.toHaveClass(/light/);
+    await expect(htmlElement).not.toHaveClass(/tokyo-night/);
 
-    // Get new background color
-    const newBgColor = await body.evaluate((el) =>
-      window.getComputedStyle(el).backgroundColor
-    );
-
-    // Background colors should be different
-    expect(newBgColor).not.toBe(initialBgColor);
-
-    // Toggle back
-    await toggleSwitch.click();
-
-    // Should return to original color
-    const restoredBgColor = await body.evaluate((el) =>
-      window.getComputedStyle(el).backgroundColor
-    );
-    expect(restoredBgColor).toBe(initialBgColor);
+    // Switch to Tokyo Night theme
+    await page.getByTestId('theme-option-tokyo-night').click();
+    await expect(htmlElement).toHaveClass(/tokyo-night/);
+    await expect(htmlElement).not.toHaveClass(/light/);
+    await expect(htmlElement).not.toHaveClass(/dark/);
   });
 });
 
