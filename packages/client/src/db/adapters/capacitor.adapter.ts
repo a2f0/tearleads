@@ -90,6 +90,26 @@ interface JsonTrigger {
   logic: string;
 }
 
+/**
+ * Error messages that can be safely ignored when deleting a database.
+ * These occur when the database doesn't exist (fresh install, already deleted, etc.)
+ * or when there's no active connection to it.
+ */
+const IGNORABLE_DELETE_DB_ERRORS = [
+  'not found',
+  'does not exist',
+  'no available connection'
+];
+
+/**
+ * Check if a database deletion error should be ignored.
+ * Returns true if the error indicates the database simply doesn't exist.
+ */
+function isIgnorableDeleteDbError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message.toLowerCase() : '';
+  return IGNORABLE_DELETE_DB_ERRORS.some((msg) => message.includes(msg));
+}
+
 let sqliteConnection: SQLiteConnectionWrapper | null = null;
 
 async function getSQLiteConnection(): Promise<SQLiteConnectionWrapper> {
@@ -165,7 +185,13 @@ export class CapacitorAdapter implements DatabaseAdapter {
           `Recovering from database state error by deleting and retrying: ${err.message}`
         );
         const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
-        await CapacitorSQLite.deleteDatabase({ database: config.name });
+        try {
+          await CapacitorSQLite.deleteDatabase({ database: config.name });
+        } catch (deleteErr: unknown) {
+          if (!isIgnorableDeleteDbError(deleteErr)) {
+            throw deleteErr;
+          }
+        }
         await sqlite.setEncryptionSecret(keyHex);
       } else {
         throw err;
@@ -338,12 +364,7 @@ export class CapacitorAdapter implements DatabaseAdapter {
     try {
       await CapacitorSQLite.deleteDatabase({ database: name });
     } catch (error: unknown) {
-      // Only ignore "database not found" errors
-      const message = error instanceof Error ? error.message.toLowerCase() : '';
-      if (
-        !message.includes('not found') &&
-        !message.includes('does not exist')
-      ) {
+      if (!isIgnorableDeleteDbError(error)) {
         throw error;
       }
     }
