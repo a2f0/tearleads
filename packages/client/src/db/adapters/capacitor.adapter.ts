@@ -177,21 +177,41 @@ export class CapacitorAdapter implements DatabaseAdapter {
     try {
       await sqlite.setEncryptionSecret(keyHex);
     } catch (err) {
-      // If setEncryptionSecret fails due to incorrect state (stale database file
-      // from a previous session with different encryption), delete the database
-      // file and retry. This commonly happens during repeated reset/setup cycles.
-      if (err instanceof Error && err.message.includes('State for')) {
+      // Handle recoverable errors during setEncryptionSecret:
+      // 1. "State for" errors: stale database file from previous session with different encryption
+      // 2. "passphrase has already been set": Android-specific issue where clearEncryptionSecret
+      //    didn't fully clear the SharedPreferences (race condition or caching)
+      const errorMessage = err instanceof Error ? err.message : '';
+      const isStateError = errorMessage.includes('State for');
+      const isPassphraseAlreadySetError = errorMessage
+        .toLowerCase()
+        .includes('passphrase has already been set');
+
+      if (isStateError || isPassphraseAlreadySetError) {
         console.warn(
-          `Recovering from database state error by deleting and retrying: ${err.message}`
+          `Recovering from database secret error by clearing and retrying: ${errorMessage}`
         );
         const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
-        try {
-          await CapacitorSQLite.deleteDatabase({ database: config.name });
-        } catch (deleteErr: unknown) {
-          if (!isIgnorableDeleteDbError(deleteErr)) {
-            throw deleteErr;
+
+        // For "State for" errors, also delete the database file
+        if (isStateError) {
+          try {
+            await CapacitorSQLite.deleteDatabase({ database: config.name });
+          } catch (deleteErr: unknown) {
+            if (!isIgnorableDeleteDbError(deleteErr)) {
+              throw deleteErr;
+            }
           }
         }
+
+        // Force clear the encryption secret again before retrying
+        // This handles Android's SharedPreferences not being fully cleared
+        try {
+          await CapacitorSQLite.clearEncryptionSecret();
+        } catch {
+          // Ignore errors - secret might not exist
+        }
+
         await sqlite.setEncryptionSecret(keyHex);
       } else {
         throw err;
