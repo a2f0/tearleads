@@ -5,8 +5,39 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Navigate to settings by clicking the settings link
-- evalScript: document.querySelector('[data-testid="settings-link"]').click()
+# Navigate to settings - open mobile menu first if sidebar is not visible
+- evalScript: |
+    const settingsLink = document.querySelector('[data-testid="settings-link"]');
+    if (settingsLink && getComputedStyle(settingsLink).display !== 'none') {
+      settingsLink.click();
+    } else {
+      // Mobile view - open mobile menu first
+      const menuButton = document.querySelector('[data-testid="mobile-menu-button"]');
+      if (menuButton) menuButton.click();
+    }
+
+# If mobile menu was opened, wait for dropdown and click settings
+- evalScript: |
+    (async () => {
+      const settingsLink = document.querySelector('[data-testid="settings-link"]');
+      if (settingsLink && getComputedStyle(settingsLink).display !== 'none') {
+        // Already navigated or desktop view
+        return 'ok';
+      }
+      // Wait for mobile menu dropdown
+      for (let i = 0; i < 20; i++) {
+        const mobileSettingsLink = document.querySelector('[data-testid="mobile-menu-dropdown"] [data-testid="settings-link"]');
+        if (mobileSettingsLink) {
+          mobileSettingsLink.click();
+          return 'ok';
+        }
+        await new Promise(r => setTimeout(r, 100));
+      }
+      // Fallback - just click any settings-link that exists now
+      const anySettingsLink = document.querySelector('[data-testid="settings-link"]');
+      if (anySettingsLink) anySettingsLink.click();
+      return 'ok';
+    })()
 
 # Wait for Settings page to load
 - extendedWaitUntil:
