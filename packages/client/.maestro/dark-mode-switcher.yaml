@@ -5,27 +5,46 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Navigate to settings - open mobile menu first (sidebar is hidden on mobile viewport)
-- evalScript: |
-    const menuButton = document.querySelector('[data-testid="mobile-menu-button"]');
-    if (menuButton) menuButton.click();
-
-# Wait for dropdown and click settings link
+# Navigate to settings - handle both mobile (< 1024px) and desktop viewports
 - evalScript: |
     (async () => {
-      for (let i = 0; i < 50; i++) {
-        const dropdown = document.querySelector('[data-testid="mobile-menu-dropdown"]');
-        if (dropdown) {
-          const link = dropdown.querySelector('[data-testid="settings-link"]');
-          if (link) {
-            link.scrollIntoView({ behavior: 'instant', block: 'center' });
-            link.click();
-            return 'clicked';
+      // Check if we're on mobile viewport (sidebar hidden, mobile menu visible)
+      const menuButton = document.querySelector('[data-testid="mobile-menu-button"]');
+      const isMobile = menuButton && window.getComputedStyle(menuButton.parentElement).display !== 'none';
+
+      if (isMobile) {
+        // Mobile: open menu, wait for dropdown, click settings
+        menuButton.click();
+        for (let i = 0; i < 50; i++) {
+          const dropdown = document.querySelector('[data-testid="mobile-menu-dropdown"]');
+          if (dropdown) {
+            const link = dropdown.querySelector('[data-testid="settings-link"]');
+            if (link) {
+              link.scrollIntoView({ behavior: 'instant', block: 'center' });
+              link.click();
+              return 'mobile-clicked';
+            }
           }
+          await new Promise(r => setTimeout(r, 100));
         }
-        await new Promise(r => setTimeout(r, 100));
+        throw new Error('Settings link not found in mobile menu');
+      } else {
+        // Desktop: sidebar is visible, scroll to and click settings link directly
+        const sidebarLink = document.querySelector('aside [data-testid="settings-link"]');
+        if (sidebarLink) {
+          sidebarLink.scrollIntoView({ behavior: 'instant', block: 'center' });
+          sidebarLink.click();
+          return 'desktop-clicked';
+        }
+        // Fallback: try any visible settings link
+        const anyLink = document.querySelector('[data-testid="settings-link"]');
+        if (anyLink) {
+          anyLink.scrollIntoView({ behavior: 'instant', block: 'center' });
+          anyLink.click();
+          return 'fallback-clicked';
+        }
+        throw new Error('Settings link not found');
       }
-      throw new Error('Settings link not found in mobile menu');
     })()
 
 # Wait for Settings page to load
