@@ -226,7 +226,7 @@ Minimize context consumption during long merge queue sessions:
   git push >/dev/null
   ```
 
-  On success, the exit code is sufficient. On failure, errors appear on stderr which is preserved.
+- **Only stderr matters**: On success, the exit code is sufficient. On failure, errors appear on stderr which is preserved by the redirect.
 
 - **Cache PR metadata**: Store `number`, `baseRefName`, `headRefName`, `url` from step 1. Don't re-fetch immutable data.
 - **Minimal status checks**: Use `--json` with only needed fields (e.g., `state,mergeStateStatus` not full PR details).
