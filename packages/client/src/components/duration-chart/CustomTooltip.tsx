@@ -9,13 +9,12 @@ interface TooltipPayloadItem {
   };
 }
 
-export function CustomTooltip({
-  active,
-  payload
-}: {
+interface CustomTooltipProps {
   active?: boolean;
   payload?: TooltipPayloadItem[];
-}) {
+}
+
+export function CustomTooltip({ active, payload }: CustomTooltipProps) {
   const firstPayload = payload?.[0];
   if (!active || !firstPayload) return null;
 
