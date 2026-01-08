@@ -169,7 +169,8 @@ test.describe('Index page', () => {
     // Navigate to settings
     await navigateTo(page, 'Settings');
 
-    const body = page.locator('body');
+    // The background is applied to the app container, not the body
+    const appContainer = page.locator('.bg-background').first();
     const htmlElement = page.locator('html');
 
     // Switch to light theme first and wait for class
@@ -177,7 +178,7 @@ test.describe('Index page', () => {
     await expect(htmlElement).toHaveClass(/light/);
 
     // Get initial background color
-    const lightBgColor = await body.evaluate((el) =>
+    const lightBgColor = await appContainer.evaluate((el) =>
       window.getComputedStyle(el).backgroundColor
     );
 
@@ -186,7 +187,7 @@ test.describe('Index page', () => {
     await expect(htmlElement).toHaveClass(/dark/);
 
     // Get new background color
-    const darkBgColor = await body.evaluate((el) =>
+    const darkBgColor = await appContainer.evaluate((el) =>
       window.getComputedStyle(el).backgroundColor
     );
 
@@ -198,7 +199,7 @@ test.describe('Index page', () => {
     await expect(htmlElement).toHaveClass(/tokyo-night/);
 
     // Get Tokyo Night background color
-    const tokyoNightBgColor = await body.evaluate((el) =>
+    const tokyoNightBgColor = await appContainer.evaluate((el) =>
       window.getComputedStyle(el).backgroundColor
     );
 
