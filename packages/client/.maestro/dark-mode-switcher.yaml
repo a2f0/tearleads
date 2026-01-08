@@ -5,10 +5,13 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Navigate to settings using History API (React Router listens to this)
+# Navigate to settings by clicking the settings link (scroll into view first)
 - evalScript: |
-    window.history.pushState({}, '', '/settings');
-    window.dispatchEvent(new PopStateEvent('popstate'));
+    const link = document.querySelector('[data-testid="settings-link"]');
+    if (link) {
+      link.scrollIntoView({ behavior: 'instant', block: 'center' });
+      link.click();
+    }
 
 # Wait for Settings page to load
 - extendedWaitUntil:
