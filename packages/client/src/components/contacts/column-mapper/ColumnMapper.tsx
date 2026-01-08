@@ -2,48 +2,23 @@ import {
   DndContext,
   type DragEndEvent,
   DragOverlay,
-  type DragStartEvent,
-  useDraggable,
-  useDroppable
+  type DragStartEvent
 } from '@dnd-kit/core';
-import { GripVertical, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { ColumnMapping, ParsedCSV } from '@/hooks/useContactsImport';
-
-// Google Contacts CSV header mappings
-const GOOGLE_CONTACTS_HEADER_MAP: Record<string, keyof ColumnMapping> = {
-  'First Name': 'firstName',
-  'Last Name': 'lastName',
-  Birthday: 'birthday',
-  'E-mail 1 - Label': 'email1Label',
-  'E-mail 1 - Value': 'email1Value',
-  'E-mail 2 - Label': 'email2Label',
-  'E-mail 2 - Value': 'email2Value',
-  'Phone 1 - Label': 'phone1Label',
-  'Phone 1 - Value': 'phone1Value',
-  'Phone 2 - Label': 'phone2Label',
-  'Phone 2 - Value': 'phone2Value',
-  'Phone 3 - Label': 'phone3Label',
-  'Phone 3 - Value': 'phone3Value'
-};
-
-// Initial empty column mapping - reusable for reset functionality
-const INITIAL_COLUMN_MAPPING: ColumnMapping = {
-  firstName: null,
-  lastName: null,
-  birthday: null,
-  email1Label: null,
-  email1Value: null,
-  email2Label: null,
-  email2Value: null,
-  phone1Label: null,
-  phone1Value: null,
-  phone2Label: null,
-  phone2Value: null,
-  phone3Label: null,
-  phone3Value: null
-};
+import { ColumnChip } from './ColumnChip';
+import {
+  ALL_PREVIEW_FIELDS,
+  BASIC_FIELDS,
+  EMAIL_FIELDS,
+  GOOGLE_CONTACTS_HEADER_MAP,
+  INITIAL_COLUMN_MAPPING,
+  PHONE_FIELDS
+} from './constants';
+import { DraggableColumn } from './DraggableColumn';
+import { DropZone } from './DropZone';
+import { FieldGroupRow } from './FieldGroupRow';
 
 /**
  * Auto-detect and map CSV columns based on header names.
@@ -67,229 +42,6 @@ interface ColumnMapperProps {
   onImport: (mapping: ColumnMapping) => void;
   onCancel: () => void;
   importing: boolean;
-}
-
-interface TargetField {
-  key: keyof ColumnMapping;
-  label: string;
-  required: boolean;
-}
-
-// Basic contact fields
-const BASIC_FIELDS: TargetField[] = [
-  { key: 'firstName', label: 'First Name', required: true },
-  { key: 'lastName', label: 'Last Name', required: false },
-  { key: 'birthday', label: 'Birthday', required: false }
-];
-
-// Email field groups (label + value pairs)
-interface FieldGroup {
-  name: string;
-  labelKey: keyof ColumnMapping;
-  valueKey: keyof ColumnMapping;
-}
-
-const EMAIL_FIELDS: FieldGroup[] = [
-  { name: 'Email 1', labelKey: 'email1Label', valueKey: 'email1Value' },
-  { name: 'Email 2', labelKey: 'email2Label', valueKey: 'email2Value' }
-];
-
-const PHONE_FIELDS: FieldGroup[] = [
-  { name: 'Phone 1', labelKey: 'phone1Label', valueKey: 'phone1Value' },
-  { name: 'Phone 2', labelKey: 'phone2Label', valueKey: 'phone2Value' },
-  { name: 'Phone 3', labelKey: 'phone3Label', valueKey: 'phone3Value' }
-];
-
-// All fields for preview purposes - dynamically generated from other constants
-const ALL_PREVIEW_FIELDS: TargetField[] = [
-  ...BASIC_FIELDS.filter((f) => f.key !== 'birthday'),
-  ...EMAIL_FIELDS.flatMap((group) => [
-    { key: group.labelKey, label: `${group.name} Label`, required: false },
-    { key: group.valueKey, label: group.name, required: false }
-  ]),
-  ...PHONE_FIELDS.flatMap((group) => [
-    { key: group.labelKey, label: `${group.name} Label`, required: false },
-    { key: group.valueKey, label: group.name, required: false }
-  ]),
-  ...BASIC_FIELDS.filter((f) => f.key === 'birthday')
-];
-
-function DraggableColumn({
-  index,
-  header,
-  disabled
-}: {
-  index: number;
-  header: string;
-  disabled: boolean;
-}) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `column-${index}`,
-    data: { index, header },
-    disabled
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      className={`flex cursor-grab items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm ${
-        isDragging ? 'opacity-50' : ''
-      } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
-    >
-      <GripVertical className="h-4 w-4 text-muted-foreground" />
-      <span className="truncate">{header}</span>
-    </div>
-  );
-}
-
-// Shared droppable area component used by DropZone and DropZoneSmall
-function DroppableArea({
-  fieldKey,
-  mapping,
-  headers,
-  onRemove,
-  placeholder,
-  truncateText = false
-}: {
-  fieldKey: keyof ColumnMapping;
-  mapping: ColumnMapping;
-  headers: string[];
-  onRemove: (key: keyof ColumnMapping) => void;
-  placeholder: string;
-  truncateText?: boolean;
-}) {
-  const mappedIndex = mapping[fieldKey];
-  const { isOver, setNodeRef } = useDroppable({
-    id: `target-${fieldKey}`
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`flex min-h-10 flex-1 items-center rounded-md border-2 border-dashed px-3 ${
-        isOver
-          ? 'border-primary bg-primary/10'
-          : mappedIndex !== null
-            ? 'border-muted-foreground/30 border-solid bg-muted'
-            : 'border-muted-foreground/30'
-      }`}
-    >
-      {mappedIndex !== null ? (
-        <div className="flex w-full items-center justify-between">
-          <span className={`text-sm ${truncateText ? 'truncate' : ''}`}>
-            {headers[mappedIndex]}
-          </span>
-          <button
-            type="button"
-            onClick={() => onRemove(fieldKey)}
-            className={`text-muted-foreground hover:text-foreground ${truncateText ? 'ml-1 shrink-0' : ''}`}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : (
-        <span className="text-muted-foreground text-sm">{placeholder}</span>
-      )}
-    </div>
-  );
-}
-
-function DropZone({
-  field,
-  mapping,
-  headers,
-  onRemove
-}: {
-  field: TargetField;
-  mapping: ColumnMapping;
-  headers: string[];
-  onRemove: (key: keyof ColumnMapping) => void;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="w-24 shrink-0 font-medium text-sm">
-        {field.label}
-        {field.required && <span className="text-destructive">*</span>}
-      </span>
-      <DroppableArea
-        fieldKey={field.key}
-        mapping={mapping}
-        headers={headers}
-        onRemove={onRemove}
-        placeholder="Drag a column here"
-      />
-    </div>
-  );
-}
-
-function DropZoneSmall({
-  fieldKey,
-  mapping,
-  headers,
-  onRemove,
-  placeholder
-}: {
-  fieldKey: keyof ColumnMapping;
-  mapping: ColumnMapping;
-  headers: string[];
-  onRemove: (key: keyof ColumnMapping) => void;
-  placeholder: string;
-}) {
-  return (
-    <DroppableArea
-      fieldKey={fieldKey}
-      mapping={mapping}
-      headers={headers}
-      onRemove={onRemove}
-      placeholder={placeholder}
-      truncateText
-    />
-  );
-}
-
-function FieldGroupRow({
-  group,
-  mapping,
-  headers,
-  onRemove
-}: {
-  group: FieldGroup;
-  mapping: ColumnMapping;
-  headers: string[];
-  onRemove: (key: keyof ColumnMapping) => void;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="w-20 shrink-0 font-medium text-sm">{group.name}</span>
-      <div className="grid flex-1 grid-cols-2 gap-2">
-        <DropZoneSmall
-          fieldKey={group.labelKey}
-          mapping={mapping}
-          headers={headers}
-          onRemove={onRemove}
-          placeholder="Label"
-        />
-        <DropZoneSmall
-          fieldKey={group.valueKey}
-          mapping={mapping}
-          headers={headers}
-          onRemove={onRemove}
-          placeholder="Value"
-        />
-      </div>
-    </div>
-  );
-}
-
-function ColumnChip({ header }: { header: string }) {
-  return (
-    <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm shadow-lg">
-      <GripVertical className="h-4 w-4 text-muted-foreground" />
-      <span className="truncate">{header}</span>
-    </div>
-  );
 }
 
 export function ColumnMapper({
