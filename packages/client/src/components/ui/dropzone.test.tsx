@@ -312,6 +312,13 @@ describe('Dropzone', () => {
         multiple: true,
         source: 'photos'
       });
+
+      // Wait for all async state updates after picker resolves
+      // (onFilesSelected callback + setIsPickerOpen(false) in finally block)
+      await vi.waitFor(() => {
+        expect(mockOnFilesSelected).toHaveBeenCalledWith([testFile]);
+        expect(button).not.toBeDisabled();
+      });
     });
 
     it('renders compact mode as square icon button', () => {
