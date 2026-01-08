@@ -5,13 +5,28 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Navigate to settings by clicking the settings link (scroll into view first)
+# Navigate to settings - open mobile menu first (sidebar is hidden on mobile viewport)
 - evalScript: |
-    const link = document.querySelector('[data-testid="settings-link"]');
-    if (link) {
-      link.scrollIntoView({ behavior: 'instant', block: 'center' });
-      link.click();
-    }
+    const menuButton = document.querySelector('[data-testid="mobile-menu-button"]');
+    if (menuButton) menuButton.click();
+
+# Wait for dropdown and click settings link
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 50; i++) {
+        const dropdown = document.querySelector('[data-testid="mobile-menu-dropdown"]');
+        if (dropdown) {
+          const link = dropdown.querySelector('[data-testid="settings-link"]');
+          if (link) {
+            link.scrollIntoView({ behavior: 'instant', block: 'center' });
+            link.click();
+            return 'clicked';
+          }
+        }
+        await new Promise(r => setTimeout(r, 100));
+      }
+      throw new Error('Settings link not found in mobile menu');
+    })()
 
 # Wait for Settings page to load
 - extendedWaitUntil:
