@@ -167,7 +167,9 @@ describe('CacheStorage', () => {
     it('renders Refresh button', async () => {
       renderCacheStorage();
 
-      expect(screen.getByText('Refresh')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Refresh' })
+      ).toBeInTheDocument();
     });
 
     it('expands cache entries by default', async () => {
@@ -213,7 +215,7 @@ describe('CacheStorage', () => {
       // Clear call counts
       mockCaches.keys.mockClear();
 
-      await user.click(screen.getByText('Refresh'));
+      await user.click(screen.getByRole('button', { name: 'Refresh' }));
 
       await waitFor(() => {
         expect(mockCaches.keys).toHaveBeenCalled();

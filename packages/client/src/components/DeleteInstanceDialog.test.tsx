@@ -130,7 +130,8 @@ describe('DeleteInstanceDialog', () => {
     });
   });
 
-  it('does nothing when instanceId is null', () => {
+  it('does nothing when instanceId is null', async () => {
+    const user = userEvent.setup();
     render(
       <DeleteInstanceDialog
         open={true}
@@ -142,6 +143,9 @@ describe('DeleteInstanceDialog', () => {
 
     // Should still render, but Delete button won't do anything
     expect(screen.getByText('Delete Instance')).toBeInTheDocument();
+    await user.click(screen.getByText('Delete'));
+
+    expect(mockDeleteInstance).not.toHaveBeenCalled();
   });
 
   it('shows deleting text on button', () => {

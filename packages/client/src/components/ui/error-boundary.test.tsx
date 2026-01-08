@@ -103,6 +103,39 @@ describe('ErrorBoundary', () => {
     expect(errorBoundaryRef.current?.clearError).toBeInstanceOf(Function);
   });
 
+  it('clears errorBoundaryRef on unmount when it owns the ref', () => {
+    const { unmount } = render(
+      <ErrorBoundary>
+        <SafeComponent />
+      </ErrorBoundary>
+    );
+
+    expect(errorBoundaryRef.current).not.toBeNull();
+    unmount();
+    expect(errorBoundaryRef.current).toBeNull();
+  });
+
+  it('preserves errorBoundaryRef when a different handler is set', () => {
+    const { unmount } = render(
+      <ErrorBoundary>
+        <SafeComponent />
+      </ErrorBoundary>
+    );
+
+    const alternateRef = {
+      setError: vi.fn(),
+      clearError: vi.fn()
+    };
+
+    (errorBoundaryRef as { current: typeof alternateRef | null }).current =
+      alternateRef;
+
+    unmount();
+    expect(errorBoundaryRef.current).toBe(alternateRef);
+    (errorBoundaryRef as { current: typeof alternateRef | null }).current =
+      null;
+  });
+
   it('displays error when setError is called via ref', () => {
     render(
       <ErrorBoundary>

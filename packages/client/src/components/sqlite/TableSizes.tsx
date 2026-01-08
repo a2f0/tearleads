@@ -3,10 +3,10 @@
  * Shows database and individual table sizes.
  */
 
-import { HardDrive, RefreshCw } from 'lucide-react';
+import { HardDrive } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 
@@ -137,14 +137,12 @@ export function TableSizes() {
     <div className="space-y-3 rounded-lg border p-4" data-testid="table-sizes">
       <div className="flex items-center justify-between">
         <h2 className="font-medium">Table Sizes</h2>
-        <Button
-          variant="ghost"
-          size="sm"
+        <RefreshButton
           onClick={fetchSizes}
-          disabled={loading}
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-        </Button>
+          loading={loading}
+          variant="ghost"
+          className="h-8 w-8"
+        />
       </div>
 
       {error && <div className="text-destructive text-sm">{error}</div>}

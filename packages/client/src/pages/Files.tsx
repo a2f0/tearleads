@@ -5,7 +5,6 @@ import {
   FileIcon,
   Loader2,
   Music,
-  RefreshCw,
   RotateCcw,
   Trash2,
   XCircle
@@ -14,6 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
@@ -355,17 +355,7 @@ export function Files() {
               </button>
               <span className="text-muted-foreground">Show deleted</span>
             </label>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchFiles}
-              disabled={loading}
-            >
-              <RefreshCw
-                className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-              />
-              Refresh
-            </Button>
+            <RefreshButton onClick={fetchFiles} loading={loading} />
           </div>
         )}
       </div>

@@ -6,11 +6,11 @@ import {
   FolderIcon,
   FolderOpen,
   Loader2,
-  RefreshCw,
   Trash2
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import { formatFileSize } from '@/lib/utils';
 
 interface CacheEntry {
@@ -354,17 +354,7 @@ export function CacheStorage() {
               Clear All
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={refresh}
-            disabled={loading}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-            />
-            Refresh
-          </Button>
+          <RefreshButton onClick={refresh} loading={loading} />
         </div>
       </div>
 

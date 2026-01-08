@@ -6,11 +6,11 @@ import {
   FolderOpen,
   HardDrive,
   Loader2,
-  RefreshCw,
   Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import { formatFileSize } from '@/lib/utils';
 
 interface FileSystemEntry {
@@ -363,17 +363,7 @@ export function Opfs() {
             </p>
           )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={fetchOpfsContents}
-          disabled={loading}
-        >
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-          />
-          Refresh
-        </Button>
+        <RefreshButton onClick={fetchOpfsContents} loading={loading} />
       </div>
 
       {error && (

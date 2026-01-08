@@ -1,6 +1,7 @@
-import { Database, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { Database, Loader2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import { formatFileSize } from '@/lib/utils';
 
 interface StorageEntry {
@@ -187,17 +188,7 @@ export function LocalStorage() {
               Clear All
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchStorageContents}
-            disabled={loading}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-            />
-            Refresh
-          </Button>
+          <RefreshButton onClick={fetchStorageContents} loading={loading} />
         </div>
       </div>
 
