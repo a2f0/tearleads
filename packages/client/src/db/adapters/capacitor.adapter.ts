@@ -182,7 +182,7 @@ export class CapacitorAdapter implements DatabaseAdapter {
       // 2. "passphrase has already been set": Android-specific issue where clearEncryptionSecret
       //    didn't fully clear the SharedPreferences (race condition or caching)
       const errorMessage = err instanceof Error ? err.message : '';
-      const isStateError = errorMessage.includes('State for');
+      const isStateError = errorMessage.toLowerCase().includes('state for');
       const isPassphraseAlreadySetError = errorMessage
         .toLowerCase()
         .includes('passphrase has already been set');
@@ -208,8 +208,16 @@ export class CapacitorAdapter implements DatabaseAdapter {
         // This handles Android's SharedPreferences not being fully cleared
         try {
           await CapacitorSQLite.clearEncryptionSecret();
-        } catch {
-          // Ignore errors - secret might not exist
+        } catch (clearErr: unknown) {
+          // Only ignore errors indicating the secret doesn't exist
+          const message =
+            clearErr instanceof Error ? clearErr.message.toLowerCase() : '';
+          if (
+            !message.includes('no secret') &&
+            !message.includes('not stored')
+          ) {
+            throw clearErr;
+          }
         }
 
         await sqlite.setEncryptionSecret(keyHex);
