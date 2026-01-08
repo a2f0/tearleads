@@ -5,8 +5,11 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Navigate to settings - use same approach as tables-page test which works
-- evalScript: document.querySelector('[data-testid="settings-link"]').click()
+# Navigate to settings - scroll into view first since Settings is at the bottom of nav
+- evalScript: |
+    const link = document.querySelector('[data-testid="settings-link"]');
+    link.scrollIntoView({ behavior: 'instant', block: 'center' });
+    link.click();
 
 # Wait for Settings page to load
 - extendedWaitUntil:
