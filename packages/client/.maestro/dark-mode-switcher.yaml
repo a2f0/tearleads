@@ -5,9 +5,10 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Navigate to settings via URL - this avoids mobile/desktop navigation differences
+# Navigate to settings using History API (React Router listens to this)
 - evalScript: |
-    window.location.href = '/settings';
+    window.history.pushState({}, '', '/settings');
+    window.dispatchEvent(new PopStateEvent('popstate'));
 
 # Wait for Settings page to load
 - extendedWaitUntil:
