@@ -76,7 +76,9 @@ describe('Tables', () => {
     it('renders Refresh button when unlocked', async () => {
       await renderTables();
 
-      expect(screen.getByText('Refresh')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Refresh' })
+      ).toBeInTheDocument();
     });
   });
 
@@ -97,7 +99,9 @@ describe('Tables', () => {
     it('does not show Refresh button', () => {
       renderTablesRaw();
 
-      expect(screen.queryByText('Refresh')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Refresh' })
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -139,7 +143,9 @@ describe('Tables', () => {
     it('does not show Refresh button', () => {
       renderTablesRaw();
 
-      expect(screen.queryByText('Refresh')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Refresh' })
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -242,7 +248,7 @@ describe('Tables', () => {
 
       mockExecute.mockClear();
 
-      await user.click(screen.getByText('Refresh'));
+      await user.click(screen.getByRole('button', { name: 'Refresh' }));
 
       await waitFor(() => {
         expect(mockExecute).toHaveBeenCalled();

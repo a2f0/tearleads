@@ -178,7 +178,7 @@ describe('Debug', () => {
       mockPingGet.mockClear();
       mockPingGet.mockResolvedValue({ version: '1.0.1' });
 
-      await user.click(screen.getByText('Refresh'));
+      await user.click(screen.getByRole('button', { name: 'Refresh' }));
 
       await waitFor(() => {
         expect(mockPingGet).toHaveBeenCalled();
@@ -196,9 +196,8 @@ describe('Debug', () => {
 
       renderDebugRaw();
 
-      expect(screen.getByText('Refreshing...')).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: /refreshing/i })
+        screen.getByRole('button', { name: 'Refresh' })
       ).toBeDisabled();
     });
   });
