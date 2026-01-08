@@ -84,7 +84,7 @@ call_anthropic_api() {
     max_tokens: 256,
     messages: [{
         role: "user",
-        content: ("Generate brief, user-friendly release notes for a mobile app based on these git commit messages. Focus on what users will notice, not technical details. Use simple language. Keep it to 2-4 bullet points max. No markdown formatting, just plain text with bullet points using • character. Do not include a header or version number.\n\nCommit messages:\n" + .)
+        content: ("Generate brief, user-friendly release notes for a mobile app based on these git commit messages. Focus on what users will notice, not technical details. Use simple language. Keep it to 2-4 bullet points max. No markdown formatting, just plain text with bullet points using • character. Do not include a header or version number.\n\nIMPORTANT: Ignore commits that are internal process/tooling changes, such as:\n- address gemini feedback or similar code review commits\n- documentation-only changes\n- CI/build configuration changes\n- refactoring that does not change user-visible behavior\n\nOnly include commits that result in user-facing changes (new features, bug fixes users would notice, performance improvements, UI changes).\n\nCommit messages:\n" + .)
     }]
 }' | curl -s https://api.anthropic.com/v1/messages \
         -H "Content-Type: application/json" \
