@@ -5,11 +5,38 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Navigate to settings - scroll into view first since Settings is at the bottom of nav
+# Navigate to settings - check if sidebar is visible, use mobile menu if not
 - evalScript: |
-    const link = document.querySelector('[data-testid="settings-link"]');
-    link.scrollIntoView({ behavior: 'instant', block: 'center' });
-    link.click();
+    (async () => {
+      const sidebar = document.querySelector('aside');
+      const isSidebarVisible = sidebar && getComputedStyle(sidebar).display !== 'none';
+
+      if (isSidebarVisible) {
+        // Desktop: click sidebar link directly
+        const link = document.querySelector('aside [data-testid="settings-link"]');
+        if (link) {
+          link.scrollIntoView({ behavior: 'instant', block: 'center' });
+          link.click();
+          return 'sidebar';
+        }
+      }
+
+      // Mobile: open menu and click dropdown link
+      const menuButton = document.querySelector('[data-testid="mobile-menu-button"]');
+      if (menuButton) {
+        menuButton.click();
+        await new Promise(r => setTimeout(r, 300));
+        const dropdown = document.querySelector('[data-testid="mobile-menu-dropdown"]');
+        if (dropdown) {
+          const link = dropdown.querySelector('[data-testid="settings-link"]');
+          if (link) {
+            link.click();
+            return 'mobile';
+          }
+        }
+      }
+      throw new Error('Could not navigate to settings');
+    })()
 
 # Wait for Settings page to load
 - extendedWaitUntil:
