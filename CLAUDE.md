@@ -58,3 +58,34 @@ Skip issue creation for:
 - Use the shared `Input` component from `@/components/ui/input` for all form inputs
 - Input fields must use `text-base` (16px) minimum font size to prevent iOS Safari auto-zoom on focus
 - Never use `text-sm` or `text-xs` on input, textarea, or select elements
+
+## React Guidelines
+
+### Component Organization
+
+- **One component per file** - Each React component must have its own file
+- **Group by folder** - Group related components into folders. This is often by feature (e.g., `auth/`), but also useful for compound components (e.g., `context-menu/`)
+
+  ```text
+  src/
+    features/
+      auth/
+        LoginForm.tsx
+        LoginForm.test.tsx
+    components/ui/
+      context-menu/
+        ContextMenu.tsx
+        ContextMenu.test.tsx
+        ContextMenuItem.tsx
+        ContextMenuItem.test.tsx
+        index.ts
+  ```
+
+- **Colocate tests** - Keep `.test.tsx` files next to their component files
+
+### Refactoring
+
+- **Keep test files in sync** - When renaming, moving, or deleting a component:
+  - Rename/move/delete the corresponding `.test.tsx` file
+  - Update any imports in the test file to reflect the new path
+  - Ensure test file naming matches component file naming
