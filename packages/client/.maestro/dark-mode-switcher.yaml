@@ -5,8 +5,19 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Navigate to settings
-- evalScript: document.querySelector('[data-testid="settings-link"]').click()
+# Navigate to settings - wait for element to exist first, then click
+- evalScript: |
+    (async () => {
+      for (let i = 0; i < 50; i++) {
+        const link = document.querySelector('[data-testid="settings-link"]');
+        if (link) {
+          link.click();
+          return 'clicked';
+        }
+        await new Promise(r => setTimeout(r, 100));
+      }
+      throw new Error('settings-link not found after 5s');
+    })()
 
 # Wait for Settings page to load
 - extendedWaitUntil:
