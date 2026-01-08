@@ -99,7 +99,7 @@ describe('DebugMenu', () => {
 
     expect(screen.getByText('Loading...')).toBeInTheDocument();
 
-    resolvePing!(mockPingData);
+    resolvePing?.(mockPingData);
 
     await waitFor(() => {
       expect(screen.getByText('0.0.2')).toBeInTheDocument();
