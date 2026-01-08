@@ -5,38 +5,39 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Navigate to settings - open mobile menu first if sidebar is not visible
-- evalScript: |
-    const settingsLink = document.querySelector('[data-testid="settings-link"]');
-    if (settingsLink && getComputedStyle(settingsLink).display !== 'none') {
-      settingsLink.click();
-    } else {
-      // Mobile view - open mobile menu first
-      const menuButton = document.querySelector('[data-testid="mobile-menu-button"]');
-      if (menuButton) menuButton.click();
-    }
-
-# If mobile menu was opened, wait for dropdown and click settings
+# Navigate to settings - check viewport to determine desktop vs mobile
 - evalScript: |
     (async () => {
-      const settingsLink = document.querySelector('[data-testid="settings-link"]');
-      if (settingsLink && getComputedStyle(settingsLink).display !== 'none') {
-        // Already navigated or desktop view
-        return 'ok';
+      const isDesktop = window.innerWidth >= 1024;
+
+      if (isDesktop) {
+        // Desktop: click sidebar settings link directly
+        const settingsLink = document.querySelector('aside [data-testid="settings-link"]');
+        if (settingsLink) {
+          settingsLink.scrollIntoView();
+          settingsLink.click();
+          return 'desktop-clicked';
+        }
       }
-      // Wait for mobile menu dropdown
-      for (let i = 0; i < 20; i++) {
-        const mobileSettingsLink = document.querySelector('[data-testid="mobile-menu-dropdown"] [data-testid="settings-link"]');
-        if (mobileSettingsLink) {
-          mobileSettingsLink.click();
-          return 'ok';
+
+      // Mobile: open mobile menu first
+      const menuButton = document.querySelector('[data-testid="mobile-menu-button"]');
+      if (!menuButton) throw new Error('Mobile menu button not found');
+      menuButton.click();
+
+      // Wait for dropdown to appear
+      for (let i = 0; i < 30; i++) {
+        const dropdown = document.querySelector('[data-testid="mobile-menu-dropdown"]');
+        if (dropdown) {
+          const settingsLink = dropdown.querySelector('[data-testid="settings-link"]');
+          if (settingsLink) {
+            settingsLink.click();
+            return 'mobile-clicked';
+          }
         }
         await new Promise(r => setTimeout(r, 100));
       }
-      // Fallback - just click any settings-link that exists now
-      const anySettingsLink = document.querySelector('[data-testid="settings-link"]');
-      if (anySettingsLink) anySettingsLink.click();
-      return 'ok';
+      throw new Error('Could not find settings link in mobile menu');
     })()
 
 # Wait for Settings page to load
