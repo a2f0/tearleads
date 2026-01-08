@@ -254,7 +254,9 @@ describe('Files', () => {
 
     it('renders Refresh button', async () => {
       await renderFiles();
-      expect(screen.getByText('Refresh')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Refresh' })
+      ).toBeInTheDocument();
     });
   });
 
@@ -400,7 +402,7 @@ describe('Files', () => {
 
       mockSelect.mockClear();
 
-      await user.click(screen.getByText('Refresh'));
+      await user.click(screen.getByRole('button', { name: 'Refresh' }));
 
       await waitFor(() => {
         expect(mockSelect).toHaveBeenCalled();

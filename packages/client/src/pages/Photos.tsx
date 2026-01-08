@@ -4,14 +4,13 @@ import {
   ImageIcon,
   Info,
   Loader2,
-  RefreshCw,
   Share2
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
@@ -300,17 +299,7 @@ export function Photos() {
           <h1 className="font-bold text-2xl tracking-tight">Photos</h1>
         </div>
         {isUnlocked && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchPhotos}
-            disabled={loading}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-            />
-            Refresh
-          </Button>
+          <RefreshButton onClick={fetchPhotos} loading={loading} />
         )}
       </div>
 
