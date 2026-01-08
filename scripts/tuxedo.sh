@@ -7,8 +7,8 @@
 #   TUXEDO_WORKSPACES   - Number of workspaces to create (default: 20)
 #
 # Shared resources:
-#   rapid-shared/ is the source of truth for .secrets (not version controlled).
-#   .claude and CLAUDE.md are NOT symlinked since they're tracked in git.
+#   rapid-shared/ is the source of truth for shared directories (not version controlled).
+#   CLAUDE.md is NOT symlinked since it's tracked in git.
 #
 # Screen session persistence:
 #   Each workspace runs inside a GNU screen session. If you kill tmux,
@@ -36,7 +36,7 @@ SESSION_NAME="tuxedo"
 SHARED_DIR="$BASE_DIR/rapid-shared"
 
 # Ensure symlinks from a workspace to rapid-shared for shared directories
-# (.claude and CLAUDE.md are version controlled, so not symlinked)
+# (CLAUDE.md is version controlled, so not symlinked)
 ensure_symlinks() {
     workspace="$1"
 
@@ -47,7 +47,7 @@ ensure_symlinks() {
     [ "$workspace" = "$SHARED_DIR" ] && return 0
 
     # Symlink these directories (not version controlled in workspaces)
-    for item in .secrets .test_files; do
+    for item in .secrets .test_files .claude; do
         target="$SHARED_DIR/$item"
         link="$workspace/$item"
         relative_path="../rapid-shared/$item"
@@ -196,8 +196,8 @@ update_all_workspaces
 
 # Enforce symlinks for all workspaces after updating from main
 if [ -d "$SHARED_DIR" ]; then
-    # Ensure .test_files and .secrets exist in shared directory
-    mkdir -p "$SHARED_DIR/.test_files" "$SHARED_DIR/.secrets"
+    # Ensure shared directories exist
+    mkdir -p "$SHARED_DIR/.test_files" "$SHARED_DIR/.secrets" "$SHARED_DIR/.claude"
 
     ensure_symlinks "$BASE_DIR/rapid-main"
     i=2
