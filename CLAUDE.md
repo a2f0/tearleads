@@ -1,4 +1,6 @@
-# Claude Code Notes
+# Agent Notes (Claude Code + Codex)
+
+This file is shared by Claude Code and Codex. `AGENTS.md` is symlinked to this file.
 
 ## Issue Tracking
 
