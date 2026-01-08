@@ -22,6 +22,13 @@ if [ -z "${TF_VAR_domain:-}" ]; then
   exit 1
 fi
 
+: "${VITE_API_URL?Error: VITE_API_URL environment variable is not set}"
+
+export VITE_API_URL
+
+# Generate OpenAPI spec (needed by website for /docs page)
+pnpm --filter @rapid/api buildOpenapi
+
 # Build the website
 pnpm --filter @rapid/website build
 
