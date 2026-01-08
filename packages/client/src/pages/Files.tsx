@@ -13,6 +13,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
+import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
@@ -367,10 +368,7 @@ export function Files() {
       {uploadingFiles.length > 0 && (
         <div className="space-y-2">
           {uploadingFiles.map((entry) => (
-            <div
-              key={entry.id}
-              className="flex min-w-0 items-center gap-3 overflow-hidden rounded-lg border bg-muted/50 p-3"
-            >
+            <ListRow key={entry.id}>
               {entry.status === 'uploading' && (
                 <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted-foreground" />
               )}
@@ -390,7 +388,7 @@ export function Files() {
                   {entry.status === 'error' && ` · ${entry.error}`}
                 </p>
               </div>
-            </div>
+            </ListRow>
           ))}
         </div>
       )}
@@ -427,11 +425,9 @@ export function Files() {
                 const fileType = file.mimeType.split('/')[0] ?? '';
                 const viewableTypes = ['image', 'audio'];
                 return (
-                  <div
+                  <ListRow
                     key={file.id}
-                    className={`flex min-w-0 items-center gap-3 overflow-hidden rounded-lg border bg-muted/50 p-3 ${
-                      file.deleted ? 'opacity-60' : ''
-                    }`}
+                    className={`${file.deleted ? 'opacity-60' : ''}`}
                   >
                     {(() => {
                       const isClickable =
@@ -486,13 +482,13 @@ export function Files() {
                       return isClickable ? (
                         <button
                           type="button"
-                          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+                          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
                           onClick={() => handleView(file)}
                         >
                           {content}
                         </button>
                       ) : (
-                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
                           {content}
                         </div>
                       );
@@ -531,7 +527,7 @@ export function Files() {
                         </>
                       )}
                     </div>
-                  </div>
+                  </ListRow>
                 );
               })
           )}
