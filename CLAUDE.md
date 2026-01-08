@@ -53,11 +53,11 @@ Skip issue creation for:
 
 - Do NOT add "Generated with Claude Code" footers to PR descriptions
 
-## Adding Claude Code Skills
+## Managing Claude Code Skills
 
 The `.claude/commands/` folder contains reusable skills (slash commands). This folder is symlinked from workspace replicas (rapid2, rapid3, etc.) to `rapid-shared`, so changes only need to be made once.
 
-To add a new skill:
+### Adding a new skill
 
 1. Create the file in `.claude/commands/` (e.g., `my-skill.md`)
 2. Force-add it to git (the folder is gitignored to prevent symlink diffs in replicas):
@@ -68,7 +68,17 @@ To add a new skill:
 
 3. Commit and push as normal
 
-Existing tracked files are unaffected by the gitignore rule.
+### Modifying an existing skill
+
+Existing skills are already tracked by Git. Modify them and commit as you would any other file.
+
+### Deleting a skill
+
+Use `git rm` to remove a skill from Git's tracking. Simply deleting the file won't be detected because the directory is ignored:
+
+```bash
+git rm .claude/commands/my-skill.md
+```
 
 ## Script Naming
 
