@@ -30,7 +30,7 @@ describe('ThemeSelector', () => {
   });
 
   function renderThemeSelector(
-    defaultTheme: 'light' | 'dark' | 'tokyo-night' = 'light'
+    defaultTheme: 'light' | 'dark' | 'tokyo-night' | 'system' = 'light'
   ) {
     return render(
       <ThemeProvider defaultTheme={defaultTheme}>
@@ -49,7 +49,21 @@ describe('ThemeSelector', () => {
   it('shows current theme as selected', () => {
     renderThemeSelector('dark');
     const darkOption = screen.getByTestId('theme-option-dark');
-    expect(darkOption.className).toContain('ring-2');
+    expect(darkOption).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('shows resolved theme as selected when theme is system', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation(() => ({
+        matches: true,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn()
+      }))
+    });
+    renderThemeSelector('system');
+    const darkOption = screen.getByTestId('theme-option-dark');
+    expect(darkOption).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('changes theme when option is clicked', async () => {

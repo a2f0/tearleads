@@ -18,6 +18,7 @@ export interface ThemeContextValue {
 export const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 const STORAGE_KEY = 'theme';
+const VALID_THEMES: Theme[] = ['light', 'dark', 'tokyo-night', 'system'];
 
 function getSystemTheme(): ResolvedTheme {
   if (typeof window === 'undefined') return 'light';
@@ -40,13 +41,8 @@ export function ThemeProvider({
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window === 'undefined') return defaultTheme;
     const stored = localStorage.getItem(storageKey);
-    if (
-      stored === 'light' ||
-      stored === 'dark' ||
-      stored === 'tokyo-night' ||
-      stored === 'system'
-    ) {
-      return stored;
+    if (stored && VALID_THEMES.includes(stored as Theme)) {
+      return stored as Theme;
     }
     return defaultTheme;
   });

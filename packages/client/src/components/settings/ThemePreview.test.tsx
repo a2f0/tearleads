@@ -17,21 +17,13 @@ describe('ThemePreview', () => {
     expect(screen.getByText(labels[theme])).toBeInTheDocument();
   });
 
-  it('renders with correct background color for light theme', () => {
-    const { container } = render(<ThemePreview theme="light" />);
+  it.each([
+    ['light', '#ffffff'],
+    ['dark', '#0a0a0a'],
+    ['tokyo-night', '#24283b']
+  ] as const)('renders with correct background color for %s theme', (theme, color) => {
+    const { container } = render(<ThemePreview theme={theme} />);
     const wrapper = container.firstChild as HTMLElement;
-    expect(wrapper).toHaveStyle({ backgroundColor: '#ffffff' });
-  });
-
-  it('renders with correct background color for dark theme', () => {
-    const { container } = render(<ThemePreview theme="dark" />);
-    const wrapper = container.firstChild as HTMLElement;
-    expect(wrapper).toHaveStyle({ backgroundColor: '#0a0a0a' });
-  });
-
-  it('renders with correct background color for tokyo-night theme', () => {
-    const { container } = render(<ThemePreview theme="tokyo-night" />);
-    const wrapper = container.firstChild as HTMLElement;
-    expect(wrapper).toHaveStyle({ backgroundColor: '#24283b' });
+    expect(wrapper).toHaveStyle({ backgroundColor: color });
   });
 });
