@@ -165,7 +165,21 @@ export class CapacitorAdapter implements DatabaseAdapter {
           `Recovering from database state error by deleting and retrying: ${err.message}`
         );
         const { CapacitorSQLite } = await import('@capacitor-community/sqlite');
-        await CapacitorSQLite.deleteDatabase({ database: config.name });
+        try {
+          await CapacitorSQLite.deleteDatabase({ database: config.name });
+        } catch (deleteErr: unknown) {
+          // Ignore errors when database doesn't exist or has no connection
+          // (common on fresh install where there's nothing to delete)
+          const message =
+            deleteErr instanceof Error ? deleteErr.message.toLowerCase() : '';
+          if (
+            !message.includes('not found') &&
+            !message.includes('does not exist') &&
+            !message.includes('no available connection')
+          ) {
+            throw deleteErr;
+          }
+        }
         await sqlite.setEncryptionSecret(keyHex);
       } else {
         throw err;
