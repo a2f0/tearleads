@@ -6,8 +6,8 @@ import {
   useState
 } from 'react';
 
-type Theme = 'light' | 'dark' | 'system';
-type ResolvedTheme = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'tokyo-night' | 'system';
+export type ResolvedTheme = 'light' | 'dark' | 'tokyo-night';
 
 export interface ThemeContextValue {
   theme: Theme;
@@ -40,7 +40,12 @@ export function ThemeProvider({
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window === 'undefined') return defaultTheme;
     const stored = localStorage.getItem(storageKey);
-    if (stored === 'light' || stored === 'dark' || stored === 'system') {
+    if (
+      stored === 'light' ||
+      stored === 'dark' ||
+      stored === 'tokyo-night' ||
+      stored === 'system'
+    ) {
       return stored;
     }
     return defaultTheme;
@@ -61,7 +66,7 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove('light', 'dark');
+    root.classList.remove('light', 'dark', 'tokyo-night');
     root.classList.add(resolvedTheme);
   }, [resolvedTheme]);
 

@@ -42,3 +42,25 @@
   --input: oklch(26.9% 0 0);
   --ring: oklch(48.8% 0.243 264.38);
 }
+
+.tokyo-night {
+  --background: oklch(22.4% 0.025 264.05);
+  --foreground: oklch(83.5% 0.045 267.5);
+  --card: oklch(22.4% 0.025 264.05);
+  --card-foreground: oklch(83.5% 0.045 267.5);
+  --popover: oklch(22.4% 0.025 264.05);
+  --popover-foreground: oklch(83.5% 0.045 267.5);
+  --primary: oklch(70.5% 0.14 250.5);
+  --primary-foreground: oklch(18.5% 0.02 262);
+  --secondary: oklch(18.5% 0.02 262);
+  --secondary-foreground: oklch(83.5% 0.045 267.5);
+  --muted: oklch(35% 0.03 263);
+  --muted-foreground: oklch(65% 0.04 265);
+  --accent: oklch(78% 0.12 205);
+  --accent-foreground: oklch(18.5% 0.02 262);
+  --destructive: oklch(65% 0.2 15);
+  --destructive-foreground: oklch(18.5% 0.02 262);
+  --border: oklch(30% 0.025 262);
+  --input: oklch(30% 0.025 262);
+  --ring: oklch(70.5% 0.14 250.5);
+}

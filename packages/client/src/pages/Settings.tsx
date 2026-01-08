@@ -1,6 +1,6 @@
-import { useTheme } from '@rapid/ui';
 import { AlertTriangle, Download } from 'lucide-react';
 import { useCallback, useState } from 'react';
+import { ThemeSelector } from '@/components/settings';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
 import { useDatabaseContext } from '@/db/hooks';
@@ -10,12 +10,9 @@ import {
   readFileAsUint8Array,
   saveFile
 } from '@/lib/file-utils';
-import { cn } from '@/lib/utils';
 
 export function Settings() {
-  const { resolvedTheme, setTheme } = useTheme();
   const { exportDatabase, importDatabase, lock } = useDatabaseContext();
-  const isDark = resolvedTheme === 'dark';
   const version = useAppVersion();
 
   const [isExporting, setIsExporting] = useState(false);
@@ -25,10 +22,6 @@ export function Settings() {
     null
   );
   const [error, setError] = useState<string | null>(null);
-
-  const handleToggle = () => {
-    setTheme(isDark ? 'light' : 'dark');
-  };
 
   const handleExport = useCallback(async () => {
     setIsExporting(true);
@@ -95,32 +88,8 @@ export function Settings() {
     <div className="space-y-6">
       <h1 className="font-bold text-2xl tracking-tight">Settings</h1>
 
-      <div className="flex items-center justify-between rounded-lg border p-4">
-        <div>
-          <p className="font-medium">Dark Mode</p>
-          <p className="text-muted-foreground text-sm">
-            Toggle dark mode on or off
-          </p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={isDark}
-          aria-label="Toggle dark mode"
-          data-testid="dark-mode-switch"
-          onClick={handleToggle}
-          className={cn(
-            'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-            isDark ? 'bg-primary' : 'bg-input'
-          )}
-        >
-          <span
-            className={cn(
-              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ease-in-out',
-              isDark ? 'translate-x-5' : 'translate-x-0'
-            )}
-          />
-        </button>
+      <div className="rounded-lg border p-4">
+        <ThemeSelector />
       </div>
 
       {/* Backup & Restore Section */}

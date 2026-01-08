@@ -23,6 +23,9 @@ function TestConsumer() {
       <button type="button" onClick={() => setTheme('dark')}>
         Set Dark
       </button>
+      <button type="button" onClick={() => setTheme('tokyo-night')}>
+        Set Tokyo Night
+      </button>
       <button type="button" onClick={() => setTheme('system')}>
         Set System
       </button>
@@ -38,7 +41,7 @@ describe('ThemeProvider', () => {
     mockMatchMediaListeners.length = 0;
 
     // Reset document classes
-    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.remove('light', 'dark', 'tokyo-night');
 
     // Mock localStorage
     Object.defineProperty(window, 'localStorage', {
@@ -115,6 +118,18 @@ describe('ThemeProvider', () => {
       expect(screen.getByTestId('theme')).toHaveTextContent('dark');
     });
 
+    it('loads tokyo-night theme from localStorage', () => {
+      localStorageData['theme'] = 'tokyo-night';
+
+      render(
+        <ThemeProvider>
+          <TestConsumer />
+        </ThemeProvider>
+      );
+
+      expect(screen.getByTestId('theme')).toHaveTextContent('tokyo-night');
+    });
+
     it('uses custom storage key', () => {
       localStorageData['custom-theme'] = 'light';
 
@@ -159,6 +174,18 @@ describe('ThemeProvider', () => {
       );
 
       expect(screen.getByTestId('resolved-theme')).toHaveTextContent('dark');
+    });
+
+    it('resolves to tokyo-night when theme is tokyo-night', () => {
+      render(
+        <ThemeProvider defaultTheme="tokyo-night">
+          <TestConsumer />
+        </ThemeProvider>
+      );
+
+      expect(screen.getByTestId('resolved-theme')).toHaveTextContent(
+        'tokyo-night'
+      );
     });
 
     it('resolves to system preference when theme is system (light)', () => {
@@ -251,6 +278,20 @@ describe('ThemeProvider', () => {
 
       expect(document.documentElement.classList.contains('dark')).toBe(true);
       expect(document.documentElement.classList.contains('light')).toBe(false);
+    });
+
+    it('adds tokyo-night class to document when resolved to tokyo-night', () => {
+      render(
+        <ThemeProvider defaultTheme="tokyo-night">
+          <TestConsumer />
+        </ThemeProvider>
+      );
+
+      expect(document.documentElement.classList.contains('tokyo-night')).toBe(
+        true
+      );
+      expect(document.documentElement.classList.contains('light')).toBe(false);
+      expect(document.documentElement.classList.contains('dark')).toBe(false);
     });
 
     it('updates document class when theme changes', async () => {
