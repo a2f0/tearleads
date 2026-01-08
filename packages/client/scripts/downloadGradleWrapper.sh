@@ -1,8 +1,24 @@
 #!/bin/sh
 set -e
 
-# Downloads the Gradle wrapper JAR from Maven Central
-# The version is extracted from gradle-wrapper.properties
+# Downloads the Gradle wrapper JAR from Gradle's GitHub repository.
+# The version is extracted from gradle-wrapper.properties.
+#
+# IMPORTANT: The gradle-wrapper.jar is gitignored and must be downloaded
+# before building. This script is called by CI workflows and should be
+# run locally after cloning the repo.
+#
+# To update the Gradle version:
+# 1. Edit android/gradle/wrapper/gradle-wrapper.properties
+# 2. Update distributionUrl to the new version (e.g., gradle-8.12-all.zip)
+# 3. Delete the existing gradle-wrapper.jar: rm android/gradle/wrapper/gradle-wrapper.jar
+# 4. Run this script to download the new JAR: ./scripts/downloadGradleWrapper.sh
+# 5. Test locally: cd android && ./gradlew assembleDebug
+#
+# DO NOT regenerate the wrapper using `gradle wrapper` with a different
+# Gradle version than specified in gradle-wrapper.properties, as this can
+# cause incompatibilities between the wrapper scripts (gradlew, gradlew.bat)
+# and the JAR file.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLIENT_DIR="$(dirname "$SCRIPT_DIR")"
