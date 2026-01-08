@@ -94,6 +94,10 @@ platform :ios do
 
     upload_to_testflight(
       skip_waiting_for_build_processing: true,
+      # Required to skip "Waiting for the build to show up in the build list" phase.
+      # Without this, fastlane waits for external distribution even when
+      # skip_waiting_for_build_processing is true.
+      distribute_external: false,
       ipa: './build/Rapid.ipa',
       changelog: generate_release_notes('ios')
     )
