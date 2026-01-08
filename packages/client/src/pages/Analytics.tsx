@@ -9,7 +9,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { DurationChart } from '@/components/DurationChart';
+import { DurationChart } from '@/components/duration-chart';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
