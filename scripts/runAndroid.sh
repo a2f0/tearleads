@@ -23,7 +23,7 @@ fi
 # Rebuild assets only if source changed or target missing
 SVG_SOURCE="../ui/src/images/logo.svg"
 TARGET_ASSET="android/app/src/main/res/mipmap-mdpi/ic_launcher.png"
-if [ ! -f "$TARGET_ASSET" ] || [ "$SVG_SOURCE" -nt "$TARGET_ASSET" ]; then
+if [ ! -f "$TARGET_ASSET" ] || [ -n "$(find "$SVG_SOURCE" -newer "$TARGET_ASSET" 2>/dev/null)" ]; then
   ./scripts/buildAndroidImageAssets.sh
 fi
 pnpm build && pnpm exec cap sync android
