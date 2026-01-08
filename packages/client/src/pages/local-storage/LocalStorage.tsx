@@ -3,73 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { formatFileSize } from '@/lib/utils';
-
-interface StorageEntry {
-  key: string;
-  value: string;
-  size: number;
-}
-
-interface DeleteButtonProps {
-  onClick: () => void;
-}
-
-function DeleteButton({ onClick }: DeleteButtonProps) {
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-6 w-6 opacity-0 group-hover:opacity-100"
-      onClick={onClick}
-      title="Delete"
-    >
-      <Trash2 className="h-3 w-3" />
-    </Button>
-  );
-}
-
-function StorageRow({
-  entry,
-  onDelete
-}: {
-  entry: StorageEntry;
-  onDelete: (key: string) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const isLongValue = entry.value.length > 100;
-  const displayValue = expanded ? entry.value : entry.value.slice(0, 100);
-
-  return (
-    <div className="group border-b last:border-b-0">
-      <div className="flex items-start gap-4 px-4 py-3 hover:bg-accent">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="font-medium font-mono text-sm">{entry.key}</span>
-            <span className="shrink-0 text-muted-foreground text-xs">
-              {formatFileSize(entry.size)}
-            </span>
-          </div>
-          <div className="mt-1">
-            <pre className="whitespace-pre-wrap break-all font-mono text-muted-foreground text-xs">
-              {displayValue}
-              {isLongValue && !expanded && '...'}
-            </pre>
-            {isLongValue && (
-              <button
-                type="button"
-                className="mt-1 text-primary text-xs hover:underline"
-                onClick={() => setExpanded(!expanded)}
-              >
-                {expanded ? 'Show less' : 'Show more'}
-              </button>
-            )}
-          </div>
-        </div>
-        <DeleteButton onClick={() => onDelete(entry.key)} />
-      </div>
-    </div>
-  );
-}
+import { type StorageEntry, StorageRow } from './StorageRow';
 
 function getStorageEntries(): StorageEntry[] {
   const entries: StorageEntry[] = [];
