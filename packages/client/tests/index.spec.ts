@@ -448,6 +448,86 @@ test.describe('Dropzone', () => {
     await expect(page.getByText('uploaded-file.png', { exact: true })).toBeVisible();
   });
 
+  test('should keep file actions visible on narrow viewport with long names', async ({
+    page
+  }) => {
+    const longName =
+      'this-is-a-very-long-file-name-that-should-truncate-and-not-cause-horizontal-scroll.png';
+
+    // First unlock the database
+    await navigateTo(page, 'SQLite');
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Go to Files page
+    await navigateTo(page, 'Files');
+
+    const fileInput = page.getByTestId('dropzone-input');
+    await fileInput.setInputFiles({
+      name: longName,
+      mimeType: 'image/png',
+      buffer: pngMagicBytes
+    });
+
+    const nameCell = page.getByText(longName, { exact: true });
+    await expect(nameCell).toBeVisible();
+
+    const row = page
+      .locator('div', { has: nameCell })
+      .filter({ has: page.getByTitle('Download') })
+      .first();
+
+    await expect(row).toBeVisible();
+
+    // Switch to a narrow viewport to verify mobile layout constraints
+    await page.setViewportSize({ width: 360, height: 800 });
+
+    const scrollInfo = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth
+    }));
+    expect(scrollInfo.scrollWidth - scrollInfo.clientWidth).toBeLessThanOrEqual(1);
+
+    const viewportWidth = page.viewportSize()?.width ?? 0;
+    expect(viewportWidth).toBeGreaterThan(0);
+
+    const downloadButton = row.getByTitle('Download');
+    const deleteButton = row.getByTitle('Delete');
+
+    const [downloadBox, deleteBox] = await Promise.all([
+      downloadButton.boundingBox(),
+      deleteButton.boundingBox()
+    ]);
+
+    expect(downloadBox).not.toBeNull();
+    expect(deleteBox).not.toBeNull();
+
+    if (downloadBox && deleteBox) {
+      expect(downloadBox.x + downloadBox.width).toBeLessThanOrEqual(
+        viewportWidth
+      );
+      expect(deleteBox.x + deleteBox.width).toBeLessThanOrEqual(viewportWidth);
+    }
+
+    const textStyles = await nameCell.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      return {
+        overflow: style.overflow,
+        textOverflow: style.textOverflow,
+        whiteSpace: style.whiteSpace,
+        scrollWidth: el.scrollWidth,
+        clientWidth: el.clientWidth
+      };
+    });
+
+    expect(textStyles.overflow).toBe('hidden');
+    expect(textStyles.textOverflow).toBe('ellipsis');
+    expect(textStyles.whiteSpace).toBe('nowrap');
+    expect(textStyles.scrollWidth).toBeGreaterThan(textStyles.clientWidth);
+  });
+
   test('should show error when file type cannot be detected', async ({ page }) => {
     // First unlock the database
     await navigateTo(page, 'SQLite');
