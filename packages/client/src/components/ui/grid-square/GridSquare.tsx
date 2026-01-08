@@ -20,6 +20,7 @@ export function GridSquare({
       type="button"
       onClick={onClick}
       data-testid={testId}
+      aria-pressed={selected}
       className={cn(
         'relative overflow-hidden rounded-lg border bg-muted transition-all',
         'hover:ring-2 hover:ring-primary hover:ring-offset-2',

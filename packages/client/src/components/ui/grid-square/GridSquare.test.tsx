@@ -23,7 +23,22 @@ describe('GridSquare', () => {
         Content
       </GridSquare>
     );
-    expect(screen.getByTestId('square').className).toContain('ring-2');
+    expect(screen.getByTestId('square')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+  });
+
+  it('shows unselected state', () => {
+    render(
+      <GridSquare selected={false} data-testid="square">
+        Content
+      </GridSquare>
+    );
+    expect(screen.getByTestId('square')).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    );
   });
 
   it('maintains 1:1 aspect ratio', () => {
