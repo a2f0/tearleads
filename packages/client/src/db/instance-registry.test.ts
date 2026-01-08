@@ -10,7 +10,9 @@ import {
   deleteInstanceFromRegistry,
   getActiveInstance,
   getActiveInstanceId,
+  getInstance,
   getInstances,
+  getRegistryData,
   initializeRegistry,
   setActiveInstanceId,
   touchInstance,
@@ -68,18 +70,19 @@ const mockDB = {
   createObjectStore: vi.fn()
 };
 
-const mockOpenRequest = {
+const createMockOpenRequest = () => ({
   result: mockDB,
   error: null,
   onsuccess: null as (() => void) | null,
   onerror: null as (() => void) | null,
   onupgradeneeded: null as (() => void) | null
-};
+});
 
 vi.stubGlobal('indexedDB', {
   open: vi.fn(() => {
-    setTimeout(() => mockOpenRequest.onsuccess?.(), 0);
-    return mockOpenRequest;
+    const request = createMockOpenRequest();
+    setTimeout(() => request.onsuccess?.(), 0);
+    return request;
   }),
   deleteDatabase: vi.fn(() => {
     const req = mockIDBRequest(undefined);
@@ -340,6 +343,15 @@ describe('instance-registry', () => {
 
       expect(instance.id).toBe('first');
     });
+
+    it('throws when registry data is corrupted', async () => {
+      mockStore.set('instances', [undefined]);
+      mockStore.set('active_instance', 'nonexistent');
+
+      await expect(initializeRegistry()).rejects.toThrow(
+        "Cannot read properties of undefined (reading 'id')"
+      );
+    });
   });
 
   describe('clearRegistry', () => {
@@ -387,6 +399,48 @@ describe('instance-registry', () => {
 
       const result = await getActiveInstance();
       expect(result).toBeNull();
+    });
+  });
+
+  describe('getInstance', () => {
+    it('returns the matching instance', async () => {
+      const instance: InstanceMetadata = {
+        id: 'target-id',
+        name: 'Instance 1',
+        createdAt: 1000,
+        lastAccessedAt: 2000
+      };
+      mockStore.set('instances', [instance]);
+
+      const result = await getInstance('target-id');
+      expect(result).toEqual(instance);
+    });
+
+    it('returns null when instance is missing', async () => {
+      mockStore.set('instances', []);
+
+      const result = await getInstance('missing-id');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getRegistryData', () => {
+    it('returns instances and active instance id', async () => {
+      const instances: InstanceMetadata[] = [
+        {
+          id: 'inst-1',
+          name: 'Instance 1',
+          createdAt: 1000,
+          lastAccessedAt: 2000
+        }
+      ];
+      mockStore.set('instances', instances);
+      mockStore.set('active_instance', 'inst-1');
+
+      const data = await getRegistryData();
+
+      expect(data.instances).toEqual(instances);
+      expect(data.activeInstanceId).toBe('inst-1');
     });
   });
 });
