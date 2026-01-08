@@ -21,17 +21,21 @@ appId: com.tearleads.rapid
         }
       }
 
-      // Mobile: open menu and click dropdown link
+      // Mobile: open menu and wait for dropdown to appear
       const menuButton = document.querySelector('[data-testid="mobile-menu-button"]');
       if (menuButton) {
         menuButton.click();
-        await new Promise(r => setTimeout(r, 300));
-        const dropdown = document.querySelector('[data-testid="mobile-menu-dropdown"]');
-        if (dropdown) {
-          const link = dropdown.querySelector('[data-testid="settings-link"]');
-          if (link) {
-            link.click();
-            return 'mobile';
+
+        // Poll for dropdown to appear (React needs time to update DOM)
+        for (let i = 0; i < 30; i++) {
+          await new Promise(r => setTimeout(r, 100));
+          const dropdown = document.querySelector('[data-testid="mobile-menu-dropdown"]');
+          if (dropdown) {
+            const link = dropdown.querySelector('[data-testid="settings-link"]');
+            if (link) {
+              link.click();
+              return 'mobile';
+            }
           }
         }
       }
