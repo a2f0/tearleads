@@ -132,13 +132,11 @@ export function Debug() {
             </div>
           </div>
         )}
-        <div className="mt-2 flex justify-center">
-          <RefreshButton
-            onClick={fetchPing}
-            loading={pingLoading}
-            className="w-full"
-          />
-        </div>
+        <RefreshButton
+          onClick={fetchPing}
+          loading={pingLoading}
+          className="mt-2 w-full"
+        />
       </div>
 
       <div className="space-y-3 rounded-lg border p-4">
