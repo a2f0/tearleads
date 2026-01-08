@@ -1,11 +1,5 @@
 import { and, desc, eq, like } from 'drizzle-orm';
-import {
-  Download,
-  ImageIcon,
-  Info,
-  Loader2,
-  Share2
-} from 'lucide-react';
+import { Download, ImageIcon, Info, Loader2, Share2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';

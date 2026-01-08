@@ -196,9 +196,7 @@ describe('Debug', () => {
 
       renderDebugRaw();
 
-      expect(
-        screen.getByRole('button', { name: 'Refresh' })
-      ).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Refresh' })).toBeDisabled();
     });
   });
 
