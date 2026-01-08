@@ -1,34 +1,10 @@
 import type { PingData } from '@rapid/shared';
-import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { API_BASE_URL, api } from '@/lib/api';
-import { cn, detectPlatform } from '@/lib/utils';
-
-function InfoRow({
-  label,
-  value,
-  valueClassName
-}: {
-  label: string;
-  value: ReactNode;
-  valueClassName?: string;
-}) {
-  return (
-    <div className="flex gap-1 text-sm">
-      <span className="shrink-0 font-medium">{label}: </span>
-      <span
-        className={cn(
-          'wrap-break-word min-w-0 text-muted-foreground',
-          valueClassName
-        )}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
+import { detectPlatform } from '@/lib/utils';
+import { InfoRow } from './InfoRow';
 
 export function Debug() {
   const [ping, setPing] = useState<PingData | null>(null);

@@ -1,13 +1,4 @@
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  BarChart3,
-  CheckCircle,
-  Clock,
-  Trash2,
-  XCircle
-} from 'lucide-react';
+import { BarChart3, CheckCircle, Clock, Trash2, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DurationChart } from '@/components/duration-chart';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -21,17 +12,12 @@ import {
   getDistinctEventTypes,
   getEventStats,
   getEvents,
-  type SortColumn,
-  type SortDirection
+  type SortColumn
 } from '@/db/analytics';
 import { useDatabaseContext } from '@/db/hooks';
+import { SortIcon, type SortState } from './SortIcon';
 
 type TimeFilter = 'hour' | 'day' | 'week' | 'all';
-
-export interface SortState {
-  column: SortColumn | null;
-  direction: SortDirection | null;
-}
 
 const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
   hour: 'Last Hour',
@@ -63,17 +49,6 @@ function getTimeRange(filter: TimeFilter): Date | undefined {
     case 'all':
       return undefined;
   }
-}
-
-function SortIcon({ column, sort }: { column: SortColumn; sort: SortState }) {
-  if (sort.column !== column) {
-    return <ArrowUpDown className="h-3 w-3 opacity-50" />;
-  }
-  return sort.direction === 'asc' ? (
-    <ArrowUp className="h-3 w-3" />
-  ) : (
-    <ArrowDown className="h-3 w-3" />
-  );
 }
 
 export function Analytics() {
