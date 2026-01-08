@@ -20,9 +20,13 @@ if [ -z "$PLATFORM" ]; then
 fi
 
 # Get the repository root to ensure paths work regardless of working directory
+if ! command -v git >/dev/null 2>&1; then
+    echo "Error: git is required but not found" >&2
+    exit 1
+fi
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 if [ -z "$REPO_ROOT" ]; then
-    echo "Error: Not in a git repository" >&2
+    echo "Error: Not a git repository." >&2
     exit 1
 fi
 
