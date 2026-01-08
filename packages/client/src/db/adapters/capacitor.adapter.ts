@@ -172,11 +172,12 @@ export class CapacitorAdapter implements DatabaseAdapter {
           // (common on fresh install where there's nothing to delete)
           const message =
             deleteErr instanceof Error ? deleteErr.message.toLowerCase() : '';
-          if (
-            !message.includes('not found') &&
-            !message.includes('does not exist') &&
-            !message.includes('no available connection')
-          ) {
+          const ignoredMessages = [
+            'not found',
+            'does not exist',
+            'no available connection'
+          ];
+          if (!ignoredMessages.some((msg) => message.includes(msg))) {
             throw deleteErr;
           }
         }
