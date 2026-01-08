@@ -9,98 +9,15 @@ import {
   YAxis
 } from 'recharts';
 import type { AnalyticsEvent } from '@/db/analytics';
+import { CustomDot } from './CustomDot';
+import { CustomTooltip } from './CustomTooltip';
+import { EVENT_COLORS } from './constants';
+import { formatDuration, formatEventName, formatXAxisTick } from './formatters';
 
 interface DurationChartProps {
   events: AnalyticsEvent[];
   selectedEventTypes: Set<string>;
   timeFilter: 'hour' | 'day' | 'week' | 'all';
-}
-
-const EVENT_COLORS = [
-  '#2563eb', // blue
-  '#16a34a', // green
-  '#dc2626', // red
-  '#9333ea', // purple
-  '#ea580c', // orange
-  '#0891b2', // cyan
-  '#c026d3', // fuchsia
-  '#65a30d' // lime
-];
-
-const SCATTER_DOT_RADIUS = 3;
-
-interface CustomDotProps {
-  cx?: number;
-  cy?: number;
-  fill?: string;
-}
-
-/** @internal Exported for testing */
-export function CustomDot({ cx, cy, fill }: CustomDotProps) {
-  if (cx === undefined || cy === undefined) return null;
-  return <circle cx={cx} cy={cy} r={SCATTER_DOT_RADIUS} fill={fill} />;
-}
-
-/** @internal Exported for testing */
-export function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(2)}s`;
-}
-
-/** @internal Exported for testing */
-export function formatXAxisTick(timestamp: number, timeFilter: string): string {
-  const date = new Date(timestamp);
-  if (timeFilter === 'hour' || timeFilter === 'day') {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-}
-
-/** @internal Exported for testing */
-export function formatEventName(name: string): string {
-  return name
-    .replace('db_', '')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-interface TooltipPayloadItem {
-  payload: {
-    eventName: string;
-    timestamp: number;
-    durationMs: number;
-    success: boolean;
-  };
-}
-
-function CustomTooltip({
-  active,
-  payload
-}: {
-  active?: boolean;
-  payload?: TooltipPayloadItem[];
-}) {
-  const firstPayload = payload?.[0];
-  if (!active || !firstPayload) return null;
-
-  const data = firstPayload.payload;
-  return (
-    <div className="rounded-lg border bg-background p-2 shadow-md">
-      <p className="font-medium">{formatEventName(data.eventName)}</p>
-      <p className="text-muted-foreground text-sm">
-        Duration: {formatDuration(data.durationMs)}
-      </p>
-      <p className="text-muted-foreground text-sm">
-        Time: {new Date(data.timestamp).toLocaleString()}
-      </p>
-      <p className="text-sm">
-        Status:{' '}
-        <span className={data.success ? 'text-green-600' : 'text-red-600'}>
-          {data.success ? 'Success' : 'Failed'}
-        </span>
-      </p>
-    </div>
-  );
 }
 
 export function DurationChart({
