@@ -134,9 +134,11 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    Run `/address-gemini-feedback` to handle any unresolved comments, then `/follow-up-with-gemini` to:
 
    - Notify Gemini that feedback has been addressed
-   - Wait for Gemini's response (polling every 30 seconds, up to 5 minutes)
+   - Immediately check for any existing Gemini confirmations before waiting; resolve threads right away if confirmations are already present
+   - If no confirmations yet, wait for Gemini's response (polling every 30 seconds, up to 5 minutes)
    - When Gemini confirms a fix is satisfactory, resolve the thread (see "Resolving Conversation Threads" below)
    - If Gemini requests further changes, repeat step 4e
+   - If the wait times out with unresolved threads, return to step 4b (don't proceed to CI) and try again on the next loop
 
    ### 4f. Wait for CI (with adaptive polling and branch freshness checks)
 
