@@ -94,7 +94,7 @@ describe('App', () => {
     // All nav items have test IDs and appear in both mobile menu and sidebar
     for (const item of navItems) {
       if (item.testId) {
-        expect(screen.getByTestId(item.testId)).toBeInTheDocument();
+        expect(screen.getAllByTestId(item.testId)).toHaveLength(2);
       }
       expect(screen.getAllByText(item.label)).toHaveLength(2);
     }
