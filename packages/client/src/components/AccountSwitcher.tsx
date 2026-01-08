@@ -9,6 +9,7 @@ import {
   useState
 } from 'react';
 import { useDatabaseContext } from '@/db/hooks/useDatabase';
+import { cn, detectPlatform } from '@/lib/utils';
 import { DeleteInstanceDialog } from './DeleteInstanceDialog';
 
 interface InstanceItemProps {
@@ -16,6 +17,7 @@ interface InstanceItemProps {
   isSelected: boolean;
   isUnlocked: boolean;
   showDeleteButton: boolean;
+  alwaysShowDeleteButton: boolean;
   onSwitch: (instanceId: string) => void;
   onDelete: (e: React.MouseEvent, instanceId: string) => void;
 }
@@ -25,6 +27,7 @@ const InstanceItem = memo(function InstanceItem({
   isSelected,
   isUnlocked,
   showDeleteButton,
+  alwaysShowDeleteButton,
   onSwitch,
   onDelete
 }: InstanceItemProps) {
@@ -89,7 +92,13 @@ const InstanceItem = memo(function InstanceItem({
       {showDeleteButton && (
         <button
           type="button"
-          className="rounded p-1 opacity-0 transition-opacity hover:bg-destructive/10 group-hover:opacity-100"
+          className={cn(
+            'rounded p-1 transition-opacity hover:bg-destructive/10',
+            {
+              'opacity-100': alwaysShowDeleteButton,
+              'opacity-0 group-hover:opacity-100': !alwaysShowDeleteButton
+            }
+          )}
           onClick={handleDeleteClick}
           aria-label={`Delete ${instance.name}`}
           data-testid={`delete-instance-${instance.id}`}
@@ -117,6 +126,10 @@ export function AccountSwitcher() {
   const [instanceToDelete, setInstanceToDelete] = useState<string | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const isMobile = useMemo(() => {
+    const platform = detectPlatform();
+    return platform === 'ios' || platform === 'android';
+  }, []);
 
   const toggleDropdown = () => {
     if (!isOpen && buttonRef.current) {
@@ -236,6 +249,7 @@ export function AccountSwitcher() {
                   isSelected={instance.id === currentInstanceId}
                   isUnlocked={isUnlocked}
                   showDeleteButton={instances.length > 1}
+                  alwaysShowDeleteButton={isMobile}
                   onSwitch={handleSwitchInstance}
                   onDelete={handleDeleteClick}
                 />
