@@ -170,17 +170,20 @@ test.describe('Index page', () => {
     await navigateTo(page, 'Settings');
 
     const body = page.locator('body');
+    const htmlElement = page.locator('html');
 
-    // Switch to light theme first
+    // Switch to light theme first and wait for class
     await page.getByTestId('theme-option-light').click();
+    await expect(htmlElement).toHaveClass(/light/);
 
     // Get initial background color
     const lightBgColor = await body.evaluate((el) =>
       window.getComputedStyle(el).backgroundColor
     );
 
-    // Switch to dark theme
+    // Switch to dark theme and wait for class
     await page.getByTestId('theme-option-dark').click();
+    await expect(htmlElement).toHaveClass(/dark/);
 
     // Get new background color
     const darkBgColor = await body.evaluate((el) =>
@@ -190,8 +193,9 @@ test.describe('Index page', () => {
     // Background colors should be different
     expect(darkBgColor).not.toBe(lightBgColor);
 
-    // Switch to Tokyo Night theme
+    // Switch to Tokyo Night theme and wait for class
     await page.getByTestId('theme-option-tokyo-night').click();
+    await expect(htmlElement).toHaveClass(/tokyo-night/);
 
     // Get Tokyo Night background color
     const tokyoNightBgColor = await body.evaluate((el) =>
