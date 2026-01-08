@@ -7,6 +7,8 @@ export {
 
 // Context
 export {
+  type ResolvedTheme,
+  type Theme,
   ThemeProvider,
   type ThemeProviderProps
 } from './context/themeProvider.js';
