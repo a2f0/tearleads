@@ -40,10 +40,21 @@ vi.mock('@/db/hooks/useDatabase', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
+vi.mock('@/lib/utils', async () => {
+  const actual = await vi.importActual('@/lib/utils');
+  return {
+    ...actual,
+    detectPlatform: vi.fn(() => 'web')
+  };
+});
+
+import { detectPlatform } from '@/lib/utils';
+
 describe('AccountSwitcher', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseDatabaseContext.mockReturnValue(defaultMockContext);
+    vi.mocked(detectPlatform).mockReturnValue('web');
   });
 
   it('renders the account button', () => {
@@ -374,6 +385,21 @@ describe('AccountSwitcher', () => {
       expect(
         screen.getByTestId('delete-instance-second-instance')
       ).toBeInTheDocument();
+    });
+
+    it('keeps delete buttons visible on mobile', async () => {
+      const user = userEvent.setup();
+      vi.mocked(detectPlatform).mockReturnValue('ios');
+      render(<AccountSwitcher />);
+
+      await user.click(screen.getByTestId('account-switcher-button'));
+
+      expect(screen.getByTestId('delete-instance-test-instance')).toHaveClass(
+        'opacity-100'
+      );
+      expect(
+        screen.getByTestId('delete-instance-test-instance')
+      ).not.toHaveClass('opacity-0');
     });
 
     it('does not show delete buttons when there is only one instance', async () => {
