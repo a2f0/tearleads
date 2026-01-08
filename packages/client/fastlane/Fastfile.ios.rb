@@ -94,6 +94,7 @@ platform :ios do
 
     upload_to_testflight(
       skip_waiting_for_build_processing: true,
+      distribute_external: false,
       ipa: './build/Rapid.ipa',
       changelog: generate_release_notes('ios')
     )
