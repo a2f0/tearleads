@@ -21,10 +21,10 @@ fi
 
 case "$PLATFORM" in
     ios)
-        BUMP_PATTERN="bump iOS build number"
+        VERSION_FILE="packages/client/ios/App/App.xcodeproj/project.pbxproj"
         ;;
     android)
-        BUMP_PATTERN="bump Android build number"
+        VERSION_FILE="packages/client/android/app/build.gradle"
         ;;
     *)
         echo "Error: Invalid platform '$PLATFORM'. Must be 'ios' or 'android'" >&2
@@ -47,9 +47,9 @@ if ! command -v jq >/dev/null 2>&1; then
     exit 1
 fi
 
-# Find the two most recent version bump commits for this platform
-# We want commits BETWEEN the previous bump and the current bump
-BUMP_COMMITS=$(git log --oneline --grep="$BUMP_PATTERN" -2 --format="%H" 2>/dev/null || echo "")
+# Find the two most recent commits that modified the version file
+# This reliably detects version bumps regardless of commit message format
+BUMP_COMMITS=$(git log -2 --format="%H" -- "$VERSION_FILE" 2>/dev/null || echo "")
 CURRENT_BUMP=$(echo "$BUMP_COMMITS" | head -1)
 PREVIOUS_BUMP=$(echo "$BUMP_COMMITS" | tail -1)
 
@@ -57,8 +57,8 @@ PREVIOUS_BUMP=$(echo "$BUMP_COMMITS" | tail -1)
 # Using -d @- reads the JSON from stdin
 # Note: We use commit messages only (no diffs) and Haiku model to stay within API rate limits
 
-# Exclude version bump commits from the release notes
-COMMITS=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" --no-merges --invert-grep --grep="bump.*build number" --format="- %s%n%b" 2>/dev/null)
+# Get commits between version bumps (excludes merge commits)
+COMMITS=$(git log "$PREVIOUS_BUMP".."$CURRENT_BUMP" --no-merges --format="- %s" 2>/dev/null)
 
 call_anthropic_api() {
     model="$1"
