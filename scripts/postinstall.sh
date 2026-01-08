@@ -12,7 +12,7 @@ TARGET="CLAUDE.md"
 LINK="AGENTS.md"
 
 if [ ! -e "$TARGET" ]; then
-  echo "postinstall: missing ${TARGET}, skipping ${LINK} symlink"
+  printf 'postinstall: missing %s, skipping %s symlink\n' "$TARGET" "$LINK"
   exit 0
 fi
 
