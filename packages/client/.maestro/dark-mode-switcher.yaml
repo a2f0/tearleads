@@ -5,20 +5,8 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Navigate to settings by dispatching a click event on the link
-- evalScript: |
-    const link = document.querySelector('[data-testid="settings-link"]');
-    if (link) {
-      // Dispatch a click event - works even on hidden elements with React Router
-      link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-    }
-
-# Small delay to allow React Router to process the navigation
-- evalScript: |
-    (async () => {
-      await new Promise(r => setTimeout(r, 500));
-      return 'waited';
-    })()
+# Navigate to settings - use same approach as tables-page test which works
+- evalScript: document.querySelector('[data-testid="settings-link"]').click()
 
 # Wait for Settings page to load
 - extendedWaitUntil:
