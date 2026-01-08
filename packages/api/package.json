@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/index.ts",
     "build": "tsc",
+    "buildOpenapi": "tsx scripts/generate-openapi.ts",
     "build:bundle": "rm -rf dist && esbuild src/index.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/server.cjs --minify --sourcemap",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
@@ -26,13 +27,15 @@
     "@rapid/shared": "workspace:*",
     "cors": "2.8.5",
     "dotenv": "17.2.3",
-    "express": "5.2.1"
+    "express": "5.2.1",
+    "swagger-jsdoc": "6.2.8"
   },
   "devDependencies": {
     "@types/cors": "2.8.19",
     "@types/express": "5.0.6",
     "@types/node": "25.0.3",
     "@types/supertest": "6.0.3",
+    "@types/swagger-jsdoc": "6.0.4",
     "@vitest/coverage-v8": "4.0.16",
     "esbuild": "0.27.2",
     "supertest": "7.1.4",

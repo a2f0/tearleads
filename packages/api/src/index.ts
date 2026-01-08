@@ -14,7 +14,45 @@ const PORT = Number(process.env['PORT']) || 5001;
 app.use(cors());
 app.use(express.json());
 
-// Routes
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     PingData:
+ *       type: object
+ *       properties:
+ *         version:
+ *           type: string
+ *           description: Current API version
+ *           example: "0.0.74"
+ *       required:
+ *         - version
+ *     Error:
+ *       type: object
+ *       properties:
+ *         error:
+ *           type: string
+ *           description: Error message
+ *       required:
+ *         - error
+ */
+
+/**
+ * @openapi
+ * /ping:
+ *   get:
+ *     summary: Health check endpoint
+ *     description: Returns the current API version
+ *     tags:
+ *       - Health
+ *     responses:
+ *       200:
+ *         description: Successful response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PingData'
+ */
 app.get('/v1/ping', (_req: Request, res: Response) => {
   const pingData: PingData = {
     version: packageJson.version

@@ -51,6 +51,10 @@ Skip issue creation for:
 
 - Do NOT add "Generated with Claude Code" footers to PR descriptions
 
+## Script Naming
+
+- Use camelCase for npm script names (e.g., `buildOpenapi` not `build:openapi`)
+
 ## UI Guidelines
 
 ### Input Fields
