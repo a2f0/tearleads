@@ -9,7 +9,7 @@ import {
   useState
 } from 'react';
 import { useDatabaseContext } from '@/db/hooks/useDatabase';
-import { detectPlatform } from '@/lib/utils';
+import { cn, detectPlatform } from '@/lib/utils';
 import { DeleteInstanceDialog } from './DeleteInstanceDialog';
 
 interface InstanceItemProps {
@@ -92,7 +92,13 @@ const InstanceItem = memo(function InstanceItem({
       {showDeleteButton && (
         <button
           type="button"
-          className={`rounded p-1 transition-opacity hover:bg-destructive/10 ${alwaysShowDeleteButton ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+          className={cn(
+            'rounded p-1 transition-opacity hover:bg-destructive/10',
+            {
+              'opacity-100': alwaysShowDeleteButton,
+              'opacity-0 group-hover:opacity-100': !alwaysShowDeleteButton
+            }
+          )}
           onClick={handleDeleteClick}
           aria-label={`Delete ${instance.name}`}
           data-testid={`delete-instance-${instance.id}`}
