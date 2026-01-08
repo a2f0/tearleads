@@ -53,6 +53,23 @@ Skip issue creation for:
 
 - Do NOT add "Generated with Claude Code" footers to PR descriptions
 
+## Adding Claude Code Skills
+
+The `.claude/commands/` folder contains reusable skills (slash commands). This folder is symlinked from workspace replicas (rapid2, rapid3, etc.) to `rapid-shared`, so changes only need to be made once.
+
+To add a new skill:
+
+1. Create the file in `.claude/commands/` (e.g., `my-skill.md`)
+2. Force-add it to git (the folder is gitignored to prevent symlink diffs in replicas):
+
+   ```bash
+   git add -f .claude/commands/my-skill.md
+   ```
+
+3. Commit and push as normal
+
+Existing tracked files are unaffected by the gitignore rule.
+
 ## Script Naming
 
 - Use camelCase for npm script names (e.g., `buildOpenapi` not `build:openapi`)
