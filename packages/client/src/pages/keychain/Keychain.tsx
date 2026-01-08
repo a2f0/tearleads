@@ -1,121 +1,12 @@
-import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  Key,
-  Loader2,
-  Trash2,
-  X
-} from 'lucide-react';
+import { Key, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import {
   deleteSessionKeysForInstance,
-  getKeyStatusForInstance,
-  type KeyStatus
+  getKeyStatusForInstance
 } from '@/db/crypto/key-manager';
-import { getInstances, type InstanceMetadata } from '@/db/instance-registry';
-
-interface InstanceKeyInfo {
-  instance: InstanceMetadata;
-  keyStatus: KeyStatus;
-}
-
-function formatDate(timestamp: number): string {
-  return new Date(timestamp).toLocaleString();
-}
-
-function KeyStatusIndicator({
-  exists,
-  label
-}: {
-  exists: boolean;
-  label: string;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      {exists ? (
-        <Check className="h-4 w-4 text-green-500" />
-      ) : (
-        <X className="h-4 w-4 text-muted-foreground" />
-      )}
-      <span className="text-muted-foreground text-sm">{label}</span>
-    </div>
-  );
-}
-
-function InstanceKeyRow({
-  info,
-  onDeleteSessionKeys,
-  isExpanded,
-  onToggle
-}: {
-  info: InstanceKeyInfo;
-  onDeleteSessionKeys: (instanceId: string) => void;
-  isExpanded: boolean;
-  onToggle: () => void;
-}) {
-  const hasSessionKeys =
-    info.keyStatus.wrappingKey || info.keyStatus.wrappedKey;
-
-  return (
-    <div className="border-b last:border-b-0">
-      <div className="group flex items-center justify-between p-3 hover:bg-accent">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex flex-1 items-center gap-2 text-left"
-        >
-          {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          )}
-          <Key className="h-4 w-4 text-amber-500" />
-          <span className="font-medium">{info.instance.name}</span>
-          <span className="font-mono text-muted-foreground text-xs">
-            {info.instance.id.slice(0, 8)}...
-          </span>
-        </button>
-        {hasSessionKeys && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 opacity-0 group-hover:opacity-100"
-            onClick={() => onDeleteSessionKeys(info.instance.id)}
-            title="Delete session keys"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        )}
-      </div>
-      {isExpanded && (
-        <div className="space-y-3 bg-muted/30 px-9 py-3">
-          <div className="text-muted-foreground text-xs">
-            <p>Created: {formatDate(info.instance.createdAt)}</p>
-            <p>Last accessed: {formatDate(info.instance.lastAccessedAt)}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <KeyStatusIndicator exists={info.keyStatus.salt} label="Salt" />
-            <KeyStatusIndicator
-              exists={info.keyStatus.keyCheckValue}
-              label="Key Check Value"
-            />
-            <KeyStatusIndicator
-              exists={info.keyStatus.wrappingKey}
-              label="Session Wrapping Key"
-            />
-            <KeyStatusIndicator
-              exists={info.keyStatus.wrappedKey}
-              label="Session Wrapped Key"
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+import { getInstances } from '@/db/instance-registry';
+import { type InstanceKeyInfo, InstanceKeyRow } from './InstanceKeyRow';
 
 export function Keychain() {
   const [instanceKeyInfos, setInstanceKeyInfos] = useState<InstanceKeyInfo[]>(
