@@ -4,15 +4,66 @@ description: Respond to Gemini's comments after resolving and pushing feedback.
 
 # Follow Up With Gemini
 
+## CRITICAL: Avoid Pending/Draft Reviews
+
+**DO NOT** use any of these commands - they create pending reviews that Gemini will never see:
+
+```bash
+# WRONG - creates pending review
+gh pr review --comment -b "message"
+gh pr review --request-changes
+gh api graphql -f query='mutation { addPullRequestReview(...) }'
+```
+
+**ALWAYS** use the REST API to reply directly to comment threads - these are immediately visible:
+
+```bash
+# CORRECT - creates immediate comment reply
+gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies -f body="message"
+```
+
+## Steps
+
 1. Get the PR number: `gh pr view --json number,title,url | cat`
 
-2. Find unresolved Gemini review comments using the GraphQL API to check `isResolved` status.
+2. Find unresolved Gemini review comments using the GraphQL API to check `isResolved` status:
+
+   ```bash
+   gh api graphql -f query='
+     query($owner: String!, $repo: String!, $pr: Int!) {
+       repository(owner: $owner, name: $repo) {
+         pullRequest(number: $pr) {
+           reviewThreads(first: 50) {
+             nodes {
+               id
+               isResolved
+               comments(first: 10) {
+                 nodes {
+                   id
+                   databaseId
+                   author { login }
+                   body
+                 }
+               }
+             }
+             pageInfo { hasNextPage endCursor }
+           }
+         }
+       }
+     }' -f owner=OWNER -f repo=REPO -F pr=PR_NUMBER
+   ```
 
 3. For each unresolved comment that has been addressed and pushed:
-   - Reply directly to that comment thread using `gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies`
+   - Reply directly using the REST API (NOT GraphQL reviews):
+
+     ```bash
+     # Use the databaseId from the comment you're replying to
+     gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies \
+       -f body="Fixed in commit abc1234. @gemini-code-assist Please confirm this addresses your feedback."
+     ```
+
    - **Include the commit SHA** that fixed the issue
    - Tag @gemini-code-assist and ask for confirmation
-   - Example: "Fixed in commit abc1234. @gemini-code-assist Please confirm this addresses your feedback."
 
    If deferring to an issue instead of fixing directly:
    - Example: "Tracked in #456 for follow-up. This is out of scope for the current PR."
