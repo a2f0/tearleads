@@ -19,6 +19,7 @@ dist-electron/
 .secrets
 /.test_files
 /.claude
+AGENTS.md
 
 # Logs
 logs

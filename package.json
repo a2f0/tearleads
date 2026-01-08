@@ -7,7 +7,7 @@
     "node": ">=22.21.1 <23"
   },
   "scripts": {
-    "postinstall": "pnpm build:shared && pnpm build:ui",
+    "postinstall": "./scripts/postinstall.sh && pnpm build:shared && pnpm build:ui",
     "build:shared": "pnpm --filter @rapid/shared build",
     "build:ui": "pnpm --filter @rapid/ui build",
     "dev": "VITE_API_URL=http://localhost:5001/v1 pnpm build:shared && pnpm build:ui && pnpm --filter @rapid/api buildOpenapi && concurrently -n api,client,website -c blue,magenta,cyan \"pnpm --filter @rapid/api dev\" \"pnpm --filter @rapid/client dev\" \"pnpm --filter @rapid/website dev\"",
