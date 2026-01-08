@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/index.ts",
-    "build": "tsc",
+    "build": "tsc && pnpm buildOpenapi",
     "buildOpenapi": "tsx scripts/generate-openapi.ts",
     "build:bundle": "rm -rf dist && esbuild src/index.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/server.cjs --minify --sourcemap",
     "start": "node dist/server.cjs",
