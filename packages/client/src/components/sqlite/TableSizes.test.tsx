@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TableSizes } from './TableSizes';
 
@@ -333,6 +333,45 @@ describe('TableSizes', () => {
       const postsLink = screen.getByRole('link', { name: 'posts' });
       expect(usersLink).toHaveAttribute('href', '/tables/users');
       expect(postsLink).toHaveAttribute('href', '/tables/posts');
+    });
+
+    it('passes navigation state for back navigation', async () => {
+      setupMockContext({ isUnlocked: true });
+      setupMockAdapter({
+        tables: { rows: [{ name: 'users' }] },
+        dbstat: { rows: [{ size: 1024 }] }
+      });
+
+      const Destination = () => {
+        const location = useLocation();
+        return (
+          <div data-testid="location-state">
+            {JSON.stringify(location.state)}
+          </div>
+        );
+      };
+
+      render(
+        <MemoryRouter initialEntries={['/sqlite']}>
+          <Routes>
+            <Route path="/sqlite" element={<TableSizes />} />
+            <Route path="/tables/users" element={<Destination />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+      });
+
+      const link = screen.getByRole('link', { name: 'users' });
+      await userEvent.setup().click(link);
+
+      const locationState = await screen.findByTestId('location-state');
+      expect(JSON.parse(locationState.textContent ?? '{}')).toEqual({
+        from: '/sqlite',
+        fromLabel: 'Back to SQLite'
+      });
     });
   });
 });
