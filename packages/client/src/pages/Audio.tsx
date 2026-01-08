@@ -5,6 +5,7 @@ import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
+import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
@@ -320,9 +321,9 @@ export function AudioPage() {
               const isTrackPlaying = isCurrentTrack && isPlaying;
 
               return (
-                <div
+                <ListRow
                   key={track.id}
-                  className={`flex min-w-0 items-center gap-3 overflow-hidden rounded-lg border bg-muted/50 p-3 ${
+                  className={`${
                     isCurrentTrack ? 'border-primary bg-primary/5' : ''
                   }`}
                   data-testid={`audio-track-${track.id}`}
@@ -330,7 +331,7 @@ export function AudioPage() {
                   <button
                     type="button"
                     onClick={() => handlePlayPause(track)}
-                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
                     data-testid={`audio-play-${track.id}`}
                   >
                     <div className="relative shrink-0">
@@ -367,7 +368,7 @@ export function AudioPage() {
                   >
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </Button>
-                </div>
+                </ListRow>
               );
             })}
           </div>
