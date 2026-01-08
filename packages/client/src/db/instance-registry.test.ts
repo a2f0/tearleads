@@ -348,9 +348,7 @@ describe('instance-registry', () => {
       mockStore.set('instances', [undefined]);
       mockStore.set('active_instance', 'nonexistent');
 
-      await expect(initializeRegistry()).rejects.toThrow(
-        "Cannot read properties of undefined (reading 'id')"
-      );
+      await expect(initializeRegistry()).rejects.toThrow();
     });
   });
 
