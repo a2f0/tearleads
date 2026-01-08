@@ -3,9 +3,9 @@ set -eu
 
 PACKAGE_ID=${1:-"com.tearleads.rapid"}
 
-# Check for connected device
-if ! adb devices 2>/dev/null | grep -q "device$"; then
-    echo "Error: No Android device connected"
+# Check for connected physical device (exclude emulators)
+if ! adb devices 2>/dev/null | grep -E "^[^e].*device$" | grep -qv "^emulator"; then
+    echo "Error: No physical Android device connected (emulators are excluded)"
     exit 1
 fi
 
