@@ -64,7 +64,7 @@ Skip issue creation for:
 ### Component Organization
 
 - **One component per file** - Each React component must have its own file
-- **Feature-based folders** - Group related components into feature folders rather than a flat directory structure
+- **Group by folder** - Group related components into folders. This is often by feature (e.g., `auth/`), but also useful for compound components (e.g., `context-menu/`)
 
   ```text
   src/
@@ -72,11 +72,13 @@ Skip issue creation for:
       auth/
         LoginForm.tsx
         LoginForm.test.tsx
-        SignupButton.tsx
-        SignupButton.test.tsx
-      dashboard/
-        Dashboard.tsx
-        Dashboard.test.tsx
+    components/ui/
+      context-menu/
+        ContextMenu.tsx
+        ContextMenu.test.tsx
+        ContextMenuItem.tsx
+        ContextMenuItem.test.tsx
+        index.ts
   ```
 
 - **Colocate tests** - Keep `.test.tsx` files next to their component files
