@@ -9,26 +9,19 @@ describe('OpenAPI Specification', () => {
   });
 
   it('should include API info', () => {
-    const info = openapiSpecification.info as {
-      title: string;
-      version: string;
-      description: string;
-    };
-    expect(info.title).toBe('Rapid API');
-    expect(info.version).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(info.description).toBe('API documentation for Rapid');
+    expect(openapiSpecification.info.title).toBe('Rapid API');
+    expect(openapiSpecification.info.version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(openapiSpecification.info.description).toBe(
+      'API documentation for Rapid'
+    );
   });
 
   it('should include ping endpoint', () => {
-    const paths = openapiSpecification.paths as Record<string, unknown>;
-    expect(paths).toHaveProperty('/ping');
+    expect(openapiSpecification.paths).toHaveProperty('/ping');
   });
 
   it('should include component schemas', () => {
-    const components = openapiSpecification.components as {
-      schemas: Record<string, unknown>;
-    };
-    expect(components.schemas).toHaveProperty('PingData');
-    expect(components.schemas).toHaveProperty('Error');
+    expect(openapiSpecification.components?.schemas).toHaveProperty('PingData');
+    expect(openapiSpecification.components?.schemas).toHaveProperty('Error');
   });
 });
