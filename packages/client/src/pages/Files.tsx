@@ -368,9 +368,7 @@ export function Files() {
       {uploadingFiles.length > 0 && (
         <div className="space-y-2">
           {uploadingFiles.map((entry) => (
-            <ListRow
-              key={entry.id}
-            >
+            <ListRow key={entry.id}>
               {entry.status === 'uploading' && (
                 <Loader2 className="h-5 w-5 shrink-0 animate-spin text-muted-foreground" />
               )}
@@ -429,9 +427,7 @@ export function Files() {
                 return (
                   <ListRow
                     key={file.id}
-                    className={`${
-                      file.deleted ? 'opacity-60' : ''
-                    }`}
+                    className={`${file.deleted ? 'opacity-60' : ''}`}
                   >
                     {(() => {
                       const isClickable =
