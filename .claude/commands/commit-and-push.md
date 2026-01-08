@@ -27,3 +27,16 @@ Commit and push the current changes following these rules:
    **IMPORTANT**: When replying to Gemini comments, use the REST API (`gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies`), NOT `gh pr review`. The `gh pr review` command creates pending/draft reviews that Gemini cannot see until submitted.
 
 8. **Merge**: Run `/enter-merge-queue` to automate merging (updates from base, fixes CI, bumps versions, waits for merge).
+
+## Token Efficiency
+
+Minimize token consumption from git hook output:
+
+- **Suppress stdout on git operations**: Pre-push hooks run linting, builds, and tests that produce verbose stdout. Redirect stdout to `/dev/null` while preserving stderr for errors:
+
+  ```bash
+  git commit -S -m "message" >/dev/null
+  git push >/dev/null
+  ```
+
+- **Only stderr matters**: On success, the exit code is sufficient. On failure, errors appear on stderr which is preserved by the redirect.

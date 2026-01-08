@@ -219,6 +219,15 @@ All threads must be resolved before merge. Use `/follow-up-with-gemini` which ha
 
 Minimize context consumption during long merge queue sessions:
 
+- **Suppress stdout on git operations**: Pre-push hooks run linting, builds, and tests that produce verbose stdout. Redirect stdout to `/dev/null` while preserving stderr for errors:
+
+  ```bash
+  git push --force-with-lease >/dev/null
+  git push >/dev/null
+  ```
+
+  On success, the exit code is sufficient. On failure, errors appear on stderr which is preserved.
+
 - **Cache PR metadata**: Store `number`, `baseRefName`, `headRefName`, `url` from step 1. Don't re-fetch immutable data.
 - **Minimal status checks**: Use `--json` with only needed fields (e.g., `state,mergeStateStatus` not full PR details).
 - **Avoid verbose CI logs**: When checking CI status, don't fetch full logs unless there's a failure to diagnose.
