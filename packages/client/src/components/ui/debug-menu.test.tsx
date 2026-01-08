@@ -82,6 +82,30 @@ describe('DebugMenu', () => {
     expect(api.ping.get).toHaveBeenCalled();
   });
 
+  it('shows loading state while ping is in flight', async () => {
+    const user = userEvent.setup();
+    let resolvePing: (data: typeof mockPingData) => void;
+
+    vi.mocked(api.ping.get).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePing = resolve;
+        })
+    );
+
+    render(<DebugMenu />);
+
+    await user.click(screen.getByRole('button', { name: /open debug menu/i }));
+
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+
+    resolvePing!(mockPingData);
+
+    await waitFor(() => {
+      expect(screen.getByText('0.0.2')).toBeInTheDocument();
+    });
+  });
+
   it('displays error when ping fails', async () => {
     const user = userEvent.setup();
     vi.mocked(api.ping.get).mockRejectedValue(new Error('API error: 500'));
