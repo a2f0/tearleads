@@ -40,7 +40,7 @@ const CacheStorage = lazy(() =>
   import('./pages/CacheStorage').then((m) => ({ default: m.CacheStorage }))
 );
 const Chat = lazy(() =>
-  import('./pages/Chat').then((m) => ({ default: m.Chat }))
+  import('./pages/chat').then((m) => ({ default: m.Chat }))
 );
 const ContactDetail = lazy(() =>
   import('./pages/ContactDetail').then((m) => ({ default: m.ContactDetail }))
@@ -70,7 +70,7 @@ const Models = lazy(() =>
   import('./pages/Models').then((m) => ({ default: m.Models }))
 );
 const Opfs = lazy(() =>
-  import('./pages/Opfs').then((m) => ({ default: m.Opfs }))
+  import('./pages/opfs').then((m) => ({ default: m.Opfs }))
 );
 const PhotoDetail = lazy(() =>
   import('./pages/PhotoDetail').then((m) => ({ default: m.PhotoDetail }))
