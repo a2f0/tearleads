@@ -5,40 +5,9 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Navigate to settings - check viewport to determine desktop vs mobile
+# Navigate to settings via URL - this avoids mobile/desktop navigation differences
 - evalScript: |
-    (async () => {
-      const isDesktop = window.innerWidth >= 1024;
-
-      if (isDesktop) {
-        // Desktop: click sidebar settings link directly
-        const settingsLink = document.querySelector('aside [data-testid="settings-link"]');
-        if (settingsLink) {
-          settingsLink.scrollIntoView();
-          settingsLink.click();
-          return 'desktop-clicked';
-        }
-      }
-
-      // Mobile: open mobile menu first
-      const menuButton = document.querySelector('[data-testid="mobile-menu-button"]');
-      if (!menuButton) throw new Error('Mobile menu button not found');
-      menuButton.click();
-
-      // Wait for dropdown to appear
-      for (let i = 0; i < 30; i++) {
-        const dropdown = document.querySelector('[data-testid="mobile-menu-dropdown"]');
-        if (dropdown) {
-          const settingsLink = dropdown.querySelector('[data-testid="settings-link"]');
-          if (settingsLink) {
-            settingsLink.click();
-            return 'mobile-clicked';
-          }
-        }
-        await new Promise(r => setTimeout(r, 100));
-      }
-      throw new Error('Could not find settings link in mobile menu');
-    })()
+    window.location.href = '/settings';
 
 # Wait for Settings page to load
 - extendedWaitUntil:
