@@ -6,7 +6,7 @@ import { ThemePreview } from './ThemePreview';
 const THEMES: ResolvedTheme[] = ['light', 'dark', 'tokyo-night'];
 
 export function ThemeSelector() {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
 
   return (
     <div className="space-y-3">
@@ -21,7 +21,7 @@ export function ThemeSelector() {
           <GridSquare
             key={t}
             onClick={() => setTheme(t)}
-            selected={theme === t}
+            selected={resolvedTheme === t}
             data-testid={`theme-option-${t}`}
           >
             <ThemePreview theme={t} />
