@@ -131,6 +131,8 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    **Important**: All conversation threads must be resolved before the PR can merge.
 
+   **CRITICAL - Avoid Pending Reviews**: When replying to Gemini comments, use the REST API (`gh api repos/.../pulls/.../comments/{id}/replies`), NOT `gh pr review`. The `gh pr review` command creates pending/draft reviews that remain invisible until submitted - Gemini will never see them.
+
    Run `/address-gemini-feedback` to handle any unresolved comments, then `/follow-up-with-gemini` to:
 
    - Notify Gemini that feedback has been addressed
