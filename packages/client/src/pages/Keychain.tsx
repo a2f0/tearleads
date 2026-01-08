@@ -187,7 +187,7 @@ export function Keychain() {
   const instanceLabel = instanceCount === 1 ? 'instance' : 'instances';
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-bold text-2xl tracking-tight">
