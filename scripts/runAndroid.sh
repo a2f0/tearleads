@@ -17,6 +17,9 @@ if ! adb devices 2>/dev/null | grep -q "emulator"; then
     echo "Emulator ready"
 fi
 
+# Download gradle wrapper if needed (script exits early if already present)
+"$PWD/scripts/downloadGradleWrapper.sh"
+
 pnpm build && pnpm exec cap sync android
 adb shell am force-stop "$PACKAGE_ID" 2>/dev/null || true
 # Note: Don't uninstall - it wipes app data. Use resetAndroidEmulator.sh for clean slate.
