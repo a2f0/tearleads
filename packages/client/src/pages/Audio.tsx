@@ -1,10 +1,11 @@
 import { and, desc, eq, like } from 'drizzle-orm';
-import { ChevronRight, Loader2, Music, Pause, RefreshCw } from 'lucide-react';
+import { ChevronRight, Loader2, Music, Pause } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
@@ -264,17 +265,7 @@ export function AudioPage() {
           <h1 className="font-bold text-2xl tracking-tight">Audio</h1>
         </div>
         {isUnlocked && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchTracks}
-            disabled={loading}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-            />
-            Refresh
-          </Button>
+          <RefreshButton onClick={fetchTracks} loading={loading} />
         )}
       </div>
 

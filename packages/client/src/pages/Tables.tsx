@@ -1,8 +1,8 @@
-import { ChevronRight, RefreshCw, Table2 } from 'lucide-react';
+import { ChevronRight, Table2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { LinkWithFrom } from '@/components/ui/back-link';
-import { Button } from '@/components/ui/button';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 
@@ -77,17 +77,7 @@ export function Tables() {
       <div className="flex items-center justify-between">
         <h1 className="font-bold text-2xl tracking-tight">Tables</h1>
         {isUnlocked && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchTables}
-            disabled={loading}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-            />
-            Refresh
-          </Button>
+          <RefreshButton onClick={fetchTables} loading={loading} />
         )}
       </div>
 

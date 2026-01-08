@@ -78,7 +78,9 @@ describe('Keychain', () => {
       renderKeychain();
 
       await waitFor(() => {
-        expect(screen.getByText('Refresh')).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: 'Refresh' })
+        ).toBeInTheDocument();
       });
     });
   });
@@ -315,7 +317,7 @@ describe('Keychain', () => {
 
       expect(mockGetInstances).toHaveBeenCalledTimes(1);
 
-      await user.click(screen.getByText('Refresh'));
+      await user.click(screen.getByRole('button', { name: 'Refresh' }));
 
       await waitFor(() => {
         expect(mockGetInstances).toHaveBeenCalledTimes(2);

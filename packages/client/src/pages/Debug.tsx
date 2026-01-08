@@ -1,8 +1,8 @@
 import type { PingData } from '@rapid/shared';
-import { RefreshCw } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import { API_BASE_URL, api } from '@/lib/api';
 import { cn, detectPlatform } from '@/lib/utils';
 
@@ -132,16 +132,13 @@ export function Debug() {
             </div>
           </div>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-2 w-full"
-          onClick={fetchPing}
-          disabled={pingLoading}
-        >
-          <RefreshCw className="mr-2 h-3 w-3" />
-          {pingLoading ? 'Refreshing...' : 'Refresh'}
-        </Button>
+        <div className="mt-2 flex justify-center">
+          <RefreshButton
+            onClick={fetchPing}
+            loading={pingLoading}
+            className="w-full"
+          />
+        </div>
       </div>
 
       <div className="space-y-3 rounded-lg border p-4">

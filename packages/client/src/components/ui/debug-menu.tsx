@@ -1,7 +1,8 @@
 import type { PingData } from '@rapid/shared';
-import { Bug, RefreshCw, X } from 'lucide-react';
+import { Bug, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import { API_BASE_URL, api } from '@/lib/api';
 
 export function DebugMenu() {
@@ -116,16 +117,13 @@ export function DebugMenu() {
                     </div>
                   </div>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2 w-full"
-                  onClick={fetchPing}
-                  disabled={pingLoading}
-                >
-                  <RefreshCw className="mr-2 h-3 w-3" />
-                  {pingLoading ? 'Refreshing...' : 'Refresh'}
-                </Button>
+                <div className="mt-2 flex justify-center">
+                  <RefreshButton
+                    onClick={fetchPing}
+                    loading={pingLoading}
+                    className="w-full"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2 border-t pt-3">

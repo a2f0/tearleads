@@ -3,7 +3,6 @@ import {
   ArrowUp,
   ArrowUpDown,
   Braces,
-  RefreshCw,
   Settings,
   Trash2
 } from 'lucide-react';
@@ -12,6 +11,7 @@ import { useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { cn } from '@/lib/utils';
@@ -423,17 +423,7 @@ export function TableRows() {
                   ? 'Confirm'
                   : 'Truncate'}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchTableData}
-              disabled={loading}
-            >
-              <RefreshCw
-                className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-              />
-              Refresh
-            </Button>
+            <RefreshButton onClick={fetchTableData} loading={loading} />
           </div>
         )}
       </div>
