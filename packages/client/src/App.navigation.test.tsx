@@ -178,7 +178,7 @@ describe('App Integration', () => {
         await user.click(settingsLink);
 
         await waitFor(() => {
-          expect(screen.getByText('Dark Mode')).toBeInTheDocument();
+          expect(screen.getByText('Theme')).toBeInTheDocument();
         });
       });
 

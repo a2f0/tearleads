@@ -59,8 +59,8 @@ describe('Settings', () => {
       expect(screen.getByText('Settings')).toBeInTheDocument();
     });
 
-    it('renders the dark mode toggle', () => {
-      expect(screen.getByTestId('dark-mode-switch')).toBeInTheDocument();
+    it('renders the theme selector', () => {
+      expect(screen.getByTestId('theme-selector-grid')).toBeInTheDocument();
     });
 
     it('renders the version at the bottom', () => {
