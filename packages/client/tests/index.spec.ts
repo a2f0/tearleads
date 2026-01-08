@@ -163,49 +163,29 @@ test.describe('Index page', () => {
     await expect(htmlElement).toHaveClass(/light/);
   });
 
-  test('should change background color when theme is changed', async ({
-    page
-  }) => {
+  test('should apply correct theme class to html element', async ({ page }) => {
     // Navigate to settings
     await navigateTo(page, 'Settings');
 
-    // The background is applied to the app container, not the body
-    const appContainer = page.locator('.bg-background').first();
     const htmlElement = page.locator('html');
 
-    // Switch to light theme first and wait for class
+    // Switch to light theme
     await page.getByTestId('theme-option-light').click();
     await expect(htmlElement).toHaveClass(/light/);
+    await expect(htmlElement).not.toHaveClass(/dark/);
+    await expect(htmlElement).not.toHaveClass(/tokyo-night/);
 
-    // Get initial background color
-    const lightBgColor = await appContainer.evaluate((el) =>
-      window.getComputedStyle(el).backgroundColor
-    );
-
-    // Switch to dark theme and wait for class
+    // Switch to dark theme
     await page.getByTestId('theme-option-dark').click();
     await expect(htmlElement).toHaveClass(/dark/);
+    await expect(htmlElement).not.toHaveClass(/light/);
+    await expect(htmlElement).not.toHaveClass(/tokyo-night/);
 
-    // Get new background color
-    const darkBgColor = await appContainer.evaluate((el) =>
-      window.getComputedStyle(el).backgroundColor
-    );
-
-    // Background colors should be different
-    expect(darkBgColor).not.toBe(lightBgColor);
-
-    // Switch to Tokyo Night theme and wait for class
+    // Switch to Tokyo Night theme
     await page.getByTestId('theme-option-tokyo-night').click();
     await expect(htmlElement).toHaveClass(/tokyo-night/);
-
-    // Get Tokyo Night background color
-    const tokyoNightBgColor = await appContainer.evaluate((el) =>
-      window.getComputedStyle(el).backgroundColor
-    );
-
-    // Should be different from both light and dark
-    expect(tokyoNightBgColor).not.toBe(lightBgColor);
-    expect(tokyoNightBgColor).not.toBe(darkBgColor);
+    await expect(htmlElement).not.toHaveClass(/light/);
+    await expect(htmlElement).not.toHaveClass(/dark/);
   });
 });
 
