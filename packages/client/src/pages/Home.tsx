@@ -12,8 +12,8 @@ export function Home() {
           const Icon = item.icon;
           const isSettings = item.path === '/settings';
           const bgClasses = isSettings
-            ? 'from-muted-foreground/60 to-muted-foreground'
-            : 'from-primary/80 to-primary';
+            ? 'bg-muted-foreground from-muted-foreground/60 to-muted-foreground'
+            : 'bg-primary from-primary/80 to-primary';
 
           return (
             <Link
