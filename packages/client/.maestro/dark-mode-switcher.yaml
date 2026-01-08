@@ -8,19 +8,20 @@ appId: com.tearleads.rapid
 # Navigate to settings - handle both mobile (< 1024px) and desktop viewports
 - evalScript: |
     (async () => {
-      // Check if we're on mobile viewport (sidebar hidden, mobile menu visible)
-      const menuButton = document.querySelector('[data-testid="mobile-menu-button"]');
-      const isMobile = menuButton && window.getComputedStyle(menuButton.parentElement).display !== 'none';
+      // Check viewport width directly for reliable detection
+      const isMobile = window.innerWidth < 1024;
 
       if (isMobile) {
         // Mobile: open menu, wait for dropdown, click settings
-        menuButton.click();
+        const menuButton = document.querySelector('[data-testid="mobile-menu-button"]');
+        if (menuButton) menuButton.click();
         for (let i = 0; i < 50; i++) {
           const dropdown = document.querySelector('[data-testid="mobile-menu-dropdown"]');
           if (dropdown) {
             const link = dropdown.querySelector('[data-testid="settings-link"]');
             if (link) {
               link.scrollIntoView({ behavior: 'instant', block: 'center' });
+              await new Promise(r => setTimeout(r, 100));
               link.click();
               return 'mobile-clicked';
             }
@@ -29,21 +30,15 @@ appId: com.tearleads.rapid
         }
         throw new Error('Settings link not found in mobile menu');
       } else {
-        // Desktop: sidebar is visible, scroll to and click settings link directly
+        // Desktop: sidebar is visible, scroll to and click settings link
         const sidebarLink = document.querySelector('aside [data-testid="settings-link"]');
         if (sidebarLink) {
           sidebarLink.scrollIntoView({ behavior: 'instant', block: 'center' });
+          await new Promise(r => setTimeout(r, 200));
           sidebarLink.click();
           return 'desktop-clicked';
         }
-        // Fallback: try any visible settings link
-        const anyLink = document.querySelector('[data-testid="settings-link"]');
-        if (anyLink) {
-          anyLink.scrollIntoView({ behavior: 'instant', block: 'center' });
-          anyLink.click();
-          return 'fallback-clicked';
-        }
-        throw new Error('Settings link not found');
+        throw new Error('Settings link not found in sidebar');
       }
     })()
 
