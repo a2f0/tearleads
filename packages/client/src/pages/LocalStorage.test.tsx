@@ -57,7 +57,9 @@ describe('LocalStorage', () => {
     it('renders Refresh button', () => {
       renderLocalStorage();
 
-      expect(screen.getByText('Refresh')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Refresh' })
+      ).toBeInTheDocument();
     });
   });
 
@@ -260,7 +262,7 @@ describe('LocalStorage', () => {
       // Add data to localStorage
       localStorageData = { 'new-key': 'new-value' };
 
-      await user.click(screen.getByText('Refresh'));
+      await user.click(screen.getByRole('button', { name: 'Refresh' }));
 
       await waitFor(() => {
         expect(screen.getByText('new-key')).toBeInTheDocument();
