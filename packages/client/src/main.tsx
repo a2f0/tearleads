@@ -28,7 +28,7 @@ if ('serviceWorker' in navigator) {
 
 // Lazy-loaded pages for code splitting
 const Analytics = lazy(() =>
-  import('./pages/Analytics').then((m) => ({ default: m.Analytics }))
+  import('./pages/analytics').then((m) => ({ default: m.Analytics }))
 );
 const AudioDetail = lazy(() =>
   import('./pages/AudioDetail').then((m) => ({ default: m.AudioDetail }))
@@ -37,7 +37,7 @@ const AudioPage = lazy(() =>
   import('./pages/Audio').then((m) => ({ default: m.AudioPage }))
 );
 const CacheStorage = lazy(() =>
-  import('./pages/CacheStorage').then((m) => ({ default: m.CacheStorage }))
+  import('./pages/cache-storage').then((m) => ({ default: m.CacheStorage }))
 );
 const Chat = lazy(() =>
   import('./pages/chat').then((m) => ({ default: m.Chat }))
@@ -49,10 +49,10 @@ const ContactNew = lazy(() =>
   import('./pages/ContactNew').then((m) => ({ default: m.ContactNew }))
 );
 const Contacts = lazy(() =>
-  import('./pages/Contacts').then((m) => ({ default: m.Contacts }))
+  import('./pages/contacts').then((m) => ({ default: m.Contacts }))
 );
 const Debug = lazy(() =>
-  import('./pages/Debug').then((m) => ({ default: m.Debug }))
+  import('./pages/debug').then((m) => ({ default: m.Debug }))
 );
 const Files = lazy(() =>
   import('./pages/Files').then((m) => ({ default: m.Files }))
@@ -61,13 +61,13 @@ const Home = lazy(() =>
   import('./pages/Home').then((m) => ({ default: m.Home }))
 );
 const Keychain = lazy(() =>
-  import('./pages/Keychain').then((m) => ({ default: m.Keychain }))
+  import('./pages/keychain').then((m) => ({ default: m.Keychain }))
 );
 const LocalStorage = lazy(() =>
-  import('./pages/LocalStorage').then((m) => ({ default: m.LocalStorage }))
+  import('./pages/local-storage').then((m) => ({ default: m.LocalStorage }))
 );
 const Models = lazy(() =>
-  import('./pages/Models').then((m) => ({ default: m.Models }))
+  import('./pages/models').then((m) => ({ default: m.Models }))
 );
 const Opfs = lazy(() =>
   import('./pages/opfs').then((m) => ({ default: m.Opfs }))

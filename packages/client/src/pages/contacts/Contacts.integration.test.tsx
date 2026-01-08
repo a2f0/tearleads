@@ -6,15 +6,15 @@
  */
 
 // Import integration setup FIRST
-import '../test/setup-integration';
+import '../../test/setup-integration';
 
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { getDatabase } from '@/db';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
-import { renderWithDatabase } from '../test/render-with-database';
-import { resetTestKeyManager } from '../test/test-key-manager';
+import { renderWithDatabase } from '../../test/render-with-database';
+import { resetTestKeyManager } from '../../test/test-key-manager';
 import { Contacts } from './Contacts';
 
 // Helper to create test contacts directly in the database
