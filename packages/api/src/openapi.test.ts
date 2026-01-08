@@ -1,27 +1,70 @@
-import { describe, expect, it } from 'vitest';
-import { openapiSpecification } from './openapi.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('OpenAPI Specification', () => {
-  it('should generate valid OpenAPI 3.0 spec', () => {
-    expect(openapiSpecification).toHaveProperty('openapi', '3.0.0');
-    expect(openapiSpecification).toHaveProperty('info');
-    expect(openapiSpecification).toHaveProperty('paths');
+  describe('with default (development) settings', () => {
+    beforeEach(() => {
+      vi.resetModules();
+      vi.stubEnv('VITE_API_URL', '');
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('should generate valid OpenAPI 3.0 spec', async () => {
+      const { openapiSpecification } = await import('./openapi.js');
+      expect(openapiSpecification).toHaveProperty('openapi', '3.0.0');
+      expect(openapiSpecification).toHaveProperty('info');
+      expect(openapiSpecification).toHaveProperty('paths');
+    });
+
+    it('should include API info', async () => {
+      const { openapiSpecification } = await import('./openapi.js');
+      expect(openapiSpecification.info.title).toBe('Rapid API');
+      expect(openapiSpecification.info.version).toMatch(/^\d+\.\d+\.\d+$/);
+      expect(openapiSpecification.info.description).toBe(
+        'API documentation for Rapid'
+      );
+    });
+
+    it('should include ping endpoint', async () => {
+      const { openapiSpecification } = await import('./openapi.js');
+      expect(openapiSpecification.paths).toHaveProperty('/ping');
+    });
+
+    it('should include component schemas', async () => {
+      const { openapiSpecification } = await import('./openapi.js');
+      expect(openapiSpecification.components?.schemas).toHaveProperty(
+        'PingData'
+      );
+      expect(openapiSpecification.components?.schemas).toHaveProperty('Error');
+    });
+
+    it('should use development server URL when VITE_API_URL not set', async () => {
+      const { openapiSpecification } = await import('./openapi.js');
+      expect(openapiSpecification.servers?.[0]).toEqual({
+        url: 'http://localhost:5001/v1',
+        description: 'Development server'
+      });
+    });
   });
 
-  it('should include API info', () => {
-    expect(openapiSpecification.info.title).toBe('Rapid API');
-    expect(openapiSpecification.info.version).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(openapiSpecification.info.description).toBe(
-      'API documentation for Rapid'
-    );
-  });
+  describe('with VITE_API_URL set', () => {
+    beforeEach(() => {
+      vi.resetModules();
+      vi.stubEnv('VITE_API_URL', 'https://api.example.com/v1');
+    });
 
-  it('should include ping endpoint', () => {
-    expect(openapiSpecification.paths).toHaveProperty('/ping');
-  });
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
 
-  it('should include component schemas', () => {
-    expect(openapiSpecification.components?.schemas).toHaveProperty('PingData');
-    expect(openapiSpecification.components?.schemas).toHaveProperty('Error');
+    it('should use production server URL from VITE_API_URL', async () => {
+      const { openapiSpecification } = await import('./openapi.js');
+      expect(openapiSpecification.servers?.[0]).toEqual({
+        url: 'https://api.example.com/v1',
+        description: 'Production server'
+      });
+    });
   });
 });

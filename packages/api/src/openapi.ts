@@ -2,6 +2,10 @@ import type { OpenAPIV3 } from 'openapi-types';
 import swaggerJsdoc from 'swagger-jsdoc';
 import packageJson from '../package.json' with { type: 'json' };
 
+const DEV_API_URL = 'http://localhost:5001/v1';
+const apiUrl = process.env['VITE_API_URL'] || DEV_API_URL;
+const isProduction = apiUrl !== DEV_API_URL;
+
 const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
@@ -12,8 +16,8 @@ const options: swaggerJsdoc.Options = {
     },
     servers: [
       {
-        url: 'http://localhost:5001/v1',
-        description: 'Development server'
+        url: apiUrl,
+        description: isProduction ? 'Production server' : 'Development server'
       }
     ]
   },
