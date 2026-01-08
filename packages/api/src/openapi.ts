@@ -1,3 +1,4 @@
+import type { OpenAPIV3 } from 'openapi-types';
 import swaggerJsdoc from 'swagger-jsdoc';
 import packageJson from '../package.json' with { type: 'json' };
 
@@ -19,4 +20,6 @@ const options: swaggerJsdoc.Options = {
   apis: ['./src/**/*.ts']
 };
 
-export const openapiSpecification = swaggerJsdoc(options);
+export const openapiSpecification: OpenAPIV3.Document = swaggerJsdoc(
+  options
+) as OpenAPIV3.Document;
