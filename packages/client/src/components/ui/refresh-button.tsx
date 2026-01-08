@@ -1,7 +1,7 @@
-import { type VariantProps } from 'class-variance-authority';
+import type { VariantProps } from 'class-variance-authority';
 import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button, buttonVariants } from './button';
+import { Button, type buttonVariants } from './button';
 
 interface RefreshButtonProps {
   onClick: () => void;
