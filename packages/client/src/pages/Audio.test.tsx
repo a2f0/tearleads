@@ -162,7 +162,9 @@ describe('AudioPage', () => {
     it('renders Refresh button when unlocked', async () => {
       await renderAudio();
 
-      expect(screen.getByText('Refresh')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Refresh' })
+      ).toBeInTheDocument();
     });
   });
 
@@ -184,7 +186,9 @@ describe('AudioPage', () => {
     it('does not show Refresh button', () => {
       renderAudioRaw();
 
-      expect(screen.queryByText('Refresh')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Refresh' })
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -227,7 +231,9 @@ describe('AudioPage', () => {
     it('does not show Refresh button', () => {
       renderAudioRaw();
 
-      expect(screen.queryByText('Refresh')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Refresh' })
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -388,7 +394,7 @@ describe('AudioPage', () => {
       mockSelect.mockClear();
       mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_TRACK]));
 
-      await user.click(screen.getByText('Refresh'));
+      await user.click(screen.getByRole('button', { name: 'Refresh' }));
 
       await waitFor(() => {
         expect(mockSelect).toHaveBeenCalled();

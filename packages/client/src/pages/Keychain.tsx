@@ -4,12 +4,12 @@ import {
   ChevronRight,
   Key,
   Loader2,
-  RefreshCw,
   Trash2,
   X
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { RefreshButton } from '@/components/ui/refresh-button';
 import {
   deleteSessionKeysForInstance,
   getKeyStatusForInstance,
@@ -197,17 +197,7 @@ export function Keychain() {
             {instanceCount} {instanceLabel}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={fetchKeychainData}
-          disabled={loading}
-        >
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}
-          />
-          Refresh
-        </Button>
+        <RefreshButton onClick={fetchKeychainData} loading={loading} />
       </div>
 
       {error && (
