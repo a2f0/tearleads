@@ -58,10 +58,10 @@ export default defineConfig({
         'src/components/ui/footer.tsx'
       ],
       thresholds: {
-        statements: 88,
-        branches: 81,
-        functions: 87,
-        lines: 90
+        statements: 88.4,
+        branches: 81.1,
+        functions: 87.8,
+        lines: 90.3
       }
     }
   },
