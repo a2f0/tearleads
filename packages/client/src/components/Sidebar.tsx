@@ -5,6 +5,7 @@ import {
   Bug,
   Database,
   FileIcon,
+  FileText,
   HardDrive,
   Home,
   ImageIcon,
@@ -54,6 +55,13 @@ export const navItems: NavItem[] = [
     label: 'Photos',
     inMobileMenu: true,
     testId: 'photos-link'
+  },
+  {
+    path: '/documents',
+    icon: FileText,
+    label: 'Documents',
+    inMobileMenu: true,
+    testId: 'documents-link'
   },
   {
     path: '/audio',

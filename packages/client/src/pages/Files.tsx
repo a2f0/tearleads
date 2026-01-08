@@ -3,6 +3,7 @@ import {
   Check,
   Download,
   FileIcon,
+  FileText,
   Loader2,
   Music,
   RotateCcw,
@@ -255,6 +256,14 @@ export function Files() {
         audio: '/audio'
       };
 
+      // Handle PDFs specifically since they use application/pdf
+      if (file.mimeType === 'application/pdf') {
+        navigateWithFrom(`/documents/${file.id}`, {
+          fromLabel: 'Back to Files'
+        });
+        return;
+      }
+
       const basePath = routeMapping[fileType];
       if (basePath) {
         navigateWithFrom(`${basePath}/${file.id}`, {
@@ -424,6 +433,7 @@ export function Files() {
                 const isRecentlyUploaded = recentlyUploadedIds.has(file.id);
                 const fileType = file.mimeType.split('/')[0] ?? '';
                 const viewableTypes = ['image', 'audio'];
+                const isPdf = file.mimeType === 'application/pdf';
                 return (
                   <ListRow
                     key={file.id}
@@ -431,7 +441,8 @@ export function Files() {
                   >
                     {(() => {
                       const isClickable =
-                        viewableTypes.includes(fileType) && !file.deleted;
+                        (viewableTypes.includes(fileType) || isPdf) &&
+                        !file.deleted;
 
                       const content = (
                         <>
@@ -444,6 +455,8 @@ export function Files() {
                               />
                             ) : file.mimeType.startsWith('audio/') ? (
                               <Music className="h-5 w-5 text-muted-foreground" />
+                            ) : isPdf ? (
+                              <FileText className="h-5 w-5 text-muted-foreground" />
                             ) : (
                               <FileIcon className="h-5 w-5 text-muted-foreground" />
                             )}
