@@ -84,7 +84,7 @@ describe('DebugMenu', () => {
 
   it('shows loading state while ping is in flight', async () => {
     const user = userEvent.setup();
-    let resolvePing: ((data: typeof mockPingData) => void) | null = null;
+    let resolvePing: (data: typeof mockPingData) => void = () => {};
 
     vi.mocked(api.ping.get).mockImplementation(
       () =>
@@ -98,10 +98,6 @@ describe('DebugMenu', () => {
     await user.click(screen.getByRole('button', { name: /open debug menu/i }));
 
     expect(screen.getByText('Loading...')).toBeInTheDocument();
-
-    if (!resolvePing) {
-      throw new Error('Expected ping resolver to be set');
-    }
 
     resolvePing(mockPingData);
 
