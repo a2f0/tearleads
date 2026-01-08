@@ -88,7 +88,7 @@ describe('DebugMenu', () => {
 
     vi.mocked(api.ping.get).mockImplementation(
       () =>
-        new Promise((resolve) => {
+        new Promise<typeof mockPingData>((resolve) => {
           resolvePing = resolve;
         })
     );
