@@ -19,12 +19,19 @@ if [ -z "$PLATFORM" ]; then
     exit 1
 fi
 
+# Get the repository root to ensure paths work regardless of working directory
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$REPO_ROOT" ]; then
+    echo "Error: Not in a git repository" >&2
+    exit 1
+fi
+
 case "$PLATFORM" in
     ios)
-        VERSION_FILE="packages/client/ios/App/App.xcodeproj/project.pbxproj"
+        VERSION_FILE="$REPO_ROOT/packages/client/ios/App/App.xcodeproj/project.pbxproj"
         ;;
     android)
-        VERSION_FILE="packages/client/android/app/build.gradle"
+        VERSION_FILE="$REPO_ROOT/packages/client/android/app/build.gradle"
         ;;
     *)
         echo "Error: Invalid platform '$PLATFORM'. Must be 'ios' or 'android'" >&2
