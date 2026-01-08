@@ -19,7 +19,7 @@ gh api graphql -f query='mutation { addPullRequestReview(...) }'
 
 ```bash
 # CORRECT - creates immediate comment reply
-gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_id}/replies -f body="message"
+gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies -f body="message"
 ```
 
 ## Steps
