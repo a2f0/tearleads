@@ -9,7 +9,7 @@ describe('ThemeSwitcher', () => {
     vi.clearAllMocks();
 
     // Reset document classes
-    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.remove('light', 'dark', 'tokyo-night');
 
     // Mock localStorage
     Object.defineProperty(window, 'localStorage', {
@@ -129,7 +129,7 @@ describe('ThemeSwitcher', () => {
   });
 
   describe('toggle behavior with system option', () => {
-    it('cycles light -> dark -> system -> light', async () => {
+    it('cycles light -> dark -> tokyo-night -> system -> light', async () => {
       const user = userEvent.setup();
 
       render(
@@ -144,7 +144,13 @@ describe('ThemeSwitcher', () => {
       await user.click(button);
       expect(document.documentElement.classList.contains('dark')).toBe(true);
 
-      // Dark -> System (which resolves to light in our mock)
+      // Dark -> Tokyo Night
+      await user.click(button);
+      expect(document.documentElement.classList.contains('tokyo-night')).toBe(
+        true
+      );
+
+      // Tokyo Night -> System (which resolves to light in our mock)
       await user.click(button);
       expect(document.documentElement.classList.contains('light')).toBe(true);
 

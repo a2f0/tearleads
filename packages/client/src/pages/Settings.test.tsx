@@ -59,8 +59,13 @@ describe('Settings', () => {
       expect(screen.getByText('Settings')).toBeInTheDocument();
     });
 
-    it('renders the dark mode toggle', () => {
-      expect(screen.getByTestId('dark-mode-switch')).toBeInTheDocument();
+    it('renders the theme selector', () => {
+      expect(screen.getByTestId('theme-option-light')).toBeInTheDocument();
+      expect(screen.getByTestId('theme-option-dark')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('theme-option-tokyo-night')
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('theme-option-system')).toBeInTheDocument();
     });
 
     it('renders the version at the bottom', () => {

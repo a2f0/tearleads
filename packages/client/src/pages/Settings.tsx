@@ -1,5 +1,5 @@
-import { useTheme } from '@rapid/ui';
-import { AlertTriangle, Download } from 'lucide-react';
+import { type Theme, useTheme } from '@rapid/ui';
+import { AlertTriangle, Check, Download } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
@@ -12,10 +12,20 @@ import {
 } from '@/lib/file-utils';
 import { cn } from '@/lib/utils';
 
+const THEME_OPTIONS: { value: Theme; label: string; description: string }[] = [
+  { value: 'light', label: 'Light', description: 'Light background' },
+  { value: 'dark', label: 'Dark', description: 'Dark background' },
+  {
+    value: 'tokyo-night',
+    label: 'Tokyo Night',
+    description: 'Blue-tinted dark theme'
+  },
+  { value: 'system', label: 'System', description: 'Match system preference' }
+];
+
 export function Settings() {
-  const { resolvedTheme, setTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const { exportDatabase, importDatabase, lock } = useDatabaseContext();
-  const isDark = resolvedTheme === 'dark';
   const version = useAppVersion();
 
   const [isExporting, setIsExporting] = useState(false);
@@ -25,10 +35,6 @@ export function Settings() {
     null
   );
   const [error, setError] = useState<string | null>(null);
-
-  const handleToggle = () => {
-    setTheme(isDark ? 'light' : 'dark');
-  };
 
   const handleExport = useCallback(async () => {
     setIsExporting(true);
@@ -95,32 +101,41 @@ export function Settings() {
     <div className="space-y-6">
       <h1 className="font-bold text-2xl tracking-tight">Settings</h1>
 
-      <div className="flex items-center justify-between rounded-lg border p-4">
+      <div className="space-y-3 rounded-lg border p-4">
         <div>
-          <p className="font-medium">Dark Mode</p>
+          <p className="font-medium">Theme</p>
           <p className="text-muted-foreground text-sm">
-            Toggle dark mode on or off
+            Choose your preferred color theme
           </p>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={isDark}
-          aria-label="Toggle dark mode"
-          data-testid="dark-mode-switch"
-          onClick={handleToggle}
-          className={cn(
-            'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-            isDark ? 'bg-primary' : 'bg-input'
-          )}
-        >
-          <span
-            className={cn(
-              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow-lg ring-0 transition duration-200 ease-in-out',
-              isDark ? 'translate-x-5' : 'translate-x-0'
-            )}
-          />
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          {THEME_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={theme === option.value}
+              data-testid={`theme-option-${option.value}`}
+              onClick={() => setTheme(option.value)}
+              className={cn(
+                'flex items-center justify-between rounded-md border p-3 text-left transition-colors',
+                'hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                theme === option.value
+                  ? 'border-primary bg-primary/10'
+                  : 'border-input'
+              )}
+            >
+              <div>
+                <p className="font-medium text-sm">{option.label}</p>
+                <p className="text-muted-foreground text-xs">
+                  {option.description}
+                </p>
+              </div>
+              {theme === option.value && (
+                <Check className="h-4 w-4 text-primary" />
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Backup & Restore Section */}

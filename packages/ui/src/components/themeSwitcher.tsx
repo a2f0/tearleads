@@ -30,14 +30,20 @@ export function ThemeSwitcher({
   const handleToggle = () => {
     if (showSystemOption) {
       const nextTheme =
-        theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light';
+        theme === 'light'
+          ? 'dark'
+          : theme === 'dark'
+            ? 'tokyo-night'
+            : theme === 'tokyo-night'
+              ? 'system'
+              : 'light';
       setTheme(nextTheme);
     } else {
-      setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');
+      setTheme(resolvedTheme === 'light' ? 'dark' : 'light');
     }
   };
 
-  const Icon = resolvedTheme === 'dark' ? Sun : Moon;
+  const Icon = resolvedTheme === 'light' ? Moon : Sun;
 
   const label = `Toggle theme (current: ${resolvedTheme})`;
 
