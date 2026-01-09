@@ -28,7 +28,7 @@ function isQueryResult(value: unknown): value is QueryResult {
   if (!isRecord(value)) {
     return false;
   }
-  return Array.isArray(value.rows);
+  return Array.isArray(value['rows']);
 }
 
 /**
@@ -284,10 +284,10 @@ export class WebAdapter implements DatabaseAdapter {
   async exportDatabase(): Promise<Uint8Array> {
     const id = generateRequestId();
     const result = await this.sendRequest({ type: 'EXPORT', id });
-    if (!isRecord(result) || !isNumberArray(result.data)) {
+    if (!isRecord(result) || !isNumberArray(result['data'])) {
       throw new Error('Unexpected export data from worker');
     }
-    const data = result.data;
+    const data = result['data'];
     return new Uint8Array(data);
   }
 

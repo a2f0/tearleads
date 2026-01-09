@@ -94,7 +94,9 @@ export interface FileStorage {
 }
 
 interface FileSystemDirectoryEntriesHandle extends FileSystemDirectoryHandle {
-  entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
+  entries(): AsyncIterableIterator<
+    [string, FileSystemDirectoryHandle | FileSystemFileHandle]
+  >;
 }
 
 function hasDirectoryEntries(
@@ -105,7 +107,9 @@ function hasDirectoryEntries(
 
 function getDirectoryEntries(
   directory: FileSystemDirectoryHandle
-): AsyncIterableIterator<[string, FileSystemHandle]> {
+): AsyncIterableIterator<
+  [string, FileSystemDirectoryHandle | FileSystemFileHandle]
+> {
   if (!hasDirectoryEntries(directory)) {
     throw new Error('OPFS entries() is not supported in this environment');
   }
@@ -113,7 +117,7 @@ function getDirectoryEntries(
 }
 
 function isFileHandle(
-  handle: FileSystemHandle
+  handle: FileSystemFileHandle | FileSystemDirectoryHandle
 ): handle is FileSystemFileHandle {
   return handle.kind === 'file';
 }

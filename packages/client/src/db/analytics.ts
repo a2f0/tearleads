@@ -133,21 +133,24 @@ function normalizeAnalyticsRow(value: unknown): RawAnalyticsRow | null {
     return null;
   }
 
-  if (typeof value.id !== 'string' || typeof value.eventName !== 'string') {
+  if (
+    typeof value['id'] !== 'string' ||
+    typeof value['eventName'] !== 'string'
+  ) {
     return null;
   }
 
-  const durationMs = toFiniteNumber(value.durationMs);
-  const success = toFiniteNumber(value.success);
-  const timestamp = toFiniteNumber(value.timestamp);
+  const durationMs = toFiniteNumber(value['durationMs']);
+  const success = toFiniteNumber(value['success']);
+  const timestamp = toFiniteNumber(value['timestamp']);
 
   if (durationMs === null || success === null || timestamp === null) {
     return null;
   }
 
   return {
-    id: value.id,
-    eventName: value.eventName,
+    id: value['id'],
+    eventName: value['eventName'],
     durationMs,
     success,
     timestamp
@@ -241,15 +244,15 @@ function normalizeStatsRow(value: unknown): RawStatsRow | null {
     return null;
   }
 
-  if (typeof value.eventName !== 'string') {
+  if (typeof value['eventName'] !== 'string') {
     return null;
   }
 
-  const count = toFiniteNumber(value.count);
-  const totalDuration = toFiniteNumber(value.totalDuration);
-  const minDuration = toFiniteNumber(value.minDuration);
-  const maxDuration = toFiniteNumber(value.maxDuration);
-  const successCount = toFiniteNumber(value.successCount);
+  const count = toFiniteNumber(value['count']);
+  const totalDuration = toFiniteNumber(value['totalDuration']);
+  const minDuration = toFiniteNumber(value['minDuration']);
+  const maxDuration = toFiniteNumber(value['maxDuration']);
+  const successCount = toFiniteNumber(value['successCount']);
 
   if (
     count === null ||
@@ -262,7 +265,7 @@ function normalizeStatsRow(value: unknown): RawStatsRow | null {
   }
 
   return {
-    eventName: value.eventName,
+    eventName: value['eventName'],
     count,
     totalDuration,
     minDuration,
@@ -394,7 +397,7 @@ export async function getEventCount(_db: Database): Promise<number> {
   if (!isRecord(firstRow)) {
     return 0;
   }
-  const count = toFiniteNumber(firstRow.count);
+  const count = toFiniteNumber(firstRow['count']);
   return count ?? 0;
 }
 
@@ -403,7 +406,7 @@ interface EventNameRow {
 }
 
 function isEventNameRow(row: unknown): row is EventNameRow {
-  return isRecord(row) && typeof row.eventName === 'string';
+  return isRecord(row) && typeof row['eventName'] === 'string';
 }
 
 /**
@@ -417,5 +420,5 @@ export async function getDistinctEventTypes(_db: Database): Promise<string[]> {
   );
   const rows = Array.isArray(result.rows) ? result.rows : [];
   const eventRows = rows.filter(isEventNameRow);
-  return eventRows.map((row) => row.eventName);
+  return eventRows.map((row) => row['eventName']);
 }

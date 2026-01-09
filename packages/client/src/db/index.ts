@@ -369,7 +369,7 @@ async function runMigrations(): Promise<void> {
         `PRAGMA table_info("${tableName}")`
       );
       const columnExists = info?.rows?.some(
-        (col) => isRecord(col) && col.name === columnName
+        (col) => isRecord(col) && col['name'] === columnName
       );
       if (!columnExists) {
         await adapterInstance?.execute(

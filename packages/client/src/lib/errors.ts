@@ -21,7 +21,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function getErrorMessage(error: unknown): string {
   if (isError(error)) return error.message;
   if (isRecord(error) && 'message' in error) {
-    const value = error.message;
+    const value = error['message'];
     return typeof value === 'string' ? value : String(value);
   }
   return String(error);

@@ -35,5 +35,5 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isOpenApiV3Document(value: unknown): value is OpenAPIV3.Document {
-  return isRecord(value) && typeof value.openapi === 'string';
+  return isRecord(value) && typeof value['openapi'] === 'string';
 }
