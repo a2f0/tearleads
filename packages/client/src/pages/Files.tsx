@@ -3,6 +3,7 @@ import {
   Check,
   Download,
   FileIcon,
+  FileText,
   Loader2,
   Music,
   RotateCcw,
@@ -20,6 +21,7 @@ import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files as filesTable } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { retrieveFileData } from '@/lib/data-retrieval';
 import { getErrorMessage } from '@/lib/errors';
 import { downloadFile } from '@/lib/file-utils';
 import { useNavigateWithFrom } from '@/lib/navigation';
@@ -255,6 +257,14 @@ export function Files() {
         audio: '/audio'
       };
 
+      // Handle PDFs specifically since they use application/pdf
+      if (file.mimeType === 'application/pdf') {
+        navigateWithFrom(`/documents/${file.id}`, {
+          fromLabel: 'Back to Files'
+        });
+        return;
+      }
+
       const basePath = routeMapping[fileType];
       if (basePath) {
         navigateWithFrom(`${basePath}/${file.id}`, {
@@ -268,22 +278,11 @@ export function Files() {
   const handleDownload = useCallback(
     async (file: FileInfo) => {
       try {
-        const db = getDatabase();
-        const keyManager = getKeyManager();
-        const encryptionKey = keyManager.getCurrentKey();
-        if (!encryptionKey) throw new Error('Database not unlocked');
         if (!currentInstanceId) throw new Error('No active instance');
-
-        if (!isFileStorageInitialized()) {
-          await initializeFileStorage(encryptionKey, currentInstanceId);
-        }
-
-        const storage = getFileStorage();
-        const data = await storage.measureRetrieve(
+        const data = await retrieveFileData(
           file.storagePath,
-          createRetrieveLogger(db)
+          currentInstanceId
         );
-
         downloadFile(data, file.name);
       } catch (err) {
         console.error('Failed to download file:', err);
@@ -424,6 +423,7 @@ export function Files() {
                 const isRecentlyUploaded = recentlyUploadedIds.has(file.id);
                 const fileType = file.mimeType.split('/')[0] ?? '';
                 const viewableTypes = ['image', 'audio'];
+                const isPdf = file.mimeType === 'application/pdf';
                 return (
                   <ListRow
                     key={file.id}
@@ -431,7 +431,8 @@ export function Files() {
                   >
                     {(() => {
                       const isClickable =
-                        viewableTypes.includes(fileType) && !file.deleted;
+                        (viewableTypes.includes(fileType) || isPdf) &&
+                        !file.deleted;
 
                       const content = (
                         <>
@@ -444,6 +445,8 @@ export function Files() {
                               />
                             ) : file.mimeType.startsWith('audio/') ? (
                               <Music className="h-5 w-5 text-muted-foreground" />
+                            ) : isPdf ? (
+                              <FileText className="h-5 w-5 text-muted-foreground" />
                             ) : (
                               <FileIcon className="h-5 w-5 text-muted-foreground" />
                             )}

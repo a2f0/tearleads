@@ -161,6 +161,7 @@ platform :android do
     apk_path = File.expand_path('../android/app/build/outputs/apk/debug/app-debug.apk', __dir__)
     debug_dir = File.expand_path('../maestro-debug', __dir__)
     maestro_dir = File.expand_path('../.maestro', __dir__)
+    maestro_target = ENV.fetch('MAESTRO_FLOW_PATH', maestro_dir)
 
     emulator_id = `adb devices | grep emulator | head -1 | cut -f1`.strip
     UI.user_error!('No Android emulator found. Start an emulator first.') if emulator_id.empty?
@@ -176,7 +177,7 @@ platform :android do
     Process.detach(recording_pid)
 
     begin
-      sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test '#{maestro_dir}' --output '#{debug_dir}/report.xml' --debug-output '#{debug_dir}' --format junit")
+      sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test '#{maestro_target}' --output '#{debug_dir}/report.xml' --debug-output '#{debug_dir}' --format junit")
       maestro_result = '0'
     rescue StandardError => e
       UI.important("Maestro tests failed: #{e.message}")

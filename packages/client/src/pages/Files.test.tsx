@@ -430,7 +430,7 @@ describe('Files', () => {
       });
     });
 
-    it('does not navigate when non-image file card is clicked', async () => {
+    it('navigates to documents when PDF file card is clicked', async () => {
       const user = userEvent.setup();
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
@@ -441,10 +441,12 @@ describe('Files', () => {
         expect(screen.getByText('document.pdf')).toBeInTheDocument();
       });
 
-      // Click on the file name - should not navigate for non-image files
+      // Click on the file name - should navigate to documents for PDFs
       await user.click(screen.getByText('document.pdf'));
 
-      expect(mockNavigate).not.toHaveBeenCalled();
+      expect(mockNavigate).toHaveBeenCalledWith('/documents/file-2', {
+        state: { from: '/', fromLabel: 'Back to Files' }
+      });
     });
 
     it('renders Download button for non-deleted files', async () => {

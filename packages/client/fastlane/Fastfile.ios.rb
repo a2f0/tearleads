@@ -150,9 +150,10 @@ platform :ios do
     UI.user_error!('No iOS simulator is booted. Boot a simulator first.') if simulator.to_s.empty?
 
     app_path = File.expand_path('../build/DerivedData/Build/Products/Debug-iphonesimulator/App.app', __dir__)
+    maestro_target = ENV.fetch('MAESTRO_FLOW_PATH', '../.maestro/')
     UI.message("Installing app on simulator: #{simulator}")
     sh("xcrun simctl uninstall #{simulator} #{APP_ID} || true")
     sh("xcrun simctl install #{simulator} '#{app_path}'")
-    sh("MAESTRO_CLI_NO_ANALYTICS=1 MAESTRO_DEVICE=#{simulator} $HOME/.maestro/bin/maestro --platform ios test ../.maestro/ --output maestro-report --debug-output maestro-debug")
+    sh("MAESTRO_CLI_NO_ANALYTICS=1 MAESTRO_DEVICE=#{simulator} $HOME/.maestro/bin/maestro --platform ios test #{maestro_target} --output maestro-report --debug-output maestro-debug")
   end
 end

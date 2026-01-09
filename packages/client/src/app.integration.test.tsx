@@ -8,7 +8,7 @@
 // Import integration setup FIRST - this sets up mocks for adapters and key manager
 import './test/setup-integration';
 
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import App from './App';
@@ -35,10 +35,11 @@ describe('App Integration Tests', () => {
     // Open mobile menu first
     await user.click(screen.getByTestId('mobile-menu-button'));
 
-    // Check for navigation links
-    expect(screen.getByTestId('contacts-link')).toBeInTheDocument();
-    expect(screen.getByTestId('tables-link')).toBeInTheDocument();
-    expect(screen.getByTestId('settings-link')).toBeInTheDocument();
+    // Check for navigation links within the mobile menu dropdown
+    const dropdown = screen.getByTestId('mobile-menu-dropdown');
+    expect(within(dropdown).getByTestId('contacts-link')).toBeInTheDocument();
+    expect(within(dropdown).getByTestId('tables-link')).toBeInTheDocument();
+    expect(within(dropdown).getByTestId('settings-link')).toBeInTheDocument();
   });
 
   it('can navigate to contacts page', async () => {
@@ -49,8 +50,9 @@ describe('App Integration Tests', () => {
     // Open mobile menu first
     await user.click(screen.getByTestId('mobile-menu-button'));
 
-    // Click on contacts link
-    const contactsLink = screen.getByTestId('contacts-link');
+    // Click on contacts link within the mobile menu dropdown
+    const dropdown = screen.getByTestId('mobile-menu-dropdown');
+    const contactsLink = within(dropdown).getByTestId('contacts-link');
     await user.click(contactsLink);
 
     // Should navigate (the URL should change)
