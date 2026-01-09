@@ -21,6 +21,7 @@ import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files as filesTable } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { retrieveFileData } from '@/lib/data-retrieval';
 import { getErrorMessage } from '@/lib/errors';
 import { downloadFile } from '@/lib/file-utils';
 import { useNavigateWithFrom } from '@/lib/navigation';
@@ -277,22 +278,11 @@ export function Files() {
   const handleDownload = useCallback(
     async (file: FileInfo) => {
       try {
-        const db = getDatabase();
-        const keyManager = getKeyManager();
-        const encryptionKey = keyManager.getCurrentKey();
-        if (!encryptionKey) throw new Error('Database not unlocked');
         if (!currentInstanceId) throw new Error('No active instance');
-
-        if (!isFileStorageInitialized()) {
-          await initializeFileStorage(encryptionKey, currentInstanceId);
-        }
-
-        const storage = getFileStorage();
-        const data = await storage.measureRetrieve(
+        const data = await retrieveFileData(
           file.storagePath,
-          createRetrieveLogger(db)
+          currentInstanceId
         );
-
         downloadFile(data, file.name);
       } catch (err) {
         console.error('Failed to download file:', err);
