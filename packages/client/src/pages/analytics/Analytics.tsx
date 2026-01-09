@@ -26,6 +26,7 @@ const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
   week: 'Last Week',
   all: 'All Time'
 };
+const TIME_FILTERS: TimeFilter[] = ['hour', 'day', 'week', 'all'];
 
 const getSuccessRateColor = (rate: number) => {
   if (rate == null || Number.isNaN(rate)) return 'text-muted-foreground';
@@ -273,7 +274,7 @@ export function Analytics() {
         <>
           {/* Time filter */}
           <div className="flex flex-wrap gap-2">
-            {(['hour', 'day', 'week', 'all'] as TimeFilter[]).map((filter) => (
+            {TIME_FILTERS.map((filter) => (
               <Button
                 key={filter}
                 variant={timeFilter === filter ? 'default' : 'outline'}

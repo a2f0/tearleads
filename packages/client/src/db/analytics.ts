@@ -111,6 +111,49 @@ interface RawAnalyticsRow {
   timestamp: number; // milliseconds since epoch
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function normalizeAnalyticsRow(value: unknown): RawAnalyticsRow | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (typeof value.id !== 'string' || typeof value.eventName !== 'string') {
+    return null;
+  }
+
+  const durationMs = toFiniteNumber(value.durationMs);
+  const success = toFiniteNumber(value.success);
+  const timestamp = toFiniteNumber(value.timestamp);
+
+  if (durationMs === null || success === null || timestamp === null) {
+    return null;
+  }
+
+  return {
+    id: value.id,
+    eventName: value.eventName,
+    durationMs,
+    success,
+    timestamp
+  };
+}
+
 /**
  * Get analytics events with optional filters.
  * Uses raw SQL via adapter to avoid drizzle ORM's column name mapping issues with sqlite-proxy.
@@ -167,9 +210,12 @@ export async function getEvents(
 
   // Execute raw SQL via adapter
   const result = await adapter.execute(sql, params);
-  const rows = result.rows as unknown as RawAnalyticsRow[];
+  const rows = Array.isArray(result.rows) ? result.rows : [];
+  const normalizedRows = rows
+    .map(normalizeAnalyticsRow)
+    .filter((row): row is RawAnalyticsRow => row !== null);
 
-  return rows.map((row) => ({
+  return normalizedRows.map((row) => ({
     id: row.id,
     eventName: row.eventName,
     durationMs: row.durationMs,
@@ -188,6 +234,41 @@ interface RawStatsRow {
   minDuration: number;
   maxDuration: number;
   successCount: number;
+}
+
+function normalizeStatsRow(value: unknown): RawStatsRow | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (typeof value.eventName !== 'string') {
+    return null;
+  }
+
+  const count = toFiniteNumber(value.count);
+  const totalDuration = toFiniteNumber(value.totalDuration);
+  const minDuration = toFiniteNumber(value.minDuration);
+  const maxDuration = toFiniteNumber(value.maxDuration);
+  const successCount = toFiniteNumber(value.successCount);
+
+  if (
+    count === null ||
+    totalDuration === null ||
+    minDuration === null ||
+    maxDuration === null ||
+    successCount === null
+  ) {
+    return null;
+  }
+
+  return {
+    eventName: value.eventName,
+    count,
+    totalDuration,
+    minDuration,
+    maxDuration,
+    successCount
+  };
 }
 
 /**
@@ -238,9 +319,12 @@ export async function getEventStats(
 
   // Execute raw SQL via adapter
   const result = await adapter.execute(sql, params);
-  const rows = result.rows as unknown as RawStatsRow[];
+  const rows = Array.isArray(result.rows) ? result.rows : [];
+  const normalizedRows = rows
+    .map(normalizeStatsRow)
+    .filter((row): row is RawStatsRow => row !== null);
 
-  return rows.map((row) => {
+  return normalizedRows.map((row) => {
     const totalCount = row.count ?? 0;
     const totalDuration = Number(row.totalDuration) || 0;
 
@@ -305,8 +389,13 @@ export async function getEventCount(_db: Database): Promise<number> {
     `SELECT count(*) as count FROM analytics_events`,
     []
   );
-  const row = result.rows[0] as { count: number } | undefined;
-  return row?.count ?? 0;
+  const rows = Array.isArray(result.rows) ? result.rows : [];
+  const firstRow = rows[0];
+  if (!isRecord(firstRow)) {
+    return 0;
+  }
+  const count = toFiniteNumber(firstRow.count);
+  return count ?? 0;
 }
 
 interface EventNameRow {
@@ -314,12 +403,7 @@ interface EventNameRow {
 }
 
 function isEventNameRow(row: unknown): row is EventNameRow {
-  return (
-    typeof row === 'object' &&
-    row !== null &&
-    'eventName' in row &&
-    typeof (row as EventNameRow).eventName === 'string'
-  );
+  return isRecord(row) && typeof row.eventName === 'string';
 }
 
 /**
@@ -331,6 +415,7 @@ export async function getDistinctEventTypes(_db: Database): Promise<string[]> {
     `SELECT DISTINCT event_name as eventName FROM analytics_events ORDER BY event_name`,
     []
   );
-  const rows = (result.rows as unknown[]).filter(isEventNameRow);
-  return rows.map((row) => row.eventName);
+  const rows = Array.isArray(result.rows) ? result.rows : [];
+  const eventRows = rows.filter(isEventNameRow);
+  return eventRows.map((row) => row.eventName);
 }
