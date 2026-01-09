@@ -2,6 +2,12 @@ import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
 
+// Define a minimal interface for the Redis client methods we use in tests
+interface MockRedisClient {
+  scan: typeof mockScan;
+  multi: typeof mockMulti;
+}
+
 const mockExec = vi.fn();
 const mockMulti = vi.fn(() => ({
   type: vi.fn().mockReturnThis(),
@@ -11,13 +17,13 @@ const mockMulti = vi.fn(() => ({
 
 const mockScan = vi.fn();
 
+const createMockClient = (): MockRedisClient => ({
+  scan: mockScan,
+  multi: mockMulti
+});
+
 vi.mock('../../lib/redis.js', () => ({
-  getRedisClient: vi.fn(() =>
-    Promise.resolve({
-      scan: mockScan,
-      multi: mockMulti
-    })
-  )
+  getRedisClient: vi.fn(() => Promise.resolve(createMockClient()))
 }));
 
 describe('Admin Redis Routes', () => {
@@ -29,10 +35,7 @@ describe('Admin Redis Routes', () => {
   describe('GET /v1/admin/redis/keys', () => {
     it('returns empty array when no keys exist', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
-      vi.mocked(getRedisClient).mockResolvedValue({
-        scan: mockScan,
-        multi: mockMulti
-      } as never);
+      vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
       const response = await request(app).get('/v1/admin/redis/keys');
 
@@ -53,10 +56,7 @@ describe('Admin Redis Routes', () => {
       });
       mockExec.mockResolvedValue(['hash', -1, 'string', 3600]);
 
-      vi.mocked(getRedisClient).mockResolvedValue({
-        scan: mockScan,
-        multi: mockMulti
-      } as never);
+      vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
       const response = await request(app).get('/v1/admin/redis/keys');
 
@@ -80,10 +80,7 @@ describe('Admin Redis Routes', () => {
       });
       mockExec.mockResolvedValue(['string', -1]);
 
-      vi.mocked(getRedisClient).mockResolvedValue({
-        scan: mockScan,
-        multi: mockMulti
-      } as never);
+      vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
       const response = await request(app).get('/v1/admin/redis/keys');
 
@@ -100,10 +97,7 @@ describe('Admin Redis Routes', () => {
 
       mockScan.mockResolvedValue({ cursor: 0, keys: [] });
 
-      vi.mocked(getRedisClient).mockResolvedValue({
-        scan: mockScan,
-        multi: mockMulti
-      } as never);
+      vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
       await request(app).get('/v1/admin/redis/keys?cursor=100&limit=25');
 
@@ -115,10 +109,7 @@ describe('Admin Redis Routes', () => {
 
       mockScan.mockResolvedValue({ cursor: 0, keys: [] });
 
-      vi.mocked(getRedisClient).mockResolvedValue({
-        scan: mockScan,
-        multi: mockMulti
-      } as never);
+      vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
       await request(app).get('/v1/admin/redis/keys?limit=500');
 
@@ -156,10 +147,7 @@ describe('Admin Redis Routes', () => {
       });
       mockExec.mockResolvedValue([undefined, undefined]);
 
-      vi.mocked(getRedisClient).mockResolvedValue({
-        scan: mockScan,
-        multi: mockMulti
-      } as never);
+      vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
       const response = await request(app).get('/v1/admin/redis/keys');
 
