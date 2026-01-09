@@ -103,8 +103,13 @@ describe('DeletePhotoDialog', () => {
     const user = userEvent.setup();
     renderDialog({ onOpenChange });
 
-    const backdrop = screen.getByTestId('delete-photo-dialog').previousSibling;
-    await user.click(backdrop as Element);
+    const backdrop = screen.getByTestId('delete-photo-dialog')
+      .previousElementSibling;
+    expect(backdrop).not.toBeNull();
+    if (!backdrop) {
+      throw new Error('Missing backdrop element.');
+    }
+    await user.click(backdrop);
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
@@ -145,8 +150,13 @@ describe('DeletePhotoDialog', () => {
 
     expect(screen.getByText('Deleting...')).toBeInTheDocument();
 
-    const backdrop = screen.getByTestId('delete-photo-dialog').previousSibling;
-    await user.click(backdrop as Element);
+    const backdrop = screen.getByTestId('delete-photo-dialog')
+      .previousElementSibling;
+    expect(backdrop).not.toBeNull();
+    if (!backdrop) {
+      throw new Error('Missing backdrop element.');
+    }
+    await user.click(backdrop);
 
     expect(onOpenChange).not.toHaveBeenCalled();
 
