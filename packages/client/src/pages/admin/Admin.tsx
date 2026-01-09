@@ -1,4 +1,5 @@
 import type { RedisKeyInfo } from '@rapid/shared';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Database, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshButton } from '@/components/ui/refresh-button';
@@ -6,6 +7,7 @@ import { api } from '@/lib/api';
 import { RedisKeyRow } from './RedisKeyRow';
 
 const PAGE_SIZE = 50;
+const ROW_HEIGHT_ESTIMATE = 48;
 
 export function Admin() {
   const [keys, setKeys] = useState<RedisKeyInfo[]>([]);
@@ -16,7 +18,7 @@ export function Admin() {
   const [hasMore, setHasMore] = useState(false);
 
   const cursorRef = useRef<string>('0');
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  const parentRef = useRef<HTMLDivElement>(null);
 
   const fetchKeys = useCallback(async (reset = true) => {
     if (reset) {
@@ -52,24 +54,24 @@ export function Admin() {
     fetchKeys(true);
   }, [fetchKeys]);
 
+  const virtualizer = useVirtualizer({
+    count: keys.length + (hasMore ? 1 : 0),
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT_ESTIMATE,
+    overscan: 5
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
+
+  // Load more when scrolling near the end
   useEffect(() => {
-    if (!hasMore || loadingMore || loading) return;
+    if (!hasMore || loadingMore || loading || virtualItems.length === 0) return;
 
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && hasMore && !loadingMore) {
-          fetchKeys(false);
-        }
-      },
-      { rootMargin: '100px' }
-    );
-
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [hasMore, loadingMore, loading, fetchKeys]);
+    const lastItem = virtualItems[virtualItems.length - 1];
+    if (lastItem && lastItem.index >= keys.length - 5) {
+      fetchKeys(false);
+    }
+  }, [virtualItems, hasMore, loadingMore, loading, keys.length, fetchKeys]);
 
   const handleToggle = (key: string) => {
     setExpandedKeys((prev) => {
@@ -91,7 +93,7 @@ export function Admin() {
   const keyLabel = keyCount === 1 ? 'key' : 'keys';
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full flex-col space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-bold text-2xl tracking-tight">Admin</h1>
@@ -106,12 +108,12 @@ export function Admin() {
         </div>
       )}
 
-      <div>
+      <div className="min-h-0 flex-1">
         <p className="mb-2 text-muted-foreground text-sm">
           {keyCount} {keyLabel}
           {hasMore && '+'}
         </p>
-        <div className="rounded-lg border">
+        <div className="h-[calc(100vh-280px)] rounded-lg border">
           {loading && keys.length === 0 ? (
             <div className="flex items-center justify-center p-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -123,29 +125,57 @@ export function Admin() {
               <p>No keys found.</p>
             </div>
           ) : (
-            <>
-              {keys.map((keyInfo) => (
-                <RedisKeyRow
-                  key={keyInfo.key}
-                  keyInfo={keyInfo}
-                  isExpanded={expandedKeys.has(keyInfo.key)}
-                  onToggle={() => handleToggle(keyInfo.key)}
-                />
-              ))}
-              {hasMore && (
-                <div
-                  ref={sentinelRef}
-                  className="flex items-center justify-center p-4 text-muted-foreground"
-                >
-                  {loadingMore && (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Loading more...
-                    </>
-                  )}
-                </div>
-              )}
-            </>
+            <div ref={parentRef} className="h-full overflow-auto">
+              <div
+                className="relative w-full"
+                style={{ height: `${virtualizer.getTotalSize()}px` }}
+              >
+                {virtualItems.map((virtualItem) => {
+                  const isLoaderRow = virtualItem.index >= keys.length;
+
+                  if (isLoaderRow) {
+                    return (
+                      <div
+                        key="loader"
+                        className="absolute top-0 left-0 flex w-full items-center justify-center p-4 text-muted-foreground"
+                        style={{
+                          height: `${virtualItem.size}px`,
+                          transform: `translateY(${virtualItem.start}px)`
+                        }}
+                      >
+                        {loadingMore && (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Loading more...
+                          </>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  const keyInfo = keys[virtualItem.index];
+                  if (!keyInfo) return null;
+
+                  return (
+                    <div
+                      key={keyInfo.key}
+                      data-index={virtualItem.index}
+                      ref={virtualizer.measureElement}
+                      className="absolute top-0 left-0 w-full"
+                      style={{
+                        transform: `translateY(${virtualItem.start}px)`
+                      }}
+                    >
+                      <RedisKeyRow
+                        keyInfo={keyInfo}
+                        isExpanded={expandedKeys.has(keyInfo.key)}
+                        onToggle={() => handleToggle(keyInfo.key)}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       </div>
