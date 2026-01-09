@@ -1,3 +1,4 @@
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, desc, eq, like } from 'drizzle-orm';
 import { ChevronRight, Loader2, Music, Pause } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -53,6 +54,8 @@ interface AudioWithUrl extends AudioInfo {
   thumbnailUrl: string | null;
 }
 
+const ROW_HEIGHT_ESTIMATE = 56;
+
 export function AudioPage() {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
@@ -66,6 +69,16 @@ export function AudioPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const { uploadFile } = useFileUpload();
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: tracks.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT_ESTIMATE,
+    overscan: 5
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
 
   const supportsDragDrop = useMemo(() => {
     const platform = detectPlatform();
@@ -259,7 +272,7 @@ export function AudioPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full flex-col space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Music className="h-8 w-8 text-muted-foreground" />
@@ -315,62 +328,86 @@ export function AudioPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-2">
-            {tracks.map((track) => {
-              const isCurrentTrack = currentTrack?.id === track.id;
-              const isTrackPlaying = isCurrentTrack && isPlaying;
-
-              return (
-                <ListRow
-                  key={track.id}
-                  className={`${
-                    isCurrentTrack ? 'border-primary bg-primary/5' : ''
-                  }`}
-                  data-testid={`audio-track-${track.id}`}
+          <div className="flex min-h-0 flex-1 flex-col space-y-2">
+            <p className="text-muted-foreground text-sm">
+              {tracks.length} track{tracks.length !== 1 && 's'}
+            </p>
+            <div className="flex-1 rounded-lg border">
+              <div ref={parentRef} className="h-full overflow-auto">
+                <div
+                  className="relative w-full"
+                  style={{ height: `${virtualizer.getTotalSize()}px` }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => handlePlayPause(track)}
-                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
-                    data-testid={`audio-play-${track.id}`}
-                  >
-                    <div className="relative shrink-0">
-                      {track.thumbnailUrl ? (
-                        <img
-                          src={track.thumbnailUrl}
-                          alt=""
-                          className="h-8 w-8 rounded object-cover"
-                        />
-                      ) : (
-                        <Music className="h-5 w-5 text-muted-foreground" />
-                      )}
-                      {isTrackPlaying && (
-                        <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                          <Pause className="h-2.5 w-2.5" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium text-sm">
-                        {track.name}
-                      </p>
-                      <p className="text-muted-foreground text-xs">
-                        {formatFileSize(track.size)}
-                      </p>
-                    </div>
-                  </button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    onClick={() => handleNavigateToDetail(track.id)}
-                    aria-label="View details"
-                  >
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </ListRow>
-              );
-            })}
+                  {virtualItems.map((virtualItem) => {
+                    const track = tracks[virtualItem.index];
+                    if (!track) return null;
+
+                    const isCurrentTrack = currentTrack?.id === track.id;
+                    const isTrackPlaying = isCurrentTrack && isPlaying;
+
+                    return (
+                      <div
+                        key={track.id}
+                        data-index={virtualItem.index}
+                        ref={virtualizer.measureElement}
+                        className="absolute top-0 left-0 w-full px-1 py-0.5"
+                        style={{
+                          transform: `translateY(${virtualItem.start}px)`
+                        }}
+                      >
+                        <ListRow
+                          className={`${
+                            isCurrentTrack ? 'border-primary bg-primary/5' : ''
+                          }`}
+                          data-testid={`audio-track-${track.id}`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handlePlayPause(track)}
+                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
+                            data-testid={`audio-play-${track.id}`}
+                          >
+                            <div className="relative shrink-0">
+                              {track.thumbnailUrl ? (
+                                <img
+                                  src={track.thumbnailUrl}
+                                  alt=""
+                                  className="h-8 w-8 rounded object-cover"
+                                />
+                              ) : (
+                                <Music className="h-5 w-5 text-muted-foreground" />
+                              )}
+                              {isTrackPlaying && (
+                                <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                                  <Pause className="h-2.5 w-2.5" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-sm">
+                                {track.name}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                {formatFileSize(track.size)}
+                              </p>
+                            </div>
+                          </button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={() => handleNavigateToDetail(track.id)}
+                            aria-label="View details"
+                          >
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </ListRow>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         ))}
     </div>

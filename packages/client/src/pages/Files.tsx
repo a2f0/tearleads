@@ -1,3 +1,4 @@
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { desc, eq } from 'drizzle-orm';
 import {
   Check,
@@ -10,7 +11,7 @@ import {
   Trash2,
   XCircle
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
@@ -56,6 +57,8 @@ interface UploadingFile {
   error?: string;
 }
 
+const ROW_HEIGHT_ESTIMATE = 56;
+
 export function Files() {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
@@ -69,6 +72,18 @@ export function Files() {
     new Set()
   );
   const { uploadFile } = useFileUpload();
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const filteredFiles = files.filter((f) => showDeleted || !f.deleted);
+
+  const virtualizer = useVirtualizer({
+    count: filteredFiles.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT_ESTIMATE,
+    overscan: 5
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
 
   const fetchFiles = useCallback(async () => {
     if (!isUnlocked) return;
@@ -332,7 +347,7 @@ export function Files() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full flex-col space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-bold text-2xl tracking-tight">Files</h1>
         {isUnlocked && (
@@ -407,29 +422,36 @@ export function Files() {
       )}
 
       {isUnlocked && !error && (
-        <div className="space-y-2">
+        <div className="flex min-h-0 flex-1 flex-col">
           {loading || !hasFetched ? (
             <div className="rounded-lg border p-8 text-center text-muted-foreground">
               Loading files...
             </div>
-          ) : files.filter((f) => showDeleted || !f.deleted).length === 0 ? (
+          ) : filteredFiles.length === 0 ? (
             <div className="rounded-lg border p-8 text-center text-muted-foreground">
               No files found. Drop or select files above to upload.
             </div>
           ) : (
-            files
-              .filter((f) => showDeleted || !f.deleted)
-              .map((file) => {
-                const isRecentlyUploaded = recentlyUploadedIds.has(file.id);
-                const fileType = file.mimeType.split('/')[0] ?? '';
-                const viewableTypes = ['image', 'audio'];
-                const isPdf = file.mimeType === 'application/pdf';
-                return (
-                  <ListRow
-                    key={file.id}
-                    className={`${file.deleted ? 'opacity-60' : ''}`}
+            <>
+              <p className="mb-2 text-muted-foreground text-sm">
+                {filteredFiles.length} file{filteredFiles.length !== 1 && 's'}
+              </p>
+              <div className="flex-1 rounded-lg border">
+                <div ref={parentRef} className="h-full overflow-auto">
+                  <div
+                    className="relative w-full"
+                    style={{ height: `${virtualizer.getTotalSize()}px` }}
                   >
-                    {(() => {
+                    {virtualItems.map((virtualItem) => {
+                      const file = filteredFiles[virtualItem.index];
+                      if (!file) return null;
+
+                      const isRecentlyUploaded = recentlyUploadedIds.has(
+                        file.id
+                      );
+                      const fileType = file.mimeType.split('/')[0] ?? '';
+                      const viewableTypes = ['image', 'audio'];
+                      const isPdf = file.mimeType === 'application/pdf';
                       const isClickable =
                         (viewableTypes.includes(fileType) || isPdf) &&
                         !file.deleted;
@@ -482,57 +504,74 @@ export function Files() {
                         </>
                       );
 
-                      return isClickable ? (
-                        <button
-                          type="button"
-                          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
-                          onClick={() => handleView(file)}
+                      return (
+                        <div
+                          key={file.id}
+                          data-index={virtualItem.index}
+                          ref={virtualizer.measureElement}
+                          className="absolute top-0 left-0 w-full px-1 py-0.5"
+                          style={{
+                            transform: `translateY(${virtualItem.start}px)`
+                          }}
                         >
-                          {content}
-                        </button>
-                      ) : (
-                        <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
-                          {content}
+                          <ListRow
+                            className={`${file.deleted ? 'opacity-60' : ''}`}
+                          >
+                            {isClickable ? (
+                              <button
+                                type="button"
+                                className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
+                                onClick={() => handleView(file)}
+                              >
+                                {content}
+                              </button>
+                            ) : (
+                              <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
+                                {content}
+                              </div>
+                            )}
+                            <div className="flex shrink-0 gap-1">
+                              {file.deleted ? (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => handleRestore(file)}
+                                  title="Restore"
+                                >
+                                  <RotateCcw className="h-4 w-4" />
+                                </Button>
+                              ) : (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => handleDownload(file)}
+                                    title="Download"
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => handleDelete(file)}
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </ListRow>
                         </div>
                       );
-                    })()}
-                    <div className="flex shrink-0 gap-1">
-                      {file.deleted ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleRestore(file)}
-                          title="Restore"
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleDownload(file)}
-                            title="Download"
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleDelete(file)}
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </ListRow>
-                );
-              })
+                    })}
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}
