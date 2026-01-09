@@ -28,6 +28,23 @@ import {
 
 const PDF_MIME_TYPE = 'application/pdf';
 
+async function retrieveDocumentData(
+  storagePath: string,
+  currentInstanceId: string
+): Promise<Uint8Array> {
+  const db = getDatabase();
+  const keyManager = getKeyManager();
+  const encryptionKey = keyManager.getCurrentKey();
+  if (!encryptionKey) throw new Error('Database not unlocked');
+
+  if (!isFileStorageInitialized()) {
+    await initializeFileStorage(encryptionKey, currentInstanceId);
+  }
+
+  const storage = getFileStorage();
+  return storage.measureRetrieve(storagePath, createRetrieveLogger(db));
+}
+
 interface DocumentInfo {
   id: string;
   name: string;
@@ -57,20 +74,10 @@ export function DocumentDetail() {
 
     setActionLoading('download');
     try {
-      const db = getDatabase();
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
       if (!currentInstanceId) throw new Error('No active instance');
-
-      if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey, currentInstanceId);
-      }
-
-      const storage = getFileStorage();
-      const data = await storage.measureRetrieve(
+      const data = await retrieveDocumentData(
         document.storagePath,
-        createRetrieveLogger(db)
+        currentInstanceId
       );
       downloadFile(data, document.name);
     } catch (err) {
@@ -86,20 +93,10 @@ export function DocumentDetail() {
 
     setActionLoading('share');
     try {
-      const db = getDatabase();
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
       if (!currentInstanceId) throw new Error('No active instance');
-
-      if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey, currentInstanceId);
-      }
-
-      const storage = getFileStorage();
-      const data = await storage.measureRetrieve(
+      const data = await retrieveDocumentData(
         document.storagePath,
-        createRetrieveLogger(db)
+        currentInstanceId
       );
       const shared = await shareFile(data, document.name, document.mimeType);
       if (!shared) {
@@ -143,11 +140,6 @@ export function DocumentDetail() {
           )
         )
         .limit(1);
-
-      if (result.length === 0) {
-        setError('Document not found');
-        return;
-      }
 
       const row = result[0];
       if (!row) {
