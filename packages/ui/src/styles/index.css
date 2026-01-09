@@ -44,24 +44,24 @@
 }
 
 .tokyo-night {
-  --background: hsl(230 21% 13%);
+  --background: hsl(230 20% 15%);
   --foreground: hsl(227 32% 75%);
-  --card: hsl(229 24% 18%);
+  --card: hsl(230 20% 15%);
   --card-foreground: hsl(227 32% 75%);
-  --popover: hsl(229 24% 18%);
+  --popover: hsl(230 20% 15%);
   --popover-foreground: hsl(227 32% 75%);
   --primary: hsl(220 89% 72%);
-  --primary-foreground: hsl(230 21% 13%);
-  --secondary: hsl(226 22% 25%);
+  --primary-foreground: hsl(230 20% 14%);
+  --secondary: hsl(230 20% 14%);
   --secondary-foreground: hsl(227 32% 75%);
-  --muted: hsl(226 22% 25%);
-  --muted-foreground: hsl(227 22% 46%);
-  --accent: hsl(266 84% 79%);
-  --accent-foreground: hsl(230 21% 13%);
-  --destructive: hsl(352 87% 70%);
-  --destructive-foreground: hsl(230 21% 13%);
-  --border: hsl(228 26% 25%);
-  --input: hsl(228 26% 25%);
+  --muted: hsl(228 20% 30%);
+  --muted-foreground: hsl(227 22% 55%);
+  --accent: hsl(190 65% 70%);
+  --accent-foreground: hsl(230 20% 14%);
+  --destructive: hsl(10 70% 60%);
+  --destructive-foreground: hsl(230 20% 14%);
+  --border: hsl(228 20% 22%);
+  --input: hsl(228 20% 22%);
   --ring: hsl(220 89% 72%);
 }
 
