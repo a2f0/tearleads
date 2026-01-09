@@ -1,4 +1,8 @@
-import type { PingData, RedisKeysResponse } from '@rapid/shared';
+import type {
+  PingData,
+  RedisKeysResponse,
+  RedisKeyValueResponse
+} from '@rapid/shared';
 import { logApiEvent } from '@/db/analytics';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
@@ -43,7 +47,11 @@ export const api = {
         return request<RedisKeysResponse>(
           `/admin/redis/keys${query ? `?${query}` : ''}`
         );
-      }
+      },
+      getValue: (key: string) =>
+        request<RedisKeyValueResponse>(
+          `/admin/redis/keys/${encodeURIComponent(key)}`
+        )
     }
   }
 };

@@ -1,5 +1,7 @@
-import type { RedisKeyInfo } from '@rapid/shared';
-import { ChevronDown, ChevronRight, Database } from 'lucide-react';
+import type { RedisKeyInfo, RedisKeyValueResponse } from '@rapid/shared';
+import { ChevronDown, ChevronRight, Database, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 interface RedisKeyRowProps {
@@ -36,11 +38,125 @@ function formatTtl(ttl: number): string {
   return `${Math.floor(ttl / 86400)}d`;
 }
 
+function renderStringValue(value: string) {
+  return (
+    <div className="mt-2">
+      <p className="mb-1 font-medium text-muted-foreground text-xs">Value:</p>
+      <pre className="overflow-auto rounded bg-muted p-2 font-mono text-xs">
+        {value}
+      </pre>
+    </div>
+  );
+}
+
+function renderSetValue(value: string[]) {
+  return (
+    <div className="mt-2">
+      <p className="mb-1 font-medium text-muted-foreground text-xs">
+        Members ({value.length}):
+      </p>
+      <ul className="space-y-1">
+        {value.map((member) => (
+          <li
+            key={member}
+            className="rounded bg-muted px-2 py-1 font-mono text-xs"
+          >
+            {member}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function renderHashValue(value: Record<string, string>) {
+  const entries = Object.entries(value);
+  return (
+    <div className="mt-2">
+      <p className="mb-1 font-medium text-muted-foreground text-xs">
+        Fields ({entries.length}):
+      </p>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="border-b">
+            <th className="px-2 py-1 text-left font-medium text-muted-foreground">
+              Field
+            </th>
+            <th className="px-2 py-1 text-left font-medium text-muted-foreground">
+              Value
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map(([field, fieldValue]) => (
+            <tr key={field} className="border-b last:border-b-0">
+              <td className="px-2 py-1 font-mono">{field}</td>
+              <td className="px-2 py-1 font-mono">{fieldValue}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function renderValue(data: RedisKeyValueResponse) {
+  if (data.value === null) {
+    return (
+      <p className="mt-2 text-muted-foreground text-xs italic">
+        Value display not supported for this type
+      </p>
+    );
+  }
+
+  switch (data.type) {
+    case 'string':
+      return renderStringValue(data.value as string);
+    case 'set':
+      return renderSetValue(data.value as string[]);
+    case 'hash':
+      return renderHashValue(data.value as Record<string, string>);
+    default:
+      return null;
+  }
+}
+
 export function RedisKeyRow({
   keyInfo,
   isExpanded,
   onToggle
 }: RedisKeyRowProps) {
+  const [valueData, setValueData] = useState<RedisKeyValueResponse | null>(
+    null
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isExpanded) {
+      return;
+    }
+
+    if (valueData) {
+      return;
+    }
+
+    const fetchValue = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await api.admin.redis.getValue(keyInfo.key);
+        setValueData(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch value');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchValue();
+  }, [isExpanded, keyInfo.key, valueData]);
+
   return (
     <div className="border-b last:border-b-0">
       <button
@@ -85,6 +201,19 @@ export function RedisKeyRow({
                   : `${keyInfo.ttl} seconds`}
             </p>
           </div>
+
+          {loading && (
+            <div className="flex items-center text-muted-foreground text-xs">
+              <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+              Loading value...
+            </div>
+          )}
+
+          {error && (
+            <div className="text-destructive text-xs">Error: {error}</div>
+          )}
+
+          {valueData && renderValue(valueData)}
         </div>
       )}
     </div>
