@@ -1,3 +1,4 @@
+import { isRecord, toFiniteNumber } from '@rapid/shared';
 import { ChevronRight, Table2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -9,23 +10,6 @@ import { useDatabaseContext } from '@/db/hooks';
 interface TableInfo {
   name: string;
   rowCount: number;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function toFiniteNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
 }
 
 function getRowString(row: unknown, key: string): string | null {

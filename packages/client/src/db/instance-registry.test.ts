@@ -2,6 +2,7 @@
  * Tests for the instance registry.
  */
 
+import { isRecord } from '@rapid/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InstanceMetadata } from './instance-registry';
 import {
@@ -101,10 +102,6 @@ const createMockOpenRequest = (): MockOpenRequest => ({
   onerror: null,
   onupgradeneeded: null
 });
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function isInstanceMetadata(value: unknown): value is InstanceMetadata {
   if (!isRecord(value)) {

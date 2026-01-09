@@ -1,3 +1,4 @@
+import { isRecord } from '@rapid/shared';
 import type { OpenAPIV3 } from 'openapi-types';
 import swaggerJsdoc from 'swagger-jsdoc';
 import packageJson from '../package.json' with { type: 'json' };
@@ -30,10 +31,10 @@ if (!isOpenApiV3Document(generatedSpec)) {
 }
 export const openapiSpecification: OpenAPIV3.Document = generatedSpec;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
 function isOpenApiV3Document(value: unknown): value is OpenAPIV3.Document {
-  return isRecord(value) && typeof value['openapi'] === 'string';
+  return (
+    isRecord(value) &&
+    typeof value['openapi'] === 'string' &&
+    value['openapi'].startsWith('3.')
+  );
 }

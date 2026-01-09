@@ -4,6 +4,7 @@
  * Supports multi-instance with namespaced database files.
  */
 
+import { isRecord } from '@rapid/shared';
 import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import type { DatabaseAdapter, PlatformInfo } from './adapters';
@@ -384,10 +385,6 @@ async function runMigrations(): Promise<void> {
   // Migrations for existing databases
   await addColumnIfNotExists('contacts', 'last_name', 'TEXT');
   await addColumnIfNotExists('files', 'thumbnail_path', 'TEXT');
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 type DrizzleConnection = (

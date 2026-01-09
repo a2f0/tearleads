@@ -1,3 +1,4 @@
+import { isRecord } from '@rapid/shared';
 import { ArrowLeft } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -24,8 +25,4 @@ export function BackLink({ defaultTo, defaultLabel }: BackLinkProps) {
       {label}
     </Link>
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

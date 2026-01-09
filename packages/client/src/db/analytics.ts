@@ -2,6 +2,7 @@
  * Analytics logging module for tracking database operations.
  */
 
+import { isRecord, toFiniteNumber } from '@rapid/shared';
 import type { Database } from './index';
 import { getDatabaseAdapter } from './index';
 import { analyticsEvents } from './schema';
@@ -110,23 +111,6 @@ interface RawAnalyticsRow {
   durationMs: number;
   success: number; // SQLite stores as 0/1
   timestamp: number; // milliseconds since epoch
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function toFiniteNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
 }
 
 function normalizeAnalyticsRow(value: unknown): RawAnalyticsRow | null {
