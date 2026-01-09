@@ -193,6 +193,25 @@ describe('Tables', () => {
       expect(screen.getByText('1 row')).toBeInTheDocument();
     });
 
+    it('handles array-based table and count rows', async () => {
+      mockExecute.mockImplementation((sql: string) => {
+        if (sql.includes('sqlite_master')) {
+          return Promise.resolve({
+            rows: [['users']]
+          });
+        }
+        if (sql.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [[3]] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      await renderTables();
+
+      expect(screen.getByText('users')).toBeInTheDocument();
+      expect(screen.getByText('3 rows')).toBeInTheDocument();
+    });
+
     it('renders tables as links', async () => {
       await renderTables();
 
