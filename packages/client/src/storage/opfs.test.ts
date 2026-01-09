@@ -74,16 +74,16 @@ function setStorageFilesDirectoryNull(storage: object) {
 }
 
 // Mock FileSystem handles
-const createMockFileHandle = (
-  content: Uint8Array
-): MockFileHandle => {
+const createMockFileHandle = (content: Uint8Array): MockFileHandle => {
   const file = new File([content], 'test.enc');
   const write = vi.fn();
   const close = vi.fn();
-  const createWritable = vi.fn(async (): Promise<MockWritableStream> => ({
-    write,
-    close
-  }));
+  const createWritable = vi.fn(
+    async (): Promise<MockWritableStream> => ({
+      write,
+      close
+    })
+  );
 
   return {
     kind: 'file',

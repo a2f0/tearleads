@@ -3,11 +3,10 @@
  */
 
 import type { Database } from './index';
-
-export type DatabaseInsert = Pick<Database, 'insert'>;
 import { getDatabaseAdapter } from './index';
 import { analyticsEvents } from './schema';
 
+export type DatabaseInsert = Pick<Database, 'insert'>;
 export interface AnalyticsEvent {
   id: string;
   eventName: string;
