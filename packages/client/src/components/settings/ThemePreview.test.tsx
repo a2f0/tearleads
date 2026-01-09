@@ -28,16 +28,16 @@ describe('ThemePreview', () => {
     { theme: 'tokyo-night', color: '#24283b' }
   ];
 
-  it.each(themeColors)(
-    'renders with correct background color for %s theme',
-    ({ theme, color }) => {
-      const { container } = render(<ThemePreview theme={theme} />);
-      const wrapper = container.firstElementChild;
-      expect(wrapper).not.toBeNull();
-      if (!wrapper) {
-        throw new Error('Missing theme preview wrapper.');
-      }
-      expect(wrapper).toHaveStyle({ backgroundColor: color });
+  it.each(themeColors)('renders with correct background color for %s theme', ({
+    theme,
+    color
+  }) => {
+    const { container } = render(<ThemePreview theme={theme} />);
+    const wrapper = container.firstElementChild;
+    expect(wrapper).not.toBeNull();
+    if (!wrapper) {
+      throw new Error('Missing theme preview wrapper.');
     }
-  );
+    expect(wrapper).toHaveStyle({ backgroundColor: color });
+  });
 });
