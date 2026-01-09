@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { IAudioMetadata, ICommonTagsResult } from 'music-metadata';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { extractAudioCoverArt, isAudioMimeType } from './audio-metadata';
 
 vi.mock('music-metadata', () => ({

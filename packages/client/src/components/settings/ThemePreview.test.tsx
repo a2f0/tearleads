@@ -19,17 +19,19 @@ describe('ThemePreview', () => {
     expect(screen.getByText(labels[theme])).toBeInTheDocument();
   });
 
-  const themeColors: Array<{ theme: 'light' | 'dark' | 'tokyo-night'; color: string }> =
-    [
-      { theme: 'light', color: '#ffffff' },
-      { theme: 'dark', color: '#0a0a0a' },
-      { theme: 'tokyo-night', color: '#24283b' }
-    ];
+  const themeColors: Array<{
+    theme: 'light' | 'dark' | 'tokyo-night';
+    color: string;
+  }> = [
+    { theme: 'light', color: '#ffffff' },
+    { theme: 'dark', color: '#0a0a0a' },
+    { theme: 'tokyo-night', color: '#24283b' }
+  ];
 
   it.each(themeColors)(
     'renders with correct background color for %s theme',
     ({ theme, color }) => {
-    const { container } = render(<ThemePreview theme={theme} />);
+      const { container } = render(<ThemePreview theme={theme} />);
       const wrapper = container.firstElementChild;
       expect(wrapper).not.toBeNull();
       if (!wrapper) {

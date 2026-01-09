@@ -479,9 +479,9 @@ describe('file-utils', () => {
 
     const webPlatforms: Array<'web' | 'electron'> = ['web', 'electron'];
 
-    it.each(webPlatforms)(
-      'uses downloadFile for %s platform',
-      async (platform) => {
+    it.each(
+      webPlatforms
+    )('uses downloadFile for %s platform', async (platform) => {
       const { Capacitor } = await import('@capacitor/core');
       vi.mocked(Capacitor.getPlatform).mockReturnValue(platform);
 
@@ -490,14 +490,13 @@ describe('file-utils', () => {
 
       // downloadFile should have been called, which creates a blob URL
       expect(createObjectURLSpy).toHaveBeenCalled();
-      }
-    );
+    });
 
     const mobilePlatforms: Array<'ios' | 'android'> = ['ios', 'android'];
 
-    it.each(mobilePlatforms)(
-      'uses Capacitor Share API for %s platform',
-      async (platform) => {
+    it.each(
+      mobilePlatforms
+    )('uses Capacitor Share API for %s platform', async (platform) => {
       const { Capacitor } = await import('@capacitor/core');
       vi.mocked(Capacitor.getPlatform).mockReturnValue(platform);
 
@@ -541,8 +540,7 @@ describe('file-utils', () => {
         url: 'file:///cache/test.db',
         dialogTitle: 'Save Backup'
       });
-      }
-    );
+    });
 
     it('correctly converts data to base64 for mobile platforms', async () => {
       const { Capacitor } = await import('@capacitor/core');

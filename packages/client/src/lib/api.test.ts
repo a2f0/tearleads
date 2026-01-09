@@ -45,7 +45,9 @@ describe('api', () => {
     });
 
     it('throws error when response is not ok', async () => {
-      vi.mocked(global.fetch).mockResolvedValue(new Response(null, { status: 500 }));
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(null, { status: 500 })
+      );
 
       const { api } = await import('./api');
 
@@ -53,7 +55,9 @@ describe('api', () => {
     });
 
     it('handles 404 errors', async () => {
-      vi.mocked(global.fetch).mockResolvedValue(new Response(null, { status: 404 }));
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(null, { status: 404 })
+      );
 
       const { api } = await import('./api');
 

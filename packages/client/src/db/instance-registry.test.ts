@@ -64,11 +64,13 @@ const mockObjectStore = {
 
 function createMockTransaction() {
   const objectStore = vi.fn<[], typeof mockObjectStore>(() => mockObjectStore);
-  const tx: { objectStore: typeof objectStore; oncomplete: (() => void) | null } =
-    {
-      objectStore,
-      oncomplete: null
-    };
+  const tx: {
+    objectStore: typeof objectStore;
+    oncomplete: (() => void) | null;
+  } = {
+    objectStore,
+    oncomplete: null
+  };
   setTimeout(() => tx.oncomplete?.(), 10);
   return tx;
 }
