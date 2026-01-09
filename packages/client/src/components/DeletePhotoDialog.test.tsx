@@ -1,0 +1,121 @@
+import { ThemeProvider } from '@rapid/ui';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DeletePhotoDialog } from './DeletePhotoDialog';
+
+function renderDialog(props: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  photoName?: string;
+  onDelete?: () => Promise<void>;
+}) {
+  const defaultProps = {
+    open: true,
+    onOpenChange: vi.fn(),
+    photoName: 'test-photo.jpg',
+    onDelete: vi.fn().mockResolvedValue(undefined)
+  };
+
+  return render(
+    <ThemeProvider>
+      <DeletePhotoDialog {...defaultProps} {...props} />
+    </ThemeProvider>
+  );
+}
+
+describe('DeletePhotoDialog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders nothing when closed', () => {
+    renderDialog({ open: false });
+    expect(screen.queryByTestId('delete-photo-dialog')).not.toBeInTheDocument();
+  });
+
+  it('renders dialog when open', () => {
+    renderDialog({ open: true });
+    expect(screen.getByTestId('delete-photo-dialog')).toBeInTheDocument();
+  });
+
+  it('displays photo name in confirmation message', () => {
+    renderDialog({ photoName: 'my-vacation.jpg' });
+    expect(screen.getByText('my-vacation.jpg')).toBeInTheDocument();
+  });
+
+  it('calls onOpenChange with false when cancel is clicked', async () => {
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    renderDialog({ onOpenChange });
+
+    await user.click(screen.getByTestId('cancel-delete-photo-button'));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('calls onDelete and onOpenChange when delete is confirmed', async () => {
+    const onDelete = vi.fn().mockResolvedValue(undefined);
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    renderDialog({ onDelete, onOpenChange });
+
+    await user.click(screen.getByTestId('confirm-delete-photo-button'));
+
+    await waitFor(() => {
+      expect(onDelete).toHaveBeenCalled();
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+  });
+
+  it('shows deleting state while delete is in progress', async () => {
+    let resolveDelete: () => void = () => {};
+    const deletePromise = new Promise<void>((resolve) => {
+      resolveDelete = resolve;
+    });
+    const onDelete = vi.fn().mockReturnValue(deletePromise);
+    const user = userEvent.setup();
+    renderDialog({ onDelete });
+
+    await user.click(screen.getByTestId('confirm-delete-photo-button'));
+
+    expect(screen.getByText('Deleting...')).toBeInTheDocument();
+    expect(screen.getByTestId('confirm-delete-photo-button')).toBeDisabled();
+    expect(screen.getByTestId('cancel-delete-photo-button')).toBeDisabled();
+
+    resolveDelete();
+    await waitFor(() => {
+      expect(onDelete).toHaveBeenCalled();
+    });
+  });
+
+  it('closes dialog when backdrop is clicked', async () => {
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    renderDialog({ onOpenChange });
+
+    const backdrop = screen.getByTestId('delete-photo-dialog').previousSibling;
+    await user.click(backdrop as Element);
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('handles delete error without crashing', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    const onDelete = vi.fn().mockRejectedValue(new Error('Delete failed'));
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    renderDialog({ onDelete, onOpenChange });
+
+    await user.click(screen.getByTestId('confirm-delete-photo-button'));
+
+    await waitFor(() => {
+      expect(onDelete).toHaveBeenCalled();
+      expect(consoleError).toHaveBeenCalled();
+    });
+
+    consoleError.mockRestore();
+  });
+});
