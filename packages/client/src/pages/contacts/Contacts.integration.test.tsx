@@ -10,12 +10,27 @@ import '../../test/setup-integration';
 
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDatabase } from '@/db';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
 import { renderWithDatabase } from '../../test/render-with-database';
 import { resetTestKeyManager } from '../../test/test-key-manager';
 import { Contacts } from './Contacts';
+
+// Mock useVirtualizer to simplify testing
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: vi.fn(({ count }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, i) => ({
+        index: i,
+        start: i * 72,
+        size: 72,
+        key: i
+      })),
+    getTotalSize: () => count * 72,
+    measureElement: vi.fn()
+  }))
+}));
 
 // Helper to create test contacts directly in the database
 // Must be called after renderWithDatabase has set up the database

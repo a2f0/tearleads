@@ -5,6 +5,21 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Files } from './Files';
 
+// Mock useVirtualizer to simplify testing
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: vi.fn(({ count }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, i) => ({
+        index: i,
+        start: i * 56,
+        size: 56,
+        key: i
+      })),
+    getTotalSize: () => count * 56,
+    measureElement: vi.fn()
+  }))
+}));
+
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -244,6 +259,14 @@ describe('Files', () => {
       await waitFor(() => {
         expect(screen.getByText(/1 KB/)).toBeInTheDocument();
         expect(screen.getByText(/2 KB/)).toBeInTheDocument();
+      });
+    });
+
+    it('shows file count', async () => {
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('2 files')).toBeInTheDocument();
       });
     });
 

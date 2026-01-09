@@ -1,6 +1,7 @@
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, desc, eq } from 'drizzle-orm';
 import { Download, FileText, Info, Loader2, Share2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
@@ -27,6 +28,8 @@ interface DocumentInfo {
   storagePath: string;
 }
 
+const ROW_HEIGHT_ESTIMATE = 56;
+
 export function Documents() {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
@@ -43,6 +46,16 @@ export function Documents() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const { uploadFile } = useFileUpload();
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: documents.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT_ESTIMATE,
+    overscan: 5
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
 
   useEffect(() => {
     setCanShare(canShareFiles());
@@ -223,7 +236,7 @@ export function Documents() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full flex-col space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <FileText className="h-8 w-8 text-muted-foreground" />
@@ -275,52 +288,81 @@ export function Documents() {
             source="files"
           />
         ) : (
-          <div className="space-y-2" data-testid="documents-list">
-            {documents.map((document) => (
-              <ListRow
-                key={document.id}
-                onContextMenu={(e) => handleContextMenu(e, document)}
-              >
-                <button
-                  type="button"
-                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
-                  onClick={() => handleDocumentClick(document)}
+          <div
+            className="min-h-0 flex-1 space-y-2"
+            data-testid="documents-list"
+          >
+            <p className="text-muted-foreground text-sm">
+              {documents.length} document{documents.length !== 1 && 's'}
+            </p>
+            <div className="h-[calc(100vh-280px)] rounded-lg border">
+              <div ref={parentRef} className="h-full overflow-auto">
+                <div
+                  className="relative w-full"
+                  style={{ height: `${virtualizer.getTotalSize()}px` }}
                 >
-                  <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-sm">
-                      {document.name}
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      {formatFileSize(document.size)} ·{' '}
-                      {document.uploadDate.toLocaleDateString()}
-                    </p>
-                  </div>
-                </button>
-                <div className="flex shrink-0 gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={(e) => handleDownload(document, e)}
-                    title="Download"
-                  >
-                    <Download className="h-4 w-4" />
-                  </Button>
-                  {canShare && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={(e) => handleShare(document, e)}
-                      title="Share"
-                    >
-                      <Share2 className="h-4 w-4" />
-                    </Button>
-                  )}
+                  {virtualItems.map((virtualItem) => {
+                    const document = documents[virtualItem.index];
+                    if (!document) return null;
+
+                    return (
+                      <div
+                        key={document.id}
+                        data-index={virtualItem.index}
+                        ref={virtualizer.measureElement}
+                        className="absolute top-0 left-0 w-full px-1 py-0.5"
+                        style={{
+                          transform: `translateY(${virtualItem.start}px)`
+                        }}
+                      >
+                        <ListRow
+                          onContextMenu={(e) => handleContextMenu(e, document)}
+                        >
+                          <button
+                            type="button"
+                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
+                            onClick={() => handleDocumentClick(document)}
+                          >
+                            <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium text-sm">
+                                {document.name}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                {formatFileSize(document.size)} ·{' '}
+                                {document.uploadDate.toLocaleDateString()}
+                              </p>
+                            </div>
+                          </button>
+                          <div className="flex shrink-0 gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => handleDownload(document, e)}
+                              title="Download"
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            {canShare && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={(e) => handleShare(document, e)}
+                                title="Share"
+                              >
+                                <Share2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </ListRow>
+                      </div>
+                    );
+                  })}
                 </div>
-              </ListRow>
-            ))}
+              </div>
+            </div>
             <Dropzone
               onFilesSelected={handleFilesSelected}
               accept="application/pdf"
