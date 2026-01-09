@@ -93,6 +93,10 @@ interface SQLiteOO1WithOpfs extends SQLiteOO1 {
   OpfsDb?: unknown;
 }
 
+function hasOpfsDb(oo1: SQLiteOO1): oo1 is SQLiteOO1WithOpfs {
+  return 'OpfsDb' in oo1;
+}
+
 /**
  * SQLite WASM initialization function type.
  */
@@ -199,8 +203,7 @@ async function installOpfsVfs(): Promise<boolean> {
     }
 
     // Alternative: check for OpfsDb class
-    const oo1WithOpfs = sqlite3.oo1 as SQLiteOO1WithOpfs;
-    if (oo1WithOpfs.OpfsDb) {
+    if (hasOpfsDb(sqlite3.oo1) && sqlite3.oo1.OpfsDb) {
       console.log('OpfsDb class available');
       return true;
     }

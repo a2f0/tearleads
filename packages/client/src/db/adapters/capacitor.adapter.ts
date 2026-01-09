@@ -133,9 +133,10 @@ async function getSQLiteConnection(): Promise<SQLiteConnectionWrapper> {
     throw err;
   }
 
-  sqliteConnection = new SQLiteConnection(
+  const connection: SQLiteConnectionWrapper = new SQLiteConnection(
     CapacitorSQLite
-  ) as unknown as SQLiteConnectionWrapper;
+  );
+  sqliteConnection = connection;
   return sqliteConnection;
 }
 
@@ -451,7 +452,10 @@ export class CapacitorAdapter implements DatabaseAdapter {
       });
 
       // Convert base64 to Uint8Array
-      const base64Data = result.data as string;
+      if (typeof result.data !== 'string') {
+        throw new Error('Unexpected database export data');
+      }
+      const base64Data = result.data;
       const binaryString = atob(base64Data);
       return Uint8Array.from(binaryString, (c) => c.charCodeAt(0));
     } finally {

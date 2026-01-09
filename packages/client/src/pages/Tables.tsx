@@ -11,6 +11,45 @@ interface TableInfo {
   rowCount: number;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function getRowString(row: unknown, key: string): string | null {
+  if (isRecord(row)) {
+    const value = row[key];
+    return typeof value === 'string' ? value : null;
+  }
+  if (Array.isArray(row)) {
+    const value = row[0];
+    return typeof value === 'string' ? value : null;
+  }
+  return null;
+}
+
+function getRowNumber(row: unknown, key: string): number | null {
+  if (isRecord(row)) {
+    return toFiniteNumber(row[key]);
+  }
+  if (Array.isArray(row)) {
+    return toFiniteNumber(row[0]);
+  }
+  return null;
+}
+
 export function Tables() {
   const { isUnlocked, isLoading } = useDatabaseContext();
   const [tables, setTables] = useState<TableInfo[]>([]);
@@ -32,14 +71,9 @@ export function Tables() {
         []
       );
 
-      const tableNames = tablesResult.rows.map((row) => {
-        const r = row as Record<string, unknown>;
-        const name = r['name'];
-        if (typeof name !== 'string') {
-          throw new Error('Unexpected row format from sqlite_master');
-        }
-        return name;
-      });
+      const tableNames = tablesResult.rows
+        .map((row) => getRowString(row, 'name'))
+        .filter((name): name is string => Boolean(name));
 
       // Get row count for each table
       const tablesWithCounts: TableInfo[] = await Promise.all(
@@ -48,9 +82,9 @@ export function Tables() {
             `SELECT COUNT(*) as count FROM "${name}"`,
             []
           );
-          const countRow = countResult.rows[0] as Record<string, unknown>;
-          const count = countRow['count'];
-          if (typeof count !== 'number') {
+          const countRow = countResult.rows[0];
+          const count = getRowNumber(countRow, 'count');
+          if (count === null) {
             throw new Error(`Unexpected count format for table "${name}"`);
           }
           return { name, rowCount: count };

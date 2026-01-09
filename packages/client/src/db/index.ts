@@ -255,11 +255,10 @@ async function initializeDatabaseWithKey(
 
   // Create Drizzle instance with the sqlite-proxy driver
   // The adapters return { rows: any[] } for all methods as expected by Drizzle
-  const connection = adapter.getConnection() as (
-    sql: string,
-    params: unknown[],
-    method: 'all' | 'get' | 'run' | 'values'
-  ) => Promise<{ rows: unknown[] }>;
+  const connection = adapter.getConnection();
+  if (!isDrizzleConnection(connection)) {
+    throw new Error('Database adapter returned invalid connection');
+  }
 
   databaseInstance = drizzle(connection, { schema });
 
@@ -370,7 +369,7 @@ async function runMigrations(): Promise<void> {
         `PRAGMA table_info("${tableName}")`
       );
       const columnExists = info?.rows?.some(
-        (col) => (col as Record<string, unknown>)['name'] === columnName
+        (col) => isRecord(col) && col.name === columnName
       );
       if (!columnExists) {
         await adapterInstance?.execute(
@@ -385,6 +384,20 @@ async function runMigrations(): Promise<void> {
   // Migrations for existing databases
   await addColumnIfNotExists('contacts', 'last_name', 'TEXT');
   await addColumnIfNotExists('files', 'thumbnail_path', 'TEXT');
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+type DrizzleConnection = (
+  sql: string,
+  params: unknown[],
+  method: 'all' | 'get' | 'run' | 'values'
+) => Promise<{ rows: unknown[] }>;
+
+function isDrizzleConnection(value: unknown): value is DrizzleConnection {
+  return typeof value === 'function';
 }
 
 /**

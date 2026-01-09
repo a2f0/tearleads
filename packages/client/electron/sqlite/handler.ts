@@ -16,6 +16,18 @@ interface QueryResult {
 
 let db: Database.Database | null = null;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getErrorCode(error: unknown): string | undefined {
+  if (!isRecord(error)) {
+    return undefined;
+  }
+  const code = error.code;
+  return typeof code === 'string' ? code : undefined;
+}
+
 /**
  * Get the database file path.
  */
@@ -111,7 +123,8 @@ function execute(sql: string, params?: unknown[]): QueryResult {
 
   if (isSelect) {
     const rows = params ? stmt.all(...params) : stmt.all();
-    return { rows: rows as Record<string, unknown>[] };
+    const safeRows = Array.isArray(rows) ? rows.filter(isRecord) : [];
+    return { rows: safeRows };
   }
 
   const result = params ? stmt.run(...params) : stmt.run();
@@ -312,8 +325,12 @@ function getEncryptedData(filename: string): number[] | null {
     return result;
   } catch (error: unknown) {
     // It's normal for the file not to exist. Only log other errors.
-    if (error instanceof Error && (error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      console.error(`Failed to read or decrypt session data from ${keyPath}:`, error);
+    const code = getErrorCode(error);
+    if (error instanceof Error && code !== 'ENOENT') {
+      console.error(
+        `Failed to read or decrypt session data from ${keyPath}:`,
+        error
+      );
     }
     return null;
   }

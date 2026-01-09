@@ -4,7 +4,10 @@ export interface ThemePreviewProps {
   theme: ResolvedTheme;
 }
 
-const THEME_COLORS = {
+const THEME_COLORS: Record<
+  ResolvedTheme,
+  { background: string; foreground: string; primary: string; muted: string }
+> = {
   light: {
     background: '#ffffff',
     foreground: '#0a0a0a',
@@ -23,13 +26,13 @@ const THEME_COLORS = {
     primary: '#7aa2f7',
     muted: '#414868'
   }
-} as const;
+};
 
-const THEME_LABELS = {
+const THEME_LABELS: Record<ResolvedTheme, string> = {
   light: 'Light',
   dark: 'Dark',
   'tokyo-night': 'Tokyo Night'
-} as const;
+};
 
 export function ThemePreview({ theme }: ThemePreviewProps) {
   const colors = THEME_COLORS[theme];

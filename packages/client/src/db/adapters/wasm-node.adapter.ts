@@ -12,6 +12,12 @@ import { fileURLToPath } from 'node:url';
 import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
 import { convertRowsToArrays } from './utils';
 
+declare global {
+  var sqlite3InitModuleState:
+    | { wasmFilename: string; debugModule: () => void }
+    | undefined;
+}
+
 // Store original fetch to restore later
 const originalFetch = globalThis.fetch;
 
@@ -21,7 +27,7 @@ const originalFetch = globalThis.fetch;
  * with file:// URLs in Node.js. This polyfill handles that case.
  */
 function patchFetchForFileUrls(): void {
-  (globalThis as unknown as { fetch: typeof fetch }).fetch = async (
+  globalThis.fetch = async (
     input: RequestInfo | URL,
     init?: RequestInit
   ): Promise<Response> => {
@@ -47,7 +53,9 @@ function patchFetchForFileUrls(): void {
  * Restore the original fetch function.
  */
 function restoreFetch(): void {
-  globalThis.fetch = originalFetch;
+  if (originalFetch) {
+    globalThis.fetch = originalFetch;
+  }
 }
 
 /**
@@ -112,6 +120,72 @@ type SQLite3InitModule = (options: {
   wasmBinary?: ArrayBuffer;
 }) => Promise<SQLite3Module>;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getStringField(
+  record: Record<string, unknown>,
+  key: string
+): string | null {
+  const value = record[key];
+  return typeof value === 'string' ? value : null;
+}
+
+function isNameSqlEntry(
+  value: unknown
+): value is { name: string; sql: string } {
+  return (
+    isRecord(value) &&
+    typeof value.name === 'string' &&
+    typeof value.sql === 'string'
+  );
+}
+
+function isJsonBackupData(value: unknown): value is JsonBackupData {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (typeof value.version !== 'number') {
+    return false;
+  }
+
+  if (
+    !Array.isArray(value.tables) ||
+    !value.tables.every(isNameSqlEntry) ||
+    !Array.isArray(value.indexes) ||
+    !value.indexes.every(isNameSqlEntry)
+  ) {
+    return false;
+  }
+
+  if (!isRecord(value.data)) {
+    return false;
+  }
+
+  for (const tableRows of Object.values(value.data)) {
+    if (!Array.isArray(tableRows)) {
+      return false;
+    }
+    for (const row of tableRows) {
+      if (!isRecord(row)) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+function parseJsonBackupData(jsonData: string): JsonBackupData {
+  const parsed = JSON.parse(jsonData);
+  if (!isJsonBackupData(parsed)) {
+    throw new Error('Invalid backup data format');
+  }
+  return parsed;
+}
+
 // Module-level state for caching the initialized SQLite module
 let sqlite3: SQLite3Module | null = null;
 
@@ -158,9 +232,7 @@ async function initializeSqliteWasm(): Promise<SQLite3Module> {
   try {
     // Set up globalThis.sqlite3InitModuleState BEFORE importing the module
     // The module reads this during import to configure instantiateWasm
-    (globalThis as unknown as Record<string, unknown>)[
-      'sqlite3InitModuleState'
-    ] = {
+    globalThis.sqlite3InitModuleState = {
       wasmFilename: 'sqlite3.wasm',
       debugModule: () => {}
     };
@@ -433,10 +505,11 @@ export class WasmNodeAdapter implements DatabaseAdapter {
       sql: "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
       rowMode: 'object',
       callback: (row: Record<string, unknown>) => {
-        result.tables.push({
-          name: row['name'] as string,
-          sql: row['sql'] as string
-        });
+        const name = getStringField(row, 'name');
+        const sql = getStringField(row, 'sql');
+        if (name && sql) {
+          result.tables.push({ name, sql });
+        }
         return undefined;
       }
     });
@@ -446,10 +519,11 @@ export class WasmNodeAdapter implements DatabaseAdapter {
       sql: "SELECT name, sql FROM sqlite_master WHERE type='index' AND sql IS NOT NULL ORDER BY name",
       rowMode: 'object',
       callback: (row: Record<string, unknown>) => {
-        result.indexes.push({
-          name: row['name'] as string,
-          sql: row['sql'] as string
-        });
+        const name = getStringField(row, 'name');
+        const sql = getStringField(row, 'sql');
+        if (name && sql) {
+          result.indexes.push({ name, sql });
+        }
         return undefined;
       }
     });
@@ -494,7 +568,7 @@ export class WasmNodeAdapter implements DatabaseAdapter {
     const filename = `import-${Date.now()}-${Math.random().toString(36).slice(2)}.sqlite3`;
 
     try {
-      const data = JSON.parse(jsonData) as JsonBackupData;
+      const data = parseJsonBackupData(jsonData);
 
       if (data.version !== 1) {
         throw new Error(`Unsupported backup version: ${data.version}`);

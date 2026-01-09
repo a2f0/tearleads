@@ -8,14 +8,11 @@ interface BackLinkProps {
 
 export function BackLink({ defaultTo, defaultLabel }: BackLinkProps) {
   const location = useLocation();
-  const state = location.state as {
-    from?: unknown;
-    fromLabel?: unknown;
-  } | null;
-
-  const to = typeof state?.from === 'string' ? state.from : defaultTo;
-  const label =
-    typeof state?.fromLabel === 'string' ? state.fromLabel : defaultLabel;
+  const state = location.state;
+  const from = isRecord(state) ? state.from : undefined;
+  const fromLabel = isRecord(state) ? state.fromLabel : undefined;
+  const to = typeof from === 'string' ? from : defaultTo;
+  const label = typeof fromLabel === 'string' ? fromLabel : defaultLabel;
 
   return (
     <Link
@@ -27,4 +24,8 @@ export function BackLink({ defaultTo, defaultLabel }: BackLinkProps) {
       {label}
     </Link>
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

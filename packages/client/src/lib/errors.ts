@@ -9,6 +9,10 @@ export function isError(value: unknown): value is Error {
   return value instanceof Error;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 /**
  * Safely extract an error message from an unknown error value.
  * Handles Error instances, error-like objects with a message property,
@@ -16,8 +20,9 @@ export function isError(value: unknown): value is Error {
  */
 export function getErrorMessage(error: unknown): string {
   if (isError(error)) return error.message;
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    return String((error as { message: unknown }).message);
+  if (isRecord(error) && 'message' in error) {
+    const value = error.message;
+    return typeof value === 'string' ? value : String(value);
   }
   return String(error);
 }

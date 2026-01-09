@@ -25,10 +25,10 @@ const REQUEST_TIMEOUT = 30000; // 30 seconds
  * Type guard to check if a value is a QueryResult.
  */
 function isQueryResult(value: unknown): value is QueryResult {
-  if (typeof value !== 'object' || value === null) {
+  if (!isRecord(value)) {
     return false;
   }
-  return 'rows' in value && Array.isArray((value as { rows: unknown }).rows);
+  return Array.isArray(value.rows);
 }
 
 /**
@@ -39,6 +39,17 @@ function assertQueryResult(value: unknown): QueryResult {
     throw new Error(`Expected QueryResult but got: ${typeof value}`);
   }
   return value;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isNumberArray(value: unknown): value is number[] {
+  return (
+    Array.isArray(value) &&
+    value.every((entry) => typeof entry === 'number' && Number.isFinite(entry))
+  );
 }
 
 export class WebAdapter implements DatabaseAdapter {
@@ -273,7 +284,10 @@ export class WebAdapter implements DatabaseAdapter {
   async exportDatabase(): Promise<Uint8Array> {
     const id = generateRequestId();
     const result = await this.sendRequest({ type: 'EXPORT', id });
-    const data = (result as { data: number[] }).data;
+    if (!isRecord(result) || !isNumberArray(result.data)) {
+      throw new Error('Unexpected export data from worker');
+    }
+    const data = result.data;
     return new Uint8Array(data);
   }
 
