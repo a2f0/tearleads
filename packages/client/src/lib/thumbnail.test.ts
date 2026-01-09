@@ -146,12 +146,9 @@ describe('thumbnail', () => {
     let mockContext: {
       drawImage: ReturnType<typeof vi.fn>;
     };
-    let mockCanvas: {
-      width: number;
-      height: number;
-      getContext: ReturnType<typeof vi.fn>;
-      toBlob: ReturnType<typeof vi.fn>;
-    };
+    let mockCanvas: HTMLCanvasElement;
+    let getContext: ReturnType<typeof vi.fn>;
+    let toBlob: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
       mockBitmap = {
@@ -167,11 +164,13 @@ describe('thumbnail', () => {
       mockCanvas = document.createElement('canvas');
       mockCanvas.width = 0;
       mockCanvas.height = 0;
+      getContext = vi.fn().mockReturnValue(mockContext);
+      toBlob = vi.fn();
       Object.defineProperty(mockCanvas, 'getContext', {
-        value: vi.fn().mockReturnValue(mockContext)
+        value: getContext
       });
       Object.defineProperty(mockCanvas, 'toBlob', {
-        value: vi.fn()
+        value: toBlob
       });
 
       vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue(mockBitmap));
@@ -193,7 +192,7 @@ describe('thumbnail', () => {
       const resultData = new Uint8Array([1, 2, 3, 4]);
       const mockBlob = new Blob([resultData]);
 
-      mockCanvas.toBlob.mockImplementation(
+      toBlob.mockImplementation(
         (callback: (blob: Blob | null) => void) => {
           callback(mockBlob);
         }
@@ -212,7 +211,7 @@ describe('thumbnail', () => {
       const resultData = new Uint8Array([1]);
       const mockBlob = new Blob([resultData]);
 
-      mockCanvas.toBlob.mockImplementation(
+      toBlob.mockImplementation(
         (callback: (blob: Blob | null) => void) => {
           callback(mockBlob);
         }
@@ -226,7 +225,7 @@ describe('thumbnail', () => {
       });
 
       // Verify toBlob was called with custom quality
-      expect(mockCanvas.toBlob).toHaveBeenCalledWith(
+      expect(toBlob).toHaveBeenCalledWith(
         expect.any(Function),
         'image/jpeg',
         0.5
@@ -234,7 +233,7 @@ describe('thumbnail', () => {
     });
 
     it('throws error when canvas context is null', async () => {
-      mockCanvas.getContext.mockReturnValue(null);
+      getContext.mockReturnValue(null);
 
       const imageData = new Uint8Array([10, 20, 30]);
 
@@ -246,7 +245,7 @@ describe('thumbnail', () => {
     });
 
     it('throws error when toBlob returns null', async () => {
-      mockCanvas.toBlob.mockImplementation(
+      toBlob.mockImplementation(
         (callback: (blob: Blob | null) => void) => {
           callback(null);
         }
@@ -263,7 +262,7 @@ describe('thumbnail', () => {
       const resultData = new Uint8Array([1]);
       const mockBlob = new Blob([resultData]);
 
-      mockCanvas.toBlob.mockImplementation(
+      toBlob.mockImplementation(
         (callback: (blob: Blob | null) => void) => {
           callback(mockBlob);
         }

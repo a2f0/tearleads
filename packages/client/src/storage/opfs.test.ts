@@ -75,7 +75,11 @@ function setStorageFilesDirectoryNull(storage: object) {
 
 // Mock FileSystem handles
 const createMockFileHandle = (content: Uint8Array): MockFileHandle => {
-  const file = new File([content], 'test.enc');
+  const fileBuffer = content.buffer;
+  if (!(fileBuffer instanceof ArrayBuffer)) {
+    throw new Error('Expected ArrayBuffer for mock file data.');
+  }
+  const file = new File([fileBuffer], 'test.enc');
   const write = vi.fn();
   const close = vi.fn();
   const createWritable = vi.fn(
