@@ -235,6 +235,6 @@ function getErrorCode(error: unknown): string | undefined {
   if (!isRecord(error)) {
     return undefined;
   }
-  const code = error.code;
+  const code = error['code'];
   return typeof code === 'string' ? code : undefined;
 }

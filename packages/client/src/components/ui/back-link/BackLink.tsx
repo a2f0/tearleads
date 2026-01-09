@@ -9,8 +9,8 @@ interface BackLinkProps {
 export function BackLink({ defaultTo, defaultLabel }: BackLinkProps) {
   const location = useLocation();
   const state = location.state;
-  const from = isRecord(state) ? state.from : undefined;
-  const fromLabel = isRecord(state) ? state.fromLabel : undefined;
+  const from = isRecord(state) ? state['from'] : undefined;
+  const fromLabel = isRecord(state) ? state['fromLabel'] : undefined;
   const to = typeof from === 'string' ? from : defaultTo;
   const label = typeof fromLabel === 'string' ? fromLabel : defaultLabel;
 

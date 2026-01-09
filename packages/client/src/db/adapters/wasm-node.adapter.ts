@@ -137,8 +137,8 @@ function isNameSqlEntry(
 ): value is { name: string; sql: string } {
   return (
     isRecord(value) &&
-    typeof value.name === 'string' &&
-    typeof value.sql === 'string'
+    typeof value['name'] === 'string' &&
+    typeof value['sql'] === 'string'
   );
 }
 
@@ -147,24 +147,24 @@ function isJsonBackupData(value: unknown): value is JsonBackupData {
     return false;
   }
 
-  if (typeof value.version !== 'number') {
+  if (typeof value['version'] !== 'number') {
     return false;
   }
 
   if (
-    !Array.isArray(value.tables) ||
-    !value.tables.every(isNameSqlEntry) ||
-    !Array.isArray(value.indexes) ||
-    !value.indexes.every(isNameSqlEntry)
+    !Array.isArray(value['tables']) ||
+    !value['tables'].every(isNameSqlEntry) ||
+    !Array.isArray(value['indexes']) ||
+    !value['indexes'].every(isNameSqlEntry)
   ) {
     return false;
   }
 
-  if (!isRecord(value.data)) {
+  if (!isRecord(value['data'])) {
     return false;
   }
 
-  for (const tableRows of Object.values(value.data)) {
+  for (const tableRows of Object.values(value['data'])) {
     if (!Array.isArray(tableRows)) {
       return false;
     }

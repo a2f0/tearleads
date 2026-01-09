@@ -32,7 +32,7 @@ function getDragIndex(value: unknown): number | null {
   if (!isRecord(value)) {
     return null;
   }
-  const index = value.index;
+  const index = value['index'];
   return typeof index === 'number' && Number.isFinite(index) ? index : null;
 }
 
@@ -226,13 +226,16 @@ export function ColumnMapper({
                       {data.rows.slice(0, 3).map((row, index) => (
                         // biome-ignore lint/suspicious/noArrayIndexKey: preview rows are static, never reordered
                         <tr key={index} className="border-t">
-                          {mappedFields.map((field) => (
-                            <td key={field.key} className="px-3 py-2">
-                              {mapping[field.key] !== null
-                                ? row[mapping[field.key]] || '-'
-                                : '-'}
-                            </td>
-                          ))}
+                          {mappedFields.map((field) => {
+                            const mappedIndex = mapping[field.key];
+                            return (
+                              <td key={field.key} className="px-3 py-2">
+                                {mappedIndex === null
+                                  ? '-'
+                                  : row[mappedIndex] || '-'}
+                              </td>
+                            );
+                          })}
                         </tr>
                       ))}
                     </tbody>
