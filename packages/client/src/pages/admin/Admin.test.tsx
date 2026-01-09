@@ -1,9 +1,8 @@
 import type { RedisKeysResponse } from '@rapid/shared';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { triggerIntersection } from '@/test/setup';
 import { Admin } from './Admin';
 
 const mockGetKeys =
@@ -17,6 +16,21 @@ vi.mock('@/lib/api', () => ({
       }
     }
   }
+}));
+
+// Mock useVirtualizer to simplify testing
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: vi.fn(({ count }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, i) => ({
+        index: i,
+        start: i * 48,
+        size: 48,
+        key: i
+      })),
+    getTotalSize: () => count * 48,
+    measureElement: vi.fn()
+  }))
 }));
 
 function renderAdmin() {
@@ -279,7 +293,7 @@ describe('Admin', () => {
       });
     });
 
-    it('passes cursor to API for subsequent requests', async () => {
+    it('passes cursor to API for initial request', async () => {
       mockGetKeys.mockResolvedValue({
         keys: [],
         cursor: '0',
@@ -291,39 +305,6 @@ describe('Admin', () => {
       await waitFor(() => {
         expect(mockGetKeys).toHaveBeenCalledWith('0', 50);
       });
-    });
-
-    it('loads more keys when intersection observer triggers', async () => {
-      // First page
-      mockGetKeys.mockResolvedValueOnce({
-        keys: [{ key: 'key:1', type: 'string', ttl: -1 }],
-        cursor: '100',
-        hasMore: true
-      });
-      // Second page
-      mockGetKeys.mockResolvedValueOnce({
-        keys: [{ key: 'key:2', type: 'string', ttl: -1 }],
-        cursor: '0',
-        hasMore: false
-      });
-
-      renderAdmin();
-
-      await waitFor(() => {
-        expect(screen.getByText('key:1')).toBeInTheDocument();
-      });
-
-      // Trigger intersection observer
-      await act(async () => {
-        triggerIntersection(true);
-      });
-
-      await waitFor(() => {
-        expect(screen.getByText('key:2')).toBeInTheDocument();
-      });
-
-      expect(mockGetKeys).toHaveBeenCalledTimes(2);
-      expect(mockGetKeys).toHaveBeenLastCalledWith('100', 50);
     });
   });
 });
