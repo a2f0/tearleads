@@ -20,7 +20,11 @@ import {
 } from './instance-registry';
 
 // Mock IndexedDB
-type StoreValue = Array<InstanceMetadata | null | undefined> | string | null | undefined;
+type StoreValue =
+  | Array<InstanceMetadata | null | undefined>
+  | string
+  | null
+  | undefined;
 type MockRequest = {
   result: unknown;
   error: Error | null;
