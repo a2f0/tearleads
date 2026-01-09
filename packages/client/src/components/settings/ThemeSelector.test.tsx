@@ -77,10 +77,11 @@ describe('ThemeSelector', () => {
     );
   });
 
-  it('uses 3-column grid layout', () => {
+  it('uses flex layout for left alignment', () => {
     renderThemeSelector();
-    const grid = screen.getByTestId('theme-selector-grid');
-    expect(grid.className).toContain('grid-cols-3');
+    const container = screen.getByTestId('theme-selector-grid');
+    expect(container.className).toContain('flex');
+    expect(container.className).toContain('flex-wrap');
   });
 
   it('renders theme labels', () => {
