@@ -8,6 +8,19 @@ import {
 } from './thumbnail';
 
 describe('thumbnail', () => {
+  class MockBlob extends Blob {
+    private readonly buffer: ArrayBuffer;
+
+    constructor(buffer: ArrayBuffer) {
+      super([buffer]);
+      this.buffer = buffer;
+    }
+
+    override async arrayBuffer() {
+      return this.buffer;
+    }
+  }
+
   describe('isThumbnailSupported', () => {
     it('returns true for JPEG', () => {
       expect(isThumbnailSupported('image/jpeg')).toBe(true);
@@ -190,7 +203,7 @@ describe('thumbnail', () => {
 
     it('generates thumbnail from image data', async () => {
       const resultData = new Uint8Array([1, 2, 3, 4]);
-      const mockBlob = new Blob([resultData]);
+      const mockBlob = new MockBlob(resultData.buffer);
 
       toBlob.mockImplementation((callback: (blob: Blob | null) => void) => {
         callback(mockBlob);
@@ -207,7 +220,7 @@ describe('thumbnail', () => {
 
     it('uses custom options when provided', async () => {
       const resultData = new Uint8Array([1]);
-      const mockBlob = new Blob([resultData]);
+      const mockBlob = new MockBlob(resultData.buffer);
 
       toBlob.mockImplementation((callback: (blob: Blob | null) => void) => {
         callback(mockBlob);
@@ -254,7 +267,7 @@ describe('thumbnail', () => {
 
     it('scales canvas dimensions based on image size', async () => {
       const resultData = new Uint8Array([1]);
-      const mockBlob = new Blob([resultData]);
+      const mockBlob = new MockBlob(resultData.buffer);
 
       toBlob.mockImplementation((callback: (blob: Blob | null) => void) => {
         callback(mockBlob);
