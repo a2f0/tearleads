@@ -25,7 +25,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isColumnKey(value: string): value is keyof ColumnMapping {
-  return Object.prototype.hasOwnProperty.call(INITIAL_COLUMN_MAPPING, value);
+  return Object.hasOwn(INITIAL_COLUMN_MAPPING, value);
 }
 
 function getDragIndex(value: unknown): number | null {

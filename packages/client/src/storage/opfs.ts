@@ -93,8 +93,7 @@ export interface FileStorage {
   clearAll(): Promise<void>;
 }
 
-interface FileSystemDirectoryEntriesHandle
-  extends FileSystemDirectoryHandle {
+interface FileSystemDirectoryEntriesHandle extends FileSystemDirectoryHandle {
   entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
 }
 
