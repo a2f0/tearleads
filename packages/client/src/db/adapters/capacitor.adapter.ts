@@ -4,16 +4,11 @@
  */
 
 import type {
-  DatabaseAdapter,
-  DatabaseConfig,
-  QueryResult
-} from './types';
-import { convertRowsToArrays } from './utils';
-import type {
-  JsonSQLite,
   SQLiteConnection,
   SQLiteDBConnection
 } from '@capacitor-community/sqlite';
+import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
+import { convertRowsToArrays } from './utils';
 
 /**
  * Error messages that can be safely ignored when deleting a database.
