@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -141,10 +141,12 @@ describe('ColumnMapper', () => {
     const importButton = screen.getByRole('button', { name: /import/i });
     expect(importButton).toBeDisabled();
 
-    dragHandlers.onDragStart?.({ active: { id: 'column-0' } });
-    dragHandlers.onDragEnd?.({
-      active: { data: { current: { index: 0 } } },
-      over: { id: 'target-firstName' }
+    act(() => {
+      dragHandlers.onDragStart?.({ active: { id: 'column-0' } });
+      dragHandlers.onDragEnd?.({
+        active: { data: { current: { index: 0 } } },
+        over: { id: 'target-firstName' }
+      });
     });
 
     expect(importButton).not.toBeDisabled();
@@ -156,9 +158,11 @@ describe('ColumnMapper', () => {
     const importButton = screen.getByRole('button', { name: /import/i });
     expect(importButton).toBeDisabled();
 
-    dragHandlers.onDragEnd?.({
-      active: { data: { current: { index: 1 } } },
-      over: { id: 'target-unknown' }
+    act(() => {
+      dragHandlers.onDragEnd?.({
+        active: { data: { current: { index: 1 } } },
+        over: { id: 'target-unknown' }
+      });
     });
 
     expect(importButton).toBeDisabled();
@@ -170,9 +174,11 @@ describe('ColumnMapper', () => {
     const importButton = screen.getByRole('button', { name: /import/i });
     expect(importButton).toBeDisabled();
 
-    dragHandlers.onDragEnd?.({
-      active: { data: { current: null } },
-      over: { id: 'target-firstName' }
+    act(() => {
+      dragHandlers.onDragEnd?.({
+        active: { data: { current: null } },
+        over: { id: 'target-firstName' }
+      });
     });
 
     expect(importButton).toBeDisabled();
