@@ -3,6 +3,7 @@
  * Uses better-sqlite3-multiple-ciphers for encrypted database operations.
  */
 
+import { getErrorCode } from '@rapid/shared';
 import fs from 'node:fs';
 import path from 'node:path';
 import { app, ipcMain, safeStorage } from 'electron';
@@ -15,18 +16,6 @@ interface QueryResult {
 }
 
 let db: Database.Database | null = null;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function getErrorCode(error: unknown): string | undefined {
-  if (!isRecord(error)) {
-    return undefined;
-  }
-  const code = error.code;
-  return typeof code === 'string' ? code : undefined;
-}
 
 /**
  * Get the database file path.

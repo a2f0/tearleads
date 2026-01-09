@@ -4,6 +4,7 @@ import {
   DragOverlay,
   type DragStartEvent
 } from '@dnd-kit/core';
+import { isRecord } from '@rapid/shared';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { ColumnMapping, ParsedCSV } from '@/hooks/useContactsImport';
@@ -19,10 +20,6 @@ import {
 import { DraggableColumn } from './DraggableColumn';
 import { DropZone } from './DropZone';
 import { FieldGroupRow } from './FieldGroupRow';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function isColumnKey(value: string): value is keyof ColumnMapping {
   return Object.hasOwn(INITIAL_COLUMN_MAPPING, value);

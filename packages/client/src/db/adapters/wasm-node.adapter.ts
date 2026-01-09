@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isRecord } from '@rapid/shared';
 import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
 import { convertRowsToArrays } from './utils';
 
@@ -119,10 +120,6 @@ type SQLite3InitModule = (options: {
   locateFile?: (path: string) => string;
   wasmBinary?: ArrayBuffer;
 }) => Promise<SQLite3Module>;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function getStringField(
   record: Record<string, unknown>,

@@ -2,15 +2,13 @@
  * Custom error types for the application.
  */
 
+import { isRecord } from '@rapid/shared';
+
 /**
  * Type guard to check if a value is an Error instance.
  */
 export function isError(value: unknown): value is Error {
   return value instanceof Error;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 /**
