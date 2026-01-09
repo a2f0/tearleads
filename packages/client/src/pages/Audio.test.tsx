@@ -4,6 +4,21 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AudioPage } from './Audio';
 
+// Mock useVirtualizer to simplify testing
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: vi.fn(({ count }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, i) => ({
+        index: i,
+        start: i * 56,
+        size: 56,
+        key: i
+      })),
+    getTotalSize: () => count * 56,
+    measureElement: vi.fn()
+  }))
+}));
+
 // Mock the audio context
 const mockPlay = vi.fn();
 const mockPause = vi.fn();
@@ -256,6 +271,12 @@ describe('AudioPage', () => {
 
       expect(screen.getByText('5 MB')).toBeInTheDocument();
       expect(screen.getByText('10 MB')).toBeInTheDocument();
+    });
+
+    it('shows track count', async () => {
+      await renderAudio();
+
+      expect(screen.getByText('2 tracks')).toBeInTheDocument();
     });
 
     it('renders play buttons for tracks', async () => {

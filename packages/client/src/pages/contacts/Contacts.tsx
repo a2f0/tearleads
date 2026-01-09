@@ -1,3 +1,4 @@
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, asc, eq, like, or, type SQL } from 'drizzle-orm';
 import { Loader2, Mail, Phone, Search, Upload, User, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -31,6 +32,8 @@ interface ContactInfo {
   createdAt: Date;
 }
 
+const ROW_HEIGHT_ESTIMATE = 72;
+
 export function Contacts() {
   const navigate = useNavigate();
   const navigateWithFrom = useNavigateWithFrom();
@@ -48,6 +51,16 @@ export function Contacts() {
   } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: contacts.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT_ESTIMATE,
+    overscan: 5
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
 
   // Debounce search query
   useEffect(() => {
@@ -217,7 +230,7 @@ export function Contacts() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full flex-col space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <User className="h-8 w-8 text-muted-foreground" />
@@ -349,45 +362,68 @@ export function Contacts() {
           )}
 
           {contacts.length > 0 && (
-            <div className="space-y-2">
+            <div className="flex min-h-0 flex-1 flex-col space-y-2">
               <p className="text-muted-foreground text-sm">
                 {`${contacts.length} contact${contacts.length !== 1 ? 's' : ''}${searchQuery ? ' found' : ''}`}
               </p>
-              {contacts.map((contact) => (
-                <button
-                  type="button"
-                  key={contact.id}
-                  className="flex w-full items-center justify-between rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
-                  onClick={() =>
-                    navigateWithFrom(`/contacts/${contact.id}`, {
-                      fromLabel: 'Back to Contacts'
-                    })
-                  }
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">
-                      {contact.firstName}
-                      {contact.lastName && ` ${contact.lastName}`}
-                    </p>
-                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-sm">
-                      {contact.primaryEmail && (
-                        <span className="flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          <span className="truncate">
-                            {contact.primaryEmail}
-                          </span>
-                        </span>
-                      )}
-                      {contact.primaryPhone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3 w-3" />
-                          {contact.primaryPhone}
-                        </span>
-                      )}
-                    </div>
+              <div className="flex-1 rounded-lg border">
+                <div ref={parentRef} className="h-full overflow-auto">
+                  <div
+                    className="relative w-full"
+                    style={{ height: `${virtualizer.getTotalSize()}px` }}
+                  >
+                    {virtualItems.map((virtualItem) => {
+                      const contact = contacts[virtualItem.index];
+                      if (!contact) return null;
+
+                      return (
+                        <div
+                          key={contact.id}
+                          data-index={virtualItem.index}
+                          ref={virtualizer.measureElement}
+                          className="absolute top-0 left-0 w-full px-1 py-0.5"
+                          style={{
+                            transform: `translateY(${virtualItem.start}px)`
+                          }}
+                        >
+                          <button
+                            type="button"
+                            className="flex w-full items-center justify-between rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
+                            onClick={() =>
+                              navigateWithFrom(`/contacts/${contact.id}`, {
+                                fromLabel: 'Back to Contacts'
+                              })
+                            }
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate font-medium">
+                                {contact.firstName}
+                                {contact.lastName && ` ${contact.lastName}`}
+                              </p>
+                              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-sm">
+                                {contact.primaryEmail && (
+                                  <span className="flex items-center gap-1">
+                                    <Mail className="h-3 w-3" />
+                                    <span className="truncate">
+                                      {contact.primaryEmail}
+                                    </span>
+                                  </span>
+                                )}
+                                {contact.primaryPhone && (
+                                  <span className="flex items-center gap-1">
+                                    <Phone className="h-3 w-3" />
+                                    {contact.primaryPhone}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                </button>
-              ))}
+                </div>
+              </div>
               {/* Add New Contact Card (always at bottom) */}
               <AddContactCard
                 onClick={() => navigate('/contacts/new')}
