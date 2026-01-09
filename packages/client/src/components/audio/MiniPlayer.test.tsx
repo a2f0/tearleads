@@ -95,15 +95,11 @@ describe('MiniPlayer', () => {
       });
     });
 
-    it('does not render on /audio page', () => {
-      mockUseLocation.mockReturnValue({ pathname: '/audio' });
-      render(<MiniPlayer />);
-
-      expect(screen.queryByTestId('mini-player')).not.toBeInTheDocument();
-    });
-
-    it('does not render on /audio/:id page', () => {
-      mockUseLocation.mockReturnValue({ pathname: '/audio/123' });
+    it.each([
+      ['/audio'],
+      ['/audio/123']
+    ])('does not render on path %s', (pathname) => {
+      mockUseLocation.mockReturnValue({ pathname });
       render(<MiniPlayer />);
 
       expect(screen.queryByTestId('mini-player')).not.toBeInTheDocument();
