@@ -2,6 +2,8 @@
  * Custom error types for the application.
  */
 
+import { isRecord } from '@rapid/shared';
+
 /**
  * Type guard to check if a value is an Error instance.
  */
@@ -16,8 +18,9 @@ export function isError(value: unknown): value is Error {
  */
 export function getErrorMessage(error: unknown): string {
   if (isError(error)) return error.message;
-  if (typeof error === 'object' && error !== null && 'message' in error) {
-    return String((error as { message: unknown }).message);
+  if (isRecord(error) && 'message' in error) {
+    const value = error['message'];
+    return typeof value === 'string' ? value : String(value);
   }
   return String(error);
 }

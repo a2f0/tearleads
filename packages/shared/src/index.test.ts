@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate } from './index.js';
+import { formatDate, getErrorCode, isRecord, toFiniteNumber } from './index.js';
 
 describe('formatDate', () => {
   it('should return an ISO string for a valid date', () => {
@@ -17,5 +17,89 @@ describe('formatDate', () => {
   it('should throw for an invalid date', () => {
     const invalidDate = new Date('not a date');
     expect(() => formatDate(invalidDate)).toThrow(RangeError);
+  });
+});
+
+describe('isRecord', () => {
+  it('should return true for plain objects', () => {
+    expect(isRecord({})).toBe(true);
+    expect(isRecord({ key: 'value' })).toBe(true);
+  });
+
+  it('should return true for arrays (they are objects)', () => {
+    expect(isRecord([])).toBe(true);
+    expect(isRecord([1, 2, 3])).toBe(true);
+  });
+
+  it('should return false for null', () => {
+    expect(isRecord(null)).toBe(false);
+  });
+
+  it('should return false for primitives', () => {
+    expect(isRecord(undefined)).toBe(false);
+    expect(isRecord('string')).toBe(false);
+    expect(isRecord(123)).toBe(false);
+    expect(isRecord(true)).toBe(false);
+    expect(isRecord(Symbol('sym'))).toBe(false);
+  });
+});
+
+describe('getErrorCode', () => {
+  it('should return string code from error-like objects', () => {
+    expect(getErrorCode({ code: 'ENOENT' })).toBe('ENOENT');
+    expect(getErrorCode({ code: 'SQLITE_BUSY' })).toBe('SQLITE_BUSY');
+  });
+
+  it('should return undefined for non-string codes', () => {
+    expect(getErrorCode({ code: 123 })).toBeUndefined();
+    expect(getErrorCode({ code: null })).toBeUndefined();
+    expect(getErrorCode({ code: undefined })).toBeUndefined();
+  });
+
+  it('should return undefined for non-objects', () => {
+    expect(getErrorCode(null)).toBeUndefined();
+    expect(getErrorCode(undefined)).toBeUndefined();
+    expect(getErrorCode('error string')).toBeUndefined();
+    expect(getErrorCode(123)).toBeUndefined();
+  });
+
+  it('should return undefined for objects without code property', () => {
+    expect(getErrorCode({})).toBeUndefined();
+    expect(getErrorCode({ message: 'error' })).toBeUndefined();
+  });
+});
+
+describe('toFiniteNumber', () => {
+  it('should return the number for finite values', () => {
+    expect(toFiniteNumber(42)).toBe(42);
+    expect(toFiniteNumber(0)).toBe(0);
+    expect(toFiniteNumber(-3.14)).toBe(-3.14);
+  });
+
+  it('should return null for non-finite numbers', () => {
+    expect(toFiniteNumber(Infinity)).toBeNull();
+    expect(toFiniteNumber(-Infinity)).toBeNull();
+    expect(toFiniteNumber(NaN)).toBeNull();
+  });
+
+  it('should parse numeric strings', () => {
+    expect(toFiniteNumber('42')).toBe(42);
+    expect(toFiniteNumber('3.14')).toBe(3.14);
+    expect(toFiniteNumber('-100')).toBe(-100);
+    expect(toFiniteNumber('  42  ')).toBe(42);
+  });
+
+  it('should return null for non-numeric strings', () => {
+    expect(toFiniteNumber('')).toBeNull();
+    expect(toFiniteNumber('   ')).toBeNull();
+    expect(toFiniteNumber('abc')).toBeNull();
+    expect(toFiniteNumber('42abc')).toBeNull();
+  });
+
+  it('should return null for non-number/string types', () => {
+    expect(toFiniteNumber(null)).toBeNull();
+    expect(toFiniteNumber(undefined)).toBeNull();
+    expect(toFiniteNumber({})).toBeNull();
+    expect(toFiniteNumber([])).toBeNull();
   });
 });

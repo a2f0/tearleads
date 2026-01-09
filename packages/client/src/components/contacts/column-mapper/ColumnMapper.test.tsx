@@ -1,8 +1,52 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ParsedCSV } from '@/hooks/useContactsImport';
 import { ColumnMapper } from './ColumnMapper';
+
+type DragStartPayload = { active: { id: string } };
+type DragEndPayload = {
+  active: { data: { current: { index: number } | null } };
+  over: { id: string } | null;
+};
+
+const dragHandlers: {
+  onDragStart?: (event: DragStartPayload) => void;
+  onDragEnd?: (event: DragEndPayload) => void;
+} = {};
+
+vi.mock('@dnd-kit/core', async () => {
+  const actual =
+    await vi.importActual<typeof import('@dnd-kit/core')>('@dnd-kit/core');
+  return {
+    ...actual,
+    DndContext: ({
+      onDragStart,
+      onDragEnd,
+      children
+    }: {
+      onDragStart?: (event: DragStartPayload) => void;
+      onDragEnd?: (event: DragEndPayload) => void;
+      children: ReactNode;
+    }) => {
+      if (onDragStart) {
+        dragHandlers.onDragStart = onDragStart;
+      } else {
+        delete dragHandlers.onDragStart;
+      }
+      if (onDragEnd) {
+        dragHandlers.onDragEnd = onDragEnd;
+      } else {
+        delete dragHandlers.onDragEnd;
+      }
+      return <div data-testid="dnd-context">{children}</div>;
+    },
+    DragOverlay: ({ children }: { children?: ReactNode }) => (
+      <div>{children}</div>
+    )
+  };
+});
 
 // Sample CSV data for testing
 const createMockCSVData = (
@@ -58,7 +102,10 @@ describe('ColumnMapper', () => {
     const firstNameLabel = screen.getByText('First Name');
     const parent = firstNameLabel.parentElement;
     expect(parent).toBeInTheDocument();
-    const required = within(parent as HTMLElement).getByText('*');
+    if (!parent) {
+      throw new Error('Missing label container for First Name.');
+    }
+    const required = within(parent).getByText('*');
     expect(required).toBeInTheDocument();
   });
 
@@ -88,6 +135,55 @@ describe('ColumnMapper', () => {
     render(<ColumnMapper {...defaultProps} />);
 
     const importButton = screen.getByRole('button', { name: /import/i });
+    expect(importButton).toBeDisabled();
+  });
+
+  it('enables Import when a valid drag maps first name', () => {
+    render(<ColumnMapper {...defaultProps} />);
+
+    const importButton = screen.getByRole('button', { name: /import/i });
+    expect(importButton).toBeDisabled();
+
+    act(() => {
+      dragHandlers.onDragStart?.({ active: { id: 'column-0' } });
+      dragHandlers.onDragEnd?.({
+        active: { data: { current: { index: 0 } } },
+        over: { id: 'target-firstName' }
+      });
+    });
+
+    expect(importButton).not.toBeDisabled();
+  });
+
+  it('ignores drag end with invalid target id', () => {
+    render(<ColumnMapper {...defaultProps} />);
+
+    const importButton = screen.getByRole('button', { name: /import/i });
+    expect(importButton).toBeDisabled();
+
+    act(() => {
+      dragHandlers.onDragEnd?.({
+        active: { data: { current: { index: 1 } } },
+        over: { id: 'target-unknown' }
+      });
+    });
+
+    expect(importButton).toBeDisabled();
+  });
+
+  it('ignores drag end when index is missing', () => {
+    render(<ColumnMapper {...defaultProps} />);
+
+    const importButton = screen.getByRole('button', { name: /import/i });
+    expect(importButton).toBeDisabled();
+
+    act(() => {
+      dragHandlers.onDragEnd?.({
+        active: { data: { current: null } },
+        over: { id: 'target-firstName' }
+      });
+    });
+
     expect(importButton).toBeDisabled();
   });
 
@@ -375,7 +471,11 @@ describe('ColumnMapper', () => {
 
       // Click the first X button to remove the First Name mapping
       if (xButtons?.[0]) {
-        await user.click(xButtons[0].parentElement as HTMLElement);
+        const button = xButtons[0].parentElement;
+        if (!button) {
+          throw new Error('Missing button wrapper for mapped column.');
+        }
+        await user.click(button);
       }
 
       // Import button should be disabled after removing First Name mapping

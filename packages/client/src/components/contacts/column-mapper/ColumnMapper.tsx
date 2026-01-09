@@ -4,6 +4,7 @@ import {
   DragOverlay,
   type DragStartEvent
 } from '@dnd-kit/core';
+import { isRecord } from '@rapid/shared';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { ColumnMapping, ParsedCSV } from '@/hooks/useContactsImport';
@@ -19,6 +20,18 @@ import {
 import { DraggableColumn } from './DraggableColumn';
 import { DropZone } from './DropZone';
 import { FieldGroupRow } from './FieldGroupRow';
+
+function isColumnKey(value: string): value is keyof ColumnMapping {
+  return Object.hasOwn(INITIAL_COLUMN_MAPPING, value);
+}
+
+function getDragIndex(value: unknown): number | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const index = value['index'];
+  return typeof index === 'number' && Number.isFinite(index) ? index : null;
+}
 
 /**
  * Auto-detect and map CSV columns based on header names.
@@ -62,7 +75,7 @@ export function ColumnMapper({
   );
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
+    setActiveId(String(event.active.id));
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -71,11 +84,13 @@ export function ColumnMapper({
     const { active, over } = event;
     if (!over) return;
 
-    const targetId = over.id as string;
+    const targetId = String(over.id);
     if (!targetId.startsWith('target-')) return;
 
-    const fieldKey = targetId.replace('target-', '') as keyof ColumnMapping;
-    const columnIndex = (active.data.current as { index: number }).index;
+    const fieldKey = targetId.replace('target-', '');
+    if (!isColumnKey(fieldKey)) return;
+    const columnIndex = getDragIndex(active.data.current);
+    if (columnIndex === null) return;
 
     setMapping((prev) => ({
       ...prev,
@@ -208,13 +223,16 @@ export function ColumnMapper({
                       {data.rows.slice(0, 3).map((row, index) => (
                         // biome-ignore lint/suspicious/noArrayIndexKey: preview rows are static, never reordered
                         <tr key={index} className="border-t">
-                          {mappedFields.map((field) => (
-                            <td key={field.key} className="px-3 py-2">
-                              {mapping[field.key] !== null
-                                ? row[mapping[field.key] as number] || '-'
-                                : '-'}
-                            </td>
-                          ))}
+                          {mappedFields.map((field) => {
+                            const mappedIndex = mapping[field.key];
+                            return (
+                              <td key={field.key} className="px-3 py-2">
+                                {mappedIndex === null
+                                  ? '-'
+                                  : row[mappedIndex] || '-'}
+                              </td>
+                            );
+                          })}
                         </tr>
                       ))}
                     </tbody>

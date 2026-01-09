@@ -2,6 +2,7 @@
  * Tests for the instance registry.
  */
 
+import { isRecord } from '@rapid/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InstanceMetadata } from './instance-registry';
 import {
@@ -20,12 +21,24 @@ import {
 } from './instance-registry';
 
 // Mock IndexedDB
-const mockStore = new Map<string, unknown>();
-const mockIDBRequest = (result: unknown) => ({
+type StoreValue =
+  | Array<InstanceMetadata | null | undefined>
+  | string
+  | null
+  | undefined;
+type MockRequest = {
+  result: unknown;
+  error: Error | null;
+  onsuccess: (() => void) | null;
+  onerror: (() => void) | null;
+};
+
+const mockStore = new Map<string, StoreValue>();
+const mockIDBRequest = (result: unknown): MockRequest => ({
   result,
   error: null,
-  onsuccess: null as (() => void) | null,
-  onerror: null as (() => void) | null
+  onsuccess: null,
+  onerror: null
 });
 
 const mockObjectStore = {
@@ -34,7 +47,7 @@ const mockObjectStore = {
     setTimeout(() => req.onsuccess?.(), 0);
     return req;
   }),
-  put: vi.fn((value: unknown, key: string) => {
+  put: vi.fn((value: StoreValue, key: string) => {
     mockStore.set(key, value);
     const req = mockIDBRequest(undefined);
     setTimeout(() => req.onsuccess?.(), 0);
@@ -55,9 +68,13 @@ const mockObjectStore = {
 };
 
 function createMockTransaction() {
-  const tx = {
-    objectStore: vi.fn(() => mockObjectStore),
-    oncomplete: null as (() => void) | null
+  const objectStore = vi.fn(() => mockObjectStore);
+  const tx: {
+    objectStore: typeof objectStore;
+    oncomplete: (() => void) | null;
+  } = {
+    objectStore,
+    oncomplete: null
   };
   setTimeout(() => tx.oncomplete?.(), 10);
   return tx;
@@ -70,13 +87,41 @@ const mockDB = {
   createObjectStore: vi.fn()
 };
 
-const createMockOpenRequest = () => ({
+type MockOpenRequest = {
+  result: typeof mockDB;
+  error: Error | null;
+  onsuccess: (() => void) | null;
+  onerror: (() => void) | null;
+  onupgradeneeded: (() => void) | null;
+};
+
+const createMockOpenRequest = (): MockOpenRequest => ({
   result: mockDB,
   error: null,
-  onsuccess: null as (() => void) | null,
-  onerror: null as (() => void) | null,
-  onupgradeneeded: null as (() => void) | null
+  onsuccess: null,
+  onerror: null,
+  onupgradeneeded: null
 });
+
+function isInstanceMetadata(value: unknown): value is InstanceMetadata {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value['id'] === 'string' &&
+    typeof value['name'] === 'string' &&
+    typeof value['createdAt'] === 'number' &&
+    typeof value['lastAccessedAt'] === 'number'
+  );
+}
+
+function getStoredInstances(): InstanceMetadata[] {
+  const value = mockStore.get('instances');
+  if (!Array.isArray(value) || !value.every(isInstanceMetadata)) {
+    return [];
+  }
+  return value;
+}
 
 vi.stubGlobal('indexedDB', {
   open: vi.fn(() => {
@@ -171,7 +216,7 @@ describe('instance-registry', () => {
     });
 
     it('appends new instance to existing list', async () => {
-      const existing = [
+      const existing: InstanceMetadata[] = [
         {
           id: 'existing',
           name: 'Instance 1',
@@ -183,7 +228,7 @@ describe('instance-registry', () => {
 
       await createInstance();
 
-      const stored = mockStore.get('instances') as InstanceMetadata[];
+      const stored = getStoredInstances();
       expect(stored).toHaveLength(2);
     });
   });
@@ -207,7 +252,7 @@ describe('instance-registry', () => {
 
       await deleteInstanceFromRegistry('delete');
 
-      const stored = mockStore.get('instances') as InstanceMetadata[];
+      const stored = getStoredInstances();
       expect(stored).toHaveLength(1);
       expect(stored[0]?.id).toBe('keep');
     });
@@ -259,7 +304,7 @@ describe('instance-registry', () => {
 
       await updateInstance('test', { name: 'New Name' });
 
-      const stored = mockStore.get('instances') as InstanceMetadata[];
+      const stored = getStoredInstances();
       expect(stored[0]?.name).toBe('New Name');
     });
 
@@ -275,7 +320,7 @@ describe('instance-registry', () => {
 
       await updateInstance('test', { lastAccessedAt: 5000 });
 
-      const stored = mockStore.get('instances') as InstanceMetadata[];
+      const stored = getStoredInstances();
       expect(stored[0]?.lastAccessedAt).toBe(5000);
     });
 
@@ -302,7 +347,7 @@ describe('instance-registry', () => {
 
       await touchInstance('test');
 
-      const stored = mockStore.get('instances') as InstanceMetadata[];
+      const stored = getStoredInstances();
       expect(stored[0]?.lastAccessedAt).toBeGreaterThan(oldTimestamp);
     });
   });
@@ -345,7 +390,7 @@ describe('instance-registry', () => {
     });
 
     it('throws when registry data is corrupted', async () => {
-      mockStore.set('instances', [undefined]);
+      mockStore.set('instances', [null]);
       mockStore.set('active_instance', 'nonexistent');
 
       await expect(initializeRegistry()).rejects.toThrow();
@@ -354,7 +399,14 @@ describe('instance-registry', () => {
 
   describe('clearRegistry', () => {
     it('clears all data from store', async () => {
-      mockStore.set('instances', [{ id: 'test' }]);
+      mockStore.set('instances', [
+        {
+          id: 'test',
+          name: 'Instance 1',
+          createdAt: 1000,
+          lastAccessedAt: 2000
+        }
+      ]);
       mockStore.set('active_instance', 'test');
 
       await clearRegistry();

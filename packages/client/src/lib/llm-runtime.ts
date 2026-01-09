@@ -106,8 +106,12 @@ export function createLLMAdapter(generate: GenerateFunction): ChatModelAdapter {
         }
 
         if (textContent) {
+          const content = [{ type: 'text', text: textContent }] satisfies {
+            type: 'text';
+            text: string;
+          }[];
           yield {
-            content: [{ type: 'text' as const, text: textContent }]
+            content
           };
         }
       }

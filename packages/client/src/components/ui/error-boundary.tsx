@@ -30,14 +30,12 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidMount() {
-    (errorBoundaryRef as { current: ErrorBoundaryHandle | null }).current =
-      this.handle;
+    errorBoundaryRef.current = this.handle;
   }
 
   override componentWillUnmount() {
     if (errorBoundaryRef.current === this.handle) {
-      (errorBoundaryRef as { current: ErrorBoundaryHandle | null }).current =
-        null;
+      errorBoundaryRef.current = null;
     }
   }
 

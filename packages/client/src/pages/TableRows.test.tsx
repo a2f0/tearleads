@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps, FC } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -261,6 +261,31 @@ describe('TableRows', () => {
       expect(
         sortButton.querySelector('[data-testid="arrow-up"]')
       ).not.toBeInTheDocument();
+    });
+  });
+
+  describe('column resizing', () => {
+    it('updates column width when dragging the resize handle', async () => {
+      renderTableRows();
+
+      const handle = await screen.findByRole('separator', {
+        name: 'Resize name column'
+      });
+      const header = handle.closest('th');
+      expect(header).not.toBeNull();
+      if (!header) {
+        return;
+      }
+      vi.spyOn(header, 'getBoundingClientRect').mockReturnValue(
+        new DOMRect(0, 0, 150, 0)
+      );
+
+      fireEvent.mouseDown(handle, { clientX: 100 });
+      fireEvent.mouseMove(document, { clientX: 120 });
+
+      expect(handle).toHaveAttribute('aria-valuenow', '170');
+
+      fireEvent.mouseUp(document);
     });
   });
 

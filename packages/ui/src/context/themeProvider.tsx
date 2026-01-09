@@ -20,6 +20,10 @@ export const ThemeContext = createContext<ThemeContextValue | null>(null);
 const STORAGE_KEY = 'theme';
 const VALID_THEMES: Theme[] = ['light', 'dark', 'tokyo-night', 'system'];
 
+function isTheme(value: string): value is Theme {
+  return VALID_THEMES.some((theme) => theme === value);
+}
+
 function getSystemTheme(): ResolvedTheme {
   if (typeof window === 'undefined') return 'light';
   return window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -41,8 +45,8 @@ export function ThemeProvider({
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window === 'undefined') return defaultTheme;
     const stored = localStorage.getItem(storageKey);
-    if (stored && VALID_THEMES.includes(stored as Theme)) {
-      return stored as Theme;
+    if (stored && isTheme(stored)) {
+      return stored;
     }
     return defaultTheme;
   });

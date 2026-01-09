@@ -193,6 +193,107 @@ describe('Tables', () => {
       expect(screen.getByText('1 row')).toBeInTheDocument();
     });
 
+    it('handles array-based table and count rows', async () => {
+      mockExecute.mockImplementation((sql: string) => {
+        if (sql.includes('sqlite_master')) {
+          return Promise.resolve({
+            rows: [['users']]
+          });
+        }
+        if (sql.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [[3]] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      await renderTables();
+
+      expect(screen.getByText('users')).toBeInTheDocument();
+      expect(screen.getByText('3 rows')).toBeInTheDocument();
+    });
+
+    it('filters out non-object table rows', async () => {
+      mockExecute.mockImplementation((sql: string) => {
+        if (sql.includes('sqlite_master')) {
+          return Promise.resolve({
+            rows: [null, { name: 'users' }]
+          });
+        }
+        if (sql.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [{ count: 2 }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      await renderTables();
+
+      expect(screen.getByText('users')).toBeInTheDocument();
+      expect(screen.getByText('2 rows')).toBeInTheDocument();
+    });
+
+    it('parses string counts', async () => {
+      mockExecute.mockImplementation((sql: string) => {
+        if (sql.includes('sqlite_master')) {
+          return Promise.resolve({
+            rows: [{ name: 'logs' }]
+          });
+        }
+        if (sql.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [{ count: '12' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      await renderTables();
+
+      expect(screen.getByText('logs')).toBeInTheDocument();
+      expect(screen.getByText('12 rows')).toBeInTheDocument();
+    });
+
+    it('shows an error when counts are invalid', async () => {
+      mockExecute.mockImplementation((sql: string) => {
+        if (sql.includes('sqlite_master')) {
+          return Promise.resolve({
+            rows: [{ name: 'users' }]
+          });
+        }
+        if (sql.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [{ count: 'oops' }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      renderTablesRaw();
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Unexpected count format for table "users"')
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('shows an error when count rows are missing', async () => {
+      mockExecute.mockImplementation((sql: string) => {
+        if (sql.includes('sqlite_master')) {
+          return Promise.resolve({
+            rows: [{ name: 'users' }]
+          });
+        }
+        if (sql.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [null] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      renderTablesRaw();
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('Unexpected count format for table "users"')
+        ).toBeInTheDocument();
+      });
+    });
+
     it('renders tables as links', async () => {
       await renderTables();
 

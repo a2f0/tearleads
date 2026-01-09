@@ -378,7 +378,10 @@ async function classifyImage(
 
     // Extract logits_per_image - shape is [1, num_labels]
     // These are already cosine similarities scaled by temperature
-    const logitsData = output.logits_per_image.data as Float32Array;
+    const logitsData = output.logits_per_image?.data;
+    if (!(logitsData instanceof Float32Array)) {
+      throw new Error('Unexpected logits_per_image data type');
+    }
 
     // Convert to array for softmax
     const logits: number[] = Array.from(logitsData);

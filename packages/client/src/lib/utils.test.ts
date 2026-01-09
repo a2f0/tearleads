@@ -79,7 +79,7 @@ describe('detectPlatform', () => {
 
     // Clear window.electron if it exists
     if (typeof window !== 'undefined' && 'electron' in window) {
-      delete (window as unknown as Record<string, unknown>)['electron'];
+      Reflect.deleteProperty(window, 'electron');
     }
 
     // Reset Capacitor mocks to defaults
@@ -258,6 +258,6 @@ describe('getWebGPUErrorInfo', () => {
     expect(info.title).toBe('WebGPU Not Supported');
     expect(info.message).toContain('browser');
     // Clean up
-    delete (window as unknown as Record<string, unknown>)['electron'];
+    Reflect.deleteProperty(window, 'electron');
   });
 });
