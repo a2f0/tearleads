@@ -1,3 +1,4 @@
+import { isRecord, toFiniteNumber } from '@rapid/shared';
 import { ChevronRight, Table2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -9,6 +10,28 @@ import { useDatabaseContext } from '@/db/hooks';
 interface TableInfo {
   name: string;
   rowCount: number;
+}
+
+function getRowString(row: unknown, key: string): string | null {
+  if (Array.isArray(row)) {
+    const value = row[0];
+    return typeof value === 'string' ? value : null;
+  }
+  if (isRecord(row)) {
+    const value = row[key];
+    return typeof value === 'string' ? value : null;
+  }
+  return null;
+}
+
+function getRowNumber(row: unknown, key: string): number | null {
+  if (Array.isArray(row)) {
+    return toFiniteNumber(row[0]);
+  }
+  if (isRecord(row)) {
+    return toFiniteNumber(row[key]);
+  }
+  return null;
 }
 
 export function Tables() {
@@ -32,14 +55,9 @@ export function Tables() {
         []
       );
 
-      const tableNames = tablesResult.rows.map((row) => {
-        const r = row as Record<string, unknown>;
-        const name = r['name'];
-        if (typeof name !== 'string') {
-          throw new Error('Unexpected row format from sqlite_master');
-        }
-        return name;
-      });
+      const tableNames = tablesResult.rows
+        .map((row) => getRowString(row, 'name'))
+        .filter((name): name is string => Boolean(name));
 
       // Get row count for each table
       const tablesWithCounts: TableInfo[] = await Promise.all(
@@ -48,9 +66,9 @@ export function Tables() {
             `SELECT COUNT(*) as count FROM "${name}"`,
             []
           );
-          const countRow = countResult.rows[0] as Record<string, unknown>;
-          const count = countRow['count'];
-          if (typeof count !== 'number') {
+          const countRow = countResult.rows[0];
+          const count = getRowNumber(countRow, 'count');
+          if (count === null) {
             throw new Error(`Unexpected count format for table "${name}"`);
           }
           return { name, rowCount: count };

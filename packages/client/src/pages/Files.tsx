@@ -191,7 +191,7 @@ export function Files() {
         id: crypto.randomUUID(),
         file,
         progress: 0,
-        status: 'pending' as const
+        status: 'pending'
       }));
       setUploadingFiles((prev) => [...prev, ...newFiles]);
 

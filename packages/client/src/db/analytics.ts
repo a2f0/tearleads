@@ -2,10 +2,12 @@
  * Analytics logging module for tracking database operations.
  */
 
+import { isRecord, toFiniteNumber } from '@rapid/shared';
 import type { Database } from './index';
 import { getDatabaseAdapter } from './index';
 import { analyticsEvents } from './schema';
 
+export type DatabaseInsert = Pick<Database, 'insert'>;
 export interface AnalyticsEvent {
   id: string;
   eventName: string;
@@ -56,7 +58,7 @@ function generateId(): string {
  * Log an analytics event to the database.
  */
 export async function logEvent(
-  db: Database,
+  db: DatabaseInsert,
   eventName: string,
   durationMs: number,
   success: boolean
@@ -75,7 +77,7 @@ export async function logEvent(
  * Returns the result of the operation.
  */
 export async function measureOperation<T>(
-  db: Database,
+  db: DatabaseInsert,
   eventName: string,
   operation: () => Promise<T>
 ): Promise<T> {
@@ -109,6 +111,35 @@ interface RawAnalyticsRow {
   durationMs: number;
   success: number; // SQLite stores as 0/1
   timestamp: number; // milliseconds since epoch
+}
+
+function normalizeAnalyticsRow(value: unknown): RawAnalyticsRow | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (
+    typeof value['id'] !== 'string' ||
+    typeof value['eventName'] !== 'string'
+  ) {
+    return null;
+  }
+
+  const durationMs = toFiniteNumber(value['durationMs']);
+  const success = toFiniteNumber(value['success']);
+  const timestamp = toFiniteNumber(value['timestamp']);
+
+  if (durationMs === null || success === null || timestamp === null) {
+    return null;
+  }
+
+  return {
+    id: value['id'],
+    eventName: value['eventName'],
+    durationMs,
+    success,
+    timestamp
+  };
 }
 
 /**
@@ -167,9 +198,12 @@ export async function getEvents(
 
   // Execute raw SQL via adapter
   const result = await adapter.execute(sql, params);
-  const rows = result.rows as unknown as RawAnalyticsRow[];
+  const rows = Array.isArray(result.rows) ? result.rows : [];
+  const normalizedRows = rows
+    .map(normalizeAnalyticsRow)
+    .filter((row): row is RawAnalyticsRow => row !== null);
 
-  return rows.map((row) => ({
+  return normalizedRows.map((row) => ({
     id: row.id,
     eventName: row.eventName,
     durationMs: row.durationMs,
@@ -188,6 +222,31 @@ interface RawStatsRow {
   minDuration: number;
   maxDuration: number;
   successCount: number;
+}
+
+function normalizeStatsRow(value: unknown): RawStatsRow | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (typeof value['eventName'] !== 'string') {
+    return null;
+  }
+
+  const count = toFiniteNumber(value['count']) ?? 0;
+  const totalDuration = toFiniteNumber(value['totalDuration']) ?? 0;
+  const minDuration = toFiniteNumber(value['minDuration']) ?? 0;
+  const maxDuration = toFiniteNumber(value['maxDuration']) ?? 0;
+  const successCount = toFiniteNumber(value['successCount']) ?? 0;
+
+  return {
+    eventName: value['eventName'],
+    count,
+    totalDuration,
+    minDuration,
+    maxDuration,
+    successCount
+  };
 }
 
 /**
@@ -238,9 +297,12 @@ export async function getEventStats(
 
   // Execute raw SQL via adapter
   const result = await adapter.execute(sql, params);
-  const rows = result.rows as unknown as RawStatsRow[];
+  const rows = Array.isArray(result.rows) ? result.rows : [];
+  const normalizedRows = rows
+    .map(normalizeStatsRow)
+    .filter((row): row is RawStatsRow => row !== null);
 
-  return rows.map((row) => {
+  return normalizedRows.map((row) => {
     const totalCount = row.count ?? 0;
     const totalDuration = Number(row.totalDuration) || 0;
 
@@ -305,8 +367,13 @@ export async function getEventCount(_db: Database): Promise<number> {
     `SELECT count(*) as count FROM analytics_events`,
     []
   );
-  const row = result.rows[0] as { count: number } | undefined;
-  return row?.count ?? 0;
+  const rows = Array.isArray(result.rows) ? result.rows : [];
+  const firstRow = rows[0];
+  if (!isRecord(firstRow)) {
+    return 0;
+  }
+  const count = toFiniteNumber(firstRow['count']);
+  return count ?? 0;
 }
 
 interface EventNameRow {
@@ -314,12 +381,7 @@ interface EventNameRow {
 }
 
 function isEventNameRow(row: unknown): row is EventNameRow {
-  return (
-    typeof row === 'object' &&
-    row !== null &&
-    'eventName' in row &&
-    typeof (row as EventNameRow).eventName === 'string'
-  );
+  return isRecord(row) && typeof row['eventName'] === 'string';
 }
 
 /**
@@ -331,6 +393,12 @@ export async function getDistinctEventTypes(_db: Database): Promise<string[]> {
     `SELECT DISTINCT event_name as eventName FROM analytics_events ORDER BY event_name`,
     []
   );
-  const rows = (result.rows as unknown[]).filter(isEventNameRow);
-  return rows.map((row) => row.eventName);
+  const rows = Array.isArray(result.rows) ? result.rows : [];
+  const eventTypes: string[] = [];
+  for (const row of rows) {
+    if (isEventNameRow(row)) {
+      eventTypes.push(row['eventName']);
+    }
+  }
+  return eventTypes;
 }

@@ -1,3 +1,4 @@
+import { isRecord } from '@rapid/shared';
 import {
   ArrowDown,
   ArrowUp,
@@ -36,6 +37,22 @@ type SortDirection = 'asc' | 'desc' | null;
 interface SortState {
   column: string | null;
   direction: SortDirection;
+}
+
+function getStringField(
+  record: Record<string, unknown>,
+  key: string
+): string | null {
+  const value = record[key];
+  return typeof value === 'string' ? value : null;
+}
+
+function getNumberField(
+  record: Record<string, unknown>,
+  key: string
+): number | null {
+  const value = record[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function formatCellValue(value: unknown): string {
@@ -100,9 +117,13 @@ export function TableRows() {
         `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`,
         []
       );
-      const validTables = tablesResult.rows.map(
-        (row) => (row as Record<string, unknown>)['name'] as string
-      );
+      const tableRows = Array.isArray(tablesResult.rows)
+        ? tablesResult.rows
+        : [];
+      const validTables = tableRows
+        .filter(isRecord)
+        .map((row) => getStringField(row, 'name'))
+        .filter((name): name is string => Boolean(name));
 
       if (!validTables.includes(tableName)) {
         throw new Error(`Table "${tableName}" does not exist.`);
@@ -114,14 +135,21 @@ export function TableRows() {
         []
       );
 
-      const columnInfo = schemaResult.rows.map((row) => {
-        const r = row as Record<string, unknown>;
-        return {
-          name: r['name'] as string,
-          type: r['type'] as string,
-          pk: r['pk'] as number
-        };
-      });
+      const schemaRows = Array.isArray(schemaResult.rows)
+        ? schemaResult.rows
+        : [];
+      const columnInfo = schemaRows
+        .filter(isRecord)
+        .map((row) => {
+          const name = getStringField(row, 'name');
+          const type = getStringField(row, 'type');
+          const pk = getNumberField(row, 'pk');
+          if (!name || !type || pk === null) {
+            return null;
+          }
+          return { name, type, pk };
+        })
+        .filter((col): col is ColumnInfo => col !== null);
 
       setColumns(columnInfo);
 
@@ -139,8 +167,9 @@ export function TableRows() {
       query += ' LIMIT 100';
 
       const rowsResult = await adapter.execute(query, []);
-
-      setRows(rowsResult.rows);
+      const rawRows = Array.isArray(rowsResult.rows) ? rowsResult.rows : [];
+      const safeRows = rawRows.filter(isRecord);
+      setRows(safeRows);
     } catch (err) {
       console.error('Failed to fetch table data:', err);
       setError(err instanceof Error ? err.message : String(err));
@@ -242,9 +271,9 @@ export function TableRows() {
   }, []);
 
   const handleResizeStart = useCallback(
-    (column: string, e: React.MouseEvent) => {
+    (column: string, e: React.MouseEvent<HTMLDivElement>) => {
       e.preventDefault();
-      const thElement = (e.currentTarget as HTMLElement).parentElement;
+      const thElement = e.currentTarget.parentElement;
       if (!thElement) return;
       const startWidth = thElement.getBoundingClientRect().width;
       setResizing({ column, startX: e.clientX, startWidth });
@@ -299,9 +328,11 @@ export function TableRows() {
   // Close settings dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target;
       if (
         settingsRef.current &&
-        !settingsRef.current.contains(event.target as Node)
+        target instanceof Node &&
+        !settingsRef.current.contains(target)
       ) {
         setShowColumnSettings(false);
       }

@@ -206,17 +206,23 @@ export function useContactsImport() {
           return results;
         };
 
-        const emailGroups = [
+        const emailGroups: ReadonlyArray<{
+          valueKey: keyof ColumnMapping;
+          labelKey: keyof ColumnMapping;
+        }> = [
           { valueKey: 'email1Value', labelKey: 'email1Label' },
           { valueKey: 'email2Value', labelKey: 'email2Label' }
-        ] as const;
+        ];
         const emails = extractGroupedValues(emailGroups);
 
-        const phoneGroups = [
+        const phoneGroups: ReadonlyArray<{
+          valueKey: keyof ColumnMapping;
+          labelKey: keyof ColumnMapping;
+        }> = [
           { valueKey: 'phone1Value', labelKey: 'phone1Label' },
           { valueKey: 'phone2Value', labelKey: 'phone2Label' },
           { valueKey: 'phone3Value', labelKey: 'phone3Label' }
-        ] as const;
+        ];
         const phones = extractGroupedValues(phoneGroups);
 
         try {

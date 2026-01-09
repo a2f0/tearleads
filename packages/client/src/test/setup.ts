@@ -21,8 +21,14 @@ afterEach(() => {
 });
 
 // Mock localStorage for tests
-const localStorageMock = {
-  store: {} as Record<string, string>,
+const localStorageMock: {
+  store: Record<string, string>;
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+  removeItem: (key: string) => void;
+  clear: () => void;
+} = {
+  store: {},
   getItem(key: string) {
     return this.store[key] ?? null;
   },

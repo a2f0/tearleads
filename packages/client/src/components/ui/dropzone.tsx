@@ -1,3 +1,4 @@
+import { getErrorCode } from '@rapid/shared';
 import { Upload } from 'lucide-react';
 import { useCallback, useId, useRef, useState } from 'react';
 import {
@@ -92,10 +93,7 @@ export function Dropzone({
         }
       } catch (err) {
         // Distinguish between user cancellation and actual errors
-        if (
-          err instanceof Error &&
-          (err as Error & { code?: string }).code === 'CANCELLED'
-        ) {
+        if (getErrorCode(err) === 'CANCELLED') {
           console.debug('Native file picker cancelled by user.');
         } else {
           console.error('Native file picker failed:', err);
