@@ -37,22 +37,22 @@ function toFiniteNumber(value: unknown): number | null {
 }
 
 function getRowNumber(row: unknown, key: string): number | null {
-  if (isRecord(row)) {
-    return toFiniteNumber(row[key]);
-  }
   if (Array.isArray(row)) {
     return toFiniteNumber(row[0]);
+  }
+  if (isRecord(row)) {
+    return toFiniteNumber(row[key]);
   }
   return null;
 }
 
 function getRowString(row: unknown, key: string): string | null {
-  if (isRecord(row)) {
-    const value = row[key];
-    return typeof value === 'string' ? value : null;
-  }
   if (Array.isArray(row)) {
     const value = row[0];
+    return typeof value === 'string' ? value : null;
+  }
+  if (isRecord(row)) {
+    const value = row[key];
     return typeof value === 'string' ? value : null;
   }
   return null;
