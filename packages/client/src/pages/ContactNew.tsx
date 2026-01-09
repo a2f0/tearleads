@@ -391,9 +391,8 @@ export function ContactNew() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDeleteEmail(email.id)}
-                      className="ml-auto h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
                       data-testid={`delete-email-${email.id}`}
-                      aria-label="Delete email"
                     >
                       <Trash2 className="mr-1 h-4 w-4" />
                       Remove
@@ -467,9 +466,8 @@ export function ContactNew() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDeletePhone(phone.id)}
-                      className="ml-auto h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
                       data-testid={`delete-phone-${phone.id}`}
-                      aria-label="Delete phone"
                     >
                       <Trash2 className="mr-1 h-4 w-4" />
                       Remove

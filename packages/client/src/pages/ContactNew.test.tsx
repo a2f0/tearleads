@@ -178,7 +178,7 @@ describe('ContactNew', () => {
       const emailInputs = screen.getAllByPlaceholderText('Email address');
       expect(emailInputs.length).toBe(1);
 
-      const deleteButton = screen.getByRole('button', { name: 'Delete email' });
+      const deleteButton = screen.getByRole('button', { name: 'Remove' });
       await user.click(deleteButton);
 
       expect(
@@ -207,7 +207,7 @@ describe('ContactNew', () => {
       const phoneInputs = screen.getAllByPlaceholderText('Phone number');
       expect(phoneInputs.length).toBe(1);
 
-      const deleteButton = screen.getByRole('button', { name: 'Delete phone' });
+      const deleteButton = screen.getByRole('button', { name: 'Remove' });
       await user.click(deleteButton);
 
       expect(
