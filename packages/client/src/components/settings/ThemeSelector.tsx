@@ -16,7 +16,10 @@ export function ThemeSelector() {
           Choose your preferred color theme
         </p>
       </div>
-      <div className="flex flex-wrap gap-3" data-testid="theme-selector-grid">
+      <div
+        className="flex flex-wrap gap-3"
+        data-testid="theme-selector-container"
+      >
         {THEMES.map((t) => (
           <GridSquare
             key={t}

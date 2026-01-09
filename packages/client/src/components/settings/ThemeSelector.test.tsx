@@ -79,7 +79,7 @@ describe('ThemeSelector', () => {
 
   it('uses flex layout for left alignment', () => {
     renderThemeSelector();
-    const container = screen.getByTestId('theme-selector-grid');
+    const container = screen.getByTestId('theme-selector-container');
     expect(container.className).toContain('flex');
     expect(container.className).toContain('flex-wrap');
   });
