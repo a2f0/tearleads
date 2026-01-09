@@ -3,92 +3,17 @@
  * Uses SQLCipher for encryption on iOS and Android.
  */
 
-import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
+import type {
+  DatabaseAdapter,
+  DatabaseConfig,
+  QueryResult
+} from './types';
 import { convertRowsToArrays } from './utils';
-
-// Types for SQLiteConnection wrapper
-interface SQLiteConnectionWrapper {
-  createConnection(
-    database: string,
-    encrypted: boolean,
-    mode: string,
-    version: number,
-    readonly: boolean
-  ): Promise<SQLiteDBConnection>;
-  closeConnection(database: string, readonly: boolean): Promise<void>;
-  isConnection(
-    database: string,
-    readonly: boolean
-  ): Promise<{ result: boolean }>;
-  isSecretStored(): Promise<{ result: boolean }>;
-  setEncryptionSecret(passphrase: string): Promise<void>;
-  changeEncryptionSecret(
-    passphrase: string,
-    oldpassphrase: string
-  ): Promise<void>;
-  clearEncryptionSecret(): Promise<void>;
-  importFromJson(jsonstring: string): Promise<{ changes: { changes: number } }>;
-}
-
-interface SQLiteDBConnection {
-  open(): Promise<void>;
-  close(): Promise<void>;
-  execute(
-    statements: string,
-    transaction?: boolean
-  ): Promise<{ changes?: { changes: number; lastId: number } }>;
-  query(
-    statement: string,
-    values?: unknown[]
-  ): Promise<{ values?: Record<string, unknown>[] }>;
-  run(
-    statement: string,
-    values?: unknown[],
-    transaction?: boolean
-  ): Promise<{ changes?: { changes: number; lastId: number } }>;
-  executeSet(
-    set: Array<{ statement: string; values?: unknown[] }>,
-    transaction?: boolean
-  ): Promise<{ changes?: { changes: number; lastId: number } }>;
-  isDBOpen(): Promise<boolean>;
-  exportToJson(mode: string): Promise<{ export: JsonSQLite }>;
-}
-
-interface JsonSQLite {
-  database: string;
-  version: number;
-  encrypted: boolean;
-  mode: string;
-  tables: JsonTable[];
-}
-
-interface JsonTable {
-  name: string;
-  schema?: JsonColumn[];
-  indexes?: JsonIndex[];
-  triggers?: JsonTrigger[];
-  values?: unknown[][];
-}
-
-interface JsonColumn {
-  column: string;
-  value: string;
-  foreignkey?: string;
-  constraint?: string;
-}
-
-interface JsonIndex {
-  name: string;
-  value: string;
-  mode?: string;
-}
-
-interface JsonTrigger {
-  name: string;
-  timeevent: string;
-  condition?: string;
-  logic: string;
-}
+import type {
+  JsonSQLite,
+  SQLiteConnection,
+  SQLiteDBConnection
+} from '@capacitor-community/sqlite';
 
 /**
  * Error messages that can be safely ignored when deleting a database.
@@ -110,9 +35,9 @@ function isIgnorableDeleteDbError(error: unknown): boolean {
   return IGNORABLE_DELETE_DB_ERRORS.some((msg) => message.includes(msg));
 }
 
-let sqliteConnection: SQLiteConnectionWrapper | null = null;
+let sqliteConnection: SQLiteConnection | null = null;
 
-async function getSQLiteConnection(): Promise<SQLiteConnectionWrapper> {
+async function getSQLiteConnection(): Promise<SQLiteConnection> {
   if (sqliteConnection) return sqliteConnection;
 
   const { CapacitorSQLite, SQLiteConnection } = await import(
@@ -133,9 +58,7 @@ async function getSQLiteConnection(): Promise<SQLiteConnectionWrapper> {
     throw err;
   }
 
-  const connection: SQLiteConnectionWrapper = new SQLiteConnection(
-    CapacitorSQLite
-  );
+  const connection = new SQLiteConnection(CapacitorSQLite);
   sqliteConnection = connection;
   return sqliteConnection;
 }
