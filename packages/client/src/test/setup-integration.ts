@@ -126,7 +126,7 @@ vi.mock('@/db/adapters', async (importOriginal) => {
       return activeAdapter;
     }),
     getPlatformInfo: vi.fn(() => ({
-      platform: 'node' as const,
+      platform: 'node',
       supportsNativeEncryption: true,
       requiresWebWorker: false
     }))

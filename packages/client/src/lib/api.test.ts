@@ -27,10 +27,12 @@ describe('api', () => {
     });
 
     it('makes a request to the correct endpoint', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ version: '1.0.0' })
-      } as Response);
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ version: '1.0.0' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
 
       const { api } = await import('./api');
       const result = await api.ping.get();
@@ -43,10 +45,9 @@ describe('api', () => {
     });
 
     it('throws error when response is not ok', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: false,
-        status: 500
-      } as Response);
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(null, { status: 500 })
+      );
 
       const { api } = await import('./api');
 
@@ -54,10 +55,9 @@ describe('api', () => {
     });
 
     it('handles 404 errors', async () => {
-      vi.mocked(global.fetch).mockResolvedValue({
-        ok: false,
-        status: 404
-      } as Response);
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(null, { status: 404 })
+      );
 
       const { api } = await import('./api');
 

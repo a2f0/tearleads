@@ -31,9 +31,11 @@ export function ModelSelector({ modelDisplayName }: ModelSelectorProps) {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target;
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
+        target instanceof Node &&
+        !dropdownRef.current.contains(target)
       ) {
         setIsOpen(false);
       }

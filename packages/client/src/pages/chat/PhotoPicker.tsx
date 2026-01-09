@@ -125,8 +125,12 @@ export function PhotoPicker({ onSelect, onClose }: PhotoPickerProps) {
         // Convert to base64 data URL
         const reader = new FileReader();
         reader.onload = () => {
-          const dataUrl = reader.result as string;
-          onSelect(dataUrl);
+          const { result } = reader;
+          if (typeof result === 'string') {
+            onSelect(result);
+            return;
+          }
+          setError('Failed to load photo for selection.');
         };
         reader.readAsDataURL(blob);
       } catch (err) {

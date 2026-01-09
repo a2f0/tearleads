@@ -6,7 +6,7 @@
  */
 
 import { Capacitor } from '@capacitor/core';
-import type { Database } from '@/db';
+import type { DatabaseInsert } from '@/db/analytics';
 import { logEvent } from '@/db/analytics';
 import { decrypt, encrypt, importKey } from '@/db/crypto/web-crypto';
 
@@ -25,7 +25,7 @@ export interface RetrieveMetrics {
  * Use this with measureRetrieve() to log decryption times to analytics.
  */
 export function createRetrieveLogger(
-  db: Database
+  db: DatabaseInsert
 ): (metrics: RetrieveMetrics) => Promise<void> {
   return async (metrics: RetrieveMetrics) => {
     try {
@@ -91,6 +91,35 @@ export interface FileStorage {
   exists(storagePath: string): Promise<boolean>;
   getStorageUsed(): Promise<number>;
   clearAll(): Promise<void>;
+}
+
+interface FileSystemDirectoryEntriesHandle extends FileSystemDirectoryHandle {
+  entries(): AsyncIterableIterator<
+    [string, FileSystemDirectoryHandle | FileSystemFileHandle]
+  >;
+}
+
+function hasDirectoryEntries(
+  directory: FileSystemDirectoryHandle
+): directory is FileSystemDirectoryEntriesHandle {
+  return 'entries' in directory;
+}
+
+function getDirectoryEntries(
+  directory: FileSystemDirectoryHandle
+): AsyncIterableIterator<
+  [string, FileSystemDirectoryHandle | FileSystemFileHandle]
+> {
+  if (!hasDirectoryEntries(directory)) {
+    throw new Error('OPFS entries() is not supported in this environment');
+  }
+  return directory.entries();
+}
+
+function isFileHandle(
+  handle: FileSystemFileHandle | FileSystemDirectoryHandle
+): handle is FileSystemFileHandle {
+  return handle.kind === 'file';
 }
 
 class OPFSStorage implements FileStorage {
@@ -188,15 +217,10 @@ class OPFSStorage implements FileStorage {
     }
 
     let totalSize = 0;
-    // Use entries() which returns AsyncIterableIterator
-    const iterator = (
-      this.filesDirectory as unknown as {
-        entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
-      }
-    ).entries();
+    const iterator = getDirectoryEntries(this.filesDirectory);
     for await (const [, handle] of iterator) {
-      if (handle.kind === 'file') {
-        const file = await (handle as FileSystemFileHandle).getFile();
+      if (isFileHandle(handle)) {
+        const file = await handle.getFile();
         totalSize += file.size;
       }
     }
@@ -209,12 +233,7 @@ class OPFSStorage implements FileStorage {
     }
 
     const entries: string[] = [];
-    // Use entries() which returns AsyncIterableIterator
-    const iterator = (
-      this.filesDirectory as unknown as {
-        entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
-      }
-    ).entries();
+    const iterator = getDirectoryEntries(this.filesDirectory);
     for await (const [name] of iterator) {
       entries.push(name);
     }
@@ -304,7 +323,10 @@ class CapacitorStorage implements FileStorage {
     });
 
     // Convert base64 back to Uint8Array
-    const binary = atob(result.data as string);
+    if (typeof result.data !== 'string') {
+      throw new Error('Unexpected file data type from Capacitor Filesystem');
+    }
+    const binary = atob(result.data);
     const encrypted = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
       encrypted[i] = binary.charCodeAt(i);

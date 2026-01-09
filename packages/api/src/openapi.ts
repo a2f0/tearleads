@@ -1,3 +1,4 @@
+import { isRecord } from '@rapid/shared';
 import type { OpenAPIV3 } from 'openapi-types';
 import swaggerJsdoc from 'swagger-jsdoc';
 import packageJson from '../package.json' with { type: 'json' };
@@ -24,6 +25,16 @@ const options: swaggerJsdoc.Options = {
   apis: ['./src/**/*.ts']
 };
 
-export const openapiSpecification: OpenAPIV3.Document = swaggerJsdoc(
-  options
-) as OpenAPIV3.Document;
+const generatedSpec = swaggerJsdoc(options);
+if (!isOpenApiV3Document(generatedSpec)) {
+  throw new Error('Generated OpenAPI specification is not v3');
+}
+export const openapiSpecification: OpenAPIV3.Document = generatedSpec;
+
+function isOpenApiV3Document(value: unknown): value is OpenAPIV3.Document {
+  return (
+    isRecord(value) &&
+    typeof value['openapi'] === 'string' &&
+    value['openapi'].startsWith('3.')
+  );
+}

@@ -3,7 +3,7 @@ import {createRequire} from 'node:module';
 import {launchElectronApp} from './electron-test-helper';
 
 const require = createRequire(import.meta.url);
-const packageJson = require('../../package.json') as {version: string};
+const packageJson: { version: string } = require('../../package.json');
 
 const APP_LOAD_TIMEOUT = 10000;
 const DB_OPERATION_TIMEOUT = 15000;
