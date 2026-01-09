@@ -3,6 +3,7 @@
 ## Web (Browser)
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart TB
     subgraph UserAuth["User Authentication"]
         PWD["User Password"]
@@ -45,6 +46,7 @@ flowchart TB
 ## Electron (Desktop)
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart TB
     subgraph UserAuth["User Authentication"]
         PWD["User Password"]
@@ -87,6 +89,7 @@ flowchart TB
 ## iOS
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart TB
     subgraph UserAuth["User Authentication"]
         PWD["User Password"]
@@ -129,6 +132,7 @@ flowchart TB
 ## Android
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart TB
     subgraph UserAuth["User Authentication"]
         PWD["User Password"]
