@@ -4,6 +4,14 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DeletePhotoDialog } from './DeletePhotoDialog';
 
+// Mock sonner toast
+const mockToastError = vi.fn();
+vi.mock('sonner', () => ({
+  toast: {
+    error: (message: string) => mockToastError(message)
+  }
+}));
+
 function renderDialog(props: {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -27,6 +35,7 @@ function renderDialog(props: {
 describe('DeletePhotoDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockToastError.mockClear();
   });
 
   it('renders nothing when closed', () => {
@@ -100,7 +109,7 @@ describe('DeletePhotoDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('handles delete error without crashing', async () => {
+  it('handles delete error and shows toast', async () => {
     const consoleError = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {});
@@ -114,8 +123,36 @@ describe('DeletePhotoDialog', () => {
     await waitFor(() => {
       expect(onDelete).toHaveBeenCalled();
       expect(consoleError).toHaveBeenCalled();
+      expect(mockToastError).toHaveBeenCalledWith(
+        'Failed to delete photo. Please try again.'
+      );
     });
 
     consoleError.mockRestore();
+  });
+
+  it('prevents backdrop click from closing while deleting', async () => {
+    let resolveDelete: () => void = () => {};
+    const deletePromise = new Promise<void>((resolve) => {
+      resolveDelete = resolve;
+    });
+    const onDelete = vi.fn().mockReturnValue(deletePromise);
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    renderDialog({ onDelete, onOpenChange });
+
+    await user.click(screen.getByTestId('confirm-delete-photo-button'));
+
+    expect(screen.getByText('Deleting...')).toBeInTheDocument();
+
+    const backdrop = screen.getByTestId('delete-photo-dialog').previousSibling;
+    await user.click(backdrop as Element);
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    resolveDelete();
+    await waitFor(() => {
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
   });
 });
