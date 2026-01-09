@@ -8,38 +8,15 @@ import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabase } from '@/db';
-import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { retrieveFileData } from '@/lib/data-retrieval';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { formatFileSize } from '@/lib/utils';
-import {
-  createRetrieveLogger,
-  getFileStorage,
-  initializeFileStorage,
-  isFileStorageInitialized
-} from '@/storage/opfs';
 
 const PDF_MIME_TYPE = 'application/pdf';
-
-async function retrieveDocumentData(
-  storagePath: string,
-  currentInstanceId: string
-): Promise<Uint8Array> {
-  const db = getDatabase();
-  const keyManager = getKeyManager();
-  const encryptionKey = keyManager.getCurrentKey();
-  if (!encryptionKey) throw new Error('Database not unlocked');
-
-  if (!isFileStorageInitialized()) {
-    await initializeFileStorage(encryptionKey, currentInstanceId);
-  }
-
-  const storage = getFileStorage();
-  return storage.measureRetrieve(storagePath, createRetrieveLogger(db));
-}
 
 interface DocumentInfo {
   id: string;
@@ -77,7 +54,7 @@ export function Documents() {
 
       try {
         if (!currentInstanceId) throw new Error('No active instance');
-        const data = await retrieveDocumentData(
+        const data = await retrieveFileData(
           document.storagePath,
           currentInstanceId
         );
@@ -96,7 +73,7 @@ export function Documents() {
 
       try {
         if (!currentInstanceId) throw new Error('No active instance');
-        const data = await retrieveDocumentData(
+        const data = await retrieveFileData(
           document.storagePath,
           currentInstanceId
         );
