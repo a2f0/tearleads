@@ -1,26 +1,32 @@
-import { createClient, type RedisClientType } from 'redis';
+import { createClient } from 'redis';
 
-let client: RedisClientType | null = null;
+type RedisClient = ReturnType<typeof createClient>;
 
-export async function getRedisClient(): Promise<RedisClientType> {
-  if (!client) {
-    client = createClient({
-      url: process.env['REDIS_URL'] || 'redis://localhost:6379'
-    });
+let clientPromise: Promise<RedisClient> | null = null;
 
-    client.on('error', (err) => {
-      console.error('Redis client error:', err);
-    });
+export async function getRedisClient(): Promise<RedisClient> {
+  if (!clientPromise) {
+    clientPromise = (async () => {
+      const client = createClient({
+        url: process.env['REDIS_URL'] || 'redis://localhost:6379'
+      });
 
-    await client.connect();
+      client.on('error', (err) => {
+        console.error('Redis client error:', err);
+      });
+
+      await client.connect();
+      return client;
+    })();
   }
 
-  return client;
+  return clientPromise;
 }
 
 export async function closeRedisClient(): Promise<void> {
-  if (client) {
+  if (clientPromise) {
+    const client = await clientPromise;
     await client.quit();
-    client = null;
+    clientPromise = null;
   }
 }
