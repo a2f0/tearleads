@@ -65,10 +65,9 @@ async function getModelCacheStatus(
   modelIds: string[]
 ): Promise<Record<string, boolean>> {
   const results = await Promise.all(
-    modelIds.map(async (id): Promise<[string, boolean]> => [
-      id,
-      await isModelCached(id)
-    ])
+    modelIds.map(
+      async (id): Promise<[string, boolean]> => [id, await isModelCached(id)]
+    )
   );
   return Object.fromEntries(results);
 }
