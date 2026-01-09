@@ -9,9 +9,14 @@ const mockResume = vi.fn();
 const mockStop = vi.fn();
 const mockSeek = vi.fn();
 const mockUseAudioContext = vi.fn();
+const mockUseLocation = vi.fn();
 
 vi.mock('@/audio', () => ({
   useAudioContext: () => mockUseAudioContext()
+}));
+
+vi.mock('react-router-dom', () => ({
+  useLocation: () => mockUseLocation()
 }));
 
 const TEST_TRACK = {
@@ -24,6 +29,8 @@ const TEST_TRACK = {
 describe('MiniPlayer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default to a non-audio page
+    mockUseLocation.mockReturnValue({ pathname: '/home' });
   });
 
   describe('when no audio context', () => {
@@ -38,7 +45,7 @@ describe('MiniPlayer', () => {
     });
   });
 
-  describe('when no track is playing', () => {
+  describe('when no track is loaded', () => {
     beforeEach(() => {
       mockUseAudioContext.mockReturnValue({
         currentTrack: null,
@@ -51,6 +58,52 @@ describe('MiniPlayer', () => {
     });
 
     it('does not render', () => {
+      render(<MiniPlayer />);
+
+      expect(screen.queryByTestId('mini-player')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('when track is paused', () => {
+    beforeEach(() => {
+      mockUseAudioContext.mockReturnValue({
+        currentTrack: TEST_TRACK,
+        isPlaying: false,
+        pause: mockPause,
+        resume: mockResume,
+        stop: mockStop,
+        seek: mockSeek
+      });
+    });
+
+    it('does not render when audio is paused', () => {
+      render(<MiniPlayer />);
+
+      expect(screen.queryByTestId('mini-player')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('when on audio pages', () => {
+    beforeEach(() => {
+      mockUseAudioContext.mockReturnValue({
+        currentTrack: TEST_TRACK,
+        isPlaying: true,
+        pause: mockPause,
+        resume: mockResume,
+        stop: mockStop,
+        seek: mockSeek
+      });
+    });
+
+    it('does not render on /audio page', () => {
+      mockUseLocation.mockReturnValue({ pathname: '/audio' });
+      render(<MiniPlayer />);
+
+      expect(screen.queryByTestId('mini-player')).not.toBeInTheDocument();
+    });
+
+    it('does not render on /audio/:id page', () => {
+      mockUseLocation.mockReturnValue({ pathname: '/audio/123' });
       render(<MiniPlayer />);
 
       expect(screen.queryByTestId('mini-player')).not.toBeInTheDocument();
@@ -130,34 +183,6 @@ describe('MiniPlayer', () => {
       await user.click(screen.getByRole('button', { name: /close/i }));
 
       expect(mockStop).toHaveBeenCalled();
-    });
-  });
-
-  describe('when track is paused', () => {
-    beforeEach(() => {
-      mockUseAudioContext.mockReturnValue({
-        currentTrack: TEST_TRACK,
-        isPlaying: false,
-        pause: mockPause,
-        resume: mockResume,
-        stop: mockStop,
-        seek: mockSeek
-      });
-    });
-
-    it('renders play button when paused', () => {
-      render(<MiniPlayer />);
-
-      expect(screen.getByRole('button', { name: /play/i })).toBeInTheDocument();
-    });
-
-    it('calls resume when play button is clicked', async () => {
-      const user = userEvent.setup();
-      render(<MiniPlayer />);
-
-      await user.click(screen.getByRole('button', { name: /play/i }));
-
-      expect(mockResume).toHaveBeenCalled();
     });
   });
 
