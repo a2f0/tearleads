@@ -8,27 +8,22 @@ appId: com.tearleads.rapid
 # Navigate to settings with mobile/desktop handling
 - evalScript: |
     (async () => {
-      const waitFor = async (predicate, errorMessage, timeout = 8000) => {
+      window.waitForElement = async (selector, timeout = 8000) => {
         const interval = 200;
         const maxTries = Math.ceil(timeout / interval);
         for (let i = 0; i < maxTries; i++) {
-          if (predicate()) return 'ok';
+          if (document.querySelector(selector)) return 'ok';
           await new Promise(r => setTimeout(r, interval));
         }
-        throw new Error(errorMessage);
+        throw new Error('Element not found: ' + selector);
       };
-      const isVisible = (el) =>
-        !!(el && (el.getClientRects().length || el.offsetParent));
 
       const mobileButton = document.querySelector(
         '[data-testid="mobile-menu-button"]'
       );
-      if (isVisible(mobileButton)) {
+      if (mobileButton && mobileButton.offsetParent !== null) {
         mobileButton.click();
-        await waitFor(
-          () => document.querySelector('[data-testid="mobile-menu-dropdown"]'),
-          'Mobile menu dropdown not found'
-        );
+        await window.waitForElement('[data-testid="mobile-menu-dropdown"]');
         const mobileLink = document.querySelector(
           '[data-testid="mobile-menu-dropdown"] [data-testid="settings-link"]'
         );
@@ -36,7 +31,6 @@ appId: com.tearleads.rapid
           throw new Error('Settings link not found in mobile menu');
         }
         mobileLink.scrollIntoView({ block: 'center' });
-        await new Promise(r => setTimeout(r, 100));
         mobileLink.click();
         return 'clicked-mobile';
       }
@@ -48,7 +42,6 @@ appId: com.tearleads.rapid
         throw new Error('Settings link not found in sidebar');
       }
       sidebarLink.scrollIntoView({ block: 'center' });
-      await new Promise(r => setTimeout(r, 100));
       sidebarLink.click();
       return 'clicked-sidebar';
     })()
@@ -56,18 +49,9 @@ appId: com.tearleads.rapid
 # Wait for Settings page to load (WebView-friendly)
 - evalScript: |
     (async () => {
-      const waitFor = async (predicate, errorMessage, timeout = 10000) => {
-        const interval = 200;
-        const maxTries = Math.ceil(timeout / interval);
-        for (let i = 0; i < maxTries; i++) {
-          if (predicate()) return 'ok';
-          await new Promise(r => setTimeout(r, interval));
-        }
-        throw new Error(errorMessage);
-      };
-      return waitFor(
-        () => document.querySelector('[data-testid="theme-selector-grid"]'),
-        'Settings page did not render theme selector'
+      return window.waitForElement(
+        '[data-testid="theme-selector-grid"]',
+        10000
       );
     })()
 
