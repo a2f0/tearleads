@@ -280,6 +280,25 @@ describe('Dropzone', () => {
       debugSpy.mockRestore();
     });
 
+    it('logs errors when native picker fails', async () => {
+      const user = userEvent.setup();
+      const error = new Error('Picker failed');
+      mockPickFiles.mockRejectedValue(error);
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+
+      const button = screen.getByTestId('dropzone-choose-files');
+      await user.click(button);
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Native file picker failed:',
+        error
+      );
+
+      errorSpy.mockRestore();
+    });
+
     it('disables button while picker is open', async () => {
       const user = userEvent.setup();
       let resolvePickFiles: (files: File[]) => void = () => {};
