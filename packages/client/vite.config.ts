@@ -57,7 +57,9 @@ export default defineConfig(({ mode }) => ({
           // Database dependencies
           'vendor-db': ['drizzle-orm'],
           // UI dependencies
-          'vendor-ui': ['lucide-react', 'class-variance-authority']
+          'vendor-ui': ['lucide-react', 'class-variance-authority'],
+          // PDF viewer (lazy-loaded when viewing documents)
+          'vendor-pdf': ['react-pdf']
         }
       }
     }
