@@ -5,6 +5,7 @@ import {
   Bug,
   Database,
   FileIcon,
+  FileText,
   HardDrive,
   Home,
   ImageIcon,
@@ -54,6 +55,13 @@ export const navItems: NavItem[] = [
     label: 'Photos',
     inMobileMenu: true,
     testId: 'photos-link'
+  },
+  {
+    path: '/documents',
+    icon: FileText,
+    label: 'Documents',
+    inMobileMenu: true,
+    testId: 'documents-link'
   },
   {
     path: '/audio',
@@ -153,6 +161,7 @@ export function Sidebar() {
                 <NavLink
                   to={item.path}
                   end={item.path === '/'}
+                  data-testid={item.testId}
                   className={({ isActive }) =>
                     cn(
                       'flex items-center gap-3 rounded-md px-3 py-2 font-medium text-sm transition-colors',

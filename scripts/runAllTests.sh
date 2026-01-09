@@ -3,24 +3,6 @@ set -eu
 
 TOTAL_START=$(date +%s)
 
-CURRENT_BRANCH=$(git branch --show-current)
-if [ "$CURRENT_BRANCH" != "main" ]; then
-  echo "Error: Must be on 'main' branch to release. Currently on '$CURRENT_BRANCH'."
-  exit 1
-fi
-
-git fetch origin main
-LOCAL_SHA=$(git rev-parse HEAD)
-REMOTE_SHA=$(git rev-parse origin/main)
-
-if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
-  echo "Error: Local main is not up-to-date with origin/main."
-  echo "  Local:  $LOCAL_SHA"
-  echo "  Remote: $REMOTE_SHA"
-  echo "Please pull the latest changes first."
-  exit 1
-fi
-
 echo "==> Running lint..."
 LINT_START=$(date +%s)
 pnpm lint
@@ -38,6 +20,12 @@ UNIT_START=$(date +%s)
 pnpm test
 UNIT_END=$(date +%s)
 UNIT_TIME=$((UNIT_END - UNIT_START))
+
+echo "==> Running Playwright E2E tests..."
+PLAYWRIGHT_START=$(date +%s)
+pnpm --filter @rapid/client test:e2e
+PLAYWRIGHT_END=$(date +%s)
+PLAYWRIGHT_TIME=$((PLAYWRIGHT_END - PLAYWRIGHT_START))
 
 echo "==> Running Android Maestro tests..."
 ANDROID_START=$(date +%s)
@@ -64,12 +52,13 @@ echo ""
 echo "=============================="
 echo "       Timing Summary"
 echo "=============================="
-echo "Lint:           ${LINT_TIME}s"
-echo "Build:          ${BUILD_TIME}s"
-echo "Unit tests:     ${UNIT_TIME}s"
-echo "Android tests:  ${ANDROID_TIME}s"
-echo "iOS tests:      ${IOS_TIME}s"
-echo "Electron tests: ${ELECTRON_TIME}s"
+echo "Lint:            ${LINT_TIME}s"
+echo "Build:           ${BUILD_TIME}s"
+echo "Unit tests:      ${UNIT_TIME}s"
+echo "Playwright E2E:  ${PLAYWRIGHT_TIME}s"
+echo "Android Maestro: ${ANDROID_TIME}s"
+echo "iOS Maestro:     ${IOS_TIME}s"
+echo "Electron tests:  ${ELECTRON_TIME}s"
 echo "------------------------------"
 echo "Total:          ${TOTAL_TIME}s"
 echo "=============================="

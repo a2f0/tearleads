@@ -1,5 +1,5 @@
 import { ThemeProvider } from '@rapid/ui';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -155,7 +155,8 @@ describe('App Integration', () => {
       });
 
       it('navigates to SQLite page', async () => {
-        const sqliteLink = screen.getByTestId('sqlite-link');
+        const dropdown = screen.getByTestId('mobile-menu-dropdown');
+        const sqliteLink = within(dropdown).getByTestId('sqlite-link');
         await user.click(sqliteLink);
 
         await waitFor(() => {
@@ -164,7 +165,8 @@ describe('App Integration', () => {
       });
 
       it('navigates to Debug page and displays debug info', async () => {
-        const debugLink = screen.getByTestId('debug-link');
+        const dropdown = screen.getByTestId('mobile-menu-dropdown');
+        const debugLink = within(dropdown).getByTestId('debug-link');
         await user.click(debugLink);
 
         await waitFor(() => {
@@ -174,7 +176,8 @@ describe('App Integration', () => {
       });
 
       it('navigates to Settings page', async () => {
-        const settingsLink = screen.getByTestId('settings-link');
+        const dropdown = screen.getByTestId('mobile-menu-dropdown');
+        const settingsLink = within(dropdown).getByTestId('settings-link');
         await user.click(settingsLink);
 
         await waitFor(() => {
@@ -183,7 +186,8 @@ describe('App Integration', () => {
       });
 
       it('navigates to Tables page', async () => {
-        const tablesLink = screen.getByTestId('tables-link');
+        const dropdown = screen.getByTestId('mobile-menu-dropdown');
+        const tablesLink = within(dropdown).getByTestId('tables-link');
         await user.click(tablesLink);
 
         await waitFor(() => {
@@ -239,7 +243,8 @@ describe('App Integration', () => {
 
       // Open mobile menu and navigate to different page
       await user.click(screen.getByTestId('mobile-menu-button'));
-      const debugLink = screen.getByTestId('debug-link');
+      const dropdown = screen.getByTestId('mobile-menu-dropdown');
+      const debugLink = within(dropdown).getByTestId('debug-link');
       await user.click(debugLink);
 
       // App shell should still be present

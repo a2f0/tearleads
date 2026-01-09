@@ -54,6 +54,12 @@ const Contacts = lazy(() =>
 const Debug = lazy(() =>
   import('./pages/debug').then((m) => ({ default: m.Debug }))
 );
+const DocumentDetail = lazy(() =>
+  import('./pages/DocumentDetail').then((m) => ({ default: m.DocumentDetail }))
+);
+const Documents = lazy(() =>
+  import('./pages/Documents').then((m) => ({ default: m.Documents }))
+);
 const Files = lazy(() =>
   import('./pages/Files').then((m) => ({ default: m.Files }))
 );
@@ -134,6 +140,11 @@ if (rootElement) {
                       <Route path="contacts" element={<Contacts />} />
                       <Route path="contacts/new" element={<ContactNew />} />
                       <Route path="contacts/:id" element={<ContactDetail />} />
+                      <Route path="documents" element={<Documents />} />
+                      <Route
+                        path="documents/:id"
+                        element={<DocumentDetail />}
+                      />
                       <Route path="photos" element={<Photos />} />
                       <Route path="photos/:id" element={<PhotoDetail />} />
                       <Route path="audio" element={<AudioPage />} />
