@@ -2,13 +2,12 @@ import { and, eq } from 'drizzle-orm';
 import {
   Calendar,
   Download,
-  FileText,
   FileType,
   HardDrive,
   Loader2,
   Share2
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
@@ -19,6 +18,10 @@ import { files } from '@/db/schema';
 import { retrieveFileData } from '@/lib/data-retrieval';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { formatDate, formatFileSize } from '@/lib/utils';
+
+const PdfViewer = lazy(() =>
+  import('@/components/pdf').then((m) => ({ default: m.PdfViewer }))
+);
 
 const PDF_MIME_TYPE = 'application/pdf';
 
@@ -35,7 +38,9 @@ export function DocumentDetail() {
   const { id } = useParams<{ id: string }>();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [document, setDocument] = useState<DocumentInfo | null>(null);
+  const [pdfData, setPdfData] = useState<Uint8Array | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [canShare, setCanShare] = useState(false);
   const [actionLoading, setActionLoading] = useState<
@@ -147,6 +152,28 @@ export function DocumentDetail() {
     }
   }, [isUnlocked, id, fetchDocument]);
 
+  useEffect(() => {
+    if (!document || !currentInstanceId) return;
+
+    const loadPdfData = async () => {
+      setPdfLoading(true);
+      try {
+        const data = await retrieveFileData(
+          document.storagePath,
+          currentInstanceId
+        );
+        setPdfData(data);
+      } catch (err) {
+        console.error('Failed to load PDF data:', err);
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setPdfLoading(false);
+      }
+    };
+
+    loadPdfData();
+  }, [document, currentInstanceId]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -180,9 +207,28 @@ export function DocumentDetail() {
         <div className="space-y-6">
           <h1 className="font-bold text-2xl tracking-tight">{document.name}</h1>
 
-          <div className="flex items-center justify-center rounded-lg border bg-muted p-12">
-            <FileText className="h-24 w-24 text-muted-foreground" />
-          </div>
+          {pdfLoading && (
+            <div
+              className="flex items-center justify-center gap-2 rounded-lg border bg-muted p-12 text-muted-foreground"
+              data-testid="pdf-loading"
+            >
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Loading PDF...
+            </div>
+          )}
+
+          {!pdfLoading && pdfData && (
+            <Suspense
+              fallback={
+                <div className="flex items-center justify-center gap-2 rounded-lg border bg-muted p-12 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Loading viewer...
+                </div>
+              }
+            >
+              <PdfViewer data={pdfData} />
+            </Suspense>
+          )}
 
           <div className="flex gap-2">
             <Button
