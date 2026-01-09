@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Music,
   Settings,
+  Shield,
   Table2,
   Users
 } from 'lucide-react';
@@ -139,6 +140,13 @@ export const navItems: NavItem[] = [
     label: 'Models',
     inMobileMenu: true,
     testId: 'models-link'
+  },
+  {
+    path: '/admin',
+    icon: Shield,
+    label: 'Admin',
+    inMobileMenu: true,
+    testId: 'admin-link'
   },
   {
     path: '/settings',
