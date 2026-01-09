@@ -1,16 +1,20 @@
 import { Music, Pause, Play, SkipBack, X } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useAudioContext } from '@/audio';
 import { Button } from '@/components/ui/button';
 
 /**
  * Mini player that appears in the lower-right corner when audio is playing.
- * Persists across navigation to allow continuous playback.
+ * Only shows when navigating away from audio pages to avoid redundant controls.
  */
 export function MiniPlayer() {
   const audio = useAudioContext();
+  const location = useLocation();
 
-  // Don't render if no audio context or no track
-  if (!audio || !audio.currentTrack) {
+  const isOnAudioPage = location.pathname.startsWith('/audio');
+
+  // Don't render if no audio context, not playing, or on audio pages
+  if (!audio || !audio.currentTrack || !audio.isPlaying || isOnAudioPage) {
     return null;
   }
 
