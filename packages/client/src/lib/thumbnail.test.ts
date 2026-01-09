@@ -192,11 +192,9 @@ describe('thumbnail', () => {
       const resultData = new Uint8Array([1, 2, 3, 4]);
       const mockBlob = new Blob([resultData]);
 
-      toBlob.mockImplementation(
-        (callback: (blob: Blob | null) => void) => {
-          callback(mockBlob);
-        }
-      );
+      toBlob.mockImplementation((callback: (blob: Blob | null) => void) => {
+        callback(mockBlob);
+      });
 
       const imageData = new Uint8Array([10, 20, 30]);
       const result = await generateThumbnail(imageData, 'image/jpeg');
@@ -211,11 +209,9 @@ describe('thumbnail', () => {
       const resultData = new Uint8Array([1]);
       const mockBlob = new Blob([resultData]);
 
-      toBlob.mockImplementation(
-        (callback: (blob: Blob | null) => void) => {
-          callback(mockBlob);
-        }
-      );
+      toBlob.mockImplementation((callback: (blob: Blob | null) => void) => {
+        callback(mockBlob);
+      });
 
       const imageData = new Uint8Array([10, 20, 30]);
       await generateThumbnail(imageData, 'image/jpeg', {
@@ -245,11 +241,9 @@ describe('thumbnail', () => {
     });
 
     it('throws error when toBlob returns null', async () => {
-      toBlob.mockImplementation(
-        (callback: (blob: Blob | null) => void) => {
-          callback(null);
-        }
-      );
+      toBlob.mockImplementation((callback: (blob: Blob | null) => void) => {
+        callback(null);
+      });
 
       const imageData = new Uint8Array([10, 20, 30]);
 
@@ -262,11 +256,9 @@ describe('thumbnail', () => {
       const resultData = new Uint8Array([1]);
       const mockBlob = new Blob([resultData]);
 
-      toBlob.mockImplementation(
-        (callback: (blob: Blob | null) => void) => {
-          callback(mockBlob);
-        }
-      );
+      toBlob.mockImplementation((callback: (blob: Blob | null) => void) => {
+        callback(mockBlob);
+      });
 
       // 400x300 image with max 800x800 stays at 400x300 (fits within bounds)
       const imageData = new Uint8Array([10, 20, 30]);
