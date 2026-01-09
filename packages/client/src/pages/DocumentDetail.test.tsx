@@ -48,6 +48,18 @@ vi.mock('@/lib/file-utils', () => ({
   canShareFiles: () => mockCanShareFiles()
 }));
 
+vi.mock('@/components/pdf', () => ({
+  PdfViewer: ({ data }: { data: Uint8Array }) => (
+    <div data-testid="mock-pdf-viewer">PDF Viewer ({data.length} bytes)</div>
+  )
+}));
+
+const mockRetrieveFileData = vi.fn();
+vi.mock('@/lib/data-retrieval', () => ({
+  retrieveFileData: (storagePath: string, instanceId: string) =>
+    mockRetrieveFileData(storagePath, instanceId)
+}));
+
 const TEST_DOCUMENT = {
   id: 'doc-123',
   name: 'test-document.pdf',
@@ -102,6 +114,7 @@ describe('DocumentDetail', () => {
     mockGetCurrentKey.mockReturnValue(TEST_ENCRYPTION_KEY);
     mockIsFileStorageInitialized.mockReturnValue(true);
     mockRetrieve.mockResolvedValue(TEST_PDF_DATA);
+    mockRetrieveFileData.mockResolvedValue(TEST_PDF_DATA);
     mockSelect.mockReturnValue(createMockQueryChain([TEST_DOCUMENT]));
     mockCanShareFiles.mockReturnValue(true);
     mockShareFile.mockResolvedValue(true);
@@ -204,9 +217,9 @@ describe('DocumentDetail', () => {
       await user.click(screen.getByTestId('download-button'));
 
       await waitFor(() => {
-        expect(mockRetrieve).toHaveBeenCalledWith(
+        expect(mockRetrieveFileData).toHaveBeenCalledWith(
           '/documents/test-document.pdf',
-          expect.any(Function)
+          'test-instance'
         );
         expect(mockDownloadFile).toHaveBeenCalledWith(
           TEST_PDF_DATA,
@@ -215,24 +228,10 @@ describe('DocumentDetail', () => {
       });
     });
 
-    it('initializes file storage if not initialized', async () => {
-      mockIsFileStorageInitialized.mockReturnValue(false);
-      const user = userEvent.setup();
-      await renderDocumentDetail();
-
-      expect(screen.getByTestId('download-button')).toBeInTheDocument();
-
-      await user.click(screen.getByTestId('download-button'));
-
-      await waitFor(() => {
-        expect(mockInitializeFileStorage).toHaveBeenCalledWith(
-          TEST_ENCRYPTION_KEY
-        );
-      });
-    });
-
     it('shows error when download fails', async () => {
-      mockRetrieve.mockRejectedValueOnce(new Error('Storage read failed'));
+      mockRetrieveFileData.mockRejectedValueOnce(
+        new Error('Storage read failed')
+      );
       const user = userEvent.setup();
       await renderDocumentDetail();
 
@@ -256,30 +255,14 @@ describe('DocumentDetail', () => {
       await user.click(screen.getByTestId('share-button'));
 
       await waitFor(() => {
-        expect(mockRetrieve).toHaveBeenCalledWith(
+        expect(mockRetrieveFileData).toHaveBeenCalledWith(
           '/documents/test-document.pdf',
-          expect.any(Function)
+          'test-instance'
         );
         expect(mockShareFile).toHaveBeenCalledWith(
           TEST_PDF_DATA,
           'test-document.pdf',
           'application/pdf'
-        );
-      });
-    });
-
-    it('initializes file storage if not initialized before share', async () => {
-      mockIsFileStorageInitialized.mockReturnValue(false);
-      const user = userEvent.setup();
-      await renderDocumentDetail();
-
-      expect(screen.getByTestId('share-button')).toBeInTheDocument();
-
-      await user.click(screen.getByTestId('share-button'));
-
-      await waitFor(() => {
-        expect(mockInitializeFileStorage).toHaveBeenCalledWith(
-          TEST_ENCRYPTION_KEY
         );
       });
     });
