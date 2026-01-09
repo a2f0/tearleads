@@ -5,16 +5,58 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Navigate to settings by clicking the settings link
-- evalScript: document.querySelector('[data-testid="settings-link"]').click()
+# Navigate to settings with mobile/desktop handling
+- evalScript: |
+    (async () => {
+      window.waitForElement = async (selector, timeout = 8000) => {
+        const interval = 200;
+        const maxTries = Math.ceil(timeout / interval);
+        for (let i = 0; i < maxTries; i++) {
+          if (document.querySelector(selector)) return 'ok';
+          await new Promise(r => setTimeout(r, interval));
+        }
+        throw new Error('Element not found: ' + selector);
+      };
 
-# Wait for Settings page to load
-- extendedWaitUntil:
-    visible: "Settings"
-    timeout: 10000
+      const mobileButton = document.querySelector(
+        '[data-testid="mobile-menu-button"]'
+      );
+      if (mobileButton && mobileButton.offsetParent !== null) {
+        mobileButton.click();
+        await window.waitForElement('[data-testid="mobile-menu-dropdown"]');
+        const mobileLink = document.querySelector(
+          '[data-testid="mobile-menu-dropdown"] [data-testid="settings-link"]'
+        );
+        if (!mobileLink) {
+          throw new Error('Settings link not found in mobile menu');
+        }
+        mobileLink.scrollIntoView({ block: 'center' });
+        mobileLink.click();
+        return 'clicked-mobile';
+      }
 
-# Tap the dark mode switch (starts in light mode by default)
-- evalScript: document.querySelector('[data-testid="dark-mode-switch"]').click()
+      const sidebarLink = document.querySelector(
+        'aside [data-testid="settings-link"]'
+      );
+      if (!sidebarLink) {
+        throw new Error('Settings link not found in sidebar');
+      }
+      sidebarLink.scrollIntoView({ block: 'center' });
+      sidebarLink.click();
+      return 'clicked-sidebar';
+    })()
+
+# Wait for Settings page to load (WebView-friendly)
+- evalScript: |
+    (async () => {
+      return window.waitForElement(
+        '[data-testid="theme-selector-grid"]',
+        10000
+      );
+    })()
+
+# Tap the dark theme option (starts in light mode by default)
+- evalScript: document.querySelector('[data-testid="theme-option-dark"]').click()
 
 # Poll until dark mode is applied
 - evalScript: |
@@ -28,8 +70,8 @@ appId: com.tearleads.rapid
       throw new Error('Expected dark mode');
     })()
 
-# Tap again to switch back to light
-- evalScript: document.querySelector('[data-testid="dark-mode-switch"]').click()
+# Tap light theme option to switch back to light
+- evalScript: document.querySelector('[data-testid="theme-option-light"]').click()
 
 # Poll until light mode is applied
 - evalScript: |

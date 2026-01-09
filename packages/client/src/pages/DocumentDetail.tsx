@@ -1,0 +1,250 @@
+import { and, eq } from 'drizzle-orm';
+import {
+  Calendar,
+  Download,
+  FileText,
+  FileType,
+  HardDrive,
+  Loader2,
+  Share2
+} from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { BackLink } from '@/components/ui/back-link';
+import { Button } from '@/components/ui/button';
+import { getDatabase } from '@/db';
+import { useDatabaseContext } from '@/db/hooks';
+import { files } from '@/db/schema';
+import { retrieveFileData } from '@/lib/data-retrieval';
+import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { formatDate, formatFileSize } from '@/lib/utils';
+
+const PDF_MIME_TYPE = 'application/pdf';
+
+interface DocumentInfo {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  uploadDate: Date;
+  storagePath: string;
+}
+
+export function DocumentDetail() {
+  const { id } = useParams<{ id: string }>();
+  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const [document, setDocument] = useState<DocumentInfo | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [canShare, setCanShare] = useState(false);
+  const [actionLoading, setActionLoading] = useState<
+    'download' | 'share' | null
+  >(null);
+
+  useEffect(() => {
+    setCanShare(canShareFiles());
+  }, []);
+
+  const handleDownload = useCallback(async () => {
+    if (!document) return;
+
+    setActionLoading('download');
+    try {
+      if (!currentInstanceId) throw new Error('No active instance');
+      const data = await retrieveFileData(
+        document.storagePath,
+        currentInstanceId
+      );
+      downloadFile(data, document.name);
+    } catch (err) {
+      console.error('Failed to download document:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActionLoading(null);
+    }
+  }, [document, currentInstanceId]);
+
+  const handleShare = useCallback(async () => {
+    if (!document) return;
+
+    setActionLoading('share');
+    try {
+      if (!currentInstanceId) throw new Error('No active instance');
+      const data = await retrieveFileData(
+        document.storagePath,
+        currentInstanceId
+      );
+      const shared = await shareFile(data, document.name, document.mimeType);
+      if (!shared) {
+        setError('Sharing is not supported on this device');
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+      console.error('Failed to share document:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActionLoading(null);
+    }
+  }, [document, currentInstanceId]);
+
+  const fetchDocument = useCallback(async () => {
+    if (!isUnlocked || !id) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const db = getDatabase();
+
+      const result = await db
+        .select({
+          id: files.id,
+          name: files.name,
+          size: files.size,
+          mimeType: files.mimeType,
+          uploadDate: files.uploadDate,
+          storagePath: files.storagePath
+        })
+        .from(files)
+        .where(
+          and(
+            eq(files.id, id),
+            eq(files.mimeType, PDF_MIME_TYPE),
+            eq(files.deleted, false)
+          )
+        )
+        .limit(1);
+
+      const row = result[0];
+      if (!row) {
+        setError('Document not found');
+        return;
+      }
+
+      const documentInfo: DocumentInfo = {
+        id: row.id,
+        name: row.name,
+        size: row.size,
+        mimeType: row.mimeType,
+        uploadDate: row.uploadDate,
+        storagePath: row.storagePath
+      };
+      setDocument(documentInfo);
+    } catch (err) {
+      console.error('Failed to fetch document:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [isUnlocked, id]);
+
+  useEffect(() => {
+    if (isUnlocked && id) {
+      fetchDocument();
+    }
+  }, [isUnlocked, id, fetchDocument]);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <BackLink defaultTo="/documents" defaultLabel="Back to Documents" />
+      </div>
+
+      {isLoading && (
+        <div className="rounded-lg border p-8 text-center text-muted-foreground">
+          Loading database...
+        </div>
+      )}
+
+      {!isLoading && !isUnlocked && (
+        <InlineUnlock description="this document" />
+      )}
+
+      {error && (
+        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive text-sm">
+          {error}
+        </div>
+      )}
+
+      {isUnlocked && loading && (
+        <div className="flex items-center justify-center gap-2 rounded-lg border p-8 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Loading document...
+        </div>
+      )}
+
+      {isUnlocked && !loading && !error && document && (
+        <div className="space-y-6">
+          <h1 className="font-bold text-2xl tracking-tight">{document.name}</h1>
+
+          <div className="flex items-center justify-center rounded-lg border bg-muted p-12">
+            <FileText className="h-24 w-24 text-muted-foreground" />
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleDownload}
+              disabled={actionLoading !== null}
+              data-testid="download-button"
+            >
+              {actionLoading === 'download' ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Download
+            </Button>
+            {canShare && (
+              <Button
+                variant="outline"
+                onClick={handleShare}
+                disabled={actionLoading !== null}
+                data-testid="share-button"
+              >
+                {actionLoading === 'share' ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Share2 className="mr-2 h-4 w-4" />
+                )}
+                Share
+              </Button>
+            )}
+          </div>
+
+          <div className="rounded-lg border">
+            <div className="border-b px-4 py-3">
+              <h2 className="font-semibold">Document Details</h2>
+            </div>
+            <div className="divide-y">
+              <div className="flex items-center gap-3 px-4 py-3">
+                <FileType className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground text-sm">Type</span>
+                <span className="ml-auto font-mono text-sm">
+                  {document.mimeType}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 px-4 py-3">
+                <HardDrive className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground text-sm">Size</span>
+                <span className="ml-auto font-mono text-sm">
+                  {formatFileSize(document.size)}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 px-4 py-3">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground text-sm">Uploaded</span>
+                <span className="ml-auto text-sm">
+                  {formatDate(document.uploadDate)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

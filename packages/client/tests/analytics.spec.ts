@@ -462,7 +462,8 @@ test.describe('Analytics page', () => {
     const navigateMobile = async (testId: string) => {
       const mobileMenuButton = page.getByTestId('mobile-menu-button');
       await mobileMenuButton.click();
-      await page.getByTestId(testId).click();
+      // Scope to mobile menu dropdown to avoid strict mode violation
+      await page.getByTestId('mobile-menu-dropdown').getByTestId(testId).click();
     };
 
     // Set viewport to iPhone SE dimensions (smallest common mobile viewport)
