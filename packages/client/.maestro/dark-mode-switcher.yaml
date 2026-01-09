@@ -24,8 +24,8 @@ appId: com.tearleads.rapid
     visible: "Settings"
     timeout: 10000
 
-# Tap the dark mode switch (starts in light mode by default)
-- evalScript: document.querySelector('[data-testid="dark-mode-switch"]').click()
+# Tap the dark theme option (starts in light mode by default)
+- evalScript: document.querySelector('[data-testid="theme-option-dark"]').click()
 
 # Poll until dark mode is applied
 - evalScript: |
@@ -39,8 +39,8 @@ appId: com.tearleads.rapid
       throw new Error('Expected dark mode');
     })()
 
-# Tap again to switch back to light
-- evalScript: document.querySelector('[data-testid="dark-mode-switch"]').click()
+# Tap light theme option to switch back to light
+- evalScript: document.querySelector('[data-testid="theme-option-light"]').click()
 
 # Poll until light mode is applied
 - evalScript: |
