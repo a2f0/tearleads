@@ -3,6 +3,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { DatabaseInsert } from '@/db/analytics';
 
 // Use vi.hoisted for mock functions to avoid hoisting issues
 const { mockImportKey, mockEncrypt, mockDecrypt } = vi.hoisted(() => ({
@@ -32,65 +33,111 @@ import {
   setCurrentStorageInstanceId
 } from './opfs';
 
+type MockWritableStream = {
+  write: ReturnType<typeof vi.fn>;
+  close: ReturnType<typeof vi.fn>;
+};
+
+type MockFileHandle = {
+  kind: 'file';
+  name: string;
+  _content: Uint8Array;
+  getFile: ReturnType<typeof vi.fn>;
+  createWritable: ReturnType<typeof vi.fn>;
+  isSameEntry: ReturnType<typeof vi.fn>;
+  queryPermission: ReturnType<typeof vi.fn>;
+  requestPermission: ReturnType<typeof vi.fn>;
+};
+
+type MockDirectoryHandle = {
+  kind: 'directory';
+  name: string;
+  getFileHandle: ReturnType<typeof vi.fn>;
+  getDirectoryHandle: ReturnType<typeof vi.fn>;
+  removeEntry: ReturnType<typeof vi.fn>;
+  resolve: ReturnType<typeof vi.fn>;
+  keys: ReturnType<typeof vi.fn>;
+  values: ReturnType<typeof vi.fn>;
+  entries: ReturnType<typeof vi.fn>;
+  isSameEntry: ReturnType<typeof vi.fn>;
+  queryPermission: ReturnType<typeof vi.fn>;
+  requestPermission: ReturnType<typeof vi.fn>;
+};
+
+type MockHandle = MockFileHandle | MockDirectoryHandle;
+
+function setStorageFilesDirectoryNull(storage: object) {
+  Object.defineProperty(storage, 'filesDirectory', {
+    value: null,
+    writable: true
+  });
+}
+
 // Mock FileSystem handles
 const createMockFileHandle = (
   content: Uint8Array
-): FileSystemFileHandle & { _content: Uint8Array } => {
+): MockFileHandle => {
+  const file = new File([content], 'test.enc');
+  const write = vi.fn();
+  const close = vi.fn();
+  const createWritable = vi.fn(async (): Promise<MockWritableStream> => ({
+    write,
+    close
+  }));
+
   return {
-    kind: 'file' as const,
+    kind: 'file',
     name: 'test.enc',
     _content: content,
-    getFile: vi.fn(async () => ({
-      arrayBuffer: async () => content.buffer,
-      size: content.byteLength
-    })),
-    createWritable: vi.fn(async () => ({
-      write: vi.fn(),
-      close: vi.fn()
-    })),
+    getFile: vi.fn(async () => file),
+    createWritable,
     isSameEntry: vi.fn(),
     queryPermission: vi.fn(),
     requestPermission: vi.fn()
-  } as unknown as FileSystemFileHandle & { _content: Uint8Array };
+  };
 };
 
 const createMockDirectoryHandle = (
-  files: Map<string, FileSystemHandle> = new Map()
-): FileSystemDirectoryHandle => {
+  files: Map<string, MockHandle> = new Map()
+): MockDirectoryHandle => {
+  const getFileHandle = vi.fn(
+    async (name: string, options?: { create?: boolean }) => {
+      const existing = files.get(name);
+      if (existing && existing.kind === 'file') {
+        return existing;
+      }
+      if (options?.create) {
+        const newHandle = createMockFileHandle(new Uint8Array());
+        files.set(name, newHandle);
+        return newHandle;
+      }
+      throw new DOMException('File not found', 'NotFoundError');
+    }
+  );
+  const getDirectoryHandle = vi.fn(
+    async (name: string, options?: { create?: boolean }) => {
+      const existing = files.get(name);
+      if (existing && existing.kind === 'directory') {
+        return existing;
+      }
+      if (options?.create) {
+        const newDir = createMockDirectoryHandle(new Map());
+        files.set(name, newDir);
+        return newDir;
+      }
+      throw new DOMException('Directory not found', 'NotFoundError');
+    }
+  );
+  const removeEntry = vi.fn(async (name: string) => {
+    files.delete(name);
+  });
+
   return {
-    kind: 'directory' as const,
+    kind: 'directory',
     name: 'test-dir',
-    getFileHandle: vi.fn(
-      async (name: string, options?: { create?: boolean }) => {
-        const existing = files.get(name);
-        if (existing && existing.kind === 'file') {
-          return existing as FileSystemFileHandle;
-        }
-        if (options?.create) {
-          const newHandle = createMockFileHandle(new Uint8Array());
-          files.set(name, newHandle);
-          return newHandle;
-        }
-        throw new DOMException('File not found', 'NotFoundError');
-      }
-    ),
-    getDirectoryHandle: vi.fn(
-      async (name: string, options?: { create?: boolean }) => {
-        const existing = files.get(name);
-        if (existing && existing.kind === 'directory') {
-          return existing as FileSystemDirectoryHandle;
-        }
-        if (options?.create) {
-          const newDir = createMockDirectoryHandle(new Map());
-          files.set(name, newDir);
-          return newDir;
-        }
-        throw new DOMException('Directory not found', 'NotFoundError');
-      }
-    ),
-    removeEntry: vi.fn(async (name: string) => {
-      files.delete(name);
-    }),
+    getFileHandle,
+    getDirectoryHandle,
+    removeEntry,
     resolve: vi.fn(),
     keys: vi.fn(),
     values: vi.fn(),
@@ -102,15 +149,20 @@ const createMockDirectoryHandle = (
     isSameEntry: vi.fn(),
     queryPermission: vi.fn(),
     requestPermission: vi.fn()
-  } as unknown as FileSystemDirectoryHandle;
+  };
 };
 
 describe('opfs storage', () => {
-  let mockRootDirectory: FileSystemDirectoryHandle;
-  let mockFilesDirectory: FileSystemDirectoryHandle;
+  let mockRootDirectory: MockDirectoryHandle;
+  let mockFilesDirectory: MockDirectoryHandle;
   const testInstanceId = 'test-instance';
   const testEncryptionKey = new Uint8Array(32);
-  const mockCryptoKey = {} as CryptoKey;
+  const mockCryptoKey: CryptoKey = {
+    type: 'secret',
+    extractable: true,
+    algorithm: { name: 'AES-GCM' },
+    usages: ['encrypt', 'decrypt']
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -121,9 +173,7 @@ describe('opfs storage', () => {
     // Setup mock OPFS
     mockFilesDirectory = createMockDirectoryHandle(new Map());
     mockRootDirectory = createMockDirectoryHandle(new Map());
-    (
-      mockRootDirectory.getDirectoryHandle as ReturnType<typeof vi.fn>
-    ).mockResolvedValue(mockFilesDirectory);
+    mockRootDirectory.getDirectoryHandle.mockResolvedValue(mockFilesDirectory);
 
     // Mock navigator.storage
     Object.defineProperty(globalThis.navigator, 'storage', {
@@ -332,9 +382,7 @@ describe('opfs storage', () => {
     });
 
     it('handles missing directory gracefully', async () => {
-      (
-        mockRootDirectory.removeEntry as ReturnType<typeof vi.fn>
-      ).mockRejectedValue(new Error('Not found'));
+      mockRootDirectory.removeEntry.mockRejectedValue(new Error('Not found'));
 
       // Should not throw
       await expect(
@@ -380,7 +428,7 @@ describe('opfs storage', () => {
           testInstanceId
         );
         // Manually break the storage
-        (storage as unknown as { filesDirectory: null }).filesDirectory = null;
+        setStorageFilesDirectoryNull(storage);
 
         await expect(storage.store('id', new Uint8Array())).rejects.toThrow(
           'Storage not initialized'
@@ -398,9 +446,7 @@ describe('opfs storage', () => {
         // Setup a file
         const encryptedData = new Uint8Array([255, 1, 2, 3]);
         const mockFileHandle = createMockFileHandle(encryptedData);
-        (
-          mockFilesDirectory.getFileHandle as ReturnType<typeof vi.fn>
-        ).mockResolvedValue(mockFileHandle);
+        mockFilesDirectory.getFileHandle.mockResolvedValue(mockFileHandle);
 
         const result = await storage.retrieve('test.enc');
 
@@ -416,7 +462,7 @@ describe('opfs storage', () => {
           testEncryptionKey,
           testInstanceId
         );
-        (storage as unknown as { filesDirectory: null }).filesDirectory = null;
+        setStorageFilesDirectoryNull(storage);
 
         await expect(storage.retrieve('test.enc')).rejects.toThrow(
           'Storage not initialized'
@@ -433,9 +479,7 @@ describe('opfs storage', () => {
 
         const encryptedData = new Uint8Array([255, 1, 2, 3]);
         const mockFileHandle = createMockFileHandle(encryptedData);
-        (
-          mockFilesDirectory.getFileHandle as ReturnType<typeof vi.fn>
-        ).mockResolvedValue(mockFileHandle);
+        mockFilesDirectory.getFileHandle.mockResolvedValue(mockFileHandle);
 
         const result = await storage.measureRetrieve('test.enc');
 
@@ -454,9 +498,7 @@ describe('opfs storage', () => {
 
         const encryptedData = new Uint8Array([255, 1, 2, 3]);
         const mockFileHandle = createMockFileHandle(encryptedData);
-        (
-          mockFilesDirectory.getFileHandle as ReturnType<typeof vi.fn>
-        ).mockResolvedValue(mockFileHandle);
+        mockFilesDirectory.getFileHandle.mockResolvedValue(mockFileHandle);
 
         const onMetrics = vi.fn();
         await storage.measureRetrieve('test.enc', onMetrics);
@@ -482,9 +524,9 @@ describe('opfs storage', () => {
           testInstanceId
         );
 
-        (
-          mockFilesDirectory.getFileHandle as ReturnType<typeof vi.fn>
-        ).mockRejectedValue(new Error('File not found'));
+        mockFilesDirectory.getFileHandle.mockRejectedValue(
+          new Error('File not found')
+        );
 
         const onMetrics = vi.fn();
         await expect(
@@ -511,9 +553,7 @@ describe('opfs storage', () => {
 
         const encryptedData = new Uint8Array([255, 1, 2, 3]);
         const mockFileHandle = createMockFileHandle(encryptedData);
-        (
-          mockFilesDirectory.getFileHandle as ReturnType<typeof vi.fn>
-        ).mockResolvedValue(mockFileHandle);
+        mockFilesDirectory.getFileHandle.mockResolvedValue(mockFileHandle);
 
         const result = await storage.measureRetrieve('test.enc');
 
@@ -528,9 +568,7 @@ describe('opfs storage', () => {
 
         const encryptedData = new Uint8Array([255, 1, 2, 3]);
         const mockFileHandle = createMockFileHandle(encryptedData);
-        (
-          mockFilesDirectory.getFileHandle as ReturnType<typeof vi.fn>
-        ).mockResolvedValue(mockFileHandle);
+        mockFilesDirectory.getFileHandle.mockResolvedValue(mockFileHandle);
 
         const onMetrics = vi
           .fn()
@@ -562,7 +600,7 @@ describe('opfs storage', () => {
           testEncryptionKey,
           testInstanceId
         );
-        (storage as unknown as { filesDirectory: null }).filesDirectory = null;
+        setStorageFilesDirectoryNull(storage);
 
         await expect(storage.delete('test.enc')).rejects.toThrow(
           'Storage not initialized'
@@ -577,9 +615,7 @@ describe('opfs storage', () => {
           testInstanceId
         );
         const mockFileHandle = createMockFileHandle(new Uint8Array());
-        (
-          mockFilesDirectory.getFileHandle as ReturnType<typeof vi.fn>
-        ).mockResolvedValue(mockFileHandle);
+        mockFilesDirectory.getFileHandle.mockResolvedValue(mockFileHandle);
 
         const result = await storage.exists('test.enc');
 
@@ -591,9 +627,9 @@ describe('opfs storage', () => {
           testEncryptionKey,
           testInstanceId
         );
-        (
-          mockFilesDirectory.getFileHandle as ReturnType<typeof vi.fn>
-        ).mockRejectedValue(new DOMException('Not found', 'NotFoundError'));
+        mockFilesDirectory.getFileHandle.mockRejectedValue(
+          new DOMException('Not found', 'NotFoundError')
+        );
 
         const result = await storage.exists('nonexistent.enc');
 
@@ -605,7 +641,7 @@ describe('opfs storage', () => {
           testEncryptionKey,
           testInstanceId
         );
-        (storage as unknown as { filesDirectory: null }).filesDirectory = null;
+        setStorageFilesDirectoryNull(storage);
 
         await expect(storage.exists('test.enc')).rejects.toThrow(
           'Storage not initialized'
@@ -623,10 +659,10 @@ describe('opfs storage', () => {
         // Mock entries with files
         const file1 = createMockFileHandle(new Uint8Array(100));
         const file2 = createMockFileHandle(new Uint8Array(200));
-        const entries = [
+        const entries: Array<[string, MockHandle]> = [
           ['file1.enc', file1],
           ['file2.enc', file2]
-        ] as [string, FileSystemHandle][];
+        ];
 
         const entriesIterator = async function* () {
           for (const entry of entries) {
@@ -634,11 +670,7 @@ describe('opfs storage', () => {
           }
         };
 
-        (
-          mockFilesDirectory as unknown as {
-            entries: () => AsyncIterableIterator<[string, FileSystemHandle]>;
-          }
-        ).entries = entriesIterator;
+        mockFilesDirectory.entries.mockImplementation(entriesIterator);
 
         const result = await storage.getStorageUsed();
 
@@ -650,7 +682,7 @@ describe('opfs storage', () => {
           testEncryptionKey,
           testInstanceId
         );
-        (storage as unknown as { filesDirectory: null }).filesDirectory = null;
+        setStorageFilesDirectoryNull(storage);
 
         await expect(storage.getStorageUsed()).rejects.toThrow(
           'Storage not initialized'
@@ -668,10 +700,10 @@ describe('opfs storage', () => {
         // Mock entries
         const file1 = createMockFileHandle(new Uint8Array());
         const file2 = createMockFileHandle(new Uint8Array());
-        const entries = [
+        const entries: Array<[string, MockHandle]> = [
           ['file1.enc', file1],
           ['file2.enc', file2]
-        ] as [string, FileSystemHandle][];
+        ];
 
         const entriesIterator = async function* () {
           for (const entry of entries) {
@@ -679,11 +711,7 @@ describe('opfs storage', () => {
           }
         };
 
-        (
-          mockFilesDirectory as unknown as {
-            entries: () => AsyncIterableIterator<[string, FileSystemHandle]>;
-          }
-        ).entries = entriesIterator;
+        mockFilesDirectory.entries.mockImplementation(entriesIterator);
 
         await storage.clearAll();
 
@@ -700,7 +728,7 @@ describe('opfs storage', () => {
           testEncryptionKey,
           testInstanceId
         );
-        (storage as unknown as { filesDirectory: null }).filesDirectory = null;
+        setStorageFilesDirectoryNull(storage);
 
         await expect(storage.clearAll()).rejects.toThrow(
           'Storage not initialized'
@@ -726,7 +754,7 @@ describe('opfs storage', () => {
   describe('createRetrieveLogger', () => {
     it('creates a logger function that logs file_decrypt events', async () => {
       const mockLogEvent = vi.fn();
-      const mockDb = {
+      const mockDb: DatabaseInsert = {
         insert: vi.fn().mockReturnValue({
           values: vi.fn()
         })
@@ -741,7 +769,7 @@ describe('opfs storage', () => {
       // Re-import to get the mocked version
       const { createRetrieveLogger: createLogger } = await import('./opfs');
 
-      const logger = createLogger(mockDb as never);
+      const logger = createLogger(mockDb);
       const metrics: RetrieveMetrics = {
         storagePath: 'test.enc',
         durationMs: 150,
@@ -760,7 +788,11 @@ describe('opfs storage', () => {
     });
 
     it('returns an async function', () => {
-      const mockDb = {} as never;
+      const mockDb: DatabaseInsert = {
+        insert: vi.fn().mockReturnValue({
+          values: vi.fn()
+        })
+      };
       const logger = createRetrieveLogger(mockDb);
 
       expect(logger).toBeInstanceOf(Function);

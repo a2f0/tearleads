@@ -6,7 +6,7 @@
  */
 
 import { Capacitor } from '@capacitor/core';
-import type { Database } from '@/db';
+import type { DatabaseInsert } from '@/db/analytics';
 import { logEvent } from '@/db/analytics';
 import { decrypt, encrypt, importKey } from '@/db/crypto/web-crypto';
 
@@ -25,7 +25,7 @@ export interface RetrieveMetrics {
  * Use this with measureRetrieve() to log decryption times to analytics.
  */
 export function createRetrieveLogger(
-  db: Database
+  db: DatabaseInsert
 ): (metrics: RetrieveMetrics) => Promise<void> {
   return async (metrics: RetrieveMetrics) => {
     try {

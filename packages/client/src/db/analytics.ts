@@ -3,6 +3,8 @@
  */
 
 import type { Database } from './index';
+
+export type DatabaseInsert = Pick<Database, 'insert'>;
 import { getDatabaseAdapter } from './index';
 import { analyticsEvents } from './schema';
 
@@ -56,7 +58,7 @@ function generateId(): string {
  * Log an analytics event to the database.
  */
 export async function logEvent(
-  db: Database,
+  db: DatabaseInsert,
   eventName: string,
   durationMs: number,
   success: boolean
@@ -75,7 +77,7 @@ export async function logEvent(
  * Returns the result of the operation.
  */
 export async function measureOperation<T>(
-  db: Database,
+  db: DatabaseInsert,
   eventName: string,
   operation: () => Promise<T>
 ): Promise<T> {
