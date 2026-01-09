@@ -30,9 +30,7 @@ vi.mock('@dnd-kit/core', () => ({
     dragHandlers.onDragEnd = onDragEnd;
     return <div data-testid="dnd-context">{children}</div>;
   },
-  DragOverlay: ({ children }: { children?: ReactNode }) => (
-    <div>{children}</div>
-  )
+  DragOverlay: ({ children }: { children?: ReactNode }) => <div>{children}</div>
 }));
 
 // Sample CSV data for testing
