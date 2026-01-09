@@ -419,6 +419,11 @@ export async function getDistinctEventTypes(_db: Database): Promise<string[]> {
     []
   );
   const rows = Array.isArray(result.rows) ? result.rows : [];
-  const eventRows = rows.filter(isEventNameRow);
-  return eventRows.map((row) => row['eventName']);
+  const eventTypes: string[] = [];
+  for (const row of rows) {
+    if (isEventNameRow(row)) {
+      eventTypes.push(row['eventName']);
+    }
+  }
+  return eventTypes;
 }
