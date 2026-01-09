@@ -130,6 +130,22 @@ describe('TableSizes', () => {
         screen.getByText('Failed to retrieve database page size or count.')
       ).toBeInTheDocument();
     });
+
+    it('handles array-based pragma rows', async () => {
+      setupMockContext({ isUnlocked: true });
+      setupMockAdapter({
+        page_size: { rows: [[4096]] },
+        page_count: { rows: [[2]] },
+        tables: { rows: [['users']] },
+        dbstat: { rows: [[2048]] }
+      });
+
+      await renderTableSizes();
+
+      expect(screen.getByText('8 KB')).toBeInTheDocument();
+      expect(screen.getByText('users')).toBeInTheDocument();
+      expect(screen.getByText('2 KB')).toBeInTheDocument();
+    });
   });
 
   describe('table sizes with dbstat', () => {
