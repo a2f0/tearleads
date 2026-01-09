@@ -16,14 +16,17 @@ export function ThemeSelector() {
           Choose your preferred color theme
         </p>
       </div>
-      <div className="grid grid-cols-3 gap-2" data-testid="theme-selector-grid">
+      <div
+        className="flex flex-wrap gap-3"
+        data-testid="theme-selector-container"
+      >
         {THEMES.map((t) => (
           <GridSquare
             key={t}
             onClick={() => setTheme(t)}
             selected={resolvedTheme === t}
             data-testid={`theme-option-${t}`}
-            className="max-w-[200px]"
+            className="w-[120px]"
           >
             <ThemePreview theme={t} />
           </GridSquare>
