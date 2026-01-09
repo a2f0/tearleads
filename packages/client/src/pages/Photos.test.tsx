@@ -4,6 +4,21 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Photos } from './Photos';
 
+// Mock useVirtualizer to simplify testing
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: vi.fn(({ count }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, i) => ({
+        index: i,
+        start: i * 120,
+        size: 120,
+        key: i
+      })),
+    getTotalSize: () => count * 120,
+    measureElement: vi.fn()
+  }))
+}));
+
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -130,6 +145,14 @@ describe('Photos', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Photos')).toBeInTheDocument();
+      });
+    });
+
+    it('shows photo count', async () => {
+      renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByText('2 photos')).toBeInTheDocument();
       });
     });
 
@@ -353,9 +376,9 @@ describe('Photos', () => {
       // Should show the dropzone input
       expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
 
-      // The dropzone should be in the gallery (grid container)
+      // The dropzone should be present (now below the virtualized gallery)
       const dropzone = screen.getByTestId('dropzone');
-      expect(dropzone.parentElement).toHaveClass('grid', 'gap-2');
+      expect(dropzone).toBeInTheDocument();
     });
 
     it('dropzone in gallery uses compact mode prop', async () => {
@@ -368,8 +391,8 @@ describe('Photos', () => {
       const dropzone = screen.getByTestId('dropzone');
       // On web, the dropzone keeps drag-and-drop styling for better UX
       // On native (iOS/Android), compact mode renders a square icon button
+      // With virtual scrolling, the dropzone is now positioned below the gallery
       expect(dropzone).toBeInTheDocument();
-      expect(dropzone.parentElement).toHaveClass('grid');
     });
   });
 

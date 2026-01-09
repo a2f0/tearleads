@@ -6,6 +6,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnalyticsEvent } from '@/db/analytics';
 import { Analytics } from './Analytics';
 
+// Mock useVirtualizer to simplify testing
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: vi.fn(({ count }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, i) => ({
+        index: i,
+        start: i * 44,
+        size: 44,
+        key: i
+      })),
+    getTotalSize: () => count * 44,
+    measureElement: vi.fn()
+  }))
+}));
+
 // Track how many times getEvents is called to detect infinite loops
 let getEventsCallCount = 0;
 let getEventStatsCallCount = 0;
@@ -664,9 +679,7 @@ describe('Analytics', () => {
 
       // Get all rows and check order (Query, Setup, Unlock alphabetically)
       await waitFor(() => {
-        const rows = screen.getAllByRole('row');
-        // Skip header row
-        const dataRows = rows.slice(1);
+        const dataRows = screen.getAllByTestId('analytics-row');
         expect(dataRows[0]).toHaveTextContent('Query');
         expect(dataRows[1]).toHaveTextContent('Setup');
         expect(dataRows[2]).toHaveTextContent('Unlock');
@@ -676,8 +689,7 @@ describe('Analytics', () => {
       await user.click(screen.getByTestId('sort-eventName'));
 
       await waitFor(() => {
-        const rows = screen.getAllByRole('row');
-        const dataRows = rows.slice(1);
+        const dataRows = screen.getAllByTestId('analytics-row');
         expect(dataRows[0]).toHaveTextContent('Unlock');
         expect(dataRows[1]).toHaveTextContent('Setup');
         expect(dataRows[2]).toHaveTextContent('Query');
@@ -696,8 +708,7 @@ describe('Analytics', () => {
       await user.click(screen.getByTestId('sort-durationMs'));
 
       await waitFor(() => {
-        const rows = screen.getAllByRole('row');
-        const dataRows = rows.slice(1);
+        const dataRows = screen.getAllByTestId('analytics-row');
         expect(dataRows[0]).toHaveTextContent('50ms');
         expect(dataRows[1]).toHaveTextContent('150ms');
         expect(dataRows[2]).toHaveTextContent('200ms');
@@ -707,8 +718,7 @@ describe('Analytics', () => {
       await user.click(screen.getByTestId('sort-durationMs'));
 
       await waitFor(() => {
-        const rows = screen.getAllByRole('row');
-        const dataRows = rows.slice(1);
+        const dataRows = screen.getAllByTestId('analytics-row');
         expect(dataRows[0]).toHaveTextContent('200ms');
         expect(dataRows[1]).toHaveTextContent('150ms');
         expect(dataRows[2]).toHaveTextContent('50ms');
@@ -730,8 +740,7 @@ describe('Analytics', () => {
 
       // Should be back to original order (based on fetch order)
       await waitFor(() => {
-        const rows = screen.getAllByRole('row');
-        const dataRows = rows.slice(1);
+        const dataRows = screen.getAllByTestId('analytics-row');
         expect(dataRows[0]).toHaveTextContent('Setup');
         expect(dataRows[1]).toHaveTextContent('Unlock');
         expect(dataRows[2]).toHaveTextContent('Query');
@@ -750,8 +759,7 @@ describe('Analytics', () => {
       await user.click(screen.getByTestId('sort-success'));
 
       await waitFor(() => {
-        const rows = screen.getAllByRole('row');
-        const dataRows = rows.slice(1);
+        const dataRows = screen.getAllByTestId('analytics-row');
         // First row should be the failed one (id: 2, db_unlock)
         expect(dataRows[0]).toHaveTextContent('Failed');
         expect(dataRows[1]).toHaveTextContent('Success');
@@ -762,8 +770,7 @@ describe('Analytics', () => {
       await user.click(screen.getByTestId('sort-success'));
 
       await waitFor(() => {
-        const rows = screen.getAllByRole('row');
-        const dataRows = rows.slice(1);
+        const dataRows = screen.getAllByTestId('analytics-row');
         expect(dataRows[0]).toHaveTextContent('Success');
         expect(dataRows[1]).toHaveTextContent('Success');
         expect(dataRows[2]).toHaveTextContent('Failed');
@@ -782,8 +789,7 @@ describe('Analytics', () => {
       await user.click(screen.getByTestId('sort-timestamp'));
 
       await waitFor(() => {
-        const rows = screen.getAllByRole('row');
-        const dataRows = rows.slice(1);
+        const dataRows = screen.getAllByTestId('analytics-row');
         // Oldest first: Query (10:00), Setup (12:00), Unlock (14:00)
         expect(dataRows[0]).toHaveTextContent('Query');
         expect(dataRows[1]).toHaveTextContent('Setup');
@@ -794,8 +800,7 @@ describe('Analytics', () => {
       await user.click(screen.getByTestId('sort-timestamp'));
 
       await waitFor(() => {
-        const rows = screen.getAllByRole('row');
-        const dataRows = rows.slice(1);
+        const dataRows = screen.getAllByTestId('analytics-row');
         // Newest first: Unlock (14:00), Setup (12:00), Query (10:00)
         expect(dataRows[0]).toHaveTextContent('Unlock');
         expect(dataRows[1]).toHaveTextContent('Setup');
@@ -815,8 +820,7 @@ describe('Analytics', () => {
       await user.click(screen.getByTestId('sort-eventName'));
 
       await waitFor(() => {
-        const rows = screen.getAllByRole('row');
-        const dataRows = rows.slice(1);
+        const dataRows = screen.getAllByTestId('analytics-row');
         expect(dataRows[0]).toHaveTextContent('Query');
       });
 
@@ -824,8 +828,7 @@ describe('Analytics', () => {
       await user.click(screen.getByTestId('sort-durationMs'));
 
       await waitFor(() => {
-        const rows = screen.getAllByRole('row');
-        const dataRows = rows.slice(1);
+        const dataRows = screen.getAllByTestId('analytics-row');
         // Ascending by duration: 50ms, 150ms, 200ms
         expect(dataRows[0]).toHaveTextContent('50ms');
         expect(dataRows[1]).toHaveTextContent('150ms');
