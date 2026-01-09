@@ -347,6 +347,9 @@ importers:
       '@beoe/rehype-mermaid':
         specifier: 0.4.2
         version: 0.4.2(playwright@1.57.0)
+      '@rapid/api':
+        specifier: workspace:*
+        version: link:../api
       '@rapid/ui':
         specifier: workspace:*
         version: link:../ui
