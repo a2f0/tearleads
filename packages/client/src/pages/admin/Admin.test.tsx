@@ -1,17 +1,19 @@
 import type { RedisKeysResponse } from '@rapid/shared';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { triggerIntersection } from '@/test/setup';
 import { Admin } from './Admin';
 
-const mockGetKeys = vi.fn<() => Promise<RedisKeysResponse>>();
+const mockGetKeys =
+  vi.fn<(cursor?: string, limit?: number) => Promise<RedisKeysResponse>>();
 
 vi.mock('@/lib/api', () => ({
   api: {
     admin: {
       redis: {
-        getKeys: () => mockGetKeys()
+        getKeys: (cursor?: string, limit?: number) => mockGetKeys(cursor, limit)
       }
     }
   }
@@ -28,7 +30,7 @@ function renderAdmin() {
 describe('Admin', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetKeys.mockResolvedValue({ keys: [] });
+    mockGetKeys.mockResolvedValue({ keys: [], cursor: '0', hasMore: false });
   });
 
   describe('page rendering', () => {
@@ -61,7 +63,7 @@ describe('Admin', () => {
 
   describe('empty state', () => {
     it('shows empty state message when no keys exist', async () => {
-      mockGetKeys.mockResolvedValue({ keys: [] });
+      mockGetKeys.mockResolvedValue({ keys: [], cursor: '0', hasMore: false });
 
       renderAdmin();
 
@@ -71,7 +73,7 @@ describe('Admin', () => {
     });
 
     it('shows "0 keys" count', async () => {
-      mockGetKeys.mockResolvedValue({ keys: [] });
+      mockGetKeys.mockResolvedValue({ keys: [], cursor: '0', hasMore: false });
 
       renderAdmin();
 
@@ -88,7 +90,11 @@ describe('Admin', () => {
     ];
 
     beforeEach(() => {
-      mockGetKeys.mockResolvedValue({ keys: testKeys });
+      mockGetKeys.mockResolvedValue({
+        keys: testKeys,
+        cursor: '0',
+        hasMore: false
+      });
     });
 
     it('displays key names', async () => {
@@ -130,7 +136,9 @@ describe('Admin', () => {
   describe('singular/plural key count', () => {
     it('shows singular "key" for 1 key', async () => {
       mockGetKeys.mockResolvedValue({
-        keys: [{ key: 'only', type: 'string', ttl: -1 }]
+        keys: [{ key: 'only', type: 'string', ttl: -1 }],
+        cursor: '0',
+        hasMore: false
       });
 
       renderAdmin();
@@ -145,7 +153,9 @@ describe('Admin', () => {
         keys: [
           { key: 'first', type: 'string', ttl: -1 },
           { key: 'second', type: 'string', ttl: -1 }
-        ]
+        ],
+        cursor: '0',
+        hasMore: false
       });
 
       renderAdmin();
@@ -159,7 +169,9 @@ describe('Admin', () => {
   describe('expand/collapse functionality', () => {
     beforeEach(() => {
       mockGetKeys.mockResolvedValue({
-        keys: [{ key: 'test:key', type: 'string', ttl: 3600 }]
+        keys: [{ key: 'test:key', type: 'string', ttl: 3600 }],
+        cursor: '0',
+        hasMore: false
       });
     });
 
@@ -207,7 +219,7 @@ describe('Admin', () => {
 
   describe('refresh functionality', () => {
     it('refreshes content when refresh button is clicked', async () => {
-      mockGetKeys.mockResolvedValue({ keys: [] });
+      mockGetKeys.mockResolvedValue({ keys: [], cursor: '0', hasMore: false });
 
       const user = userEvent.setup();
       renderAdmin();
@@ -249,6 +261,69 @@ describe('Admin', () => {
       renderAdmin();
 
       expect(screen.getByText('Loading Redis keys...')).toBeInTheDocument();
+    });
+  });
+
+  describe('pagination', () => {
+    it('shows + indicator when hasMore is true', async () => {
+      mockGetKeys.mockResolvedValue({
+        keys: [{ key: 'test:key', type: 'string', ttl: -1 }],
+        cursor: '123',
+        hasMore: true
+      });
+
+      renderAdmin();
+
+      await waitFor(() => {
+        expect(screen.getByText(/1 key\+/)).toBeInTheDocument();
+      });
+    });
+
+    it('passes cursor to API for subsequent requests', async () => {
+      mockGetKeys.mockResolvedValue({
+        keys: [],
+        cursor: '0',
+        hasMore: false
+      });
+
+      renderAdmin();
+
+      await waitFor(() => {
+        expect(mockGetKeys).toHaveBeenCalledWith('0', 50);
+      });
+    });
+
+    it('loads more keys when intersection observer triggers', async () => {
+      // First page
+      mockGetKeys.mockResolvedValueOnce({
+        keys: [{ key: 'key:1', type: 'string', ttl: -1 }],
+        cursor: '100',
+        hasMore: true
+      });
+      // Second page
+      mockGetKeys.mockResolvedValueOnce({
+        keys: [{ key: 'key:2', type: 'string', ttl: -1 }],
+        cursor: '0',
+        hasMore: false
+      });
+
+      renderAdmin();
+
+      await waitFor(() => {
+        expect(screen.getByText('key:1')).toBeInTheDocument();
+      });
+
+      // Trigger intersection observer
+      await act(async () => {
+        triggerIntersection(true);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('key:2')).toBeInTheDocument();
+      });
+
+      expect(mockGetKeys).toHaveBeenCalledTimes(2);
+      expect(mockGetKeys).toHaveBeenLastCalledWith('100', 50);
     });
   });
 });

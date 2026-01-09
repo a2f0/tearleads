@@ -35,7 +35,15 @@ export const api = {
   },
   admin: {
     redis: {
-      getKeys: () => request<RedisKeysResponse>('/admin/redis/keys')
+      getKeys: (cursor?: string, limit?: number) => {
+        const params = new URLSearchParams();
+        if (cursor) params.set('cursor', cursor);
+        if (limit) params.set('limit', String(limit));
+        const query = params.toString();
+        return request<RedisKeysResponse>(
+          `/admin/redis/keys${query ? `?${query}` : ''}`
+        );
+      }
     }
   }
 };

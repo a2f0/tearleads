@@ -13,13 +13,26 @@ const router: RouterType = Router();
  * @openapi
  * /admin/redis/keys:
  *   get:
- *     summary: List all Redis keys
- *     description: Returns all Redis keys with their types and TTLs using non-blocking SCAN
+ *     summary: List Redis keys with pagination
+ *     description: Returns Redis keys with their types and TTLs using cursor-based pagination
  *     tags:
  *       - Admin
+ *     parameters:
+ *       - in: query
+ *         name: cursor
+ *         schema:
+ *           type: string
+ *           default: "0"
+ *         description: Redis SCAN cursor for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Maximum number of keys to return per page
  *     responses:
  *       200:
- *         description: List of Redis keys
+ *         description: Paginated list of Redis keys
  *         content:
  *           application/json:
  *             schema:
@@ -36,6 +49,12 @@ const router: RouterType = Router();
  *                         type: string
  *                       ttl:
  *                         type: number
+ *                 cursor:
+ *                   type: string
+ *                   description: Cursor for the next page
+ *                 hasMore:
+ *                   type: boolean
+ *                   description: Whether more keys are available
  *       500:
  *         description: Redis connection error
  *         content:
@@ -43,15 +62,19 @@ const router: RouterType = Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/keys', async (_req: Request, res: Response) => {
+router.get('/keys', async (req: Request, res: Response) => {
   try {
     const client = await getRedisClient();
+    const cursor = String(req.query['cursor'] ?? '0');
+    const limit = Math.min(Number(req.query['limit']) || 50, 100);
 
-    // Use SCAN instead of KEYS to avoid blocking Redis
-    const keys: string[] = [];
-    for await (const batch of client.scanIterator({ MATCH: '*', COUNT: 100 })) {
-      keys.push(...batch);
-    }
+    // Use SCAN with cursor for pagination
+    const result = await client.scan(cursor, {
+      MATCH: '*',
+      COUNT: limit
+    });
+    const nextCursor = String(result.cursor);
+    const keys = result.keys;
 
     // Use pipeline to batch TYPE and TTL commands for efficiency
     const keyInfos: RedisKeyInfo[] = [];
@@ -76,7 +99,11 @@ router.get('/keys', async (_req: Request, res: Response) => {
       }
     }
 
-    const response: RedisKeysResponse = { keys: keyInfos };
+    const response: RedisKeysResponse = {
+      keys: keyInfos,
+      cursor: nextCursor,
+      hasMore: nextCursor !== '0'
+    };
     res.json(response);
   } catch (err) {
     console.error('Redis error:', err);
