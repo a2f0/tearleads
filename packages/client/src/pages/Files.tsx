@@ -422,7 +422,7 @@ export function Files() {
       )}
 
       {isUnlocked && !error && (
-        <div className="min-h-0 flex-1">
+        <div className="flex min-h-0 flex-1 flex-col">
           {loading || !hasFetched ? (
             <div className="rounded-lg border p-8 text-center text-muted-foreground">
               Loading files...
@@ -436,7 +436,7 @@ export function Files() {
               <p className="mb-2 text-muted-foreground text-sm">
                 {filteredFiles.length} file{filteredFiles.length !== 1 && 's'}
               </p>
-              <div className="h-[calc(100vh-320px)] rounded-lg border">
+              <div className="flex-1 rounded-lg border">
                 <div ref={parentRef} className="h-full overflow-auto">
                   <div
                     className="relative w-full"

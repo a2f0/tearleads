@@ -362,11 +362,11 @@ export function Contacts() {
           )}
 
           {contacts.length > 0 && (
-            <div className="min-h-0 flex-1 space-y-2">
+            <div className="flex min-h-0 flex-1 flex-col space-y-2">
               <p className="text-muted-foreground text-sm">
                 {`${contacts.length} contact${contacts.length !== 1 ? 's' : ''}${searchQuery ? ' found' : ''}`}
               </p>
-              <div className="h-[calc(100vh-380px)] rounded-lg border">
+              <div className="flex-1 rounded-lg border">
                 <div ref={parentRef} className="h-full overflow-auto">
                   <div
                     className="relative w-full"

@@ -234,7 +234,7 @@ export function Analytics() {
   };
 
   return (
-    <div className="min-w-0 space-y-4 sm:space-y-6">
+    <div className="flex h-full min-w-0 flex-col space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-bold text-xl tracking-tight sm:text-2xl">
           Analytics
@@ -386,7 +386,7 @@ export function Analytics() {
           />
 
           {/* Events table */}
-          <div className="space-y-2">
+          <div className="flex min-h-0 flex-1 flex-col space-y-2">
             <h2 className="font-semibold text-base sm:text-lg">
               Recent Events
             </h2>
@@ -400,7 +400,7 @@ export function Analytics() {
                 operations.
               </div>
             ) : (
-              <div className="rounded-lg border">
+              <div className="flex min-h-0 flex-1 flex-col rounded-lg border">
                 <div className="border-b bg-muted/50">
                   <div
                     data-testid="analytics-header"
@@ -447,7 +447,7 @@ export function Analytics() {
                 </div>
                 <div
                   ref={parentRef}
-                  className="h-[calc(100vh-620px)] min-h-[200px] overflow-auto"
+                  className="min-h-[200px] flex-1 overflow-auto"
                 >
                   <div
                     className="relative w-full"
