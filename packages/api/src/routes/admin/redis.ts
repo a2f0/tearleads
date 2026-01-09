@@ -169,53 +169,51 @@ router.get('/keys', async (req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/keys/:key', async (req: Request, res: Response) => {
-  try {
-    const client = await getRedisClient();
-    const key = req.params['key'];
+router.get(
+  '/keys/:key',
+  async (req: Request<{ key: string }>, res: Response) => {
+    try {
+      const client = await getRedisClient();
+      const { key } = req.params;
 
-    if (!key) {
-      res.status(400).json({ error: 'Key parameter is required' });
-      return;
+      const type = await client.type(key);
+
+      if (type === 'none') {
+        res.status(404).json({ error: 'Key not found' });
+        return;
+      }
+
+      const ttl = await client.ttl(key);
+      let value: string | string[] | Record<string, string> | null = null;
+
+      switch (type) {
+        case 'string':
+          value = await client.get(key);
+          break;
+        case 'set':
+          value = await client.sMembers(key);
+          break;
+        case 'hash':
+          value = await client.hGetAll(key);
+          break;
+        default:
+          value = null;
+      }
+
+      const response: RedisKeyValueResponse = {
+        key,
+        type,
+        ttl,
+        value
+      };
+      res.json(response);
+    } catch (err) {
+      console.error('Redis error:', err);
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Failed to connect to Redis'
+      });
     }
-
-    const type = await client.type(key);
-
-    if (type === 'none') {
-      res.status(404).json({ error: 'Key not found' });
-      return;
-    }
-
-    const ttl = await client.ttl(key);
-    let value: string | string[] | Record<string, string> | null = null;
-
-    switch (type) {
-      case 'string':
-        value = await client.get(key);
-        break;
-      case 'set':
-        value = await client.sMembers(key);
-        break;
-      case 'hash':
-        value = await client.hGetAll(key);
-        break;
-      default:
-        value = null;
-    }
-
-    const response: RedisKeyValueResponse = {
-      key,
-      type,
-      ttl,
-      value
-    };
-    res.json(response);
-  } catch (err) {
-    console.error('Redis error:', err);
-    res.status(500).json({
-      error: err instanceof Error ? err.message : 'Failed to connect to Redis'
-    });
   }
-});
+);
 
 export { router as redisRouter };
