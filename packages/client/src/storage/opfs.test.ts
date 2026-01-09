@@ -79,7 +79,10 @@ const createMockFileHandle = (content: Uint8Array): MockFileHandle => {
   if (!(fileBuffer instanceof ArrayBuffer)) {
     throw new Error('Expected ArrayBuffer for mock file data.');
   }
-  const file = new File([fileBuffer], 'test.enc');
+  const file = {
+    arrayBuffer: async () => fileBuffer,
+    size: content.byteLength
+  };
   const write = vi.fn();
   const close = vi.fn();
   const createWritable = vi.fn(
