@@ -72,8 +72,8 @@ describe('file-utils', () => {
       const originalCreateElement = document.createElement.bind(document);
       vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
         const element = originalCreateElement(tagName);
-        if (tagName === 'a') {
-          capturedAnchor = element as HTMLAnchorElement;
+        if (tagName === 'a' && element instanceof HTMLAnchorElement) {
+          capturedAnchor = element;
           vi.spyOn(element, 'click').mockImplementation(() => {
             clickCount++;
           });
@@ -99,8 +99,12 @@ describe('file-utils', () => {
       downloadFile(data, 'test.db');
 
       expect(createObjectURLSpy).toHaveBeenCalledTimes(1);
-      const blob = createObjectURLSpy.mock.calls[0]?.[0] as Blob;
+      const call = createObjectURLSpy.mock.calls[0];
+      const blob = call?.[0];
       expect(blob).toBeInstanceOf(Blob);
+      if (!(blob instanceof Blob)) {
+        throw new Error('Expected a Blob passed to createObjectURL.');
+      }
       expect(blob.type).toBe('application/octet-stream');
     });
 
@@ -193,7 +197,10 @@ describe('file-utils', () => {
           }
         }
 
-        globalThis.FileReader = MockFileReader as unknown as typeof FileReader;
+        Object.defineProperty(globalThis, 'FileReader', {
+          value: MockFileReader,
+          writable: true
+        });
 
         const file = new File(['test'], 'test.db');
 
@@ -201,7 +208,10 @@ describe('file-utils', () => {
           'Failed to read file as ArrayBuffer'
         );
       } finally {
-        globalThis.FileReader = OriginalFileReader;
+        Object.defineProperty(globalThis, 'FileReader', {
+          value: OriginalFileReader,
+          writable: true
+        });
       }
     });
 
@@ -223,13 +233,19 @@ describe('file-utils', () => {
           }
         }
 
-        globalThis.FileReader = MockFileReader as unknown as typeof FileReader;
+        Object.defineProperty(globalThis, 'FileReader', {
+          value: MockFileReader,
+          writable: true
+        });
 
         const file = new File(['test'], 'test.db');
 
         await expect(readFileAsUint8Array(file)).rejects.toThrow(testError);
       } finally {
-        globalThis.FileReader = OriginalFileReader;
+        Object.defineProperty(globalThis, 'FileReader', {
+          value: OriginalFileReader,
+          writable: true
+        });
       }
     });
   });
@@ -461,10 +477,11 @@ describe('file-utils', () => {
       vi.restoreAllMocks();
     });
 
-    it.each([
-      'web',
-      'electron'
-    ] as const)('uses downloadFile for %s platform', async (platform) => {
+    const webPlatforms: Array<'web' | 'electron'> = ['web', 'electron'];
+
+    it.each(webPlatforms)(
+      'uses downloadFile for %s platform',
+      async (platform) => {
       const { Capacitor } = await import('@capacitor/core');
       vi.mocked(Capacitor.getPlatform).mockReturnValue(platform);
 
@@ -473,12 +490,14 @@ describe('file-utils', () => {
 
       // downloadFile should have been called, which creates a blob URL
       expect(createObjectURLSpy).toHaveBeenCalled();
-    });
+      }
+    );
 
-    it.each([
-      'ios',
-      'android'
-    ] as const)('uses Capacitor Share API for %s platform', async (platform) => {
+    const mobilePlatforms: Array<'ios' | 'android'> = ['ios', 'android'];
+
+    it.each(mobilePlatforms)(
+      'uses Capacitor Share API for %s platform',
+      async (platform) => {
       const { Capacitor } = await import('@capacitor/core');
       vi.mocked(Capacitor.getPlatform).mockReturnValue(platform);
 
@@ -522,7 +541,8 @@ describe('file-utils', () => {
         url: 'file:///cache/test.db',
         dialogTitle: 'Save Backup'
       });
-    });
+      }
+    );
 
     it('correctly converts data to base64 for mobile platforms', async () => {
       const { Capacitor } = await import('@capacitor/core');

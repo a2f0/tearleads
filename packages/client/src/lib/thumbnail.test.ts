@@ -164,18 +164,21 @@ describe('thumbnail', () => {
         drawImage: vi.fn()
       };
 
-      mockCanvas = {
-        width: 0,
-        height: 0,
-        getContext: vi.fn().mockReturnValue(mockContext),
-        toBlob: vi.fn()
-      };
+      mockCanvas = document.createElement('canvas');
+      mockCanvas.width = 0;
+      mockCanvas.height = 0;
+      Object.defineProperty(mockCanvas, 'getContext', {
+        value: vi.fn().mockReturnValue(mockContext)
+      });
+      Object.defineProperty(mockCanvas, 'toBlob', {
+        value: vi.fn()
+      });
 
       vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue(mockBitmap));
 
       vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
         if (tagName === 'canvas') {
-          return mockCanvas as unknown as HTMLCanvasElement;
+          return mockCanvas;
         }
         return document.createElement(tagName);
       });
@@ -188,13 +191,11 @@ describe('thumbnail', () => {
 
     it('generates thumbnail from image data', async () => {
       const resultData = new Uint8Array([1, 2, 3, 4]);
-      const mockBlob = {
-        arrayBuffer: vi.fn().mockResolvedValue(resultData.buffer)
-      };
+      const mockBlob = new Blob([resultData]);
 
       mockCanvas.toBlob.mockImplementation(
         (callback: (blob: Blob | null) => void) => {
-          callback(mockBlob as unknown as Blob);
+          callback(mockBlob);
         }
       );
 
@@ -209,13 +210,11 @@ describe('thumbnail', () => {
 
     it('uses custom options when provided', async () => {
       const resultData = new Uint8Array([1]);
-      const mockBlob = {
-        arrayBuffer: vi.fn().mockResolvedValue(resultData.buffer)
-      };
+      const mockBlob = new Blob([resultData]);
 
       mockCanvas.toBlob.mockImplementation(
         (callback: (blob: Blob | null) => void) => {
-          callback(mockBlob as unknown as Blob);
+          callback(mockBlob);
         }
       );
 
@@ -262,13 +261,11 @@ describe('thumbnail', () => {
 
     it('scales canvas dimensions based on image size', async () => {
       const resultData = new Uint8Array([1]);
-      const mockBlob = {
-        arrayBuffer: vi.fn().mockResolvedValue(resultData.buffer)
-      };
+      const mockBlob = new Blob([resultData]);
 
       mockCanvas.toBlob.mockImplementation(
         (callback: (blob: Blob | null) => void) => {
-          callback(mockBlob as unknown as Blob);
+          callback(mockBlob);
         }
       );
 
