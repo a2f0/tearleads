@@ -13,7 +13,11 @@ async function navigateToPage(page: Page, pageName: 'SQLite' | 'Photos') {
 
   if (isMobile) {
     await page.getByTestId('mobile-menu-button').click();
-    await page.getByTestId(`${pageName.toLowerCase()}-link`).click();
+    // Scope to mobile menu dropdown to avoid strict mode violation
+    await page
+      .getByTestId('mobile-menu-dropdown')
+      .getByTestId(`${pageName.toLowerCase()}-link`)
+      .click();
   } else {
     const link = page
       .locator('aside nav')
