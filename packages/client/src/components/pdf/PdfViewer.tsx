@@ -35,8 +35,7 @@ export function PdfViewer({ data, className }: PdfViewerProps) {
   const pdfUrl = useMemo(() => {
     const buffer = new ArrayBuffer(data.byteLength);
     new Uint8Array(buffer).set(data);
-    const blob = new Blob([buffer], { type: 'application/pdf' });
-    return URL.createObjectURL(blob);
+    return URL.createObjectURL(new Blob([buffer], { type: 'application/pdf' }));
   }, [data]);
 
   useEffect(() => {
