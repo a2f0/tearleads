@@ -57,7 +57,7 @@ server {
 
     # SPA fallback for client-side routing - no cache for HTML
     location / {
-        try_files $uri $uri/ /index.html;
+        try_files $uri /index.html;
 {% if item == 'app' %}
         add_header Cache-Control "no-cache";
 {% endif %}
