@@ -26,8 +26,16 @@ vi.mock('@dnd-kit/core', () => ({
     onDragEnd?: (event: DragEndPayload) => void;
     children: ReactNode;
   }) => {
-    dragHandlers.onDragStart = onDragStart;
-    dragHandlers.onDragEnd = onDragEnd;
+    if (onDragStart) {
+      dragHandlers.onDragStart = onDragStart;
+    } else {
+      delete dragHandlers.onDragStart;
+    }
+    if (onDragEnd) {
+      dragHandlers.onDragEnd = onDragEnd;
+    } else {
+      delete dragHandlers.onDragEnd;
+    }
     return <div data-testid="dnd-context">{children}</div>;
   },
   DragOverlay: ({ children }: { children?: ReactNode }) => <div>{children}</div>
