@@ -1,4 +1,4 @@
-import type { PingData } from '@rapid/shared';
+import type { PingData, RedisKeysResponse } from '@rapid/shared';
 import { logApiEvent } from '@/db/analytics';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
@@ -32,5 +32,18 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 export const api = {
   ping: {
     get: () => request<PingData>('/ping')
+  },
+  admin: {
+    redis: {
+      getKeys: (cursor?: string, limit?: number) => {
+        const params = new URLSearchParams();
+        if (cursor) params.set('cursor', cursor);
+        if (limit) params.set('limit', String(limit));
+        const query = params.toString();
+        return request<RedisKeysResponse>(
+          `/admin/redis/keys${query ? `?${query}` : ''}`
+        );
+      }
+    }
   }
 };
