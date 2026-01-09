@@ -20,7 +20,7 @@ import {
 } from './instance-registry';
 
 // Mock IndexedDB
-type StoreValue = InstanceMetadata[] | string | null | undefined;
+type StoreValue = Array<InstanceMetadata | null | undefined> | string | null | undefined;
 type MockRequest = {
   result: unknown;
   error: Error | null;
@@ -42,7 +42,7 @@ const mockObjectStore = {
     setTimeout(() => req.onsuccess?.(), 0);
     return req;
   }),
-  put: vi.fn((value: unknown, key: string) => {
+  put: vi.fn((value: StoreValue, key: string) => {
     mockStore.set(key, value);
     const req = mockIDBRequest(undefined);
     setTimeout(() => req.onsuccess?.(), 0);
@@ -63,7 +63,7 @@ const mockObjectStore = {
 };
 
 function createMockTransaction() {
-  const objectStore = vi.fn<[], typeof mockObjectStore>(() => mockObjectStore);
+  const objectStore = vi.fn(() => mockObjectStore);
   const tx: {
     objectStore: typeof objectStore;
     oncomplete: (() => void) | null;
@@ -389,7 +389,7 @@ describe('instance-registry', () => {
     });
 
     it('throws when registry data is corrupted', async () => {
-      mockStore.set('instances', [undefined]);
+      mockStore.set('instances', [null]);
       mockStore.set('active_instance', 'nonexistent');
 
       await expect(initializeRegistry()).rejects.toThrow();
@@ -398,7 +398,14 @@ describe('instance-registry', () => {
 
   describe('clearRegistry', () => {
     it('clears all data from store', async () => {
-      mockStore.set('instances', [{ id: 'test' }]);
+      mockStore.set('instances', [
+        {
+          id: 'test',
+          name: 'Instance 1',
+          createdAt: 1000,
+          lastAccessedAt: 2000
+        }
+      ]);
       mockStore.set('active_instance', 'test');
 
       await clearRegistry();

@@ -16,8 +16,8 @@ type MockAdapter = {
   rekeyDatabase: ReturnType<typeof vi.fn>;
   getConnection: ReturnType<typeof vi.fn>;
   deleteDatabase: ReturnType<typeof vi.fn>;
-  exportDatabase?: ReturnType<typeof vi.fn>;
-  importDatabase?: ReturnType<typeof vi.fn>;
+  exportDatabase: ReturnType<typeof vi.fn> | undefined;
+  importDatabase: ReturnType<typeof vi.fn> | undefined;
   terminate: ReturnType<typeof vi.fn>;
 };
 
