@@ -101,7 +101,9 @@ function renderHashValue(value: Record<string, string>) {
 }
 
 function renderValue(data: RedisKeyValueResponse) {
-  if (data.value === null) {
+  const { type, value } = data;
+
+  if (value === null) {
     return (
       <p className="mt-2 text-muted-foreground text-xs italic">
         Value display not supported for this type
@@ -109,16 +111,25 @@ function renderValue(data: RedisKeyValueResponse) {
     );
   }
 
-  switch (data.type) {
+  switch (type) {
     case 'string':
-      return renderStringValue(data.value as string);
+      if (typeof value === 'string') {
+        return renderStringValue(value);
+      }
+      break;
     case 'set':
-      return renderSetValue(data.value as string[]);
+      if (Array.isArray(value)) {
+        return renderSetValue(value);
+      }
+      break;
     case 'hash':
-      return renderHashValue(data.value as Record<string, string>);
-    default:
-      return null;
+      if (typeof value === 'object' && !Array.isArray(value)) {
+        return renderHashValue(value);
+      }
+      break;
   }
+
+  return null;
 }
 
 export function RedisKeyRow({
@@ -133,28 +144,38 @@ export function RedisKeyRow({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isExpanded) {
+    if (!isExpanded || valueData) {
       return;
     }
 
-    if (valueData) {
-      return;
-    }
+    let isCancelled = false;
 
     const fetchValue = async () => {
       setLoading(true);
       setError(null);
       try {
         const data = await api.admin.redis.getValue(keyInfo.key);
-        setValueData(data);
+        if (!isCancelled) {
+          setValueData(data);
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch value');
+        if (!isCancelled) {
+          setError(
+            err instanceof Error ? err.message : 'Failed to fetch value'
+          );
+        }
       } finally {
-        setLoading(false);
+        if (!isCancelled) {
+          setLoading(false);
+        }
       }
     };
 
     fetchValue();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [isExpanded, keyInfo.key, valueData]);
 
   return (
