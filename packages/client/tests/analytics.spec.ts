@@ -391,11 +391,12 @@ test.describe('Analytics page', () => {
 
     // The event names should be formatted (e.g., "db_write" -> "Write")
     // At least one formatted event name should be visible
-    const eventTable = page.locator('table');
-    await expect(eventTable).toBeVisible({ timeout: 5000 });
+    // Analytics now uses CSS grid instead of table for virtualization
+    const eventHeader = page.getByTestId('analytics-header');
+    await expect(eventHeader).toBeVisible({ timeout: 5000 });
 
-    // Verify table has rows (headers + at least one data row)
-    const rows = eventTable.locator('tbody tr');
+    // Verify data rows are visible
+    const rows = page.getByTestId('analytics-row');
     await expect(rows.first()).toBeVisible({ timeout: 5000 });
   });
 
@@ -416,38 +417,29 @@ test.describe('Analytics page', () => {
     await navigateTo(page, 'Analytics');
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
-    // Wait for events table to load
+    // Wait for events list to load (uses CSS grid, not table)
     await expect(page.getByText('Recent Events')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
-    const eventTable = page.locator('table');
-    await expect(eventTable).toBeVisible({ timeout: 5000 });
+    const eventHeader = page.getByTestId('analytics-header');
+    await expect(eventHeader).toBeVisible({ timeout: 5000 });
 
     // Wait for at least one data row
-    const firstRow = eventTable.locator('tbody tr').first();
+    const firstRow = page.getByTestId('analytics-row').first();
     await expect(firstRow).toBeVisible({ timeout: 5000 });
 
-    // Get all table cells in the first row
-    const cells = firstRow.locator('td');
-    const cellCount = await cells.count();
+    // Get the text content of the first row
+    const rowText = await firstRow.textContent();
 
-    // Verify each cell does not contain invalid values
-    for (let i = 0; i < cellCount; i++) {
-      const cell = cells.nth(i);
-      const text = await cell.textContent();
-
-      // Cell should not be empty or contain invalid values
-      expect(text, `Cell ${i} should not be undefined`).not.toContain('undefined');
-      expect(text, `Cell ${i} should not be NaN`).not.toBe('NaN');
-      expect(text, `Cell ${i} should not be Invalid Date`).not.toContain(
-        'Invalid Date'
-      );
-      // Event name cell should not be "(Unknown)" if we successfully recorded events
-      if (i === 0) {
-        expect(text, 'Event name should not be (Unknown)').not.toBe('(Unknown)');
-      }
-    }
+    // Row content should not contain invalid values
+    expect(rowText, 'Row should not contain undefined').not.toContain('undefined');
+    expect(rowText, 'Row should not be NaN').not.toContain('NaN');
+    expect(rowText, 'Row should not contain Invalid Date').not.toContain(
+      'Invalid Date'
+    );
+    // Event name should not be "(Unknown)" if we successfully recorded events
+    expect(rowText, 'Event name should not be (Unknown)').not.toContain('(Unknown)');
 
     // Verify at least one "Success" status exists (db_write should succeed)
-    await expect(eventTable.getByText('Success').first()).toBeVisible({
+    await expect(page.getByText('Success').first()).toBeVisible({
       timeout: 5000
     });
   });
