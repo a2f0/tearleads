@@ -1,6 +1,6 @@
 {
   "name": "@rapid/client",
-  "version": "0.0.86",
+  "version": "0.0.87",
   "description": "React client application for Rapid",
   "main": "out/main/main.js",
   "type": "module",
@@ -63,6 +63,7 @@
     "music-metadata": "11.10.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-pdf": "10.3.0",
     "react-router-dom": "7.11.0",
     "recharts": "3.6.0",
     "sonner": "2.0.7"
