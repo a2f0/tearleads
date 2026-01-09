@@ -60,7 +60,9 @@ describe('Settings', () => {
     });
 
     it('renders the theme selector', () => {
-      expect(screen.getByTestId('theme-selector-grid')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('theme-selector-container')
+      ).toBeInTheDocument();
     });
 
     it('renders the version at the bottom', () => {
