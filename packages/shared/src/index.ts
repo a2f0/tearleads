@@ -16,6 +16,8 @@ export interface RedisKeyInfo {
 
 export interface RedisKeysResponse {
   keys: RedisKeyInfo[];
+  cursor: string;
+  hasMore: boolean;
 }
 
 // Utilities

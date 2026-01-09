@@ -1,34 +1,75 @@
 import type { RedisKeyInfo } from '@rapid/shared';
 import { Database, Loader2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { api } from '@/lib/api';
 import { RedisKeyRow } from './RedisKeyRow';
 
+const PAGE_SIZE = 50;
+
 export function Admin() {
   const [keys, setKeys] = useState<RedisKeyInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const [hasMore, setHasMore] = useState(false);
 
-  const fetchKeys = useCallback(async () => {
-    setLoading(true);
+  const cursorRef = useRef<string>('0');
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const fetchKeys = useCallback(async (reset = true) => {
+    if (reset) {
+      setLoading(true);
+      setKeys([]);
+      cursorRef.current = '0';
+    } else {
+      setLoadingMore(true);
+    }
     setError(null);
 
     try {
-      const response = await api.admin.redis.getKeys();
-      setKeys(response.keys);
+      const currentCursor = reset ? '0' : cursorRef.current;
+      const response = await api.admin.redis.getKeys(currentCursor, PAGE_SIZE);
+
+      if (reset) {
+        setKeys(response.keys);
+      } else {
+        setKeys((prev) => [...prev, ...response.keys]);
+      }
+      cursorRef.current = response.cursor;
+      setHasMore(response.hasMore);
     } catch (err) {
       console.error('Failed to fetch Redis keys:', err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchKeys();
+    fetchKeys(true);
   }, [fetchKeys]);
+
+  useEffect(() => {
+    if (!hasMore || loadingMore || loading) return;
+
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasMore && !loadingMore) {
+          fetchKeys(false);
+        }
+      },
+      { rootMargin: '100px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loading, fetchKeys]);
 
   const handleToggle = (key: string) => {
     setExpandedKeys((prev) => {
@@ -42,6 +83,10 @@ export function Admin() {
     });
   };
 
+  const handleRefresh = () => {
+    fetchKeys(true);
+  };
+
   const keyCount = keys.length;
   const keyLabel = keyCount === 1 ? 'key' : 'keys';
 
@@ -52,7 +97,7 @@ export function Admin() {
           <h1 className="font-bold text-2xl tracking-tight">Admin</h1>
           <p className="text-muted-foreground text-sm">Redis Browser</p>
         </div>
-        <RefreshButton onClick={fetchKeys} loading={loading} />
+        <RefreshButton onClick={handleRefresh} loading={loading} />
       </div>
 
       {error && (
@@ -64,6 +109,7 @@ export function Admin() {
       <div>
         <p className="mb-2 text-muted-foreground text-sm">
           {keyCount} {keyLabel}
+          {hasMore && '+'}
         </p>
         <div className="rounded-lg border">
           {loading && keys.length === 0 ? (
@@ -77,14 +123,29 @@ export function Admin() {
               <p>No keys found.</p>
             </div>
           ) : (
-            keys.map((keyInfo) => (
-              <RedisKeyRow
-                key={keyInfo.key}
-                keyInfo={keyInfo}
-                isExpanded={expandedKeys.has(keyInfo.key)}
-                onToggle={() => handleToggle(keyInfo.key)}
-              />
-            ))
+            <>
+              {keys.map((keyInfo) => (
+                <RedisKeyRow
+                  key={keyInfo.key}
+                  keyInfo={keyInfo}
+                  isExpanded={expandedKeys.has(keyInfo.key)}
+                  onToggle={() => handleToggle(keyInfo.key)}
+                />
+              ))}
+              {hasMore && (
+                <div
+                  ref={sentinelRef}
+                  className="flex items-center justify-center p-4 text-muted-foreground"
+                >
+                  {loadingMore && (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Loading more...
+                    </>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
