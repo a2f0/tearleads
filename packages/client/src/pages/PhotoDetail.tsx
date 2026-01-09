@@ -6,10 +6,12 @@ import {
   HardDrive,
   Loader2,
   ScanSearch,
-  Share2
+  Share2,
+  Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { DeletePhotoDialog } from '@/components/DeletePhotoDialog';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
@@ -39,6 +41,7 @@ interface PhotoInfo {
 
 export function PhotoDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const {
     loadedModel,
@@ -58,6 +61,7 @@ export function PhotoDetail() {
   >(null);
   const [classificationResult, setClassificationResult] =
     useState<ClassificationResult | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // Check if Web Share API is available on mount
   useEffect(() => {
@@ -149,6 +153,14 @@ export function PhotoDetail() {
       setError(err instanceof Error ? err.message : String(err));
     }
   }, [objectUrl, loadedModel, loadModel, classify]);
+
+  const handleDelete = useCallback(async () => {
+    if (!photo) return;
+
+    const db = getDatabase();
+    await db.update(files).set({ deleted: true }).where(eq(files.id, photo.id));
+    navigate('/photos');
+  }, [photo, navigate]);
 
   const fetchPhoto = useCallback(async () => {
     if (!isUnlocked || !id) return;
@@ -332,6 +344,15 @@ export function PhotoDetail() {
                   ? 'Classifying...'
                   : 'Classify Document'}
             </Button>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(true)}
+              disabled={actionLoading !== null}
+              data-testid="delete-button"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </Button>
           </div>
 
           {classificationResult && (
@@ -398,6 +419,15 @@ export function PhotoDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {photo && (
+        <DeletePhotoDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          photoName={photo.name}
+          onDelete={handleDelete}
+        />
       )}
     </div>
   );
