@@ -248,21 +248,11 @@ function normalizeStatsRow(value: unknown): RawStatsRow | null {
     return null;
   }
 
-  const count = toFiniteNumber(value['count']);
-  const totalDuration = toFiniteNumber(value['totalDuration']);
-  const minDuration = toFiniteNumber(value['minDuration']);
-  const maxDuration = toFiniteNumber(value['maxDuration']);
-  const successCount = toFiniteNumber(value['successCount']);
-
-  if (
-    count === null ||
-    totalDuration === null ||
-    minDuration === null ||
-    maxDuration === null ||
-    successCount === null
-  ) {
-    return null;
-  }
+  const count = toFiniteNumber(value['count']) ?? 0;
+  const totalDuration = toFiniteNumber(value['totalDuration']) ?? 0;
+  const minDuration = toFiniteNumber(value['minDuration']) ?? 0;
+  const maxDuration = toFiniteNumber(value['maxDuration']) ?? 0;
+  const successCount = toFiniteNumber(value['successCount']) ?? 0;
 
   return {
     eventName: value['eventName'],
