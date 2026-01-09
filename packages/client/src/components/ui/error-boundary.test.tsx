@@ -127,13 +127,11 @@ describe('ErrorBoundary', () => {
       clearError: vi.fn()
     };
 
-    (errorBoundaryRef as { current: typeof alternateRef | null }).current =
-      alternateRef;
+    Reflect.set(errorBoundaryRef, 'current', alternateRef);
 
     unmount();
     expect(errorBoundaryRef.current).toBe(alternateRef);
-    (errorBoundaryRef as { current: typeof alternateRef | null }).current =
-      null;
+    Reflect.set(errorBoundaryRef, 'current', null);
   });
 
   it('displays error when setError is called via ref', () => {

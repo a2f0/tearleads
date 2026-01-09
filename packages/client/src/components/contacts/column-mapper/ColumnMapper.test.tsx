@@ -102,7 +102,10 @@ describe('ColumnMapper', () => {
     const firstNameLabel = screen.getByText('First Name');
     const parent = firstNameLabel.parentElement;
     expect(parent).toBeInTheDocument();
-    const required = within(parent as HTMLElement).getByText('*');
+    if (!parent) {
+      throw new Error('Missing label container for First Name.');
+    }
+    const required = within(parent).getByText('*');
     expect(required).toBeInTheDocument();
   });
 
@@ -468,7 +471,11 @@ describe('ColumnMapper', () => {
 
       // Click the first X button to remove the First Name mapping
       if (xButtons?.[0]) {
-        await user.click(xButtons[0].parentElement as HTMLElement);
+        const button = xButtons[0].parentElement;
+        if (!button) {
+          throw new Error('Missing button wrapper for mapped column.');
+        }
+        await user.click(button);
       }
 
       // Import button should be disabled after removing First Name mapping
