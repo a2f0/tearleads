@@ -4,8 +4,25 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+type MockAdapter = {
+  initialize: ReturnType<typeof vi.fn>;
+  close: ReturnType<typeof vi.fn>;
+  isOpen: ReturnType<typeof vi.fn>;
+  execute: ReturnType<typeof vi.fn>;
+  executeMany: ReturnType<typeof vi.fn>;
+  beginTransaction: ReturnType<typeof vi.fn>;
+  commitTransaction: ReturnType<typeof vi.fn>;
+  rollbackTransaction: ReturnType<typeof vi.fn>;
+  rekeyDatabase: ReturnType<typeof vi.fn>;
+  getConnection: ReturnType<typeof vi.fn>;
+  deleteDatabase: ReturnType<typeof vi.fn>;
+  exportDatabase?: ReturnType<typeof vi.fn>;
+  importDatabase?: ReturnType<typeof vi.fn>;
+  terminate: ReturnType<typeof vi.fn>;
+};
+
 // Mock the adapters module
-const mockAdapter = {
+const mockAdapter: MockAdapter = {
   initialize: vi.fn(),
   close: vi.fn(),
   isOpen: vi.fn(() => true),
@@ -32,19 +49,28 @@ vi.mock('./adapters', () => ({
 }));
 
 // Mock the key manager
-const mockKeyManager = {
+type MockKeyManager = {
+  hasExistingKey: ReturnType<typeof vi.fn>;
+  setupNewKey: ReturnType<typeof vi.fn>;
+  unlockWithPassword: ReturnType<typeof vi.fn>;
+  changePassword: ReturnType<typeof vi.fn>;
+  getCurrentKey: ReturnType<typeof vi.fn>;
+  clearKey: ReturnType<typeof vi.fn>;
+  reset: ReturnType<typeof vi.fn>;
+  persistSession: ReturnType<typeof vi.fn>;
+  hasPersistedSession: ReturnType<typeof vi.fn>;
+  restoreSession: ReturnType<typeof vi.fn>;
+  clearPersistedSession: ReturnType<typeof vi.fn>;
+};
+
+const mockKeyManager: MockKeyManager = {
   hasExistingKey: vi.fn(async () => false),
   setupNewKey: vi.fn(async () => new Uint8Array(32)),
-  unlockWithPassword: vi.fn(
-    async () => new Uint8Array(32) as Uint8Array | null
-  ),
-  changePassword: vi.fn(
-    async () =>
-      ({
-        oldKey: new Uint8Array(32),
-        newKey: new Uint8Array(32)
-      }) as { oldKey: Uint8Array; newKey: Uint8Array } | null
-  ),
+  unlockWithPassword: vi.fn(async () => new Uint8Array(32)),
+  changePassword: vi.fn(async () => ({
+    oldKey: new Uint8Array(32),
+    newKey: new Uint8Array(32)
+  })),
   getCurrentKey: vi.fn(() => null),
   clearKey: vi.fn(),
   reset: vi.fn(),
@@ -290,8 +316,7 @@ describe('Database API', () => {
 
       // Temporarily remove exportDatabase
       const originalExport = mockAdapter.exportDatabase;
-      mockAdapter.exportDatabase =
-        undefined as unknown as typeof originalExport;
+      mockAdapter.exportDatabase = undefined;
 
       await expect(exportDatabase()).rejects.toThrow(
         'Export not supported on this platform'
@@ -327,8 +352,7 @@ describe('Database API', () => {
 
       // Temporarily remove importDatabase
       const originalImport = mockAdapter.importDatabase;
-      mockAdapter.importDatabase =
-        undefined as unknown as typeof originalImport;
+      mockAdapter.importDatabase = undefined;
 
       await expect(importDatabase(new Uint8Array([1, 2, 3]))).rejects.toThrow(
         'Import not supported on this platform'
