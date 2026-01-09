@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 
 interface DeletePhotoDialogProps {
   open: boolean;
@@ -22,12 +24,14 @@ export function DeletePhotoDialog({
       onOpenChange(false);
     } catch (err) {
       console.error('Failed to delete photo:', err);
+      toast.error('Failed to delete photo. Please try again.');
     } finally {
       setIsDeleting(false);
     }
   };
 
   const handleCancel = () => {
+    if (isDeleting) return;
     onOpenChange(false);
   };
 
@@ -60,24 +64,22 @@ export function DeletePhotoDialog({
         </p>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            className="rounded-md border px-4 py-2 font-medium text-sm hover:bg-accent"
+          <Button
+            variant="outline"
             onClick={handleCancel}
             disabled={isDeleting}
             data-testid="cancel-delete-photo-button"
           >
             Cancel
-          </button>
-          <button
-            type="button"
-            className="rounded-md bg-destructive px-4 py-2 font-medium text-destructive-foreground text-sm hover:bg-destructive/90 disabled:opacity-50"
+          </Button>
+          <Button
+            variant="destructive"
             onClick={handleDelete}
             disabled={isDeleting}
             data-testid="confirm-delete-photo-button"
           >
             {isDeleting ? 'Deleting...' : 'Delete'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
