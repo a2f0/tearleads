@@ -20,6 +20,13 @@ export interface RedisKeysResponse {
   hasMore: boolean;
 }
 
+export interface RedisKeyValueResponse {
+  key: string;
+  type: string;
+  ttl: number;
+  value: string | string[] | Record<string, string> | null;
+}
+
 // Utilities
 export function formatDate(date: Date): string {
   return date.toISOString();

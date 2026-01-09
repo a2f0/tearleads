@@ -6,6 +6,11 @@ import { app } from '../../index.js';
 interface MockRedisClient {
   scan: typeof mockScan;
   multi: typeof mockMulti;
+  type: typeof mockType;
+  ttl: typeof mockTtl;
+  get: typeof mockGet;
+  sMembers: typeof mockSMembers;
+  hGetAll: typeof mockHGetAll;
 }
 
 const mockExec = vi.fn();
@@ -16,10 +21,20 @@ const mockMulti = vi.fn(() => ({
 }));
 
 const mockScan = vi.fn();
+const mockType = vi.fn();
+const mockTtl = vi.fn();
+const mockGet = vi.fn();
+const mockSMembers = vi.fn();
+const mockHGetAll = vi.fn();
 
 const createMockClient = (): MockRedisClient => ({
   scan: mockScan,
-  multi: mockMulti
+  multi: mockMulti,
+  type: mockType,
+  ttl: mockTtl,
+  get: mockGet,
+  sMembers: mockSMembers,
+  hGetAll: mockHGetAll
 });
 
 vi.mock('../../lib/redis.js', () => ({
@@ -157,6 +172,139 @@ describe('Admin Redis Routes', () => {
         cursor: '0',
         hasMore: false
       });
+    });
+  });
+
+  describe('GET /v1/admin/redis/keys/:key', () => {
+    beforeEach(() => {
+      mockType.mockReset();
+      mockTtl.mockReset();
+      mockGet.mockReset();
+      mockSMembers.mockReset();
+      mockHGetAll.mockReset();
+    });
+
+    it('returns string value for string type key', async () => {
+      const { getRedisClient } = await import('../../lib/redis.js');
+
+      mockType.mockResolvedValue('string');
+      mockTtl.mockResolvedValue(-1);
+      mockGet.mockResolvedValue('hello world');
+
+      vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
+
+      const response = await request(app).get('/v1/admin/redis/keys/mykey');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        key: 'mykey',
+        type: 'string',
+        ttl: -1,
+        value: 'hello world'
+      });
+    });
+
+    it('returns set members for set type key', async () => {
+      const { getRedisClient } = await import('../../lib/redis.js');
+
+      mockType.mockResolvedValue('set');
+      mockTtl.mockResolvedValue(3600);
+      mockSMembers.mockResolvedValue(['member1', 'member2', 'member3']);
+
+      vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
+
+      const response = await request(app).get('/v1/admin/redis/keys/myset');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        key: 'myset',
+        type: 'set',
+        ttl: 3600,
+        value: ['member1', 'member2', 'member3']
+      });
+    });
+
+    it('returns hash fields for hash type key', async () => {
+      const { getRedisClient } = await import('../../lib/redis.js');
+
+      mockType.mockResolvedValue('hash');
+      mockTtl.mockResolvedValue(-1);
+      mockHGetAll.mockResolvedValue({ field1: 'value1', field2: 'value2' });
+
+      vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
+
+      const response = await request(app).get('/v1/admin/redis/keys/myhash');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        key: 'myhash',
+        type: 'hash',
+        ttl: -1,
+        value: { field1: 'value1', field2: 'value2' }
+      });
+    });
+
+    it('returns null value for unsupported types', async () => {
+      const { getRedisClient } = await import('../../lib/redis.js');
+
+      mockType.mockResolvedValue('list');
+      mockTtl.mockResolvedValue(-1);
+
+      vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
+
+      const response = await request(app).get('/v1/admin/redis/keys/mylist');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        key: 'mylist',
+        type: 'list',
+        ttl: -1,
+        value: null
+      });
+    });
+
+    it('returns 404 when key does not exist', async () => {
+      const { getRedisClient } = await import('../../lib/redis.js');
+
+      mockType.mockResolvedValue('none');
+
+      vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
+
+      const response = await request(app).get(
+        '/v1/admin/redis/keys/nonexistent'
+      );
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: 'Key not found' });
+    });
+
+    it('handles Redis connection errors', async () => {
+      const { getRedisClient } = await import('../../lib/redis.js');
+      vi.mocked(getRedisClient).mockRejectedValue(
+        new Error('Connection refused')
+      );
+
+      const response = await request(app).get('/v1/admin/redis/keys/anykey');
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Connection refused' });
+    });
+
+    it('handles URL-encoded key names', async () => {
+      const { getRedisClient } = await import('../../lib/redis.js');
+
+      mockType.mockResolvedValue('string');
+      mockTtl.mockResolvedValue(-1);
+      mockGet.mockResolvedValue('value');
+
+      vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
+
+      const response = await request(app).get(
+        '/v1/admin/redis/keys/user%3A123'
+      );
+
+      expect(response.status).toBe(200);
+      expect(mockType).toHaveBeenCalledWith('user:123');
     });
   });
 });
