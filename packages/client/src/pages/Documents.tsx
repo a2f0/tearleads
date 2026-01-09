@@ -289,13 +289,13 @@ export function Documents() {
           />
         ) : (
           <div
-            className="min-h-0 flex-1 space-y-2"
+            className="flex min-h-0 flex-1 flex-col space-y-2"
             data-testid="documents-list"
           >
             <p className="text-muted-foreground text-sm">
               {documents.length} document{documents.length !== 1 && 's'}
             </p>
-            <div className="h-[calc(100vh-280px)] rounded-lg border">
+            <div className="flex-1 rounded-lg border">
               <div ref={parentRef} className="h-full overflow-auto">
                 <div
                   className="relative w-full"

@@ -38,23 +38,22 @@ interface PhotoWithUrl extends PhotoInfo {
 
 const ROW_HEIGHT_ESTIMATE = 120;
 
+const getColumnCount = (width: number) => {
+  if (width >= 1024) return 6;
+  if (width >= 768) return 5;
+  if (width >= 640) return 4;
+  return 3;
+};
+
 function useColumnCount() {
   const [columns, setColumns] = useState(() => {
     if (typeof window === 'undefined') return 3;
-    const width = window.innerWidth;
-    if (width >= 1024) return 6;
-    if (width >= 768) return 5;
-    if (width >= 640) return 4;
-    return 3;
+    return getColumnCount(window.innerWidth);
   });
 
   useEffect(() => {
     const handleResize = () => {
-      const width = window.innerWidth;
-      if (width >= 1024) setColumns(6);
-      else if (width >= 768) setColumns(5);
-      else if (width >= 640) setColumns(4);
-      else setColumns(3);
+      setColumns(getColumnCount(window.innerWidth));
     };
 
     window.addEventListener('resize', handleResize);
@@ -386,13 +385,13 @@ export function Photos() {
             source="photos"
           />
         ) : (
-          <div className="min-h-0 flex-1 space-y-2">
+          <div className="flex min-h-0 flex-1 flex-col space-y-2">
             <p className="text-muted-foreground text-sm">
               {photos.length} photo{photos.length !== 1 && 's'}
             </p>
             <div
               ref={parentRef}
-              className="h-[calc(100vh-280px)] overflow-auto rounded-lg border p-2"
+              className="flex-1 overflow-auto rounded-lg border p-2"
               data-testid="photos-grid"
             >
               <div

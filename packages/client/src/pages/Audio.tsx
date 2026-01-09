@@ -328,11 +328,11 @@ export function AudioPage() {
             )}
           </div>
         ) : (
-          <div className="min-h-0 flex-1 space-y-2">
+          <div className="flex min-h-0 flex-1 flex-col space-y-2">
             <p className="text-muted-foreground text-sm">
               {tracks.length} track{tracks.length !== 1 && 's'}
             </p>
-            <div className="h-[calc(100vh-280px)] rounded-lg border">
+            <div className="flex-1 rounded-lg border">
               <div ref={parentRef} className="h-full overflow-auto">
                 <div
                   className="relative w-full"
