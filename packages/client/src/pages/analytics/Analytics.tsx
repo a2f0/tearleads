@@ -1,3 +1,4 @@
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { BarChart3, CheckCircle, Clock, Trash2, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DurationChart } from '@/components/duration-chart';
@@ -36,6 +37,7 @@ const getSuccessRateColor = (rate: number) => {
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
 const ONE_WEEK_MS = 7 * ONE_DAY_MS;
+const ROW_HEIGHT_ESTIMATE = 44;
 
 function getTimeRange(filter: TimeFilter): Date | undefined {
   const now = new Date();
@@ -71,6 +73,16 @@ export function Analytics() {
   const fetchingRef = useRef(false);
   // Track initial load to distinguish from user-cleared selections
   const isInitialLoad = useRef(true);
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: events.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT_ESTIMATE,
+    overscan: 5
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
 
   const fetchData = useCallback(async () => {
     if (!isUnlocked || fetchingRef.current) return;
@@ -388,99 +400,116 @@ export function Analytics() {
                 operations.
               </div>
             ) : (
-              <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full text-xs sm:text-sm">
-                  <thead className="border-b bg-muted/50">
-                    <tr>
-                      <th className="px-2 py-2 text-left font-medium sm:px-4 sm:py-3">
-                        <button
-                          type="button"
-                          onClick={() => handleSort('eventName')}
-                          className="inline-flex items-center gap-1 hover:text-foreground"
-                          data-testid="sort-eventName"
+              <div className="rounded-lg border">
+                <div className="border-b bg-muted/50">
+                  <div
+                    data-testid="analytics-header"
+                    className="grid grid-cols-[1fr_80px_80px] gap-2 px-2 py-2 font-medium text-xs sm:grid-cols-[1fr_100px_100px_160px] sm:gap-4 sm:px-4 sm:py-3 sm:text-sm"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleSort('eventName')}
+                      className="inline-flex items-center gap-1 text-left hover:text-foreground"
+                      data-testid="sort-eventName"
+                    >
+                      Event
+                      <SortIcon column="eventName" sort={sort} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSort('durationMs')}
+                      className="inline-flex items-center gap-1 text-left hover:text-foreground"
+                      data-testid="sort-durationMs"
+                    >
+                      <span className="hidden sm:inline">Duration</span>
+                      <span className="sm:hidden">Dur</span>
+                      <SortIcon column="durationMs" sort={sort} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSort('success')}
+                      className="inline-flex items-center gap-1 text-left hover:text-foreground"
+                      data-testid="sort-success"
+                    >
+                      Status
+                      <SortIcon column="success" sort={sort} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSort('timestamp')}
+                      className="hidden items-center gap-1 text-left hover:text-foreground sm:inline-flex"
+                      data-testid="sort-timestamp"
+                    >
+                      Time
+                      <SortIcon column="timestamp" sort={sort} />
+                    </button>
+                  </div>
+                </div>
+                <div
+                  ref={parentRef}
+                  className="h-[calc(100vh-620px)] min-h-[200px] overflow-auto"
+                >
+                  <div
+                    className="relative w-full"
+                    style={{ height: `${virtualizer.getTotalSize()}px` }}
+                  >
+                    {virtualItems.map((virtualItem) => {
+                      const event = events[virtualItem.index];
+                      if (!event) return null;
+
+                      return (
+                        <div
+                          key={event.id}
+                          data-index={virtualItem.index}
+                          data-testid="analytics-row"
+                          ref={virtualizer.measureElement}
+                          className="absolute top-0 left-0 w-full border-b text-xs last:border-0 sm:text-sm"
+                          style={{
+                            transform: `translateY(${virtualItem.start}px)`
+                          }}
                         >
-                          Event
-                          <SortIcon column="eventName" sort={sort} />
-                        </button>
-                      </th>
-                      <th className="px-2 py-2 text-left font-medium sm:px-4 sm:py-3">
-                        <button
-                          type="button"
-                          onClick={() => handleSort('durationMs')}
-                          className="inline-flex items-center gap-1 hover:text-foreground"
-                          data-testid="sort-durationMs"
-                        >
-                          <span className="hidden sm:inline">Duration</span>
-                          <span className="sm:hidden">Dur</span>
-                          <SortIcon column="durationMs" sort={sort} />
-                        </button>
-                      </th>
-                      <th className="px-2 py-2 text-left font-medium sm:px-4 sm:py-3">
-                        <button
-                          type="button"
-                          onClick={() => handleSort('success')}
-                          className="inline-flex items-center gap-1 hover:text-foreground"
-                          data-testid="sort-success"
-                        >
-                          Status
-                          <SortIcon column="success" sort={sort} />
-                        </button>
-                      </th>
-                      <th className="hidden px-2 py-2 text-left font-medium sm:table-cell sm:px-4 sm:py-3">
-                        <button
-                          type="button"
-                          onClick={() => handleSort('timestamp')}
-                          className="inline-flex items-center gap-1 hover:text-foreground"
-                          data-testid="sort-timestamp"
-                        >
-                          Time
-                          <SortIcon column="timestamp" sort={sort} />
-                        </button>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {events.map((event) => (
-                      <tr key={event.id} className="border-b last:border-0">
-                        <td className="px-2 py-2 font-medium sm:px-4 sm:py-3">
-                          {formatEventName(event.eventName)}
-                        </td>
-                        <td className="px-2 py-2 sm:px-4 sm:py-3">
-                          <span className="inline-flex items-center gap-1">
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            {formatDuration(event.durationMs)}
-                          </span>
-                        </td>
-                        <td className="px-2 py-2 sm:px-4 sm:py-3">
-                          {event.success ? (
-                            <span className="inline-flex items-center gap-1 text-green-600">
-                              <CheckCircle
-                                className="h-3 w-3 sm:h-4 sm:w-4"
-                                aria-hidden="true"
-                              />
-                              <span className="sr-only sm:not-sr-only">
-                                Success
+                          <div className="grid grid-cols-[1fr_80px_80px] gap-2 px-2 py-2 sm:grid-cols-[1fr_100px_100px_160px] sm:gap-4 sm:px-4 sm:py-3">
+                            <div className="truncate font-medium">
+                              {formatEventName(event.eventName)}
+                            </div>
+                            <div>
+                              <span className="inline-flex items-center gap-1">
+                                <Clock className="h-3 w-3 text-muted-foreground" />
+                                {formatDuration(event.durationMs)}
                               </span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-red-600">
-                              <XCircle
-                                className="h-3 w-3 sm:h-4 sm:w-4"
-                                aria-hidden="true"
-                              />
-                              <span className="sr-only sm:not-sr-only">
-                                Failed
-                              </span>
-                            </span>
-                          )}
-                        </td>
-                        <td className="hidden px-2 py-2 text-muted-foreground sm:table-cell sm:px-4 sm:py-3">
-                          {formatTime(event.timestamp)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                            </div>
+                            <div>
+                              {event.success ? (
+                                <span className="inline-flex items-center gap-1 text-green-600">
+                                  <CheckCircle
+                                    className="h-3 w-3 sm:h-4 sm:w-4"
+                                    aria-hidden="true"
+                                  />
+                                  <span className="sr-only sm:not-sr-only">
+                                    Success
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-red-600">
+                                  <XCircle
+                                    className="h-3 w-3 sm:h-4 sm:w-4"
+                                    aria-hidden="true"
+                                  />
+                                  <span className="sr-only sm:not-sr-only">
+                                    Failed
+                                  </span>
+                                </span>
+                              )}
+                            </div>
+                            <div className="hidden text-muted-foreground sm:block">
+                              {formatTime(event.timestamp)}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
           </div>
