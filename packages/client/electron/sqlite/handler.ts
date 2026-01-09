@@ -3,7 +3,7 @@
  * Uses better-sqlite3-multiple-ciphers for encrypted database operations.
  */
 
-import { getErrorCode } from '@rapid/shared';
+import { getErrorCode, isRecord } from '@rapid/shared';
 import fs from 'node:fs';
 import path from 'node:path';
 import { app, ipcMain, safeStorage } from 'electron';
