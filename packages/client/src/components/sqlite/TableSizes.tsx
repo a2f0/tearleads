@@ -19,6 +19,45 @@ interface TableSize {
 /** Estimated average row size in bytes when dbstat is unavailable */
 const AVG_ROW_SIZE_ESTIMATE_BYTES = 100;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function getRowNumber(row: unknown, key: string): number | null {
+  if (isRecord(row)) {
+    return toFiniteNumber(row[key]);
+  }
+  if (Array.isArray(row)) {
+    return toFiniteNumber(row[0]);
+  }
+  return null;
+}
+
+function getRowString(row: unknown, key: string): string | null {
+  if (isRecord(row)) {
+    const value = row[key];
+    return typeof value === 'string' ? value : null;
+  }
+  if (Array.isArray(row)) {
+    const value = row[0];
+    return typeof value === 'string' ? value : null;
+  }
+  return null;
+}
+
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
   const k = 1024;
@@ -50,13 +89,11 @@ export function TableSizes() {
       if (!pageSizeResult.rows.length || !pageCountResult.rows.length) {
         throw new Error('Failed to retrieve database page size or count.');
       }
-      const pageSizeRow = pageSizeResult.rows[0] as Record<string, unknown>;
-      const pageCountRow = pageCountResult.rows[0] as Record<string, unknown>;
+      const pageSizeRow = pageSizeResult.rows[0];
+      const pageCountRow = pageCountResult.rows[0];
 
-      const pageSize = Number(pageSizeRow['page_size'] ?? pageSizeRow[0] ?? 0);
-      const pageCount = Number(
-        pageCountRow['page_count'] ?? pageCountRow[0] ?? 0
-      );
+      const pageSize = getRowNumber(pageSizeRow, 'page_size') ?? 0;
+      const pageCount = getRowNumber(pageCountRow, 'page_count') ?? 0;
       setTotalSize(pageSize * pageCount);
 
       // Get all table names
@@ -65,14 +102,9 @@ export function TableSizes() {
         []
       );
 
-      const tableNames = tablesResult.rows.map((row) => {
-        const r = row as Record<string, unknown>;
-        const name = r['name'];
-        if (typeof name !== 'string') {
-          throw new Error('Unexpected row format from sqlite_master');
-        }
-        return name;
-      });
+      const tableNames = tablesResult.rows
+        .map((row) => getRowString(row, 'name'))
+        .filter((name): name is string => Boolean(name));
 
       // Try to get individual table sizes using dbstat virtual table
       // This may not be available in all SQLite builds
@@ -83,8 +115,8 @@ export function TableSizes() {
               `SELECT SUM(pgsize) as size FROM dbstat WHERE name = ?`,
               [name]
             );
-            const sizeRow = sizeResult.rows[0] as Record<string, unknown>;
-            const size = Number(sizeRow['size'] ?? sizeRow[0] ?? 0);
+            const sizeRow = sizeResult.rows[0];
+            const size = getRowNumber(sizeRow, 'size') ?? 0;
             return { name, size, isEstimated: false };
           } catch {
             // dbstat not available, estimate using row count and average row size
@@ -92,8 +124,8 @@ export function TableSizes() {
               `SELECT COUNT(*) as count FROM "${name}"`,
               []
             );
-            const countRow = countResult.rows[0] as Record<string, unknown>;
-            const count = Number(countRow['count'] ?? countRow[0] ?? 0);
+            const countRow = countResult.rows[0];
+            const count = getRowNumber(countRow, 'count') ?? 0;
             return {
               name,
               size: count * AVG_ROW_SIZE_ESTIMATE_BYTES,

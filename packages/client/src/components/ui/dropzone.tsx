@@ -92,10 +92,7 @@ export function Dropzone({
         }
       } catch (err) {
         // Distinguish between user cancellation and actual errors
-        if (
-          err instanceof Error &&
-          (err as Error & { code?: string }).code === 'CANCELLED'
-        ) {
+        if (getErrorCode(err) === 'CANCELLED') {
           console.debug('Native file picker cancelled by user.');
         } else {
           console.error('Native file picker failed:', err);
@@ -228,4 +225,16 @@ export function Dropzone({
       {fileInput}
     </label>
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getErrorCode(error: unknown): string | undefined {
+  if (!isRecord(error)) {
+    return undefined;
+  }
+  const code = error.code;
+  return typeof code === 'string' ? code : undefined;
 }

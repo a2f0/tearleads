@@ -93,6 +93,32 @@ export interface FileStorage {
   clearAll(): Promise<void>;
 }
 
+interface FileSystemDirectoryEntriesHandle
+  extends FileSystemDirectoryHandle {
+  entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
+}
+
+function hasDirectoryEntries(
+  directory: FileSystemDirectoryHandle
+): directory is FileSystemDirectoryEntriesHandle {
+  return 'entries' in directory;
+}
+
+function getDirectoryEntries(
+  directory: FileSystemDirectoryHandle
+): AsyncIterableIterator<[string, FileSystemHandle]> {
+  if (!hasDirectoryEntries(directory)) {
+    throw new Error('OPFS entries() is not supported in this environment');
+  }
+  return directory.entries();
+}
+
+function isFileHandle(
+  handle: FileSystemHandle
+): handle is FileSystemFileHandle {
+  return handle.kind === 'file';
+}
+
 class OPFSStorage implements FileStorage {
   public instanceId: string;
   private rootDirectory: FileSystemDirectoryHandle | null = null;
@@ -188,15 +214,10 @@ class OPFSStorage implements FileStorage {
     }
 
     let totalSize = 0;
-    // Use entries() which returns AsyncIterableIterator
-    const iterator = (
-      this.filesDirectory as unknown as {
-        entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
-      }
-    ).entries();
+    const iterator = getDirectoryEntries(this.filesDirectory);
     for await (const [, handle] of iterator) {
-      if (handle.kind === 'file') {
-        const file = await (handle as FileSystemFileHandle).getFile();
+      if (isFileHandle(handle)) {
+        const file = await handle.getFile();
         totalSize += file.size;
       }
     }
@@ -209,12 +230,7 @@ class OPFSStorage implements FileStorage {
     }
 
     const entries: string[] = [];
-    // Use entries() which returns AsyncIterableIterator
-    const iterator = (
-      this.filesDirectory as unknown as {
-        entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
-      }
-    ).entries();
+    const iterator = getDirectoryEntries(this.filesDirectory);
     for await (const [name] of iterator) {
       entries.push(name);
     }
@@ -304,7 +320,10 @@ class CapacitorStorage implements FileStorage {
     });
 
     // Convert base64 back to Uint8Array
-    const binary = atob(result.data as string);
+    if (typeof result.data !== 'string') {
+      throw new Error('Unexpected file data type from Capacitor Filesystem');
+    }
+    const binary = atob(result.data);
     const encrypted = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
       encrypted[i] = binary.charCodeAt(i);
