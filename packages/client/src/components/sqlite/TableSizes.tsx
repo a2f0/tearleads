@@ -3,6 +3,7 @@
  * Shows database and individual table sizes.
  */
 
+import { isRecord, toFiniteNumber } from '@rapid/shared';
 import { HardDrive } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { LinkWithFrom } from '@/components/ui/back-link/LinkWithFrom';
@@ -18,23 +19,6 @@ interface TableSize {
 
 /** Estimated average row size in bytes when dbstat is unavailable */
 const AVG_ROW_SIZE_ESTIMATE_BYTES = 100;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function toFiniteNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return null;
-}
 
 function getRowNumber(row: unknown, key: string): number | null {
   if (Array.isArray(row)) {

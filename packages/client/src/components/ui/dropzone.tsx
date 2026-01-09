@@ -1,3 +1,4 @@
+import { getErrorCode } from '@rapid/shared';
 import { Upload } from 'lucide-react';
 import { useCallback, useId, useRef, useState } from 'react';
 import {
@@ -225,16 +226,4 @@ export function Dropzone({
       {fileInput}
     </label>
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function getErrorCode(error: unknown): string | undefined {
-  if (!isRecord(error)) {
-    return undefined;
-  }
-  const code = error['code'];
-  return typeof code === 'string' ? code : undefined;
 }

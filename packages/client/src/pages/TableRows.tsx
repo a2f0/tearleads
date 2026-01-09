@@ -1,3 +1,4 @@
+import { isRecord } from '@rapid/shared';
 import {
   ArrowDown,
   ArrowUp,
@@ -36,10 +37,6 @@ type SortDirection = 'asc' | 'desc' | null;
 interface SortState {
   column: string | null;
   direction: SortDirection;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function getStringField(

@@ -4,6 +4,8 @@
  * Database is persisted to OPFS as an encrypted blob.
  */
 
+import { isRecord } from '@rapid/shared';
+
 import type {
   WorkerRequest,
   WorkerResponse
@@ -39,10 +41,6 @@ function assertQueryResult(value: unknown): QueryResult {
     throw new Error(`Expected QueryResult but got: ${typeof value}`);
   }
   return value;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function isNumberArray(value: unknown): value is number[] {
