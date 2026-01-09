@@ -260,6 +260,26 @@ describe('Dropzone', () => {
       expect(mockOnFilesSelected).not.toHaveBeenCalled();
     });
 
+    it('logs cancellation when native picker is cancelled', async () => {
+      const user = userEvent.setup();
+      const error = Object.assign(new Error('Cancelled'), {
+        code: 'CANCELLED'
+      });
+      mockPickFiles.mockRejectedValue(error);
+      const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+
+      render(<Dropzone onFilesSelected={mockOnFilesSelected} />);
+
+      const button = screen.getByTestId('dropzone-choose-files');
+      await user.click(button);
+
+      expect(debugSpy).toHaveBeenCalledWith(
+        'Native file picker cancelled by user.'
+      );
+
+      debugSpy.mockRestore();
+    });
+
     it('disables button while picker is open', async () => {
       const user = userEvent.setup();
       let resolvePickFiles: (files: File[]) => void = () => {};

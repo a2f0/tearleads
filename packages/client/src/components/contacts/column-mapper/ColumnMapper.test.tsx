@@ -1,8 +1,39 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ParsedCSV } from '@/hooks/useContactsImport';
 import { ColumnMapper } from './ColumnMapper';
+
+type DragStartPayload = { active: { id: string } };
+type DragEndPayload = {
+  active: { data: { current: { index: number } | null } };
+  over: { id: string } | null;
+};
+
+const dragHandlers: {
+  onDragStart?: (event: DragStartPayload) => void;
+  onDragEnd?: (event: DragEndPayload) => void;
+} = {};
+
+vi.mock('@dnd-kit/core', () => ({
+  DndContext: ({
+    onDragStart,
+    onDragEnd,
+    children
+  }: {
+    onDragStart?: (event: DragStartPayload) => void;
+    onDragEnd?: (event: DragEndPayload) => void;
+    children: ReactNode;
+  }) => {
+    dragHandlers.onDragStart = onDragStart;
+    dragHandlers.onDragEnd = onDragEnd;
+    return <div data-testid="dnd-context">{children}</div>;
+  },
+  DragOverlay: ({ children }: { children?: ReactNode }) => (
+    <div>{children}</div>
+  )
+}));
 
 // Sample CSV data for testing
 const createMockCSVData = (
@@ -88,6 +119,49 @@ describe('ColumnMapper', () => {
     render(<ColumnMapper {...defaultProps} />);
 
     const importButton = screen.getByRole('button', { name: /import/i });
+    expect(importButton).toBeDisabled();
+  });
+
+  it('enables Import when a valid drag maps first name', () => {
+    render(<ColumnMapper {...defaultProps} />);
+
+    const importButton = screen.getByRole('button', { name: /import/i });
+    expect(importButton).toBeDisabled();
+
+    dragHandlers.onDragStart?.({ active: { id: 'column-0' } });
+    dragHandlers.onDragEnd?.({
+      active: { data: { current: { index: 0 } } },
+      over: { id: 'target-firstName' }
+    });
+
+    expect(importButton).not.toBeDisabled();
+  });
+
+  it('ignores drag end with invalid target id', () => {
+    render(<ColumnMapper {...defaultProps} />);
+
+    const importButton = screen.getByRole('button', { name: /import/i });
+    expect(importButton).toBeDisabled();
+
+    dragHandlers.onDragEnd?.({
+      active: { data: { current: { index: 1 } } },
+      over: { id: 'target-unknown' }
+    });
+
+    expect(importButton).toBeDisabled();
+  });
+
+  it('ignores drag end when index is missing', () => {
+    render(<ColumnMapper {...defaultProps} />);
+
+    const importButton = screen.getByRole('button', { name: /import/i });
+    expect(importButton).toBeDisabled();
+
+    dragHandlers.onDragEnd?.({
+      active: { data: { current: null } },
+      over: { id: 'target-firstName' }
+    });
+
     expect(importButton).toBeDisabled();
   });
 
