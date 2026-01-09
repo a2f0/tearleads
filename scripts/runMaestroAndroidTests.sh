@@ -1,12 +1,24 @@
 #!/bin/sh
+# Usage:
+#   ./scripts/runMaestroAndroidTests.sh [flow]
+#
+# Examples:
+#   ./scripts/runMaestroAndroidTests.sh                       # Run all flows
+#   ./scripts/runMaestroAndroidTests.sh dark-mode-switcher.yaml
+#   ./scripts/runMaestroAndroidTests.sh .maestro/app-loads.yaml
 set -eu
 
 export MAESTRO_CLI_NO_ANALYTICS=1
 
 MAESTRO_CLI="${HOME}/.maestro/bin/maestro"
 ANDROID_VERSION="33"
+FLOW_PATH="${1:-}"
 
 cd "$(dirname "$0")/../packages/client"
+
+if [ -n "$FLOW_PATH" ] && [ "${FLOW_PATH#/.maestro/}" = "$FLOW_PATH" ] && [ "${FLOW_PATH#./.maestro/}" = "$FLOW_PATH" ] && [ "${FLOW_PATH#./}" = "$FLOW_PATH" ]; then
+  FLOW_PATH=".maestro/${FLOW_PATH}"
+fi
 
 if adb devices | grep -q "emulator.*device"; then
   echo "==> Android emulator is already running"
@@ -28,4 +40,7 @@ echo "==> Syncing with Capacitor..."
 pnpm cap:sync
 
 echo "==> Building, installing, and running Maestro tests via Fastlane..."
+if [ -n "$FLOW_PATH" ]; then
+  export MAESTRO_FLOW_PATH="$FLOW_PATH"
+fi
 bundle exec fastlane android test_maestro
