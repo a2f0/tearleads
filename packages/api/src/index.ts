@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { type Express, type Request, type Response } from 'express';
 import packageJson from '../package.json' with { type: 'json' };
+import { redisRouter } from './routes/admin/redis.js';
 
 dotenv.config();
 
@@ -59,6 +60,9 @@ app.get('/v1/ping', (_req: Request, res: Response) => {
   };
   res.status(200).json(pingData);
 });
+
+// Admin routes
+app.use('/v1/admin/redis', redisRouter);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {
