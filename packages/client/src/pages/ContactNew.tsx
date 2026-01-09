@@ -14,6 +14,7 @@ import { useCallback, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
@@ -245,85 +246,100 @@ export function ContactNew() {
       {isUnlocked && (
         <div className="space-y-6">
           {/* Contact Header */}
-          <div className="flex items-start gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-muted">
-              <User className="h-8 w-8 text-muted-foreground" />
+          <div className="rounded-lg border p-4">
+            {/* Title row with avatar */}
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted">
+                <User className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <h1 className="font-bold text-xl tracking-tight">New Contact</h1>
             </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="mb-3 font-bold text-2xl tracking-tight">
-                New Contact
-              </h1>
-              <div className="space-y-3">
-                <label htmlFor="new-first-name" className="sr-only">
-                  First name
-                </label>
-                <input
-                  id="new-first-name"
-                  type="text"
-                  value={formData.firstName}
-                  onChange={(e) =>
-                    handleFormChange('firstName', e.target.value)
-                  }
-                  placeholder="First name *"
-                  className="h-9 w-full rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
-                  data-testid="new-first-name"
-                />
-                <label htmlFor="new-last-name" className="sr-only">
-                  Last name
-                </label>
-                <input
-                  id="new-last-name"
-                  type="text"
-                  value={formData.lastName}
-                  onChange={(e) => handleFormChange('lastName', e.target.value)}
-                  placeholder="Last name"
-                  className="h-9 w-full rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
-                  data-testid="new-last-name"
-                />
-                <div className="flex items-center gap-2">
-                  <Cake className="h-4 w-4 text-muted-foreground" />
-                  <label htmlFor="new-birthday" className="sr-only">
-                    Birthday
+
+            {/* Form fields */}
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="new-first-name"
+                    className="mb-1.5 block font-medium text-sm"
+                  >
+                    First name <span className="text-destructive">*</span>
                   </label>
-                  <input
-                    id="new-birthday"
-                    type="date"
-                    value={formData.birthday}
+                  <Input
+                    id="new-first-name"
+                    type="text"
+                    value={formData.firstName}
                     onChange={(e) =>
-                      handleFormChange('birthday', e.target.value)
+                      handleFormChange('firstName', e.target.value)
                     }
-                    className="h-9 flex-1 rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
-                    data-testid="new-birthday"
+                    placeholder="Enter first name"
+                    data-testid="new-first-name"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="new-last-name"
+                    className="mb-1.5 block font-medium text-sm"
+                  >
+                    Last name
+                  </label>
+                  <Input
+                    id="new-last-name"
+                    type="text"
+                    value={formData.lastName}
+                    onChange={(e) =>
+                      handleFormChange('lastName', e.target.value)
+                    }
+                    placeholder="Enter last name"
+                    data-testid="new-last-name"
                   />
                 </div>
               </div>
-            </div>
-            <div className="shrink-0">
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCancel}
-                  disabled={saving}
-                  data-testid="cancel-button"
+
+              <div>
+                <label
+                  htmlFor="new-birthday"
+                  className="mb-1.5 flex items-center gap-2 font-medium text-sm"
                 >
-                  <X className="mr-2 h-4 w-4" />
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSave}
-                  disabled={saving}
-                  data-testid="save-button"
-                >
-                  {saving ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="mr-2 h-4 w-4" />
-                  )}
-                  Save
-                </Button>
+                  <Cake className="h-5 w-5 text-muted-foreground" />
+                  Birthday
+                </label>
+                <Input
+                  id="new-birthday"
+                  type="date"
+                  value={formData.birthday}
+                  onChange={(e) => handleFormChange('birthday', e.target.value)}
+                  className="max-w-xs"
+                  data-testid="new-birthday"
+                />
               </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="mt-6 flex flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end">
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                disabled={saving}
+                className="w-full sm:w-auto"
+                data-testid="cancel-button"
+              >
+                <X className="mr-2 h-4 w-4" />
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full sm:w-auto"
+                data-testid="save-button"
+              >
+                {saving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Save Contact
+              </Button>
             </div>
           </div>
 
@@ -334,51 +350,54 @@ export function ContactNew() {
             </div>
             <div className="divide-y">
               {emailsForm.map((email) => (
-                <div
-                  key={email.id}
-                  className="flex items-center gap-2 px-4 py-3"
-                >
-                  <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <input
-                    type="email"
-                    value={email.email}
-                    onChange={(e) =>
-                      handleEmailChange(email.id, 'email', e.target.value)
-                    }
-                    placeholder="Email address"
-                    className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
-                    data-testid={`new-email-${email.id}`}
-                  />
-                  <input
-                    type="text"
-                    value={email.label}
-                    onChange={(e) =>
-                      handleEmailChange(email.id, 'label', e.target.value)
-                    }
-                    placeholder="Label"
-                    className="h-9 w-24 rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
-                    data-testid={`new-email-label-${email.id}`}
-                  />
-                  <label className="flex shrink-0 items-center gap-1 text-base">
-                    <input
-                      type="radio"
-                      name="primaryEmail"
-                      checked={email.isPrimary}
-                      onChange={() => handleEmailPrimaryChange(email.id)}
-                      className="h-5 w-5"
+                <div key={email.id} className="space-y-3 px-4 py-3">
+                  {/* Email input row */}
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Input
+                      type="email"
+                      value={email.email}
+                      onChange={(e) =>
+                        handleEmailChange(email.id, 'email', e.target.value)
+                      }
+                      placeholder="Email address"
+                      className="min-w-0 flex-1"
+                      data-testid={`new-email-${email.id}`}
                     />
-                    Primary
-                  </label>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteEmail(email.id)}
-                    className="h-8 w-8 shrink-0"
-                    data-testid={`delete-email-${email.id}`}
-                    aria-label="Delete email"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  </div>
+                  {/* Label and options row */}
+                  <div className="flex flex-wrap items-center gap-2 pl-6">
+                    <Input
+                      type="text"
+                      value={email.label}
+                      onChange={(e) =>
+                        handleEmailChange(email.id, 'label', e.target.value)
+                      }
+                      placeholder="Label (e.g., Work)"
+                      className="w-full sm:w-32"
+                      data-testid={`new-email-label-${email.id}`}
+                    />
+                    <label className="flex shrink-0 items-center gap-1.5 text-sm">
+                      <input
+                        type="radio"
+                        name="primaryEmail"
+                        checked={email.isPrimary}
+                        onChange={() => handleEmailPrimaryChange(email.id)}
+                        className="h-4 w-4"
+                      />
+                      Primary
+                    </label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteEmail(email.id)}
+                      className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      data-testid={`delete-email-${email.id}`}
+                    >
+                      <Trash2 className="mr-1 h-4 w-4" />
+                      Remove
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -402,51 +421,58 @@ export function ContactNew() {
             </div>
             <div className="divide-y">
               {phonesForm.map((phone) => (
-                <div
-                  key={phone.id}
-                  className="flex items-center gap-2 px-4 py-3"
-                >
-                  <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <input
-                    type="tel"
-                    value={phone.phoneNumber}
-                    onChange={(e) =>
-                      handlePhoneChange(phone.id, 'phoneNumber', e.target.value)
-                    }
-                    placeholder="Phone number"
-                    className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
-                    data-testid={`new-phone-${phone.id}`}
-                  />
-                  <input
-                    type="text"
-                    value={phone.label}
-                    onChange={(e) =>
-                      handlePhoneChange(phone.id, 'label', e.target.value)
-                    }
-                    placeholder="Label"
-                    className="h-9 w-24 rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-primary"
-                    data-testid={`new-phone-label-${phone.id}`}
-                  />
-                  <label className="flex shrink-0 items-center gap-1 text-base">
-                    <input
-                      type="radio"
-                      name="primaryPhone"
-                      checked={phone.isPrimary}
-                      onChange={() => handlePhonePrimaryChange(phone.id)}
-                      className="h-5 w-5"
+                <div key={phone.id} className="space-y-3 px-4 py-3">
+                  {/* Phone input row */}
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Input
+                      type="tel"
+                      value={phone.phoneNumber}
+                      onChange={(e) =>
+                        handlePhoneChange(
+                          phone.id,
+                          'phoneNumber',
+                          e.target.value
+                        )
+                      }
+                      placeholder="Phone number"
+                      className="min-w-0 flex-1"
+                      data-testid={`new-phone-${phone.id}`}
                     />
-                    Primary
-                  </label>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeletePhone(phone.id)}
-                    className="h-8 w-8 shrink-0"
-                    data-testid={`delete-phone-${phone.id}`}
-                    aria-label="Delete phone"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  </div>
+                  {/* Label and options row */}
+                  <div className="flex flex-wrap items-center gap-2 pl-6">
+                    <Input
+                      type="text"
+                      value={phone.label}
+                      onChange={(e) =>
+                        handlePhoneChange(phone.id, 'label', e.target.value)
+                      }
+                      placeholder="Label (e.g., Mobile)"
+                      className="w-full sm:w-32"
+                      data-testid={`new-phone-label-${phone.id}`}
+                    />
+                    <label className="flex shrink-0 items-center gap-1.5 text-sm">
+                      <input
+                        type="radio"
+                        name="primaryPhone"
+                        checked={phone.isPrimary}
+                        onChange={() => handlePhonePrimaryChange(phone.id)}
+                        className="h-4 w-4"
+                      />
+                      Primary
+                    </label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeletePhone(phone.id)}
+                      className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      data-testid={`delete-phone-${phone.id}`}
+                    >
+                      <Trash2 className="mr-1 h-4 w-4" />
+                      Remove
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
