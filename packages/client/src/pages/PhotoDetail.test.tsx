@@ -13,11 +13,23 @@ vi.mock('@/db/hooks', () => ({
 
 // Mock the database
 const mockSelect = vi.fn();
+const mockUpdate = vi.fn();
 vi.mock('@/db', () => ({
   getDatabase: () => ({
-    select: mockSelect
+    select: mockSelect,
+    update: mockUpdate
   })
 }));
+
+// Mock useNavigate
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate
+  };
+});
 
 // Mock the key manager
 const mockGetCurrentKey = vi.fn();
@@ -89,6 +101,14 @@ function createMockQueryChain(result: unknown[]) {
   };
 }
 
+function createMockUpdateChain() {
+  return {
+    set: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue(undefined)
+    })
+  };
+}
+
 function renderPhotoDetailRaw(photoId: string = 'photo-123') {
   return render(
     <ThemeProvider>
@@ -124,6 +144,8 @@ describe('PhotoDetail', () => {
     mockIsFileStorageInitialized.mockReturnValue(true);
     mockRetrieve.mockResolvedValue(TEST_IMAGE_DATA);
     mockSelect.mockReturnValue(createMockQueryChain([TEST_PHOTO]));
+    mockUpdate.mockReturnValue(createMockUpdateChain());
+    mockNavigate.mockClear();
     mockCanShareFiles.mockReturnValue(true);
     mockShareFile.mockResolvedValue(true);
     mockLoadModel.mockResolvedValue(undefined);
@@ -420,6 +442,55 @@ describe('PhotoDetail', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Classification failed')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('delete functionality', () => {
+    it('renders delete button', async () => {
+      await renderPhotoDetail();
+
+      expect(screen.getByTestId('delete-button')).toBeInTheDocument();
+      expect(screen.getByText('Delete')).toBeInTheDocument();
+    });
+
+    it('opens delete dialog when delete button is clicked', async () => {
+      const user = userEvent.setup();
+      await renderPhotoDetail();
+
+      await user.click(screen.getByTestId('delete-button'));
+
+      expect(screen.getByTestId('delete-photo-dialog')).toBeInTheDocument();
+      expect(screen.getByText('Delete Photo')).toBeInTheDocument();
+      expect(
+        screen.getByText(/Are you sure you want to delete/i)
+      ).toBeInTheDocument();
+    });
+
+    it('closes dialog when cancel is clicked', async () => {
+      const user = userEvent.setup();
+      await renderPhotoDetail();
+
+      await user.click(screen.getByTestId('delete-button'));
+      expect(screen.getByTestId('delete-photo-dialog')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('cancel-delete-photo-button'));
+
+      expect(
+        screen.queryByTestId('delete-photo-dialog')
+      ).not.toBeInTheDocument();
+    });
+
+    it('deletes photo and navigates when delete is confirmed', async () => {
+      const user = userEvent.setup();
+      await renderPhotoDetail();
+
+      await user.click(screen.getByTestId('delete-button'));
+      await user.click(screen.getByTestId('confirm-delete-photo-button'));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalled();
+        expect(mockNavigate).toHaveBeenCalledWith('/photos');
       });
     });
   });
