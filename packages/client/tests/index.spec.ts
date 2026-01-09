@@ -144,8 +144,8 @@ test.describe('Index page', () => {
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
 
     // Verify theme selector is visible
-    const themeGrid = page.getByTestId('theme-selector-grid');
-    await expect(themeGrid).toBeVisible();
+    const themeContainer = page.getByTestId('theme-selector-container');
+    await expect(themeContainer).toBeVisible();
 
     // Click dark theme option
     const darkOption = page.getByTestId('theme-option-dark');
