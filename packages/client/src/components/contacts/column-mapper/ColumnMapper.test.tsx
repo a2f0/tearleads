@@ -17,9 +17,8 @@ const dragHandlers: {
 } = {};
 
 vi.mock('@dnd-kit/core', async () => {
-  const actual = await vi.importActual<typeof import('@dnd-kit/core')>(
-    '@dnd-kit/core'
-  );
+  const actual =
+    await vi.importActual<typeof import('@dnd-kit/core')>('@dnd-kit/core');
   return {
     ...actual,
     DndContext: ({
@@ -43,7 +42,9 @@ vi.mock('@dnd-kit/core', async () => {
       }
       return <div data-testid="dnd-context">{children}</div>;
     },
-    DragOverlay: ({ children }: { children?: ReactNode }) => <div>{children}</div>
+    DragOverlay: ({ children }: { children?: ReactNode }) => (
+      <div>{children}</div>
+    )
   };
 });
 
