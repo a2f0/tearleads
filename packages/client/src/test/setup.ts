@@ -91,33 +91,17 @@ Object.defineProperty(window, 'matchMedia', {
   }))
 });
 
-// Mock IntersectionObserver for infinite scroll tests
-type IntersectionCallback = (entries: IntersectionObserverEntry[]) => void;
-let intersectionCallback: IntersectionCallback | null = null;
-
+// Mock IntersectionObserver for components that use it
 class MockIntersectionObserver {
   readonly root: Element | Document | null = null;
   readonly rootMargin: string = '';
   readonly thresholds: ReadonlyArray<number> = [];
 
-  constructor(callback: IntersectionCallback) {
-    intersectionCallback = callback;
-  }
-
   observe(): void {}
   unobserve(): void {}
-  disconnect(): void {
-    intersectionCallback = null;
-  }
+  disconnect(): void {}
   takeRecords(): IntersectionObserverEntry[] {
     return [];
   }
 }
 vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);
-
-// Helper to trigger intersection observer callback in tests
-export function triggerIntersection(isIntersecting = true): void {
-  if (intersectionCallback) {
-    intersectionCallback([{ isIntersecting } as IntersectionObserverEntry]);
-  }
-}
