@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { IAudioMetadata, ICommonTagsResult } from 'music-metadata';
 import { extractAudioCoverArt, isAudioMimeType } from './audio-metadata';
 
 vi.mock('music-metadata', () => ({
@@ -6,6 +7,19 @@ vi.mock('music-metadata', () => ({
 }));
 
 import { parseBuffer } from 'music-metadata';
+
+const createMetadata = (
+  overrides: Partial<ICommonTagsResult>
+): IAudioMetadata => ({
+  format: { trackInfo: [], tagTypes: [] },
+  native: {},
+  quality: { warnings: [] },
+  common: {
+    track: { no: null, of: null },
+    disk: { no: null, of: null },
+    ...overrides
+  }
+});
 
 describe('audio-metadata', () => {
   afterEach(() => {
@@ -82,11 +96,11 @@ describe('audio-metadata', () => {
   describe('extractAudioCoverArt', () => {
     it('returns cover art data and format when present', async () => {
       const coverArtData = new Uint8Array([1, 2, 3, 4, 5]);
-      vi.mocked(parseBuffer).mockResolvedValue({
-        common: {
+      vi.mocked(parseBuffer).mockResolvedValue(
+        createMetadata({
           picture: [{ data: coverArtData, format: 'image/jpeg' }]
-        }
-      } as never);
+        })
+      );
 
       const audioData = new Uint8Array([10, 20, 30]);
       const result = await extractAudioCoverArt(audioData, 'audio/mpeg');
@@ -100,11 +114,11 @@ describe('audio-metadata', () => {
     });
 
     it('returns null when no pictures are present', async () => {
-      vi.mocked(parseBuffer).mockResolvedValue({
-        common: {
+      vi.mocked(parseBuffer).mockResolvedValue(
+        createMetadata({
           picture: []
-        }
-      } as never);
+        })
+      );
 
       const audioData = new Uint8Array([10, 20, 30]);
       const result = await extractAudioCoverArt(audioData, 'audio/mpeg');
@@ -113,9 +127,7 @@ describe('audio-metadata', () => {
     });
 
     it('returns null when pictures array is undefined', async () => {
-      vi.mocked(parseBuffer).mockResolvedValue({
-        common: {}
-      } as never);
+      vi.mocked(parseBuffer).mockResolvedValue(createMetadata({}));
 
       const audioData = new Uint8Array([10, 20, 30]);
       const result = await extractAudioCoverArt(audioData, 'audio/mpeg');
@@ -135,14 +147,14 @@ describe('audio-metadata', () => {
     it('returns the first picture with its format when multiple are present', async () => {
       const firstCoverArt = new Uint8Array([1, 2, 3]);
       const secondCoverArt = new Uint8Array([4, 5, 6]);
-      vi.mocked(parseBuffer).mockResolvedValue({
-        common: {
+      vi.mocked(parseBuffer).mockResolvedValue(
+        createMetadata({
           picture: [
             { data: firstCoverArt, format: 'image/png' },
             { data: secondCoverArt, format: 'image/jpeg' }
           ]
-        }
-      } as never);
+        })
+      );
 
       const audioData = new Uint8Array([10, 20, 30]);
       const result = await extractAudioCoverArt(audioData, 'audio/flac');
