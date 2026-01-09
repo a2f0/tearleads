@@ -37,7 +37,8 @@ vi.mock('@/db/crypto', () => ({
 }));
 
 const mockStorage = {
-  retrieve: vi.fn()
+  retrieve: vi.fn(),
+  measureRetrieve: vi.fn()
 };
 
 const mockIsFileStorageInitialized = vi.fn(() => true);
@@ -101,7 +102,7 @@ describe('Documents', () => {
     });
 
     mockDb.orderBy.mockResolvedValue(mockDocuments);
-    mockStorage.retrieve.mockResolvedValue(new Uint8Array([1, 2, 3]));
+    mockStorage.measureRetrieve.mockResolvedValue(new Uint8Array([1, 2, 3]));
     mockIsFileStorageInitialized.mockReturnValue(true);
     mockInitializeFileStorage.mockResolvedValue(undefined);
     mockCanShareFiles.mockReturnValue(false);
@@ -371,8 +372,9 @@ describe('Documents', () => {
       await user.click(downloadButtons[0] as HTMLElement);
 
       await waitFor(() => {
-        expect(mockStorage.retrieve).toHaveBeenCalledWith(
-          '/documents/test-document.pdf'
+        expect(mockStorage.measureRetrieve).toHaveBeenCalledWith(
+          '/documents/test-document.pdf',
+          expect.any(Function)
         );
       });
     });

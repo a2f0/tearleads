@@ -16,12 +16,30 @@ import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { formatFileSize } from '@/lib/utils';
 import {
+  createRetrieveLogger,
   getFileStorage,
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
 
 const PDF_MIME_TYPE = 'application/pdf';
+
+async function retrieveDocumentData(
+  storagePath: string,
+  currentInstanceId: string
+): Promise<Uint8Array> {
+  const db = getDatabase();
+  const keyManager = getKeyManager();
+  const encryptionKey = keyManager.getCurrentKey();
+  if (!encryptionKey) throw new Error('Database not unlocked');
+
+  if (!isFileStorageInitialized()) {
+    await initializeFileStorage(encryptionKey, currentInstanceId);
+  }
+
+  const storage = getFileStorage();
+  return storage.measureRetrieve(storagePath, createRetrieveLogger(db));
+}
 
 interface DocumentInfo {
   id: string;
@@ -58,17 +76,11 @@ export function Documents() {
       e?.stopPropagation();
 
       try {
-        const keyManager = getKeyManager();
-        const encryptionKey = keyManager.getCurrentKey();
-        if (!encryptionKey) throw new Error('Database not unlocked');
         if (!currentInstanceId) throw new Error('No active instance');
-
-        if (!isFileStorageInitialized()) {
-          await initializeFileStorage(encryptionKey, currentInstanceId);
-        }
-
-        const storage = getFileStorage();
-        const data = await storage.retrieve(document.storagePath);
+        const data = await retrieveDocumentData(
+          document.storagePath,
+          currentInstanceId
+        );
         downloadFile(data, document.name);
       } catch (err) {
         console.error('Failed to download document:', err);
@@ -83,17 +95,11 @@ export function Documents() {
       e?.stopPropagation();
 
       try {
-        const keyManager = getKeyManager();
-        const encryptionKey = keyManager.getCurrentKey();
-        if (!encryptionKey) throw new Error('Database not unlocked');
         if (!currentInstanceId) throw new Error('No active instance');
-
-        if (!isFileStorageInitialized()) {
-          await initializeFileStorage(encryptionKey, currentInstanceId);
-        }
-
-        const storage = getFileStorage();
-        const data = await storage.retrieve(document.storagePath);
+        const data = await retrieveDocumentData(
+          document.storagePath,
+          currentInstanceId
+        );
         await shareFile(data, document.name, document.mimeType);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
@@ -114,22 +120,29 @@ export function Documents() {
       setUploading(true);
       setUploadProgress(0);
 
-      const errors: string[] = [];
-      const totalFiles = selectedFiles.length;
+      const validFiles = selectedFiles.filter(
+        (file) => file.type === PDF_MIME_TYPE
+      );
+      const invalidFileErrors = selectedFiles
+        .filter((file) => file.type !== PDF_MIME_TYPE)
+        .map((file) => `"${file.name}" is not a PDF file.`);
+
+      const errors: string[] = [...invalidFileErrors];
+      const progresses = Array(validFiles.length).fill(0);
       let uploadedCount = 0;
 
-      for (const [i, file] of selectedFiles.entries()) {
-        if (file.type !== PDF_MIME_TYPE) {
-          errors.push(`"${file.name}" is not a PDF file.`);
-          continue;
-        }
+      const updateOverallProgress = () => {
+        if (validFiles.length === 0) return;
+        const totalProgress = progresses.reduce((sum, p) => sum + p, 0);
+        setUploadProgress(Math.round(totalProgress / validFiles.length));
+      };
 
+      const uploadPromises = validFiles.map(async (file, index) => {
         try {
-          const fileProgressCallback = (progress: number) => {
-            const overallProgress = ((i + progress / 100) / totalFiles) * 100;
-            setUploadProgress(Math.round(overallProgress));
-          };
-          await uploadFile(file, fileProgressCallback);
+          await uploadFile(file, (progress) => {
+            progresses[index] = progress;
+            updateOverallProgress();
+          });
           uploadedCount++;
         } catch (err) {
           console.error(`Failed to upload ${file.name}:`, err);
@@ -137,7 +150,9 @@ export function Documents() {
             `"${file.name}": ${err instanceof Error ? err.message : String(err)}`
           );
         }
-      }
+      });
+
+      await Promise.all(uploadPromises);
 
       if (uploadedCount > 0) {
         setHasFetched(false);
