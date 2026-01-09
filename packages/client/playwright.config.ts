@@ -13,7 +13,7 @@ export default defineConfig({
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: 0,
-  reporter: 'html',
+  reporter: [['html', { open: 'never' }]],
   use: {
     baseURL: 'http://localhost:3000',
   },
