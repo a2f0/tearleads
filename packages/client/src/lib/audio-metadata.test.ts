@@ -17,6 +17,7 @@ const createMetadata = (
   common: {
     track: { no: null, of: null },
     disk: { no: null, of: null },
+    movementIndex: { no: null, of: null },
     ...overrides
   }
 });
