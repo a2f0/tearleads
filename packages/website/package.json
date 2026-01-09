@@ -12,6 +12,7 @@
   "dependencies": {
     "@astrojs/react": "4.4.2",
     "@beoe/rehype-mermaid": "0.4.2",
+    "@rapid/api": "workspace:*",
     "@rapid/ui": "workspace:*",
     "astro": "5.16.6",
     "react": "19.2.3",

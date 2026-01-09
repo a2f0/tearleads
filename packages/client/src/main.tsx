@@ -27,6 +27,9 @@ if ('serviceWorker' in navigator) {
 }
 
 // Lazy-loaded pages for code splitting
+const Admin = lazy(() =>
+  import('./pages/admin').then((m) => ({ default: m.Admin }))
+);
 const Analytics = lazy(() =>
   import('./pages/analytics').then((m) => ({ default: m.Analytics }))
 );
@@ -161,6 +164,7 @@ if (rootElement) {
                       <Route path="cache-storage" element={<CacheStorage />} />
                       <Route path="local-storage" element={<LocalStorage />} />
                       <Route path="keychain" element={<Keychain />} />
+                      <Route path="admin" element={<Admin />} />
                     </Route>
                   </Routes>
                 </Suspense>

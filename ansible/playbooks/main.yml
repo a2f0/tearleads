@@ -48,6 +48,7 @@
           - python3-certbot-nginx
           - ca-certificates
           - curl
+          - redis-server
         state: present
 
     - name: Create keyrings directory
@@ -79,6 +80,20 @@
         name: nodejs
         state: present
         update_cache: true
+
+    # Redis configuration
+    - name: Configure Redis to bind to localhost only
+      ansible.builtin.lineinfile:
+        path: /etc/redis/redis.conf
+        regexp: '^bind '
+        line: 'bind 127.0.0.1 ::1'
+      notify: Restart redis
+
+    - name: Ensure Redis is running and enabled
+      ansible.builtin.systemd:
+        name: redis-server
+        state: started
+        enabled: true
 
     # API directory and service
     - name: Create API directory
@@ -222,4 +237,9 @@
     - name: Restart sshd
       ansible.builtin.systemd:
         name: ssh
+        state: restarted
+
+    - name: Restart redis
+      ansible.builtin.systemd:
+        name: redis-server
         state: restarted
