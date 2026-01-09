@@ -23,6 +23,7 @@ export function ThemeSelector() {
             onClick={() => setTheme(t)}
             selected={resolvedTheme === t}
             data-testid={`theme-option-${t}`}
+            className="max-w-[200px]"
           >
             <ThemePreview theme={t} />
           </GridSquare>
