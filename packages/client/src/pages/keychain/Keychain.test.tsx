@@ -142,20 +142,13 @@ describe('Keychain', () => {
       });
     });
 
-    it('displays truncated instance IDs', async () => {
+    it('displays full instance IDs in expanded section', async () => {
       renderKeychain();
 
       await waitFor(() => {
-        // ID is truncated to first 8 chars, so "instance-1" becomes "instance"
-        // The span contains "instance" and "..." as separate text nodes
-        const spans = document.querySelectorAll(
-          '.font-mono.text-muted-foreground'
-        );
-        expect(spans.length).toBeGreaterThan(0);
-        const firstSpan = spans[0];
-        if (!firstSpan) throw new Error('Expected at least one span');
-        expect(firstSpan.textContent).toContain('instance');
-        expect(firstSpan.textContent).toContain('...');
+        // Full ID is shown underneath the label when expanded
+        expect(screen.getByText('instance-1')).toBeInTheDocument();
+        expect(screen.getByText('instance-2')).toBeInTheDocument();
       });
     });
 
@@ -468,6 +461,65 @@ describe('Keychain', () => {
       expect(
         screen.getByText('Loading keychain contents...')
       ).toBeInTheDocument();
+    });
+  });
+
+  describe('context menu', () => {
+    beforeEach(() => {
+      mockGetInstances.mockResolvedValue([
+        createInstance('test-id', 'Test Instance')
+      ]);
+      mockGetKeyStatusForInstance.mockResolvedValue(
+        createKeyStatus(true, true, false, false)
+      );
+    });
+
+    it('shows context menu on right-click', async () => {
+      const user = userEvent.setup();
+      renderKeychain();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Instance')).toBeInTheDocument();
+      });
+
+      const row = screen
+        .getByText('Test Instance')
+        .closest('div[class*="border-b"]');
+      expect(row).toBeInTheDocument();
+
+      if (row) {
+        await user.pointer({ target: row, keys: '[MouseRight]' });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('View Details')).toBeInTheDocument();
+      });
+    });
+
+    it('closes context menu on escape', async () => {
+      const user = userEvent.setup();
+      renderKeychain();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Instance')).toBeInTheDocument();
+      });
+
+      const row = screen
+        .getByText('Test Instance')
+        .closest('div[class*="border-b"]');
+      if (row) {
+        await user.pointer({ target: row, keys: '[MouseRight]' });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('View Details')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{Escape}');
+
+      await waitFor(() => {
+        expect(screen.queryByText('View Details')).not.toBeInTheDocument();
+      });
     });
   });
 });
