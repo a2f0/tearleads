@@ -20,6 +20,7 @@ import {
   markSessionActive,
   wasSessionActive
 } from '@/hooks/useAppLifecycle';
+import { emitInstanceChange } from '@/hooks/useInstanceChange';
 import { toError } from '@/lib/errors';
 import { deleteFileStorageForInstance } from '@/storage/opfs';
 import type { Database } from '../index';
@@ -133,11 +134,13 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
     async function initializeAndRestore() {
       // Check if there was an active session before page load
       const hadActiveSession = wasSessionActive();
-      const previousModel = getLastLoadedModel();
 
       try {
         // Initialize the instance registry (creates default instance if needed)
         const activeInstance = await initializeRegistry();
+
+        // Get instance-scoped previous model (must be after we know the active instance)
+        const previousModel = getLastLoadedModel(activeInstance.id);
 
         // Load all instances
         const allInstances = await getInstances();
@@ -146,6 +149,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         // Set current instance
         setCurrentInstanceId(activeInstance.id);
         setCurrentInstanceName(activeInstance.name);
+        emitInstanceChange(activeInstance.id);
 
         // Check setup status and persisted session for active instance
         const [setup, persisted] = await Promise.all([
@@ -391,6 +395,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       await setActiveInstanceId(newInstance.id);
       setCurrentInstanceId(newInstance.id);
       setCurrentInstanceName(newInstance.name);
+      emitInstanceChange(newInstance.id);
       setIsSetUp(false);
       setHasPersisted(false);
 
@@ -438,6 +443,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         // Update state
         setCurrentInstanceId(targetInstanceId);
         setCurrentInstanceName(targetInstance.name);
+        emitInstanceChange(targetInstanceId);
         setInstances(allInstances);
 
         // Check setup status and persisted session for target instance

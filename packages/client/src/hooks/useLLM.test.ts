@@ -37,7 +37,8 @@ vi.stubGlobal('navigator', {
 
 // Mock database
 vi.mock('@/db', () => ({
-  getDatabase: vi.fn().mockReturnValue(null)
+  getDatabase: vi.fn().mockReturnValue(null),
+  getCurrentInstanceId: vi.fn().mockReturnValue('test-instance-id')
 }));
 
 // Mock useAppLifecycle
@@ -452,6 +453,126 @@ describe('useLLM', () => {
         } as MessageEvent);
         await firstPromise;
       });
+    });
+  });
+
+  describe('resetLLMUIState', () => {
+    it('clears UI state but preserves loadedModel and modelType', async () => {
+      const { useLLM, resetLLMUIState } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      // Load a model first
+      await act(async () => {
+        result.current.loadModel('test-model');
+        await Promise.resolve();
+      });
+
+      // Simulate model loaded
+      await act(async () => {
+        mockOnMessage?.({
+          data: {
+            type: 'loaded',
+            modelId: 'test-model',
+            modelType: 'chat',
+            durationMs: 100
+          }
+        } as MessageEvent);
+      });
+
+      expect(result.current.loadedModel).toBe('test-model');
+      expect(result.current.modelType).toBe('chat');
+
+      // Reset UI state
+      await act(async () => {
+        resetLLMUIState();
+      });
+
+      // loadedModel and modelType should be preserved
+      expect(result.current.loadedModel).toBe('test-model');
+      expect(result.current.modelType).toBe('chat');
+
+      // UI state should be cleared
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.loadProgress).toBeNull();
+      expect(result.current.error).toBeNull();
+      expect(result.current.isClassifying).toBe(false);
+    });
+
+    it('rejects in-progress generation when reset', async () => {
+      const { useLLM, resetLLMUIState } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      // Load a model first
+      await act(async () => {
+        result.current.loadModel('test-model');
+        await Promise.resolve();
+      });
+
+      await act(async () => {
+        mockOnMessage?.({
+          data: {
+            type: 'loaded',
+            modelId: 'test-model',
+            modelType: 'chat',
+            durationMs: 100
+          }
+        } as MessageEvent);
+      });
+
+      // Start a generation
+      let generatePromise: Promise<void> | undefined;
+      await act(async () => {
+        generatePromise = result.current.generate(
+          [{ role: 'user', content: 'Hello' }],
+          () => {
+            // Empty token callback
+          }
+        );
+        await Promise.resolve();
+      });
+
+      // Reset while generation is in progress - handle rejection inside act
+      await act(async () => {
+        resetLLMUIState();
+        // Handle the rejection immediately to avoid unhandled rejection
+        try {
+          await generatePromise;
+        } catch {
+          // Expected rejection
+        }
+      });
+
+      // The generation should have been rejected
+      await expect(generatePromise).rejects.toThrow('Instance switched');
+    });
+
+    it('rejects pending load when reset', async () => {
+      const { useLLM, resetLLMUIState } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      // Start loading a model
+      let loadPromise: Promise<void> | undefined;
+      await act(async () => {
+        loadPromise = result.current.loadModel('test-model');
+        await Promise.resolve();
+      });
+
+      expect(result.current.isLoading).toBe(true);
+
+      // Reset while loading - handle rejection inside act
+      await act(async () => {
+        resetLLMUIState();
+        // Handle the rejection immediately to avoid unhandled rejection
+        try {
+          await loadPromise;
+        } catch {
+          // Expected rejection
+        }
+      });
+
+      // The load should have been rejected
+      await expect(loadPromise).rejects.toThrow('Instance switched');
+      expect(result.current.isLoading).toBe(false);
     });
   });
 });

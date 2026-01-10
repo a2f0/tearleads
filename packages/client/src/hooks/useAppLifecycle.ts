@@ -75,7 +75,18 @@ export function useAppLifecycle(callbacks?: AppLifecycleCallbacks): void {
 
 // Session recovery detection
 const SESSION_ACTIVE_KEY = 'rapid_session_active';
-const LAST_MODEL_KEY = 'rapid_last_loaded_model';
+const LAST_MODEL_KEY_PREFIX = 'rapid_last_loaded_model';
+
+/**
+ * Get the instance-scoped key for last loaded model.
+ * If instanceId is provided, returns a scoped key.
+ * Falls back to the legacy key for backwards compatibility.
+ */
+function getLastModelKey(instanceId?: string): string {
+  return instanceId
+    ? `${LAST_MODEL_KEY_PREFIX}_${instanceId}`
+    : LAST_MODEL_KEY_PREFIX;
+}
 
 /**
  * Mark that a session is currently active.
@@ -115,10 +126,14 @@ export function wasSessionActive(): boolean {
 
 /**
  * Save the last loaded model ID for recovery after page reload.
+ * When instanceId is provided, the model is stored per-instance.
  */
-export function saveLastLoadedModel(modelId: string): void {
+export function saveLastLoadedModel(
+  modelId: string,
+  instanceId?: string
+): void {
   try {
-    localStorage.setItem(LAST_MODEL_KEY, modelId);
+    localStorage.setItem(getLastModelKey(instanceId), modelId);
   } catch {
     // localStorage may not be available
   }
@@ -126,10 +141,11 @@ export function saveLastLoadedModel(modelId: string): void {
 
 /**
  * Get the last loaded model ID.
+ * When instanceId is provided, retrieves the instance-specific model.
  */
-export function getLastLoadedModel(): string | null {
+export function getLastLoadedModel(instanceId?: string): string | null {
   try {
-    return localStorage.getItem(LAST_MODEL_KEY);
+    return localStorage.getItem(getLastModelKey(instanceId));
   } catch {
     return null;
   }
@@ -137,10 +153,11 @@ export function getLastLoadedModel(): string | null {
 
 /**
  * Clear the last loaded model.
+ * When instanceId is provided, clears the instance-specific model.
  */
-export function clearLastLoadedModel(): void {
+export function clearLastLoadedModel(instanceId?: string): void {
   try {
-    localStorage.removeItem(LAST_MODEL_KEY);
+    localStorage.removeItem(getLastModelKey(instanceId));
   } catch {
     // localStorage may not be available
   }
