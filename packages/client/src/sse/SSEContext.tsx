@@ -40,10 +40,7 @@ export function SSEProvider({
   );
   const reconnectAttemptRef = useRef(0);
   const channelsRef = useRef(channels);
-
-  useEffect(() => {
-    channelsRef.current = channels;
-  }, [channels]);
+  const prevChannelsRef = useRef<string[]>(channels);
 
   const clearReconnectTimeout = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -108,6 +105,21 @@ export function SSEProvider({
     },
     [disconnect]
   );
+
+  // Reconnect when channels change (if already connected)
+  useEffect(() => {
+    const channelsChanged =
+      channels.length !== prevChannelsRef.current.length ||
+      channels.some((ch, i) => ch !== prevChannelsRef.current[i]);
+
+    prevChannelsRef.current = channels;
+    channelsRef.current = channels;
+
+    // Reconnect if channels changed and we're connected or connecting
+    if (channelsChanged && connectionState !== 'disconnected') {
+      connect(channels);
+    }
+  }, [channels, connectionState, connect]);
 
   useEffect(() => {
     if (autoConnect) {

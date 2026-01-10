@@ -1,3 +1,4 @@
+import type { BroadcastMessage } from '@rapid/shared';
 import {
   type Request,
   type Response,
@@ -7,6 +8,14 @@ import {
 import { getRedisSubscriberClient } from '../lib/redisPubSub.js';
 
 const router: RouterType = Router();
+
+function parseMessage(message: string): BroadcastMessage | null {
+  try {
+    return JSON.parse(message) as BroadcastMessage;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * @openapi
@@ -57,9 +66,12 @@ router.get('/', async (req: Request, res: Response) => {
     await client.connect();
 
     const messageHandler = (message: string, channel: string) => {
-      res.write(
-        `event: message\ndata: ${JSON.stringify({ channel, message })}\n\n`
-      );
+      const parsedMessage = parseMessage(message);
+      if (parsedMessage) {
+        res.write(
+          `event: message\ndata: ${JSON.stringify({ channel, message: parsedMessage })}\n\n`
+        );
+      }
     };
 
     for (const channel of channels) {
@@ -70,13 +82,16 @@ router.get('/', async (req: Request, res: Response) => {
       res.write(': keepalive\n\n');
     }, 30000);
 
-    req.on('close', async () => {
+    req.on('close', () => {
       clearInterval(keepAlive);
       if (client) {
-        for (const channel of channels) {
-          await client.unsubscribe(channel);
-        }
-        await client.quit();
+        const clientToCleanup = client;
+        client = null;
+        Promise.all(channels.map((ch) => clientToCleanup.unsubscribe(ch)))
+          .then(() => clientToCleanup.quit())
+          .catch((err) => {
+            console.error('SSE cleanup error:', err);
+          });
       }
     });
   } catch (err) {
