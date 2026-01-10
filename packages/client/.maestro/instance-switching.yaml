@@ -82,12 +82,11 @@ appId: com.tearleads.rapid
     }
     return 'ok';
 
-# Verify testResult is in idle state (new instance has no operations yet)
+# Verify testResult is in idle state (element should not exist - idle state has no message)
 - evalScript: |
     const result = document.querySelector('[data-testid="db-test-result"]');
-    // Element may not exist (no message) or be in idle state
-    if (result && result.getAttribute('data-status') !== 'idle') {
-      throw new Error('Expected idle status for new instance, got: ' + result.getAttribute('data-status'));
+    if (result) {
+      throw new Error('db-test-result should not be present in idle state, but was found with status: ' + result.getAttribute('data-status'));
     }
     return 'ok';
 
