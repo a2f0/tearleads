@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import express, { type Express, type Request, type Response } from 'express';
 import packageJson from '../package.json' with { type: 'json' };
 import { redisRouter } from './routes/admin/redis.js';
+import { sseRouter } from './routes/sse.js';
 
 dotenv.config();
 
@@ -70,6 +71,9 @@ app.get('/v1/ping', (_req: Request, res: Response) => {
 
 // Admin routes
 app.use('/v1/admin/redis', redisRouter);
+
+// SSE route
+app.use('/v1/sse', sseRouter);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {
