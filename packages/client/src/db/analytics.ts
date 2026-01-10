@@ -52,7 +52,7 @@ const SORT_COLUMN_MAP: Record<SortColumn, string> = {
 const STATS_SORT_COLUMN_MAP: Record<StatsSortColumn, string> = {
   eventName: 'event_name',
   count: 'count(*)',
-  avgDurationMs: 'sum(duration_ms) / count(*)',
+  avgDurationMs: 'sum(duration_ms) * 1.0 / count(*)',
   minDurationMs: 'min(duration_ms)',
   maxDurationMs: 'max(duration_ms)',
   successRate: 'sum(case when success then 1 else 0 end) * 100.0 / count(*)'
