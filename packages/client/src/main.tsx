@@ -5,6 +5,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import App from './App';
 import { AudioProvider } from './audio';
+import { InstanceChangeHandler } from './components/InstanceChangeHandler';
 import {
   ErrorBoundary,
   errorBoundaryRef
@@ -128,6 +129,7 @@ if (rootElement) {
         <ThemeProvider>
           <Toaster richColors closeButton position="top-center" />
           <DatabaseProvider>
+            <InstanceChangeHandler />
             <AudioProvider>
               <SSEProvider>
                 <BrowserRouter>
