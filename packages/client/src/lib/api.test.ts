@@ -7,6 +7,12 @@ vi.mock('import.meta', () => ({
   env: mockEnv
 }));
 
+// Mock analytics to capture logged event names
+const mockLogApiEvent = vi.fn();
+vi.mock('@/db/analytics', () => ({
+  logApiEvent: (...args: unknown[]) => mockLogApiEvent(...args)
+}));
+
 // We need to re-import after mocking
 describe('api', () => {
   const originalFetch = global.fetch;
@@ -15,6 +21,7 @@ describe('api', () => {
     vi.clearAllMocks();
     vi.resetModules();
     global.fetch = vi.fn();
+    mockLogApiEvent.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -94,6 +101,65 @@ describe('api', () => {
       const { API_BASE_URL } = await import('./api');
 
       expect(API_BASE_URL).toBe('http://test-api.com');
+    });
+  });
+
+  describe('event name generation', () => {
+    beforeEach(() => {
+      vi.stubEnv('VITE_API_URL', 'http://localhost:3000');
+    });
+
+    it('strips query parameters from event name for paginated requests', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ keys: [], nextCursor: null }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      const { api } = await import('./api');
+      await api.admin.redis.getKeys('someCursor123', 50);
+
+      // Event name should be api_get_admin_redis_keys, not api_get_admin_redis_keys?cursor=someCursor123&limit=50
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_admin_redis_keys',
+        expect.any(Number),
+        true
+      );
+    });
+
+    it('logs correct event name for simple endpoints', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ version: '1.0.0' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      const { api } = await import('./api');
+      await api.ping.get();
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_ping',
+        expect.any(Number),
+        true
+      );
+    });
+
+    it('logs success=false for failed requests', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(null, { status: 500 })
+      );
+
+      const { api } = await import('./api');
+
+      await expect(api.ping.get()).rejects.toThrow();
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_ping',
+        expect.any(Number),
+        false
+      );
     });
   });
 });
