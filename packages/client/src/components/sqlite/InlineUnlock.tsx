@@ -143,6 +143,17 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
       </p>
 
       <form onSubmit={handleUnlock} className="mx-auto mt-6 max-w-xs space-y-3">
+        {/* Hidden username field for accessibility - suppresses browser warning */}
+        <input
+          type="text"
+          name="username"
+          autoComplete="username"
+          aria-hidden="true"
+          tabIndex={-1}
+          className="sr-only"
+          readOnly
+          value=""
+        />
         <div className="relative">
           <input
             type={showPassword ? 'text' : 'password'}
