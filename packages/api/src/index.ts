@@ -1,8 +1,8 @@
+import dbPackageJson from '@rapid/db/package.json' with { type: 'json' };
 import type { PingData } from '@rapid/shared';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { type Express, type Request, type Response } from 'express';
-import dbPackageJson from '../../db/package.json' with { type: 'json' };
 import packageJson from '../package.json' with { type: 'json' };
 import { redisRouter } from './routes/admin/redis.js';
 
