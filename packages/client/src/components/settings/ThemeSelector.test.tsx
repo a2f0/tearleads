@@ -77,11 +77,11 @@ describe('ThemeSelector', () => {
     );
   });
 
-  it('uses flex layout for left alignment', () => {
+  it('uses flex layout with horizontal scroll on mobile', () => {
     renderThemeSelector();
     const container = screen.getByTestId('theme-selector-container');
     expect(container.className).toContain('flex');
-    expect(container.className).toContain('flex-wrap');
+    expect(container.className).toContain('overflow-x-auto');
   });
 
   it('renders theme labels', () => {
