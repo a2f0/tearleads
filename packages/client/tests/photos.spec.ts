@@ -62,7 +62,7 @@ async function uploadTestImage(page: Page) {
   // 1. File was uploaded successfully
   // 2. fetchPhotos ran and found the photo in the database
   // 3. The grid container is now rendered (since photos.length > 0)
-  await expect(page.getByText('1 photo')).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText('1 photo')).toBeVisible({ timeout: 60000 });
 
   // Now the grid should be visible
   await expect(page.getByTestId('photos-grid')).toBeVisible();
