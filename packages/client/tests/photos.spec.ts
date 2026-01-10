@@ -58,9 +58,14 @@ async function uploadTestImage(page: Page) {
     buffer: MINIMAL_PNG
   });
 
-  // Wait for either the grid or an error to appear
-  // In CI, file processing can be slower
-  await expect(page.getByTestId('photos-grid')).toBeVisible({ timeout: 60000 });
+  // Wait for "1 photo" text which confirms the entire upload->fetch->display cycle:
+  // 1. File was uploaded successfully
+  // 2. fetchPhotos ran and found the photo in the database
+  // 3. The grid container is now rendered (since photos.length > 0)
+  await expect(page.getByText('1 photo')).toBeVisible({ timeout: 60000 });
+
+  // Now the grid should be visible
+  await expect(page.getByTestId('photos-grid')).toBeVisible();
 }
 
 test.describe('Photos page responsive layout', () => {
@@ -117,6 +122,7 @@ test.describe('Photos page responsive layout', () => {
     test('should display photos grid with 5 columns on tablet (md breakpoint)', async ({
       page
     }) => {
+      test.slow(); // File upload and thumbnail generation can be slow in CI
       await page.goto('/');
       await setupAndUnlockDatabase(page);
       await navigateToPhotos(page);
@@ -139,6 +145,7 @@ test.describe('Photos page responsive layout', () => {
     test('should display photos grid with responsive column classes on desktop', async ({
       page
     }) => {
+      test.slow(); // File upload and thumbnail generation can be slow in CI
       await page.goto('/');
       await setupAndUnlockDatabase(page);
       await navigateToPhotos(page);
@@ -161,6 +168,7 @@ test.describe('Photos page responsive layout', () => {
     test('photos should be smaller on desktop due to more columns', async ({
       page
     }) => {
+      test.slow(); // File upload and thumbnail generation can be slow in CI
       await page.goto('/');
       await setupAndUnlockDatabase(page);
       await navigateToPhotos(page);
