@@ -52,6 +52,7 @@
     "@dnd-kit/utilities": "3.2.2",
     "@huggingface/transformers": "3.4.2",
     "@radix-ui/react-slot": "1.2.4",
+    "@rapid/db": "workspace:*",
     "@rapid/shared": "workspace:*",
     "@rapid/ui": "workspace:*",
     "@tanstack/react-virtual": "3.13.18",

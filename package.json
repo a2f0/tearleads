@@ -7,12 +7,13 @@
     "node": ">=22.21.1 <23"
   },
   "scripts": {
-    "postinstall": "./scripts/postinstall.sh && pnpm build:shared && pnpm build:ui",
+    "postinstall": "./scripts/postinstall.sh && pnpm build:shared && pnpm build:db && pnpm build:ui",
     "build:shared": "pnpm --filter @rapid/shared build",
+    "build:db": "pnpm --filter @rapid/db build",
     "build:ui": "pnpm --filter @rapid/ui build",
-    "dev": "VITE_API_URL=http://localhost:5001/v1 pnpm build:shared && pnpm build:ui && pnpm --filter @rapid/api buildOpenapi && concurrently -n api,client,website -c blue,magenta,cyan \"pnpm --filter @rapid/api dev\" \"pnpm --filter @rapid/client dev\" \"pnpm --filter @rapid/website dev\"",
-    "dev:api": "pnpm build:shared && pnpm --filter @rapid/api dev",
-    "dev:client": "VITE_API_URL=http://localhost:5001/v1 pnpm build:shared && pnpm build:ui && pnpm --filter @rapid/client dev",
+    "dev": "VITE_API_URL=http://localhost:5001/v1 pnpm build:shared && pnpm build:db && pnpm build:ui && pnpm --filter @rapid/api buildOpenapi && concurrently -n api,client,website -c blue,magenta,cyan \"pnpm --filter @rapid/api dev\" \"pnpm --filter @rapid/client dev\" \"pnpm --filter @rapid/website dev\"",
+    "dev:api": "pnpm build:shared && pnpm build:db && pnpm --filter @rapid/api dev",
+    "dev:client": "VITE_API_URL=http://localhost:5001/v1 pnpm build:shared && pnpm build:db && pnpm build:ui && pnpm --filter @rapid/client dev",
     "devWebsite": "pnpm build:ui && pnpm --filter @rapid/api buildOpenapi && pnpm --filter @rapid/website dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
