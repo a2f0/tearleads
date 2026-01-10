@@ -34,12 +34,20 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
+const mockUpdate = vi.fn();
+const mockSet = vi.fn();
+const mockUpdateWhere = vi.fn();
 const mockDb = {
   select: vi.fn().mockReturnThis(),
   from: vi.fn().mockReturnThis(),
   where: vi.fn().mockReturnThis(),
-  orderBy: vi.fn()
+  orderBy: vi.fn(),
+  update: mockUpdate
 };
+
+// Chain the update mock
+mockUpdate.mockReturnValue({ set: mockSet });
+mockSet.mockReturnValue({ where: mockUpdateWhere });
 
 vi.mock('@/db', () => ({
   getDatabase: vi.fn(() => mockDb)
@@ -129,6 +137,11 @@ describe('Documents', () => {
     mockDownloadFile.mockReturnValue(undefined);
     mockShareFile.mockResolvedValue(undefined);
     mockUploadFile.mockResolvedValue(undefined);
+
+    // Reset update chain mocks
+    mockUpdate.mockReturnValue({ set: mockSet });
+    mockSet.mockReturnValue({ where: mockUpdateWhere });
+    mockUpdateWhere.mockResolvedValue(undefined);
   });
 
   describe('page rendering', () => {
@@ -263,6 +276,135 @@ describe('Documents', () => {
 
       await waitFor(() => {
         expect(screen.queryByText('Get info')).not.toBeInTheDocument();
+      });
+    });
+
+    it('shows "Delete" option in context menu', async () => {
+      const user = userEvent.setup();
+      await renderDocuments();
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      const document = screen.getByText('test-document.pdf');
+      await user.pointer({ keys: '[MouseRight]', target: document });
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+    });
+
+    it('soft deletes document when "Delete" is clicked', async () => {
+      const user = userEvent.setup();
+      await renderDocuments();
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      const document = screen.getByText('test-document.pdf');
+      await user.pointer({ keys: '[MouseRight]', target: document });
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Delete'));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalled();
+        expect(mockSet).toHaveBeenCalledWith({ deleted: true });
+      });
+    });
+
+    it('shows error when delete fails', async () => {
+      const user = userEvent.setup();
+      mockUpdateWhere.mockRejectedValue(new Error('Delete failed'));
+
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      await renderDocuments();
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      const document = screen.getByText('test-document.pdf');
+      await user.pointer({ keys: '[MouseRight]', target: document });
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Delete'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete failed')).toBeInTheDocument();
+      });
+
+      consoleSpy.mockRestore();
+    });
+
+    it('handles non-Error exceptions when delete fails', async () => {
+      const user = userEvent.setup();
+      mockUpdateWhere.mockRejectedValue('String error');
+
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      await renderDocuments();
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      const document = screen.getByText('test-document.pdf');
+      await user.pointer({ keys: '[MouseRight]', target: document });
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Delete'));
+
+      await waitFor(() => {
+        expect(screen.getByText('String error')).toBeInTheDocument();
+      });
+
+      consoleSpy.mockRestore();
+    });
+
+    it('triggers refetch after successful delete', async () => {
+      const user = userEvent.setup();
+      await renderDocuments();
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      const document = screen.getByText('test-document.pdf');
+      await user.pointer({ keys: '[MouseRight]', target: document });
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+
+      // Clear to track refetch
+      mockDb.orderBy.mockClear();
+
+      await user.click(screen.getByText('Delete'));
+
+      // Flush the setTimeout for instance-aware fetching
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      await waitFor(() => {
+        expect(mockDb.orderBy).toHaveBeenCalled();
       });
     });
   });
