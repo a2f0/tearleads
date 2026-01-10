@@ -5,6 +5,7 @@
 // Types
 export interface PingData {
   version: string;
+  dbVersion: string;
 }
 
 // Admin types
