@@ -47,7 +47,7 @@ ensure_symlinks() {
     [ "$workspace" = "$SHARED_DIR" ] && return 0
 
     # Symlink these directories (not version controlled in workspaces)
-    for item in .secrets .test_files .claude; do
+    for item in .secrets .test_files; do
         target="$SHARED_DIR/$item"
         link="$workspace/$item"
         relative_path="../rapid-shared/$item"
@@ -197,7 +197,7 @@ update_all_workspaces
 # Enforce symlinks for all workspaces after updating from main
 if [ -d "$SHARED_DIR" ]; then
     # Ensure shared directories exist
-    mkdir -p "$SHARED_DIR/.test_files" "$SHARED_DIR/.secrets" "$SHARED_DIR/.claude"
+    mkdir -p "$SHARED_DIR/.test_files" "$SHARED_DIR/.secrets"
 
     ensure_symlinks "$BASE_DIR/rapid-main"
     i=2
