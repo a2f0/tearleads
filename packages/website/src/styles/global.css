@@ -2,3 +2,9 @@
 @import "@rapid/ui/styles.css";
 
 @source "../../../ui/src";
+
+.nav-dropdown:hover .nav-dropdown-menu,
+.nav-dropdown:focus-within .nav-dropdown-menu {
+  visibility: visible;
+  opacity: 1;
+}
