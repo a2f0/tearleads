@@ -288,24 +288,21 @@ router.get(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.delete('/keys/:key', async (req: Request, res: Response) => {
-  try {
-    const client = await getRedisClient();
-    const key = req.params['key'];
-
-    if (!key) {
-      res.status(400).json({ error: 'Key parameter is required' });
-      return;
+router.delete(
+  '/keys/:key',
+  async (req: Request<{ key: string }>, res: Response) => {
+    try {
+      const client = await getRedisClient();
+      const { key } = req.params;
+      const deletedCount = await client.del(key);
+      res.json({ deleted: deletedCount > 0 });
+    } catch (err) {
+      console.error('Redis error:', err);
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Failed to connect to Redis'
+      });
     }
-
-    const deletedCount = await client.del(key);
-    res.json({ deleted: deletedCount > 0 });
-  } catch (err) {
-    console.error('Redis error:', err);
-    res.status(500).json({
-      error: err instanceof Error ? err.message : 'Failed to connect to Redis'
-    });
   }
-});
+);
 
 export { router as redisRouter };
