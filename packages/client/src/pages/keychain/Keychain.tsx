@@ -1,20 +1,28 @@
-import { Key, Loader2 } from 'lucide-react';
+import { Info, Key, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import {
   deleteSessionKeysForInstance,
   getKeyStatusForInstance
 } from '@/db/crypto/key-manager';
 import { getInstances } from '@/db/instance-registry';
+import { useNavigateWithFrom } from '@/lib/navigation';
 import { type InstanceKeyInfo, InstanceKeyRow } from './InstanceKeyRow';
 
 export function Keychain() {
+  const navigateWithFrom = useNavigateWithFrom();
   const [instanceKeyInfos, setInstanceKeyInfos] = useState<InstanceKeyInfo[]>(
     []
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<{
+    info: InstanceKeyInfo;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const fetchKeychainData = useCallback(async () => {
     setLoading(true);
@@ -74,6 +82,28 @@ export function Keychain() {
     });
   };
 
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, info: InstanceKeyInfo) => {
+      e.preventDefault();
+      setContextMenu({ info, x: e.clientX, y: e.clientY });
+    },
+    []
+  );
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  const handleViewDetails = useCallback(
+    (info: InstanceKeyInfo) => {
+      setContextMenu(null);
+      navigateWithFrom(`/keychain/${info.instance.id}`, {
+        fromLabel: 'Back to Keychain'
+      });
+    },
+    [navigateWithFrom]
+  );
+
   const instanceCount = instanceKeyInfos.length;
   const instanceLabel = instanceCount === 1 ? 'instance' : 'instances';
 
@@ -116,10 +146,26 @@ export function Keychain() {
               onDeleteSessionKeys={handleDeleteSessionKeys}
               isExpanded={expandedIds.has(info.instance.id)}
               onToggle={() => handleToggle(info.instance.id)}
+              onContextMenu={handleContextMenu}
             />
           ))
         )}
       </div>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={handleCloseContextMenu}
+        >
+          <ContextMenuItem
+            icon={<Info className="h-4 w-4" />}
+            onClick={() => handleViewDetails(contextMenu.info)}
+          >
+            View Details
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
     </div>
   );
 }
