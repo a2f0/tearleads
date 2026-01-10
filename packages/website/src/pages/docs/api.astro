@@ -1,14 +1,11 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import { SwaggerUIWrapper } from '../components/SwaggerUIWrapper';
+import Layout from '../../layouts/Layout.astro';
+import { SwaggerUIWrapper } from '../../components/SwaggerUIWrapper';
 import openapiSpec from '@rapid/api/openapi.json';
 ---
 
 <Layout title="API Documentation - Rapid">
   <section class="container mx-auto px-4 py-8">
-    <nav class="mb-8">
-      <a href="/" class="text-muted-foreground hover:text-foreground">&larr; Back to Home</a>
-    </nav>
     <div class="rounded-xl border bg-card p-6 shadow-sm">
       <SwaggerUIWrapper client:load spec={openapiSpec} />
     </div>
