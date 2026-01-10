@@ -77,7 +77,10 @@ function getRowKey(
 
 export function TableRows() {
   const { tableName } = useParams<{ tableName: string }>();
-  const { isUnlocked, isLoading } = useDatabaseContext();
+  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+
+  // Track the instance ID for which we've fetched data
+  const fetchedForInstanceRef = useRef<string | null>(null);
   const [columns, setColumns] = useState<ColumnInfo[]>([]);
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
@@ -367,13 +370,32 @@ export function TableRows() {
     }
   }, [tableName]);
 
-  // Fetch data on initial load, or when the table or sort order changes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: loading is intentionally omitted to prevent infinite loop
+  // Fetch data on initial load, when the table changes, or when instance changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: loading, rows, and columns intentionally omitted to prevent re-fetch loops
   useEffect(() => {
-    if (isUnlocked && !loading) {
-      fetchTableData();
+    if (!isUnlocked || loading) return;
+
+    // Check if we need to reset for instance change
+    if (
+      fetchedForInstanceRef.current !== currentInstanceId &&
+      fetchedForInstanceRef.current !== null
+    ) {
+      // Instance changed - clear data
+      setRows([]);
+      setColumns([]);
+      setError(null);
     }
-  }, [isUnlocked, fetchTableData]);
+
+    // Update ref before fetching
+    fetchedForInstanceRef.current = currentInstanceId;
+
+    // Defer fetch to next tick to ensure database singleton is updated
+    const timeoutId = setTimeout(() => {
+      fetchTableData();
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [isUnlocked, currentInstanceId, fetchTableData]);
 
   return (
     <div className="space-y-6">

@@ -85,6 +85,10 @@ function renderContactsRaw() {
 
 async function renderContacts() {
   const result = renderContactsRaw();
+  // Flush the setTimeout(fn, 0) used for instance-aware fetching
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
   // Wait for initial async effects to complete
   await waitFor(() => {
     expect(screen.queryByText('Loading database...')).not.toBeInTheDocument();
