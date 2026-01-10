@@ -7,21 +7,32 @@ import { logApiEvent } from '@/db/analytics';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
-async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+interface RequestParams {
+  fetchOptions?: RequestInit;
+  eventNameOverride?: string;
+}
+
+async function request<T>(
+  endpoint: string,
+  params: RequestParams = {}
+): Promise<T> {
   if (!API_BASE_URL) {
     throw new Error('VITE_API_URL environment variable is not set');
   }
 
+  const { fetchOptions, eventNameOverride } = params;
   const startTime = performance.now();
-  const method = options?.method ?? 'GET';
+  const method = fetchOptions?.method ?? 'GET';
   // Strip query params from endpoint for event name (so paginated requests share the same event type)
   // Note: The nullish coalescing is needed for TypeScript strict mode (split()[0] can be undefined)
   const endpointPath = endpoint.split('?')[0] ?? endpoint;
-  const eventName = `api_${method.toLowerCase()}_${endpointPath.replace(/^\//, '').replace(/\//g, '_')}`;
+  const eventName =
+    eventNameOverride ??
+    `api_${method.toLowerCase()}_${endpointPath.replace(/^\//, '').replace(/\//g, '_')}`;
   let success = false;
 
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
 
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
@@ -53,12 +64,16 @@ export const api = {
       },
       getValue: (key: string) =>
         request<RedisKeyValueResponse>(
-          `/admin/redis/keys/${encodeURIComponent(key)}`
+          `/admin/redis/keys/${encodeURIComponent(key)}`,
+          { eventNameOverride: 'api_get_admin_redis_key' }
         ),
       deleteKey: (key: string) =>
         request<{ deleted: boolean }>(
           `/admin/redis/keys/${encodeURIComponent(key)}`,
-          { method: 'DELETE' }
+          {
+            fetchOptions: { method: 'DELETE' },
+            eventNameOverride: 'api_delete_admin_redis_key'
+          }
         ),
       getDbSize: () => request<{ count: number }>('/admin/redis/dbsize')
     }
