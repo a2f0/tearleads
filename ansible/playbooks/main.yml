@@ -49,6 +49,8 @@
           - ca-certificates
           - curl
           - redis-server
+          - postgresql
+          - postgresql-contrib
         state: present
 
     - name: Create keyrings directory
@@ -92,6 +94,20 @@
     - name: Ensure Redis is running and enabled
       ansible.builtin.systemd:
         name: redis-server
+        state: started
+        enabled: true
+
+    # PostgreSQL configuration
+    - name: Configure PostgreSQL to listen on localhost only
+      ansible.builtin.lineinfile:
+        path: /etc/postgresql/16/main/postgresql.conf
+        regexp: "^#?listen_addresses\\s*="
+        line: "listen_addresses = 'localhost'"
+      notify: Restart postgresql
+
+    - name: Ensure PostgreSQL is running and enabled
+      ansible.builtin.systemd:
+        name: postgresql
         state: started
         enabled: true
 
@@ -242,4 +258,9 @@
     - name: Restart redis
       ansible.builtin.systemd:
         name: redis-server
+        state: restarted
+
+    - name: Restart postgresql
+      ansible.builtin.systemd:
+        name: postgresql
         state: restarted

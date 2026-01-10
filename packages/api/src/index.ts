@@ -2,6 +2,7 @@ import type { PingData } from '@rapid/shared';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { type Express, type Request, type Response } from 'express';
+import dbPackageJson from '../../db/package.json' with { type: 'json' };
 import packageJson from '../package.json' with { type: 'json' };
 import { redisRouter } from './routes/admin/redis.js';
 
@@ -26,8 +27,13 @@ app.use(express.json());
  *           type: string
  *           description: Current API version
  *           example: "0.0.74"
+ *         dbVersion:
+ *           type: string
+ *           description: Current database schema version
+ *           example: "0.0.1"
  *       required:
  *         - version
+ *         - dbVersion
  *     Error:
  *       type: object
  *       properties:
@@ -56,7 +62,8 @@ app.use(express.json());
  */
 app.get('/v1/ping', (_req: Request, res: Response) => {
   const pingData: PingData = {
-    version: packageJson.version
+    version: packageJson.version,
+    dbVersion: dbPackageJson.version
   };
   res.status(200).json(pingData);
 });
