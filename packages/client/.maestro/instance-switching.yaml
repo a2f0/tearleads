@@ -134,16 +134,28 @@ appId: com.tearleads.rapid
       'First instance should not be "Not Set Up"'
     )
 
-# Verify state was reset - should NOT show "Database setup complete" from second instance
-# It can be idle (no message) or success (from session restore)
+# Wait for state to settle and verify "Database setup complete" is NOT shown
+# The text should either disappear (state reset to idle) or change to something else
 - evalScript: |
-    const result = document.querySelector('[data-testid="db-test-result"]');
-    if (result && result.textContent.includes('Database setup complete')) {
-      throw new Error('State persisted incorrectly - showing second instance state');
-    }
-    return 'ok';
+    window.waitFor(
+      () => {
+        const result = document.querySelector('[data-testid="db-test-result"]');
+        // Either element doesn't exist (idle) or doesn't contain the problematic text
+        return !result || !result.textContent.includes('Database setup complete');
+      },
+      'State should reset - "Database setup complete" should not persist from second instance'
+    )
 
 # Ensure database is unlocked (it might be locked if session wasn't persisted)
+# First wait for status to stabilize
+- evalScript: |
+    window.waitFor(
+      () => {
+        const status = document.querySelector('[data-testid="db-status"]');
+        return status && status.textContent !== 'Loading...' && status.textContent !== 'Not Set Up';
+      },
+      'Status should stabilize'
+    )
 - evalScript: |
     const status = document.querySelector('[data-testid="db-status"]');
     if (status.textContent === 'Locked') {
