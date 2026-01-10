@@ -2,6 +2,25 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeAll, vi } from 'vitest';
 
+// Mock pdfjs-dist to avoid DOMMatrix requirement in jsdom
+vi.mock('pdfjs-dist', () => {
+  const mockPage = {
+    getViewport: vi.fn().mockReturnValue({ width: 612, height: 792 }),
+    render: vi.fn().mockReturnValue({ promise: Promise.resolve() })
+  };
+  const mockPdf = {
+    numPages: 1,
+    getPage: vi.fn().mockResolvedValue(mockPage),
+    destroy: vi.fn().mockResolvedValue(undefined)
+  };
+  return {
+    getDocument: vi.fn().mockReturnValue({
+      promise: Promise.resolve(mockPdf)
+    }),
+    GlobalWorkerOptions: { workerSrc: '' }
+  };
+});
+
 // Fail tests on React act() warnings
 beforeAll(() => {
   const originalError = console.error;
