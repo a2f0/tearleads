@@ -136,12 +136,13 @@ export async function setActiveInstanceId(
  */
 export async function createInstance(): Promise<InstanceMetadata> {
   const instances = await getInstances();
+  const now = Date.now();
 
   const newInstance: InstanceMetadata = {
     id: crypto.randomUUID(),
     name: generateInstanceName(instances),
-    createdAt: Date.now(),
-    lastAccessedAt: Date.now()
+    createdAt: now,
+    lastAccessedAt: now
   };
 
   instances.push(newInstance);
