@@ -11,6 +11,6 @@
 }
 
 /* Override react-pdf page wrapper backgrounds for dark theme support */
-.react-pdf__Page {
-  background: transparent !important;
+.pdf-container .react-pdf__Page {
+  background: transparent;
 }
