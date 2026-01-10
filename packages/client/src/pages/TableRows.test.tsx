@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps, FC } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -28,21 +34,24 @@ vi.mock('@/db', () => ({
 }));
 
 // Mock database context
+const mockUseDatabaseContext = vi.fn();
 vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: vi.fn(() => ({
-    isUnlocked: true,
-    isLoading: false
-  }))
+  useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
-function renderTableRows(tableName = 'test_table') {
-  return render(
+async function renderTableRows(tableName = 'test_table') {
+  const result = render(
     <MemoryRouter initialEntries={[`/tables/${tableName}`]}>
       <Routes>
         <Route path="/tables/:tableName" element={<TableRows />} />
       </Routes>
     </MemoryRouter>
   );
+  // Flush the setTimeout(fn, 0) used for instance-aware fetching
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  return result;
 }
 
 describe('TableRows', () => {
@@ -75,6 +84,13 @@ describe('TableRows', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    // Mock database context
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: 'test-instance'
+    });
+
     // Default mock responses
     mockExecute.mockImplementation((query: string) => {
       if (query.includes('sqlite_master')) {
@@ -92,7 +108,7 @@ describe('TableRows', () => {
 
   describe('column sorting', () => {
     it('renders sort buttons for visible columns (id hidden by default)', async () => {
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-name')).toBeInTheDocument();
@@ -104,7 +120,7 @@ describe('TableRows', () => {
     });
 
     it('shows unsorted icon initially', async () => {
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-name')).toBeInTheDocument();
@@ -125,7 +141,7 @@ describe('TableRows', () => {
 
     it('cycles through sort states: none -> asc -> desc -> none', async () => {
       const user = userEvent.setup();
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-name')).toBeInTheDocument();
@@ -172,7 +188,7 @@ describe('TableRows', () => {
 
     it('switches to new column when clicking different column', async () => {
       const user = userEvent.setup();
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-name')).toBeInTheDocument();
@@ -201,7 +217,7 @@ describe('TableRows', () => {
 
     it('displays ascending arrow when sorted ascending', async () => {
       const user = userEvent.setup();
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-name')).toBeInTheDocument();
@@ -229,7 +245,7 @@ describe('TableRows', () => {
 
     it('displays descending arrow when sorted descending', async () => {
       const user = userEvent.setup();
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-name')).toBeInTheDocument();
@@ -266,7 +282,7 @@ describe('TableRows', () => {
 
   describe('column resizing', () => {
     it('updates column width when dragging the resize handle', async () => {
-      renderTableRows();
+      await renderTableRows();
 
       const handle = await screen.findByRole('separator', {
         name: 'Resize name column'
@@ -291,7 +307,7 @@ describe('TableRows', () => {
 
   describe('table rendering', () => {
     it('displays table data correctly', async () => {
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByText('Alice')).toBeInTheDocument();
@@ -301,7 +317,7 @@ describe('TableRows', () => {
     });
 
     it('shows row count', async () => {
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByText(/Showing 3 rows/)).toBeInTheDocument();
@@ -310,7 +326,7 @@ describe('TableRows', () => {
 
     it('shows PK indicator for primary key columns when unhidden', async () => {
       const user = userEvent.setup();
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-name')).toBeInTheDocument();
@@ -332,7 +348,7 @@ describe('TableRows', () => {
 
   describe('truncate table', () => {
     it('shows Truncate button initially', async () => {
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         const truncateButton = screen.getByTestId('truncate-button');
@@ -343,7 +359,7 @@ describe('TableRows', () => {
 
     it('shows Confirm on first click and executes DELETE on second click', async () => {
       const user = userEvent.setup();
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByTestId('truncate-button')).toBeInTheDocument();
@@ -395,7 +411,7 @@ describe('TableRows', () => {
         return Promise.resolve({ rows: [] });
       });
 
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByTestId('truncate-button')).toBeInTheDocument();
@@ -435,7 +451,7 @@ describe('TableRows', () => {
         return Promise.resolve({ rows: [] });
       });
 
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByTestId('truncate-button')).toBeInTheDocument();
@@ -455,7 +471,7 @@ describe('TableRows', () => {
   describe('document view', () => {
     it('toggles document view when button is clicked', async () => {
       const user = userEvent.setup();
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByText('Alice')).toBeInTheDocument();
@@ -485,7 +501,7 @@ describe('TableRows', () => {
         return Promise.resolve({ rows: [] });
       });
 
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByText('Showing 0 rows')).toBeInTheDocument();
@@ -503,7 +519,7 @@ describe('TableRows', () => {
   describe('column visibility', () => {
     it('toggles column visibility when checkbox is clicked', async () => {
       const user = userEvent.setup();
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByText('Alice')).toBeInTheDocument();
@@ -530,7 +546,7 @@ describe('TableRows', () => {
 
     it('resets sort when sorted column is hidden', async () => {
       const user = userEvent.setup();
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-name')).toBeInTheDocument();
@@ -561,7 +577,7 @@ describe('TableRows', () => {
 
     it('closes settings dropdown when clicking outside', async () => {
       const user = userEvent.setup();
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(
@@ -596,7 +612,7 @@ describe('TableRows', () => {
         return Promise.resolve({ rows: [] });
       });
 
-      renderTableRows('nonexistent_table');
+      await renderTableRows('nonexistent_table');
 
       await waitFor(() => {
         expect(
@@ -608,7 +624,7 @@ describe('TableRows', () => {
     it('displays error when query fails', async () => {
       mockExecute.mockRejectedValue(new Error('Database error'));
 
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
@@ -633,7 +649,7 @@ describe('TableRows', () => {
         return Promise.resolve({ rows: [] });
       });
 
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         const nullValues = screen.getAllByText('NULL');
@@ -665,7 +681,7 @@ describe('TableRows', () => {
         return Promise.resolve({ rows: [] });
       });
 
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByText('true')).toBeInTheDocument();
@@ -694,7 +710,7 @@ describe('TableRows', () => {
         return Promise.resolve({ rows: [] });
       });
 
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByText('{"key":"value"}')).toBeInTheDocument();
@@ -705,7 +721,7 @@ describe('TableRows', () => {
   describe('column resizing', () => {
     it('supports keyboard resizing with arrow keys', async () => {
       const user = userEvent.setup();
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByTestId('sort-name')).toBeInTheDocument();
@@ -743,7 +759,7 @@ describe('TableRows', () => {
         return Promise.resolve({ rows: [] });
       });
 
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(screen.getByText(/Showing 1 row$/)).toBeInTheDocument();
@@ -769,12 +785,51 @@ describe('TableRows', () => {
         return Promise.resolve({ rows: [] });
       });
 
-      renderTableRows();
+      await renderTableRows();
 
       await waitFor(() => {
         expect(
           screen.getByText(/Showing 100 rows \(limited to 100\)/)
         ).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('instance switching', () => {
+    it('refetches table rows when instance changes', async () => {
+      const { rerender } = await renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByText('Alice')).toBeInTheDocument();
+      });
+
+      // Clear mocks to track new calls
+      mockExecute.mockClear();
+
+      // Change the instance
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: true,
+        isLoading: false,
+        currentInstanceId: 'new-instance'
+      });
+
+      // Re-render with the new instance context
+      rerender(
+        <MemoryRouter initialEntries={['/tables/test_table']}>
+          <Routes>
+            <Route path="/tables/:tableName" element={<TableRows />} />
+          </Routes>
+        </MemoryRouter>
+      );
+
+      // Flush the setTimeout for instance-aware fetching
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      // Verify that table rows were fetched again
+      await waitFor(() => {
+        expect(mockExecute).toHaveBeenCalled();
       });
     });
   });

@@ -289,11 +289,43 @@ export function Photos() {
     }
   }, [isUnlocked, currentInstanceId]);
 
+  // Track the instance ID for which we've fetched photos
+  // Using a ref avoids React's state batching issues
+  const fetchedForInstanceRef = useRef<string | null>(null);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: photos intentionally excluded to prevent re-fetch loops
   useEffect(() => {
-    if (isUnlocked && !hasFetched && !loading) {
-      fetchPhotos();
+    // Check if we need to fetch for this instance
+    const needsFetch =
+      isUnlocked &&
+      !loading &&
+      (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
+
+    if (needsFetch) {
+      // If instance changed, cleanup old object URLs first
+      if (
+        fetchedForInstanceRef.current !== currentInstanceId &&
+        fetchedForInstanceRef.current !== null
+      ) {
+        for (const photo of photos) {
+          URL.revokeObjectURL(photo.objectUrl);
+        }
+        setPhotos([]);
+        setError(null);
+      }
+
+      // Update ref before fetching to prevent re-entry
+      fetchedForInstanceRef.current = currentInstanceId;
+
+      // Defer fetch to next tick to ensure database singleton is updated
+      const timeoutId = setTimeout(() => {
+        fetchPhotos();
+      }, 0);
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [isUnlocked, hasFetched, loading, fetchPhotos]);
+    return undefined;
+  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchPhotos]);
 
   // Cleanup object URLs on unmount
   useEffect(() => {
