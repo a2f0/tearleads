@@ -121,17 +121,6 @@ export function Debug() {
           variant="destructive"
           size="sm"
           className="w-full"
-          onClick={() => {
-            localStorage.clear();
-            window.location.reload();
-          }}
-        >
-          Clear Local Storage
-        </Button>
-        <Button
-          variant="destructive"
-          size="sm"
-          className="w-full"
           onClick={() => setShouldThrow(true)}
           data-testid="throw-error-button"
         >

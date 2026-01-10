@@ -84,7 +84,6 @@ describe('Debug', () => {
       await renderDebug();
 
       expect(screen.getByText('Actions')).toBeInTheDocument();
-      expect(screen.getByText('Clear Local Storage')).toBeInTheDocument();
       expect(screen.getByText('Throw Error')).toBeInTheDocument();
     });
   });
@@ -201,36 +200,6 @@ describe('Debug', () => {
   });
 
   describe('actions', () => {
-    it('clears localStorage and reloads when Clear Local Storage is clicked', async () => {
-      const user = userEvent.setup();
-      const mockReload = vi.fn();
-      const originalReload = window.location.reload;
-
-      // Mock window.location.reload
-      Object.defineProperty(window, 'location', {
-        value: { ...window.location, reload: mockReload },
-        writable: true
-      });
-
-      // Set something in localStorage
-      localStorage.setItem('test-key', 'test-value');
-
-      await renderDebug();
-
-      expect(screen.getByText('1.0.0')).toBeInTheDocument();
-
-      await user.click(screen.getByText('Clear Local Storage'));
-
-      expect(localStorage.clear).toHaveBeenCalled();
-      expect(mockReload).toHaveBeenCalled();
-
-      // Restore
-      Object.defineProperty(window, 'location', {
-        value: { ...window.location, reload: originalReload },
-        writable: true
-      });
-    });
-
     it('throws error when Throw Error button is clicked', async () => {
       // Suppress console.error for this test
       const consoleSpy = vi

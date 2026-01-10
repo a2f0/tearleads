@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DebugMenu } from './debug-menu';
 
 vi.mock('@/lib/api', () => ({
@@ -177,47 +177,6 @@ describe('DebugMenu', () => {
   });
 
   describe('destructive actions', () => {
-    let originalLocation: Location;
-    let reloadMock: ReturnType<typeof vi.fn>;
-
-    beforeEach(() => {
-      // Capture original location and set up reload mock
-      originalLocation = window.location;
-      reloadMock = vi.fn();
-      Object.defineProperty(window, 'location', {
-        value: { ...window.location, reload: reloadMock },
-        configurable: true
-      });
-    });
-
-    afterEach(() => {
-      // Restore window.location and all mocks
-      Object.defineProperty(window, 'location', {
-        value: originalLocation,
-        configurable: true
-      });
-      vi.restoreAllMocks();
-    });
-
-    it('clears localStorage and reloads when Clear Local Storage is clicked', async () => {
-      const user = userEvent.setup();
-      vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
-
-      const localStorageClearSpy = vi.spyOn(localStorage, 'clear');
-
-      render(<DebugMenu />);
-
-      await user.click(
-        screen.getByRole('button', { name: /open debug menu/i })
-      );
-      await user.click(
-        screen.getByRole('button', { name: /clear local storage/i })
-      );
-
-      expect(localStorageClearSpy).toHaveBeenCalled();
-      expect(reloadMock).toHaveBeenCalled();
-    });
-
     it('throws an error when Throw Error button is clicked', async () => {
       const user = userEvent.setup();
       vi.mocked(api.ping.get).mockResolvedValue(mockPingData);
