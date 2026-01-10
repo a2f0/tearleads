@@ -943,7 +943,8 @@ describe('Analytics', () => {
   });
 
   describe('summary table sorting', () => {
-    const mockStats = [
+    // Original order
+    const mockStatsOriginal = [
       {
         eventName: 'api_get_ping',
         count: 10,
@@ -970,13 +971,70 @@ describe('Analytics', () => {
       }
     ];
 
+    // Sorted by count ascending (5, 10, 20)
+    const mockStatsSortedByCountAsc = [
+      mockStatsOriginal[1], // db_setup: 5
+      mockStatsOriginal[0], // api_get_ping: 10
+      mockStatsOriginal[2] // llm_completion: 20
+    ];
+
+    // Sorted by count descending (20, 10, 5)
+    const mockStatsSortedByCountDesc = [
+      mockStatsOriginal[2], // llm_completion: 20
+      mockStatsOriginal[0], // api_get_ping: 10
+      mockStatsOriginal[1] // db_setup: 5
+    ];
+
+    // Sorted by eventName ascending (alphabetically: api_get_ping, db_setup, llm_completion)
+    const mockStatsSortedByEventNameAsc = [
+      mockStatsOriginal[0], // api_get_ping
+      mockStatsOriginal[1], // db_setup
+      mockStatsOriginal[2] // llm_completion
+    ];
+
+    // Sorted by successRate ascending (75, 90, 100)
+    const mockStatsSortedBySuccessRateAsc = [
+      mockStatsOriginal[2], // llm_completion: 75%
+      mockStatsOriginal[0], // api_get_ping: 90%
+      mockStatsOriginal[1] // db_setup: 100%
+    ];
+
+    // Sorted by avgDurationMs ascending (100, 300, 500)
+    const mockStatsSortedByAvgDurationAsc = [
+      mockStatsOriginal[0], // api_get_ping: 100ms
+      mockStatsOriginal[1], // db_setup: 300ms
+      mockStatsOriginal[2] // llm_completion: 500ms
+    ];
+
     beforeEach(() => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: true,
         isLoading: false
       });
       mockGetEvents.mockResolvedValue([]);
-      mockGetEventStats.mockResolvedValue(mockStats);
+      // Return sorted stats based on parameters
+      mockGetEventStats.mockImplementation((_db, options) => {
+        const { sortColumn, sortDirection } = options ?? {};
+
+        if (sortColumn === 'count') {
+          return Promise.resolve(
+            sortDirection === 'asc'
+              ? mockStatsSortedByCountAsc
+              : mockStatsSortedByCountDesc
+          );
+        }
+        if (sortColumn === 'eventName' && sortDirection === 'asc') {
+          return Promise.resolve(mockStatsSortedByEventNameAsc);
+        }
+        if (sortColumn === 'successRate' && sortDirection === 'asc') {
+          return Promise.resolve(mockStatsSortedBySuccessRateAsc);
+        }
+        if (sortColumn === 'avgDurationMs' && sortDirection === 'asc') {
+          return Promise.resolve(mockStatsSortedByAvgDurationAsc);
+        }
+
+        return Promise.resolve(mockStatsOriginal);
+      });
       mockGetDistinctEventTypes.mockResolvedValue([
         'api_get_ping',
         'db_setup',
@@ -1120,6 +1178,63 @@ describe('Analytics', () => {
         expect(rows[0]).toHaveTextContent('100ms');
         expect(rows[1]).toHaveTextContent('300ms');
         expect(rows[2]).toHaveTextContent('500ms');
+      });
+    });
+
+    it('calls getEventStats with sort parameters when sorting', async () => {
+      const user = userEvent.setup();
+      await renderAnalytics();
+
+      await waitFor(() => {
+        expect(mockGetEventStats).toHaveBeenCalledTimes(1);
+      });
+
+      // Initial call should have no sort parameters
+      expect(mockGetEventStats).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          sortColumn: undefined,
+          sortDirection: undefined
+        })
+      );
+
+      // Click to sort by count ascending
+      await user.click(screen.getByTestId('summary-sort-count'));
+
+      await waitFor(() => {
+        expect(mockGetEventStats).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: 'count',
+            sortDirection: 'asc'
+          })
+        );
+      });
+
+      // Click again to sort descending
+      await user.click(screen.getByTestId('summary-sort-count'));
+
+      await waitFor(() => {
+        expect(mockGetEventStats).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: 'count',
+            sortDirection: 'desc'
+          })
+        );
+      });
+
+      // Click again to clear sort
+      await user.click(screen.getByTestId('summary-sort-count'));
+
+      await waitFor(() => {
+        expect(mockGetEventStats).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: undefined,
+            sortDirection: undefined
+          })
+        );
       });
     });
   });

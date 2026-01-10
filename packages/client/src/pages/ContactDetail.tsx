@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, type InferSelectModel } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import {
   Cake,
   Calendar,
@@ -23,9 +23,31 @@ import { useDatabaseContext } from '@/db/hooks';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
 import { formatDate } from '@/lib/utils';
 
-type ContactInfo = InferSelectModel<typeof contacts>;
-type ContactEmail = InferSelectModel<typeof contactEmails>;
-type ContactPhone = InferSelectModel<typeof contactPhones>;
+interface ContactInfo {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  birthday: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deleted: boolean;
+}
+
+interface ContactEmail {
+  id: string;
+  contactId: string;
+  email: string;
+  label: string | null;
+  isPrimary: boolean;
+}
+
+interface ContactPhone {
+  id: string;
+  contactId: string;
+  phoneNumber: string;
+  label: string | null;
+  isPrimary: boolean;
+}
 
 interface ContactFormData {
   firstName: string;
