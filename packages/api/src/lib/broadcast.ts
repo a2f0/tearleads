@@ -1,10 +1,7 @@
+import type { BroadcastMessage } from '@rapid/shared';
 import { getRedisClient } from './redis.js';
 
-export interface BroadcastMessage {
-  type: string;
-  payload: unknown;
-  timestamp: string;
-}
+export type { BroadcastMessage };
 
 export async function broadcast(
   channel: string,
