@@ -36,11 +36,24 @@ vi.mock('@/db/hooks', () => ({
 
 // Mock the database
 const mockSelect = vi.fn();
+const mockUpdate = vi.fn();
 vi.mock('@/db', () => ({
   getDatabase: () => ({
-    select: mockSelect
+    select: mockSelect,
+    update: mockUpdate
   })
 }));
+
+// Mock navigation
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+    useLocation: () => ({ pathname: '/', state: null })
+  };
+});
 
 // Mock the key manager
 const mockGetCurrentKey = vi.fn();
@@ -119,6 +132,14 @@ function createMockQueryChain(result: unknown[]) {
   };
 }
 
+function createMockUpdateChain() {
+  return {
+    set: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue(undefined)
+    })
+  };
+}
+
 function renderAudioRaw() {
   return render(
     <MemoryRouter>
@@ -163,6 +184,7 @@ describe('AudioPage', () => {
     mockIsFileStorageInitialized.mockReturnValue(true);
     mockRetrieve.mockResolvedValue(TEST_AUDIO_DATA);
     mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_TRACK]));
+    mockUpdate.mockReturnValue(createMockUpdateChain());
     mockUploadFile.mockResolvedValue({ id: 'new-id', isDuplicate: false });
     mockDetectPlatform.mockReturnValue('web');
   });
@@ -512,7 +534,27 @@ describe('AudioPage', () => {
       mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_TRACK]));
     });
 
-    it('calls play when play button is clicked', async () => {
+    it('calls play when track is double-clicked on web/electron', async () => {
+      mockDetectPlatform.mockReturnValue('web');
+      const user = userEvent.setup();
+      renderAudio();
+
+      await waitFor(() => {
+        expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
+      });
+
+      await user.dblClick(screen.getByTestId('audio-play-track-1'));
+
+      expect(mockPlay).toHaveBeenCalledWith({
+        id: 'track-1',
+        name: 'test-song.mp3',
+        objectUrl: 'blob:test-url',
+        mimeType: 'audio/mpeg'
+      });
+    });
+
+    it('calls play when track is single-clicked on iOS', async () => {
+      mockDetectPlatform.mockReturnValue('ios');
       const user = userEvent.setup();
       renderAudio();
 
@@ -530,7 +572,41 @@ describe('AudioPage', () => {
       });
     });
 
-    it('calls pause when pause button is clicked on playing track', async () => {
+    it('calls play when track is single-clicked on Android', async () => {
+      mockDetectPlatform.mockReturnValue('android');
+      const user = userEvent.setup();
+      renderAudio();
+
+      await waitFor(() => {
+        expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('audio-play-track-1'));
+
+      expect(mockPlay).toHaveBeenCalledWith({
+        id: 'track-1',
+        name: 'test-song.mp3',
+        objectUrl: 'blob:test-url',
+        mimeType: 'audio/mpeg'
+      });
+    });
+
+    it('does not play on single click for web/electron', async () => {
+      mockDetectPlatform.mockReturnValue('web');
+      const user = userEvent.setup();
+      renderAudio();
+
+      await waitFor(() => {
+        expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('audio-play-track-1'));
+
+      expect(mockPlay).not.toHaveBeenCalled();
+    });
+
+    it('calls pause when track is double-clicked on playing track (web)', async () => {
+      mockDetectPlatform.mockReturnValue('web');
       mockUseAudio.mockReturnValue({
         currentTrack: {
           id: 'track-1',
@@ -551,12 +627,13 @@ describe('AudioPage', () => {
         expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
       });
 
-      await user.click(screen.getByTestId('audio-play-track-1'));
+      await user.dblClick(screen.getByTestId('audio-play-track-1'));
 
       expect(mockPause).toHaveBeenCalled();
     });
 
-    it('calls resume when play button is clicked on paused track', async () => {
+    it('calls resume when track is double-clicked on paused track (web)', async () => {
+      mockDetectPlatform.mockReturnValue('web');
       mockUseAudio.mockReturnValue({
         currentTrack: {
           id: 'track-1',
@@ -577,7 +654,7 @@ describe('AudioPage', () => {
         expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
       });
 
-      await user.click(screen.getByTestId('audio-play-track-1'));
+      await user.dblClick(screen.getByTestId('audio-play-track-1'));
 
       expect(mockResume).toHaveBeenCalled();
     });
@@ -601,6 +678,121 @@ describe('AudioPage', () => {
       await waitFor(() => {
         const trackElement = screen.getByTestId('audio-track-track-1');
         expect(trackElement).toHaveClass('border-primary');
+      });
+    });
+  });
+
+  describe('context menu', () => {
+    beforeEach(() => {
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_TRACK]));
+    });
+
+    it('shows context menu on right-click', async () => {
+      const user = userEvent.setup();
+      await renderAudio();
+
+      const trackRow = screen.getByTestId('audio-track-track-1');
+      await user.pointer({ keys: '[MouseRight]', target: trackRow });
+
+      await waitFor(() => {
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+    });
+
+    it('navigates to audio detail when "Get info" is clicked', async () => {
+      const user = userEvent.setup();
+      await renderAudio();
+
+      const trackRow = screen.getByTestId('audio-track-track-1');
+      await user.pointer({ keys: '[MouseRight]', target: trackRow });
+
+      await waitFor(() => {
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Get info'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/audio/track-1', {
+        state: { from: '/', fromLabel: 'Back to Audio' }
+      });
+    });
+
+    it('deletes track and removes from list when "Delete" is clicked', async () => {
+      const user = userEvent.setup();
+      await renderAudio();
+
+      expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
+
+      const trackRow = screen.getByTestId('audio-track-track-1');
+      await user.pointer({ keys: '[MouseRight]', target: trackRow });
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Delete'));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalled();
+        expect(screen.queryByText('test-song.mp3')).not.toBeInTheDocument();
+      });
+    });
+
+    it('revokes object URLs when deleting a track', async () => {
+      const user = userEvent.setup();
+      await renderAudio();
+
+      const trackRow = screen.getByTestId('audio-track-track-1');
+      await user.pointer({ keys: '[MouseRight]', target: trackRow });
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Delete'));
+
+      await waitFor(() => {
+        expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test-url');
+      });
+    });
+
+    it('closes context menu when clicking elsewhere', async () => {
+      const user = userEvent.setup();
+      await renderAudio();
+
+      const trackRow = screen.getByTestId('audio-track-track-1');
+      await user.pointer({ keys: '[MouseRight]', target: trackRow });
+
+      await waitFor(() => {
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+      });
+
+      // Click the backdrop
+      await user.click(
+        screen.getByRole('button', { name: /close context menu/i })
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText('Get info')).not.toBeInTheDocument();
+      });
+    });
+
+    it('closes context menu when pressing Escape', async () => {
+      const user = userEvent.setup();
+      await renderAudio();
+
+      const trackRow = screen.getByTestId('audio-track-track-1');
+      await user.pointer({ keys: '[MouseRight]', target: trackRow });
+
+      await waitFor(() => {
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{Escape}');
+
+      await waitFor(() => {
+        expect(screen.queryByText('Get info')).not.toBeInTheDocument();
       });
     });
   });
