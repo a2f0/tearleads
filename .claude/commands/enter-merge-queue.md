@@ -205,8 +205,6 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - Show the PR URL
    - Output a brief description of what was merged (1-3 sentences summarizing the changes based on the PR title and commits)
 
-7. **Compact the conversation**: Run `/compact` to summarize the conversation and free up context for new tasks. This is important because merge queue sessions can consume significant context with CI logs, Gemini feedback, and iterative fixes.
-
 ## Opening GitHub Issues
 
 Create issues for problems that shouldn't block the PR (flaky tests, infrastructure issues, tech debt). Use labels: `flaky-test`, `ci`, `bug`, `enhancement`. Don't let issue creation block the merge - create it and continue.
