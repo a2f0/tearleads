@@ -24,3 +24,4 @@ pnpm --filter @rapid/ui test:coverage
 pnpm --filter @rapid/api test:coverage
 pnpm --filter @rapid/client test:coverage
 pnpm --filter @rapid/chrome-extension test:coverage
+pnpm --filter @rapid/website test:coverage
