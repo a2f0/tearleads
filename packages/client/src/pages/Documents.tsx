@@ -1,6 +1,13 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, desc, eq } from 'drizzle-orm';
-import { Download, FileText, Info, Loader2, Share2 } from 'lucide-react';
+import {
+  Download,
+  FileText,
+  Info,
+  Loader2,
+  Share2,
+  Trash2
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
@@ -316,6 +323,25 @@ export function Documents() {
     }
   }, [contextMenu, navigateWithFrom]);
 
+  const handleDelete = useCallback(async () => {
+    if (!contextMenu) return;
+
+    try {
+      const db = getDatabase();
+      await db
+        .update(files)
+        .set({ deleted: true })
+        .where(eq(files.id, contextMenu.document.id));
+
+      setHasFetched(false);
+    } catch (err) {
+      console.error('Failed to delete document:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu]);
+
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);
   }, []);
@@ -479,6 +505,12 @@ export function Documents() {
             onClick={handleGetInfo}
           >
             Get info
+          </ContextMenuItem>
+          <ContextMenuItem
+            icon={<Trash2 className="h-4 w-4" />}
+            onClick={handleDelete}
+          >
+            Delete
           </ContextMenuItem>
         </ContextMenu>
       )}
