@@ -44,6 +44,8 @@ interface PhotoWithUrl extends PhotoInfo {
   objectUrl: string;
 }
 
+type GridItem = PhotoWithUrl | 'dropzone';
+
 const ROW_HEIGHT_ESTIMATE = 120;
 
 const getColumnCount = (width: number) => {
@@ -91,9 +93,11 @@ export function Photos() {
   const columns = useColumnCount();
 
   const photoRows = useMemo(() => {
-    const rows: PhotoWithUrl[][] = [];
-    for (let i = 0; i < photos.length; i += columns) {
-      rows.push(photos.slice(i, i + columns));
+    const rows: GridItem[][] = [];
+    // Include the dropzone as the last item in the grid
+    const allItems: GridItem[] = [...photos, 'dropzone'];
+    for (let i = 0; i < allItems.length; i += columns) {
+      rows.push(allItems.slice(i, i + columns));
     }
     return rows;
   }, [photos, columns]);
@@ -471,70 +475,74 @@ export function Photos() {
                       }}
                     >
                       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-                        {row.map((photo) => (
-                          // biome-ignore lint/a11y/useSemanticElements: Cannot use button here because this container has nested Download/Share buttons
-                          <div
-                            key={photo.id}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => handlePhotoClick(photo)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                handlePhotoClick(photo);
-                              }
-                            }}
-                            onContextMenu={(e) => handleContextMenu(e, photo)}
-                            className="group relative cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
-                            style={{ aspectRatio: '1 / 1' }}
-                          >
-                            <img
-                              src={photo.objectUrl}
-                              alt={photo.name}
-                              className="absolute inset-0 h-full w-full object-cover"
+                        {row.map((item) =>
+                          item === 'dropzone' ? (
+                            <Dropzone
+                              key="dropzone"
+                              onFilesSelected={handleFilesSelected}
+                              accept="image/*"
+                              multiple={true}
+                              disabled={uploading}
+                              label="photos"
+                              source="photos"
+                              compact
                             />
-                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
-                              <div className="flex items-center gap-1">
-                                <p className="min-w-0 flex-1 truncate text-white text-xs">
-                                  {photo.name}
-                                </p>
-                                <button
-                                  type="button"
-                                  onClick={(e) => handleDownload(photo, e)}
-                                  className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
-                                  title="Download"
-                                >
-                                  <Download className="h-3.5 w-3.5" />
-                                </button>
-                                {canShare && (
+                          ) : (
+                            // biome-ignore lint/a11y/useSemanticElements: Cannot use button here because this container has nested Download/Share buttons
+                            <div
+                              key={item.id}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => handlePhotoClick(item)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  handlePhotoClick(item);
+                                }
+                              }}
+                              onContextMenu={(e) => handleContextMenu(e, item)}
+                              className="group relative cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2"
+                              style={{ aspectRatio: '1 / 1' }}
+                            >
+                              <img
+                                src={item.objectUrl}
+                                alt={item.name}
+                                className="absolute inset-0 h-full w-full object-cover"
+                              />
+                              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
+                                <div className="flex items-center gap-1">
+                                  <p className="min-w-0 flex-1 truncate text-white text-xs">
+                                    {item.name}
+                                  </p>
                                   <button
                                     type="button"
-                                    onClick={(e) => handleShare(photo, e)}
+                                    onClick={(e) => handleDownload(item, e)}
                                     className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
-                                    title="Share"
+                                    title="Download"
                                   >
-                                    <Share2 className="h-3.5 w-3.5" />
+                                    <Download className="h-3.5 w-3.5" />
                                   </button>
-                                )}
+                                  {canShare && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleShare(item, e)}
+                                      className="shrink-0 rounded p-1 text-white/80 hover:bg-white/20 hover:text-white"
+                                      title="Share"
+                                    >
+                                      <Share2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
             </div>
-            <Dropzone
-              onFilesSelected={handleFilesSelected}
-              accept="image/*"
-              multiple={true}
-              disabled={uploading}
-              label="photos"
-              source="photos"
-              compact
-            />
           </div>
         ))}
 
