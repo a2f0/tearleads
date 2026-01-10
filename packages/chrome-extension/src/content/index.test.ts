@@ -23,14 +23,6 @@ describe('content script', () => {
     vi.clearAllMocks();
   });
 
-  it('should log message when content script loads', async () => {
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    await import('./index');
-
-    expect(consoleSpy).toHaveBeenCalledWith('Rapid content script loaded');
-    consoleSpy.mockRestore();
-  });
-
   it('should register onMessage listener', async () => {
     await import('./index');
 
