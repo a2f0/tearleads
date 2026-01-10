@@ -3,16 +3,15 @@
  */
 
 import { Capacitor } from '@capacitor/core';
+import { assertPlainArrayBuffer } from '@rapid/shared';
 
 /**
  * Compute SHA-256 hash of file data.
  * Used for deduplication and integrity verification.
  */
 export async function computeContentHash(data: Uint8Array): Promise<string> {
-  // Copy to plain ArrayBuffer for TypeScript compatibility with Web Crypto types
-  const buffer = new ArrayBuffer(data.byteLength);
-  new Uint8Array(buffer).set(data);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  assertPlainArrayBuffer(data);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   return Array.from(new Uint8Array(hashBuffer))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
@@ -37,7 +36,8 @@ export function generateBackupFilename(): string {
  * Download a file in the browser using a blob URL.
  */
 export function downloadFile(data: Uint8Array, filename: string): void {
-  const blob = new Blob([data.slice()], {
+  assertPlainArrayBuffer(data);
+  const blob = new Blob([data], {
     type: 'application/octet-stream'
   });
   const url = URL.createObjectURL(blob);
@@ -94,7 +94,8 @@ export async function shareFile(
     return false;
   }
 
-  const file = new File([data.slice()], filename, { type: mimeType });
+  assertPlainArrayBuffer(data);
+  const file = new File([data], filename, { type: mimeType });
 
   if (!navigator.canShare({ files: [file] })) {
     return false;

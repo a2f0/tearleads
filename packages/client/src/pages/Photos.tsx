@@ -1,3 +1,4 @@
+import { assertPlainArrayBuffer } from '@rapid/shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, desc, eq, like } from 'drizzle-orm';
 import { Download, ImageIcon, Info, Loader2, Share2 } from 'lucide-react';
@@ -266,9 +267,8 @@ export function Photos() {
                 ? 'image/jpeg'
                 : photo.mimeType;
               const data = await storage.retrieve(pathToLoad);
-              const buffer = new ArrayBuffer(data.byteLength);
-              new Uint8Array(buffer).set(data);
-              const blob = new Blob([buffer], { type: mimeType });
+              assertPlainArrayBuffer(data);
+              const blob = new Blob([data], { type: mimeType });
               const objectUrl = URL.createObjectURL(blob);
               return { ...photo, objectUrl };
             } catch (err) {

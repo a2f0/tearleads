@@ -3,6 +3,8 @@
  * Uses AES-256-GCM for authenticated encryption.
  */
 
+import { assertPlainArrayBuffer } from '@rapid/shared';
+
 const ALGORITHM = 'AES-GCM';
 const KEY_LENGTH = 256;
 const IV_LENGTH = 12; // 96 bits recommended for AES-GCM
@@ -49,14 +51,12 @@ export async function deriveKeyFromPassword(
     ['deriveBits', 'deriveKey']
   );
 
-  // Derive AES-GCM key - copy salt to plain ArrayBuffer for Web Crypto compatibility
-  const saltBuffer = new ArrayBuffer(salt.byteLength);
-  new Uint8Array(saltBuffer).set(salt);
+  assertPlainArrayBuffer(salt);
 
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: saltBuffer,
+      salt,
       iterations: PBKDF2_ITERATIONS,
       hash: 'SHA-256'
     },
@@ -79,13 +79,11 @@ export async function exportKey(key: CryptoKey): Promise<Uint8Array> {
  * Import raw key bytes as a CryptoKey.
  */
 export async function importKey(keyBytes: Uint8Array): Promise<CryptoKey> {
-  // Copy to plain ArrayBuffer for Web Crypto compatibility
-  const keyBuffer = new ArrayBuffer(keyBytes.byteLength);
-  new Uint8Array(keyBuffer).set(keyBytes);
+  assertPlainArrayBuffer(keyBytes);
 
   return crypto.subtle.importKey(
     'raw',
-    keyBuffer,
+    keyBytes,
     { name: ALGORITHM, length: KEY_LENGTH },
     true,
     ['encrypt', 'decrypt']
@@ -103,23 +101,19 @@ export async function encrypt(
 ): Promise<Uint8Array> {
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
 
-  // Build algorithm params - copy additionalData to plain ArrayBuffer if provided
+  assertPlainArrayBuffer(data);
+
   const algorithm: AesGcmParams = {
     name: ALGORITHM,
     iv,
     tagLength: TAG_LENGTH
   };
   if (additionalData) {
-    const aadBuffer = new ArrayBuffer(additionalData.byteLength);
-    new Uint8Array(aadBuffer).set(additionalData);
-    algorithm.additionalData = aadBuffer;
+    assertPlainArrayBuffer(additionalData);
+    algorithm.additionalData = additionalData;
   }
 
-  // Copy data to plain ArrayBuffer for Web Crypto compatibility
-  const dataBuffer = new ArrayBuffer(data.byteLength);
-  new Uint8Array(dataBuffer).set(data);
-
-  const ciphertext = await crypto.subtle.encrypt(algorithm, key, dataBuffer);
+  const ciphertext = await crypto.subtle.encrypt(algorithm, key, data);
 
   // Prepend IV to ciphertext
   const result = new Uint8Array(IV_LENGTH + ciphertext.byteLength);
@@ -140,16 +134,14 @@ export async function decrypt(
   const iv = encryptedData.slice(0, IV_LENGTH);
   const ciphertext = encryptedData.slice(IV_LENGTH);
 
-  // Build algorithm params - copy additionalData to plain ArrayBuffer if provided
   const algorithm: AesGcmParams = {
     name: ALGORITHM,
     iv,
     tagLength: TAG_LENGTH
   };
   if (additionalData) {
-    const aadBuffer = new ArrayBuffer(additionalData.byteLength);
-    new Uint8Array(aadBuffer).set(additionalData);
-    algorithm.additionalData = aadBuffer;
+    assertPlainArrayBuffer(additionalData);
+    algorithm.additionalData = additionalData;
   }
 
   const decrypted = await crypto.subtle.decrypt(algorithm, key, ciphertext);
@@ -233,13 +225,11 @@ export async function exportWrappingKey(key: CryptoKey): Promise<Uint8Array> {
 export async function importWrappingKey(
   keyBytes: Uint8Array
 ): Promise<CryptoKey> {
-  // Copy to ArrayBuffer for Web Crypto API compatibility
-  const keyBuffer = new ArrayBuffer(keyBytes.byteLength);
-  new Uint8Array(keyBuffer).set(keyBytes);
+  assertPlainArrayBuffer(keyBytes);
 
   return crypto.subtle.importKey(
     'raw',
-    keyBuffer,
+    keyBytes,
     { name: 'AES-KW', length: 256 },
     true, // extractable for re-export if needed
     ['wrapKey', 'unwrapKey']
@@ -254,13 +244,11 @@ export async function wrapKey(
   keyToWrap: Uint8Array,
   wrappingKey: CryptoKey
 ): Promise<Uint8Array> {
-  // Import the raw key bytes as a CryptoKey so we can wrap it
-  const keyBuffer = new ArrayBuffer(keyToWrap.byteLength);
-  new Uint8Array(keyBuffer).set(keyToWrap);
+  assertPlainArrayBuffer(keyToWrap);
 
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    keyBuffer,
+    keyToWrap,
     { name: ALGORITHM, length: KEY_LENGTH },
     true, // must be extractable to wrap
     ['encrypt', 'decrypt']
@@ -281,13 +269,11 @@ export async function unwrapKey(
   wrappedKey: Uint8Array,
   wrappingKey: CryptoKey
 ): Promise<Uint8Array> {
-  // Copy to plain ArrayBuffer for Web Crypto compatibility
-  const wrappedBuffer = new ArrayBuffer(wrappedKey.byteLength);
-  new Uint8Array(wrappedBuffer).set(wrappedKey);
+  assertPlainArrayBuffer(wrappedKey);
 
   const unwrappedCryptoKey = await crypto.subtle.unwrapKey(
     'raw',
-    wrappedBuffer,
+    wrappedKey,
     wrappingKey,
     { name: 'AES-KW' },
     { name: ALGORITHM, length: KEY_LENGTH },
