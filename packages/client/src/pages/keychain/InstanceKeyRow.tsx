@@ -18,19 +18,25 @@ interface InstanceKeyRowProps {
   onDeleteSessionKeys: (instanceId: string) => void;
   isExpanded: boolean;
   onToggle: () => void;
+  onContextMenu?: (e: React.MouseEvent, info: InstanceKeyInfo) => void;
 }
 
 export function InstanceKeyRow({
   info,
   onDeleteSessionKeys,
   isExpanded,
-  onToggle
+  onToggle,
+  onContextMenu
 }: InstanceKeyRowProps) {
   const hasSessionKeys =
     info.keyStatus.wrappingKey || info.keyStatus.wrappedKey;
 
   return (
-    <div className="border-b last:border-b-0">
+    // biome-ignore lint/a11y/noStaticElementInteractions: Context menu on div is intentional
+    <div
+      className="border-b last:border-b-0"
+      onContextMenu={(e) => onContextMenu?.(e, info)}
+    >
       <div className="group flex items-center justify-between p-3 hover:bg-accent">
         <button
           type="button"
@@ -44,9 +50,6 @@ export function InstanceKeyRow({
           )}
           <Key className="h-4 w-4 text-amber-500" />
           <span className="font-medium">{info.instance.name}</span>
-          <span className="font-mono text-muted-foreground text-xs">
-            {info.instance.id.slice(0, 8)}...
-          </span>
         </button>
         {hasSessionKeys && (
           <Button
@@ -62,6 +65,9 @@ export function InstanceKeyRow({
       </div>
       {isExpanded && (
         <div className="space-y-3 bg-muted/30 px-9 py-3">
+          <p className="font-mono text-muted-foreground text-xs">
+            {info.instance.id}
+          </p>
           <div className="text-muted-foreground text-xs">
             <p>Created: {formatDate(info.instance.createdAt)}</p>
             <p>Last accessed: {formatDate(info.instance.lastAccessedAt)}</p>
