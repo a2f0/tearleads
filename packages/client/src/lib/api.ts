@@ -14,7 +14,9 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
   const startTime = performance.now();
   const method = options?.method ?? 'GET';
-  const eventName = `api_${method.toLowerCase()}_${endpoint.replace(/^\//, '').replace(/\//g, '_')}`;
+  // Strip query params from endpoint for event name (so paginated requests share the same event type)
+  const endpointPath = endpoint.split('?')[0] ?? endpoint;
+  const eventName = `api_${method.toLowerCase()}_${endpointPath.replace(/^\//, '').replace(/\//g, '_')}`;
   let success = false;
 
   try {
