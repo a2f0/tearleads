@@ -37,7 +37,7 @@ const ROW_HEIGHT_ESTIMATE = 72;
 export function Contacts() {
   const navigate = useNavigate();
   const navigateWithFrom = useNavigateWithFrom();
-  const { isUnlocked, isLoading } = useDatabaseContext();
+  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [contacts, setContacts] = useState<ContactInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -174,12 +174,37 @@ export function Contacts() {
     [isUnlocked]
   );
 
-  // Fetch contacts on initial load and when search query changes
+  // Track the instance ID for which we've fetched contacts
+  // Using a ref avoids React's state batching issues
+  const fetchedForInstanceRef = useRef<string | null>(null);
+
+  // Fetch contacts on initial load, when search query changes, or when instance changes
   useEffect(() => {
-    if (isUnlocked) {
-      fetchContacts(debouncedSearch);
+    if (!isUnlocked) return;
+
+    // Check if we need to reset for instance change
+    if (
+      fetchedForInstanceRef.current !== currentInstanceId &&
+      fetchedForInstanceRef.current !== null
+    ) {
+      // Instance changed - clear contacts and reset state
+      setContacts([]);
+      setHasFetched(false);
+      setError(null);
+      setSearchQuery('');
+      setDebouncedSearch('');
     }
-  }, [isUnlocked, debouncedSearch, fetchContacts]);
+
+    // Update ref before fetching
+    fetchedForInstanceRef.current = currentInstanceId;
+
+    // Defer fetch to next tick to ensure database singleton is updated
+    const timeoutId = setTimeout(() => {
+      fetchContacts(debouncedSearch);
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [isUnlocked, debouncedSearch, currentInstanceId, fetchContacts]);
 
   const handleFilesSelected = useCallback(
     async (files: File[]) => {
