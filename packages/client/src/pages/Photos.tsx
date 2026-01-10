@@ -377,11 +377,11 @@ export function Photos() {
         .set({ deleted: true })
         .where(eq(files.id, contextMenu.photo.id));
 
-      setContextMenu(null);
       setHasFetched(false);
     } catch (err) {
       console.error('Failed to delete photo:', err);
       setError(err instanceof Error ? err.message : String(err));
+    } finally {
       setContextMenu(null);
     }
   }, [contextMenu]);
