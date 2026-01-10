@@ -4,6 +4,7 @@ export interface FooterProps extends React.ComponentProps<'footer'> {
   copyrightText?: string;
   version: string | undefined;
   connectionIndicator?: React.ReactNode;
+  rightAction?: React.ReactNode;
 }
 
 export function Footer({
@@ -13,6 +14,7 @@ export function Footer({
   copyrightText,
   version,
   connectionIndicator,
+  rightAction,
   ...props
 }: FooterProps) {
   return (
@@ -43,9 +45,15 @@ export function Footer({
             </p>
           )}
         </div>
-        <div className="invisible flex items-center gap-2">
-          {version && <span className="text-xs">{version}</span>}
-          {connectionIndicator && <span className="h-2 w-2" />}
+        <div
+          className={cn('flex items-center gap-2', !rightAction && 'invisible')}
+        >
+          {rightAction ?? (
+            <>
+              {version && <span className="text-xs">{version}</span>}
+              {connectionIndicator && <span className="h-2 w-2" />}
+            </>
+          )}
         </div>
       </div>
     </footer>
