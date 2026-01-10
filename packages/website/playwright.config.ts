@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const baseURL = process.env.BASE_URL || 'http://localhost:3001';
+
 /**
  * Playwright configuration for website navigation tests
  * See https://playwright.dev/docs/test-configuration
@@ -11,7 +13,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: [['html', { open: 'never' }]],
   use: {
-    baseURL: 'http://localhost:3001',
+    baseURL,
     trace: 'on-first-retry',
   },
 
@@ -23,11 +25,19 @@ export default defineConfig({
         ...(process.env.CI ? {} : { channel: 'chrome' }),
       },
     },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+    },
   ],
 
   webServer: {
     command: 'pnpm run preview',
-    url: 'http://localhost:3001',
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 30000,
   },
