@@ -1,3 +1,4 @@
+import { assertPlainArrayBuffer } from '@rapid/shared';
 import { and, desc, eq, like } from 'drizzle-orm';
 import { Loader2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -71,9 +72,8 @@ export function PhotoPicker({ onSelect, onClose }: PhotoPickerProps) {
                 ? 'image/jpeg'
                 : 'image/jpeg';
               const data = await storage.retrieve(pathToLoad);
-              const buffer = new ArrayBuffer(data.byteLength);
-              new Uint8Array(buffer).set(data);
-              const blob = new Blob([buffer], { type: mimeType });
+              assertPlainArrayBuffer(data);
+              const blob = new Blob([data], { type: mimeType });
               const objectUrl = URL.createObjectURL(blob);
               return { ...photo, objectUrl };
             } catch {
@@ -118,9 +118,8 @@ export function PhotoPicker({ onSelect, onClose }: PhotoPickerProps) {
         const storage = getFileStorage();
         // Load full image for sending to the model
         const data = await storage.retrieve(photo.storagePath);
-        const buffer = new ArrayBuffer(data.byteLength);
-        new Uint8Array(buffer).set(data);
-        const blob = new Blob([buffer], { type: 'image/jpeg' });
+        assertPlainArrayBuffer(data);
+        const blob = new Blob([data], { type: 'image/jpeg' });
 
         // Convert to base64 data URL
         const reader = new FileReader();
