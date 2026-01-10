@@ -941,4 +941,247 @@ describe('Analytics', () => {
       });
     });
   });
+
+  describe('summary table sorting', () => {
+    const mockStats = [
+      {
+        eventName: 'api_get_ping',
+        count: 10,
+        avgDurationMs: 100,
+        minDurationMs: 50,
+        maxDurationMs: 200,
+        successRate: 90
+      },
+      {
+        eventName: 'db_setup',
+        count: 5,
+        avgDurationMs: 300,
+        minDurationMs: 200,
+        maxDurationMs: 400,
+        successRate: 100
+      },
+      {
+        eventName: 'llm_completion',
+        count: 20,
+        avgDurationMs: 500,
+        minDurationMs: 100,
+        maxDurationMs: 1000,
+        successRate: 75
+      }
+    ];
+
+    beforeEach(() => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: true,
+        isLoading: false
+      });
+      mockGetEvents.mockResolvedValue([]);
+      mockGetEventStats.mockResolvedValue(mockStats);
+      mockGetDistinctEventTypes.mockResolvedValue([
+        'api_get_ping',
+        'db_setup',
+        'llm_completion'
+      ]);
+    });
+
+    it('renders summary table with all columns', async () => {
+      await renderAnalytics();
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('summary-sort-eventName')
+        ).toBeInTheDocument();
+        expect(screen.getByTestId('summary-sort-count')).toBeInTheDocument();
+        expect(
+          screen.getByTestId('summary-sort-avgDurationMs')
+        ).toBeInTheDocument();
+        expect(
+          screen.getByTestId('summary-sort-minDurationMs')
+        ).toBeInTheDocument();
+        expect(
+          screen.getByTestId('summary-sort-maxDurationMs')
+        ).toBeInTheDocument();
+        expect(
+          screen.getByTestId('summary-sort-successRate')
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('sorts summary table by count ascending then descending', async () => {
+      const user = userEvent.setup();
+      await renderAnalytics();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('summary-sort-count')).toBeInTheDocument();
+      });
+
+      // Click to sort ascending (5, 10, 20)
+      await user.click(screen.getByTestId('summary-sort-count'));
+
+      await waitFor(() => {
+        const rows = screen.getAllByTestId('summary-row');
+        expect(rows[0]).toHaveTextContent('5');
+        expect(rows[1]).toHaveTextContent('10');
+        expect(rows[2]).toHaveTextContent('20');
+      });
+
+      // Click to sort descending (20, 10, 5)
+      await user.click(screen.getByTestId('summary-sort-count'));
+
+      await waitFor(() => {
+        const rows = screen.getAllByTestId('summary-row');
+        expect(rows[0]).toHaveTextContent('20');
+        expect(rows[1]).toHaveTextContent('10');
+        expect(rows[2]).toHaveTextContent('5');
+      });
+    });
+
+    it('sorts summary table by event name alphabetically', async () => {
+      const user = userEvent.setup();
+      await renderAnalytics();
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('summary-sort-eventName')
+        ).toBeInTheDocument();
+      });
+
+      // Click to sort ascending (sorted by raw event name, not formatted name)
+      await user.click(screen.getByTestId('summary-sort-eventName'));
+
+      await waitFor(() => {
+        const rows = screen.getAllByTestId('summary-row');
+        // Sorted by raw event name alphabetically:
+        // api_get_ping < db_setup < llm_completion
+        expect(rows[0]).toHaveTextContent('API Get Ping');
+        expect(rows[1]).toHaveTextContent('Setup');
+        expect(rows[2]).toHaveTextContent('LLM Completion');
+      });
+    });
+
+    it('sorts summary table by success rate', async () => {
+      const user = userEvent.setup();
+      await renderAnalytics();
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('summary-sort-successRate')
+        ).toBeInTheDocument();
+      });
+
+      // Click to sort ascending (75%, 90%, 100%)
+      await user.click(screen.getByTestId('summary-sort-successRate'));
+
+      await waitFor(() => {
+        const rows = screen.getAllByTestId('summary-row');
+        expect(rows[0]).toHaveTextContent('75%');
+        expect(rows[1]).toHaveTextContent('90%');
+        expect(rows[2]).toHaveTextContent('100%');
+      });
+    });
+
+    it('clears summary sort on third click', async () => {
+      const user = userEvent.setup();
+      await renderAnalytics();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('summary-sort-count')).toBeInTheDocument();
+      });
+
+      // Click three times: asc -> desc -> none
+      await user.click(screen.getByTestId('summary-sort-count'));
+      await user.click(screen.getByTestId('summary-sort-count'));
+      await user.click(screen.getByTestId('summary-sort-count'));
+
+      // Should be back to original order (api_get_ping, db_setup, llm_completion)
+      await waitFor(() => {
+        const rows = screen.getAllByTestId('summary-row');
+        expect(rows[0]).toHaveTextContent('API Get Ping');
+        expect(rows[1]).toHaveTextContent('Setup');
+        expect(rows[2]).toHaveTextContent('LLM Completion');
+      });
+    });
+
+    it('sorts summary table by average duration', async () => {
+      const user = userEvent.setup();
+      await renderAnalytics();
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('summary-sort-avgDurationMs')
+        ).toBeInTheDocument();
+      });
+
+      // Click to sort ascending (100ms, 300ms, 500ms)
+      await user.click(screen.getByTestId('summary-sort-avgDurationMs'));
+
+      await waitFor(() => {
+        const rows = screen.getAllByTestId('summary-row');
+        expect(rows[0]).toHaveTextContent('100ms');
+        expect(rows[1]).toHaveTextContent('300ms');
+        expect(rows[2]).toHaveTextContent('500ms');
+      });
+    });
+  });
+
+  describe('event name formatting', () => {
+    beforeEach(() => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: true,
+        isLoading: false
+      });
+    });
+
+    it('capitalizes API acronym in event names', async () => {
+      const mockStats = [
+        {
+          eventName: 'api_get_ping',
+          count: 1,
+          avgDurationMs: 100,
+          minDurationMs: 100,
+          maxDurationMs: 100,
+          successRate: 100
+        }
+      ];
+
+      mockGetEvents.mockResolvedValue([]);
+      mockGetEventStats.mockResolvedValue(mockStats);
+      mockGetDistinctEventTypes.mockResolvedValue(['api_get_ping']);
+
+      await renderAnalytics();
+
+      await waitFor(() => {
+        // Should format as "API Get Ping" not "Api Get Ping"
+        // Text appears in both event type picker button and summary table
+        const elements = screen.getAllByText('API Get Ping');
+        expect(elements.length).toBeGreaterThan(0);
+      });
+    });
+
+    it('capitalizes LLM acronym in event names', async () => {
+      const mockStats = [
+        {
+          eventName: 'llm_completion',
+          count: 1,
+          avgDurationMs: 100,
+          minDurationMs: 100,
+          maxDurationMs: 100,
+          successRate: 100
+        }
+      ];
+
+      mockGetEvents.mockResolvedValue([]);
+      mockGetEventStats.mockResolvedValue(mockStats);
+      mockGetDistinctEventTypes.mockResolvedValue(['llm_completion']);
+
+      await renderAnalytics();
+
+      await waitFor(() => {
+        // Should format as "LLM Completion" not "Llm Completion"
+        // Text appears in both event type picker button and summary table
+        const elements = screen.getAllByText('LLM Completion');
+        expect(elements.length).toBeGreaterThan(0);
+      });
+    });
+  });
 });
