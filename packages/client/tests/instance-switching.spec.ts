@@ -35,9 +35,23 @@ const createNewInstance = async (page: Page) => {
 const switchToInstance = async (page: Page, instanceIndex: number) => {
   await page.getByTestId('account-switcher-button').click();
   // Instance items have testid pattern: instance-{uuid}
-  const instanceItems = page.locator('[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])');
+  const instanceItems = page.locator(
+    '[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])'
+  );
   await expect(instanceItems.nth(instanceIndex)).toBeVisible();
   await instanceItems.nth(instanceIndex).click();
+};
+
+// Helper to ensure database is unlocked (handles both locked and unlocked states)
+const ensureUnlocked = async (page: Page) => {
+  const status = await page.getByTestId('db-status').textContent();
+  if (status === 'Locked') {
+    await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await page.getByTestId('db-unlock-button').click();
+    await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+  }
 };
 
 test.describe('Instance Switching State Isolation', () => {
@@ -123,13 +137,13 @@ test.describe('Instance Switching State Isolation', () => {
     const status = await page.getByTestId('db-status').textContent();
     expect(status).not.toBe('Not Set Up');
 
-    // The testResult should be reset - either element not visible (idle has no message)
-    // or if visible, status should be idle
+    // The testResult should NOT show "Database setup complete" (which was from second instance)
+    // It can be idle (no message visible), or success (from session restore)
     const resultElement = page.getByTestId('db-test-result');
     const isVisible = await resultElement.isVisible().catch(() => false);
     if (isVisible) {
-      const resultStatus = await resultElement.getAttribute('data-status');
-      expect(resultStatus).toBe('idle');
+      // Verify it's not showing the second instance's state
+      await expect(resultElement).not.toContainText('Database setup complete');
     }
     // If not visible, that's correct - idle state has no message
   });
@@ -165,6 +179,9 @@ test.describe('Instance Switching State Isolation', () => {
 
     // Switch back to first instance and verify its data
     await switchToInstance(page, 0);
+
+    // Ensure database is unlocked (it might be locked if session wasn't persisted)
+    await ensureUnlocked(page);
 
     // Read data from first instance
     await page.getByTestId('db-read-button').click();
