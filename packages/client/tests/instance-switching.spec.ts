@@ -264,6 +264,26 @@ async function switchToInstanceFromAnyPage(page: Page, instanceIndex: number) {
   await instanceItems.nth(instanceIndex).click();
 }
 
+// Helper to unlock on the current page if it's locked
+async function unlockOnPageIfLocked(page: Page) {
+  const passwordInput = page.getByPlaceholder('Password');
+  if (await passwordInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await passwordInput.fill(TEST_PASSWORD);
+    const unlockButton = page.getByRole('button', { name: 'Unlock' });
+    if (await unlockButton.isVisible()) {
+      await unlockButton.click();
+    }
+  }
+}
+
+// Helper to click the refresh button on the files page
+// TODO: Automatic refresh has a race condition - investigate worker timing
+async function forceRefreshFiles(page: Page) {
+  await page.waitForTimeout(500);
+  const refreshButton = page.getByRole('button', { name: 'Refresh' });
+  await refreshButton.click();
+}
+
 test.describe('Files Route Instance Switching', () => {
   test.beforeEach(async ({ page }) => {
     // Start fresh by going to SQLite and resetting
@@ -302,9 +322,8 @@ test.describe('Files Route Instance Switching', () => {
       page.getByText('Database is not set up')
     ).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
 
-    // Go to SQLite page to set up the new instance
-    await navigateToPage(page, 'SQLite');
-    await setupDatabase(page);
+    // Set up the new instance via SQLite page
+    await setupDatabaseOnSqlitePage(page);
 
     // Go back to Files page
     await navigateToPage(page, 'Files');
@@ -336,8 +355,7 @@ test.describe('Files Route Instance Switching', () => {
     await expect(
       page.getByText('Database is not set up')
     ).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
-    await navigateToPage(page, 'SQLite');
-    await setupDatabase(page);
+    await setupDatabaseOnSqlitePage(page);
     await navigateToPage(page, 'Files');
 
     // Wait for empty state
@@ -353,24 +371,10 @@ test.describe('Files Route Instance Switching', () => {
     // Switch back to first instance
     await switchToInstanceFromAnyPage(page, 0);
 
-    // Wait for state to settle
+    // Wait for state to settle, unlock if needed, and force refresh
     await page.waitForTimeout(500);
-
-    // Check if locked and unlock if needed
-    const passwordInput = page.getByPlaceholder('Password');
-    if (await passwordInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await passwordInput.fill(TEST_PASSWORD);
-      const unlockButton = page.getByRole('button', { name: 'Unlock' });
-      if (await unlockButton.isVisible()) {
-        await unlockButton.click();
-      }
-    }
-
-    // Click refresh to force data reload after instance switch
-    // TODO: Automatic refresh has a race condition - investigate worker timing
-    await page.waitForTimeout(500);
-    const refreshButton = page.getByRole('button', { name: 'Refresh' });
-    await refreshButton.click();
+    await unlockOnPageIfLocked(page);
+    await forceRefreshFiles(page);
 
     // Verify first instance file is now visible (this is the key test!)
     await expect(page.getByText('instance1-file.png')).toBeVisible({
@@ -400,8 +404,7 @@ test.describe('Files Route Instance Switching', () => {
     await expect(
       page.getByText('Database is not set up')
     ).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
-    await navigateToPage(page, 'SQLite');
-    await setupDatabase(page);
+    await setupDatabaseOnSqlitePage(page);
     await navigateToPage(page, 'Files');
 
     // Upload file to second instance
@@ -417,23 +420,11 @@ test.describe('Files Route Instance Switching', () => {
 
     // Switch back to first instance
     await switchToInstanceFromAnyPage(page, 0);
-    await page.waitForTimeout(500);
 
-    // Unlock if needed
-    const passwordInput2 = page.getByPlaceholder('Password');
-    if (await passwordInput2.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await passwordInput2.fill(TEST_PASSWORD);
-      const unlockButton2 = page.getByRole('button', { name: 'Unlock' });
-      if (await unlockButton2.isVisible()) {
-        await unlockButton2.click();
-      }
-    }
-
-    // Click refresh to force data reload after instance switch
-    // TODO: Automatic refresh has a race condition - investigate worker timing
+    // Wait for state to settle, unlock if needed, and force refresh
     await page.waitForTimeout(500);
-    const refreshButton2 = page.getByRole('button', { name: 'Refresh' });
-    await refreshButton2.click();
+    await unlockOnPageIfLocked(page);
+    await forceRefreshFiles(page);
 
     // Verify thumbnail loads for first instance (key assertion)
     await expect(page.getByText('test-image.png')).toBeVisible({
