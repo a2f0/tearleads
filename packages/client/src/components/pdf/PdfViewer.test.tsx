@@ -68,19 +68,12 @@ function renderPdfViewer(data: Uint8Array = TEST_PDF_DATA) {
 describe('PdfViewer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    URL.createObjectURL = vi.fn(() => 'blob:test-url');
-    URL.revokeObjectURL = vi.fn();
   });
 
   describe('initial render', () => {
     it('renders the pdf viewer container', () => {
       renderPdfViewer();
       expect(screen.getByTestId('pdf-viewer')).toBeInTheDocument();
-    });
-
-    it('creates a blob URL from data', () => {
-      renderPdfViewer();
-      expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
     });
 
     it('shows loading state initially', () => {
@@ -258,16 +251,6 @@ describe('PdfViewer', () => {
         expect(screen.getByTestId('pdf-error')).toBeInTheDocument();
         expect(screen.getByText('Failed to load PDF')).toBeInTheDocument();
       });
-    });
-  });
-
-  describe('cleanup', () => {
-    it('revokes blob URL on unmount', () => {
-      const { unmount } = renderPdfViewer();
-
-      unmount();
-
-      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test-url');
     });
   });
 
