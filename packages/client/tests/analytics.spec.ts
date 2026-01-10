@@ -247,10 +247,11 @@ test.describe('Analytics page', () => {
         .or(page.getByText('Recent Events'))
     ).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
-    // Helper to click a time filter and wait for loading to complete
+    // Helper to click a time filter and wait for UI to settle
     const clickTimeFilter = async (name: string) => {
       await page.getByRole('button', { name }).click();
-      await page.waitForLoadState('networkidle', { timeout: PAGE_LOAD_TIMEOUT });
+      // Wait briefly for the filter to apply (can't use networkidle due to SSE connection)
+      await page.waitForTimeout(500);
     };
 
     // Click through different time filters
