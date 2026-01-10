@@ -98,7 +98,10 @@ test.describe('Console warnings', () => {
     const messages = await setupConsoleCapture(page);
 
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    // Wait for page content to load (can't use networkidle due to SSE connection)
+    await page.waitForLoadState('domcontentloaded');
+    // Give time for initial render and any async operations
+    await page.waitForTimeout(1000);
 
     const relevantMessages = filterIgnoredWarnings(messages);
 

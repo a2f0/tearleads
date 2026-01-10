@@ -67,4 +67,34 @@ describe('Footer', () => {
 
     expect(screen.getByRole('contentinfo')).toHaveClass('custom-class');
   });
+
+  it('renders connection indicator when provided', () => {
+    render(
+      <Footer
+        version="1.0.0"
+        connectionIndicator={<span data-testid="indicator">Status</span>}
+      />
+    );
+
+    expect(screen.getByTestId('indicator')).toBeInTheDocument();
+  });
+
+  it('does not render connection indicator when not provided', () => {
+    render(<Footer version="1.0.0" />);
+
+    expect(screen.queryByTestId('indicator')).not.toBeInTheDocument();
+  });
+
+  it('renders version and connection indicator together', () => {
+    render(
+      <Footer
+        version="1.0.0"
+        connectionIndicator={<span data-testid="indicator">Connected</span>}
+      />
+    );
+
+    const versionElements = screen.getAllByText('1.0.0');
+    expect(versionElements.length).toBeGreaterThan(0);
+    expect(screen.getByTestId('indicator')).toBeInTheDocument();
+  });
 });

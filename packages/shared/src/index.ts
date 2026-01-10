@@ -28,6 +28,20 @@ export interface RedisKeyValueResponse {
   value: string | string[] | Record<string, string> | null;
 }
 
+// SSE types
+export type SSEConnectionState = 'connected' | 'connecting' | 'disconnected';
+
+export interface BroadcastMessage {
+  type: string;
+  payload: unknown;
+  timestamp: string;
+}
+
+export interface SSEMessage {
+  channel: string;
+  message: BroadcastMessage;
+}
+
 // Utilities
 export function formatDate(date: Date): string {
   return date.toISOString();
