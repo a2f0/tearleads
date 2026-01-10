@@ -239,11 +239,45 @@ export function Documents() {
     }
   }, [isUnlocked, currentInstanceId]);
 
+  // Track the instance ID for which we've fetched documents
+  // Using a ref avoids React's state batching issues
+  const fetchedForInstanceRef = useRef<string | null>(null);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: documents and hasFetched intentionally excluded to prevent re-fetch loops
   useEffect(() => {
-    if (isUnlocked && !hasFetched && !loading) {
-      fetchDocuments();
+    // Check if we need to fetch for this instance
+    const needsFetch =
+      isUnlocked &&
+      !loading &&
+      (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
+
+    if (needsFetch) {
+      // If instance changed, cleanup old thumbnail URLs first
+      if (
+        fetchedForInstanceRef.current !== currentInstanceId &&
+        fetchedForInstanceRef.current !== null
+      ) {
+        for (const doc of documents) {
+          if (doc.thumbnailUrl) {
+            URL.revokeObjectURL(doc.thumbnailUrl);
+          }
+        }
+        setDocuments([]);
+        setError(null);
+      }
+
+      // Update ref before fetching to prevent re-entry
+      fetchedForInstanceRef.current = currentInstanceId;
+
+      // Defer fetch to next tick to ensure database singleton is updated
+      const timeoutId = setTimeout(() => {
+        fetchDocuments();
+      }, 0);
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [isUnlocked, hasFetched, loading, fetchDocuments]);
+    return undefined;
+  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchDocuments]);
 
   // Cleanup object URLs on unmount
   useEffect(() => {
