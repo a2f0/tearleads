@@ -6,7 +6,7 @@ import {
   ZoomOut
 } from 'lucide-react';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -30,17 +30,13 @@ export function PdfViewer({ data, className }: PdfViewerProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const pdfUrl = useMemo(() => {
+  // Create a stable reference to the PDF data for react-pdf.
+  // Using { data: ArrayBuffer } format avoids blob URL race conditions.
+  const pdfData = useMemo(() => {
     const buffer = new ArrayBuffer(data.byteLength);
     new Uint8Array(buffer).set(data);
-    return URL.createObjectURL(new Blob([buffer], { type: 'application/pdf' }));
+    return { data: buffer };
   }, [data]);
-
-  useEffect(() => {
-    return () => {
-      URL.revokeObjectURL(pdfUrl);
-    };
-  }, [pdfUrl]);
 
   const onDocumentLoadSuccess = useCallback(
     ({ numPages: pages }: { numPages: number }) => {
@@ -157,7 +153,7 @@ export function PdfViewer({ data, className }: PdfViewerProps) {
         data-testid="pdf-container"
       >
         <Document
-          file={pdfUrl}
+          file={pdfData}
           onLoadSuccess={onDocumentLoadSuccess}
           onLoadError={onDocumentLoadError}
           loading={

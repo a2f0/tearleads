@@ -10,7 +10,7 @@ import {
   Share2,
   Trash2
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DeletePhotoDialog } from '@/components/DeletePhotoDialog';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -63,6 +63,11 @@ export function PhotoDetail() {
   const [classificationResult, setClassificationResult] =
     useState<ClassificationResult | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  // Track all created blob URLs to revoke on unmount.
+  // We don't revoke on objectUrl changes because the browser may still be
+  // loading the image asynchronously, causing display issues.
+  const urlsToRevoke = useRef<string[]>([]);
 
   // Check if Web Share API is available on mount
   useEffect(() => {
@@ -230,6 +235,7 @@ export function PhotoDetail() {
       assertPlainArrayBuffer(data);
       const blob = new Blob([data], { type: photoInfo.mimeType });
       const url = URL.createObjectURL(blob);
+      urlsToRevoke.current.push(url);
       setObjectUrl(url);
     } catch (err) {
       console.error('Failed to fetch photo:', err);
@@ -245,14 +251,14 @@ export function PhotoDetail() {
     }
   }, [isUnlocked, id, fetchPhoto]);
 
-  // Cleanup object URL on unmount
+  // Only revoke URLs on unmount, not on objectUrl changes
   useEffect(() => {
     return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
+      for (const url of urlsToRevoke.current) {
+        URL.revokeObjectURL(url);
       }
     };
-  }, [objectUrl]);
+  }, []);
 
   return (
     <div className="space-y-6">
