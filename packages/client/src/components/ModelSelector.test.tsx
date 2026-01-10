@@ -86,7 +86,7 @@ describe('ModelSelector', () => {
       expect(screen.getByText('Available Models')).toBeInTheDocument();
     });
 
-    it('shows all recommended models in dropdown', async () => {
+    it('shows chat models in dropdown (excludes classification models)', async () => {
       const user = userEvent.setup();
       render(<ModelSelector modelDisplayName={undefined} />);
 
