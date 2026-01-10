@@ -30,8 +30,7 @@ import { formatFileSize } from '@/lib/utils';
 import {
   createRetrieveLogger,
   getFileStorage,
-  initializeFileStorage,
-  isFileStorageInitialized
+  initializeFileStorage
 } from '@/storage/opfs';
 
 interface FileInfo {
@@ -125,9 +124,9 @@ export function Files() {
       if (!encryptionKey) throw new Error('Database not unlocked');
       if (!currentInstanceId) throw new Error('No active instance');
 
-      if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey, currentInstanceId);
-      }
+      // Always initialize storage for the current instance - this also handles
+      // switching instances where storage was initialized for a different instance
+      await initializeFileStorage(encryptionKey, currentInstanceId);
 
       const storage = getFileStorage();
       const logger = createRetrieveLogger(db);
@@ -163,11 +162,48 @@ export function Files() {
     }
   }, [isUnlocked, currentInstanceId]);
 
+  // Track the instance ID for which we've fetched files
+  // Using a ref avoids React's state batching issues
+  const fetchedForInstanceRef = useRef<string | null>(null);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: files and hasFetched intentionally excluded to prevent re-fetch loops
   useEffect(() => {
-    if (isUnlocked && !hasFetched && !loading) {
-      fetchFiles();
+    // Check if we need to fetch for this instance
+    const needsFetch =
+      isUnlocked &&
+      !loading &&
+      (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
+
+    if (needsFetch) {
+      // If instance changed, cleanup old thumbnails first
+      if (
+        fetchedForInstanceRef.current !== currentInstanceId &&
+        fetchedForInstanceRef.current !== null
+      ) {
+        for (const file of files) {
+          if (file.thumbnailUrl) {
+            URL.revokeObjectURL(file.thumbnailUrl);
+          }
+        }
+        setFiles([]);
+        setError(null);
+      }
+
+      // Update ref before fetching to prevent re-entry
+      fetchedForInstanceRef.current = currentInstanceId;
+      setHasFetched(false); // Reset so fetchFiles sets it to true
+
+      // Defer fetch to next tick to ensure database singleton is updated
+      // This handles the race condition where React state updates before
+      // the database adapter finishes switching instances
+      const timeoutId = setTimeout(() => {
+        fetchFiles();
+      }, 0);
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [isUnlocked, hasFetched, loading, fetchFiles]);
+    return undefined;
+  }, [isUnlocked, loading, currentInstanceId, fetchFiles]);
 
   // Cleanup thumbnail URLs on unmount
   useEffect(() => {
