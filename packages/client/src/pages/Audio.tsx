@@ -94,12 +94,7 @@ export function AudioPage() {
 
   const virtualItems = virtualizer.getVirtualItems();
 
-  const supportsDragDrop = useMemo(() => {
-    const platform = detectPlatform();
-    return platform === 'web' || platform === 'electron';
-  }, []);
-
-  const requiresDoubleClick = useMemo(() => {
+  const isDesktopPlatform = useMemo(() => {
     const platform = detectPlatform();
     return platform === 'web' || platform === 'electron';
   }, []);
@@ -300,19 +295,17 @@ export function AudioPage() {
     setContextMenu(null);
   }, []);
 
-  const handleGetInfo = useCallback(() => {
-    if (contextMenu) {
-      navigateWithFrom(`/audio/${contextMenu.track.id}`, {
+  const handleGetInfo = useCallback(
+    (track: AudioWithUrl) => {
+      navigateWithFrom(`/audio/${track.id}`, {
         fromLabel: 'Back to Audio'
       });
       setContextMenu(null);
-    }
-  }, [contextMenu, navigateWithFrom]);
+    },
+    [navigateWithFrom]
+  );
 
-  const handleDelete = useCallback(async () => {
-    if (!contextMenu) return;
-
-    const trackToDelete = contextMenu.track;
+  const handleDelete = useCallback(async (trackToDelete: AudioWithUrl) => {
     setContextMenu(null);
 
     try {
@@ -338,7 +331,7 @@ export function AudioPage() {
       console.error('Failed to delete track:', err);
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [contextMenu]);
+  }, []);
 
   return (
     <div className="flex h-full flex-col space-y-6">
@@ -390,7 +383,7 @@ export function AudioPage() {
               multiple={false}
               disabled={uploading}
             />
-            {supportsDragDrop && (
+            {isDesktopPlatform && (
               <p className="text-center text-muted-foreground text-sm">
                 Drop an audio file here to add it to your library
               </p>
@@ -434,12 +427,12 @@ export function AudioPage() {
                           <button
                             type="button"
                             onClick={
-                              requiresDoubleClick
+                              isDesktopPlatform
                                 ? undefined
                                 : () => handlePlayPause(track)
                             }
                             onDoubleClick={
-                              requiresDoubleClick
+                              isDesktopPlatform
                                 ? () => handlePlayPause(track)
                                 : undefined
                             }
@@ -498,13 +491,13 @@ export function AudioPage() {
         >
           <ContextMenuItem
             icon={<Info className="h-4 w-4" />}
-            onClick={handleGetInfo}
+            onClick={() => handleGetInfo(contextMenu.track)}
           >
             Get info
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Trash2 className="h-4 w-4" />}
-            onClick={handleDelete}
+            onClick={() => handleDelete(contextMenu.track)}
           >
             Delete
           </ContextMenuItem>

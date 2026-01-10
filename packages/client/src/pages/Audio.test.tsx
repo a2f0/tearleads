@@ -687,29 +687,32 @@ describe('AudioPage', () => {
       mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_TRACK]));
     });
 
+    async function openContextMenuOnTrack(
+      user: ReturnType<typeof userEvent.setup>,
+      trackId: string
+    ) {
+      const trackRow = screen.getByTestId(`audio-track-${trackId}`);
+      await user.pointer({ keys: '[MouseRight]', target: trackRow });
+      await waitFor(() => {
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+      });
+    }
+
     it('shows context menu on right-click', async () => {
       const user = userEvent.setup();
       await renderAudio();
 
-      const trackRow = screen.getByTestId('audio-track-track-1');
-      await user.pointer({ keys: '[MouseRight]', target: trackRow });
+      await openContextMenuOnTrack(user, 'track-1');
 
-      await waitFor(() => {
-        expect(screen.getByText('Get info')).toBeInTheDocument();
-        expect(screen.getByText('Delete')).toBeInTheDocument();
-      });
+      expect(screen.getByText('Get info')).toBeInTheDocument();
+      expect(screen.getByText('Delete')).toBeInTheDocument();
     });
 
     it('navigates to audio detail when "Get info" is clicked', async () => {
       const user = userEvent.setup();
       await renderAudio();
 
-      const trackRow = screen.getByTestId('audio-track-track-1');
-      await user.pointer({ keys: '[MouseRight]', target: trackRow });
-
-      await waitFor(() => {
-        expect(screen.getByText('Get info')).toBeInTheDocument();
-      });
+      await openContextMenuOnTrack(user, 'track-1');
 
       await user.click(screen.getByText('Get info'));
 
@@ -724,12 +727,7 @@ describe('AudioPage', () => {
 
       expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
 
-      const trackRow = screen.getByTestId('audio-track-track-1');
-      await user.pointer({ keys: '[MouseRight]', target: trackRow });
-
-      await waitFor(() => {
-        expect(screen.getByText('Delete')).toBeInTheDocument();
-      });
+      await openContextMenuOnTrack(user, 'track-1');
 
       await user.click(screen.getByText('Delete'));
 
@@ -743,12 +741,7 @@ describe('AudioPage', () => {
       const user = userEvent.setup();
       await renderAudio();
 
-      const trackRow = screen.getByTestId('audio-track-track-1');
-      await user.pointer({ keys: '[MouseRight]', target: trackRow });
-
-      await waitFor(() => {
-        expect(screen.getByText('Delete')).toBeInTheDocument();
-      });
+      await openContextMenuOnTrack(user, 'track-1');
 
       await user.click(screen.getByText('Delete'));
 
@@ -761,12 +754,7 @@ describe('AudioPage', () => {
       const user = userEvent.setup();
       await renderAudio();
 
-      const trackRow = screen.getByTestId('audio-track-track-1');
-      await user.pointer({ keys: '[MouseRight]', target: trackRow });
-
-      await waitFor(() => {
-        expect(screen.getByText('Get info')).toBeInTheDocument();
-      });
+      await openContextMenuOnTrack(user, 'track-1');
 
       // Click the backdrop
       await user.click(
@@ -782,12 +770,7 @@ describe('AudioPage', () => {
       const user = userEvent.setup();
       await renderAudio();
 
-      const trackRow = screen.getByTestId('audio-track-track-1');
-      await user.pointer({ keys: '[MouseRight]', target: trackRow });
-
-      await waitFor(() => {
-        expect(screen.getByText('Get info')).toBeInTheDocument();
-      });
+      await openContextMenuOnTrack(user, 'track-1');
 
       await user.keyboard('{Escape}');
 
