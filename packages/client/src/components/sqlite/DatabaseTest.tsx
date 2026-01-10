@@ -4,7 +4,13 @@
  */
 
 import { Check, Copy, Eye, EyeOff, Fingerprint } from 'lucide-react';
-import { type ChangeEvent, useCallback, useEffect, useState } from 'react';
+import {
+  type ChangeEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState
+} from 'react';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
 import { isBiometricAvailable } from '@/db/crypto/key-manager';
@@ -35,6 +41,7 @@ export function DatabaseTest() {
     isSetUp,
     isUnlocked,
     hasPersistedSession,
+    currentInstanceId,
     setup,
     unlock,
     restoreSession,
@@ -74,13 +81,28 @@ export function DatabaseTest() {
     }
   }, [isMobile]);
 
-  // Reset test state when switching instances using pub-sub for reliable notification
+  // Track previous instance ID to detect changes
+  const prevInstanceIdRef = useRef(currentInstanceId);
+
+  // Reset test state when switching instances
   const resetTestState = useCallback(() => {
     setTestResult({ status: 'idle', message: '' });
     setTestData(null);
   }, []);
 
+  // Primary mechanism: pub-sub notification (fires synchronously on switch)
   useOnInstanceChange(resetTestState);
+
+  // Fallback mechanism: detect context change via useEffect
+  useEffect(() => {
+    if (
+      prevInstanceIdRef.current !== null &&
+      currentInstanceId !== prevInstanceIdRef.current
+    ) {
+      resetTestState();
+    }
+    prevInstanceIdRef.current = currentInstanceId;
+  }, [currentInstanceId, resetTestState]);
 
   useEffect(() => {
     if (!copied) return;
