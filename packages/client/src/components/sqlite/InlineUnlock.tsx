@@ -146,6 +146,7 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
         {/* Hidden username field for accessibility - suppresses browser warning */}
         <input
           type="text"
+          name="username"
           autoComplete="username"
           aria-hidden="true"
           tabIndex={-1}
