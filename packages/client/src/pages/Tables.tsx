@@ -1,6 +1,6 @@
 import { isRecord, toFiniteNumber } from '@rapid/shared';
 import { ChevronRight, Table2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { LinkWithFrom } from '@/components/ui/back-link';
 import { RefreshButton } from '@/components/ui/refresh-button';
@@ -35,10 +35,13 @@ function getRowNumber(row: unknown, key: string): number | null {
 }
 
 export function Tables() {
-  const { isUnlocked, isLoading } = useDatabaseContext();
+  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Track the instance ID for which we've fetched tables
+  const fetchedForInstanceRef = useRef<string | null>(null);
 
   const fetchTables = useCallback(async () => {
     if (!isUnlocked) return;
@@ -84,11 +87,37 @@ export function Tables() {
     }
   }, [isUnlocked]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tables intentionally excluded to prevent re-fetch loops
   useEffect(() => {
-    if (isUnlocked && tables.length === 0 && !loading && !error) {
-      fetchTables();
+    if (!isUnlocked) return;
+
+    // Check if we need to fetch for this instance
+    const needsFetch =
+      (tables.length === 0 && !error) ||
+      fetchedForInstanceRef.current !== currentInstanceId;
+
+    if (needsFetch && !loading) {
+      // If instance changed, clear tables
+      if (
+        fetchedForInstanceRef.current !== currentInstanceId &&
+        fetchedForInstanceRef.current !== null
+      ) {
+        setTables([]);
+        setError(null);
+      }
+
+      // Update ref before fetching
+      fetchedForInstanceRef.current = currentInstanceId;
+
+      // Defer fetch to next tick to ensure database singleton is updated
+      const timeoutId = setTimeout(() => {
+        fetchTables();
+      }, 0);
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [isUnlocked, tables.length, loading, fetchTables, error]);
+    return undefined;
+  }, [isUnlocked, currentInstanceId, loading, fetchTables, error]);
 
   return (
     <div className="space-y-6">
