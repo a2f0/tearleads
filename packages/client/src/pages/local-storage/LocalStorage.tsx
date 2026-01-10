@@ -117,9 +117,13 @@ export function LocalStorage() {
         </div>
         <div className="flex gap-2">
           {entries.length > 0 && (
-            <Button variant="destructive" size="sm" onClick={handleClearAll}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              Clear All
+            <Button
+              variant="destructive"
+              size="icon"
+              onClick={handleClearAll}
+              aria-label="Clear all localStorage"
+            >
+              <Trash2 className="h-4 w-4" />
             </Button>
           )}
           <RefreshButton onClick={fetchStorageContents} loading={loading} />
