@@ -1,6 +1,14 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { BarChart3, CheckCircle, Clock, Trash2, XCircle } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  CheckCircle,
+  Clock,
+  Trash2,
+  XCircle
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DurationChart } from '@/components/duration-chart';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
@@ -17,6 +25,29 @@ import {
 } from '@/db/analytics';
 import { useDatabaseContext } from '@/db/hooks';
 import { SortIcon, type SortState } from './SortIcon';
+
+type SummarySortColumn = keyof EventStats;
+interface SummarySortState {
+  column: SummarySortColumn | null;
+  direction: 'asc' | 'desc' | null;
+}
+
+function SummarySortIcon({
+  column,
+  sort
+}: {
+  column: SummarySortColumn;
+  sort: SummarySortState;
+}) {
+  if (sort.column !== column) {
+    return <ArrowUpDown className="h-3 w-3 opacity-50" />;
+  }
+  return sort.direction === 'asc' ? (
+    <ArrowUp className="h-3 w-3" />
+  ) : (
+    <ArrowDown className="h-3 w-3" />
+  );
+}
 
 type TimeFilter = 'hour' | 'day' | 'week' | 'all';
 
@@ -62,6 +93,10 @@ export function Analytics() {
   const [error, setError] = useState<string | null>(null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('day');
   const [sort, setSort] = useState<SortState>({
+    column: null,
+    direction: null
+  });
+  const [summarySort, setSummarySort] = useState<SummarySortState>({
     column: null,
     direction: null
   });
@@ -166,6 +201,18 @@ export function Analytics() {
     });
   }, []);
 
+  const handleSummarySort = useCallback((column: SummarySortColumn) => {
+    setSummarySort((prev) => {
+      if (prev.column !== column) {
+        return { column, direction: 'asc' };
+      }
+      if (prev.direction === 'asc') {
+        return { column, direction: 'desc' };
+      }
+      return { column: null, direction: null };
+    });
+  }, []);
+
   const toggleEventType = useCallback((eventType: string) => {
     setSelectedEventTypes((prev) => {
       const next = new Set(prev);
@@ -189,6 +236,28 @@ export function Analytics() {
   const filteredStats = stats.filter((stat) =>
     selectedEventTypes.has(stat.eventName)
   );
+
+  const sortedStats = useMemo(() => {
+    if (!summarySort.column || !summarySort.direction) {
+      return filteredStats;
+    }
+    const sorted = [...filteredStats];
+    const col = summarySort.column;
+    const dir = summarySort.direction;
+    sorted.sort((a, b) => {
+      const aVal = a[col];
+      const bVal = b[col];
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return dir === 'asc'
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      }
+      const aNum = Number(aVal);
+      const bNum = Number(bVal);
+      return dir === 'asc' ? aNum - bNum : bNum - aNum;
+    });
+    return sorted;
+  }, [filteredStats, summarySort]);
 
   // Fetch data when unlocked state or time filter changes
   useEffect(() => {
@@ -216,7 +285,7 @@ export function Analytics() {
       .replace('db_', '')
       .replace(/_/g, ' ')
       .replace(/\b\w+/g, (word) => {
-        const acronyms = ['llm'];
+        const acronyms = ['api', 'llm'];
         if (acronyms.includes(word.toLowerCase())) {
           return word.toUpperCase();
         }
@@ -333,48 +402,130 @@ export function Analytics() {
             </div>
           )}
 
-          {/* Stats summary */}
+          {/* Stats summary table */}
           {filteredStats.length > 0 && (
             <div className="space-y-2">
               <h2 className="font-semibold text-base sm:text-lg">Summary</h2>
-              <div className="grid gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-                {filteredStats.map((stat, index) => (
-                  <div
-                    key={`stat-${index}-${stat.eventName}`}
-                    className="rounded-lg border bg-muted/50 p-3 sm:p-4"
-                  >
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-3 w-3 text-muted-foreground sm:h-4 sm:w-4" />
-                      <span className="truncate font-medium text-sm sm:text-base">
-                        {formatEventName(stat.eventName)}
-                      </span>
-                    </div>
-                    <div className="mt-2 grid grid-cols-2 gap-1 text-xs sm:gap-2 sm:text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Count:</span>{' '}
-                        {formatCount(stat.count)}
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Avg:</span>{' '}
-                        {formatDuration(stat.avgDurationMs)}
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Min:</span>{' '}
-                        {formatDuration(stat.minDurationMs)}
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Max:</span>{' '}
-                        {formatDuration(stat.maxDurationMs)}
-                      </div>
-                    </div>
-                    <div className="mt-2 text-xs sm:text-sm">
-                      <span className="text-muted-foreground">Success:</span>{' '}
-                      <span className={getSuccessRateColor(stat.successRate)}>
-                        {formatSuccessRate(stat.successRate)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto rounded-lg border">
+                <table className="w-full text-xs sm:text-sm">
+                  <thead className="border-b bg-muted/50">
+                    <tr>
+                      <th className="px-2 py-2 text-left sm:px-4">
+                        <button
+                          type="button"
+                          onClick={() => handleSummarySort('eventName')}
+                          className="inline-flex items-center gap-1 font-medium hover:text-foreground"
+                          data-testid="summary-sort-eventName"
+                        >
+                          Event
+                          <SummarySortIcon
+                            column="eventName"
+                            sort={summarySort}
+                          />
+                        </button>
+                      </th>
+                      <th className="px-2 py-2 text-left sm:px-4">
+                        <button
+                          type="button"
+                          onClick={() => handleSummarySort('count')}
+                          className="inline-flex items-center gap-1 font-medium hover:text-foreground"
+                          data-testid="summary-sort-count"
+                        >
+                          Count
+                          <SummarySortIcon column="count" sort={summarySort} />
+                        </button>
+                      </th>
+                      <th className="px-2 py-2 text-left sm:px-4">
+                        <button
+                          type="button"
+                          onClick={() => handleSummarySort('avgDurationMs')}
+                          className="inline-flex items-center gap-1 font-medium hover:text-foreground"
+                          data-testid="summary-sort-avgDurationMs"
+                        >
+                          Avg
+                          <SummarySortIcon
+                            column="avgDurationMs"
+                            sort={summarySort}
+                          />
+                        </button>
+                      </th>
+                      <th className="hidden px-2 py-2 text-left sm:table-cell sm:px-4">
+                        <button
+                          type="button"
+                          onClick={() => handleSummarySort('minDurationMs')}
+                          className="inline-flex items-center gap-1 font-medium hover:text-foreground"
+                          data-testid="summary-sort-minDurationMs"
+                        >
+                          Min
+                          <SummarySortIcon
+                            column="minDurationMs"
+                            sort={summarySort}
+                          />
+                        </button>
+                      </th>
+                      <th className="hidden px-2 py-2 text-left sm:table-cell sm:px-4">
+                        <button
+                          type="button"
+                          onClick={() => handleSummarySort('maxDurationMs')}
+                          className="inline-flex items-center gap-1 font-medium hover:text-foreground"
+                          data-testid="summary-sort-maxDurationMs"
+                        >
+                          Max
+                          <SummarySortIcon
+                            column="maxDurationMs"
+                            sort={summarySort}
+                          />
+                        </button>
+                      </th>
+                      <th className="px-2 py-2 text-left sm:px-4">
+                        <button
+                          type="button"
+                          onClick={() => handleSummarySort('successRate')}
+                          className="inline-flex items-center gap-1 font-medium hover:text-foreground"
+                          data-testid="summary-sort-successRate"
+                        >
+                          Success
+                          <SummarySortIcon
+                            column="successRate"
+                            sort={summarySort}
+                          />
+                        </button>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedStats.map((stat) => (
+                      <tr
+                        key={stat.eventName}
+                        className="border-b last:border-0"
+                        data-testid="summary-row"
+                      >
+                        <td className="truncate px-2 py-2 font-medium sm:px-4">
+                          {formatEventName(stat.eventName)}
+                        </td>
+                        <td className="px-2 py-2 sm:px-4">
+                          {formatCount(stat.count)}
+                        </td>
+                        <td className="px-2 py-2 sm:px-4">
+                          {formatDuration(stat.avgDurationMs)}
+                        </td>
+                        <td className="hidden px-2 py-2 sm:table-cell sm:px-4">
+                          {formatDuration(stat.minDurationMs)}
+                        </td>
+                        <td className="hidden px-2 py-2 sm:table-cell sm:px-4">
+                          {formatDuration(stat.maxDurationMs)}
+                        </td>
+                        <td className="px-2 py-2 sm:px-4">
+                          <span
+                            className={getSuccessRateColor(stat.successRate)}
+                          >
+                            {formatSuccessRate(stat.successRate)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
