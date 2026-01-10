@@ -1,0 +1,26 @@
+{
+  "name": "@rapid/chrome-extension",
+  "version": "0.0.2",
+  "description": "Chrome extension for Rapid",
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "tsc && vite build",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@rapid/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/chrome": "0.0.287",
+    "@types/node": "25.0.3",
+    "@vitest/coverage-v8": "4.0.16",
+    "jsdom": "27.4.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.0",
+    "vitest": "4.0.16"
+  }
+}
