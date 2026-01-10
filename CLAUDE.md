@@ -66,8 +66,9 @@ git push >/dev/null
 git push --force-with-lease >/dev/null
 
 # NEVER run git commit/push without suppression
-git commit -m "message"  # WRONG - wastes tokens
-git push                 # WRONG - wastes tokens
+git commit -m "message"          # WRONG - wastes tokens
+git push                         # WRONG - wastes tokens
+git push --force-with-lease      # WRONG - wastes tokens
 ```
 
 ### Why this matters
