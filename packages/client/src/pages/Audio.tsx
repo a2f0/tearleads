@@ -1,11 +1,19 @@
 import { assertPlainArrayBuffer } from '@rapid/shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, desc, eq, like } from 'drizzle-orm';
-import { ChevronRight, Loader2, Music, Pause } from 'lucide-react';
+import {
+  ChevronRight,
+  Info,
+  Loader2,
+  Music,
+  Pause,
+  Trash2
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
+import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
@@ -71,6 +79,11 @@ export function AudioPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const { uploadFile } = useFileUpload();
   const parentRef = useRef<HTMLDivElement>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    track: AudioWithUrl;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const virtualizer = useVirtualizer({
     count: tracks.length,
@@ -81,7 +94,7 @@ export function AudioPage() {
 
   const virtualItems = virtualizer.getVirtualItems();
 
-  const supportsDragDrop = useMemo(() => {
+  const isDesktopPlatform = useMemo(() => {
     const platform = detectPlatform();
     return platform === 'web' || platform === 'electron';
   }, []);
@@ -270,6 +283,56 @@ export function AudioPage() {
     [navigateWithFrom]
   );
 
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, track: AudioWithUrl) => {
+      e.preventDefault();
+      setContextMenu({ track, x: e.clientX, y: e.clientY });
+    },
+    []
+  );
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  const handleGetInfo = useCallback(
+    (track: AudioWithUrl) => {
+      navigateWithFrom(`/audio/${track.id}`, {
+        fromLabel: 'Back to Audio'
+      });
+      setContextMenu(null);
+    },
+    [navigateWithFrom]
+  );
+
+  const handleDelete = useCallback(async (trackToDelete: AudioWithUrl) => {
+    setContextMenu(null);
+
+    try {
+      const db = getDatabase();
+
+      // Soft delete
+      await db
+        .update(files)
+        .set({ deleted: true })
+        .where(eq(files.id, trackToDelete.id));
+
+      // Remove from list and revoke URLs
+      setTracks((prev) => {
+        const remaining = prev.filter((t) => t.id !== trackToDelete.id);
+        // Revoke the deleted track's URLs
+        URL.revokeObjectURL(trackToDelete.objectUrl);
+        if (trackToDelete.thumbnailUrl) {
+          URL.revokeObjectURL(trackToDelete.thumbnailUrl);
+        }
+        return remaining;
+      });
+    } catch (err) {
+      console.error('Failed to delete track:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, []);
+
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="flex items-center justify-between">
@@ -320,7 +383,7 @@ export function AudioPage() {
               multiple={false}
               disabled={uploading}
             />
-            {supportsDragDrop && (
+            {isDesktopPlatform && (
               <p className="text-center text-muted-foreground text-sm">
                 Drop an audio file here to add it to your library
               </p>
@@ -359,10 +422,20 @@ export function AudioPage() {
                             isCurrentTrack ? 'border-primary bg-primary/5' : ''
                           }`}
                           data-testid={`audio-track-${track.id}`}
+                          onContextMenu={(e) => handleContextMenu(e, track)}
                         >
                           <button
                             type="button"
-                            onClick={() => handlePlayPause(track)}
+                            onClick={
+                              isDesktopPlatform
+                                ? undefined
+                                : () => handlePlayPause(track)
+                            }
+                            onDoubleClick={
+                              isDesktopPlatform
+                                ? () => handlePlayPause(track)
+                                : undefined
+                            }
                             className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
                             data-testid={`audio-play-${track.id}`}
                           >
@@ -409,6 +482,27 @@ export function AudioPage() {
             </div>
           </div>
         ))}
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={handleCloseContextMenu}
+        >
+          <ContextMenuItem
+            icon={<Info className="h-4 w-4" />}
+            onClick={() => handleGetInfo(contextMenu.track)}
+          >
+            Get info
+          </ContextMenuItem>
+          <ContextMenuItem
+            icon={<Trash2 className="h-4 w-4" />}
+            onClick={() => handleDelete(contextMenu.track)}
+          >
+            Delete
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
     </div>
   );
 }
