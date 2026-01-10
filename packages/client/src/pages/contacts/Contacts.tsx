@@ -1,10 +1,21 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, asc, eq, like, or, type SQL } from 'drizzle-orm';
-import { Loader2, Mail, Phone, Search, Upload, User, X } from 'lucide-react';
+import {
+  Info,
+  Loader2,
+  Mail,
+  Phone,
+  Search,
+  Trash2,
+  Upload,
+  User,
+  X
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ColumnMapper } from '@/components/contacts/column-mapper';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabase } from '@/db';
@@ -48,6 +59,11 @@ export function Contacts() {
     imported: number;
     skipped: number;
     errors: string[];
+  } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    contact: ContactInfo;
+    x: number;
+    y: number;
   } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -254,6 +270,46 @@ export function Contacts() {
     setParsedData(null);
   }, []);
 
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, contact: ContactInfo) => {
+      e.preventDefault();
+      setContextMenu({ contact, x: e.clientX, y: e.clientY });
+    },
+    []
+  );
+
+  const handleGetInfo = useCallback(() => {
+    if (contextMenu) {
+      navigateWithFrom(`/contacts/${contextMenu.contact.id}`, {
+        fromLabel: 'Back to Contacts'
+      });
+      setContextMenu(null);
+    }
+  }, [contextMenu, navigateWithFrom]);
+
+  const handleDelete = useCallback(async () => {
+    if (!contextMenu) return;
+
+    try {
+      const db = getDatabase();
+      await db
+        .update(contactsTable)
+        .set({ deleted: true, updatedAt: new Date() })
+        .where(eq(contactsTable.id, contextMenu.contact.id));
+
+      await fetchContacts(debouncedSearch);
+    } catch (err) {
+      console.error('Failed to delete contact:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu, fetchContacts, debouncedSearch]);
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -419,6 +475,7 @@ export function Contacts() {
                                 fromLabel: 'Back to Contacts'
                               })
                             }
+                            onContextMenu={(e) => handleContextMenu(e, contact)}
                           >
                             <div className="min-w-0 flex-1">
                               <p className="truncate font-medium">
@@ -457,6 +514,27 @@ export function Contacts() {
             </div>
           )}
         </>
+      )}
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={handleCloseContextMenu}
+        >
+          <ContextMenuItem
+            icon={<Info className="h-4 w-4" />}
+            onClick={handleGetInfo}
+          >
+            Get info
+          </ContextMenuItem>
+          <ContextMenuItem
+            icon={<Trash2 className="h-4 w-4" />}
+            onClick={handleDelete}
+          >
+            Delete
+          </ContextMenuItem>
+        </ContextMenu>
       )}
     </div>
   );
