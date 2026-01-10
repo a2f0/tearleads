@@ -3,6 +3,7 @@ import {
   calculateScaledDimensions,
   DEFAULT_THUMBNAIL_OPTIONS,
   generateThumbnail,
+  isPdfMimeType,
   isThumbnailSupported,
   THUMBNAIL_DISPLAY_SIZE
 } from './thumbnail';
@@ -20,6 +21,20 @@ describe('thumbnail', () => {
       return this.buffer;
     }
   }
+
+  describe('isPdfMimeType', () => {
+    it('returns true for application/pdf', () => {
+      expect(isPdfMimeType('application/pdf')).toBe(true);
+    });
+
+    it('returns false for image/jpeg', () => {
+      expect(isPdfMimeType('image/jpeg')).toBe(false);
+    });
+
+    it('returns false for text/plain', () => {
+      expect(isPdfMimeType('text/plain')).toBe(false);
+    });
+  });
 
   describe('isThumbnailSupported', () => {
     it('returns true for JPEG', () => {
@@ -50,8 +65,8 @@ describe('thumbnail', () => {
       expect(isThumbnailSupported('audio/mp4')).toBe(true);
     });
 
-    it('returns false for PDF', () => {
-      expect(isThumbnailSupported('application/pdf')).toBe(false);
+    it('returns true for PDF', () => {
+      expect(isThumbnailSupported('application/pdf')).toBe(true);
     });
 
     it('returns false for text files', () => {
@@ -279,6 +294,41 @@ describe('thumbnail', () => {
 
       expect(mockCanvas.width).toBe(400);
       expect(mockCanvas.height).toBe(300);
+    });
+
+    it('generates thumbnail from PDF data', async () => {
+      const resultData = new Uint8Array([1, 2, 3, 4]);
+      const mockBlob = new MockBlob(resultData.buffer);
+
+      toBlob.mockImplementation((callback: (blob: Blob | null) => void) => {
+        callback(mockBlob);
+      });
+
+      const pdfData = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // %PDF
+      const result = await generateThumbnail(pdfData, 'application/pdf');
+
+      expect(result).toBeInstanceOf(Uint8Array);
+      // PDF rendering uses pdfjs, not createImageBitmap
+      expect(createImageBitmap).not.toHaveBeenCalled();
+    });
+
+    it('returns null for empty PDF', async () => {
+      // Override mock to return empty PDF
+      const pdfjs = await import('pdfjs-dist');
+      const emptyPdf = {
+        numPages: 0,
+        getPage: vi.fn(),
+        destroy: vi.fn().mockResolvedValue(undefined)
+      };
+      vi.mocked(pdfjs.getDocument).mockReturnValueOnce({
+        promise: Promise.resolve(emptyPdf)
+      } as unknown as ReturnType<typeof pdfjs.getDocument>);
+
+      const pdfData = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+      const result = await generateThumbnail(pdfData, 'application/pdf');
+
+      expect(result).toBeNull();
+      expect(emptyPdf.destroy).toHaveBeenCalled();
     });
   });
 });

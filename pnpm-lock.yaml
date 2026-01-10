@@ -162,6 +162,9 @@ importers:
       music-metadata:
         specifier: 11.10.5
         version: 11.10.5
+      pdfjs-dist:
+        specifier: 5.4.296
+        version: 5.4.296
       react:
         specifier: 19.2.3
         version: 19.2.3
