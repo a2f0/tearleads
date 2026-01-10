@@ -3,6 +3,7 @@ import { cn } from '../lib/utils.js';
 export interface FooterProps extends React.ComponentProps<'footer'> {
   copyrightText?: string;
   version: string | undefined;
+  connectionIndicator?: React.ReactNode;
 }
 
 export function Footer({
@@ -11,6 +12,7 @@ export function Footer({
   children,
   copyrightText,
   version,
+  connectionIndicator,
   ...props
 }: FooterProps) {
   return (
@@ -27,9 +29,12 @@ export function Footer({
       {...props}
     >
       <div className="container mx-auto flex items-center px-4">
-        {version && (
-          <span className="text-muted-foreground/70 text-xs">{version}</span>
-        )}
+        <div className="flex items-center gap-2">
+          {version && (
+            <span className="text-muted-foreground/70 text-xs">{version}</span>
+          )}
+          {connectionIndicator}
+        </div>
         <div className="flex-1 text-center">
           {children ?? (
             <p>
@@ -38,7 +43,10 @@ export function Footer({
             </p>
           )}
         </div>
-        {version && <span className="invisible text-xs">{version}</span>}
+        <div className="invisible flex items-center gap-2">
+          {version && <span className="text-xs">{version}</span>}
+          {connectionIndicator && <span className="h-2 w-2" />}
+        </div>
       </div>
     </footer>
   );
