@@ -9,3 +9,8 @@
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
 }
+
+/* Override react-pdf page wrapper backgrounds for dark theme support */
+.pdf-container .react-pdf__Page {
+  background: transparent;
+}
