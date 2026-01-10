@@ -24,6 +24,7 @@
   "author": "",
   "license": "Unlicensed",
   "dependencies": {
+    "@rapid/db": "workspace:*",
     "@rapid/shared": "workspace:*",
     "cors": "2.8.5",
     "dotenv": "17.2.3",
