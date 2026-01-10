@@ -19,6 +19,14 @@ export interface AnalyticsEvent {
 export type SortColumn = 'eventName' | 'durationMs' | 'success' | 'timestamp';
 export type SortDirection = 'asc' | 'desc';
 
+export type StatsSortColumn =
+  | 'eventName'
+  | 'count'
+  | 'avgDurationMs'
+  | 'minDurationMs'
+  | 'maxDurationMs'
+  | 'successRate';
+
 export interface GetEventsOptions {
   eventName?: string | undefined;
   startTime?: Date | undefined;
@@ -38,6 +46,18 @@ const SORT_COLUMN_MAP: Record<SortColumn, string> = {
   timestamp: 'timestamp'
 };
 
+/**
+ * Maps stats sort column names to SQL expressions for ORDER BY.
+ */
+const STATS_SORT_COLUMN_MAP: Record<StatsSortColumn, string> = {
+  eventName: 'event_name',
+  count: 'count(*)',
+  avgDurationMs: 'sum(duration_ms) / count(*)',
+  minDurationMs: 'min(duration_ms)',
+  maxDurationMs: 'max(duration_ms)',
+  successRate: 'sum(case when success then 1 else 0 end) * 100.0 / count(*)'
+};
+
 export interface EventStats {
   eventName: string;
   count: number;
@@ -45,6 +65,14 @@ export interface EventStats {
   minDurationMs: number;
   maxDurationMs: number;
   successRate: number;
+}
+
+export interface GetEventStatsOptions {
+  eventName?: string | undefined;
+  startTime?: Date | undefined;
+  endTime?: Date | undefined;
+  sortColumn?: StatsSortColumn | undefined;
+  sortDirection?: SortDirection | undefined;
 }
 
 /**
@@ -255,9 +283,9 @@ function normalizeStatsRow(value: unknown): RawStatsRow | null {
  */
 export async function getEventStats(
   _db: Database,
-  options: Omit<GetEventsOptions, 'limit'> = {}
+  options: GetEventStatsOptions = {}
 ): Promise<EventStats[]> {
-  const { eventName, startTime, endTime } = options;
+  const { eventName, startTime, endTime, sortColumn, sortDirection } = options;
   const adapter = getDatabaseAdapter();
 
   // Build SQL query with conditions
@@ -294,6 +322,13 @@ export async function getEventStats(
   }
 
   sql += ` GROUP BY event_name`;
+
+  // Build ORDER BY clause
+  if (sortColumn && sortDirection) {
+    const sqlExpression = STATS_SORT_COLUMN_MAP[sortColumn];
+    const sqlDirection = sortDirection === 'asc' ? 'ASC' : 'DESC';
+    sql += ` ORDER BY ${sqlExpression} ${sqlDirection}`;
+  }
 
   // Execute raw SQL via adapter
   const result = await adapter.execute(sql, params);
