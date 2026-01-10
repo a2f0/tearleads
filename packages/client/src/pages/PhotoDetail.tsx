@@ -1,3 +1,4 @@
+import { assertPlainArrayBuffer } from '@rapid/shared';
 import { and, eq, like } from 'drizzle-orm';
 import {
   Calendar,
@@ -226,10 +227,8 @@ export function PhotoDetail() {
         photoInfo.storagePath,
         createRetrieveLogger(db)
       );
-      // Copy to ArrayBuffer for TypeScript compatibility with Blob constructor
-      const buffer = new ArrayBuffer(data.byteLength);
-      new Uint8Array(buffer).set(data);
-      const blob = new Blob([buffer], { type: photoInfo.mimeType });
+      assertPlainArrayBuffer(data);
+      const blob = new Blob([data], { type: photoInfo.mimeType });
       const url = URL.createObjectURL(blob);
       setObjectUrl(url);
     } catch (err) {
