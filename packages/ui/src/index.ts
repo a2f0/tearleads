@@ -1,4 +1,9 @@
 // Components
+export {
+  ConnectionIndicator,
+  type ConnectionIndicatorProps,
+  type ConnectionState
+} from './components/connectionIndicator.js';
 export { Footer, type FooterProps } from './components/footer.js';
 export {
   ThemeSwitcher,

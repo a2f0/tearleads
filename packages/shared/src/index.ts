@@ -28,6 +28,14 @@ export interface RedisKeyValueResponse {
   value: string | string[] | Record<string, string> | null;
 }
 
+// SSE types
+export type SSEConnectionState = 'connected' | 'connecting' | 'disconnected';
+
+export interface SSEMessage {
+  channel: string;
+  message: string;
+}
+
 // Utilities
 export function formatDate(date: Date): string {
   return date.toISOString();
