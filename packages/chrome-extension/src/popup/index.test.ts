@@ -1,7 +1,15 @@
 /**
  * @vitest-environment jsdom
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type MockInstance,
+  vi
+} from 'vitest';
 import { MessageType } from '../messages';
 
 const mockRuntimeSendMessage = vi.fn();
@@ -19,13 +27,13 @@ const mockChrome = {
 };
 
 vi.stubGlobal('chrome', mockChrome);
-vi.stubGlobal('alert', vi.fn());
 
 function setupDOM() {
   document.body.innerHTML = `
     <div id="page-title">Loading...</div>
     <div id="page-url">Loading...</div>
     <button id="action-btn">Take Action</button>
+    <div id="status" class="status"></div>
   `;
 }
 
@@ -38,14 +46,20 @@ function triggerDOMContentLoaded() {
 }
 
 describe('popup script', () => {
+  let setTimeoutSpy: MockInstance;
+
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
     setupDOM();
+    setTimeoutSpy = vi.spyOn(global, 'setTimeout').mockImplementation(() => {
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    });
   });
 
   afterEach(() => {
     vi.clearAllMocks();
+    setTimeoutSpy.mockRestore();
     document.body.innerHTML = '';
   });
 
@@ -103,7 +117,7 @@ describe('popup script', () => {
     expect(document.getElementById('page-url')?.textContent).toBe('Unknown');
   });
 
-  it('should send PING message when action button is clicked', async () => {
+  it('should send PING message and show success status when response is ok', async () => {
     mockRuntimeSendMessage.mockImplementation((_message, callback) => {
       callback({ title: 'Test', url: 'https://test.com' });
     });
@@ -129,7 +143,10 @@ describe('popup script', () => {
       { type: MessageType.PING },
       expect.any(Function)
     );
-    expect(alert).toHaveBeenCalledWith('Content script is active!');
+
+    const statusEl = document.getElementById('status');
+    expect(statusEl?.textContent).toBe('Content script is active!');
+    expect(statusEl?.className).toBe('status success');
   });
 
   it('should not send message if tab has no id', async () => {
@@ -166,7 +183,7 @@ describe('popup script', () => {
     expect(mockTabsSendMessage).not.toHaveBeenCalled();
   });
 
-  it('should not alert if response status is not ok', async () => {
+  it('should show error status if response status is not ok', async () => {
     mockRuntimeSendMessage.mockImplementation((_message, callback) => {
       callback({ title: 'Test', url: 'https://test.com' });
     });
@@ -183,10 +200,12 @@ describe('popup script', () => {
     const button = document.getElementById('action-btn');
     button?.click();
 
-    expect(alert).not.toHaveBeenCalled();
+    const statusEl = document.getElementById('status');
+    expect(statusEl?.textContent).toBe('Content script not responding');
+    expect(statusEl?.className).toBe('status error');
   });
 
-  it('should not alert if response is undefined', async () => {
+  it('should show error status if response is undefined', async () => {
     mockRuntimeSendMessage.mockImplementation((_message, callback) => {
       callback({ title: 'Test', url: 'https://test.com' });
     });
@@ -203,7 +222,9 @@ describe('popup script', () => {
     const button = document.getElementById('action-btn');
     button?.click();
 
-    expect(alert).not.toHaveBeenCalled();
+    const statusEl = document.getElementById('status');
+    expect(statusEl?.textContent).toBe('Content script not responding');
+    expect(statusEl?.className).toBe('status error');
   });
 
   it('should handle missing DOM elements gracefully', async () => {
@@ -215,5 +236,55 @@ describe('popup script', () => {
     await import('./index');
 
     expect(() => triggerDOMContentLoaded()).not.toThrow();
+  });
+
+  it('should clear status after timeout', async () => {
+    setTimeoutSpy.mockRestore();
+    vi.useFakeTimers();
+
+    mockRuntimeSendMessage.mockImplementation((_message, callback) => {
+      callback({ title: 'Test', url: 'https://test.com' });
+    });
+    mockTabsQuery.mockImplementation((_query, callback) => {
+      callback([{ id: 123 }]);
+    });
+    mockTabsSendMessage.mockImplementation((_tabId, _message, callback) => {
+      callback({ status: 'ok' });
+    });
+
+    await import('./index');
+    triggerDOMContentLoaded();
+
+    const button = document.getElementById('action-btn');
+    button?.click();
+
+    const statusEl = document.getElementById('status');
+    expect(statusEl?.className).toBe('status success');
+
+    vi.advanceTimersByTime(3000);
+
+    expect(statusEl?.className).toBe('status');
+
+    vi.useRealTimers();
+  });
+
+  it('should handle showStatus when status element is missing', async () => {
+    mockRuntimeSendMessage.mockImplementation((_message, callback) => {
+      callback({ title: 'Test', url: 'https://test.com' });
+    });
+    mockTabsQuery.mockImplementation((_query, callback) => {
+      callback([{ id: 123 }]);
+    });
+    mockTabsSendMessage.mockImplementation((_tabId, _message, callback) => {
+      callback({ status: 'ok' });
+    });
+
+    await import('./index');
+    triggerDOMContentLoaded();
+
+    document.getElementById('status')?.remove();
+
+    const button = document.getElementById('action-btn');
+    expect(() => button?.click()).not.toThrow();
   });
 });

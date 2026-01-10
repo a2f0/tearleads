@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Rapid",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Rapid Chrome Extension",
-  "permissions": ["storage", "activeTab"],
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -23,8 +26,13 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "matches": [
+        "https://*.rapid.app/*",
+        "http://localhost/*"
+      ],
+      "js": [
+        "content.js"
+      ]
     }
   ]
 }
