@@ -1,7 +1,14 @@
 import { assertPlainArrayBuffer } from '@rapid/shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, desc, eq, like } from 'drizzle-orm';
-import { Download, ImageIcon, Info, Loader2, Share2 } from 'lucide-react';
+import {
+  Download,
+  ImageIcon,
+  Info,
+  Loader2,
+  Share2,
+  Trash2
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
@@ -360,6 +367,25 @@ export function Photos() {
     }
   }, [contextMenu, navigateWithFrom]);
 
+  const handleDelete = useCallback(async () => {
+    if (!contextMenu) return;
+
+    try {
+      const db = getDatabase();
+      await db
+        .update(files)
+        .set({ deleted: true })
+        .where(eq(files.id, contextMenu.photo.id));
+
+      setHasFetched(false);
+    } catch (err) {
+      console.error('Failed to delete photo:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu]);
+
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);
   }, []);
@@ -523,6 +549,12 @@ export function Photos() {
             onClick={handleGetInfo}
           >
             Get info
+          </ContextMenuItem>
+          <ContextMenuItem
+            icon={<Trash2 className="h-4 w-4" />}
+            onClick={handleDelete}
+          >
+            Delete
           </ContextMenuItem>
         </ContextMenu>
       )}

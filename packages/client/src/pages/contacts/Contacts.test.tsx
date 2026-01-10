@@ -43,13 +43,21 @@ vi.mock('@/db/hooks', () => ({
 
 // Mock getDatabase with fluent mock object
 const mockOrderBy = vi.fn();
+const mockUpdate = vi.fn();
+const mockSet = vi.fn();
+const mockUpdateWhere = vi.fn();
 const dbMock = {
   select: vi.fn().mockReturnThis(),
   from: vi.fn().mockReturnThis(),
   leftJoin: vi.fn().mockReturnThis(),
   where: vi.fn().mockReturnThis(),
-  orderBy: mockOrderBy
+  orderBy: mockOrderBy,
+  update: mockUpdate
 };
+
+// Chain the update mock
+mockUpdate.mockReturnValue({ set: mockSet });
+mockSet.mockReturnValue({ where: mockUpdateWhere });
 
 vi.mock('@/db', () => ({
   getDatabase: () => dbMock
@@ -109,6 +117,11 @@ describe('Contacts', () => {
 
     // Setup default mock response
     mockOrderBy.mockResolvedValue([]);
+
+    // Reset update chain mocks
+    mockUpdate.mockReturnValue({ set: mockSet });
+    mockSet.mockReturnValue({ where: mockUpdateWhere });
+    mockUpdateWhere.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -717,6 +730,207 @@ describe('Contacts', () => {
       expect(
         screen.getByPlaceholderText('Search contacts...')
       ).toBeInTheDocument();
+    });
+  });
+
+  describe('context menu', () => {
+    const mockContacts = [
+      {
+        id: '1',
+        firstName: 'John',
+        lastName: 'Doe',
+        birthday: null,
+        primaryEmail: 'john@example.com',
+        primaryPhone: '555-1234',
+        createdAt: new Date()
+      }
+    ];
+
+    it('shows context menu on right-click', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue(mockContacts);
+
+      await renderContacts();
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      const contact = screen.getByText('John Doe');
+      await user.pointer({ keys: '[MouseRight]', target: contact });
+
+      await waitFor(() => {
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+    });
+
+    it('navigates to contact detail when "Get info" is clicked', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue(mockContacts);
+
+      await renderContacts();
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      const contact = screen.getByText('John Doe');
+      await user.pointer({ keys: '[MouseRight]', target: contact });
+
+      await waitFor(() => {
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Get info'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/contacts/1', {
+        state: { from: '/', fromLabel: 'Back to Contacts' }
+      });
+    });
+
+    it('soft deletes contact when "Delete" is clicked', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue(mockContacts);
+
+      await renderContacts();
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      const contact = screen.getByText('John Doe');
+      await user.pointer({ keys: '[MouseRight]', target: contact });
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Delete'));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalled();
+        expect(mockSet).toHaveBeenCalledWith(
+          expect.objectContaining({ deleted: true })
+        );
+      });
+    });
+
+    it('closes context menu when clicking elsewhere', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue(mockContacts);
+
+      await renderContacts();
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      const contact = screen.getByText('John Doe');
+      await user.pointer({ keys: '[MouseRight]', target: contact });
+
+      await waitFor(() => {
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+      });
+
+      await user.click(
+        screen.getByRole('button', { name: /close context menu/i })
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText('Get info')).not.toBeInTheDocument();
+      });
+    });
+
+    it('shows error when delete fails', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue(mockContacts);
+      mockUpdateWhere.mockRejectedValue(new Error('Delete failed'));
+
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      await renderContacts();
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      const contact = screen.getByText('John Doe');
+      await user.pointer({ keys: '[MouseRight]', target: contact });
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Delete'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete failed')).toBeInTheDocument();
+      });
+
+      consoleSpy.mockRestore();
+    });
+
+    it('handles non-Error exceptions when delete fails', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue(mockContacts);
+      mockUpdateWhere.mockRejectedValue('String error');
+
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      await renderContacts();
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      const contact = screen.getByText('John Doe');
+      await user.pointer({ keys: '[MouseRight]', target: contact });
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Delete'));
+
+      await waitFor(() => {
+        expect(screen.getByText('String error')).toBeInTheDocument();
+      });
+
+      consoleSpy.mockRestore();
+    });
+
+    it('refreshes the contacts list after successful delete', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue(mockContacts);
+
+      await renderContacts();
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      // Clear previous calls
+      mockOrderBy.mockClear();
+      mockOrderBy.mockResolvedValue([]);
+
+      const contact = screen.getByText('John Doe');
+      await user.pointer({ keys: '[MouseRight]', target: contact });
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Delete'));
+
+      // Wait for the delete operation and subsequent refresh
+      await waitFor(() => {
+        expect(mockOrderBy).toHaveBeenCalled();
+      });
     });
   });
 });
