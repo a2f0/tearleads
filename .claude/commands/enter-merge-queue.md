@@ -41,7 +41,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 3. **Mark as queued**: Set the VS Code title and tmux window name to show queued status, and move the tmux window to the front of the list:
 
    ```bash
-   ./scripts/agents/setQueued.sh "(queued) #<pr-number> - <branch>"
+   setQueued.sh "(queued) #<pr-number> - <branch>"
    ```
 
 4. **Main loop** - Repeat until PR is merged:
@@ -84,12 +84,12 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - If rebase conflicts occur:
      1. Run `git rebase --abort` to restore the branch
      2. List the conflicting files
-     3. Clear the queued status with `./scripts/agents/clearQueued.sh`
+     3. Clear the queued status with `clearQueued.sh`
      4. Stop and ask the user for help. Do NOT auto-resolve conflicts.
 
    **Bump version immediately after successful rebase** (if `has_bumped_version` is `false`):
 
-   1. Run `./scripts/bumpVersion.sh` and capture its output
+   1. Run `bumpVersion.sh` and capture its output
    2. Stage version files: `packages/client/android/app/build.gradle`, `packages/client/ios/App/App.xcodeproj/project.pbxproj`, `packages/api/package.json`, `packages/client/package.json`
    3. Amend the last commit with version bump info in the body (GPG signed)
    4. Set `has_bumped_version = true`
@@ -196,7 +196,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 5. **Refresh workspace**: Once the PR is merged, run:
 
    ```bash
-   ./scripts/agents/refresh.sh
+   refresh.sh
    ```
 
    This sets the VS Code window title to "ready" and switches back to main with the latest changes.
@@ -241,7 +241,7 @@ Minimize context consumption during long merge queue sessions:
 - Prioritize staying up-to-date over waiting for CI in congested queues
 - Fixable: lint/type errors, test failures. Non-fixable: merge conflicts, infra failures
 - If stuck (same fix attempted twice), ask user for help
-- On early exit, run `./scripts/agents/clearQueued.sh`
+- On early exit, run `clearQueued.sh`
 - Gemini confirmation detection: positive phrases ("looks good", "lgtm", etc.) WITHOUT negative qualifiers ("but", "however", "still")
 - Only resolve threads after explicit Gemini confirmation
 
