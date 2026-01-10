@@ -20,18 +20,28 @@ const mockGetKeyStatusForInstance =
   vi.fn<(instanceId: string) => Promise<KeyStatus>>();
 const mockDeleteSessionKeysForInstance =
   vi.fn<(instanceId: string) => Promise<void>>();
+const mockKeyManagerReset = vi.fn<() => Promise<void>>();
+const mockGetKeyManagerForInstance = vi.fn((_instanceId: string) => ({
+  reset: mockKeyManagerReset
+}));
 
 vi.mock('@/db/crypto/key-manager', () => ({
   getKeyStatusForInstance: (instanceId: string) =>
     mockGetKeyStatusForInstance(instanceId),
   deleteSessionKeysForInstance: (instanceId: string) =>
-    mockDeleteSessionKeysForInstance(instanceId)
+    mockDeleteSessionKeysForInstance(instanceId),
+  getKeyManagerForInstance: (instanceId: string) =>
+    mockGetKeyManagerForInstance(instanceId)
 }));
 
 const mockGetInstances = vi.fn<() => Promise<InstanceMetadata[]>>();
+const mockDeleteInstanceFromRegistry =
+  vi.fn<(instanceId: string) => Promise<void>>();
 
 vi.mock('@/db/instance-registry', () => ({
-  getInstances: () => mockGetInstances()
+  getInstances: () => mockGetInstances(),
+  deleteInstanceFromRegistry: (instanceId: string) =>
+    mockDeleteInstanceFromRegistry(instanceId)
 }));
 
 function renderKeychainDetail(instanceId: string) {
@@ -68,6 +78,8 @@ describe('KeychainDetail', () => {
     mockGetInstances.mockResolvedValue([]);
     mockGetKeyStatusForInstance.mockResolvedValue(createKeyStatus());
     mockDeleteSessionKeysForInstance.mockResolvedValue(undefined);
+    mockKeyManagerReset.mockResolvedValue(undefined);
+    mockDeleteInstanceFromRegistry.mockResolvedValue(undefined);
     vi.spyOn(window, 'confirm').mockImplementation(() => true);
   });
 
@@ -99,6 +111,16 @@ describe('KeychainDetail', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Network error')).toBeInTheDocument();
+      });
+    });
+
+    it('shows error when fetch fails with non-Error', async () => {
+      mockGetInstances.mockRejectedValue('String error');
+
+      renderKeychainDetail('test-id');
+
+      await waitFor(() => {
+        expect(screen.getByText('String error')).toBeInTheDocument();
       });
     });
   });
@@ -259,6 +281,9 @@ describe('KeychainDetail', () => {
       await user.click(screen.getByText('Delete Instance'));
 
       await waitFor(() => {
+        expect(mockGetKeyManagerForInstance).toHaveBeenCalledWith('test-id');
+        expect(mockKeyManagerReset).toHaveBeenCalled();
+        expect(mockDeleteInstanceFromRegistry).toHaveBeenCalledWith('test-id');
         expect(mockNavigate).toHaveBeenCalledWith('/keychain');
       });
     });
@@ -284,7 +309,7 @@ describe('KeychainDetail', () => {
     });
 
     it('shows error when delete instance fails', async () => {
-      mockDeleteSessionKeysForInstance.mockRejectedValue(
+      mockDeleteInstanceFromRegistry.mockRejectedValue(
         new Error('Delete instance failed')
       );
       const user = userEvent.setup();
@@ -298,6 +323,38 @@ describe('KeychainDetail', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Delete instance failed')).toBeInTheDocument();
+      });
+    });
+
+    it('shows error when delete session keys fails with non-Error', async () => {
+      mockDeleteSessionKeysForInstance.mockRejectedValue('Session key error');
+      const user = userEvent.setup();
+      renderKeychainDetail('test-id');
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete Session Keys')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Delete Session Keys'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Session key error')).toBeInTheDocument();
+      });
+    });
+
+    it('shows error when delete instance fails with non-Error', async () => {
+      mockDeleteInstanceFromRegistry.mockRejectedValue('Instance error');
+      const user = userEvent.setup();
+      renderKeychainDetail('test-id');
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete Instance')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Delete Instance'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Instance error')).toBeInTheDocument();
       });
     });
   });
