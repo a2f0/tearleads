@@ -17,7 +17,7 @@ export function ThemeSelector() {
         </p>
       </div>
       <div
-        className="flex flex-wrap gap-3"
+        className="flex gap-3 overflow-x-auto md:overflow-visible"
         data-testid="theme-selector-container"
       >
         {THEMES.map((t) => (
@@ -26,7 +26,7 @@ export function ThemeSelector() {
             onClick={() => setTheme(t)}
             selected={resolvedTheme === t}
             data-testid={`theme-option-${t}`}
-            className="w-[120px]"
+            className="w-[100px] shrink-0 md:w-[200px]"
           >
             <ThemePreview theme={t} />
           </GridSquare>

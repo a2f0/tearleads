@@ -77,11 +77,21 @@ describe('ThemeSelector', () => {
     );
   });
 
-  it('uses flex layout for left alignment', () => {
+  it('uses flex layout with horizontal scroll on mobile', () => {
     renderThemeSelector();
     const container = screen.getByTestId('theme-selector-container');
     expect(container.className).toContain('flex');
-    expect(container.className).toContain('flex-wrap');
+    expect(container.className).toContain('overflow-x-auto');
+    expect(container.className).toContain('md:overflow-visible');
+    expect(container.className).not.toContain('flex-wrap');
+  });
+
+  it('applies responsive widths and prevents shrinking on theme options', () => {
+    renderThemeSelector();
+    const themeOption = screen.getByTestId('theme-option-light');
+    expect(themeOption.className).toContain('w-[100px]');
+    expect(themeOption.className).toContain('shrink-0');
+    expect(themeOption.className).toContain('md:w-[200px]');
   });
 
   it('renders theme labels', () => {
