@@ -127,6 +127,7 @@ export function Admin() {
   const handleDeleteKey = useCallback(async () => {
     if (!contextMenu) return;
 
+    setError(null);
     const keyToDelete = contextMenu.keyInfo.key;
     setContextMenu(null);
 
@@ -164,13 +165,7 @@ export function Admin() {
     if (totalCount === null) {
       return `${keyCount} loaded${hasMore ? '+' : ''}`;
     }
-    if (
-      firstVisible !== null &&
-      firstVisible !== undefined &&
-      lastVisible !== null &&
-      lastVisible !== undefined &&
-      keyCount > 0
-    ) {
+    if (firstVisible != null && lastVisible != null && keyCount > 0) {
       return `Viewing ${firstVisible + 1}-${lastVisible + 1} of ${keyCount} loaded (${totalCount} total)`;
     }
     return `${keyCount} loaded of ${totalCount} total`;
