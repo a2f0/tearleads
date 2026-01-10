@@ -1,5 +1,5 @@
 import { RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DurationChart } from '@/components/duration-chart';
 import {
   formatDuration,
@@ -14,6 +14,7 @@ import {
   getEvents
 } from '@/db/analytics';
 import { useDatabaseContext } from '@/db/hooks';
+import { logStore } from '@/stores/logStore';
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
@@ -25,40 +26,63 @@ export function AnalyticsTab() {
     new Set()
   );
   const [loading, setLoading] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const fetchingRef = useRef(false);
 
-  const fetchData = useCallback(async () => {
-    if (!isUnlocked || fetchingRef.current) return;
-
-    fetchingRef.current = true;
-    setLoading(true);
-
-    try {
-      const db = getDatabase();
-      const startTime = new Date(Date.now() - ONE_HOUR_MS);
-
-      const [eventsData, statsData, typesData] = await Promise.all([
-        getEvents(db, { startTime, limit: 50 }),
-        getEventStats(db, { startTime }),
-        getDistinctEventTypes(db)
-      ]);
-
-      setEvents(eventsData);
-      setStats(statsData);
-      setSelectedEventTypes(new Set(typesData));
-    } catch (err) {
-      console.error('Failed to fetch HUD analytics:', err);
-    } finally {
-      setLoading(false);
-      fetchingRef.current = false;
+  const handleRefresh = () => {
+    if (!loading) {
+      setRefreshTrigger((prev) => prev + 1);
     }
-  }, [isUnlocked]);
+  };
 
   useEffect(() => {
-    if (isUnlocked) {
-      fetchData();
-    }
-  }, [isUnlocked, fetchData]);
+    if (!isUnlocked) return;
+
+    let isCancelled = false;
+
+    const fetchData = async () => {
+      if (fetchingRef.current) return;
+
+      fetchingRef.current = true;
+      setLoading(true);
+
+      try {
+        const db = getDatabase();
+        const startTime = new Date(Date.now() - ONE_HOUR_MS);
+
+        const [eventsData, statsData, typesData] = await Promise.all([
+          getEvents(db, { startTime, limit: 50 }),
+          getEventStats(db, { startTime }),
+          getDistinctEventTypes(db)
+        ]);
+
+        if (!isCancelled) {
+          setEvents(eventsData);
+          setStats(statsData);
+          setSelectedEventTypes(new Set(typesData));
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          logStore.error(
+            'Failed to fetch HUD analytics',
+            err instanceof Error ? err.stack : String(err)
+          );
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoading(false);
+        }
+        fetchingRef.current = false;
+      }
+    };
+
+    fetchData();
+
+    return () => {
+      isCancelled = true;
+    };
+    // biome-ignore lint/correctness/useExhaustiveDependencies: refreshTrigger intentionally triggers re-fetch
+  }, [isUnlocked, refreshTrigger]);
 
   if (!isUnlocked) {
     return (
@@ -84,7 +108,7 @@ export function AnalyticsTab() {
         </span>
         <button
           type="button"
-          onClick={fetchData}
+          onClick={handleRefresh}
           disabled={loading}
           className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
           aria-label="Refresh"

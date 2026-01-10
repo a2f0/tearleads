@@ -6,6 +6,11 @@ import { LogsTab } from './LogsTab';
 
 type TabId = 'analytics' | 'logs';
 
+const TABS: { id: TabId; label: string }[] = [
+  { id: 'analytics', label: 'Analytics' },
+  { id: 'logs', label: 'Logs' }
+];
+
 interface HUDProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,30 +31,21 @@ export function HUD({ isOpen, onClose }: HUDProps) {
     >
       <div className="flex items-center justify-between border-b px-3 py-2">
         <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={() => setActiveTab('analytics')}
-            className={cn(
-              'rounded px-3 py-1 font-mono text-xs transition-colors',
-              activeTab === 'analytics'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            )}
-          >
-            Analytics
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('logs')}
-            className={cn(
-              'rounded px-3 py-1 font-mono text-xs transition-colors',
-              activeTab === 'logs'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            )}
-          >
-            Logs
-          </button>
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'rounded px-3 py-1 font-mono text-xs transition-colors',
+                activeTab === tab.id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
         <button
           type="button"
