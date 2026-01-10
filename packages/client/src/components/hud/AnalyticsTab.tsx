@@ -35,6 +35,7 @@ export function AnalyticsTab() {
     }
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshTrigger intentionally triggers re-fetch
   useEffect(() => {
     if (!isUnlocked) return;
 
@@ -81,7 +82,6 @@ export function AnalyticsTab() {
     return () => {
       isCancelled = true;
     };
-    // biome-ignore lint/correctness/useExhaustiveDependencies: refreshTrigger intentionally triggers re-fetch
   }, [isUnlocked, refreshTrigger]);
 
   if (!isUnlocked) {
