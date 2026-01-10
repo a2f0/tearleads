@@ -35,6 +35,9 @@ importers:
 
   packages/api:
     dependencies:
+      '@rapid/db':
+        specifier: workspace:*
+        version: link:../db
       '@rapid/shared':
         specifier: workspace:*
         version: link:../shared
