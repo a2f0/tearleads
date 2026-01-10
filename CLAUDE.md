@@ -53,6 +53,37 @@ Skip issue creation for:
 
 - Do NOT add "Generated with Claude Code" footers to PR descriptions
 
+## Token Efficiency (CRITICAL)
+
+Git hooks (husky pre-commit, pre-push) run linting, type-checking, builds, and tests that produce thousands of lines of stdout. **This output burns tokens and provides no value on success.**
+
+### MANDATORY: Suppress stdout on ALL git operations
+
+```bash
+# ALWAYS redirect stdout to /dev/null
+git commit -S -m "message" >/dev/null
+git push >/dev/null
+git push --force-with-lease >/dev/null
+
+# NEVER run git commit/push without suppression
+git commit -m "message"  # WRONG - wastes tokens
+git push                 # WRONG - wastes tokens
+```
+
+### Why this matters
+
+- Pre-push hooks can output 5,000+ lines (lint results, test output, build logs)
+- Each line consumes tokens from the context window
+- On success, only the exit code matters - stdout is noise
+- On failure, errors appear on stderr (preserved by `>/dev/null`)
+
+### Other token-saving practices
+
+- **Use `--json` with minimal fields**: `gh pr view --json state,mergeStateStatus` not `gh pr view`
+- **Cache immutable data**: Store PR number, branch names, URLs from first fetch
+- **Don't re-read files**: If you read a file once, don't read it again unless it changed
+- **Batch related operations**: Combine status updates rather than outputting each individually
+
 ## Managing Claude Code Skills
 
 The `.claude/commands/` folder contains reusable skills (slash commands). Each workspace uses its own `.claude` folder from the repo.
