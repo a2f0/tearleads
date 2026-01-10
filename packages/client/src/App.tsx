@@ -1,4 +1,4 @@
-import { Footer } from '@rapid/ui';
+import { ConnectionIndicator, Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
 import { Link, Outlet } from 'react-router-dom';
 import { AccountSwitcher } from './components/AccountSwitcher';
@@ -6,9 +6,11 @@ import { MiniPlayer } from './components/audio/MiniPlayer';
 import { MobileMenu } from './components/MobileMenu';
 import { Sidebar } from './components/Sidebar';
 import { useAppVersion } from './hooks/useAppVersion';
+import { useSSEContext } from './sse';
 
 function App() {
   const version = useAppVersion();
+  const sse = useSSEContext();
 
   return (
     <div
@@ -37,7 +39,13 @@ function App() {
           </div>
         </main>
       </div>
-      <Footer version={version} className="lg:left-64">
+      <Footer
+        version={version}
+        className="lg:left-64"
+        connectionIndicator={
+          sse && <ConnectionIndicator state={sse.connectionState} />
+        }
+      >
         <p>&copy; {new Date().getFullYear()} Tearleads. All rights reserved.</p>
       </Footer>
       <MiniPlayer />
