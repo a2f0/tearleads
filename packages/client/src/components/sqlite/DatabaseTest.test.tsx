@@ -1,10 +1,11 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DatabaseTest } from './DatabaseTest';
 
 const mockUseDatabaseContext = vi.fn();
 const mockGetDatabaseAdapter = vi.fn();
+let capturedInstanceChangeCallback: (() => void) | null = null;
 
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
@@ -12,6 +13,12 @@ vi.mock('@/db/hooks', () => ({
 
 vi.mock('@/db', () => ({
   getDatabaseAdapter: () => mockGetDatabaseAdapter()
+}));
+
+vi.mock('@/hooks/useInstanceChange', () => ({
+  useOnInstanceChange: (callback: () => void) => {
+    capturedInstanceChangeCallback = callback;
+  }
 }));
 
 vi.mock('@/lib/utils', () => ({
@@ -968,17 +975,24 @@ describe('DatabaseTest', () => {
   });
 
   describe('instance switching', () => {
-    it('resets testResult when currentInstanceId changes', async () => {
+    beforeEach(() => {
+      capturedInstanceChangeCallback = null;
+    });
+
+    it('resets testResult when instance change event is emitted', async () => {
       const user = userEvent.setup();
       const setup = vi.fn().mockResolvedValue(undefined);
-      const context = setupMockContext({
+      setupMockContext({
         setup,
         isSetUp: false,
         isUnlocked: false,
         currentInstanceId: 'instance-1'
       });
 
-      const { unmount } = render(<DatabaseTest />);
+      render(<DatabaseTest />);
+
+      // Verify the callback was captured
+      expect(capturedInstanceChangeCallback).not.toBeNull();
 
       // Perform setup to set testResult
       const setupButton = screen.getByTestId('db-setup-button');
@@ -989,34 +1003,32 @@ describe('DatabaseTest', () => {
         expect(result).toHaveTextContent('Database setup complete');
       });
 
-      // Unmount and remount with new instance ID to simulate instance switch
-      // This is more realistic than just changing the mock mid-render
-      unmount();
-
-      mockUseDatabaseContext.mockReturnValue({
-        ...context,
-        currentInstanceId: 'instance-2',
-        isSetUp: false
+      // Simulate instance change event by calling the captured callback
+      act(() => {
+        capturedInstanceChangeCallback?.();
       });
 
-      render(<DatabaseTest />);
-
-      // New mount should have idle state - since idle has no message,
+      // testResult should be reset - since idle has no message,
       // the db-test-result element should not be rendered
-      expect(screen.queryByTestId('db-test-result')).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.queryByTestId('db-test-result')).not.toBeInTheDocument();
+      });
     });
 
-    it('clears testData when currentInstanceId changes', async () => {
+    it('clears testData when instance change event is emitted', async () => {
       const user = userEvent.setup();
       const mockExecute = vi.fn().mockResolvedValue({ rows: [] });
       mockGetDatabaseAdapter.mockReturnValue({ execute: mockExecute });
-      const context = setupMockContext({
+      setupMockContext({
         isSetUp: true,
         isUnlocked: true,
         currentInstanceId: 'instance-1'
       });
 
-      const { unmount } = render(<DatabaseTest />);
+      render(<DatabaseTest />);
+
+      // Verify the callback was captured
+      expect(capturedInstanceChangeCallback).not.toBeNull();
 
       // Write data to set testData
       const writeButton = screen.getByTestId('db-write-button');
@@ -1026,20 +1038,15 @@ describe('DatabaseTest', () => {
         expect(screen.getByTestId('db-test-data')).toBeInTheDocument();
       });
 
-      // Unmount and remount with new instance ID
-      unmount();
-
-      mockUseDatabaseContext.mockReturnValue({
-        ...context,
-        currentInstanceId: 'instance-2',
-        isSetUp: false,
-        isUnlocked: false
+      // Simulate instance change event by calling the captured callback
+      act(() => {
+        capturedInstanceChangeCallback?.();
       });
 
-      render(<DatabaseTest />);
-
-      // testData should be cleared (new mount has no data)
-      expect(screen.queryByTestId('db-test-data')).not.toBeInTheDocument();
+      // testData should be cleared
+      await waitFor(() => {
+        expect(screen.queryByTestId('db-test-data')).not.toBeInTheDocument();
+      });
     });
   });
 });
