@@ -15,6 +15,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const startTime = performance.now();
   const method = options?.method ?? 'GET';
   // Strip query params from endpoint for event name (so paginated requests share the same event type)
+  // Note: The nullish coalescing is needed for TypeScript strict mode (split()[0] can be undefined)
   const endpointPath = endpoint.split('?')[0] ?? endpoint;
   const eventName = `api_${method.toLowerCase()}_${endpointPath.replace(/^\//, '').replace(/\//g, '_')}`;
   let success = false;
