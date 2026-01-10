@@ -7,7 +7,14 @@ import {
   Loader2,
   Share2
 } from 'lucide-react';
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState
+} from 'react';
 import { useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
@@ -46,6 +53,8 @@ export function DocumentDetail() {
   const [actionLoading, setActionLoading] = useState<
     'download' | 'share' | null
   >(null);
+  // Track loaded storage path to prevent duplicate loads during rapid state changes
+  const loadedStoragePathRef = useRef<string | null>(null);
 
   useEffect(() => {
     setCanShare(canShareFiles());
@@ -154,6 +163,11 @@ export function DocumentDetail() {
 
   useEffect(() => {
     if (!document || !currentInstanceId) return;
+    // Skip if we already loaded this document to avoid race conditions
+    // when dependencies change rapidly during unlock flow
+    if (loadedStoragePathRef.current === document.storagePath) return;
+
+    let cancelled = false;
 
     const loadPdfData = async () => {
       setPdfLoading(true);
@@ -162,16 +176,27 @@ export function DocumentDetail() {
           document.storagePath,
           currentInstanceId
         );
-        setPdfData(data);
+        if (!cancelled) {
+          loadedStoragePathRef.current = document.storagePath;
+          setPdfData(data);
+        }
       } catch (err) {
-        console.error('Failed to load PDF data:', err);
-        setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) {
+          console.error('Failed to load PDF data:', err);
+          setError(err instanceof Error ? err.message : String(err));
+        }
       } finally {
-        setPdfLoading(false);
+        if (!cancelled) {
+          setPdfLoading(false);
+        }
       }
     };
 
     loadPdfData();
+
+    return () => {
+      cancelled = true;
+    };
   }, [document, currentInstanceId]);
 
   return (
