@@ -191,6 +191,36 @@ export function Dropzone({
     );
   }
 
+  if (compact) {
+    return (
+      <label
+        htmlFor={inputId}
+        data-testid="dropzone"
+        data-slot="dropzone"
+        data-dragging={isDragging}
+        data-platform={platform}
+        onDragOver={disabled ? undefined : handleDragOver}
+        onDragLeave={disabled ? undefined : handleDragLeave}
+        onDrop={disabled ? undefined : handleDrop}
+        className={cn(
+          'flex aspect-square cursor-pointer items-center justify-center rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2',
+          disabled && 'cursor-not-allowed opacity-50',
+          isDragging && !disabled && 'ring-2 ring-primary ring-offset-2',
+          className
+        )}
+        style={style}
+      >
+        <Upload
+          className={cn(
+            'h-6 w-6 text-muted-foreground/50',
+            isDragging && 'text-primary'
+          )}
+        />
+        {fileInput}
+      </label>
+    );
+  }
+
   return (
     <label
       htmlFor={inputId}
