@@ -119,6 +119,45 @@ router.get('/keys', async (req: Request, res: Response) => {
 
 /**
  * @openapi
+ * /admin/redis/dbsize:
+ *   get:
+ *     summary: Get total number of keys in Redis
+ *     description: Returns the total count of keys in the current Redis database
+ *     tags:
+ *       - Admin
+ *     responses:
+ *       200:
+ *         description: Total key count
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 count:
+ *                   type: number
+ *                   description: Total number of keys in the database
+ *       500:
+ *         description: Redis connection error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/dbsize', async (_req: Request, res: Response) => {
+  try {
+    const client = await getRedisClient();
+    const count = await client.dbSize();
+    res.json({ count });
+  } catch (err) {
+    console.error('Redis error:', err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : 'Failed to connect to Redis'
+    });
+  }
+});
+
+/**
+ * @openapi
  * /admin/redis/keys/{key}:
  *   get:
  *     summary: Get Redis key value
@@ -215,5 +254,58 @@ router.get(
     }
   }
 );
+
+/**
+ * @openapi
+ * /admin/redis/keys/{key}:
+ *   delete:
+ *     summary: Delete a Redis key
+ *     description: Deletes a key from Redis
+ *     tags:
+ *       - Admin
+ *     parameters:
+ *       - in: path
+ *         name: key
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The Redis key to delete
+ *     responses:
+ *       200:
+ *         description: Key deletion result
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 deleted:
+ *                   type: boolean
+ *                   description: Whether the key was deleted
+ *       500:
+ *         description: Redis connection error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.delete('/keys/:key', async (req: Request, res: Response) => {
+  try {
+    const client = await getRedisClient();
+    const key = req.params['key'];
+
+    if (!key) {
+      res.status(400).json({ error: 'Key parameter is required' });
+      return;
+    }
+
+    const deletedCount = await client.del(key);
+    res.json({ deleted: deletedCount > 0 });
+  } catch (err) {
+    console.error('Redis error:', err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : 'Failed to connect to Redis'
+    });
+  }
+});
 
 export { router as redisRouter };
