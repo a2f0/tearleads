@@ -182,16 +182,22 @@ describe('SSEContext', () => {
           MockEventSource.getInstance(0).emit('connected');
         });
 
+        const testMessage = {
+          type: 'test',
+          payload: { data: 'hello' },
+          timestamp: '2026-01-10T00:00:00.000Z'
+        };
+
         act(() => {
           MockEventSource.getInstance(0).emit(
             'message',
-            JSON.stringify({ channel: 'test', message: 'hello' })
+            JSON.stringify({ channel: 'test', message: testMessage })
           );
         });
 
         expect(result.current.lastMessage).toEqual({
           channel: 'test',
-          message: 'hello'
+          message: testMessage
         });
       });
 

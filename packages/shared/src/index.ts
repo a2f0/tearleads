@@ -31,9 +31,15 @@ export interface RedisKeyValueResponse {
 // SSE types
 export type SSEConnectionState = 'connected' | 'connecting' | 'disconnected';
 
+export interface BroadcastMessage {
+  type: string;
+  payload: unknown;
+  timestamp: string;
+}
+
 export interface SSEMessage {
   channel: string;
-  message: string;
+  message: BroadcastMessage;
 }
 
 // Utilities
