@@ -9,9 +9,11 @@ describe('API', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
-        version: expect.any(String)
+        version: expect.any(String),
+        dbVersion: expect.any(String)
       });
       expect(response.body.version).toMatch(/^\d+\.\d+\.\d+$/);
+      expect(response.body.dbVersion).toMatch(/^\d+\.\d+\.\d+$/);
     });
   });
 

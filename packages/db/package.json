@@ -17,7 +17,8 @@
     "./postgresql": {
       "types": "./dist/generated/postgresql/schema.d.ts",
       "import": "./dist/generated/postgresql/schema.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"
