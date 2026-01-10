@@ -48,3 +48,7 @@ export const RECOMMENDED_MODELS: ModelInfo[] = [
   },
   CLASSIFICATION_MODEL
 ];
+
+export const CHAT_MODELS: ModelInfo[] = RECOMMENDED_MODELS.filter(
+  (model) => !model.isClassification
+);
