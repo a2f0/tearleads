@@ -57,6 +57,24 @@
       button:hover {
         background: #1a4a7a;
       }
+      .status {
+        margin-top: 12px;
+        padding: 8px;
+        border-radius: 6px;
+        font-size: 13px;
+        text-align: center;
+        display: none;
+      }
+      .status.success {
+        display: block;
+        background: #1e4620;
+        color: #4ade80;
+      }
+      .status.error {
+        display: block;
+        background: #4a1e1e;
+        color: #f87171;
+      }
     </style>
   </head>
   <body>
@@ -70,6 +88,7 @@
       <div class="info-value" id="page-url">Loading...</div>
     </div>
     <button id="action-btn">Take Action</button>
+    <div id="status" class="status"></div>
     <script type="module" src="./popup/index.ts"></script>
   </body>
 </html>

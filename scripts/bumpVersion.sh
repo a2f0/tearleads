@@ -17,6 +17,8 @@ ANDROID_GRADLE="$REPO_ROOT/packages/client/android/app/build.gradle"
 IOS_PBXPROJ="$REPO_ROOT/packages/client/ios/App/App.xcodeproj/project.pbxproj"
 API_PACKAGE="$REPO_ROOT/packages/api/package.json"
 CLIENT_PACKAGE="$REPO_ROOT/packages/client/package.json"
+CHROME_EXT_PACKAGE="$REPO_ROOT/packages/chrome-extension/package.json"
+CHROME_EXT_MANIFEST="$REPO_ROOT/packages/chrome-extension/public/manifest.json"
 
 # Get current Android versionCode and versionName
 ANDROID_VERSION=$(grep -E 'versionCode [0-9]+' "$ANDROID_GRADLE" | head -1 | sed 's/.*versionCode \([0-9]*\).*/\1/')
@@ -47,11 +49,20 @@ CLIENT_PATCH=$(echo "$CLIENT_VERSION" | cut -d. -f3)
 NEW_CLIENT_PATCH=$((CLIENT_PATCH + 1))
 NEW_CLIENT_VERSION="$CLIENT_MAJOR.$CLIENT_MINOR.$NEW_CLIENT_PATCH"
 
+# Get current Chrome Extension version using jq
+CHROME_EXT_VERSION=$(jq -r '.version' "$CHROME_EXT_PACKAGE")
+CHROME_EXT_MAJOR=$(echo "$CHROME_EXT_VERSION" | cut -d. -f1)
+CHROME_EXT_MINOR=$(echo "$CHROME_EXT_VERSION" | cut -d. -f2)
+CHROME_EXT_PATCH=$(echo "$CHROME_EXT_VERSION" | cut -d. -f3)
+NEW_CHROME_EXT_PATCH=$((CHROME_EXT_PATCH + 1))
+NEW_CHROME_EXT_VERSION="$CHROME_EXT_MAJOR.$CHROME_EXT_MINOR.$NEW_CHROME_EXT_PATCH"
+
 echo "Bumping versions:"
-echo "  Android: $ANDROID_VERSION -> $NEW_ANDROID_VERSION"
-echo "  iOS:     $IOS_VERSION -> $NEW_IOS_VERSION"
-echo "  API:     $API_VERSION -> $NEW_API_VERSION"
-echo "  Client:  $CLIENT_VERSION -> $NEW_CLIENT_VERSION"
+echo "  Android:    $ANDROID_VERSION -> $NEW_ANDROID_VERSION"
+echo "  iOS:        $IOS_VERSION -> $NEW_IOS_VERSION"
+echo "  API:        $API_VERSION -> $NEW_API_VERSION"
+echo "  Client:     $CLIENT_VERSION -> $NEW_CLIENT_VERSION"
+echo "  Chrome Ext: $CHROME_EXT_VERSION -> $NEW_CHROME_EXT_VERSION"
 
 # Update Android versionCode and versionName (using dynamic prefix)
 sedi "s/versionCode $ANDROID_VERSION/versionCode $NEW_ANDROID_VERSION/" "$ANDROID_GRADLE"
@@ -67,5 +78,11 @@ jq --arg v "$NEW_API_VERSION" '.version = $v' "$API_PACKAGE" > "$TMP_FILE" && mv
 # Update Client version using jq
 TMP_FILE=$(mktemp)
 jq --arg v "$NEW_CLIENT_VERSION" '.version = $v' "$CLIENT_PACKAGE" > "$TMP_FILE" && mv "$TMP_FILE" "$CLIENT_PACKAGE"
+
+# Update Chrome Extension version using jq (both package.json and manifest.json)
+TMP_FILE=$(mktemp)
+jq --arg v "$NEW_CHROME_EXT_VERSION" '.version = $v' "$CHROME_EXT_PACKAGE" > "$TMP_FILE" && mv "$TMP_FILE" "$CHROME_EXT_PACKAGE"
+TMP_FILE=$(mktemp)
+jq --arg v "$NEW_CHROME_EXT_VERSION" '.version = $v' "$CHROME_EXT_MANIFEST" > "$TMP_FILE" && mv "$TMP_FILE" "$CHROME_EXT_MANIFEST"
 
 echo "Done."
