@@ -26,6 +26,14 @@ export function getAttachedImage(): string | null {
 }
 
 /**
+ * Clears the attached image.
+ * Called when switching instances to prevent image leakage between instances.
+ */
+export function clearAttachedImage(): void {
+  attachedImage = null;
+}
+
+/**
  * Creates a ChatModelAdapter that bridges assistant-ui with our LLM worker.
  * This adapter enables streaming chat completions from local LLM inference.
  */
