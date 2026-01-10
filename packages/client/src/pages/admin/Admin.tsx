@@ -189,7 +189,9 @@ export function Admin() {
 
       <div className="min-h-0 flex-1">
         <p className="mb-2 text-muted-foreground text-sm">{getStatusText()}</p>
-        <div className="h-[calc(100vh-280px)] rounded-lg border">
+        <div
+          className={`rounded-lg border ${keys.length > 0 ? 'h-[calc(100vh-280px)]' : ''}`}
+        >
           {loading && keys.length === 0 ? (
             <div className="flex items-center justify-center p-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
