@@ -161,5 +161,44 @@ describe('api', () => {
         false
       );
     });
+
+    it('uses generic event name for getValue without leaking key values', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({ key: 'sessions:abc123', value: 'test', ttl: -1 }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      const { api } = await import('./api');
+      await api.admin.redis.getValue('sessions:abc123');
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_admin_redis_key',
+        expect.any(Number),
+        true
+      );
+    });
+
+    it('uses generic event name for deleteKey without leaking key values', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ deleted: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      const { api } = await import('./api');
+      await api.admin.redis.deleteKey('users:user-uuid:sessions');
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_delete_admin_redis_key',
+        expect.any(Number),
+        true
+      );
+    });
   });
 });
