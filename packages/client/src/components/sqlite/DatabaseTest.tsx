@@ -373,6 +373,7 @@ export function DatabaseTest() {
         {/* Hidden username field for accessibility - suppresses browser warning */}
         <input
           type="text"
+          name="username"
           autoComplete="username"
           aria-hidden="true"
           tabIndex={-1}
