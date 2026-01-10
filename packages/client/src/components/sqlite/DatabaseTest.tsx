@@ -370,6 +370,16 @@ export function DatabaseTest() {
           }
         }}
       >
+        {/* Hidden username field for accessibility - suppresses browser warning */}
+        <input
+          type="text"
+          autoComplete="username"
+          aria-hidden="true"
+          tabIndex={-1}
+          className="sr-only"
+          readOnly
+          value=""
+        />
         <div className="relative">
           <input
             type={showPassword ? 'text' : 'password'}
