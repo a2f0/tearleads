@@ -230,6 +230,9 @@ git rebase origin/main >/dev/null
 # WRONG - NEVER run without stdout suppression
 git push                    # Burns 5000+ tokens on pre-push hooks
 git push --force-with-lease # Burns 5000+ tokens on pre-push hooks
+git commit -S -m "message"  # Burns 1000+ tokens on pre-commit output
+git fetch origin main       # Can be noisy and waste tokens
+git rebase origin/main      # Can be noisy and waste tokens
 ```
 
 **Why this is non-negotiable**: Pre-push hooks run lint, type-check, build, and tests. A single unsuppressed push adds 5,000+ lines to context. Over a merge queue session with multiple pushes, this can consume 20,000+ tokens of pure noise.
@@ -250,6 +253,7 @@ git push --force-with-lease # Burns 5000+ tokens on pre-push hooks
   ```
 
 - **Don't echo status unnecessarily**: The user sees your tool calls. Don't add "Checking CI status..." messages.
+- **Batch state updates**: Combine related status messages rather than outputting each check individually.
 - **Avoid verbose CI logs**: Only fetch CI logs on failure, and only the failing job's logs.
 - **Skip redundant operations**: Use state flags (`has_waited_for_gemini`, `gemini_can_review`, `has_bumped_version`) religiously.
 - **No redundant file reads**: If you read a file, cache its content mentally. Don't re-read unchanged files.

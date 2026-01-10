@@ -1,6 +1,6 @@
 {
   "name": "@rapid/client",
-  "version": "0.0.100",
+  "version": "0.0.101",
   "description": "React client application for Rapid",
   "main": "out/main/main.js",
   "type": "module",
