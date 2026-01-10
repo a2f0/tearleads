@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
 import { isBiometricAvailable } from '@/db/crypto/key-manager';
 import { useDatabaseContext } from '@/db/hooks';
+import { useOnInstanceChange } from '@/hooks/useInstanceChange';
 import { getErrorMessage } from '@/lib/errors';
 import { detectPlatform } from '@/lib/utils';
 
@@ -34,7 +35,6 @@ export function DatabaseTest() {
     isSetUp,
     isUnlocked,
     hasPersistedSession,
-    currentInstanceId,
     setup,
     unlock,
     restoreSession,
@@ -74,12 +74,13 @@ export function DatabaseTest() {
     }
   }, [isMobile]);
 
-  // Reset test state when switching instances
-  // biome-ignore lint/correctness/useExhaustiveDependencies: currentInstanceId triggers reset
-  useEffect(() => {
+  // Reset test state when switching instances using pub-sub for reliable notification
+  const resetTestState = useCallback(() => {
     setTestResult({ status: 'idle', message: '' });
     setTestData(null);
-  }, [currentInstanceId]);
+  }, []);
+
+  useOnInstanceChange(resetTestState);
 
   useEffect(() => {
     if (!copied) return;
