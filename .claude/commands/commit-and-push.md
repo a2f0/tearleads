@@ -28,15 +28,26 @@ Commit and push the current changes following these rules:
 
 8. **Merge**: Run `/enter-merge-queue` to automate merging (updates from base, fixes CI, bumps versions, waits for merge).
 
-## Token Efficiency
+## Token Efficiency (CRITICAL - DO NOT SKIP)
 
-Minimize token consumption from git hook output:
+**MANDATORY**: ALL git commit and push commands MUST redirect stdout to `/dev/null`. Failure to do this wastes thousands of tokens on hook output.
 
-- **Suppress stdout on git operations**: Pre-push hooks run linting, builds, and tests that produce verbose stdout. Redirect stdout to `/dev/null` while preserving stderr for errors:
+### Required pattern for ALL git operations
 
-  ```bash
-  git commit -S -m "message" >/dev/null
-  git push >/dev/null
-  ```
+```bash
+# CORRECT - always use these forms
+git commit -S -m "message" >/dev/null
+git push >/dev/null
 
-- **Only stderr matters**: On success, the exit code is sufficient. On failure, errors appear on stderr which is preserved by the redirect.
+# WRONG - NEVER run without stdout suppression
+git commit -m "message"  # Burns 1000+ tokens on pre-commit output
+git push                 # Burns 5000+ tokens on pre-push output
+```
+
+### Why this is non-negotiable
+
+- Husky pre-commit hooks output lint results, type-check results
+- Husky pre-push hooks run full test suites and builds
+- A single unsuppressed `git push` can add 5,000+ lines to context
+- This is pure waste - on success, only exit code matters
+- Errors go to stderr, which `>/dev/null` preserves
