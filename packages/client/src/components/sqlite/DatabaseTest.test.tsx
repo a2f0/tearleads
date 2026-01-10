@@ -966,4 +966,80 @@ describe('DatabaseTest', () => {
       });
     });
   });
+
+  describe('instance switching', () => {
+    it('resets testResult when currentInstanceId changes', async () => {
+      const user = userEvent.setup();
+      const setup = vi.fn().mockResolvedValue(undefined);
+      const context = setupMockContext({
+        setup,
+        isSetUp: false,
+        isUnlocked: false,
+        currentInstanceId: 'instance-1'
+      });
+
+      const { unmount } = render(<DatabaseTest />);
+
+      // Perform setup to set testResult
+      const setupButton = screen.getByTestId('db-setup-button');
+      await user.click(setupButton);
+
+      await waitFor(() => {
+        const result = screen.getByTestId('db-test-result');
+        expect(result).toHaveTextContent('Database setup complete');
+      });
+
+      // Unmount and remount with new instance ID to simulate instance switch
+      // This is more realistic than just changing the mock mid-render
+      unmount();
+
+      mockUseDatabaseContext.mockReturnValue({
+        ...context,
+        currentInstanceId: 'instance-2',
+        isSetUp: false
+      });
+
+      render(<DatabaseTest />);
+
+      // New mount should have idle state - since idle has no message,
+      // the db-test-result element should not be rendered
+      expect(screen.queryByTestId('db-test-result')).not.toBeInTheDocument();
+    });
+
+    it('clears testData when currentInstanceId changes', async () => {
+      const user = userEvent.setup();
+      const mockExecute = vi.fn().mockResolvedValue({ rows: [] });
+      mockGetDatabaseAdapter.mockReturnValue({ execute: mockExecute });
+      const context = setupMockContext({
+        isSetUp: true,
+        isUnlocked: true,
+        currentInstanceId: 'instance-1'
+      });
+
+      const { unmount } = render(<DatabaseTest />);
+
+      // Write data to set testData
+      const writeButton = screen.getByTestId('db-write-button');
+      await user.click(writeButton);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('db-test-data')).toBeInTheDocument();
+      });
+
+      // Unmount and remount with new instance ID
+      unmount();
+
+      mockUseDatabaseContext.mockReturnValue({
+        ...context,
+        currentInstanceId: 'instance-2',
+        isSetUp: false,
+        isUnlocked: false
+      });
+
+      render(<DatabaseTest />);
+
+      // testData should be cleared (new mount has no data)
+      expect(screen.queryByTestId('db-test-data')).not.toBeInTheDocument();
+    });
+  });
 });

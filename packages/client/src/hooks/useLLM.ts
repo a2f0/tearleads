@@ -1,7 +1,7 @@
 /// <reference types="@webgpu/types" />
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
-import { getDatabase } from '@/db';
+import { getCurrentInstanceId, getDatabase } from '@/db';
 import { logEvent as logAnalyticsEvent } from '@/db/analytics';
 import { getWebGPUErrorInfo } from '@/lib/utils';
 import {
@@ -137,6 +137,49 @@ function getSnapshot(): LLMState {
   return snapshot;
 }
 
+/**
+ * Reset LLM UI state when switching instances.
+ * The model stays loaded in WebGPU/worker memory for quick switching back.
+ * Only the UI-facing state is reset.
+ */
+export function resetLLMUIState(): void {
+  // Keep model loaded in worker for quick switching back
+  // store.loadedModel and store.modelType are preserved
+
+  // Reset UI-facing state
+  store.isLoading = false;
+  store.loadProgress = null;
+  store.error = null;
+  store.isClassifying = false;
+
+  // Abort any in-progress loading
+  loadingModelId = null;
+
+  // Reject any in-progress generation
+  if (currentGenerateReject) {
+    currentGenerateReject(new Error('Instance switched'));
+  }
+  currentTokenCallback = null;
+  currentGenerateResolve = null;
+  currentGenerateReject = null;
+
+  // Reject any in-progress classification
+  if (currentClassifyReject) {
+    currentClassifyReject(new Error('Instance switched'));
+  }
+  currentClassifyResolve = null;
+  currentClassifyReject = null;
+
+  // Reject any pending load
+  if (loadReject) {
+    loadReject(new Error('Instance switched'));
+  }
+  loadResolve = null;
+  loadReject = null;
+
+  emitChange();
+}
+
 // Track current loading operation to handle cancellation
 let loadingModelId: string | null = null;
 
@@ -190,8 +233,11 @@ function getWorker(): Worker {
           loadingModelId = null;
           emitChange();
 
-          // Persist model ID for recovery after page reload
-          saveLastLoadedModel(response.modelId);
+          // Persist model ID for recovery after page reload (instance-scoped)
+          saveLastLoadedModel(
+            response.modelId,
+            getCurrentInstanceId() ?? undefined
+          );
 
           // Log analytics for model loading
           logLLMAnalytics('llm_model_load', response.durationMs, true);
@@ -282,8 +328,8 @@ function getWorker(): Worker {
           store.loadProgress = null;
           emitChange();
 
-          // Clear persisted model
-          clearLastLoadedModel();
+          // Clear persisted model (instance-scoped)
+          clearLastLoadedModel(getCurrentInstanceId() ?? undefined);
           break;
         }
       }
@@ -465,11 +511,12 @@ export function useLLM(): UseLLMReturn {
     return checkWebGPUSupport();
   }, []);
 
-  // Check for previously loaded model (from before page reload)
+  // Check for previously loaded model (from before page reload, instance-scoped)
   const previouslyLoadedModel = useMemo(() => {
     // Only return if no model is currently loaded
     if (state.loadedModel) return null;
-    return getLastLoadedModel();
+    const instanceId = getCurrentInstanceId();
+    return getLastLoadedModel(instanceId ?? undefined);
   }, [state.loadedModel]);
 
   return useMemo(

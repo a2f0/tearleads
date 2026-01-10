@@ -34,6 +34,7 @@ export function DatabaseTest() {
     isSetUp,
     isUnlocked,
     hasPersistedSession,
+    currentInstanceId,
     setup,
     unlock,
     restoreSession,
@@ -72,6 +73,13 @@ export function DatabaseTest() {
         });
     }
   }, [isMobile]);
+
+  // Reset test state when switching instances
+  // biome-ignore lint/correctness/useExhaustiveDependencies: currentInstanceId triggers reset
+  useEffect(() => {
+    setTestResult({ status: 'idle', message: '' });
+    setTestData(null);
+  }, [currentInstanceId]);
 
   useEffect(() => {
     if (!copied) return;

@@ -1,6 +1,16 @@
+import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      // Mock @rapid/db/package.json for tests
+      '@rapid/db/package.json': path.resolve(
+        __dirname,
+        '../../packages/db/package.json'
+      )
+    }
+  },
   test: {
     include: ['src/**/*.test.ts'],
     coverage: {
