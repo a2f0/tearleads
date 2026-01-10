@@ -51,7 +51,13 @@ export const api = {
       getValue: (key: string) =>
         request<RedisKeyValueResponse>(
           `/admin/redis/keys/${encodeURIComponent(key)}`
-        )
+        ),
+      deleteKey: (key: string) =>
+        request<{ deleted: boolean }>(
+          `/admin/redis/keys/${encodeURIComponent(key)}`,
+          { method: 'DELETE' }
+        ),
+      getDbSize: () => request<{ count: number }>('/admin/redis/dbsize')
     }
   }
 };

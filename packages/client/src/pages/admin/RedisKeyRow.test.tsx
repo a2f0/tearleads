@@ -19,7 +19,8 @@ describe('RedisKeyRow', () => {
   const defaultProps = {
     keyInfo: { key: 'test:key', type: 'string', ttl: -1 },
     isExpanded: false,
-    onToggle: vi.fn()
+    onToggle: vi.fn(),
+    onContextMenu: vi.fn()
   };
 
   beforeEach(() => {
@@ -308,6 +309,21 @@ describe('RedisKeyRow', () => {
           screen.getByText('Value display not supported for this type')
         ).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('context menu', () => {
+    it('calls onContextMenu when right-clicked', async () => {
+      const onContextMenu = vi.fn();
+      const user = userEvent.setup();
+
+      render(<RedisKeyRow {...defaultProps} onContextMenu={onContextMenu} />);
+
+      const row = screen.getByText('test:key').closest('div');
+      expect(row).not.toBeNull();
+      await user.pointer({ target: row as Element, keys: '[MouseRight]' });
+
+      expect(onContextMenu).toHaveBeenCalledTimes(1);
     });
   });
 });
