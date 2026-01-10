@@ -1,0 +1,154 @@
+appId: com.tearleads.rapid
+---
+# Instance Switching State Isolation Test
+# Verifies that UI state resets correctly when switching between database instances
+
+- launchApp:
+    clearState: true
+
+- assertVisible: "Tearleads"
+
+# Load shared database helper functions
+- runFlow: helpers/db-helpers.yaml
+
+# Navigate to SQLite page
+- evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
+
+# Wait for SQLite page to load
+- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
+
+# Reset database to ensure clean state
+- evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
+
+# Wait for reset to complete
+- evalScript: window.waitForResult('success')
+
+# Verify database is in "Not Set Up" state
+- evalScript: window.waitForStatus('Not Set Up')
+
+# Setup first instance
+- evalScript: window.setPassword('testpassword123')
+- evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
+- evalScript: window.waitForResult('success')
+- evalScript: window.waitForStatus('Unlocked')
+
+# Verify "Database setup complete" message is shown
+- evalScript: |
+    const result = document.querySelector('[data-testid="db-test-result"]');
+    if (!result.textContent.includes('Database setup complete')) {
+      throw new Error('Expected "Database setup complete" message, got: ' + result.textContent);
+    }
+    return 'ok';
+
+# Write test data
+- evalScript: document.querySelector('[data-testid="db-write-button"]').click()
+- evalScript: window.waitForResult('success', 'Wrote test data:')
+
+# Verify test data is displayed
+- evalScript: |
+    const testData = document.querySelector('[data-testid="db-test-data"]');
+    if (!testData || !/^test-value-\d+$/.test(testData.textContent)) {
+      throw new Error('Expected test data to be displayed');
+    }
+    window.__firstInstanceData = testData.textContent;
+    return 'ok';
+
+# Create a new instance via account switcher
+- evalScript: |
+    const switcher = document.querySelector('[data-testid="account-switcher-button"]');
+    if (!switcher) throw new Error('Account switcher button not found');
+    switcher.click();
+    return 'ok';
+
+# Wait for dropdown to appear
+- evalScript: |
+    window.waitFor(
+      () => document.querySelector('[data-testid="create-instance-button"]'),
+      'Create instance button not found'
+    )
+
+# Click create new instance
+- evalScript: document.querySelector('[data-testid="create-instance-button"]').click()
+
+# Wait for new instance to be active (should be not set up)
+- evalScript: window.waitForStatus('Not Set Up')
+
+# CRITICAL TEST: Verify state was reset
+# The "Database setup complete" message should NOT be visible
+- evalScript: |
+    const result = document.querySelector('[data-testid="db-test-result"]');
+    if (result && result.textContent.includes('Database setup complete')) {
+      throw new Error('State persisted incorrectly - "Database setup complete" should not be visible after switching instances');
+    }
+    return 'ok';
+
+# Verify testResult is in idle state
+- evalScript: |
+    const result = document.querySelector('[data-testid="db-test-result"]');
+    if (result.getAttribute('data-status') !== 'idle') {
+      throw new Error('Expected idle status, got: ' + result.getAttribute('data-status'));
+    }
+    return 'ok';
+
+# Verify testData is cleared
+- evalScript: |
+    const testData = document.querySelector('[data-testid="db-test-data"]');
+    if (testData && testData.textContent) {
+      throw new Error('Test data should be cleared after instance switch, got: ' + testData.textContent);
+    }
+    return 'ok';
+
+# Setup the second instance
+- evalScript: window.setPassword('testpassword123')
+- evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
+- evalScript: window.waitForResult('success')
+- evalScript: window.waitForStatus('Unlocked')
+
+# Now switch back to first instance
+- evalScript: |
+    const switcher = document.querySelector('[data-testid="account-switcher-button"]');
+    switcher.click();
+    return 'ok';
+
+# Wait for dropdown - instance items have testid pattern: instance-{uuid}
+- evalScript: |
+    window.waitFor(
+      () => document.querySelectorAll('[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])').length > 0,
+      'Instance items not found'
+    )
+
+# Click first instance
+- evalScript: |
+    const instances = document.querySelectorAll('[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])');
+    instances[0].click();
+    return 'ok';
+
+# Wait for switch to complete - first instance should not be "Not Set Up"
+- evalScript: |
+    window.waitFor(
+      () => {
+        const status = document.querySelector('[data-testid="db-status"]');
+        return status && status.textContent !== 'Not Set Up';
+      },
+      'First instance should not be "Not Set Up"'
+    )
+
+# Verify state was reset again (not showing second instance's state)
+- evalScript: |
+    const result = document.querySelector('[data-testid="db-test-result"]');
+    if (result.getAttribute('data-status') !== 'idle') {
+      throw new Error('Expected idle status after switching back, got: ' + result.getAttribute('data-status'));
+    }
+    return 'ok';
+
+# Read data from first instance to verify data isolation
+- evalScript: document.querySelector('[data-testid="db-read-button"]').click()
+- evalScript: window.waitForResult('success', 'Read test data:')
+
+# Verify it matches the original data from first instance
+- evalScript: |
+    const testData = document.querySelector('[data-testid="db-test-data"]');
+    if (testData.textContent !== window.__firstInstanceData) {
+      throw new Error('Data should match original. Expected: ' + window.__firstInstanceData + ', got: ' + testData.textContent);
+    }
+    return 'ok';
