@@ -68,41 +68,42 @@ async function renderPdfFirstPage(
   const loadingTask = pdfjs.getDocument({ data: pdfData });
   const pdf = await loadingTask.promise;
 
-  if (pdf.numPages === 0) {
+  try {
+    if (pdf.numPages === 0) {
+      return null;
+    }
+
+    const page = await pdf.getPage(1);
+
+    // Get the page dimensions at scale 1
+    const viewport = page.getViewport({ scale: 1 });
+
+    // Calculate scale to fit within max dimensions
+    const scaleX = maxWidth / viewport.width;
+    const scaleY = maxHeight / viewport.height;
+    const scale = Math.min(scaleX, scaleY, 1); // Don't scale up
+
+    const scaledViewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(scaledViewport.width);
+    canvas.height = Math.round(scaledViewport.height);
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return null;
+    }
+
+    await page.render({
+      canvasContext: ctx,
+      viewport: scaledViewport,
+      canvas
+    }).promise;
+
+    return canvas;
+  } finally {
     await pdf.destroy();
-    return null;
   }
-
-  const page = await pdf.getPage(1);
-
-  // Get the page dimensions at scale 1
-  const viewport = page.getViewport({ scale: 1 });
-
-  // Calculate scale to fit within max dimensions
-  const scaleX = maxWidth / viewport.width;
-  const scaleY = maxHeight / viewport.height;
-  const scale = Math.min(scaleX, scaleY, 1); // Don't scale up
-
-  const scaledViewport = page.getViewport({ scale });
-
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(scaledViewport.width);
-  canvas.height = Math.round(scaledViewport.height);
-
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    await pdf.destroy();
-    return null;
-  }
-
-  await page.render({
-    canvasContext: ctx,
-    viewport: scaledViewport,
-    canvas
-  }).promise;
-
-  await pdf.destroy();
-  return canvas;
 }
 
 /**

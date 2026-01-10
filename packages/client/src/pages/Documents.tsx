@@ -219,9 +219,7 @@ export function Documents() {
           if (doc.thumbnailPath) {
             try {
               const data = await storage.retrieve(doc.thumbnailPath);
-              const buffer = new ArrayBuffer(data.byteLength);
-              new Uint8Array(buffer).set(data);
-              const blob = new Blob([buffer], { type: 'image/jpeg' });
+              const blob = new Blob([data.slice()], { type: 'image/jpeg' });
               thumbnailUrl = URL.createObjectURL(blob);
             } catch (err) {
               console.warn(`Failed to load thumbnail for ${doc.name}:`, err);
@@ -379,7 +377,7 @@ export function Documents() {
                             {document.thumbnailUrl ? (
                               <img
                                 src={document.thumbnailUrl}
-                                alt=""
+                                alt={`Thumbnail for ${document.name}`}
                                 className="h-10 w-10 shrink-0 rounded border object-cover"
                               />
                             ) : (
