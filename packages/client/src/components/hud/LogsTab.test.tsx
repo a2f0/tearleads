@@ -154,4 +154,46 @@ describe('LogsTab', () => {
     const levelElement = screen.getByText('debug');
     expect(levelElement).toHaveClass('text-muted-foreground');
   });
+
+  it('expands details when Enter key is pressed', async () => {
+    await act(async () => {
+      logStore.error('Error message', 'Stack trace here');
+    });
+    await act(async () => {
+      render(<LogsTab />);
+    });
+
+    expect(screen.queryByText('Stack trace here')).not.toBeInTheDocument();
+
+    const logButton = screen.getByRole('button', { name: /error message/i });
+    logButton.focus();
+    await act(async () => {
+      logButton.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+      );
+    });
+
+    expect(screen.getByText('Stack trace here')).toBeInTheDocument();
+  });
+
+  it('expands details when Space key is pressed', async () => {
+    await act(async () => {
+      logStore.error('Error message', 'Stack trace here');
+    });
+    await act(async () => {
+      render(<LogsTab />);
+    });
+
+    expect(screen.queryByText('Stack trace here')).not.toBeInTheDocument();
+
+    const logButton = screen.getByRole('button', { name: /error message/i });
+    logButton.focus();
+    await act(async () => {
+      logButton.dispatchEvent(
+        new KeyboardEvent('keydown', { key: ' ', bubbles: true })
+      );
+    });
+
+    expect(screen.getByText('Stack trace here')).toBeInTheDocument();
+  });
 });
