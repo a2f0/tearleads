@@ -18,6 +18,7 @@
       - api
     patch_time: "03:00"
     patch_timezone: "UTC"
+    postgresql_version: 16
 
   tasks:
     - name: Add GitHub Actions deploy key to authorized_keys
@@ -100,7 +101,7 @@
     # PostgreSQL configuration
     - name: Configure PostgreSQL to listen on localhost only
       ansible.builtin.lineinfile:
-        path: /etc/postgresql/16/main/postgresql.conf
+        path: /etc/postgresql/{{ postgresql_version }}/main/postgresql.conf
         regexp: "^#?listen_addresses\\s*="
         line: "listen_addresses = 'localhost'"
       notify: Restart postgresql
