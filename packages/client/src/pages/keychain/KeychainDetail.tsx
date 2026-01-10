@@ -5,10 +5,15 @@ import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import {
   deleteSessionKeysForInstance,
+  getKeyManagerForInstance,
   getKeyStatusForInstance,
   type KeyStatus
 } from '@/db/crypto/key-manager';
-import { getInstances, type InstanceMetadata } from '@/db/instance-registry';
+import {
+  deleteInstanceFromRegistry,
+  getInstances,
+  type InstanceMetadata
+} from '@/db/instance-registry';
 import { KeyStatusIndicator } from './KeyStatusIndicator';
 
 function formatDate(timestamp: number): string {
@@ -82,7 +87,9 @@ export function KeychainDetail() {
     if (!window.confirm(confirmationMessage)) return;
 
     try {
-      await deleteSessionKeysForInstance(instanceInfo.instance.id);
+      const keyManager = getKeyManagerForInstance(instanceInfo.instance.id);
+      await keyManager.reset();
+      await deleteInstanceFromRegistry(instanceInfo.instance.id);
       navigate('/keychain');
     } catch (err) {
       console.error('Failed to delete instance:', err);
