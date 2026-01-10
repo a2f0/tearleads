@@ -146,14 +146,9 @@ test.describe('Instance Switching State Isolation', () => {
       timeout: DB_OPERATION_TIMEOUT
     });
 
-    // Wait for state to settle - the "Database setup complete" message should either:
-    // 1. Not be visible (state reset to idle), OR
-    // 2. Be replaced with a different message (e.g., "Session restored")
-    // Use a more robust approach: wait for the specific problematic text to disappear
-    await expect(page.getByTestId('db-test-result')).not.toContainText(
-      'Database setup complete',
-      { timeout: DB_OPERATION_TIMEOUT }
-    );
+    // The db-test-result element should not be visible after state reset
+    // (idle state doesn't render the element at all)
+    await expect(page.getByTestId('db-test-result')).not.toBeVisible();
   });
 
   test('each instance maintains independent state', async ({ page }) => {
