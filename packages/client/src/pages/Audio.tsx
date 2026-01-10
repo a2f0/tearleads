@@ -1,3 +1,4 @@
+import { assertPlainArrayBuffer } from '@rapid/shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, desc, eq, like } from 'drizzle-orm';
 import { ChevronRight, Loader2, Music, Pause } from 'lucide-react';
@@ -138,9 +139,8 @@ export function AudioPage() {
                 track.storagePath,
                 logger
               );
-              const buffer = new ArrayBuffer(data.byteLength);
-              new Uint8Array(buffer).set(data);
-              const blob = new Blob([buffer], { type: track.mimeType });
+              assertPlainArrayBuffer(data);
+              const blob = new Blob([data], { type: track.mimeType });
               const objectUrl = URL.createObjectURL(blob);
 
               let thumbnailUrl: string | null = null;
@@ -150,9 +150,8 @@ export function AudioPage() {
                     track.thumbnailPath,
                     logger
                   );
-                  const thumbBuffer = new ArrayBuffer(thumbData.byteLength);
-                  new Uint8Array(thumbBuffer).set(thumbData);
-                  const thumbBlob = new Blob([thumbBuffer], {
+                  assertPlainArrayBuffer(thumbData);
+                  const thumbBlob = new Blob([thumbData], {
                     type: 'image/jpeg'
                   });
                   thumbnailUrl = URL.createObjectURL(thumbBlob);
