@@ -1,7 +1,7 @@
 import { Bot, ChevronDown, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLLM } from '@/hooks/useLLM';
-import { RECOMMENDED_MODELS } from '@/lib/models';
+import { CHAT_MODELS } from '@/lib/models';
 import { ModelOption } from './ModelOption';
 
 interface ModelSelectorProps {
@@ -97,7 +97,7 @@ export function ModelSelector({ modelDisplayName }: ModelSelectorProps) {
             <p className="mb-2 px-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
               Available Models
             </p>
-            {RECOMMENDED_MODELS.map((model) => (
+            {CHAT_MODELS.map((model) => (
               <ModelOption
                 key={model.id}
                 model={model}
