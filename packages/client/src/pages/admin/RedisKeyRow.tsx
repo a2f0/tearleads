@@ -8,6 +8,7 @@ interface RedisKeyRowProps {
   keyInfo: RedisKeyInfo;
   isExpanded: boolean;
   onToggle: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
 }
 
 function getTypeBadgeColor(type: string): string {
@@ -135,7 +136,8 @@ function renderValue(data: RedisKeyValueResponse) {
 export function RedisKeyRow({
   keyInfo,
   isExpanded,
-  onToggle
+  onToggle,
+  onContextMenu
 }: RedisKeyRowProps) {
   const [valueData, setValueData] = useState<RedisKeyValueResponse | null>(
     null
@@ -179,7 +181,8 @@ export function RedisKeyRow({
   }, [isExpanded, keyInfo.key, valueData]);
 
   return (
-    <div className="border-b last:border-b-0">
+    // biome-ignore lint/a11y/noStaticElementInteractions: Context menu on div is intentional
+    <div className="border-b last:border-b-0" onContextMenu={onContextMenu}>
       <button
         type="button"
         onClick={onToggle}
