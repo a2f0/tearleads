@@ -36,14 +36,11 @@ fi
 # Build the client
 pnpm --filter @rapid/client build
 
-# Sync files, but protect /assets/ directory from immediate deletion to avoid
-# breaking users with cached HTML that references old hashed bundles
-rsync -avz --delete --filter='P /assets/' \
+# Sync files, but protect all files in /assets/ from deletion - hashed assets
+# are immutable and must persist indefinitely to avoid 404s for cached HTML
+rsync -avz --delete --filter='P /assets/**' \
   packages/client/dist/ \
   "${USERNAME}@${HOSTNAME}:/var/www/app/"
-
-# Clean up assets older than 7 days (10080 minutes) to align with SW cache policy
-ssh "${USERNAME}@${HOSTNAME}" "find /var/www/app/assets -type f -mmin +10080 -delete 2>/dev/null || true"
 
 ssh "${USERNAME}@${HOSTNAME}" "chgrp -R www-data /var/www/app && chmod -R u=rwX,g=rX,o= /var/www/app"
 
