@@ -74,6 +74,9 @@ const Home = lazy(() =>
 const Keychain = lazy(() =>
   import('./pages/keychain').then((m) => ({ default: m.Keychain }))
 );
+const KeychainDetail = lazy(() =>
+  import('./pages/keychain').then((m) => ({ default: m.KeychainDetail }))
+);
 const LocalStorage = lazy(() =>
   import('./pages/local-storage').then((m) => ({ default: m.LocalStorage }))
 );
@@ -180,6 +183,10 @@ if (rootElement) {
                           element={<LocalStorage />}
                         />
                         <Route path="keychain" element={<Keychain />} />
+                        <Route
+                          path="keychain/:id"
+                          element={<KeychainDetail />}
+                        />
                         <Route path="admin" element={<Admin />} />
                       </Route>
                     </Routes>
