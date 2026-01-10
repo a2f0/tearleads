@@ -297,11 +297,11 @@ export function Contacts() {
         .set({ deleted: true, updatedAt: new Date() })
         .where(eq(contactsTable.id, contextMenu.contact.id));
 
-      setContextMenu(null);
       await fetchContacts(debouncedSearch);
     } catch (err) {
       console.error('Failed to delete contact:', err);
       setError(err instanceof Error ? err.message : String(err));
+    } finally {
       setContextMenu(null);
     }
   }, [contextMenu, fetchContacts, debouncedSearch]);

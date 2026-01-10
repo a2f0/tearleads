@@ -333,11 +333,11 @@ export function Documents() {
         .set({ deleted: true })
         .where(eq(files.id, contextMenu.document.id));
 
-      setContextMenu(null);
       setHasFetched(false);
     } catch (err) {
       console.error('Failed to delete document:', err);
       setError(err instanceof Error ? err.message : String(err));
+    } finally {
       setContextMenu(null);
     }
   }, [contextMenu]);
