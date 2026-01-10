@@ -7,7 +7,11 @@ import { logApiEvent } from '@/db/analytics';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
-async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+async function request<T>(
+  endpoint: string,
+  options?: RequestInit,
+  eventNameOverride?: string
+): Promise<T> {
   if (!API_BASE_URL) {
     throw new Error('VITE_API_URL environment variable is not set');
   }
@@ -17,7 +21,9 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   // Strip query params from endpoint for event name (so paginated requests share the same event type)
   // Note: The nullish coalescing is needed for TypeScript strict mode (split()[0] can be undefined)
   const endpointPath = endpoint.split('?')[0] ?? endpoint;
-  const eventName = `api_${method.toLowerCase()}_${endpointPath.replace(/^\//, '').replace(/\//g, '_')}`;
+  const eventName =
+    eventNameOverride ??
+    `api_${method.toLowerCase()}_${endpointPath.replace(/^\//, '').replace(/\//g, '_')}`;
   let success = false;
 
   try {
@@ -53,12 +59,15 @@ export const api = {
       },
       getValue: (key: string) =>
         request<RedisKeyValueResponse>(
-          `/admin/redis/keys/${encodeURIComponent(key)}`
+          `/admin/redis/keys/${encodeURIComponent(key)}`,
+          undefined,
+          'api_get_admin_redis_key'
         ),
       deleteKey: (key: string) =>
         request<{ deleted: boolean }>(
           `/admin/redis/keys/${encodeURIComponent(key)}`,
-          { method: 'DELETE' }
+          { method: 'DELETE' },
+          'api_delete_admin_redis_key'
         ),
       getDbSize: () => request<{ count: number }>('/admin/redis/dbsize')
     }
