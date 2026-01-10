@@ -577,7 +577,7 @@ describe('Documents', () => {
   });
 
   describe('storage initialization', () => {
-    it('does not initialize storage during fetch (no file data needed)', async () => {
+    it('initializes storage during fetch to load thumbnails', async () => {
       mockIsFileStorageInitialized.mockReturnValue(false);
       renderDocuments();
 
@@ -585,7 +585,7 @@ describe('Documents', () => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
       });
 
-      expect(mockInitializeFileStorage).not.toHaveBeenCalled();
+      expect(mockInitializeFileStorage).toHaveBeenCalled();
     });
   });
 });

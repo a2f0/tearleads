@@ -9,6 +9,7 @@ import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabase } from '@/db';
+import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
@@ -16,6 +17,11 @@ import { retrieveFileData } from '@/lib/data-retrieval';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { formatFileSize } from '@/lib/utils';
+import {
+  getFileStorage,
+  initializeFileStorage,
+  isFileStorageInitialized
+} from '@/storage/opfs';
 
 const PDF_MIME_TYPE = 'application/pdf';
 
@@ -26,6 +32,11 @@ interface DocumentInfo {
   mimeType: string;
   uploadDate: Date;
   storagePath: string;
+  thumbnailPath: string | null;
+}
+
+interface DocumentWithUrl extends DocumentInfo {
+  thumbnailUrl: string | null;
 }
 
 const ROW_HEIGHT_ESTIMATE = 56;
@@ -33,12 +44,12 @@ const ROW_HEIGHT_ESTIMATE = 56;
 export function Documents() {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
-  const [documents, setDocuments] = useState<DocumentInfo[]>([]);
+  const [documents, setDocuments] = useState<DocumentWithUrl[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
-    document: DocumentInfo;
+    document: DocumentWithUrl;
     x: number;
     y: number;
   } | null>(null);
@@ -62,7 +73,7 @@ export function Documents() {
   }, []);
 
   const handleDownload = useCallback(
-    async (document: DocumentInfo, e?: React.MouseEvent) => {
+    async (document: DocumentWithUrl, e?: React.MouseEvent) => {
       e?.stopPropagation();
 
       try {
@@ -81,7 +92,7 @@ export function Documents() {
   );
 
   const handleShare = useCallback(
-    async (document: DocumentInfo, e?: React.MouseEvent) => {
+    async (document: DocumentWithUrl, e?: React.MouseEvent) => {
       e?.stopPropagation();
 
       try {
@@ -174,7 +185,8 @@ export function Documents() {
           size: files.size,
           mimeType: files.mimeType,
           uploadDate: files.uploadDate,
-          storagePath: files.storagePath
+          storagePath: files.storagePath,
+          thumbnailPath: files.thumbnailPath
         })
         .from(files)
         .where(and(eq(files.mimeType, PDF_MIME_TYPE), eq(files.deleted, false)))
@@ -186,10 +198,40 @@ export function Documents() {
         size: row.size,
         mimeType: row.mimeType,
         uploadDate: row.uploadDate,
-        storagePath: row.storagePath
+        storagePath: row.storagePath,
+        thumbnailPath: row.thumbnailPath
       }));
 
-      setDocuments(documentList);
+      // Load thumbnails for documents that have them
+      const keyManager = getKeyManager();
+      const encryptionKey = keyManager.getCurrentKey();
+      if (!encryptionKey) throw new Error('Database not unlocked');
+      if (!currentInstanceId) throw new Error('No active instance');
+
+      if (!isFileStorageInitialized()) {
+        await initializeFileStorage(encryptionKey, currentInstanceId);
+      }
+
+      const storage = getFileStorage();
+      const documentsWithUrls: DocumentWithUrl[] = await Promise.all(
+        documentList.map(async (doc) => {
+          let thumbnailUrl: string | null = null;
+          if (doc.thumbnailPath) {
+            try {
+              const data = await storage.retrieve(doc.thumbnailPath);
+              const buffer = new ArrayBuffer(data.byteLength);
+              new Uint8Array(buffer).set(data);
+              const blob = new Blob([buffer], { type: 'image/jpeg' });
+              thumbnailUrl = URL.createObjectURL(blob);
+            } catch (err) {
+              console.warn(`Failed to load thumbnail for ${doc.name}:`, err);
+            }
+          }
+          return { ...doc, thumbnailUrl };
+        })
+      );
+
+      setDocuments(documentsWithUrls);
       setHasFetched(true);
     } catch (err) {
       console.error('Failed to fetch documents:', err);
@@ -197,7 +239,7 @@ export function Documents() {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked]);
+  }, [isUnlocked, currentInstanceId]);
 
   useEffect(() => {
     if (isUnlocked && !hasFetched && !loading) {
@@ -205,8 +247,19 @@ export function Documents() {
     }
   }, [isUnlocked, hasFetched, loading, fetchDocuments]);
 
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      for (const doc of documents) {
+        if (doc.thumbnailUrl) {
+          URL.revokeObjectURL(doc.thumbnailUrl);
+        }
+      }
+    };
+  }, [documents]);
+
   const handleDocumentClick = useCallback(
-    (document: DocumentInfo) => {
+    (document: DocumentWithUrl) => {
       navigateWithFrom(`/documents/${document.id}`, {
         fromLabel: 'Back to Documents'
       });
@@ -215,7 +268,7 @@ export function Documents() {
   );
 
   const handleContextMenu = useCallback(
-    (e: React.MouseEvent, document: DocumentInfo) => {
+    (e: React.MouseEvent, document: DocumentWithUrl) => {
       e.preventDefault();
       setContextMenu({ document, x: e.clientX, y: e.clientY });
     },
@@ -323,7 +376,15 @@ export function Documents() {
                             className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
                             onClick={() => handleDocumentClick(document)}
                           >
-                            <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
+                            {document.thumbnailUrl ? (
+                              <img
+                                src={document.thumbnailUrl}
+                                alt=""
+                                className="h-10 w-10 shrink-0 rounded border object-cover"
+                              />
+                            ) : (
+                              <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
+                            )}
                             <div className="min-w-0 flex-1">
                               <p className="truncate font-medium text-sm">
                                 {document.name}
