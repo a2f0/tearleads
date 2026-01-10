@@ -21,22 +21,23 @@ import {
   getDistinctEventTypes,
   getEventStats,
   getEvents,
-  type SortColumn
+  type SortColumn,
+  type SortDirection,
+  type StatsSortColumn
 } from '@/db/analytics';
 import { useDatabaseContext } from '@/db/hooks';
 import { SortIcon, type SortState } from './SortIcon';
 
-type SummarySortColumn = keyof EventStats;
 interface SummarySortState {
-  column: SummarySortColumn | null;
-  direction: 'asc' | 'desc' | null;
+  column: StatsSortColumn | null;
+  direction: SortDirection | null;
 }
 
 function SummarySortIcon({
   column,
   sort
 }: {
-  column: SummarySortColumn;
+  column: StatsSortColumn;
   sort: SummarySortState;
 }) {
   if (sort.column !== column) {
@@ -140,7 +141,11 @@ export function Analytics() {
           sortColumn: sort.column ?? undefined,
           sortDirection: sort.direction ?? undefined
         }),
-        getEventStats(db, { startTime }),
+        getEventStats(db, {
+          startTime,
+          sortColumn: summarySort.column ?? undefined,
+          sortDirection: summarySort.direction ?? undefined
+        }),
         getDistinctEventTypes(db)
       ]);
 
@@ -173,7 +178,7 @@ export function Analytics() {
       setLoading(false);
       fetchingRef.current = false;
     }
-  }, [isUnlocked, timeFilter, sort]);
+  }, [isUnlocked, timeFilter, sort, summarySort]);
 
   const handleClear = useCallback(async () => {
     if (!isUnlocked) return;
@@ -203,7 +208,7 @@ export function Analytics() {
     });
   }, []);
 
-  const handleSummarySort = useCallback((column: SummarySortColumn) => {
+  const handleSummarySort = useCallback((column: StatsSortColumn) => {
     setSummarySort((prev) => {
       if (prev.column !== column) {
         return { column, direction: 'asc' };
@@ -235,31 +240,10 @@ export function Analytics() {
     setSelectedEventTypes(new Set());
   }, []);
 
-  const filteredStats = stats.filter((stat) =>
-    selectedEventTypes.has(stat.eventName)
+  const filteredStats = useMemo(
+    () => stats.filter((stat) => selectedEventTypes.has(stat.eventName)),
+    [stats, selectedEventTypes]
   );
-
-  const sortedStats = useMemo(() => {
-    if (!summarySort.column || !summarySort.direction) {
-      return filteredStats;
-    }
-    const sorted = [...filteredStats];
-    const col = summarySort.column;
-    const dir = summarySort.direction;
-    sorted.sort((a, b) => {
-      const aVal = a[col];
-      const bVal = b[col];
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
-        return dir === 'asc'
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal);
-      }
-      const aNum = Number(aVal);
-      const bNum = Number(bVal);
-      return dir === 'asc' ? aNum - bNum : bNum - aNum;
-    });
-    return sorted;
-  }, [filteredStats, summarySort]);
 
   // Fetch data when unlocked state or time filter changes
   useEffect(() => {
@@ -495,7 +479,7 @@ export function Analytics() {
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedStats.map((stat) => (
+                    {filteredStats.map((stat) => (
                       <tr
                         key={stat.eventName}
                         className="border-b last:border-0"
