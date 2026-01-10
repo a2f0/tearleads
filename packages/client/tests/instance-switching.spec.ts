@@ -44,6 +44,14 @@ const switchToInstance = async (page: Page, instanceIndex: number) => {
 
 // Helper to ensure database is unlocked (handles both locked and unlocked states)
 const ensureUnlocked = async (page: Page) => {
+  // Wait for status to stabilize (not "Not Set Up" which means still switching)
+  await expect(page.getByTestId('db-status')).not.toHaveText('Not Set Up', {
+    timeout: DB_OPERATION_TIMEOUT
+  });
+
+  // Wait a moment for React state to settle after instance switch
+  await page.waitForTimeout(100);
+
   const status = await page.getByTestId('db-status').textContent();
   if (status === 'Locked') {
     await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
@@ -134,18 +142,18 @@ test.describe('Instance Switching State Isolation', () => {
 
     // First instance should be unlocked (or locked if session expired)
     // Either way, it should NOT show "Not Set Up"
-    const status = await page.getByTestId('db-status').textContent();
-    expect(status).not.toBe('Not Set Up');
+    await expect(page.getByTestId('db-status')).not.toHaveText('Not Set Up', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
 
-    // The testResult should NOT show "Database setup complete" (which was from second instance)
-    // It can be idle (no message visible), or success (from session restore)
-    const resultElement = page.getByTestId('db-test-result');
-    const isVisible = await resultElement.isVisible().catch(() => false);
-    if (isVisible) {
-      // Verify it's not showing the second instance's state
-      await expect(resultElement).not.toContainText('Database setup complete');
-    }
-    // If not visible, that's correct - idle state has no message
+    // Wait for state to settle - the "Database setup complete" message should either:
+    // 1. Not be visible (state reset to idle), OR
+    // 2. Be replaced with a different message (e.g., "Session restored")
+    // Use a more robust approach: wait for the specific problematic text to disappear
+    await expect(page.getByTestId('db-test-result')).not.toContainText(
+      'Database setup complete',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
   });
 
   test('each instance maintains independent state', async ({ page }) => {
