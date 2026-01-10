@@ -42,27 +42,28 @@ export function ThemeProvider({
   defaultTheme = 'system',
   storageKey = STORAGE_KEY
 }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === 'undefined') return defaultTheme;
-    const stored = localStorage.getItem(storageKey);
-    if (stored && isTheme(stored)) {
-      return stored;
-    }
-    return defaultTheme;
-  });
-
-  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(getSystemTheme);
+  // Use consistent initial values for SSR/hydration matching
+  // The inline script in Layout.astro handles the visual theme immediately
+  const [theme, setThemeState] = useState<Theme>(defaultTheme);
+  const [systemTheme, setSystemTheme] = useState<ResolvedTheme>('light');
 
   const resolvedTheme: ResolvedTheme = theme === 'system' ? systemTheme : theme;
 
+  // Initialize from localStorage and system preferences after hydration
   useEffect(() => {
+    const stored = localStorage.getItem(storageKey);
+    if (stored && isTheme(stored)) {
+      setThemeState(stored);
+    }
+    setSystemTheme(getSystemTheme());
+
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e: MediaQueryListEvent) => {
       setSystemTheme(e.matches ? 'dark' : 'light');
     };
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
     const root = document.documentElement;
