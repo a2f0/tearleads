@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rapid</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        width: 320px;
+        min-height: 200px;
+        font-family:
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        background: #1a1a2e;
+        color: #eee;
+        padding: 16px;
+      }
+      h1 {
+        font-size: 18px;
+        margin-bottom: 12px;
+        color: #fff;
+      }
+      .info {
+        background: #16213e;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+      .info-label {
+        font-size: 11px;
+        color: #888;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+      .info-value {
+        font-size: 13px;
+        word-break: break-all;
+      }
+      button {
+        width: 100%;
+        padding: 10px;
+        background: #0f3460;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      button:hover {
+        background: #1a4a7a;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Rapid</h1>
+    <div class="info">
+      <div class="info-label">Current Page</div>
+      <div class="info-value" id="page-title">Loading...</div>
+    </div>
+    <div class="info">
+      <div class="info-label">URL</div>
+      <div class="info-value" id="page-url">Loading...</div>
+    </div>
+    <button id="action-btn">Take Action</button>
+    <script type="module" src="./popup/index.ts"></script>
+  </body>
+</html>

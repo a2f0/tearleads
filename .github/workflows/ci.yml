@@ -125,6 +125,7 @@ jobs:
           pnpm --filter @rapid/ui test:coverage
           pnpm --filter @rapid/api test:coverage
           pnpm --filter @rapid/client test:coverage
+          pnpm --filter @rapid/chrome-extension test:coverage
 
       - name: Upload Coverage Reports
         uses: actions/upload-artifact@v4
@@ -135,13 +136,14 @@ jobs:
             packages/ui/coverage/
             packages/api/coverage/
             packages/client/coverage/
+            packages/chrome-extension/coverage/
           retention-days: 30
 
       - name: Coverage Summary
         run: |
           echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          for pkg in shared ui api client; do
+          for pkg in shared ui api client chrome-extension; do
             if [ -f "packages/$pkg/coverage/coverage-summary.json" ]; then
               echo "### @rapid/$pkg" >> $GITHUB_STEP_SUMMARY
               node -e "
