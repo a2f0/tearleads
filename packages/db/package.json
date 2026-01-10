@@ -1,0 +1,54 @@
+{
+  "name": "@rapid/db",
+  "version": "0.0.1",
+  "description": "Shared database schema definitions for Rapid",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./sqlite": {
+      "types": "./dist/generated/sqlite/schema.d.ts",
+      "import": "./dist/generated/sqlite/schema.js"
+    },
+    "./postgresql": {
+      "types": "./dist/generated/postgresql/schema.d.ts",
+      "import": "./dist/generated/postgresql/schema.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "pnpm generate && tsc",
+    "generate": "pnpm generate:sqlite && pnpm generate:postgresql",
+    "generate:sqlite": "tsx scripts/generate-sqlite.ts",
+    "generate:postgresql": "tsx scripts/generate-postgresql.ts",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "database",
+    "schema",
+    "drizzle",
+    "sqlite",
+    "postgresql"
+  ],
+  "author": "",
+  "license": "Unlicensed",
+  "dependencies": {
+    "@rapid/shared": "workspace:*",
+    "drizzle-orm": "0.45.1"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "4.0.16",
+    "drizzle-kit": "0.31.8",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "vitest": "4.0.16"
+  }
+}
