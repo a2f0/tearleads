@@ -213,24 +213,46 @@ Create issues for problems that shouldn't block the PR (flaky tests, infrastruct
 
 All threads must be resolved before merge. Use `/follow-up-with-gemini` which handles replying with commit SHAs, waiting for confirmation, and resolving threads via GraphQL.
 
-## Token Efficiency
+## Token Efficiency (CRITICAL - ENFORCE STRICTLY)
 
-Minimize context consumption during long merge queue sessions:
+Merge queue sessions can run for 30+ minutes. Without strict token discipline, a single session can burn through the entire context window.
 
-- **Suppress stdout on git operations**: Pre-push hooks run linting, builds, and tests that produce verbose stdout. Redirect stdout to `/dev/null` while preserving stderr for errors:
+### MANDATORY: Suppress stdout on ALL git operations
+
+```bash
+# CORRECT - always use these forms
+git push --force-with-lease >/dev/null
+git push >/dev/null
+git commit -S -m "message" >/dev/null
+git fetch origin main >/dev/null
+git rebase origin/main >/dev/null
+
+# WRONG - NEVER run without stdout suppression
+git push                    # Burns 5000+ tokens on pre-push hooks
+git push --force-with-lease # Burns 5000+ tokens on pre-push hooks
+```
+
+**Why this is non-negotiable**: Pre-push hooks run lint, type-check, build, and tests. A single unsuppressed push adds 5,000+ lines to context. Over a merge queue session with multiple pushes, this can consume 20,000+ tokens of pure noise.
+
+### Other mandatory token-saving practices
+
+- **Cache immutable PR data**: Fetch `number`, `baseRefName`, `headRefName`, `url` ONCE in step 1. Never re-fetch.
+- **Minimal `--json` fields**: Always specify exactly the fields needed:
 
   ```bash
-  git push --force-with-lease >/dev/null
-  git push >/dev/null
+  # CORRECT
+  gh pr view --json state,mergeStateStatus
+  gh run list --json status,conclusion,databaseId --limit 1
+
+  # WRONG - fetches unnecessary data
+  gh pr view
+  gh pr view --json state,mergeStateStatus,title,body,author,labels,...
   ```
 
-- **Only stderr matters**: On success, the exit code is sufficient. On failure, errors appear on stderr which is preserved by the redirect.
-
-- **Cache PR metadata**: Store `number`, `baseRefName`, `headRefName`, `url` from step 1. Don't re-fetch immutable data.
-- **Minimal status checks**: Use `--json` with only needed fields (e.g., `state,mergeStateStatus` not full PR details).
-- **Avoid verbose CI logs**: When checking CI status, don't fetch full logs unless there's a failure to diagnose.
-- **Batch state updates**: Combine related status messages rather than outputting each check individually.
-- **Skip redundant waits**: Use state flags (`has_waited_for_gemini`, `gemini_can_review`) to avoid repeating completed steps.
+- **Don't echo status unnecessarily**: The user sees your tool calls. Don't add "Checking CI status..." messages.
+- **Avoid verbose CI logs**: Only fetch CI logs on failure, and only the failing job's logs.
+- **Skip redundant operations**: Use state flags (`has_waited_for_gemini`, `gemini_can_review`, `has_bumped_version`) religiously.
+- **No redundant file reads**: If you read a file, cache its content mentally. Don't re-read unchanged files.
 
 ## Notes
 
