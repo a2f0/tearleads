@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -103,12 +103,17 @@ const mockPhotos = [
   }
 ];
 
-function renderPhotos() {
-  return render(
+async function renderPhotos() {
+  const result = render(
     <MemoryRouter>
       <Photos />
     </MemoryRouter>
   );
+  // Flush the setTimeout(fn, 0) used for instance-aware fetching
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  return result;
 }
 
 describe('Photos', () => {
@@ -141,7 +146,7 @@ describe('Photos', () => {
 
   describe('page rendering', () => {
     it('renders the page title', async () => {
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByText('Photos')).toBeInTheDocument();
@@ -149,7 +154,7 @@ describe('Photos', () => {
     });
 
     it('shows photo count', async () => {
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByText('2 photos')).toBeInTheDocument();
@@ -163,7 +168,7 @@ describe('Photos', () => {
         currentInstanceId: null
       });
 
-      renderPhotos();
+      await renderPhotos();
 
       expect(screen.getByText('Loading database...')).toBeInTheDocument();
     });
@@ -179,7 +184,7 @@ describe('Photos', () => {
         restoreSession: vi.fn()
       });
 
-      renderPhotos();
+      await renderPhotos();
 
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
@@ -193,7 +198,7 @@ describe('Photos', () => {
   describe('context menu', () => {
     it('shows context menu on right-click', async () => {
       const user = userEvent.setup();
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
@@ -209,7 +214,7 @@ describe('Photos', () => {
 
     it('navigates to photo detail when "Get info" is clicked', async () => {
       const user = userEvent.setup();
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
@@ -231,7 +236,7 @@ describe('Photos', () => {
 
     it('closes context menu when clicking elsewhere', async () => {
       const user = userEvent.setup();
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
@@ -256,7 +261,7 @@ describe('Photos', () => {
 
     it('closes context menu when pressing Escape', async () => {
       const user = userEvent.setup();
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
@@ -280,7 +285,7 @@ describe('Photos', () => {
   describe('photo click navigation', () => {
     it('navigates to photo detail on left click', async () => {
       const user = userEvent.setup();
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
@@ -298,7 +303,7 @@ describe('Photos', () => {
       ['Space', ' ']
     ])('navigates to photo detail on keyboard %s', async (_keyName, key) => {
       const user = userEvent.setup();
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
@@ -317,7 +322,7 @@ describe('Photos', () => {
 
   describe('accessibility', () => {
     it('does not have nested buttons in photo thumbnails', async () => {
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
@@ -335,7 +340,7 @@ describe('Photos', () => {
     });
 
     it('photo container is keyboard focusable', async () => {
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
@@ -352,7 +357,7 @@ describe('Photos', () => {
     it('shows full-width dropzone when no photos exist', async () => {
       mockDb.orderBy.mockResolvedValue([]);
 
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(
@@ -367,7 +372,7 @@ describe('Photos', () => {
 
   describe('dropzone with existing photos', () => {
     it('shows thumbnail-sized dropzone in gallery when photos exist', async () => {
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
@@ -382,7 +387,7 @@ describe('Photos', () => {
     });
 
     it('dropzone in gallery uses compact mode prop', async () => {
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
@@ -398,7 +403,7 @@ describe('Photos', () => {
 
   describe('refresh button', () => {
     it('renders refresh button when unlocked', async () => {
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(
@@ -407,14 +412,14 @@ describe('Photos', () => {
       });
     });
 
-    it('does not render refresh button when locked', () => {
+    it('does not render refresh button when locked', async () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
         isLoading: false,
         currentInstanceId: null
       });
 
-      renderPhotos();
+      await renderPhotos();
 
       expect(
         screen.queryByRole('button', { name: /refresh/i })
@@ -423,7 +428,7 @@ describe('Photos', () => {
 
     it('refetches photos when refresh is clicked', async () => {
       const user = userEvent.setup();
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
@@ -445,7 +450,7 @@ describe('Photos', () => {
     it('displays error when photo fetch fails', async () => {
       mockDb.orderBy.mockRejectedValue(new Error('Failed to load'));
 
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByText('Failed to load')).toBeInTheDocument();
@@ -455,7 +460,7 @@ describe('Photos', () => {
     it('handles non-Error objects in catch block', async () => {
       mockDb.orderBy.mockRejectedValue('String error');
 
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByText('String error')).toBeInTheDocument();
@@ -465,7 +470,7 @@ describe('Photos', () => {
 
   describe('download functionality', () => {
     beforeEach(async () => {
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
@@ -510,7 +515,7 @@ describe('Photos', () => {
       ];
       mockDb.orderBy.mockResolvedValue(photosWithThumbnails);
 
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
@@ -536,7 +541,7 @@ describe('Photos', () => {
       ];
       mockDb.orderBy.mockResolvedValue(photosWithoutThumbnails);
 
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
@@ -557,7 +562,7 @@ describe('Photos', () => {
         .spyOn(console, 'error')
         .mockImplementation(() => {});
 
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         // Only the second photo should be displayed
@@ -584,7 +589,7 @@ describe('Photos', () => {
       user = userEvent.setup();
       mockDb.orderBy.mockResolvedValue([]);
 
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
@@ -692,7 +697,7 @@ describe('Photos', () => {
       user = userEvent.setup();
       mockCanShareFiles.mockReturnValue(true);
 
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
@@ -752,7 +757,7 @@ describe('Photos', () => {
   describe('storage initialization', () => {
     it('initializes storage when not already initialized', async () => {
       mockIsFileStorageInitialized.mockReturnValue(false);
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(mockInitializeFileStorage).toHaveBeenCalled();
@@ -761,13 +766,50 @@ describe('Photos', () => {
 
     it('skips storage initialization when already initialized', async () => {
       // mockIsFileStorageInitialized already returns true from parent beforeEach
-      renderPhotos();
+      await renderPhotos();
 
       await waitFor(() => {
         expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
       });
 
       expect(mockInitializeFileStorage).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('instance switching', () => {
+    it('refetches photos when instance changes', async () => {
+      const { rerender } = await renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      // Clear mocks to track new calls
+      mockDb.orderBy.mockClear();
+
+      // Change the instance
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: true,
+        isLoading: false,
+        currentInstanceId: 'new-instance'
+      });
+
+      // Re-render with the new instance context
+      rerender(
+        <MemoryRouter>
+          <Photos />
+        </MemoryRouter>
+      );
+
+      // Flush the setTimeout for instance-aware fetching
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      // Verify that photos were fetched again
+      await waitFor(() => {
+        expect(mockDb.orderBy).toHaveBeenCalled();
+      });
     });
   });
 });

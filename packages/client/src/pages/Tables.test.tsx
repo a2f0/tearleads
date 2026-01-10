@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -28,6 +28,10 @@ function renderTablesRaw() {
 
 async function renderTables() {
   const result = renderTablesRaw();
+  // Flush the setTimeout(fn, 0) used for instance-aware fetching
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   // Wait for initial async effects to complete
   await waitFor(() => {
     expect(screen.queryByText('Loading tables...')).not.toBeInTheDocument();
@@ -40,7 +44,8 @@ describe('Tables', () => {
     vi.clearAllMocks();
     mockUseDatabaseContext.mockReturnValue({
       isUnlocked: true,
-      isLoading: false
+      isLoading: false,
+      currentInstanceId: 'test-instance'
     });
 
     // Mock table listing
@@ -317,12 +322,17 @@ describe('Tables', () => {
   });
 
   describe('loading state', () => {
-    it('shows loading message while fetching tables', () => {
+    it('shows loading message while fetching tables', async () => {
       mockExecute.mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
 
       renderTablesRaw();
+
+      // Flush the setTimeout used for instance-aware fetching
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
 
       expect(screen.getByText('Loading tables...')).toBeInTheDocument();
     });
@@ -356,15 +366,55 @@ describe('Tables', () => {
       });
     });
 
-    it('disables Refresh button while loading', () => {
+    it('disables Refresh button while loading', async () => {
       mockExecute.mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
 
       renderTablesRaw();
 
+      // Flush the setTimeout used for instance-aware fetching
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
       expect(screen.getByText('Loading tables...')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /refresh/i })).toBeDisabled();
+    });
+  });
+
+  describe('instance switching', () => {
+    it('refetches tables when instance changes', async () => {
+      const { rerender } = await renderTables();
+
+      expect(screen.getByText('users')).toBeInTheDocument();
+
+      // Clear mocks to track new calls
+      mockExecute.mockClear();
+
+      // Change the instance
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: true,
+        isLoading: false,
+        currentInstanceId: 'new-instance'
+      });
+
+      // Re-render with the new instance context
+      rerender(
+        <MemoryRouter>
+          <Tables />
+        </MemoryRouter>
+      );
+
+      // Flush the setTimeout for instance-aware fetching
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      // Verify that tables were fetched again
+      await waitFor(() => {
+        expect(mockExecute).toHaveBeenCalled();
+      });
     });
   });
 });

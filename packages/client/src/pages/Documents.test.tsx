@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -99,12 +99,17 @@ const mockDocuments = [
   }
 ];
 
-function renderDocuments() {
-  return render(
+async function renderDocuments() {
+  const result = render(
     <MemoryRouter>
       <Documents />
     </MemoryRouter>
   );
+  // Flush the setTimeout(fn, 0) used for instance-aware fetching
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  return result;
 }
 
 describe('Documents', () => {
@@ -128,7 +133,7 @@ describe('Documents', () => {
 
   describe('page rendering', () => {
     it('renders the page title', async () => {
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByText('Documents')).toBeInTheDocument();
@@ -142,7 +147,7 @@ describe('Documents', () => {
         currentInstanceId: null
       });
 
-      renderDocuments();
+      await renderDocuments();
 
       expect(screen.getByText('Loading database...')).toBeInTheDocument();
     });
@@ -158,7 +163,7 @@ describe('Documents', () => {
         restoreSession: vi.fn()
       });
 
-      renderDocuments();
+      await renderDocuments();
 
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
       expect(
@@ -171,7 +176,7 @@ describe('Documents', () => {
 
   describe('document list', () => {
     it('renders document list when documents exist', async () => {
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
@@ -180,7 +185,7 @@ describe('Documents', () => {
     });
 
     it('shows file size and upload date', async () => {
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
@@ -190,7 +195,7 @@ describe('Documents', () => {
     });
 
     it('shows document count', async () => {
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByText('2 documents')).toBeInTheDocument();
@@ -201,7 +206,7 @@ describe('Documents', () => {
   describe('context menu', () => {
     it('shows context menu on right-click', async () => {
       const user = userEvent.setup();
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
@@ -217,7 +222,7 @@ describe('Documents', () => {
 
     it('navigates to document detail when "Get info" is clicked', async () => {
       const user = userEvent.setup();
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
@@ -239,7 +244,7 @@ describe('Documents', () => {
 
     it('closes context menu when clicking elsewhere', async () => {
       const user = userEvent.setup();
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
@@ -265,7 +270,7 @@ describe('Documents', () => {
   describe('document click navigation', () => {
     it('navigates to document detail on click', async () => {
       const user = userEvent.setup();
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
@@ -283,7 +288,7 @@ describe('Documents', () => {
     it('shows full-width dropzone when no documents exist', async () => {
       mockDb.orderBy.mockResolvedValue([]);
 
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(
@@ -297,7 +302,7 @@ describe('Documents', () => {
 
   describe('dropzone with existing documents', () => {
     it('shows compact dropzone in list when documents exist', async () => {
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
@@ -309,7 +314,7 @@ describe('Documents', () => {
 
   describe('refresh button', () => {
     it('renders refresh button when unlocked', async () => {
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(
@@ -318,14 +323,14 @@ describe('Documents', () => {
       });
     });
 
-    it('does not render refresh button when locked', () => {
+    it('does not render refresh button when locked', async () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
         isLoading: false,
         currentInstanceId: null
       });
 
-      renderDocuments();
+      await renderDocuments();
 
       expect(
         screen.queryByRole('button', { name: /refresh/i })
@@ -334,7 +339,7 @@ describe('Documents', () => {
 
     it('refetches documents when refresh is clicked', async () => {
       const user = userEvent.setup();
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
@@ -355,7 +360,7 @@ describe('Documents', () => {
     it('displays error when document fetch fails', async () => {
       mockDb.orderBy.mockRejectedValue(new Error('Failed to load'));
 
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByText('Failed to load')).toBeInTheDocument();
@@ -365,7 +370,7 @@ describe('Documents', () => {
     it('handles non-Error objects in catch block', async () => {
       mockDb.orderBy.mockRejectedValue('String error');
 
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByText('String error')).toBeInTheDocument();
@@ -375,7 +380,7 @@ describe('Documents', () => {
 
   describe('download functionality', () => {
     beforeEach(async () => {
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
@@ -411,7 +416,7 @@ describe('Documents', () => {
       user = userEvent.setup();
       mockDb.orderBy.mockResolvedValue([]);
 
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
@@ -520,7 +525,7 @@ describe('Documents', () => {
       user = userEvent.setup();
       mockCanShareFiles.mockReturnValue(true);
 
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
@@ -579,13 +584,50 @@ describe('Documents', () => {
   describe('storage initialization', () => {
     it('initializes storage during fetch to load thumbnails', async () => {
       mockIsFileStorageInitialized.mockReturnValue(false);
-      renderDocuments();
+      await renderDocuments();
 
       await waitFor(() => {
         expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
       });
 
       expect(mockInitializeFileStorage).toHaveBeenCalled();
+    });
+  });
+
+  describe('instance switching', () => {
+    it('refetches documents when instance changes', async () => {
+      const { rerender } = await renderDocuments();
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      // Clear mocks to track new calls
+      mockDb.orderBy.mockClear();
+
+      // Change the instance
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: true,
+        isLoading: false,
+        currentInstanceId: 'new-instance'
+      });
+
+      // Re-render with the new instance context
+      rerender(
+        <MemoryRouter>
+          <Documents />
+        </MemoryRouter>
+      );
+
+      // Flush the setTimeout for instance-aware fetching
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      // Verify that documents were fetched again
+      await waitFor(() => {
+        expect(mockDb.orderBy).toHaveBeenCalled();
+      });
     });
   });
 });

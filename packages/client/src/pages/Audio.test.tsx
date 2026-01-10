@@ -150,6 +150,10 @@ function renderAudioRaw() {
 
 async function renderAudio() {
   const result = renderAudioRaw();
+  // Flush the setTimeout(fn, 0) used for instance-aware fetching
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   // Wait for initial async effects to complete
   await waitFor(() => {
     expect(screen.queryByText('Loading audio...')).not.toBeInTheDocument();
@@ -383,7 +387,7 @@ describe('AudioPage', () => {
   });
 
   describe('loading state', () => {
-    it('shows loading message while fetching tracks', () => {
+    it('shows loading message while fetching tracks', async () => {
       mockSelect.mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -393,6 +397,11 @@ describe('AudioPage', () => {
       });
 
       renderAudioRaw();
+
+      // Flush the setTimeout used for instance-aware fetching
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
 
       expect(screen.getByText('Loading audio...')).toBeInTheDocument();
     });
@@ -444,7 +453,7 @@ describe('AudioPage', () => {
       });
     });
 
-    it('disables Refresh button while loading', () => {
+    it('disables Refresh button while loading', async () => {
       mockSelect.mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -454,6 +463,11 @@ describe('AudioPage', () => {
       });
 
       renderAudioRaw();
+
+      // Flush the setTimeout used for instance-aware fetching
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
 
       expect(screen.getByText('Loading audio...')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /refresh/i })).toBeDisabled();
@@ -506,6 +520,11 @@ describe('AudioPage', () => {
       mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_TRACK]));
 
       await user.upload(input as HTMLInputElement, audioFile);
+
+      // Flush the setTimeout used for instance-aware fetching after upload triggers hasFetched = false
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
 
       await waitFor(() => {
         expect(mockSelect).toHaveBeenCalled();
@@ -776,6 +795,43 @@ describe('AudioPage', () => {
 
       await waitFor(() => {
         expect(screen.queryByText('Get info')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('instance switching', () => {
+    it('refetches tracks when instance changes', async () => {
+      const { rerender } = await renderAudio();
+
+      await waitFor(() => {
+        expect(screen.getByText('test-song.mp3')).toBeInTheDocument();
+      });
+
+      // Clear mocks to track new calls
+      mockSelect.mockClear();
+
+      // Change the instance
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: true,
+        isLoading: false,
+        currentInstanceId: 'new-instance'
+      });
+
+      // Re-render with the new instance context
+      rerender(
+        <MemoryRouter>
+          <AudioPage />
+        </MemoryRouter>
+      );
+
+      // Flush the setTimeout for instance-aware fetching
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      // Verify that tracks were fetched again
+      await waitFor(() => {
+        expect(mockSelect).toHaveBeenCalled();
       });
     });
   });

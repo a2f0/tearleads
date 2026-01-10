@@ -195,6 +195,10 @@ export function AudioPage() {
     }
   }, [isUnlocked, currentInstanceId]);
 
+  // Track the instance ID for which we've fetched tracks
+  // Using a ref avoids React's state batching issues
+  const fetchedForInstanceRef = useRef<string | null>(null);
+
   const handleFilesSelected = useCallback(
     async (files: File[]) => {
       if (files.length === 0) return;
@@ -228,11 +232,44 @@ export function AudioPage() {
     [uploadFile]
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tracks intentionally excluded to prevent re-fetch loops
   useEffect(() => {
-    if (isUnlocked && !hasFetched && !loading) {
-      fetchTracks();
+    // Check if we need to fetch for this instance
+    const needsFetch =
+      isUnlocked &&
+      !loading &&
+      (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
+
+    if (needsFetch) {
+      // If instance changed, cleanup old object URLs first
+      if (
+        fetchedForInstanceRef.current !== currentInstanceId &&
+        fetchedForInstanceRef.current !== null
+      ) {
+        for (const track of tracks) {
+          if (track.id !== currentTrackRef.current?.id) {
+            URL.revokeObjectURL(track.objectUrl);
+          }
+          if (track.thumbnailUrl) {
+            URL.revokeObjectURL(track.thumbnailUrl);
+          }
+        }
+        setTracks([]);
+        setError(null);
+      }
+
+      // Update ref before fetching to prevent re-entry
+      fetchedForInstanceRef.current = currentInstanceId;
+
+      // Defer fetch to next tick to ensure database singleton is updated
+      const timeoutId = setTimeout(() => {
+        fetchTracks();
+      }, 0);
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [isUnlocked, hasFetched, loading, fetchTracks]);
+    return undefined;
+  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchTracks]);
 
   // Keep currentTrackRef in sync with currentTrack
   useEffect(() => {
