@@ -54,25 +54,21 @@ jobs:
 
       - name: Deploy Website
         run: |
-          # Protect /_astro/ directory from immediate deletion to avoid breaking cached HTML
-          rsync -avz --delete --filter='P /_astro/' -e "ssh -i ~/.ssh/deploy.key" \
+          # Protect all files in /_astro/ from deletion - hashed assets are immutable
+          # and must persist indefinitely to avoid 404s for cached HTML references
+          rsync -avz --delete --filter='P /_astro/**' -e "ssh -i ~/.ssh/deploy.key" \
             packages/website/dist/ \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/var/www/www/
-          # Clean up assets older than 7 days (10080 minutes)
-          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
-            "find /var/www/www/_astro -type f -mmin +10080 -delete 2>/dev/null || true"
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
             "chgrp -R www-data /var/www/www && chmod -R u=rwX,g=rX,o= /var/www/www"
 
       - name: Deploy Client
         run: |
-          # Protect /assets/ directory from immediate deletion to avoid breaking cached HTML
-          rsync -avz --delete --filter='P /assets/' -e "ssh -i ~/.ssh/deploy.key" \
+          # Protect all files in /assets/ from deletion - hashed assets are immutable
+          # and must persist indefinitely to avoid 404s for cached HTML references
+          rsync -avz --delete --filter='P /assets/**' -e "ssh -i ~/.ssh/deploy.key" \
             packages/client/dist/ \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/var/www/app/
-          # Clean up assets older than 7 days (10080 minutes)
-          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
-            "find /var/www/app/assets -type f -mmin +10080 -delete 2>/dev/null || true"
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
             "chgrp -R www-data /var/www/app && chmod -R u=rwX,g=rX,o= /var/www/app"
 
