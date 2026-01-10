@@ -24,13 +24,6 @@ function isTheme(value: string): value is Theme {
   return VALID_THEMES.some((theme) => theme === value);
 }
 
-function getSystemTheme(): ResolvedTheme {
-  if (typeof window === 'undefined') return 'light';
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light';
-}
-
 export interface ThemeProviderProps {
   children: React.ReactNode;
   defaultTheme?: Theme;
@@ -55,9 +48,9 @@ export function ThemeProvider({
     if (stored && isTheme(stored)) {
       setThemeState(stored);
     }
-    setSystemTheme(getSystemTheme());
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    setSystemTheme(mediaQuery.matches ? 'dark' : 'light');
     const handleChange = (e: MediaQueryListEvent) => {
       setSystemTheme(e.matches ? 'dark' : 'light');
     };
