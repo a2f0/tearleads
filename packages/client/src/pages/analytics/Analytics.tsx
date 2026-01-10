@@ -59,6 +59,8 @@ const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
 };
 const TIME_FILTERS: TimeFilter[] = ['hour', 'day', 'week', 'all'];
 
+const EVENT_NAME_ACRONYMS = ['api', 'llm'];
+
 const getSuccessRateColor = (rate: number) => {
   if (rate == null || Number.isNaN(rate)) return 'text-muted-foreground';
   if (rate >= 90) return 'text-green-600';
@@ -285,8 +287,7 @@ export function Analytics() {
       .replace('db_', '')
       .replace(/_/g, ' ')
       .replace(/\b\w+/g, (word) => {
-        const acronyms = ['api', 'llm'];
-        if (acronyms.includes(word.toLowerCase())) {
+        if (EVENT_NAME_ACRONYMS.includes(word.toLowerCase())) {
           return word.toUpperCase();
         }
         return word.charAt(0).toUpperCase() + word.substring(1);
