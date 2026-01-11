@@ -167,31 +167,14 @@ env:
 
 # Look for warning about pruned orphans in the logs tab
 # The log should contain "Pruned" and "orphaned"
+# Note: The warning log might not be visible if cleanup happened before HUD was ready.
+# The main test assertion is that the orphan was cleaned up (verified above).
+# This step just clicks the logs tab to visually confirm if the warning is there.
 - evalScript: |
-    window.waitFor(
-      () => {
-        // Click logs tab if it exists
-        const logsTab = document.querySelector('[data-testid="hud-logs-tab"]');
-        if (logsTab) logsTab.click();
-
-        // Check for warning log about pruned orphans
-        const logs = document.querySelectorAll('[class*="text-yellow"]');
-        for (const log of logs) {
-          if (log.textContent && log.textContent.toLowerCase().includes('warn')) {
-            // Found a warning, check parent for "pruned" or "orphan"
-            const parent = log.closest('[class*="rounded"]');
-            if (parent && parent.textContent.toLowerCase().includes('pruned')) {
-              return true;
-            }
-          }
-        }
-        // Warning log might not be visible if cleanup happened before HUD was ready
-        // That's OK - the main test is that the orphan was cleaned up
-        return true;
-      },
-      'Logs tab check',
-      5000
-    )
+    // Click logs tab if it exists
+    const logsTab = document.querySelector('[data-testid="hud-logs-tab"]');
+    if (logsTab) logsTab.click();
+    return 'ok';
 
 # Final cleanup
 - evalScript: document.querySelector('[data-testid="db-reset-button"]')?.click() || 'ok'
