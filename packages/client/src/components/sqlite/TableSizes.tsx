@@ -122,6 +122,13 @@ export function TableSizes() {
       // Sort by size descending
       sizes.sort((a, b) => b.size - a.size);
       setTableSizes(sizes);
+
+      // On iOS with Capacitor SQLite (SQLCipher), PRAGMA page_count may return 0.
+      // Fall back to summing table sizes when the PRAGMA-based calculation fails.
+      if (pageSize * pageCount === 0 && sizes.length > 0) {
+        const summedSize = sizes.reduce((acc, table) => acc + table.size, 0);
+        setTotalSize(summedSize);
+      }
     } catch (err) {
       console.error('Failed to fetch table sizes:', err);
       setError(err instanceof Error ? err.message : String(err));
