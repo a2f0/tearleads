@@ -6,16 +6,17 @@ import { AnalyticsTab } from './AnalyticsTab';
 const mockEvents = [
   {
     id: '1',
-    eventName: 'db_test_event',
+    eventName: 'db_setup',
     durationMs: 100,
     success: true,
-    timestamp: new Date()
+    timestamp: new Date(),
+    detail: null
   }
 ];
 
 const mockStats = [
   {
-    eventName: 'db_test_event',
+    eventName: 'db_setup',
     count: 5,
     avgDurationMs: 100,
     minDurationMs: 50,
@@ -32,11 +33,15 @@ vi.mock('@/db', () => ({
   getDatabase: vi.fn(() => ({}))
 }));
 
-vi.mock('@/db/analytics', () => ({
-  getEvents: vi.fn(),
-  getEventStats: vi.fn(),
-  getDistinctEventTypes: vi.fn()
-}));
+vi.mock('@/db/analytics', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/db/analytics')>();
+  return {
+    ...actual,
+    getEvents: vi.fn(),
+    getEventStats: vi.fn(),
+    getDistinctEventTypes: vi.fn()
+  };
+});
 
 vi.mock('@/components/duration-chart', () => ({
   DurationChart: () => <div data-testid="duration-chart">Duration Chart</div>
@@ -94,12 +99,12 @@ describe('AnalyticsTab', () => {
     mockUseDatabaseContext.mockReturnValue({ isUnlocked: true });
     mockGetEvents.mockResolvedValue(mockEvents);
     mockGetEventStats.mockResolvedValue(mockStats);
-    mockGetDistinctEventTypes.mockResolvedValue(['db_test_event']);
+    mockGetDistinctEventTypes.mockResolvedValue(['db_setup']);
 
     render(<AnalyticsTab />);
 
     await waitFor(() => {
-      expect(screen.getByText(/test event/i)).toBeInTheDocument();
+      expect(screen.getByText('Database Setup')).toBeInTheDocument();
     });
     await flushPromises();
   });
@@ -108,7 +113,7 @@ describe('AnalyticsTab', () => {
     mockUseDatabaseContext.mockReturnValue({ isUnlocked: true });
     mockGetEvents.mockResolvedValue(mockEvents);
     mockGetEventStats.mockResolvedValue(mockStats);
-    mockGetDistinctEventTypes.mockResolvedValue(['db_test_event']);
+    mockGetDistinctEventTypes.mockResolvedValue(['db_setup']);
 
     render(<AnalyticsTab />);
 

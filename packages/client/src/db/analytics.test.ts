@@ -46,12 +46,12 @@ describe('analytics', () => {
         values: mockValues
       });
 
-      await logEvent(mockDb, 'test-event', 150.5, true);
+      await logEvent(mockDb, 'db_setup', 150.5, true);
 
       expect(mockDb.insert).toHaveBeenCalled();
       expect(mockValues).toHaveBeenCalledWith(
         expect.objectContaining({
-          eventName: 'test-event',
+          eventName: 'db_setup',
           durationMs: 151, // Rounded
           success: true
         })
@@ -64,7 +64,7 @@ describe('analytics', () => {
         values: mockValues
       });
 
-      await logEvent(mockDb, 'test-event', 99.4, true);
+      await logEvent(mockDb, 'db_setup', 99.4, true);
 
       expect(mockValues).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -79,8 +79,8 @@ describe('analytics', () => {
         values: mockValues
       });
 
-      await logEvent(mockDb, 'event1', 100, true);
-      await logEvent(mockDb, 'event2', 200, true);
+      await logEvent(mockDb, 'db_unlock', 100, true);
+      await logEvent(mockDb, 'db_session_restore', 200, true);
 
       const call1 = mockValues.mock.calls[0]?.[0] as { id: string };
       const call2 = mockValues.mock.calls[1]?.[0] as { id: string };
@@ -98,7 +98,11 @@ describe('analytics', () => {
         values: mockValues
       });
 
-      const result = await measureOperation(mockDb, 'test-op', async () => 42);
+      const result = await measureOperation(
+        mockDb,
+        'db_password_change',
+        async () => 42
+      );
 
       expect(result).toBe(42);
     });
@@ -109,11 +113,15 @@ describe('analytics', () => {
         values: mockValues
       });
 
-      await measureOperation(mockDb, 'test-op', async () => 'result');
+      await measureOperation(
+        mockDb,
+        'db_password_change',
+        async () => 'result'
+      );
 
       expect(mockValues).toHaveBeenCalledWith(
         expect.objectContaining({
-          eventName: 'test-op',
+          eventName: 'db_password_change',
           success: true
         })
       );
@@ -126,14 +134,14 @@ describe('analytics', () => {
       });
 
       await expect(
-        measureOperation(mockDb, 'failing-op', async () => {
+        measureOperation(mockDb, 'file_encrypt', async () => {
           throw new Error('Operation failed');
         })
       ).rejects.toThrow('Operation failed');
 
       expect(mockValues).toHaveBeenCalledWith(
         expect.objectContaining({
-          eventName: 'failing-op',
+          eventName: 'file_encrypt',
           success: false
         })
       );
@@ -145,7 +153,7 @@ describe('analytics', () => {
         values: mockValues
       });
 
-      await measureOperation(mockDb, 'test-op', async () => {
+      await measureOperation(mockDb, 'db_password_change', async () => {
         // Simulate some work
         await new Promise((resolve) => setTimeout(resolve, 10));
         return 'done';
@@ -164,7 +172,7 @@ describe('analytics', () => {
       const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       await expect(
-        measureOperation(mockDb, 'test-op', async () => {
+        measureOperation(mockDb, 'db_password_change', async () => {
           throw new Error('Main error');
         })
       ).rejects.toThrow('Main error');
@@ -182,13 +190,13 @@ describe('analytics', () => {
 
       const result = await measureOperation(
         mockDb,
-        'test-op',
+        'db_password_change',
         async () => 'success'
       );
 
       expect(result).toBe('success');
       expect(consoleSpy).toHaveBeenCalledWith(
-        'Failed to log analytics event: test-op'
+        'Failed to log analytics event: db_password_change'
       );
 
       consoleSpy.mockRestore();
@@ -216,7 +224,7 @@ describe('analytics', () => {
     it('rounds duration to nearest integer', async () => {
       mockAdapter.execute.mockResolvedValue({ rows: [] });
 
-      await logApiEvent('api_get_users', 99.4, true);
+      await logApiEvent('api_get_ping', 99.4, true);
 
       expect(mockAdapter.execute).toHaveBeenCalledWith(
         expect.any(String),
@@ -227,7 +235,7 @@ describe('analytics', () => {
     it('logs failure as 0', async () => {
       mockAdapter.execute.mockResolvedValue({ rows: [] });
 
-      await logApiEvent('api_post_data', 200, false);
+      await logApiEvent('api_get_admin_redis_keys', 200, false);
 
       expect(mockAdapter.execute).toHaveBeenCalledWith(
         expect.any(String),
@@ -243,11 +251,11 @@ describe('analytics', () => {
 
       // Should not throw
       await expect(
-        logApiEvent('api_get_test', 100, true)
+        logApiEvent('api_get_admin_redis_key', 100, true)
       ).resolves.toBeUndefined();
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        "Failed to log API event 'api_get_test':",
+        "Failed to log API event 'api_get_admin_redis_key':",
         error
       );
 
@@ -257,8 +265,8 @@ describe('analytics', () => {
     it('generates unique IDs for each event', async () => {
       mockAdapter.execute.mockResolvedValue({ rows: [] });
 
-      await logApiEvent('event1', 100, true);
-      await logApiEvent('event2', 200, true);
+      await logApiEvent('db_unlock', 100, true);
+      await logApiEvent('db_session_restore', 200, true);
 
       const call1 = mockAdapter.execute.mock.calls[0]?.[1] as unknown[];
       const call2 = mockAdapter.execute.mock.calls[1]?.[1] as unknown[];
@@ -287,7 +295,7 @@ describe('analytics', () => {
         rows: [
           {
             id: 'event-1',
-            eventName: 'test-event',
+            eventName: 'db_setup',
             durationMs: 150,
             success: 1,
             timestamp
@@ -300,10 +308,11 @@ describe('analytics', () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
         id: 'event-1',
-        eventName: 'test-event',
+        eventName: 'db_setup',
         durationMs: 150,
         success: true,
-        timestamp: new Date(timestamp)
+        timestamp: new Date(timestamp),
+        detail: null
       });
     });
 
@@ -388,7 +397,7 @@ describe('analytics', () => {
       const endTime = new Date('2024-12-31');
 
       await getEvents(mockDb, {
-        eventName: 'test-event',
+        eventName: 'db_setup',
         startTime,
         endTime,
         limit: 25
@@ -551,7 +560,7 @@ describe('analytics', () => {
       mockAdapter.execute.mockResolvedValue({
         rows: [
           {
-            eventName: 'test-event',
+            eventName: 'db_setup',
             count: 10,
             totalDuration: 1500,
             minDuration: 50,
@@ -565,7 +574,7 @@ describe('analytics', () => {
 
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
-        eventName: 'test-event',
+        eventName: 'db_setup',
         count: 10,
         avgDurationMs: 150,
         minDurationMs: 50,
@@ -639,7 +648,7 @@ describe('analytics', () => {
       mockAdapter.execute.mockResolvedValue({
         rows: [
           {
-            eventName: 'test-event',
+            eventName: 'db_setup',
             count: null,
             totalDuration: null,
             minDuration: null,
@@ -653,7 +662,7 @@ describe('analytics', () => {
 
       // null values are converted to 0 via nullish coalescing
       expect(result[0]).toEqual({
-        eventName: 'test-event',
+        eventName: 'db_setup',
         count: 0,
         avgDurationMs: 0,
         minDurationMs: 0,

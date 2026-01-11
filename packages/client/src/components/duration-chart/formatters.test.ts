@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDuration, formatEventName, formatXAxisTick } from './formatters';
+import { formatDuration, formatXAxisTick } from './formatters';
 
 describe('formatDuration', () => {
   it('formats sub-second durations in milliseconds', () => {
@@ -32,24 +32,5 @@ describe('formatXAxisTick', () => {
     // Should contain month and day (e.g., Jan 15)
     expect(result).toContain('Jan');
     expect(result).toMatch(/\d{1,2}/);
-  });
-});
-
-describe('formatEventName', () => {
-  it('removes db_ prefix', () => {
-    expect(formatEventName('db_setup')).toBe('Setup');
-  });
-
-  it('replaces underscores with spaces and capitalizes', () => {
-    expect(formatEventName('db_file_upload')).toBe('File Upload');
-    expect(formatEventName('db_multi_word_event')).toBe('Multi Word Event');
-  });
-
-  it('handles names without db_ prefix', () => {
-    expect(formatEventName('custom_event')).toBe('Custom Event');
-  });
-
-  it('handles single word names', () => {
-    expect(formatEventName('db_query')).toBe('Query');
   });
 });
