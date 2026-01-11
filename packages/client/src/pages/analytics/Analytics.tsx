@@ -13,6 +13,7 @@ import { DurationChart } from '@/components/duration-chart';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import {
   type AnalyticsEvent,
@@ -27,6 +28,7 @@ import {
   type StatsSortColumn
 } from '@/db/analytics';
 import { useDatabaseContext } from '@/db/hooks';
+import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { SortIcon, type SortState } from './SortIcon';
 
 interface SummarySortState {
@@ -121,6 +123,7 @@ export function Analytics() {
   });
 
   const virtualItems = virtualizer.getVirtualItems();
+  const { firstVisible, lastVisible } = useVirtualVisibleRange(virtualItems);
 
   const fetchData = useCallback(async () => {
     if (!isUnlocked || fetchingRef.current) return;
@@ -510,9 +513,12 @@ export function Analytics() {
 
           {/* Events table */}
           <div className="flex min-h-0 flex-1 flex-col space-y-2">
-            <h2 className="font-semibold text-base sm:text-lg">
-              Recent Events
-            </h2>
+            <VirtualListStatus
+              firstVisible={firstVisible}
+              lastVisible={lastVisible}
+              loadedCount={events.length}
+              itemLabel="event"
+            />
             {loading && events.length === 0 ? (
               <div className="rounded-lg border p-8 text-center text-muted-foreground">
                 Loading events...
@@ -568,10 +574,7 @@ export function Analytics() {
                     </button>
                   </div>
                 </div>
-                <div
-                  ref={parentRef}
-                  className="min-h-[200px] flex-1 overflow-auto"
-                >
+                <div ref={parentRef} className="flex-1 overflow-auto">
                   <div
                     className="relative w-full"
                     style={{ height: `${virtualizer.getTotalSize()}px` }}
