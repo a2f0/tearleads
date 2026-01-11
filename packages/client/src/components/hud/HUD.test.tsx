@@ -109,5 +109,24 @@ describe('HUD', () => {
       const newHeight = parseInt(dialog.style.height, 10);
       expect(newHeight).toBeGreaterThanOrEqual(150);
     });
+
+    it('respects maximum height constraint', () => {
+      Object.defineProperty(window, 'innerHeight', {
+        writable: true,
+        configurable: true,
+        value: 1000
+      });
+
+      render(<HUD isOpen={true} onClose={() => {}} />);
+      const dialog = screen.getByRole('dialog');
+      const handle = screen.getByTestId('hud-resize-handle');
+
+      fireEvent.mouseDown(handle, { clientY: 500 });
+      fireEvent.mouseMove(document, { clientY: -500 });
+      fireEvent.mouseUp(document);
+
+      const newHeight = parseInt(dialog.style.height, 10);
+      expect(newHeight).toBeLessThanOrEqual(700);
+    });
   });
 });
