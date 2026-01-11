@@ -3,8 +3,24 @@
 
 @source "../../../ui/src";
 
+.nav-dropdown-menu {
+  transition:
+    visibility 0s linear 150ms,
+    opacity 150ms ease-in-out;
+}
+
+.nav-dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -0.5rem;
+  left: 0;
+  right: 0;
+  height: 0.5rem;
+}
+
 .nav-dropdown:hover .nav-dropdown-menu,
 .nav-dropdown:focus-within .nav-dropdown-menu {
   visibility: visible;
   opacity: 1;
+  transition-delay: 0s;
 }

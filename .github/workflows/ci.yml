@@ -24,6 +24,7 @@ jobs:
       mobile: ${{ steps.filter.outputs.mobile }}
       electron: ${{ steps.filter.outputs.electron }}
       web-e2e-tests: ${{ steps.filter.outputs.web-e2e-tests }}
+      website: ${{ steps.filter.outputs.website }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -54,6 +55,8 @@ jobs:
             web-e2e-tests:
               - 'packages/client/tests/*.spec.ts'
               - 'packages/client/playwright.config.ts'
+            website:
+              - 'packages/website/**'
 
   build:
     runs-on: ubuntu-latest
@@ -126,6 +129,7 @@ jobs:
           pnpm --filter @rapid/api test:coverage
           pnpm --filter @rapid/client test:coverage
           pnpm --filter @rapid/chrome-extension test:coverage
+          pnpm --filter @rapid/website test:coverage
 
       - name: Upload Coverage Reports
         uses: actions/upload-artifact@v4
@@ -137,13 +141,14 @@ jobs:
             packages/api/coverage/
             packages/client/coverage/
             packages/chrome-extension/coverage/
+            packages/website/coverage/
           retention-days: 30
 
       - name: Coverage Summary
         run: |
           echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          for pkg in shared ui api client chrome-extension; do
+          for pkg in shared ui api client chrome-extension website; do
             if [ -f "packages/$pkg/coverage/coverage-summary.json" ]; then
               echo "### @rapid/$pkg" >> $GITHUB_STEP_SUMMARY
               node -e "
@@ -220,6 +225,67 @@ jobs:
         with:
           name: playwright-report
           path: packages/client/playwright-report/
+          retention-days: 30
+
+  website-e2e:
+    name: Website E2E Tests
+    needs: [detect-changes]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.website == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Get Playwright version
+        id: playwright-version
+        run: echo "version=$(pnpm --filter @rapid/website exec playwright --version)" >> $GITHUB_OUTPUT
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-website-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @rapid/website exec playwright install --with-deps chromium firefox webkit
+
+      - name: Install Playwright dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm --filter @rapid/website exec playwright install-deps
+
+      - name: Build API OpenAPI spec
+        run: pnpm --filter @rapid/api buildOpenapi
+
+      - name: Build website
+        run: pnpm --filter @rapid/website build
+
+      - name: Run Playwright tests
+        run: pnpm --filter @rapid/website test:e2e
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: website-playwright-report
+          path: packages/website/playwright-report/
           retention-days: 30
 
   electron-e2e:
