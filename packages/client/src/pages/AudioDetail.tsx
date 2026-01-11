@@ -185,11 +185,6 @@ export function AudioDetail() {
         )
         .limit(1);
 
-      if (result.length === 0) {
-        setError('Audio file not found');
-        return;
-      }
-
       const row = result[0];
       if (!row) {
         setError('Audio file not found');
