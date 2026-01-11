@@ -67,8 +67,8 @@ function findPackageInNodeModules(
   if (fs.existsSync(directPath)) {
     try {
       return JSON.parse(fs.readFileSync(directPath, 'utf-8')) as PackageJson;
-    } catch {
-      // Continue to try .pnpm
+    } catch (e) {
+      console.warn(`Could not parse ${directPath}, continuing search:`, e);
     }
   }
 
@@ -96,7 +96,8 @@ function findPackageInNodeModules(
       if (fs.existsSync(pkgJsonPath)) {
         try {
           return JSON.parse(fs.readFileSync(pkgJsonPath, 'utf-8')) as PackageJson;
-        } catch {
+        } catch (e) {
+          console.warn(`Could not parse ${pkgJsonPath}, continuing search:`, e);
           continue;
         }
       }
@@ -107,7 +108,6 @@ function findPackageInNodeModules(
 }
 
 function getWorkspacePackageJsonPaths(monorepoRoot: string): string[] {
-  const packagesDir = path.join(monorepoRoot, 'packages');
   const paths: string[] = [];
 
   // Add root package.json
@@ -116,18 +116,48 @@ function getWorkspacePackageJsonPaths(monorepoRoot: string): string[] {
     paths.push(rootPkgJson);
   }
 
-  // Add all workspace package.json files
-  if (fs.existsSync(packagesDir)) {
-    const entries = fs.readdirSync(packagesDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      const pkgJsonPath = path.join(packagesDir, entry.name, 'package.json');
-      if (fs.existsSync(pkgJsonPath)) {
-        paths.push(pkgJsonPath);
-      }
+  // Read workspace globs from pnpm-workspace.yaml
+  const workspaceYamlPath = path.join(monorepoRoot, 'pnpm-workspace.yaml');
+  if (!fs.existsSync(workspaceYamlPath)) {
+    console.warn('pnpm-workspace.yaml not found, falling back to packages/*');
+    return findPackagesInDir(path.join(monorepoRoot, 'packages'), paths);
+  }
+
+  const workspaceYaml = fs.readFileSync(workspaceYamlPath, 'utf-8');
+  // Simple YAML parsing for packages array (handles "- 'packages/*'" format)
+  const packagesMatch = workspaceYaml.match(/packages:\s*\n((?:\s*-\s*['"]?[^'"\n]+['"]?\s*\n?)+)/);
+  if (!packagesMatch) {
+    console.warn('Could not parse packages from pnpm-workspace.yaml');
+    return paths;
+  }
+
+  const globs = packagesMatch[1]
+    .split('\n')
+    .map((line) => line.replace(/^\s*-\s*['"]?/, '').replace(/['"]?\s*$/, ''))
+    .filter((g) => g.length > 0);
+
+  for (const glob of globs) {
+    // Handle simple glob patterns like "packages/*"
+    if (glob.endsWith('/*')) {
+      const baseDir = path.join(monorepoRoot, glob.slice(0, -2));
+      findPackagesInDir(baseDir, paths);
     }
   }
 
+  return paths;
+}
+
+function findPackagesInDir(dir: string, paths: string[]): string[] {
+  if (!fs.existsSync(dir)) return paths;
+
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const pkgJsonPath = path.join(dir, entry.name, 'package.json');
+    if (fs.existsSync(pkgJsonPath)) {
+      paths.push(pkgJsonPath);
+    }
+  }
   return paths;
 }
 
