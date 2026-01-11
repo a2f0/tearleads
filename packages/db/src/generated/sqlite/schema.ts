@@ -139,7 +139,8 @@ export const analyticsEvents = sqliteTable(
     eventName: text('event_name').notNull(),
     durationMs: integer('duration_ms').notNull(),
     success: integer('success', { mode: 'boolean' }).notNull(),
-    timestamp: integer('timestamp', { mode: 'timestamp_ms' }).notNull()
+    timestamp: integer('timestamp', { mode: 'timestamp_ms' }).notNull(),
+    detail: text('detail')
   },
   (table) => [index('analytics_events_timestamp_idx').on(table.timestamp)]
 );

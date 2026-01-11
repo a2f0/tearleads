@@ -350,6 +350,10 @@ export const analyticsEventsTable: TableDefinition = {
       type: 'timestamp',
       sqlName: 'timestamp',
       notNull: true
+    },
+    detail: {
+      type: 'json',
+      sqlName: 'detail'
     }
   },
   indexes: [{ name: 'analytics_events_timestamp_idx', columns: ['timestamp'] }]
