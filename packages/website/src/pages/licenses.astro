@@ -6,7 +6,7 @@ import licensesData from '@rapid/shared/licenses.json';
 const licenses = licensesData as LicenseInfo[];
 ---
 
-<Layout title="Open Source Licenses - Rapid">
+<Layout title="Open Source Licenses - Tearleads">
   <section class="container mx-auto px-4 py-8">
     <nav class="mb-8">
       <a href="/" class="text-muted-foreground hover:text-foreground">&larr; Back to Home</a>
@@ -15,7 +15,7 @@ const licenses = licensesData as LicenseInfo[];
     <div class="mb-6">
       <h2 class="font-bold text-3xl mb-2">Open Source Licenses</h2>
       <p class="text-muted-foreground">
-        This application is built with {licenses.length} open source packages.
+        The Tearleads ecosystem would not be possible without the following open source technologies.
       </p>
     </div>
 
@@ -23,7 +23,13 @@ const licenses = licensesData as LicenseInfo[];
       <div class="divide-y">
         {licenses.map((pkg) => (
           <div class="flex items-baseline justify-between px-4 py-3">
-            <span class="font-mono text-sm">{pkg.name}</span>
+            {pkg.repository ? (
+              <a href={pkg.repository} target="_blank" rel="noopener noreferrer" class="font-mono text-sm text-primary hover:underline">
+                {pkg.name}
+              </a>
+            ) : (
+              <span class="font-mono text-sm">{pkg.name}</span>
+            )}
             <span class="text-muted-foreground text-sm">
               v{pkg.version} - {pkg.license}
             </span>
