@@ -1,12 +1,7 @@
 ---
+import type { LicenseInfo } from '@rapid/shared';
 import Layout from '../layouts/Layout.astro';
 import licensesData from '@rapid/shared/licenses.json';
-
-interface LicenseInfo {
-  name: string;
-  version: string;
-  license: string;
-}
 
 const licenses = licensesData as LicenseInfo[];
 ---

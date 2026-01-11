@@ -5,6 +5,7 @@ interface PackageJson {
   name?: string;
   version?: string;
   license?: string | { type: string };
+  licenses?: Array<{ type: string }>;
   repository?: string | { type: string; url: string };
 }
 
@@ -15,9 +16,20 @@ interface LicenseInfo {
 }
 
 function extractLicense(pkg: PackageJson): string {
-  if (!pkg.license) return 'Unknown';
+  // Handle standard string license (including SPDX expressions like "(MIT OR Apache-2.0)")
   if (typeof pkg.license === 'string') return pkg.license;
-  return pkg.license.type ?? 'Unknown';
+
+  // Handle object format { type: "MIT" }
+  if (pkg.license && typeof pkg.license === 'object' && pkg.license.type) {
+    return pkg.license.type;
+  }
+
+  // Handle deprecated licenses array format
+  if (Array.isArray(pkg.licenses) && pkg.licenses.length > 0) {
+    return pkg.licenses.map((l) => l.type).join(' OR ');
+  }
+
+  return 'Unknown';
 }
 
 function walkNodeModules(
@@ -63,13 +75,13 @@ function walkNodeModules(
           license: extractLicense(pkgJson)
         });
       }
-    } catch {
-      // Skip packages we can't parse
+    } catch (e) {
+      console.warn(`Could not parse ${pkgJsonPath}:`, e);
     }
   }
 }
 
-async function generateLicenses(): Promise<void> {
+function generateLicenses(): void {
   const monorepoRoot = path.resolve(import.meta.dirname, '../../..');
   const pnpmDir = path.join(monorepoRoot, 'node_modules/.pnpm');
 
