@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ANIMATION_DURATION_MS, BottomSheet } from './BottomSheet';
@@ -125,5 +125,80 @@ describe('BottomSheet', () => {
       },
       { timeout: ANIMATION_DURATION_MS + 100 }
     );
+  });
+
+  describe('resize handle', () => {
+    it('renders resize handle when open', () => {
+      render(
+        <BottomSheet open={true} onOpenChange={() => {}}>
+          <p>Content</p>
+        </BottomSheet>
+      );
+      expect(
+        screen.getByTestId('bottom-sheet-resize-handle')
+      ).toBeInTheDocument();
+    });
+
+    it('has correct accessibility attributes', () => {
+      render(
+        <BottomSheet open={true} onOpenChange={() => {}}>
+          <p>Content</p>
+        </BottomSheet>
+      );
+      const handle = screen.getByTestId('bottom-sheet-resize-handle');
+      expect(handle.tagName).toBe('BUTTON');
+      expect(handle).toHaveAttribute('aria-label', 'Resize handle');
+    });
+
+    it('changes height when dragged', () => {
+      render(
+        <BottomSheet open={true} onOpenChange={() => {}}>
+          <p>Content</p>
+        </BottomSheet>
+      );
+      const dialog = screen.getByRole('dialog');
+      const handle = screen.getByTestId('bottom-sheet-resize-handle');
+
+      const initialHeight = parseInt(dialog.style.height, 10);
+
+      fireEvent.mouseDown(handle, { clientY: 300 });
+      fireEvent.mouseMove(document, { clientY: 200 });
+      fireEvent.mouseUp(document);
+
+      const newHeight = parseInt(dialog.style.height, 10);
+      expect(newHeight).toBeGreaterThan(initialHeight);
+    });
+
+    it('respects minimum height constraint', () => {
+      render(
+        <BottomSheet open={true} onOpenChange={() => {}}>
+          <p>Content</p>
+        </BottomSheet>
+      );
+      const dialog = screen.getByRole('dialog');
+      const handle = screen.getByTestId('bottom-sheet-resize-handle');
+
+      fireEvent.mouseDown(handle, { clientY: 300 });
+      fireEvent.mouseMove(document, { clientY: 1000 });
+      fireEvent.mouseUp(document);
+
+      const newHeight = parseInt(dialog.style.height, 10);
+      expect(newHeight).toBeGreaterThanOrEqual(150);
+    });
+
+    it('uses custom data-testid for resize handle', () => {
+      render(
+        <BottomSheet
+          open={true}
+          onOpenChange={() => {}}
+          data-testid="custom-sheet"
+        >
+          <p>Content</p>
+        </BottomSheet>
+      );
+      expect(
+        screen.getByTestId('custom-sheet-resize-handle')
+      ).toBeInTheDocument();
+    });
   });
 });
