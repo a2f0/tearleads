@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CartesianGrid,
   ResponsiveContainer,
@@ -14,6 +14,46 @@ import { CustomTooltip } from './CustomTooltip';
 import { EVENT_COLORS } from './constants';
 import { formatDuration, formatXAxisTick } from './formatters';
 
+/**
+ * Hook to track whether a container element has valid dimensions (> 0).
+ * This prevents Recharts warnings about -1 width/height on initial render
+ * before the browser has laid out the container.
+ */
+function useContainerReady(
+  containerRef: React.RefObject<HTMLDivElement | null>
+) {
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Check immediately in case container already has dimensions
+    const { width, height } = container.getBoundingClientRect();
+    if (width > 0 && height > 0) {
+      setIsReady(true);
+      return; // Early exit if already ready - no need for ResizeObserver
+    }
+
+    // Use ResizeObserver to detect when dimensions become valid
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setIsReady(true);
+          observer.disconnect();
+        }
+      }
+    });
+
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, [containerRef]);
+
+  return isReady;
+}
+
 interface DurationChartProps {
   events: AnalyticsEvent[];
   selectedEventTypes: Set<string>;
@@ -25,6 +65,9 @@ export function DurationChart({
   selectedEventTypes,
   timeFilter
 }: DurationChartProps) {
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const isContainerReady = useContainerReady(chartContainerRef);
+
   const { chartData, eventTypeColors, dataByEventType } = useMemo(() => {
     const filteredEvents = events.filter((e) =>
       selectedEventTypes.has(e.eventName)
@@ -82,45 +125,47 @@ export function DurationChart({
           {chartData.length} event{chartData.length !== 1 ? 's' : ''}
         </span>
       </div>
-      <div className="h-48 w-full sm:h-56">
-        <ResponsiveContainer
-          width="100%"
-          height="100%"
-          minWidth={0}
-          minHeight={0}
-        >
-          <ScatterChart margin={{ top: 8, right: 4, bottom: 4, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis
-              dataKey="timestamp"
-              type="number"
-              domain={['dataMin', 'dataMax']}
-              tickFormatter={(value: number) =>
-                formatXAxisTick(value, timeFilter)
-              }
-              tick={{ fontSize: 10 }}
-              stroke="currentColor"
-            />
-            <YAxis
-              dataKey="durationMs"
-              type="number"
-              tickFormatter={formatDuration}
-              tick={{ fontSize: 10 }}
-              stroke="currentColor"
-              width={45}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            {[...dataByEventType.entries()].map(([eventType, data]) => (
-              <Scatter
-                key={eventType}
-                name={getEventDisplayName(eventType)}
-                data={data}
-                fill={eventTypeColors.get(eventType) ?? '#2563eb'}
-                shape={<CustomDot />}
+      <div ref={chartContainerRef} className="h-48 w-full sm:h-56">
+        {isContainerReady && (
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+            minWidth={0}
+            minHeight={0}
+          >
+            <ScatterChart margin={{ top: 8, right: 4, bottom: 4, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis
+                dataKey="timestamp"
+                type="number"
+                domain={['dataMin', 'dataMax']}
+                tickFormatter={(value: number) =>
+                  formatXAxisTick(value, timeFilter)
+                }
+                tick={{ fontSize: 10 }}
+                stroke="currentColor"
               />
-            ))}
-          </ScatterChart>
-        </ResponsiveContainer>
+              <YAxis
+                dataKey="durationMs"
+                type="number"
+                tickFormatter={formatDuration}
+                tick={{ fontSize: 10 }}
+                stroke="currentColor"
+                width={45}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              {[...dataByEventType.entries()].map(([eventType, data]) => (
+                <Scatter
+                  key={eventType}
+                  name={getEventDisplayName(eventType)}
+                  data={data}
+                  fill={eventTypeColors.get(eventType) ?? '#2563eb'}
+                  shape={<CustomDot />}
+                />
+              ))}
+            </ScatterChart>
+          </ResponsiveContainer>
+        )}
       </div>
       {/* Legend */}
       <div className="flex flex-wrap gap-3 text-xs">
