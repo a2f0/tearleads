@@ -35,12 +35,16 @@ function useContainerReady(
       return; // Early exit if already ready - no need for ResizeObserver
     }
 
+    // Fallback timer ensures chart renders even if ResizeObserver doesn't fire
+    const fallbackTimeout = setTimeout(() => setIsReady(true), 50);
+
     // Use ResizeObserver to detect when dimensions become valid
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
         if (width > 0 && height > 0) {
           setIsReady(true);
+          clearTimeout(fallbackTimeout);
           observer.disconnect();
         }
       }
@@ -48,7 +52,10 @@ function useContainerReady(
 
     observer.observe(container);
 
-    return () => observer.disconnect();
+    return () => {
+      clearTimeout(fallbackTimeout);
+      observer.disconnect();
+    };
   }, [containerRef]);
 
   return isReady;
