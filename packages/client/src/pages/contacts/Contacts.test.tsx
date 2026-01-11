@@ -135,7 +135,18 @@ describe('Contacts', () => {
       expect(screen.getByText('Contacts')).toBeInTheDocument();
     });
 
-    it('renders search input when database is unlocked', async () => {
+    it('renders search input when contacts exist', async () => {
+      mockOrderBy.mockResolvedValue([
+        {
+          id: '1',
+          firstName: 'John',
+          lastName: 'Doe',
+          birthday: null,
+          primaryEmail: null,
+          primaryPhone: null,
+          createdAt: new Date()
+        }
+      ]);
       await renderContacts();
 
       expect(
@@ -143,7 +154,27 @@ describe('Contacts', () => {
       ).toBeInTheDocument();
     });
 
-    it('renders refresh button when database is unlocked', async () => {
+    it('hides search input when no contacts exist', async () => {
+      mockOrderBy.mockResolvedValue([]);
+      await renderContacts();
+
+      expect(
+        screen.queryByPlaceholderText('Search contacts...')
+      ).not.toBeInTheDocument();
+    });
+
+    it('renders refresh button when contacts exist', async () => {
+      mockOrderBy.mockResolvedValue([
+        {
+          id: '1',
+          firstName: 'John',
+          lastName: 'Doe',
+          birthday: null,
+          primaryEmail: null,
+          primaryPhone: null,
+          createdAt: new Date()
+        }
+      ]);
       await renderContacts();
 
       expect(
@@ -248,7 +279,20 @@ describe('Contacts', () => {
 
     it('shows no results message when search has no matches', async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      mockOrderBy.mockResolvedValue([]);
+      // Start with contacts so search is visible
+      mockOrderBy.mockResolvedValueOnce([
+        {
+          id: '1',
+          firstName: 'John',
+          lastName: 'Doe',
+          birthday: null,
+          primaryEmail: null,
+          primaryPhone: null,
+          createdAt: new Date()
+        }
+      ]);
+      // Search returns no results
+      mockOrderBy.mockResolvedValueOnce([]);
 
       await renderContacts();
 
@@ -354,8 +398,19 @@ describe('Contacts', () => {
   });
 
   describe('search functionality', () => {
+    const searchTestContact = {
+      id: '1',
+      firstName: 'John',
+      lastName: 'Doe',
+      birthday: null,
+      primaryEmail: null,
+      primaryPhone: null,
+      createdAt: new Date()
+    };
+
     it('updates search query on input', async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue([searchTestContact]);
 
       await renderContacts();
 
@@ -367,6 +422,7 @@ describe('Contacts', () => {
 
     it('clears search when X button is clicked', async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue([searchTestContact]);
 
       await renderContacts();
 
@@ -384,6 +440,7 @@ describe('Contacts', () => {
 
     it('debounces search queries', async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue([searchTestContact]);
 
       await renderContacts();
 
@@ -413,6 +470,17 @@ describe('Contacts', () => {
   describe('refresh functionality', () => {
     it('refreshes contacts when Refresh button is clicked', async () => {
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue([
+        {
+          id: '1',
+          firstName: 'John',
+          lastName: 'Doe',
+          birthday: null,
+          primaryEmail: null,
+          primaryPhone: null,
+          createdAt: new Date()
+        }
+      ]);
 
       await renderContacts();
 
@@ -701,6 +769,18 @@ describe('Contacts', () => {
         headers: ['First Name', 'Email'],
         rows: [['John', 'john@example.com']]
       });
+      // Need contacts for search to be visible after cancel
+      mockOrderBy.mockResolvedValue([
+        {
+          id: '1',
+          firstName: 'Existing',
+          lastName: 'Contact',
+          birthday: null,
+          primaryEmail: null,
+          primaryPhone: null,
+          createdAt: new Date()
+        }
+      ]);
 
       const { container } = await renderContacts();
 
@@ -726,7 +806,7 @@ describe('Contacts', () => {
         expect(screen.queryByText('Map CSV Columns')).not.toBeInTheDocument();
       });
 
-      // Search input should be visible again
+      // Search input should be visible again (when contacts exist)
       expect(
         screen.getByPlaceholderText('Search contacts...')
       ).toBeInTheDocument();
