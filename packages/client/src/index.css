@@ -14,3 +14,19 @@
 .pdf-container .react-pdf__Page {
   background: transparent;
 }
+
+/* Constrain PDF page width to prevent horizontal scrolling on mobile.
+   !important is required to override react-pdf's inline height style on the canvas,
+   which is set dynamically based on scale. Without it, the aspect ratio breaks
+   when max-width constrains the width. */
+.pdf-container .react-pdf__Page canvas {
+  max-width: 100%;
+  height: auto !important;
+}
+
+/* Constrain text and annotation layers to match canvas */
+.pdf-container .react-pdf__Page .react-pdf__Page__textContent,
+.pdf-container .react-pdf__Page .react-pdf__Page__annotations {
+  max-width: 100%;
+  overflow: hidden;
+}
