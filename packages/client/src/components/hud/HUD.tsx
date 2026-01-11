@@ -34,6 +34,7 @@ export function HUD({ isOpen, onClose }: HUDProps) {
       <div
         className="fixed inset-x-0 bottom-0 z-50 flex max-h-[70vh] flex-col overflow-hidden rounded-t-lg border bg-background/95 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80 md:inset-x-auto md:right-4 md:bottom-16 md:w-[min(400px,calc(100vw-2rem))] md:rounded-lg"
         role="dialog"
+        aria-modal="true"
         aria-label="Head's Up Display"
       >
         <div className="flex items-center justify-between border-b px-3 py-2">
