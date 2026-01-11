@@ -12,10 +12,7 @@ export function ThemeSelector() {
 
   return (
     <div className="space-y-3">
-      <div>
-        <p className="font-medium">{t('theme')}</p>
-        <p className="text-muted-foreground text-sm">{t('themeDescription')}</p>
-      </div>
+      <p className="font-medium">{t('theme')}</p>
       <div
         className="flex gap-3 overflow-x-auto md:overflow-visible"
         data-testid="theme-selector-container"

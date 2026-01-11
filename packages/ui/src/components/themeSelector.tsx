@@ -10,12 +10,7 @@ export function ThemeSelector() {
 
   return (
     <div className="space-y-3">
-      <div>
-        <p className="font-medium">Theme</p>
-        <p className="text-muted-foreground text-sm">
-          Choose your preferred color theme
-        </p>
-      </div>
+      <p className="font-medium">Theme</p>
       <div className="flex gap-3" data-testid="theme-selector-container">
         {THEMES.map((t) => (
           <button
