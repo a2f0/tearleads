@@ -21,7 +21,11 @@ export async function addColumnIfNotExists(
         `ALTER TABLE "${tableName}" ADD COLUMN "${columnName}" ${columnDefinition}`
       );
     }
-  } catch {
-    // PRAGMA not supported or column already exists, ignore
+  } catch (err) {
+    // PRAGMA not supported or column already exists, ignore. Log for debugging.
+    console.warn(
+      `Failed to add column '${columnName}' to '${tableName}':`,
+      err
+    );
   }
 }
