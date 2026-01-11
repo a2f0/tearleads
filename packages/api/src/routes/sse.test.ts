@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
+import { closeAllSSEConnections } from './sse.js';
 
 const mockConnect = vi.fn();
 const mockQuit = vi.fn();
@@ -234,6 +235,12 @@ describe('SSE Routes', () => {
       // Should have connected but no message event (invalid JSON ignored)
       expect(response.body).toContain('event: connected');
       expect(response.body).not.toContain('event: message');
+    });
+  });
+
+  describe('closeAllSSEConnections', () => {
+    it('is safe to call when no connections exist', () => {
+      expect(() => closeAllSSEConnections()).not.toThrow();
     });
   });
 });
