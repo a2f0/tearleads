@@ -54,6 +54,7 @@ export function TableSizes() {
   const { isUnlocked } = useDatabaseContext();
   const [tableSizes, setTableSizes] = useState<TableSize[]>([]);
   const [totalSize, setTotalSize] = useState<number>(0);
+  const [isTotalSizeEstimated, setIsTotalSizeEstimated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,7 +79,7 @@ export function TableSizes() {
 
       const pageSize = getRowNumber(pageSizeRow, 'page_size') ?? 0;
       const pageCount = getRowNumber(pageCountRow, 'page_count') ?? 0;
-      setTotalSize(pageSize * pageCount);
+      const pragmaTotalSize = pageSize * pageCount;
 
       // Get all table names
       const tablesResult = await adapter.execute(
@@ -125,9 +126,16 @@ export function TableSizes() {
 
       // On iOS with Capacitor SQLite (SQLCipher), PRAGMA page_count may return 0.
       // Fall back to summing table sizes when the PRAGMA-based calculation fails.
-      if (pageSize * pageCount === 0 && sizes.length > 0) {
+      if (pragmaTotalSize > 0) {
+        setTotalSize(pragmaTotalSize);
+        setIsTotalSizeEstimated(false);
+      } else if (sizes.length > 0) {
         const summedSize = sizes.reduce((acc, table) => acc + table.size, 0);
         setTotalSize(summedSize);
+        setIsTotalSizeEstimated(sizes.some((s) => s.isEstimated));
+      } else {
+        setTotalSize(0);
+        setIsTotalSizeEstimated(false);
       }
     } catch (err) {
       console.error('Failed to fetch table sizes:', err);
@@ -148,6 +156,7 @@ export function TableSizes() {
     if (!isUnlocked) {
       setTableSizes([]);
       setTotalSize(0);
+      setIsTotalSizeEstimated(false);
       setError(null);
     }
   }, [isUnlocked]);
@@ -177,7 +186,10 @@ export function TableSizes() {
               <HardDrive className="h-4 w-4 text-muted-foreground" />
               <span className="font-medium">Total Database</span>
             </div>
-            <span className="font-mono">{formatBytes(totalSize)}</span>
+            <span className="font-mono">
+              {isTotalSizeEstimated ? '~' : ''}
+              {formatBytes(totalSize)}
+            </span>
           </div>
 
           {loading && tableSizes.length === 0 ? (
