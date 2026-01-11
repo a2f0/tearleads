@@ -196,7 +196,7 @@ export function Photos() {
         // Validate that the file type is one of the supported image MIME types
         if (!IMAGE_MIME_TYPES.includes(file.type)) {
           errors.push(
-            `"${file.name}" has an unsupported format. Supported: JPEG, PNG, GIF, WebP, HEIC, HEIF.`
+            `"${file.name}" has an unsupported format. Supported: ${IMAGE_MIME_TYPES.map((type) => type.replace('image/', '').toUpperCase()).join(', ')}.`
           );
           continue;
         }
