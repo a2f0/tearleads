@@ -46,6 +46,7 @@ function useContainerReady(
           setIsReady(true);
           clearTimeout(fallbackTimeout);
           observer.disconnect();
+          break;
         }
       }
     });
