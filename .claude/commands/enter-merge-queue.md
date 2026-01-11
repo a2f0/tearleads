@@ -13,6 +13,8 @@ Track the following state during execution:
 - `has_bumped_version`: Boolean, starts `false`. Set to `true` after version bump is applied. This ensures we only bump once per PR, even if we loop through multiple CI fixes or rebases.
 - `has_waited_for_gemini`: Boolean, starts `false`. Set to `true` after first Gemini review wait. Prevents redundant waits on subsequent loop iterations.
 - `gemini_can_review`: Boolean, starts `true`. Set to `false` if PR contains only non-code files. Allows skipping Gemini wait entirely.
+- `needs_qa`: Boolean, starts `false`. Set to `true` if PR has the `needs-qa` label. When true, an issue will be created/preserved and labeled "Needs QA" after merge.
+- `associated_issue_number`: Number or null. The issue number associated with this PR (either extracted from PR body or newly created). Only tracked when `needs_qa` is `true`.
 
 ## Polling with Jitter
 
@@ -26,7 +28,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
 ## Steps
 
-1. **Verify PR exists and check file types**: Run `gh pr view --json number,title,headRefName,baseRefName,url,state,labels,files` to get PR info. If no PR exists, abort with a message. Store the `baseRefName` for use in subsequent steps. Also check if this PR has the `high-priority` label.
+1. **Verify PR exists and check file types**: Run `gh pr view --json number,title,headRefName,baseRefName,url,state,labels,files,body` to get PR info. If no PR exists, abort with a message. Store the `baseRefName` for use in subsequent steps. Also check if this PR has the `high-priority` label or `needs-qa` label.
 
    **Early Gemini skip detection**: Check the file extensions in the PR. If ALL files are non-code types, set `gemini_can_review = false`:
    - Config files: `.json`, `.yaml`, `.yml`, `.toml`, `.ini`, `.env*`
@@ -35,6 +37,36 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - Build/CI: `Dockerfile`, `.dockerignore`, `.gitignore`
 
    This avoids waiting 5 minutes for Gemini to respond with "unsupported file types".
+
+   **Needs QA handling**: If the PR has the `needs-qa` label, set `needs_qa = true` and perform the following:
+
+   1. **Check for auto-close language**: Scan the PR body for patterns like `Closes #`, `Fixes #`, `Resolves #` (case-insensitive). If found:
+      - Extract the issue number(s) from the pattern
+      - Remove ALL auto-close language from the PR body using `gh pr edit --body`
+      - Store the first extracted issue number as `associated_issue_number`
+      - **Note**: Only the first issue is tracked for QA. If the PR references multiple issues (e.g., `Fixes #123, Fixes #456`), run `/mark-needs-qa` separately for each issue that needs QA tracking, or manually create QA issues for the others.
+
+   2. **Find or create associated issue**: If no issue number was extracted from the PR body:
+      - Search for an existing open issue that references this PR: `gh issue list --search "PR #<number>" --state open --json number --limit 1`
+      - If no issue found, create one:
+
+        ```bash
+        gh issue create --title "QA: <PR title>" --body "## QA Verification Needed
+
+        This issue tracks QA verification for PR #<number>.
+
+        **PR**: <pr-url>
+
+        ## Changes to Verify
+        <brief description from PR title>
+
+        ## QA Checklist
+        - [ ] Verified in staging/production
+        - [ ] No regressions observed
+        "
+        ```
+
+      - Store the issue number as `associated_issue_number`
 
 2. **Check current branch**: Ensure you're on the PR's head branch, not `main`.
 
@@ -201,9 +233,38 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    This sets the VS Code window title to "ready" and switches back to main with the latest changes.
 
+   **Needs QA post-merge handling**: If `needs_qa` is `true` and `associated_issue_number` is set:
+
+   1. Check if the issue is closed and reopen if necessary:
+
+      ```bash
+      gh issue view <associated_issue_number> --json state
+      ```
+
+      If `state` is `CLOSED`, reopen it:
+
+      ```bash
+      gh issue reopen <associated_issue_number>
+      ```
+
+   2. Add the "Needs QA" label to the associated issue:
+
+      ```bash
+      gh issue edit <associated_issue_number> --add-label "Needs QA"
+      ```
+
+   3. Add a comment to the issue noting the PR was merged:
+
+      ```bash
+      gh issue comment <associated_issue_number> --body "PR #<pr-number> has been merged. This issue is now ready for QA verification."
+      ```
+
+   This ensures the issue is open and clearly marked for QA follow-up, even if it was previously closed.
+
 6. **Report success**: Confirm the PR was merged and provide a summary:
    - Show the PR URL
    - Output a brief description of what was merged (1-3 sentences summarizing the changes based on the PR title and commits)
+   - If `needs_qa` was `true`, mention the associated issue number, whether it was reopened, and that it has been labeled "Needs QA" for follow-up
 
 7. **Auto-exit session**: After reporting success, run the exit script to close the session:
 
@@ -263,13 +324,14 @@ git rebase origin/main      # Can be noisy and waste tokens
 - **Don't echo status unnecessarily**: The user sees your tool calls. Don't add "Checking CI status..." messages.
 - **Batch state updates**: Combine related status messages rather than outputting each check individually.
 - **Avoid verbose CI logs**: Only fetch CI logs on failure, and only the failing job's logs.
-- **Skip redundant operations**: Use state flags (`has_waited_for_gemini`, `gemini_can_review`, `has_bumped_version`) religiously.
+- **Skip redundant operations**: Use state flags (`has_waited_for_gemini`, `gemini_can_review`, `has_bumped_version`, `needs_qa`) religiously.
 - **No redundant file reads**: If you read a file, cache its content mentally. Don't re-read unchanged files.
 
 ## Notes
 
 - Loops until PR is **actually merged**, not just auto-merge enabled
 - Non-high-priority PRs yield to high-priority ones (check every 2 min with jitter)
+- PRs with `needs-qa` label: auto-close language is removed, issue is created if needed, closed issues are reopened, and issue is labeled "Needs QA" after merge
 - Prioritize staying up-to-date over waiting for CI in congested queues
 - Fixable: lint/type errors, test failures. Non-fixable: merge conflicts, infra failures
 - If stuck (same fix attempted twice), ask user for help
