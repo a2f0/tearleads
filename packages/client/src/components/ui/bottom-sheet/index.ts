@@ -1,1 +1,1 @@
-export { BottomSheet } from './BottomSheet';
+export { ANIMATION_DURATION_MS, BottomSheet } from './BottomSheet';
