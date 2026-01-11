@@ -21,6 +21,16 @@ export interface RetrieveMetrics {
 }
 
 /**
+ * Metrics from a file store operation.
+ */
+export interface StoreMetrics {
+  storagePath: string;
+  durationMs: number;
+  success: boolean;
+  fileSize: number;
+}
+
+/**
  * Create a logger callback for file retrieval metrics.
  * Use this with measureRetrieve() to log decryption times to analytics.
  */
@@ -33,6 +43,23 @@ export function createRetrieveLogger(
     } catch (err) {
       // Don't let logging errors affect the main operation
       console.warn('Failed to log file_decrypt analytics event:', err);
+    }
+  };
+}
+
+/**
+ * Create a logger callback for file store metrics.
+ * Use this with measureStore() to log encryption times to analytics.
+ */
+export function createStoreLogger(
+  db: DatabaseInsert
+): (metrics: StoreMetrics) => Promise<void> {
+  return async (metrics: StoreMetrics) => {
+    try {
+      await logEvent(db, 'file_encrypt', metrics.durationMs, metrics.success);
+    } catch (err) {
+      // Don't let logging errors affect the main operation
+      console.warn('Failed to log file_encrypt analytics event:', err);
     }
   };
 }
@@ -72,6 +99,39 @@ async function measureRetrieveHelper(
 }
 
 /**
+ * Shared helper to measure store operations.
+ * Used by both OPFSStorage and CapacitorStorage.
+ */
+async function measureStoreHelper(
+  storeFn: () => Promise<string>,
+  inputSize: number,
+  onMetrics?: (metrics: StoreMetrics) => void | Promise<void>
+): Promise<string> {
+  const startTime = performance.now();
+  let success = true;
+  let storagePath = '';
+
+  try {
+    storagePath = await storeFn();
+    return storagePath;
+  } catch (error) {
+    success = false;
+    throw error;
+  } finally {
+    const durationMs = performance.now() - startTime;
+    if (onMetrics) {
+      // Fire and forget - don't block on metrics callback
+      Promise.resolve(
+        onMetrics({ storagePath, durationMs, success, fileSize: inputSize })
+      ).catch((err) => {
+        // Don't block on callback errors, but log for debugging
+        console.warn('onMetrics callback failed in measureStore:', err);
+      });
+    }
+  }
+}
+
+/**
  * Get the directory name for an instance.
  */
 function getFilesDirectory(instanceId: string): string {
@@ -82,6 +142,11 @@ export interface FileStorage {
   instanceId: string;
   initialize(encryptionKey: Uint8Array): Promise<void>;
   store(id: string, data: Uint8Array): Promise<string>;
+  measureStore(
+    id: string,
+    data: Uint8Array,
+    onMetrics?: (metrics: StoreMetrics) => void | Promise<void>
+  ): Promise<string>;
   retrieve(storagePath: string): Promise<Uint8Array>;
   measureRetrieve(
     storagePath: string,
@@ -165,6 +230,18 @@ class OPFSStorage implements FileStorage {
     await writable.close();
 
     return filename;
+  }
+
+  async measureStore(
+    id: string,
+    data: Uint8Array,
+    onMetrics?: (metrics: StoreMetrics) => void | Promise<void>
+  ): Promise<string> {
+    return measureStoreHelper(
+      () => this.store(id, data),
+      data.byteLength,
+      onMetrics
+    );
   }
 
   async retrieve(storagePath: string): Promise<Uint8Array> {
@@ -309,6 +386,18 @@ class CapacitorStorage implements FileStorage {
     });
 
     return filename;
+  }
+
+  async measureStore(
+    id: string,
+    data: Uint8Array,
+    onMetrics?: (metrics: StoreMetrics) => void | Promise<void>
+  ): Promise<string> {
+    return measureStoreHelper(
+      () => this.store(id, data),
+      data.byteLength,
+      onMetrics
+    );
   }
 
   async retrieve(storagePath: string): Promise<Uint8Array> {
