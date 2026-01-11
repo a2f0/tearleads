@@ -5,12 +5,20 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./licenses.json": "./dist/licenses.json"
+  },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && pnpm generateLicenses",
     "clean": "rm -rf dist",
+    "generateLicenses": "tsx scripts/generate-licenses.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
@@ -24,6 +32,7 @@
   "license": "Unlicensed",
   "devDependencies": {
     "@vitest/coverage-v8": "4.0.16",
+    "tsx": "4.21.0",
     "typescript": "5.9.3",
     "vitest": "4.0.16"
   }
