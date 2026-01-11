@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { cn } from '@/lib/utils';
+
+export const ANIMATION_DURATION_MS = 300;
 
 interface BottomSheetProps {
   open: boolean;
@@ -18,6 +20,7 @@ export function BottomSheet({
 }: BottomSheetProps) {
   const [isAnimating, setIsAnimating] = useState(false);
   const [shouldRender, setShouldRender] = useState(open);
+  const titleId = useId();
 
   useEffect(() => {
     if (open) {
@@ -26,7 +29,10 @@ export function BottomSheet({
       return;
     }
     setIsAnimating(false);
-    const timer = setTimeout(() => setShouldRender(false), 300);
+    const timer = setTimeout(
+      () => setShouldRender(false),
+      ANIMATION_DURATION_MS
+    );
     return () => clearTimeout(timer);
   }, [open]);
 
@@ -71,7 +77,7 @@ export function BottomSheet({
         )}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={title ? 'bottom-sheet-title' : undefined}
+        aria-labelledby={title ? titleId : undefined}
         data-testid={`${testId}-content`}
       >
         <div className="flex justify-center pt-3 pb-2">
@@ -79,10 +85,7 @@ export function BottomSheet({
         </div>
 
         {title && (
-          <h2
-            id="bottom-sheet-title"
-            className="px-4 pb-2 font-semibold text-lg"
-          >
+          <h2 id={titleId} className="px-4 pb-2 font-semibold text-lg">
             {title}
           </h2>
         )}

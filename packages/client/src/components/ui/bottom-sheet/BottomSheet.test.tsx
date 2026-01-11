@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { BottomSheet } from './BottomSheet';
+import { ANIMATION_DURATION_MS, BottomSheet } from './BottomSheet';
 
 describe('BottomSheet', () => {
   it('renders nothing when not open', () => {
@@ -84,7 +84,8 @@ describe('BottomSheet', () => {
 
     const dialog = screen.getByRole('dialog');
     expect(dialog).toHaveAttribute('aria-modal', 'true');
-    expect(dialog).toHaveAttribute('aria-labelledby', 'bottom-sheet-title');
+    expect(dialog).toHaveAttribute('aria-labelledby');
+    expect(dialog.getAttribute('aria-labelledby')).toBeTruthy();
   });
 
   it('uses custom data-testid when provided', () => {
@@ -122,7 +123,7 @@ describe('BottomSheet', () => {
       () => {
         expect(screen.queryByTestId('bottom-sheet')).not.toBeInTheDocument();
       },
-      { timeout: 500 }
+      { timeout: ANIMATION_DURATION_MS + 100 }
     );
   });
 });
