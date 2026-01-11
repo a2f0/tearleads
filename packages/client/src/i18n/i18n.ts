@@ -68,4 +68,20 @@ if (
   loadLanguage(detectedLang);
 }
 
+// Listen for settings-synced event from SettingsProvider (database sync)
+if (typeof window !== 'undefined') {
+  window.addEventListener('settings-synced', ((
+    event: CustomEvent<{ settings: { language?: string } }>
+  ) => {
+    const { settings } = event.detail;
+    if (
+      settings.language &&
+      isSupportedLanguage(settings.language) &&
+      settings.language !== i18n.language
+    ) {
+      i18n.changeLanguage(settings.language);
+    }
+  }) as EventListener);
+}
+
 export { i18n };
