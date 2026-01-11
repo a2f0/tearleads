@@ -145,6 +145,49 @@ async function uploadTestPdf(page: Page): Promise<void> {
   await expect(page.getByTestId('documents-list')).toBeVisible();
 }
 
+test.describe('PDF worker', () => {
+  test.use({ viewport: DESKTOP_VIEWPORT });
+
+  test('should load PDF without fake worker warning', async ({ page }) => {
+    test.slow();
+
+    // Collect console warnings
+    const consoleWarnings: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'warning') {
+        consoleWarnings.push(msg.text());
+      }
+    });
+
+    // Set up database and upload a document
+    await page.goto('/');
+    await setupAndUnlockDatabase(page);
+    await navigateToDocuments(page);
+    await uploadTestPdf(page);
+
+    // Click on the document to view it
+    await page.getByText(TEST_PDF_FILENAME).click();
+
+    // Wait for PDF viewer to load
+    await expect(page.getByTestId('pdf-viewer')).toBeVisible({ timeout: 30000 });
+
+    // Wait for page info to show (indicates PDF loaded successfully)
+    await expect(page.getByTestId('pdf-page-info')).toContainText('Page 1 of', {
+      timeout: 10000
+    });
+
+    // Check that no "fake worker" warning was logged
+    const fakeWorkerWarnings = consoleWarnings.filter(
+      (w) =>
+        w.includes('fake worker') || w.includes('Setting up fake worker')
+    );
+    expect(
+      fakeWorkerWarnings,
+      `Found unexpected fake worker warnings: ${JSON.stringify(fakeWorkerWarnings)}`
+    ).toHaveLength(0);
+  });
+});
+
 test.describe('Document direct URL navigation', () => {
   test.describe('Desktop viewport', () => {
     test.use({ viewport: DESKTOP_VIEWPORT });
