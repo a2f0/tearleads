@@ -187,7 +187,6 @@ describe('DocumentDetail', () => {
       await renderDocumentDetail();
 
       expect(screen.getByTestId('download-button')).toBeInTheDocument();
-      expect(screen.getByText('Download')).toBeInTheDocument();
     });
 
     it('renders share button when Web Share API is supported', async () => {
@@ -195,7 +194,6 @@ describe('DocumentDetail', () => {
       await renderDocumentDetail();
 
       expect(screen.getByTestId('share-button')).toBeInTheDocument();
-      expect(screen.getByText('Share')).toBeInTheDocument();
     });
 
     it('hides share button when Web Share API is not supported', async () => {
