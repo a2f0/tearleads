@@ -114,9 +114,11 @@ env:
     window.waitFor(
       () => {
         const status = document.querySelector('[data-testid="db-status"]');
-        return status && (status.textContent === 'Locked' || status.textContent === 'Unlocked');
+        const statusText = status ? status.textContent : 'null';
+        console.log('[ORPHAN-TEST] Status check: ' + statusText);
+        return status && (statusText === 'Locked' || statusText === 'Unlocked');
       },
-      'Status should be Locked or Unlocked (not "Not Set Up")'
+      'Status should be Locked or Unlocked, got: ' + (document.querySelector('[data-testid="db-status"]')?.textContent || 'null')
     )
 
 # If locked, unlock it
@@ -144,6 +146,7 @@ env:
     window.waitFor(
       () => {
         const instances = document.querySelectorAll('[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])');
+        console.log('[ORPHAN-TEST] Instance count: ' + instances.length);
         // Should be 1 instance (the orphaned one was pruned)
         if (instances.length !== 1) {
           throw new Error('Expected 1 instance after orphan cleanup, got ' + instances.length);
