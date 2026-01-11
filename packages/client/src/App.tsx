@@ -3,6 +3,7 @@ import logo from '@rapid/ui/logo.svg';
 import { Link, Outlet } from 'react-router-dom';
 import { AccountSwitcher } from './components/AccountSwitcher';
 import { MiniPlayer } from './components/audio/MiniPlayer';
+import { HUDTrigger } from './components/hud';
 import { MobileMenu } from './components/MobileMenu';
 import { Sidebar } from './components/Sidebar';
 import { useAppVersion } from './hooks/useAppVersion';
@@ -45,6 +46,7 @@ function App() {
         connectionIndicator={
           sse && <ConnectionIndicator state={sse.connectionState} />
         }
+        rightAction={<HUDTrigger />}
       >
         <p>&copy; {new Date().getFullYear()} Tearleads. All rights reserved.</p>
       </Footer>
