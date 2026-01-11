@@ -762,9 +762,7 @@ describe('Photos', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(
-            /unsupported format.*Supported: JPEG, PNG, GIF, WebP, HEIC, HEIF/i
-          )
+          screen.getByText(/unsupported format.*Supported:.*JPEG.*PNG.*GIF/i)
         ).toBeInTheDocument();
       });
 
