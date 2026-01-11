@@ -14,12 +14,25 @@ export interface LogEntry {
 }
 
 const MAX_LOGS = 100;
+const DEDUPE_WINDOW_MS = 100;
 
 class LogStore {
   private logs: LogEntry[] = [];
   private listeners: Set<() => void> = new Set();
 
   addLog(level: LogLevel, message: string, details?: string): void {
+    const now = Date.now();
+    const recentLog = this.logs[0];
+
+    if (
+      recentLog &&
+      recentLog.level === level &&
+      recentLog.message === message &&
+      now - recentLog.timestamp.getTime() < DEDUPE_WINDOW_MS
+    ) {
+      return;
+    }
+
     const entry: LogEntry = {
       id: crypto.randomUUID(),
       timestamp: new Date(),
