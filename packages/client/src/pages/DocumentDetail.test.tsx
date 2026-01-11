@@ -11,9 +11,11 @@ vi.mock('@/db/hooks', () => ({
 }));
 
 const mockSelect = vi.fn();
+const mockUpdate = vi.fn();
 vi.mock('@/db', () => ({
   getDatabase: () => ({
-    select: mockSelect
+    select: mockSelect,
+    update: mockUpdate
   })
 }));
 
@@ -116,6 +118,11 @@ describe('DocumentDetail', () => {
     mockRetrieve.mockResolvedValue(TEST_PDF_DATA);
     mockRetrieveFileData.mockResolvedValue(TEST_PDF_DATA);
     mockSelect.mockReturnValue(createMockQueryChain([TEST_DOCUMENT]));
+    mockUpdate.mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined)
+      })
+    });
     mockCanShareFiles.mockReturnValue(true);
     mockShareFile.mockResolvedValue(true);
   });
@@ -367,6 +374,61 @@ describe('DocumentDetail', () => {
       expect(backLink).toBeInTheDocument();
       expect(backLink).toHaveAttribute('href', '/documents');
       expect(backLink).toHaveTextContent('Back to Documents');
+    });
+  });
+
+  describe('name editing', () => {
+    it('renders edit button for document name', async () => {
+      await renderDocumentDetail();
+
+      expect(screen.getByTestId('document-title-edit')).toBeInTheDocument();
+    });
+
+    it('enters edit mode when edit button is clicked', async () => {
+      const user = userEvent.setup();
+      await renderDocumentDetail();
+
+      await user.click(screen.getByTestId('document-title-edit'));
+
+      expect(screen.getByTestId('document-title-input')).toBeInTheDocument();
+      expect(screen.getByTestId('document-title-input')).toHaveValue(
+        'test-document.pdf'
+      );
+    });
+
+    it('updates document name when saved', async () => {
+      const user = userEvent.setup();
+      await renderDocumentDetail();
+
+      await user.click(screen.getByTestId('document-title-edit'));
+      await user.clear(screen.getByTestId('document-title-input'));
+      await user.type(
+        screen.getByTestId('document-title-input'),
+        'new-name.pdf'
+      );
+      await user.click(screen.getByTestId('document-title-save'));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalled();
+      });
+    });
+
+    it('cancels edit mode when cancel button is clicked', async () => {
+      const user = userEvent.setup();
+      await renderDocumentDetail();
+
+      await user.click(screen.getByTestId('document-title-edit'));
+      await user.clear(screen.getByTestId('document-title-input'));
+      await user.type(
+        screen.getByTestId('document-title-input'),
+        'new-name.pdf'
+      );
+      await user.click(screen.getByTestId('document-title-cancel'));
+
+      expect(
+        screen.queryByTestId('document-title-input')
+      ).not.toBeInTheDocument();
+      expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
     });
   });
 });
