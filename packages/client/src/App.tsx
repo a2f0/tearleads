@@ -5,6 +5,7 @@ import { AccountSwitcher } from './components/AccountSwitcher';
 import { MiniPlayer } from './components/audio/MiniPlayer';
 import { HUDTrigger } from './components/hud';
 import { MobileMenu } from './components/MobileMenu';
+import { SettingsButton } from './components/SettingsButton';
 import { Sidebar } from './components/Sidebar';
 import { useAppVersion } from './hooks/useAppVersion';
 import { useSSEContext } from './sse';
@@ -28,6 +29,7 @@ function App() {
           </div>
           <div className="flex items-center gap-1">
             <MobileMenu />
+            <SettingsButton />
             <AccountSwitcher />
           </div>
         </div>
