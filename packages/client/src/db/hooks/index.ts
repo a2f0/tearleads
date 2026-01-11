@@ -1,4 +1,9 @@
 export {
+  SettingsProvider,
+  useSettings,
+  useSettingsOptional
+} from '../SettingsProvider';
+export {
   DatabaseProvider,
   useDatabase,
   useDatabaseContext,

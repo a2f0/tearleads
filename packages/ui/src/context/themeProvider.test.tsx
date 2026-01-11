@@ -346,4 +346,103 @@ describe('ThemeProvider', () => {
       expect(screen.getByTestId('child')).toHaveTextContent('Hello World');
     });
   });
+
+  describe('settings-synced event', () => {
+    it('updates theme when settings-synced event is dispatched', async () => {
+      render(
+        <ThemeProvider defaultTheme="light">
+          <TestConsumer />
+        </ThemeProvider>
+      );
+
+      expect(screen.getByTestId('theme')).toHaveTextContent('light');
+
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('settings-synced', {
+            detail: { settings: { theme: 'dark' } }
+          })
+        );
+      });
+
+      expect(screen.getByTestId('theme')).toHaveTextContent('dark');
+    });
+
+    it('updates to tokyo-night theme from settings-synced event', async () => {
+      render(
+        <ThemeProvider defaultTheme="light">
+          <TestConsumer />
+        </ThemeProvider>
+      );
+
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('settings-synced', {
+            detail: { settings: { theme: 'tokyo-night' } }
+          })
+        );
+      });
+
+      expect(screen.getByTestId('theme')).toHaveTextContent('tokyo-night');
+    });
+
+    it('ignores invalid theme in settings-synced event', async () => {
+      render(
+        <ThemeProvider defaultTheme="light">
+          <TestConsumer />
+        </ThemeProvider>
+      );
+
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('settings-synced', {
+            detail: { settings: { theme: 'invalid-theme' } }
+          })
+        );
+      });
+
+      // Should remain light
+      expect(screen.getByTestId('theme')).toHaveTextContent('light');
+    });
+
+    it('ignores settings-synced event without theme', async () => {
+      render(
+        <ThemeProvider defaultTheme="dark">
+          <TestConsumer />
+        </ThemeProvider>
+      );
+
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('settings-synced', {
+            detail: { settings: { language: 'es' } }
+          })
+        );
+      });
+
+      // Should remain dark
+      expect(screen.getByTestId('theme')).toHaveTextContent('dark');
+    });
+
+    it('updates DOM class when theme changes via settings-synced', async () => {
+      render(
+        <ThemeProvider defaultTheme="light">
+          <TestConsumer />
+        </ThemeProvider>
+      );
+
+      expect(document.documentElement.classList.contains('light')).toBe(true);
+
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('settings-synced', {
+            detail: { settings: { theme: 'dark' } }
+          })
+        );
+      });
+
+      expect(document.documentElement.classList.contains('dark')).toBe(true);
+      expect(document.documentElement.classList.contains('light')).toBe(false);
+    });
+  });
 });
