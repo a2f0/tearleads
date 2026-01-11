@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { Component, createRef, type ReactNode, type RefObject } from 'react';
+import { logStore } from '@/stores/logStore';
 
 interface Props {
   children: ReactNode;
@@ -40,10 +41,12 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error): State {
+    logStore.error(error.message, error.stack);
     return { error };
   }
 
   setError = (error: Error) => {
+    logStore.error(error.message, error.stack);
     this.setState({ error });
   };
 
