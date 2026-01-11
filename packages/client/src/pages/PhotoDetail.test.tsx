@@ -2,7 +2,7 @@ import { ThemeProvider } from '@rapid/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PhotoDetail } from './PhotoDetail';
 
 // Mock the database context
@@ -492,6 +492,38 @@ describe('PhotoDetail', () => {
         expect(mockUpdate).toHaveBeenCalled();
         expect(mockNavigate).toHaveBeenCalledWith('/photos');
       });
+    });
+  });
+
+  describe('URL lifecycle', () => {
+    let mockRevokeObjectURL: ReturnType<typeof vi.fn>;
+    let mockCreateObjectURL: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      mockRevokeObjectURL = vi.fn();
+      mockCreateObjectURL = vi.fn().mockReturnValue('blob:test-url');
+      vi.stubGlobal('URL', {
+        ...URL,
+        createObjectURL: mockCreateObjectURL,
+        revokeObjectURL: mockRevokeObjectURL
+      });
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('revokes object URLs when component unmounts', async () => {
+      const { unmount } = await renderPhotoDetail();
+
+      // URL should have been created
+      expect(mockCreateObjectURL).toHaveBeenCalled();
+
+      // Unmount the component
+      unmount();
+
+      // URL should be revoked
+      expect(mockRevokeObjectURL).toHaveBeenCalledWith('blob:test-url');
     });
   });
 });
