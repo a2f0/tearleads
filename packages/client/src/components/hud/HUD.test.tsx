@@ -49,4 +49,23 @@ describe('HUD', () => {
     await user.click(screen.getByRole('button', { name: /close/i }));
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('renders backdrop when open', () => {
+    render(<HUD isOpen={true} onClose={() => {}} />);
+    expect(screen.getByTestId('hud-backdrop')).toBeInTheDocument();
+  });
+
+  it('calls onClose when backdrop is clicked', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<HUD isOpen={true} onClose={onClose} />);
+
+    await user.click(screen.getByTestId('hud-backdrop'));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('does not render backdrop when closed', () => {
+    render(<HUD isOpen={false} onClose={() => {}} />);
+    expect(screen.queryByTestId('hud-backdrop')).not.toBeInTheDocument();
+  });
 });
