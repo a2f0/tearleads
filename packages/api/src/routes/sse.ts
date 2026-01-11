@@ -81,7 +81,7 @@ router.get('/', async (req: Request, res: Response) => {
 
   res.write(`event: connected\ndata: ${JSON.stringify({ channels })}\n\n`);
 
-  activeConnections.add(res);
+  addConnection(res);
 
   let client: Awaited<ReturnType<typeof getRedisSubscriberClient>> | null =
     null;
@@ -109,7 +109,7 @@ router.get('/', async (req: Request, res: Response) => {
     }, 30000);
 
     req.on('close', () => {
-      activeConnections.delete(res);
+      removeConnection(res);
       clearInterval(keepAlive);
       if (client) {
         const clientToCleanup = client;
@@ -122,7 +122,7 @@ router.get('/', async (req: Request, res: Response) => {
       }
     });
   } catch (err) {
-    activeConnections.delete(res);
+    removeConnection(res);
     console.error('SSE connection error:', err);
     res.write(
       `event: error\ndata: ${JSON.stringify({ error: 'Failed to establish SSE connection' })}\n\n`

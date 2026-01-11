@@ -1,9 +1,9 @@
+import type { Server } from 'node:http';
 import dbPackageJson from '@rapid/db/package.json' with { type: 'json' };
 import type { PingData } from '@rapid/shared';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { type Express, type Request, type Response } from 'express';
-import type { Server } from 'http';
 import packageJson from '../package.json' with { type: 'json' };
 import { closeRedisClient } from './lib/redis.js';
 import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
@@ -89,9 +89,27 @@ app.use((_req: Request, res: Response) => {
 export { app };
 
 // Graceful shutdown handler
-/* istanbul ignore next -- @preserve server shutdown for production */
-async function gracefulShutdown(server: Server, signal: string): Promise<void> {
+let isShuttingDown = false;
+
+export function resetShutdownState(): void {
+  isShuttingDown = false;
+}
+
+export async function gracefulShutdown(
+  server: Server,
+  signal: string
+): Promise<void> {
+  if (isShuttingDown) {
+    return;
+  }
+  isShuttingDown = true;
+
   console.log(`\n${signal} received, starting graceful shutdown...`);
+
+  const timeoutId = setTimeout(() => {
+    console.error('Graceful shutdown timed out, forcing exit');
+    process.exit(1);
+  }, 10000);
 
   closeAllSSEConnections();
 
@@ -99,13 +117,9 @@ async function gracefulShutdown(server: Server, signal: string): Promise<void> {
     console.log('HTTP server closed');
     await Promise.all([closeRedisClient(), closeRedisSubscriberClient()]);
     console.log('Redis connections closed');
+    clearTimeout(timeoutId);
     process.exit(0);
   });
-
-  setTimeout(() => {
-    console.error('Graceful shutdown timed out, forcing exit');
-    process.exit(1);
-  }, 10000);
 }
 
 // Start server only when run directly
