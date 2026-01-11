@@ -14,9 +14,8 @@ Add the `needs-qa` label to the current PR so that the merge queue will create/p
 
 3. **Check for auto-close language**: Scan the PR body for `Closes #`, `Fixes #`, `Resolves #` (case-insensitive). If found:
 
-   - Warn the user that this language will auto-close the issue
-   - Remove the auto-close language from the PR body using `gh pr edit --body`
-   - Inform the user what was removed
+   - Warn the user that the `/enter-merge-queue` command will remove this language to prevent the issue from closing automatically
+   - List the issue numbers that were detected
 
 4. **Add the label**: Use the GitHub CLI to add the `needs-qa` label:
 
@@ -34,8 +33,8 @@ Add the `needs-qa` label to the current PR so that the merge queue will create/p
 
 When a PR has the `needs-qa` label:
 
-- The merge queue will **create an issue** for the PR if one doesn't exist
-- The PR description will have any auto-close language removed (to prevent the issue from closing on merge)
+- The `/enter-merge-queue` command will **create an issue** for the PR if one doesn't exist
+- The `/enter-merge-queue` command will **remove any auto-close language** from the PR description (to prevent the issue from closing on merge)
 - After the PR merges, the associated issue will be labeled with **"Needs QA"**
 - If the associated issue is already closed, it will be **reopened** for QA verification
 - This ensures QA can track and verify the changes before the issue is closed
