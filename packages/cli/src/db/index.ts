@@ -1,36 +1,26 @@
 /**
- * Database factory for CLI.
- * Manages database lifecycle including setup, unlock, and operations.
+ * Database operations for the CLI.
  */
 
+import fs from 'node:fs/promises';
+import { getConfigPaths } from '../config/index.js';
 import {
+  changePassword as changeKeyPassword,
   clearKey,
-  clearPersistedSession,
   getCurrentKey,
   hasExistingKey,
   hasPersistedSession,
-  changePassword as keyManagerChangePassword,
   persistSession,
   restoreSession,
   setupNewKey,
   unlockWithPassword
 } from '../crypto/key-manager.js';
-import { WasmNodeAdapter } from './adapter.js';
-import type { DatabaseAdapter } from './types.js';
+import { NativeSqliteAdapter } from './adapter.js';
 
-const DATABASE_NAME = 'tearleads';
-
-let adapter: DatabaseAdapter | null = null;
+let adapter: NativeSqliteAdapter | null = null;
 
 /**
- * Get the current adapter (for testing).
- */
-export function getAdapter(): DatabaseAdapter | null {
-  return adapter;
-}
-
-/**
- * Check if the database has been set up.
+ * Check if a database has been set up.
  */
 export async function isDatabaseSetUp(): Promise<boolean> {
   return hasExistingKey();
@@ -47,85 +37,77 @@ export function isDatabaseUnlocked(): boolean {
  * Set up a new database with a password.
  */
 export async function setupDatabase(password: string): Promise<void> {
-  if (await isDatabaseSetUp()) {
-    throw new Error('Database already set up. Use changePassword to change.');
-  }
-
   const key = await setupNewKey(password);
-  adapter = new WasmNodeAdapter();
-  await adapter.initialize({
-    name: DATABASE_NAME,
-    encryptionKey: key
-  });
 
+  adapter = new NativeSqliteAdapter();
+  await adapter.initialize(key);
+
+  // Persist session for convenience
   await persistSession();
 }
 
 /**
- * Unlock the database with a password.
+ * Unlock an existing database with a password.
  */
 export async function unlockDatabase(password: string): Promise<boolean> {
-  if (!(await isDatabaseSetUp())) {
-    throw new Error('Database not set up. Use setupDatabase first.');
-  }
-
   const key = await unlockWithPassword(password);
   if (!key) {
     return false;
   }
 
-  adapter = new WasmNodeAdapter();
-  await adapter.initialize({
-    name: DATABASE_NAME,
-    encryptionKey: key
-  });
+  adapter = new NativeSqliteAdapter();
+  await adapter.open(key);
 
+  // Persist session for convenience
   await persistSession();
+
   return true;
 }
 
 /**
- * Try to restore a database session without a password.
+ * Restore a database session from persisted key.
  */
 export async function restoreDatabaseSession(): Promise<boolean> {
-  if (!(await hasPersistedSession())) {
-    return false;
-  }
-
   const key = await restoreSession();
   if (!key) {
     return false;
   }
 
-  adapter = new WasmNodeAdapter();
-  await adapter.initialize({
-    name: DATABASE_NAME,
-    encryptionKey: key
-  });
+  adapter = new NativeSqliteAdapter();
+  await adapter.open(key);
 
   return true;
 }
 
 /**
- * Lock the database (close and clear session).
+ * Lock the database (close and clear key).
  */
-export async function lockDatabase(): Promise<void> {
+export function lockDatabase(): void {
   if (adapter) {
-    await adapter.close();
+    adapter.close();
     adapter = null;
   }
   clearKey();
-  await clearPersistedSession();
 }
 
 /**
- * Close the database without clearing session.
+ * Export the database to JSON.
  */
-export async function closeDatabase(): Promise<void> {
-  if (adapter) {
-    await adapter.close();
-    adapter = null;
+export function exportDatabase(): Record<string, unknown[]> {
+  if (!adapter || !adapter.isOpen()) {
+    throw new Error('Database not open');
   }
+  return adapter.exportToJson();
+}
+
+/**
+ * Import data into the database from JSON.
+ */
+export function importDatabase(data: Record<string, unknown[]>): void {
+  if (!adapter || !adapter.isOpen()) {
+    throw new Error('Database not open');
+  }
+  adapter.importFromJson(data);
 }
 
 /**
@@ -135,56 +117,47 @@ export async function changePassword(
   oldPassword: string,
   newPassword: string
 ): Promise<boolean> {
-  const result = await keyManagerChangePassword(oldPassword, newPassword);
+  const result = await changeKeyPassword(oldPassword, newPassword);
   if (!result) {
     return false;
   }
 
+  // Re-key the database if it's open
   if (adapter?.isOpen()) {
+    await adapter.rekeyDatabase(result.newKey);
+  } else {
+    // Open with old key, re-key, close
+    adapter = new NativeSqliteAdapter();
+    await adapter.open(result.oldKey);
     await adapter.rekeyDatabase(result.newKey);
   }
 
+  // Update persisted session
   await persistSession();
+
   return true;
 }
 
 /**
- * Export the database as JSON.
+ * Get the current encryption key (for testing).
  */
-export async function exportDatabase(): Promise<string> {
-  if (!adapter || !adapter.isOpen()) {
-    throw new Error('Database not unlocked');
-  }
-
-  return adapter.exportDatabaseAsJson();
+export function getKey(): Uint8Array | null {
+  return getCurrentKey();
 }
 
 /**
- * Import the database from JSON.
+ * Reset the database (delete all data).
  */
-export async function importDatabase(jsonData: string): Promise<void> {
-  const key = getCurrentKey();
-  if (!key) {
-    throw new Error('Database not unlocked');
-  }
+export async function resetDatabase(): Promise<void> {
+  lockDatabase();
 
-  if (!adapter) {
-    adapter = new WasmNodeAdapter();
+  const paths = getConfigPaths();
+  try {
+    await fs.unlink(paths.database);
+  } catch {
+    // Ignore if file doesn't exist
   }
-
-  await adapter.importDatabaseFromJson(jsonData, key);
 }
 
-/**
- * Execute a SQL query.
- */
-export async function execute(
-  sql: string,
-  params?: unknown[]
-): Promise<{ rows: Record<string, unknown>[] }> {
-  if (!adapter || !adapter.isOpen()) {
-    throw new Error('Database not unlocked');
-  }
-
-  return adapter.execute(sql, params);
-}
+// Re-export for convenience
+export { hasPersistedSession };
