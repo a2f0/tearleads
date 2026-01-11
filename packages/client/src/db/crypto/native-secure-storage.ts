@@ -20,6 +20,112 @@ const WRAPPED_KEY_PREFIX = 'wrapped_key';
 /** Storage key prefix for wrapping keys (hex-encoded) */
 const WRAPPING_KEY_PREFIX = 'wrapping_key';
 
+/**
+ * IndexedDB tracking for Keystore instance IDs.
+ * The NativeBiometric plugin doesn't support enumerating all stored credentials,
+ * so we track which instance IDs have Keystore entries to enable orphan detection.
+ */
+const KEYSTORE_TRACKING_DB = 'rapid_keystore_tracking';
+const KEYSTORE_TRACKING_STORE = 'instance_ids';
+
+/**
+ * Open the Keystore tracking IndexedDB.
+ */
+async function openKeystoreTrackingDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(KEYSTORE_TRACKING_DB, 1);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(KEYSTORE_TRACKING_STORE)) {
+        db.createObjectStore(KEYSTORE_TRACKING_STORE, {
+          keyPath: 'instanceId'
+        });
+      }
+    };
+  });
+}
+
+/**
+ * Track that an instance has Keystore entries.
+ */
+async function trackKeystoreInstance(instanceId: string): Promise<void> {
+  try {
+    const db = await openKeystoreTrackingDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(KEYSTORE_TRACKING_STORE, 'readwrite');
+      const store = tx.objectStore(KEYSTORE_TRACKING_STORE);
+      store.put({ instanceId, createdAt: Date.now() });
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      tx.onerror = () => {
+        db.close();
+        reject(tx.error);
+      };
+    });
+  } catch {
+    // Ignore tracking errors - non-critical for core functionality
+  }
+}
+
+/**
+ * Remove an instance from Keystore tracking.
+ */
+async function untrackKeystoreInstance(instanceId: string): Promise<void> {
+  try {
+    const db = await openKeystoreTrackingDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(KEYSTORE_TRACKING_STORE, 'readwrite');
+      const store = tx.objectStore(KEYSTORE_TRACKING_STORE);
+      store.delete(instanceId);
+
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      tx.onerror = () => {
+        db.close();
+        reject(tx.error);
+      };
+    });
+  } catch {
+    // Ignore tracking errors - non-critical for core functionality
+  }
+}
+
+/**
+ * Get all instance IDs that have Keystore entries.
+ * Used for orphan detection during app startup.
+ */
+export async function getTrackedKeystoreInstanceIds(): Promise<string[]> {
+  try {
+    const db = await openKeystoreTrackingDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(KEYSTORE_TRACKING_STORE, 'readonly');
+      const store = tx.objectStore(KEYSTORE_TRACKING_STORE);
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        db.close();
+        const entries = request.result as Array<{ instanceId: string }>;
+        resolve(entries.map((e) => e.instanceId));
+      };
+      request.onerror = () => {
+        db.close();
+        reject(request.error);
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 export interface BiometricOptions {
   /** Whether to require biometric authentication for retrieval */
   useBiometric?: boolean;
@@ -150,6 +256,8 @@ export async function storeWrappedKey(
       password: bytesToHex(wrappedKey),
       server: getServerId(instanceId, WRAPPED_KEY_PREFIX)
     });
+    // Track this instance ID for orphan detection
+    await trackKeystoreInstance(instanceId);
     return true;
   } catch (error) {
     console.error('Failed to store wrapped key:', error);
@@ -264,4 +372,7 @@ export async function clearSession(instanceId: string): Promise<void> {
   } catch {
     // Ignore errors when no credentials exist
   }
+
+  // Remove from tracking
+  await untrackKeystoreInstance(instanceId);
 }
