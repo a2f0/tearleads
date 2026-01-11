@@ -938,21 +938,25 @@ export async function validateAndPruneOrphanedInstances(
       }
     }
 
-    // Check for registry entries without valid salt/KCV
-    for (const instanceId of registryInstanceIds) {
-      const storage = await getStorageAdapter(instanceId);
-      const salt = await storage.getSalt();
-      const kcv = await storage.getKeyCheckValue();
+    // Check for registry entries without valid salt/KCV (mobile only)
+    // On mobile, this catches entries where Keystore survived but IndexedDB didn't.
+    // On web, an instance without salt/KCV is just "not set up yet" which is valid.
+    if (platform === 'ios' || platform === 'android') {
+      for (const instanceId of registryInstanceIds) {
+        const storage = await getStorageAdapter(instanceId);
+        const salt = await storage.getSalt();
+        const kcv = await storage.getKeyCheckValue();
 
-      // If no salt exists, this is an orphaned registry entry
-      // (salt is created during setup, so no salt means setup never completed
-      // or the key storage was cleared without clearing the registry)
-      if (!salt || !kcv) {
-        result.orphanedRegistryEntries.push(instanceId);
-        // Clean up any partial key storage
-        await storage.clear();
-        // Delete from registry
-        await deleteRegistryEntry(instanceId);
+        // If no salt exists, this is an orphaned registry entry
+        // (salt is created during setup, so no salt means setup never completed
+        // or the key storage was cleared without clearing the registry)
+        if (!salt || !kcv) {
+          result.orphanedRegistryEntries.push(instanceId);
+          // Clean up any partial key storage
+          await storage.clear();
+          // Delete from registry
+          await deleteRegistryEntry(instanceId);
+        }
       }
     }
 
