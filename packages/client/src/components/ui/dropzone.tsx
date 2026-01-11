@@ -55,6 +55,9 @@ export function Dropzone({
 }: DropzoneProps) {
   const compactClasses =
     variant === 'row' ? COMPACT_ROW_CLASSES : COMPACT_SQUARE_CLASSES;
+  const compactRowLabel = variant === 'row' && (
+    <span className="text-muted-foreground text-sm">Add {label}</span>
+  );
   const [isDragging, setIsDragging] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -178,9 +181,7 @@ export function Dropzone({
               isPickerOpen && 'animate-pulse'
             )}
           />
-          {variant === 'row' && (
-            <span className="text-muted-foreground text-sm">Add {label}</span>
-          )}
+          {compactRowLabel}
           {fileInput}
         </button>
       );
@@ -234,9 +235,7 @@ export function Dropzone({
             isDragging && 'text-primary'
           )}
         />
-        {variant === 'row' && (
-          <span className="text-muted-foreground text-sm">Add {label}</span>
-        )}
+        {compactRowLabel}
         {fileInput}
       </label>
     );
