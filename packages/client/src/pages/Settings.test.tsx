@@ -65,6 +65,12 @@ describe('Settings', () => {
       ).toBeInTheDocument();
     });
 
+    it('renders the language selector', () => {
+      expect(
+        screen.getByTestId('language-selector-container')
+      ).toBeInTheDocument();
+    });
+
     it('renders the version at the bottom', () => {
       expect(screen.getByTestId('app-version')).toHaveTextContent(
         `v${packageJson.version}`
