@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { HUD } from './HUD';
@@ -67,5 +67,47 @@ describe('HUD', () => {
   it('does not render backdrop when closed', () => {
     render(<HUD isOpen={false} onClose={() => {}} />);
     expect(screen.queryByTestId('hud-backdrop')).not.toBeInTheDocument();
+  });
+
+  describe('resize handle', () => {
+    it('renders resize handle when open', () => {
+      render(<HUD isOpen={true} onClose={() => {}} />);
+      expect(screen.getByTestId('hud-resize-handle')).toBeInTheDocument();
+    });
+
+    it('has correct accessibility attributes', () => {
+      render(<HUD isOpen={true} onClose={() => {}} />);
+      const handle = screen.getByTestId('hud-resize-handle');
+      expect(handle.tagName).toBe('BUTTON');
+      expect(handle).toHaveAttribute('aria-label', 'Resize handle');
+    });
+
+    it('changes height when dragged', () => {
+      render(<HUD isOpen={true} onClose={() => {}} />);
+      const dialog = screen.getByRole('dialog');
+      const handle = screen.getByTestId('hud-resize-handle');
+
+      const initialHeight = parseInt(dialog.style.height, 10);
+
+      fireEvent.mouseDown(handle, { clientY: 300 });
+      fireEvent.mouseMove(document, { clientY: 200 });
+      fireEvent.mouseUp(document);
+
+      const newHeight = parseInt(dialog.style.height, 10);
+      expect(newHeight).toBeGreaterThan(initialHeight);
+    });
+
+    it('respects minimum height constraint', () => {
+      render(<HUD isOpen={true} onClose={() => {}} />);
+      const dialog = screen.getByRole('dialog');
+      const handle = screen.getByTestId('hud-resize-handle');
+
+      fireEvent.mouseDown(handle, { clientY: 300 });
+      fireEvent.mouseMove(document, { clientY: 1000 });
+      fireEvent.mouseUp(document);
+
+      const newHeight = parseInt(dialog.style.height, 10);
+      expect(newHeight).toBeGreaterThanOrEqual(150);
+    });
   });
 });
