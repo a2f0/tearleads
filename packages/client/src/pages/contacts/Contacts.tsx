@@ -31,6 +31,7 @@ import {
   type ParsedCSV,
   useContactsImport
 } from '@/hooks/useContactsImport';
+import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { AddContactCard } from './AddContactCard';
 
@@ -78,14 +79,7 @@ export function Contacts() {
   });
 
   const virtualItems = virtualizer.getVirtualItems();
-
-  // Calculate visible range from virtual items
-  const firstVisible =
-    virtualItems.length > 0 ? (virtualItems[0]?.index ?? null) : null;
-  const lastVisible =
-    virtualItems.length > 0
-      ? (virtualItems[virtualItems.length - 1]?.index ?? null)
-      : null;
+  const { firstVisible, lastVisible } = useVirtualVisibleRange(virtualItems);
 
   // Debounce search query
   useEffect(() => {
