@@ -12,11 +12,15 @@ const { mockImportKey, mockEncrypt, mockDecrypt } = vi.hoisted(() => ({
   mockDecrypt: vi.fn()
 }));
 
-vi.mock('@/db/crypto/web-crypto', () => ({
-  importKey: mockImportKey,
-  encrypt: mockEncrypt,
-  decrypt: mockDecrypt
-}));
+vi.mock('@rapid/shared', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@rapid/shared')>();
+  return {
+    ...original,
+    importKey: mockImportKey,
+    encrypt: mockEncrypt,
+    decrypt: mockDecrypt
+  };
+});
 
 // Import after mocks
 import {

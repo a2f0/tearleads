@@ -4,8 +4,6 @@
  * Supports multi-instance with namespaced storage keys.
  */
 
-import { detectPlatform } from '@/lib/utils';
-import * as nativeSecureStorage from './native-secure-storage';
 import {
   deriveKeyFromPassword,
   exportKey,
@@ -18,7 +16,9 @@ import {
   secureZero,
   unwrapKey,
   wrapKey
-} from './web-crypto';
+} from '@rapid/shared';
+import { detectPlatform } from '@/lib/utils';
+import * as nativeSecureStorage from './native-secure-storage';
 
 // Base storage key prefixes - instanceId is appended
 const SALT_STORAGE_PREFIX = 'rapid_db_salt';
