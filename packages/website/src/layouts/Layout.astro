@@ -46,6 +46,28 @@ const currentYear = new Date().getFullYear();
             <nav class="hidden items-center gap-6 md:flex">
               <div class="nav-dropdown relative">
                 <button type="button" class="flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground">
+                  Products
+                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <div class="nav-dropdown-menu invisible absolute left-0 top-full z-50 mt-2 min-w-[180px] rounded-md border bg-popover py-1 opacity-0 shadow-md transition-all">
+                  <a href="/products/desktop" class="block px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                    Desktop
+                  </a>
+                  <a href="/products/mobile" class="block px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                    Mobile
+                  </a>
+                  <a href="/products/web" class="block px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                    Web
+                  </a>
+                  <a href="/products/chrome-extension" class="block px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                    Chrome Extension
+                  </a>
+                </div>
+              </div>
+              <div class="nav-dropdown relative">
+                <button type="button" class="flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground">
                   Docs
                   <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
