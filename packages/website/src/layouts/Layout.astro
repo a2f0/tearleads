@@ -1,7 +1,7 @@
 ---
 import logo from '@rapid/ui/logo.svg?url';
 import NavDropdown from '../components/NavDropdown.astro';
-import { ThemeSwitcherIsland } from '../components/ThemeSwitcherIsland';
+import { SettingsIsland } from '../components/SettingsIsland';
 import '../styles/global.css';
 
 interface Props {
@@ -12,6 +12,7 @@ const { title } = Astro.props;
 const currentYear = new Date().getFullYear();
 
 const productLinks = [
+  { href: '/products/cli', text: 'CLI' },
   { href: '/products/desktop', text: 'Desktop' },
   { href: '/products/mobile', text: 'Mobile' },
   { href: '/products/web', text: 'Web' },
@@ -51,17 +52,17 @@ const docsLinks = [
         <div
           class="container mx-auto flex items-center justify-between px-4 py-4"
         >
-          <div class="flex items-center gap-6">
-            <a href="/" class="flex items-center gap-3">
-              <img src={logo} alt="Rapid" class="h-8 w-8" />
-              <p class="font-bold text-2xl">Rapid</p>
-            </a>
-            <nav class="hidden items-center gap-6 md:flex">
+          <a href="/" class="flex items-center gap-3">
+            <img src={logo} alt="Rapid" class="h-8 w-8" />
+            <p class="font-bold text-2xl">Rapid</p>
+          </a>
+          <div class="flex items-center gap-4">
+            <nav class="hidden items-center gap-4 md:flex">
               <NavDropdown title="Products" links={productLinks} />
               <NavDropdown title="Docs" links={docsLinks} />
             </nav>
+            <SettingsIsland client:load />
           </div>
-          <ThemeSwitcherIsland client:load />
         </div>
       </header>
       <main class="flex-1">
