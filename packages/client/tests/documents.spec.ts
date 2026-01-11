@@ -181,7 +181,10 @@ test.describe('PDF worker', () => {
       (w) =>
         w.includes('fake worker') || w.includes('Setting up fake worker')
     );
-    expect(fakeWorkerWarnings).toHaveLength(0);
+    expect(
+      fakeWorkerWarnings,
+      `Found unexpected fake worker warnings: ${JSON.stringify(fakeWorkerWarnings)}`
+    ).toHaveLength(0);
   });
 });
 
