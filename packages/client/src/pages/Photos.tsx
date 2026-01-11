@@ -27,8 +27,16 @@ import {
   isFileStorageInitialized
 } from '@/storage/opfs';
 
-// Only include formats that have thumbnail generation support
-const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+// Supported image formats for upload
+// Note: HEIC/HEIF won't have thumbnails generated (browser limitation) but Safari can display them natively
+const IMAGE_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/heic',
+  'image/heif'
+];
 
 interface PhotoInfo {
   id: string;
@@ -188,7 +196,7 @@ export function Photos() {
         // Validate that the file type is one of the supported image MIME types
         if (!IMAGE_MIME_TYPES.includes(file.type)) {
           errors.push(
-            `"${file.name}" has an unsupported format. Supported: JPEG, PNG, GIF, WebP.`
+            `"${file.name}" has an unsupported format. Supported: ${IMAGE_MIME_TYPES.map((type) => type.replace('image/', '').toUpperCase()).join(', ')}.`
           );
           continue;
         }
