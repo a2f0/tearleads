@@ -1,12 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import {
-  Calendar,
-  Download,
-  FileType,
-  HardDrive,
-  Loader2,
-  Share2
-} from 'lucide-react';
+import { Calendar, FileType, HardDrive, Loader2 } from 'lucide-react';
 import {
   lazy,
   Suspense,
@@ -15,10 +8,10 @@ import {
   useRef,
   useState
 } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { ActionToolbar, type ActionType } from '@/components/ui/action-toolbar';
 import { BackLink } from '@/components/ui/back-link';
-import { Button } from '@/components/ui/button';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
@@ -43,6 +36,7 @@ interface DocumentInfo {
 
 export function DocumentDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [document, setDocument] = useState<DocumentInfo | null>(null);
   const [pdfData, setPdfData] = useState<Uint8Array | null>(null);
@@ -50,9 +44,7 @@ export function DocumentDetail() {
   const [pdfLoading, setPdfLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [canShare, setCanShare] = useState(false);
-  const [actionLoading, setActionLoading] = useState<
-    'download' | 'share' | null
-  >(null);
+  const [actionLoading, setActionLoading] = useState<ActionType | null>(null);
   // Track loaded storage path to prevent duplicate loads during rapid state changes
   const loadedStoragePathRef = useRef<string | null>(null);
 
@@ -103,6 +95,25 @@ export function DocumentDetail() {
       setActionLoading(null);
     }
   }, [document, currentInstanceId]);
+
+  const handleDelete = useCallback(async () => {
+    if (!document) return;
+
+    setActionLoading('delete');
+    try {
+      const db = getDatabase();
+      await db
+        .update(files)
+        .set({ deleted: true })
+        .where(eq(files.id, document.id));
+
+      navigate('/documents');
+    } catch (err) {
+      console.error('Failed to delete document:', err);
+      setError(err instanceof Error ? err.message : String(err));
+      setActionLoading(null);
+    }
+  }, [document, navigate]);
 
   const fetchDocument = useCallback(async () => {
     if (!isUnlocked || !id) return;
@@ -255,36 +266,13 @@ export function DocumentDetail() {
             </Suspense>
           )}
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleDownload}
-              disabled={actionLoading !== null}
-              data-testid="download-button"
-            >
-              {actionLoading === 'download' ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
-              )}
-              Download
-            </Button>
-            {canShare && (
-              <Button
-                variant="outline"
-                onClick={handleShare}
-                disabled={actionLoading !== null}
-                data-testid="share-button"
-              >
-                {actionLoading === 'share' ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Share2 className="mr-2 h-4 w-4" />
-                )}
-                Share
-              </Button>
-            )}
-          </div>
+          <ActionToolbar
+            onDownload={handleDownload}
+            onShare={handleShare}
+            onDelete={handleDelete}
+            loadingAction={actionLoading}
+            canShare={canShare}
+          />
 
           <div className="rounded-lg border">
             <div className="border-b px-4 py-3">
