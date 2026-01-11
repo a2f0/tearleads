@@ -470,7 +470,7 @@ describe('opfs storage', () => {
         await storage.measureStore('file-id', data, onMetrics);
 
         // Wait for fire-and-forget callback
-        await new Promise((r) => setTimeout(r, 10));
+        await new Promise((r) => setTimeout(r, 0));
 
         expect(onMetrics).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -499,7 +499,7 @@ describe('opfs storage', () => {
         ).rejects.toThrow('Encryption failed');
 
         // Wait for fire-and-forget callback
-        await new Promise((r) => setTimeout(r, 10));
+        await new Promise((r) => setTimeout(r, 0));
 
         expect(onMetrics).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -535,7 +535,7 @@ describe('opfs storage', () => {
         const path = await storage.measureStore('file-id', data, onMetrics);
 
         // Wait for fire-and-forget callback
-        await new Promise((r) => setTimeout(r, 10));
+        await new Promise((r) => setTimeout(r, 0));
 
         // Should still return the path
         expect(path).toBe('file-id.enc');
@@ -610,7 +610,7 @@ describe('opfs storage', () => {
         await storage.measureRetrieve('test.enc', onMetrics);
 
         // Wait for fire-and-forget callback
-        await new Promise((r) => setTimeout(r, 10));
+        await new Promise((r) => setTimeout(r, 0));
 
         expect(onMetrics).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -640,7 +640,7 @@ describe('opfs storage', () => {
         ).rejects.toThrow('File not found');
 
         // Wait for fire-and-forget callback
-        await new Promise((r) => setTimeout(r, 10));
+        await new Promise((r) => setTimeout(r, 0));
 
         expect(onMetrics).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -682,7 +682,7 @@ describe('opfs storage', () => {
         const result = await storage.measureRetrieve('test.enc', onMetrics);
 
         // Wait for fire-and-forget callback
-        await new Promise((r) => setTimeout(r, 10));
+        await new Promise((r) => setTimeout(r, 0));
 
         // Should still return the data
         expect(result).toBeInstanceOf(Uint8Array);
