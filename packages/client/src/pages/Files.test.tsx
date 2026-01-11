@@ -266,7 +266,7 @@ describe('Files', () => {
       await renderFiles();
 
       await waitFor(() => {
-        expect(screen.getByText('2 files')).toBeInTheDocument();
+        expect(screen.getByText(/2 files$/)).toBeInTheDocument();
       });
     });
 

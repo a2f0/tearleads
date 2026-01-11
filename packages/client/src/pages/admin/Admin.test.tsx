@@ -93,14 +93,14 @@ describe('Admin', () => {
       });
     });
 
-    it('shows "0 loaded" count', async () => {
+    it('shows "0 keys" count', async () => {
       mockGetKeys.mockResolvedValue({ keys: [], cursor: '0', hasMore: false });
       mockGetDbSize.mockResolvedValue({ count: 0 });
 
       renderAdmin();
 
       await waitFor(() => {
-        expect(screen.getByText(/0 loaded/)).toBeInTheDocument();
+        expect(screen.getByText(/0 keys/)).toBeInTheDocument();
       });
     });
   });
@@ -133,7 +133,7 @@ describe('Admin', () => {
       renderAdmin();
 
       await waitFor(() => {
-        expect(screen.getByText(/2 loaded/)).toBeInTheDocument();
+        expect(screen.getByText(/2 keys$/)).toBeInTheDocument();
       });
     });
 
@@ -156,8 +156,8 @@ describe('Admin', () => {
     });
   });
 
-  describe('loaded key count', () => {
-    it('shows loaded count for 1 key', async () => {
+  describe('key count display', () => {
+    it('shows count for 1 key', async () => {
       mockGetKeys.mockResolvedValue({
         keys: [{ key: 'only', type: 'string', ttl: -1 }],
         cursor: '0',
@@ -168,11 +168,11 @@ describe('Admin', () => {
       renderAdmin();
 
       await waitFor(() => {
-        expect(screen.getByText(/1 loaded/)).toBeInTheDocument();
+        expect(screen.getByText(/1 key$/)).toBeInTheDocument();
       });
     });
 
-    it('shows loaded count for multiple keys', async () => {
+    it('shows count for multiple keys', async () => {
       mockGetKeys.mockResolvedValue({
         keys: [
           { key: 'first', type: 'string', ttl: -1 },
@@ -186,7 +186,7 @@ describe('Admin', () => {
       renderAdmin();
 
       await waitFor(() => {
-        expect(screen.getByText(/2 loaded/)).toBeInTheDocument();
+        expect(screen.getByText(/2 keys$/)).toBeInTheDocument();
       });
     });
   });
@@ -329,7 +329,7 @@ describe('Admin', () => {
       });
     });
 
-    it('shows fallback text when dbsize fails', async () => {
+    it('shows hasMore indicator when dbsize fails', async () => {
       mockGetKeys.mockResolvedValue({
         keys: [{ key: 'test:key', type: 'string', ttl: -1 }],
         cursor: '0',
@@ -340,7 +340,7 @@ describe('Admin', () => {
       renderAdmin();
 
       await waitFor(() => {
-        expect(screen.getByText(/1 loaded\+/)).toBeInTheDocument();
+        expect(screen.getByText(/1\+ key/)).toBeInTheDocument();
       });
     });
 
@@ -359,7 +359,7 @@ describe('Admin', () => {
       renderAdmin();
 
       await waitFor(() => {
-        expect(screen.getByText(/Viewing 1-3 of 3 loaded/)).toBeInTheDocument();
+        expect(screen.getByText(/3 keys$/)).toBeInTheDocument();
       });
     });
   });

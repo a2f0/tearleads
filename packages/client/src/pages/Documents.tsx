@@ -15,11 +15,13 @@ import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { retrieveFileData } from '@/lib/data-retrieval';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { useNavigateWithFrom } from '@/lib/navigation';
@@ -74,6 +76,7 @@ export function Documents() {
   });
 
   const virtualItems = virtualizer.getVirtualItems();
+  const { firstVisible, lastVisible } = useVirtualVisibleRange(virtualItems);
 
   useEffect(() => {
     setCanShare(canShareFiles());
@@ -403,9 +406,12 @@ export function Documents() {
             className="flex min-h-0 flex-1 flex-col space-y-2"
             data-testid="documents-list"
           >
-            <p className="text-muted-foreground text-sm">
-              {documents.length} document{documents.length !== 1 && 's'}
-            </p>
+            <VirtualListStatus
+              firstVisible={firstVisible}
+              lastVisible={lastVisible}
+              loadedCount={documents.length}
+              itemLabel="document"
+            />
             <div className="flex-1 rounded-lg border">
               <div ref={parentRef} className="h-full overflow-auto">
                 <div

@@ -17,12 +17,14 @@ import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { detectPlatform, formatFileSize } from '@/lib/utils';
 import {
@@ -93,6 +95,7 @@ export function AudioPage() {
   });
 
   const virtualItems = virtualizer.getVirtualItems();
+  const { firstVisible, lastVisible } = useVirtualVisibleRange(virtualItems);
 
   const isDesktopPlatform = useMemo(() => {
     const platform = detectPlatform();
@@ -428,9 +431,12 @@ export function AudioPage() {
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col space-y-2">
-            <p className="text-muted-foreground text-sm">
-              {tracks.length} track{tracks.length !== 1 && 's'}
-            </p>
+            <VirtualListStatus
+              firstVisible={firstVisible}
+              lastVisible={lastVisible}
+              loadedCount={tracks.length}
+              itemLabel="track"
+            />
             <div className="flex-1 rounded-lg border">
               <div ref={parentRef} className="h-full overflow-auto">
                 <div
