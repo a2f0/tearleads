@@ -63,11 +63,67 @@ const ensureUnlocked = async (page: Page) => {
   }
 };
 
+// Helper to delete all instances except the current one (for test isolation)
+const deleteAllOtherInstances = async (page: Page) => {
+  // Open the account switcher to see all instances
+  await page.getByTestId('account-switcher-button').click();
+  await page.waitForTimeout(100);
+
+  // Get all instance items (excluding icons and delete buttons)
+  const instanceItems = page.locator(
+    '[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])'
+  );
+  const count = await instanceItems.count();
+
+  // Close the switcher
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(100);
+
+  // If there's more than one instance, delete the extras
+  if (count > 1) {
+    // Delete instances from the end to avoid index shifting issues
+    for (let i = count - 1; i >= 1; i--) {
+      // Open switcher
+      await page.getByTestId('account-switcher-button').click();
+      await page.waitForTimeout(100);
+
+      // Get the delete button for instance at index i
+      const items = page.locator(
+        '[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])'
+      );
+      const instanceId = await items
+        .nth(i)
+        .getAttribute('data-testid')
+        .then((id) => id?.replace('instance-', ''));
+
+      if (instanceId) {
+        const deleteButton = page.getByTestId(`delete-instance-${instanceId}`);
+        await deleteButton.click();
+
+        // Wait for and confirm the delete dialog
+        await expect(
+          page.getByTestId('delete-instance-dialog')
+        ).toBeVisible();
+        await page.getByRole('button', { name: 'Delete' }).click();
+
+        // Wait for dialog to close
+        await expect(
+          page.getByTestId('delete-instance-dialog')
+        ).not.toBeVisible();
+      }
+    }
+  }
+};
+
 test.describe('Instance Switching State Isolation', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the SQLite page
     await page.goto('/sqlite');
     await expect(page.getByTestId('database-test')).toBeVisible();
+
+    // Delete all other instances to ensure test isolation
+    // (instances from previous test runs may persist)
+    await deleteAllOtherInstances(page);
 
     // Reset the database to ensure clean state
     const resetButton = page.getByTestId('db-reset-button');
@@ -289,6 +345,10 @@ test.describe('Files Route Instance Switching', () => {
     // Start fresh by going to SQLite and resetting
     await page.goto('/sqlite');
     await expect(page.getByTestId('database-test')).toBeVisible();
+
+    // Delete all other instances to ensure test isolation
+    // (instances from previous test runs may persist)
+    await deleteAllOtherInstances(page);
 
     const resetButton = page.getByTestId('db-reset-button');
     await resetButton.click();
