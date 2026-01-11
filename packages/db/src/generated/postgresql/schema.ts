@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp
@@ -142,7 +143,8 @@ export const analyticsEvents = pgTable(
     eventName: text('event_name').notNull(),
     durationMs: integer('duration_ms').notNull(),
     success: boolean('success').notNull(),
-    timestamp: timestamp('timestamp', { withTimezone: true }).notNull()
+    timestamp: timestamp('timestamp', { withTimezone: true }).notNull(),
+    detail: jsonb('detail')
   },
   (table) => [index('analytics_events_timestamp_idx').on(table.timestamp)]
 );
