@@ -302,7 +302,7 @@ describe('AudioPage', () => {
     it('shows track count', async () => {
       await renderAudio();
 
-      expect(screen.getByText('2 tracks')).toBeInTheDocument();
+      expect(screen.getByText(/2 tracks$/)).toBeInTheDocument();
     });
 
     it('renders play buttons for tracks', async () => {
