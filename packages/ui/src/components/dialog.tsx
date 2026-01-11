@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { cn } from '../lib/utils.js';
 
 const ANIMATION_DURATION_MS = 200;
@@ -21,6 +21,11 @@ export function Dialog({
   const [isAnimating, setIsAnimating] = useState(false);
   const [shouldRender, setShouldRender] = useState(open);
   const titleId = useId();
+  const onOpenChangeRef = useRef(onOpenChange);
+
+  useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  });
 
   useEffect(() => {
     if (open) {
@@ -41,17 +46,17 @@ export function Dialog({
 
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onOpenChange(false);
+        onOpenChangeRef.current(false);
       }
     };
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [open, onOpenChange]);
+  }, [open]);
 
   const handleBackdropClick = useCallback(() => {
-    onOpenChange(false);
-  }, [onOpenChange]);
+    onOpenChangeRef.current(false);
+  }, []);
 
   if (!shouldRender) return null;
 
