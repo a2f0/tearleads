@@ -4,8 +4,6 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { stdin, stdout } from 'node:process';
-import * as readline from 'node:readline/promises';
 import { Command } from 'commander';
 import { hasPersistedSession } from '../crypto/key-manager.js';
 import {
@@ -14,16 +12,7 @@ import {
   isDatabaseUnlocked,
   restoreDatabaseSession
 } from '../db/index.js';
-
-async function promptConfirm(prompt: string): Promise<boolean> {
-  const rl = readline.createInterface({ input: stdin, output: stdout });
-  try {
-    const answer = await rl.question(prompt);
-    return answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
-  } finally {
-    rl.close();
-  }
-}
+import { promptConfirm } from '../utils/prompt.js';
 
 interface RestoreOptions {
   force?: boolean;
@@ -72,7 +61,8 @@ export async function runRestore(
   }
 
   const jsonData = await fs.readFile(filePath, 'utf-8');
-  await importDatabase(jsonData);
+  const data = JSON.parse(jsonData) as Record<string, unknown[]>;
+  importDatabase(data);
   console.log('Database restored successfully.');
 }
 

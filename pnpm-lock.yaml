@@ -127,10 +127,16 @@ importers:
       '@rapid/shared':
         specifier: workspace:*
         version: link:../shared
+      better-sqlite3-multiple-ciphers:
+        specifier: 12.5.0
+        version: 12.5.0
       commander:
         specifier: 13.1.0
         version: 13.1.0
     devDependencies:
+      '@types/better-sqlite3':
+        specifier: 7.6.13
+        version: 7.6.13
       '@types/node':
         specifier: 25.0.3
         version: 25.0.3
@@ -288,6 +294,9 @@ importers:
       '@types/better-sqlite3':
         specifier: 7.6.13
         version: 7.6.13
+      '@types/i18next':
+        specifier: 13.0.0
+        version: 13.0.0(typescript@5.9.3)
       '@types/invariant':
         specifier: 2.2.37
         version: 2.2.37
@@ -3350,6 +3359,10 @@ packages:
 
   '@types/http-errors@2.0.5':
     resolution: {integrity: sha512-r8Tayk8HJnX0FztbZN7oVqGccWgw98T/0neJphO91KkmOzug1KkofZURD4UaD5uH8AqcFLfdPErnBod0u71/qg==}
+
+  '@types/i18next@13.0.0':
+    resolution: {integrity: sha512-gp/SIShAuf4WOqi8ey0nuI7qfWaVpMNCcs/xLygrh/QTQIXmlDC1E0TtVejweNW+7SGDY7g0lyxyKZIJuCKIJw==}
+    deprecated: This is a stub types definition. i18next provides its own type definitions, so you do not need this installed.
 
   '@types/invariant@2.2.37':
     resolution: {integrity: sha512-IwpIMieE55oGWiXkQPSBY1nw1nFs6bsKXTFskNY8sdS17K24vyEBRQZEwlRS7ZmXCWnJcQtbxWzly+cODWGs2A==}
@@ -11663,6 +11676,12 @@ snapshots:
   '@types/http-cache-semantics@4.0.4': {}
 
   '@types/http-errors@2.0.5': {}
+
+  '@types/i18next@13.0.0(typescript@5.9.3)':
+    dependencies:
+      i18next: 25.7.4(typescript@5.9.3)
+    transitivePeerDependencies:
+      - typescript
 
   '@types/invariant@2.2.37': {}
 

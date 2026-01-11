@@ -1,445 +1,216 @@
 /**
- * WASM-based SQLite adapter for CLI.
- * Adapted from packages/client/src/db/adapters/wasm-node.adapter.ts
+ * Native SQLite adapter using better-sqlite3-multiple-ciphers.
+ * Provides on-disk encrypted SQLite database persistence.
  */
 
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { isRecord } from '@rapid/shared';
-import type {
-  DatabaseAdapter,
-  DatabaseConfig,
-  JsonBackupData,
-  QueryResult
-} from './types.js';
+import type { Database as DatabaseType } from 'better-sqlite3';
+import Database from 'better-sqlite3-multiple-ciphers';
+import { getConfigPaths } from '../config/index.js';
 
-declare global {
-  // eslint-disable-next-line no-var
-  var sqlite3InitModuleState:
-    | { wasmFilename: string; debugModule: () => void }
-    | undefined;
-}
-
-const originalFetch = globalThis.fetch;
-
-function patchFetchForFileUrls(): void {
-  globalThis.fetch = async (
-    input: RequestInfo | URL,
-    init?: RequestInit
-  ): Promise<Response> => {
-    const url = typeof input === 'string' ? input : input.toString();
-
-    if (url.startsWith('file://')) {
-      const filePath = fileURLToPath(url);
-      const buffer = fs.readFileSync(filePath);
-      return new Response(buffer, {
-        status: 200,
-        statusText: 'OK',
-        headers: { 'Content-Type': 'application/wasm' }
-      });
-    }
-
-    return originalFetch(input, init);
-  };
-}
-
-function restoreFetch(): void {
-  if (originalFetch) {
-    globalThis.fetch = originalFetch;
-  }
-}
-
-interface SQLiteDatabase {
-  exec(options: {
-    sql: string;
-    bind?: unknown[];
-    rowMode?: 'object' | 'array';
-    callback?: (row: Record<string, unknown>) => boolean | undefined;
-    returnValue?: 'resultRows';
-  }): unknown[][];
-  exec(sql: string): void;
-  changes(): number;
-  close(): void;
-  pointer: number;
-}
-
-interface SQLiteOO1 {
-  DB: new (options: {
-    filename: string;
-    flags: string;
-    hexkey?: string;
-  }) => SQLiteDatabase;
-}
-
-interface SQLiteCAPI {
-  sqlite3_libversion(): string;
-  sqlite3_js_db_export(db: SQLiteDatabase): Uint8Array;
-}
-
-interface SQLite3Module {
-  oo1: SQLiteOO1;
-  capi: SQLiteCAPI;
-}
-
-type SQLite3InitModule = (options: {
-  print: typeof console.log;
-  printErr: typeof console.error;
-}) => Promise<SQLite3Module>;
-
-function getStringField(
-  record: Record<string, unknown>,
-  key: string
-): string | null {
-  const value = record[key];
-  return typeof value === 'string' ? value : null;
-}
-
-function isNameSqlEntry(
-  value: unknown
-): value is { name: string; sql: string } {
-  return (
-    isRecord(value) &&
-    typeof value['name'] === 'string' &&
-    typeof value['sql'] === 'string'
+/**
+ * Schema for the tearleads database.
+ */
+const SCHEMA = `
+  CREATE TABLE IF NOT EXISTS contacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
   );
-}
 
-function isJsonBackupData(value: unknown): value is JsonBackupData {
-  if (!isRecord(value)) return false;
-  if (typeof value['version'] !== 'number') return false;
-  if (!Array.isArray(value['tables']) || !value['tables'].every(isNameSqlEntry))
-    return false;
-  if (
-    !Array.isArray(value['indexes']) ||
-    !value['indexes'].every(isNameSqlEntry)
-  )
-    return false;
-  if (!isRecord(value['data'])) return false;
-  for (const tableRows of Object.values(value['data'])) {
-    if (!Array.isArray(tableRows)) return false;
-    for (const row of tableRows) {
-      if (!isRecord(row)) return false;
-    }
-  }
-  return true;
-}
+  CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    contact_id INTEGER REFERENCES contacts(id),
+    type TEXT NOT NULL,
+    description TEXT,
+    event_date TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
 
-function parseJsonBackupData(jsonData: string): JsonBackupData {
-  const parsed = JSON.parse(jsonData) as unknown;
-  if (!isJsonBackupData(parsed)) {
-    throw new Error('Invalid backup data format');
-  }
-  return parsed;
-}
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+`;
 
-let sqlite3: SQLite3Module | null = null;
-
-function getWasmDir(): string {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  return path.resolve(__dirname, '../wasm');
-}
-
-async function initializeSqliteWasm(): Promise<SQLite3Module> {
-  if (sqlite3) {
-    return sqlite3;
-  }
-
-  const wasmDir = getWasmDir();
-  const modulePath = path.join(wasmDir, 'sqlite3.mjs');
-  const wasmPath = path.join(wasmDir, 'sqlite3.wasm');
-
-  if (!fs.existsSync(modulePath)) {
-    throw new Error(
-      `SQLite WASM module not found at ${modulePath}. ` +
-        'Run pnpm --filter @rapid/cli build first.'
-    );
-  }
-  if (!fs.existsSync(wasmPath)) {
-    throw new Error(
-      `SQLite WASM binary not found at ${wasmPath}. ` +
-        'Run pnpm --filter @rapid/cli build first.'
-    );
-  }
-
-  patchFetchForFileUrls();
-
-  try {
-    globalThis.sqlite3InitModuleState = {
-      wasmFilename: 'sqlite3.wasm',
-      debugModule: () => {}
-    };
-
-    const wasmModule = (await import(modulePath)) as { default?: unknown };
-    const initModule = wasmModule.default as SQLite3InitModule | undefined;
-
-    if (!initModule) {
-      throw new Error('Failed to load sqlite3InitModule from module');
-    }
-
-    sqlite3 = await initModule({
-      print: console.log,
-      printErr: console.error
-    });
-
-    if (!sqlite3 || !sqlite3.oo1 || !sqlite3.capi) {
-      throw new Error('SQLite module loaded but missing expected properties');
-    }
-
-    return sqlite3;
-  } finally {
-    restoreFetch();
-  }
-}
-
-function keyToHex(key: Uint8Array): string {
-  return Array.from(key)
+/**
+ * Convert Uint8Array key to hex string for SQLCipher PRAGMA.
+ */
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 }
 
-export class WasmNodeAdapter implements DatabaseAdapter {
-  private db: SQLiteDatabase | null = null;
-  private encryptionKey: string | null = null;
+/**
+ * Native SQLite adapter with SQLCipher encryption.
+ */
+export class NativeSqliteAdapter {
+  private db: DatabaseType | null = null;
+  private dbPath: string;
 
-  async initialize(config: DatabaseConfig): Promise<void> {
-    if (this.db) {
-      throw new Error('Database already initialized');
-    }
-
-    const sqlite = await initializeSqliteWasm();
-    this.encryptionKey = keyToHex(config.encryptionKey);
-
-    const filename = `${config.name}-${Date.now()}-${Math.random().toString(36).slice(2)}.sqlite3`;
-
-    try {
-      this.db = new sqlite.oo1.DB({
-        filename,
-        flags: 'c',
-        hexkey: this.encryptionKey
-      });
-
-      this.db.exec('SELECT 1;');
-      this.db.exec('PRAGMA foreign_keys = ON;');
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to open encrypted database: ${message}`);
-    }
+  constructor() {
+    const configPaths = getConfigPaths();
+    this.dbPath = configPaths.database;
   }
 
-  async close(): Promise<void> {
-    if (this.db) {
+  /**
+   * Initialize a new encrypted database with the given key.
+   * Creates the database file and schema.
+   */
+  async initialize(key: Uint8Array): Promise<void> {
+    // Ensure directory exists
+    await fs.mkdir(path.dirname(this.dbPath), { recursive: true, mode: 0o700 });
+
+    // Create new database file
+    this.db = new Database(this.dbPath);
+
+    // Apply encryption
+    this.db.pragma(`key = "x'${bytesToHex(key)}'"`);
+    this.db.pragma('cipher_compatibility = 4');
+
+    // Create schema
+    this.db.exec(SCHEMA);
+  }
+
+  /**
+   * Open an existing encrypted database with the given key.
+   */
+  async open(key: Uint8Array): Promise<void> {
+    // Check if database file exists
+    try {
+      await fs.access(this.dbPath);
+    } catch {
+      throw new Error('Database file not found');
+    }
+
+    // Open existing database
+    this.db = new Database(this.dbPath);
+
+    // Apply encryption key
+    this.db.pragma(`key = "x'${bytesToHex(key)}'"`);
+    this.db.pragma('cipher_compatibility = 4');
+
+    // Verify the key by running a simple query
+    try {
+      this.db.prepare('SELECT count(*) FROM sqlite_master').get();
+    } catch {
       this.db.close();
       this.db = null;
-      this.encryptionKey = null;
+      throw new Error('Invalid encryption key');
     }
   }
 
+  /**
+   * Check if the database is currently open.
+   */
   isOpen(): boolean {
     return this.db !== null;
   }
 
-  async execute(sql: string, params?: unknown[]): Promise<QueryResult> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
-
-    const isSelect =
-      sql.trim().toUpperCase().startsWith('SELECT') ||
-      sql.trim().toUpperCase().startsWith('PRAGMA');
-
-    if (isSelect) {
-      const rows: Record<string, unknown>[] = [];
-
-      this.db.exec({
-        sql,
-        ...(params ? { bind: params } : {}),
-        rowMode: 'object',
-        callback: (row: Record<string, unknown>) => {
-          rows.push(row);
-          return undefined;
-        }
-      });
-
-      return { rows };
-    }
-
-    this.db.exec({
-      sql,
-      ...(params ? { bind: params } : {})
-    });
-
-    const lastInsertRowId = Number(
-      this.db.exec({
-        sql: 'SELECT last_insert_rowid()',
-        returnValue: 'resultRows'
-      })[0]?.[0] ?? 0
-    );
-
-    return {
-      rows: [],
-      changes: this.db.changes(),
-      lastInsertRowId
-    };
-  }
-
-  async executeMany(statements: string[]): Promise<void> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
-
-    this.db.exec('BEGIN TRANSACTION;');
-    try {
-      for (const sql of statements) {
-        this.db.exec(sql);
-      }
-      this.db.exec('COMMIT;');
-    } catch (error) {
-      this.db.exec('ROLLBACK;');
-      throw error;
+  /**
+   * Close the database connection.
+   */
+  close(): void {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
     }
   }
 
+  /**
+   * Re-key the database with a new encryption key.
+   */
   async rekeyDatabase(newKey: Uint8Array): Promise<void> {
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new Error('Database not open');
     }
-
-    const newHexKey = keyToHex(newKey);
-    this.db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
-    this.db.exec(`PRAGMA hexrekey = '${newHexKey}';`);
-    this.encryptionKey = newHexKey;
+    this.db.pragma(`rekey = "x'${bytesToHex(newKey)}'"`);
   }
 
-  async exportDatabaseAsJson(): Promise<string> {
+  /**
+   * Export the database to a JSON structure for backup.
+   */
+  exportToJson(): Record<string, unknown[]> {
     if (!this.db) {
-      throw new Error('Database not initialized');
+      throw new Error('Database not open');
     }
 
-    const result: JsonBackupData = {
-      version: 1,
-      tables: [],
-      indexes: [],
-      data: {}
-    };
+    const result: Record<string, unknown[]> = {};
 
-    this.db.exec({
-      sql: "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
-      rowMode: 'object',
-      callback: (row: Record<string, unknown>) => {
-        const name = getStringField(row, 'name');
-        const sql = getStringField(row, 'sql');
-        if (name && sql) {
-          result.tables.push({ name, sql });
-        }
-        return undefined;
-      }
-    });
+    // Get all table names
+    const tables = this.db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+      )
+      .all() as { name: string }[];
 
-    this.db.exec({
-      sql: "SELECT name, sql FROM sqlite_master WHERE type='index' AND sql IS NOT NULL ORDER BY name",
-      rowMode: 'object',
-      callback: (row: Record<string, unknown>) => {
-        const name = getStringField(row, 'name');
-        const sql = getStringField(row, 'sql');
-        if (name && sql) {
-          result.indexes.push({ name, sql });
-        }
-        return undefined;
-      }
-    });
-
-    for (const table of result.tables) {
-      const rows: Record<string, unknown>[] = [];
-      this.db.exec({
-        sql: `SELECT * FROM "${table.name}"`,
-        rowMode: 'object',
-        callback: (row: Record<string, unknown>) => {
-          rows.push(row);
-          return undefined;
-        }
-      });
-      result.data[table.name] = rows;
+    for (const { name } of tables) {
+      const rows = this.db.prepare(`SELECT * FROM ${name}`).all();
+      result[name] = rows;
     }
 
-    return JSON.stringify(result);
+    return result;
   }
 
-  async importDatabaseFromJson(
-    jsonData: string,
-    encryptionKey?: Uint8Array
-  ): Promise<void> {
-    await this.close();
-
-    const sqlite = await initializeSqliteWasm();
-
-    if (encryptionKey) {
-      this.encryptionKey = keyToHex(encryptionKey);
+  /**
+   * Import data from a JSON structure (restore from backup).
+   */
+  importFromJson(data: Record<string, unknown[]>): void {
+    if (!this.db) {
+      throw new Error('Database not open');
     }
 
-    const filename = `import-${Date.now()}-${Math.random().toString(36).slice(2)}.sqlite3`;
+    // Capture db reference for use in transaction callback
+    const db = this.db;
 
-    try {
-      const data = parseJsonBackupData(jsonData);
+    // Start transaction
+    const transaction = db.transaction(() => {
+      for (const [tableName, rows] of Object.entries(data)) {
+        if (!Array.isArray(rows) || rows.length === 0) continue;
 
-      if (data.version !== 1) {
-        throw new Error(`Unsupported backup version: ${data.version}`);
+        // Clear existing data
+        db.prepare(`DELETE FROM ${tableName}`).run();
+
+        // Get column names from first row
+        const firstRow = rows[0] as Record<string, unknown>;
+        const columns = Object.keys(firstRow);
+        const placeholders = columns.map(() => '?').join(', ');
+        const insertStmt = db.prepare(
+          `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`
+        );
+
+        // Insert each row
+        for (const row of rows) {
+          const rowData = row as Record<string, unknown>;
+          const values = columns.map((col) => rowData[col]);
+          insertStmt.run(...values);
+        }
       }
+    });
 
-      this.db = new sqlite.oo1.DB({
-        filename,
-        flags: 'c',
-        ...(this.encryptionKey ? { hexkey: this.encryptionKey } : {})
-      });
+    transaction();
+  }
 
-      this.db.exec('BEGIN TRANSACTION;');
-      try {
-        for (const table of data.tables) {
-          if (table.sql) {
-            this.db.exec(table.sql);
-          }
-        }
-
-        for (const [tableName, rows] of Object.entries(data.data)) {
-          for (const row of rows) {
-            const columns = Object.keys(row);
-            if (columns.length === 0) continue;
-
-            const placeholders = columns.map(() => '?').join(', ');
-            const values = columns.map((col) => row[col]);
-
-            this.db.exec({
-              sql: `INSERT INTO "${tableName}" (${columns.map((c) => `"${c}"`).join(', ')}) VALUES (${placeholders})`,
-              bind: values
-            });
-          }
-        }
-
-        for (const index of data.indexes) {
-          if (index.sql) {
-            this.db.exec(index.sql);
-          }
-        }
-
-        this.db.exec('COMMIT;');
-      } catch (txError) {
-        this.db.exec('ROLLBACK;');
-        throw txError;
-      }
-
-      this.db.exec('PRAGMA foreign_keys = ON;');
-    } catch (error) {
-      if (this.db) {
-        try {
-          this.db.close();
-        } catch {
-          // Ignore
-        }
-        this.db = null;
-      }
-      const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Failed to import database from JSON: ${message}`);
+  /**
+   * Execute a raw SQL query.
+   */
+  exec(sql: string): void {
+    if (!this.db) {
+      throw new Error('Database not open');
     }
+    this.db.exec(sql);
+  }
+
+  /**
+   * Get the database file path.
+   */
+  getPath(): string {
+    return this.dbPath;
   }
 }
