@@ -162,6 +162,84 @@ describe('Dropzone', () => {
       expect(dropzone).toHaveClass('cursor-not-allowed');
       expect(dropzone).toHaveClass('opacity-50');
     });
+
+    it('renders compact mode as square icon with upload icon', () => {
+      render(
+        <Dropzone
+          onFilesSelected={mockOnFilesSelected}
+          accept="image/*"
+          compact
+        />
+      );
+
+      const dropzone = screen.getByTestId('dropzone');
+      expect(dropzone).toHaveClass('aspect-square');
+      expect(
+        screen.queryByText('Drag and drop files here')
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText('or click to browse')).not.toBeInTheDocument();
+    });
+
+    it('compact mode calls onFilesSelected when files are dropped', () => {
+      render(
+        <Dropzone
+          onFilesSelected={mockOnFilesSelected}
+          accept="image/*"
+          compact
+        />
+      );
+
+      const dropzone = screen.getByTestId('dropzone');
+      const file = new File(['test content'], 'photo.jpg', {
+        type: 'image/jpeg'
+      });
+
+      fireEvent.drop(dropzone, {
+        dataTransfer: {
+          files: [file]
+        }
+      });
+
+      expect(mockOnFilesSelected).toHaveBeenCalledWith([file]);
+    });
+
+    it('compact mode shows ring highlight when dragging', () => {
+      render(
+        <Dropzone
+          onFilesSelected={mockOnFilesSelected}
+          accept="image/*"
+          compact
+        />
+      );
+
+      const dropzone = screen.getByTestId('dropzone');
+
+      fireEvent.dragOver(dropzone);
+
+      expect(dropzone).toHaveAttribute('data-dragging', 'true');
+      expect(dropzone).toHaveClass('ring-2');
+      expect(dropzone).toHaveClass('ring-primary');
+    });
+
+    it('compact mode calls onFilesSelected when files selected via input', async () => {
+      const user = userEvent.setup();
+      render(
+        <Dropzone
+          onFilesSelected={mockOnFilesSelected}
+          accept="image/*"
+          compact
+        />
+      );
+
+      const file = new File(['test content'], 'photo.jpg', {
+        type: 'image/jpeg'
+      });
+      const input = screen.getByTestId('dropzone-input');
+
+      await user.upload(input, file);
+
+      expect(mockOnFilesSelected).toHaveBeenCalledWith([file]);
+    });
   });
 
   describe('Native version on ios', () => {
