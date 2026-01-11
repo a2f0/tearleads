@@ -2,6 +2,7 @@ import { AlertTriangle, ChevronRight, Download, Scale } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ThemeSelector } from '@/components/settings';
+import { LanguageSelector } from '@/components/settings/LanguageSelector';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
 import { useDatabaseContext } from '@/db/hooks';
@@ -91,6 +92,10 @@ export function Settings() {
 
       <div className="rounded-lg border p-4">
         <ThemeSelector />
+      </div>
+
+      <div className="rounded-lg border p-4">
+        <LanguageSelector />
       </div>
 
       {/* Backup & Restore Section */}
