@@ -28,6 +28,7 @@ class LogStore {
       recentLog &&
       recentLog.level === level &&
       recentLog.message === message &&
+      recentLog.details === details &&
       now - recentLog.timestamp.getTime() < DEDUPE_WINDOW_MS
     ) {
       return;

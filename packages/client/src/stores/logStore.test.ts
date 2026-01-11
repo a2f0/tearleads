@@ -75,6 +75,22 @@ describe('logStore', () => {
       const logs = logStore.getAllLogs();
       expect(logs).toHaveLength(2);
     });
+
+    it('allows same message with different details', () => {
+      logStore.addLog('error', 'Same message', 'details 1');
+      logStore.addLog('error', 'Same message', 'details 2');
+
+      const logs = logStore.getAllLogs();
+      expect(logs).toHaveLength(2);
+    });
+
+    it('allows same message if one has details and other does not', () => {
+      logStore.addLog('error', 'Same message', 'details 1');
+      logStore.addLog('error', 'Same message');
+
+      const logs = logStore.getAllLogs();
+      expect(logs).toHaveLength(2);
+    });
   });
 
   describe('convenience methods', () => {
