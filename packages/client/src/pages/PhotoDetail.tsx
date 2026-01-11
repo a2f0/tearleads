@@ -196,11 +196,6 @@ export function PhotoDetail() {
         )
         .limit(1);
 
-      if (result.length === 0) {
-        setError('Photo not found');
-        return;
-      }
-
       const row = result[0];
       if (!row) {
         setError('Photo not found');

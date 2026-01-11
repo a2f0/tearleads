@@ -2,7 +2,7 @@ import { ThemeProvider } from '@rapid/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AudioDetail } from './AudioDetail';
 
 // Mock the database context
@@ -424,6 +424,65 @@ describe('AudioDetail', () => {
       const backLink = screen.getByText('Back to Audio');
       expect(backLink).toBeInTheDocument();
       expect(backLink.closest('a')).toHaveAttribute('href', '/audio');
+    });
+  });
+
+  describe('URL lifecycle', () => {
+    let mockRevokeObjectURL: ReturnType<typeof vi.fn>;
+    let mockCreateObjectURL: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      mockRevokeObjectURL = vi.fn();
+      mockCreateObjectURL = vi.fn().mockReturnValue('blob:test-url');
+      vi.stubGlobal('URL', {
+        ...URL,
+        createObjectURL: mockCreateObjectURL,
+        revokeObjectURL: mockRevokeObjectURL
+      });
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('revokes object URLs when component unmounts and track is not playing', async () => {
+      const { unmount } = await renderAudioDetail();
+
+      // URL should have been created
+      expect(mockCreateObjectURL).toHaveBeenCalled();
+
+      // Unmount the component
+      unmount();
+
+      // URL should be revoked since the track is not playing
+      expect(mockRevokeObjectURL).toHaveBeenCalledWith('blob:test-url');
+    });
+
+    it('does not revoke object URL when track is currently playing', async () => {
+      // Set up the audio context to indicate this track is playing
+      mockUseAudio.mockReturnValue({
+        currentTrack: {
+          id: 'audio-123',
+          name: 'test.mp3',
+          objectUrl: 'blob:test-url',
+          mimeType: 'audio/mpeg'
+        },
+        isPlaying: true,
+        play: mockPlay,
+        pause: mockPause,
+        resume: mockResume
+      });
+
+      const { unmount } = await renderAudioDetail('audio-123');
+
+      // URL should have been created
+      expect(mockCreateObjectURL).toHaveBeenCalled();
+
+      // Unmount the component
+      unmount();
+
+      // URL should NOT be revoked since the track is currently playing
+      expect(mockRevokeObjectURL).not.toHaveBeenCalled();
     });
   });
 });
