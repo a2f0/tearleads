@@ -91,16 +91,19 @@ describe('Contacts Page Integration Tests', () => {
       });
     });
 
-    it('shows search input when unlocked', async () => {
+    it('hides search input when no contacts exist', async () => {
       await renderWithDatabase(<Contacts />, {
         initialRoute: '/contacts'
       });
 
       await waitFor(() => {
-        expect(
-          screen.getByPlaceholderText('Search contacts...')
-        ).toBeInTheDocument();
+        expect(screen.getByTestId('add-contact-card')).toBeInTheDocument();
       });
+
+      // Search should be hidden when no contacts exist
+      expect(
+        screen.queryByPlaceholderText('Search contacts...')
+      ).not.toBeInTheDocument();
     });
 
     it('shows Import CSV dropzone', async () => {
@@ -113,49 +116,54 @@ describe('Contacts Page Integration Tests', () => {
       });
     });
 
-    it('has a refresh button', async () => {
+    it('shows search and refresh when contacts exist', async () => {
+      // Create contact before rendering
       await renderWithDatabase(<Contacts />, {
-        initialRoute: '/contacts'
+        initialRoute: '/contacts',
+        beforeRender: async () => {
+          const db = getDatabase();
+          await db.insert(contacts).values({
+            id: 'contact-1',
+            firstName: 'Test',
+            lastName: 'User',
+            birthday: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            deleted: false
+          });
+        }
       });
 
       await waitFor(() => {
+        expect(
+          screen.getByPlaceholderText('Search contacts...')
+        ).toBeInTheDocument();
         expect(
           screen.getByRole('button', { name: /refresh/i })
         ).toBeInTheDocument();
       });
     });
 
-    it('displays contacts after they are added', async () => {
-      const user = userEvent.setup();
-
-      // Render first to set up database
+    it('displays contacts when they exist', async () => {
+      // Create contacts before rendering
       await renderWithDatabase(<Contacts />, {
-        initialRoute: '/contacts'
+        initialRoute: '/contacts',
+        beforeRender: async () => {
+          await createTestContact({
+            id: 'contact-1',
+            firstName: 'John',
+            lastName: 'Doe',
+            email: 'john@example.com',
+            phone: '555-1234'
+          });
+          await createTestContact({
+            id: 'contact-2',
+            firstName: 'Jane',
+            lastName: 'Smith',
+            email: 'jane@example.com'
+          });
+        }
       });
-
-      // Wait for empty state (add contact card)
-      await waitFor(() => {
-        expect(screen.getByTestId('add-contact-card')).toBeInTheDocument();
-      });
-
-      // Add test contacts to the database
-      await createTestContact({
-        id: 'contact-1',
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com',
-        phone: '555-1234'
-      });
-      await createTestContact({
-        id: 'contact-2',
-        firstName: 'Jane',
-        lastName: 'Smith',
-        email: 'jane@example.com'
-      });
-
-      // Click refresh to reload contacts
-      const refreshButton = screen.getByRole('button', { name: /refresh/i });
-      await user.click(refreshButton);
 
       // Wait for contacts to appear
       await waitFor(() => {
@@ -172,35 +180,24 @@ describe('Contacts Page Integration Tests', () => {
     it('filters contacts by search query', async () => {
       const user = userEvent.setup();
 
-      // Render first to set up database
+      // Create contacts before rendering
       await renderWithDatabase(<Contacts />, {
-        initialRoute: '/contacts'
+        initialRoute: '/contacts',
+        beforeRender: async () => {
+          await createTestContact({
+            id: 'contact-1',
+            firstName: 'John',
+            lastName: 'Doe',
+            email: 'john@example.com'
+          });
+          await createTestContact({
+            id: 'contact-2',
+            firstName: 'Jane',
+            lastName: 'Smith',
+            email: 'jane@example.com'
+          });
+        }
       });
-
-      // Wait for initial render
-      await waitFor(() => {
-        expect(
-          screen.getByPlaceholderText('Search contacts...')
-        ).toBeInTheDocument();
-      });
-
-      // Add test contacts
-      await createTestContact({
-        id: 'contact-1',
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john@example.com'
-      });
-      await createTestContact({
-        id: 'contact-2',
-        firstName: 'Jane',
-        lastName: 'Smith',
-        email: 'jane@example.com'
-      });
-
-      // Click refresh to load contacts
-      const refreshButton = screen.getByRole('button', { name: /refresh/i });
-      await user.click(refreshButton);
 
       // Wait for contacts to load
       await waitFor(() => {
@@ -225,28 +222,17 @@ describe('Contacts Page Integration Tests', () => {
     it('shows no results message when search has no matches', async () => {
       const user = userEvent.setup();
 
-      // Render first to set up database
+      // Create contact before rendering
       await renderWithDatabase(<Contacts />, {
-        initialRoute: '/contacts'
+        initialRoute: '/contacts',
+        beforeRender: async () => {
+          await createTestContact({
+            id: 'contact-1',
+            firstName: 'John',
+            lastName: 'Doe'
+          });
+        }
       });
-
-      // Wait for initial render
-      await waitFor(() => {
-        expect(
-          screen.getByPlaceholderText('Search contacts...')
-        ).toBeInTheDocument();
-      });
-
-      // Add test contact
-      await createTestContact({
-        id: 'contact-1',
-        firstName: 'John',
-        lastName: 'Doe'
-      });
-
-      // Click refresh to load contacts
-      const refreshButton = screen.getByRole('button', { name: /refresh/i });
-      await user.click(refreshButton);
 
       await waitFor(() => {
         expect(screen.getByText('John Doe')).toBeInTheDocument();
