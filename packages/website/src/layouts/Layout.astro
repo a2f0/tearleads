@@ -1,5 +1,6 @@
 ---
 import logo from '@rapid/ui/logo.svg?url';
+import NavDropdown from '../components/NavDropdown.astro';
 import { ThemeSwitcherIsland } from '../components/ThemeSwitcherIsland';
 import '../styles/global.css';
 
@@ -9,6 +10,18 @@ interface Props {
 
 const { title } = Astro.props;
 const currentYear = new Date().getFullYear();
+
+const productLinks = [
+  { href: '/products/desktop', text: 'Desktop' },
+  { href: '/products/mobile', text: 'Mobile' },
+  { href: '/products/web', text: 'Web' },
+  { href: '/products/chrome-extension', text: 'Chrome Extension' },
+];
+
+const docsLinks = [
+  { href: '/docs/architecture', text: 'Security Architecture' },
+  { href: '/docs/api', text: 'API' },
+];
 ---
 
 <!doctype html>
@@ -44,22 +57,8 @@ const currentYear = new Date().getFullYear();
               <p class="font-bold text-2xl">Rapid</p>
             </a>
             <nav class="hidden items-center gap-6 md:flex">
-              <div class="nav-dropdown relative">
-                <button type="button" class="flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground">
-                  Docs
-                  <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                <div class="nav-dropdown-menu invisible absolute left-0 top-full z-50 mt-2 min-w-[180px] rounded-md border bg-popover py-1 opacity-0 shadow-md transition-all">
-                  <a href="/docs/architecture" class="block px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-                    Security Architecture
-                  </a>
-                  <a href="/docs/api" class="block px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-                    API
-                  </a>
-                </div>
-              </div>
+              <NavDropdown title="Products" links={productLinks} />
+              <NavDropdown title="Docs" links={docsLinks} />
             </nav>
           </div>
           <ThemeSwitcherIsland client:load />
