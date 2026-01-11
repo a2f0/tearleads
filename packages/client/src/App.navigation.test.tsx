@@ -141,10 +141,9 @@ describe('App Integration', () => {
       const contactsLinks = screen.getAllByText('Contacts');
       await user.click(contactsLinks[0] as HTMLElement);
 
+      // When no contacts exist, the add contact card is shown instead of search
       await waitFor(() => {
-        expect(
-          screen.getByPlaceholderText('Search contacts...')
-        ).toBeInTheDocument();
+        expect(screen.getByTestId('add-contact-card')).toBeInTheDocument();
       });
     });
 
