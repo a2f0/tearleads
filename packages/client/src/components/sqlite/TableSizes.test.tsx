@@ -262,28 +262,42 @@ describe('TableSizes', () => {
   });
 
   describe('iOS page_count fallback', () => {
-    it('sums table sizes when page_count returns 0', async () => {
-      setupMockContext({ isUnlocked: true });
+    interface FallbackMockOptions {
+      page_size?: { rows: { page_size: number }[] };
+      page_count?: { rows: { page_count: number }[] };
+      dbstat_error?: boolean;
+    }
+
+    function setupFallbackMock(options: FallbackMockOptions = {}) {
       const execute = vi.fn().mockImplementation((sql: string, params) => {
         if (sql === 'PRAGMA page_size') {
-          return { rows: [{ page_size: 4096 }] };
+          return options.page_size ?? { rows: [{ page_size: 4096 }] };
         }
         if (sql === 'PRAGMA page_count') {
-          // iOS with SQLCipher returns 0 for page_count
-          return { rows: [{ page_count: 0 }] };
+          return options.page_count ?? { rows: [{ page_count: 100 }] };
         }
         if (sql.includes('sqlite_master')) {
           return { rows: [{ name: 'users' }, { name: 'posts' }] };
         }
         if (sql.includes('dbstat')) {
+          if (options.dbstat_error) {
+            throw new Error('dbstat not available');
+          }
           const tableName = params?.[0];
           if (tableName === 'users') return { rows: [{ size: 2048 }] };
           if (tableName === 'posts') return { rows: [{ size: 1024 }] };
         }
+        if (sql.includes('COUNT')) {
+          return { rows: [{ count: 50 }] };
+        }
         return { rows: [] };
       });
-
       mockGetDatabaseAdapter.mockReturnValue({ execute });
+    }
+
+    it('sums table sizes when page_count returns 0', async () => {
+      setupMockContext({ isUnlocked: true });
+      setupFallbackMock({ page_count: { rows: [{ page_count: 0 }] } });
 
       await renderTableSizes();
 
@@ -293,25 +307,7 @@ describe('TableSizes', () => {
 
     it('sums table sizes when page_size returns 0', async () => {
       setupMockContext({ isUnlocked: true });
-      const execute = vi.fn().mockImplementation((sql: string, params) => {
-        if (sql === 'PRAGMA page_size') {
-          return { rows: [{ page_size: 0 }] };
-        }
-        if (sql === 'PRAGMA page_count') {
-          return { rows: [{ page_count: 100 }] };
-        }
-        if (sql.includes('sqlite_master')) {
-          return { rows: [{ name: 'users' }, { name: 'posts' }] };
-        }
-        if (sql.includes('dbstat')) {
-          const tableName = params?.[0];
-          if (tableName === 'users') return { rows: [{ size: 2048 }] };
-          if (tableName === 'posts') return { rows: [{ size: 1024 }] };
-        }
-        return { rows: [] };
-      });
-
-      mockGetDatabaseAdapter.mockReturnValue({ execute });
+      setupFallbackMock({ page_size: { rows: [{ page_size: 0 }] } });
 
       await renderTableSizes();
 
@@ -332,7 +328,6 @@ describe('TableSizes', () => {
           return { rows: [{ name: 'users' }] };
         }
         if (sql.includes('dbstat')) {
-          // Table size is much smaller than total
           return { rows: [{ size: 1024 }] };
         }
         return { rows: [] };
@@ -343,7 +338,6 @@ describe('TableSizes', () => {
       await renderTableSizes();
 
       // Total should be page_size * page_count = 4096 * 256 = 1 MB
-      // NOT the sum of table sizes (1 KB)
       expect(screen.getByText('1 MB')).toBeInTheDocument();
     });
 
@@ -359,6 +353,32 @@ describe('TableSizes', () => {
 
       // No tables to sum, so stays at 0
       expect(screen.getByText('0 B')).toBeInTheDocument();
+    });
+
+    it('shows tilde prefix on total when fallback uses estimated table sizes', async () => {
+      setupMockContext({ isUnlocked: true });
+      setupFallbackMock({
+        page_count: { rows: [{ page_count: 0 }] },
+        dbstat_error: true
+      });
+
+      await renderTableSizes();
+
+      // Total size should have tilde prefix when using estimated table sizes
+      // 50 rows * 100 bytes * 2 tables = 10000 bytes ≈ 9.77 KB
+      expect(screen.getByText(/^~9\.77 KB$/)).toBeInTheDocument();
+    });
+
+    it('does not show tilde on total when fallback uses exact table sizes', async () => {
+      setupMockContext({ isUnlocked: true });
+      setupFallbackMock({ page_count: { rows: [{ page_count: 0 }] } });
+
+      await renderTableSizes();
+
+      // Total should not have tilde when using exact dbstat sizes
+      // The total 3 KB should appear without a tilde prefix
+      expect(screen.queryByText(/^~3 KB$/)).not.toBeInTheDocument();
+      expect(screen.getByText('3 KB')).toBeInTheDocument();
     });
   });
 
