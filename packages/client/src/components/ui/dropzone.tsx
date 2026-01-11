@@ -9,8 +9,11 @@ import { cn, detectPlatform } from '@/lib/utils';
 
 import { Button } from './button';
 
-const COMPACT_BASE_CLASSES =
+const COMPACT_SQUARE_CLASSES =
   'flex aspect-square cursor-pointer items-center justify-center rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2';
+
+const COMPACT_ROW_CLASSES =
+  'flex h-14 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2';
 
 export interface DropzoneProps {
   onFilesSelected: (files: File[]) => void;
@@ -30,6 +33,12 @@ export interface DropzoneProps {
   source?: FilePickerSource;
   /** Show icon-only compact version (for grid layouts) */
   compact?: boolean;
+  /**
+   * Visual variant for compact mode:
+   * - 'square': aspect-square for photo grid layouts (default)
+   * - 'row': horizontal row for document list layouts
+   */
+  variant?: 'square' | 'row';
 }
 
 export function Dropzone({
@@ -41,8 +50,11 @@ export function Dropzone({
   style,
   label = 'files',
   source,
-  compact = false
+  compact = false,
+  variant = 'square'
 }: DropzoneProps) {
+  const compactClasses =
+    variant === 'row' ? COMPACT_ROW_CLASSES : COMPACT_SQUARE_CLASSES;
   const [isDragging, setIsDragging] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -154,7 +166,7 @@ export function Dropzone({
           data-testid="dropzone-native"
           data-platform={platform}
           className={cn(
-            COMPACT_BASE_CLASSES,
+            compactClasses,
             disabled && 'cursor-not-allowed opacity-50',
             className
           )}
@@ -166,6 +178,9 @@ export function Dropzone({
               isPickerOpen && 'animate-pulse'
             )}
           />
+          {variant === 'row' && (
+            <span className="text-muted-foreground text-sm">Add {label}</span>
+          )}
           {fileInput}
         </button>
       );
@@ -206,7 +221,7 @@ export function Dropzone({
         onDragLeave={disabled ? undefined : handleDragLeave}
         onDrop={disabled ? undefined : handleDrop}
         className={cn(
-          COMPACT_BASE_CLASSES,
+          compactClasses,
           disabled && 'cursor-not-allowed opacity-50',
           isDragging && !disabled && 'ring-2 ring-primary ring-offset-2',
           className
@@ -219,6 +234,9 @@ export function Dropzone({
             isDragging && 'text-primary'
           )}
         />
+        {variant === 'row' && (
+          <span className="text-muted-foreground text-sm">Add {label}</span>
+        )}
         {fileInput}
       </label>
     );
