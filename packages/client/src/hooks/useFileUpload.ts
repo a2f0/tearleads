@@ -13,6 +13,7 @@ import { UnsupportedFileTypeError } from '@/lib/errors';
 import { computeContentHash, readFileAsUint8Array } from '@/lib/file-utils';
 import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
 import {
+  createStoreLogger,
   getFileStorage,
   initializeFileStorage,
   isFileStorageInitialized
@@ -77,7 +78,11 @@ export function useFileUpload() {
       const id = crypto.randomUUID();
       onProgress?.(50);
 
-      const storagePath = await storage.store(id, data);
+      const storagePath = await storage.measureStore(
+        id,
+        data,
+        createStoreLogger(db)
+      );
       onProgress?.(65);
 
       // Generate thumbnail for supported types (images and audio with cover art)
