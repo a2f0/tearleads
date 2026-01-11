@@ -4,6 +4,7 @@ import { Database, Loader2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { RedisKeyRow } from './RedisKeyRow';
@@ -149,28 +150,16 @@ export function Admin() {
     }
   }, [contextMenu]);
 
-  const keyCount = keys.length;
-
   // Calculate visible range from virtual items (excluding loader row)
   const visibleKeyItems = virtualItems.filter(
     (item) => item.index < keys.length
   );
   const firstVisible =
-    visibleKeyItems.length > 0 ? visibleKeyItems[0]?.index : null;
+    visibleKeyItems.length > 0 ? (visibleKeyItems[0]?.index ?? null) : null;
   const lastVisible =
     visibleKeyItems.length > 0
-      ? visibleKeyItems[visibleKeyItems.length - 1]?.index
+      ? (visibleKeyItems[visibleKeyItems.length - 1]?.index ?? null)
       : null;
-
-  const getStatusText = () => {
-    if (totalCount === null) {
-      return `${keyCount} loaded${hasMore ? '+' : ''}`;
-    }
-    if (firstVisible != null && lastVisible != null && keyCount > 0) {
-      return `Viewing ${firstVisible + 1}-${lastVisible + 1} of ${keyCount} loaded (${totalCount} total)`;
-    }
-    return `${keyCount} loaded of ${totalCount} total`;
-  };
 
   return (
     <div className="flex h-full flex-col space-y-6">
@@ -189,7 +178,15 @@ export function Admin() {
       )}
 
       <div className="min-h-0 flex-1">
-        <p className="mb-2 text-muted-foreground text-sm">{getStatusText()}</p>
+        <VirtualListStatus
+          firstVisible={firstVisible}
+          lastVisible={lastVisible}
+          loadedCount={keys.length}
+          totalCount={totalCount}
+          hasMore={hasMore}
+          itemLabel="key"
+          className="mb-2"
+        />
         <div
           className={cn(
             'rounded-lg border',

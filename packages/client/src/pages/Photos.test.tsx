@@ -170,7 +170,7 @@ describe('Photos', () => {
       await renderPhotos();
 
       await waitFor(() => {
-        expect(screen.getByText('2 photos')).toBeInTheDocument();
+        expect(screen.getByText(/2 photos$/)).toBeInTheDocument();
       });
     });
 

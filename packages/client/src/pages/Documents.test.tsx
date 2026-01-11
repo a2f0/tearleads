@@ -211,7 +211,7 @@ describe('Documents', () => {
       await renderDocuments();
 
       await waitFor(() => {
-        expect(screen.getByText('2 documents')).toBeInTheDocument();
+        expect(screen.getByText(/2 documents$/)).toBeInTheDocument();
       });
     });
   });
