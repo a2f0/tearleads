@@ -165,21 +165,13 @@ export function AudioDetail() {
         .set({ deleted: true })
         .where(eq(files.id, audio.id));
 
-      // Revoke blob URLs before navigating away
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-      if (thumbnailUrl) {
-        URL.revokeObjectURL(thumbnailUrl);
-      }
-
       navigate('/audio');
     } catch (err) {
       console.error('Failed to delete audio:', err);
       setError(err instanceof Error ? err.message : String(err));
       setActionLoading(null);
     }
-  }, [audio, objectUrl, thumbnailUrl, navigate]);
+  }, [audio, navigate]);
 
   const fetchAudio = useCallback(async () => {
     if (!isUnlocked || !id) return;

@@ -152,8 +152,8 @@ export function PdfViewer({ data, className }: PdfViewerProps) {
       </div>
 
       <div
-        className="pdf-container flex justify-center overflow-y-auto overflow-x-hidden rounded-lg border bg-muted"
-        style={{ touchAction: 'pan-y pinch-zoom' }}
+        className="pdf-container flex justify-center overflow-auto rounded-lg border bg-muted"
+        style={{ touchAction: 'pan-x pan-y pinch-zoom' }}
         data-testid="pdf-container"
       >
         <Document
