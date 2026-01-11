@@ -112,75 +112,62 @@ test.describe('Website Navigation', () => {
   });
 });
 
+const dropdownTests = [
+  {
+    name: 'Products',
+    locator: locators.productsDropdown,
+    links: ['a[href="/products/cli"]', 'a[href="/products/desktop"]'],
+    clickLink: 'a[href="/products/cli"]',
+    expectedUrl: /\/products\/cli\/?$/,
+  },
+  {
+    name: 'Docs',
+    locator: locators.docsDropdown,
+    links: ['a[href="/docs/architecture"]', 'a[href="/docs/api"]'],
+    clickLink: 'a[href="/docs/architecture"]',
+    expectedUrl: /\/docs\/architecture\/?$/,
+  },
+];
+
 test.describe('Dropdown Menu Hover', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.setViewportSize({ width: 1024, height: 768 });
   });
 
-  test('Products dropdown menu appears on hover', async ({ page }) => {
-    const productsDropdown = page.locator(locators.productsDropdown);
-    const dropdownMenu = productsDropdown.locator(locators.dropdownMenu);
+  for (const dropdown of dropdownTests) {
+    test(`${dropdown.name} dropdown menu appears on hover`, async ({
+      page,
+    }) => {
+      const dropdownTrigger = page.locator(dropdown.locator);
+      const dropdownMenu = dropdownTrigger.locator(locators.dropdownMenu);
 
-    await expect(dropdownMenu).toBeHidden();
+      await expect(dropdownMenu).toBeHidden();
+      await dropdownTrigger.hover();
+      await expect(dropdownMenu).toBeVisible();
 
-    await productsDropdown.hover();
-    await expect(dropdownMenu).toBeVisible();
+      for (const link of dropdown.links) {
+        await expect(dropdownMenu.locator(link)).toBeVisible();
+      }
+    });
 
-    await expect(dropdownMenu.locator('a[href="/products/cli"]')).toBeVisible();
-    await expect(
-      dropdownMenu.locator('a[href="/products/desktop"]')
-    ).toBeVisible();
-  });
+    test(`can hover from ${dropdown.name} trigger to menu item and click`, async ({
+      page,
+    }) => {
+      const dropdownTrigger = page.locator(dropdown.locator);
+      const dropdownMenu = dropdownTrigger.locator(locators.dropdownMenu);
+      const targetLink = dropdownMenu.locator(dropdown.clickLink);
 
-  test('Docs dropdown menu appears on hover', async ({ page }) => {
-    const docsDropdown = page.locator(locators.docsDropdown);
-    const dropdownMenu = docsDropdown.locator(locators.dropdownMenu);
+      await dropdownTrigger.hover();
+      await expect(dropdownMenu).toBeVisible();
 
-    await expect(dropdownMenu).toBeHidden();
+      await targetLink.hover();
+      await expect(dropdownMenu).toBeVisible();
 
-    await docsDropdown.hover();
-    await expect(dropdownMenu).toBeVisible();
-
-    await expect(
-      dropdownMenu.locator('a[href="/docs/architecture"]')
-    ).toBeVisible();
-    await expect(dropdownMenu.locator('a[href="/docs/api"]')).toBeVisible();
-  });
-
-  test('can hover from Products trigger to menu item and click', async ({
-    page,
-  }) => {
-    const productsDropdown = page.locator(locators.productsDropdown);
-    const dropdownMenu = productsDropdown.locator(locators.dropdownMenu);
-    const cliLink = dropdownMenu.locator('a[href="/products/cli"]');
-
-    await productsDropdown.hover();
-    await expect(dropdownMenu).toBeVisible();
-
-    await cliLink.hover();
-    await expect(dropdownMenu).toBeVisible();
-
-    await cliLink.click();
-    await expect(page).toHaveURL(/\/products\/cli\/?$/);
-  });
-
-  test('can hover from Docs trigger to menu item and click', async ({
-    page,
-  }) => {
-    const docsDropdown = page.locator(locators.docsDropdown);
-    const dropdownMenu = docsDropdown.locator(locators.dropdownMenu);
-    const architectureLink = dropdownMenu.locator('a[href="/docs/architecture"]');
-
-    await docsDropdown.hover();
-    await expect(dropdownMenu).toBeVisible();
-
-    await architectureLink.hover();
-    await expect(dropdownMenu).toBeVisible();
-
-    await architectureLink.click();
-    await expect(page).toHaveURL(/\/docs\/architecture\/?$/);
-  });
+      await targetLink.click();
+      await expect(page).toHaveURL(dropdown.expectedUrl);
+    });
+  }
 
   test('dropdown menu hides when mouse leaves', async ({ page }) => {
     const productsDropdown = page.locator(locators.productsDropdown);
