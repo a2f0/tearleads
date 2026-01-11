@@ -46,7 +46,15 @@ ls docs/<target>/*.md 2>/dev/null || echo "No existing docs"
 1. **Cleanup orphaned docs**: Delete any files in the target folder that do not exist in `docs/en/`:
 
 ```bash
-# For each file in target that doesn't have a corresponding English source, delete it
+for file in docs/<target>/*.md; do
+  # Skip if no files are found to prevent errors
+  [ -e "$file" ] || continue
+  source_file="docs/en/$(basename "$file")"
+  if [ ! -f "$source_file" ]; then
+    echo "Deleting orphaned file: $file"
+    rm "$file"
+  fi
+done
 ```
 
 1. **Verify the translation** by listing the target folder:

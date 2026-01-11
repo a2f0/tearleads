@@ -7,6 +7,10 @@ import { en } from './translations/en';
 export const supportedLanguages = ['en', 'es', 'ua'] as const;
 export type SupportedLanguage = (typeof supportedLanguages)[number];
 
+export function isSupportedLanguage(lang: string): lang is SupportedLanguage {
+  return supportedLanguages.some((supported) => supported === lang);
+}
+
 const loadedLanguages = new Set<string>(['en']);
 
 export async function loadLanguage(lang: SupportedLanguage): Promise<void> {
@@ -50,8 +54,8 @@ i18n
   });
 
 i18n.on('languageChanged', (lang) => {
-  if (supportedLanguages.includes(lang as SupportedLanguage)) {
-    loadLanguage(lang as SupportedLanguage);
+  if (isSupportedLanguage(lang)) {
+    loadLanguage(lang);
   }
 });
 
@@ -59,9 +63,9 @@ const detectedLang = i18n.language;
 if (
   detectedLang &&
   detectedLang !== 'en' &&
-  supportedLanguages.includes(detectedLang as SupportedLanguage)
+  isSupportedLanguage(detectedLang)
 ) {
-  loadLanguage(detectedLang as SupportedLanguage);
+  loadLanguage(detectedLang);
 }
 
 export { i18n };
