@@ -24,10 +24,7 @@ export function LanguageSelector() {
 
   return (
     <div className="space-y-3">
-      <div>
-        <p className="font-medium">{t('language')}</p>
-        <p className="text-muted-foreground text-sm">{t('selectLanguage')}</p>
-      </div>
+      <p className="font-medium">{t('language')}</p>
       <div
         className="flex gap-3 overflow-x-auto md:overflow-visible"
         data-testid="language-selector-container"
