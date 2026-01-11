@@ -8,7 +8,7 @@ DELAY="${1:-2}"
 
 # Only works in tmux
 if [ -z "${TMUX:-}" ]; then
-    echo "Not in tmux, cannot auto-exit"
+    echo "Not in tmux, cannot auto-exit" >&2
     exit 0
 fi
 
