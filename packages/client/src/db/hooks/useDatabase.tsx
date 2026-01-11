@@ -23,6 +23,8 @@ import {
 import { emitInstanceChange } from '@/hooks/useInstanceChange';
 import { toError } from '@/lib/errors';
 import { deleteFileStorageForInstance } from '@/storage/opfs';
+import { logStore } from '@/stores/logStore';
+import { validateAndPruneOrphanedInstances } from '../crypto/key-manager';
 import type { Database } from '../index';
 import {
   changePassword,
@@ -137,13 +139,62 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
 
       try {
         // Initialize the instance registry (creates default instance if needed)
-        const activeInstance = await initializeRegistry();
+        let activeInstance = await initializeRegistry();
 
         // Get instance-scoped previous model (must be after we know the active instance)
         const previousModel = getLastLoadedModel(activeInstance.id);
 
-        // Load all instances
-        const allInstances = await getInstances();
+        // Load all instances and validate for orphans
+        let allInstances = await getInstances();
+
+        // Prune orphaned Keystore and registry entries
+        // This handles cases where Android Keystore entries survive app uninstall
+        const cleanupResult = await validateAndPruneOrphanedInstances(
+          allInstances.map((i) => i.id),
+          deleteInstanceFromRegistry
+        );
+
+        if (cleanupResult.cleaned) {
+          // Log warnings about cleaned up orphans
+          if (cleanupResult.orphanedKeystoreEntries.length > 0) {
+            logStore.warn(
+              `Pruned ${cleanupResult.orphanedKeystoreEntries.length} orphaned Keystore entries`,
+              `Instance IDs: ${cleanupResult.orphanedKeystoreEntries.join(', ')}`
+            );
+          }
+          if (cleanupResult.orphanedRegistryEntries.length > 0) {
+            logStore.warn(
+              `Pruned ${cleanupResult.orphanedRegistryEntries.length} orphaned registry entries`,
+              `Instance IDs: ${cleanupResult.orphanedRegistryEntries.join(', ')}`
+            );
+          }
+
+          // Reload instances after cleanup
+          allInstances = await getInstances();
+
+          // Re-initialize registry if the active instance was cleaned up
+          if (allInstances.length === 0) {
+            activeInstance = await initializeRegistry();
+            allInstances = await getInstances();
+          } else {
+            // Check if active instance still exists
+            const activeStillExists = allInstances.some(
+              (i) => i.id === activeInstance.id
+            );
+            if (!activeStillExists) {
+              // Use first available instance as active
+              const firstInstance = allInstances[0];
+              if (firstInstance) {
+                await setActiveInstanceId(firstInstance.id);
+                activeInstance = firstInstance;
+              } else {
+                activeInstance = await initializeRegistry();
+                allInstances = await getInstances();
+              }
+            }
+          }
+        }
+
         setInstances(allInstances);
 
         // Set current instance
