@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { navItems } from '@/components/Sidebar';
+import { useTypedTranslation } from '@/i18n';
 
 export function Home() {
+  const { t } = useTypedTranslation('menu');
   // Filter out the home route itself, keep settings at the end
   const appItems = navItems.filter((item) => item.path !== '/');
 
@@ -27,7 +29,7 @@ export function Home() {
                 <Icon className="h-7 w-7 text-primary-foreground sm:h-8 sm:w-8" />
               </div>
               <span className="max-w-full truncate text-center text-foreground text-xs">
-                {item.label}
+                {t(item.labelKey)}
               </span>
             </Link>
           );

@@ -1,14 +1,19 @@
 import { render, screen } from '@testing-library/react';
+import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
+import { i18n } from '@/i18n';
+import { en } from '@/i18n/translations/en';
 import { navItems, Sidebar } from './Sidebar';
 
 describe('Sidebar', () => {
   const renderSidebar = (initialRoute = '/') => {
     return render(
-      <MemoryRouter initialEntries={[initialRoute]}>
-        <Sidebar />
-      </MemoryRouter>
+      <I18nextProvider i18n={i18n}>
+        <MemoryRouter initialEntries={[initialRoute]}>
+          <Sidebar />
+        </MemoryRouter>
+      </I18nextProvider>
     );
   };
 
@@ -16,7 +21,8 @@ describe('Sidebar', () => {
     renderSidebar();
 
     for (const item of navItems) {
-      expect(screen.getByText(item.label)).toBeInTheDocument();
+      const label = en.menu[item.labelKey];
+      expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
 
@@ -24,7 +30,8 @@ describe('Sidebar', () => {
     renderSidebar();
 
     for (const item of navItems) {
-      const link = screen.getByRole('link', { name: item.label });
+      const label = en.menu[item.labelKey];
+      const link = screen.getByRole('link', { name: label });
       expect(link).toHaveAttribute('href', item.path);
     }
   });
@@ -95,9 +102,9 @@ describe('navItems', () => {
     for (const item of navItems) {
       expect(item).toHaveProperty('path');
       expect(item).toHaveProperty('icon');
-      expect(item).toHaveProperty('label');
+      expect(item).toHaveProperty('labelKey');
       expect(typeof item.path).toBe('string');
-      expect(typeof item.label).toBe('string');
+      expect(typeof item.labelKey).toBe('string');
       // Lucide icons are React components (objects with render function)
       expect(item.icon).toBeDefined();
     }
@@ -119,10 +126,10 @@ describe('navItems', () => {
     expect(uniquePaths.size).toBe(paths.length);
   });
 
-  it('has unique labels', () => {
-    const labels = navItems.map((item) => item.label);
-    const uniqueLabels = new Set(labels);
+  it('has unique labelKeys', () => {
+    const labelKeys = navItems.map((item) => item.labelKey);
+    const uniqueLabelKeys = new Set(labelKeys);
 
-    expect(uniqueLabels.size).toBe(labels.length);
+    expect(uniqueLabelKeys.size).toBe(labelKeys.length);
   });
 });
