@@ -57,7 +57,10 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
  * Falls back to the raw slug if not found in the mapping.
  */
 export function getEventDisplayName(slug: string): string {
-  return EVENT_DISPLAY_NAMES[slug as AnalyticsEventSlug] ?? slug;
+  if (Object.hasOwn(EVENT_DISPLAY_NAMES, slug)) {
+    return EVENT_DISPLAY_NAMES[slug as AnalyticsEventSlug];
+  }
+  return slug;
 }
 
 // -----------------------------------------------------------------------------

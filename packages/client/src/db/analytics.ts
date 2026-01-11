@@ -157,11 +157,22 @@ interface RawAnalyticsRow {
 
 /**
  * Parse JSON detail string into typed detail object.
+ * Returns null for invalid/corrupted JSON. The detail is treated as optional
+ * UI-only data, so consumers should handle null gracefully without failing.
  */
 function parseDetail(json: string | null): AnalyticsEventDetail | null {
   if (!json) return null;
   try {
-    return JSON.parse(json) as AnalyticsEventDetail;
+    const parsed: unknown = JSON.parse(json);
+    // Basic validation: ensure it's an object (all detail types are objects)
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    ) {
+      return parsed as AnalyticsEventDetail;
+    }
+    return null;
   } catch {
     return null;
   }
