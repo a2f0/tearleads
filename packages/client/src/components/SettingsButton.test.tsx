@@ -2,31 +2,14 @@ import { ThemeProvider } from '@rapid/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { setupThemeMocks } from '@/test/theme-test-utils';
 import { SettingsButton } from './SettingsButton';
+import { ANIMATION_DURATION_MS } from './ui/bottom-sheet';
 
 describe('SettingsButton', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    document.documentElement.classList.remove('light', 'dark', 'tokyo-night');
-
-    Object.defineProperty(window, 'localStorage', {
-      value: {
-        getItem: vi.fn(() => null),
-        setItem: vi.fn(),
-        removeItem: vi.fn(),
-        clear: vi.fn()
-      },
-      writable: true
-    });
-
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: vi.fn().mockImplementation(() => ({
-        matches: false,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
-      }))
-    });
+    setupThemeMocks();
   });
 
   function renderSettingsButton() {
@@ -68,7 +51,7 @@ describe('SettingsButton', () => {
       () => {
         expect(screen.queryByTestId('settings-sheet')).not.toBeInTheDocument();
       },
-      { timeout: 500 }
+      { timeout: ANIMATION_DURATION_MS + 100 }
     );
   });
 
@@ -85,7 +68,7 @@ describe('SettingsButton', () => {
       () => {
         expect(screen.queryByTestId('settings-sheet')).not.toBeInTheDocument();
       },
-      { timeout: 500 }
+      { timeout: ANIMATION_DURATION_MS + 100 }
     );
   });
 });

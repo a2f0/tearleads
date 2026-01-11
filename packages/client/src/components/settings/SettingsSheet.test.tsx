@@ -2,31 +2,13 @@ import { ThemeProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { setupThemeMocks } from '@/test/theme-test-utils';
 import { SettingsSheet } from './SettingsSheet';
 
 describe('SettingsSheet', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    document.documentElement.classList.remove('light', 'dark', 'tokyo-night');
-
-    Object.defineProperty(window, 'localStorage', {
-      value: {
-        getItem: vi.fn(() => null),
-        setItem: vi.fn(),
-        removeItem: vi.fn(),
-        clear: vi.fn()
-      },
-      writable: true
-    });
-
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: vi.fn().mockImplementation(() => ({
-        matches: false,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
-      }))
-    });
+    setupThemeMocks();
   });
 
   function renderSettingsSheet(open: boolean, onOpenChange = vi.fn()) {
