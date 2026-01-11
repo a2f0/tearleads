@@ -54,23 +54,26 @@ describe('Debug', () => {
       expect(screen.getByText('Debug')).toBeInTheDocument();
     });
 
-    it('renders environment info section', async () => {
+    it('renders system info section with all device and environment info', async () => {
       await renderDebug();
 
-      expect(screen.getByText('Environment Info')).toBeInTheDocument();
+      expect(screen.getByText('System Info')).toBeInTheDocument();
       expect(screen.getByText('Environment:')).toBeInTheDocument();
-    });
-
-    it('renders device info section', async () => {
-      await renderDebug();
-
-      expect(screen.getByText('Device Info')).toBeInTheDocument();
       expect(screen.getByText('Platform:')).toBeInTheDocument();
       expect(screen.getByText('Pixel Ratio:')).toBeInTheDocument();
       expect(screen.getByText('Online:')).toBeInTheDocument();
       expect(screen.getByText('Language:')).toBeInTheDocument();
       expect(screen.getByText('Touch Support:')).toBeInTheDocument();
       expect(screen.getByText('Standalone:')).toBeInTheDocument();
+    });
+
+    it('renders copy button in system info section', async () => {
+      await renderDebug();
+
+      expect(screen.getByTestId('copy-debug-info')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Copy debug info to clipboard' })
+      ).toBeInTheDocument();
     });
 
     it('renders API status section', async () => {
@@ -88,7 +91,7 @@ describe('Debug', () => {
     });
   });
 
-  describe('environment info', () => {
+  describe('system info', () => {
     it('displays the current environment mode', async () => {
       await renderDebug();
 
@@ -107,9 +110,7 @@ describe('Debug', () => {
 
       expect(screen.getByText('User Agent:')).toBeInTheDocument();
     });
-  });
 
-  describe('device info', () => {
     it('displays platform', async () => {
       await renderDebug();
 
@@ -130,6 +131,25 @@ describe('Debug', () => {
       const onlineLabel = screen.getByText('Online:');
       expect(onlineLabel).toBeInTheDocument();
       expect(onlineLabel.nextElementSibling).toHaveTextContent('Yes');
+    });
+
+    it('copies debug info to clipboard when copy button is clicked', async () => {
+      const user = userEvent.setup();
+      const writeTextMock = vi.fn().mockResolvedValue(undefined);
+      vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(
+        writeTextMock
+      );
+
+      await renderDebug();
+
+      await user.click(screen.getByTestId('copy-debug-info'));
+
+      expect(writeTextMock).toHaveBeenCalledWith(
+        expect.stringContaining('Environment:')
+      );
+      expect(writeTextMock).toHaveBeenCalledWith(
+        expect.stringContaining('Platform: web')
+      );
     });
   });
 

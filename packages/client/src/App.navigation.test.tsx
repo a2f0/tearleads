@@ -169,8 +169,7 @@ describe('App Integration', () => {
         await user.click(debugLink);
 
         await waitFor(() => {
-          expect(screen.getByText('Environment Info')).toBeInTheDocument();
-          expect(screen.getByText('Device Info')).toBeInTheDocument();
+          expect(screen.getByText('System Info')).toBeInTheDocument();
         });
       });
 
@@ -224,7 +223,7 @@ describe('App Integration', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Tearleads')).toBeInTheDocument();
-        expect(screen.getByText('Environment Info')).toBeInTheDocument();
+        expect(screen.getByText('System Info')).toBeInTheDocument();
       });
     });
   });
@@ -251,7 +250,7 @@ describe('App Integration', () => {
         expect(screen.getByTestId('app-container')).toBeInTheDocument();
         expect(screen.getByRole('navigation')).toBeInTheDocument();
         expect(screen.getByText('Tearleads')).toBeInTheDocument();
-        expect(screen.getByText('Environment Info')).toBeInTheDocument();
+        expect(screen.getByText('System Info')).toBeInTheDocument();
       });
     });
 
@@ -260,7 +259,7 @@ describe('App Integration', () => {
       renderAppWithRoutes('/debug');
 
       await waitFor(() => {
-        expect(screen.getByText('Environment Info')).toBeInTheDocument();
+        expect(screen.getByText('System Info')).toBeInTheDocument();
       });
 
       // Click home link (Tearleads logo/title)
@@ -269,7 +268,7 @@ describe('App Integration', () => {
 
       await waitFor(() => {
         // Should be back at Home page with app icons
-        expect(screen.queryByText('Environment Info')).not.toBeInTheDocument();
+        expect(screen.queryByText('System Info')).not.toBeInTheDocument();
       });
     });
   });
