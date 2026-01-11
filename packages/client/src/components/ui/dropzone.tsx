@@ -9,6 +9,9 @@ import { cn, detectPlatform } from '@/lib/utils';
 
 import { Button } from './button';
 
+const COMPACT_BASE_CLASSES =
+  'flex aspect-square cursor-pointer items-center justify-center rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2';
+
 export interface DropzoneProps {
   onFilesSelected: (files: File[]) => void;
   accept?: string;
@@ -151,7 +154,7 @@ export function Dropzone({
           data-testid="dropzone-native"
           data-platform={platform}
           className={cn(
-            'flex aspect-square cursor-pointer items-center justify-center rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2',
+            COMPACT_BASE_CLASSES,
             disabled && 'cursor-not-allowed opacity-50',
             className
           )}
@@ -203,7 +206,7 @@ export function Dropzone({
         onDragLeave={disabled ? undefined : handleDragLeave}
         onDrop={disabled ? undefined : handleDrop}
         className={cn(
-          'flex aspect-square cursor-pointer items-center justify-center rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-primary hover:ring-offset-2',
+          COMPACT_BASE_CLASSES,
           disabled && 'cursor-not-allowed opacity-50',
           isDragging && !disabled && 'ring-2 ring-primary ring-offset-2',
           className
