@@ -476,7 +476,7 @@ describe('Contacts', () => {
       await renderContacts();
 
       await waitFor(() => {
-        expect(screen.getByText('1 contact')).toBeInTheDocument();
+        expect(screen.getByText(/1 contact$/)).toBeInTheDocument();
       });
     });
 
@@ -505,7 +505,7 @@ describe('Contacts', () => {
       await renderContacts();
 
       await waitFor(() => {
-        expect(screen.getByText('2 contacts')).toBeInTheDocument();
+        expect(screen.getByText(/2 contacts$/)).toBeInTheDocument();
       });
     });
 
@@ -534,7 +534,7 @@ describe('Contacts', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('1 contact found')).toBeInTheDocument();
+        expect(screen.getByText(/1 contact(s)? found$/)).toBeInTheDocument();
       });
     });
   });
