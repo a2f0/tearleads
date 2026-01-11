@@ -44,19 +44,23 @@ const mockGetEventStats = vi.fn();
 const mockClearEvents = vi.fn();
 const mockGetDistinctEventTypes = vi.fn();
 
-vi.mock('@/db/analytics', () => ({
-  getEvents: (...args: unknown[]) => {
-    getEventsCallCount++;
-    return mockGetEvents(...args);
-  },
-  getEventStats: (...args: unknown[]) => {
-    getEventStatsCallCount++;
-    return mockGetEventStats(...args);
-  },
-  clearEvents: (...args: unknown[]) => mockClearEvents(...args),
-  getDistinctEventTypes: (...args: unknown[]) =>
-    mockGetDistinctEventTypes(...args)
-}));
+vi.mock('@/db/analytics', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/db/analytics')>();
+  return {
+    ...actual,
+    getEvents: (...args: unknown[]) => {
+      getEventsCallCount++;
+      return mockGetEvents(...args);
+    },
+    getEventStats: (...args: unknown[]) => {
+      getEventStatsCallCount++;
+      return mockGetEventStats(...args);
+    },
+    clearEvents: (...args: unknown[]) => mockClearEvents(...args),
+    getDistinctEventTypes: (...args: unknown[]) =>
+      mockGetDistinctEventTypes(...args)
+  };
+});
 
 function renderAnalyticsRaw() {
   return render(
@@ -232,7 +236,7 @@ describe('Analytics', () => {
 
       await waitFor(() => {
         // Event name appears in both summary and table, so use getAllByText
-        const setupElements = screen.getAllByText('Setup');
+        const setupElements = screen.getAllByText('Database Setup');
         expect(setupElements.length).toBeGreaterThan(0);
       });
     });
@@ -416,7 +420,7 @@ describe('Analytics', () => {
 
       // Wait for events to load
       await waitFor(() => {
-        const setupElements = screen.getAllByText('Setup');
+        const setupElements = screen.getAllByText('Database Setup');
         expect(setupElements.length).toBeGreaterThan(0);
       });
 
@@ -536,32 +540,35 @@ describe('Analytics', () => {
       eventName: 'db_setup',
       durationMs: 150,
       success: true,
-      timestamp: new Date('2025-01-01T12:00:00Z')
+      timestamp: new Date('2025-01-01T12:00:00Z'),
+      detail: null
     };
     const mockEventUnlock: AnalyticsEvent = {
       id: '2',
       eventName: 'db_unlock',
       durationMs: 50,
       success: false,
-      timestamp: new Date('2025-01-01T14:00:00Z')
+      timestamp: new Date('2025-01-01T14:00:00Z'),
+      detail: null
     };
-    const mockEventQuery: AnalyticsEvent = {
+    const mockEventPasswordChange: AnalyticsEvent = {
       id: '3',
-      eventName: 'db_query',
+      eventName: 'db_password_change',
       durationMs: 200,
       success: true,
-      timestamp: new Date('2025-01-01T10:00:00Z')
+      timestamp: new Date('2025-01-01T10:00:00Z'),
+      detail: null
     };
 
     const mockEventsOriginal: AnalyticsEvent[] = [
       mockEventSetup,
       mockEventUnlock,
-      mockEventQuery
+      mockEventPasswordChange
     ];
 
-    // Events sorted by eventName ascending (alphabetically: query, setup, unlock)
+    // Events sorted by eventName ascending (alphabetically: password_change, setup, unlock)
     const mockEventsSortedByNameAsc: AnalyticsEvent[] = [
-      mockEventQuery,
+      mockEventPasswordChange,
       mockEventSetup,
       mockEventUnlock
     ];
@@ -570,40 +577,40 @@ describe('Analytics', () => {
     const mockEventsSortedByNameDesc: AnalyticsEvent[] = [
       mockEventUnlock,
       mockEventSetup,
-      mockEventQuery
+      mockEventPasswordChange
     ];
 
     // Events sorted by durationMs ascending (50, 150, 200)
     const mockEventsSortedByDurationAsc: AnalyticsEvent[] = [
       mockEventUnlock, // 50ms
       mockEventSetup, // 150ms
-      mockEventQuery // 200ms
+      mockEventPasswordChange // 200ms
     ];
 
     // Events sorted by durationMs descending (200, 150, 50)
     const mockEventsSortedByDurationDesc: AnalyticsEvent[] = [
-      mockEventQuery, // 200ms
+      mockEventPasswordChange, // 200ms
       mockEventSetup, // 150ms
       mockEventUnlock // 50ms
     ];
 
-    // Events sorted by success ascending (failed first: unlock, then setup, query)
+    // Events sorted by success ascending (failed first: unlock, then setup, password_change)
     const mockEventsSortedBySuccessAsc: AnalyticsEvent[] = [
       mockEventUnlock, // failed
       mockEventSetup, // success
-      mockEventQuery // success
+      mockEventPasswordChange // success
     ];
 
     // Events sorted by success descending (success first)
     const mockEventsSortedBySuccessDesc: AnalyticsEvent[] = [
       mockEventSetup, // success
-      mockEventQuery, // success
+      mockEventPasswordChange, // success
       mockEventUnlock // failed
     ];
 
-    // Events sorted by timestamp ascending (oldest first: query at 10:00)
+    // Events sorted by timestamp ascending (oldest first: password_change at 10:00)
     const mockEventsSortedByTimestampAsc: AnalyticsEvent[] = [
-      mockEventQuery, // 10:00
+      mockEventPasswordChange, // 10:00
       mockEventSetup, // 12:00
       mockEventUnlock // 14:00
     ];
@@ -612,7 +619,7 @@ describe('Analytics', () => {
     const mockEventsSortedByTimestampDesc: AnalyticsEvent[] = [
       mockEventUnlock, // 14:00
       mockEventSetup, // 12:00
-      mockEventQuery // 10:00
+      mockEventPasswordChange // 10:00
     ];
 
     beforeEach(() => {
@@ -677,12 +684,12 @@ describe('Analytics', () => {
       // Click to sort ascending
       await user.click(screen.getByTestId('sort-eventName'));
 
-      // Get all rows and check order (Query, Setup, Unlock alphabetically)
+      // Get all rows and check order (Password Change, Setup, Unlock alphabetically)
       await waitFor(() => {
         const dataRows = screen.getAllByTestId('analytics-row');
-        expect(dataRows[0]).toHaveTextContent('Query');
-        expect(dataRows[1]).toHaveTextContent('Setup');
-        expect(dataRows[2]).toHaveTextContent('Unlock');
+        expect(dataRows[0]).toHaveTextContent('Password Change');
+        expect(dataRows[1]).toHaveTextContent('Database Setup');
+        expect(dataRows[2]).toHaveTextContent('Database Unlock');
       });
 
       // Click again to sort descending
@@ -690,9 +697,9 @@ describe('Analytics', () => {
 
       await waitFor(() => {
         const dataRows = screen.getAllByTestId('analytics-row');
-        expect(dataRows[0]).toHaveTextContent('Unlock');
-        expect(dataRows[1]).toHaveTextContent('Setup');
-        expect(dataRows[2]).toHaveTextContent('Query');
+        expect(dataRows[0]).toHaveTextContent('Database Unlock');
+        expect(dataRows[1]).toHaveTextContent('Database Setup');
+        expect(dataRows[2]).toHaveTextContent('Password Change');
       });
     });
 
@@ -741,9 +748,9 @@ describe('Analytics', () => {
       // Should be back to original order (based on fetch order)
       await waitFor(() => {
         const dataRows = screen.getAllByTestId('analytics-row');
-        expect(dataRows[0]).toHaveTextContent('Setup');
-        expect(dataRows[1]).toHaveTextContent('Unlock');
-        expect(dataRows[2]).toHaveTextContent('Query');
+        expect(dataRows[0]).toHaveTextContent('Database Setup');
+        expect(dataRows[1]).toHaveTextContent('Database Unlock');
+        expect(dataRows[2]).toHaveTextContent('Password Change');
       });
     });
 
@@ -790,10 +797,10 @@ describe('Analytics', () => {
 
       await waitFor(() => {
         const dataRows = screen.getAllByTestId('analytics-row');
-        // Oldest first: Query (10:00), Setup (12:00), Unlock (14:00)
-        expect(dataRows[0]).toHaveTextContent('Query');
-        expect(dataRows[1]).toHaveTextContent('Setup');
-        expect(dataRows[2]).toHaveTextContent('Unlock');
+        // Oldest first: Password Change (10:00), Setup (12:00), Unlock (14:00)
+        expect(dataRows[0]).toHaveTextContent('Password Change');
+        expect(dataRows[1]).toHaveTextContent('Database Setup');
+        expect(dataRows[2]).toHaveTextContent('Database Unlock');
       });
 
       // Click again to sort descending (newest first)
@@ -801,10 +808,10 @@ describe('Analytics', () => {
 
       await waitFor(() => {
         const dataRows = screen.getAllByTestId('analytics-row');
-        // Newest first: Unlock (14:00), Setup (12:00), Query (10:00)
-        expect(dataRows[0]).toHaveTextContent('Unlock');
-        expect(dataRows[1]).toHaveTextContent('Setup');
-        expect(dataRows[2]).toHaveTextContent('Query');
+        // Newest first: Unlock (14:00), Setup (12:00), Password Change (10:00)
+        expect(dataRows[0]).toHaveTextContent('Database Unlock');
+        expect(dataRows[1]).toHaveTextContent('Database Setup');
+        expect(dataRows[2]).toHaveTextContent('Password Change');
       });
     });
 
@@ -821,7 +828,7 @@ describe('Analytics', () => {
 
       await waitFor(() => {
         const dataRows = screen.getAllByTestId('analytics-row');
-        expect(dataRows[0]).toHaveTextContent('Query');
+        expect(dataRows[0]).toHaveTextContent('Password Change');
       });
 
       // Now click duration - should reset to ascending on new column
@@ -962,7 +969,7 @@ describe('Analytics', () => {
         successRate: 100
       },
       {
-        eventName: 'llm_completion',
+        eventName: 'llm_prompt_text',
         count: 20,
         avgDurationMs: 500,
         minDurationMs: 100,
@@ -975,26 +982,26 @@ describe('Analytics', () => {
     const mockStatsSortedByCountAsc = [
       mockStatsOriginal[1], // db_setup: 5
       mockStatsOriginal[0], // api_get_ping: 10
-      mockStatsOriginal[2] // llm_completion: 20
+      mockStatsOriginal[2] // llm_prompt_text: 20
     ];
 
     // Sorted by count descending (20, 10, 5)
     const mockStatsSortedByCountDesc = [
-      mockStatsOriginal[2], // llm_completion: 20
+      mockStatsOriginal[2], // llm_prompt_text: 20
       mockStatsOriginal[0], // api_get_ping: 10
       mockStatsOriginal[1] // db_setup: 5
     ];
 
-    // Sorted by eventName ascending (alphabetically: api_get_ping, db_setup, llm_completion)
+    // Sorted by eventName ascending (alphabetically: api_get_ping, db_setup, llm_prompt_text)
     const mockStatsSortedByEventNameAsc = [
       mockStatsOriginal[0], // api_get_ping
       mockStatsOriginal[1], // db_setup
-      mockStatsOriginal[2] // llm_completion
+      mockStatsOriginal[2] // llm_prompt_text
     ];
 
     // Sorted by successRate ascending (75, 90, 100)
     const mockStatsSortedBySuccessRateAsc = [
-      mockStatsOriginal[2], // llm_completion: 75%
+      mockStatsOriginal[2], // llm_prompt_text: 75%
       mockStatsOriginal[0], // api_get_ping: 90%
       mockStatsOriginal[1] // db_setup: 100%
     ];
@@ -1003,7 +1010,7 @@ describe('Analytics', () => {
     const mockStatsSortedByAvgDurationAsc = [
       mockStatsOriginal[0], // api_get_ping: 100ms
       mockStatsOriginal[1], // db_setup: 300ms
-      mockStatsOriginal[2] // llm_completion: 500ms
+      mockStatsOriginal[2] // llm_prompt_text: 500ms
     ];
 
     beforeEach(() => {
@@ -1038,7 +1045,7 @@ describe('Analytics', () => {
       mockGetDistinctEventTypes.mockResolvedValue([
         'api_get_ping',
         'db_setup',
-        'llm_completion'
+        'llm_prompt_text'
       ]);
     });
 
@@ -1110,10 +1117,10 @@ describe('Analytics', () => {
       await waitFor(() => {
         const rows = screen.getAllByTestId('summary-row');
         // Sorted by raw event name alphabetically:
-        // api_get_ping < db_setup < llm_completion
-        expect(rows[0]).toHaveTextContent('API Get Ping');
-        expect(rows[1]).toHaveTextContent('Setup');
-        expect(rows[2]).toHaveTextContent('LLM Completion');
+        // api_get_ping < db_setup < llm_prompt_text
+        expect(rows[0]).toHaveTextContent('API Ping');
+        expect(rows[1]).toHaveTextContent('Database Setup');
+        expect(rows[2]).toHaveTextContent('LLM Text Prompt');
       });
     });
 
@@ -1151,12 +1158,12 @@ describe('Analytics', () => {
       await user.click(screen.getByTestId('summary-sort-count'));
       await user.click(screen.getByTestId('summary-sort-count'));
 
-      // Should be back to original order (api_get_ping, db_setup, llm_completion)
+      // Should be back to original order (api_get_ping, db_setup, llm_prompt_text)
       await waitFor(() => {
         const rows = screen.getAllByTestId('summary-row');
-        expect(rows[0]).toHaveTextContent('API Get Ping');
-        expect(rows[1]).toHaveTextContent('Setup');
-        expect(rows[2]).toHaveTextContent('LLM Completion');
+        expect(rows[0]).toHaveTextContent('API Ping');
+        expect(rows[1]).toHaveTextContent('Database Setup');
+        expect(rows[2]).toHaveTextContent('LLM Text Prompt');
       });
     });
 
@@ -1247,7 +1254,7 @@ describe('Analytics', () => {
       });
     });
 
-    it('capitalizes API acronym in event names', async () => {
+    it('displays hand-curated API event names', async () => {
       const mockStats = [
         {
           eventName: 'api_get_ping',
@@ -1266,17 +1273,17 @@ describe('Analytics', () => {
       await renderAnalytics();
 
       await waitFor(() => {
-        // Should format as "API Get Ping" not "Api Get Ping"
+        // Should show hand-curated display name "API Ping"
         // Text appears in both event type picker button and summary table
-        const elements = screen.getAllByText('API Get Ping');
+        const elements = screen.getAllByText('API Ping');
         expect(elements.length).toBeGreaterThan(0);
       });
     });
 
-    it('capitalizes LLM acronym in event names', async () => {
+    it('displays hand-curated LLM event names', async () => {
       const mockStats = [
         {
-          eventName: 'llm_completion',
+          eventName: 'llm_prompt_text',
           count: 1,
           avgDurationMs: 100,
           minDurationMs: 100,
@@ -1287,14 +1294,14 @@ describe('Analytics', () => {
 
       mockGetEvents.mockResolvedValue([]);
       mockGetEventStats.mockResolvedValue(mockStats);
-      mockGetDistinctEventTypes.mockResolvedValue(['llm_completion']);
+      mockGetDistinctEventTypes.mockResolvedValue(['llm_prompt_text']);
 
       await renderAnalytics();
 
       await waitFor(() => {
-        // Should format as "LLM Completion" not "Llm Completion"
+        // Should show hand-curated display name "LLM Text Prompt"
         // Text appears in both event type picker button and summary table
-        const elements = screen.getAllByText('LLM Completion');
+        const elements = screen.getAllByText('LLM Text Prompt');
         expect(elements.length).toBeGreaterThan(0);
       });
     });
