@@ -1,4 +1,6 @@
 import { BottomSheet } from '@/components/ui/bottom-sheet';
+import { useTypedTranslation } from '@/i18n';
+import { LanguageSelector } from './LanguageSelector';
 import { ThemeSelector } from './ThemeSelector';
 
 interface SettingsSheetProps {
@@ -7,14 +9,19 @@ interface SettingsSheetProps {
 }
 
 export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
+  const { t } = useTypedTranslation('common');
+
   return (
     <BottomSheet
       open={open}
       onOpenChange={onOpenChange}
-      title="Settings"
+      title={t('settings')}
       data-testid="settings-sheet"
     >
-      <ThemeSelector />
+      <div className="space-y-6">
+        <ThemeSelector />
+        <LanguageSelector />
+      </div>
     </BottomSheet>
   );
 }

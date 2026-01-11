@@ -18,12 +18,14 @@ import {
   Users
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
+import type { MenuKeys } from '@/i18n';
+import { useTypedTranslation } from '@/i18n';
 import { cn } from '@/lib/utils';
 
 export interface NavItem {
   path: string;
   icon: React.ComponentType<{ className?: string }>;
-  label: string;
+  labelKey: MenuKeys;
   inMobileMenu?: boolean;
   testId?: string;
 }
@@ -32,132 +34,134 @@ export const navItems: NavItem[] = [
   {
     path: '/',
     icon: Home,
-    label: 'Home',
+    labelKey: 'home',
     inMobileMenu: true,
     testId: 'home-link'
   },
   {
     path: '/files',
     icon: FileIcon,
-    label: 'Files',
+    labelKey: 'files',
     inMobileMenu: true,
     testId: 'files-link'
   },
   {
     path: '/contacts',
     icon: Users,
-    label: 'Contacts',
+    labelKey: 'contacts',
     inMobileMenu: true,
     testId: 'contacts-link'
   },
   {
     path: '/photos',
     icon: ImageIcon,
-    label: 'Photos',
+    labelKey: 'photos',
     inMobileMenu: true,
     testId: 'photos-link'
   },
   {
     path: '/documents',
     icon: FileText,
-    label: 'Documents',
+    labelKey: 'documents',
     inMobileMenu: true,
     testId: 'documents-link'
   },
   {
     path: '/audio',
     icon: Music,
-    label: 'Audio',
+    labelKey: 'audio',
     inMobileMenu: true,
     testId: 'audio-link'
   },
   {
     path: '/tables',
     icon: Table2,
-    label: 'Tables',
+    labelKey: 'tables',
     inMobileMenu: true,
     testId: 'tables-link'
   },
   {
     path: '/analytics',
     icon: BarChart3,
-    label: 'Analytics',
+    labelKey: 'analytics',
     inMobileMenu: true,
     testId: 'analytics-link'
   },
   {
     path: '/sqlite',
     icon: Database,
-    label: 'SQLite',
+    labelKey: 'sqlite',
     inMobileMenu: true,
     testId: 'sqlite-link'
   },
   {
     path: '/debug',
     icon: Bug,
-    label: 'Debug',
+    labelKey: 'debug',
     inMobileMenu: true,
     testId: 'debug-link'
   },
   {
     path: '/opfs',
     icon: HardDrive,
-    label: 'OPFS',
+    labelKey: 'opfs',
     inMobileMenu: true,
     testId: 'opfs-link'
   },
   {
     path: '/cache-storage',
     icon: Archive,
-    label: 'Cache Storage',
+    labelKey: 'cacheStorage',
     inMobileMenu: true,
     testId: 'cache-storage-link'
   },
   {
     path: '/local-storage',
     icon: Database,
-    label: 'Local Storage',
+    labelKey: 'localStorage',
     inMobileMenu: true,
     testId: 'local-storage-link'
   },
   {
     path: '/keychain',
     icon: Key,
-    label: 'Keychain',
+    labelKey: 'keychain',
     inMobileMenu: true,
     testId: 'keychain-link'
   },
   {
     path: '/chat',
     icon: MessageSquare,
-    label: 'Chat',
+    labelKey: 'chat',
     inMobileMenu: true,
     testId: 'chat-link'
   },
   {
     path: '/models',
     icon: Bot,
-    label: 'Models',
+    labelKey: 'models',
     inMobileMenu: true,
     testId: 'models-link'
   },
   {
     path: '/admin',
     icon: Shield,
-    label: 'Admin',
+    labelKey: 'admin',
     inMobileMenu: true,
     testId: 'admin-link'
   },
   {
     path: '/settings',
     icon: Settings,
-    label: 'Settings',
+    labelKey: 'settings',
     inMobileMenu: true,
     testId: 'settings-link'
   }
 ];
 
 export function Sidebar() {
+  const { t } = useTypedTranslation('menu');
+
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r bg-background lg:flex">
       <nav className="flex-1 p-4">
@@ -180,7 +184,7 @@ export function Sidebar() {
                   }
                 >
                   <Icon className="h-5 w-5" />
-                  {item.label}
+                  {t(item.labelKey)}
                 </NavLink>
               </li>
             );

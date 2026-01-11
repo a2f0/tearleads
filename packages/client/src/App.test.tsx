@@ -1,10 +1,13 @@
 import { ThemeProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import App from './App';
 import { navItems } from './components/Sidebar';
+import { i18n } from './i18n';
+import { en } from './i18n/translations/en';
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -37,11 +40,13 @@ vi.mock('@/db/hooks/useDatabase', () => ({
 
 function renderApp() {
   return render(
-    <MemoryRouter>
-      <ThemeProvider>
-        <App />
-      </ThemeProvider>
-    </MemoryRouter>
+    <I18nextProvider i18n={i18n}>
+      <MemoryRouter>
+        <ThemeProvider>
+          <App />
+        </ThemeProvider>
+      </MemoryRouter>
+    </I18nextProvider>
   );
 }
 
@@ -96,7 +101,8 @@ describe('App', () => {
       if (item.testId) {
         expect(screen.getAllByTestId(item.testId)).toHaveLength(2);
       }
-      expect(screen.getAllByText(item.label)).toHaveLength(2);
+      const label = en.menu[item.labelKey];
+      expect(screen.getAllByText(label)).toHaveLength(2);
     }
   });
 
