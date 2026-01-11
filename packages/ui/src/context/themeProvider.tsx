@@ -58,6 +58,24 @@ export function ThemeProvider({
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [storageKey]);
 
+  // Listen for settings-synced event from SettingsProvider (database sync)
+  useEffect(() => {
+    const handleSettingsSynced = (event: Event) => {
+      const customEvent = event as CustomEvent<{
+        settings: { theme?: string };
+      }>;
+      const { settings } = customEvent.detail;
+      if (settings.theme && isTheme(settings.theme)) {
+        setThemeState(settings.theme);
+      }
+    };
+
+    window.addEventListener('settings-synced', handleSettingsSynced);
+    return () => {
+      window.removeEventListener('settings-synced', handleSettingsSynced);
+    };
+  }, []);
+
   useEffect(() => {
     const root = document.documentElement;
     root.classList.remove('light', 'dark', 'tokyo-night');
