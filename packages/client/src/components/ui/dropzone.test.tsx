@@ -351,7 +351,15 @@ describe('Dropzone', () => {
     it('passes source prop to native picker', async () => {
       const user = userEvent.setup();
       const testFile = new File(['test'], 'photo.jpg', { type: 'image/jpeg' });
-      mockPickFiles.mockResolvedValue([testFile]);
+
+      // Use controlled promise to ensure proper async handling
+      let resolvePickFiles: (files: File[]) => void = () => {};
+      mockPickFiles.mockImplementation(
+        () =>
+          new Promise<File[]>((resolve) => {
+            resolvePickFiles = resolve;
+          })
+      );
 
       render(
         <Dropzone
@@ -370,8 +378,17 @@ describe('Dropzone', () => {
         source: 'photos'
       });
 
+      // Wait for button to become disabled (picker is open)
+      await vi.waitFor(() => {
+        expect(button).toBeDisabled();
+      });
+
+      // Resolve the picker within act() to handle state updates
+      await act(async () => {
+        resolvePickFiles([testFile]);
+      });
+
       // Wait for all async state updates after picker resolves
-      // (onFilesSelected callback + setIsPickerOpen(false) in finally block)
       await vi.waitFor(() => {
         expect(mockOnFilesSelected).toHaveBeenCalledWith([testFile]);
         expect(button).not.toBeDisabled();
