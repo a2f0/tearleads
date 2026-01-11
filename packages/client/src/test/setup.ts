@@ -2,6 +2,9 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeAll, vi } from 'vitest';
 
+// Initialize i18n for tests (side-effect import)
+import '../i18n';
+
 // Mock pdfjs-dist to avoid DOMMatrix requirement in jsdom
 vi.mock('pdfjs-dist', () => {
   const mockPage = {
