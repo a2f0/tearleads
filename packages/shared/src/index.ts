@@ -10,6 +10,7 @@ export interface LicenseInfo {
   name: string;
   version: string;
   license: string;
+  repository?: string;
 }
 
 // Types
