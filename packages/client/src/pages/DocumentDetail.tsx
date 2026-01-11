@@ -12,6 +12,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ActionToolbar, type ActionType } from '@/components/ui/action-toolbar';
 import { BackLink } from '@/components/ui/back-link';
+import { EditableTitle } from '@/components/ui/editable-title';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
@@ -114,6 +115,18 @@ export function DocumentDetail() {
       setActionLoading(null);
     }
   }, [document, navigate]);
+
+  const handleUpdateName = useCallback(
+    async (newName: string) => {
+      if (!id) return;
+
+      const db = getDatabase();
+      await db.update(files).set({ name: newName }).where(eq(files.id, id));
+
+      setDocument((prev) => (prev ? { ...prev, name: newName } : prev));
+    },
+    [id]
+  );
 
   const fetchDocument = useCallback(async () => {
     if (!isUnlocked || !id) return;
@@ -241,7 +254,11 @@ export function DocumentDetail() {
 
       {isUnlocked && !loading && !error && document && (
         <div className="space-y-6">
-          <h1 className="font-bold text-2xl tracking-tight">{document.name}</h1>
+          <EditableTitle
+            value={document.name}
+            onSave={handleUpdateName}
+            data-testid="document-title"
+          />
 
           {pdfLoading && (
             <div
