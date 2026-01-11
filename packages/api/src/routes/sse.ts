@@ -9,6 +9,30 @@ import { getRedisSubscriberClient } from '../lib/redisPubSub.js';
 
 const router: RouterType = Router();
 
+const activeConnections = new Set<Response>();
+
+export function addConnection(res: Response): void {
+  activeConnections.add(res);
+}
+
+export function removeConnection(res: Response): void {
+  activeConnections.delete(res);
+}
+
+export function closeAllSSEConnections(): void {
+  for (const res of activeConnections) {
+    try {
+      res.write(
+        `event: shutdown\ndata: ${JSON.stringify({ reason: 'server_restart' })}\n\n`
+      );
+      res.end();
+    } catch {
+      // Connection may already be closed
+    }
+  }
+  activeConnections.clear();
+}
+
 function parseMessage(message: string): BroadcastMessage | null {
   try {
     return JSON.parse(message) as BroadcastMessage;
@@ -57,6 +81,8 @@ router.get('/', async (req: Request, res: Response) => {
 
   res.write(`event: connected\ndata: ${JSON.stringify({ channels })}\n\n`);
 
+  activeConnections.add(res);
+
   let client: Awaited<ReturnType<typeof getRedisSubscriberClient>> | null =
     null;
 
@@ -83,6 +109,7 @@ router.get('/', async (req: Request, res: Response) => {
     }, 30000);
 
     req.on('close', () => {
+      activeConnections.delete(res);
       clearInterval(keepAlive);
       if (client) {
         const clientToCleanup = client;
@@ -95,6 +122,7 @@ router.get('/', async (req: Request, res: Response) => {
       }
     });
   } catch (err) {
+    activeConnections.delete(res);
     console.error('SSE connection error:', err);
     res.write(
       `event: error\ndata: ${JSON.stringify({ error: 'Failed to establish SSE connection' })}\n\n`

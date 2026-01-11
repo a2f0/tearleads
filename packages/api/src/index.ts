@@ -3,9 +3,12 @@ import type { PingData } from '@rapid/shared';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { type Express, type Request, type Response } from 'express';
+import type { Server } from 'http';
 import packageJson from '../package.json' with { type: 'json' };
+import { closeRedisClient } from './lib/redis.js';
+import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
 import { redisRouter } from './routes/admin/redis.js';
-import { sseRouter } from './routes/sse.js';
+import { closeAllSSEConnections, sseRouter } from './routes/sse.js';
 
 dotenv.config();
 
@@ -85,10 +88,33 @@ app.use((_req: Request, res: Response) => {
 // Export app for testing
 export { app };
 
+// Graceful shutdown handler
+/* istanbul ignore next -- @preserve server shutdown for production */
+async function gracefulShutdown(server: Server, signal: string): Promise<void> {
+  console.log(`\n${signal} received, starting graceful shutdown...`);
+
+  closeAllSSEConnections();
+
+  server.close(async () => {
+    console.log('HTTP server closed');
+    await Promise.all([closeRedisClient(), closeRedisSubscriberClient()]);
+    console.log('Redis connections closed');
+    process.exit(0);
+  });
+
+  setTimeout(() => {
+    console.error('Graceful shutdown timed out, forcing exit');
+    process.exit(1);
+  }, 10000);
+}
+
 // Start server only when run directly
 /* istanbul ignore next -- @preserve server startup for production */
 if (process.env['NODE_ENV'] !== 'test') {
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`API server running on http://localhost:${PORT}`);
   });
+
+  process.on('SIGTERM', () => gracefulShutdown(server, 'SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown(server, 'SIGINT'));
 }
