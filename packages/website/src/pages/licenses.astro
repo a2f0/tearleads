@@ -1,0 +1,40 @@
+---
+import Layout from '../layouts/Layout.astro';
+import licensesData from '@rapid/shared/licenses.json';
+
+interface LicenseInfo {
+  name: string;
+  version: string;
+  license: string;
+}
+
+const licenses = licensesData as LicenseInfo[];
+---
+
+<Layout title="Open Source Licenses - Rapid">
+  <section class="container mx-auto px-4 py-8">
+    <nav class="mb-8">
+      <a href="/" class="text-muted-foreground hover:text-foreground">&larr; Back to Home</a>
+    </nav>
+
+    <div class="mb-6">
+      <h2 class="font-bold text-3xl mb-2">Open Source Licenses</h2>
+      <p class="text-muted-foreground">
+        This application is built with {licenses.length} open source packages.
+      </p>
+    </div>
+
+    <div class="rounded-xl border bg-card shadow-sm">
+      <div class="divide-y">
+        {licenses.map((pkg) => (
+          <div class="flex items-baseline justify-between px-4 py-3">
+            <span class="font-mono text-sm">{pkg.name}</span>
+            <span class="text-muted-foreground text-sm">
+              v{pkg.version} - {pkg.license}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+</Layout>

@@ -77,6 +77,9 @@ const Keychain = lazy(() =>
 const KeychainDetail = lazy(() =>
   import('./pages/keychain').then((m) => ({ default: m.KeychainDetail }))
 );
+const Licenses = lazy(() =>
+  import('./pages/Licenses').then((m) => ({ default: m.Licenses }))
+);
 const LocalStorage = lazy(() =>
   import('./pages/local-storage').then((m) => ({ default: m.LocalStorage }))
 );
@@ -167,6 +170,7 @@ if (rootElement) {
                         <Route path="chat" element={<Chat />} />
                         <Route path="models" element={<Models />} />
                         <Route path="settings" element={<Settings />} />
+                        <Route path="licenses" element={<Licenses />} />
                         <Route path="tables" element={<Tables />} />
                         <Route
                           path="tables/:tableName"
