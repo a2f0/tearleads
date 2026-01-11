@@ -8,9 +8,11 @@ import {
   useState
 } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useTypedTranslation } from '@/i18n';
 import { navItems } from './Sidebar';
 
 export function MobileMenu() {
+  const { t } = useTypedTranslation('menu');
   const [isOpen, setIsOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -124,7 +126,7 @@ export function MobileMenu() {
                   data-testid={item.testId}
                 >
                   <Icon className="h-4 w-4" />
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               );
             })}
