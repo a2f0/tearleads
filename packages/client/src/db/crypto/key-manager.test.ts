@@ -16,20 +16,24 @@ import {
   setCurrentInstanceId
 } from './key-manager';
 
-// Mock the web-crypto module
-vi.mock('./web-crypto', () => ({
-  generateSalt: vi.fn(() => new Uint8Array(32).fill(1)),
-  deriveKeyFromPassword: vi.fn(async () => ({}) as CryptoKey),
-  exportKey: vi.fn(async () => new Uint8Array(32).fill(2)),
-  importKey: vi.fn(async () => ({}) as CryptoKey),
-  secureZero: vi.fn(),
-  generateWrappingKey: vi.fn(async () => ({}) as CryptoKey),
-  generateExtractableWrappingKey: vi.fn(async () => ({}) as CryptoKey),
-  wrapKey: vi.fn(async () => new Uint8Array(48).fill(3)),
-  unwrapKey: vi.fn(async () => new Uint8Array(32).fill(2)),
-  exportWrappingKey: vi.fn(async () => new Uint8Array(32).fill(4)),
-  importWrappingKey: vi.fn(async () => ({}) as CryptoKey)
-}));
+// Mock the @rapid/shared crypto module
+vi.mock('@rapid/shared', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@rapid/shared')>();
+  return {
+    ...original,
+    generateSalt: vi.fn(() => new Uint8Array(32).fill(1)),
+    deriveKeyFromPassword: vi.fn(async () => ({}) as CryptoKey),
+    exportKey: vi.fn(async () => new Uint8Array(32).fill(2)),
+    importKey: vi.fn(async () => ({}) as CryptoKey),
+    secureZero: vi.fn(),
+    generateWrappingKey: vi.fn(async () => ({}) as CryptoKey),
+    generateExtractableWrappingKey: vi.fn(async () => ({}) as CryptoKey),
+    wrapKey: vi.fn(async () => new Uint8Array(48).fill(3)),
+    unwrapKey: vi.fn(async () => new Uint8Array(32).fill(2)),
+    exportWrappingKey: vi.fn(async () => new Uint8Array(32).fill(4)),
+    importWrappingKey: vi.fn(async () => ({}) as CryptoKey)
+  };
+});
 
 // Mock crypto.subtle for KCV generation
 const mockEncrypt = vi.fn(async () => new ArrayBuffer(32));
@@ -141,7 +145,7 @@ describe('KeyManager', () => {
   describe('setupNewKey', () => {
     it('generates salt and derives key from password', async () => {
       const { generateSalt, deriveKeyFromPassword, exportKey } = await import(
-        './web-crypto'
+        '@rapid/shared'
       );
 
       const key = await keyManager.setupNewKey('testpassword');
@@ -214,7 +218,7 @@ describe('KeyManager', () => {
 
   describe('clearKey', () => {
     it('clears the current key from memory', async () => {
-      const { secureZero } = await import('./web-crypto');
+      const { secureZero } = await import('@rapid/shared');
 
       await keyManager.setupNewKey('password');
       expect(keyManager.getCurrentKey()).not.toBeNull();
