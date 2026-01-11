@@ -3,6 +3,11 @@
  */
 
 import { isRecord, toFiniteNumber } from '@rapid/shared';
+import type {
+  AnalyticsEventDetail,
+  AnalyticsEventSlug,
+  EventDetailMap
+} from './analytics-events';
 import type { Database } from './index';
 import { getDatabaseAdapter } from './index';
 import { analyticsEvents } from './schema';
@@ -14,6 +19,7 @@ export interface AnalyticsEvent {
   durationMs: number;
   success: boolean;
   timestamp: Date;
+  detail: AnalyticsEventDetail | null;
 }
 
 export type SortColumn = 'eventName' | 'durationMs' | 'success' | 'timestamp';
@@ -84,19 +90,22 @@ function generateId(): string {
 
 /**
  * Log an analytics event to the database.
+ * Uses generics to ensure type-safe detail payloads per event type.
  */
-export async function logEvent(
+export async function logEvent<T extends AnalyticsEventSlug>(
   db: DatabaseInsert,
-  eventName: string,
+  eventName: T,
   durationMs: number,
-  success: boolean
+  success: boolean,
+  detail?: EventDetailMap[T]
 ): Promise<void> {
   await db.insert(analyticsEvents).values({
     id: generateId(),
     eventName,
     durationMs: Math.round(durationMs),
     success,
-    timestamp: new Date()
+    timestamp: new Date(),
+    detail: detail ? JSON.stringify(detail) : null
   });
 }
 
@@ -104,11 +113,15 @@ export async function logEvent(
  * Measure an async operation and log its duration.
  * Returns the result of the operation.
  */
-export async function measureOperation<T>(
+export async function measureOperation<
+  TResult,
+  TEvent extends AnalyticsEventSlug
+>(
   db: DatabaseInsert,
-  eventName: string,
-  operation: () => Promise<T>
-): Promise<T> {
+  eventName: TEvent,
+  operation: () => Promise<TResult>,
+  detail?: EventDetailMap[TEvent]
+): Promise<TResult> {
   const startTime = performance.now();
   let success = true;
 
@@ -121,7 +134,7 @@ export async function measureOperation<T>(
   } finally {
     const durationMs = performance.now() - startTime;
     try {
-      await logEvent(db, eventName, durationMs, success);
+      await logEvent(db, eventName, durationMs, success, detail);
     } catch {
       // Don't let logging errors affect the main operation
       console.warn(`Failed to log analytics event: ${eventName}`);
@@ -139,6 +152,19 @@ interface RawAnalyticsRow {
   durationMs: number;
   success: number; // SQLite stores as 0/1
   timestamp: number; // milliseconds since epoch
+  detail: string | null;
+}
+
+/**
+ * Parse JSON detail string into typed detail object.
+ */
+function parseDetail(json: string | null): AnalyticsEventDetail | null {
+  if (!json) return null;
+  try {
+    return JSON.parse(json) as AnalyticsEventDetail;
+  } catch {
+    return null;
+  }
 }
 
 function normalizeAnalyticsRow(value: unknown): RawAnalyticsRow | null {
@@ -161,12 +187,15 @@ function normalizeAnalyticsRow(value: unknown): RawAnalyticsRow | null {
     return null;
   }
 
+  const detail = value['detail'];
+
   return {
     id: value['id'],
     eventName: value['eventName'],
     durationMs,
     success,
-    timestamp
+    timestamp,
+    detail: typeof detail === 'string' ? detail : null
   };
 }
 
@@ -189,7 +218,7 @@ export async function getEvents(
   const adapter = getDatabaseAdapter();
 
   // Build SQL query with conditions - use explicit aliases for camelCase property names
-  let sql = `SELECT id, event_name as eventName, duration_ms as durationMs, success, timestamp FROM analytics_events`;
+  let sql = `SELECT id, event_name as eventName, duration_ms as durationMs, success, timestamp, detail FROM analytics_events`;
   const conditions: string[] = [];
   const params: unknown[] = [];
 
@@ -236,7 +265,8 @@ export async function getEvents(
     eventName: row.eventName,
     durationMs: row.durationMs,
     success: Boolean(row.success),
-    timestamp: new Date(row.timestamp)
+    timestamp: new Date(row.timestamp),
+    detail: parseDetail(row.detail)
   }));
 }
 
@@ -369,22 +399,24 @@ export async function clearEvents(_db: Database): Promise<void> {
  * This function can be called from modules that don't have access to the Database instance.
  * Uses raw SQL via adapter to avoid needing the Drizzle db instance.
  */
-export async function logApiEvent(
-  eventName: string,
+export async function logApiEvent<T extends AnalyticsEventSlug>(
+  eventName: T,
   durationMs: number,
-  success: boolean
+  success: boolean,
+  detail?: EventDetailMap[T]
 ): Promise<void> {
   try {
     const adapter = getDatabaseAdapter();
     await adapter.execute(
-      `INSERT INTO analytics_events (id, event_name, duration_ms, success, timestamp)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO analytics_events (id, event_name, duration_ms, success, timestamp, detail)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         crypto.randomUUID(),
         eventName,
         Math.round(durationMs),
         success ? 1 : 0,
-        Date.now()
+        Date.now(),
+        detail ? JSON.stringify(detail) : null
       ]
     );
   } catch (error) {
@@ -437,3 +469,12 @@ export async function getDistinctEventTypes(_db: Database): Promise<string[]> {
   }
   return eventTypes;
 }
+
+// Re-export types from analytics-events for convenience
+export {
+  type AnalyticsEventDetail,
+  type AnalyticsEventSlug,
+  EVENT_DISPLAY_NAMES,
+  type EventDetailMap,
+  getEventDisplayName
+} from './analytics-events';

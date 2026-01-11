@@ -12,11 +12,3 @@ export function formatXAxisTick(timestamp: number, timeFilter: string): string {
   }
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
-
-/** @internal Exported for testing */
-export function formatEventName(name: string): string {
-  return name
-    .replace('db_', '')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
