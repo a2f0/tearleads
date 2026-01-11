@@ -121,15 +121,10 @@ describe('Contacts Page Integration Tests', () => {
       await renderWithDatabase(<Contacts />, {
         initialRoute: '/contacts',
         beforeRender: async () => {
-          const db = getDatabase();
-          await db.insert(contacts).values({
+          await createTestContact({
             id: 'contact-1',
             firstName: 'Test',
-            lastName: 'User',
-            birthday: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            deleted: false
+            lastName: 'User'
           });
         }
       });
