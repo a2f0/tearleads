@@ -70,6 +70,13 @@ describe('Settings', () => {
         `v${packageJson.version}`
       );
     });
+
+    it('renders the open source licenses link', () => {
+      expect(
+        screen.getByTestId('open-source-licenses-link')
+      ).toBeInTheDocument();
+      expect(screen.getByText('Open Source Licenses')).toBeInTheDocument();
+    });
   });
 
   describe('backup & restore section', () => {
