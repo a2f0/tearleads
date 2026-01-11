@@ -67,10 +67,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-      // Mock pdfjs-dist worker for tests (the ?url suffix is a Vite feature)
-      'pdfjs-dist/build/pdf.worker.min.mjs?url':
-        path.resolve(__dirname, './src/test/mocks/pdf-worker.ts')
+      '@': path.resolve(__dirname, './src')
     }
   }
 });

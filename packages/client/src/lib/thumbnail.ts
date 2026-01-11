@@ -6,11 +6,13 @@
  */
 
 import * as pdfjs from 'pdfjs-dist';
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { extractAudioCoverArt, isAudioMimeType } from './audio-metadata';
 
-// Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
+// Configure PDF.js worker using the recommended approach.
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 export interface ThumbnailOptions {
   maxWidth: number;
