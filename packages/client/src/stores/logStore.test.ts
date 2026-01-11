@@ -50,6 +50,31 @@ describe('logStore', () => {
       const logs = logStore.getAllLogs();
       expect(logs.length).toBeLessThanOrEqual(100);
     });
+
+    it('deduplicates identical logs within time window', () => {
+      logStore.addLog('error', 'Same error');
+      logStore.addLog('error', 'Same error');
+      logStore.addLog('error', 'Same error');
+
+      const logs = logStore.getAllLogs();
+      expect(logs).toHaveLength(1);
+    });
+
+    it('allows different messages even if same level', () => {
+      logStore.addLog('error', 'Error 1');
+      logStore.addLog('error', 'Error 2');
+
+      const logs = logStore.getAllLogs();
+      expect(logs).toHaveLength(2);
+    });
+
+    it('allows same message with different level', () => {
+      logStore.addLog('error', 'Same message');
+      logStore.addLog('warn', 'Same message');
+
+      const logs = logStore.getAllLogs();
+      expect(logs).toHaveLength(2);
+    });
   });
 
   describe('convenience methods', () => {
