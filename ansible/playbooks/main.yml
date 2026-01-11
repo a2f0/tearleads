@@ -52,7 +52,23 @@
           - redis-server
           - postgresql
           - postgresql-contrib
+          - ncurses-bin
         state: present
+
+    # Ghostty terminal support
+    - name: Copy Ghostty terminfo
+      ansible.builtin.copy:
+        src: files/ghostty.terminfo
+        dest: /tmp/ghostty.terminfo
+        mode: "0644"
+
+    - name: Compile Ghostty terminfo system-wide
+      ansible.builtin.command:
+        cmd: tic -x -o /usr/share/terminfo /tmp/ghostty.terminfo
+      register: tic_result
+      changed_when: tic_result.rc == 0
+      args:
+        creates: /usr/share/terminfo/g/ghostty
 
     - name: Create keyrings directory
       ansible.builtin.file:
