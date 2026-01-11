@@ -19,6 +19,7 @@ export function EditableTitle({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const originalValueRef = useRef<string>(value);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -28,6 +29,7 @@ export function EditableTitle({
   }, [isEditing]);
 
   const handleEditClick = useCallback(() => {
+    originalValueRef.current = value;
     setEditedValue(value);
     setError(null);
     setIsEditing(true);
@@ -46,7 +48,7 @@ export function EditableTitle({
       return;
     }
 
-    if (trimmed === value) {
+    if (trimmed === originalValueRef.current) {
       setIsEditing(false);
       return;
     }
@@ -62,7 +64,7 @@ export function EditableTitle({
     } finally {
       setSaving(false);
     }
-  }, [editedValue, value, onSave]);
+  }, [editedValue, onSave]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -87,7 +89,7 @@ export function EditableTitle({
             onChange={(e) => setEditedValue(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={saving}
-            className="flex-1 font-bold text-2xl"
+            className="flex-1 font-bold text-2xl tracking-tight"
             data-testid={dataTestId ? `${dataTestId}-input` : undefined}
           />
           <Button
