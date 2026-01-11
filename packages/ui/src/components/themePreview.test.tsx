@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { ThemePreview } from './ThemePreview';
+import { ThemePreview } from './themePreview.js';
 
 describe('ThemePreview', () => {
   it('renders light theme preview', () => {

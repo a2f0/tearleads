@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { Dialog } from './Dialog';
+import { Dialog } from './dialog.js';
 
 describe('Dialog', () => {
   it('renders when open is true', () => {
