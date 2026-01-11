@@ -1,6 +1,7 @@
-import type { ResolvedTheme } from '@rapid/ui';
-import { cn, useTheme } from '@rapid/ui';
-import { ThemePreview } from './ThemePreview';
+import type { ResolvedTheme } from '../context/themeProvider.js';
+import { useTheme } from '../context/useTheme.js';
+import { cn } from '../lib/utils.js';
+import { ThemePreview } from './themePreview.js';
 
 const THEMES: ResolvedTheme[] = ['light', 'dark', 'tokyo-night'];
 
