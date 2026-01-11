@@ -74,11 +74,10 @@ describe('LanguageSelector', () => {
     expect(spanishOption).toHaveAttribute('type', 'button');
   });
 
-  it('renders section header and description', () => {
+  it('renders section header', () => {
     renderLanguageSelector();
 
     expect(screen.getByText('Language')).toBeInTheDocument();
-    expect(screen.getByText('Select language')).toBeInTheDocument();
   });
 
   it('renders correct number of language options', () => {

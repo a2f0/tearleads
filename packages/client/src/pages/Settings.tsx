@@ -1,7 +1,8 @@
 import { AlertTriangle, ChevronRight, Download, Scale } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ThemeSelector } from '@/components/settings';
+import { SettingsSection, ThemeSelector } from '@/components/settings';
+import { LanguageSelector } from '@/components/settings/LanguageSelector';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
 import { useDatabaseContext } from '@/db/hooks';
@@ -89,12 +90,16 @@ export function Settings() {
     <div className="space-y-6">
       <h1 className="font-bold text-2xl tracking-tight">Settings</h1>
 
-      <div className="rounded-lg border p-4">
+      <SettingsSection>
         <ThemeSelector />
-      </div>
+      </SettingsSection>
+
+      <SettingsSection>
+        <LanguageSelector />
+      </SettingsSection>
 
       {/* Backup & Restore Section */}
-      <div className="space-y-4 rounded-lg border p-4">
+      <SettingsSection className="space-y-4">
         <div>
           <p className="font-medium">Backup & Restore</p>
           <p className="text-muted-foreground text-sm">
@@ -167,7 +172,7 @@ export function Settings() {
             </div>
           </div>
         )}
-      </div>
+      </SettingsSection>
 
       {/* Open Source Licenses Section */}
       <Link

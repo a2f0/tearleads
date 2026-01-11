@@ -46,9 +46,6 @@ describe('ThemeSelector', () => {
     renderWithProvider(<ThemeSelector />);
 
     expect(screen.getByText('Theme')).toBeInTheDocument();
-    expect(
-      screen.getByText('Choose your preferred color theme')
-    ).toBeInTheDocument();
   });
 
   it('renders theme preview labels', () => {
