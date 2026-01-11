@@ -61,14 +61,18 @@
         src: files/ghostty.terminfo
         dest: /tmp/ghostty.terminfo
         mode: "0644"
+      register: copy_terminfo_result
+
+    - name: Check for existing compiled Ghostty terminfo
+      ansible.builtin.stat:
+        path: /usr/share/terminfo/g/ghostty
+      register: compiled_terminfo_stat
 
     - name: Compile Ghostty terminfo system-wide
       ansible.builtin.command:
         cmd: tic -x -o /usr/share/terminfo /tmp/ghostty.terminfo
-      register: tic_result
-      changed_when: tic_result.rc == 0
-      args:
-        creates: /usr/share/terminfo/g/ghostty
+      when: copy_terminfo_result.changed or not compiled_terminfo_stat.stat.exists
+      changed_when: true
 
     - name: Create keyrings directory
       ansible.builtin.file:
