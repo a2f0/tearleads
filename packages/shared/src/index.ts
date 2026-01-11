@@ -2,6 +2,9 @@
  * Shared types and utilities
  */
 
+// Crypto utilities
+export * from './crypto/web-crypto.js';
+
 // License types
 export interface LicenseInfo {
   name: string;
