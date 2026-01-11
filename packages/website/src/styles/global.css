@@ -8,3 +8,23 @@
   visibility: visible;
   opacity: 1;
 }
+
+.nav-dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -0.5rem;
+  left: 0;
+  right: 0;
+  height: 0.5rem;
+}
+
+.nav-dropdown-menu {
+  transition:
+    visibility 0s linear 150ms,
+    opacity 150ms ease-in-out;
+}
+
+.nav-dropdown:hover .nav-dropdown-menu,
+.nav-dropdown:focus-within .nav-dropdown-menu {
+  transition-delay: 0s;
+}
