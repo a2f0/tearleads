@@ -83,7 +83,7 @@ test.describe('Analytics page', () => {
     await expect(
       page
         .getByText('No events recorded yet')
-        .or(page.getByText('Recent Events'))
+        .or(page.getByText(/^Viewing \d+-\d+ of \d+ events?$/))
     ).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // Time filter buttons should be visible
@@ -135,7 +135,7 @@ test.describe('Analytics page', () => {
     // or if it crashed and is showing an error boundary
     const hasContent = await page
       .getByText('No events recorded yet')
-      .or(page.getByText('Recent Events'))
+      .or(page.getByText(/^Viewing \d+-\d+ of \d+ events?$/))
       .or(page.getByText('Loading events...'))
       .isVisible()
       .catch(() => false);
@@ -214,11 +214,11 @@ test.describe('Analytics page', () => {
     await expect(
       page
         .getByText('No events recorded yet')
-        .or(page.getByText('Recent Events'))
+        .or(page.getByText(/^Viewing \d+-\d+ of \d+ events?$/))
     ).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
-    // Should show Recent Events section (db operations should have generated events)
-    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: 5000 });
+    // Should show events section (db operations should have generated events)
+    await expect(page.getByTestId('analytics-header')).toBeVisible({ timeout: 5000 });
   });
 
   test('should change time filter without errors', async ({ page }) => {
@@ -244,7 +244,7 @@ test.describe('Analytics page', () => {
     await expect(
       page
         .getByText('No events recorded yet')
-        .or(page.getByText('Recent Events'))
+        .or(page.getByText(/^Viewing \d+-\d+ of \d+ events?$/))
     ).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // Helper to click a time filter and wait for UI to settle
@@ -291,7 +291,7 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for initial data to load
-    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
+    await expect(page.getByTestId('analytics-header')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // Click refresh multiple times rapidly to test stability
     const refreshButton = page.getByRole('button', { name: 'Refresh' });
@@ -321,7 +321,7 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for events to load
-    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
+    await expect(page.getByTestId('analytics-header')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // Clear events
     const clearButton = page.getByRole('button', { name: 'Clear events' });
@@ -388,7 +388,7 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for events to load
-    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
+    await expect(page.getByTestId('analytics-header')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // The event names should be formatted (e.g., "db_write" -> "Write")
     // At least one formatted event name should be visible
@@ -419,7 +419,7 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for events list to load (uses CSS grid, not table)
-    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
+    await expect(page.getByTestId('analytics-header')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
     const eventHeader = page.getByTestId('analytics-header');
     await expect(eventHeader).toBeVisible({ timeout: 5000 });
 
@@ -488,7 +488,7 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for data to load
-    await expect(page.getByText('Recent Events')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
+    await expect(page.getByTestId('analytics-header')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // Check that the page content doesn't overflow horizontally
     const scrollWidth = await page.evaluate(() => document.body.scrollWidth);
