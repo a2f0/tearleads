@@ -1,15 +1,13 @@
 import { RefreshCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { DurationChart } from '@/components/duration-chart';
-import {
-  formatDuration,
-  formatEventName
-} from '@/components/duration-chart/formatters';
+import { formatDuration } from '@/components/duration-chart/formatters';
 import { getDatabase } from '@/db';
 import {
   type AnalyticsEvent,
   type EventStats,
   getDistinctEventTypes,
+  getEventDisplayName,
   getEventStats,
   getEvents
 } from '@/db/analytics';
@@ -125,7 +123,7 @@ export function AnalyticsTab() {
               className="flex items-center justify-between text-xs"
             >
               <span className="truncate font-medium">
-                {formatEventName(stat.eventName)}
+                {getEventDisplayName(stat.eventName)}
               </span>
               <span className="text-muted-foreground">
                 {stat.count}x / {formatDuration(stat.avgDurationMs)} avg
