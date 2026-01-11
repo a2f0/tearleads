@@ -19,6 +19,10 @@ export default defineConfig({
           import.meta.dirname,
           '../api/dist/openapi.json'
         ),
+        '@rapid/shared/licenses.json': path.resolve(
+          import.meta.dirname,
+          '../shared/dist/licenses.json'
+        ),
       },
     },
   },

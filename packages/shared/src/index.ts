@@ -2,6 +2,13 @@
  * Shared types and utilities
  */
 
+// License types
+export interface LicenseInfo {
+  name: string;
+  version: string;
+  license: string;
+}
+
 // Types
 export interface PingData {
   version: string;
