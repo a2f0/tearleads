@@ -15,6 +15,7 @@ import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ActionToolbar, type ActionType } from '@/components/ui/action-toolbar';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
+import { EditableTitle } from '@/components/ui/editable-title';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
@@ -173,6 +174,18 @@ export function AudioDetail() {
     }
   }, [audio, navigate]);
 
+  const handleUpdateName = useCallback(
+    async (newName: string) => {
+      if (!id) return;
+
+      const db = getDatabase();
+      await db.update(files).set({ name: newName }).where(eq(files.id, id));
+
+      setAudio((prev) => (prev ? { ...prev, name: newName } : prev));
+    },
+    [id]
+  );
+
   const fetchAudio = useCallback(async () => {
     if (!isUnlocked || !id) return;
 
@@ -314,7 +327,11 @@ export function AudioDetail() {
 
       {isUnlocked && !loading && !error && audio && (
         <div className="space-y-6">
-          <h1 className="font-bold text-2xl tracking-tight">{audio.name}</h1>
+          <EditableTitle
+            value={audio.name}
+            onSave={handleUpdateName}
+            data-testid="audio-title"
+          />
 
           {objectUrl && (
             <div className="flex flex-col items-center gap-4 overflow-hidden rounded-lg border bg-muted p-8">
