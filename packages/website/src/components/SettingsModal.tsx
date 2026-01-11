@@ -1,5 +1,4 @@
-import { Dialog } from './Dialog';
-import { ThemeSelector } from './ThemeSelector';
+import { Dialog, ThemeSelector } from '@rapid/ui';
 
 interface SettingsModalProps {
   open: boolean;
