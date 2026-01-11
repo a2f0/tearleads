@@ -1,4 +1,10 @@
-import { Download, Loader2, Share2, Trash2 } from 'lucide-react';
+import {
+  Download,
+  Loader2,
+  type LucideIcon,
+  Share2,
+  Trash2
+} from 'lucide-react';
 import { Button } from './button';
 
 export type ActionType = 'download' | 'share' | 'delete';
@@ -12,6 +18,15 @@ interface ActionToolbarProps {
   disabled?: boolean;
 }
 
+interface ActionButtonConfig {
+  type: ActionType;
+  onAction: (() => void) | undefined;
+  Icon: LucideIcon;
+  label: string;
+  testId: string;
+  shouldRender: boolean;
+}
+
 export function ActionToolbar({
   onDownload,
   onShare,
@@ -22,59 +37,55 @@ export function ActionToolbar({
 }: ActionToolbarProps) {
   const isDisabled = disabled || loadingAction !== null;
 
+  const buttons: ActionButtonConfig[] = [
+    {
+      type: 'download',
+      onAction: onDownload,
+      Icon: Download,
+      label: 'Download',
+      testId: 'download-button',
+      shouldRender: !!onDownload
+    },
+    {
+      type: 'share',
+      onAction: onShare,
+      Icon: Share2,
+      label: 'Share',
+      testId: 'share-button',
+      shouldRender: !!onShare && canShare
+    },
+    {
+      type: 'delete',
+      onAction: onDelete,
+      Icon: Trash2,
+      label: 'Delete',
+      testId: 'delete-button',
+      shouldRender: !!onDelete
+    }
+  ];
+
   return (
     <div className="flex gap-1">
-      {onDownload && (
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onDownload}
-          disabled={isDisabled}
-          aria-label="Download"
-          title="Download"
-          data-testid="download-button"
-        >
-          {loadingAction === 'download' ? (
-            <Loader2 className="animate-spin" />
-          ) : (
-            <Download />
-          )}
-        </Button>
-      )}
-      {onShare && canShare && (
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onShare}
-          disabled={isDisabled}
-          aria-label="Share"
-          title="Share"
-          data-testid="share-button"
-        >
-          {loadingAction === 'share' ? (
-            <Loader2 className="animate-spin" />
-          ) : (
-            <Share2 />
-          )}
-        </Button>
-      )}
-      {onDelete && (
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onDelete}
-          disabled={isDisabled}
-          aria-label="Delete"
-          title="Delete"
-          data-testid="delete-button"
-        >
-          {loadingAction === 'delete' ? (
-            <Loader2 className="animate-spin" />
-          ) : (
-            <Trash2 />
-          )}
-        </Button>
-      )}
+      {buttons
+        .filter((button) => button.shouldRender)
+        .map(({ type, onAction, Icon, label, testId }) => (
+          <Button
+            key={type}
+            variant="outline"
+            size="icon"
+            onClick={onAction}
+            disabled={isDisabled}
+            aria-label={label}
+            title={label}
+            data-testid={testId}
+          >
+            {loadingAction === type ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <Icon />
+            )}
+          </Button>
+        ))}
     </div>
   );
 }
