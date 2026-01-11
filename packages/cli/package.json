@@ -8,14 +8,12 @@
   },
   "main": "dist/index.js",
   "files": [
-    "dist",
-    "wasm"
+    "dist"
   ],
   "scripts": {
-    "build": "tsc && pnpm copyWasm",
-    "copyWasm": "mkdir -p wasm && cp ../client/src/workers/sqlite-wasm/sqlite3.mjs ../client/src/workers/sqlite-wasm/sqlite3.wasm wasm/",
+    "build": "tsc",
     "dev": "tsx src/index.ts",
-    "clean": "rm -rf dist wasm",
+    "clean": "rm -rf dist",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
@@ -28,9 +26,11 @@
   "license": "Unlicensed",
   "dependencies": {
     "@rapid/shared": "workspace:*",
+    "better-sqlite3-multiple-ciphers": "12.5.0",
     "commander": "13.1.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "7.6.13",
     "@types/node": "25.0.3",
     "@vitest/coverage-v8": "4.0.16",
     "tsx": "4.21.0",

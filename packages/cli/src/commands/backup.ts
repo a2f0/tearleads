@@ -33,9 +33,9 @@ export async function runBackup(file: string): Promise<void> {
     }
   }
 
-  const jsonData = await exportDatabase();
+  const data = exportDatabase();
   const filePath = path.resolve(file);
-  await fs.writeFile(filePath, jsonData, 'utf-8');
+  await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
   console.log(`Backup saved to ${filePath}`);
 }
 
