@@ -1,19 +1,18 @@
 import { and, eq, like } from 'drizzle-orm';
 import {
   Calendar,
-  Download,
   FileType,
   HardDrive,
   Loader2,
   Music,
   Pause,
-  Play,
-  Share2
+  Play
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { ActionToolbar, type ActionType } from '@/components/ui/action-toolbar';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { getDatabase } from '@/db';
@@ -43,6 +42,7 @@ interface AudioInfo {
 
 export function AudioDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
   useAudioErrorHandler();
@@ -53,9 +53,7 @@ export function AudioDetail() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [canShare, setCanShare] = useState(false);
-  const [actionLoading, setActionLoading] = useState<
-    'download' | 'share' | null
-  >(null);
+  const [actionLoading, setActionLoading] = useState<ActionType | null>(null);
 
   // Track all created blob URLs to revoke on unmount.
   // We don't revoke on URL changes because the browser/audio player may still be
@@ -155,6 +153,33 @@ export function AudioDetail() {
       setActionLoading(null);
     }
   }, [audio, retrieveFileData]);
+
+  const handleDelete = useCallback(async () => {
+    if (!audio) return;
+
+    setActionLoading('delete');
+    try {
+      const db = getDatabase();
+      await db
+        .update(files)
+        .set({ deleted: true })
+        .where(eq(files.id, audio.id));
+
+      // Revoke blob URLs before navigating away
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+      if (thumbnailUrl) {
+        URL.revokeObjectURL(thumbnailUrl);
+      }
+
+      navigate('/audio');
+    } catch (err) {
+      console.error('Failed to delete audio:', err);
+      setError(err instanceof Error ? err.message : String(err));
+      setActionLoading(null);
+    }
+  }, [audio, objectUrl, thumbnailUrl, navigate]);
 
   const fetchAudio = useCallback(async () => {
     if (!isUnlocked || !id) return;
@@ -333,36 +358,13 @@ export function AudioDetail() {
             </div>
           )}
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleDownload}
-              disabled={actionLoading !== null}
-              data-testid="download-button"
-            >
-              {actionLoading === 'download' ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
-              )}
-              Download
-            </Button>
-            {canShare && (
-              <Button
-                variant="outline"
-                onClick={handleShare}
-                disabled={actionLoading !== null}
-                data-testid="share-button"
-              >
-                {actionLoading === 'share' ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Share2 className="mr-2 h-4 w-4" />
-                )}
-                Share
-              </Button>
-            )}
-          </div>
+          <ActionToolbar
+            onDownload={handleDownload}
+            onShare={handleShare}
+            onDelete={handleDelete}
+            loadingAction={actionLoading}
+            canShare={canShare}
+          />
 
           <div className="rounded-lg border">
             <div className="border-b px-4 py-3">
