@@ -1,14 +1,41 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DurationChart } from './DurationChart';
 
+// Track ResizeObserver callbacks for testing
+let resizeObserverCallback: ResizeObserverCallback | null = null;
+
 // Mock ResizeObserver which is required by Recharts ResponsiveContainer
-class ResizeObserverMock {
+// and our useContainerReady hook
+class ResizeObserverMock implements ResizeObserver {
+  constructor(callback: ResizeObserverCallback) {
+    resizeObserverCallback = callback;
+  }
   observe = vi.fn();
   unobserve = vi.fn();
   disconnect = vi.fn();
 }
 window.ResizeObserver = ResizeObserverMock;
+
+// Mock getBoundingClientRect to simulate container dimensions
+const mockGetBoundingClientRect = vi.fn();
+
+beforeEach(() => {
+  resizeObserverCallback = null;
+  // Default to valid dimensions
+  mockGetBoundingClientRect.mockReturnValue({
+    width: 400,
+    height: 200,
+    top: 0,
+    left: 0,
+    bottom: 200,
+    right: 400,
+    x: 0,
+    y: 0,
+    toJSON: () => ({})
+  });
+  Element.prototype.getBoundingClientRect = mockGetBoundingClientRect;
+});
 
 const mockEvents = [
   {
@@ -492,6 +519,87 @@ describe('DurationChart', () => {
       );
 
       expect(screen.getByText(/No events to display/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('container dimension handling', () => {
+    it('waits for valid container dimensions before rendering chart', async () => {
+      // Start with zero dimensions to simulate initial mount before layout
+      mockGetBoundingClientRect.mockReturnValue({
+        width: 0,
+        height: 0,
+        top: 0,
+        left: 0,
+        bottom: 0,
+        right: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({})
+      });
+
+      render(
+        <DurationChart
+          events={mockEvents}
+          selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
+          timeFilter="day"
+        />
+      );
+
+      // Title and legend should be visible even before chart renders
+      expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
+      expect(screen.getByText('3 events')).toBeInTheDocument();
+
+      // Simulate container getting valid dimensions via ResizeObserver
+      mockGetBoundingClientRect.mockReturnValue({
+        width: 400,
+        height: 200,
+        top: 0,
+        left: 0,
+        bottom: 200,
+        right: 400,
+        x: 0,
+        y: 0,
+        toJSON: () => ({})
+      });
+
+      // Trigger ResizeObserver callback with valid dimensions (wrapped in act for state update)
+      await act(async () => {
+        if (resizeObserverCallback) {
+          resizeObserverCallback(
+            [
+              {
+                contentRect: { width: 400, height: 200 } as DOMRectReadOnly,
+                target: document.createElement('div'),
+                borderBoxSize: [],
+                contentBoxSize: [],
+                devicePixelContentBoxSize: []
+              }
+            ],
+            new ResizeObserverMock(resizeObserverCallback)
+          );
+        }
+      });
+
+      // After valid dimensions, chart content should render
+      await waitFor(() => {
+        expect(screen.getByText('Database Setup')).toBeInTheDocument();
+      });
+    });
+
+    it('renders chart immediately when container has valid initial dimensions', () => {
+      // Container already has valid dimensions (default mock)
+      render(
+        <DurationChart
+          events={mockEvents}
+          selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
+          timeFilter="day"
+        />
+      );
+
+      // Chart should render immediately
+      expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
+      expect(screen.getByText('Database Setup')).toBeInTheDocument();
+      expect(screen.getByText('Database Unlock')).toBeInTheDocument();
     });
   });
 });
