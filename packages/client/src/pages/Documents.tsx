@@ -490,6 +490,7 @@ export function Documents() {
               label="PDF documents"
               source="files"
               compact
+              variant="row"
             />
           </div>
         ))}
