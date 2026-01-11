@@ -5,7 +5,7 @@
  * and provides CRUD functions for both localStorage and database storage.
  */
 
-import { eq } from 'drizzle-orm';
+import { inArray } from 'drizzle-orm';
 import type { Database } from './index';
 import { userSettings } from './schema';
 
@@ -92,18 +92,10 @@ export function setSettingInStorage<K extends UserSettingKey>(
 export async function getSettingsFromDb(
   db: Database
 ): Promise<Partial<{ [K in UserSettingKey]: SettingValueMap[K] }>> {
-  const rows = await db
+  const allRows = await db
     .select()
     .from(userSettings)
-    .where(eq(userSettings.key, 'theme'));
-
-  // Also get language separately since Drizzle doesn't have an easy IN operator
-  const langRows = await db
-    .select()
-    .from(userSettings)
-    .where(eq(userSettings.key, 'language'));
-
-  const allRows = [...rows, ...langRows];
+    .where(inArray(userSettings.key, ['theme', 'language']));
 
   const settings: Partial<{ [K in UserSettingKey]: SettingValueMap[K] }> = {};
 
@@ -129,16 +121,17 @@ export async function saveSettingToDb<K extends UserSettingKey>(
   key: K,
   value: SettingValueMap[K]
 ): Promise<void> {
+  const now = new Date();
   await db
     .insert(userSettings)
     .values({
       key,
       value,
-      updatedAt: new Date()
+      updatedAt: now
     })
     .onConflictDoUpdate({
       target: userSettings.key,
-      set: { value, updatedAt: new Date() }
+      set: { value, updatedAt: now }
     });
 }
 
