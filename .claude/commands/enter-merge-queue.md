@@ -44,6 +44,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
       - Extract the issue number(s) from the pattern
       - Remove ALL auto-close language from the PR body using `gh pr edit --body`
       - Store the first extracted issue number as `associated_issue_number`
+      - **Note**: Only the first issue is tracked for QA. If the PR references multiple issues (e.g., `Fixes #123, Fixes #456`), run `/mark-needs-qa` separately for each issue that needs QA tracking, or manually create QA issues for the others.
 
    2. **Find or create associated issue**: If no issue number was extracted from the PR body:
       - Search for an existing open issue that references this PR: `gh issue list --search "PR #<number>" --state open --json number --limit 1`
