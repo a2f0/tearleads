@@ -1,5 +1,6 @@
-import { AlertTriangle, Download } from 'lucide-react';
+import { AlertTriangle, ChevronRight, Download, Scale } from 'lucide-react';
 import { useCallback, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ThemeSelector } from '@/components/settings';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
@@ -167,6 +168,24 @@ export function Settings() {
           </div>
         )}
       </div>
+
+      {/* Open Source Licenses Section */}
+      <Link
+        to="/licenses"
+        className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
+        data-testid="open-source-licenses-link"
+      >
+        <div className="flex items-center gap-3">
+          <Scale className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <p className="font-medium">Open Source Licenses</p>
+            <p className="text-muted-foreground text-sm">
+              View licenses for third-party software
+            </p>
+          </div>
+        </div>
+        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+      </Link>
 
       <div className="text-center">
         <p
