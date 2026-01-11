@@ -1,7 +1,7 @@
-import { ThemeProvider } from '@rapid/ui';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ThemeSelector } from './ThemeSelector';
+import { ThemeProvider } from '../context/themeProvider.js';
+import { ThemeSelector } from './themeSelector.js';
 
 const renderWithProvider = (ui: React.ReactNode) => {
   return render(<ThemeProvider>{ui}</ThemeProvider>);

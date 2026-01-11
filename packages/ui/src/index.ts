@@ -4,7 +4,13 @@ export {
   type ConnectionIndicatorProps,
   type ConnectionState
 } from './components/connectionIndicator.js';
+export { Dialog, type DialogProps } from './components/dialog.js';
 export { Footer, type FooterProps } from './components/footer.js';
+export {
+  ThemePreview,
+  type ThemePreviewProps
+} from './components/themePreview.js';
+export { ThemeSelector } from './components/themeSelector.js';
 export {
   ThemeSwitcher,
   type ThemeSwitcherProps
