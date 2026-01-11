@@ -57,6 +57,12 @@ export function AudioDetail() {
     'download' | 'share' | null
   >(null);
 
+  // Track all created blob URLs to revoke on unmount.
+  // We don't revoke on URL changes because the browser/audio player may still be
+  // loading the content asynchronously, causing playback issues.
+  const urlsToRevoke = useRef<string[]>([]);
+  const objectUrlRef = useRef<string | null>(null);
+
   const isCurrentTrack = currentTrack?.id === id;
   const isTrackPlaying = isCurrentTrack && isPlaying;
 
@@ -179,11 +185,6 @@ export function AudioDetail() {
         )
         .limit(1);
 
-      if (result.length === 0) {
-        setError('Audio file not found');
-        return;
-      }
-
       const row = result[0];
       if (!row) {
         setError('Audio file not found');
@@ -210,6 +211,8 @@ export function AudioDetail() {
       new Uint8Array(buffer).set(data);
       const blob = new Blob([buffer], { type: audioInfo.mimeType });
       const url = URL.createObjectURL(blob);
+      urlsToRevoke.current.push(url);
+      objectUrlRef.current = url;
       setObjectUrl(url);
 
       // Load thumbnail if available
@@ -223,6 +226,7 @@ export function AudioDetail() {
           new Uint8Array(thumbBuffer).set(thumbData);
           const thumbBlob = new Blob([thumbBuffer], { type: 'image/jpeg' });
           const thumbUrl = URL.createObjectURL(thumbBlob);
+          urlsToRevoke.current.push(thumbUrl);
           setThumbnailUrl(thumbUrl);
         } catch (err) {
           console.warn('Failed to load thumbnail:', err);
@@ -247,27 +251,20 @@ export function AudioDetail() {
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
 
-  // Cleanup audio object URL on unmount (only if not currently playing)
-  // Uses ref to avoid stale closure when currentTrack changes
-  // Separate from thumbnail cleanup to avoid revoking audio URL when thumbnail loads
+  // Only revoke URLs on unmount, not on URL changes.
+  // Skip revoking the current objectUrl if this track is still playing
+  // (AudioContext manages the playing track's lifecycle).
   useEffect(() => {
-    const urlToCleanup = objectUrl;
     return () => {
-      if (urlToCleanup && currentTrackRef.current?.id !== id) {
-        URL.revokeObjectURL(urlToCleanup);
+      const currentlyPlayingUrl =
+        currentTrackRef.current?.id === id ? objectUrlRef.current : null;
+      for (const url of urlsToRevoke.current) {
+        if (url !== currentlyPlayingUrl) {
+          URL.revokeObjectURL(url);
+        }
       }
     };
-  }, [objectUrl, id]);
-
-  // Cleanup thumbnail URL on unmount
-  useEffect(() => {
-    const urlToCleanup = thumbnailUrl;
-    return () => {
-      if (urlToCleanup) {
-        URL.revokeObjectURL(urlToCleanup);
-      }
-    };
-  }, [thumbnailUrl]);
+  }, [id]);
 
   return (
     <div className="space-y-6">
