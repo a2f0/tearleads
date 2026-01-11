@@ -19,6 +19,7 @@ import {
   clearEvents,
   type EventStats,
   getDistinctEventTypes,
+  getEventDisplayName,
   getEventStats,
   getEvents,
   type SortColumn,
@@ -59,8 +60,6 @@ const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
   all: 'All Time'
 };
 const TIME_FILTERS: TimeFilter[] = ['hour', 'day', 'week', 'all'];
-
-const EVENT_NAME_ACRONYMS = ['api', 'llm'];
 
 const getSuccessRateColor = (rate: number) => {
   if (rate == null || Number.isNaN(rate)) return 'text-muted-foreground';
@@ -265,19 +264,6 @@ export function Analytics() {
     return date.toLocaleString();
   };
 
-  const formatEventName = (name: string | undefined) => {
-    if (!name) return '(Unknown)';
-    return name
-      .replace('db_', '')
-      .replace(/_/g, ' ')
-      .replace(/\b\w+/g, (word) => {
-        if (EVENT_NAME_ACRONYMS.includes(word.toLowerCase())) {
-          return word.toUpperCase();
-        }
-        return word.charAt(0).toUpperCase() + word.substring(1);
-      });
-  };
-
   const formatCount = (count: number) => {
     if (count == null || Number.isNaN(count)) return '—';
     return count.toString();
@@ -380,7 +366,7 @@ export function Analytics() {
                     className="text-xs sm:text-sm"
                     onClick={() => toggleEventType(eventType)}
                   >
-                    {formatEventName(eventType)}
+                    {getEventDisplayName(eventType)}
                   </Button>
                 ))}
               </div>
@@ -486,7 +472,7 @@ export function Analytics() {
                         data-testid="summary-row"
                       >
                         <td className="truncate px-2 py-2 font-medium sm:px-4">
-                          {formatEventName(stat.eventName)}
+                          {getEventDisplayName(stat.eventName)}
                         </td>
                         <td className="px-2 py-2 sm:px-4">
                           {formatCount(stat.count)}
@@ -607,7 +593,7 @@ export function Analytics() {
                         >
                           <div className="grid grid-cols-[1fr_80px_80px] gap-2 px-2 py-2 sm:grid-cols-[1fr_100px_100px_160px] sm:gap-4 sm:px-4 sm:py-3">
                             <div className="truncate font-medium">
-                              {formatEventName(event.eventName)}
+                              {getEventDisplayName(event.eventName)}
                             </div>
                             <div>
                               <span className="inline-flex items-center gap-1">
