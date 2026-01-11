@@ -26,7 +26,7 @@ export function VirtualListStatus({
   const getStatusText = () => {
     // Case 1: No items loaded
     if (loadedCount === 0) {
-      return `0 ${itemLabel}s${searchQuery ? ' found' : ''}`;
+      return `0 ${pluralLabel}${searchQuery ? ' found' : ''}`;
     }
 
     const hasMoreIndicator = hasMore ? '+' : '';
