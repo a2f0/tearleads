@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useState } from 'react';
+import { useResizable } from '@/hooks/useResizable';
 import { cn } from '@/lib/utils';
 import { AnalyticsTab } from './AnalyticsTab';
 import { LogsTab } from './LogsTab';
@@ -22,79 +23,11 @@ interface HUDProps {
 
 export function HUD({ isOpen, onClose }: HUDProps) {
   const [activeTab, setActiveTab] = useState<TabId>('analytics');
-  const [height, setHeight] = useState(DEFAULT_HEIGHT);
-  const isDraggingRef = useRef(false);
-  const startYRef = useRef(0);
-  const startHeightRef = useRef(0);
-
-  const handleDragStart = useCallback(
-    (clientY: number) => {
-      isDraggingRef.current = true;
-      startYRef.current = clientY;
-      startHeightRef.current = height;
-      document.body.style.cursor = 'ns-resize';
-      document.body.style.userSelect = 'none';
-    },
-    [height]
-  );
-
-  const handleDragMove = useCallback((clientY: number) => {
-    if (!isDraggingRef.current) return;
-    const delta = startYRef.current - clientY;
-    const maxHeight = window.innerHeight * MAX_HEIGHT_PERCENT;
-    const newHeight = Math.min(
-      maxHeight,
-      Math.max(MIN_HEIGHT, startHeightRef.current + delta)
-    );
-    setHeight(newHeight);
-  }, []);
-
-  const handleDragEnd = useCallback(() => {
-    isDraggingRef.current = false;
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-  }, []);
-
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      handleDragStart(e.clientY);
-
-      const onMouseMove = (e: MouseEvent) => handleDragMove(e.clientY);
-      const onMouseUp = () => {
-        handleDragEnd();
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-      };
-
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-    },
-    [handleDragStart, handleDragMove, handleDragEnd]
-  );
-
-  const handleTouchStart = useCallback(
-    (e: React.TouchEvent) => {
-      const touch = e.touches[0];
-      if (!touch) return;
-      handleDragStart(touch.clientY);
-
-      const onTouchMove = (e: TouchEvent) => {
-        const touch = e.touches[0];
-        if (!touch) return;
-        handleDragMove(touch.clientY);
-      };
-      const onTouchEnd = () => {
-        handleDragEnd();
-        document.removeEventListener('touchmove', onTouchMove);
-        document.removeEventListener('touchend', onTouchEnd);
-      };
-
-      document.addEventListener('touchmove', onTouchMove, { passive: true });
-      document.addEventListener('touchend', onTouchEnd);
-    },
-    [handleDragStart, handleDragMove, handleDragEnd]
-  );
+  const { height, handleMouseDown, handleTouchStart } = useResizable({
+    defaultHeight: DEFAULT_HEIGHT,
+    minHeight: MIN_HEIGHT,
+    maxHeightPercent: MAX_HEIGHT_PERCENT
+  });
 
   if (!isOpen) {
     return null;
