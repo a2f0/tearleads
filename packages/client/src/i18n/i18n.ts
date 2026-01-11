@@ -2,6 +2,7 @@ import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
 
+import type { SettingsSyncedDetail } from '../db/user-settings';
 import { en } from './translations/en';
 
 export const supportedLanguages = ['en', 'es', 'ua'] as const;
@@ -69,19 +70,18 @@ if (
 }
 
 // Listen for settings-synced event from SettingsProvider (database sync)
+function handleSettingsSynced(event: CustomEvent<SettingsSyncedDetail>): void {
+  const { language } = event.detail.settings;
+  if (language && isSupportedLanguage(language) && language !== i18n.language) {
+    i18n.changeLanguage(language);
+  }
+}
+
 if (typeof window !== 'undefined') {
-  window.addEventListener('settings-synced', ((
-    event: CustomEvent<{ settings: { language?: string } }>
-  ) => {
-    const { settings } = event.detail;
-    if (
-      settings.language &&
-      isSupportedLanguage(settings.language) &&
-      settings.language !== i18n.language
-    ) {
-      i18n.changeLanguage(settings.language);
-    }
-  }) as EventListener);
+  window.addEventListener(
+    'settings-synced',
+    handleSettingsSynced as EventListener
+  );
 }
 
 export { i18n };

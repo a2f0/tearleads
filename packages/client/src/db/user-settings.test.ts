@@ -188,7 +188,7 @@ describe('user-settings', () => {
 
   describe('getSettingsFromDb', () => {
     it('returns empty object when no settings in db', async () => {
-      mockWhere.mockResolvedValue([]);
+      mockWhere.mockResolvedValueOnce([]);
 
       const result = await getSettingsFromDb(mockDb);
 
@@ -196,10 +196,7 @@ describe('user-settings', () => {
     });
 
     it('returns theme from database', async () => {
-      // First call for theme
       mockWhere.mockResolvedValueOnce([{ key: 'theme', value: 'dark' }]);
-      // Second call for language
-      mockWhere.mockResolvedValueOnce([]);
 
       const result = await getSettingsFromDb(mockDb);
 
@@ -207,9 +204,6 @@ describe('user-settings', () => {
     });
 
     it('returns language from database', async () => {
-      // First call for theme
-      mockWhere.mockResolvedValueOnce([]);
-      // Second call for language
       mockWhere.mockResolvedValueOnce([{ key: 'language', value: 'es' }]);
 
       const result = await getSettingsFromDb(mockDb);
@@ -218,8 +212,10 @@ describe('user-settings', () => {
     });
 
     it('returns both theme and language from database', async () => {
-      mockWhere.mockResolvedValueOnce([{ key: 'theme', value: 'tokyo-night' }]);
-      mockWhere.mockResolvedValueOnce([{ key: 'language', value: 'ua' }]);
+      mockWhere.mockResolvedValueOnce([
+        { key: 'theme', value: 'tokyo-night' },
+        { key: 'language', value: 'ua' }
+      ]);
 
       const result = await getSettingsFromDb(mockDb);
 
@@ -230,8 +226,10 @@ describe('user-settings', () => {
     });
 
     it('ignores null values', async () => {
-      mockWhere.mockResolvedValueOnce([{ key: 'theme', value: null }]);
-      mockWhere.mockResolvedValueOnce([{ key: 'language', value: null }]);
+      mockWhere.mockResolvedValueOnce([
+        { key: 'theme', value: null },
+        { key: 'language', value: null }
+      ]);
 
       const result = await getSettingsFromDb(mockDb);
 
@@ -240,7 +238,6 @@ describe('user-settings', () => {
 
     it('ignores invalid theme values', async () => {
       mockWhere.mockResolvedValueOnce([{ key: 'theme', value: 'invalid' }]);
-      mockWhere.mockResolvedValueOnce([]);
 
       const result = await getSettingsFromDb(mockDb);
 
@@ -248,7 +245,6 @@ describe('user-settings', () => {
     });
 
     it('ignores invalid language values', async () => {
-      mockWhere.mockResolvedValueOnce([]);
       mockWhere.mockResolvedValueOnce([{ key: 'language', value: 'fr' }]);
 
       const result = await getSettingsFromDb(mockDb);
