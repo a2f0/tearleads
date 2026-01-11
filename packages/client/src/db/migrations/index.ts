@@ -43,7 +43,8 @@ async function recordMigration(
   version: number
 ): Promise<void> {
   await adapter.execute(
-    `INSERT INTO schema_migrations (version, applied_at) VALUES (${version}, ${Date.now()})`
+    'INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)',
+    [version, Date.now()]
   );
 }
 
@@ -59,26 +60,32 @@ export async function runMigrations(adapter: DatabaseAdapter): Promise<{
 }> {
   const applied: number[] = [];
 
+  // Ensure migrations are sorted by version
+  const sortedMigrations = migrations
+    .slice()
+    .sort((a, b) => a.version - b.version);
+
   // Always run v001 first to ensure schema_migrations table exists
   // v001 uses CREATE TABLE IF NOT EXISTS, so it's idempotent
-  const v001Migration = migrations[0];
+  const v001Migration = sortedMigrations.find((m) => m.version === 1);
   if (!v001Migration) {
     throw new Error('v001 migration is required');
   }
   await v001Migration.up(adapter);
 
   // Check current version
-  const currentVersion = await getCurrentVersion(adapter);
+  let currentVersion = await getCurrentVersion(adapter);
 
-  // If this is a fresh database, record v001
+  // If this is a fresh database, record v001 and update our local version
   if (currentVersion === 0) {
     await recordMigration(adapter, 1);
     applied.push(1);
+    currentVersion = 1;
   }
 
   // Run any migrations newer than current version
-  for (const migration of migrations) {
-    if (migration.version > Math.max(currentVersion, 1)) {
+  for (const migration of sortedMigrations) {
+    if (migration.version > currentVersion) {
       await migration.up(adapter);
       await recordMigration(adapter, migration.version);
       applied.push(migration.version);
