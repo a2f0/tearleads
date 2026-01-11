@@ -23,6 +23,7 @@ import {
   clearFileStorageForInstance,
   clearFileStorageInstance,
   createRetrieveLogger,
+  createStoreLogger,
   deleteFileStorageForInstance,
   getCurrentStorageInstanceId,
   getFileStorage,
@@ -30,6 +31,7 @@ import {
   initializeFileStorage,
   isFileStorageInitialized,
   type RetrieveMetrics,
+  type StoreMetrics,
   setCurrentStorageInstanceId
 } from './opfs';
 
@@ -443,6 +445,103 @@ describe('opfs storage', () => {
       });
     });
 
+    describe('measureStore', () => {
+      it('encrypts and stores data with timing', async () => {
+        const storage = await initializeFileStorage(
+          testEncryptionKey,
+          testInstanceId
+        );
+        const data = new Uint8Array([1, 2, 3, 4]);
+
+        const path = await storage.measureStore('file-id', data);
+
+        expect(path).toBe('file-id.enc');
+        expect(mockEncrypt).toHaveBeenCalledWith(data, mockCryptoKey);
+      });
+
+      it('calls onMetrics callback with correct data on success', async () => {
+        const storage = await initializeFileStorage(
+          testEncryptionKey,
+          testInstanceId
+        );
+        const data = new Uint8Array([1, 2, 3, 4]);
+
+        const onMetrics = vi.fn();
+        await storage.measureStore('file-id', data, onMetrics);
+
+        // Wait for fire-and-forget callback
+        await new Promise((r) => setTimeout(r, 10));
+
+        expect(onMetrics).toHaveBeenCalledWith(
+          expect.objectContaining({
+            storagePath: 'file-id.enc',
+            success: true,
+            fileSize: 4 // input data size
+          })
+        );
+        const callArgs = onMetrics.mock.calls[0];
+        expect(callArgs).toBeDefined();
+        expect(callArgs?.[0].durationMs).toBeGreaterThanOrEqual(0);
+      });
+
+      it('calls onMetrics callback with success=false on error', async () => {
+        const storage = await initializeFileStorage(
+          testEncryptionKey,
+          testInstanceId
+        );
+        const data = new Uint8Array([1, 2, 3, 4]);
+
+        mockEncrypt.mockRejectedValueOnce(new Error('Encryption failed'));
+
+        const onMetrics = vi.fn();
+        await expect(
+          storage.measureStore('file-id', data, onMetrics)
+        ).rejects.toThrow('Encryption failed');
+
+        // Wait for fire-and-forget callback
+        await new Promise((r) => setTimeout(r, 10));
+
+        expect(onMetrics).toHaveBeenCalledWith(
+          expect.objectContaining({
+            storagePath: '',
+            success: false,
+            fileSize: 4
+          })
+        );
+      });
+
+      it('works without onMetrics callback', async () => {
+        const storage = await initializeFileStorage(
+          testEncryptionKey,
+          testInstanceId
+        );
+        const data = new Uint8Array([1, 2, 3, 4]);
+
+        const path = await storage.measureStore('file-id', data);
+
+        expect(path).toBe('file-id.enc');
+      });
+
+      it('silently ignores callback errors', async () => {
+        const storage = await initializeFileStorage(
+          testEncryptionKey,
+          testInstanceId
+        );
+        const data = new Uint8Array([1, 2, 3, 4]);
+
+        const onMetrics = vi
+          .fn()
+          .mockRejectedValue(new Error('Callback error'));
+        const path = await storage.measureStore('file-id', data, onMetrics);
+
+        // Wait for fire-and-forget callback
+        await new Promise((r) => setTimeout(r, 10));
+
+        // Should still return the path
+        expect(path).toBe('file-id.enc');
+      });
+    });
+
     describe('retrieve', () => {
       it('retrieves and decrypts data', async () => {
         const storage = await initializeFileStorage(
@@ -801,6 +900,62 @@ describe('opfs storage', () => {
         })
       };
       const logger = createRetrieveLogger(mockDb);
+
+      expect(logger).toBeInstanceOf(Function);
+      // Verify it returns a promise
+      const result = logger({
+        storagePath: 'test.enc',
+        durationMs: 100,
+        success: true,
+        fileSize: 500
+      });
+      expect(result).toBeInstanceOf(Promise);
+    });
+  });
+
+  describe('createStoreLogger', () => {
+    it('creates a logger function that logs file_encrypt events', async () => {
+      const mockLogEvent = vi.fn();
+      const mockDb: DatabaseInsert = {
+        insert: vi.fn().mockReturnValue({
+          values: vi.fn()
+        })
+      };
+
+      // Reset modules and mock before re-importing
+      vi.resetModules();
+      vi.doMock('@/db/analytics', () => ({
+        logEvent: mockLogEvent
+      }));
+
+      // Re-import to get the mocked version
+      const { createStoreLogger: createLogger } = await import('./opfs');
+
+      const logger = createLogger(mockDb);
+      const metrics: StoreMetrics = {
+        storagePath: 'test.enc',
+        durationMs: 200,
+        success: true,
+        fileSize: 2048
+      };
+
+      await logger(metrics);
+
+      expect(mockLogEvent).toHaveBeenCalledWith(
+        mockDb,
+        'file_encrypt',
+        200,
+        true
+      );
+    });
+
+    it('returns an async function', () => {
+      const mockDb: DatabaseInsert = {
+        insert: vi.fn().mockReturnValue({
+          values: vi.fn()
+        })
+      };
+      const logger = createStoreLogger(mockDb);
 
       expect(logger).toBeInstanceOf(Function);
       // Verify it returns a promise

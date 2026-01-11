@@ -40,7 +40,8 @@ vi.mock('@/db/analytics', () => ({
 vi.mock('@/storage/opfs', () => ({
   getFileStorage: vi.fn(),
   initializeFileStorage: vi.fn(),
-  isFileStorageInitialized: vi.fn()
+  isFileStorageInitialized: vi.fn(),
+  createStoreLogger: vi.fn(() => vi.fn())
 }));
 
 import { fileTypeFromBuffer } from 'file-type';
@@ -54,7 +55,8 @@ import { getFileStorage, isFileStorageInitialized } from '@/storage/opfs';
 describe('useFileUpload', () => {
   const mockEncryptionKey = new Uint8Array(32);
   const mockStorage = {
-    store: vi.fn()
+    store: vi.fn(),
+    measureStore: vi.fn()
   };
 
   // Drizzle-style mock database with chainable methods
@@ -100,7 +102,8 @@ describe('useFileUpload', () => {
       new Uint8Array([1, 2, 3])
     );
     vi.mocked(computeContentHash).mockResolvedValue('mock-hash');
-    vi.mocked(mockStorage.store).mockResolvedValue('storage/path');
+    vi.mocked(mockStorage.measureStore).mockResolvedValue('storage/path');
+    vi.mocked(mockStorage.measureStore).mockResolvedValue('storage/path');
     vi.mocked(isThumbnailSupported).mockReturnValue(false);
     vi.mocked(generateThumbnail).mockResolvedValue(new Uint8Array([1, 2, 3]));
     vi.mocked(logEvent).mockResolvedValue(undefined);
@@ -231,7 +234,7 @@ describe('useFileUpload', () => {
       expect(uploadResult.isDuplicate).toBe(false);
       expect(mockDb.insert).toHaveBeenCalled();
       // Should store original but no thumbnail
-      expect(mockStorage.store).toHaveBeenCalledTimes(1);
+      expect(mockStorage.measureStore).toHaveBeenCalledTimes(1);
       expect(generateThumbnail).not.toHaveBeenCalled();
     });
   });
@@ -268,7 +271,7 @@ describe('useFileUpload', () => {
         ext: 'png',
         mime: 'image/png'
       });
-      vi.mocked(mockStorage.store).mockRejectedValue(
+      vi.mocked(mockStorage.measureStore).mockRejectedValue(
         new Error('Storage quota exceeded')
       );
 
@@ -331,7 +334,7 @@ describe('useFileUpload', () => {
       expect(uploadResult.id).toBe('existing-file-id');
       expect(uploadResult.isDuplicate).toBe(true);
       // Should not call storage.store for duplicates
-      expect(mockStorage.store).not.toHaveBeenCalled();
+      expect(mockStorage.measureStore).not.toHaveBeenCalled();
     });
   });
 
@@ -397,12 +400,9 @@ describe('useFileUpload', () => {
         new Uint8Array([1, 2, 3]),
         'image/png'
       );
-      // Should store both original and thumbnail
-      expect(mockStorage.store).toHaveBeenCalledTimes(2);
-      expect(mockStorage.store).toHaveBeenCalledWith(
-        'test-uuid-1234',
-        new Uint8Array([1, 2, 3])
-      );
+      // Should store original with measureStore and thumbnail with store
+      expect(mockStorage.measureStore).toHaveBeenCalledTimes(1);
+      expect(mockStorage.store).toHaveBeenCalledTimes(1);
       expect(mockStorage.store).toHaveBeenCalledWith(
         'test-uuid-1234-thumb',
         new Uint8Array([4, 5, 6])
@@ -423,7 +423,7 @@ describe('useFileUpload', () => {
 
       expect(generateThumbnail).not.toHaveBeenCalled();
       // Should only store original
-      expect(mockStorage.store).toHaveBeenCalledTimes(1);
+      expect(mockStorage.measureStore).toHaveBeenCalledTimes(1);
     });
 
     it('continues upload when thumbnail generation fails', async () => {
@@ -444,7 +444,7 @@ describe('useFileUpload', () => {
       expect(uploadResult.id).toBe('test-uuid-1234');
       expect(uploadResult.isDuplicate).toBe(false);
       // Should only store original (thumbnail failed)
-      expect(mockStorage.store).toHaveBeenCalledTimes(1);
+      expect(mockStorage.measureStore).toHaveBeenCalledTimes(1);
     });
 
     it('logs analytics event for thumbnail generation', async () => {
