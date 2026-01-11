@@ -16,21 +16,24 @@ const mockEvents = [
     eventName: 'db_setup',
     durationMs: 150,
     success: true,
-    timestamp: new Date('2024-01-15T10:00:00Z')
+    timestamp: new Date('2024-01-15T10:00:00Z'),
+    detail: null
   },
   {
     id: '2',
     eventName: 'db_unlock',
     durationMs: 50,
     success: true,
-    timestamp: new Date('2024-01-15T10:05:00Z')
+    timestamp: new Date('2024-01-15T10:05:00Z'),
+    detail: null
   },
   {
     id: '3',
     eventName: 'db_setup',
     durationMs: 200,
     success: false,
-    timestamp: new Date('2024-01-15T10:10:00Z')
+    timestamp: new Date('2024-01-15T10:10:00Z'),
+    detail: null
   }
 ];
 
@@ -68,8 +71,8 @@ describe('DurationChart', () => {
       />
     );
 
-    expect(screen.getByText('Setup')).toBeInTheDocument();
-    expect(screen.getByText('Unlock')).toBeInTheDocument();
+    expect(screen.getByText('Database Setup')).toBeInTheDocument();
+    expect(screen.getByText('Database Unlock')).toBeInTheDocument();
   });
 
   it('filters events based on selectedEventTypes', () => {
@@ -81,8 +84,8 @@ describe('DurationChart', () => {
       />
     );
 
-    expect(screen.getByText('Setup')).toBeInTheDocument();
-    expect(screen.queryByText('Unlock')).not.toBeInTheDocument();
+    expect(screen.getByText('Database Setup')).toBeInTheDocument();
+    expect(screen.queryByText('Database Unlock')).not.toBeInTheDocument();
   });
 
   it('renders with empty events array', () => {
@@ -186,42 +189,56 @@ describe('DurationChart', () => {
       );
 
       // db_setup -> Setup, db_unlock -> Unlock
-      expect(screen.getByText('Setup')).toBeInTheDocument();
-      expect(screen.getByText('Unlock')).toBeInTheDocument();
+      expect(screen.getByText('Database Setup')).toBeInTheDocument();
+      expect(screen.getByText('Database Unlock')).toBeInTheDocument();
     });
 
     it('handles underscores in event names', () => {
       const eventsWithUnderscores = [
         {
           id: '1',
-          eventName: 'db_file_upload',
+          eventName: 'db_session_restore',
           durationMs: 100,
           success: true,
-          timestamp: new Date('2024-01-15T10:00:00Z')
+          timestamp: new Date('2024-01-15T10:00:00Z'),
+          detail: null
         }
       ];
 
       render(
         <DurationChart
           events={eventsWithUnderscores}
-          selectedEventTypes={new Set(['db_file_upload'])}
+          selectedEventTypes={new Set(['db_session_restore'])}
           timeFilter="day"
         />
       );
 
-      // db_file_upload -> File Upload
-      expect(screen.getByText('File Upload')).toBeInTheDocument();
+      // db_session_restore -> Session Restore
+      expect(screen.getByText('Session Restore')).toBeInTheDocument();
     });
   });
 
   describe('color cycling', () => {
     it('cycles through colors for many event types', () => {
-      const manyEventTypes = Array.from({ length: 10 }, (_, i) => ({
+      const eventSlugs = [
+        'db_setup',
+        'db_unlock',
+        'db_session_restore',
+        'db_password_change',
+        'file_encrypt',
+        'file_decrypt',
+        'api_get_ping',
+        'api_get_admin_redis_keys',
+        'llm_model_load',
+        'llm_prompt_text'
+      ];
+      const manyEventTypes = eventSlugs.map((eventName, i) => ({
         id: String(i),
-        eventName: `event_type_${i}`,
+        eventName,
         durationMs: 100 + i,
         success: true,
-        timestamp: new Date('2024-01-15T10:00:00Z')
+        timestamp: new Date('2024-01-15T10:00:00Z'),
+        detail: null
       }));
 
       const selectedTypes = new Set(manyEventTypes.map((e) => e.eventName));
@@ -234,9 +251,17 @@ describe('DurationChart', () => {
         />
       );
 
-      // Should render all 10 legend items
-      const legendItems = screen.getAllByText(/Event Type \d/);
-      expect(legendItems.length).toBe(10);
+      // Should render all 10 legend items (one per event type)
+      expect(screen.getByText('Database Setup')).toBeInTheDocument();
+      expect(screen.getByText('Database Unlock')).toBeInTheDocument();
+      expect(screen.getByText('Session Restore')).toBeInTheDocument();
+      expect(screen.getByText('Password Change')).toBeInTheDocument();
+      expect(screen.getByText('File Encrypt')).toBeInTheDocument();
+      expect(screen.getByText('File Decrypt')).toBeInTheDocument();
+      expect(screen.getByText('API Ping')).toBeInTheDocument();
+      expect(screen.getByText('API List Redis Keys')).toBeInTheDocument();
+      expect(screen.getByText('LLM Model Load')).toBeInTheDocument();
+      expect(screen.getByText('LLM Text Prompt')).toBeInTheDocument();
     });
   });
 
@@ -245,22 +270,23 @@ describe('DurationChart', () => {
       const failedEvents = [
         {
           id: '1',
-          eventName: 'db_operation',
+          eventName: 'file_decrypt',
           durationMs: 150,
           success: false,
-          timestamp: new Date('2024-01-15T10:00:00Z')
+          timestamp: new Date('2024-01-15T10:00:00Z'),
+          detail: null
         }
       ];
 
       render(
         <DurationChart
           events={failedEvents}
-          selectedEventTypes={new Set(['db_operation'])}
+          selectedEventTypes={new Set(['file_decrypt'])}
           timeFilter="day"
         />
       );
 
-      expect(screen.getByText('Operation')).toBeInTheDocument();
+      expect(screen.getByText('File Decrypt')).toBeInTheDocument();
       expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
     });
   });
@@ -274,7 +300,8 @@ describe('DurationChart', () => {
           eventName: 'db_setup',
           durationMs: 175,
           success: true,
-          timestamp: new Date('2024-01-15T10:15:00Z')
+          timestamp: new Date('2024-01-15T10:15:00Z'),
+          detail: null
         }
       ];
 
@@ -287,8 +314,8 @@ describe('DurationChart', () => {
       );
 
       // Should still show only 2 legend items even with 4 events
-      expect(screen.getByText('Setup')).toBeInTheDocument();
-      expect(screen.getByText('Unlock')).toBeInTheDocument();
+      expect(screen.getByText('Database Setup')).toBeInTheDocument();
+      expect(screen.getByText('Database Unlock')).toBeInTheDocument();
     });
   });
 
@@ -297,22 +324,23 @@ describe('DurationChart', () => {
       const fastEvents = [
         {
           id: '1',
-          eventName: 'db_fast',
+          eventName: 'api_get_ping',
           durationMs: 50,
           success: true,
-          timestamp: new Date('2024-01-15T10:00:00Z')
+          timestamp: new Date('2024-01-15T10:00:00Z'),
+          detail: null
         }
       ];
 
       render(
         <DurationChart
           events={fastEvents}
-          selectedEventTypes={new Set(['db_fast'])}
+          selectedEventTypes={new Set(['api_get_ping'])}
           timeFilter="day"
         />
       );
 
-      expect(screen.getByText('Fast')).toBeInTheDocument();
+      expect(screen.getByText('API Ping')).toBeInTheDocument();
       expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
     });
 
@@ -320,22 +348,23 @@ describe('DurationChart', () => {
       const slowEvents = [
         {
           id: '1',
-          eventName: 'db_slow',
+          eventName: 'llm_model_load',
           durationMs: 2500,
           success: true,
-          timestamp: new Date('2024-01-15T10:00:00Z')
+          timestamp: new Date('2024-01-15T10:00:00Z'),
+          detail: null
         }
       ];
 
       render(
         <DurationChart
           events={slowEvents}
-          selectedEventTypes={new Set(['db_slow'])}
+          selectedEventTypes={new Set(['llm_model_load'])}
           timeFilter="day"
         />
       );
 
-      expect(screen.getByText('Slow')).toBeInTheDocument();
+      expect(screen.getByText('LLM Model Load')).toBeInTheDocument();
     });
   });
 
@@ -344,17 +373,18 @@ describe('DurationChart', () => {
       const hourEvents = [
         {
           id: '1',
-          eventName: 'db_test',
+          eventName: 'db_setup',
           durationMs: 100,
           success: true,
-          timestamp: new Date('2024-01-15T14:30:00Z')
+          timestamp: new Date('2024-01-15T14:30:00Z'),
+          detail: null
         }
       ];
 
       render(
         <DurationChart
           events={hourEvents}
-          selectedEventTypes={new Set(['db_test'])}
+          selectedEventTypes={new Set(['db_setup'])}
           timeFilter="hour"
         />
       );
@@ -366,24 +396,26 @@ describe('DurationChart', () => {
       const weekEvents = [
         {
           id: '1',
-          eventName: 'db_test',
+          eventName: 'db_setup',
           durationMs: 100,
           success: true,
-          timestamp: new Date('2024-01-15T10:00:00Z')
+          timestamp: new Date('2024-01-15T10:00:00Z'),
+          detail: null
         },
         {
           id: '2',
-          eventName: 'db_test',
+          eventName: 'db_setup',
           durationMs: 150,
           success: true,
-          timestamp: new Date('2024-01-18T10:00:00Z')
+          timestamp: new Date('2024-01-18T10:00:00Z'),
+          detail: null
         }
       ];
 
       render(
         <DurationChart
           events={weekEvents}
-          selectedEventTypes={new Set(['db_test'])}
+          selectedEventTypes={new Set(['db_setup'])}
           timeFilter="week"
         />
       );
@@ -395,24 +427,26 @@ describe('DurationChart', () => {
       const allEvents = [
         {
           id: '1',
-          eventName: 'db_test',
+          eventName: 'db_setup',
           durationMs: 100,
           success: true,
-          timestamp: new Date('2024-01-01T10:00:00Z')
+          timestamp: new Date('2024-01-01T10:00:00Z'),
+          detail: null
         },
         {
           id: '2',
-          eventName: 'db_test',
+          eventName: 'db_setup',
           durationMs: 150,
           success: true,
-          timestamp: new Date('2024-02-15T10:00:00Z')
+          timestamp: new Date('2024-02-15T10:00:00Z'),
+          detail: null
         }
       ];
 
       render(
         <DurationChart
           events={allEvents}
-          selectedEventTypes={new Set(['db_test'])}
+          selectedEventTypes={new Set(['db_setup'])}
           timeFilter="all"
         />
       );
@@ -426,23 +460,24 @@ describe('DurationChart', () => {
       const noDbPrefixEvents = [
         {
           id: '1',
-          eventName: 'custom_event',
+          eventName: 'file_encrypt',
           durationMs: 100,
           success: true,
-          timestamp: new Date('2024-01-15T10:00:00Z')
+          timestamp: new Date('2024-01-15T10:00:00Z'),
+          detail: null
         }
       ];
 
       render(
         <DurationChart
           events={noDbPrefixEvents}
-          selectedEventTypes={new Set(['custom_event'])}
+          selectedEventTypes={new Set(['file_encrypt'])}
           timeFilter="day"
         />
       );
 
-      // custom_event -> Custom Event
-      expect(screen.getByText('Custom Event')).toBeInTheDocument();
+      // file_encrypt -> File Encrypt
+      expect(screen.getByText('File Encrypt')).toBeInTheDocument();
     });
   });
 

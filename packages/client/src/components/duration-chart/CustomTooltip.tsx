@@ -1,4 +1,5 @@
-import { formatDuration, formatEventName } from './formatters';
+import { getEventDisplayName } from '@/db/analytics';
+import { formatDuration } from './formatters';
 
 interface TooltipPayloadItem {
   payload: {
@@ -21,7 +22,7 @@ export function CustomTooltip({ active, payload }: CustomTooltipProps) {
   const data = firstPayload.payload;
   return (
     <div className="rounded-lg border bg-background p-2 shadow-md">
-      <p className="font-medium">{formatEventName(data.eventName)}</p>
+      <p className="font-medium">{getEventDisplayName(data.eventName)}</p>
       <p className="text-muted-foreground text-sm">
         Duration: {formatDuration(data.durationMs)}
       </p>

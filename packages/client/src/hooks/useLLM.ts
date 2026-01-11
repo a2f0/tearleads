@@ -2,6 +2,7 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { getCurrentInstanceId, getDatabase } from '@/db';
+import type { AnalyticsEventSlug } from '@/db/analytics';
 import { logEvent as logAnalyticsEvent } from '@/db/analytics';
 import { getWebGPUErrorInfo } from '@/lib/utils';
 import {
@@ -105,7 +106,7 @@ const listeners = new Set<() => void>();
  * Silently fails if database is not available.
  */
 async function logLLMAnalytics(
-  eventName: string,
+  eventName: AnalyticsEventSlug,
   durationMs: number,
   success: boolean
 ): Promise<void> {

@@ -3,32 +3,26 @@ import type {
   RedisKeysResponse,
   RedisKeyValueResponse
 } from '@rapid/shared';
+import type { AnalyticsEventSlug } from '@/db/analytics';
 import { logApiEvent } from '@/db/analytics';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
+// API event slugs - subset of AnalyticsEventSlug for API calls
+type ApiEventSlug = Extract<AnalyticsEventSlug, `api_${string}`>;
+
 interface RequestParams {
   fetchOptions?: RequestInit;
-  eventNameOverride?: string;
+  eventName: ApiEventSlug;
 }
 
-async function request<T>(
-  endpoint: string,
-  params: RequestParams = {}
-): Promise<T> {
+async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
   if (!API_BASE_URL) {
     throw new Error('VITE_API_URL environment variable is not set');
   }
 
-  const { fetchOptions, eventNameOverride } = params;
+  const { fetchOptions, eventName } = params;
   const startTime = performance.now();
-  const method = fetchOptions?.method ?? 'GET';
-  // Strip query params from endpoint for event name (so paginated requests share the same event type)
-  // Note: The nullish coalescing is needed for TypeScript strict mode (split()[0] can be undefined)
-  const endpointPath = endpoint.split('?')[0] ?? endpoint;
-  const eventName =
-    eventNameOverride ??
-    `api_${method.toLowerCase()}_${endpointPath.replace(/^\//, '').replace(/\//g, '_')}`;
   let success = false;
 
   try {
@@ -49,7 +43,7 @@ async function request<T>(
 
 export const api = {
   ping: {
-    get: () => request<PingData>('/ping')
+    get: () => request<PingData>('/ping', { eventName: 'api_get_ping' })
   },
   admin: {
     redis: {
@@ -59,23 +53,27 @@ export const api = {
         if (limit) params.set('limit', String(limit));
         const query = params.toString();
         return request<RedisKeysResponse>(
-          `/admin/redis/keys${query ? `?${query}` : ''}`
+          `/admin/redis/keys${query ? `?${query}` : ''}`,
+          { eventName: 'api_get_admin_redis_keys' }
         );
       },
       getValue: (key: string) =>
         request<RedisKeyValueResponse>(
           `/admin/redis/keys/${encodeURIComponent(key)}`,
-          { eventNameOverride: 'api_get_admin_redis_key' }
+          { eventName: 'api_get_admin_redis_key' }
         ),
       deleteKey: (key: string) =>
         request<{ deleted: boolean }>(
           `/admin/redis/keys/${encodeURIComponent(key)}`,
           {
             fetchOptions: { method: 'DELETE' },
-            eventNameOverride: 'api_delete_admin_redis_key'
+            eventName: 'api_delete_admin_redis_key'
           }
         ),
-      getDbSize: () => request<{ count: number }>('/admin/redis/dbsize')
+      getDbSize: () =>
+        request<{ count: number }>('/admin/redis/dbsize', {
+          eventName: 'api_get_admin_redis_dbsize'
+        })
     }
   }
 };

@@ -8,11 +8,11 @@ import {
   XAxis,
   YAxis
 } from 'recharts';
-import type { AnalyticsEvent } from '@/db/analytics';
+import { type AnalyticsEvent, getEventDisplayName } from '@/db/analytics';
 import { CustomDot } from './CustomDot';
 import { CustomTooltip } from './CustomTooltip';
 import { EVENT_COLORS } from './constants';
-import { formatDuration, formatEventName, formatXAxisTick } from './formatters';
+import { formatDuration, formatXAxisTick } from './formatters';
 
 interface DurationChartProps {
   events: AnalyticsEvent[];
@@ -113,7 +113,7 @@ export function DurationChart({
             {[...dataByEventType.entries()].map(([eventType, data]) => (
               <Scatter
                 key={eventType}
-                name={formatEventName(eventType)}
+                name={getEventDisplayName(eventType)}
                 data={data}
                 fill={eventTypeColors.get(eventType) ?? '#2563eb'}
                 shape={<CustomDot />}
@@ -131,7 +131,7 @@ export function DurationChart({
               style={{ backgroundColor: color }}
             />
             <span className="text-muted-foreground">
-              {formatEventName(eventType)}
+              {getEventDisplayName(eventType)}
             </span>
           </div>
         ))}
