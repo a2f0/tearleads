@@ -1,6 +1,6 @@
 import type { PingData } from '@rapid/shared';
-import { Copy } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Check, Copy } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { API_BASE_URL, api } from '@/lib/api';
@@ -12,6 +12,7 @@ export function Debug() {
   const [pingLoading, setPingLoading] = useState(false);
   const [pingError, setPingError] = useState<string | null>(null);
   const [shouldThrow, setShouldThrow] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
   const [screenSize, setScreenSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight
@@ -51,20 +52,47 @@ export function Debug() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const systemInfo = useMemo(
+    () => [
+      { label: 'Environment', value: import.meta.env.MODE },
+      { label: 'Screen', value: `${screenSize.width} x ${screenSize.height}` },
+      {
+        label: 'User Agent',
+        value: navigator.userAgent,
+        valueClassName: 'text-xs break-all'
+      },
+      { label: 'Platform', value: detectPlatform() },
+      { label: 'Pixel Ratio', value: `${window.devicePixelRatio}x` },
+      { label: 'Online', value: navigator.onLine ? 'Yes' : 'No' },
+      { label: 'Language', value: navigator.language },
+      {
+        label: 'Touch Support',
+        value: 'ontouchstart' in window ? 'Yes' : 'No'
+      },
+      {
+        label: 'Standalone',
+        value: window.matchMedia('(display-mode: standalone)').matches
+          ? 'Yes'
+          : 'No'
+      }
+    ],
+    [screenSize]
+  );
+
   const copyDebugInfo = useCallback(() => {
-    const info = [
-      `Environment: ${import.meta.env.MODE}`,
-      `Screen: ${screenSize.width} x ${screenSize.height}`,
-      `User Agent: ${navigator.userAgent}`,
-      `Platform: ${detectPlatform()}`,
-      `Pixel Ratio: ${window.devicePixelRatio}x`,
-      `Online: ${navigator.onLine ? 'Yes' : 'No'}`,
-      `Language: ${navigator.language}`,
-      `Touch Support: ${'ontouchstart' in window ? 'Yes' : 'No'}`,
-      `Standalone: ${window.matchMedia('(display-mode: standalone)').matches ? 'Yes' : 'No'}`
-    ].join('\n');
-    navigator.clipboard.writeText(info);
-  }, [screenSize]);
+    const info = systemInfo
+      .map((item) => `${item.label}: ${item.value}`)
+      .join('\n');
+    navigator.clipboard
+      .writeText(info)
+      .then(() => {
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+      })
+      .catch((err) => {
+        console.error('Failed to copy debug info:', err);
+      });
+  }, [systemInfo]);
 
   return (
     <div className="space-y-6 overflow-x-hidden">
@@ -80,35 +108,23 @@ export function Debug() {
             aria-label="Copy debug info to clipboard"
             data-testid="copy-debug-info"
           >
-            <Copy className="h-4 w-4" />
+            {isCopied ? (
+              <Check className="h-4 w-4 text-green-600" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
           </Button>
         </div>
-        <InfoRow label="Environment" value={import.meta.env.MODE} />
-        <InfoRow
-          label="Screen"
-          value={`${screenSize.width} x ${screenSize.height}`}
-        />
-        <InfoRow
-          label="User Agent"
-          value={navigator.userAgent}
-          valueClassName="text-xs break-all"
-        />
-        <InfoRow label="Platform" value={detectPlatform()} />
-        <InfoRow label="Pixel Ratio" value={`${window.devicePixelRatio}x`} />
-        <InfoRow label="Online" value={navigator.onLine ? 'Yes' : 'No'} />
-        <InfoRow label="Language" value={navigator.language} />
-        <InfoRow
-          label="Touch Support"
-          value={'ontouchstart' in window ? 'Yes' : 'No'}
-        />
-        <InfoRow
-          label="Standalone"
-          value={
-            window.matchMedia('(display-mode: standalone)').matches
-              ? 'Yes'
-              : 'No'
-          }
-        />
+        {systemInfo.map((item) => (
+          <InfoRow
+            key={item.label}
+            label={item.label}
+            value={item.value}
+            {...(item.valueClassName && {
+              valueClassName: item.valueClassName
+            })}
+          />
+        ))}
       </div>
 
       <div className="space-y-3 rounded-lg border p-4">
