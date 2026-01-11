@@ -1,9 +1,9 @@
-import { cn } from '@rapid/ui';
 import { useCallback, useEffect, useId, useState } from 'react';
+import { cn } from '../lib/utils.js';
 
 const ANIMATION_DURATION_MS = 200;
 
-interface DialogProps {
+export interface DialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
