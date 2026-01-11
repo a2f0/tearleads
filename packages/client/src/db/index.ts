@@ -4,13 +4,13 @@
  * Supports multi-instance with namespaced database files.
  */
 
-import { isRecord } from '@rapid/shared';
 import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import type { DatabaseAdapter, PlatformInfo } from './adapters';
 import { createAdapter, getPlatformInfo } from './adapters';
 import { logEvent } from './analytics';
 import { getKeyManagerForInstance, setCurrentInstanceId } from './crypto';
+import { runMigrations } from './migrations';
 import * as schema from './schema';
 
 export type Database = SqliteRemoteDatabase<typeof schema>;
@@ -264,127 +264,9 @@ async function initializeDatabaseWithKey(
   databaseInstance = drizzle(connection, { schema });
 
   // Run migrations
-  await runMigrations();
+  await runMigrations(adapterInstance);
 
   return databaseInstance;
-}
-
-/**
- * Run database migrations.
- */
-async function runMigrations(): Promise<void> {
-  if (!adapterInstance) {
-    throw new Error('Database not initialized');
-  }
-
-  // Create schema tables if they don't exist
-  const statements = [
-    `CREATE TABLE IF NOT EXISTS "sync_metadata" (
-      "id" TEXT PRIMARY KEY NOT NULL,
-      "entity_type" TEXT NOT NULL,
-      "entity_id" TEXT NOT NULL,
-      "version" INTEGER DEFAULT 0 NOT NULL,
-      "last_modified" INTEGER NOT NULL,
-      "sync_status" TEXT DEFAULT 'pending' NOT NULL,
-      "deleted" INTEGER DEFAULT 0 NOT NULL
-    )`,
-    `CREATE INDEX IF NOT EXISTS "entity_idx" ON "sync_metadata" ("entity_type", "entity_id")`,
-    `CREATE INDEX IF NOT EXISTS "sync_status_idx" ON "sync_metadata" ("sync_status")`,
-    `CREATE TABLE IF NOT EXISTS "user_settings" (
-      "key" TEXT PRIMARY KEY NOT NULL,
-      "value" TEXT,
-      "updated_at" INTEGER NOT NULL
-    )`,
-    `CREATE TABLE IF NOT EXISTS "schema_migrations" (
-      "version" INTEGER PRIMARY KEY NOT NULL,
-      "applied_at" INTEGER NOT NULL
-    )`,
-    `CREATE TABLE IF NOT EXISTS "secrets" (
-      "key" TEXT PRIMARY KEY NOT NULL,
-      "encrypted_value" TEXT NOT NULL,
-      "created_at" INTEGER NOT NULL,
-      "updated_at" INTEGER NOT NULL
-    )`,
-    `CREATE TABLE IF NOT EXISTS "files" (
-      "id" TEXT PRIMARY KEY NOT NULL,
-      "name" TEXT NOT NULL,
-      "size" INTEGER NOT NULL,
-      "mime_type" TEXT NOT NULL,
-      "upload_date" INTEGER NOT NULL,
-      "content_hash" TEXT NOT NULL,
-      "storage_path" TEXT NOT NULL,
-      "thumbnail_path" TEXT,
-      "deleted" INTEGER DEFAULT 0 NOT NULL
-    )`,
-    `CREATE INDEX IF NOT EXISTS "files_content_hash_idx" ON "files" ("content_hash")`,
-    `CREATE INDEX IF NOT EXISTS "files_upload_date_idx" ON "files" ("upload_date")`,
-    `CREATE TABLE IF NOT EXISTS "contacts" (
-      "id" TEXT PRIMARY KEY NOT NULL,
-      "first_name" TEXT NOT NULL,
-      "last_name" TEXT,
-      "birthday" TEXT,
-      "created_at" INTEGER NOT NULL,
-      "updated_at" INTEGER NOT NULL,
-      "deleted" INTEGER DEFAULT 0 NOT NULL
-    )`,
-    `CREATE INDEX IF NOT EXISTS "contacts_first_name_idx" ON "contacts" ("first_name")`,
-    `CREATE TABLE IF NOT EXISTS "contact_phones" (
-      "id" TEXT PRIMARY KEY NOT NULL,
-      "contact_id" TEXT NOT NULL,
-      "phone_number" TEXT NOT NULL,
-      "label" TEXT,
-      "is_primary" INTEGER DEFAULT 0 NOT NULL,
-      FOREIGN KEY("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE
-    )`,
-    `CREATE INDEX IF NOT EXISTS "contact_phones_contact_idx" ON "contact_phones" ("contact_id")`,
-    `CREATE TABLE IF NOT EXISTS "contact_emails" (
-      "id" TEXT PRIMARY KEY NOT NULL,
-      "contact_id" TEXT NOT NULL,
-      "email" TEXT NOT NULL,
-      "label" TEXT,
-      "is_primary" INTEGER DEFAULT 0 NOT NULL,
-      FOREIGN KEY("contact_id") REFERENCES "contacts"("id") ON DELETE CASCADE
-    )`,
-    `CREATE INDEX IF NOT EXISTS "contact_emails_contact_idx" ON "contact_emails" ("contact_id")`,
-    `CREATE INDEX IF NOT EXISTS "contact_emails_email_idx" ON "contact_emails" ("email")`,
-    `CREATE TABLE IF NOT EXISTS "analytics_events" (
-      "id" TEXT PRIMARY KEY NOT NULL,
-      "event_name" TEXT NOT NULL,
-      "duration_ms" INTEGER NOT NULL,
-      "success" INTEGER NOT NULL,
-      "timestamp" INTEGER NOT NULL
-    )`,
-    `CREATE INDEX IF NOT EXISTS "analytics_events_timestamp_idx" ON "analytics_events" ("timestamp")`
-  ];
-
-  await adapterInstance.executeMany(statements);
-
-  // Helper to add a column if it doesn't exist
-  async function addColumnIfNotExists(
-    tableName: string,
-    columnName: string,
-    columnDefinition: string
-  ): Promise<void> {
-    try {
-      const info = await adapterInstance?.execute(
-        `PRAGMA table_info("${tableName}")`
-      );
-      const columnExists = info?.rows?.some(
-        (col) => isRecord(col) && col['name'] === columnName
-      );
-      if (!columnExists) {
-        await adapterInstance?.execute(
-          `ALTER TABLE "${tableName}" ADD COLUMN "${columnName}" ${columnDefinition}`
-        );
-      }
-    } catch {
-      // PRAGMA not supported or column already exists, ignore
-    }
-  }
-
-  // Migrations for existing databases
-  await addColumnIfNotExists('contacts', 'last_name', 'TEXT');
-  await addColumnIfNotExists('files', 'thumbnail_path', 'TEXT');
 }
 
 type DrizzleConnection = (
@@ -567,7 +449,7 @@ export async function importDatabase(data: Uint8Array): Promise<void> {
   await adapterInstance.importDatabase(data, encryptionKey ?? undefined);
 
   // Re-run migrations in case the backup is from an older version
-  await runMigrations();
+  await runMigrations(adapterInstance);
 }
 
 export type { DatabaseAdapter, PlatformInfo } from './adapters';
