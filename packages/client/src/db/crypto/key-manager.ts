@@ -924,12 +924,17 @@ export async function validateAndPruneOrphanedInstances(
       const registryIdSet = new Set(registryInstanceIds);
 
       // Find Keystore entries that don't have corresponding registry entries
-      for (const keystoreId of trackedKeystoreIds) {
-        if (!registryIdSet.has(keystoreId)) {
-          result.orphanedKeystoreEntries.push(keystoreId);
-          // Clean up the orphaned Keystore entry
-          await nativeSecureStorage.clearSession(keystoreId);
-        }
+      result.orphanedKeystoreEntries = trackedKeystoreIds.filter(
+        (keystoreId) => !registryIdSet.has(keystoreId)
+      );
+
+      // Clean up orphaned Keystore entries in parallel
+      if (result.orphanedKeystoreEntries.length > 0) {
+        await Promise.all(
+          result.orphanedKeystoreEntries.map((keystoreId) =>
+            nativeSecureStorage.clearSession(keystoreId)
+          )
+        );
       }
     }
 

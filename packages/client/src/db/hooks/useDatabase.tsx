@@ -181,16 +181,10 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
             const activeStillExists = allInstances.some(
               (i) => i.id === activeInstance.id
             );
-            if (!activeStillExists) {
+            if (!activeStillExists && allInstances[0]) {
               // Use first available instance as active
-              const firstInstance = allInstances[0];
-              if (firstInstance) {
-                await setActiveInstanceId(firstInstance.id);
-                activeInstance = firstInstance;
-              } else {
-                activeInstance = await initializeRegistry();
-                allInstances = await getInstances();
-              }
+              activeInstance = allInstances[0];
+              await setActiveInstanceId(activeInstance.id);
             }
           }
         }
