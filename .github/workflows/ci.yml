@@ -271,6 +271,9 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: pnpm --filter @rapid/website exec playwright install-deps
 
+      - name: Build API OpenAPI spec
+        run: pnpm --filter @rapid/api buildOpenapi
+
       - name: Build website
         run: pnpm --filter @rapid/website build
 
