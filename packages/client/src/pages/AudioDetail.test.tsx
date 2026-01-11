@@ -13,9 +13,11 @@ vi.mock('@/db/hooks', () => ({
 
 // Mock the database
 const mockSelect = vi.fn();
+const mockUpdate = vi.fn();
 vi.mock('@/db', () => ({
   getDatabase: () => ({
-    select: mockSelect
+    select: mockSelect,
+    update: mockUpdate
   })
 }));
 
@@ -119,6 +121,11 @@ describe('AudioDetail', () => {
     mockIsFileStorageInitialized.mockReturnValue(true);
     mockRetrieve.mockResolvedValue(TEST_AUDIO_DATA);
     mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO]));
+    mockUpdate.mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined)
+      })
+    });
     mockCanShareFiles.mockReturnValue(true);
     mockShareFile.mockResolvedValue(true);
     mockUseAudio.mockReturnValue({
@@ -422,6 +429,53 @@ describe('AudioDetail', () => {
       const backLink = screen.getByText('Back to Audio');
       expect(backLink).toBeInTheDocument();
       expect(backLink.closest('a')).toHaveAttribute('href', '/audio');
+    });
+  });
+
+  describe('name editing', () => {
+    it('renders edit button for audio name', async () => {
+      await renderAudioDetail();
+
+      expect(screen.getByTestId('audio-title-edit')).toBeInTheDocument();
+    });
+
+    it('enters edit mode when edit button is clicked', async () => {
+      const user = userEvent.setup();
+      await renderAudioDetail();
+
+      await user.click(screen.getByTestId('audio-title-edit'));
+
+      expect(screen.getByTestId('audio-title-input')).toBeInTheDocument();
+      expect(screen.getByTestId('audio-title-input')).toHaveValue(
+        'test-audio.mp3'
+      );
+    });
+
+    it('updates audio name when saved', async () => {
+      const user = userEvent.setup();
+      await renderAudioDetail();
+
+      await user.click(screen.getByTestId('audio-title-edit'));
+      await user.clear(screen.getByTestId('audio-title-input'));
+      await user.type(screen.getByTestId('audio-title-input'), 'new-name.mp3');
+      await user.click(screen.getByTestId('audio-title-save'));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalled();
+      });
+    });
+
+    it('cancels edit mode when cancel button is clicked', async () => {
+      const user = userEvent.setup();
+      await renderAudioDetail();
+
+      await user.click(screen.getByTestId('audio-title-edit'));
+      await user.clear(screen.getByTestId('audio-title-input'));
+      await user.type(screen.getByTestId('audio-title-input'), 'new-name.mp3');
+      await user.click(screen.getByTestId('audio-title-cancel'));
+
+      expect(screen.queryByTestId('audio-title-input')).not.toBeInTheDocument();
+      expect(screen.getByText('test-audio.mp3')).toBeInTheDocument();
     });
   });
 
