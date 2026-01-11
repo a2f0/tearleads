@@ -76,7 +76,9 @@ describe('LocalStorage', () => {
       renderLocalStorage();
 
       await waitFor(() => {
-        expect(screen.queryByText('Clear All')).not.toBeInTheDocument();
+        expect(
+          screen.queryByRole('button', { name: 'Clear all localStorage' })
+        ).not.toBeInTheDocument();
       });
     });
   });
@@ -111,7 +113,9 @@ describe('LocalStorage', () => {
       renderLocalStorage();
 
       await waitFor(() => {
-        expect(screen.getByText('Clear All')).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: 'Clear all localStorage' })
+        ).toBeInTheDocument();
       });
     });
 
@@ -222,11 +226,11 @@ describe('LocalStorage', () => {
       const user = userEvent.setup();
       renderLocalStorage();
 
-      await waitFor(() => {
-        expect(screen.getByText('Clear All')).toBeInTheDocument();
+      const clearAllButton = await screen.findByRole('button', {
+        name: 'Clear all localStorage'
       });
 
-      await user.click(screen.getByText('Clear All'));
+      await user.click(clearAllButton);
 
       expect(window.confirm).toHaveBeenCalledWith(
         'Are you sure you want to clear ALL localStorage data? This cannot be undone.'
@@ -240,11 +244,11 @@ describe('LocalStorage', () => {
       const user = userEvent.setup();
       renderLocalStorage();
 
-      await waitFor(() => {
-        expect(screen.getByText('Clear All')).toBeInTheDocument();
+      const clearAllButton = await screen.findByRole('button', {
+        name: 'Clear all localStorage'
       });
 
-      await user.click(screen.getByText('Clear All'));
+      await user.click(clearAllButton);
 
       expect(localStorage.clear).not.toHaveBeenCalled();
     });
