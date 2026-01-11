@@ -1,0 +1,2 @@
+# Built WASM files (copied during build)
+wasm/

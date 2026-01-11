@@ -6,9 +6,9 @@
  */
 
 import { Capacitor } from '@capacitor/core';
+import { decrypt, encrypt, importKey } from '@rapid/shared';
 import type { DatabaseInsert } from '@/db/analytics';
 import { logEvent } from '@/db/analytics';
-import { decrypt, encrypt, importKey } from '@/db/crypto/web-crypto';
 
 /**
  * Metrics from a file retrieval operation.

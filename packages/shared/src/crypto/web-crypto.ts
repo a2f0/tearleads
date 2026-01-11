@@ -1,16 +1,18 @@
 /**
  * Web Crypto API utilities for database encryption.
  * Uses AES-256-GCM for authenticated encryption.
+ *
+ * This module is compatible with both Node.js and browser environments.
  */
 
-import { assertPlainArrayBuffer } from '@rapid/shared';
+import { assertPlainArrayBuffer } from '../index.js';
 
 const ALGORITHM = 'AES-GCM';
 const KEY_LENGTH = 256;
-const IV_LENGTH = 12; // 96 bits recommended for AES-GCM
-const TAG_LENGTH = 128; // Authentication tag length in bits
+const IV_LENGTH = 12;
+const TAG_LENGTH = 128;
 const SALT_LENGTH = 32;
-const PBKDF2_ITERATIONS = 600000; // OWASP 2023 recommendation
+const PBKDF2_ITERATIONS = 600000;
 
 /**
  * Generate a cryptographically secure random salt.
@@ -42,7 +44,6 @@ export async function deriveKeyFromPassword(
   const encoder = new TextEncoder();
   const passwordBuffer = encoder.encode(password);
 
-  // Import password as key material
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
     passwordBuffer,
@@ -62,7 +63,7 @@ export async function deriveKeyFromPassword(
     },
     keyMaterial,
     { name: ALGORITHM, length: KEY_LENGTH },
-    true, // extractable for export to worker
+    true,
     ['encrypt', 'decrypt']
   );
 }
@@ -115,7 +116,6 @@ export async function encrypt(
 
   const ciphertext = await crypto.subtle.encrypt(algorithm, key, data);
 
-  // Prepend IV to ciphertext
   const result = new Uint8Array(IV_LENGTH + ciphertext.byteLength);
   result.set(iv, 0);
   result.set(new Uint8Array(ciphertext), IV_LENGTH);
@@ -153,8 +153,8 @@ export async function decrypt(
  * Securely zero out a buffer to prevent key leakage.
  */
 export function secureZero(buffer: Uint8Array): void {
-  crypto.getRandomValues(buffer); // Overwrite with random data
-  buffer.fill(0); // Then zero out
+  crypto.getRandomValues(buffer);
+  buffer.fill(0);
 }
 
 /**
@@ -190,25 +190,21 @@ export async function decryptString(
  * This key can be stored in IndexedDB but its raw bytes cannot be exported.
  */
 export async function generateWrappingKey(): Promise<CryptoKey> {
-  return crypto.subtle.generateKey(
-    { name: 'AES-KW', length: 256 },
-    false, // non-extractable - key bytes cannot be read by JavaScript
-    ['wrapKey', 'unwrapKey']
-  );
+  return crypto.subtle.generateKey({ name: 'AES-KW', length: 256 }, false, [
+    'wrapKey',
+    'unwrapKey'
+  ]);
 }
 
 /**
- * Generate an extractable wrapping key for mobile platforms.
- * This key can be exported to raw bytes for storage in native secure storage.
- * Security on mobile relies on Keychain/Keystore hardware protection rather than
- * Web Crypto's non-extractable property.
+ * Generate an extractable wrapping key for platforms that need it.
+ * This key can be exported to raw bytes for storage.
  */
 export async function generateExtractableWrappingKey(): Promise<CryptoKey> {
-  return crypto.subtle.generateKey(
-    { name: 'AES-KW', length: 256 },
-    true, // extractable - needed for native storage
-    ['wrapKey', 'unwrapKey']
-  );
+  return crypto.subtle.generateKey({ name: 'AES-KW', length: 256 }, true, [
+    'wrapKey',
+    'unwrapKey'
+  ]);
 }
 
 /**
@@ -231,14 +227,13 @@ export async function importWrappingKey(
     'raw',
     keyBytes,
     { name: 'AES-KW', length: 256 },
-    true, // extractable for re-export if needed
+    true,
     ['wrapKey', 'unwrapKey']
   );
 }
 
 /**
  * Wrap (encrypt) a key using a wrapping key.
- * Returns the wrapped key as a Uint8Array.
  */
 export async function wrapKey(
   keyToWrap: Uint8Array,
@@ -250,7 +245,7 @@ export async function wrapKey(
     'raw',
     keyToWrap,
     { name: ALGORITHM, length: KEY_LENGTH },
-    true, // must be extractable to wrap
+    true,
     ['encrypt', 'decrypt']
   );
 
@@ -263,7 +258,6 @@ export async function wrapKey(
 
 /**
  * Unwrap (decrypt) a wrapped key using a wrapping key.
- * Returns the unwrapped key as a Uint8Array.
  */
 export async function unwrapKey(
   wrappedKey: Uint8Array,
@@ -277,7 +271,7 @@ export async function unwrapKey(
     wrappingKey,
     { name: 'AES-KW' },
     { name: ALGORITHM, length: KEY_LENGTH },
-    true, // extractable so we can get the raw bytes
+    true,
     ['encrypt', 'decrypt']
   );
 
