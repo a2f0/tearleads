@@ -1,4 +1,5 @@
 import type { PingData } from '@rapid/shared';
+import { Copy } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
@@ -50,12 +51,38 @@ export function Debug() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const copyDebugInfo = useCallback(() => {
+    const info = [
+      `Environment: ${import.meta.env.MODE}`,
+      `Screen: ${screenSize.width} x ${screenSize.height}`,
+      `User Agent: ${navigator.userAgent}`,
+      `Platform: ${detectPlatform()}`,
+      `Pixel Ratio: ${window.devicePixelRatio}x`,
+      `Online: ${navigator.onLine ? 'Yes' : 'No'}`,
+      `Language: ${navigator.language}`,
+      `Touch Support: ${'ontouchstart' in window ? 'Yes' : 'No'}`,
+      `Standalone: ${window.matchMedia('(display-mode: standalone)').matches ? 'Yes' : 'No'}`
+    ].join('\n');
+    navigator.clipboard.writeText(info);
+  }, [screenSize]);
+
   return (
     <div className="space-y-6 overflow-x-hidden">
       <h1 className="font-bold text-2xl tracking-tight">Debug</h1>
 
       <div className="space-y-3 rounded-lg border p-4">
-        <h2 className="font-medium">Environment Info</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="font-medium">System Info</h2>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={copyDebugInfo}
+            aria-label="Copy debug info to clipboard"
+            data-testid="copy-debug-info"
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
+        </div>
         <InfoRow label="Environment" value={import.meta.env.MODE} />
         <InfoRow
           label="Screen"
@@ -66,10 +93,6 @@ export function Debug() {
           value={navigator.userAgent}
           valueClassName="text-xs break-all"
         />
-      </div>
-
-      <div className="space-y-3 rounded-lg border p-4">
-        <h2 className="font-medium">Device Info</h2>
         <InfoRow label="Platform" value={detectPlatform()} />
         <InfoRow label="Pixel Ratio" value={`${window.devicePixelRatio}x`} />
         <InfoRow label="Online" value={navigator.onLine ? 'Yes' : 'No'} />
