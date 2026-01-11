@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
@@ -83,6 +84,14 @@ export function Files() {
   });
 
   const virtualItems = virtualizer.getVirtualItems();
+
+  // Calculate visible range from virtual items
+  const firstVisible =
+    virtualItems.length > 0 ? (virtualItems[0]?.index ?? null) : null;
+  const lastVisible =
+    virtualItems.length > 0
+      ? (virtualItems[virtualItems.length - 1]?.index ?? null)
+      : null;
 
   const fetchFiles = useCallback(async () => {
     if (!isUnlocked) return;
@@ -469,9 +478,13 @@ export function Files() {
             </div>
           ) : (
             <>
-              <p className="mb-2 text-muted-foreground text-sm">
-                {filteredFiles.length} file{filteredFiles.length !== 1 && 's'}
-              </p>
+              <VirtualListStatus
+                firstVisible={firstVisible}
+                lastVisible={lastVisible}
+                loadedCount={filteredFiles.length}
+                itemLabel="file"
+                className="mb-2"
+              />
               <div className="flex-1 rounded-lg border">
                 <div ref={parentRef} className="h-full overflow-auto">
                   <div

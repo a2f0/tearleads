@@ -17,6 +17,7 @@ import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
@@ -93,6 +94,14 @@ export function AudioPage() {
   });
 
   const virtualItems = virtualizer.getVirtualItems();
+
+  // Calculate visible range from virtual items
+  const firstVisible =
+    virtualItems.length > 0 ? (virtualItems[0]?.index ?? null) : null;
+  const lastVisible =
+    virtualItems.length > 0
+      ? (virtualItems[virtualItems.length - 1]?.index ?? null)
+      : null;
 
   const isDesktopPlatform = useMemo(() => {
     const platform = detectPlatform();
@@ -428,9 +437,12 @@ export function AudioPage() {
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col space-y-2">
-            <p className="text-muted-foreground text-sm">
-              {tracks.length} track{tracks.length !== 1 && 's'}
-            </p>
+            <VirtualListStatus
+              firstVisible={firstVisible}
+              lastVisible={lastVisible}
+              loadedCount={tracks.length}
+              itemLabel="track"
+            />
             <div className="flex-1 rounded-lg border">
               <div ref={parentRef} className="h-full overflow-auto">
                 <div

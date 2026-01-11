@@ -14,6 +14,7 @@ import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
@@ -118,6 +119,24 @@ export function Photos() {
   });
 
   const virtualItems = virtualizer.getVirtualItems();
+
+  // Calculate visible photo range from virtual row items
+  // Photos are in a grid, so we convert row visibility to photo visibility
+  const firstVisibleRow =
+    virtualItems.length > 0 ? virtualItems[0]?.index : null;
+  const lastVisibleRow =
+    virtualItems.length > 0
+      ? virtualItems[virtualItems.length - 1]?.index
+      : null;
+
+  const firstVisible =
+    firstVisibleRow != null
+      ? Math.min(firstVisibleRow * columns, photos.length - 1)
+      : null;
+  const lastVisible =
+    lastVisibleRow != null
+      ? Math.min((lastVisibleRow + 1) * columns - 1, photos.length - 1)
+      : null;
 
   // Check if Web Share API is available on mount
   useEffect(() => {
@@ -456,9 +475,12 @@ export function Photos() {
           />
         ) : (
           <div className="flex min-h-0 flex-1 flex-col space-y-2">
-            <p className="text-muted-foreground text-sm">
-              {photos.length} photo{photos.length !== 1 && 's'}
-            </p>
+            <VirtualListStatus
+              firstVisible={firstVisible}
+              lastVisible={lastVisible}
+              loadedCount={photos.length}
+              itemLabel="photo"
+            />
             <div
               ref={parentRef}
               className="flex-1 overflow-auto rounded-lg border p-2"

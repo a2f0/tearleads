@@ -18,6 +18,7 @@ import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import {
@@ -77,6 +78,14 @@ export function Contacts() {
   });
 
   const virtualItems = virtualizer.getVirtualItems();
+
+  // Calculate visible range from virtual items
+  const firstVisible =
+    virtualItems.length > 0 ? (virtualItems[0]?.index ?? null) : null;
+  const lastVisible =
+    virtualItems.length > 0
+      ? (virtualItems[virtualItems.length - 1]?.index ?? null)
+      : null;
 
   // Debounce search query
   useEffect(() => {
@@ -444,9 +453,13 @@ export function Contacts() {
 
           {contacts.length > 0 && (
             <div className="flex min-h-0 flex-1 flex-col space-y-2">
-              <p className="text-muted-foreground text-sm">
-                {`${contacts.length} contact${contacts.length !== 1 ? 's' : ''}${searchQuery ? ' found' : ''}`}
-              </p>
+              <VirtualListStatus
+                firstVisible={firstVisible}
+                lastVisible={lastVisible}
+                loadedCount={contacts.length}
+                itemLabel="contact"
+                searchQuery={searchQuery}
+              />
               <div className="flex-1 rounded-lg border">
                 <div ref={parentRef} className="h-full overflow-auto">
                   <div
