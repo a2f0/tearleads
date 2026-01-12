@@ -53,7 +53,7 @@ export function AudioVisualizer({
   style: controlledStyle,
   onStyleChange
 }: AudioVisualizerProps) {
-  const { audioElementRef, isPlaying } = useAudio();
+  const { audioElementRef, isPlaying, currentTrack } = useAudio();
   const frequencyData = useAudioAnalyser(audioElementRef, isPlaying, BAR_COUNT);
 
   const [internalStyle, setInternalStyle] =
@@ -77,7 +77,8 @@ export function AudioVisualizer({
     }
   }, [controlledStyle]);
 
-  if (!isPlaying) {
+  // Only show when there's a track loaded
+  if (!currentTrack) {
     return null;
   }
 
@@ -88,7 +89,8 @@ export function AudioVisualizer({
     >
       <div className="flex flex-1 items-end justify-center gap-1">
         {BAR_KEYS.map((key, barIndex) => {
-          const value = frequencyData[barIndex] ?? 0;
+          // When not playing, show flatline (0 height)
+          const value = isPlaying ? (frequencyData[barIndex] ?? 0) : 0;
           const normalizedHeight = value / 255;
 
           return (
