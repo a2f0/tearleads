@@ -157,8 +157,25 @@ platform :android do
 
   desc 'Run Maestro UI tests on Android emulator'
   lane :test_maestro do
-    build_debug
-    apk_path = File.expand_path('../android/app/build/outputs/apk/debug/app-debug.apk', __dir__)
+    run_maestro_tests(build_type: 'debug')
+  end
+
+  desc 'Run Maestro UI tests on Android emulator with release build'
+  lane :test_maestro_release do
+    run_maestro_tests(build_type: 'release')
+  end
+
+  private_lane :run_maestro_tests do |options|
+    build_type = options[:build_type]
+
+    if build_type == 'release'
+      build_release
+      apk_path = File.expand_path('../android/app/build/outputs/apk/release/app-release.apk', __dir__)
+    else
+      build_debug
+      apk_path = File.expand_path('../android/app/build/outputs/apk/debug/app-debug.apk', __dir__)
+    end
+
     debug_dir = File.expand_path('../maestro-debug', __dir__)
     maestro_dir = File.expand_path('../.maestro', __dir__)
     maestro_target = ENV.fetch('MAESTRO_FLOW_PATH', maestro_dir)
