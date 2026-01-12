@@ -1,6 +1,4 @@
 appId: com.tearleads.rapid
-env:
-  PASSWORD_1: 'orphantest123'
 ---
 # Orphan Cleanup Test - Verifies the app handles orphaned registry entries
 #
@@ -38,7 +36,7 @@ env:
 - evalScript: window.waitForStatus('Not Set Up')
 
 # Setup first instance
-- evalScript: window.setPassword('${PASSWORD_1}')
+- evalScript: window.setPassword('orphantest123')
 - evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
 - evalScript: window.waitForResult('success')
 - evalScript: window.waitForStatus('Unlocked')
@@ -125,7 +123,7 @@ env:
 - evalScript: |
     const status = document.querySelector('[data-testid="db-status"]');
     if (status.textContent === 'Locked') {
-      window.setPassword('${PASSWORD_1}');
+      window.setPassword('orphantest123');
       document.querySelector('[data-testid="db-unlock-button"]').click();
     }
     return 'ok';
