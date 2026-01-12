@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AudioControls } from './AudioControls';
@@ -100,6 +100,15 @@ describe('AudioControls', () => {
       const seekbar = screen.getByTestId('audio-seekbar');
       expect(seekbar).toBeInTheDocument();
       expect(seekbar).toHaveAttribute('type', 'range');
+    });
+
+    it('calls seek when seekbar is changed', () => {
+      render(<AudioControls tracks={TEST_TRACKS} />);
+
+      const seekbar = screen.getByTestId('audio-seekbar');
+      fireEvent.change(seekbar, { target: { value: '60' } });
+
+      expect(mockSeek).toHaveBeenCalledWith(60);
     });
 
     it('renders pause button when playing', () => {
