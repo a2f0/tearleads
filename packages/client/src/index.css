@@ -30,3 +30,51 @@
   max-width: 100%;
   overflow: hidden;
 }
+
+/* Audio slider styling for seek and volume controls */
+.audio-slider {
+  --progress: 0%;
+  background: linear-gradient(
+    to right,
+    hsl(var(--primary)) var(--progress),
+    hsl(var(--muted)) var(--progress)
+  );
+}
+
+/* Webkit (Chrome, Safari, Edge) */
+.audio-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  cursor: pointer;
+  border: 2px solid hsl(var(--background));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.audio-slider::-webkit-slider-thumb:hover {
+  background: hsl(var(--primary) / 0.9);
+  transform: scale(1.1);
+}
+
+/* Firefox */
+.audio-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  cursor: pointer;
+  border: 2px solid hsl(var(--background));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.audio-slider::-moz-range-thumb:hover {
+  background: hsl(var(--primary) / 0.9);
+  transform: scale(1.1);
+}
+
+.audio-slider::-moz-range-track {
+  background: transparent;
+}

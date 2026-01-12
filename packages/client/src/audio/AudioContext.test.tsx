@@ -91,6 +91,12 @@ describe('useAudio', () => {
 
       expect(result.current.duration).toBe(0);
     });
+
+    it('has volume set to 1', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      expect(result.current.volume).toBe(1);
+    });
   });
 
   describe('play', () => {
@@ -252,6 +258,49 @@ describe('useAudio', () => {
 
       const audio = document.querySelector('audio');
       expect(audio?.currentTime).toBe(30);
+    });
+  });
+
+  describe('setVolume', () => {
+    it('sets volume state', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.setVolume(0.5);
+      });
+
+      expect(result.current.volume).toBe(0.5);
+    });
+
+    it('sets audio element volume', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.setVolume(0.5);
+      });
+
+      const audio = document.querySelector('audio');
+      expect(audio?.volume).toBe(0.5);
+    });
+
+    it('clamps volume to 0 minimum', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.setVolume(-0.5);
+      });
+
+      expect(result.current.volume).toBe(0);
+    });
+
+    it('clamps volume to 1 maximum', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.setVolume(1.5);
+      });
+
+      expect(result.current.volume).toBe(1);
     });
   });
 
