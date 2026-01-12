@@ -446,6 +446,42 @@ test.describe('Analytics page', () => {
   });
 
   /**
+   * Regression test for chart rendering bug where the duration chart would not
+   * display due to a race condition in useContainerReady hook.
+   * The hook used useRef, but refs are set after render, so if the effect ran
+   * before React set the ref, containerRef.current would be null and the chart
+   * would never render.
+   * See: Issues #623, #624, #667
+   */
+  test('should render the duration chart SVG when events exist', async ({
+    page
+  }) => {
+    await setupDatabase(page);
+
+    // Generate analytics events by performing database operations
+    await page.getByTestId('db-write-button').click();
+    await waitForSuccess(page);
+
+    await navigateTo(page, 'Analytics');
+    await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
+
+    // Wait for chart title to appear (this proves DurationChart component rendered)
+    await expect(page.getByText('Duration Over Time')).toBeVisible({
+      timeout: PAGE_LOAD_TIMEOUT
+    });
+
+    // The actual chart SVG should be rendered inside the Recharts ResponsiveContainer
+    // Recharts creates an SVG with class "recharts-wrapper" containing the chart
+    const chartSvg = page.locator('.recharts-wrapper svg');
+    await expect(chartSvg).toBeVisible({ timeout: 5000 });
+
+    // Verify the chart has actual content (scatter plot elements)
+    // Recharts creates g.recharts-scatter elements for scatter plots
+    const scatterElements = page.locator('.recharts-scatter');
+    await expect(scatterElements.first()).toBeVisible({ timeout: 5000 });
+  });
+
+  /**
    * Regression test for mobile responsive layout.
    * Ensures the analytics page does not have horizontal scroll on mobile devices.
    */
