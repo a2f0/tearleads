@@ -128,5 +128,78 @@ describe('HUD', () => {
       const newHeight = parseInt(dialog.style.height, 10);
       expect(newHeight).toBeLessThanOrEqual(700);
     });
+
+    it('handles touch-based resizing', () => {
+      render(<HUD isOpen={true} onClose={() => {}} />);
+      const dialog = screen.getByRole('dialog');
+      const handle = screen.getByTestId('hud-resize-handle');
+
+      const initialHeight = parseInt(dialog.style.height, 10);
+
+      fireEvent.touchStart(handle, {
+        touches: [{ clientY: 300, identifier: 0 }]
+      });
+      fireEvent.touchMove(document, {
+        touches: [{ clientY: 200, identifier: 0 }]
+      });
+      fireEvent.touchEnd(document);
+
+      const newHeight = parseInt(dialog.style.height, 10);
+      expect(newHeight).toBeGreaterThan(initialHeight);
+    });
+
+    it('handles touchStart with no touches', () => {
+      render(<HUD isOpen={true} onClose={() => {}} />);
+      const dialog = screen.getByRole('dialog');
+      const handle = screen.getByTestId('hud-resize-handle');
+
+      const initialHeight = parseInt(dialog.style.height, 10);
+
+      fireEvent.touchStart(handle, { touches: [] });
+
+      const newHeight = parseInt(dialog.style.height, 10);
+      expect(newHeight).toBe(initialHeight);
+    });
+
+    it('handles touchMove with no touches', () => {
+      render(<HUD isOpen={true} onClose={() => {}} />);
+      const dialog = screen.getByRole('dialog');
+      const handle = screen.getByTestId('hud-resize-handle');
+
+      const initialHeight = parseInt(dialog.style.height, 10);
+
+      fireEvent.touchStart(handle, {
+        touches: [{ clientY: 300, identifier: 0 }]
+      });
+      fireEvent.touchMove(document, { touches: [] });
+      fireEvent.touchEnd(document);
+
+      const newHeight = parseInt(dialog.style.height, 10);
+      expect(newHeight).toBe(initialHeight);
+    });
+
+    it('ignores move events when not dragging', () => {
+      render(<HUD isOpen={true} onClose={() => {}} />);
+      const dialog = screen.getByRole('dialog');
+
+      const initialHeight = parseInt(dialog.style.height, 10);
+
+      fireEvent.mouseMove(document, { clientY: 200 });
+
+      const newHeight = parseInt(dialog.style.height, 10);
+      expect(newHeight).toBe(initialHeight);
+    });
+
+    it('handles drag end when not dragging', () => {
+      render(<HUD isOpen={true} onClose={() => {}} />);
+      const dialog = screen.getByRole('dialog');
+
+      const initialHeight = parseInt(dialog.style.height, 10);
+
+      fireEvent.mouseUp(document);
+
+      const newHeight = parseInt(dialog.style.height, 10);
+      expect(newHeight).toBe(initialHeight);
+    });
   });
 });
