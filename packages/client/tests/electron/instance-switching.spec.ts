@@ -52,6 +52,11 @@ const switchToInstance = async (window: Page, instanceIndex: number) => {
 
 // Helper to ensure database is unlocked (handles both locked and unlocked states)
 const ensureUnlocked = async (window: Page, password: string) => {
+  // Wait for status to stabilize to either 'Locked' or 'Unlocked' first
+  await expect(window.getByTestId('db-status')).toHaveText(/Locked|Unlocked/, {
+    timeout: DB_OPERATION_TIMEOUT
+  });
+
   // If the unlock button is visible, it means the database is locked.
   const unlockButton = window.getByTestId('db-unlock-button');
   if (await unlockButton.isVisible()) {
