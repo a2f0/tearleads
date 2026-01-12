@@ -10,7 +10,7 @@ PACKAGE_ID=${1:-"com.tearleads.rapid"}
 CACHE_ONLY=${CACHE_ONLY:-""}
 
 # Get physical device serial (exclude emulators)
-DEVICE_LIST=$(adb devices 2>/dev/null | grep -w device | grep -v '^emulator-' | cut -f1)
+DEVICE_LIST=$(adb devices | grep -w device | grep -v '^emulator-' | cut -f1)
 NUM_DEVICES=$(echo "$DEVICE_LIST" | grep -c . || true)
 
 if [ "$NUM_DEVICES" -ne 1 ]; then
