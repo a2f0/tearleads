@@ -151,7 +151,7 @@ export function Analytics() {
       fetchingRef.current = true;
       if (reset) {
         setLoading(true);
-        setEvents([]);
+        // Keep stale data visible during refresh to prevent UI flicker
         offsetRef.current = 0;
       } else {
         setLoadingMore(true);
