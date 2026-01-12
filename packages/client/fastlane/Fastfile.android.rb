@@ -157,46 +157,25 @@ platform :android do
 
   desc 'Run Maestro UI tests on Android emulator'
   lane :test_maestro do
-    build_debug
-    apk_path = File.expand_path('../android/app/build/outputs/apk/debug/app-debug.apk', __dir__)
-    debug_dir = File.expand_path('../maestro-debug', __dir__)
-    maestro_dir = File.expand_path('../.maestro', __dir__)
-    maestro_target = ENV.fetch('MAESTRO_FLOW_PATH', maestro_dir)
-
-    emulator_id = `adb devices | grep emulator | head -1 | cut -f1`.strip
-    UI.user_error!('No Android emulator found. Start an emulator first.') if emulator_id.empty?
-
-    sh("adb -s #{emulator_id} uninstall #{APP_ID} || true")
-    sh("adb -s #{emulator_id} install -r '#{apk_path}'")
-
-    FileUtils.mkdir_p(debug_dir)
-    sh("adb -s #{emulator_id} logcat -c || true")
-
-    # Start screen recording in background (max 3 minutes)
-    recording_pid = spawn("adb -s #{emulator_id} shell screenrecord --time-limit 180 /sdcard/maestro-recording.mp4", [:out, :err] => '/dev/null')
-    Process.detach(recording_pid)
-
-    begin
-      sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test '#{maestro_target}' --output '#{debug_dir}/report.xml' --debug-output '#{debug_dir}' --format junit")
-      maestro_result = '0'
-    rescue StandardError => e
-      UI.important("Maestro tests failed: #{e.message}")
-      maestro_result = '1'
-    end
-
-    # Stop recording and collect debug artifacts
-    sh("adb -s #{emulator_id} shell pkill -SIGINT screenrecord || true")
-    sh("sleep 2")
-    sh("adb -s #{emulator_id} pull /sdcard/maestro-recording.mp4 '#{debug_dir}/test-recording.mp4' || true")
-    sh("adb -s #{emulator_id} logcat -d > '#{debug_dir}/logcat.txt' 2>&1 || true")
-
-    UI.user_error!('Maestro tests failed') unless maestro_result == '0'
+    run_maestro_tests(build_type: 'debug')
   end
 
   desc 'Run Maestro UI tests on Android emulator with release build'
   lane :test_maestro_release do
-    build_release
-    apk_path = File.expand_path('../android/app/build/outputs/apk/release/app-release.apk', __dir__)
+    run_maestro_tests(build_type: 'release')
+  end
+
+  private_lane :run_maestro_tests do |options|
+    build_type = options[:build_type]
+
+    if build_type == 'release'
+      build_release
+      apk_path = File.expand_path('../android/app/build/outputs/apk/release/app-release.apk', __dir__)
+    else
+      build_debug
+      apk_path = File.expand_path('../android/app/build/outputs/apk/debug/app-debug.apk', __dir__)
+    end
+
     debug_dir = File.expand_path('../maestro-debug', __dir__)
     maestro_dir = File.expand_path('../.maestro', __dir__)
     maestro_target = ENV.fetch('MAESTRO_FLOW_PATH', maestro_dir)
