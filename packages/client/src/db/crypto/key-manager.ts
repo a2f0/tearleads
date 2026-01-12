@@ -534,6 +534,14 @@ export class KeyManager {
     // Create a key check value for password verification
     const kcv = await this.createKeyCheckValue(keyBytes);
 
+    // Debug: Log instance and salt info for password isolation debugging
+    const saltHex = Array.from(salt.slice(0, 8))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    console.log(
+      `[KeyManager] setupNewKey for instance ${this.instanceId}, salt prefix: ${saltHex}, kcv prefix: ${kcv.slice(0, 8)}...`
+    );
+
     await this.storage?.setSalt(salt);
     await this.storage?.setKeyCheckValue(kcv);
 
@@ -553,12 +561,25 @@ export class KeyManager {
       throw new Error('No existing key found. Use setupNewKey instead.');
     }
 
+    // Debug: Log instance and salt info for password isolation debugging
+    const saltHex = Array.from(salt.slice(0, 8))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    console.log(
+      `[KeyManager] unlockWithPassword for instance ${this.instanceId}, salt prefix: ${saltHex}`
+    );
+
     const key = await deriveKeyFromPassword(password, salt);
     const keyBytes = await exportKey(key);
 
     // Verify the key check value
     const storedKcv = await this.storage?.getKeyCheckValue();
     const computedKcv = await this.createKeyCheckValue(keyBytes);
+
+    // Debug: Log KCV comparison for password isolation debugging
+    console.log(
+      `[KeyManager] KCV check for instance ${this.instanceId}: stored=${storedKcv?.slice(0, 8)}..., computed=${computedKcv.slice(0, 8)}..., match=${storedKcv === computedKcv}`
+    );
 
     if (storedKcv !== computedKcv) {
       secureZero(keyBytes);
