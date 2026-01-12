@@ -18,7 +18,8 @@ FLOW_PATH="${1:-}"
 cd "$(dirname "$0")/../packages/client"
 
 if [ -n "$FLOW_PATH" ] && [ "${FLOW_PATH#/.maestro/}" = "$FLOW_PATH" ] && [ "${FLOW_PATH#./.maestro/}" = "$FLOW_PATH" ] && [ "${FLOW_PATH#./}" = "$FLOW_PATH" ]; then
-  FLOW_PATH=".maestro/${FLOW_PATH}"
+  # Prepend ../.maestro/ since Fastlane runs from fastlane/ subdirectory
+  FLOW_PATH="../.maestro/${FLOW_PATH}"
 fi
 
 if xcrun simctl list devices | grep -q "$SIMULATOR_NAME.*Booted"; then
