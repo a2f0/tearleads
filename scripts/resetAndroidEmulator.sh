@@ -2,7 +2,8 @@
 set -eu
 
 DEVICE="Maestro_Pixel_6_API_33_1"
-AVD_CONFIG="$HOME/.android/avd/${DEVICE}.avd/config.ini"
+AVD_DIR="${ANDROID_AVD_HOME:-$HOME/.android/avd}/${DEVICE}.avd"
+AVD_CONFIG="$AVD_DIR/config.ini"
 
 echo "Resetting Android emulator: $DEVICE"
 
@@ -28,10 +29,12 @@ pkill -f "qemu.*$DEVICE" 2>/dev/null || true
 sleep 1
 
 # Wipe emulator data by deleting userdata images directly
-AVD_DIR="$HOME/.android/avd/${DEVICE}.avd"
 echo "Wiping emulator data..."
 rm -f "$AVD_DIR"/userdata-qemu.img*
+rm -f "$AVD_DIR"/cache.img*
+rm -f "$AVD_DIR"/encryptionkey.img
 rm -f "$AVD_DIR"/snapshots.img
-rm -f "$AVD_DIR"/cache.img.qcow2
+rm -rf "$AVD_DIR"/snapshots
+rm -f "$AVD_DIR"/*.lock
 
 echo "Emulator reset complete. Next boot will start fresh."
