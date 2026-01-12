@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAudio } from '@/audio';
+import { AudioControls } from '@/components/audio/AudioControls';
 import { AudioVisualizer } from '@/components/audio/AudioVisualizer';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
@@ -433,6 +434,7 @@ export function AudioPage() {
         ) : (
           <div className="flex min-h-0 flex-1 flex-col space-y-2">
             <AudioVisualizer />
+            <AudioControls tracks={tracks} />
             <VirtualListStatus
               firstVisible={firstVisible}
               lastVisible={lastVisible}
