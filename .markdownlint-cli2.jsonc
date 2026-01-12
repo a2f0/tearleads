@@ -14,6 +14,8 @@
     "terraform/.terraform",
     "**/vendor",
     "**/Pods",
-    "**/fastlane/README.md"
+    "**/fastlane/README.md",
+    "**/playwright-report",
+    "**/test-results"
   ]
 }
