@@ -13,6 +13,7 @@ export default defineConfig({
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: 0,
+  maxFailures: 1, // Bail on first failure
   reporter: [['html', { open: 'never' }]],
   use: {
     baseURL: 'http://localhost:3000',

@@ -10,6 +10,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 0,
   workers: 1,
+  maxFailures: 1, // Bail on first failure
   reporter: [['html', { open: 'never' }]],
   timeout: 60000,
 });

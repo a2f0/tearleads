@@ -35,7 +35,7 @@
     "electron:test": "pnpm electron:build && playwright test --config=playwright.electron.config.ts",
     "electron:test:headed": "pnpm electron:build && HEADED=true playwright test --config=playwright.electron.config.ts",
     "electron:test:ui": "pnpm electron:build && playwright test --config=playwright.electron.config.ts --ui",
-    "postinstall": "electron-rebuild -o better-sqlite3-multiple-ciphers"
+    "postinstall": "electron-rebuild -f -o better-sqlite3-multiple-ciphers"
   },
   "dependencies": {
     "@assistant-ui/react": "0.11.53",
