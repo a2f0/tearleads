@@ -4,6 +4,14 @@ description: Query the open PR and resolve Gemini's feedback.
 
 # Address Gemini Feedback
 
+**First**: Determine the repository for all `gh` commands:
+
+```bash
+REPO=$(git remote get-url origin | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
+```
+
+Use `-R "$REPO"` with all `gh` commands in this skill.
+
 ## CRITICAL: Never Create Pending/Draft Reviews
 
 When replying to Gemini comments, you MUST use the REST API to create immediate comment replies. Do NOT use `gh pr review` or GraphQL review mutations - these create pending/draft reviews that remain invisible until submitted, and Gemini will never see them.

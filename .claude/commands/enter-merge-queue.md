@@ -4,6 +4,14 @@ description: Guarantee PR merge by cycling until merged
 
 # Enter Merge Queue
 
+**First**: Determine the repository for all `gh` commands:
+
+```bash
+REPO=$(git remote get-url origin | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
+```
+
+Use `-R "$REPO"` with all `gh` commands in this skill.
+
 This skill guarantees a PR gets merged by continuously updating from base, fixing CI, addressing reviews, and waiting until the PR is actually merged.
 
 ## State Tracking
