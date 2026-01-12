@@ -1,21 +1,29 @@
 ---
 import type { LicenseInfo } from '@rapid/shared';
-import Layout from '../layouts/Layout.astro';
+import Layout from '../../layouts/Layout.astro';
 import licensesData from '@rapid/shared/licenses.json';
+import { supportedLanguages, isSupportedLanguage, defaultLanguage } from '../../i18n/config';
+import type { SupportedLanguage } from '../../i18n/config';
 
+export function getStaticPaths() {
+  return supportedLanguages.map((lang) => ({ params: { lang } }));
+}
+
+const { lang } = Astro.params;
+const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaultLanguage;
 const licenses = licensesData as LicenseInfo[];
 ---
 
-<Layout title="Open Source Licenses - Tearleads">
+<Layout title="Open Source Licenses - Rapid" lang={currentLang}>
   <section class="container mx-auto px-4 py-8">
     <nav class="mb-8">
-      <a href="/" class="text-muted-foreground hover:text-foreground">&larr; Back to Home</a>
+      <a href={`/${currentLang}/`} class="text-muted-foreground hover:text-foreground">&larr; Back to Home</a>
     </nav>
 
     <div class="mb-6">
       <h2 class="font-bold text-3xl mb-2">Open Source Licenses</h2>
       <p class="text-muted-foreground">
-        The Tearleads ecosystem would not be possible without the following open source technologies.
+        The Rapid ecosystem would not be possible without the following open source technologies.
       </p>
     </div>
 

@@ -1,0 +1,43 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { supportedLanguages, isSupportedLanguage, defaultLanguage } from '../../../i18n/config';
+import type { SupportedLanguage } from '../../../i18n/config';
+
+export function getStaticPaths() {
+  const products = [
+    { product: 'desktop', title: 'Desktop', description: 'Desktop application content coming soon.' },
+    { product: 'mobile', title: 'Mobile', description: 'Mobile application content coming soon.' },
+    { product: 'web', title: 'Web', description: 'Web application content coming soon.' },
+    { product: 'chrome-extension', title: 'Chrome Extension', description: 'Chrome extension content coming soon.' },
+  ];
+
+  const paths = [];
+  for (const lang of supportedLanguages) {
+    for (const product of products) {
+      paths.push({
+        params: { lang, product: product.product },
+        props: { title: product.title, description: product.description },
+      });
+    }
+  }
+  return paths;
+}
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { lang } = Astro.params;
+const { title, description } = Astro.props;
+const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaultLanguage;
+---
+
+<Layout title={`${title} - Rapid`} lang={currentLang}>
+  <section class="container mx-auto px-4 py-8">
+    <div class="rounded-xl border bg-card p-6 shadow-sm">
+      <h1 class="mb-4 font-bold text-3xl">Rapid {title}</h1>
+      <p class="text-muted-foreground">{description}</p>
+    </div>
+  </section>
+</Layout>

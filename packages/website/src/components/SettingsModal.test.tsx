@@ -35,20 +35,26 @@ describe('SettingsModal', () => {
     });
   });
   it('renders when open is true', () => {
-    renderWithProvider(<SettingsModal open={true} onOpenChange={() => {}} />);
+    renderWithProvider(
+      <SettingsModal open={true} onOpenChange={() => {}} currentLang="en" />
+    );
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
   });
 
   it('does not render when open is false', () => {
-    renderWithProvider(<SettingsModal open={false} onOpenChange={() => {}} />);
+    renderWithProvider(
+      <SettingsModal open={false} onOpenChange={() => {}} currentLang="en" />
+    );
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('renders theme selector', () => {
-    renderWithProvider(<SettingsModal open={true} onOpenChange={() => {}} />);
+    renderWithProvider(
+      <SettingsModal open={true} onOpenChange={() => {}} currentLang="en" />
+    );
 
     expect(screen.getByText('Theme')).toBeInTheDocument();
     expect(screen.getByTestId('theme-selector-container')).toBeInTheDocument();
@@ -57,7 +63,7 @@ describe('SettingsModal', () => {
   it('calls onOpenChange when closed', () => {
     const onOpenChange = vi.fn();
     renderWithProvider(
-      <SettingsModal open={true} onOpenChange={onOpenChange} />
+      <SettingsModal open={true} onOpenChange={onOpenChange} currentLang="en" />
     );
 
     fireEvent.click(screen.getByTestId('settings-modal-backdrop'));
