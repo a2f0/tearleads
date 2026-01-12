@@ -1,0 +1,28 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import DocPageLayout from '../../../layouts/DocPageLayout.astro';
+import { supportedLanguages, isSupportedLanguage, defaultLanguage } from '../../../i18n/config';
+import type { SupportedLanguage } from '../../../i18n/config';
+
+export function getStaticPaths() {
+  return supportedLanguages.map((lang) => ({ params: { lang } }));
+}
+
+const { lang } = Astro.params;
+const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaultLanguage;
+
+// Dynamic import based on locale
+const docs: Record<SupportedLanguage, () => Promise<{ Content: any }>> = {
+  en: () => import('../../../../../../docs/en/backup-restore.md'),
+  es: () => import('../../../../../../docs/es/backup-restore.md'),
+  ua: () => import('../../../../../../docs/ua/backup-restore.md'),
+};
+
+const { Content } = await docs[currentLang]();
+---
+
+<Layout title="Backup & Restore - Rapid" lang={currentLang}>
+  <DocPageLayout data-testid="backup-restore-content">
+    <Content />
+  </DocPageLayout>
+</Layout>
