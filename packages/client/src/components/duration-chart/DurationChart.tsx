@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import {
   CartesianGrid,
   ResponsiveContainer,
@@ -18,14 +18,25 @@ import { formatDuration, formatXAxisTick } from './formatters';
  * Hook to track whether a container element has valid dimensions (> 0).
  * This prevents Recharts warnings about -1 width/height on initial render
  * before the browser has laid out the container.
+ *
+ * Uses a callback ref pattern to reliably detect when the element is attached
+ * to the DOM, avoiding race conditions with useRef where the effect might run
+ * before React sets the ref.
  */
-function useContainerReady(
-  containerRef: React.RefObject<HTMLDivElement | null>
-) {
+function useContainerReady(): [(node: HTMLDivElement | null) => void, boolean] {
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const [isReady, setIsReady] = useState(false);
 
-  useEffect(() => {
-    const container = containerRef.current;
+  // Callback ref that updates state when element is attached/detached
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    setContainer(node);
+    // Reset ready state when element changes
+    if (!node) {
+      setIsReady(false);
+    }
+  }, []);
+
+  useLayoutEffect(() => {
     if (!container) return;
 
     // Check immediately in case container already has dimensions
@@ -57,9 +68,9 @@ function useContainerReady(
       clearTimeout(fallbackTimeout);
       observer.disconnect();
     };
-  }, [containerRef]);
+  }, [container]);
 
-  return isReady;
+  return [containerRef, isReady];
 }
 
 interface DurationChartProps {
@@ -73,8 +84,7 @@ export function DurationChart({
   selectedEventTypes,
   timeFilter
 }: DurationChartProps) {
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const isContainerReady = useContainerReady(chartContainerRef);
+  const [chartContainerRef, isContainerReady] = useContainerReady();
 
   const { chartData, eventTypeColors, dataByEventType } = useMemo(() => {
     const filteredEvents = events.filter((e) =>
@@ -133,7 +143,11 @@ export function DurationChart({
           {chartData.length} event{chartData.length !== 1 ? 's' : ''}
         </span>
       </div>
-      <div ref={chartContainerRef} className="h-48 w-full sm:h-56">
+      <div
+        ref={chartContainerRef}
+        className="h-48 w-full sm:h-56"
+        data-testid="duration-chart"
+      >
         {isContainerReady && (
           <ResponsiveContainer
             width="100%"
