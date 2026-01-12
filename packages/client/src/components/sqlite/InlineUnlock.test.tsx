@@ -1,7 +1,12 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InlineUnlock } from './InlineUnlock';
+
+function renderWithRouter(ui: React.ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
 
 // Mock the database context
 const mockUseDatabaseContext = vi.fn();
@@ -56,17 +61,17 @@ describe('InlineUnlock', () => {
       });
     });
 
-    it('shows not set up message', () => {
-      render(<InlineUnlock />);
+    it('shows not set up message with link to SQLite page', () => {
+      renderWithRouter(<InlineUnlock />);
 
       expect(screen.getByText(/Database is not set up/i)).toBeInTheDocument();
-      expect(
-        screen.getByText(/Go to the SQLite page to set up your database/i)
-      ).toBeInTheDocument();
+      const link = screen.getByRole('link', { name: 'SQLite page' });
+      expect(link).toBeInTheDocument();
+      expect(link).toHaveAttribute('href', '/sqlite');
     });
 
     it('does not show password input', () => {
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       expect(
         screen.queryByTestId('inline-unlock-password')
@@ -76,7 +81,7 @@ describe('InlineUnlock', () => {
 
   describe('when database is locked and set up', () => {
     it('shows locked message with default description', () => {
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       expect(
         screen.getByText(
@@ -86,7 +91,7 @@ describe('InlineUnlock', () => {
     });
 
     it('shows locked message with custom description', () => {
-      render(<InlineUnlock description="files" />);
+      renderWithRouter(<InlineUnlock description="files" />);
 
       expect(
         screen.getByText(
@@ -96,26 +101,26 @@ describe('InlineUnlock', () => {
     });
 
     it('renders password input', () => {
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       expect(screen.getByTestId('inline-unlock-password')).toBeInTheDocument();
     });
 
     it('renders unlock button', () => {
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       expect(screen.getByTestId('inline-unlock-button')).toBeInTheDocument();
     });
 
     it('shows persist session checkbox on web platform', () => {
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       expect(screen.getByTestId('inline-unlock-persist')).toBeInTheDocument();
       expect(screen.getByText(/Keep unlocked/i)).toBeInTheDocument();
     });
 
     it('unlock button is disabled when password is empty', () => {
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       const unlockButton = screen.getByTestId('inline-unlock-button');
       expect(unlockButton).toBeDisabled();
@@ -123,7 +128,7 @@ describe('InlineUnlock', () => {
 
     it('enables unlock button when password is entered', async () => {
       const user = userEvent.setup();
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       const passwordInput = screen.getByTestId('inline-unlock-password');
       await user.type(passwordInput, 'testpassword');
@@ -135,7 +140,7 @@ describe('InlineUnlock', () => {
     it('calls unlock with password when form is submitted', async () => {
       mockUnlock.mockResolvedValue(true);
       const user = userEvent.setup();
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       const passwordInput = screen.getByTestId('inline-unlock-password');
       await user.type(passwordInput, 'testpassword123');
@@ -149,7 +154,7 @@ describe('InlineUnlock', () => {
     it('calls unlock with persist flag when checkbox is checked', async () => {
       mockUnlock.mockResolvedValue(true);
       const user = userEvent.setup();
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       const passwordInput = screen.getByTestId('inline-unlock-password');
       const persistCheckbox = screen.getByTestId('inline-unlock-persist');
@@ -164,7 +169,7 @@ describe('InlineUnlock', () => {
     it('shows error message when unlock fails with wrong password', async () => {
       mockUnlock.mockResolvedValue(false);
       const user = userEvent.setup();
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       const passwordInput = screen.getByTestId('inline-unlock-password');
       await user.type(passwordInput, 'wrongpassword');
@@ -180,7 +185,7 @@ describe('InlineUnlock', () => {
     it('shows error message when unlock throws', async () => {
       mockUnlock.mockRejectedValue(new Error('Network error'));
       const user = userEvent.setup();
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       const passwordInput = screen.getByTestId('inline-unlock-password');
       await user.type(passwordInput, 'password');
@@ -196,7 +201,7 @@ describe('InlineUnlock', () => {
     it('clears error when password is changed', async () => {
       mockUnlock.mockResolvedValue(false);
       const user = userEvent.setup();
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       const passwordInput = screen.getByTestId('inline-unlock-password');
       await user.type(passwordInput, 'wrong');
@@ -217,7 +222,7 @@ describe('InlineUnlock', () => {
 
   describe('password visibility toggle', () => {
     it('defaults to password hidden', () => {
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       const passwordInput = screen.getByTestId('inline-unlock-password');
       expect(passwordInput).toHaveAttribute('type', 'password');
@@ -225,7 +230,7 @@ describe('InlineUnlock', () => {
 
     it('toggles password visibility when eye button is clicked', async () => {
       const user = userEvent.setup();
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       const passwordInput = screen.getByTestId('inline-unlock-password');
       const toggleButton = screen.getByLabelText('Show password');
@@ -252,7 +257,7 @@ describe('InlineUnlock', () => {
     });
 
     it('shows restore session button', () => {
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       expect(screen.getByTestId('inline-unlock-restore')).toBeInTheDocument();
     });
@@ -260,7 +265,7 @@ describe('InlineUnlock', () => {
     it('calls restoreSession when restore button is clicked', async () => {
       mockRestoreSession.mockResolvedValue(true);
       const user = userEvent.setup();
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       await user.click(screen.getByTestId('inline-unlock-restore'));
 
@@ -270,7 +275,7 @@ describe('InlineUnlock', () => {
     it('shows error when session restore fails', async () => {
       mockRestoreSession.mockResolvedValue(false);
       const user = userEvent.setup();
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       await user.click(screen.getByTestId('inline-unlock-restore'));
 
@@ -294,7 +299,7 @@ describe('InlineUnlock', () => {
 
     it('shows loading state when unlocking', async () => {
       const user = userEvent.setup();
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       const passwordInput = screen.getByTestId('inline-unlock-password');
       await user.type(passwordInput, 'password');
@@ -311,7 +316,7 @@ describe('InlineUnlock', () => {
 
     it('disables input and button while loading', async () => {
       const user = userEvent.setup();
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       const passwordInput = screen.getByTestId('inline-unlock-password');
       await user.type(passwordInput, 'password');
@@ -340,7 +345,7 @@ describe('InlineUnlock', () => {
       });
 
       const user = userEvent.setup();
-      render(<InlineUnlock />);
+      renderWithRouter(<InlineUnlock />);
 
       await user.click(screen.getByTestId('inline-unlock-restore'));
 
