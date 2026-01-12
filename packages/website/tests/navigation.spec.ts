@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
 
 const locators = {
-  architectureLink: 'main a[href="/docs/architecture"]',
-  docsLink: 'main a[href="/docs/api"]',
-  homeLink: 'header a[href="/"]',
+  architectureLink: 'main a[href="/en/docs/architecture"]',
+  docsLink: 'main a[href="/en/docs/api"]',
+  homeLink: 'header a[href="/en/"]',
   architectureContent: '[data-testid="architecture-content"]',
   swaggerContainer: '.swagger-ui-container',
   settingsButton: '[data-testid="settings-button"]',
@@ -14,10 +14,13 @@ const locators = {
 
 test.describe('Website Navigation', () => {
   test.beforeEach(async ({ page }) => {
+    // Root page redirects to /en/
     await page.goto('/');
   });
 
   test('home page loads with correct title', async ({ page }) => {
+    // After redirect from /, we should be at /en/
+    await expect(page).toHaveURL(/\/en\/?$/);
     await expect(page).toHaveTitle('Rapid');
     await expect(page.locator('h2')).toContainText('Welcome to Rapid');
   });
@@ -29,7 +32,7 @@ test.describe('Website Navigation', () => {
     await expect(architectureLink).toBeVisible();
     await architectureLink.click();
 
-    await expect(page).toHaveURL(/\/docs\/architecture\/?$/);
+    await expect(page).toHaveURL(/\/en\/docs\/architecture\/?$/);
     await expect(page).toHaveTitle('Architecture - Rapid');
     await expect(page.locator(locators.architectureContent)).toBeVisible();
   });
@@ -39,32 +42,32 @@ test.describe('Website Navigation', () => {
     await expect(docsLink).toBeVisible();
     await docsLink.click();
 
-    await expect(page).toHaveURL(/\/docs\/api\/?$/);
+    await expect(page).toHaveURL(/\/en\/docs\/api\/?$/);
     await expect(page).toHaveTitle('API Documentation - Rapid');
     await expect(page.locator(locators.swaggerContainer)).toBeVisible();
   });
 
   test('back link on architecture page returns to home', async ({ page }) => {
-    await page.goto('/docs/architecture');
+    await page.goto('/en/docs/architecture');
     await expect(page).toHaveTitle('Architecture - Rapid');
 
     const backLink = page.locator(locators.homeLink);
     await expect(backLink).toBeVisible();
     await backLink.click();
 
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL(/\/en\/?$/);
     await expect(page).toHaveTitle('Rapid');
   });
 
   test('back link on docs page returns to home', async ({ page }) => {
-    await page.goto('/docs/api');
+    await page.goto('/en/docs/api');
     await expect(page).toHaveTitle('API Documentation - Rapid');
 
     const backLink = page.locator(locators.homeLink);
     await expect(backLink).toBeVisible();
     await backLink.click();
 
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL(/\/en\/?$/);
     await expect(page).toHaveTitle('Rapid');
   });
 
@@ -85,13 +88,13 @@ test.describe('Website Navigation', () => {
   test('direct URL navigation works for architecture page', async ({
     page,
   }) => {
-    await page.goto('/docs/architecture');
+    await page.goto('/en/docs/architecture');
     await expect(page).toHaveTitle('Architecture - Rapid');
     await expect(page.locator(locators.architectureContent)).toBeVisible();
   });
 
   test('direct URL navigation works for docs page', async ({ page }) => {
-    await page.goto('/docs/api');
+    await page.goto('/en/docs/api');
     await expect(page).toHaveTitle('API Documentation - Rapid');
     await expect(page.locator(locators.swaggerContainer)).toBeVisible();
   });
@@ -116,16 +119,16 @@ const dropdownTests = [
   {
     name: 'Products',
     locator: locators.productsDropdown,
-    links: ['a[href="/products/cli"]', 'a[href="/products/desktop"]'],
-    clickLink: 'a[href="/products/cli"]',
-    expectedUrl: /\/products\/cli\/?$/,
+    links: ['a[href="/en/products/cli"]', 'a[href="/en/products/desktop"]'],
+    clickLink: 'a[href="/en/products/cli"]',
+    expectedUrl: /\/en\/products\/cli\/?$/,
   },
   {
     name: 'Docs',
     locator: locators.docsDropdown,
-    links: ['a[href="/docs/architecture"]', 'a[href="/docs/api"]'],
-    clickLink: 'a[href="/docs/architecture"]',
-    expectedUrl: /\/docs\/architecture\/?$/,
+    links: ['a[href="/en/docs/architecture"]', 'a[href="/en/docs/api"]'],
+    clickLink: 'a[href="/en/docs/architecture"]',
+    expectedUrl: /\/en\/docs\/architecture\/?$/,
   },
 ];
 
