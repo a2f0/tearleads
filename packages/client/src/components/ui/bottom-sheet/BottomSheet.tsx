@@ -21,11 +21,13 @@ interface BottomSheetProps {
   initialSnapPoint?: string;
 }
 
-const DEFAULT_SNAP_POINTS: SnapPoint[] = [
-  { name: 'collapsed', height: 200 },
-  { name: 'half', height: Math.round(window.innerHeight * 0.5) },
-  { name: 'expanded', height: Math.round(window.innerHeight * 0.85) }
-];
+function getDefaultSnapPoints(windowHeight: number): SnapPoint[] {
+  return [
+    { name: 'collapsed', height: 200 },
+    { name: 'half', height: Math.round(windowHeight * 0.5) },
+    { name: 'expanded', height: Math.round(windowHeight * 0.85) }
+  ];
+}
 
 export function BottomSheet({
   open,
@@ -38,11 +40,25 @@ export function BottomSheet({
 }: BottomSheetProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [shouldRender, setShouldRender] = useState(open);
+  const [windowHeight, setWindowHeight] = useState(
+    typeof window !== 'undefined' ? window.innerHeight : 0
+  );
   const titleId = useId();
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleResize = () => {
+      setWindowHeight(window.innerHeight);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const snapPoints = useMemo(
-    () => customSnapPoints ?? DEFAULT_SNAP_POINTS,
-    [customSnapPoints]
+    () => customSnapPoints ?? getDefaultSnapPoints(windowHeight),
+    [customSnapPoints, windowHeight]
   );
 
   const handleDismiss = useCallback(() => {
