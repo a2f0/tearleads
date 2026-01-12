@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAudio } from '@/audio';
+import { AudioVisualizer } from '@/components/audio/AudioVisualizer';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
@@ -431,6 +432,7 @@ export function AudioPage() {
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col space-y-2">
+            <AudioVisualizer />
             <VirtualListStatus
               firstVisible={firstVisible}
               lastVisible={lastVisible}
