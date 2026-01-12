@@ -27,7 +27,7 @@ export const pwaOptions: Partial<VitePWAOptions> = {
   },
   workbox: {
     // Don't include html - navigation is handled by runtimeCaching with NetworkFirst
-    globPatterns: ['**/*.{js,css,ico,png,svg,webmanifest}'],
+    globPatterns: ['**/*.{js,mjs,css,ico,png,svg,webmanifest}'],
     // Increase max file size for large JS bundles (e.g., web-llm library ~6MB)
     // Note: LLM models themselves are cached by web-llm at runtime, not by Workbox
     maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10MB
@@ -44,7 +44,7 @@ export const pwaOptions: Partial<VitePWAOptions> = {
         // Static assets use CacheFirst - they're fingerprinted so safe to cache
         urlPattern: ({url}) =>
           url.origin === self.location.origin &&
-          /\.(js|css|ico|png|svg|woff2?)$/.test(url.pathname),
+          /\.(js|mjs|css|ico|png|svg|woff2?)$/.test(url.pathname),
         handler: 'CacheFirst',
         options: {
           cacheName: 'rapid8-static-cache',
