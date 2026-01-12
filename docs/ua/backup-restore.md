@@ -5,6 +5,7 @@ Rapid надає функціональність резервного копі�
 ## Огляд
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart TB
     subgraph Export["Процес Експорту"]
         DB[("Зашифрована База Даних")]
@@ -42,6 +43,7 @@ SQLite3MultipleCiphers WASM має специфічні обмеження, що
 ### Рішення: Резервне Копіювання на Основі JSON
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart LR
     subgraph Export
         DB1[("SQLite DB")]
@@ -100,6 +102,7 @@ flowchart LR
 Десктоп використовує нативний SQLite з better-sqlite3-multiple-ciphers, який підтримує стандартні механізми резервного копіювання SQLite.
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart LR
     subgraph Export
         DB1[("Зашифрована БД")]
@@ -131,6 +134,7 @@ flowchart LR
 Мобільні платформи використовують SQLCipher через плагіни Capacitor.
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart LR
     subgraph Export
         DB1[("SQLCipher DB")]
