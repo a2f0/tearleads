@@ -32,6 +32,13 @@ Object.defineProperty(window, 'localStorage', {
   value: mockLocalStorage
 });
 
+const TEST_TRACK = {
+  id: 'track-1',
+  name: 'Test Song.mp3',
+  objectUrl: 'blob:test-url',
+  mimeType: 'audio/mpeg'
+};
+
 describe('AudioVisualizer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -39,11 +46,12 @@ describe('AudioVisualizer', () => {
     mockUseAudioAnalyser.mockReturnValue(new Uint8Array(12));
   });
 
-  describe('when not playing', () => {
+  describe('when no track is loaded', () => {
     beforeEach(() => {
       mockUseAudio.mockReturnValue({
         audioElementRef: mockAudioElementRef,
-        isPlaying: false
+        isPlaying: false,
+        currentTrack: null
       });
     });
 
@@ -54,11 +62,28 @@ describe('AudioVisualizer', () => {
     });
   });
 
+  describe('when track is loaded but not playing', () => {
+    beforeEach(() => {
+      mockUseAudio.mockReturnValue({
+        audioElementRef: mockAudioElementRef,
+        isPlaying: false,
+        currentTrack: TEST_TRACK
+      });
+    });
+
+    it('renders the visualizer with flatlined bars', () => {
+      render(<AudioVisualizer />);
+
+      expect(screen.getByTestId('audio-visualizer')).toBeInTheDocument();
+    });
+  });
+
   describe('when playing', () => {
     beforeEach(() => {
       mockUseAudio.mockReturnValue({
         audioElementRef: mockAudioElementRef,
-        isPlaying: true
+        isPlaying: true,
+        currentTrack: TEST_TRACK
       });
     });
 
@@ -117,7 +142,8 @@ describe('AudioVisualizer', () => {
     beforeEach(() => {
       mockUseAudio.mockReturnValue({
         audioElementRef: mockAudioElementRef,
-        isPlaying: true
+        isPlaying: true,
+        currentTrack: TEST_TRACK
       });
     });
 
@@ -153,7 +179,8 @@ describe('AudioVisualizer', () => {
     beforeEach(() => {
       mockUseAudio.mockReturnValue({
         audioElementRef: mockAudioElementRef,
-        isPlaying: true
+        isPlaying: true,
+        currentTrack: TEST_TRACK
       });
     });
 
@@ -185,7 +212,8 @@ describe('AudioVisualizer', () => {
     beforeEach(() => {
       mockUseAudio.mockReturnValue({
         audioElementRef: mockAudioElementRef,
-        isPlaying: true
+        isPlaying: true,
+        currentTrack: TEST_TRACK
       });
     });
 
