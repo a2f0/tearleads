@@ -76,12 +76,11 @@
   border-radius: 2px;
 }
 
-/* Webkit (Chrome, Safari, Edge) seek slider thumb */
-.audio-slider-seek::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 16px;
-  height: 16px;
+/* Common slider thumb styles */
+.audio-slider-seek::-webkit-slider-thumb,
+.audio-slider-volume::-webkit-slider-thumb,
+.audio-slider-seek::-moz-range-thumb,
+.audio-slider-volume::-moz-range-thumb {
   border-radius: 50%;
   background: hsl(var(--primary));
   cursor: pointer;
@@ -89,62 +88,43 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-.audio-slider-seek::-webkit-slider-thumb:hover {
+.audio-slider-seek::-webkit-slider-thumb:hover,
+.audio-slider-volume::-webkit-slider-thumb:hover,
+.audio-slider-seek::-moz-range-thumb:hover,
+.audio-slider-volume::-moz-range-thumb:hover {
   background: hsl(var(--primary) / 0.9);
   transform: scale(1.1);
 }
 
-/* Webkit volume slider thumb */
+/* Webkit (Chrome, Safari, Edge) specific thumb styles */
+.audio-slider-seek::-webkit-slider-thumb,
 .audio-slider-volume::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
+}
+
+.audio-slider-seek::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
+}
+
+.audio-slider-volume::-webkit-slider-thumb {
   width: 12px;
   height: 12px;
-  border-radius: 50%;
-  background: hsl(var(--primary));
-  cursor: pointer;
-  border: 2px solid hsl(var(--background));
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   margin-top: 0;
 }
 
-.audio-slider-volume::-webkit-slider-thumb:hover {
-  background: hsl(var(--primary) / 0.9);
-  transform: scale(1.1);
-}
-
-/* Firefox seek slider thumb */
+/* Firefox specific thumb styles */
 .audio-slider-seek::-moz-range-thumb {
   width: 16px;
   height: 16px;
-  border-radius: 50%;
-  background: hsl(var(--primary));
-  cursor: pointer;
-  border: 2px solid hsl(var(--background));
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-.audio-slider-seek::-moz-range-thumb:hover {
-  background: hsl(var(--primary) / 0.9);
-  transform: scale(1.1);
+.audio-slider-volume::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
 }
 
 .audio-slider-seek::-moz-range-track {
   background: transparent;
-}
-
-/* Firefox volume slider thumb */
-.audio-slider-volume::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: hsl(var(--primary));
-  cursor: pointer;
-  border: 2px solid hsl(var(--background));
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.audio-slider-volume::-moz-range-thumb:hover {
-  background: hsl(var(--primary) / 0.9);
-  transform: scale(1.1);
 }
