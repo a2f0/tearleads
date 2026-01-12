@@ -317,5 +317,212 @@ describe('BottomSheet', () => {
       const height = parseInt(dialog.style.height, 10);
       expect(height).toBe(100);
     });
+
+    it('expands on fast upward flick', async () => {
+      vi.useFakeTimers();
+      const customSnapPoints = [
+        { name: 'small', height: 100 },
+        { name: 'medium', height: 300 },
+        { name: 'large', height: 500 }
+      ];
+
+      render(
+        <BottomSheet
+          open={true}
+          onOpenChange={() => {}}
+          snapPoints={customSnapPoints}
+          initialSnapPoint="small"
+        >
+          <p>Content</p>
+        </BottomSheet>
+      );
+
+      const dialog = screen.getByRole('dialog');
+      expect(parseInt(dialog.style.height, 10)).toBe(100);
+
+      await simulateGestureDrag(-50, -1.0);
+
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+
+      expect(parseInt(dialog.style.height, 10)).toBe(300);
+      vi.useRealTimers();
+    });
+
+    it('snaps to nearest point on slow drag release', async () => {
+      vi.useFakeTimers();
+      const customSnapPoints = [
+        { name: 'small', height: 100 },
+        { name: 'large', height: 400 }
+      ];
+
+      render(
+        <BottomSheet
+          open={true}
+          onOpenChange={() => {}}
+          snapPoints={customSnapPoints}
+          initialSnapPoint="small"
+        >
+          <p>Content</p>
+        </BottomSheet>
+      );
+
+      await simulateGestureDrag(-50, 0.1);
+
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+
+      const dialog = screen.getByRole('dialog');
+      expect(parseInt(dialog.style.height, 10)).toBe(100);
+      vi.useRealTimers();
+    });
+
+    it('snaps to top snap point when flicking up from highest point', async () => {
+      vi.useFakeTimers();
+      const customSnapPoints = [
+        { name: 'small', height: 100 },
+        { name: 'large', height: 400 }
+      ];
+
+      render(
+        <BottomSheet
+          open={true}
+          onOpenChange={() => {}}
+          snapPoints={customSnapPoints}
+          initialSnapPoint="large"
+        >
+          <p>Content</p>
+        </BottomSheet>
+      );
+
+      await simulateGestureDrag(-50, -1.0);
+
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+
+      const dialog = screen.getByRole('dialog');
+      expect(parseInt(dialog.style.height, 10)).toBe(400);
+      vi.useRealTimers();
+    });
+
+    it('handles flick down when at lowest snap point', async () => {
+      vi.useFakeTimers();
+      const onOpenChange = vi.fn();
+      const customSnapPoints = [
+        { name: 'small', height: 100 },
+        { name: 'large', height: 400 }
+      ];
+
+      render(
+        <BottomSheet
+          open={true}
+          onOpenChange={onOpenChange}
+          snapPoints={customSnapPoints}
+          initialSnapPoint="small"
+        >
+          <p>Content</p>
+        </BottomSheet>
+      );
+
+      await simulateGestureDrag(30, 0.8);
+
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      vi.useRealTimers();
+    });
+
+    it('finds nearest snap point when gesture ends without velocity', async () => {
+      vi.useFakeTimers();
+      const customSnapPoints = [
+        { name: 'small', height: 100 },
+        { name: 'medium', height: 250 },
+        { name: 'large', height: 400 }
+      ];
+
+      render(
+        <BottomSheet
+          open={true}
+          onOpenChange={() => {}}
+          snapPoints={customSnapPoints}
+          initialSnapPoint="small"
+        >
+          <p>Content</p>
+        </BottomSheet>
+      );
+
+      await simulateGestureDrag(-120, 0.2);
+
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+
+      const dialog = screen.getByRole('dialog');
+      expect(parseInt(dialog.style.height, 10)).toBe(250);
+      vi.useRealTimers();
+    });
+
+    it('snaps to lower point when dragged down from middle', async () => {
+      vi.useFakeTimers();
+      const customSnapPoints = [
+        { name: 'small', height: 100 },
+        { name: 'medium', height: 250 },
+        { name: 'large', height: 400 }
+      ];
+
+      render(
+        <BottomSheet
+          open={true}
+          onOpenChange={() => {}}
+          snapPoints={customSnapPoints}
+          initialSnapPoint="medium"
+        >
+          <p>Content</p>
+        </BottomSheet>
+      );
+
+      const dialog = screen.getByRole('dialog');
+      expect(parseInt(dialog.style.height, 10)).toBe(250);
+
+      await simulateGestureDrag(80, 0.2);
+
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+
+      expect(parseInt(dialog.style.height, 10)).toBe(100);
+      vi.useRealTimers();
+    });
+
+    it('handles flicking up with no onDismiss callback', async () => {
+      vi.useFakeTimers();
+      const customSnapPoints = [{ name: 'only', height: 200 }];
+
+      render(
+        <BottomSheet
+          open={true}
+          onOpenChange={() => {}}
+          snapPoints={customSnapPoints}
+          initialSnapPoint="only"
+        >
+          <p>Content</p>
+        </BottomSheet>
+      );
+
+      await simulateGestureDrag(-50, -0.8);
+
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+
+      const dialog = screen.getByRole('dialog');
+      expect(parseInt(dialog.style.height, 10)).toBe(200);
+      vi.useRealTimers();
+    });
   });
 });
