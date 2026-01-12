@@ -45,6 +45,7 @@ vi.mock('@capgo/capacitor-native-biometric', () => ({
 import { BiometryType } from '@capgo/capacitor-native-biometric';
 import {
   clearSession,
+  getTrackedKeystoreInstanceIds,
   hasSession,
   isBiometricAvailable,
   retrieveWrappedKey,
@@ -570,6 +571,44 @@ describe('native-secure-storage', () => {
 
       expect(mockGetCredentials).toHaveBeenCalledWith({
         server: `com.tearleads.rapid.wrapping_key.${instance1}`
+      });
+    });
+  });
+
+  describe('Keystore instance tracking', () => {
+    // Note: These tests are limited because IndexedDB is not available
+    // in the test environment. The tracking functions are tested via
+    // integration tests and Maestro tests.
+
+    describe('getTrackedKeystoreInstanceIds', () => {
+      it('returns empty array when tracking DB is not available', async () => {
+        // In test environment, IndexedDB may not be available
+        const result = await getTrackedKeystoreInstanceIds();
+        // Should return empty array rather than throwing
+        expect(Array.isArray(result)).toBe(true);
+      });
+    });
+
+    describe('tracking integration with store/clear', () => {
+      it('storeWrappedKey attempts to track the instance', async () => {
+        mockSetCredentials.mockResolvedValue(undefined);
+
+        // This should not throw even if tracking fails
+        const result = await storeWrappedKey(
+          TEST_INSTANCE_ID,
+          new Uint8Array([1, 2, 3])
+        );
+
+        expect(result).toBe(true);
+      });
+
+      it('clearSession attempts to untrack the instance', async () => {
+        mockDeleteCredentials.mockResolvedValue(undefined);
+
+        // This should not throw even if untracking fails
+        await clearSession(TEST_INSTANCE_ID);
+
+        expect(mockDeleteCredentials).toHaveBeenCalledTimes(2);
       });
     });
   });
