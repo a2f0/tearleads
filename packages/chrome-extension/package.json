@@ -1,6 +1,6 @@
 {
   "name": "@rapid/chrome-extension",
-  "version": "0.0.37",
+  "version": "0.0.38",
   "description": "Chrome extension for Rapid",
   "type": "module",
   "scripts": {
