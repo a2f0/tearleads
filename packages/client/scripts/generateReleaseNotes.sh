@@ -80,31 +80,24 @@ CURRENT_DATE=$(git log -1 --format="%cI" "$CURRENT_BUMP" 2>/dev/null)
 
 echo "Finding PRs merged between $PREVIOUS_DATE and $CURRENT_DATE" >&2
 
-# Extract PR numbers from merge commits in the range
+# Extract PR numbers from merge commits in the range (excluding the current bump commit)
 # Merge commits typically have messages like "Merge pull request #123 from ..."
-PR_NUMBERS=$(git log "${PREVIOUS_BUMP}..${CURRENT_BUMP}" --merges --format="%s" 2>/dev/null | \
+PR_NUMBERS=$(git log "${PREVIOUS_BUMP}..${CURRENT_BUMP}~1" --merges --format="%s" 2>/dev/null | \
     grep -oE '#[0-9]+' | tr -d '#' | sort -u)
 
 if [ -z "$PR_NUMBERS" ]; then
     echo "Warning: No PR merge commits found in range, falling back to commit messages" >&2
     COMMITS=$(git log "${PREVIOUS_BUMP}..${CURRENT_BUMP}~1" --no-merges --format="- %s" 2>/dev/null)
 else
-    # Fetch PR titles and descriptions using gh CLI
-    COMMITS=""
-    for PR_NUM in $PR_NUMBERS; do
-        echo "Fetching PR #$PR_NUM..." >&2
-        PR_DATA=$(gh pr view "$PR_NUM" --json title,body 2>/dev/null || echo "")
-        if [ -n "$PR_DATA" ]; then
-            PR_TITLE=$(echo "$PR_DATA" | jq -r '.title // empty')
-            PR_BODY=$(echo "$PR_DATA" | jq -r '.body // empty' | head -50)
-            if [ -n "$PR_TITLE" ]; then
-                COMMITS="${COMMITS}
-## PR #${PR_NUM}: ${PR_TITLE}
-${PR_BODY}
-"
-            fi
-        fi
-    done
+    # Fetch all PRs in one call for efficiency
+    # shellcheck disable=SC2086
+    PR_NUMS_INLINE=$(echo $PR_NUMBERS | tr '\n' ' ')
+    echo "Fetching data for PRs: $PR_NUMS_INLINE" >&2
+    # shellcheck disable=SC2086
+    PR_DATA_LIST=$(gh pr view $PR_NUMS_INLINE --json number,title,body 2>/dev/null || echo "[]")
+
+    # Process the JSON array of PRs using jq for cleaner formatting
+    COMMITS=$(echo "$PR_DATA_LIST" | jq -r 'if type == "array" then . else [.] end | map("\n## PR #\(.number): \(.title)\n\(.body // "" | split("\n") | .[0:50] | join("\n"))") | join("")')
 fi
 
 if [ -z "$COMMITS" ]; then
