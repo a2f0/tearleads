@@ -19,6 +19,8 @@ interface AudioVisualizerProps {
 const STORAGE_KEY = 'audio-visualizer-style';
 const BAR_COUNT = 12;
 const SEGMENT_COUNT = 15;
+const SEGMENT_TOTAL_HEIGHT = 6; // h-1 (4px) + gap-0.5 (2px)
+const GRADIENT_BAR_MIN_HEIGHT = 4;
 
 // Pre-generated stable keys for bars and segments (avoids array index key lint errors)
 const BAR_KEYS = Array.from({ length: BAR_COUNT }, (_, i) => `bar-${i}`);
@@ -93,18 +95,12 @@ export function AudioVisualizer({
             <div
               key={key}
               className="flex w-3 flex-col-reverse gap-0.5"
-              style={{ height: `${SEGMENT_COUNT * 6}px` }}
+              style={{ height: `${SEGMENT_COUNT * SEGMENT_TOTAL_HEIGHT}px` }}
             >
               {style === 'lcd' ? (
-                <LCDBar
-                  normalizedHeight={normalizedHeight}
-                  barIndex={barIndex}
-                />
+                <LCDBar normalizedHeight={normalizedHeight} />
               ) : (
-                <GradientBar
-                  normalizedHeight={normalizedHeight}
-                  barIndex={barIndex}
-                />
+                <GradientBar normalizedHeight={normalizedHeight} />
               )}
             </div>
           );
@@ -126,7 +122,6 @@ export function AudioVisualizer({
 
 interface BarProps {
   normalizedHeight: number;
-  barIndex: number;
 }
 
 function LCDBar({ normalizedHeight }: BarProps) {
@@ -165,7 +160,10 @@ function LCDBar({ normalizedHeight }: BarProps) {
 }
 
 function GradientBar({ normalizedHeight }: BarProps) {
-  const height = Math.max(4, normalizedHeight * SEGMENT_COUNT * 6);
+  const height = Math.max(
+    GRADIENT_BAR_MIN_HEIGHT,
+    normalizedHeight * SEGMENT_COUNT * SEGMENT_TOTAL_HEIGHT
+  );
 
   return (
     <div
