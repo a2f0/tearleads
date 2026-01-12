@@ -80,18 +80,30 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    ### 4a. Yield to high-priority PRs
 
-   If the current PR does NOT have the `high-priority` label, check if any other open PRs do:
+   If the current PR does NOT have the `high-priority` label, check if any other open PRs do.
+
+   **Step 1**: Get the list of high-priority PR numbers:
 
    ```bash
-   gh pr list --label "high-priority" --state open --json number,headRefName,mergeStateStatus
+   gh pr list --label "high-priority" --state open --json number
    ```
 
-   - If high-priority PRs exist and any have `mergeStateStatus` of `CLEAN` or `BLOCKED` (meaning they're actively trying to merge):
-     1. Log: "Yielding to high-priority PR #X"
-     2. Wait 2 minutes before rechecking
-     3. Repeat this check until no high-priority PRs are actively merging
-   - If no high-priority PRs exist, or they're all `BEHIND` or `DIRTY`, proceed normally
-   - If the current PR IS high-priority, skip this check entirely
+   **Step 2**: For each high-priority PR, get its merge state (required because `mergeStateStatus` is not available in `gh pr list`):
+
+   ```bash
+   gh pr view <pr-number> --json mergeStateStatus
+   ```
+
+   **Step 3**: Determine whether to yield:
+
+   - **Yield** if any high-priority PR has `mergeStateStatus` of `CLEAN`, `BLOCKED`, `BEHIND`, or `UNKNOWN`:
+     1. Log: "Yielding to high-priority PR #X (status: Y)"
+     2. Wait 2 minutes (with jitter) before rechecking
+     3. Repeat from Step 1 until no high-priority PRs require yielding
+   - **Proceed normally** if:
+     - No high-priority PRs exist, OR
+     - All high-priority PRs have `mergeStateStatus` of `DIRTY` (conflicts that need manual resolution)
+   - **Skip this check entirely** if the current PR has the `high-priority` label
 
    ### 4b. Check PR state
 
@@ -330,7 +342,7 @@ git rebase origin/main      # Can be noisy and waste tokens
 ## Notes
 
 - Loops until PR is **actually merged**, not just auto-merge enabled
-- Non-high-priority PRs yield to high-priority ones (check every 2 min with jitter)
+- Non-high-priority PRs yield to high-priority ones unless all are `DIRTY` (check every 2 min with jitter)
 - PRs with `needs-qa` label: auto-close language is removed, issue is created if needed, closed issues are reopened, and issue is labeled "Needs QA" after merge
 - Prioritize staying up-to-date over waiting for CI in congested queues
 - Fixable: lint/type errors, test failures. Non-fixable: merge conflicts, infra failures
