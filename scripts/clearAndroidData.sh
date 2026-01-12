@@ -1,6 +1,11 @@
 #!/bin/sh
 set -eu
 
+if ! command -v adb >/dev/null; then
+    echo "Error: 'adb' command not found. Please ensure Android SDK Platform-Tools are installed and in your PATH." >&2
+    exit 1
+fi
+
 PACKAGE_ID=${1:-"com.tearleads.rapid"}
 CACHE_ONLY=${CACHE_ONLY:-""}
 
