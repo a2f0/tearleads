@@ -1133,7 +1133,7 @@ test.describe('Contacts page', () => {
     await expect(page.getByTestId('dropzone')).toBeVisible();
   });
 
-  test('should show search input when database is unlocked', async ({
+  test('should hide search and refresh when no contacts exist', async ({
     page
   }) => {
     // Setup and unlock the database
@@ -1143,22 +1143,16 @@ test.describe('Contacts page', () => {
     await navigateTo(page, 'Contacts');
     await expect(page.getByRole('heading', { name: 'Contacts' })).toBeVisible();
 
-    // Should show search input
-    await expect(page.getByPlaceholder('Search contacts...')).toBeVisible();
-  });
+    // Wait for empty state to be visible
+    await expect(page.getByTestId('add-contact-card')).toBeVisible({
+      timeout: 10000
+    });
 
-  test('should show refresh button when database is unlocked', async ({
-    page
-  }) => {
-    // Setup and unlock the database
-    await setupAndUnlockDatabase(page);
-
-    // Navigate to contacts page
-    await navigateTo(page, 'Contacts');
-    await expect(page.getByRole('heading', { name: 'Contacts' })).toBeVisible();
-
-    // Should show refresh button
-    await expect(page.getByRole('button', { name: 'Refresh' })).toBeVisible();
+    // Search and refresh should be hidden when no contacts exist
+    await expect(page.getByPlaceholder('Search contacts...')).not.toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Refresh' })
+    ).not.toBeVisible();
   });
 
   test('should show empty state when no contacts exist', async ({ page }) => {
