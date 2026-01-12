@@ -545,6 +545,163 @@ describe('analytics', () => {
       // Should use default since sortColumn is missing
       expect(sql).toContain('ORDER BY timestamp DESC');
     });
+
+    it('filters out rows with invalid numeric fields', async () => {
+      mockAdapter.execute.mockResolvedValue({
+        rows: [
+          {
+            id: '1',
+            eventName: 'event1',
+            durationMs: 'invalid',
+            success: 1,
+            timestamp: 1000,
+            detail: null
+          },
+          {
+            id: '2',
+            eventName: 'event2',
+            durationMs: 100,
+            success: 'invalid',
+            timestamp: 1000,
+            detail: null
+          },
+          {
+            id: '3',
+            eventName: 'event3',
+            durationMs: 100,
+            success: 1,
+            timestamp: 'invalid',
+            detail: null
+          },
+          {
+            id: '4',
+            eventName: 'event4',
+            durationMs: 100,
+            success: 1,
+            timestamp: 1000,
+            detail: null
+          }
+        ]
+      });
+
+      const result = await getEvents(mockDb);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe('4');
+    });
+
+    it('filters out rows that are not records', async () => {
+      mockAdapter.execute.mockResolvedValue({
+        rows: [
+          null,
+          'not a record',
+          123,
+          {
+            id: '1',
+            eventName: 'valid',
+            durationMs: 100,
+            success: 1,
+            timestamp: 1000,
+            detail: null
+          }
+        ]
+      });
+
+      const result = await getEvents(mockDb);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe('1');
+    });
+
+    it('filters out rows with missing or invalid id/eventName', async () => {
+      mockAdapter.execute.mockResolvedValue({
+        rows: [
+          {
+            eventName: 'missing-id',
+            durationMs: 100,
+            success: 1,
+            timestamp: 1000,
+            detail: null
+          },
+          {
+            id: 123,
+            eventName: 'id-not-string',
+            durationMs: 100,
+            success: 1,
+            timestamp: 1000,
+            detail: null
+          },
+          {
+            id: '1',
+            durationMs: 100,
+            success: 1,
+            timestamp: 1000,
+            detail: null
+          },
+          {
+            id: '2',
+            eventName: 123,
+            durationMs: 100,
+            success: 1,
+            timestamp: 1000,
+            detail: null
+          },
+          {
+            id: '3',
+            eventName: 'valid',
+            durationMs: 100,
+            success: 1,
+            timestamp: 1000,
+            detail: null
+          }
+        ]
+      });
+
+      const result = await getEvents(mockDb);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe('3');
+    });
+
+    it('handles invalid JSON in detail field gracefully', async () => {
+      mockAdapter.execute.mockResolvedValue({
+        rows: [
+          {
+            id: '1',
+            eventName: 'event1',
+            durationMs: 100,
+            success: 1,
+            timestamp: 1000,
+            detail: 'not valid json {'
+          }
+        ]
+      });
+
+      const result = await getEvents(mockDb);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.detail).toBeNull();
+    });
+
+    it('handles array in detail field gracefully', async () => {
+      mockAdapter.execute.mockResolvedValue({
+        rows: [
+          {
+            id: '1',
+            eventName: 'event1',
+            durationMs: 100,
+            success: 1,
+            timestamp: 1000,
+            detail: '[1, 2, 3]'
+          }
+        ]
+      });
+
+      const result = await getEvents(mockDb);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.detail).toBeNull();
+    });
   });
 
   describe('getEventStats', () => {
@@ -670,6 +827,80 @@ describe('analytics', () => {
         successRate: 0
       });
     });
+
+    it('filters out invalid rows (not a record)', async () => {
+      mockAdapter.execute.mockResolvedValue({
+        rows: [
+          null,
+          'invalid',
+          123,
+          {
+            eventName: 'valid',
+            count: 5,
+            totalDuration: 100,
+            minDuration: 10,
+            maxDuration: 30,
+            successCount: 4
+          }
+        ]
+      });
+
+      const result = await getEventStats(mockDb);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.eventName).toBe('valid');
+    });
+
+    it('filters out rows with missing eventName', async () => {
+      mockAdapter.execute.mockResolvedValue({
+        rows: [
+          {
+            count: 5,
+            totalDuration: 100,
+            minDuration: 10,
+            maxDuration: 30,
+            successCount: 4
+          },
+          {
+            eventName: 123,
+            count: 5,
+            totalDuration: 100,
+            minDuration: 10,
+            maxDuration: 30,
+            successCount: 4
+          },
+          {
+            eventName: 'valid',
+            count: 5,
+            totalDuration: 100,
+            minDuration: 10,
+            maxDuration: 30,
+            successCount: 4
+          }
+        ]
+      });
+
+      const result = await getEventStats(mockDb);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.eventName).toBe('valid');
+    });
+
+    it('applies sort column and direction', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [] });
+
+      await getEventStats(mockDb, {
+        sortColumn: 'avgDurationMs',
+        sortDirection: 'desc'
+      });
+
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'ORDER BY sum(duration_ms) * 1.0 / count(*) DESC'
+        ),
+        []
+      );
+    });
   });
 
   describe('clearEvents', () => {
@@ -708,6 +939,46 @@ describe('analytics', () => {
       const result = await getEventCount(mockDb);
 
       expect(result).toBe(0);
+    });
+
+    it('applies startTime filter when provided', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [{ count: 10 }] });
+      const startTime = new Date('2024-01-01T00:00:00Z');
+
+      const result = await getEventCount(mockDb, { startTime });
+
+      expect(result).toBe(10);
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE timestamp >= ?'),
+        [startTime.getTime()]
+      );
+    });
+
+    it('applies endTime filter when provided', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [{ count: 5 }] });
+      const endTime = new Date('2024-12-31T23:59:59Z');
+
+      const result = await getEventCount(mockDb, { endTime });
+
+      expect(result).toBe(5);
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE timestamp <= ?'),
+        [endTime.getTime()]
+      );
+    });
+
+    it('applies both startTime and endTime filters when provided', async () => {
+      mockAdapter.execute.mockResolvedValue({ rows: [{ count: 3 }] });
+      const startTime = new Date('2024-01-01T00:00:00Z');
+      const endTime = new Date('2024-12-31T23:59:59Z');
+
+      const result = await getEventCount(mockDb, { startTime, endTime });
+
+      expect(result).toBe(3);
+      expect(mockAdapter.execute).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE timestamp >= ? AND timestamp <= ?'),
+        [startTime.getTime(), endTime.getTime()]
+      );
     });
   });
 
