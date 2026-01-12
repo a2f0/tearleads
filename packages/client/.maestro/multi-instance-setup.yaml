@@ -1,0 +1,208 @@
+appId: com.tearleads.rapid
+---
+# Multi-Instance Setup Test - Verifies that multiple instances can be set up sequentially
+#
+# This test reproduces the bug where setting up a second instance fails with:
+# "Set up error: state for rapid-xxx...db not correct"
+#
+# The root cause is that @capacitor-community/sqlite uses a single global encryption
+# secret in SharedPreferences. When a second instance tries to set up, it clears
+# the first instance's key, causing SQLCipher to detect a key mismatch.
+#
+# Related: https://github.com/a2f0/rapid/issues/634
+
+- launchApp:
+    clearState: true
+
+- assertVisible: "Tearleads"
+
+# Load shared database helper functions
+- runFlow: helpers/db-helpers.yaml
+
+# Navigate to SQLite page
+- evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
+
+# Wait for SQLite page to load
+- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
+
+# DO NOT click reset - match user's exact flow where they go directly to setup
+# Wait for status to stabilize (should be "Not Set Up" on fresh install)
+- evalScript: |
+    window.waitFor(
+      () => {
+        const status = document.querySelector('[data-testid="db-status"]');
+        console.log('[MULTI-INSTANCE] Initial status: ' + (status ? status.textContent : 'null'));
+        return status && status.textContent === 'Not Set Up';
+      },
+      'Expected "Not Set Up" status on fresh install'
+    )
+
+# Setup first instance with a password
+- evalScript: window.setPassword('firstinstance123')
+- evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
+- evalScript: window.waitForResult('success')
+- evalScript: window.waitForStatus('Unlocked')
+
+# Write test data to verify first instance is working
+- evalScript: document.querySelector('[data-testid="db-write-button"]').click()
+- evalScript: window.waitForResult('success', 'Wrote test data:')
+
+# Store the test data value for later verification
+- evalScript: |
+    const testData = document.querySelector('[data-testid="db-test-data"]');
+    if (!testData || !/^test-value-\d+$/.test(testData.textContent)) {
+      throw new Error('Expected test data to be displayed');
+    }
+    window.__firstInstanceData = testData.textContent;
+    console.log('[MULTI-INSTANCE] First instance data: ' + window.__firstInstanceData);
+    return 'ok';
+
+# Create a new instance via account switcher
+- evalScript: |
+    const switcher = document.querySelector('[data-testid="account-switcher-button"]');
+    if (!switcher) throw new Error('Account switcher button not found');
+    switcher.click();
+    return 'ok';
+
+# Wait for dropdown to appear
+- evalScript: |
+    window.waitFor(
+      () => document.querySelector('[data-testid="create-instance-button"]'),
+      'Create instance button not found'
+    )
+
+# Click create new instance
+- evalScript: document.querySelector('[data-testid="create-instance-button"]').click()
+
+# Wait for new instance to be active (should be not set up)
+- evalScript: window.waitForStatus('Not Set Up')
+
+# Verify status shows "Not Set Up"
+- evalScript: |
+    const status = document.querySelector('[data-testid="db-status"]');
+    if (status.textContent !== 'Not Set Up') {
+      throw new Error('Expected "Not Set Up" status for new instance, got: ' + status.textContent);
+    }
+    console.log('[MULTI-INSTANCE] Second instance created, status: Not Set Up');
+    return 'ok';
+
+# Log current state before attempting second instance setup
+- evalScript: |
+    const status = document.querySelector('[data-testid="db-status"]');
+    console.log('[MULTI-INSTANCE] Pre-setup status: ' + (status ? status.textContent : 'null'));
+
+    // Check if there's any existing result message
+    const result = document.querySelector('[data-testid="db-test-result"]');
+    console.log('[MULTI-INSTANCE] Pre-setup result: ' + (result ? result.textContent : 'null'));
+
+    return 'ok';
+
+# CRITICAL TEST: Set up the second instance
+# This is where the bug occurs - "state for rapid-xxx...db not correct"
+- evalScript: window.setPassword('secondinstance456')
+- evalScript: |
+    console.log('[MULTI-INSTANCE] Attempting to set up second instance...');
+    console.log('[MULTI-INSTANCE] Password field value: ' + document.querySelector('[data-testid="db-password-input"]').value.length + ' chars');
+    document.querySelector('[data-testid="db-setup-button"]').click();
+    return 'ok';
+
+# Wait for setup result - this should succeed but currently fails on Android
+- evalScript: |
+    window.waitFor(
+      () => {
+        const result = document.querySelector('[data-testid="db-test-result"]');
+        const status = result ? result.getAttribute('data-status') : null;
+        const text = result ? result.textContent : 'null';
+        console.log('[MULTI-INSTANCE] Setup polling - status: ' + status + ', text: ' + text);
+        // Check for either success or error
+        return status === 'success' || status === 'error';
+      },
+      'Setup did not complete (no success or error status)',
+      30000  // longer timeout for setup
+    )
+
+# Verify setup succeeded (not errored)
+- evalScript: |
+    const result = document.querySelector('[data-testid="db-test-result"]');
+    const status = result.getAttribute('data-status');
+    const message = result.textContent;
+    console.log('[MULTI-INSTANCE] Final result - status: ' + status + ', message: ' + message);
+    if (status === 'error') {
+      throw new Error('Second instance setup failed: ' + message);
+    }
+    if (status !== 'success') {
+      throw new Error('Unexpected status: ' + status);
+    }
+    return 'ok';
+
+# Verify second instance is unlocked
+- evalScript: window.waitForStatus('Unlocked')
+
+# Write test data to second instance
+- evalScript: document.querySelector('[data-testid="db-write-button"]').click()
+- evalScript: window.waitForResult('success', 'Wrote test data:')
+
+# Store second instance data
+- evalScript: |
+    const testData = document.querySelector('[data-testid="db-test-data"]');
+    window.__secondInstanceData = testData.textContent;
+    console.log('[MULTI-INSTANCE] Second instance data: ' + window.__secondInstanceData);
+    return 'ok';
+
+# Now switch back to first instance to verify it still works
+- evalScript: |
+    const switcher = document.querySelector('[data-testid="account-switcher-button"]');
+    switcher.click();
+    return 'ok';
+
+# Wait for dropdown
+- evalScript: |
+    window.waitFor(
+      () => document.querySelectorAll('[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])').length > 0,
+      'Instance items not found'
+    )
+
+# Click first instance (should be first in list)
+- evalScript: |
+    const instances = document.querySelectorAll('[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])');
+    console.log('[MULTI-INSTANCE] Found ' + instances.length + ' instances');
+    instances[0].click();
+    return 'ok';
+
+# Wait for switch - first instance should be locked or unlocked (not "Not Set Up")
+- evalScript: |
+    window.waitFor(
+      () => {
+        const status = document.querySelector('[data-testid="db-status"]');
+        return status && status.textContent !== 'Not Set Up';
+      },
+      'First instance should not be "Not Set Up"'
+    )
+
+# Unlock first instance if needed
+- evalScript: |
+    const status = document.querySelector('[data-testid="db-status"]');
+    if (status.textContent === 'Locked') {
+      console.log('[MULTI-INSTANCE] First instance locked, unlocking...');
+      window.setPassword('firstinstance123');
+      document.querySelector('[data-testid="db-unlock-button"]').click();
+    }
+    return 'ok';
+
+- evalScript: window.waitForStatus('Unlocked')
+
+# Read data from first instance
+- evalScript: document.querySelector('[data-testid="db-read-button"]').click()
+- evalScript: window.waitForResult('success', 'Read test data:')
+
+# Verify first instance data is correct (not corrupted by second instance setup)
+- evalScript: |
+    const testData = document.querySelector('[data-testid="db-test-data"]');
+    if (testData.textContent !== window.__firstInstanceData) {
+      throw new Error('First instance data corrupted! Expected: ' + window.__firstInstanceData + ', got: ' + testData.textContent);
+    }
+    console.log('[MULTI-INSTANCE] First instance data verified: ' + testData.textContent);
+    return 'ok';
+
+# Final cleanup
+- evalScript: document.querySelector('[data-testid="db-reset-button"]')?.click() || 'ok'
