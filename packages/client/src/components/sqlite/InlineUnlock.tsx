@@ -11,6 +11,7 @@ import {
   useEffect,
   useState
 } from 'react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { isBiometricAvailable } from '@/db/crypto/key-manager';
 import { useDatabaseContext } from '@/db/hooks';
@@ -126,7 +127,11 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
       >
         <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
         <p className="mt-4 text-muted-foreground">
-          Database is not set up. Go to the SQLite page to set up your database.
+          Database is not set up. Go to the{' '}
+          <Link to="/sqlite" className="text-primary underline">
+            SQLite page
+          </Link>{' '}
+          to set up your database.
         </p>
       </div>
     );
