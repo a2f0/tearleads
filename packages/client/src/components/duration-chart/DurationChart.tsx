@@ -143,7 +143,11 @@ export function DurationChart({
           {chartData.length} event{chartData.length !== 1 ? 's' : ''}
         </span>
       </div>
-      <div ref={chartContainerRef} className="h-48 w-full sm:h-56">
+      <div
+        ref={chartContainerRef}
+        className="h-48 w-full sm:h-56"
+        data-testid="duration-chart"
+      >
         {isContainerReady && (
           <ResponsiveContainer
             width="100%"
