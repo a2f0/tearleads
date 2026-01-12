@@ -16,7 +16,9 @@ Use `-R "$REPO"` with all `gh` commands in this skill.
 
 When replying to Gemini comments, you MUST use the REST API to create immediate comment replies. Do NOT use `gh pr review` or GraphQL review mutations - these create pending/draft reviews that remain invisible until submitted, and Gemini will never see them.
 
-See `/follow-up-with-gemini` for the correct API usage.
+**Always tag `@gemini-code-assist`** in every reply to ensure Gemini receives a notification and responds.
+
+See `/follow-up-with-gemini` for the correct API usage and examples.
 
 ## Steps
 

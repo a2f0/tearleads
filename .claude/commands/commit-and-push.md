@@ -32,7 +32,7 @@ Commit and push the current changes following these rules:
 
 7. **Address feedback**: Run `/address-gemini-feedback` to handle unresolved comments.
 
-   **IMPORTANT**: When replying to Gemini comments, use the REST API (`gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies`), NOT `gh pr review`. The `gh pr review` command creates pending/draft reviews that Gemini cannot see until submitted.
+   **IMPORTANT**: When replying to Gemini comments, use the REST API (`gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies`), NOT `gh pr review`. The `gh pr review` command creates pending/draft reviews that Gemini cannot see until submitted. **Always include `@gemini-code-assist` in your reply** to ensure Gemini receives a notification.
 
 ## Token Efficiency (CRITICAL - DO NOT SKIP)
 
