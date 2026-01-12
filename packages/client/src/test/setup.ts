@@ -5,6 +5,14 @@ import { afterEach, beforeAll, vi } from 'vitest';
 // Initialize i18n for tests (side-effect import)
 import '../i18n';
 
+// Mock @ionic/core gestures to avoid DOM issues in jsdom
+vi.mock('@ionic/core', () => ({
+  createGesture: vi.fn(() => ({
+    enable: vi.fn(),
+    destroy: vi.fn()
+  }))
+}));
+
 // Mock pdfjs-dist to avoid DOMMatrix requirement in jsdom
 vi.mock('pdfjs-dist', () => {
   const mockPage = {
