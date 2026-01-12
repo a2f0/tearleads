@@ -1,5 +1,5 @@
 import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
-import { useCallback, useRef } from 'react';
+import { useCallback } from 'react';
 import { type AudioTrack, useAudio } from '@/audio';
 import { Button } from '@/components/ui/button';
 
@@ -27,8 +27,6 @@ export function AudioControls({ tracks }: AudioControlsProps) {
     resume,
     seek
   } = useAudio();
-
-  const sliderRef = useRef<HTMLInputElement>(null);
 
   const currentIndex = currentTrack
     ? tracks.findIndex((t) => t.id === currentTrack.id)
@@ -91,7 +89,6 @@ export function AudioControls({ tracks }: AudioControlsProps) {
         </span>
         <div className="relative flex-1">
           <input
-            ref={sliderRef}
             type="range"
             min={0}
             max={duration || 0}
