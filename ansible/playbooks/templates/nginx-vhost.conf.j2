@@ -31,7 +31,10 @@ server {
     }
 
     # Static assets - fingerprinted, cache aggressively (Vite uses /assets/)
-    location /assets/ {
+    # Use ^~ to prevent regex locations (like .mjs) from taking precedence
+    location ^~ /assets/ {
+        # Serve .mjs files with correct MIME type for ES modules (workers, etc.)
+        types { application/javascript mjs; }
         try_files $uri =404;
         expires 1y;
         add_header Cache-Control "public, immutable";
