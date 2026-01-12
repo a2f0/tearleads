@@ -1,6 +1,6 @@
 {
   "name": "@rapid/client",
-  "version": "0.0.126",
+  "version": "0.0.127",
   "description": "React client application for Rapid",
   "main": "out/main/main.js",
   "type": "module",
@@ -86,7 +86,6 @@
     "@testing-library/react": "16.3.1",
     "@testing-library/user-event": "14.6.1",
     "@types/better-sqlite3": "7.6.13",
-    "@types/i18next": "13.0.0",
     "@types/invariant": "2.2.37",
     "@types/node": "25.0.3",
     "@types/react": "19.2.7",
