@@ -52,13 +52,11 @@ const switchToInstance = async (window: Page, instanceIndex: number) => {
 
 // Helper to ensure database is unlocked (handles both locked and unlocked states)
 const ensureUnlocked = async (window: Page, password: string) => {
-  // Wait for status to stabilize (not "Not Set Up" which means still switching)
-  await expect(window.getByTestId('db-status')).not.toHaveText('Not Set Up', {
+  // Wait for status to stabilize to either 'Locked' or 'Unlocked'.
+  // This is more robust than a fixed timeout.
+  await expect(window.getByTestId('db-status')).toHaveText(/Locked|Unlocked/, {
     timeout: DB_OPERATION_TIMEOUT
   });
-
-  // Wait a moment for React state to settle after instance switch
-  await window.waitForTimeout(100);
 
   const status = await window.getByTestId('db-status').textContent();
   if (status === 'Locked') {
@@ -82,7 +80,7 @@ const waitForAuthError = (window: Page) =>
 const deleteAllOtherInstances = async (window: Page) => {
   // Open the account switcher to see all instances
   await window.getByTestId('account-switcher-button').click();
-  await window.waitForTimeout(100);
+  await expect(window.getByTestId('create-instance-button')).toBeVisible();
 
   // Get all instance items (excluding icons and delete buttons)
   const instanceItems = window.locator(
@@ -92,7 +90,7 @@ const deleteAllOtherInstances = async (window: Page) => {
 
   // Close the switcher
   await window.keyboard.press('Escape');
-  await window.waitForTimeout(100);
+  await expect(window.getByTestId('create-instance-button')).not.toBeVisible();
 
   // If there's more than one instance, delete the extras
   if (count > 1) {
@@ -100,7 +98,7 @@ const deleteAllOtherInstances = async (window: Page) => {
     for (let i = count - 1; i >= 1; i--) {
       // Open switcher
       await window.getByTestId('account-switcher-button').click();
-      await window.waitForTimeout(100);
+      await expect(window.getByTestId('create-instance-button')).toBeVisible();
 
       // Get the delete button for instance at index i
       const items = window.locator(
