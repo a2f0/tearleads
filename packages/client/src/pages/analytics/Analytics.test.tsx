@@ -43,6 +43,7 @@ const mockGetEvents = vi.fn();
 const mockGetEventStats = vi.fn();
 const mockClearEvents = vi.fn();
 const mockGetDistinctEventTypes = vi.fn();
+const mockGetEventCount = vi.fn();
 
 vi.mock('@/db/analytics', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/db/analytics')>();
@@ -58,7 +59,8 @@ vi.mock('@/db/analytics', async (importOriginal) => {
     },
     clearEvents: (...args: unknown[]) => mockClearEvents(...args),
     getDistinctEventTypes: (...args: unknown[]) =>
-      mockGetDistinctEventTypes(...args)
+      mockGetDistinctEventTypes(...args),
+    getEventCount: (...args: unknown[]) => mockGetEventCount(...args)
   };
 });
 
@@ -91,6 +93,7 @@ describe('Analytics', () => {
     mockGetEventStats.mockResolvedValue([]);
     mockClearEvents.mockResolvedValue(undefined);
     mockGetDistinctEventTypes.mockResolvedValue([]);
+    mockGetEventCount.mockResolvedValue(0);
   });
 
   describe('when database is loading', () => {
