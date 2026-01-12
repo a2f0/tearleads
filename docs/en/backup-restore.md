@@ -5,6 +5,7 @@ Rapid provides backup and restore functionality to protect your data. Due to pla
 ## Overview
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart TB
     subgraph Export["Export Process"]
         DB[("Encrypted Database")]
@@ -42,6 +43,7 @@ SQLite3MultipleCiphers WASM has specific limitations that affect backup/restore:
 ### Solution: JSON-Based Backup
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart LR
     subgraph Export
         DB1[("SQLite DB")]
@@ -100,6 +102,7 @@ flowchart LR
 Desktop uses native SQLite with better-sqlite3-multiple-ciphers, which supports standard SQLite backup mechanisms.
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart LR
     subgraph Export
         DB1[("Encrypted DB")]
@@ -131,6 +134,7 @@ flowchart LR
 Mobile platforms use SQLCipher through Capacitor plugins.
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart LR
     subgraph Export
         DB1[("SQLCipher DB")]
