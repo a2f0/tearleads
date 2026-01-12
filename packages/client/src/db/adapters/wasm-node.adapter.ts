@@ -205,7 +205,8 @@ async function initializeSqliteWasm(): Promise<SQLite3Module> {
   }
 
   const wasmDir = getWasmDir();
-  const modulePath = path.join(wasmDir, 'sqlite3.mjs');
+  // Note: Using .js extension instead of .mjs for Android WebView MIME type compatibility
+  const modulePath = path.join(wasmDir, 'sqlite3.js');
   const wasmPath = path.join(wasmDir, 'sqlite3.wasm');
 
   // Verify the files exist
@@ -223,7 +224,7 @@ async function initializeSqliteWasm(): Promise<SQLite3Module> {
   }
 
   // Patch fetch to handle file:// URLs before importing the module
-  // The sqlite3.mjs module uses fetch internally to load the .wasm file
+  // The sqlite3 module uses fetch internally to load the .wasm file
   patchFetchForFileUrls();
 
   try {
