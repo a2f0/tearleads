@@ -38,6 +38,7 @@ export interface GetEventsOptions {
   startTime?: Date | undefined;
   endTime?: Date | undefined;
   limit?: number | undefined;
+  offset?: number | undefined;
   sortColumn?: SortColumn | undefined;
   sortDirection?: SortDirection | undefined;
 }
@@ -223,6 +224,7 @@ export async function getEvents(
     startTime,
     endTime,
     limit = 100,
+    offset = 0,
     sortColumn,
     sortDirection
   } = options;
@@ -261,8 +263,8 @@ export async function getEvents(
     sql += ` ORDER BY timestamp DESC`;
   }
 
-  sql += ` LIMIT ?`;
-  params.push(limit);
+  sql += ` LIMIT ? OFFSET ?`;
+  params.push(limit, offset);
 
   // Execute raw SQL via adapter
   const result = await adapter.execute(sql, params);
@@ -436,15 +438,40 @@ export async function logApiEvent<T extends AnalyticsEventSlug>(
   }
 }
 
+export interface GetEventCountOptions {
+  startTime?: Date | undefined;
+  endTime?: Date | undefined;
+}
+
 /**
- * Get the count of events.
+ * Get the count of events with optional time filters.
  */
-export async function getEventCount(_db: Database): Promise<number> {
+export async function getEventCount(
+  _db: Database,
+  options: GetEventCountOptions = {}
+): Promise<number> {
+  const { startTime, endTime } = options;
   const adapter = getDatabaseAdapter();
-  const result = await adapter.execute(
-    `SELECT count(*) as count FROM analytics_events`,
-    []
-  );
+
+  let sql = `SELECT count(*) as count FROM analytics_events`;
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (startTime) {
+    conditions.push(`timestamp >= ?`);
+    params.push(startTime.getTime());
+  }
+
+  if (endTime) {
+    conditions.push(`timestamp <= ?`);
+    params.push(endTime.getTime());
+  }
+
+  if (conditions.length > 0) {
+    sql += ` WHERE ${conditions.join(' AND ')}`;
+  }
+
+  const result = await adapter.execute(sql, params);
   const rows = Array.isArray(result.rows) ? result.rows : [];
   const firstRow = rows[0];
   if (!isRecord(firstRow)) {
