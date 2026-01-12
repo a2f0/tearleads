@@ -30,6 +30,15 @@ gh api graphql -f query='mutation { addPullRequestReview(...) }'
 gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies -f body="message"
 ```
 
+## CRITICAL: Always Tag @gemini-code-assist
+
+**Every reply to a Gemini comment thread MUST include `@gemini-code-assist`** in the message body. Without this tag, Gemini may not receive a notification and won't respond to your reply. This applies whether you're:
+
+- Confirming a fix was made
+- Explaining why the code is correct (disagreeing with feedback)
+- Asking for clarification
+- Deferring to an issue
+
 ## Steps
 
 1. Get the PR number: `gh pr view --json number,title,url | cat`
@@ -74,7 +83,10 @@ gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies -f
    - Tag @gemini-code-assist and ask for confirmation
 
    If deferring to an issue instead of fixing directly:
-   - Example: "Tracked in #456 for follow-up. This is out of scope for the current PR."
+   - Example: "@gemini-code-assist Tracked in #456 for follow-up. This is out of scope for the current PR."
+
+   If explaining why feedback doesn't apply (disagreeing):
+   - Example: "@gemini-code-assist The code is correct as written because [explanation]. Could you please re-review?"
 
 4. Do NOT comment on the main PR thread. Only reply inside discussion threads.
 
