@@ -28,6 +28,7 @@ interface UseBottomSheetGestureReturn {
 const ANIMATION_DURATION = 300;
 const DEFAULT_VELOCITY_THRESHOLD = 0.5;
 const DEFAULT_DISMISS_THRESHOLD = 100;
+const SNAP_POINT_BIAS = 10;
 
 export function useBottomSheetGesture({
   snapPoints,
@@ -43,6 +44,9 @@ export function useBottomSheetGesture({
   const [height, setHeight] = useState(initialSnap?.height ?? defaultHeight);
   const [currentSnapPoint, setCurrentSnapPoint] = useState(initialSnapPoint);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [windowHeight, setWindowHeight] = useState(
+    typeof window !== 'undefined' ? window.innerHeight : 0
+  );
 
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const handleRef = useRef<HTMLButtonElement | null>(null);
@@ -50,9 +54,20 @@ export function useBottomSheetGesture({
   const startHeightRef = useRef(height);
   const currentHeightRef = useRef(height);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleResize = () => {
+      setWindowHeight(window.innerHeight);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const getMaxHeight = useCallback(() => {
-    return window.innerHeight * maxHeightPercent;
-  }, [maxHeightPercent]);
+    return windowHeight * maxHeightPercent;
+  }, [windowHeight, maxHeightPercent]);
 
   const findNearestSnapPoint = useCallback(
     (currentHeight: number): SnapPoint | null => {
@@ -89,7 +104,9 @@ export function useBottomSheetGesture({
 
       if (direction === 'up') {
         return (
-          sortedSnapPoints.find((sp) => sp.height > currentHeight + 10) ??
+          sortedSnapPoints.find(
+            (sp) => sp.height > currentHeight + SNAP_POINT_BIAS
+          ) ??
           sortedSnapPoints[sortedSnapPoints.length - 1] ??
           null
         );
@@ -97,7 +114,7 @@ export function useBottomSheetGesture({
         return (
           [...sortedSnapPoints]
             .reverse()
-            .find((sp) => sp.height < currentHeight - 10) ?? null
+            .find((sp) => sp.height < currentHeight - SNAP_POINT_BIAS) ?? null
         );
       }
     },
