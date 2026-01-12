@@ -75,7 +75,6 @@ export function useAudioAnalyser(
     const { analyser, audioContext } = globalState;
 
     if (!analyser || !audioContext) {
-      animationFrameRef.current = requestAnimationFrame(updateFrequencyData);
       return;
     }
 
@@ -127,15 +126,6 @@ export function useAudioAnalyser(
       }
     };
   }, [isPlaying, barCount, initializeAudioContext, updateFrequencyData]);
-
-  // Only cancel animation frame on unmount, NOT the audio context
-  useEffect(() => {
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, []);
 
   return frequencyData;
 }
