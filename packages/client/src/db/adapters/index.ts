@@ -7,7 +7,6 @@
  * still only executed on the appropriate platform.
  */
 
-import { CapacitorAdapter } from './capacitor.adapter';
 import { ElectronAdapter } from './electron.adapter';
 import {
   type DatabaseAdapter,
@@ -44,7 +43,10 @@ export async function createAdapter(
 
     case 'ios':
     case 'android':
-      return new CapacitorAdapter();
+      // Use WebAdapter on mobile to avoid Capacitor SQLite's single global
+      // encryption key limitation which breaks multi-instance support.
+      // OPFS is supported in Android WebView (Chrome 109+) and iOS Safari 15.2+.
+      return new WebAdapter();
 
     case 'web':
       return new WebAdapter();
