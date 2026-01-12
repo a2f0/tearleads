@@ -470,15 +470,17 @@ test.describe('Analytics page', () => {
       timeout: PAGE_LOAD_TIMEOUT
     });
 
-    // The actual chart SVG should be rendered inside the Recharts ResponsiveContainer
-    // Recharts creates an SVG with class "recharts-wrapper" containing the chart
-    const chartSvg = page.locator('.recharts-wrapper svg');
+    // Use data-testid to scope selectors, making test resilient to recharts internals
+    const chartContainer = page.getByTestId('duration-chart');
+    await expect(chartContainer).toBeVisible({ timeout: 5000 });
+
+    // Verify the chart SVG is rendered inside the container
+    const chartSvg = chartContainer.locator('svg');
     await expect(chartSvg).toBeVisible({ timeout: 5000 });
 
-    // Verify the chart has actual content (scatter plot elements)
-    // Recharts creates g.recharts-scatter elements for scatter plots
-    const scatterElements = page.locator('.recharts-scatter');
-    await expect(scatterElements.first()).toBeVisible({ timeout: 5000 });
+    // Verify the chart has actual scatter plot content (circles for data points)
+    const dataPoints = chartContainer.locator('circle');
+    await expect(dataPoints.first()).toBeVisible({ timeout: 5000 });
   });
 
   /**
