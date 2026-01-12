@@ -2,11 +2,28 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { type SnapPoint, useBottomSheetGesture } from './useBottomSheetGesture';
 
+type GestureCallback = (detail: { deltaY: number; velocityY: number }) => void;
+
+interface MockGestureCallbacks {
+  onStart: GestureCallback;
+  onMove: GestureCallback;
+  onEnd: GestureCallback;
+}
+
+let mockGestureCallbacks: MockGestureCallbacks | null = null;
+
 vi.mock('@ionic/core', () => ({
-  createGesture: vi.fn(() => ({
-    enable: vi.fn(),
-    destroy: vi.fn()
-  }))
+  createGesture: vi.fn((options: MockGestureCallbacks) => {
+    mockGestureCallbacks = {
+      onStart: options.onStart,
+      onMove: options.onMove,
+      onEnd: options.onEnd
+    };
+    return {
+      enable: vi.fn(),
+      destroy: vi.fn()
+    };
+  })
 }));
 
 const defaultSnapPoints: SnapPoint[] = [
@@ -18,6 +35,7 @@ const defaultSnapPoints: SnapPoint[] = [
 describe('useBottomSheetGesture', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGestureCallbacks = null;
 
     Object.defineProperty(window, 'innerHeight', {
       writable: true,
@@ -334,6 +352,105 @@ describe('useBottomSheetGesture', () => {
       );
 
       expect(result.current.height).toBe(200);
+    });
+  });
+
+  describe('gesture callbacks', () => {
+    function createMockHandle() {
+      const handle = document.createElement('button');
+      document.body.appendChild(handle);
+      return handle;
+    }
+
+    it('finds next snap point down with velocity', async () => {
+      vi.useFakeTimers();
+      const handle = createMockHandle();
+      let minHeight = 100;
+
+      const { result, rerender } = renderHook(() =>
+        useBottomSheetGesture({
+          snapPoints: defaultSnapPoints,
+          initialSnapPoint: 'half',
+          minHeight,
+          maxHeightPercent: 0.85
+        })
+      );
+
+      result.current.handleRef.current = handle;
+      minHeight = 101;
+      rerender();
+
+      expect(result.current.height).toBe(400);
+
+      await act(async () => {
+        mockGestureCallbacks?.onStart({ deltaY: 0, velocityY: 0 });
+        mockGestureCallbacks?.onMove({ deltaY: 50, velocityY: 0 });
+        mockGestureCallbacks?.onEnd({ deltaY: 50, velocityY: 0.8 });
+        vi.advanceTimersByTime(350);
+      });
+
+      expect(result.current.height).toBe(200);
+      vi.useRealTimers();
+      handle.remove();
+    });
+
+    it('falls back to nearest when no next snap point up', async () => {
+      vi.useFakeTimers();
+      const handle = createMockHandle();
+      let minHeight = 100;
+
+      const { result, rerender } = renderHook(() =>
+        useBottomSheetGesture({
+          snapPoints: [{ name: 'only', height: 300 }],
+          initialSnapPoint: 'only',
+          minHeight,
+          maxHeightPercent: 0.85
+        })
+      );
+
+      result.current.handleRef.current = handle;
+      minHeight = 101;
+      rerender();
+
+      await act(async () => {
+        mockGestureCallbacks?.onStart({ deltaY: 0, velocityY: 0 });
+        mockGestureCallbacks?.onMove({ deltaY: -30, velocityY: 0 });
+        mockGestureCallbacks?.onEnd({ deltaY: -30, velocityY: -0.8 });
+        vi.advanceTimersByTime(350);
+      });
+
+      expect(result.current.height).toBe(300);
+      vi.useRealTimers();
+      handle.remove();
+    });
+
+    it('dismisses on downward flick when no lower snap point', async () => {
+      const handle = createMockHandle();
+      const onDismiss = vi.fn();
+      let minHeight = 100;
+
+      const { result, rerender } = renderHook(() =>
+        useBottomSheetGesture({
+          snapPoints: [{ name: 'only', height: 300 }],
+          initialSnapPoint: 'only',
+          minHeight,
+          maxHeightPercent: 0.85,
+          onDismiss
+        })
+      );
+
+      result.current.handleRef.current = handle;
+      minHeight = 101;
+      rerender();
+
+      act(() => {
+        mockGestureCallbacks?.onStart({ deltaY: 0, velocityY: 0 });
+        mockGestureCallbacks?.onMove({ deltaY: 30, velocityY: 0 });
+        mockGestureCallbacks?.onEnd({ deltaY: 30, velocityY: 0.8 });
+      });
+
+      expect(onDismiss).toHaveBeenCalled();
+      handle.remove();
     });
   });
 });
