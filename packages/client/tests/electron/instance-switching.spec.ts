@@ -52,20 +52,17 @@ const switchToInstance = async (window: Page, instanceIndex: number) => {
 
 // Helper to ensure database is unlocked (handles both locked and unlocked states)
 const ensureUnlocked = async (window: Page, password: string) => {
-  // Wait for status to stabilize to either 'Locked' or 'Unlocked'.
-  // This is more robust than a fixed timeout.
-  await expect(window.getByTestId('db-status')).toHaveText(/Locked|Unlocked/, {
+  // If the unlock button is visible, it means the database is locked.
+  const unlockButton = window.getByTestId('db-unlock-button');
+  if (await unlockButton.isVisible()) {
+    await window.getByTestId('db-password-input').fill(password);
+    await unlockButton.click();
+  }
+
+  // After attempting to unlock (if needed), verify the status is now 'Unlocked'.
+  await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
     timeout: DB_OPERATION_TIMEOUT
   });
-
-  const status = await window.getByTestId('db-status').textContent();
-  if (status === 'Locked') {
-    await window.getByTestId('db-password-input').fill(password);
-    await window.getByTestId('db-unlock-button').click();
-    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
-      timeout: DB_OPERATION_TIMEOUT
-    });
-  }
 };
 
 // Helper to wait for authentication error
@@ -82,50 +79,39 @@ const deleteAllOtherInstances = async (window: Page) => {
   await window.getByTestId('account-switcher-button').click();
   await expect(window.getByTestId('create-instance-button')).toBeVisible();
 
-  // Get all instance items (excluding icons and delete buttons)
   const instanceItems = window.locator(
     '[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])'
   );
-  const count = await instanceItems.count();
+
+  // Repeatedly delete the last instance until only one remains.
+  // This is more robust than iterating with indices.
+  while ((await instanceItems.count()) > 1) {
+    const lastItem = instanceItems.last();
+    const instanceId = await lastItem
+      .getAttribute('data-testid')
+      .then((id) => id?.replace('instance-', ''));
+
+    if (!instanceId) {
+      // Should not happen, but break to avoid an infinite loop.
+      break;
+    }
+
+    const deleteButton = window.getByTestId(`delete-instance-${instanceId}`);
+    await deleteButton.click();
+
+    // Wait for and confirm the delete dialog
+    const deleteDialog = window.getByTestId('delete-instance-dialog');
+    await expect(deleteDialog).toBeVisible();
+    await window.getByRole('button', { name: 'Delete' }).click();
+
+    // Wait for dialog to close and item to be removed from the list
+    await expect(deleteDialog).not.toBeVisible();
+    await expect(lastItem).not.toBeVisible();
+  }
 
   // Close the switcher
   await window.keyboard.press('Escape');
   await expect(window.getByTestId('create-instance-button')).not.toBeVisible();
-
-  // If there's more than one instance, delete the extras
-  if (count > 1) {
-    // Delete instances from the end to avoid index shifting issues
-    for (let i = count - 1; i >= 1; i--) {
-      // Open switcher
-      await window.getByTestId('account-switcher-button').click();
-      await expect(window.getByTestId('create-instance-button')).toBeVisible();
-
-      // Get the delete button for instance at index i
-      const items = window.locator(
-        '[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])'
-      );
-      const instanceId = await items
-        .nth(i)
-        .getAttribute('data-testid')
-        .then((id) => id?.replace('instance-', ''));
-
-      if (instanceId) {
-        const deleteButton = window.getByTestId(`delete-instance-${instanceId}`);
-        await deleteButton.click();
-
-        // Wait for and confirm the delete dialog
-        await expect(
-          window.getByTestId('delete-instance-dialog')
-        ).toBeVisible();
-        await window.getByRole('button', { name: 'Delete' }).click();
-
-        // Wait for dialog to close
-        await expect(
-          window.getByTestId('delete-instance-dialog')
-        ).not.toBeVisible();
-      }
-    }
-  }
 };
 
 test.describe('Instance Switching (Electron)', () => {
@@ -240,6 +226,7 @@ test.describe('Instance Switching (Electron)', () => {
     const firstInstanceData = await window
       .getByTestId('db-test-data')
       .textContent();
+    expect(firstInstanceData).toBeTruthy();
 
     // Create second instance
     await createNewInstance(window);
@@ -256,6 +243,7 @@ test.describe('Instance Switching (Electron)', () => {
     const secondInstanceData = await window
       .getByTestId('db-test-data')
       .textContent();
+    expect(secondInstanceData).toBeTruthy();
 
     // Data should be different (includes timestamp)
     expect(firstInstanceData).not.toBe(secondInstanceData);
@@ -272,7 +260,7 @@ test.describe('Instance Switching (Electron)', () => {
 
     // Verify it matches the original data
     await expect(window.getByTestId('db-test-data')).toHaveText(
-      firstInstanceData!
+      firstInstanceData as string
     );
   });
 
@@ -284,6 +272,7 @@ test.describe('Instance Switching (Electron)', () => {
     const firstInstanceData = await window
       .getByTestId('db-test-data')
       .textContent();
+    expect(firstInstanceData).toBeTruthy();
 
     // Create and setup second instance with different password
     await createNewInstance(window);
@@ -293,6 +282,7 @@ test.describe('Instance Switching (Electron)', () => {
     const secondInstanceData = await window
       .getByTestId('db-test-data')
       .textContent();
+    expect(secondInstanceData).toBeTruthy();
 
     // Close and relaunch the app
     await electronApp.close();
@@ -325,7 +315,7 @@ test.describe('Instance Switching (Electron)', () => {
     await window.getByTestId('db-read-button').click();
     await waitForSuccess(window);
     await expect(window.getByTestId('db-test-data')).toHaveText(
-      secondInstanceData!
+      secondInstanceData as string
     );
 
     // Switch to first instance
@@ -336,7 +326,7 @@ test.describe('Instance Switching (Electron)', () => {
     await window.getByTestId('db-read-button').click();
     await waitForSuccess(window);
     await expect(window.getByTestId('db-test-data')).toHaveText(
-      firstInstanceData!
+      firstInstanceData as string
     );
   });
 
