@@ -28,6 +28,11 @@ vi.mock('@/audio', () => ({
   useAudio: () => mockUseAudio()
 }));
 
+// Mock the audio visualizer component to avoid Web Audio API in tests
+vi.mock('@/components/audio/AudioVisualizer', () => ({
+  AudioVisualizer: () => null
+}));
+
 // Mock the database context
 const mockUseDatabaseContext = vi.fn();
 vi.mock('@/db/hooks', () => ({
@@ -175,7 +180,8 @@ describe('AudioPage', () => {
       isPlaying: false,
       play: mockPlay,
       pause: mockPause,
-      resume: mockResume
+      resume: mockResume,
+      audioElementRef: { current: null }
     });
 
     // Default mocks for unlocked database
@@ -636,7 +642,8 @@ describe('AudioPage', () => {
         isPlaying: true,
         play: mockPlay,
         pause: mockPause,
-        resume: mockResume
+        resume: mockResume,
+        audioElementRef: { current: null }
       });
 
       const user = userEvent.setup();
@@ -663,7 +670,8 @@ describe('AudioPage', () => {
         isPlaying: false,
         play: mockPlay,
         pause: mockPause,
-        resume: mockResume
+        resume: mockResume,
+        audioElementRef: { current: null }
       });
 
       const user = userEvent.setup();
@@ -689,7 +697,8 @@ describe('AudioPage', () => {
         isPlaying: true,
         play: mockPlay,
         pause: mockPause,
-        resume: mockResume
+        resume: mockResume,
+        audioElementRef: { current: null }
       });
 
       renderAudio();
