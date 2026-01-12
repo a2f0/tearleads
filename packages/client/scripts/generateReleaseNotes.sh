@@ -124,10 +124,10 @@ call_anthropic_api() {
     printf '%s' "$COMMITS" | jq -Rs --arg model "$model" '
 {
     model: $model,
-    max_tokens: 256,
+    max_tokens: 150,
     messages: [{
         role: "user",
-        content: ("Generate brief, user-friendly release notes for a mobile app based on these pull request descriptions. Focus on what users will notice, not technical details. Use simple language. Keep it to 2-4 bullet points max. No markdown formatting, just plain text with bullet points using • character. Do not include a header or version number.\n\nIMPORTANT: Ignore PRs that are internal process/tooling changes, such as:\n- Code review feedback or refactoring PRs\n- Documentation-only changes\n- CI/build configuration changes\n- Test-only changes\n- Dependency updates (unless they fix a user-facing issue)\n\nOnly include PRs that result in user-facing changes (new features, bug fixes users would notice, performance improvements, UI changes).\n\nPull Requests:\n" + .)
+        content: ("Generate brief, user-friendly release notes for a mobile app. Focus on what users will notice, not technical details. Use simple language. Keep it to 2-3 bullet points. Plain text with • bullets only. No header or version number.\n\nCRITICAL: Output MUST be under 500 characters total (Google Play Store limit).\n\nIgnore internal/tooling PRs (refactoring, docs, CI, tests, deps). Only include user-facing changes.\n\nPull Requests:\n" + .)
     }]
 }' | curl -s https://api.anthropic.com/v1/messages \
         -H "Content-Type: application/json" \
