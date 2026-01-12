@@ -205,7 +205,9 @@ async function initializeSqliteWasm(): Promise<SQLite3Module> {
   }
 
   const wasmDir = getWasmDir();
-  // Note: Using .js extension instead of .mjs for Android WebView MIME type compatibility
+  // IMPORTANT: DO NOT change .js back to .mjs - see issue #670
+  // Android WebView requires .js for proper MIME type handling.
+  // See: https://github.com/apache/cordova-android/issues/1142
   const modulePath = path.join(wasmDir, 'sqlite3.js');
   const wasmPath = path.join(wasmDir, 'sqlite3.wasm');
 
