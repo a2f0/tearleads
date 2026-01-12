@@ -1,0 +1,97 @@
+---
+interface Props {
+  'data-testid'?: string;
+}
+
+const { 'data-testid': testId } = Astro.props;
+---
+
+<section class="container mx-auto px-4 py-8">
+  <div class="rounded-xl border bg-card p-6 shadow-sm">
+    <div class="doc-content overflow-x-auto" data-testid={testId}>
+      <slot />
+    </div>
+  </div>
+</section>
+
+<style>
+  .doc-content :global(h1),
+  .doc-content :global(h2),
+  .doc-content :global(h3) {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+
+  .doc-content :global(h1) {
+    font-size: 1.875rem;
+  }
+
+  .doc-content :global(h2) {
+    font-size: 1.5rem;
+  }
+
+  .doc-content :global(h3) {
+    font-size: 1.25rem;
+  }
+
+  .doc-content :global(p) {
+    margin-bottom: 1rem;
+    color: var(--color-muted-foreground);
+  }
+
+  .doc-content :global(svg) {
+    max-width: 100%;
+    height: auto;
+    min-width: 600px;
+  }
+
+  .doc-content :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+  }
+
+  .doc-content :global(th),
+  .doc-content :global(td) {
+    border: 1px solid var(--color-border);
+    padding: 0.5rem 1rem;
+    text-align: left;
+  }
+
+  .doc-content :global(th) {
+    background-color: var(--color-muted);
+    font-weight: 600;
+  }
+
+  .doc-content :global(ul),
+  .doc-content :global(ol) {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+    color: var(--color-muted-foreground);
+  }
+
+  .doc-content :global(li) {
+    margin-bottom: 0.25rem;
+  }
+
+  .doc-content :global(code) {
+    background-color: var(--color-muted);
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+  }
+
+  .doc-content :global(pre) {
+    background-color: var(--color-muted);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+  }
+
+  .doc-content :global(pre code) {
+    background-color: transparent;
+    padding: 0;
+  }
+</style>
