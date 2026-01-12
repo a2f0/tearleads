@@ -1,65 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import DocPageLayout from '../../layouts/DocPageLayout.astro';
 import { Content } from '@docs/encryption-architecture.md';
 ---
 
 <Layout title="Architecture - Rapid">
-  <section class="container mx-auto px-4 py-8">
-    <div class="rounded-xl border bg-card p-6 shadow-sm">
-      <div class="encryption-diagram overflow-x-auto" data-testid="architecture-content">
-        <Content />
-      </div>
-    </div>
-  </section>
+  <DocPageLayout data-testid="architecture-content">
+    <Content />
+  </DocPageLayout>
 </Layout>
-
-<style>
-  .encryption-diagram :global(h1),
-  .encryption-diagram :global(h2),
-  .encryption-diagram :global(h3) {
-    margin-top: 1.5rem;
-    margin-bottom: 0.75rem;
-    font-weight: 600;
-  }
-
-  .encryption-diagram :global(h1) {
-    font-size: 1.875rem;
-  }
-
-  .encryption-diagram :global(h2) {
-    font-size: 1.5rem;
-  }
-
-  .encryption-diagram :global(h3) {
-    font-size: 1.25rem;
-  }
-
-  .encryption-diagram :global(p) {
-    margin-bottom: 1rem;
-    color: var(--color-muted-foreground);
-  }
-
-  .encryption-diagram :global(svg) {
-    max-width: 100%;
-    height: auto;
-    min-width: 600px;
-  }
-
-  .encryption-diagram :global(table) {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 1rem;
-  }
-
-  .encryption-diagram :global(th),
-  .encryption-diagram :global(td) {
-    border: 1px solid var(--color-border);
-    padding: 0.5rem 1rem;
-    text-align: left;
-  }
-
-  .encryption-diagram :global(th) {
-    background-color: var(--color-muted);
-    font-weight: 600;
-  }
-</style>
