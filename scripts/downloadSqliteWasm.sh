@@ -44,10 +44,17 @@ EXTRACTED_DIR=$(find "${TEMP_DIR}" -maxdepth 1 -type d -name "sqlite3mc-wasm-*" 
 mkdir -p "${WASM_DIR}" "${PUBLIC_DIR}"
 
 # Copy files to both locations
-for file in sqlite3.wasm sqlite3.mjs sqlite3-opfs-async-proxy.js; do
+# Note: sqlite3.mjs is renamed to sqlite3.js for Android WebView MIME type compatibility
+# Android WebView strictly enforces MIME type checking for ES modules, and .mjs files
+# may not be served with text/javascript MIME type on all devices.
+# See: https://github.com/apache/cordova-android/issues/1142
+for file in sqlite3.wasm sqlite3-opfs-async-proxy.js; do
     cp "${EXTRACTED_DIR}/jswasm/${file}" "${WASM_DIR}/"
     cp "${EXTRACTED_DIR}/jswasm/${file}" "${PUBLIC_DIR}/"
 done
+# Rename .mjs to .js for better WebView compatibility
+cp "${EXTRACTED_DIR}/jswasm/sqlite3.mjs" "${WASM_DIR}/sqlite3.js"
+cp "${EXTRACTED_DIR}/jswasm/sqlite3.mjs" "${PUBLIC_DIR}/sqlite3.js"
 
 # Copy optional worker files
 cp "${EXTRACTED_DIR}/jswasm/sqlite3-worker1-bundler-friendly.mjs" "${WASM_DIR}/" 2>/dev/null || true

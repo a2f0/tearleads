@@ -133,7 +133,13 @@ async function initializeSqliteWasm(): Promise<void> {
 
   // Dynamically import sqlite3 from the public folder
   // This preserves import.meta.url so OPFS can find its proxy worker
-  const sqliteModuleUrl = new URL('/sqlite/sqlite3.mjs', self.location.origin)
+  //
+  // IMPORTANT: DO NOT change .js back to .mjs - see issue #670
+  // Android WebView strictly enforces MIME type checking for ES modules.
+  // The .mjs extension may not be served with text/javascript MIME type on
+  // real devices (works on emulators but fails on some physical devices).
+  // See: https://github.com/apache/cordova-android/issues/1142
+  const sqliteModuleUrl = new URL('/sqlite/sqlite3.js', self.location.origin)
     .href;
 
   console.log('Loading SQLite WASM from:', sqliteModuleUrl);
