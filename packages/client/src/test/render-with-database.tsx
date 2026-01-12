@@ -38,6 +38,11 @@ export interface RenderWithDatabaseOptions
    * Default: true
    */
   waitForReady?: boolean;
+  /**
+   * Callback to run after the database is ready but before the component renders.
+   * Useful for seeding test data.
+   */
+  beforeRender?: () => Promise<void>;
 }
 
 interface RenderWithDatabaseResult extends RenderResult {
@@ -110,6 +115,7 @@ export async function renderWithDatabase(
     autoSetup = true,
     password = 'test-password',
     waitForReady = true,
+    beforeRender,
     ...renderOptions
   } = options;
 
@@ -122,6 +128,42 @@ export async function renderWithDatabase(
     // Force showLoading so we can detect when setup is complete
     showLoading: waitForReady && autoSetup
   });
+
+  // If we have a beforeRender callback, first render a placeholder,
+  // wait for the database, run the callback, then rerender with the actual UI
+  if (beforeRender && waitForReady && autoSetup) {
+    // Render placeholder to set up database
+    const placeholderResult = render(<div data-testid="placeholder" />, {
+      wrapper,
+      ...renderOptions
+    });
+
+    // Wait for database to be ready
+    await waitFor(
+      () => {
+        const error = placeholderResult.queryByTestId('test-database-error');
+        if (error) {
+          throw new Error(`Database setup failed: ${error.textContent}`);
+        }
+        expect(
+          placeholderResult.queryByTestId('test-database-loading')
+        ).not.toBeInTheDocument();
+      },
+      { timeout: 10000 }
+    );
+
+    // Run the beforeRender callback
+    await beforeRender();
+
+    // Rerender with the actual UI
+    placeholderResult.rerender(ui);
+
+    return {
+      ...placeholderResult,
+      routes: routes.length > 0 ? routes : [initialRoute]
+    };
+  }
+
   const result = render(ui, { wrapper, ...renderOptions });
 
   if (waitForReady && autoSetup) {
