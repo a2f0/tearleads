@@ -27,6 +27,7 @@ function getContentType(filePath: string): string {
   const types: Record<string, string> = {
     html: 'text/html',
     js: 'application/javascript',
+    mjs: 'application/javascript',
     css: 'text/css',
     json: 'application/json',
     png: 'image/png',
@@ -38,6 +39,7 @@ function getContentType(filePath: string): string {
     woff: 'font/woff',
     woff2: 'font/woff2',
     ttf: 'font/ttf',
+    wasm: 'application/wasm',
   };
   return types[ext || ''] || 'application/octet-stream';
 }
@@ -109,6 +111,7 @@ ipcMain.handle('open-external', async (_event, url: string) => {
 });
 
 // Register custom protocol schemes before app is ready
+// Note: bypassCSP and stream may help with OPFS persistence
 protocol.registerSchemesAsPrivileged([
   {
     scheme: protocolScheme,
@@ -118,6 +121,8 @@ protocol.registerSchemesAsPrivileged([
       supportFetchAPI: true,
       corsEnabled: true,
       allowServiceWorkers: true,
+      stream: true,
+      bypassCSP: true,
     },
   },
 ]);
