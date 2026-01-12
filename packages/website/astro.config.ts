@@ -6,11 +6,17 @@ import { defineConfig } from 'astro/config';
 
 export default defineConfig({
   integrations: [react()],
+  i18n: {
+    defaultLocale: 'en',
+    locales: ['en', 'es', 'ua'],
+    routing: {
+      prefixDefaultLocale: true,
+    },
+  },
   vite: {
     plugins: [tailwindcss()],
     resolve: {
       alias: {
-        '@docs': path.resolve(import.meta.dirname, '../../docs/en'),
         '@rapid/ui/logo.svg': path.resolve(
           import.meta.dirname,
           '../ui/src/images/logo.svg'

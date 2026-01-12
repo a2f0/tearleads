@@ -30,13 +30,13 @@ describe('SettingsIsland', () => {
     });
   });
   it('renders settings button', () => {
-    render(<SettingsIsland />);
+    render(<SettingsIsland currentLang="en" />);
 
     expect(screen.getByTestId('settings-button')).toBeInTheDocument();
   });
 
   it('provides theme context to children', () => {
-    render(<SettingsIsland />);
+    render(<SettingsIsland currentLang="en" />);
 
     fireEvent.click(screen.getByTestId('settings-button'));
 

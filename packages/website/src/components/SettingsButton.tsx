@@ -1,8 +1,13 @@
 import { Settings } from 'lucide-react';
 import { useState } from 'react';
+import type { SupportedLanguage } from '../i18n/config';
 import { SettingsModal } from './SettingsModal';
 
-export function SettingsButton() {
+interface SettingsButtonProps {
+  currentLang: SupportedLanguage;
+}
+
+export function SettingsButton({ currentLang }: SettingsButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -17,7 +22,11 @@ export function SettingsButton() {
         <Settings className="h-5 w-5" />
       </button>
 
-      <SettingsModal open={isOpen} onOpenChange={setIsOpen} />
+      <SettingsModal
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        currentLang={currentLang}
+      />
     </>
   );
 }
