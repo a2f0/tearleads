@@ -7,6 +7,7 @@ if ! command -v adb >/dev/null; then
 fi
 
 PACKAGE_ID=${1:-"com.tearleads.rapid"}
+CACHE_ONLY=${CACHE_ONLY:-""}
 
 # Get physical device serial (exclude emulators)
 DEVICE_LIST=$(adb devices | grep -w device | grep -v '^emulator-' | cut -f1)
@@ -27,24 +28,24 @@ DEVICE_SERIAL=$DEVICE_LIST
 
 echo "Using device: $DEVICE_SERIAL"
 
-echo "Uninstalling $PACKAGE_ID..."
+# Force stop the app first
+echo "Stopping $PACKAGE_ID..."
 adb -s "$DEVICE_SERIAL" shell am force-stop "$PACKAGE_ID" 2>/dev/null || true
-if adb -s "$DEVICE_SERIAL" uninstall "$PACKAGE_ID"; then
-    echo "Successfully uninstalled $PACKAGE_ID"
+
+if [ -n "$CACHE_ONLY" ]; then
+    echo "Clearing cache only for $PACKAGE_ID..."
+    if adb -s "$DEVICE_SERIAL" shell pm clear --cache-only "$PACKAGE_ID"; then
+        echo "Successfully cleared cache for $PACKAGE_ID"
+    else
+        echo "Failed to clear cache. The app may not be installed." >&2
+        exit 1
+    fi
 else
-    echo "App was not installed or uninstall failed. Continuing..."
+    echo "Clearing all data for $PACKAGE_ID..."
+    if adb -s "$DEVICE_SERIAL" shell pm clear "$PACKAGE_ID"; then
+        echo "Successfully cleared all data for $PACKAGE_ID"
+    else
+        echo "Failed to clear data. The app may not be installed." >&2
+        exit 1
+    fi
 fi
-
-URL="market://details?id=$PACKAGE_ID"
-OPENING_MESSAGE="Opening Play Store..."
-FINAL_MESSAGE="Done. Please tap 'Install' in the Play Store to reinstall the app."
-
-if [ -n "${ANDROID_INTERNAL_TESTING_URL:-}" ]; then
-    URL="$ANDROID_INTERNAL_TESTING_URL"
-    OPENING_MESSAGE="Opening internal testing URL..."
-    FINAL_MESSAGE="Done. Please tap 'Install' on the internal testing page to reinstall the app."
-fi
-
-echo "$OPENING_MESSAGE"
-adb -s "$DEVICE_SERIAL" shell am start -a android.intent.action.VIEW -d "$URL"
-echo "$FINAL_MESSAGE"
