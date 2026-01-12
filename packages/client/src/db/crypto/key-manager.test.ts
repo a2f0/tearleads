@@ -577,3 +577,62 @@ describe('deleteSessionKeysForInstance', () => {
     // Tested via integration tests
   });
 });
+
+describe('validateAndPruneOrphanedInstances', () => {
+  // Note: Full integration tests are in the Maestro test orphan-cleanup.yaml
+
+  it('returns empty result when called with empty registry', async () => {
+    const { validateAndPruneOrphanedInstances } = await import('./key-manager');
+
+    const result = await validateAndPruneOrphanedInstances([], vi.fn());
+
+    expect(result).toEqual({
+      orphanedKeystoreEntries: [],
+      orphanedRegistryEntries: [],
+      cleaned: false
+    });
+  });
+
+  it('returns empty result when indexedDB is undefined (test environment)', async () => {
+    // Save original indexedDB
+    const originalIndexedDB = globalThis.indexedDB;
+
+    // Remove indexedDB to simulate test environment
+    // @ts-expect-error - intentionally setting to undefined for test
+    delete globalThis.indexedDB;
+
+    try {
+      // Re-import to get fresh module
+      vi.resetModules();
+      const { validateAndPruneOrphanedInstances } = await import(
+        './key-manager'
+      );
+
+      const mockDelete = vi.fn();
+      const result = await validateAndPruneOrphanedInstances(
+        ['instance-1', 'instance-2'],
+        mockDelete
+      );
+
+      // Should return early without processing
+      expect(result).toEqual({
+        orphanedKeystoreEntries: [],
+        orphanedRegistryEntries: [],
+        cleaned: false
+      });
+      expect(mockDelete).not.toHaveBeenCalled();
+    } finally {
+      // Restore indexedDB
+      globalThis.indexedDB = originalIndexedDB;
+      vi.resetModules();
+    }
+  });
+
+  it.skip('detects and cleans orphaned registry entries', async () => {
+    // Requires real IndexedDB - tested via integration tests
+  });
+
+  it.skip('detects and cleans orphaned Keystore entries on mobile', async () => {
+    // Requires real device - tested via Maestro tests
+  });
+});
