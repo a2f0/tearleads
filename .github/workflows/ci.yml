@@ -508,6 +508,117 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  android-maestro-release:
+    name: Android Maestro Tests (Release)
+    needs: [detect-changes]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version-file: '.java-version'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.0'
+          bundler-cache: true
+          working-directory: packages/client
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install ImageMagick
+        run: |
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
+          sudo apt-get install -y --no-install-recommends imagemagick librsvg2-bin
+
+      - name: Build web assets
+        run: pnpm --filter @rapid/client build
+
+      - name: Generate Android images
+        run: ./packages/client/scripts/buildAndroidImageAssets.sh
+
+      - name: Sync Capacitor
+        run: pnpm --filter @rapid/client run cap:sync
+
+      - name: Download Gradle wrapper
+        run: ./packages/client/scripts/downloadGradleWrapper.sh
+
+      - name: Setup Android keystore
+        run: |
+          mkdir -p .secrets
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > .secrets/tearleads-release.keystore
+
+      - name: Create keystore.properties
+        run: |
+          cat > packages/client/android/keystore.properties << EOF
+          storeFile=${{ github.workspace }}/.secrets/tearleads-release.keystore
+          storePassword=${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
+          keyAlias=tearleads
+          keyPassword=${{ secrets.ANDROID_KEYSTORE_KEY_PASS }}
+          EOF
+
+      - name: Install Maestro
+        run: |
+          ./packages/client/scripts/downloadMaestro.sh
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: Run Maestro tests (Release)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 31
+          arch: x86_64
+          working-directory: packages/client
+          emulator-boot-timeout: 900
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-metrics
+          disable-animations: true
+          script: |
+            adb wait-for-device
+            adb shell input keyevent 82
+            bundle exec fastlane android test_maestro_release
+
+      - name: Upload Maestro artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-maestro-release-artifacts
+          path: packages/client/maestro-debug/
+          retention-days: 7
+          if-no-files-found: ignore
+
   ios-maestro:
     name: iOS Maestro Tests
     needs: [detect-changes]
@@ -622,6 +733,124 @@ jobs:
         if: always()
         with:
           name: ios-maestro-artifacts
+          path: packages/client/maestro-debug/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  ios-maestro-release:
+    name: iOS Maestro Tests (Release)
+    needs: [detect-changes]
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.detect-changes.outputs.core == 'true' ||
+      needs.detect-changes.outputs.mobile == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.0'
+          bundler-cache: true
+          working-directory: packages/client
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build web assets
+        run: pnpm --filter @rapid/client build
+
+      - name: Install ImageMagick
+        run: brew install imagemagick
+
+      - name: Generate iOS images
+        run: ./packages/client/scripts/buildIosImageAssets.sh
+
+      - name: Install CocoaPods dependencies
+        run: pod install
+        working-directory: packages/client/ios/App
+
+      - name: Sync Capacitor
+        run: pnpm --filter @rapid/client run cap:sync
+
+      - name: Build iOS release app for simulator
+        run: bundle exec fastlane ios build_release_simulator
+        working-directory: packages/client
+
+      - name: Install Maestro
+        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+
+      - name: Boot iOS simulator
+        run: |
+          # List available devices for debugging
+          echo "Available simulators:"
+          xcrun simctl list devices available | head -20
+
+          # Prefer iPhone SE for faster boot and lower resource usage
+          DEVICE=$(xcrun simctl list devices available | grep "iPhone SE" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+
+          if [ -z "$DEVICE" ]; then
+            echo "No iPhone SE found, trying iPhone 16/15"
+            DEVICE=$(xcrun simctl list devices available | grep -E "iPhone (16|15)" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
+
+          if [ -z "$DEVICE" ]; then
+            echo "No iPhone 15/16 found, trying any iPhone"
+            DEVICE=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
+
+          if [ -z "$DEVICE" ]; then
+            echo "ERROR: No iPhone simulator found"
+            exit 1
+          fi
+
+          echo "Using simulator: $DEVICE"
+          xcrun simctl boot "$DEVICE" || true
+          echo "SIMULATOR_UDID=$DEVICE" >> $GITHUB_ENV
+
+      - name: Install app on simulator
+        run: |
+          # Release build outputs to DerivedData-Release
+          APP_PATH="packages/client/build/DerivedData-Release/Build/Products/Release-iphonesimulator/App.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "App not found at expected path, searching..."
+            APP_PATH=$(find . -name "App.app" -path "*Release-iphonesimulator*" -type d | head -1)
+          fi
+          echo "Installing release app from: $APP_PATH"
+          xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
+
+      - name: Run Maestro tests
+        run: |
+          # Run Maestro tests
+          $HOME/.maestro/bin/maestro test .maestro/ --output maestro-debug/report.xml --debug-output maestro-debug --format junit || true
+          MAESTRO_EXIT=$?
+
+          # Capture final screenshot
+          xcrun simctl io "$SIMULATOR_UDID" screenshot maestro-debug/02-after-tests.png || true
+
+          # Get device logs
+          xcrun simctl spawn "$SIMULATOR_UDID" log show --last 5m --predicate 'subsystem contains "com.tearleads"' > maestro-debug/device-logs.txt 2>&1 || true
+
+          exit $MAESTRO_EXIT
+        working-directory: packages/client
+
+      - name: Upload Maestro artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-maestro-release-artifacts
           path: packages/client/maestro-debug/
           retention-days: 7
           if-no-files-found: ignore
