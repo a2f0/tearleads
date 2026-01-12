@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useId, useState } from 'react';
+import { useResizable } from '@/hooks/useResizable';
 import { cn } from '@/lib/utils';
 
 export const ANIMATION_DURATION_MS = 300;
+const DEFAULT_HEIGHT = 300;
+const MIN_HEIGHT = 150;
+const MAX_HEIGHT_PERCENT = 0.85;
 
 interface BottomSheetProps {
   open: boolean;
@@ -21,6 +25,11 @@ export function BottomSheet({
   const [isAnimating, setIsAnimating] = useState(false);
   const [shouldRender, setShouldRender] = useState(open);
   const titleId = useId();
+  const { height, handleMouseDown, handleTouchStart } = useResizable({
+    defaultHeight: DEFAULT_HEIGHT,
+    minHeight: MIN_HEIGHT,
+    maxHeightPercent: MAX_HEIGHT_PERCENT
+  });
 
   useEffect(() => {
     if (open) {
@@ -69,20 +78,28 @@ export function BottomSheet({
 
       <div
         className={cn(
-          'fixed right-0 bottom-0 left-0 z-10 max-h-[85vh] overflow-y-auto',
+          'fixed right-0 bottom-0 left-0 z-10 flex flex-col overflow-hidden',
           'rounded-t-2xl border-t bg-background shadow-lg',
           'transition-transform duration-300 ease-out',
           'pb-[env(safe-area-inset-bottom)]',
           isAnimating ? 'translate-y-0' : 'translate-y-full'
         )}
+        style={{ height: `${height}px`, maxHeight: '85vh' }}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
         data-testid={`${testId}-content`}
       >
-        <div className="flex justify-center pt-3 pb-2">
+        <button
+          type="button"
+          className="flex w-full cursor-ns-resize touch-none justify-center border-0 bg-transparent pt-3 pb-2"
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          aria-label="Resize handle"
+          data-testid={`${testId}-resize-handle`}
+        >
           <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
-        </div>
+        </button>
 
         {title && (
           <h2 id={titleId} className="px-4 pb-2 font-semibold text-lg">
@@ -90,7 +107,7 @@ export function BottomSheet({
           </h2>
         )}
 
-        <div className="px-4 pb-4">{children}</div>
+        <div className="flex-1 overflow-y-auto px-4 pb-4">{children}</div>
       </div>
     </div>
   );
