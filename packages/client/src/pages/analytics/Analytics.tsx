@@ -5,6 +5,7 @@ import {
   ArrowUpDown,
   CheckCircle,
   Clock,
+  Loader2,
   Trash2,
   XCircle
 } from 'lucide-react';
@@ -20,6 +21,7 @@ import {
   clearEvents,
   type EventStats,
   getDistinctEventTypes,
+  getEventCount,
   getEventDisplayName,
   getEventStats,
   getEvents,
@@ -28,7 +30,6 @@ import {
   type StatsSortColumn
 } from '@/db/analytics';
 import { useDatabaseContext } from '@/db/hooks';
-import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { SortIcon, type SortState } from './SortIcon';
 
 interface SummarySortState {
@@ -74,6 +75,7 @@ const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
 const ONE_WEEK_MS = 7 * ONE_DAY_MS;
 const ROW_HEIGHT_ESTIMATE = 44;
+const PAGE_SIZE = 50;
 
 function getTimeRange(filter: TimeFilter): Date | undefined {
   const now = new Date();
@@ -94,7 +96,10 @@ export function Analytics() {
   const [events, setEvents] = useState<AnalyticsEvent[]>([]);
   const [stats, setStats] = useState<EventStats[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('day');
   const [sort, setSort] = useState<SortState>({
     column: null,
@@ -114,73 +119,130 @@ export function Analytics() {
   // Track initial load to distinguish from user-cleared selections
   const isInitialLoad = useRef(true);
   const parentRef = useRef<HTMLDivElement>(null);
+  // Track offset for pagination
+  const offsetRef = useRef(0);
+  // Track total count for pagination (ref to avoid fetchData dependency)
+  const totalCountRef = useRef<number | null>(null);
 
   const virtualizer = useVirtualizer({
-    count: events.length,
+    count: events.length + (hasMore ? 1 : 0),
     getScrollElement: () => parentRef.current,
     estimateSize: () => ROW_HEIGHT_ESTIMATE,
     overscan: 5
   });
 
   const virtualItems = virtualizer.getVirtualItems();
-  const { firstVisible, lastVisible } = useVirtualVisibleRange(virtualItems);
 
-  const fetchData = useCallback(async () => {
-    if (!isUnlocked || fetchingRef.current) return;
+  // Calculate visible range excluding loader row
+  const visibleEventItems = virtualItems.filter(
+    (item) => item.index < events.length
+  );
+  const firstVisible =
+    visibleEventItems.length > 0 ? (visibleEventItems[0]?.index ?? null) : null;
+  const lastVisible =
+    visibleEventItems.length > 0
+      ? (visibleEventItems[visibleEventItems.length - 1]?.index ?? null)
+      : null;
 
-    fetchingRef.current = true;
-    setLoading(true);
-    setError(null);
+  const fetchData = useCallback(
+    async (reset = true) => {
+      if (!isUnlocked || fetchingRef.current) return;
 
-    try {
-      const db = getDatabase();
-      const startTime = getTimeRange(timeFilter);
-
-      const [eventsData, statsData, typesData] = await Promise.all([
-        getEvents(db, {
-          startTime,
-          limit: 100,
-          sortColumn: sort.column ?? undefined,
-          sortDirection: sort.direction ?? undefined
-        }),
-        getEventStats(db, {
-          startTime,
-          sortColumn: summarySort.column ?? undefined,
-          sortDirection: summarySort.direction ?? undefined
-        }),
-        getDistinctEventTypes(db)
-      ]);
-
-      setEvents(eventsData);
-      setStats(statsData);
-      setEventTypes(typesData);
-
-      // Auto-select all types on initial load only
-      if (isInitialLoad.current && typesData.length > 0) {
-        setSelectedEventTypes(new Set(typesData));
-        isInitialLoad.current = false;
+      fetchingRef.current = true;
+      if (reset) {
+        setLoading(true);
+        setEvents([]);
+        offsetRef.current = 0;
       } else {
-        // On subsequent fetches, prune selection of any types that no longer exist
-        setSelectedEventTypes((prev) => {
-          const validTypes = new Set(typesData);
-          const filtered = new Set([...prev].filter((t) => validTypes.has(t)));
-
-          // If user's selection became empty because types disappeared, reset to all.
-          // Otherwise, respect user's empty selection (e.g. from "Clear All").
-          if (prev.size > 0 && filtered.size === 0 && typesData.length > 0) {
-            return new Set(typesData);
-          }
-          return filtered;
-        });
+        setLoadingMore(true);
       }
-    } catch (err) {
-      console.error('Failed to fetch analytics:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-      fetchingRef.current = false;
-    }
-  }, [isUnlocked, timeFilter, sort, summarySort]);
+      setError(null);
+
+      try {
+        const db = getDatabase();
+        const startTime = getTimeRange(timeFilter);
+        const currentOffset = reset ? 0 : offsetRef.current;
+
+        if (reset) {
+          // On reset, fetch everything in parallel
+          const [eventsData, statsData, typesData, countData] =
+            await Promise.all([
+              getEvents(db, {
+                startTime,
+                limit: PAGE_SIZE,
+                offset: currentOffset,
+                sortColumn: sort.column ?? undefined,
+                sortDirection: sort.direction ?? undefined
+              }),
+              getEventStats(db, {
+                startTime,
+                sortColumn: summarySort.column ?? undefined,
+                sortDirection: summarySort.direction ?? undefined
+              }),
+              getDistinctEventTypes(db),
+              getEventCount(db, { startTime })
+            ]);
+
+          setEvents(eventsData);
+          setStats(statsData);
+          setEventTypes(typesData);
+          setTotalCount(countData);
+          totalCountRef.current = countData;
+          offsetRef.current = eventsData.length;
+          setHasMore(eventsData.length < countData);
+
+          // Auto-select all types on initial load only
+          if (isInitialLoad.current && typesData.length > 0) {
+            setSelectedEventTypes(new Set(typesData));
+            isInitialLoad.current = false;
+          } else {
+            // On subsequent fetches, prune selection of any types that no longer exist
+            setSelectedEventTypes((prev) => {
+              const validTypes = new Set(typesData);
+              const filtered = new Set(
+                [...prev].filter((t) => validTypes.has(t))
+              );
+
+              // If user's selection became empty because types disappeared, reset to all.
+              // Otherwise, respect user's empty selection (e.g. from "Clear All").
+              if (
+                prev.size > 0 &&
+                filtered.size === 0 &&
+                typesData.length > 0
+              ) {
+                return new Set(typesData);
+              }
+              return filtered;
+            });
+          }
+        } else {
+          // On load more, only fetch events
+          const eventsData = await getEvents(db, {
+            startTime,
+            limit: PAGE_SIZE,
+            offset: currentOffset,
+            sortColumn: sort.column ?? undefined,
+            sortDirection: sort.direction ?? undefined
+          });
+
+          setEvents((prev) => [...prev, ...eventsData]);
+          offsetRef.current = currentOffset + eventsData.length;
+          setHasMore(
+            totalCountRef.current !== null &&
+              currentOffset + eventsData.length < totalCountRef.current
+          );
+        }
+      } catch (err) {
+        console.error('Failed to fetch analytics:', err);
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+        fetchingRef.current = false;
+      }
+    },
+    [isUnlocked, timeFilter, sort, summarySort]
+  );
 
   const handleClear = useCallback(async () => {
     if (!isUnlocked) return;
@@ -192,6 +254,10 @@ export function Analytics() {
       setStats([]);
       setEventTypes([]);
       setSelectedEventTypes(new Set());
+      setHasMore(false);
+      setTotalCount(0);
+      totalCountRef.current = 0;
+      offsetRef.current = 0;
     } catch (err) {
       console.error('Failed to clear analytics:', err);
       setError(err instanceof Error ? err.message : String(err));
@@ -250,9 +316,19 @@ export function Analytics() {
   // Fetch data when unlocked state or time filter changes
   useEffect(() => {
     if (isUnlocked) {
-      fetchData();
+      fetchData(true);
     }
   }, [isUnlocked, fetchData]);
+
+  // Load more when scrolling near the end
+  useEffect(() => {
+    if (!hasMore || loadingMore || loading || virtualItems.length === 0) return;
+
+    const lastItem = virtualItems[virtualItems.length - 1];
+    if (lastItem && lastItem.index >= events.length - 5) {
+      fetchData(false);
+    }
+  }, [virtualItems, hasMore, loadingMore, loading, events.length, fetchData]);
 
   const formatDuration = (ms: number) => {
     if (ms == null || Number.isNaN(ms)) return '—';
@@ -517,6 +593,8 @@ export function Analytics() {
               firstVisible={firstVisible}
               lastVisible={lastVisible}
               loadedCount={events.length}
+              totalCount={totalCount}
+              hasMore={hasMore}
               itemLabel="event"
             />
             {loading && events.length === 0 ? (
@@ -580,6 +658,28 @@ export function Analytics() {
                     style={{ height: `${virtualizer.getTotalSize()}px` }}
                   >
                     {virtualItems.map((virtualItem) => {
+                      const isLoaderRow = virtualItem.index >= events.length;
+
+                      if (isLoaderRow) {
+                        return (
+                          <div
+                            key="loader"
+                            className="absolute top-0 left-0 flex w-full items-center justify-center border-b p-4 text-muted-foreground text-xs sm:text-sm"
+                            style={{
+                              height: `${virtualItem.size}px`,
+                              transform: `translateY(${virtualItem.start}px)`
+                            }}
+                          >
+                            {loadingMore && (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading more...
+                              </>
+                            )}
+                          </div>
+                        );
+                      }
+
                       const event = events[virtualItem.index];
                       if (!event) return null;
 
