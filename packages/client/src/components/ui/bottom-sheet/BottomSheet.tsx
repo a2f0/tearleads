@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useId, useState } from 'react';
-import { useResizable } from '@/hooks/useResizable';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import {
+  type SnapPoint,
+  useBottomSheetGesture
+} from '@/hooks/useBottomSheetGesture';
 import { cn } from '@/lib/utils';
 
 export const ANIMATION_DURATION_MS = 300;
-const DEFAULT_HEIGHT = 300;
 const MIN_HEIGHT = 150;
 const MAX_HEIGHT_PERCENT = 0.85;
+const VELOCITY_THRESHOLD = 0.5;
+const DISMISS_THRESHOLD = 100;
 
 interface BottomSheetProps {
   open: boolean;
@@ -13,31 +17,60 @@ interface BottomSheetProps {
   children: React.ReactNode;
   title?: string;
   'data-testid'?: string;
+  snapPoints?: SnapPoint[];
+  initialSnapPoint?: string;
 }
+
+const DEFAULT_SNAP_POINTS: SnapPoint[] = [
+  { name: 'collapsed', height: 200 },
+  { name: 'half', height: Math.round(window.innerHeight * 0.5) },
+  { name: 'expanded', height: Math.round(window.innerHeight * 0.85) }
+];
 
 export function BottomSheet({
   open,
   onOpenChange,
   children,
   title,
-  'data-testid': testId = 'bottom-sheet'
+  'data-testid': testId = 'bottom-sheet',
+  snapPoints: customSnapPoints,
+  initialSnapPoint = 'collapsed'
 }: BottomSheetProps) {
-  const [isAnimating, setIsAnimating] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const [shouldRender, setShouldRender] = useState(open);
   const titleId = useId();
-  const { height, handleMouseDown, handleTouchStart } = useResizable({
-    defaultHeight: DEFAULT_HEIGHT,
+
+  const snapPoints = useMemo(
+    () => customSnapPoints ?? DEFAULT_SNAP_POINTS,
+    [customSnapPoints]
+  );
+
+  const handleDismiss = useCallback(() => {
+    onOpenChange(false);
+  }, [onOpenChange]);
+
+  const {
+    height,
+    sheetRef,
+    handleRef,
+    isAnimating: isGestureAnimating
+  } = useBottomSheetGesture({
+    snapPoints,
+    initialSnapPoint,
     minHeight: MIN_HEIGHT,
-    maxHeightPercent: MAX_HEIGHT_PERCENT
+    maxHeightPercent: MAX_HEIGHT_PERCENT,
+    onDismiss: handleDismiss,
+    dismissThreshold: DISMISS_THRESHOLD,
+    velocityThreshold: VELOCITY_THRESHOLD
   });
 
   useEffect(() => {
     if (open) {
       setShouldRender(true);
-      requestAnimationFrame(() => setIsAnimating(true));
+      requestAnimationFrame(() => setIsVisible(true));
       return;
     }
-    setIsAnimating(false);
+    setIsVisible(false);
     const timer = setTimeout(
       () => setShouldRender(false),
       ANIMATION_DURATION_MS
@@ -69,7 +102,7 @@ export function BottomSheet({
       <div
         className={cn(
           'fixed inset-0 bg-black/50 transition-opacity duration-300',
-          isAnimating ? 'opacity-100' : 'opacity-0'
+          isVisible ? 'opacity-100' : 'opacity-0'
         )}
         onClick={handleBackdropClick}
         aria-hidden="true"
@@ -77,12 +110,13 @@ export function BottomSheet({
       />
 
       <div
+        ref={sheetRef}
         className={cn(
           'fixed right-0 bottom-0 left-0 z-10 flex flex-col overflow-hidden',
           'rounded-t-2xl border-t bg-background shadow-lg',
-          'transition-transform duration-300 ease-out',
           'pb-[env(safe-area-inset-bottom)]',
-          isAnimating ? 'translate-y-0' : 'translate-y-full'
+          isVisible ? 'translate-y-0' : 'translate-y-full',
+          !isGestureAnimating && 'transition-transform duration-300 ease-out'
         )}
         style={{ height: `${height}px`, maxHeight: '85vh' }}
         role="dialog"
@@ -91,10 +125,9 @@ export function BottomSheet({
         data-testid={`${testId}-content`}
       >
         <button
+          ref={handleRef}
           type="button"
           className="flex w-full cursor-ns-resize touch-none justify-center border-0 bg-transparent pt-3 pb-2"
-          onMouseDown={handleMouseDown}
-          onTouchStart={handleTouchStart}
           aria-label="Resize handle"
           data-testid={`${testId}-resize-handle`}
         >
