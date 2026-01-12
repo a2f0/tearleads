@@ -141,3 +141,11 @@ class MockIntersectionObserver {
   }
 }
 vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);
+
+// Mock ResizeObserver for components that use it (e.g., DurationChart)
+class MockResizeObserver implements ResizeObserver {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+vi.stubGlobal('ResizeObserver', MockResizeObserver);
