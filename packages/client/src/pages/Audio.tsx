@@ -434,14 +434,7 @@ export function AudioPage() {
         ) : (
           <div className="flex min-h-0 flex-1 flex-col space-y-2">
             <AudioVisualizer />
-            <AudioControls
-              tracks={tracks.map((t) => ({
-                id: t.id,
-                name: t.name,
-                objectUrl: t.objectUrl,
-                mimeType: t.mimeType
-              }))}
-            />
+            <AudioControls tracks={tracks} />
             <VirtualListStatus
               firstVisible={firstVisible}
               lastVisible={lastVisible}
