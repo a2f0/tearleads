@@ -6,7 +6,8 @@ import {
 } from '@playwright/test';
 import { launchElectronApp } from './electron-test-helper';
 
-const TEST_PASSWORD = 'testpassword123';
+const INSTANCE1_PASSWORD = 'password-instance1!';
+const INSTANCE2_PASSWORD = 'different-password2@';
 const DB_OPERATION_TIMEOUT = 15000;
 const APP_LOAD_TIMEOUT = 10000;
 
@@ -18,9 +19,9 @@ const waitForSuccess = (window: Page) =>
     { timeout: DB_OPERATION_TIMEOUT }
   );
 
-// Helper to setup a new database with test password
-const setupDatabase = async (window: Page) => {
-  await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+// Helper to setup a new database with given password
+const setupDatabase = async (window: Page, password: string) => {
+  await window.getByTestId('db-password-input').fill(password);
   await window.getByTestId('db-setup-button').click();
   await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
     timeout: DB_OPERATION_TIMEOUT
@@ -50,7 +51,7 @@ const switchToInstance = async (window: Page, instanceIndex: number) => {
 };
 
 // Helper to ensure database is unlocked (handles both locked and unlocked states)
-const ensureUnlocked = async (window: Page) => {
+const ensureUnlocked = async (window: Page, password: string) => {
   // Wait for status to stabilize (not "Not Set Up" which means still switching)
   await expect(window.getByTestId('db-status')).not.toHaveText('Not Set Up', {
     timeout: DB_OPERATION_TIMEOUT
@@ -61,13 +62,21 @@ const ensureUnlocked = async (window: Page) => {
 
   const status = await window.getByTestId('db-status').textContent();
   if (status === 'Locked') {
-    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await window.getByTestId('db-password-input').fill(password);
     await window.getByTestId('db-unlock-button').click();
     await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
       timeout: DB_OPERATION_TIMEOUT
     });
   }
 };
+
+// Helper to wait for authentication error
+const waitForAuthError = (window: Page) =>
+  expect(window.getByTestId('db-test-result')).toHaveAttribute(
+    'data-status',
+    'error',
+    { timeout: DB_OPERATION_TIMEOUT }
+  );
 
 // Helper to delete all instances except the current one (for test isolation)
 const deleteAllOtherInstances = async (window: Page) => {
@@ -153,8 +162,8 @@ test.describe('Instance Switching (Electron)', () => {
   });
 
   test('state resets when creating a new instance', async () => {
-    // Setup first instance
-    await setupDatabase(window);
+    // Setup first instance with its password
+    await setupDatabase(window, INSTANCE1_PASSWORD);
 
     // Verify "Database setup complete" message
     await expect(window.getByTestId('db-test-result')).toContainText(
@@ -180,8 +189,8 @@ test.describe('Instance Switching (Electron)', () => {
   });
 
   test('test data clears when switching instances', async () => {
-    // Setup first instance
-    await setupDatabase(window);
+    // Setup first instance with its password
+    await setupDatabase(window, INSTANCE1_PASSWORD);
 
     // Write test data
     await window.getByTestId('db-write-button').click();
@@ -198,14 +207,14 @@ test.describe('Instance Switching (Electron)', () => {
   });
 
   test('switching back to original instance shows correct UI state', async () => {
-    // Setup first instance
-    await setupDatabase(window);
+    // Setup first instance with its password
+    await setupDatabase(window, INSTANCE1_PASSWORD);
 
     // Create second instance
     await createNewInstance(window);
 
-    // Setup second instance
-    await setupDatabase(window);
+    // Setup second instance with different password
+    await setupDatabase(window, INSTANCE2_PASSWORD);
     await expect(window.getByTestId('db-test-result')).toContainText(
       'Database setup complete'
     );
@@ -225,8 +234,8 @@ test.describe('Instance Switching (Electron)', () => {
   });
 
   test('each instance maintains independent state', async () => {
-    // Setup first instance
-    await setupDatabase(window);
+    // Setup first instance with its password
+    await setupDatabase(window, INSTANCE1_PASSWORD);
     await window.getByTestId('db-write-button').click();
     await waitForSuccess(window);
 
@@ -241,8 +250,8 @@ test.describe('Instance Switching (Electron)', () => {
     await expect(window.getByTestId('db-status')).toHaveText('Not Set Up');
     await expect(window.getByTestId('db-test-data')).not.toBeVisible();
 
-    // Setup second instance
-    await setupDatabase(window);
+    // Setup second instance with different password
+    await setupDatabase(window, INSTANCE2_PASSWORD);
     await window.getByTestId('db-write-button').click();
     await waitForSuccess(window);
 
@@ -256,8 +265,8 @@ test.describe('Instance Switching (Electron)', () => {
     // Switch back to first instance and verify its data
     await switchToInstance(window, 0);
 
-    // Ensure database is unlocked (it might be locked if session wasn't persisted)
-    await ensureUnlocked(window);
+    // Ensure database is unlocked with first instance's password
+    await ensureUnlocked(window, INSTANCE1_PASSWORD);
 
     // Read data from first instance
     await window.getByTestId('db-read-button').click();
@@ -270,17 +279,17 @@ test.describe('Instance Switching (Electron)', () => {
   });
 
   test('data persists across app restarts for each instance', async () => {
-    // Setup first instance and write data
-    await setupDatabase(window);
+    // Setup first instance with its password and write data
+    await setupDatabase(window, INSTANCE1_PASSWORD);
     await window.getByTestId('db-write-button').click();
     await waitForSuccess(window);
     const firstInstanceData = await window
       .getByTestId('db-test-data')
       .textContent();
 
-    // Create and setup second instance
+    // Create and setup second instance with different password
     await createNewInstance(window);
-    await setupDatabase(window);
+    await setupDatabase(window, INSTANCE2_PASSWORD);
     await window.getByTestId('db-write-button').click();
     await waitForSuccess(window);
     const secondInstanceData = await window
@@ -307,8 +316,8 @@ test.describe('Instance Switching (Electron)', () => {
       timeout: DB_OPERATION_TIMEOUT
     });
 
-    // Unlock with password
-    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    // Unlock with second instance's password
+    await window.getByTestId('db-password-input').fill(INSTANCE2_PASSWORD);
     await window.getByTestId('db-unlock-button').click();
     await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
       timeout: DB_OPERATION_TIMEOUT
@@ -323,7 +332,7 @@ test.describe('Instance Switching (Electron)', () => {
 
     // Switch to first instance
     await switchToInstance(window, 0);
-    await ensureUnlocked(window);
+    await ensureUnlocked(window, INSTANCE1_PASSWORD);
 
     // Read and verify first instance data
     await window.getByTestId('db-read-button').click();
@@ -331,5 +340,58 @@ test.describe('Instance Switching (Electron)', () => {
     await expect(window.getByTestId('db-test-data')).toHaveText(
       firstInstanceData!
     );
+  });
+
+  test('wrong password fails authentication on each instance', async () => {
+    // Setup first instance with its password
+    await setupDatabase(window, INSTANCE1_PASSWORD);
+
+    // Create and setup second instance with different password
+    await createNewInstance(window);
+    await setupDatabase(window, INSTANCE2_PASSWORD);
+
+    // Lock the second instance
+    await window.getByTestId('db-lock-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Locked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Try to unlock second instance with first instance's password (wrong)
+    await window.getByTestId('db-password-input').fill(INSTANCE1_PASSWORD);
+    await window.getByTestId('db-unlock-button').click();
+    await waitForAuthError(window);
+
+    // Verify still locked
+    await expect(window.getByTestId('db-status')).toHaveText('Locked');
+
+    // Now unlock correctly with second instance's password
+    await window.getByTestId('db-password-input').fill(INSTANCE2_PASSWORD);
+    await window.getByTestId('db-unlock-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Switch to first instance
+    await switchToInstance(window, 0);
+
+    // Wait for status to show Locked
+    await expect(window.getByTestId('db-status')).toHaveText('Locked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Try to unlock first instance with second instance's password (wrong)
+    await window.getByTestId('db-password-input').fill(INSTANCE2_PASSWORD);
+    await window.getByTestId('db-unlock-button').click();
+    await waitForAuthError(window);
+
+    // Verify still locked
+    await expect(window.getByTestId('db-status')).toHaveText('Locked');
+
+    // Now unlock correctly with first instance's password
+    await window.getByTestId('db-password-input').fill(INSTANCE1_PASSWORD);
+    await window.getByTestId('db-unlock-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
   });
 });
