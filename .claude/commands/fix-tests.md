@@ -4,6 +4,14 @@ description: Fix failing tests from CI
 
 # Fix Failing Tests
 
+**First**: Determine the repository for all `gh` commands:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+```
+
+Use `-R "$REPO"` with all `gh` commands in this skill.
+
 This skill helps diagnose and fix failing tests from GitHub Actions CI.
 
 ## 1. Check CI Status

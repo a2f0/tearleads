@@ -4,6 +4,14 @@ description: Request a new review from Gemini Code Assist
 
 # Solicit Gemini Review
 
+**First**: Determine the repository for all `gh` commands:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+```
+
+Use `-R "$REPO"` with all `gh` commands in this skill.
+
 Request a fresh review from Gemini Code Assist on the current PR.
 
 ## Steps

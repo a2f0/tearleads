@@ -4,6 +4,14 @@ description: Mark a PR as needing QA after merge
 
 # Mark Needs QA
 
+**First**: Determine the repository for all `gh` commands:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+```
+
+Use `-R "$REPO"` with all `gh` commands in this skill.
+
 Add the `needs-qa` label to the current PR so that the merge queue will create/preserve an issue and mark it for QA after the PR merges.
 
 ## Steps

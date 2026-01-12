@@ -4,6 +4,14 @@ description: Mark a PR as high-priority to skip merge queue yielding
 
 # Mark High Priority
 
+**First**: Determine the repository for all `gh` commands:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+```
+
+Use `-R "$REPO"` with all `gh` commands in this skill.
+
 Add the `high-priority` label to the current PR so that other PRs in the merge queue will yield to it.
 
 ## Steps
