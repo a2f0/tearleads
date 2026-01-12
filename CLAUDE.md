@@ -2,6 +2,25 @@
 
 This file is shared by Claude Code and Codex. `AGENTS.md` is symlinked to this file.
 
+## Repository Identification (CRITICAL)
+
+**Never infer the repository name from the workspace folder name.** Workspaces like `rapid2`, `rapid10`, `rapid-main` are all clones of the same repository.
+
+To get the correct repo for `gh` commands:
+
+```bash
+# Get the repo in owner/name format
+git remote get-url origin | sed 's/.*github.com[:/]\(.*\)\.git/\1/'
+```
+
+Always use `--repo` or `-R` flag with `gh` commands when the repo might be ambiguous:
+
+```bash
+REPO=$(git remote get-url origin | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
+gh issue list -R "$REPO"
+gh pr view 123 -R "$REPO"
+```
+
 ## Issue Tracking
 
 When the user requests a change or new feature:

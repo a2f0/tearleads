@@ -4,6 +4,14 @@ description: Respond to Gemini's comments after resolving and pushing feedback.
 
 # Follow Up With Gemini
 
+**First**: Determine the repository for all `gh` commands:
+
+```bash
+REPO=$(git remote get-url origin | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
+```
+
+Use `-R "$REPO"` with all `gh` commands in this skill.
+
 ## CRITICAL: Avoid Pending/Draft Reviews
 
 **DO NOT** use any of these commands - they create pending reviews that Gemini will never see:
