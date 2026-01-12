@@ -4,6 +4,14 @@ description: Commit staged changes and push to remote using conventional commits
 
 # Commit and Push
 
+**First**: Determine the repository for all `gh` commands:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+```
+
+Use `-R "$REPO"` with all `gh` commands in this skill.
+
 Commit and push the current changes following these rules:
 
 1. **Check branch**: If on `main`, create a new branch with an appropriate name based on the changes. After creating or switching branches, update the VS Code title:
@@ -25,8 +33,6 @@ Commit and push the current changes following these rules:
 7. **Address feedback**: Run `/address-gemini-feedback` to handle unresolved comments.
 
    **IMPORTANT**: When replying to Gemini comments, use the REST API (`gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies`), NOT `gh pr review`. The `gh pr review` command creates pending/draft reviews that Gemini cannot see until submitted.
-
-8. **Merge**: Run `/enter-merge-queue` to automate merging (updates from base, fixes CI, bumps versions, waits for merge).
 
 ## Token Efficiency (CRITICAL - DO NOT SKIP)
 
