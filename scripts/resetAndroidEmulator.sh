@@ -2,7 +2,8 @@
 set -eu
 
 DEVICE="Maestro_Pixel_6_API_33_1"
-AVD_CONFIG="$HOME/.android/avd/${DEVICE}.avd/config.ini"
+AVD_DIR="${ANDROID_AVD_HOME:-$HOME/.android/avd}/${DEVICE}.avd"
+AVD_CONFIG="$AVD_DIR/config.ini"
 
 echo "Resetting Android emulator: $DEVICE"
 
@@ -27,16 +28,13 @@ fi
 pkill -f "qemu.*$DEVICE" 2>/dev/null || true
 sleep 1
 
-# Wipe emulator data and restart
-# -no-snapshot-save: prevents saving state on shutdown
-# -no-boot-anim: faster startup
-echo "Wiping emulator data and starting fresh..."
-emulator -avd "$DEVICE" -wipe-data -no-snapshot-save -no-boot-anim &
-EMULATOR_PID=$!
+# Wipe emulator data by deleting userdata images directly
+echo "Wiping emulator data..."
+rm -f "$AVD_DIR"/userdata-qemu.img*
+rm -f "$AVD_DIR"/cache.img*
+rm -f "$AVD_DIR"/encryptionkey.img
+rm -f "$AVD_DIR"/snapshots.img
+rm -rf "$AVD_DIR"/snapshots
+rm -f "$AVD_DIR"/*.lock
 
-echo "Waiting for emulator to boot..."
-adb wait-for-device
-# shellcheck disable=SC2016
-adb shell 'while [ -z "$(getprop sys.boot_completed 2>/dev/null)" ]; do sleep 1; done'
-
-echo "Emulator reset complete and ready (PID: $EMULATOR_PID)"
+echo "Emulator reset complete. Next boot will start fresh."
