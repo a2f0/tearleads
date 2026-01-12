@@ -593,19 +593,13 @@ test.describe('Debug page', () => {
     await expect(page.getByRole('heading', { name: 'Debug' })).toBeVisible();
   });
 
-  test('should display environment info on debug page', async ({ page }) => {
+  test('should display system info on debug page', async ({ page }) => {
     await navigateTo(page, 'Debug');
 
-    await expect(page.getByText('Environment Info')).toBeVisible();
+    await expect(page.getByText('System Info')).toBeVisible();
     await expect(page.getByText(/Environment:/)).toBeVisible();
     await expect(page.getByText(/Screen:/)).toBeVisible();
     await expect(page.getByText(/User Agent:/)).toBeVisible();
-  });
-
-  test('should display device info on debug page', async ({ page }) => {
-    await navigateTo(page, 'Debug');
-
-    await expect(page.getByText('Device Info')).toBeVisible();
     await expect(page.getByText(/Platform:/)).toBeVisible();
     await expect(page.getByText(/Pixel Ratio:/)).toBeVisible();
     await expect(page.getByText(/Online:/)).toBeVisible();
