@@ -54,6 +54,8 @@ interface AudioContextValue extends AudioState {
   seek: (time: number) => void;
   /** Clear any playback error */
   clearError: () => void;
+  /** Reference to the audio element for Web Audio API integration */
+  audioElementRef: React.RefObject<HTMLAudioElement | null>;
 }
 
 const AudioContext = createContext<AudioContextValue | null>(null);
@@ -229,7 +231,8 @@ export function AudioProvider({ children }: AudioProviderProps) {
       resume,
       stop,
       seek,
-      clearError
+      clearError,
+      audioElementRef: audioRef
     }),
     [
       currentTrack,

@@ -4,3 +4,4 @@ export {
   useAudio,
   useAudioContext
 } from './AudioContext';
+export { useAudioAnalyser } from './useAudioAnalyser';
