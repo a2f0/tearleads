@@ -38,8 +38,10 @@ appId: com.tearleads.rapid
     )
 
 # Setup first instance with a password
-- evalScript: window.setPassword('firstinstance123')
-- evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
+- evalScript: |
+    window.setPassword('firstinstance123');
+    document.querySelector('[data-testid="db-setup-button"]').click();
+    return 'ok';
 - evalScript: window.waitForResult('success')
 - evalScript: window.waitForStatus('Unlocked')
 
@@ -99,8 +101,8 @@ appId: com.tearleads.rapid
 
 # CRITICAL TEST: Set up the second instance
 # This is where the bug occurs - "state for rapid-xxx...db not correct"
-- evalScript: window.setPassword('secondinstance456')
 - evalScript: |
+    window.setPassword('secondinstance456');
     console.log('[MULTI-INSTANCE] Attempting to set up second instance...');
     console.log('[MULTI-INSTANCE] Password field value: ' + document.querySelector('[data-testid="db-password-input"]').value.length + ' chars');
     document.querySelector('[data-testid="db-setup-button"]').click();
