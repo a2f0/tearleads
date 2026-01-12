@@ -58,6 +58,11 @@ if ! command -v jq >/dev/null 2>&1; then
     exit 1
 fi
 
+if ! command -v gh >/dev/null 2>&1; then
+    echo "Error: gh (GitHub CLI) is required but not found" >&2
+    exit 1
+fi
+
 # Find the two most recent commits that modified the version file
 # This reliably detects version bumps regardless of commit message format
 BUMP_COMMITS=$(git log -2 --format="%H" -- "$VERSION_FILE" 2>/dev/null || echo "")
@@ -69,12 +74,43 @@ if [ "$CURRENT_BUMP" = "$PREVIOUS_BUMP" ]; then
     exit 1
 fi
 
-# Build JSON payload and pipe directly to curl to avoid argument length limits
-# Using -d @- reads the JSON from stdin
-# Note: We use commit messages only (no diffs) and Haiku model to stay within API rate limits
+# Get timestamps for the commit range to filter PRs
+PREVIOUS_DATE=$(git log -1 --format="%cI" "$PREVIOUS_BUMP" 2>/dev/null)
+CURRENT_DATE=$(git log -1 --format="%cI" "$CURRENT_BUMP" 2>/dev/null)
 
-# Get commits between version bumps, excluding the current bump commit itself
-COMMITS=$(git log "${PREVIOUS_BUMP}..${CURRENT_BUMP}~1" --no-merges --format="- %s" 2>/dev/null)
+echo "Finding PRs merged between $PREVIOUS_DATE and $CURRENT_DATE" >&2
+
+# Extract PR numbers from merge commits in the range
+# Merge commits typically have messages like "Merge pull request #123 from ..."
+PR_NUMBERS=$(git log "${PREVIOUS_BUMP}..${CURRENT_BUMP}" --merges --format="%s" 2>/dev/null | \
+    grep -oE '#[0-9]+' | tr -d '#' | sort -u)
+
+if [ -z "$PR_NUMBERS" ]; then
+    echo "Warning: No PR merge commits found in range, falling back to commit messages" >&2
+    COMMITS=$(git log "${PREVIOUS_BUMP}..${CURRENT_BUMP}~1" --no-merges --format="- %s" 2>/dev/null)
+else
+    # Fetch PR titles and descriptions using gh CLI
+    COMMITS=""
+    for PR_NUM in $PR_NUMBERS; do
+        echo "Fetching PR #$PR_NUM..." >&2
+        PR_DATA=$(gh pr view "$PR_NUM" --json title,body 2>/dev/null || echo "")
+        if [ -n "$PR_DATA" ]; then
+            PR_TITLE=$(echo "$PR_DATA" | jq -r '.title // empty')
+            PR_BODY=$(echo "$PR_DATA" | jq -r '.body // empty' | head -50)
+            if [ -n "$PR_TITLE" ]; then
+                COMMITS="${COMMITS}
+## PR #${PR_NUM}: ${PR_TITLE}
+${PR_BODY}
+"
+            fi
+        fi
+    done
+fi
+
+if [ -z "$COMMITS" ]; then
+    echo "Error: No commits or PRs found in range" >&2
+    exit 1
+fi
 
 call_anthropic_api() {
     model="$1"
@@ -84,7 +120,7 @@ call_anthropic_api() {
     max_tokens: 256,
     messages: [{
         role: "user",
-        content: ("Generate brief, user-friendly release notes for a mobile app based on these git commit messages. Focus on what users will notice, not technical details. Use simple language. Keep it to 2-4 bullet points max. No markdown formatting, just plain text with bullet points using • character. Do not include a header or version number.\n\nIMPORTANT: Ignore commits that are internal process/tooling changes, such as:\n- address gemini feedback or similar code review commits\n- documentation-only changes\n- CI/build configuration changes\n- refactoring that does not change user-visible behavior\n\nOnly include commits that result in user-facing changes (new features, bug fixes users would notice, performance improvements, UI changes).\n\nCommit messages:\n" + .)
+        content: ("Generate brief, user-friendly release notes for a mobile app based on these pull request descriptions. Focus on what users will notice, not technical details. Use simple language. Keep it to 2-4 bullet points max. No markdown formatting, just plain text with bullet points using • character. Do not include a header or version number.\n\nIMPORTANT: Ignore PRs that are internal process/tooling changes, such as:\n- Code review feedback or refactoring PRs\n- Documentation-only changes\n- CI/build configuration changes\n- Test-only changes\n- Dependency updates (unless they fix a user-facing issue)\n\nOnly include PRs that result in user-facing changes (new features, bug fixes users would notice, performance improvements, UI changes).\n\nPull Requests:\n" + .)
     }]
 }' | curl -s https://api.anthropic.com/v1/messages \
         -H "Content-Type: application/json" \
