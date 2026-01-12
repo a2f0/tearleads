@@ -85,7 +85,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    **Step 1**: Get the list of high-priority PR numbers:
 
    ```bash
-   gh pr list --label "high-priority" --state open --json number
+   gh pr list --label "high-priority" --state open --search "-is:draft" --json number
    ```
 
    **Step 2**: For each high-priority PR, get its merge state (required because `mergeStateStatus` is not available in `gh pr list`):
@@ -96,7 +96,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    **Step 3**: Determine whether to yield:
 
-   - **Yield** if any high-priority PR has `mergeStateStatus` of `CLEAN`, `BLOCKED`, `BEHIND`, or `UNKNOWN`:
+   - **Yield** if any high-priority PR has `mergeStateStatus` of `CLEAN`, `BLOCKED`, `BEHIND`, `UNKNOWN`, `UNSTABLE`, or `HAS_HOOKS`:
      1. Log: "Yielding to high-priority PR #X (status: Y)"
      2. Wait 2 minutes (with jitter) before rechecking
      3. Repeat from Step 1 until no high-priority PRs require yielding
