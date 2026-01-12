@@ -127,7 +127,7 @@ call_anthropic_api() {
     max_tokens: 150,
     messages: [{
         role: "user",
-        content: ("Generate release notes for a mobile app. 2-3 bullet points using • character. Plain text only, no markdown.\n\nRULES:\n- Under 500 characters total (Google Play Store limit)\n- Start DIRECTLY with the first • bullet - no preamble or introduction\n- Focus on user-visible changes only\n- Skip internal PRs (refactoring, docs, CI, tests, deps)\n\nPull Requests:\n" + .)
+        content: ("Generate release notes for a mobile app. 2-3 bullet points using • character. Plain text only, no markdown.\n\nRULES:\n- Under 500 characters total (Google Play Store limit)\n- Start DIRECTLY with the first • bullet - no preamble or introduction\n- No header or version number\n- Focus on user-visible changes only\n- Skip internal PRs (refactoring, docs, CI, tests, deps)\n\nPull Requests:\n" + .)
     }]
 }' | curl -s https://api.anthropic.com/v1/messages \
         -H "Content-Type: application/json" \
