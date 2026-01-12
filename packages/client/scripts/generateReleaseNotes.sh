@@ -89,15 +89,29 @@ if [ -z "$PR_NUMBERS" ]; then
     echo "Warning: No PR merge commits found in range, falling back to commit messages" >&2
     COMMITS=$(git log "${PREVIOUS_BUMP}..${CURRENT_BUMP}~1" --no-merges --format="- %s" 2>/dev/null)
 else
-    # Fetch all PRs in one call for efficiency
+    # Fetch PRs one at a time (gh pr view only accepts one PR number)
     # shellcheck disable=SC2086
     PR_NUMS_INLINE=$(echo $PR_NUMBERS | tr '\n' ' ')
     echo "Fetching data for PRs: $PR_NUMS_INLINE" >&2
-    # shellcheck disable=SC2086
-    PR_DATA_LIST=$(gh pr view $PR_NUMS_INLINE --json number,title,body 2>/dev/null || echo "[]")
+
+    # Build JSON array by fetching each PR individually
+    # Use || true to prevent set -e from exiting if gh pr view fails
+    PR_DATA_ITEMS=""
+    for PR_NUM in $PR_NUMBERS; do
+        PR_DATA=$(gh pr view "$PR_NUM" --json number,title,body 2>/dev/null || true)
+        if [ -n "$PR_DATA" ]; then
+            if [ -z "$PR_DATA_ITEMS" ]; then
+                PR_DATA_ITEMS="$PR_DATA"
+            else
+                PR_DATA_ITEMS="$PR_DATA_ITEMS,$PR_DATA"
+            fi
+        fi
+    done
+    PR_DATA_LIST="[$PR_DATA_ITEMS]"
 
     # Process the JSON array of PRs using jq for cleaner formatting
-    COMMITS=$(echo "$PR_DATA_LIST" | jq -r 'if type == "array" then . else [.] end | map("\n## PR #\(.number): \(.title)\n\(.body // "" | split("\n") | .[0:50] | join("\n"))") | join("")')
+    # Use printf instead of echo to avoid escape sequence interpretation
+    COMMITS=$(printf '%s' "$PR_DATA_LIST" | jq -r 'map("\n## PR #\(.number): \(.title)\n\(.body // "" | split("\n") | .[0:50] | join("\n"))") | join("")')
 fi
 
 if [ -z "$COMMITS" ]; then
