@@ -38,6 +38,7 @@ interface AudioState {
   isPlaying: boolean;
   currentTime: number;
   duration: number;
+  volume: number;
   error: AudioError | null;
 }
 
@@ -52,6 +53,8 @@ interface AudioContextValue extends AudioState {
   stop: () => void;
   /** Seek to a specific time in seconds */
   seek: (time: number) => void;
+  /** Set playback volume (0-1) */
+  setVolume: (volume: number) => void;
   /** Clear any playback error */
   clearError: () => void;
   /** Reference to the audio element for Web Audio API integration */
@@ -76,6 +79,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [volume, setVolumeState] = useState(1);
   const [error, setError] = useState<AudioError | null>(null);
 
   const clearError = useCallback(() => {
@@ -139,6 +143,15 @@ export function AudioProvider({ children }: AudioProviderProps) {
     const audio = audioRef.current;
     if (!audio) return;
     audio.currentTime = time;
+  }, []);
+
+  const setVolume = useCallback((newVolume: number) => {
+    const audio = audioRef.current;
+    const clampedVolume = Math.max(0, Math.min(1, newVolume));
+    setVolumeState(clampedVolume);
+    if (audio) {
+      audio.volume = clampedVolume;
+    }
   }, []);
 
   // Keep currentTrackRef in sync with currentTrack for error handler
@@ -225,12 +238,14 @@ export function AudioProvider({ children }: AudioProviderProps) {
       isPlaying,
       currentTime,
       duration,
+      volume,
       error,
       play,
       pause,
       resume,
       stop,
       seek,
+      setVolume,
       clearError,
       audioElementRef: audioRef
     }),
@@ -239,12 +254,14 @@ export function AudioProvider({ children }: AudioProviderProps) {
       isPlaying,
       currentTime,
       duration,
+      volume,
       error,
       play,
       pause,
       resume,
       stop,
       seek,
+      setVolume,
       clearError
     ]
   );

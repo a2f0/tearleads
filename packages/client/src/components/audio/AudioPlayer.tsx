@@ -1,0 +1,423 @@
+/**
+ * Combined audio player component with visualizer, controls, and volume.
+ * Integrates playback controls, frequency visualizer, seek bar, and volume control.
+ */
+
+import {
+  Pause,
+  Play,
+  RotateCcw,
+  SkipBack,
+  SkipForward,
+  Sliders,
+  Volume2,
+  VolumeX
+} from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { type AudioTrack, useAudio } from '@/audio';
+import { useAudioAnalyser } from '@/audio/useAudioAnalyser';
+import { Button } from '@/components/ui/button';
+
+export type VisualizerStyle = 'lcd' | 'gradient';
+
+interface AudioPlayerProps {
+  tracks: AudioTrack[];
+}
+
+const STORAGE_KEY = 'audio-visualizer-style';
+const BAR_COUNT = 12;
+const SEGMENT_COUNT = 15;
+const SEGMENT_TOTAL_HEIGHT = 6;
+const GRADIENT_BAR_MIN_HEIGHT = 4;
+
+const BAR_KEYS = Array.from({ length: BAR_COUNT }, (_, i) => `bar-${i}`);
+const SEGMENT_KEYS = Array.from(
+  { length: SEGMENT_COUNT },
+  (_, i) => `seg-${i}`
+);
+
+function getStoredStyle(): VisualizerStyle {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === 'lcd' || stored === 'gradient') {
+      return stored;
+    }
+  } catch {
+    // localStorage may not be available
+  }
+  return 'lcd';
+}
+
+function setStoredStyle(style: VisualizerStyle): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, style);
+  } catch {
+    // localStorage may not be available
+  }
+}
+
+function formatTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return '0:00';
+  }
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+export function AudioPlayer({ tracks }: AudioPlayerProps) {
+  const {
+    audioElementRef,
+    currentTrack,
+    isPlaying,
+    currentTime,
+    duration,
+    volume,
+    play,
+    pause,
+    resume,
+    seek,
+    setVolume
+  } = useAudio();
+
+  const frequencyData = useAudioAnalyser(audioElementRef, isPlaying, BAR_COUNT);
+  const [visualizerStyle, setVisualizerStyle] =
+    useState<VisualizerStyle>(getStoredStyle);
+
+  // Track seeking state to prevent garbled audio during drag
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [seekValue, setSeekValue] = useState(0);
+  const seekTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Track last non-zero volume for mute/unmute toggle
+  const lastVolumeRef = useRef(1);
+
+  const currentIndex = currentTrack
+    ? tracks.findIndex((t) => t.id === currentTrack.id)
+    : -1;
+
+  const hasPrevious = currentIndex > 0;
+  const hasNext = currentIndex >= 0 && currentIndex < tracks.length - 1;
+
+  const handleToggleStyle = useCallback(() => {
+    const newStyle = visualizerStyle === 'lcd' ? 'gradient' : 'lcd';
+    setVisualizerStyle(newStyle);
+    setStoredStyle(newStyle);
+  }, [visualizerStyle]);
+
+  // Handle seek start - pause updates and track drag value
+  const handleSeekStart = useCallback(() => {
+    setIsSeeking(true);
+    setSeekValue(currentTime);
+  }, [currentTime]);
+
+  // Handle seek change - update visual position without seeking audio
+  const handleSeekChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const time = Number.parseFloat(e.target.value);
+      setSeekValue(time);
+
+      // Clear any pending seek timeout
+      if (seekTimeoutRef.current) {
+        clearTimeout(seekTimeoutRef.current);
+      }
+
+      // Debounce actual seek to reduce garbling during drag
+      seekTimeoutRef.current = setTimeout(() => {
+        seek(time);
+      }, 100);
+    },
+    [seek]
+  );
+
+  // Handle seek end - commit the final position
+  const handleSeekEnd = useCallback(() => {
+    // Clear any pending debounced seek
+    if (seekTimeoutRef.current) {
+      clearTimeout(seekTimeoutRef.current);
+      seekTimeoutRef.current = null;
+    }
+    // Commit final seek position
+    seek(seekValue);
+    setIsSeeking(false);
+  }, [seek, seekValue]);
+
+  const handleRestart = useCallback(() => {
+    seek(0);
+  }, [seek]);
+
+  const handlePlayPause = useCallback(() => {
+    if (isPlaying) {
+      pause();
+    } else {
+      resume();
+    }
+  }, [isPlaying, pause, resume]);
+
+  const handlePrevious = useCallback(() => {
+    const prevTrack = tracks[currentIndex - 1];
+    if (prevTrack) {
+      play(prevTrack);
+    }
+  }, [tracks, currentIndex, play]);
+
+  const handleNext = useCallback(() => {
+    const nextTrack = tracks[currentIndex + 1];
+    if (nextTrack) {
+      play(nextTrack);
+    }
+  }, [tracks, currentIndex, play]);
+
+  const handleVolumeChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setVolume(Number.parseFloat(e.target.value));
+    },
+    [setVolume]
+  );
+
+  const handleToggleMute = useCallback(() => {
+    setVolume(volume > 0 ? 0 : lastVolumeRef.current);
+  }, [volume, setVolume]);
+
+  // Track last non-zero volume for restore on unmute
+  useEffect(() => {
+    if (volume > 0) {
+      lastVolumeRef.current = volume;
+    }
+  }, [volume]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (seekTimeoutRef.current) {
+        clearTimeout(seekTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  if (!currentTrack) {
+    return null;
+  }
+
+  // Use seek value during drag, otherwise use actual current time
+  const displayTime = isSeeking ? seekValue : currentTime;
+  const progress = duration > 0 ? (displayTime / duration) * 100 : 0;
+  const volumePercent = volume * 100;
+
+  return (
+    <div
+      className="flex flex-col gap-3 rounded-lg border bg-card p-3"
+      data-testid="audio-player"
+    >
+      {/* Visualizer */}
+      <div className="flex items-center gap-2">
+        <div className="flex flex-1 items-end justify-center gap-1">
+          {BAR_KEYS.map((key, barIndex) => {
+            const value = isPlaying ? (frequencyData[barIndex] ?? 0) : 0;
+            const normalizedHeight = value / 255;
+
+            return (
+              <div
+                key={key}
+                className="flex w-3 flex-col-reverse gap-0.5"
+                style={{ height: `${SEGMENT_COUNT * SEGMENT_TOTAL_HEIGHT}px` }}
+              >
+                {visualizerStyle === 'lcd' ? (
+                  <LCDBar normalizedHeight={normalizedHeight} />
+                ) : (
+                  <GradientBar normalizedHeight={normalizedHeight} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          onClick={handleToggleStyle}
+          aria-label={`Switch to ${visualizerStyle === 'lcd' ? 'gradient' : 'LCD'} style`}
+          data-testid="visualizer-style-toggle"
+        >
+          <Sliders className="h-4 w-4 text-muted-foreground" />
+        </Button>
+      </div>
+
+      {/* Seek bar */}
+      <div className="flex items-center gap-2">
+        <span
+          className="w-10 text-muted-foreground text-xs tabular-nums"
+          data-testid="audio-current-time"
+        >
+          {formatTime(displayTime)}
+        </span>
+        <div className="relative flex-1">
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            step={0.1}
+            value={displayTime}
+            onChange={handleSeekChange}
+            onMouseDown={handleSeekStart}
+            onMouseUp={handleSeekEnd}
+            onTouchStart={handleSeekStart}
+            onTouchEnd={handleSeekEnd}
+            className="audio-slider h-2 w-full cursor-pointer appearance-none rounded-full"
+            style={
+              {
+                '--progress': `${progress}%`
+              } as React.CSSProperties
+            }
+            aria-label="Seek"
+            data-testid="audio-seekbar"
+          />
+        </div>
+        <span
+          className="w-10 text-right text-muted-foreground text-xs tabular-nums"
+          data-testid="audio-duration"
+        >
+          {formatTime(duration)}
+        </span>
+      </div>
+
+      {/* Controls and volume - using grid for robust center alignment */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center">
+        {/* Volume control - left column */}
+        <div className="flex items-center gap-1 justify-self-start">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={handleToggleMute}
+            aria-label={volume > 0 ? 'Mute' : 'Unmute'}
+            data-testid="audio-mute-toggle"
+          >
+            {volume > 0 ? (
+              <Volume2 className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <VolumeX className="h-4 w-4 text-muted-foreground" />
+            )}
+          </Button>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={volume}
+            onChange={handleVolumeChange}
+            className="audio-slider h-1.5 w-20 cursor-pointer appearance-none rounded-full"
+            style={
+              {
+                '--progress': `${volumePercent}%`
+              } as React.CSSProperties
+            }
+            aria-label="Volume"
+            data-testid="audio-volume"
+          />
+        </div>
+
+        {/* Playback controls - center column */}
+        <div className="flex items-center justify-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handlePrevious}
+            disabled={!hasPrevious}
+            aria-label="Previous track"
+            data-testid="audio-previous"
+          >
+            <SkipBack />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRestart}
+            aria-label="Restart track"
+            data-testid="audio-restart"
+          >
+            <RotateCcw />
+          </Button>
+          <Button
+            variant="default"
+            size="icon"
+            onClick={handlePlayPause}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+            data-testid="audio-play-pause"
+          >
+            {isPlaying ? <Pause /> : <Play />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleNext}
+            disabled={!hasNext}
+            aria-label="Next track"
+            data-testid="audio-next"
+          >
+            <SkipForward />
+          </Button>
+        </div>
+
+        {/* Empty right column for grid balance */}
+        <div />
+      </div>
+    </div>
+  );
+}
+
+interface BarProps {
+  normalizedHeight: number;
+}
+
+function LCDBar({ normalizedHeight }: BarProps) {
+  const activeSegments = Math.round(normalizedHeight * SEGMENT_COUNT);
+
+  return (
+    <>
+      {SEGMENT_KEYS.map((key, segIndex) => {
+        const isActive = segIndex < activeSegments;
+        const segmentPosition = segIndex / SEGMENT_COUNT;
+
+        let colorClass: string;
+        if (segmentPosition > 0.8) {
+          colorClass = isActive
+            ? 'bg-destructive'
+            : 'bg-destructive/20 dark:bg-destructive/30';
+        } else if (segmentPosition > 0.6) {
+          colorClass = isActive
+            ? 'bg-accent-foreground dark:bg-accent'
+            : 'bg-accent-foreground/20 dark:bg-accent/30';
+        } else {
+          colorClass = isActive
+            ? 'bg-primary'
+            : 'bg-primary/20 dark:bg-primary/30';
+        }
+
+        return (
+          <div
+            key={key}
+            className={`h-1 w-full rounded-sm transition-colors duration-75 ${colorClass}`}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+function GradientBar({ normalizedHeight }: BarProps) {
+  const height = Math.max(
+    GRADIENT_BAR_MIN_HEIGHT,
+    normalizedHeight * SEGMENT_COUNT * SEGMENT_TOTAL_HEIGHT
+  );
+
+  return (
+    <div
+      className="w-full rounded-sm transition-all duration-75"
+      style={{
+        height: `${height}px`,
+        background: 'linear-gradient(to top, var(--primary), var(--ring))'
+      }}
+    />
+  );
+}
