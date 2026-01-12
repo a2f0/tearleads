@@ -11,8 +11,8 @@ android {
         applicationId "com.tearleads.rapid"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 177
-        versionName "1.0.177"
+        versionCode 178
+        versionName "1.0.178"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
