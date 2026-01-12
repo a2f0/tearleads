@@ -206,5 +206,107 @@ appId: com.tearleads.rapid
     console.log('[MULTI-INSTANCE] First instance data verified: ' + testData.textContent);
     return 'ok';
 
+# ============================================================================
+# WRONG PASSWORD VERIFICATION - Tests password isolation between instances
+# ============================================================================
+
+# Lock the first instance to test wrong password rejection
+- evalScript: |
+    const lockBtn = document.querySelector('[data-testid="db-lock-button"]');
+    if (lockBtn) lockBtn.click();
+    return 'ok';
+- evalScript: window.waitForStatus('Locked')
+
+# Try to unlock first instance with second instance's password (WRONG)
+- evalScript: |
+    console.log('[MULTI-INSTANCE] Testing wrong password on first instance...');
+    window.setPassword('secondinstance456');
+    document.querySelector('[data-testid="db-unlock-button"]').click();
+    return 'ok';
+- evalScript: window.waitForAuthError()
+
+# Verify still locked after wrong password
+- evalScript: |
+    const status = document.querySelector('[data-testid="db-status"]');
+    if (status.textContent !== 'Locked') {
+      throw new Error('First instance should still be locked after wrong password, got: ' + status.textContent);
+    }
+    console.log('[MULTI-INSTANCE] First instance correctly rejected wrong password');
+    return 'ok';
+
+# Now unlock with correct password
+- evalScript: |
+    window.setPassword('firstinstance123');
+    document.querySelector('[data-testid="db-unlock-button"]').click();
+    return 'ok';
+- evalScript: window.waitForStatus('Unlocked')
+
+# Switch to second instance for wrong password test
+- evalScript: |
+    const switcher = document.querySelector('[data-testid="account-switcher-button"]');
+    switcher.click();
+    return 'ok';
+
+# Wait for dropdown
+- evalScript: |
+    window.waitFor(
+      () => document.querySelectorAll('[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])').length > 0,
+      'Instance items not found'
+    )
+
+# Click second instance (index 1)
+- evalScript: |
+    const instances = document.querySelectorAll('[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])');
+    console.log('[MULTI-INSTANCE] Switching to second instance for wrong password test');
+    instances[1].click();
+    return 'ok';
+
+# Wait for switch - should be locked or unlocked
+- evalScript: |
+    window.waitFor(
+      () => {
+        const status = document.querySelector('[data-testid="db-status"]');
+        return status && status.textContent !== 'Not Set Up';
+      },
+      'Second instance should not be "Not Set Up"'
+    )
+
+# Lock second instance if needed
+- evalScript: |
+    const status = document.querySelector('[data-testid="db-status"]');
+    if (status.textContent === 'Unlocked') {
+      document.querySelector('[data-testid="db-lock-button"]').click();
+    }
+    return 'ok';
+- evalScript: window.waitForStatus('Locked')
+
+# Try to unlock second instance with first instance's password (WRONG)
+- evalScript: |
+    console.log('[MULTI-INSTANCE] Testing wrong password on second instance...');
+    window.setPassword('firstinstance123');
+    document.querySelector('[data-testid="db-unlock-button"]').click();
+    return 'ok';
+- evalScript: window.waitForAuthError()
+
+# Verify still locked after wrong password
+- evalScript: |
+    const status = document.querySelector('[data-testid="db-status"]');
+    if (status.textContent !== 'Locked') {
+      throw new Error('Second instance should still be locked after wrong password, got: ' + status.textContent);
+    }
+    console.log('[MULTI-INSTANCE] Second instance correctly rejected wrong password');
+    return 'ok';
+
+# Unlock with correct password to confirm it works
+- evalScript: |
+    window.setPassword('secondinstance456');
+    document.querySelector('[data-testid="db-unlock-button"]').click();
+    return 'ok';
+- evalScript: window.waitForStatus('Unlocked')
+
+- evalScript: |
+    console.log('[MULTI-INSTANCE] Password isolation verified - each instance has independent encryption');
+    return 'ok';
+
 # Final cleanup
 - evalScript: document.querySelector('[data-testid="db-reset-button"]')?.click() || 'ok'

@@ -26,8 +26,8 @@ appId: com.tearleads.rapid
 # Verify database is in "Not Set Up" state
 - evalScript: window.waitForStatus('Not Set Up')
 
-# Setup first instance
-- evalScript: window.setPassword('testpassword123')
+# Setup first instance with unique password
+- evalScript: window.setPassword('password-instance1!')
 - evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
 - evalScript: window.waitForResult('success')
 - evalScript: window.waitForStatus('Unlocked')
@@ -98,8 +98,8 @@ appId: com.tearleads.rapid
     }
     return 'ok';
 
-# Setup the second instance
-- evalScript: window.setPassword('testpassword123')
+# Setup the second instance with different password
+- evalScript: window.setPassword('different-password2@')
 - evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
 - evalScript: window.waitForResult('success')
 - evalScript: window.waitForStatus('Unlocked')
@@ -158,7 +158,7 @@ appId: com.tearleads.rapid
 - evalScript: |
     const status = document.querySelector('[data-testid="db-status"]');
     if (status.textContent === 'Locked') {
-      window.setPassword('testpassword123');
+      window.setPassword('password-instance1!');
       document.querySelector('[data-testid="db-unlock-button"]').click();
     }
     return 'ok';

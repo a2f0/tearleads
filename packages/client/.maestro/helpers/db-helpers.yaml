@@ -38,4 +38,13 @@ appId: com.tearleads.rapid
       input.value = password;
       input.dispatchEvent(new Event('input', { bubbles: true }));
     };
+    window.waitForAuthError = function() {
+      return window.waitFor(
+        function() {
+          var result = document.querySelector('[data-testid="db-test-result"]');
+          return result && result.getAttribute('data-status') === 'error';
+        },
+        'Expected authentication error'
+      );
+    };
     'helpers loaded';
