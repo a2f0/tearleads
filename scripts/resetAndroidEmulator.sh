@@ -27,16 +27,11 @@ fi
 pkill -f "qemu.*$DEVICE" 2>/dev/null || true
 sleep 1
 
-# Wipe emulator data and restart
-# -no-snapshot-save: prevents saving state on shutdown
-# -no-boot-anim: faster startup
-echo "Wiping emulator data and starting fresh..."
-emulator -avd "$DEVICE" -wipe-data -no-snapshot-save -no-boot-anim &
-EMULATOR_PID=$!
+# Wipe emulator data by deleting userdata images directly
+AVD_DIR="$HOME/.android/avd/${DEVICE}.avd"
+echo "Wiping emulator data..."
+rm -f "$AVD_DIR"/userdata-qemu.img*
+rm -f "$AVD_DIR"/snapshots.img
+rm -f "$AVD_DIR"/cache.img.qcow2
 
-echo "Waiting for emulator to boot..."
-adb wait-for-device
-# shellcheck disable=SC2016
-adb shell 'while [ -z "$(getprop sys.boot_completed 2>/dev/null)" ]; do sleep 1; done'
-
-echo "Emulator reset complete and ready (PID: $EMULATOR_PID)"
+echo "Emulator reset complete. Next boot will start fresh."
