@@ -525,6 +525,16 @@ export function AudioPage() {
                 </div>
               </div>
             </div>
+            <Dropzone
+              onFilesSelected={handleFilesSelected}
+              accept="audio/*"
+              multiple={false}
+              disabled={uploading}
+              label="audio files"
+              source="media"
+              compact
+              variant="row"
+            />
           </div>
         ))}
 
