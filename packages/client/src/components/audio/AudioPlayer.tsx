@@ -209,38 +209,26 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
       className="flex flex-col gap-3 rounded-lg border bg-card p-3"
       data-testid="audio-player"
     >
-      {/* Visualizer */}
-      <div className="flex items-center gap-2">
-        <div className="flex flex-1 items-end justify-center gap-1">
-          {BAR_KEYS.map((key, barIndex) => {
-            const value = isPlaying ? (frequencyData[barIndex] ?? 0) : 0;
-            const normalizedHeight = value / 255;
+      {/* Visualizer - centered */}
+      <div className="flex items-end justify-center gap-1">
+        {BAR_KEYS.map((key, barIndex) => {
+          const value = isPlaying ? (frequencyData[barIndex] ?? 0) : 0;
+          const normalizedHeight = value / 255;
 
-            return (
-              <div
-                key={key}
-                className="flex w-3 flex-col-reverse gap-0.5"
-                style={{ height: `${SEGMENT_COUNT * SEGMENT_TOTAL_HEIGHT}px` }}
-              >
-                {visualizerStyle === 'lcd' ? (
-                  <LCDBar normalizedHeight={normalizedHeight} />
-                ) : (
-                  <GradientBar normalizedHeight={normalizedHeight} />
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0"
-          onClick={handleToggleStyle}
-          aria-label={`Switch to ${visualizerStyle === 'lcd' ? 'gradient' : 'LCD'} style`}
-          data-testid="visualizer-style-toggle"
-        >
-          <Sliders className="h-4 w-4 text-muted-foreground" />
-        </Button>
+          return (
+            <div
+              key={key}
+              className="flex w-3 flex-col-reverse gap-0.5"
+              style={{ height: `${SEGMENT_COUNT * SEGMENT_TOTAL_HEIGHT}px` }}
+            >
+              {visualizerStyle === 'lcd' ? (
+                <LCDBar normalizedHeight={normalizedHeight} />
+              ) : (
+                <GradientBar normalizedHeight={normalizedHeight} />
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Seek bar */}
@@ -263,7 +251,7 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
             onMouseUp={handleSeekEnd}
             onTouchStart={handleSeekStart}
             onTouchEnd={handleSeekEnd}
-            className="audio-slider h-2 w-full cursor-pointer appearance-none rounded-full"
+            className="audio-slider-seek h-2 w-full cursor-pointer appearance-none rounded-full"
             style={
               {
                 '--progress': `${progress}%`
@@ -281,86 +269,90 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
         </span>
       </div>
 
-      {/* Controls and volume - using grid for robust center alignment */}
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center">
-        {/* Volume control - left column */}
-        <div className="flex items-center gap-1 justify-self-start">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={handleToggleMute}
-            aria-label={volume > 0 ? 'Mute' : 'Unmute'}
-            data-testid="audio-mute-toggle"
-          >
-            {volume > 0 ? (
-              <Volume2 className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <VolumeX className="h-4 w-4 text-muted-foreground" />
-            )}
-          </Button>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={volume}
-            onChange={handleVolumeChange}
-            className="audio-slider h-1.5 w-20 cursor-pointer appearance-none rounded-full"
-            style={
-              {
-                '--progress': `${volumePercent}%`
-              } as React.CSSProperties
-            }
-            aria-label="Volume"
-            data-testid="audio-volume"
-          />
-        </div>
+      {/* EQ toggle and playback controls - centered */}
+      <div className="flex items-center justify-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={handleToggleStyle}
+          aria-label={`Switch to ${visualizerStyle === 'lcd' ? 'gradient' : 'LCD'} style`}
+          data-testid="visualizer-style-toggle"
+        >
+          <Sliders className="h-4 w-4 text-muted-foreground" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handlePrevious}
+          disabled={!hasPrevious}
+          aria-label="Previous track"
+          data-testid="audio-previous"
+        >
+          <SkipBack />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleRestart}
+          aria-label="Restart track"
+          data-testid="audio-restart"
+        >
+          <RotateCcw />
+        </Button>
+        <Button
+          variant="default"
+          size="icon"
+          onClick={handlePlayPause}
+          aria-label={isPlaying ? 'Pause' : 'Play'}
+          data-testid="audio-play-pause"
+        >
+          {isPlaying ? <Pause /> : <Play />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleNext}
+          disabled={!hasNext}
+          aria-label="Next track"
+          data-testid="audio-next"
+        >
+          <SkipForward />
+        </Button>
+      </div>
 
-        {/* Playback controls - center column */}
-        <div className="flex items-center justify-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handlePrevious}
-            disabled={!hasPrevious}
-            aria-label="Previous track"
-            data-testid="audio-previous"
-          >
-            <SkipBack />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleRestart}
-            aria-label="Restart track"
-            data-testid="audio-restart"
-          >
-            <RotateCcw />
-          </Button>
-          <Button
-            variant="default"
-            size="icon"
-            onClick={handlePlayPause}
-            aria-label={isPlaying ? 'Pause' : 'Play'}
-            data-testid="audio-play-pause"
-          >
-            {isPlaying ? <Pause /> : <Play />}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleNext}
-            disabled={!hasNext}
-            aria-label="Next track"
-            data-testid="audio-next"
-          >
-            <SkipForward />
-          </Button>
-        </div>
-
-        {/* Empty right column for grid balance */}
-        <div />
+      {/* Volume control - centered */}
+      <div className="flex items-center justify-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={handleToggleMute}
+          aria-label={volume > 0 ? 'Mute' : 'Unmute'}
+          data-testid="audio-mute-toggle"
+        >
+          {volume > 0 ? (
+            <Volume2 className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <VolumeX className="h-4 w-4 text-muted-foreground" />
+          )}
+        </Button>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={volume}
+          onChange={handleVolumeChange}
+          className="audio-slider-volume h-3 w-24 cursor-pointer appearance-none"
+          style={
+            {
+              '--progress': `${volumePercent}%`
+            } as React.CSSProperties
+          }
+          aria-label="Volume"
+          data-testid="audio-volume"
+        />
       </div>
     </div>
   );
