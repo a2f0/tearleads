@@ -31,8 +31,8 @@
   overflow: hidden;
 }
 
-/* Audio slider styling for seek and volume controls */
-.audio-slider {
+/* Audio seek slider styling */
+.audio-slider-seek {
   --progress: 0%;
   background: linear-gradient(
     to right,
@@ -41,40 +41,90 @@
   );
 }
 
-/* Webkit (Chrome, Safari, Edge) */
-.audio-slider::-webkit-slider-thumb {
+/* Volume slider with ramp/wedge shape */
+.audio-slider-volume {
+  --progress: 0%;
+  position: relative;
+  background: transparent;
+}
+
+/* Webkit volume slider track with ramp shape */
+.audio-slider-volume::-webkit-slider-runnable-track {
+  height: 12px;
+  background: linear-gradient(
+    to right,
+    hsl(var(--primary)) var(--progress),
+    hsl(var(--muted)) var(--progress)
+  );
+  clip-path: polygon(0 100%, 100% 0, 100% 100%);
+  border-radius: 2px;
+}
+
+/* Firefox volume slider track with ramp shape */
+.audio-slider-volume::-moz-range-track {
+  height: 12px;
+  background: hsl(var(--muted));
+  clip-path: polygon(0 100%, 100% 0, 100% 100%);
+  border-radius: 2px;
+}
+
+/* Firefox volume slider progress (filled portion) */
+.audio-slider-volume::-moz-range-progress {
+  height: 12px;
+  background: hsl(var(--primary));
+  clip-path: polygon(0 100%, 100% 0, 100% 100%);
+  border-radius: 2px;
+}
+
+/* Common slider thumb styles */
+.audio-slider-seek::-webkit-slider-thumb,
+.audio-slider-volume::-webkit-slider-thumb,
+.audio-slider-seek::-moz-range-thumb,
+.audio-slider-volume::-moz-range-thumb {
+  border-radius: 50%;
+  background: hsl(var(--primary));
+  cursor: pointer;
+  border: 2px solid hsl(var(--background));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.audio-slider-seek::-webkit-slider-thumb:hover,
+.audio-slider-volume::-webkit-slider-thumb:hover,
+.audio-slider-seek::-moz-range-thumb:hover,
+.audio-slider-volume::-moz-range-thumb:hover {
+  background: hsl(var(--primary) / 0.9);
+  transform: scale(1.1);
+}
+
+/* Webkit (Chrome, Safari, Edge) specific thumb styles */
+.audio-slider-seek::-webkit-slider-thumb,
+.audio-slider-volume::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: hsl(var(--primary));
-  cursor: pointer;
-  border: 2px solid hsl(var(--background));
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-.audio-slider::-webkit-slider-thumb:hover {
-  background: hsl(var(--primary) / 0.9);
-  transform: scale(1.1);
+.audio-slider-seek::-webkit-slider-thumb {
+  width: 16px;
+  height: 16px;
 }
 
-/* Firefox */
-.audio-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: hsl(var(--primary));
-  cursor: pointer;
-  border: 2px solid hsl(var(--background));
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+.audio-slider-volume::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  margin-top: 0;
 }
 
-.audio-slider::-moz-range-thumb:hover {
-  background: hsl(var(--primary) / 0.9);
-  transform: scale(1.1);
+/* Firefox specific thumb styles */
+.audio-slider-seek::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
 }
 
-.audio-slider::-moz-range-track {
+.audio-slider-volume::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+}
+
+.audio-slider-seek::-moz-range-track {
   background: transparent;
 }

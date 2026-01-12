@@ -259,10 +259,12 @@ describe('AudioPlayer', () => {
       });
     });
 
-    it('renders volume slider', () => {
+    it('renders volume slider with ramp styling class', () => {
       render(<AudioPlayer tracks={TEST_TRACKS} />);
 
-      expect(screen.getByTestId('audio-volume')).toBeInTheDocument();
+      const volumeSlider = screen.getByTestId('audio-volume');
+      expect(volumeSlider).toBeInTheDocument();
+      expect(volumeSlider).toHaveClass('audio-slider-volume');
     });
 
     it('renders mute toggle button', () => {
@@ -332,6 +334,82 @@ describe('AudioPlayer', () => {
       await user.click(screen.getByTestId('audio-mute-toggle'));
 
       expect(mockSetVolume).toHaveBeenCalledWith(1);
+    });
+  });
+
+  describe('seek bar', () => {
+    beforeEach(() => {
+      mockUseAudio.mockReturnValue({
+        audioElementRef: mockAudioElementRef,
+        currentTrack: TEST_TRACKS[1],
+        isPlaying: true,
+        currentTime: 60,
+        duration: 180,
+        volume: 1,
+        play: mockPlay,
+        pause: mockPause,
+        resume: mockResume,
+        seek: mockSeek,
+        setVolume: mockSetVolume
+      });
+    });
+
+    it('renders seek slider with proper styling class', () => {
+      render(<AudioPlayer tracks={TEST_TRACKS} />);
+
+      const seekbar = screen.getByTestId('audio-seekbar');
+      expect(seekbar).toBeInTheDocument();
+      expect(seekbar).toHaveClass('audio-slider-seek');
+    });
+
+    it('sets progress CSS variable based on current time', () => {
+      render(<AudioPlayer tracks={TEST_TRACKS} />);
+
+      const seekbar = screen.getByTestId('audio-seekbar');
+      expect(seekbar).toHaveStyle({ '--progress': '33.33333333333333%' });
+    });
+  });
+
+  describe('layout and alignment', () => {
+    beforeEach(() => {
+      mockUseAudio.mockReturnValue({
+        audioElementRef: mockAudioElementRef,
+        currentTrack: TEST_TRACKS[0],
+        isPlaying: true,
+        currentTime: 0,
+        duration: 180,
+        volume: 1,
+        play: mockPlay,
+        pause: mockPause,
+        resume: mockResume,
+        seek: mockSeek,
+        setVolume: mockSetVolume
+      });
+    });
+
+    it('renders EQ toggle and playback controls in same row', () => {
+      render(<AudioPlayer tracks={TEST_TRACKS} />);
+
+      const eqToggle = screen.getByTestId('visualizer-style-toggle');
+      const playPause = screen.getByTestId('audio-play-pause');
+
+      // Both should exist and be siblings in the same parent
+      expect(eqToggle).toBeInTheDocument();
+      expect(playPause).toBeInTheDocument();
+      expect(eqToggle.parentElement).toBe(playPause.parentElement);
+    });
+
+    it('renders volume control in a separate centered row', () => {
+      render(<AudioPlayer tracks={TEST_TRACKS} />);
+
+      const muteToggle = screen.getByTestId('audio-mute-toggle');
+      const volumeSlider = screen.getByTestId('audio-volume');
+      const playPause = screen.getByTestId('audio-play-pause');
+
+      // Mute and volume should be in same parent
+      expect(muteToggle.parentElement).toBe(volumeSlider.parentElement);
+      // But different from playback controls
+      expect(muteToggle.parentElement).not.toBe(playPause.parentElement);
     });
   });
 
