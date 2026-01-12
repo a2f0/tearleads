@@ -2,32 +2,35 @@
 import logo from '@rapid/ui/logo.svg?url';
 import NavDropdown from '../components/NavDropdown.astro';
 import { SettingsIsland } from '../components/SettingsIsland';
+import { defaultLanguage } from '../i18n/config';
+import type { SupportedLanguage } from '../i18n/config';
 import '../styles/global.css';
 
 interface Props {
   title: string;
+  lang?: SupportedLanguage;
 }
 
-const { title } = Astro.props;
+const { title, lang = defaultLanguage } = Astro.props;
 const currentYear = new Date().getFullYear();
 
 const productLinks = [
-  { href: '/products/cli', text: 'CLI' },
-  { href: '/products/desktop', text: 'Desktop' },
-  { href: '/products/mobile', text: 'Mobile' },
-  { href: '/products/web', text: 'Web' },
-  { href: '/products/chrome-extension', text: 'Chrome Extension' },
+  { href: `/${lang}/products/cli`, text: 'CLI' },
+  { href: `/${lang}/products/desktop`, text: 'Desktop' },
+  { href: `/${lang}/products/mobile`, text: 'Mobile' },
+  { href: `/${lang}/products/web`, text: 'Web' },
+  { href: `/${lang}/products/chrome-extension`, text: 'Chrome Extension' },
 ];
 
 const docsLinks = [
-  { href: '/docs/architecture', text: 'Security Architecture' },
-  { href: '/docs/backup-restore', text: 'Backup & Restore' },
-  { href: '/docs/api', text: 'API' },
+  { href: `/${lang}/docs/architecture`, text: 'Security Architecture' },
+  { href: `/${lang}/docs/backup-restore`, text: 'Backup & Restore' },
+  { href: `/${lang}/docs/api`, text: 'API' },
 ];
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={lang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -53,7 +56,7 @@ const docsLinks = [
         <div
           class="container mx-auto flex items-center justify-between px-4 py-4"
         >
-          <a href="/" class="flex items-center gap-3">
+          <a href={`/${lang}/`} class="flex items-center gap-3">
             <img src={logo} alt="Rapid" class="h-8 w-8" />
             <p class="font-bold text-2xl">Rapid</p>
           </a>
@@ -62,7 +65,7 @@ const docsLinks = [
               <NavDropdown title="Products" links={productLinks} />
               <NavDropdown title="Docs" links={docsLinks} />
             </nav>
-            <SettingsIsland client:load />
+            <SettingsIsland client:load currentLang={lang} />
           </div>
         </div>
       </header>
@@ -75,7 +78,7 @@ const docsLinks = [
       >
         <div class="container mx-auto flex flex-col items-center gap-2 px-4">
           <p>&copy; {currentYear} Rapid. All rights reserved.</p>
-          <a href="/licenses" class="text-xs hover:text-foreground hover:underline">Open Source Licenses</a>
+          <a href={`/${lang}/licenses`} class="text-xs hover:text-foreground hover:underline">Open Source Licenses</a>
         </div>
       </footer>
     </div>

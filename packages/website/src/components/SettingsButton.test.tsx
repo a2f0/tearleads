@@ -35,14 +35,14 @@ describe('SettingsButton', () => {
     });
   });
   it('renders settings button', () => {
-    renderWithProvider(<SettingsButton />);
+    renderWithProvider(<SettingsButton currentLang="en" />);
 
     expect(screen.getByTestId('settings-button')).toBeInTheDocument();
     expect(screen.getByLabelText('Settings')).toBeInTheDocument();
   });
 
   it('opens settings modal when clicked', () => {
-    renderWithProvider(<SettingsButton />);
+    renderWithProvider(<SettingsButton currentLang="en" />);
 
     fireEvent.click(screen.getByTestId('settings-button'));
 
@@ -51,7 +51,7 @@ describe('SettingsButton', () => {
   });
 
   it('closes settings modal when backdrop is clicked', async () => {
-    renderWithProvider(<SettingsButton />);
+    renderWithProvider(<SettingsButton currentLang="en" />);
 
     fireEvent.click(screen.getByTestId('settings-button'));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
