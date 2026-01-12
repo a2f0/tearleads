@@ -5,6 +5,7 @@ Rapid proporciona funcionalidad de respaldo y restauración para proteger sus da
 ## Resumen
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart TB
     subgraph Export["Proceso de Exportación"]
         DB[("Base de Datos Cifrada")]
@@ -42,6 +43,7 @@ SQLite3MultipleCiphers WASM tiene limitaciones específicas que afectan el respa
 ### Solución: Respaldo Basado en JSON
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart LR
     subgraph Export
         DB1[("SQLite DB")]
@@ -100,6 +102,7 @@ flowchart LR
 El escritorio utiliza SQLite nativo con better-sqlite3-multiple-ciphers, que soporta mecanismos de respaldo estándar de SQLite.
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart LR
     subgraph Export
         DB1[("BD Cifrada")]
@@ -131,6 +134,7 @@ flowchart LR
 Las plataformas móviles utilizan SQLCipher a través de plugins de Capacitor.
 
 ```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
 flowchart LR
     subgraph Export
         DB1[("SQLCipher DB")]
