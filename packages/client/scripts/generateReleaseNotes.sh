@@ -95,20 +95,19 @@ else
     echo "Fetching data for PRs: $PR_NUMS_INLINE" >&2
 
     # Build JSON array by fetching each PR individually
-    PR_DATA_LIST="["
-    FIRST=true
+    # Use || true to prevent set -e from exiting if gh pr view fails
+    PR_DATA_ITEMS=""
     for PR_NUM in $PR_NUMBERS; do
-        PR_DATA=$(gh pr view "$PR_NUM" --json number,title,body 2>/dev/null)
+        PR_DATA=$(gh pr view "$PR_NUM" --json number,title,body 2>/dev/null || true)
         if [ -n "$PR_DATA" ]; then
-            if [ "$FIRST" = true ]; then
-                FIRST=false
+            if [ -z "$PR_DATA_ITEMS" ]; then
+                PR_DATA_ITEMS="$PR_DATA"
             else
-                PR_DATA_LIST="$PR_DATA_LIST,"
+                PR_DATA_ITEMS="$PR_DATA_ITEMS,$PR_DATA"
             fi
-            PR_DATA_LIST="$PR_DATA_LIST$PR_DATA"
         fi
     done
-    PR_DATA_LIST="$PR_DATA_LIST]"
+    PR_DATA_LIST="[$PR_DATA_ITEMS]"
 
     # Process the JSON array of PRs using jq for cleaner formatting
     # Use printf instead of echo to avoid escape sequence interpretation
