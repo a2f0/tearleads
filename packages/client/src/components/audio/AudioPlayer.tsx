@@ -89,6 +89,9 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
   const [seekValue, setSeekValue] = useState(0);
   const seekTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Track last non-zero volume for mute/unmute toggle
+  const lastVolumeRef = useRef(1);
+
   const currentIndex = currentTrack
     ? tracks.findIndex((t) => t.id === currentTrack.id)
     : -1;
@@ -173,8 +176,15 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
   );
 
   const handleToggleMute = useCallback(() => {
-    setVolume(volume > 0 ? 0 : 1);
+    setVolume(volume > 0 ? 0 : lastVolumeRef.current);
   }, [volume, setVolume]);
+
+  // Track last non-zero volume for restore on unmute
+  useEffect(() => {
+    if (volume > 0) {
+      lastVolumeRef.current = volume;
+    }
+  }, [volume]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -271,10 +281,10 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
         </span>
       </div>
 
-      {/* Controls and volume */}
-      <div className="flex items-center justify-between">
-        {/* Volume control */}
-        <div className="flex items-center gap-1">
+      {/* Controls and volume - using grid for robust center alignment */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center">
+        {/* Volume control - left column */}
+        <div className="flex items-center gap-1 justify-self-start">
           <Button
             variant="ghost"
             size="icon"
@@ -307,7 +317,7 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
           />
         </div>
 
-        {/* Playback controls */}
+        {/* Playback controls - center column */}
         <div className="flex items-center justify-center gap-1">
           <Button
             variant="ghost"
@@ -349,8 +359,8 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
           </Button>
         </div>
 
-        {/* Spacer for alignment */}
-        <div className="w-28" />
+        {/* Empty right column for grid balance */}
+        <div />
       </div>
     </div>
   );
