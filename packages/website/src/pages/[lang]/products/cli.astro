@@ -1,8 +1,17 @@
 ---
-import Layout from '../../layouts/Layout.astro';
+import Layout from '../../../layouts/Layout.astro';
+import { supportedLanguages, isSupportedLanguage, defaultLanguage } from '../../../i18n/config';
+import type { SupportedLanguage } from '../../../i18n/config';
+
+export function getStaticPaths() {
+  return supportedLanguages.map((lang) => ({ params: { lang } }));
+}
+
+const { lang } = Astro.params;
+const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaultLanguage;
 ---
 
-<Layout title="CLI - Rapid">
+<Layout title="CLI - Rapid" lang={currentLang}>
   <div class="container mx-auto px-4 py-16">
     <h1 class="font-bold text-4xl">Rapid CLI</h1>
     <p class="mt-4 text-muted-foreground text-lg">
