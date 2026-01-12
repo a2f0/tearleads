@@ -10,13 +10,13 @@ To get the correct repo for `gh` commands:
 
 ```bash
 # Get the repo in owner/name format
-git remote get-url origin | sed 's/.*github.com[:/]\(.*\)\.git/\1/'
+gh repo view --json nameWithOwner -q .nameWithOwner
 ```
 
 Always use `--repo` or `-R` flag with `gh` commands when the repo might be ambiguous:
 
 ```bash
-REPO=$(git remote get-url origin | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 gh issue list -R "$REPO"
 gh pr view 123 -R "$REPO"
 ```

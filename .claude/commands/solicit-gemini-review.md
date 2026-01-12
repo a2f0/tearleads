@@ -7,7 +7,7 @@ description: Request a new review from Gemini Code Assist
 **First**: Determine the repository for all `gh` commands:
 
 ```bash
-REPO=$(git remote get-url origin | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 ```
 
 Use `-R "$REPO"` with all `gh` commands in this skill.
