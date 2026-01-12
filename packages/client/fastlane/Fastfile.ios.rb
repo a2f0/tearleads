@@ -19,6 +19,20 @@ platform :ios do
     )
   end
 
+  desc 'Build release iOS app for simulator (no signing required)'
+  lane :build_release_simulator do
+    build_app(
+      workspace: './ios/App/App.xcworkspace',
+      scheme: 'App',
+      configuration: 'Release',
+      export_method: 'development',
+      skip_codesigning: true,
+      skip_archive: true,
+      destination: 'generic/platform=iOS Simulator',
+      derived_data_path: './build/DerivedData-Release'
+    )
+  end
+
   desc 'Build release iOS app'
   lane :build_release do
     UI.user_error!('Please set TEAM_ID environment variable') unless ENV['TEAM_ID']
@@ -143,15 +157,34 @@ platform :ios do
 
   desc 'Run Maestro UI tests on iOS simulator'
   lane :test_maestro do
-    build_debug
+    run_maestro_tests(build_type: 'debug')
+  end
+
+  desc 'Run Maestro UI tests on iOS simulator with release build'
+  lane :test_maestro_release do
+    run_maestro_tests(build_type: 'release')
+  end
+
+  private_lane :run_maestro_tests do |options|
+    build_type = options[:build_type]
+
+    if build_type == 'release'
+      build_release_simulator
+      app_path = File.expand_path('../build/DerivedData-Release/Build/Products/Release-iphonesimulator/App.app', __dir__)
+      message = 'Installing release app on simulator'
+    else
+      build_debug
+      app_path = File.expand_path('../build/DerivedData/Build/Products/Debug-iphonesimulator/App.app', __dir__)
+      message = 'Installing app on simulator'
+    end
+
     simulators_output = `xcrun simctl list devices booted -j`
     devices = JSON.parse(simulators_output)['devices']
     simulator = devices.values.flatten.find { |d| d['state'] == 'Booted' }&.[]('udid')
     UI.user_error!('No iOS simulator is booted. Boot a simulator first.') if simulator.to_s.empty?
 
-    app_path = File.expand_path('../build/DerivedData/Build/Products/Debug-iphonesimulator/App.app', __dir__)
     maestro_target = ENV.fetch('MAESTRO_FLOW_PATH', '../.maestro/')
-    UI.message("Installing app on simulator: #{simulator}")
+    UI.message("#{message}: #{simulator}")
     sh("xcrun simctl uninstall #{simulator} #{APP_ID} || true")
     sh("xcrun simctl install #{simulator} '#{app_path}'")
     sh("MAESTRO_CLI_NO_ANALYTICS=1 MAESTRO_DEVICE=#{simulator} $HOME/.maestro/bin/maestro --platform ios test #{maestro_target} --output maestro-report --debug-output maestro-debug")

@@ -411,15 +411,15 @@ jobs:
             adb shell input keyevent 82
             bundle exec fastlane android test_instrumented
 
-  android-maestro:
-    name: Android Maestro Tests
+  android-maestro-release:
+    name: Android Maestro Tests (Release)
     needs: [detect-changes]
     if: >-
       github.event_name == 'workflow_dispatch' ||
       needs.detect-changes.outputs.core == 'true' ||
       needs.detect-changes.outputs.mobile == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Free disk space
@@ -480,12 +480,26 @@ jobs:
       - name: Download Gradle wrapper
         run: ./packages/client/scripts/downloadGradleWrapper.sh
 
+      - name: Setup Android keystore
+        run: |
+          mkdir -p .secrets
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > .secrets/tearleads-release.keystore
+
+      - name: Create keystore.properties
+        run: |
+          cat > packages/client/android/keystore.properties << EOF
+          storeFile=${{ github.workspace }}/.secrets/tearleads-release.keystore
+          storePassword=${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
+          keyAlias=tearleads
+          keyPassword=${{ secrets.ANDROID_KEYSTORE_KEY_PASS }}
+          EOF
+
       - name: Install Maestro
         run: |
           ./packages/client/scripts/downloadMaestro.sh
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
 
-      - name: Run Maestro tests
+      - name: Run Maestro tests (Release)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 31
@@ -497,26 +511,26 @@ jobs:
           script: |
             adb wait-for-device
             adb shell input keyevent 82
-            bundle exec fastlane android test_maestro
+            bundle exec fastlane android test_maestro_release
 
       - name: Upload Maestro artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: android-maestro-artifacts
+          name: android-maestro-release-artifacts
           path: packages/client/maestro-debug/
           retention-days: 7
           if-no-files-found: ignore
 
-  ios-maestro:
-    name: iOS Maestro Tests
+  ios-maestro-release:
+    name: iOS Maestro Tests (Release)
     needs: [detect-changes]
     if: >-
       github.event_name == 'workflow_dispatch' ||
       needs.detect-changes.outputs.core == 'true' ||
       needs.detect-changes.outputs.mobile == 'true'
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - uses: actions/checkout@v4
@@ -556,8 +570,8 @@ jobs:
       - name: Sync Capacitor
         run: pnpm --filter @rapid/client run cap:sync
 
-      - name: Build iOS app for simulator
-        run: bundle exec fastlane ios build_debug
+      - name: Build iOS release app for simulator
+        run: bundle exec fastlane ios build_release_simulator
         working-directory: packages/client
 
       - name: Install Maestro
@@ -593,13 +607,13 @@ jobs:
 
       - name: Install app on simulator
         run: |
-          # Fastlane builds to packages/client/build/DerivedData
-          APP_PATH="packages/client/build/DerivedData/Build/Products/Debug-iphonesimulator/App.app"
+          # Release build outputs to DerivedData-Release
+          APP_PATH="packages/client/build/DerivedData-Release/Build/Products/Release-iphonesimulator/App.app"
           if [ ! -d "$APP_PATH" ]; then
             echo "App not found at expected path, searching..."
-            APP_PATH=$(find . -name "App.app" -type d | head -1)
+            APP_PATH=$(find . -name "App.app" -path "*Release-iphonesimulator*" -type d | head -1)
           fi
-          echo "Installing app from: $APP_PATH"
+          echo "Installing release app from: $APP_PATH"
           xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
 
       - name: Run Maestro tests
@@ -621,7 +635,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ios-maestro-artifacts
+          name: ios-maestro-release-artifacts
           path: packages/client/maestro-debug/
           retention-days: 7
           if-no-files-found: ignore
