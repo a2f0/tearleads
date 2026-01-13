@@ -249,6 +249,9 @@ jobs:
           curl -k https://localhost:8443/ -I
           echo "=== NGINX API proxy test ==="
           curl -k https://localhost:8443/v1/ping
+          echo "=== NGINX SQLite WASM test ==="
+          curl -k https://localhost:8443/sqlite/sqlite3.wasm -I
+          curl -k https://localhost:8443/sqlite/sqlite3.js -I
           echo "=== NGINX error log (if any) ==="
           sudo tail -20 /var/log/nginx/error.log || true
 
