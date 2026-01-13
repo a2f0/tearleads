@@ -23,8 +23,7 @@ export function getLocalizedPath(
 
   // For default language, return path without prefix
   if (newLang === defaultLanguage) {
-    const path = parts.join('/');
-    return path ? `/${path}` : '/';
+    return `/${parts.join('/')}`;
   }
 
   // For other languages, add prefix
