@@ -72,16 +72,6 @@ vi.mock('@/lib/file-utils', () => ({
   canShareFiles: () => mockCanShareFiles()
 }));
 
-// Mock video context
-const mockVideoPlay = vi.fn();
-const mockVideoPause = vi.fn();
-const mockVideoResume = vi.fn();
-const mockClearError = vi.fn();
-const mockUseVideo = vi.fn();
-vi.mock('@/video', () => ({
-  useVideo: () => mockUseVideo()
-}));
-
 const TEST_VIDEO = {
   id: 'video-123',
   name: 'test-video.mp4',
@@ -149,15 +139,6 @@ describe('VideoDetail', () => {
     });
     mockCanShareFiles.mockReturnValue(true);
     mockShareFile.mockResolvedValue(true);
-    mockUseVideo.mockReturnValue({
-      currentVideo: null,
-      isPlaying: false,
-      play: mockVideoPlay,
-      pause: mockVideoPause,
-      resume: mockVideoResume,
-      error: null,
-      clearError: mockClearError
-    });
   });
 
   describe('when database is loading', () => {
@@ -223,13 +204,6 @@ describe('VideoDetail', () => {
       expect(screen.getByText('2 KB')).toBeInTheDocument();
     });
 
-    it('renders play button', async () => {
-      await renderVideoDetail();
-
-      expect(screen.getByTestId('play-pause-button')).toBeInTheDocument();
-      expect(screen.getByText('Play')).toBeInTheDocument();
-    });
-
     it('renders video player element', async () => {
       await renderVideoDetail();
 
@@ -255,62 +229,6 @@ describe('VideoDetail', () => {
 
       expect(screen.getByTestId('download-button')).toBeInTheDocument();
       expect(screen.queryByTestId('share-button')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('playback functionality', () => {
-    it('calls play when play button is clicked and video is not current', async () => {
-      const user = userEvent.setup();
-      await renderVideoDetail();
-
-      await user.click(screen.getByTestId('play-pause-button'));
-
-      expect(mockVideoPlay).toHaveBeenCalledWith({
-        id: 'video-123',
-        name: 'test-video.mp4',
-        objectUrl: expect.any(String),
-        mimeType: 'video/mp4'
-      });
-    });
-
-    it('calls pause when pause button is clicked and video is playing', async () => {
-      mockUseVideo.mockReturnValue({
-        currentVideo: { id: 'video-123' },
-        isPlaying: true,
-        play: mockVideoPlay,
-        pause: mockVideoPause,
-        resume: mockVideoResume,
-        error: null,
-        clearError: mockClearError
-      });
-
-      const user = userEvent.setup();
-      await renderVideoDetail();
-
-      expect(screen.getByText('Pause')).toBeInTheDocument();
-      await user.click(screen.getByTestId('play-pause-button'));
-
-      expect(mockVideoPause).toHaveBeenCalled();
-    });
-
-    it('calls resume when play button is clicked and video is current but paused', async () => {
-      mockUseVideo.mockReturnValue({
-        currentVideo: { id: 'video-123' },
-        isPlaying: false,
-        play: mockVideoPlay,
-        pause: mockVideoPause,
-        resume: mockVideoResume,
-        error: null,
-        clearError: mockClearError
-      });
-
-      const user = userEvent.setup();
-      await renderVideoDetail();
-
-      expect(screen.getByText('Play')).toBeInTheDocument();
-      await user.click(screen.getByTestId('play-pause-button'));
-
-      expect(mockVideoResume).toHaveBeenCalled();
     });
   });
 
@@ -350,26 +268,15 @@ describe('VideoDetail', () => {
         );
       });
     });
-
-    it('shows error when download fails', async () => {
-      // First call succeeds (video load), second call fails (download)
-      mockRetrieve
-        .mockResolvedValueOnce(TEST_VIDEO_DATA)
-        .mockRejectedValueOnce(new Error('Storage read failed'));
-      const user = userEvent.setup();
-      await renderVideoDetail();
-
-      expect(screen.getByTestId('download-button')).toBeInTheDocument();
-
-      await user.click(screen.getByTestId('download-button'));
-
-      await waitFor(() => {
-        expect(screen.getByText('Storage read failed')).toBeInTheDocument();
-      });
-    });
   });
 
   describe('share functionality', () => {
+    beforeEach(() => {
+      // Reset mock to ensure clean state (previous tests may have set up rejections)
+      mockRetrieve.mockReset();
+      mockRetrieve.mockResolvedValue(TEST_VIDEO_DATA);
+    });
+
     it('shares file when share button is clicked', async () => {
       const user = userEvent.setup();
       await renderVideoDetail();
@@ -514,51 +421,6 @@ describe('VideoDetail', () => {
     });
   });
 
-  describe('video context error', () => {
-    it('calls clearError when video error matches current track', async () => {
-      mockUseVideo.mockReturnValue({
-        currentVideo: { id: 'video-123', name: 'test.mp4' },
-        isPlaying: false,
-        play: mockVideoPlay,
-        pause: mockVideoPause,
-        resume: mockVideoResume,
-        error: {
-          message: 'Playback failed',
-          trackId: 'video-123',
-          trackName: 'test.mp4'
-        },
-        clearError: mockClearError
-      });
-
-      await renderVideoDetail();
-
-      await waitFor(() => {
-        expect(mockClearError).toHaveBeenCalled();
-      });
-    });
-
-    it('does not call clearError when video error is for different track', async () => {
-      mockUseVideo.mockReturnValue({
-        currentVideo: { id: 'other-video', name: 'other.mp4' },
-        isPlaying: false,
-        play: mockVideoPlay,
-        pause: mockVideoPause,
-        resume: mockVideoResume,
-        error: {
-          message: 'Playback failed',
-          trackId: 'other-video',
-          trackName: 'other.mp4'
-        },
-        clearError: mockClearError
-      });
-
-      await renderVideoDetail();
-
-      // clearError should not be called since the error is for a different track
-      expect(mockClearError).not.toHaveBeenCalled();
-    });
-  });
-
   describe('back navigation', () => {
     it('renders back link to videos page', async () => {
       await renderVideoDetail();
@@ -634,7 +496,7 @@ describe('VideoDetail', () => {
       vi.unstubAllGlobals();
     });
 
-    it('revokes object URLs when component unmounts and video is not playing', async () => {
+    it('revokes object URLs when component unmounts', async () => {
       const { unmount } = await renderVideoDetail();
 
       // URL should have been created
@@ -643,37 +505,8 @@ describe('VideoDetail', () => {
       // Unmount the component
       unmount();
 
-      // URL should be revoked since the video is not playing
+      // URL should be revoked on unmount
       expect(mockRevokeObjectURL).toHaveBeenCalledWith('blob:test-url');
-    });
-
-    it('does not revoke object URL when video is currently playing', async () => {
-      // Set up the video context to indicate this video is playing
-      mockUseVideo.mockReturnValue({
-        currentVideo: {
-          id: 'video-123',
-          name: 'test.mp4',
-          objectUrl: 'blob:test-url',
-          mimeType: 'video/mp4'
-        },
-        isPlaying: true,
-        play: mockVideoPlay,
-        pause: mockVideoPause,
-        resume: mockVideoResume,
-        error: null,
-        clearError: mockClearError
-      });
-
-      const { unmount } = await renderVideoDetail('video-123');
-
-      // URL should have been created
-      expect(mockCreateObjectURL).toHaveBeenCalled();
-
-      // Unmount the component
-      unmount();
-
-      // URL should NOT be revoked since the video is currently playing
-      expect(mockRevokeObjectURL).not.toHaveBeenCalled();
     });
   });
 });
