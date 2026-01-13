@@ -1,3 +1,4 @@
+import { GripHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import {
   type SnapPoint,
@@ -140,15 +141,19 @@ export function BottomSheet({
         aria-labelledby={title ? titleId : undefined}
         data-testid={`${testId}-content`}
       >
-        <button
+        <div
           ref={handleRef}
-          type="button"
-          className="flex w-full cursor-ns-resize touch-none justify-center border-0 bg-transparent pt-3 pb-2"
+          className="flex w-full cursor-ns-resize touch-none select-none justify-center pt-3 pb-2"
+          role="slider"
           aria-label="Resize handle"
+          aria-valuemin={MIN_HEIGHT}
+          aria-valuemax={windowHeight * MAX_HEIGHT_PERCENT}
+          aria-valuenow={height}
+          tabIndex={0}
           data-testid={`${testId}-resize-handle`}
         >
-          <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
-        </button>
+          <GripHorizontal className="h-5 w-5 text-muted-foreground/50" />
+        </div>
 
         {title && (
           <h2 id={titleId} className="px-4 pb-2 font-semibold text-lg">
