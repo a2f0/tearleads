@@ -123,7 +123,8 @@ describe('useBottomSheetGesture', () => {
     expect(result.current.sheetRef).toBeDefined();
     expect(result.current.handleRef).toBeDefined();
     expect(result.current.sheetRef.current).toBeNull();
-    expect(result.current.handleRef.current).toBeNull();
+    // handleRef is a callback ref (function), not a RefObject
+    expect(typeof result.current.handleRef).toBe('function');
   });
 
   it('provides isAnimating state initially false', () => {
@@ -357,7 +358,7 @@ describe('useBottomSheetGesture', () => {
 
   describe('gesture callbacks', () => {
     function createMockHandle() {
-      const handle = document.createElement('button');
+      const handle = document.createElement('div');
       document.body.appendChild(handle);
       return handle;
     }
@@ -365,20 +366,19 @@ describe('useBottomSheetGesture', () => {
     it('finds next snap point down with velocity', async () => {
       vi.useFakeTimers();
       const handle = createMockHandle();
-      let minHeight = 100;
 
-      const { result, rerender } = renderHook(() =>
+      const { result } = renderHook(() =>
         useBottomSheetGesture({
           snapPoints: defaultSnapPoints,
           initialSnapPoint: 'half',
-          minHeight,
+          minHeight: 100,
           maxHeightPercent: 0.85
         })
       );
 
-      result.current.handleRef.current = handle;
-      minHeight = 101;
-      rerender();
+      act(() => {
+        result.current.handleRef(handle);
+      });
 
       expect(result.current.height).toBe(400);
 
@@ -397,20 +397,19 @@ describe('useBottomSheetGesture', () => {
     it('falls back to nearest when no next snap point up', async () => {
       vi.useFakeTimers();
       const handle = createMockHandle();
-      let minHeight = 100;
 
-      const { result, rerender } = renderHook(() =>
+      const { result } = renderHook(() =>
         useBottomSheetGesture({
           snapPoints: [{ name: 'only', height: 300 }],
           initialSnapPoint: 'only',
-          minHeight,
+          minHeight: 100,
           maxHeightPercent: 0.85
         })
       );
 
-      result.current.handleRef.current = handle;
-      minHeight = 101;
-      rerender();
+      act(() => {
+        result.current.handleRef(handle);
+      });
 
       await act(async () => {
         mockGestureCallbacks?.onStart({ deltaY: 0, velocityY: 0 });
@@ -427,26 +426,334 @@ describe('useBottomSheetGesture', () => {
     it('dismisses on downward flick when no lower snap point', async () => {
       const handle = createMockHandle();
       const onDismiss = vi.fn();
-      let minHeight = 100;
 
-      const { result, rerender } = renderHook(() =>
+      const { result } = renderHook(() =>
         useBottomSheetGesture({
           snapPoints: [{ name: 'only', height: 300 }],
           initialSnapPoint: 'only',
-          minHeight,
+          minHeight: 100,
           maxHeightPercent: 0.85,
           onDismiss
         })
       );
 
-      result.current.handleRef.current = handle;
-      minHeight = 101;
-      rerender();
+      act(() => {
+        result.current.handleRef(handle);
+      });
 
       act(() => {
         mockGestureCallbacks?.onStart({ deltaY: 0, velocityY: 0 });
         mockGestureCallbacks?.onMove({ deltaY: 30, velocityY: 0 });
         mockGestureCallbacks?.onEnd({ deltaY: 30, velocityY: 0.8 });
+      });
+
+      expect(onDismiss).toHaveBeenCalled();
+      handle.remove();
+    });
+  });
+
+  describe('mouse event handlers', () => {
+    function createMockHandle() {
+      const handle = document.createElement('div');
+      document.body.appendChild(handle);
+      return handle;
+    }
+
+    function dispatchMouseEvent(
+      element: Element | Document,
+      type: string,
+      clientY: number
+    ) {
+      const event = new MouseEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        clientX: 100,
+        clientY,
+        button: 0,
+        buttons: type === 'mouseup' ? 0 : 1
+      });
+      element.dispatchEvent(event);
+    }
+
+    it('handles mouse drag to increase height', async () => {
+      const handle = createMockHandle();
+
+      const { result } = renderHook(() =>
+        useBottomSheetGesture({
+          snapPoints: defaultSnapPoints,
+          initialSnapPoint: 'collapsed',
+          minHeight: 100,
+          maxHeightPercent: 0.85
+        })
+      );
+
+      act(() => {
+        result.current.handleRef(handle);
+      });
+
+      expect(result.current.height).toBe(200);
+
+      // Simulate mouse drag
+      act(() => {
+        dispatchMouseEvent(handle, 'mousedown', 500);
+        dispatchMouseEvent(document, 'mousemove', 400); // Drag up 100px
+      });
+
+      // Height should have changed during drag
+      expect(result.current.height).toBe(300);
+
+      // End the drag
+      act(() => {
+        dispatchMouseEvent(document, 'mouseup', 400);
+      });
+
+      handle.remove();
+    });
+
+    it('dismisses on fast downward mouse drag', () => {
+      const handle = createMockHandle();
+      const onDismiss = vi.fn();
+
+      const { result } = renderHook(() =>
+        useBottomSheetGesture({
+          snapPoints: defaultSnapPoints,
+          initialSnapPoint: 'collapsed',
+          minHeight: 100,
+          maxHeightPercent: 0.85,
+          onDismiss,
+          dismissThreshold: 50
+        })
+      );
+
+      act(() => {
+        result.current.handleRef(handle);
+      });
+
+      // Simulate fast downward drag exceeding dismiss threshold
+      act(() => {
+        dispatchMouseEvent(handle, 'mousedown', 500);
+        dispatchMouseEvent(document, 'mousemove', 600);
+        dispatchMouseEvent(document, 'mouseup', 600);
+      });
+
+      expect(onDismiss).toHaveBeenCalled();
+      handle.remove();
+    });
+
+    it('snaps to nearest point on slow mouse release', async () => {
+      vi.useFakeTimers();
+      const handle = createMockHandle();
+
+      const { result } = renderHook(() =>
+        useBottomSheetGesture({
+          snapPoints: defaultSnapPoints,
+          initialSnapPoint: 'collapsed',
+          minHeight: 100,
+          maxHeightPercent: 0.85
+        })
+      );
+
+      act(() => {
+        result.current.handleRef(handle);
+      });
+
+      // Simulate slow drag (small movement)
+      act(() => {
+        dispatchMouseEvent(handle, 'mousedown', 500);
+        dispatchMouseEvent(document, 'mousemove', 480);
+        dispatchMouseEvent(document, 'mouseup', 480);
+        vi.advanceTimersByTime(350);
+      });
+
+      // Should snap back to collapsed (200)
+      expect(result.current.height).toBe(200);
+      vi.useRealTimers();
+      handle.remove();
+    });
+
+    it('respects min and max height constraints during mouse drag', () => {
+      const handle = createMockHandle();
+
+      const { result } = renderHook(() =>
+        useBottomSheetGesture({
+          snapPoints: defaultSnapPoints,
+          initialSnapPoint: 'collapsed',
+          minHeight: 100,
+          maxHeightPercent: 0.85
+        })
+      );
+
+      act(() => {
+        result.current.handleRef(handle);
+      });
+
+      // Try to drag below min height
+      act(() => {
+        dispatchMouseEvent(handle, 'mousedown', 500);
+        dispatchMouseEvent(document, 'mousemove', 800); // Try to shrink a lot
+      });
+
+      // Height should be clamped to minHeight
+      expect(result.current.height).toBeGreaterThanOrEqual(100);
+
+      // Clean up
+      act(() => {
+        dispatchMouseEvent(document, 'mouseup', 800);
+      });
+
+      handle.remove();
+    });
+
+    it('ignores mouse events when not dragging', () => {
+      const handle = createMockHandle();
+
+      const { result } = renderHook(() =>
+        useBottomSheetGesture({
+          snapPoints: defaultSnapPoints,
+          initialSnapPoint: 'collapsed',
+          minHeight: 100,
+          maxHeightPercent: 0.85
+        })
+      );
+
+      act(() => {
+        result.current.handleRef(handle);
+      });
+
+      // Dispatch mousemove and mouseup without mousedown
+      act(() => {
+        dispatchMouseEvent(document, 'mousemove', 400);
+        dispatchMouseEvent(document, 'mouseup', 400);
+      });
+
+      // Height should remain unchanged
+      expect(result.current.height).toBe(200);
+      handle.remove();
+    });
+
+    it('cleans up event listeners on unmount', () => {
+      const handle = createMockHandle();
+
+      const { result, unmount } = renderHook(() =>
+        useBottomSheetGesture({
+          snapPoints: defaultSnapPoints,
+          initialSnapPoint: 'collapsed',
+          minHeight: 100,
+          maxHeightPercent: 0.85
+        })
+      );
+
+      act(() => {
+        result.current.handleRef(handle);
+      });
+
+      // Start a drag
+      act(() => {
+        dispatchMouseEvent(handle, 'mousedown', 500);
+      });
+
+      // Unmount while dragging
+      unmount();
+
+      // Dispatch events after unmount - should not throw
+      dispatchMouseEvent(document, 'mousemove', 400);
+      dispatchMouseEvent(document, 'mouseup', 400);
+
+      handle.remove();
+    });
+  });
+
+  describe('window resize', () => {
+    it('updates window height on resize', () => {
+      const { result } = renderHook(() =>
+        useBottomSheetGesture({
+          snapPoints: defaultSnapPoints,
+          initialSnapPoint: 'collapsed',
+          minHeight: 100,
+          maxHeightPercent: 0.85
+        })
+      );
+
+      expect(result.current.height).toBe(200);
+
+      // Simulate window resize
+      act(() => {
+        Object.defineProperty(window, 'innerHeight', {
+          writable: true,
+          configurable: true,
+          value: 500
+        });
+        window.dispatchEvent(new Event('resize'));
+      });
+
+      // Height should still be correct
+      expect(result.current.height).toBe(200);
+    });
+  });
+
+  describe('Ionic gesture handlers', () => {
+    function createMockHandle() {
+      const handle = document.createElement('div');
+      document.body.appendChild(handle);
+      return handle;
+    }
+
+    it('snaps to next point up on upward gesture velocity', async () => {
+      vi.useFakeTimers();
+      const handle = createMockHandle();
+
+      const { result } = renderHook(() =>
+        useBottomSheetGesture({
+          snapPoints: defaultSnapPoints,
+          initialSnapPoint: 'collapsed',
+          minHeight: 100,
+          maxHeightPercent: 0.85
+        })
+      );
+
+      act(() => {
+        result.current.handleRef(handle);
+      });
+
+      expect(result.current.height).toBe(200);
+
+      await act(async () => {
+        mockGestureCallbacks?.onStart({ deltaY: 0, velocityY: 0 });
+        mockGestureCallbacks?.onMove({ deltaY: -50, velocityY: 0 });
+        mockGestureCallbacks?.onEnd({ deltaY: -50, velocityY: -0.8 }); // Upward velocity
+        vi.advanceTimersByTime(350);
+      });
+
+      // Should snap to half (400) - the next snap point up
+      expect(result.current.height).toBe(400);
+      vi.useRealTimers();
+      handle.remove();
+    });
+
+    it('dismisses based on deltaY threshold', () => {
+      const handle = createMockHandle();
+      const onDismiss = vi.fn();
+
+      const { result } = renderHook(() =>
+        useBottomSheetGesture({
+          snapPoints: defaultSnapPoints,
+          initialSnapPoint: 'collapsed',
+          minHeight: 100,
+          maxHeightPercent: 0.85,
+          onDismiss,
+          dismissThreshold: 50
+        })
+      );
+
+      act(() => {
+        result.current.handleRef(handle);
+      });
+
+      // Trigger dismiss based on deltaY (not velocity)
+      act(() => {
+        mockGestureCallbacks?.onStart({ deltaY: 0, velocityY: 0 });
+        mockGestureCallbacks?.onMove({ deltaY: 60, velocityY: 0 });
+        mockGestureCallbacks?.onEnd({ deltaY: 60, velocityY: 0.1 }); // Low velocity but high deltaY
       });
 
       expect(onDismiss).toHaveBeenCalled();
