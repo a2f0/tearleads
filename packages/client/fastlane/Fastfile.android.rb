@@ -170,10 +170,8 @@ platform :android do
     record_video = ENV.fetch('MAESTRO_RECORD_VIDEO', '').downcase
     record_video_enabled = %w[1 true yes].include?(record_video)
     video_seconds = ENV.fetch('MAESTRO_VIDEO_SECONDS', '180').to_i
-    if video_seconds <= 0
-      video_seconds = 180
-    elsif video_seconds > 180
-      UI.important('Android screenrecord max is 180 seconds; using 180.')
+    if video_seconds <= 0 || video_seconds > 180
+      UI.important('Android screenrecord max is 180 seconds; using 180.') if video_seconds > 180
       video_seconds = 180
     end
 
