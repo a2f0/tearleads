@@ -20,7 +20,7 @@ interface UseBottomSheetGestureReturn {
   height: number;
   currentSnapPoint: string;
   sheetRef: React.RefObject<HTMLDivElement | null>;
-  handleRef: React.RefObject<HTMLButtonElement | null>;
+  handleRef: (node: HTMLDivElement | null) => void;
   isAnimating: boolean;
   snapTo: (snapPointName: string) => void;
 }
@@ -49,10 +49,17 @@ export function useBottomSheetGesture({
   );
 
   const sheetRef = useRef<HTMLDivElement | null>(null);
-  const handleRef = useRef<HTMLButtonElement | null>(null);
   const gestureRef = useRef<Gesture | null>(null);
   const startHeightRef = useRef(height);
   const currentHeightRef = useRef(height);
+
+  // Use state to track handle element so effects re-run when it's attached
+  const [handleElement, setHandleElement] = useState<HTMLDivElement | null>(
+    null
+  );
+  const handleRef = useCallback((node: HTMLDivElement | null) => {
+    setHandleElement(node);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -164,12 +171,12 @@ export function useBottomSheetGesture({
     [snapPoints, getMaxHeight, animateToHeight]
   );
 
+  // Set up Ionic gesture for touch events (mobile)
   useEffect(() => {
-    const handle = handleRef.current;
-    if (!handle) return;
+    if (!handleElement) return;
 
     const gesture = createGesture({
-      el: handle,
+      el: handleElement,
       threshold: 0,
       gestureName: 'bottom-sheet-drag',
       direction: 'y',
@@ -239,6 +246,126 @@ export function useBottomSheetGesture({
       gestureRef.current = null;
     };
   }, [
+    handleElement,
+    minHeight,
+    getMaxHeight,
+    velocityThreshold,
+    dismissThreshold,
+    onDismiss,
+    findNearestSnapPoint,
+    findNextSnapPoint,
+    animateToHeight
+  ]);
+
+  // Set up mouse event handlers for mouse drag (web/desktop)
+  // Uses document-level listeners for move/up to ensure we capture events
+  // even when the cursor moves outside the handle element during drag
+  useEffect(() => {
+    if (!handleElement) return;
+
+    let isDragging = false;
+    let startY = 0;
+    let lastY = 0;
+    let lastTime = 0;
+
+    const handleMouseDown = (e: MouseEvent) => {
+      // Prevent text selection and default behavior
+      e.preventDefault();
+
+      isDragging = true;
+      startY = e.clientY;
+      lastY = e.clientY;
+      lastTime = Date.now();
+      startHeightRef.current = currentHeightRef.current;
+
+      document.body.style.cursor = 'ns-resize';
+      document.body.style.userSelect = 'none';
+
+      // Add document-level listeners for move and up
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+
+      const deltaY = e.clientY - startY;
+      const delta = -deltaY; // Invert: drag up = increase height
+      const maxHeight = getMaxHeight();
+      const newHeight = Math.min(
+        maxHeight,
+        Math.max(minHeight, startHeightRef.current + delta)
+      );
+
+      setHeight(newHeight);
+      currentHeightRef.current = newHeight;
+
+      lastY = e.clientY;
+      lastTime = Date.now();
+      e.preventDefault();
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (!isDragging) return;
+
+      isDragging = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+
+      // Remove document-level listeners
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+
+      // Calculate velocity
+      const timeDelta = Date.now() - lastTime;
+      const velocityY = timeDelta > 0 ? (e.clientY - lastY) / timeDelta : 0;
+      const totalDeltaY = e.clientY - startY;
+      const currentHeight = currentHeightRef.current;
+
+      // Check for dismiss
+      if (velocityY > velocityThreshold || totalDeltaY > dismissThreshold) {
+        if (onDismiss) {
+          onDismiss();
+          return;
+        }
+      }
+
+      const snapToNearest = () => {
+        const nearest = findNearestSnapPoint(currentHeight);
+        if (nearest) {
+          animateToHeight(nearest.height, nearest.name);
+        }
+      };
+
+      // Snap to appropriate point based on velocity
+      if (Math.abs(velocityY) > velocityThreshold) {
+        const direction = velocityY < 0 ? 'up' : 'down';
+        const nextSnap = findNextSnapPoint(currentHeight, direction);
+
+        if (nextSnap) {
+          animateToHeight(nextSnap.height, nextSnap.name);
+        } else if (direction === 'down' && onDismiss) {
+          onDismiss();
+        } else {
+          snapToNearest();
+        }
+      } else {
+        snapToNearest();
+      }
+
+      e.preventDefault();
+    };
+
+    handleElement.addEventListener('mousedown', handleMouseDown);
+
+    return () => {
+      handleElement.removeEventListener('mousedown', handleMouseDown);
+      // Cleanup document listeners if they're still attached
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [
+    handleElement,
     minHeight,
     getMaxHeight,
     velocityThreshold,

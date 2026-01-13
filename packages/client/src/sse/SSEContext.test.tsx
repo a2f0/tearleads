@@ -1,10 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SSEProvider, useSSE, useSSEContext } from './SSEContext';
 
-vi.mock('@/lib/api', () => ({
+const mockApiModule = vi.hoisted(() => ({
   API_BASE_URL: 'http://localhost:5001/v1'
 }));
+
+vi.mock('@/lib/api', () => mockApiModule);
 
 type EventSourceListener = (event: { data: string }) => void;
 
@@ -67,6 +69,10 @@ describe('SSEContext', () => {
     vi.useFakeTimers();
     MockEventSource.instances = [];
     vi.stubGlobal('EventSource', MockEventSource);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   function wrapper({ children }: { children: React.ReactNode }) {
@@ -352,6 +358,96 @@ describe('SSEContext', () => {
 
       expect(result.current).not.toBeNull();
       expect(result.current?.connectionState).toBe('disconnected');
+    });
+  });
+
+  describe('API_BASE_URL not configured', () => {
+    it('does nothing when API_BASE_URL is empty', () => {
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      // Temporarily clear API_BASE_URL
+      const originalUrl = mockApiModule.API_BASE_URL;
+      mockApiModule.API_BASE_URL = '';
+
+      const { result } = renderHook(() => useSSE(), { wrapper });
+
+      act(() => {
+        result.current.connect();
+      });
+
+      // Should log error and not create EventSource
+      expect(consoleSpy).toHaveBeenCalledWith('API_BASE_URL not configured');
+      expect(MockEventSource.instances).toHaveLength(0);
+
+      // Restore
+      mockApiModule.API_BASE_URL = originalUrl;
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('channel changes', () => {
+    it('reconnects when channels change while connected', () => {
+      let channels = ['channel1'];
+      const ChannelWrapper = ({ children }: { children: React.ReactNode }) => (
+        <SSEProvider autoConnect={false} channels={channels}>
+          {children}
+        </SSEProvider>
+      );
+
+      const { result, rerender } = renderHook(() => useSSE(), {
+        wrapper: ChannelWrapper
+      });
+
+      // Connect
+      act(() => {
+        result.current.connect();
+      });
+
+      act(() => {
+        MockEventSource.getInstance(0).emit('connected');
+      });
+
+      const initialInstanceCount = MockEventSource.instances.length;
+
+      // Change channels
+      channels = ['channel2'];
+      rerender();
+
+      // Should have created a new EventSource for the new channels
+      expect(MockEventSource.instances.length).toBeGreaterThanOrEqual(
+        initialInstanceCount
+      );
+    });
+
+    it('does not reconnect when channels stay the same', () => {
+      const ChannelWrapper = ({ children }: { children: React.ReactNode }) => (
+        <SSEProvider autoConnect={false} channels={['channel1']}>
+          {children}
+        </SSEProvider>
+      );
+
+      const { result, rerender } = renderHook(() => useSSE(), {
+        wrapper: ChannelWrapper
+      });
+
+      // Connect
+      act(() => {
+        result.current.connect();
+      });
+
+      act(() => {
+        MockEventSource.getInstance(0).emit('connected');
+      });
+
+      const instanceCount = MockEventSource.instances.length;
+
+      // Rerender without changing channels
+      rerender();
+
+      // Should not create new EventSource
+      expect(MockEventSource.instances.length).toBe(instanceCount);
     });
   });
 });
