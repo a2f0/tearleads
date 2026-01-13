@@ -5,7 +5,7 @@ const NEW_PASSWORD = 'newpassword456';
 const DB_OPERATION_TIMEOUT = 15000;
 
 const maybeEnableOpfsDebugLogs = async (page: Page) => {
-  if (!process.env.OPFS_DEBUG_LOGS) return;
+  if (!process.env['OPFS_DEBUG_LOGS']) return;
 
   page.on('console', (msg) => {
     console.log(`[browser:${msg.type()}] ${msg.text()}`);
