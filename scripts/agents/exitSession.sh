@@ -15,4 +15,4 @@ fi
 # Schedule the exit command to run in the background after this script exits.
 # This ensures Claude Code is back at its interactive prompt when /exit is sent.
 # Using nohup prevents the background process from being killed when parent exits.
-nohup sh -c "sleep $DELAY && tmux send-keys '/exit' Enter" >/dev/null 2>&1 &
+nohup sh -c 'sleep "$1" && tmux send-keys "/exit" Enter' sh "$DELAY" >/dev/null 2>&1 &
