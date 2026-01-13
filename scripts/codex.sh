@@ -4,7 +4,7 @@ set -eu
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 
-export CODEX_HOME=${CODEX_HOME:-"$ROOT_DIR/.claude/commands"}
+export CODEX_HOME="${CODEX_HOME:-"$ROOT_DIR/.claude/commands"}"
 
 unsafe=false
 args_tmp="/tmp/codex-args.$$"
