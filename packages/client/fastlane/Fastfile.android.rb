@@ -167,6 +167,15 @@ platform :android do
 
   private_lane :run_maestro_tests do |options|
     build_type = options[:build_type]
+    record_video = ENV.fetch('MAESTRO_RECORD_VIDEO', '').downcase
+    record_video_enabled = %w[1 true yes].include?(record_video)
+    video_seconds = ENV.fetch('MAESTRO_VIDEO_SECONDS', '180').to_i
+    if video_seconds <= 0
+      video_seconds = 180
+    elsif video_seconds > 180
+      UI.important('Android screenrecord max is 180 seconds; using 180.')
+      video_seconds = 180
+    end
 
     if build_type == 'release'
       build_release
@@ -189,9 +198,10 @@ platform :android do
     FileUtils.mkdir_p(debug_dir)
     sh("adb -s #{emulator_id} logcat -c || true")
 
-    # Start screen recording in background (max 3 minutes)
-    recording_pid = spawn("adb -s #{emulator_id} shell screenrecord --time-limit 180 /sdcard/maestro-recording.mp4", [:out, :err] => '/dev/null')
-    Process.detach(recording_pid)
+    if record_video_enabled
+      recording_pid = spawn("adb -s #{emulator_id} shell screenrecord --time-limit #{video_seconds} /sdcard/maestro-recording.mp4", [:out, :err] => '/dev/null')
+      Process.detach(recording_pid)
+    end
 
     begin
       sh("MAESTRO_CLI_NO_ANALYTICS=1 $HOME/.maestro/bin/maestro --device #{emulator_id} test '#{maestro_target}' --output '#{debug_dir}/report.xml' --debug-output '#{debug_dir}' --format junit")
@@ -202,9 +212,11 @@ platform :android do
     end
 
     # Stop recording and collect debug artifacts
-    sh("adb -s #{emulator_id} shell pkill -SIGINT screenrecord || true")
-    sh("sleep 2")
-    sh("adb -s #{emulator_id} pull /sdcard/maestro-recording.mp4 '#{debug_dir}/test-recording.mp4' || true")
+    if record_video_enabled
+      sh("adb -s #{emulator_id} shell pkill -SIGINT screenrecord || true")
+      sh("sleep 2")
+      sh("adb -s #{emulator_id} pull /sdcard/maestro-recording.mp4 '#{debug_dir}/test-recording.mp4' || true")
+    end
     sh("adb -s #{emulator_id} logcat -d > '#{debug_dir}/logcat.txt' 2>&1 || true")
 
     UI.user_error!('Maestro tests failed') unless maestro_result == '0'
