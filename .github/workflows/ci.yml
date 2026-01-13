@@ -212,6 +212,15 @@ jobs:
           sudo chmod 644 /etc/ssl/certs/localhost.crt
           sudo chmod 600 /etc/ssl/private/localhost.key
 
+      - name: Verify build output
+        run: |
+          echo "=== Checking dist folder ==="
+          ls -la packages/client/dist/
+          echo "=== Checking index.html ==="
+          head -5 packages/client/dist/index.html
+          echo "=== Checking assets folder ==="
+          ls packages/client/dist/assets/ | head -10
+
       - name: Install and configure NGINX
         run: |
           sudo apt-get update && sudo apt-get install -y nginx
@@ -229,8 +238,12 @@ jobs:
 
       - name: Verify NGINX is serving
         run: |
+          echo "=== NGINX static file test ==="
           curl -k https://localhost:8443/ -I
+          echo "=== NGINX API proxy test ==="
           curl -k https://localhost:8443/v1/ping
+          echo "=== NGINX error log (if any) ==="
+          sudo tail -20 /var/log/nginx/error.log || true
 
       - name: Get Playwright version
         id: playwright-version
