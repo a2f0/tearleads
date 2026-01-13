@@ -7,9 +7,8 @@ ROOT_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 export CODEX_HOME="${CODEX_HOME:-"$ROOT_DIR/.claude/commands"}"
 
 unsafe=false
-args_tmp="/tmp/codex-args.$$"
+args_tmp=$(mktemp)
 trap 'rm -f "$args_tmp"' EXIT HUP INT TERM
-: > "$args_tmp"
 
 for arg in "$@"; do
   if [ "$arg" = "--unsafe" ]; then
