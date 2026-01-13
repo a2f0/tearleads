@@ -88,6 +88,7 @@ vi.mock('./crypto', () => ({
 // Import after mocks are set up
 import {
   changePassword,
+  clearPersistedSession,
   closeDatabase,
   exportDatabase,
   getCurrentPlatform,
@@ -95,6 +96,7 @@ import {
   getDatabaseAdapter,
   importDatabase,
   isDatabaseSetUp,
+  persistDatabaseSession,
   resetDatabase,
   setupDatabase,
   unlockDatabase
@@ -203,6 +205,31 @@ describe('Database API', () => {
       const result = await unlockDatabase('password', TEST_INSTANCE_ID, true);
 
       expect(result?.sessionPersisted).toBe(false);
+    });
+  });
+
+  describe('persistDatabaseSession', () => {
+    it('persists the current session for the instance', async () => {
+      mockKeyManager.persistSession.mockResolvedValueOnce(true);
+      const result = await persistDatabaseSession(TEST_INSTANCE_ID);
+
+      expect(mockKeyManager.persistSession).toHaveBeenCalled();
+      expect(result).toBe(true);
+    });
+
+    it('returns false when persistence fails', async () => {
+      mockKeyManager.persistSession.mockResolvedValueOnce(false);
+      const result = await persistDatabaseSession(TEST_INSTANCE_ID);
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('clearPersistedSession', () => {
+    it('clears persisted session for the instance', async () => {
+      await clearPersistedSession(TEST_INSTANCE_ID);
+
+      expect(mockKeyManager.clearPersistedSession).toHaveBeenCalled();
     });
   });
 

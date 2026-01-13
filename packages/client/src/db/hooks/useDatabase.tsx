@@ -34,6 +34,7 @@ import {
   hasPersistedSession,
   importDatabase,
   isDatabaseSetUp,
+  persistDatabaseSession,
   resetDatabase,
   restoreDatabaseSession,
   setupDatabase,
@@ -77,6 +78,10 @@ interface DatabaseContextValue {
   unlock: (password: string, persistSession?: boolean) => Promise<boolean>;
   /** Restore the database from a persisted session (web only) */
   restoreSession: () => Promise<boolean>;
+  /** Persist the current session for restoration on reload (web only) */
+  persistSession: () => Promise<boolean>;
+  /** Clear any persisted session data without locking */
+  clearPersistedSession: () => Promise<void>;
   /** Lock the database (close and clear key) */
   lock: (clearSession?: boolean) => Promise<void>;
   /** Change the database password */
@@ -348,6 +353,35 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
     }
   }, [currentInstanceId]);
 
+  const persistSession = useCallback(async (): Promise<boolean> => {
+    if (!currentInstanceId || !db) {
+      return false;
+    }
+
+    try {
+      const persisted = await persistDatabaseSession(currentInstanceId);
+      setHasPersisted(persisted);
+      return persisted;
+    } catch (err) {
+      setError(toError(err));
+      return false;
+    }
+  }, [currentInstanceId, db]);
+
+  const clearPersistedSessionHandler = useCallback(async (): Promise<void> => {
+    if (!currentInstanceId) {
+      return;
+    }
+
+    try {
+      await clearPersistedSession(currentInstanceId);
+      setHasPersisted(false);
+    } catch (err) {
+      setError(toError(err));
+      throw err;
+    }
+  }, [currentInstanceId]);
+
   const lock = useCallback(
     async (clearSessionFlag = false): Promise<void> => {
       try {
@@ -583,6 +617,8 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       setup,
       unlock,
       restoreSession,
+      persistSession,
+      clearPersistedSession: clearPersistedSessionHandler,
       lock,
       changePassword: handleChangePassword,
       reset,
@@ -605,6 +641,8 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       setup,
       unlock,
       restoreSession,
+      persistSession,
+      clearPersistedSessionHandler,
       lock,
       handleChangePassword,
       reset,

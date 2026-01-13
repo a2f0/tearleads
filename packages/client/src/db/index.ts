@@ -222,6 +222,17 @@ export async function restoreDatabaseSession(
 }
 
 /**
+ * Persist the current session for restoration on reload.
+ * @param instanceId The instance to persist session for
+ */
+export async function persistDatabaseSession(
+  instanceId: string
+): Promise<boolean> {
+  const keyManager = getKeyManagerForInstance(instanceId);
+  return keyManager.persistSession();
+}
+
+/**
  * Clear any persisted session data (web only).
  * @param instanceId The instance to clear session for
  */
