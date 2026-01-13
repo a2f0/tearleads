@@ -865,9 +865,9 @@ describe('DatabaseTest', () => {
 
     it('shows error when clearing session fails', async () => {
       const user = userEvent.setup();
-      const clearPersistedSession = vi.fn().mockRejectedValue(
-        new Error('Clear failed')
-      );
+      const clearPersistedSession = vi
+        .fn()
+        .mockRejectedValue(new Error('Clear failed'));
       setupMockContext({
         isSetUp: true,
         isUnlocked: true,
