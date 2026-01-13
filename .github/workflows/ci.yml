@@ -223,8 +223,9 @@ jobs:
 
       - name: Make workspace accessible to NGINX
         run: |
-          # NGINX runs as www-data and needs execute permission on parent directories
-          # and read permission on files to serve them
+          # NGINX runs as www-data and needs execute permission on ALL parent directories
+          # to traverse the path, plus read permission on files
+          sudo chmod a+x /home/runner /home/runner/work /home/runner/work/rapid /home/runner/work/rapid/rapid
           sudo chmod -R a+rX $GITHUB_WORKSPACE
 
       - name: Install and configure NGINX
@@ -346,7 +347,8 @@ jobs:
 
       - name: Make workspace accessible to NGINX
         run: |
-          # NGINX runs as www-data and needs execute permission on parent directories
+          # NGINX runs as www-data and needs execute permission on ALL parent directories
+          sudo chmod a+x /home/runner /home/runner/work /home/runner/work/rapid /home/runner/work/rapid/rapid
           sudo chmod -R a+rX $GITHUB_WORKSPACE
 
       - name: Install and configure NGINX
