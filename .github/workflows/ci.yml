@@ -166,7 +166,7 @@ jobs:
           done
 
   web-e2e:
-    name: Web E2E Tests (Release)
+    name: Web E2E Tests
     needs: [detect-changes]
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -284,7 +284,7 @@ jobs:
           retention-days: 30
 
   website-e2e:
-    name: Website E2E Tests (Release)
+    name: Website E2E Tests
     needs: [detect-changes]
     if: >-
       github.event_name == 'workflow_dispatch' ||
@@ -380,7 +380,7 @@ jobs:
           retention-days: 30
 
   electron-e2e:
-    name: Electron E2E Tests (Release)
+    name: Electron E2E Tests
     needs: [detect-changes]
     if: >-
       github.event_name == 'workflow_dispatch' ||
