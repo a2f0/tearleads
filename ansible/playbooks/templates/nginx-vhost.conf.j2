@@ -54,6 +54,24 @@ server {
         add_header Cross-Origin-Opener-Policy "same-origin" always;
         add_header Cross-Origin-Embedder-Policy "require-corp" always;
     }
+
+    # SQLite WASM files - match specific file types only (not the /sqlite SPA route)
+    # Uses regex to avoid blocking /sqlite/ directory requests which need SPA fallback (#524)
+    # See also: #656 (MIME types), #578 (SPA vs static), #670 (Android WebView)
+    location ~* ^/sqlite/.*\.(wasm|js)$ {
+        types {
+            application/javascript    js;
+            application/wasm          wasm;
+        }
+        try_files $uri =404;
+        expires 7d;
+        add_header Cache-Control "public";
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Cross-Origin-Embedder-Policy "require-corp" always;
+    }
 {% else %}
     # Static assets - fingerprinted, cache aggressively (Astro uses /_astro/)
     location /_astro/ {
