@@ -221,6 +221,12 @@ jobs:
           echo "=== Checking assets folder ==="
           ls packages/client/dist/assets/ | head -10
 
+      - name: Make workspace accessible to NGINX
+        run: |
+          # NGINX runs as www-data and needs execute permission on parent directories
+          # and read permission on files to serve them
+          sudo chmod -R a+rX $GITHUB_WORKSPACE
+
       - name: Install and configure NGINX
         run: |
           sudo apt-get update && sudo apt-get install -y nginx
@@ -337,6 +343,11 @@ jobs:
             -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
           sudo chmod 644 /etc/ssl/certs/localhost.crt
           sudo chmod 600 /etc/ssl/private/localhost.key
+
+      - name: Make workspace accessible to NGINX
+        run: |
+          # NGINX runs as www-data and needs execute permission on parent directories
+          sudo chmod -R a+rX $GITHUB_WORKSPACE
 
       - name: Install and configure NGINX
         run: |
