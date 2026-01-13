@@ -189,6 +189,11 @@ export TUXEDO_TMUX_CONF="$TMUX_CONF"
 
 # Scripts directories to add to PATH
 SCRIPTS_PATH="$SCRIPT_DIR:$SCRIPT_DIR/agents"
+export PATH="$SCRIPTS_PATH:$PATH"
+
+ensure_tmux_path() {
+    tmux set-environment -t "$SESSION_NAME" PATH "$PATH"
+}
 
 # Update workspaces that are on main with no uncommitted changes FIRST
 # This ensures .gitignore changes are pulled before symlinks are created
@@ -208,6 +213,7 @@ if [ -d "$SHARED_DIR" ]; then
 fi
 
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    ensure_tmux_path
     # Sync VS Code titles before attaching
     sync_all_titles
     tmux attach-session -t "$SESSION_NAME"
@@ -233,8 +239,7 @@ else
 fi
 tmux split-window -h -t "$SESSION_NAME:rapid-main" -c "$BASE_DIR/rapid-main" "$EDITOR"
 
-# Add scripts directories to PATH for all windows in this session
-tmux set-environment -t "$SESSION_NAME" PATH "$SCRIPTS_PATH:$PATH"
+ensure_tmux_path
 
 i=2
 while [ "$i" -le "$NUM_WORKSPACES" ]; do
