@@ -35,8 +35,8 @@ BUILD_TIME=$((BUILD_END - BUILD_START))
 echo "==> Running unit tests..."
 UNIT_START=$(date +%s)
 echo "==> Rebuilding better-sqlite3-multiple-ciphers for Node..."
-NODE_GYP_REL=$(ls -d node_modules/.pnpm/node-gyp@*/node_modules/node-gyp/bin/node-gyp.js 2>/dev/null | head -1 || true)
-SQLITE_MODULE_REL=$(ls -d node_modules/.pnpm/better-sqlite3-multiple-ciphers@*/node_modules/better-sqlite3-multiple-ciphers 2>/dev/null | head -1 || true)
+NODE_GYP_REL=$(find node_modules/.pnpm -path '*/node-gyp/bin/node-gyp.js' -print -quit 2>/dev/null || true)
+SQLITE_MODULE_REL=$(find node_modules/.pnpm -path '*/better-sqlite3-multiple-ciphers' -print -quit 2>/dev/null || true)
 NODE_GYP_PATH="${ROOT_DIR}/${NODE_GYP_REL}"
 SQLITE_MODULE_DIR="${ROOT_DIR}/${SQLITE_MODULE_REL}"
 if [ -z "$NODE_GYP_PATH" ] || [ -z "$SQLITE_MODULE_DIR" ]; then
