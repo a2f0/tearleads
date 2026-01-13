@@ -187,7 +187,7 @@ describe('MobileMenu', () => {
     await user.click(screen.getByTestId('mobile-menu-button'));
 
     const menuItems = screen.getAllByRole('menuitem');
-    expect(menuItems).toHaveLength(18);
+    expect(menuItems).toHaveLength(19);
   });
 
   it('closes dropdown on window resize', async () => {

@@ -1,7 +1,8 @@
 /**
- * Thumbnail generation utility for images, audio files, and PDFs.
+ * Thumbnail generation utility for images, audio files, videos, and PDFs.
  * Uses Canvas API with createImageBitmap() for cross-platform support.
  * For audio files, extracts embedded cover art and generates a thumbnail from it.
+ * For video files, captures a frame from early in the video.
  * For PDFs, renders the first page to a canvas.
  */
 
@@ -39,6 +40,25 @@ const SUPPORTED_IMAGE_MIME_TYPES = new Set([
 
 const PDF_MIME_TYPE = 'application/pdf';
 
+const VIDEO_MIME_TYPES = new Set([
+  'video/mp4',
+  'video/webm',
+  'video/ogg',
+  'video/quicktime',
+  'video/x-msvideo',
+  'video/x-matroska',
+  'video/mpeg',
+  'video/3gpp',
+  'video/3gpp2'
+]);
+
+/**
+ * Check if a MIME type is a video type.
+ */
+export function isVideoMimeType(mimeType: string): boolean {
+  return VIDEO_MIME_TYPES.has(mimeType);
+}
+
 /**
  * Check if a MIME type is a PDF.
  */
@@ -48,12 +68,14 @@ export function isPdfMimeType(mimeType: string): boolean {
 
 /**
  * Check if a MIME type is supported for thumbnail generation.
- * Supports images (direct), audio files (via embedded cover art), and PDFs (first page).
+ * Supports images (direct), audio files (via embedded cover art),
+ * video files (frame capture), and PDFs (first page).
  */
 export function isThumbnailSupported(mimeType: string): boolean {
   return (
     SUPPORTED_IMAGE_MIME_TYPES.has(mimeType) ||
     isAudioMimeType(mimeType) ||
+    isVideoMimeType(mimeType) ||
     isPdfMimeType(mimeType)
   );
 }
@@ -109,8 +131,92 @@ async function renderPdfFirstPage(
 }
 
 /**
- * Generate a thumbnail from image, audio, or PDF data.
+ * Extract a frame from a video file at a specific time.
+ * Returns a canvas with the captured frame, or null if extraction fails.
+ */
+async function extractVideoFrame(
+  videoData: Uint8Array,
+  mimeType: string,
+  maxWidth: number,
+  maxHeight: number,
+  seekTimeSeconds = 1
+): Promise<HTMLCanvasElement | null> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'metadata';
+
+    // Create a copy of the data with a proper ArrayBuffer
+    const buffer = new ArrayBuffer(videoData.byteLength);
+    new Uint8Array(buffer).set(videoData);
+    const blob = new Blob([buffer], { type: mimeType });
+    const objectUrl = URL.createObjectURL(blob);
+
+    const cleanup = () => {
+      URL.revokeObjectURL(objectUrl);
+      video.src = '';
+      video.load();
+    };
+
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      resolve(null);
+    }, 10000); // 10 second timeout
+
+    video.addEventListener('loadedmetadata', () => {
+      // Seek to the specified time or 10% of duration if video is short
+      const seekTime = Math.min(seekTimeSeconds, video.duration * 0.1);
+      video.currentTime = seekTime;
+    });
+
+    video.addEventListener('seeked', () => {
+      clearTimeout(timeoutId);
+
+      try {
+        // Calculate scaled dimensions
+        const { width, height } = calculateScaledDimensions(
+          video.videoWidth,
+          video.videoHeight,
+          maxWidth,
+          maxHeight
+        );
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          cleanup();
+          resolve(null);
+          return;
+        }
+
+        ctx.drawImage(video, 0, 0, width, height);
+        cleanup();
+        resolve(canvas);
+      } catch {
+        cleanup();
+        resolve(null);
+      }
+    });
+
+    video.addEventListener('error', () => {
+      clearTimeout(timeoutId);
+      cleanup();
+      resolve(null);
+    });
+
+    video.src = objectUrl;
+    video.load();
+  });
+}
+
+/**
+ * Generate a thumbnail from image, audio, video, or PDF data.
  * For audio files, extracts embedded cover art first.
+ * For video files, captures a frame from early in the video.
  * For PDFs, renders the first page.
  * Returns the thumbnail as a Uint8Array (JPEG format), or null if no thumbnail could be generated.
  * @throws Error if image processing fails (not thrown for missing audio cover art)
@@ -126,6 +232,20 @@ export async function generateThumbnail(
   if (isPdfMimeType(mimeType)) {
     const canvas = await renderPdfFirstPage(
       fileData,
+      opts.maxWidth,
+      opts.maxHeight
+    );
+    if (!canvas) {
+      return null;
+    }
+    return canvasToJpeg(canvas, opts.quality);
+  }
+
+  // Handle videos separately - extract frame from video
+  if (isVideoMimeType(mimeType)) {
+    const canvas = await extractVideoFrame(
+      fileData,
+      mimeType,
       opts.maxWidth,
       opts.maxHeight
     );
