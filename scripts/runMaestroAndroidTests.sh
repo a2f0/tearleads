@@ -50,6 +50,16 @@ done
 
 cd "$(dirname "$0")/../packages/client"
 
+if [ -z "${ANDROID_SERIAL:-}" ]; then
+  ANDROID_SERIAL="$(adb devices | awk 'NR>1 && $2=="device"{print $1}' | grep -m 1 '^emulator-' || true)"
+  if [ -z "$ANDROID_SERIAL" ]; then
+    ANDROID_SERIAL="$(adb devices | awk 'NR>1 && $2=="device"{print $1}' | head -n 1 || true)"
+  fi
+  if [ -n "$ANDROID_SERIAL" ]; then
+    export ANDROID_SERIAL
+  fi
+fi
+
 if [ -n "$FLOW_PATH" ] && [ "${FLOW_PATH#/.maestro/}" = "$FLOW_PATH" ] && [ "${FLOW_PATH#./.maestro/}" = "$FLOW_PATH" ] && [ "${FLOW_PATH#./}" = "$FLOW_PATH" ]; then
   # Prepend ../.maestro/ since Fastlane runs from fastlane/ subdirectory
   FLOW_PATH="../.maestro/${FLOW_PATH}"
