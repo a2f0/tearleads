@@ -40,6 +40,8 @@ describe('DatabaseTest', () => {
       hasPersistedSession: false,
       setup: vi.fn(),
       unlock: vi.fn(),
+      persistSession: vi.fn(),
+      clearPersistedSession: vi.fn(),
       lock: vi.fn(),
       reset: vi.fn(),
       changePassword: vi.fn(),
@@ -790,6 +792,56 @@ describe('DatabaseTest', () => {
         expect(result).toHaveTextContent(
           'Database unlocked (session persisted)'
         );
+      });
+    });
+  });
+
+  describe('persist session toggle', () => {
+    it('persists session when checked while unlocked', async () => {
+      const user = userEvent.setup();
+      const persistSession = vi.fn().mockResolvedValue(true);
+      setupMockContext({
+        isSetUp: true,
+        isUnlocked: true,
+        hasPersistedSession: false,
+        persistSession
+      });
+
+      render(<DatabaseTest />);
+
+      const persistCheckbox = screen.getByTestId(
+        'db-persist-session-checkbox'
+      );
+      await user.click(persistCheckbox);
+
+      await waitFor(() => {
+        expect(persistSession).toHaveBeenCalled();
+        const result = screen.getByTestId('db-test-result');
+        expect(result).toHaveTextContent('Session persisted');
+      });
+    });
+
+    it('clears persisted session when unchecked while unlocked', async () => {
+      const user = userEvent.setup();
+      const clearPersistedSession = vi.fn().mockResolvedValue(undefined);
+      setupMockContext({
+        isSetUp: true,
+        isUnlocked: true,
+        hasPersistedSession: true,
+        clearPersistedSession
+      });
+
+      render(<DatabaseTest />);
+
+      const persistCheckbox = screen.getByTestId(
+        'db-persist-session-checkbox'
+      );
+      await user.click(persistCheckbox);
+
+      await waitFor(() => {
+        expect(clearPersistedSession).toHaveBeenCalled();
+        const result = screen.getByTestId('db-test-result');
+        expect(result).toHaveTextContent('Session cleared');
       });
     });
   });
