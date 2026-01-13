@@ -44,6 +44,10 @@ android {
             }
         }
     }
+    def testBuildTypeOverride = project.findProperty('android.testBuildType')
+    if (testBuildTypeOverride) {
+        testBuildType testBuildTypeOverride
+    }
 }
 
 repositories {
