@@ -199,7 +199,7 @@ platform :android do
     sh("adb -s #{emulator_id} logcat -c || true")
 
     if record_video_enabled
-      recording_pid = spawn("adb -s #{emulator_id} shell screenrecord --time-limit #{video_seconds} /sdcard/maestro-recording.mp4", [:out, :err] => '/dev/null')
+      recording_pid = spawn("adb -s #{emulator_id} shell screenrecord --time-limit #{video_seconds} /sdcard/maestro-recording-android.mp4", [:out, :err] => '/dev/null')
       Process.detach(recording_pid)
     end
 
@@ -215,7 +215,7 @@ platform :android do
     if record_video_enabled
       sh("adb -s #{emulator_id} shell pkill -SIGINT screenrecord || true")
       sh("sleep 2")
-      sh("adb -s #{emulator_id} pull /sdcard/maestro-recording.mp4 '#{debug_dir}/test-recording.mp4' || true")
+      sh("adb -s #{emulator_id} pull /sdcard/maestro-recording-android.mp4 '#{debug_dir}/test-recording-android.mp4' || true")
     end
     sh("adb -s #{emulator_id} logcat -d > '#{debug_dir}/logcat.txt' 2>&1 || true")
 
