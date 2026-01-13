@@ -196,7 +196,9 @@ async function initializeSqliteWasm(): Promise<void> {
       locateFile: (path: string, _prefix: string) => {
         // Redirect all file lookups to /sqlite/ base URL
         if (!sqliteBaseUrl) {
-          return new URL(path, self.location.origin).href;
+          throw new Error(
+            'sqliteBaseUrl is not set before initializing the sqlite3 module.'
+          );
         }
         return new URL(path, sqliteBaseUrl).href;
       }
