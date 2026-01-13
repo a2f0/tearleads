@@ -2,8 +2,9 @@
 import logo from '@rapid/ui/logo.svg?url';
 import NavDropdown from '../components/NavDropdown.astro';
 import { SettingsIsland } from '../components/SettingsIsland';
-import { defaultLanguage } from '../i18n/config';
+import { defaultLanguage, supportedLanguages } from '../i18n/config';
 import type { SupportedLanguage } from '../i18n/config';
+import { getHref, getLocalizedPath } from '../i18n/utils';
 import '../styles/global.css';
 
 interface Props {
@@ -15,18 +16,25 @@ const { title, lang = defaultLanguage } = Astro.props;
 const currentYear = new Date().getFullYear();
 
 const productLinks = [
-  { href: `/${lang}/products/cli`, text: 'CLI' },
-  { href: `/${lang}/products/desktop`, text: 'Desktop' },
-  { href: `/${lang}/products/mobile`, text: 'Mobile' },
-  { href: `/${lang}/products/web`, text: 'Web' },
-  { href: `/${lang}/products/chrome-extension`, text: 'Chrome Extension' },
+  { href: getHref('/products/cli', lang), text: 'CLI' },
+  { href: getHref('/products/desktop', lang), text: 'Desktop' },
+  { href: getHref('/products/mobile', lang), text: 'Mobile' },
+  { href: getHref('/products/web', lang), text: 'Web' },
+  { href: getHref('/products/chrome-extension', lang), text: 'Chrome Extension' },
 ];
 
 const docsLinks = [
-  { href: `/${lang}/docs/architecture`, text: 'Security Architecture' },
-  { href: `/${lang}/docs/backup-restore`, text: 'Backup & Restore' },
-  { href: `/${lang}/docs/api`, text: 'API' },
+  { href: getHref('/docs/architecture', lang), text: 'Security Architecture' },
+  { href: getHref('/docs/backup-restore', lang), text: 'Backup & Restore' },
+  { href: getHref('/docs/api', lang), text: 'API' },
 ];
+
+// Generate hreflang URLs for SEO
+const currentPath = Astro.url.pathname;
+const hreflangUrls = supportedLanguages.map((hrefLang) => ({
+  lang: hrefLang,
+  href: getLocalizedPath(currentPath, hrefLang),
+}));
 ---
 
 <!doctype html>
@@ -36,6 +44,10 @@ const docsLinks = [
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    {hreflangUrls.map(({ lang: hrefLang, href }) => (
+      <link rel="alternate" hreflang={hrefLang} href={href} />
+    ))}
+    <link rel="alternate" hreflang="x-default" href={getLocalizedPath(currentPath, defaultLanguage)} />
     <title>{title}</title>
     <script is:inline>
       (function () {
@@ -56,7 +68,7 @@ const docsLinks = [
         <div
           class="container mx-auto flex items-center justify-between px-4 py-4"
         >
-          <a href={`/${lang}/`} class="flex items-center gap-3">
+          <a href={getHref('/', lang)} class="flex items-center gap-3">
             <img src={logo} alt="Rapid" class="h-8 w-8" />
             <p class="font-bold text-2xl">Rapid</p>
           </a>
@@ -78,7 +90,7 @@ const docsLinks = [
       >
         <div class="container mx-auto flex flex-col items-center gap-2 px-4">
           <p>&copy; {currentYear} Rapid. All rights reserved.</p>
-          <a href={`/${lang}/licenses`} class="text-xs hover:text-foreground hover:underline">Open Source Licenses</a>
+          <a href={getHref('/licenses', lang)} class="text-xs hover:text-foreground hover:underline">Open Source Licenses</a>
         </div>
       </footer>
     </div>
