@@ -1,7 +1,6 @@
 ---
-import Layout from '../../../layouts/Layout.astro';
-import { supportedLanguages, isSupportedLanguage, defaultLanguage } from '../../../i18n/config';
-import type { SupportedLanguage } from '../../../i18n/config';
+import Layout from '../../layouts/Layout.astro';
+import { defaultLanguage } from '../../i18n/config';
 
 export function getStaticPaths() {
   const products = [
@@ -11,17 +10,10 @@ export function getStaticPaths() {
     { product: 'chrome-extension', title: 'Chrome Extension', description: 'Chrome extension content coming soon.' },
   ];
 
-  const paths = [];
-  // Only generate for non-default languages (default is at root)
-  for (const lang of supportedLanguages.filter((l) => l !== defaultLanguage)) {
-    for (const product of products) {
-      paths.push({
-        params: { lang, product: product.product },
-        props: { title: product.title, description: product.description },
-      });
-    }
-  }
-  return paths;
+  return products.map((p) => ({
+    params: { product: p.product },
+    props: { title: p.title, description: p.description },
+  }));
 }
 
 interface Props {
@@ -29,9 +21,8 @@ interface Props {
   description: string;
 }
 
-const { lang } = Astro.params;
 const { title, description } = Astro.props;
-const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaultLanguage;
+const currentLang = defaultLanguage;
 ---
 
 <Layout title={`${title} - Rapid`} lang={currentLang}>

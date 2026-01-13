@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getHref,
   getLangFromPath,
   getLocalizedPath,
   getStaticPathsForLocales
@@ -7,22 +8,22 @@ import {
 
 describe('i18n utils', () => {
   describe('getLocalizedPath', () => {
-    it('replaces language prefix in path', () => {
+    it('adds language prefix for non-default languages', () => {
+      expect(getLocalizedPath('/docs/api', 'es')).toBe('/es/docs/api');
+      expect(getLocalizedPath('/docs/api', 'ua')).toBe('/ua/docs/api');
       expect(getLocalizedPath('/en/docs/api', 'es')).toBe('/es/docs/api');
-      expect(getLocalizedPath('/en/docs/api', 'ua')).toBe('/ua/docs/api');
-      expect(getLocalizedPath('/es/products/cli', 'en')).toBe(
-        '/en/products/cli'
-      );
     });
 
-    it('adds language prefix if not present', () => {
-      expect(getLocalizedPath('/docs/api', 'en')).toBe('/en/docs/api');
-      expect(getLocalizedPath('/products/cli', 'es')).toBe('/es/products/cli');
+    it('removes language prefix for default language', () => {
+      expect(getLocalizedPath('/es/products/cli', 'en')).toBe('/products/cli');
+      expect(getLocalizedPath('/ua/docs/api', 'en')).toBe('/docs/api');
+      expect(getLocalizedPath('/docs/api', 'en')).toBe('/docs/api');
     });
 
     it('handles root path', () => {
-      expect(getLocalizedPath('/en/', 'es')).toBe('/es/');
-      expect(getLocalizedPath('/', 'en')).toBe('/en/');
+      expect(getLocalizedPath('/es/', 'en')).toBe('/');
+      expect(getLocalizedPath('/', 'en')).toBe('/');
+      expect(getLocalizedPath('/', 'es')).toBe('/es/');
     });
   });
 
@@ -46,13 +47,25 @@ describe('i18n utils', () => {
   });
 
   describe('getStaticPathsForLocales', () => {
-    it('returns paths for all supported locales', () => {
+    it('returns paths for non-default locales only', () => {
       const paths = getStaticPathsForLocales();
       expect(paths).toEqual([
-        { params: { lang: 'en' } },
         { params: { lang: 'es' } },
         { params: { lang: 'ua' } }
       ]);
+    });
+  });
+
+  describe('getHref', () => {
+    it('returns path without prefix for default language', () => {
+      expect(getHref('/docs/api', 'en')).toBe('/docs/api');
+      expect(getHref('/', 'en')).toBe('/');
+    });
+
+    it('returns path with prefix for non-default languages', () => {
+      expect(getHref('/docs/api', 'es')).toBe('/es/docs/api');
+      expect(getHref('/docs/api', 'ua')).toBe('/ua/docs/api');
+      expect(getHref('/', 'es')).toBe('/es/');
     });
   });
 });

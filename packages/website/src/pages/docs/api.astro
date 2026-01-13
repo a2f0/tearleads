@@ -1,15 +1,10 @@
 ---
-import Layout from '../../../layouts/Layout.astro';
-import { SwaggerUIWrapper } from '../../../components/SwaggerUIWrapper';
+import Layout from '../../layouts/Layout.astro';
+import { SwaggerUIWrapper } from '../../components/SwaggerUIWrapper';
 import openapiSpec from '@rapid/api/openapi.json';
-import { isSupportedLanguage, defaultLanguage } from '../../../i18n/config';
-import type { SupportedLanguage } from '../../../i18n/config';
-import { getStaticPathsForLocales } from '../../../i18n/utils';
+import { defaultLanguage } from '../../i18n/config';
 
-export const getStaticPaths = getStaticPathsForLocales;
-
-const { lang } = Astro.params;
-const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaultLanguage;
+const currentLang = defaultLanguage;
 ---
 
 <Layout title="API Documentation - Rapid" lang={currentLang}>
