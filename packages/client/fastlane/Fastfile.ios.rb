@@ -206,7 +206,7 @@ platform :ios do
         Process.kill('INT', recording_pid)
         begin
           Process.wait(recording_pid)
-        rescue StandardError
+        rescue Errno::ECHILD
         end
       end
     end
