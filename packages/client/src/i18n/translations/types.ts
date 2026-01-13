@@ -14,6 +14,7 @@ export interface MenuTranslations {
   photos: string;
   documents: string;
   audio: string;
+  videos: string;
   tables: string;
   analytics: string;
   sqlite: string;
