@@ -167,6 +167,8 @@ platform :ios do
 
   private_lane :run_maestro_tests do |options|
     build_type = options[:build_type]
+    record_video = ENV.fetch('MAESTRO_RECORD_VIDEO', '').downcase
+    record_video_enabled = %w[1 true yes].include?(record_video)
 
     if build_type == 'release'
       build_release_simulator
@@ -184,9 +186,29 @@ platform :ios do
     UI.user_error!('No iOS simulator is booted. Boot a simulator first.') if simulator.to_s.empty?
 
     maestro_target = ENV.fetch('MAESTRO_FLOW_PATH', '../.maestro/')
+    debug_dir = File.expand_path('../maestro-debug', __dir__)
     UI.message("#{message}: #{simulator}")
     sh("xcrun simctl uninstall #{simulator} #{APP_ID} || true")
     sh("xcrun simctl install #{simulator} '#{app_path}'")
-    sh("MAESTRO_CLI_NO_ANALYTICS=1 MAESTRO_DEVICE=#{simulator} $HOME/.maestro/bin/maestro --platform ios test #{maestro_target} --output maestro-report --debug-output maestro-debug")
+
+    recording_pid = nil
+    if record_video_enabled
+      FileUtils.mkdir_p(debug_dir)
+      recording_path = File.join(debug_dir, 'test-recording-ios.mp4')
+      recording_pid = spawn("xcrun simctl io #{simulator} recordVideo --codec=h264 --force '#{recording_path}'", [:out, :err] => '/dev/null')
+      Process.detach(recording_pid)
+    end
+
+    begin
+      sh("MAESTRO_CLI_NO_ANALYTICS=1 MAESTRO_DEVICE=#{simulator} $HOME/.maestro/bin/maestro --platform ios test #{maestro_target} --output maestro-report --debug-output maestro-debug")
+    ensure
+      if record_video_enabled && recording_pid
+        Process.kill('INT', recording_pid)
+        begin
+          Process.wait(recording_pid)
+        rescue Errno::ECHILD
+        end
+      end
+    end
   end
 end
