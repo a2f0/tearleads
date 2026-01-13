@@ -12,8 +12,7 @@ if [ -z "${TMUX:-}" ]; then
     exit 0
 fi
 
-# Wait briefly for final output to render
-sleep "$DELAY"
-
-# Send /exit followed by Enter to the current pane
-tmux send-keys "/exit" Enter
+# Schedule the exit command to run in the background after this script exits.
+# This ensures Claude Code is back at its interactive prompt when /exit is sent.
+# Using nohup prevents the background process from being killed when parent exits.
+nohup sh -c 'sleep "$1" && tmux send-keys "/exit" Enter' sh "$DELAY" >/dev/null 2>&1 &
