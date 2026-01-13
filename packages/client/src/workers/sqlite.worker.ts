@@ -99,15 +99,22 @@ function hasOpfsDb(oo1: SQLiteOO1): oo1 is SQLiteOO1WithOpfs {
 
 /**
  * SQLite WASM initialization function type.
+ * The locateFile option overrides how SQLite finds its companion files (wasm, proxy worker).
  */
 type SQLite3InitModule = (options: {
   print: typeof console.log;
   printErr: typeof console.error;
+  locateFile?: (path: string, prefix: string) => string;
 }) => Promise<SQLite3Module>;
 
-// SQLite WASM module - loaded dynamically from public folder to preserve import.meta.url
-// This is necessary because the OPFS VFS uses import.meta.url to locate its proxy worker
-let sqlite3InitModule: SQLite3InitModule | null = null;
+// Import sqlite3 statically - Vite will bundle this, avoiding dynamic import MIME type issues
+// on Android WebView. We use locateFile to redirect wasm/worker lookups to /sqlite/.
+// See issue #670 for details on the Android WebView MIME type problem.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+import sqlite3InitModuleFactory from '@/workers/sqlite-wasm/sqlite3.js';
+
+const sqlite3InitModule =
+  sqlite3InitModuleFactory as unknown as SQLite3InitModule;
 let sqlite3: SQLite3Module | null = null;
 let db: SQLiteDatabase | null = null;
 let encryptionKey: string | null = null;
@@ -131,37 +138,23 @@ async function initializeSqliteWasm(): Promise<void> {
     return;
   }
 
-  // Dynamically import sqlite3 from the public folder
-  // This preserves import.meta.url so OPFS can find its proxy worker
-  //
-  // IMPORTANT: DO NOT change .js back to .mjs - see issue #670
-  // Android WebView strictly enforces MIME type checking for ES modules.
-  // The .mjs extension may not be served with text/javascript MIME type on
-  // real devices (works on emulators but fails on some physical devices).
-  // See: https://github.com/apache/cordova-android/issues/1142
-  const sqliteModuleUrl = new URL('/sqlite/sqlite3.js', self.location.origin)
-    .href;
+  // Base URL for SQLite companion files (wasm, OPFS proxy worker)
+  // These are served from /sqlite/ in the public folder
+  const sqliteBaseUrl = new URL('/sqlite/', self.location.origin).href;
+  console.log('SQLite base URL:', sqliteBaseUrl);
 
-  console.log('Loading SQLite WASM from:', sqliteModuleUrl);
-
-  try {
-    const module = await import(/* @vite-ignore */ sqliteModuleUrl);
-    sqlite3InitModule = module.default;
-
-    if (!sqlite3InitModule) {
-      throw new Error('Failed to load sqlite3InitModule from module');
-    }
-  } catch (error) {
-    console.error('Failed to load SQLite module:', error);
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to load SQLite WASM: ${message}`);
-  }
-
-  // Initialize the SQLite WASM module
+  // Initialize the SQLite WASM module with locateFile override
+  // This redirects wasm and worker file lookups to /sqlite/ in public folder
+  // while keeping the main JS module bundled (avoiding Android WebView MIME type issues)
+  // See issue #670 for details on the Android WebView MIME type problem
   try {
     sqlite3 = await sqlite3InitModule({
       print: console.log,
-      printErr: console.error
+      printErr: console.error,
+      locateFile: (path: string, _prefix: string) => {
+        // Redirect all file lookups to /sqlite/ base URL
+        return new URL(path, sqliteBaseUrl).href;
+      }
     });
   } catch (error) {
     console.error('Failed to initialize SQLite:', error);
