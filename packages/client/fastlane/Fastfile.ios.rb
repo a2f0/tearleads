@@ -194,7 +194,7 @@ platform :ios do
     recording_pid = nil
     if record_video_enabled
       FileUtils.mkdir_p(debug_dir)
-      recording_path = File.join(debug_dir, 'test-recording.mp4')
+      recording_path = File.join(debug_dir, 'test-recording-ios.mp4')
       recording_pid = spawn("xcrun simctl io #{simulator} recordVideo --codec=h264 --force '#{recording_path}'", [:out, :err] => '/dev/null')
       Process.detach(recording_pid)
     end
