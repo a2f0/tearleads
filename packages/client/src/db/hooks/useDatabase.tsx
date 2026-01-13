@@ -378,6 +378,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
       setHasPersisted(false);
     } catch (err) {
       setError(toError(err));
+      throw err;
     }
   }, [currentInstanceId]);
 
