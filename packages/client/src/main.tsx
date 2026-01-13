@@ -14,6 +14,7 @@ import {
 import { DatabaseProvider, SettingsProvider } from './db/hooks';
 import { i18n } from './i18n';
 import { SSEProvider } from './sse';
+import { VideoProvider } from './video';
 import './index.css';
 
 // Check for service worker updates when tab gains focus
@@ -109,6 +110,12 @@ const TableRows = lazy(() =>
 const Tables = lazy(() =>
   import('./pages/Tables').then((m) => ({ default: m.Tables }))
 );
+const VideoDetail = lazy(() =>
+  import('./pages/VideoDetail').then((m) => ({ default: m.VideoDetail }))
+);
+const VideoPage = lazy(() =>
+  import('./pages/Video').then((m) => ({ default: m.VideoPage }))
+);
 
 // Global error handlers for async errors (not caught by React error boundaries)
 window.addEventListener(
@@ -141,72 +148,82 @@ if (rootElement) {
               <SettingsProvider>
                 <InstanceChangeHandler />
                 <AudioProvider>
-                  <SSEProvider>
-                    <BrowserRouter>
-                      <Suspense
-                        fallback={
-                          <div className="p-8 text-center text-muted-foreground">
-                            Loading...
-                          </div>
-                        }
-                      >
-                        <Routes>
-                          <Route path="/" element={<App />}>
-                            <Route index element={<Home />} />
-                            <Route path="files" element={<Files />} />
-                            <Route path="contacts" element={<Contacts />} />
-                            <Route
-                              path="contacts/new"
-                              element={<ContactNew />}
-                            />
-                            <Route
-                              path="contacts/:id"
-                              element={<ContactDetail />}
-                            />
-                            <Route path="documents" element={<Documents />} />
-                            <Route
-                              path="documents/:id"
-                              element={<DocumentDetail />}
-                            />
-                            <Route path="photos" element={<Photos />} />
-                            <Route
-                              path="photos/:id"
-                              element={<PhotoDetail />}
-                            />
-                            <Route path="audio" element={<AudioPage />} />
-                            <Route path="audio/:id" element={<AudioDetail />} />
-                            <Route path="sqlite" element={<Sqlite />} />
-                            <Route path="debug" element={<Debug />} />
-                            <Route path="chat" element={<Chat />} />
-                            <Route path="models" element={<Models />} />
-                            <Route path="settings" element={<Settings />} />
-                            <Route path="licenses" element={<Licenses />} />
-                            <Route path="tables" element={<Tables />} />
-                            <Route
-                              path="tables/:tableName"
-                              element={<TableRows />}
-                            />
-                            <Route path="analytics" element={<Analytics />} />
-                            <Route path="opfs" element={<Opfs />} />
-                            <Route
-                              path="cache-storage"
-                              element={<CacheStorage />}
-                            />
-                            <Route
-                              path="local-storage"
-                              element={<LocalStorage />}
-                            />
-                            <Route path="keychain" element={<Keychain />} />
-                            <Route
-                              path="keychain/:id"
-                              element={<KeychainDetail />}
-                            />
-                            <Route path="admin" element={<Admin />} />
-                          </Route>
-                        </Routes>
-                      </Suspense>
-                    </BrowserRouter>
-                  </SSEProvider>
+                  <VideoProvider>
+                    <SSEProvider>
+                      <BrowserRouter>
+                        <Suspense
+                          fallback={
+                            <div className="p-8 text-center text-muted-foreground">
+                              Loading...
+                            </div>
+                          }
+                        >
+                          <Routes>
+                            <Route path="/" element={<App />}>
+                              <Route index element={<Home />} />
+                              <Route path="files" element={<Files />} />
+                              <Route path="contacts" element={<Contacts />} />
+                              <Route
+                                path="contacts/new"
+                                element={<ContactNew />}
+                              />
+                              <Route
+                                path="contacts/:id"
+                                element={<ContactDetail />}
+                              />
+                              <Route path="documents" element={<Documents />} />
+                              <Route
+                                path="documents/:id"
+                                element={<DocumentDetail />}
+                              />
+                              <Route path="photos" element={<Photos />} />
+                              <Route
+                                path="photos/:id"
+                                element={<PhotoDetail />}
+                              />
+                              <Route path="audio" element={<AudioPage />} />
+                              <Route
+                                path="audio/:id"
+                                element={<AudioDetail />}
+                              />
+                              <Route path="videos" element={<VideoPage />} />
+                              <Route
+                                path="videos/:id"
+                                element={<VideoDetail />}
+                              />
+                              <Route path="sqlite" element={<Sqlite />} />
+                              <Route path="debug" element={<Debug />} />
+                              <Route path="chat" element={<Chat />} />
+                              <Route path="models" element={<Models />} />
+                              <Route path="settings" element={<Settings />} />
+                              <Route path="licenses" element={<Licenses />} />
+                              <Route path="tables" element={<Tables />} />
+                              <Route
+                                path="tables/:tableName"
+                                element={<TableRows />}
+                              />
+                              <Route path="analytics" element={<Analytics />} />
+                              <Route path="opfs" element={<Opfs />} />
+                              <Route
+                                path="cache-storage"
+                                element={<CacheStorage />}
+                              />
+                              <Route
+                                path="local-storage"
+                                element={<LocalStorage />}
+                              />
+                              <Route path="keychain" element={<Keychain />} />
+                              <Route
+                                path="keychain/:id"
+                                element={<KeychainDetail />}
+                              />
+                              <Route path="admin" element={<Admin />} />
+                            </Route>
+                          </Routes>
+                        </Suspense>
+                      </BrowserRouter>
+                    </SSEProvider>
+                  </VideoProvider>
                 </AudioProvider>
               </SettingsProvider>
             </DatabaseProvider>

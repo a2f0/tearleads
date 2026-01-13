@@ -16,6 +16,7 @@ export const es = {
     photos: 'Fotos',
     documents: 'Documentos',
     audio: 'Audio',
+    videos: 'Vídeos',
     tables: 'Tablas',
     analytics: 'Analíticas',
     sqlite: 'SQLite',

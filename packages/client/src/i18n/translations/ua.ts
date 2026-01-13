@@ -16,6 +16,7 @@ export const ua = {
     photos: 'Фото',
     documents: 'Документи',
     audio: 'Аудіо',
+    videos: 'Відео',
     tables: 'Таблиці',
     analytics: 'Аналітика',
     sqlite: 'SQLite',
