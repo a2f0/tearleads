@@ -840,6 +840,52 @@ describe('DatabaseTest', () => {
         expect(result).toHaveTextContent('Session cleared');
       });
     });
+
+    it('shows error when persist session fails', async () => {
+      const user = userEvent.setup();
+      const persistSession = vi.fn().mockResolvedValue(false);
+      setupMockContext({
+        isSetUp: true,
+        isUnlocked: true,
+        hasPersistedSession: false,
+        persistSession
+      });
+
+      render(<DatabaseTest />);
+
+      const persistCheckbox = screen.getByTestId('db-persist-session-checkbox');
+      await user.click(persistCheckbox);
+
+      await waitFor(() => {
+        const result = screen.getByTestId('db-test-result');
+        expect(result).toHaveTextContent('Failed to persist session');
+        expect(result).toHaveAttribute('data-status', 'error');
+      });
+    });
+
+    it('shows error when clearing session fails', async () => {
+      const user = userEvent.setup();
+      const clearPersistedSession = vi.fn().mockRejectedValue(
+        new Error('Clear failed')
+      );
+      setupMockContext({
+        isSetUp: true,
+        isUnlocked: true,
+        hasPersistedSession: true,
+        clearPersistedSession
+      });
+
+      render(<DatabaseTest />);
+
+      const persistCheckbox = screen.getByTestId('db-persist-session-checkbox');
+      await user.click(persistCheckbox);
+
+      await waitFor(() => {
+        const result = screen.getByTestId('db-test-result');
+        expect(result).toHaveTextContent('Clear session error: Clear failed');
+        expect(result).toHaveAttribute('data-status', 'error');
+      });
+    });
   });
 
   describe('session status display', () => {
