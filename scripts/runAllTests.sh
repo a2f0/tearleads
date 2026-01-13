@@ -1,6 +1,23 @@
 #!/bin/sh
 set -eu
 
+HEADLESS=0
+ROOT_DIR="$(pwd)"
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --headless)
+      HEADLESS=1
+      shift
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      echo "Usage: $0 [--headless]"
+      exit 1
+      ;;
+  esac
+done
+
 TOTAL_START=$(date +%s)
 
 echo "==> Running lint..."
@@ -17,6 +34,16 @@ BUILD_TIME=$((BUILD_END - BUILD_START))
 
 echo "==> Running unit tests..."
 UNIT_START=$(date +%s)
+echo "==> Rebuilding better-sqlite3-multiple-ciphers for Node..."
+NODE_GYP_REL=$(ls -d node_modules/.pnpm/node-gyp@*/node_modules/node-gyp/bin/node-gyp.js 2>/dev/null | head -1 || true)
+SQLITE_MODULE_REL=$(ls -d node_modules/.pnpm/better-sqlite3-multiple-ciphers@*/node_modules/better-sqlite3-multiple-ciphers 2>/dev/null | head -1 || true)
+NODE_GYP_PATH="${ROOT_DIR}/${NODE_GYP_REL}"
+SQLITE_MODULE_DIR="${ROOT_DIR}/${SQLITE_MODULE_REL}"
+if [ -z "$NODE_GYP_PATH" ] || [ -z "$SQLITE_MODULE_DIR" ]; then
+  echo "Failed to locate node-gyp or better-sqlite3-multiple-ciphers for rebuild."
+  exit 1
+fi
+(cd "$SQLITE_MODULE_DIR" && node "$NODE_GYP_PATH" rebuild --release)
 pnpm test
 UNIT_END=$(date +%s)
 UNIT_TIME=$((UNIT_END - UNIT_START))
@@ -29,18 +56,28 @@ PLAYWRIGHT_TIME=$((PLAYWRIGHT_END - PLAYWRIGHT_START))
 
 echo "==> Running Android Maestro tests..."
 ANDROID_START=$(date +%s)
-pnpm --filter @rapid/client test:maestro:android
+if [ "$HEADLESS" -eq 1 ]; then
+  pnpm --filter @rapid/client test:maestro:android -- --headless
+else
+  pnpm --filter @rapid/client test:maestro:android
+fi
 ANDROID_END=$(date +%s)
 ANDROID_TIME=$((ANDROID_END - ANDROID_START))
 
 echo "==> Running iOS Maestro tests..."
 IOS_START=$(date +%s)
-pnpm --filter @rapid/client test:maestro:ios
+if [ "$HEADLESS" -eq 1 ]; then
+  pnpm --filter @rapid/client test:maestro:ios -- --headless
+else
+  pnpm --filter @rapid/client test:maestro:ios
+fi
 IOS_END=$(date +%s)
 IOS_TIME=$((IOS_END - IOS_START))
 
 echo "==> Running Electron tests..."
 ELECTRON_START=$(date +%s)
+echo "==> Rebuilding better-sqlite3-multiple-ciphers for Electron..."
+pnpm --filter @rapid/client exec electron-rebuild -f -o better-sqlite3-multiple-ciphers
 pnpm --filter @rapid/client electron:test
 ELECTRON_END=$(date +%s)
 ELECTRON_TIME=$((ELECTRON_END - ELECTRON_START))

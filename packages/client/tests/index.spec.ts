@@ -1,13 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 
-// Skip tests that require database setup in CI release builds
-// until https://github.com/a2f0/rapid/issues/687 is resolved
-const isCI = !!process.env['CI'];
-const isHTTPS = !!process.env['BASE_URL']?.startsWith('https://');
-const skipDatabaseTests = isCI && isHTTPS;
-
 // Use dbTest for tests that require database setup
-const dbTest = skipDatabaseTests ? test.skip : test;
+const dbTest = test;
 
 // Helper to navigate via sidebar (visible on desktop viewport)
 async function navigateTo(page: Page, linkName: string) {
