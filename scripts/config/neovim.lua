@@ -135,21 +135,9 @@ require('telescope').setup{
   }
 }
 
-local function toggle_diffview()
-  local ok, lib = pcall(require, "diffview.lib")
-  if not ok then
-    vim.cmd("DiffviewOpen")
-    return
-  end
-
-  if lib.get_current_view() then
-    vim.cmd("DiffviewClose")
-  else
-    vim.cmd("DiffviewOpen")
-  end
-end
-
-vim.keymap.set('n', '<leader>gd', toggle_diffview, { desc = 'Toggle Diffview' })
+vim.keymap.set('n', '<leader>gd', function()
+  require('diffview').toggle()
+end, { desc = 'Toggle Diffview' })
 vim.keymap.set('n', '<leader>gD', '<cmd>DiffviewClose<CR>', { desc = 'Close Diffview' })
 vim.keymap.set('n', '<leader>gh', '<cmd>DiffviewFileHistory %<CR>', { desc = 'File history (Diffview)' })
 vim.keymap.set('n', '<leader>gv', function()
@@ -176,16 +164,11 @@ vim.keymap.set('n', '<leader>gv', function()
     table.insert(labels, item.label)
   end
 
-  vim.ui.select(labels, { prompt = "Views" }, function(choice)
+  vim.ui.select(labels, { prompt = "Views" }, function(choice, index)
     if not choice then
       return
     end
-    for _, item in ipairs(items) do
-      if item.label == choice then
-        item.action()
-        return
-      end
-    end
+    items[index].action()
   end)
 end, { desc = 'View picker' })
 
