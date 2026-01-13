@@ -34,11 +34,18 @@
 /* Audio seek slider styling */
 .audio-slider-seek {
   --progress: 0%;
+  background: transparent;
+}
+
+/* Webkit seek slider track */
+.audio-slider-seek::-webkit-slider-runnable-track {
+  height: 8px;
   background: linear-gradient(
     to right,
     hsl(var(--primary)) var(--progress),
     hsl(var(--muted)) var(--progress)
   );
+  border-radius: 9999px;
 }
 
 /* Volume slider with ramp/wedge shape */
@@ -106,6 +113,7 @@
 .audio-slider-seek::-webkit-slider-thumb {
   width: 16px;
   height: 16px;
+  margin-top: -4px; /* Center 16px thumb on 8px track */
 }
 
 .audio-slider-volume::-webkit-slider-thumb {
@@ -125,6 +133,16 @@
   height: 12px;
 }
 
+/* Firefox seek slider track */
 .audio-slider-seek::-moz-range-track {
-  background: transparent;
+  height: 8px;
+  background: hsl(var(--muted));
+  border-radius: 9999px;
+}
+
+/* Firefox seek slider progress (filled portion) */
+.audio-slider-seek::-moz-range-progress {
+  height: 8px;
+  background: hsl(var(--primary));
+  border-radius: 9999px;
 }
