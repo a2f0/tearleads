@@ -330,6 +330,13 @@ export function useBottomSheetGesture({
         }
       }
 
+      const snapToNearest = () => {
+        const nearest = findNearestSnapPoint(currentHeight);
+        if (nearest) {
+          animateToHeight(nearest.height, nearest.name);
+        }
+      };
+
       // Snap to appropriate point based on velocity
       if (Math.abs(velocityY) > velocityThreshold) {
         const direction = velocityY < 0 ? 'up' : 'down';
@@ -340,16 +347,10 @@ export function useBottomSheetGesture({
         } else if (direction === 'down' && onDismiss) {
           onDismiss();
         } else {
-          const nearest = findNearestSnapPoint(currentHeight);
-          if (nearest) {
-            animateToHeight(nearest.height, nearest.name);
-          }
+          snapToNearest();
         }
       } else {
-        const nearest = findNearestSnapPoint(currentHeight);
-        if (nearest) {
-          animateToHeight(nearest.height, nearest.name);
-        }
+        snapToNearest();
       }
 
       e.preventDefault();
