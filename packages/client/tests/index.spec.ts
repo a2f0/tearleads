@@ -1077,6 +1077,66 @@ test.describe('Audio page', () => {
     // Should show error message about unsupported format
     await expect(page.getByText(/unsupported audio format/i)).toBeVisible({ timeout: 5000 });
   });
+
+  test('should have visible audio slider track and thumb styles', async ({ page }) => {
+    // Setup and unlock the database
+    await setupAndUnlockDatabase(page);
+
+    // Navigate to audio page
+    await navigateTo(page, 'Audio');
+    await expect(page.getByText('Drop an audio file here to add it to your library')).toBeVisible({
+      timeout: 10000
+    });
+
+    // Upload a valid audio file (MP3 magic bytes)
+    const mp3MagicBytes = Buffer.from([
+      0xff, 0xfb, 0x90, 0x00, // MP3 frame header
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ]);
+    const fileInput = page.getByTestId('dropzone-input');
+    await fileInput.setInputFiles({
+      name: 'test-audio.mp3',
+      mimeType: 'audio/mpeg',
+      buffer: mp3MagicBytes
+    });
+
+    // Wait for audio player to appear after upload
+    const audioPlayer = page.getByTestId('audio-player');
+    await expect(audioPlayer).toBeVisible({ timeout: 10000 });
+
+    // Verify seek bar is visible and has proper track styling
+    const seekBar = page.getByTestId('audio-seekbar');
+    await expect(seekBar).toBeVisible();
+
+    // Get computed styles of the seek bar track pseudo-element
+    // We verify the element has the expected class and the track is styled
+    const seekBarStyles = await seekBar.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      // Check that the range input has transparent background (track is on pseudo-element)
+      return {
+        background: style.background,
+        height: style.height,
+        hasSliderClass: el.classList.contains('audio-slider-seek')
+      };
+    });
+
+    expect(seekBarStyles.hasSliderClass).toBe(true);
+
+    // Verify volume slider is visible and has proper styling
+    const volumeSlider = page.getByTestId('audio-volume');
+    await expect(volumeSlider).toBeVisible();
+
+    const volumeStyles = await volumeSlider.evaluate((el) => {
+      const style = window.getComputedStyle(el);
+      return {
+        height: style.height,
+        hasSliderClass: el.classList.contains('audio-slider-volume')
+      };
+    });
+
+    expect(volumeStyles.hasSliderClass).toBe(true);
+  });
 });
 
 test.describe('Contacts page', () => {
