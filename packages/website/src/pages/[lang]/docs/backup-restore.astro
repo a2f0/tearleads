@@ -1,12 +1,11 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import DocPageLayout from '../../../layouts/DocPageLayout.astro';
-import { supportedLanguages, isSupportedLanguage, defaultLanguage } from '../../../i18n/config';
+import { isSupportedLanguage, defaultLanguage } from '../../../i18n/config';
 import type { SupportedLanguage } from '../../../i18n/config';
+import { getStaticPathsForLocales } from '../../../i18n/utils';
 
-export function getStaticPaths() {
-  return supportedLanguages.map((lang) => ({ params: { lang } }));
-}
+export const getStaticPaths = getStaticPathsForLocales;
 
 const { lang } = Astro.params;
 const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaultLanguage;
