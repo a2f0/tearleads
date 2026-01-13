@@ -6,6 +6,7 @@ import {
   Database,
   FileIcon,
   FileText,
+  Film,
   HardDrive,
   Home,
   ImageIcon,
@@ -72,6 +73,13 @@ export const navItems: NavItem[] = [
     labelKey: 'audio',
     inMobileMenu: true,
     testId: 'audio-link'
+  },
+  {
+    path: '/videos',
+    icon: Film,
+    labelKey: 'videos',
+    inMobileMenu: true,
+    testId: 'videos-link'
   },
   {
     path: '/tables',
