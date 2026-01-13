@@ -179,9 +179,7 @@ export function DatabaseTest() {
       setIsPersistingSession(true);
       setTestResult({
         status: 'running',
-        message: shouldPersist
-          ? 'Persisting session...'
-          : 'Clearing session...'
+        message: shouldPersist ? 'Persisting session...' : 'Clearing session...'
       });
 
       try {

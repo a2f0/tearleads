@@ -88,9 +88,9 @@ vi.mock('./crypto', () => ({
 // Import after mocks are set up
 import {
   changePassword,
+  clearPersistedSession,
   closeDatabase,
   exportDatabase,
-  clearPersistedSession,
   getCurrentPlatform,
   getDatabase,
   getDatabaseAdapter,

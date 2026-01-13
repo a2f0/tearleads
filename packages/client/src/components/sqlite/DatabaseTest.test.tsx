@@ -809,9 +809,7 @@ describe('DatabaseTest', () => {
 
       render(<DatabaseTest />);
 
-      const persistCheckbox = screen.getByTestId(
-        'db-persist-session-checkbox'
-      );
+      const persistCheckbox = screen.getByTestId('db-persist-session-checkbox');
       await user.click(persistCheckbox);
 
       await waitFor(() => {
@@ -833,9 +831,7 @@ describe('DatabaseTest', () => {
 
       render(<DatabaseTest />);
 
-      const persistCheckbox = screen.getByTestId(
-        'db-persist-session-checkbox'
-      );
+      const persistCheckbox = screen.getByTestId('db-persist-session-checkbox');
       await user.click(persistCheckbox);
 
       await waitFor(() => {
