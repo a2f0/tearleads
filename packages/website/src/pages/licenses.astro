@@ -1,22 +1,17 @@
 ---
 import type { LicenseInfo } from '@rapid/shared';
-import Layout from '../../layouts/Layout.astro';
+import Layout from '../layouts/Layout.astro';
 import licensesData from '@rapid/shared/licenses.json';
-import { isSupportedLanguage, defaultLanguage } from '../../i18n/config';
-import type { SupportedLanguage } from '../../i18n/config';
-import { getStaticPathsForLocales, getHref } from '../../i18n/utils';
+import { defaultLanguage } from '../i18n/config';
 
-export const getStaticPaths = getStaticPathsForLocales;
-
-const { lang } = Astro.params;
-const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaultLanguage;
+const currentLang = defaultLanguage;
 const licenses = licensesData as LicenseInfo[];
 ---
 
 <Layout title="Open Source Licenses - Rapid" lang={currentLang}>
   <section class="container mx-auto px-4 py-8">
     <nav class="mb-8">
-      <a href={getHref('/', currentLang)} class="text-muted-foreground hover:text-foreground">&larr; Back to Home</a>
+      <a href="/" class="text-muted-foreground hover:text-foreground">&larr; Back to Home</a>
     </nav>
 
     <div class="mb-6">
