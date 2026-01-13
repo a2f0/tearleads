@@ -210,8 +210,10 @@ describe('BottomSheet', () => {
         </BottomSheet>
       );
       const handle = screen.getByTestId('bottom-sheet-resize-handle');
-      expect(handle.tagName).toBe('BUTTON');
+      expect(handle.tagName).toBe('DIV');
+      expect(handle).toHaveAttribute('role', 'slider');
       expect(handle).toHaveAttribute('aria-label', 'Resize handle');
+      expect(handle).toHaveAttribute('tabindex', '0');
     });
 
     it('changes height when dragged upward', async () => {
