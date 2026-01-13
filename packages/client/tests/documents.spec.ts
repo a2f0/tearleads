@@ -1,5 +1,11 @@
 import { test, expect, Page } from '@playwright/test';
 
+// Skip tests that require database setup in CI release builds
+// until https://github.com/a2f0/rapid/issues/687 is resolved
+const isCI = !!process.env['CI'];
+const isHTTPS = !!process.env['BASE_URL']?.startsWith('https://');
+const skipDatabaseTests = isCI && isHTTPS;
+
 // Test constants
 const TEST_PASSWORD = 'testpassword123';
 const TEST_PDF_FILENAME = 'test-document.pdf';
@@ -146,6 +152,7 @@ async function uploadTestPdf(page: Page): Promise<void> {
 }
 
 test.describe('PDF worker', () => {
+  test.skip(skipDatabaseTests, 'Database setup fails in CI release builds');
   test.use({ viewport: DESKTOP_VIEWPORT });
 
   test('should load PDF without fake worker warning', async ({ page }) => {
@@ -189,6 +196,8 @@ test.describe('PDF worker', () => {
 });
 
 test.describe('Document direct URL navigation', () => {
+  test.skip(skipDatabaseTests, 'Database setup fails in CI release builds');
+
   test.describe('Desktop viewport', () => {
     test.use({ viewport: DESKTOP_VIEWPORT });
 

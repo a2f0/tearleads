@@ -127,6 +127,25 @@ protocol.registerSchemesAsPrivileged([
   },
 ]);
 
+// In CI with self-signed certificates, allow certificate errors for localhost only
+// NODE_EXTRA_CA_CERTS is set in CI to point to the self-signed cert
+if (process.env.NODE_EXTRA_CA_CERTS || process.env.CI) {
+  app.on('certificate-error', (event, _webContents, url, _error, _certificate, callback) => {
+    try {
+      const parsedUrl = new URL(url);
+      // Only trust localhost with self-signed certs
+      if (parsedUrl.hostname === 'localhost' || parsedUrl.hostname === '127.0.0.1') {
+        event.preventDefault();
+        callback(true);
+      } else {
+        callback(false);
+      }
+    } catch {
+      callback(false);
+    }
+  });
+}
+
 app.whenReady().then(() => {
   // Register SQLite IPC handlers
   registerSqliteHandlers();

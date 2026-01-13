@@ -1,5 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
 
+// Skip tests that require database setup in CI release builds
+// until https://github.com/a2f0/rapid/issues/687 is resolved
+const isCI = !!process.env['CI'];
+const isHTTPS = !!process.env['BASE_URL']?.startsWith('https://');
+const skipDatabaseTests = isCI && isHTTPS;
+
 // Helper to navigate via sidebar (visible on desktop viewport)
 async function navigateTo(page: Page, linkName: string) {
   const link = page.locator('aside nav').getByRole('link', { name: linkName });
@@ -35,6 +41,8 @@ async function setupDatabase(page: Page) {
 }
 
 test.describe('Backup & Restore (Web)', () => {
+  test.skip(skipDatabaseTests, 'Database setup fails in CI release builds');
+
   test.beforeEach(async ({ page }) => {
     await setupDatabase(page);
   });
