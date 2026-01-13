@@ -1,19 +1,11 @@
+import { assertPlainArrayBuffer } from '@rapid/shared';
 import { and, eq, like } from 'drizzle-orm';
-import {
-  Calendar,
-  FileType,
-  Film,
-  HardDrive,
-  Loader2,
-  Pause,
-  Play
-} from 'lucide-react';
+import { Calendar, FileType, Film, HardDrive, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ActionToolbar, type ActionType } from '@/components/ui/action-toolbar';
 import { BackLink } from '@/components/ui/back-link';
-import { Button } from '@/components/ui/button';
 import { EditableTitle } from '@/components/ui/editable-title';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
@@ -28,7 +20,6 @@ import {
   isFileStorageInitialized,
   type RetrieveMetrics
 } from '@/storage/opfs';
-import { useVideo } from '@/video';
 
 interface VideoInfo {
   id: string;
@@ -44,16 +35,6 @@ export function VideoDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
-  const {
-    currentVideo,
-    isPlaying,
-    play,
-    pause,
-    resume,
-    error: videoError,
-    clearError
-  } = useVideo();
-  const currentVideoRef = useRef(currentVideo);
   const [video, setVideo] = useState<VideoInfo | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -63,23 +44,14 @@ export function VideoDetail() {
 
   // Track all created blob URLs to revoke on unmount.
   const urlsToRevoke = useRef<string[]>([]);
-  const objectUrlRef = useRef<string | null>(null);
 
-  const isCurrentVideo = currentVideo?.id === id;
-  const isVideoPlaying = isCurrentVideo && isPlaying;
+  // Cache raw video data to avoid re-fetching for download/share
+  const videoDataRef = useRef<Uint8Array | null>(null);
 
   // Check if Web Share API is available on mount
   useEffect(() => {
     setCanShare(canShareFiles());
   }, []);
-
-  // Handle video playback errors from context
-  useEffect(() => {
-    if (videoError && videoError.trackId === id) {
-      setError(videoError.message);
-      clearError();
-    }
-  }, [videoError, id, clearError]);
 
   // Helper to retrieve and decrypt file data from storage
   const retrieveFileData = useCallback(
@@ -102,35 +74,18 @@ export function VideoDetail() {
     [currentInstanceId]
   );
 
-  const handlePlayPause = useCallback(() => {
-    if (!video || !objectUrl) return;
-
-    if (isCurrentVideo) {
-      if (isPlaying) {
-        pause();
-      } else {
-        resume();
-      }
-    } else {
-      play({
-        id: video.id,
-        name: video.name,
-        objectUrl: objectUrl,
-        mimeType: video.mimeType
-      });
-    }
-  }, [video, objectUrl, isCurrentVideo, isPlaying, play, pause, resume]);
-
   const handleDownload = useCallback(async () => {
     if (!video) return;
 
     setActionLoading('download');
     try {
-      const db = getDatabase();
-      const data = await retrieveFileData(
-        video.storagePath,
-        createRetrieveLogger(db)
-      );
+      // Use cached data if available, otherwise re-fetch
+      const data =
+        videoDataRef.current ??
+        (await retrieveFileData(
+          video.storagePath,
+          createRetrieveLogger(getDatabase())
+        ));
       downloadFile(data, video.name);
     } catch (err) {
       console.error('Failed to download video:', err);
@@ -145,11 +100,13 @@ export function VideoDetail() {
 
     setActionLoading('share');
     try {
-      const db = getDatabase();
-      const data = await retrieveFileData(
-        video.storagePath,
-        createRetrieveLogger(db)
-      );
+      // Use cached data if available, otherwise re-fetch
+      const data =
+        videoDataRef.current ??
+        (await retrieveFileData(
+          video.storagePath,
+          createRetrieveLogger(getDatabase())
+        ));
       const shared = await shareFile(data, video.name, video.mimeType);
       if (!shared) {
         setError('Sharing is not supported on this device');
@@ -246,14 +203,14 @@ export function VideoDetail() {
       // Load video data and create object URL
       const logger = createRetrieveLogger(db);
       const data = await retrieveFileData(videoInfo.storagePath, logger);
-      // Copy to ArrayBuffer - required because Uint8Array<ArrayBufferLike> is not
-      // assignable to BlobPart in strict TypeScript (SharedArrayBuffer incompatibility)
-      const buffer = new ArrayBuffer(data.byteLength);
-      new Uint8Array(buffer).set(data);
-      const blob = new Blob([buffer], { type: videoInfo.mimeType });
+      assertPlainArrayBuffer(data);
+
+      // Cache raw data for download/share operations
+      videoDataRef.current = data;
+
+      const blob = new Blob([data], { type: videoInfo.mimeType });
       const url = URL.createObjectURL(blob);
       urlsToRevoke.current.push(url);
-      objectUrlRef.current = url;
       setObjectUrl(url);
     } catch (err) {
       console.error('Failed to fetch video:', err);
@@ -269,24 +226,14 @@ export function VideoDetail() {
     }
   }, [isUnlocked, id, fetchVideo]);
 
-  // Keep currentVideoRef in sync with currentVideo
-  useEffect(() => {
-    currentVideoRef.current = currentVideo;
-  }, [currentVideo]);
-
-  // Only revoke URLs on unmount, not on URL changes.
-  // Skip revoking the current objectUrl if this video is still playing
+  // Revoke blob URLs on unmount
   useEffect(() => {
     return () => {
-      const currentlyPlayingUrl =
-        currentVideoRef.current?.id === id ? objectUrlRef.current : null;
       for (const url of urlsToRevoke.current) {
-        if (url !== currentlyPlayingUrl) {
-          URL.revokeObjectURL(url);
-        }
+        URL.revokeObjectURL(url);
       }
     };
-  }, [id]);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -326,7 +273,7 @@ export function VideoDetail() {
           />
 
           {objectUrl && (
-            <div className="flex flex-col items-center gap-4 overflow-hidden rounded-lg border bg-muted p-4">
+            <div className="overflow-hidden rounded-lg border bg-muted p-4">
               <video
                 src={objectUrl}
                 controls
@@ -336,26 +283,6 @@ export function VideoDetail() {
               >
                 <track kind="captions" />
               </video>
-              <Button
-                variant={isVideoPlaying ? 'default' : 'outline'}
-                size="lg"
-                onClick={handlePlayPause}
-                aria-label={isVideoPlaying ? 'Pause' : 'Play'}
-                data-testid="play-pause-button"
-                className="gap-2"
-              >
-                {isVideoPlaying ? (
-                  <>
-                    <Pause className="h-5 w-5" />
-                    Pause
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-5 w-5" />
-                    Play
-                  </>
-                )}
-              </Button>
             </div>
           )}
 
