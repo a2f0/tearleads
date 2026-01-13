@@ -56,6 +56,15 @@ done
 cp "${EXTRACTED_DIR}/jswasm/sqlite3.mjs" "${WASM_DIR}/sqlite3.js"
 cp "${EXTRACTED_DIR}/jswasm/sqlite3.mjs" "${PUBLIC_DIR}/sqlite3.js"
 
+# Patch sqlite3.js to respect locateFile override
+# The original pre-js code unconditionally overwrites Module.locateFile, ignoring any
+# locateFile passed in options. This patch makes it check for an existing locateFile first.
+# Original: Module['locateFile'] = function(path, prefix) {
+# Patched:  Module['locateFile'] = Module['locateFile'] || function(path, prefix) {
+sed -i.bak "s/Module\['locateFile'\] = function(path, prefix)/Module['locateFile'] = Module['locateFile'] || function(path, prefix)/g" "${WASM_DIR}/sqlite3.js"
+sed -i.bak "s/Module\['locateFile'\] = function(path, prefix)/Module['locateFile'] = Module['locateFile'] || function(path, prefix)/g" "${PUBLIC_DIR}/sqlite3.js"
+rm -f "${WASM_DIR}/sqlite3.js.bak" "${PUBLIC_DIR}/sqlite3.js.bak"
+
 # Copy optional worker files
 cp "${EXTRACTED_DIR}/jswasm/sqlite3-worker1-bundler-friendly.mjs" "${WASM_DIR}/" 2>/dev/null || true
 cp "${EXTRACTED_DIR}/jswasm/sqlite3-worker1-promiser-bundler-friendly.mjs" "${WASM_DIR}/" 2>/dev/null || true
