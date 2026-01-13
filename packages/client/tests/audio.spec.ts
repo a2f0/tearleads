@@ -70,21 +70,10 @@ async function uploadTestAudio(page: Page) {
   });
 }
 
-// Helper to play a track and wait for the audio player to appear (desktop)
-async function playFirstTrack(page: Page) {
-  // Double-click the first track to start playing (desktop behavior)
-  const firstTrack = page.locator('[data-testid^="audio-play-"]').first();
-  await expect(firstTrack).toBeVisible();
-  await firstTrack.dblclick();
-
-  // Wait for the audio player to appear (only shows when currentTrack is set)
-  await expect(page.getByTestId('audio-player')).toBeVisible({ timeout: 10000 });
-}
-
-// Helper to play a track on mobile
+// Helper to play a track and wait for the audio player to appear
 // Note: detectPlatform() returns 'web' for Playwright tests regardless of viewport,
 // so double-click is required even on mobile viewport sizes
-async function playFirstTrackMobile(page: Page) {
+async function playFirstTrack(page: Page) {
   const firstTrack = page.locator('[data-testid^="audio-play-"]').first();
   await expect(firstTrack).toBeVisible();
   await firstTrack.dblclick();
@@ -307,14 +296,8 @@ test.describe('Audio player slider visibility', () => {
         // Click restart button
         await restartButton.click();
 
-        // Wait a bit for the state to update
-        await page.waitForTimeout(100);
-
         // Verify time is back to 0:00
-        const timeAfterRestart = await page
-          .getByTestId('audio-current-time')
-          .textContent();
-        expect(timeAfterRestart).toBe('0:00');
+        await expect(page.getByTestId('audio-current-time')).toHaveText('0:00');
       }
     });
   });
@@ -329,7 +312,7 @@ test.describe('Audio player slider visibility', () => {
       await navigateToAudio(page);
 
       await uploadTestAudio(page);
-      await playFirstTrackMobile(page);
+      await playFirstTrack(page);
 
       // Verify the audio player is visible
       const audioPlayer = page.getByTestId('audio-player');
