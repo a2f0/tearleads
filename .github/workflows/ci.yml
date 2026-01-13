@@ -376,6 +376,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Download SQLite WASM
+        run: ./scripts/downloadSqliteWasm.sh
+
       - name: Install ImageMagick
         run: |
           sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
