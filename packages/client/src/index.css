@@ -133,16 +133,18 @@
   height: 12px;
 }
 
-/* Firefox seek slider track */
-.audio-slider-seek::-moz-range-track {
+/* Firefox seek slider track and progress - shared properties */
+.audio-slider-seek::-moz-range-track,
+.audio-slider-seek::-moz-range-progress {
   height: 8px;
-  background: hsl(var(--muted));
   border-radius: 9999px;
+}
+
+.audio-slider-seek::-moz-range-track {
+  background: hsl(var(--muted));
 }
 
 /* Firefox seek slider progress (filled portion) */
 .audio-slider-seek::-moz-range-progress {
-  height: 8px;
   background: hsl(var(--primary));
-  border-radius: 9999px;
 }
