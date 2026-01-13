@@ -45,6 +45,8 @@ export function DatabaseTest() {
     setup,
     unlock,
     restoreSession,
+    persistSession,
+    clearPersistedSession,
     lock,
     reset,
     changePassword
@@ -61,6 +63,7 @@ export function DatabaseTest() {
   });
   const [testData, setTestData] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isPersistingSession, setIsPersistingSession] = useState(false);
   const [biometryType, setBiometryType] = useState<string | null>(null);
 
   const platform = detectPlatform();
@@ -167,6 +170,46 @@ export function DatabaseTest() {
       });
     }
   }, [password, persistUnlock, unlock]);
+
+  const handlePersistSessionChange = useCallback(
+    async (e: ChangeEvent<HTMLInputElement>) => {
+      if (!isUnlocked) return;
+      const shouldPersist = e.target.checked;
+
+      setIsPersistingSession(true);
+      setTestResult({
+        status: 'running',
+        message: shouldPersist
+          ? 'Persisting session...'
+          : 'Clearing session...'
+      });
+
+      try {
+        if (shouldPersist) {
+          const persisted = await persistSession();
+          if (!persisted) {
+            setTestResult({
+              status: 'error',
+              message: 'Failed to persist session'
+            });
+            return;
+          }
+          setTestResult({ status: 'success', message: 'Session persisted' });
+        } else {
+          await clearPersistedSession();
+          setTestResult({ status: 'success', message: 'Session cleared' });
+        }
+      } catch (err) {
+        setTestResult({
+          status: 'error',
+          message: `${shouldPersist ? 'Persist' : 'Clear'} session error: ${getErrorMessage(err)}`
+        });
+      } finally {
+        setIsPersistingSession(false);
+      }
+    },
+    [isUnlocked, persistSession, clearPersistedSession]
+  );
 
   const handleRestoreSession = useCallback(async () => {
     setTestResult({ status: 'running', message: 'Restoring session...' });
@@ -443,6 +486,24 @@ export function DatabaseTest() {
               checked={persistUnlock}
               onChange={(e) => setPersistUnlock(e.target.checked)}
               data-testid="db-persist-checkbox"
+              className="h-5 w-5 rounded border-gray-300"
+            />
+            <span>
+              {isMobile && biometryType
+                ? `Remember with ${getBiometricLabel()}`
+                : 'Keep unlocked'}
+            </span>
+          </label>
+        )}
+
+        {isUnlocked && (
+          <label className="flex cursor-pointer items-center gap-2 text-base">
+            <input
+              type="checkbox"
+              checked={hasPersistedSession}
+              onChange={handlePersistSessionChange}
+              disabled={isPersistingSession}
+              data-testid="db-persist-session-checkbox"
               className="h-5 w-5 rounded border-gray-300"
             />
             <span>
