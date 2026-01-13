@@ -99,7 +99,7 @@ const TEST_VIDEO = {
   mimeType: 'video/mp4',
   uploadDate: new Date('2024-01-15'),
   storagePath: '/videos/test-video.mp4',
-  thumbnailPath: null
+  thumbnailPath: '/thumbnails/test-video.jpg'
 };
 
 const TEST_VIDEO_2 = {
@@ -109,7 +109,7 @@ const TEST_VIDEO_2 = {
   mimeType: 'video/webm',
   uploadDate: new Date('2024-01-14'),
   storagePath: '/videos/another-video.webm',
-  thumbnailPath: '/videos/another-video-thumb.jpg'
+  thumbnailPath: '/thumbnails/another-video.jpg'
 };
 
 const TEST_VIDEO_DATA = new Uint8Array([
@@ -295,26 +295,32 @@ describe('VideoPage', () => {
       expect(detailButtons).toHaveLength(2);
     });
 
-    it('fetches video data from storage', async () => {
+    it('fetches thumbnail data from storage', async () => {
       await renderVideo();
 
+      // Only thumbnails should be fetched, not full video data
       expect(mockRetrieve).toHaveBeenCalledWith(
-        '/videos/test-video.mp4',
+        '/thumbnails/test-video.jpg',
         expect.any(Function)
       );
       expect(mockRetrieve).toHaveBeenCalledWith(
-        '/videos/another-video.webm',
+        '/thumbnails/another-video.jpg',
+        expect.any(Function)
+      );
+      // Full video data should NOT be fetched on the list page
+      expect(mockRetrieve).not.toHaveBeenCalledWith(
+        '/videos/test-video.mp4',
         expect.any(Function)
       );
     });
 
-    it('creates object URLs for video playback', async () => {
+    it('creates object URLs for thumbnails', async () => {
       await renderVideo();
 
       expect(URL.createObjectURL).toHaveBeenCalled();
     });
 
-    it('revokes object URLs on unmount', async () => {
+    it('revokes thumbnail URLs on unmount', async () => {
       const { unmount } = await renderVideo();
 
       expect(screen.getByText('test-video.mp4')).toBeInTheDocument();
@@ -397,15 +403,15 @@ describe('VideoPage', () => {
       });
     });
 
-    it('handles video load failure gracefully', async () => {
+    it('handles thumbnail load failure gracefully', async () => {
       mockRetrieve.mockRejectedValue(new Error('Storage error'));
 
-      renderVideoRaw();
+      await renderVideo();
 
-      // Should not crash, but video won't be displayed
-      await waitFor(() => {
-        expect(screen.queryByText('test-video.mp4')).not.toBeInTheDocument();
-      });
+      // Video should still be displayed even if thumbnail failed to load
+      expect(screen.getByText('test-video.mp4')).toBeInTheDocument();
+      // But no object URL should be created for the thumbnail
+      expect(URL.createObjectURL).not.toHaveBeenCalled();
     });
   });
 
@@ -665,7 +671,7 @@ describe('VideoPage', () => {
       });
     });
 
-    it('revokes object URLs when deleting a video', async () => {
+    it('revokes thumbnail URL when deleting a video', async () => {
       const user = userEvent.setup();
       await renderVideo();
 

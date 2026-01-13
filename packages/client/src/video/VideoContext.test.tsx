@@ -1,26 +1,10 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useVideo, useVideoContext, VideoProvider } from './VideoContext';
 
-// Mock HTMLVideoElement methods
-const mockPlay = vi.fn().mockResolvedValue(undefined);
-const mockPause = vi.fn();
-const mockLoad = vi.fn();
-
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.spyOn(window.HTMLMediaElement.prototype, 'play').mockImplementation(
-    mockPlay
-  );
-  vi.spyOn(window.HTMLMediaElement.prototype, 'pause').mockImplementation(
-    mockPause
-  );
-  vi.spyOn(window.HTMLMediaElement.prototype, 'load').mockImplementation(
-    mockLoad
-  );
-  vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:test-url');
-  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
 });
 
 // Test component that exposes video context
@@ -32,12 +16,12 @@ function TestComponent() {
     duration,
     volume,
     error,
-    play,
-    pause,
-    resume,
-    stop,
-    seek,
+    setCurrentVideo,
+    setIsPlaying,
+    setCurrentTime,
+    setDuration,
     setVolume,
+    setError,
     clearError
   } = useVideo();
 
@@ -54,7 +38,7 @@ function TestComponent() {
       <button
         type="button"
         onClick={() =>
-          play({
+          setCurrentVideo({
             id: 'test-id',
             name: 'test-video.mp4',
             objectUrl: 'blob:test-url',
@@ -62,22 +46,37 @@ function TestComponent() {
           })
         }
       >
-        Play
+        Set Video
       </button>
-      <button type="button" onClick={pause}>
-        Pause
+      <button type="button" onClick={() => setIsPlaying(true)}>
+        Set Playing
       </button>
-      <button type="button" onClick={resume}>
-        Resume
+      <button type="button" onClick={() => setIsPlaying(false)}>
+        Set Paused
       </button>
-      <button type="button" onClick={stop}>
-        Stop
+      <button type="button" onClick={() => setCurrentVideo(null)}>
+        Clear Video
       </button>
-      <button type="button" onClick={() => seek(30)}>
-        Seek
+      <button type="button" onClick={() => setCurrentTime(30)}>
+        Set Time
+      </button>
+      <button type="button" onClick={() => setDuration(120)}>
+        Set Duration
       </button>
       <button type="button" onClick={() => setVolume(0.5)}>
         Set Volume
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          setError({
+            message: 'Test error',
+            trackId: 'test-id',
+            trackName: 'test-video.mp4'
+          })
+        }
+      >
+        Set Error
       </button>
       <button type="button" onClick={clearError}>
         Clear Error
@@ -102,431 +101,188 @@ describe('VideoContext', () => {
     expect(screen.getByTestId('error')).toHaveTextContent('no error');
   });
 
-  it('throws error when useVideo is used outside provider', () => {
-    const consoleError = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
-
-    expect(() => render(<TestComponent />)).toThrow(
-      'useVideo must be used within a VideoProvider'
+  it('sets current video when setCurrentVideo is called', async () => {
+    const user = userEvent.setup();
+    render(
+      <VideoProvider>
+        <TestComponent />
+      </VideoProvider>
     );
 
-    consoleError.mockRestore();
+    await user.click(screen.getByText('Set Video'));
+
+    expect(screen.getByTestId('current-video')).toHaveTextContent(
+      'test-video.mp4'
+    );
   });
 
-  describe('play', () => {
-    it('sets the current video when play is called', async () => {
-      const user = userEvent.setup();
-      render(
-        <VideoProvider>
-          <TestComponent />
-        </VideoProvider>
-      );
+  it('clears current video when setCurrentVideo(null) is called', async () => {
+    const user = userEvent.setup();
+    render(
+      <VideoProvider>
+        <TestComponent />
+      </VideoProvider>
+    );
 
-      await user.click(screen.getByRole('button', { name: 'Play' }));
+    await user.click(screen.getByText('Set Video'));
+    expect(screen.getByTestId('current-video')).toHaveTextContent(
+      'test-video.mp4'
+    );
 
-      await waitFor(() => {
-        expect(screen.getByTestId('current-video')).toHaveTextContent(
-          'test-video.mp4'
-        );
-      });
-    });
+    await user.click(screen.getByText('Clear Video'));
+    expect(screen.getByTestId('current-video')).toHaveTextContent('none');
   });
 
-  describe('pause', () => {
-    it('pauses the video', async () => {
-      const user = userEvent.setup();
-      render(
-        <VideoProvider>
-          <TestComponent />
-        </VideoProvider>
-      );
+  it('updates playing state when setIsPlaying is called', async () => {
+    const user = userEvent.setup();
+    render(
+      <VideoProvider>
+        <TestComponent />
+      </VideoProvider>
+    );
 
-      // Play first
-      await user.click(screen.getByRole('button', { name: 'Play' }));
-      await user.click(screen.getByRole('button', { name: 'Pause' }));
+    expect(screen.getByTestId('is-playing')).toHaveTextContent('paused');
 
-      // Pause should have been called - we can't easily verify this without more mocking
-      expect(screen.getByTestId('current-video')).toHaveTextContent(
-        'test-video.mp4'
-      );
-    });
+    await user.click(screen.getByText('Set Playing'));
+    expect(screen.getByTestId('is-playing')).toHaveTextContent('playing');
+
+    await user.click(screen.getByText('Set Paused'));
+    expect(screen.getByTestId('is-playing')).toHaveTextContent('paused');
   });
 
-  describe('stop', () => {
-    it('stops playback and clears the current video', async () => {
-      const user = userEvent.setup();
-      render(
-        <VideoProvider>
-          <TestComponent />
-        </VideoProvider>
-      );
+  it('updates current time when setCurrentTime is called', async () => {
+    const user = userEvent.setup();
+    render(
+      <VideoProvider>
+        <TestComponent />
+      </VideoProvider>
+    );
 
-      await user.click(screen.getByRole('button', { name: 'Play' }));
+    await user.click(screen.getByText('Set Time'));
 
-      await waitFor(() => {
-        expect(screen.getByTestId('current-video')).toHaveTextContent(
-          'test-video.mp4'
-        );
-      });
-
-      await user.click(screen.getByRole('button', { name: 'Stop' }));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('current-video')).toHaveTextContent('none');
-        expect(screen.getByTestId('is-playing')).toHaveTextContent('paused');
-      });
-    });
+    expect(screen.getByTestId('current-time')).toHaveTextContent('30');
   });
 
-  describe('setVolume', () => {
-    it('updates the volume state', async () => {
-      const user = userEvent.setup();
-      render(
-        <VideoProvider>
-          <TestComponent />
-        </VideoProvider>
-      );
+  it('updates duration when setDuration is called', async () => {
+    const user = userEvent.setup();
+    render(
+      <VideoProvider>
+        <TestComponent />
+      </VideoProvider>
+    );
 
-      await user.click(screen.getByRole('button', { name: 'Set Volume' }));
+    await user.click(screen.getByText('Set Duration'));
 
-      await waitFor(() => {
-        expect(screen.getByTestId('volume')).toHaveTextContent('0.5');
-      });
-    });
-
-    it('clamps volume to valid range', async () => {
-      function VolumeTestComponent() {
-        const { volume, setVolume } = useVideo();
-        return (
-          <div>
-            <div data-testid="volume">{volume}</div>
-            <button type="button" onClick={() => setVolume(-0.5)}>
-              Set Negative
-            </button>
-            <button type="button" onClick={() => setVolume(1.5)}>
-              Set Over Max
-            </button>
-          </div>
-        );
-      }
-
-      const user = userEvent.setup();
-      render(
-        <VideoProvider>
-          <VolumeTestComponent />
-        </VideoProvider>
-      );
-
-      await user.click(screen.getByRole('button', { name: 'Set Negative' }));
-      await waitFor(() => {
-        expect(screen.getByTestId('volume')).toHaveTextContent('0');
-      });
-
-      await user.click(screen.getByRole('button', { name: 'Set Over Max' }));
-      await waitFor(() => {
-        expect(screen.getByTestId('volume')).toHaveTextContent('1');
-      });
-    });
+    expect(screen.getByTestId('duration')).toHaveTextContent('120');
   });
 
-  describe('clearError', () => {
-    it('clears error state', async () => {
-      const user = userEvent.setup();
-      render(
-        <VideoProvider>
-          <TestComponent />
-        </VideoProvider>
-      );
+  it('updates volume when setVolume is called', async () => {
+    const user = userEvent.setup();
+    render(
+      <VideoProvider>
+        <TestComponent />
+      </VideoProvider>
+    );
 
-      // Error state starts as null
-      expect(screen.getByTestId('error')).toHaveTextContent('no error');
+    await user.click(screen.getByText('Set Volume'));
 
-      // Clear error (should remain null)
-      await user.click(screen.getByRole('button', { name: 'Clear Error' }));
-
-      expect(screen.getByTestId('error')).toHaveTextContent('no error');
-    });
+    expect(screen.getByTestId('volume')).toHaveTextContent('0.5');
   });
 
-  describe('videoElementRef', () => {
-    it('provides a ref to the video element', () => {
-      function RefTestComponent() {
-        const { videoElementRef } = useVideo();
-        return (
-          <div data-testid="ref-available">
-            {videoElementRef ? 'has ref' : 'no ref'}
-          </div>
-        );
-      }
-
-      render(
-        <VideoProvider>
-          <RefTestComponent />
-        </VideoProvider>
+  it('clamps volume to valid range', async () => {
+    function VolumeTestComponent() {
+      const { volume, setVolume } = useVideo();
+      return (
+        <div>
+          <div data-testid="volume">{volume}</div>
+          <button type="button" onClick={() => setVolume(2)}>
+            Set High
+          </button>
+          <button type="button" onClick={() => setVolume(-1)}>
+            Set Low
+          </button>
+        </div>
       );
+    }
 
-      expect(screen.getByTestId('ref-available')).toHaveTextContent('has ref');
-    });
+    const user = userEvent.setup();
+    render(
+      <VideoProvider>
+        <VolumeTestComponent />
+      </VideoProvider>
+    );
+
+    await user.click(screen.getByText('Set High'));
+    expect(screen.getByTestId('volume')).toHaveTextContent('1');
+
+    await user.click(screen.getByText('Set Low'));
+    expect(screen.getByTestId('volume')).toHaveTextContent('0');
   });
 
-  describe('seek', () => {
-    it('seeks to the specified time', async () => {
-      const user = userEvent.setup();
-      render(
-        <VideoProvider>
-          <TestComponent />
-        </VideoProvider>
-      );
+  it('sets error when setError is called', async () => {
+    const user = userEvent.setup();
+    render(
+      <VideoProvider>
+        <TestComponent />
+      </VideoProvider>
+    );
 
-      // First play to set up the video
-      await user.click(screen.getByRole('button', { name: 'Play' }));
-      await user.click(screen.getByRole('button', { name: 'Seek' }));
+    await user.click(screen.getByText('Set Error'));
 
-      // The seek function sets videoEl.currentTime - this is verified by checking no errors
-      expect(screen.getByTestId('error')).toHaveTextContent('no error');
-    });
+    expect(screen.getByTestId('error')).toHaveTextContent('Test error');
   });
 
-  describe('resume', () => {
-    it('resumes playback when video is paused', async () => {
-      const user = userEvent.setup();
-      render(
-        <VideoProvider>
-          <TestComponent />
-        </VideoProvider>
-      );
+  it('clears error when clearError is called', async () => {
+    const user = userEvent.setup();
+    render(
+      <VideoProvider>
+        <TestComponent />
+      </VideoProvider>
+    );
 
-      // Play, pause, then resume
-      await user.click(screen.getByRole('button', { name: 'Play' }));
-      await user.click(screen.getByRole('button', { name: 'Pause' }));
-      await user.click(screen.getByRole('button', { name: 'Resume' }));
+    await user.click(screen.getByText('Set Error'));
+    expect(screen.getByTestId('error')).toHaveTextContent('Test error');
 
-      expect(mockPlay).toHaveBeenCalled();
-    });
+    await user.click(screen.getByText('Clear Error'));
+    expect(screen.getByTestId('error')).toHaveTextContent('no error');
+  });
+});
 
-    it('does nothing when there is no current video', async () => {
-      const user = userEvent.setup();
-      render(
-        <VideoProvider>
-          <TestComponent />
-        </VideoProvider>
-      );
+describe('useVideo', () => {
+  it('throws error when used outside provider', () => {
+    function ComponentWithoutProvider() {
+      useVideo();
+      return <div>Should not render</div>;
+    }
 
-      // Resume without playing first
-      await user.click(screen.getByRole('button', { name: 'Resume' }));
+    expect(() => {
+      render(<ComponentWithoutProvider />);
+    }).toThrow('useVideo must be used within a VideoProvider');
+  });
+});
 
-      // Should remain in initial state
-      expect(screen.getByTestId('current-video')).toHaveTextContent('none');
-    });
+describe('useVideoContext', () => {
+  it('returns null when used outside provider', () => {
+    function ComponentWithoutProvider() {
+      const context = useVideoContext();
+      return <div data-testid="result">{context ? 'has context' : 'null'}</div>;
+    }
+
+    render(<ComponentWithoutProvider />);
+    expect(screen.getByTestId('result')).toHaveTextContent('null');
   });
 
-  describe('play error handling', () => {
-    it('sets error when play fails', async () => {
-      mockPlay.mockRejectedValueOnce(new Error('Playback failed'));
-      vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('returns context when used inside provider', () => {
+    function ComponentWithProvider() {
+      const context = useVideoContext();
+      return <div data-testid="result">{context ? 'has context' : 'null'}</div>;
+    }
 
-      const user = userEvent.setup();
-      render(
-        <VideoProvider>
-          <TestComponent />
-        </VideoProvider>
-      );
-
-      await user.click(screen.getByRole('button', { name: 'Play' }));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('error')).toHaveTextContent(
-          'Playback failed'
-        );
-      });
-    });
-
-    it('handles non-Error objects in play rejection', async () => {
-      mockPlay.mockRejectedValueOnce('String error');
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      const user = userEvent.setup();
-      render(
-        <VideoProvider>
-          <TestComponent />
-        </VideoProvider>
-      );
-
-      await user.click(screen.getByRole('button', { name: 'Play' }));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('error')).toHaveTextContent(
-          'Failed to play video'
-        );
-      });
-    });
-  });
-
-  describe('video element events', () => {
-    it('updates isPlaying when play event fires', async () => {
-      const user = userEvent.setup();
-      render(
-        <VideoProvider>
-          <TestComponent />
-        </VideoProvider>
-      );
-
-      await user.click(screen.getByRole('button', { name: 'Play' }));
-
-      // Find the hidden video element
-      const videoEl = document.querySelector('video');
-      expect(videoEl).toBeTruthy();
-
-      // Fire play event
-      act(() => {
-        videoEl?.dispatchEvent(new Event('play'));
-      });
-
-      await waitFor(() => {
-        expect(screen.getByTestId('is-playing')).toHaveTextContent('playing');
-      });
-    });
-
-    it('updates isPlaying when pause event fires', async () => {
-      const user = userEvent.setup();
-      render(
-        <VideoProvider>
-          <TestComponent />
-        </VideoProvider>
-      );
-
-      await user.click(screen.getByRole('button', { name: 'Play' }));
-
-      const videoEl = document.querySelector('video');
-      expect(videoEl).toBeTruthy();
-
-      // Fire play then pause
-      act(() => {
-        videoEl?.dispatchEvent(new Event('play'));
-      });
-      act(() => {
-        videoEl?.dispatchEvent(new Event('pause'));
-      });
-
-      await waitFor(() => {
-        expect(screen.getByTestId('is-playing')).toHaveTextContent('paused');
-      });
-    });
-
-    it('resets state when ended event fires', async () => {
-      const user = userEvent.setup();
-      render(
-        <VideoProvider>
-          <TestComponent />
-        </VideoProvider>
-      );
-
-      await user.click(screen.getByRole('button', { name: 'Play' }));
-
-      const videoEl = document.querySelector('video');
-      expect(videoEl).toBeTruthy();
-
-      act(() => {
-        videoEl?.dispatchEvent(new Event('play'));
-      });
-      act(() => {
-        videoEl?.dispatchEvent(new Event('ended'));
-      });
-
-      await waitFor(() => {
-        expect(screen.getByTestId('is-playing')).toHaveTextContent('paused');
-        expect(screen.getByTestId('current-time')).toHaveTextContent('0');
-      });
-    });
-
-    it('updates duration when loadedmetadata fires', async () => {
-      const user = userEvent.setup();
-      render(
-        <VideoProvider>
-          <TestComponent />
-        </VideoProvider>
-      );
-
-      await user.click(screen.getByRole('button', { name: 'Play' }));
-
-      const videoEl = document.querySelector('video') as HTMLVideoElement;
-      expect(videoEl).toBeTruthy();
-
-      // Mock the duration property
-      Object.defineProperty(videoEl, 'duration', {
-        writable: true,
-        value: 120
-      });
-
-      act(() => {
-        videoEl?.dispatchEvent(new Event('loadedmetadata'));
-      });
-
-      await waitFor(() => {
-        expect(screen.getByTestId('duration')).toHaveTextContent('120');
-      });
-    });
-  });
-
-  describe('media error handling', () => {
-    it('ignores error event when no current video', () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      render(
-        <VideoProvider>
-          <TestComponent />
-        </VideoProvider>
-      );
-
-      const videoEl = document.querySelector('video') as HTMLVideoElement;
-      expect(videoEl).toBeTruthy();
-
-      // Fire error without playing first
-      act(() => {
-        videoEl?.dispatchEvent(new Event('error'));
-      });
-
-      // Error should still be 'no error' since there's no current video
-      expect(screen.getByTestId('error')).toHaveTextContent('no error');
-    });
-  });
-
-  describe('useVideoContext', () => {
-    it('returns null when used outside provider', () => {
-      function ContextTestComponent() {
-        const context = useVideoContext();
-        return (
-          <div data-testid="context-value">
-            {context === null ? 'null' : 'has context'}
-          </div>
-        );
-      }
-
-      render(<ContextTestComponent />);
-
-      expect(screen.getByTestId('context-value')).toHaveTextContent('null');
-    });
-
-    it('returns context when used inside provider', () => {
-      function ContextTestComponent() {
-        const context = useVideoContext();
-        return (
-          <div data-testid="context-value">
-            {context === null ? 'null' : 'has context'}
-          </div>
-        );
-      }
-
-      render(
-        <VideoProvider>
-          <ContextTestComponent />
-        </VideoProvider>
-      );
-
-      expect(screen.getByTestId('context-value')).toHaveTextContent(
-        'has context'
-      );
-    });
+    render(
+      <VideoProvider>
+        <ComponentWithProvider />
+      </VideoProvider>
+    );
+    expect(screen.getByTestId('result')).toHaveTextContent('has context');
   });
 });

@@ -47,8 +47,7 @@ interface VideoInfo {
   thumbnailPath: string | null;
 }
 
-interface VideoWithUrl extends VideoInfo {
-  objectUrl: string;
+interface VideoWithThumbnail extends VideoInfo {
   thumbnailUrl: string | null;
 }
 
@@ -57,7 +56,7 @@ const ROW_HEIGHT_ESTIMATE = 56;
 export function VideoPage() {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
-  const [videos, setVideos] = useState<VideoWithUrl[]>([]);
+  const [videos, setVideos] = useState<VideoWithThumbnail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
@@ -66,7 +65,7 @@ export function VideoPage() {
   const { uploadFile } = useFileUpload();
   const parentRef = useRef<HTMLDivElement>(null);
   const [contextMenu, setContextMenu] = useState<{
-    video: VideoWithUrl;
+    video: VideoWithThumbnail;
     x: number;
     y: number;
   } | null>(null);
@@ -131,48 +130,30 @@ export function VideoPage() {
 
       const storage = getFileStorage();
       const logger = createRetrieveLogger(db);
-      const videosWithUrls = (
-        await Promise.all(
-          videoList.map(async (video) => {
+      // Only load thumbnails, not full video data - video content is loaded on demand in VideoDetail
+      const videosWithThumbnails = await Promise.all(
+        videoList.map(async (video) => {
+          let thumbnailUrl: string | null = null;
+          if (video.thumbnailPath) {
             try {
-              const data = await storage.measureRetrieve(
-                video.storagePath,
+              const thumbData = await storage.measureRetrieve(
+                video.thumbnailPath,
                 logger
               );
-              assertPlainArrayBuffer(data);
-              const blob = new Blob([data], { type: video.mimeType });
-              const objectUrl = URL.createObjectURL(blob);
-
-              let thumbnailUrl: string | null = null;
-              if (video.thumbnailPath) {
-                try {
-                  const thumbData = await storage.measureRetrieve(
-                    video.thumbnailPath,
-                    logger
-                  );
-                  assertPlainArrayBuffer(thumbData);
-                  const thumbBlob = new Blob([thumbData], {
-                    type: 'image/jpeg'
-                  });
-                  thumbnailUrl = URL.createObjectURL(thumbBlob);
-                } catch (err) {
-                  console.warn(
-                    `Failed to load thumbnail for ${video.name}:`,
-                    err
-                  );
-                }
-              }
-
-              return { ...video, objectUrl, thumbnailUrl };
+              assertPlainArrayBuffer(thumbData);
+              const thumbBlob = new Blob([thumbData], {
+                type: 'image/jpeg'
+              });
+              thumbnailUrl = URL.createObjectURL(thumbBlob);
             } catch (err) {
-              console.error(`Failed to load video ${video.name}:`, err);
-              return null;
+              console.warn(`Failed to load thumbnail for ${video.name}:`, err);
             }
-          })
-        )
-      ).filter((v): v is VideoWithUrl => v !== null);
+          }
+          return { ...video, thumbnailUrl };
+        })
+      );
 
-      setVideos(videosWithUrls);
+      setVideos(videosWithThumbnails);
       setHasFetched(true);
     } catch (err) {
       console.error('Failed to fetch videos:', err);
@@ -227,13 +208,12 @@ export function VideoPage() {
       (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
 
     if (needsFetch) {
-      // If instance changed, cleanup old object URLs first
+      // If instance changed, cleanup old thumbnail URLs first
       if (
         fetchedForInstanceRef.current !== currentInstanceId &&
         fetchedForInstanceRef.current !== null
       ) {
         for (const video of videos) {
-          URL.revokeObjectURL(video.objectUrl);
           if (video.thumbnailUrl) {
             URL.revokeObjectURL(video.thumbnailUrl);
           }
@@ -255,11 +235,10 @@ export function VideoPage() {
     return undefined;
   }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchVideos]);
 
-  // Cleanup object URLs on unmount
+  // Cleanup thumbnail URLs on unmount
   useEffect(() => {
     return () => {
       for (const v of videos) {
-        URL.revokeObjectURL(v.objectUrl);
         if (v.thumbnailUrl) {
           URL.revokeObjectURL(v.thumbnailUrl);
         }
@@ -277,7 +256,7 @@ export function VideoPage() {
   );
 
   const handleContextMenu = useCallback(
-    (e: React.MouseEvent, video: VideoWithUrl) => {
+    (e: React.MouseEvent, video: VideoWithThumbnail) => {
       e.preventDefault();
       setContextMenu({ video, x: e.clientX, y: e.clientY });
     },
@@ -289,7 +268,7 @@ export function VideoPage() {
   }, []);
 
   const handleGetInfo = useCallback(
-    (video: VideoWithUrl) => {
+    (video: VideoWithThumbnail) => {
       navigateWithFrom(`/videos/${video.id}`, {
         fromLabel: 'Back to Videos'
       });
@@ -298,33 +277,35 @@ export function VideoPage() {
     [navigateWithFrom]
   );
 
-  const handleDelete = useCallback(async (videoToDelete: VideoWithUrl) => {
-    setContextMenu(null);
+  const handleDelete = useCallback(
+    async (videoToDelete: VideoWithThumbnail) => {
+      setContextMenu(null);
 
-    try {
-      const db = getDatabase();
+      try {
+        const db = getDatabase();
 
-      // Soft delete
-      await db
-        .update(files)
-        .set({ deleted: true })
-        .where(eq(files.id, videoToDelete.id));
+        // Soft delete
+        await db
+          .update(files)
+          .set({ deleted: true })
+          .where(eq(files.id, videoToDelete.id));
 
-      // Remove from list and revoke URLs
-      setVideos((prev) => {
-        const remaining = prev.filter((v) => v.id !== videoToDelete.id);
-        // Revoke the deleted video's URLs
-        URL.revokeObjectURL(videoToDelete.objectUrl);
-        if (videoToDelete.thumbnailUrl) {
-          URL.revokeObjectURL(videoToDelete.thumbnailUrl);
-        }
-        return remaining;
-      });
-    } catch (err) {
-      console.error('Failed to delete video:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, []);
+        // Remove from list and revoke thumbnail URL
+        setVideos((prev) => {
+          const remaining = prev.filter((v) => v.id !== videoToDelete.id);
+          // Revoke the deleted video's thumbnail URL
+          if (videoToDelete.thumbnailUrl) {
+            URL.revokeObjectURL(videoToDelete.thumbnailUrl);
+          }
+          return remaining;
+        });
+      } catch (err) {
+        console.error('Failed to delete video:', err);
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    []
+  );
 
   return (
     <div className="flex h-full flex-col space-y-6">

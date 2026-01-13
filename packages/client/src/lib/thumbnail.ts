@@ -6,6 +6,7 @@
  * For PDFs, renders the first page to a canvas.
  */
 
+import { assertPlainArrayBuffer } from '@rapid/shared';
 import * as pdfjs from 'pdfjs-dist';
 import { extractAudioCoverArt, isAudioMimeType } from './audio-metadata';
 
@@ -147,10 +148,8 @@ async function extractVideoFrame(
     video.playsInline = true;
     video.preload = 'metadata';
 
-    // Create a copy of the data with a proper ArrayBuffer
-    const buffer = new ArrayBuffer(videoData.byteLength);
-    new Uint8Array(buffer).set(videoData);
-    const blob = new Blob([buffer], { type: mimeType });
+    assertPlainArrayBuffer(videoData);
+    const blob = new Blob([videoData], { type: mimeType });
     const objectUrl = URL.createObjectURL(blob);
 
     const cleanup = () => {
@@ -270,8 +269,8 @@ export async function generateThumbnail(
     imageMimeType = mimeType;
   }
 
-  // Create blob from image data (slice creates a copy with proper ArrayBuffer)
-  const blob = new Blob([imageData.slice()], { type: imageMimeType });
+  assertPlainArrayBuffer(imageData);
+  const blob = new Blob([imageData], { type: imageMimeType });
   const bitmap = await createImageBitmap(blob);
   const { width, height } = calculateScaledDimensions(
     bitmap.width,
