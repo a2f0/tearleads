@@ -1,0 +1,14 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import DocPageLayout from '../../layouts/DocPageLayout.astro';
+import { defaultLanguage } from '../../i18n/config';
+
+const currentLang = defaultLanguage;
+const { Content } = await import('../../../../../docs/en/encryption-architecture.md');
+---
+
+<Layout title="Architecture - Rapid" lang={currentLang}>
+  <DocPageLayout data-testid="architecture-content">
+    <Content />
+  </DocPageLayout>
+</Layout>
