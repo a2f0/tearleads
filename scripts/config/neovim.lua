@@ -116,6 +116,10 @@ require("lazy").setup({
     tag = "0.1.8",
     dependencies = { "nvim-lua/plenary.nvim" },
   },
+  {
+    "sindrets/diffview.nvim",
+    dependencies = { "nvim-lua/plenary.nvim" },
+  },
 })
 
 -- Set colorscheme after plugins load
@@ -131,4 +135,58 @@ require('telescope').setup{
   }
 }
 
-vim.cmd(':Neotree')
+local function toggle_diffview()
+  local ok, lib = pcall(require, "diffview.lib")
+  if not ok then
+    vim.cmd("DiffviewOpen")
+    return
+  end
+
+  if lib.get_current_view() then
+    vim.cmd("DiffviewClose")
+  else
+    vim.cmd("DiffviewOpen")
+  end
+end
+
+vim.keymap.set('n', '<leader>gd', toggle_diffview, { desc = 'Toggle Diffview' })
+vim.keymap.set('n', '<leader>gD', '<cmd>DiffviewClose<CR>', { desc = 'Close Diffview' })
+vim.keymap.set('n', '<leader>gh', '<cmd>DiffviewFileHistory %<CR>', { desc = 'File history (Diffview)' })
+vim.keymap.set('n', '<leader>gv', function()
+  local items = {
+    {
+      label = "Files (Neo-tree)",
+      action = function() vim.cmd("Neotree show filesystem") end,
+    },
+    {
+      label = "Git diff (Diffview)",
+      action = function() vim.cmd("DiffviewOpen") end,
+    },
+    {
+      label = "Git file history (Diffview)",
+      action = function() vim.cmd("DiffviewFileHistory") end,
+    },
+    {
+      label = "Close git view",
+      action = function() vim.cmd("DiffviewClose") end,
+    },
+  }
+  local labels = {}
+  for _, item in ipairs(items) do
+    table.insert(labels, item.label)
+  end
+
+  vim.ui.select(labels, { prompt = "Views" }, function(choice)
+    if not choice then
+      return
+    end
+    for _, item in ipairs(items) do
+      if item.label == choice then
+        item.action()
+        return
+      end
+    end
+  end)
+end, { desc = 'View picker' })
+
+vim.cmd('DiffviewOpen')
