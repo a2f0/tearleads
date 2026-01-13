@@ -1,13 +1,8 @@
 ---
-import Layout from '../../../layouts/Layout.astro';
-import { isSupportedLanguage, defaultLanguage } from '../../../i18n/config';
-import type { SupportedLanguage } from '../../../i18n/config';
-import { getStaticPathsForLocales } from '../../../i18n/utils';
+import Layout from '../../layouts/Layout.astro';
+import { defaultLanguage } from '../../i18n/config';
 
-export const getStaticPaths = getStaticPathsForLocales;
-
-const { lang } = Astro.params;
-const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaultLanguage;
+const currentLang = defaultLanguage;
 ---
 
 <Layout title="CLI - Rapid" lang={currentLang}>

@@ -6,7 +6,8 @@ import {
 } from './config';
 
 /**
- * Generate localized path from current path
+ * Generate localized path from current path.
+ * Default language (en) has no prefix, other languages are prefixed.
  */
 export function getLocalizedPath(
   currentPath: string,
@@ -15,14 +16,18 @@ export function getLocalizedPath(
   // Remove leading slash and split
   const parts = currentPath.replace(/^\//, '').split('/');
 
-  // Check if first part is a language code
+  // Remove existing language prefix if present
   if (isSupportedLanguage(parts[0])) {
-    parts[0] = newLang;
-  } else {
-    parts.unshift(newLang);
+    parts.shift();
   }
 
-  return `/${parts.join('/')}`;
+  // For default language, return path without prefix
+  if (newLang === defaultLanguage) {
+    return `/${parts.join('/')}`;
+  }
+
+  // For other languages, add prefix
+  return `/${newLang}/${parts.join('/')}`;
 }
 
 /**
@@ -37,10 +42,24 @@ export function getLangFromPath(path: string): SupportedLanguage {
 }
 
 /**
- * Generate static paths for all locales
+ * Generate static paths for non-default locales only.
+ * Default locale pages are at root level.
  */
 export function getStaticPathsForLocales() {
-  return supportedLanguages.map((lang) => ({
-    params: { lang }
-  }));
+  return supportedLanguages
+    .filter((lang) => lang !== defaultLanguage)
+    .map((lang) => ({
+      params: { lang }
+    }));
+}
+
+/**
+ * Generate href for a path in the given language.
+ * Default language has no prefix, other languages are prefixed.
+ */
+export function getHref(path: string, lang: SupportedLanguage): string {
+  if (lang === defaultLanguage) {
+    return path;
+  }
+  return `/${lang}${path}`;
 }
