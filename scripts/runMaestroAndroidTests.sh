@@ -1,11 +1,12 @@
 #!/bin/sh
 # Usage:
-#   ./scripts/runMaestroAndroidTests.sh [flow] [--record-video] [--video-seconds <seconds>]
+#   ./scripts/runMaestroAndroidTests.sh [--headless] [flow] [--record-video] [--video-seconds <seconds>]
 #
 # Examples:
-#   ./scripts/runMaestroAndroidTests.sh                       # Run all flows
+#   ./scripts/runMaestroAndroidTests.sh                                  # Run all flows
+#   ./scripts/runMaestroAndroidTests.sh --headless                       # Run all flows headless
 #   ./scripts/runMaestroAndroidTests.sh dark-mode-switcher.yaml
-#   ./scripts/runMaestroAndroidTests.sh .maestro/app-loads.yaml
+#   ./scripts/runMaestroAndroidTests.sh --headless .maestro/app-loads.yaml
 #   ./scripts/runMaestroAndroidTests.sh --record-video
 #   ./scripts/runMaestroAndroidTests.sh --record-video --video-seconds 120
 set -eu
@@ -14,12 +15,20 @@ export MAESTRO_CLI_NO_ANALYTICS=1
 
 MAESTRO_CLI="${HOME}/.maestro/bin/maestro"
 ANDROID_VERSION="33"
+HEADLESS=0
 FLOW_PATH=""
 RECORD_VIDEO=0
 VIDEO_SECONDS=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --)
+      shift
+      ;;
+    --headless)
+      HEADLESS=1
+      shift
+      ;;
     --record-video)
       RECORD_VIDEO=1
       shift
@@ -33,17 +42,17 @@ while [ "$#" -gt 0 ]; do
       shift 2
       ;;
     --help|-h)
-      echo "Usage: ./scripts/runMaestroAndroidTests.sh [flow] [--record-video] [--video-seconds <seconds>]"
+      echo "Usage: ./scripts/runMaestroAndroidTests.sh [--headless] [flow] [--record-video] [--video-seconds <seconds>]"
       exit 0
       ;;
     *)
       if [ -z "$FLOW_PATH" ]; then
         FLOW_PATH="$1"
+        shift
       else
         echo "Unknown argument: $1" >&2
         exit 1
       fi
-      shift
       ;;
   esac
 done
@@ -69,7 +78,11 @@ if adb devices | grep -q "emulator.*device"; then
   echo "==> Android emulator is already running"
 else
   echo "==> Starting Android emulator..."
-  "$MAESTRO_CLI" start-device --platform android --os-version "$ANDROID_VERSION"
+  if [ "$HEADLESS" -eq 1 ]; then
+    "$MAESTRO_CLI" start-device --platform android --os-version "$ANDROID_VERSION" --headless
+  else
+    "$MAESTRO_CLI" start-device --platform android --os-version "$ANDROID_VERSION"
+  fi
   echo "==> Waiting for emulator to boot..."
   adb wait-for-device
   while [ "$(adb shell getprop sys.boot_completed 2>/dev/null)" != "1" ]; do

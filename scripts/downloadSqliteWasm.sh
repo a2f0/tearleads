@@ -15,6 +15,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CLIENT_DIR="${PROJECT_ROOT}/packages/client"
 WASM_DIR="${CLIENT_DIR}/src/workers/sqlite-wasm"
 PUBLIC_DIR="${CLIENT_DIR}/public/sqlite"
+PUBLIC_ASSETS_DIR="${CLIENT_DIR}/public/assets"
 TEMP_DIR="${PROJECT_ROOT}/.tmp-sqlite-wasm"
 
 cleanup() {
@@ -41,7 +42,7 @@ unzip -q "${TEMP_DIR}/${PACKAGE_NAME}" -d "${TEMP_DIR}"
 
 EXTRACTED_DIR=$(find "${TEMP_DIR}" -maxdepth 1 -type d -name "sqlite3mc-wasm-*" | head -1)
 
-mkdir -p "${WASM_DIR}" "${PUBLIC_DIR}"
+mkdir -p "${WASM_DIR}" "${PUBLIC_DIR}" "${PUBLIC_ASSETS_DIR}"
 
 # Copy files to both locations
 # Note: sqlite3.mjs is renamed to sqlite3.js for Android WebView MIME type compatibility
@@ -52,6 +53,9 @@ for file in sqlite3.wasm sqlite3-opfs-async-proxy.js; do
     cp "${EXTRACTED_DIR}/jswasm/${file}" "${WASM_DIR}/"
     cp "${EXTRACTED_DIR}/jswasm/${file}" "${PUBLIC_DIR}/"
 done
+# The OPFS async proxy is referenced relative to the sqlite3.js module path,
+# which is bundled into /assets in release builds.
+cp "${EXTRACTED_DIR}/jswasm/sqlite3-opfs-async-proxy.js" "${PUBLIC_ASSETS_DIR}/"
 # Rename .mjs to .js for better WebView compatibility
 cp "${EXTRACTED_DIR}/jswasm/sqlite3.mjs" "${WASM_DIR}/sqlite3.js"
 cp "${EXTRACTED_DIR}/jswasm/sqlite3.mjs" "${PUBLIC_DIR}/sqlite3.js"

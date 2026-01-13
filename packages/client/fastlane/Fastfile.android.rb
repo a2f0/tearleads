@@ -150,6 +150,11 @@ platform :android do
     run_gradle(task: 'connectedAndroidTest')
   end
 
+  desc 'Run Android instrumented tests (release build)'
+  lane :test_instrumented_release do
+    run_gradle(task: 'connectedReleaseAndroidTest')
+  end
+
   desc 'Clean build artifacts'
   lane :clean do
     run_gradle(task: 'clean')
