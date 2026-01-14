@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { PhotoDetail } from './PhotoDetail';
 
 // Mock the database context
@@ -280,6 +281,7 @@ describe('PhotoDetail', () => {
     });
 
     it('shows error when download fails', async () => {
+      const consoleSpy = mockConsoleError();
       // First call succeeds (photo load), second call fails (download)
       mockRetrieve
         .mockResolvedValueOnce(TEST_IMAGE_DATA)
@@ -294,6 +296,11 @@ describe('PhotoDetail', () => {
       await waitFor(() => {
         expect(screen.getByText('Storage read failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to download photo:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -341,6 +348,7 @@ describe('PhotoDetail', () => {
     });
 
     it('shows error when share fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockShareFile.mockRejectedValue(new Error('Share failed'));
       const user = userEvent.setup();
       await renderPhotoDetail();
@@ -352,6 +360,11 @@ describe('PhotoDetail', () => {
       await waitFor(() => {
         expect(screen.getByText('Share failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to share photo:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('shows error when sharing is not supported on device', async () => {
@@ -434,6 +447,7 @@ describe('PhotoDetail', () => {
     });
 
     it('shows error when classification fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockClassify.mockRejectedValue(new Error('Classification failed'));
       const user = userEvent.setup();
       await renderPhotoDetail();
@@ -443,6 +457,11 @@ describe('PhotoDetail', () => {
       await waitFor(() => {
         expect(screen.getByText('Classification failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to classify photo:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 

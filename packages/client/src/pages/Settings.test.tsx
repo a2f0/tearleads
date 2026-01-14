@@ -3,6 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import packageJson from '../../package.json';
 import { Settings } from './Settings';
 
@@ -143,6 +144,7 @@ describe('Settings', () => {
     });
 
     it('shows error message when export fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockExportDatabase.mockRejectedValue(new Error('Export failed'));
 
       const user = userEvent.setup();
@@ -153,6 +155,11 @@ describe('Settings', () => {
       await waitFor(() => {
         expect(screen.getByText('Export failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Export failed:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -254,6 +261,7 @@ describe('Settings', () => {
     });
 
     it('shows error message when restore fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockImportDatabase.mockRejectedValue(new Error('Restore failed'));
 
       const user = userEvent.setup();
@@ -277,6 +285,11 @@ describe('Settings', () => {
       await waitFor(() => {
         expect(screen.getByText('Restore failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Restore failed:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 });

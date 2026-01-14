@@ -1,7 +1,8 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { AudioPage } from './Audio';
 
 // Mock useVirtualizer to simplify testing
@@ -415,6 +416,7 @@ describe('AudioPage', () => {
 
   describe('error handling', () => {
     it('displays error message when fetch fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockSelect.mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -428,9 +430,15 @@ describe('AudioPage', () => {
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch tracks:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('handles track load failure gracefully', async () => {
+      const consoleSpy = mockConsoleError();
       mockRetrieve.mockRejectedValue(new Error('Storage error'));
 
       renderAudioRaw();
@@ -439,6 +447,11 @@ describe('AudioPage', () => {
       await waitFor(() => {
         expect(screen.queryByText('test-song.mp3')).not.toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to load track test-song.mp3:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -555,8 +568,33 @@ describe('AudioPage', () => {
   });
 
   describe('audio context integration', () => {
+    let consoleSpy: ReturnType<typeof mockConsoleError> | null = null;
+
     beforeEach(() => {
+      consoleSpy = mockConsoleError();
       mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_TRACK]));
+    });
+
+    afterEach(() => {
+      if (consoleSpy) {
+        const allowedErrors = [
+          'The current testing environment is not configured to support act(...)'
+        ];
+        const unexpectedErrors = consoleSpy.mock.calls.filter((call) => {
+          const firstArg = call[0];
+          const message =
+            typeof firstArg === 'string'
+              ? firstArg
+              : firstArg instanceof Error
+                ? firstArg.message
+                : '';
+          return !allowedErrors.some((allowed) => message.includes(allowed));
+        });
+
+        expect(unexpectedErrors).toEqual([]);
+        consoleSpy.mockRestore();
+        consoleSpy = null;
+      }
     });
 
     it('calls play when track is double-clicked on web/electron', async () => {

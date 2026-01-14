@@ -2,9 +2,16 @@ import { ThemeProvider } from '@rapid/ui';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnalyticsEvent } from '@/db/analytics';
+import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
 import { Analytics } from './Analytics';
+
+declare global {
+  interface SVGElement {
+    getBBox(): DOMRect;
+  }
+}
 
 // Mock useVirtualizer to simplify testing
 vi.mock('@tanstack/react-virtual', () => ({
@@ -84,16 +91,114 @@ async function renderAnalytics() {
 }
 
 describe('Analytics', () => {
+  const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+  const originalGetBBox = SVGElement.prototype.getBBox;
+  const originalClientWidth = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'clientWidth'
+  );
+  const originalClientHeight = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'clientHeight'
+  );
+  const originalOffsetWidth = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'offsetWidth'
+  );
+  const originalOffsetHeight = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'offsetHeight'
+  );
+  let warnSpy: ReturnType<typeof mockConsoleWarn> | null = null;
+
   beforeEach(() => {
     vi.clearAllMocks();
     getEventsCallCount = 0;
     getEventStatsCallCount = 0;
+    warnSpy = mockConsoleWarn();
+    Element.prototype.getBoundingClientRect = vi.fn(() => ({
+      width: 400,
+      height: 200,
+      top: 0,
+      left: 0,
+      bottom: 200,
+      right: 400,
+      x: 0,
+      y: 0,
+      toJSON: () => ({})
+    }));
+    SVGElement.prototype.getBBox = vi.fn(() => new DOMRect(0, 0, 400, 200));
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get: () => 400
+    });
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+      configurable: true,
+      get: () => 200
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+      configurable: true,
+      get: () => 400
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get: () => 200
+    });
 
     mockGetEvents.mockResolvedValue([]);
     mockGetEventStats.mockResolvedValue([]);
     mockClearEvents.mockResolvedValue(undefined);
     mockGetDistinctEventTypes.mockResolvedValue([]);
     mockGetEventCount.mockResolvedValue(0);
+  });
+
+  afterEach(() => {
+    Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+    SVGElement.prototype.getBBox = originalGetBBox;
+    if (originalClientWidth) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'clientWidth',
+        originalClientWidth
+      );
+    }
+    if (originalClientHeight) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'clientHeight',
+        originalClientHeight
+      );
+    }
+    if (originalOffsetWidth) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'offsetWidth',
+        originalOffsetWidth
+      );
+    }
+    if (originalOffsetHeight) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'offsetHeight',
+        originalOffsetHeight
+      );
+    }
+    if (warnSpy) {
+      const allowedWarnings = ['width(-1) and height(-1)'];
+      const unexpectedWarnings = warnSpy.mock.calls.filter((call) => {
+        const firstArg = call[0];
+        const message =
+          typeof firstArg === 'string'
+            ? firstArg
+            : firstArg instanceof Error
+              ? firstArg.message
+              : '';
+        return !allowedWarnings.some((allowed) => message.includes(allowed));
+      });
+      expect(unexpectedWarnings).toEqual([]);
+      warnSpy.mockRestore();
+      warnSpy = null;
+    }
   });
 
   describe('when database is loading', () => {
@@ -366,6 +471,7 @@ describe('Analytics', () => {
     });
 
     it('displays error when fetch fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockGetEvents.mockRejectedValueOnce(new Error('Fetch failed'));
 
       await renderAnalytics();
@@ -373,6 +479,12 @@ describe('Analytics', () => {
       await waitFor(() => {
         expect(screen.getByText('Fetch failed')).toBeInTheDocument();
       });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch analytics:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('refetches data when refresh button is clicked', async () => {
@@ -437,6 +549,7 @@ describe('Analytics', () => {
 
     it('displays error when clear fails', async () => {
       const user = userEvent.setup();
+      const consoleSpy = mockConsoleError();
 
       const mockEvents = [
         {
@@ -468,6 +581,12 @@ describe('Analytics', () => {
       await waitFor(() => {
         expect(screen.getByText('Clear failed')).toBeInTheDocument();
       });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to clear analytics:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('formats duration in seconds for values >= 1000ms', async () => {

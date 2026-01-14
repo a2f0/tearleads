@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { Opfs } from './Opfs';
 
 // Store original navigator.storage
@@ -546,6 +547,7 @@ describe('Opfs', () => {
 
   describe('error handling', () => {
     it('displays error message when OPFS read fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockNavigatorStorage({
         getDirectory: vi.fn().mockRejectedValue(new Error('Access denied')),
         estimate: vi.fn().mockResolvedValue({ usage: 0, quota: 5368709120 })
@@ -556,9 +558,15 @@ describe('Opfs', () => {
       await waitFor(() => {
         expect(screen.getByText('Access denied')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to read OPFS:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('displays error message when delete fails', async () => {
+      const consoleSpy = mockConsoleError();
       const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
       const user = userEvent.setup();
 
@@ -588,6 +596,11 @@ describe('Opfs', () => {
       await waitFor(() => {
         expect(screen.getByText('Delete failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
       confirmSpy.mockRestore();
     });
   });
