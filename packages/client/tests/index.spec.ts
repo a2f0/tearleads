@@ -47,15 +47,17 @@ async function waitForModelsOrWebGPUError(page: Page): Promise<WebGPUState> {
     await checkingStatus.waitFor({ state: 'hidden', timeout: 15000 });
   }
 
-  const supportsWebGPU = await page.evaluate(async () => {
-    if (!('gpu' in navigator)) return false;
-    try {
-      const adapter = await navigator.gpu.requestAdapter();
-      return adapter !== null;
-    } catch {
-      return false;
-    }
-  });
+  const supportsWebGPU = await page.evaluate<boolean>(`
+    (async () => {
+      if (!('gpu' in navigator)) return false;
+      try {
+        const adapter = await navigator.gpu.requestAdapter();
+        return !!adapter;
+      } catch {
+        return false;
+      }
+    })()
+  `);
 
   if (supportsWebGPU) {
     const modelCard = page.getByText('Phi 3.5 Mini');
