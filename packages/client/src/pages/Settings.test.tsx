@@ -3,8 +3,8 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import packageJson from '../../package.json';
 import { mockConsoleError } from '@/test/console-mocks';
+import packageJson from '../../package.json';
 import { Settings } from './Settings';
 
 // Mock database context
