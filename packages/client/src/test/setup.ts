@@ -35,6 +35,12 @@ vi.mock('pdfjs-dist', () => {
 
 // Fail tests on React act() warnings
 beforeAll(() => {
+  // Enable React act() environment checks to avoid noisy warnings in tests.
+  // https://react.dev/reference/react-dom/test-utils/act#environment
+  Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
+    value: true,
+    writable: true
+  });
   const originalError = console.error;
   console.error = (...args: unknown[]) => {
     const message = typeof args[0] === 'string' ? args[0] : '';

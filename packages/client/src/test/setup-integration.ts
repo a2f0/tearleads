@@ -8,9 +8,10 @@
  * Or set the INTEGRATION_TESTS=true env var to auto-load via setup.ts
  */
 
-import { afterEach, beforeEach, vi } from 'vitest';
+import { afterEach, beforeEach, expect, vi } from 'vitest';
 import { WasmNodeAdapter } from '@/db/adapters/wasm-node.adapter';
 import type { InstanceMetadata } from '@/db/instance-registry';
+import { mockConsoleWarn } from './console-mocks';
 import {
   getTestKeyManager,
   resetTestKeyManager,
@@ -19,6 +20,7 @@ import {
 
 // Store active adapter for cleanup
 let activeAdapter: WasmNodeAdapter | null = null;
+let warnSpy: ReturnType<typeof mockConsoleWarn> | null = null;
 
 // In-memory instance registry for tests (avoids IndexedDB dependency)
 const TEST_INSTANCE_ID = 'test-instance';
@@ -163,6 +165,7 @@ export function resetTestInstanceRegistry(): void {
 beforeEach(async () => {
   resetTestKeyManager();
   resetTestInstanceRegistry();
+  warnSpy = mockConsoleWarn();
 
   // Reset the database module's internal state
   // This ensures each test starts with a clean slate
@@ -183,6 +186,23 @@ afterEach(async () => {
       // Ignore close errors
     }
     activeAdapter = null;
+  }
+  if (warnSpy) {
+    const allowedWarnings = ['Ignoring inability to install OPFS sqlite3_vfs'];
+    const unexpectedWarnings = warnSpy.mock.calls.filter((call) => {
+      const firstArg = call[0];
+      const message =
+        typeof firstArg === 'string'
+          ? firstArg
+          : firstArg instanceof Error
+            ? firstArg.message
+            : '';
+      return !allowedWarnings.some((allowed) => message.includes(allowed));
+    });
+
+    expect(unexpectedWarnings).toEqual([]);
+    warnSpy.mockRestore();
+    warnSpy = null;
   }
 });
 
