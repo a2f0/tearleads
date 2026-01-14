@@ -14,9 +14,11 @@ appId: com.tearleads.rapid
 - evalScript: document.querySelector('[data-testid="tables-link"]').click()
 
 # Wait for Tables page to load
-- extendedWaitUntil:
-    visible: "Tables"
-    timeout: 10000
+- evalScript: |
+    window.waitFor(
+      () => document.body.textContent.includes('Tables'),
+      'Expected Tables page'
+    )
 
 # Verify locked message is shown
 - evalScript: |
@@ -49,9 +51,11 @@ appId: com.tearleads.rapid
 - evalScript: document.querySelector('[data-testid="tables-link"]').click()
 
 # Wait for Tables page to load
-- extendedWaitUntil:
-    visible: "Tables"
-    timeout: 10000
+- evalScript: |
+    window.waitFor(
+      () => document.body.textContent.includes('Tables'),
+      'Expected Tables page after setup'
+    )
 
 # Wait for tables to load
 - evalScript: |
