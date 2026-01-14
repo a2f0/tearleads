@@ -1,6 +1,7 @@
 #!/bin/sh
 # Exit a Codex or Claude Code session via tmux.
 # Usage: exitSession.sh [delay_seconds]
+# Optional: set EXIT_COMMAND to "/quit" (Codex) or "/exit" (Claude) to override auto-detection.
 # Default delay is 2 seconds to allow final output to be displayed.
 set -eu
 
