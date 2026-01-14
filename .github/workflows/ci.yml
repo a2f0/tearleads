@@ -274,6 +274,7 @@ jobs:
         run: pnpm --filter @rapid/client test:e2e
         env:
           BASE_URL: https://localhost:8443
+          PW_FULLY_PARALLEL: 'true'
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
