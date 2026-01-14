@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createClient } from './redis-mock.js';
 
 describe('redis mock adapter', () => {
@@ -24,13 +24,17 @@ describe('redis mock adapter', () => {
 
   it('supports pubsub subscription lifecycle', async () => {
     const client = createClient();
-    const handler = (message: string, channel: string) => {
-      void message;
-      void channel;
-    };
+    const handler = vi.fn();
 
     await client.subscribe('test-channel', handler);
+
+    const delivered = await client.publish('test-channel', 'hello');
+
+    expect(delivered).toBe(1);
+    expect(handler).toHaveBeenCalledWith('hello', 'test-channel');
+
     await client.unsubscribe('test-channel');
+    expect(await client.publish('test-channel', 'again')).toBe(0);
   });
 
   it('returns a separate client for duplicate', async () => {
@@ -40,5 +44,16 @@ describe('redis mock adapter', () => {
     expect(duplicate).not.toBe(client);
     await duplicate.connect();
     await duplicate.quit();
+  });
+
+  it('invokes error handlers registered via on', () => {
+    const client = createClient();
+    const handler = vi.fn();
+    const error = new Error('boom');
+
+    client.on('error', handler);
+    client.emitError(error);
+
+    expect(handler).toHaveBeenCalledWith(error);
   });
 });
