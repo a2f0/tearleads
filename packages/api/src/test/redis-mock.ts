@@ -28,6 +28,11 @@ interface RedisMockClient {
     options?: ScanOptions
   ) => Promise<{ cursor: number; keys: string[] }>;
   multi: () => RedisMultiMock;
+  set: (key: string, value: string) => Promise<'OK'>;
+  sAdd: (key: string, members: string[]) => Promise<number>;
+  hSet: (key: string, entries: Record<string, string>) => Promise<number>;
+  rPush: (key: string, values: string[]) => Promise<number>;
+  expire: (key: string, seconds: number) => Promise<number>;
   type: (key: string) => Promise<string>;
   ttl: (key: string) => Promise<number>;
   get: (key: string) => Promise<string | null>;
@@ -166,6 +171,53 @@ const createClientWithState = (
       };
 
       return chain;
+    },
+    set: async (key, value) => {
+      store.values.set(key, value);
+      return 'OK';
+    },
+    sAdd: async (key, members) => {
+      const existing = store.values.get(key);
+      const set = existing instanceof Set ? existing : new Set<string>();
+      const sizeBefore = set.size;
+      for (const member of members) {
+        set.add(member);
+      }
+      store.values.set(key, set);
+      return set.size - sizeBefore;
+    },
+    hSet: async (key, entries) => {
+      const existing = store.values.get(key);
+      const record =
+        existing &&
+        typeof existing === 'object' &&
+        !Array.isArray(existing) &&
+        !(existing instanceof Set)
+          ? { ...existing }
+          : {};
+      let newEntries = 0;
+      for (const [field, value] of Object.entries(entries)) {
+        if (!(field in record)) {
+          newEntries += 1;
+        }
+        record[field] = value;
+      }
+      store.values.set(key, record);
+      return newEntries;
+    },
+    rPush: async (key, values) => {
+      const existing = store.values.get(key);
+      const list = Array.isArray(existing) ? existing : [];
+      list.push(...values);
+      store.values.set(key, list);
+      return list.length;
+    },
+    expire: async (key, seconds) => {
+      if (!store.values.has(key)) {
+        return 0;
+      }
+      store.ttl.set(key, seconds);
+      return 1;
     },
     type: async (key) => getValueType(store.values.get(key)),
     ttl: async (key) => store.ttl.get(key) ?? -1,

@@ -224,7 +224,8 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    - If CI **fails**:
      1. Run `/fix-tests` to diagnose and fix the failure
-     2. Return to monitoring CI status
+     2. If the failure is coverage-related, add tests to raise coverage and re-run the relevant `test:coverage` target locally
+     3. Return to monitoring CI status
 
    ### 4g. Enable auto-merge and wait
 
