@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
 import { VideoPage } from './Video';
 
 // Mock useVirtualizer to simplify testing
@@ -388,6 +389,7 @@ describe('VideoPage', () => {
 
   describe('error handling', () => {
     it('displays error message when fetch fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockSelect.mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -401,9 +403,15 @@ describe('VideoPage', () => {
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch videos:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('handles thumbnail load failure gracefully', async () => {
+      const consoleSpy = mockConsoleWarn();
       mockRetrieve.mockRejectedValue(new Error('Storage error'));
 
       await renderVideo();
@@ -412,6 +420,11 @@ describe('VideoPage', () => {
       expect(screen.getByText('test-video.mp4')).toBeInTheDocument();
       // But no object URL should be created for the thumbnail
       expect(URL.createObjectURL).not.toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to load thumbnail for test-video.mp4:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 

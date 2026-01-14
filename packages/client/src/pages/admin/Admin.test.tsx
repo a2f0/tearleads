@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { Admin } from './Admin';
 
 const mockGetKeys =
@@ -265,6 +266,7 @@ describe('Admin', () => {
 
   describe('error handling', () => {
     it('displays error message when API fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockGetKeys.mockRejectedValue(new Error('Failed to connect to Redis'));
 
       renderAdmin();
@@ -274,12 +276,20 @@ describe('Admin', () => {
           screen.getByText('Failed to connect to Redis')
         ).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch Redis keys:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
   describe('loading state', () => {
     it('shows loading state initially', async () => {
       mockGetKeys.mockImplementation(
+        () => new Promise(() => {}) // Never resolves
+      );
+      mockGetDbSize.mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
 
@@ -330,6 +340,7 @@ describe('Admin', () => {
     });
 
     it('shows hasMore indicator when dbsize fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockGetKeys.mockResolvedValue({
         keys: [{ key: 'test:key', type: 'string', ttl: -1 }],
         cursor: '0',
@@ -342,6 +353,11 @@ describe('Admin', () => {
       await waitFor(() => {
         expect(screen.getByText(/1\+ key/)).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch Redis db size:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('shows viewing range when total count is available', async () => {
@@ -484,6 +500,7 @@ describe('Admin', () => {
     });
 
     it('shows error when delete fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockDeleteKey.mockRejectedValue(new Error('Delete failed'));
       const user = userEvent.setup();
       renderAdmin();
@@ -505,6 +522,11 @@ describe('Admin', () => {
       await waitFor(() => {
         expect(screen.getByText('Delete failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete key:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('does not remove key when delete returns false', async () => {

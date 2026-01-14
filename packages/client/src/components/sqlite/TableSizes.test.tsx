@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { TableSizes } from './TableSizes';
 
 const mockUseDatabaseContext = vi.fn();
@@ -118,6 +119,7 @@ describe('TableSizes', () => {
     });
 
     it('handles empty PRAGMA results with error', async () => {
+      const consoleSpy = mockConsoleError();
       setupMockContext({ isUnlocked: true });
       setupMockAdapter({
         page_size: { rows: [] },
@@ -129,6 +131,11 @@ describe('TableSizes', () => {
       expect(
         screen.getByText('Failed to retrieve database page size or count.')
       ).toBeInTheDocument();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch table sizes:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('handles array-based pragma rows', async () => {

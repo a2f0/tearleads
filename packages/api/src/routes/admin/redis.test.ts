@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
+import { mockConsoleError } from '../../test/console-mocks.js';
 
 // Define a minimal interface for the Redis client methods we use in tests
 interface MockRedisClient {
@@ -139,6 +140,7 @@ describe('Admin Redis Routes', () => {
 
     it('handles Redis connection errors', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
+      const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient).mockRejectedValue(
         new Error('Connection refused')
       );
@@ -147,16 +149,24 @@ describe('Admin Redis Routes', () => {
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Connection refused' });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Redis error:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('handles non-Error exceptions', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
+      const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient).mockRejectedValue('string error');
 
       const response = await request(app).get('/v1/admin/redis/keys');
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to connect to Redis' });
+      expect(consoleSpy).toHaveBeenCalledWith('Redis error:', 'string error');
+      consoleSpy.mockRestore();
     });
 
     it('handles missing type and ttl in results', async () => {
@@ -206,6 +216,7 @@ describe('Admin Redis Routes', () => {
 
     it('handles Redis connection errors', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
+      const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient).mockRejectedValue(
         new Error('Connection refused')
       );
@@ -214,6 +225,11 @@ describe('Admin Redis Routes', () => {
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Connection refused' });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Redis error:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -322,6 +338,7 @@ describe('Admin Redis Routes', () => {
 
     it('handles Redis connection errors', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
+      const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient).mockRejectedValue(
         new Error('Connection refused')
       );
@@ -330,6 +347,11 @@ describe('Admin Redis Routes', () => {
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Connection refused' });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Redis error:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('handles URL-encoded key names', async () => {
@@ -391,6 +413,7 @@ describe('Admin Redis Routes', () => {
 
     it('handles Redis connection errors', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
+      const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient).mockRejectedValue(
         new Error('Connection refused')
       );
@@ -399,16 +422,24 @@ describe('Admin Redis Routes', () => {
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Connection refused' });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Redis error:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('handles non-Error exceptions', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
+      const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient).mockRejectedValue('string error');
 
       const response = await request(app).delete('/v1/admin/redis/keys/test');
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to connect to Redis' });
+      expect(consoleSpy).toHaveBeenCalledWith('Redis error:', 'string error');
+      consoleSpy.mockRestore();
     });
   });
 });

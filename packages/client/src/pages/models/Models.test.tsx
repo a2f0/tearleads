@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { Models } from './Models';
 
 // Mock WebGPU API
@@ -60,6 +61,14 @@ describe('Models', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsWebGPUSupported.mockResolvedValue(true);
+    Object.defineProperty(window, 'caches', {
+      value: {
+        has: vi.fn().mockResolvedValue(false),
+        open: vi.fn()
+      },
+      writable: true,
+      configurable: true
+    });
 
     // Setup WebGPU mock
     Object.defineProperty(navigator, 'gpu', {
@@ -74,6 +83,11 @@ describe('Models', () => {
   afterEach(() => {
     // Clean up WebGPU mock
     Object.defineProperty(navigator, 'gpu', {
+      value: undefined,
+      writable: true,
+      configurable: true
+    });
+    Object.defineProperty(window, 'caches', {
       value: undefined,
       writable: true,
       configurable: true
@@ -508,6 +522,7 @@ describe('Models', () => {
     });
 
     it('handles cache API not available gracefully', async () => {
+      const consoleSpy = mockConsoleError();
       Object.defineProperty(window, 'caches', {
         value: undefined,
         writable: true,
@@ -523,6 +538,11 @@ describe('Models', () => {
         });
         expect(downloadButtons.length).toBe(4);
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to check model cache:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('shows delete button for cached models', async () => {

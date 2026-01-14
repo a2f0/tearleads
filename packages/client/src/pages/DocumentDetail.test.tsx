@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { DocumentDetail } from './DocumentDetail';
 
 const mockUseDatabaseContext = vi.fn();
@@ -234,9 +235,10 @@ describe('DocumentDetail', () => {
     });
 
     it('shows error when download fails', async () => {
-      mockRetrieveFileData.mockRejectedValueOnce(
-        new Error('Storage read failed')
-      );
+      const consoleSpy = mockConsoleError();
+      mockRetrieveFileData
+        .mockResolvedValueOnce(TEST_PDF_DATA)
+        .mockRejectedValueOnce(new Error('Storage read failed'));
       const user = userEvent.setup();
       await renderDocumentDetail();
 
@@ -247,6 +249,11 @@ describe('DocumentDetail', () => {
       await waitFor(() => {
         expect(screen.getByText('Storage read failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to download document:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -292,6 +299,7 @@ describe('DocumentDetail', () => {
     });
 
     it('shows error when share fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockShareFile.mockRejectedValue(new Error('Share failed'));
       const user = userEvent.setup();
       await renderDocumentDetail();
@@ -303,6 +311,11 @@ describe('DocumentDetail', () => {
       await waitFor(() => {
         expect(screen.getByText('Share failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to share document:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('shows error when sharing is not supported on device', async () => {
@@ -336,6 +349,7 @@ describe('DocumentDetail', () => {
 
   describe('error handling', () => {
     it('shows error when fetch fails', async () => {
+      const consoleSpy = mockConsoleError();
       const errorQueryChain = {
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -348,9 +362,15 @@ describe('DocumentDetail', () => {
       await renderDocumentDetail();
 
       expect(screen.getByText('Database error')).toBeInTheDocument();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch document:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('handles non-Error objects in catch block', async () => {
+      const consoleSpy = mockConsoleError();
       const errorQueryChain = {
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
@@ -363,6 +383,11 @@ describe('DocumentDetail', () => {
       await renderDocumentDetail();
 
       expect(screen.getByText('String error')).toBeInTheDocument();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch document:',
+        'String error'
+      );
+      consoleSpy.mockRestore();
     });
   });
 

@@ -9,6 +9,7 @@ import userEvent from '@testing-library/user-event';
 import type { ComponentProps, FC } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { TableRows } from './TableRows';
 
 // Mock lucide-react icons to add testids
@@ -432,6 +433,7 @@ describe('TableRows', () => {
 
     it('shows error when truncate fails with non-sqlite_sequence error', async () => {
       const user = userEvent.setup();
+      const consoleSpy = mockConsoleError();
       mockExecute.mockImplementation((query: string) => {
         if (query.includes('sqlite_master')) {
           return Promise.resolve({ rows: [{ name: 'test_table' }] });
@@ -465,6 +467,11 @@ describe('TableRows', () => {
       await waitFor(() => {
         expect(screen.getByText('different error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to truncate table:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -605,6 +612,7 @@ describe('TableRows', () => {
 
   describe('error handling', () => {
     it('displays error when table does not exist', async () => {
+      const consoleSpy = mockConsoleError();
       mockExecute.mockImplementation((query: string) => {
         if (query.includes('sqlite_master')) {
           return Promise.resolve({ rows: [] });
@@ -619,9 +627,15 @@ describe('TableRows', () => {
           screen.getByText('Table "nonexistent_table" does not exist.')
         ).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch table data:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('displays error when query fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockExecute.mockRejectedValue(new Error('Database error'));
 
       await renderTableRows();
@@ -629,6 +643,11 @@ describe('TableRows', () => {
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch table data:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 

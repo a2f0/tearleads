@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { Photos } from './Photos';
 
 // Mock useVirtualizer to simplify testing
@@ -590,6 +591,7 @@ describe('Photos', () => {
 
   describe('error handling', () => {
     it('displays error when photo fetch fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockDb.orderBy.mockRejectedValue(new Error('Failed to load'));
 
       await renderPhotos();
@@ -597,9 +599,15 @@ describe('Photos', () => {
       await waitFor(() => {
         expect(screen.getByText('Failed to load')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch photos:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('handles non-Error objects in catch block', async () => {
+      const consoleSpy = mockConsoleError();
       mockDb.orderBy.mockRejectedValue('String error');
 
       await renderPhotos();
@@ -607,6 +615,11 @@ describe('Photos', () => {
       await waitFor(() => {
         expect(screen.getByText('String error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch photos:',
+        'String error'
+      );
+      consoleSpy.mockRestore();
     });
   });
 
