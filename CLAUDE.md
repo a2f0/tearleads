@@ -68,6 +68,10 @@ Skip issue creation for:
 - Commit binary files (PNG, JPG, ICO, etc.); use SVG or external URLs
 - Add comments that restate what code does; only comment non-obvious logic
 
+### Coverage Failures
+
+- If CI or local runs fail coverage thresholds, add tests to raise coverage and re-run the relevant `test:coverage` target locally before proceeding.
+
 ## PR Guidelines
 
 - Do NOT add "Generated with Claude Code" footers to PR descriptions

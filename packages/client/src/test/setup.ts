@@ -1,9 +1,10 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterEach, beforeAll, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 
 // Initialize i18n for tests (side-effect import)
 import '../i18n';
+import { server } from './msw/server';
 
 // Mock @ionic/core gestures to avoid DOM issues in jsdom
 vi.mock('@ionic/core', () => ({
@@ -44,10 +45,17 @@ beforeAll(() => {
     }
     originalError.apply(console, args);
   };
+
+  server.listen({ onUnhandledRequest: 'warn' });
 });
 
 afterEach(() => {
   cleanup();
+  server.resetHandlers();
+});
+
+afterAll(() => {
+  server.close();
 });
 
 // Mock localStorage for tests
@@ -82,7 +90,8 @@ vi.stubGlobal('__APP_VERSION__', '0.0.0-test');
 // Mock import.meta.env
 vi.stubGlobal('import.meta', {
   env: {
-    MODE: 'test'
+    MODE: 'test',
+    VITE_API_URL: 'http://localhost'
   }
 });
 
