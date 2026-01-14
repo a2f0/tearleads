@@ -1,5 +1,5 @@
 #!/bin/sh
-# Exit the Claude Code session via tmux.
+# Exit a Codex or Claude Code session via tmux.
 # Usage: exitSession.sh [delay_seconds]
 # Default delay is 2 seconds to allow final output to be displayed.
 set -eu
@@ -13,6 +13,16 @@ if [ -z "${TMUX:-}" ]; then
 fi
 
 # Schedule the exit command to run in the background after this script exits.
-# This ensures Claude Code is back at its interactive prompt when /exit is sent.
+# This ensures the agent is back at its interactive prompt when the exit command is sent.
 # Using nohup prevents the background process from being killed when parent exits.
-nohup sh -c 'sleep "$1" && tmux send-keys "/exit" Enter' sh "$DELAY" >/dev/null 2>&1 &
+exit_command="${EXIT_COMMAND:-}"
+# Allow explicit override for Codex (/quit) vs Claude (/exit).
+if [ -z "$exit_command" ]; then
+    exit_command="/exit"
+    # Codex sets CODEX_HOME via scripts/codex.sh, so prefer /quit there.
+    if [ -n "${CODEX_HOME:-}" ]; then
+        exit_command="/quit"
+    fi
+fi
+
+nohup sh -c 'sleep "$1" && tmux send-keys "$2" Enter' sh "$DELAY" "$exit_command" >/dev/null 2>&1 &
