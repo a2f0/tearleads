@@ -12,6 +12,37 @@ async function getSheetHeight(page: Page): Promise<number> {
   return box?.height ?? 0;
 }
 
+async function waitForStableHeight(
+  page: Page,
+  {
+    timeout = 1500,
+    interval = 50,
+    tolerance = 1,
+    stableSamples = 3
+  }: {
+    timeout?: number;
+    interval?: number;
+    tolerance?: number;
+    stableSamples?: number;
+  } = {}
+) {
+  let lastHeight = await getSheetHeight(page);
+  let stableCount = 0;
+
+  await expect
+    .poll(
+      async () => {
+        const currentHeight = await getSheetHeight(page);
+        const delta = Math.abs(currentHeight - lastHeight);
+        lastHeight = currentHeight;
+        stableCount = delta <= tolerance ? stableCount + 1 : 0;
+        return stableCount >= stableSamples;
+      },
+      { timeout, intervals: [interval] }
+    )
+    .toBe(true);
+}
+
 /**
  * Simulate a drag on the resize handle.
  * Uses dispatchEvent to trigger mousedown (which adds document listeners),
@@ -94,7 +125,7 @@ test.describe('Bottom Sheet (Electron)', () => {
   test('should decrease height when dragged downward', async () => {
     // First expand the sheet by dragging up
     await dragHandle(window, -150);
-    await window.waitForTimeout(400);
+    await waitForStableHeight(window);
 
     const expandedHeight = await getSheetHeight(window);
 
