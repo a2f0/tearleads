@@ -1,3 +1,4 @@
+# Usage: ansible-playbook -i ansible/inventories/ci.yml ansible/playbooks/ci-nginx.yml -e nginx_ci_site=client
 ci:
   hosts:
     localhost:
