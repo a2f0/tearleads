@@ -107,11 +107,18 @@ Object.defineProperty(global, 'crypto', {
 
 // Mock IndexedDB for WebKeyStorage
 const mockIDBStore = new Map<string, unknown>();
-const mockIDBRequest = (result: unknown) => ({
+type MockIDBRequest = {
+  result: unknown;
+  error: Error | null;
+  onsuccess: (() => void) | null;
+  onerror: (() => void) | null;
+};
+
+const mockIDBRequest = (result: unknown): MockIDBRequest => ({
   result,
   error: null,
-  onsuccess: null as (() => void) | null,
-  onerror: null as (() => void) | null
+  onsuccess: null,
+  onerror: null
 });
 
 const mockObjectStore = {
