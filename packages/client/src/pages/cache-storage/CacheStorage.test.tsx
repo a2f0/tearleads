@@ -2,6 +2,7 @@ import { ThemeProvider } from '@rapid/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { CacheStorage } from './CacheStorage';
 
 // Helper to create mock Cache objects
@@ -398,6 +399,7 @@ describe('CacheStorage', () => {
     });
 
     it('continues deleting other caches when some deletions fail', async () => {
+      const consoleSpy = mockConsoleError();
       vi.spyOn(window, 'confirm').mockReturnValue(true);
       // Make one deletion fail
       mockCaches.delete.mockImplementation((name: string) => {
@@ -422,6 +424,11 @@ describe('CacheStorage', () => {
         expect(mockCaches.delete).toHaveBeenCalledWith('cache-2');
         expect(mockCaches.delete).toHaveBeenCalledWith('cache-3');
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete some caches:',
+        expect.any(Array)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -452,6 +459,7 @@ describe('CacheStorage', () => {
 
   describe('error handling', () => {
     it('displays error message when fetching fails', async () => {
+      const consoleSpy = mockConsoleError();
       const mockCaches = {
         keys: vi.fn().mockRejectedValue(new Error('Network error')),
         open: vi.fn(),
@@ -469,6 +477,11 @@ describe('CacheStorage', () => {
       await waitFor(() => {
         expect(screen.getByText('Network error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to read Cache Storage:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 

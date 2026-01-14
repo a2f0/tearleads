@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { Documents } from './Documents';
 
 // Mock useVirtualizer to simplify testing
@@ -500,6 +501,7 @@ describe('Documents', () => {
 
   describe('error handling', () => {
     it('displays error when document fetch fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockDb.orderBy.mockRejectedValue(new Error('Failed to load'));
 
       await renderDocuments();
@@ -507,9 +509,15 @@ describe('Documents', () => {
       await waitFor(() => {
         expect(screen.getByText('Failed to load')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch documents:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('handles non-Error objects in catch block', async () => {
+      const consoleSpy = mockConsoleError();
       mockDb.orderBy.mockRejectedValue('String error');
 
       await renderDocuments();
@@ -517,6 +525,11 @@ describe('Documents', () => {
       await waitFor(() => {
         expect(screen.getByText('String error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch documents:',
+        'String error'
+      );
+      consoleSpy.mockRestore();
     });
   });
 
