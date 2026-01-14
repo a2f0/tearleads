@@ -1,6 +1,6 @@
+import { logStore } from '@/stores/logStore';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { installConsoleErrorCapture } from './console-error-capture';
-import { logStore } from '@/stores/logStore';
 
 describe('installConsoleErrorCapture', () => {
   beforeEach(() => {
@@ -8,9 +8,7 @@ describe('installConsoleErrorCapture', () => {
   });
 
   it('logs console errors to the log store', () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const uninstall = installConsoleErrorCapture();
 
     console.error('Failed to connect', { status: 500 });
@@ -24,9 +22,7 @@ describe('installConsoleErrorCapture', () => {
   });
 
   it('uses error stacks when available', () => {
-    const consoleSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const uninstall = installConsoleErrorCapture();
     const error = new Error('Exploded');
 
