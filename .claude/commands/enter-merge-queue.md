@@ -366,7 +366,7 @@ git rebase origin/main      # Can be noisy and waste tokens
 
 ## Keeping PR Description Updated
 
-As you iterate, update the PR body with `gh pr edit --body`. Preserve any `Closes #<issue>` lines and the `Agent:` line at the bottom. If the PR is labeled `needs-qa`, remove all auto-close language (`Closes/Fixes/Resolves #...`) and track the issue separately. If the PR is NOT labeled `needs-qa` and it resolves an issue, ensure `Closes #<issue>` is present so it auto-closes on merge. Add bullets for significant changes (CI fixes, Gemini feedback addressed).
+As you iterate, update the PR body with `gh pr edit --body`. If the PR is labeled `needs-qa`, remove all auto-close language (`Closes/Fixes/Resolves #...`) and track the issue separately. If the PR is NOT labeled `needs-qa` and it resolves an issue, ensure `Closes #<issue>` is present so it auto-closes on merge. Always preserve the `Agent:` line at the bottom. Add bullets for significant changes (CI fixes, Gemini feedback addressed).
 
 ## Commit Rules
 
