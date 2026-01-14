@@ -1134,8 +1134,15 @@ describe('Files', () => {
       const { useVirtualizer } = await import('@tanstack/react-virtual');
       vi.mocked(useVirtualizer).mockImplementationOnce(({ count }) => ({
         getVirtualItems: () => [
-          { index: 0, start: 0, size: 56, key: 0 },
-          { index: count, start: 56, size: 56, key: count }
+          { index: 0, start: 0, size: 56, end: 56, key: 0, lane: 0 },
+          {
+            index: count,
+            start: 56,
+            size: 56,
+            end: 112,
+            key: count,
+            lane: 0
+          }
         ],
         getTotalSize: () => count * 56,
         measureElement: vi.fn()
