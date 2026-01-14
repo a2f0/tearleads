@@ -1133,17 +1133,20 @@ describe('Files', () => {
     it('skips rendering when virtualizer returns an out-of-range item', async () => {
       const { useVirtualizer } = await import('@tanstack/react-virtual');
       vi.mocked(useVirtualizer).mockImplementationOnce(({ count }) => ({
-        getVirtualItems: () => [
-          { index: 0, start: 0, size: 56, end: 56, key: 0, lane: 0 },
-          {
-            index: count,
-            start: 56,
-            size: 56,
-            end: 112,
-            key: count,
-            lane: 0
-          }
-        ],
+        getVirtualItems: Object.assign(
+          () => [
+            { index: 0, start: 0, size: 56, end: 56, key: 0, lane: 0 },
+            {
+              index: count,
+              start: 56,
+              size: 56,
+              end: 112,
+              key: count,
+              lane: 0
+            }
+          ],
+          { updateDeps: vi.fn() }
+        ),
         getTotalSize: () => count * 56,
         measureElement: vi.fn()
       }));
