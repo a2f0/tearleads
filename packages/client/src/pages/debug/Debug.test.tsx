@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { Debug } from './Debug';
 
 // Mock the api module
@@ -177,6 +178,7 @@ describe('Debug', () => {
     });
 
     it('displays error message when ping fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockPingGet.mockRejectedValue(new Error('Network error'));
 
       renderDebugRaw();
@@ -186,6 +188,11 @@ describe('Debug', () => {
           screen.getByText('Failed to connect to API')
         ).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch API ping:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('refreshes API status when Refresh button is clicked', async () => {
