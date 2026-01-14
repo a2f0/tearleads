@@ -3,13 +3,12 @@ import { defineConfig, devices } from '@playwright/test';
 const isCI = !!process.env.CI;
 const baseURL = process.env.BASE_URL || 'http://localhost:3000';
 const isHTTPS = baseURL.startsWith('https://');
-const envWorkers = process.env.PW_WORKERS
-  ? Number(process.env.PW_WORKERS)
-  : null;
+const parsedWorkers = Number(process.env.PW_WORKERS);
 const fullyParallel = process.env.PW_FULLY_PARALLEL === 'true';
-const hasValidWorkers =
-  envWorkers !== null && Number.isFinite(envWorkers) && envWorkers > 0;
-const workers = hasValidWorkers ? envWorkers : undefined;
+const workers =
+  Number.isFinite(parsedWorkers) && parsedWorkers > 0
+    ? parsedWorkers
+    : undefined;
 
 /**
  * Playwright configuration for integration tests
