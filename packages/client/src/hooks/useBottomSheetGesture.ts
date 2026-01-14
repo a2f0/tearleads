@@ -30,6 +30,21 @@ const DEFAULT_VELOCITY_THRESHOLD = 0.5;
 const DEFAULT_DISMISS_THRESHOLD = 100;
 const SNAP_POINT_BIAS = 10;
 
+export function setupResizeListener(
+  onResize: (height: number) => void
+): () => void {
+  if (typeof window === 'undefined') {
+    return () => {};
+  }
+
+  const handleResize = () => {
+    onResize(window.innerHeight);
+  };
+
+  window.addEventListener('resize', handleResize);
+  return () => window.removeEventListener('resize', handleResize);
+}
+
 export function useBottomSheetGesture({
   snapPoints,
   initialSnapPoint,
@@ -62,14 +77,9 @@ export function useBottomSheetGesture({
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const handleResize = () => {
-      setWindowHeight(window.innerHeight);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    return setupResizeListener((height) => {
+      setWindowHeight(height);
+    });
   }, []);
 
   const getMaxHeight = useCallback(() => {
@@ -221,8 +231,6 @@ export function useBottomSheetGesture({
 
           if (nextSnap) {
             animateToHeight(nextSnap.height, nextSnap.name);
-          } else if (direction === 'down' && onDismiss) {
-            onDismiss();
           } else {
             const nearest = findNearestSnapPoint(currentHeight);
             if (nearest) {
@@ -287,8 +295,6 @@ export function useBottomSheetGesture({
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
-
       const deltaY = e.clientY - startY;
       const delta = -deltaY; // Invert: drag up = increase height
       const maxHeight = getMaxHeight();
@@ -306,8 +312,6 @@ export function useBottomSheetGesture({
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      if (!isDragging) return;
-
       isDragging = false;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
@@ -344,8 +348,6 @@ export function useBottomSheetGesture({
 
         if (nextSnap) {
           animateToHeight(nextSnap.height, nextSnap.name);
-        } else if (direction === 'down' && onDismiss) {
-          onDismiss();
         } else {
           snapToNearest();
         }
