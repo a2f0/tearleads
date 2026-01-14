@@ -29,8 +29,8 @@ describe('installConsoleErrorCapture', () => {
     console.error(error);
 
     const [entry] = logStore.getRecentLogs(1);
-    expect(entry?.message).toContain('Exploded');
-    expect(entry?.details).toContain('Exploded');
+    expect(entry?.message).toBe('Exploded');
+    expect(entry?.details).toContain('Error: Exploded');
 
     uninstall();
     consoleSpy.mockRestore();
