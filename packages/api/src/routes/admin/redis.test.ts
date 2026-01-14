@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '../../test/console-mocks.js';
 import { app } from '../../index.js';
+import { mockConsoleError } from '../../test/console-mocks.js';
 
 // Define a minimal interface for the Redis client methods we use in tests
 interface MockRedisClient {
