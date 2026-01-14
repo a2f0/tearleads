@@ -526,6 +526,20 @@ jobs:
       - name: Download Gradle wrapper
         run: ./packages/client/scripts/downloadGradleWrapper.sh
 
+      - name: Setup Android keystore
+        run: |
+          mkdir -p .secrets
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > .secrets/tearleads-release.keystore
+
+      - name: Create keystore.properties
+        run: |
+          cat > packages/client/android/keystore.properties << EOF
+          storeFile=${{ github.workspace }}/.secrets/tearleads-release.keystore
+          storePassword=${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
+          keyAlias=tearleads
+          keyPassword=${{ secrets.ANDROID_KEYSTORE_KEY_PASS }}
+          EOF
+
       - name: Run Android unit tests
         run: bundle exec fastlane android test
         working-directory: packages/client

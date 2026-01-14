@@ -47,6 +47,9 @@ interface SQLiteOO1 {
 interface SQLiteCAPI {
   sqlite3_libversion(): string;
   sqlite3_js_db_export(db: SQLiteDatabase): Uint8Array;
+  sqlite3_js_vfs_list(): string[];
+  sqlite3mc_vfs_create(zVfsReal: string, makeDefault: number): number;
+  SQLITE_OK: number;
   sqlite3_deserialize(
     dbPointer: number,
     schema: string,
@@ -83,7 +86,7 @@ interface SQLite3Module {
   /** OPFS namespace - available after installOpfsVfs() */
   opfs?: unknown;
   /** Install OPFS VFS - may not be available in all builds */
-  installOpfsVfs?: () => Promise<void>;
+  installOpfsVfs?: (options?: { proxyUri?: string }) => Promise<void>;
 }
 
 /**
@@ -95,6 +98,44 @@ interface SQLiteOO1WithOpfs extends SQLiteOO1 {
 
 function hasOpfsDb(oo1: SQLiteOO1): oo1 is SQLiteOO1WithOpfs {
   return 'OpfsDb' in oo1;
+}
+
+function getVfsList(): string[] {
+  if (!sqlite3) return [];
+  const listFn = sqlite3.capi.sqlite3_js_vfs_list;
+  if (!listFn) return [];
+  const vfsList = listFn();
+  return Array.isArray(vfsList) ? vfsList : [];
+}
+
+function getOpfsVfsName(): string | null {
+  const vfsList = getVfsList();
+  if (vfsList.length === 0) return null;
+  if (vfsList.includes('multipleciphers-opfs')) return 'multipleciphers-opfs';
+  if (vfsList.includes('opfs')) return 'opfs';
+  return null;
+}
+
+function ensureMultipleciphersVfs(baseVfsName: string): boolean {
+  if (!sqlite3) return false;
+  const createFn = sqlite3.capi.sqlite3mc_vfs_create;
+  if (!createFn) {
+    console.warn('sqlite3mc_vfs_create not available');
+    return false;
+  }
+
+  const targetName = `multipleciphers-${baseVfsName}`;
+  const vfsList = getVfsList();
+  if (vfsList.includes(targetName)) return true;
+
+  const rc = createFn(baseVfsName, 0);
+  if (rc === sqlite3.capi.SQLITE_OK || rc === 0) {
+    console.log(`Registered ${targetName} VFS`);
+    return true;
+  }
+
+  console.warn(`Failed to register ${targetName} VFS, rc=${rc}`);
+  return false;
 }
 
 /**
@@ -119,6 +160,7 @@ let sqlite3: SQLite3Module | null = null;
 let db: SQLiteDatabase | null = null;
 let encryptionKey: string | null = null;
 let currentDbFilename: string | null = null;
+let sqliteBaseUrl: string | null = null;
 
 /**
  * Convert a Uint8Array encryption key to a hex string for SQLite.
@@ -140,7 +182,7 @@ async function initializeSqliteWasm(): Promise<void> {
 
   // Base URL for SQLite companion files (wasm, OPFS proxy worker)
   // These are served from /sqlite/ in the public folder
-  const sqliteBaseUrl = new URL('/sqlite/', self.location.origin).href;
+  sqliteBaseUrl = new URL('/sqlite/', self.location.origin).href;
   console.log('SQLite base URL:', sqliteBaseUrl);
 
   // Initialize the SQLite WASM module with locateFile override
@@ -153,6 +195,11 @@ async function initializeSqliteWasm(): Promise<void> {
       printErr: console.error,
       locateFile: (path: string, _prefix: string) => {
         // Redirect all file lookups to /sqlite/ base URL
+        if (!sqliteBaseUrl) {
+          throw new Error(
+            'sqliteBaseUrl is not set before initializing the sqlite3 module.'
+          );
+        }
         return new URL(path, sqliteBaseUrl).href;
       }
     });
@@ -173,6 +220,8 @@ async function initializeSqliteWasm(): Promise<void> {
   const hasStorageApi = typeof navigator?.storage?.getDirectory === 'function';
   console.log('Browser capabilities:');
   console.log('- navigator.storage.getDirectory:', hasStorageApi);
+  console.log('- crossOriginIsolated:', self.crossOriginIsolated === true);
+  console.log('- SharedArrayBuffer:', typeof SharedArrayBuffer !== 'undefined');
 }
 
 /**
@@ -195,8 +244,13 @@ async function installOpfsVfs(): Promise<boolean> {
 
   // Try to install OPFS VFS
   try {
+    console.log('OPFS installOpfsVfs type:', typeof sqlite3.installOpfsVfs);
     if (typeof sqlite3.installOpfsVfs === 'function') {
-      await sqlite3.installOpfsVfs();
+      const proxyUri = sqliteBaseUrl
+        ? new URL('sqlite3-opfs-async-proxy.js', sqliteBaseUrl).href
+        : undefined;
+      console.log('OPFS proxy URI:', proxyUri ?? 'default');
+      await sqlite3.installOpfsVfs(proxyUri ? { proxyUri } : undefined);
       console.log('OPFS VFS installed successfully');
       return true;
     }
@@ -235,14 +289,29 @@ async function initializeDatabase(
 
   // Try to install OPFS VFS for persistence
   const hasOpfs = await installOpfsVfs();
+  let vfsList = getVfsList();
+  console.log('SQLite VFS list:', vfsList);
+  if (hasOpfs && vfsList.includes('opfs')) {
+    const created = ensureMultipleciphersVfs('opfs');
+    if (created) {
+      vfsList = getVfsList();
+      console.log('SQLite VFS list after mc create:', vfsList);
+    }
+  }
 
   // Use OPFS filename if available, otherwise use in-memory
   // OPFS files persist across page reloads
-  // Use multipleciphers-opfs VFS which wraps OPFS with encryption support
-  // See: https://utelle.github.io/SQLite3MultipleCiphers/docs/architecture/arch_vfs/
   if (hasOpfs) {
-    currentDbFilename = `file:${name}.sqlite3?vfs=multipleciphers-opfs`;
-    console.log('Using multipleciphers-opfs VFS for encrypted persistence');
+    const vfsName = getOpfsVfsName();
+    if (vfsName) {
+      currentDbFilename = `file:${name}.sqlite3?vfs=${vfsName}`;
+      console.log(`Using ${vfsName} VFS for encrypted persistence`);
+    } else {
+      currentDbFilename = `${name}.sqlite3`;
+      console.warn(
+        'OPFS requested but no OPFS VFS registered; falling back to in-memory'
+      );
+    }
   } else {
     currentDbFilename = `${name}.sqlite3`;
     console.log('Using in-memory VFS (data will not persist across reloads)');
@@ -512,7 +581,7 @@ async function deleteDatabaseFile(name: string): Promise<void> {
   // Try to delete from OPFS using the File System Access API
   try {
     const opfsRoot = await navigator.storage.getDirectory();
-    // The filename format used by multipleciphers-opfs VFS
+    // The filename format used by OPFS-backed VFS
     const filename = `${name}.sqlite3`;
 
     try {

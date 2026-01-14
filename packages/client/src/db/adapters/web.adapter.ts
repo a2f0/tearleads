@@ -55,7 +55,9 @@ export class WebAdapter implements DatabaseAdapter {
   private pending = new Map<string, PendingRequest>();
   private isReady = false;
   private readyPromise: Promise<void> | null = null;
+  private readyResolve: (() => void) | null = null;
   private readyReject: ((error: Error) => void) | null = null;
+  private readyTimeout: ReturnType<typeof setTimeout> | null = null;
 
   async initialize(config: DatabaseConfig): Promise<void> {
     if (!this.worker) {
@@ -89,25 +91,15 @@ export class WebAdapter implements DatabaseAdapter {
 
     if (!this.readyPromise) {
       this.readyPromise = new Promise((resolve, reject) => {
-        // Store reject function so handleError can use it
+        this.readyResolve = resolve;
         this.readyReject = reject;
 
-        const timeout = setTimeout(() => {
+        this.readyTimeout = setTimeout(() => {
           this.readyReject = null;
+          this.readyResolve = null;
+          this.readyTimeout = null;
           reject(new Error('Worker initialization timeout'));
         }, REQUEST_TIMEOUT);
-
-        const checkReady = (event: MessageEvent<WorkerResponse>) => {
-          if (event.data.type === 'READY') {
-            clearTimeout(timeout);
-            this.isReady = true;
-            this.readyReject = null;
-            this.worker?.removeEventListener('message', checkReady);
-            resolve();
-          }
-        };
-
-        this.worker?.addEventListener('message', checkReady);
       });
     }
 
@@ -117,8 +109,20 @@ export class WebAdapter implements DatabaseAdapter {
   private handleMessage(event: MessageEvent<WorkerResponse>): void {
     const response = event.data;
 
-    // Skip READY messages (handled separately)
-    if (response.type === 'READY') return;
+    if (response.type === 'READY') {
+      if (!this.isReady) {
+        this.isReady = true;
+        if (this.readyTimeout) {
+          clearTimeout(this.readyTimeout);
+          this.readyTimeout = null;
+        }
+        const resolve = this.readyResolve;
+        this.readyResolve = null;
+        this.readyReject = null;
+        resolve?.();
+      }
+      return;
+    }
 
     const id = 'id' in response ? response.id : null;
     if (!id) return;
@@ -150,6 +154,11 @@ export class WebAdapter implements DatabaseAdapter {
         new Error(`Worker initialization error: ${error.message}`)
       );
       this.readyReject = null;
+      this.readyResolve = null;
+      if (this.readyTimeout) {
+        clearTimeout(this.readyTimeout);
+        this.readyTimeout = null;
+      }
     }
 
     // Reject all pending requests
@@ -199,6 +208,12 @@ export class WebAdapter implements DatabaseAdapter {
     }
     this.isReady = false;
     this.readyPromise = null;
+    this.readyResolve = null;
+    this.readyReject = null;
+    if (this.readyTimeout) {
+      clearTimeout(this.readyTimeout);
+      this.readyTimeout = null;
+    }
   }
 
   isOpen(): boolean {

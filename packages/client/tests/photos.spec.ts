@@ -1,12 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import { MINIMAL_PNG } from './test-utils';
 
-// Skip tests that require database setup in CI release builds
-// until https://github.com/a2f0/rapid/issues/687 is resolved
-const isCI = !!process.env['CI'];
-const isHTTPS = !!process.env['BASE_URL']?.startsWith('https://');
-const skipDatabaseTests = isCI && isHTTPS;
-
 // Helper to check if viewport is mobile (sidebar hidden at lg breakpoint = 1024px)
 function isMobileViewport(page: Page): boolean {
   const viewport = page.viewportSize();
@@ -75,8 +69,6 @@ async function uploadTestImage(page: Page) {
 }
 
 test.describe('Photos page responsive layout', () => {
-  test.skip(skipDatabaseTests, 'Database setup fails in CI release builds');
-
   test.describe('Mobile viewport (375px - iPhone)', () => {
     test.use({ viewport: { width: 375, height: 667 } });
 
