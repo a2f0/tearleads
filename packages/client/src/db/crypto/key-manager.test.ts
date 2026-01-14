@@ -9,34 +9,92 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearAllKeyManagers,
   clearKeyManagerForInstance,
+  deleteSessionKeysForInstance,
   getCurrentInstanceId,
   getKeyManager,
   getKeyManagerForInstance,
+  getKeyStatusForInstance,
   KeyManager,
-  setCurrentInstanceId
+  setCurrentInstanceId,
+  validateAndPruneOrphanedInstances
 } from './key-manager';
+
+let keyBytesByKey = new WeakMap<object, Uint8Array>();
 
 // Mock the @rapid/shared crypto module
 vi.mock('@rapid/shared', async (importOriginal) => {
   const original = await importOriginal<typeof import('@rapid/shared')>();
+  const passwordByKey = new WeakMap<object, string>();
+
+  const createMockCryptoKey = () => ({
+    type: 'secret',
+    extractable: true,
+    algorithm: { name: 'AES-GCM' },
+    usages: ['encrypt', 'decrypt']
+  });
+
+  const encodePassword = (password: string) => {
+    const bytes = new Uint8Array(32);
+    const sum = Array.from(password).reduce(
+      (total, char) => total + char.charCodeAt(0),
+      0
+    );
+    bytes.fill(sum % 255);
+    return bytes;
+  };
+
   return {
     ...original,
     generateSalt: vi.fn(() => new Uint8Array(32).fill(1)),
-    deriveKeyFromPassword: vi.fn(async () => ({}) as CryptoKey),
-    exportKey: vi.fn(async () => new Uint8Array(32).fill(2)),
-    importKey: vi.fn(async () => ({}) as CryptoKey),
+    deriveKeyFromPassword: vi.fn(async (password: string) => {
+      const key = createMockCryptoKey();
+      passwordByKey.set(key, password);
+      return key;
+    }),
+    exportKey: vi.fn(async (key: CryptoKey) => {
+      const password =
+        typeof key === 'object' && key !== null
+          ? passwordByKey.get(key) ?? 'default'
+          : 'default';
+      return encodePassword(password);
+    }),
+    importKey: vi.fn(async (keyBytes: Uint8Array) => {
+      const key = createMockCryptoKey();
+      keyBytesByKey.set(key, keyBytes);
+      return key;
+    }),
     secureZero: vi.fn(),
-    generateWrappingKey: vi.fn(async () => ({}) as CryptoKey),
-    generateExtractableWrappingKey: vi.fn(async () => ({}) as CryptoKey),
+    generateWrappingKey: vi.fn(async () => createMockCryptoKey()),
+    generateExtractableWrappingKey: vi.fn(async () => createMockCryptoKey()),
     wrapKey: vi.fn(async () => new Uint8Array(48).fill(3)),
     unwrapKey: vi.fn(async () => new Uint8Array(32).fill(2)),
     exportWrappingKey: vi.fn(async () => new Uint8Array(32).fill(4)),
-    importWrappingKey: vi.fn(async () => ({}) as CryptoKey)
+    importWrappingKey: vi.fn(async () => createMockCryptoKey())
   };
 });
 
+vi.mock('./native-secure-storage', () => ({
+  clearSession: vi.fn(async () => undefined),
+  getTrackedKeystoreInstanceIds: vi.fn(async () => []),
+  hasSession: vi.fn(async () => false),
+  isBiometricAvailable: vi.fn(async () => ({ isAvailable: false })),
+  retrieveWrappedKey: vi.fn(async () => null),
+  retrieveWrappingKeyBytes: vi.fn(async () => null),
+  storeWrappedKey: vi.fn(async () => true),
+  storeWrappingKeyBytes: vi.fn(async () => true)
+}));
+
 // Mock crypto.subtle for KCV generation
-const mockEncrypt = vi.fn(async () => new ArrayBuffer(32));
+const mockEncrypt = vi.fn(async (_algo, key) => {
+  const buffer = new Uint8Array(32);
+  if (typeof key === 'object' && key !== null) {
+    const keyBytes = keyBytesByKey.get(key);
+    if (keyBytes) {
+      buffer.set(keyBytes.slice(0, 32));
+    }
+  }
+  return buffer.buffer;
+});
 Object.defineProperty(global, 'crypto', {
   value: {
     subtle: {
@@ -98,20 +156,32 @@ const mockDB = {
   createObjectStore: vi.fn()
 };
 
-const mockOpenRequest = {
+const createOpenRequest = () => ({
   result: mockDB,
   error: null,
   onsuccess: null as (() => void) | null,
   onerror: null as (() => void) | null,
   onupgradeneeded: null as (() => void) | null
-};
+});
 
 vi.stubGlobal('indexedDB', {
   open: vi.fn(() => {
-    setTimeout(() => mockOpenRequest.onsuccess?.(), 0);
-    return mockOpenRequest;
+    const request = createOpenRequest();
+    setTimeout(() => {
+      if (mockDB.objectStoreNames.contains()) {
+        request.onsuccess?.();
+        return;
+      }
+      request.onupgradeneeded?.();
+      request.onsuccess?.();
+    }, 0);
+    return request;
   })
 });
+
+const flushTimers = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 20));
+};
 
 // Mock detectPlatform to return 'web'
 vi.mock('@/lib/utils', () => ({
@@ -126,6 +196,8 @@ describe('KeyManager', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIDBStore.clear();
+    keyBytesByKey = new WeakMap();
+    mockDB.objectStoreNames.contains.mockReturnValue(true);
     keyManager = new KeyManager(TEST_INSTANCE_ID);
   });
 
@@ -231,13 +303,13 @@ describe('KeyManager', () => {
   });
 
   describe('reset', () => {
-    // Skip: Complex mock interactions with multiple sequential IndexedDB operations
-    // The production code is tested via integration tests
-    it.skip('clears key and storage', async () => {
+    it('clears key and storage', async () => {
       await keyManager.setupNewKey('password');
+      await keyManager.persistSession();
       expect(mockIDBStore.size).toBeGreaterThan(0);
 
       await keyManager.reset();
+      await flushTimers();
 
       expect(keyManager.getCurrentKey()).toBeNull();
       expect(mockIDBStore.size).toBe(0);
@@ -266,16 +338,27 @@ describe('KeyManager', () => {
       expect(result).toBeNull();
     });
 
-    // Skip: IndexedDB mock doesn't handle all async operations correctly
-    it.skip('clearPersistedSession completes without error', async () => {
-      await expect(keyManager.clearPersistedSession()).resolves.toBeUndefined();
+    it('clearPersistedSession clears stored session keys', async () => {
+      mockIDBStore.set(
+        `rapid_session_wrapping_key_${TEST_INSTANCE_ID}`,
+        { wrapped: true }
+      );
+      mockIDBStore.set(`rapid_session_wrapped_key_${TEST_INSTANCE_ID}`, [1, 2]);
+
+      await keyManager.clearPersistedSession();
+      await flushTimers();
+
+      expect(
+        mockIDBStore.has(`rapid_session_wrapping_key_${TEST_INSTANCE_ID}`)
+      ).toBe(false);
+      expect(
+        mockIDBStore.has(`rapid_session_wrapped_key_${TEST_INSTANCE_ID}`)
+      ).toBe(false);
     });
   });
 
   describe('changePassword error cases', () => {
-    // Skip: Mocks return identical values regardless of password input,
-    // so KCV verification always passes. Tested in integration tests.
-    it.skip('returns null when old password is incorrect', async () => {
+    it('returns null when old password is incorrect', async () => {
       await keyManager.setupNewKey('correct-password');
 
       // Create a fresh key manager and try to change password with wrong old password
@@ -555,30 +638,101 @@ describe('ElectronKeyStorage session persistence', () => {
 // The underlying storage methods (getSalt, getKeyCheckValue, hasSessionKeys,
 // clearSession) are tested through the KeyManager class tests above.
 describe('getKeyStatusForInstance', () => {
-  it.skip('returns all false when no keys exist', async () => {
-    // Tested via integration tests
+  beforeEach(async () => {
+    const utils = await import('@/lib/utils');
+    vi.mocked(utils.detectPlatform).mockReturnValue('web');
   });
 
-  it.skip('returns true for existing keys', async () => {
-    // Tested via integration tests
+  it('returns all false when no keys exist', async () => {
+    const result = await getKeyStatusForInstance('missing-instance');
+
+    expect(result).toEqual({
+      salt: false,
+      keyCheckValue: false,
+      wrappingKey: false,
+      wrappedKey: false
+    });
   });
 
-  it.skip('returns true for session keys when present', async () => {
-    // Tested via integration tests
+  it('returns true for existing keys', async () => {
+    const instanceId = 'status-instance';
+
+    mockIDBStore.set(`rapid_db_salt_${instanceId}`, [1, 2, 3]);
+    mockIDBStore.set(`rapid_db_kcv_${instanceId}`, 'kcv');
+
+    const result = await getKeyStatusForInstance(instanceId);
+
+    expect(result).toEqual({
+      salt: true,
+      keyCheckValue: true,
+      wrappingKey: false,
+      wrappedKey: false
+    });
+  });
+
+  it('returns true for session keys when present', async () => {
+    const instanceId = 'session-instance';
+
+    mockIDBStore.set(`rapid_db_salt_${instanceId}`, [1, 2, 3]);
+    mockIDBStore.set(`rapid_db_kcv_${instanceId}`, 'kcv');
+    mockIDBStore.set(`rapid_session_wrapping_key_${instanceId}`, {
+      wrapping: true
+    });
+    mockIDBStore.set(`rapid_session_wrapped_key_${instanceId}`, [1, 2, 3]);
+
+    const result = await getKeyStatusForInstance(instanceId);
+
+    expect(result).toEqual({
+      salt: true,
+      keyCheckValue: true,
+      wrappingKey: true,
+      wrappedKey: true
+    });
   });
 });
 
 describe('deleteSessionKeysForInstance', () => {
-  it.skip('deletes session keys but preserves salt and KCV', async () => {
-    // Tested via integration tests
+  beforeEach(async () => {
+    const utils = await import('@/lib/utils');
+    vi.mocked(utils.detectPlatform).mockReturnValue('web');
   });
 
-  it.skip('completes successfully when no session keys exist', async () => {
-    // Tested via integration tests
+  it('deletes session keys but preserves salt and KCV', async () => {
+    const instanceId = 'delete-session';
+
+    mockIDBStore.set(`rapid_db_salt_${instanceId}`, [1, 2, 3]);
+    mockIDBStore.set(`rapid_db_kcv_${instanceId}`, 'kcv');
+    mockIDBStore.set(`rapid_session_wrapping_key_${instanceId}`, {
+      wrapping: true
+    });
+    mockIDBStore.set(`rapid_session_wrapped_key_${instanceId}`, [1, 2, 3]);
+
+    await deleteSessionKeysForInstance(instanceId);
+    await flushTimers();
+
+    expect(mockIDBStore.has(`rapid_db_salt_${instanceId}`)).toBe(true);
+    expect(mockIDBStore.has(`rapid_db_kcv_${instanceId}`)).toBe(true);
+    expect(
+      mockIDBStore.has(`rapid_session_wrapping_key_${instanceId}`)
+    ).toBe(false);
+    expect(
+      mockIDBStore.has(`rapid_session_wrapped_key_${instanceId}`)
+    ).toBe(false);
+  });
+
+  it('completes successfully when no session keys exist', async () => {
+    await expect(
+      deleteSessionKeysForInstance('missing-session')
+    ).resolves.toBeUndefined();
   });
 });
 
 describe('validateAndPruneOrphanedInstances', () => {
+  beforeEach(async () => {
+    const utils = await import('@/lib/utils');
+    vi.mocked(utils.detectPlatform).mockReturnValue('web');
+  });
+
   // Note: Full integration tests are in the Maestro test orphan-cleanup.yaml
 
   it('returns empty result when called with empty registry', async () => {
@@ -628,11 +782,44 @@ describe('validateAndPruneOrphanedInstances', () => {
     }
   });
 
-  it.skip('detects and cleans orphaned registry entries', async () => {
-    // Requires real IndexedDB - tested via integration tests
+  it('detects and cleans orphaned registry entries', async () => {
+    const registryIds = ['valid-instance', 'orphan-instance'];
+    const deleteRegistryEntry = vi.fn(async () => undefined);
+
+    mockIDBStore.set(`rapid_db_salt_valid-instance`, [1, 2, 3]);
+    mockIDBStore.set(`rapid_db_kcv_valid-instance`, 'kcv');
+    mockIDBStore.set(`rapid_db_salt_orphan-instance`, [1, 2, 3]);
+
+    const result = await validateAndPruneOrphanedInstances(
+      registryIds,
+      deleteRegistryEntry
+    );
+    await flushTimers();
+
+    expect(result.orphanedRegistryEntries).toEqual(['orphan-instance']);
+    expect(result.cleaned).toBe(true);
+    expect(deleteRegistryEntry).toHaveBeenCalledWith('orphan-instance');
+    expect(mockIDBStore.has('rapid_db_salt_orphan-instance')).toBe(false);
   });
 
-  it.skip('detects and cleans orphaned Keystore entries on mobile', async () => {
-    // Requires real device - tested via Maestro tests
+  it('detects and cleans orphaned Keystore entries on mobile', async () => {
+    const utils = await import('@/lib/utils');
+    const nativeStorage = await import('./native-secure-storage');
+    vi.mocked(utils.detectPlatform).mockReturnValue('ios');
+
+    vi.mocked(nativeStorage.getTrackedKeystoreInstanceIds).mockResolvedValue([
+      'keystore-orphan',
+      'keystore-keep'
+    ]);
+
+    const result = await validateAndPruneOrphanedInstances(
+      ['keystore-keep'],
+      vi.fn()
+    );
+
+    expect(result.orphanedKeystoreEntries).toEqual(['keystore-orphan']);
+    expect(result.cleaned).toBe(true);
+    expect(nativeStorage.clearSession).toHaveBeenCalledWith('keystore-orphan');
+    vi.mocked(utils.detectPlatform).mockReturnValue('web');
   });
 });

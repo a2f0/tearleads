@@ -368,6 +368,111 @@ describe('AudioPlayer', () => {
       const seekbar = screen.getByTestId('audio-seekbar');
       expect(seekbar).toHaveStyle({ '--progress': '33.33333333333333%' });
     });
+
+    it('uses seek value while dragging and resets on release', () => {
+      render(<AudioPlayer tracks={TEST_TRACKS} />);
+
+      const seekbar = screen.getByTestId('audio-seekbar');
+      const currentTime = screen.getByTestId('audio-current-time');
+
+      fireEvent.mouseDown(seekbar);
+      fireEvent.change(seekbar, { target: { value: '90' } });
+
+      expect(currentTime).toHaveTextContent('1:30');
+
+      fireEvent.mouseUp(seekbar);
+
+      expect(currentTime).toHaveTextContent('1:00');
+      expect(mockSeek).toHaveBeenCalledWith(90);
+    });
+
+    it('debounces seek calls while dragging', () => {
+      vi.useFakeTimers();
+      render(<AudioPlayer tracks={TEST_TRACKS} />);
+
+      const seekbar = screen.getByTestId('audio-seekbar');
+      fireEvent.mouseDown(seekbar);
+      fireEvent.change(seekbar, { target: { value: '75' } });
+
+      expect(mockSeek).not.toHaveBeenCalledWith(75);
+
+      vi.advanceTimersByTime(110);
+
+      expect(mockSeek).toHaveBeenCalledWith(75);
+      vi.useRealTimers();
+    });
+
+    it('clears pending seek timeout on subsequent changes', () => {
+      vi.useFakeTimers();
+      const clearSpy = vi.spyOn(globalThis, 'clearTimeout');
+      render(<AudioPlayer tracks={TEST_TRACKS} />);
+
+      const seekbar = screen.getByTestId('audio-seekbar');
+      fireEvent.change(seekbar, { target: { value: '40' } });
+      fireEvent.change(seekbar, { target: { value: '50' } });
+
+      expect(clearSpy).toHaveBeenCalled();
+
+      clearSpy.mockRestore();
+      vi.useRealTimers();
+    });
+
+    it('cleans up pending seek timeout on unmount', () => {
+      vi.useFakeTimers();
+      const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
+      const { unmount } = render(<AudioPlayer tracks={TEST_TRACKS} />);
+
+      const seekbar = screen.getByTestId('audio-seekbar');
+      fireEvent.change(seekbar, { target: { value: '45' } });
+
+      unmount();
+
+      expect(clearTimeoutSpy).toHaveBeenCalled();
+
+      clearTimeoutSpy.mockRestore();
+      vi.useRealTimers();
+    });
+  });
+
+  describe('visualizer style', () => {
+    beforeEach(() => {
+      mockUseAudio.mockReturnValue({
+        audioElementRef: mockAudioElementRef,
+        currentTrack: TEST_TRACKS[1],
+        isPlaying: true,
+        currentTime: 30,
+        duration: 180,
+        volume: 1,
+        play: mockPlay,
+        pause: mockPause,
+        resume: mockResume,
+        seek: mockSeek,
+        setVolume: mockSetVolume
+      });
+    });
+
+    it('uses gradient bars when stored style is gradient', () => {
+      mockLocalStorage.setItem('audio-visualizer-style', 'gradient');
+
+      const { container } = render(<AudioPlayer tracks={TEST_TRACKS} />);
+      const gradientBars = container.querySelectorAll(
+        'div[style*="linear-gradient"]'
+      );
+
+      expect(gradientBars.length).toBeGreaterThan(0);
+    });
+
+    it('persists toggled visualizer style', async () => {
+      const user = userEvent.setup();
+      render(<AudioPlayer tracks={TEST_TRACKS} />);
+
+      await user.click(screen.getByTestId('visualizer-style-toggle'));
+
+      expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+        'audio-visualizer-style',
+        'gradient'
+      );
+    });
   });
 
   describe('layout and alignment', () => {

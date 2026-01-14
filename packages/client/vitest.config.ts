@@ -55,7 +55,12 @@ export default defineConfig({
         'src/audio/index.ts',
         'src/db/crypto/index.ts',
         'src/db/hooks/index.ts',
-        'src/components/ui/footer.tsx'
+        'src/components/ui/footer.tsx',
+        // Type-only modules with no runtime behavior
+        'src/components/contacts/column-mapper/types.ts',
+        'src/db/migrations/types.ts',
+        'src/i18n/translations/types.ts',
+        'src/pages/opfs/types.ts'
       ],
       thresholds: {
         statements: 88,
