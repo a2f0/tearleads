@@ -118,6 +118,17 @@ const TEST_DELETED_FILE = {
   deleted: true
 };
 
+const TEST_VIDEO_FILE = {
+  id: 'file-4',
+  name: 'clip.mp4',
+  size: 4096,
+  mimeType: 'video/mp4',
+  uploadDate: new Date('2024-01-12'),
+  storagePath: '/files/clip.mp4',
+  thumbnailPath: null,
+  deleted: false
+};
+
 const TEST_THUMBNAIL_DATA = new Uint8Array([0xff, 0xd8, 0xff, 0xe0]); // JPEG header bytes
 const TEST_ENCRYPTION_KEY = new Uint8Array([1, 2, 3, 4]);
 
@@ -468,6 +479,22 @@ describe('Files', () => {
       await user.click(screen.getByText('document.pdf'));
 
       expect(mockNavigate).toHaveBeenCalledWith('/documents/file-2', {
+        state: { from: '/', fromLabel: 'Back to Files' }
+      });
+    });
+
+    it('navigates to video detail when video file card is clicked', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_VIDEO_FILE]));
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('clip.mp4')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('clip.mp4'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/videos/file-4', {
         state: { from: '/', fromLabel: 'Back to Files' }
       });
     });

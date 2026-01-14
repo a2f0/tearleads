@@ -55,6 +55,13 @@ vi.mock('@/lib/file-utils', () => ({
   canShareFiles: () => mockCanShareFiles()
 }));
 
+// Mock audio metadata extraction
+const mockExtractAudioMetadata = vi.fn();
+vi.mock('@/lib/audio-metadata', () => ({
+  extractAudioMetadata: (data: Uint8Array, mimeType: string) =>
+    mockExtractAudioMetadata(data, mimeType)
+}));
+
 // Mock audio context
 const mockPlay = vi.fn();
 const mockPause = vi.fn();
@@ -120,6 +127,16 @@ describe('AudioDetail', () => {
     mockGetCurrentKey.mockReturnValue(TEST_ENCRYPTION_KEY);
     mockIsFileStorageInitialized.mockReturnValue(true);
     mockRetrieve.mockResolvedValue(TEST_AUDIO_DATA);
+    mockExtractAudioMetadata.mockResolvedValue({
+      title: 'Track Title',
+      artist: 'Artist Name',
+      album: 'Album Name',
+      albumArtist: 'Album Artist Name',
+      year: 2024,
+      trackNumber: 2,
+      trackTotal: 10,
+      genre: ['Rock', 'Alt']
+    });
     mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO]));
     mockUpdate.mockReturnValue({
       set: vi.fn().mockReturnValue({
@@ -198,6 +215,28 @@ describe('AudioDetail', () => {
 
       expect(screen.getByText('audio/mpeg')).toBeInTheDocument();
       expect(screen.getByText('2 KB')).toBeInTheDocument();
+    });
+
+    it('renders metadata fields when present', async () => {
+      await renderAudioDetail();
+
+      expect(screen.getByText('Metadata')).toBeInTheDocument();
+      expect(screen.getByText('Track Title')).toBeInTheDocument();
+      expect(screen.getByText('Artist Name')).toBeInTheDocument();
+      expect(screen.getByText('Album Name')).toBeInTheDocument();
+      expect(screen.getByText('Album Artist Name')).toBeInTheDocument();
+      expect(screen.getByText('2024')).toBeInTheDocument();
+      expect(screen.getByText('2/10')).toBeInTheDocument();
+      expect(screen.getByText('Rock, Alt')).toBeInTheDocument();
+    });
+
+    it('shows empty state when metadata is not available', async () => {
+      mockExtractAudioMetadata.mockResolvedValueOnce(null);
+      await renderAudioDetail();
+
+      expect(
+        screen.getByText('No embedded metadata found.')
+      ).toBeInTheDocument();
     });
 
     it('renders play button', async () => {
