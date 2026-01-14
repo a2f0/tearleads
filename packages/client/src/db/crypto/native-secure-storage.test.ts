@@ -43,6 +43,7 @@ vi.mock('@capgo/capacitor-native-biometric', () => ({
 
 // Import after mocking
 import { BiometryType } from '@capgo/capacitor-native-biometric';
+import { mockConsoleError } from '@/test/console-mocks';
 import {
   clearSession,
   getTrackedKeystoreInstanceIds,
@@ -196,16 +197,18 @@ describe('native-secure-storage', () => {
       fnName: 'storeWrappedKey',
       keyName: 'wrapped_key',
       keyBytes: new Uint8Array([1, 2, 3, 4, 5]),
-      keyHex: '0102030405'
+      keyHex: '0102030405',
+      errorMessage: 'Failed to store wrapped key:'
     },
     {
       fn: storeWrappingKeyBytes,
       fnName: 'storeWrappingKeyBytes',
       keyName: 'wrapping_key',
       keyBytes: new Uint8Array([10, 20, 30, 40]),
-      keyHex: '0a141e28'
+      keyHex: '0a141e28',
+      errorMessage: 'Failed to store wrapping key:'
     }
-  ])('$fnName', ({ fn, keyName, keyBytes, keyHex }) => {
+  ])('$fnName', ({ fn, keyName, keyBytes, keyHex, errorMessage }) => {
     it('stores key successfully', async () => {
       mockSetCredentials.mockResolvedValue(undefined);
 
@@ -220,11 +223,17 @@ describe('native-secure-storage', () => {
     });
 
     it('returns false when storage fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockSetCredentials.mockRejectedValue(new Error('Storage error'));
 
       const result = await fn(TEST_INSTANCE_ID, new Uint8Array([1, 2, 3]));
 
       expect(result).toBe(false);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        errorMessage,
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 

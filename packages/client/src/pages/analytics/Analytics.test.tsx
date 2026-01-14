@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnalyticsEvent } from '@/db/analytics';
+import { mockConsoleError } from '@/test/console-mocks';
 import { Analytics } from './Analytics';
 
 // Mock useVirtualizer to simplify testing
@@ -366,6 +367,7 @@ describe('Analytics', () => {
     });
 
     it('displays error when fetch fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockGetEvents.mockRejectedValueOnce(new Error('Fetch failed'));
 
       await renderAnalytics();
@@ -373,6 +375,12 @@ describe('Analytics', () => {
       await waitFor(() => {
         expect(screen.getByText('Fetch failed')).toBeInTheDocument();
       });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch analytics:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('refetches data when refresh button is clicked', async () => {
@@ -437,6 +445,7 @@ describe('Analytics', () => {
 
     it('displays error when clear fails', async () => {
       const user = userEvent.setup();
+      const consoleSpy = mockConsoleError();
 
       const mockEvents = [
         {
@@ -468,6 +477,12 @@ describe('Analytics', () => {
       await waitFor(() => {
         expect(screen.getByText('Clear failed')).toBeInTheDocument();
       });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to clear analytics:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('formats duration in seconds for values >= 1000ms', async () => {

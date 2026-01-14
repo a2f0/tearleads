@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { KeyStatus } from '@/db/crypto/key-manager';
 import type { InstanceMetadata } from '@/db/instance-registry';
+import { mockConsoleError } from '@/test/console-mocks';
 import { KeychainDetail } from './KeychainDetail';
 
 const mockNavigate = vi.fn();
@@ -105,6 +106,7 @@ describe('KeychainDetail', () => {
     });
 
     it('shows error when fetch fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockGetInstances.mockRejectedValue(new Error('Network error'));
 
       renderKeychainDetail('test-id');
@@ -112,9 +114,15 @@ describe('KeychainDetail', () => {
       await waitFor(() => {
         expect(screen.getByText('Network error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch instance info:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('shows error when fetch fails with non-Error', async () => {
+      const consoleSpy = mockConsoleError();
       mockGetInstances.mockRejectedValue('String error');
 
       renderKeychainDetail('test-id');
@@ -122,6 +130,11 @@ describe('KeychainDetail', () => {
       await waitFor(() => {
         expect(screen.getByText('String error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch instance info:',
+        'String error'
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -289,6 +302,7 @@ describe('KeychainDetail', () => {
     });
 
     it('shows error when delete session keys fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockDeleteSessionKeysForInstance.mockRejectedValue(
         new Error('Delete session keys failed')
       );
@@ -306,9 +320,15 @@ describe('KeychainDetail', () => {
           screen.getByText('Delete session keys failed')
         ).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete session keys:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('shows error when delete instance fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockDeleteInstanceFromRegistry.mockRejectedValue(
         new Error('Delete instance failed')
       );
@@ -324,9 +344,15 @@ describe('KeychainDetail', () => {
       await waitFor(() => {
         expect(screen.getByText('Delete instance failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete instance:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('shows error when delete session keys fails with non-Error', async () => {
+      const consoleSpy = mockConsoleError();
       mockDeleteSessionKeysForInstance.mockRejectedValue('Session key error');
       const user = userEvent.setup();
       renderKeychainDetail('test-id');
@@ -340,9 +366,15 @@ describe('KeychainDetail', () => {
       await waitFor(() => {
         expect(screen.getByText('Session key error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete session keys:',
+        'Session key error'
+      );
+      consoleSpy.mockRestore();
     });
 
     it('shows error when delete instance fails with non-Error', async () => {
+      const consoleSpy = mockConsoleError();
       mockDeleteInstanceFromRegistry.mockRejectedValue('Instance error');
       const user = userEvent.setup();
       renderKeychainDetail('test-id');
@@ -356,6 +388,11 @@ describe('KeychainDetail', () => {
       await waitFor(() => {
         expect(screen.getByText('Instance error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete instance:',
+        'Instance error'
+      );
+      consoleSpy.mockRestore();
     });
   });
 

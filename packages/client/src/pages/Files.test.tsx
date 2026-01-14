@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Files } from './Files';
+import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
 
 // Mock useVirtualizer to simplify testing
 vi.mock('@tanstack/react-virtual', () => ({
@@ -329,6 +330,7 @@ describe('Files', () => {
     });
 
     it('handles thumbnail load failure gracefully', async () => {
+      const consoleSpy = mockConsoleWarn();
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
       );
@@ -342,6 +344,11 @@ describe('Files', () => {
 
       // Should not have any img elements since thumbnail failed to load
       expect(screen.queryByRole('img')).not.toBeInTheDocument();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to load thumbnail for photo.jpg:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('revokes object URLs on unmount to prevent memory leaks', async () => {
@@ -549,6 +556,7 @@ describe('Files', () => {
 
   describe('error handling', () => {
     it('displays error message when fetching fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockSelect.mockReturnValue({
         from: vi.fn().mockReturnValue({
           orderBy: vi.fn().mockRejectedValue(new Error('Database error'))
@@ -560,6 +568,11 @@ describe('Files', () => {
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch files:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -627,6 +640,7 @@ describe('Files', () => {
 
     it('displays error when download fails', async () => {
       const user = userEvent.setup();
+      const consoleSpy = mockConsoleError();
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
       );
@@ -643,6 +657,11 @@ describe('Files', () => {
       await waitFor(() => {
         expect(screen.getByText('Download failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to download file:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -670,6 +689,7 @@ describe('Files', () => {
 
     it('displays error when delete fails', async () => {
       const user = userEvent.setup();
+      const consoleSpy = mockConsoleError();
       mockUpdate.mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockRejectedValue(new Error('Delete failed'))
@@ -692,6 +712,11 @@ describe('Files', () => {
       await waitFor(() => {
         expect(screen.getByText('Delete failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete file:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
