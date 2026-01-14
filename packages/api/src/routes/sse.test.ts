@@ -12,9 +12,7 @@ const mockDuplicate = vi.fn();
 
 type ParserCallback = (error: Error | null, data: string) => void;
 
-function createSseParser(
-  onData: (data: string, res: IncomingMessage) => void
-) {
+function createSseParser(onData: (data: string, res: IncomingMessage) => void) {
   return (res: IncomingMessage, callback: ParserCallback) => {
     let data = '';
     let doneCalled = false;
