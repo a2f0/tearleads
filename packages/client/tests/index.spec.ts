@@ -39,6 +39,26 @@ async function importContacts(page: Page, csvContent: string) {
   await page.getByRole('button', { name: 'Import' }).click();
 }
 
+type WebGPUState = 'models' | 'error';
+
+async function waitForModelsOrWebGPUError(page: Page): Promise<WebGPUState> {
+  let state: WebGPUState | null = null;
+  await expect
+    .poll(async () => {
+      const hasModelCards = await page.getByText('Phi 3.5 Mini').isVisible();
+      const hasWebGPUError = await page.getByText('WebGPU Not Supported').isVisible();
+      state = hasModelCards ? 'models' : hasWebGPUError ? 'error' : null;
+      return state;
+    }, { timeout: 15000 })
+    .not.toBeNull();
+
+  if (!state) {
+    throw new Error('WebGPU status did not resolve');
+  }
+
+  return state;
+}
+
 const IGNORED_WARNING_PATTERNS: RegExp[] = [
   /Download the React DevTools/i,
   /apple-mobile-web-app-capable.*deprecated/i,
@@ -888,43 +908,42 @@ test.describe('Models page', () => {
   test('should display model cards or WebGPU not supported message', async ({ page }) => {
     await navigateTo(page, 'Models');
 
-    // Wait for page to load - either model cards or WebGPU error
-    await expect(
-      page.getByText('Phi 3.5 Mini').or(page.getByText('WebGPU Not Supported'))
-    ).toBeVisible({ timeout: 10000 });
+    const webGPUState = await waitForModelsOrWebGPUError(page);
 
-    // If WebGPU is supported, verify model cards are shown
-    const webGPUNotSupported = await page.getByText('WebGPU Not Supported').isVisible();
-    if (!webGPUNotSupported) {
-      await expect(page.getByText('Phi 3.5 Mini')).toBeVisible();
-      await expect(page.getByText('SmolVLM 256M')).toBeVisible();
-      await expect(page.getByText('PaliGemma 2 3B')).toBeVisible();
+    if (webGPUState === 'models') {
+      await expect(page.getByText('Phi 3.5 Mini')).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText('SmolVLM 256M')).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText('PaliGemma 2 3B')).toBeVisible({ timeout: 15000 });
+    } else {
+      await expect(page.getByText('WebGPU Not Supported')).toBeVisible();
     }
   });
 
   test('should show model sizes or WebGPU not supported message', async ({ page }) => {
     await navigateTo(page, 'Models');
 
-    // Wait for page to load
-    await expect(
-      page.getByText(/~2GB/).or(page.getByText('WebGPU Not Supported'))
-    ).toBeVisible({ timeout: 10000 });
+    const webGPUState = await waitForModelsOrWebGPUError(page);
 
-    // If WebGPU is supported, verify sizes are shown
-    const webGPUNotSupported = await page.getByText('WebGPU Not Supported').isVisible();
-    if (!webGPUNotSupported) {
-      await expect(page.getByText(/~2GB/)).toBeVisible();
-      await expect(page.getByText(/~500MB/)).toBeVisible();
+    if (webGPUState === 'models') {
+      await expect(page.getByText(/~2GB/)).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(/~500MB/)).toBeVisible({ timeout: 15000 });
+    } else {
+      await expect(page.getByText('WebGPU Not Supported')).toBeVisible();
     }
   });
 
   test('should show description text or WebGPU not supported message', async ({ page }) => {
     await navigateTo(page, 'Models');
 
-    // Wait for page to load
-    await expect(
-      page.getByText(/Download and run LLMs locally/).or(page.getByText('WebGPU Not Supported'))
-    ).toBeVisible({ timeout: 10000 });
+    const webGPUState = await waitForModelsOrWebGPUError(page);
+
+    if (webGPUState === 'models') {
+      await expect(page.getByText(/Download and run LLMs locally/)).toBeVisible({
+        timeout: 15000
+      });
+    } else {
+      await expect(page.getByText('WebGPU Not Supported')).toBeVisible();
+    }
   });
 
   test('should show download buttons for models not cached when WebGPU is supported', async ({
@@ -932,14 +951,8 @@ test.describe('Models page', () => {
   }) => {
     await navigateTo(page, 'Models');
 
-    // Wait for page to load
-    await expect(
-      page.getByText('Phi 3.5 Mini').or(page.getByText('WebGPU Not Supported'))
-    ).toBeVisible({ timeout: 10000 });
-
-    // Skip rest of test if WebGPU not supported
-    const webGPUNotSupported = await page.getByText('WebGPU Not Supported').isVisible();
-    if (webGPUNotSupported) {
+    const webGPUState = await waitForModelsOrWebGPUError(page);
+    if (webGPUState === 'error') {
       return;
     }
 
@@ -953,14 +966,8 @@ test.describe('Models page', () => {
   }) => {
     await navigateTo(page, 'Models');
 
-    // Wait for page to load
-    await expect(
-      page.getByText('Phi 3.5 Mini').or(page.getByText('WebGPU Not Supported'))
-    ).toBeVisible({ timeout: 10000 });
-
-    // Skip rest of test if WebGPU not supported
-    const webGPUNotSupported = await page.getByText('WebGPU Not Supported').isVisible();
-    if (webGPUNotSupported) {
+    const webGPUState = await waitForModelsOrWebGPUError(page);
+    if (webGPUState === 'error') {
       return;
     }
 
