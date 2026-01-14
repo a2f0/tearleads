@@ -1,6 +1,10 @@
 import type { IAudioMetadata, ICommonTagsResult } from 'music-metadata';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { extractAudioCoverArt, isAudioMimeType } from './audio-metadata';
+import {
+  extractAudioCoverArt,
+  extractAudioMetadata,
+  isAudioMimeType
+} from './audio-metadata';
 
 vi.mock('music-metadata', () => ({
   parseBuffer: vi.fn()
@@ -162,6 +166,57 @@ describe('audio-metadata', () => {
 
       expect(result?.data).toEqual(firstCoverArt);
       expect(result?.format).toBe('image/png');
+    });
+  });
+
+  describe('extractAudioMetadata', () => {
+    it('returns parsed metadata when fields are present', async () => {
+      vi.mocked(parseBuffer).mockResolvedValue(
+        createMetadata({
+          title: 'Track Title',
+          artist: 'Artist Name',
+          album: 'Album Name',
+          albumartist: 'Album Artist',
+          year: 2024,
+          track: { no: 2, of: 10 },
+          genre: ['Rock', 'Alt']
+        })
+      );
+
+      const audioData = new Uint8Array([10, 20, 30]);
+      const result = await extractAudioMetadata(audioData, 'audio/mpeg');
+
+      expect(result).toEqual({
+        title: 'Track Title',
+        artist: 'Artist Name',
+        album: 'Album Name',
+        albumArtist: 'Album Artist',
+        year: 2024,
+        trackNumber: 2,
+        trackTotal: 10,
+        genre: ['Rock', 'Alt']
+      });
+      expect(parseBuffer).toHaveBeenCalledWith(audioData, {
+        mimeType: 'audio/mpeg'
+      });
+    });
+
+    it('returns null when no metadata fields exist', async () => {
+      vi.mocked(parseBuffer).mockResolvedValue(createMetadata({}));
+
+      const audioData = new Uint8Array([10, 20, 30]);
+      const result = await extractAudioMetadata(audioData, 'audio/mpeg');
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null when parseBuffer throws', async () => {
+      vi.mocked(parseBuffer).mockRejectedValue(new Error('Parse error'));
+
+      const audioData = new Uint8Array([10, 20, 30]);
+      const result = await extractAudioMetadata(audioData, 'audio/mpeg');
+
+      expect(result).toBeNull();
     });
   });
 });
