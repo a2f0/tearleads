@@ -305,7 +305,7 @@ export function AudioDetail() {
   }, [id]);
 
   const trackText =
-    metadata?.trackNumber !== null && metadata?.trackNumber !== undefined
+    metadata?.trackNumber != null
       ? metadata.trackTotal
         ? `${metadata.trackNumber}/${metadata.trackTotal}`
         : `${metadata.trackNumber}`
@@ -317,18 +317,12 @@ export function AudioDetail() {
     { label: 'Album Artist', value: metadata?.albumArtist ?? null },
     {
       label: 'Year',
-      value:
-        metadata?.year !== null && metadata?.year !== undefined
-          ? `${metadata.year}`
-          : null
+      value: metadata?.year != null ? `${metadata.year}` : null
     },
     { label: 'Track', value: trackText },
     {
       label: 'Genre',
-      value:
-        metadata?.genre && metadata.genre.length > 0
-          ? metadata.genre.join(', ')
-          : null
+      value: metadata?.genre?.length ? metadata.genre.join(', ') : null
     }
   ].filter((row) => row.value !== null);
 

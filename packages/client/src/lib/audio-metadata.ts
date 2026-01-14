@@ -98,14 +98,14 @@ export async function extractAudioMetadata(
     };
 
     const hasMetadata =
-      (result.title?.trim()?.length ?? 0) > 0 ||
-      (result.artist?.trim()?.length ?? 0) > 0 ||
-      (result.album?.trim()?.length ?? 0) > 0 ||
-      (result.albumArtist?.trim()?.length ?? 0) > 0 ||
+      !!result.title?.trim() ||
+      !!result.artist?.trim() ||
+      !!result.album?.trim() ||
+      !!result.albumArtist?.trim() ||
       result.year !== null ||
       result.trackNumber !== null ||
       result.trackTotal !== null ||
-      (result.genre?.length ?? 0) > 0;
+      !!result.genre?.length;
 
     return hasMetadata ? result : null;
   } catch (err) {
