@@ -47,11 +47,13 @@ gh issue create --title "feat: <brief description>" --body "## Summary
 ```
 
 Issue-writing guidelines:
+
 - Do not paste the user request verbatim; rewrite and organize it.
 - Prefer clear, testable requirements over vague tasks.
 - Add relevant context (impact, affected users, scope, constraints, examples).
 
 Issue update guidelines:
+
 - Avoid verbose comment threading; prefer updating the issue description with new info.
 - If comments are needed, batch updates into larger chunks (milestones, decisions, blockers).
 
