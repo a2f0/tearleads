@@ -28,7 +28,7 @@ Commit and push the current changes following these rules:
 4. **Push**: After successful commit, push to the current branch's remote.
    - The pre-push hook runs full builds and all unit tests; it can take several minutes. Use a longer command timeout and do not assume a timeout means failure.
 
-5. **Open PR**: If no PR exists for this branch, create one with `gh pr create`. Include `Closes #<issue-number>` in the body if tracking an issue. Include agent tracking: `Agent: $(basename "$(git rev-parse --show-toplevel)")` at the bottom. After creating, run `setVscodeTitle.sh`.
+5. **Open PR**: If no PR exists for this branch, create one with `gh pr create`. If the work resolves an issue and the PR is NOT labeled `needs-qa`, include `Closes #<issue-number>` in the PR body so GitHub auto-closes it on merge. If the PR is labeled `needs-qa`, do NOT include auto-close language. Include agent tracking: `Agent: $(basename "$(git rev-parse --show-toplevel)")` at the bottom. After creating, run `setVscodeTitle.sh`.
 
 6. **Wait for Gemini**: Wait 60 seconds for Gemini Code Assist to review.
 
