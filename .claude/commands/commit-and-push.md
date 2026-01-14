@@ -21,7 +21,7 @@ Commit and push the current changes following these rules:
    ```
 
 2. **Analyze changes**: Run `git status` and `git diff --staged` to understand what's being committed.
-   - If tooling reports actions (e.g., postinstall builds) but `git status` shows no unexpected changes, continue without stopping.
+   - If tooling reports actions (e.g., postinstall builds) but `git status` shows no unexpected changes, proceed without asking about generated files or extra diffs.
 
 3. **Commit format**: Follow `CLAUDE.md` guidelines (conventional commits, GPG signed with 5s timeout, no co-author/footers, no binary files). Don't bump versions - that happens in `/enter-merge-queue`.
 
