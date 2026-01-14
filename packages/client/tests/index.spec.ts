@@ -43,11 +43,17 @@ type WebGPUState = 'models' | 'error';
 
 async function waitForModelsOrWebGPUError(page: Page): Promise<WebGPUState> {
   let state: WebGPUState | null = null;
+  const modelCard = page.getByText('Phi 3.5 Mini');
+  const webGPUError = page.getByText(/WebGPU Not Supported/);
+  const checkingStatus = page.getByText('Checking WebGPU support...');
   await expect
     .poll(async () => {
-      const hasModelCards = await page.getByText('Phi 3.5 Mini').isVisible();
-      const hasWebGPUError = await page.getByText('WebGPU Not Supported').isVisible();
-      state = hasModelCards ? 'models' : hasWebGPUError ? 'error' : null;
+      if (await checkingStatus.isVisible()) {
+        return null;
+      }
+      const hasWebGPUError = await webGPUError.isVisible();
+      const hasModelCards = await modelCard.isVisible();
+      state = hasWebGPUError ? 'error' : hasModelCards ? 'models' : null;
       return state;
     }, { timeout: 15000 })
     .not.toBeNull();
@@ -915,7 +921,7 @@ test.describe('Models page', () => {
       await expect(page.getByText('SmolVLM 256M')).toBeVisible({ timeout: 15000 });
       await expect(page.getByText('PaliGemma 2 3B')).toBeVisible({ timeout: 15000 });
     } else {
-      await expect(page.getByText('WebGPU Not Supported')).toBeVisible();
+      await expect(page.getByText(/WebGPU Not Supported/)).toBeVisible();
     }
   });
 
@@ -928,7 +934,7 @@ test.describe('Models page', () => {
       await expect(page.getByText(/~2GB/)).toBeVisible({ timeout: 15000 });
       await expect(page.getByText(/~500MB/)).toBeVisible({ timeout: 15000 });
     } else {
-      await expect(page.getByText('WebGPU Not Supported')).toBeVisible();
+      await expect(page.getByText(/WebGPU Not Supported/)).toBeVisible();
     }
   });
 
@@ -942,7 +948,7 @@ test.describe('Models page', () => {
         timeout: 15000
       });
     } else {
-      await expect(page.getByText('WebGPU Not Supported')).toBeVisible();
+      await expect(page.getByText(/WebGPU Not Supported/)).toBeVisible();
     }
   });
 
@@ -994,7 +1000,7 @@ test.describe('Models page', () => {
 
     await expect.poll(async () => {
       const hasModelCards = await page.getByText('Phi 3.5 Mini').isVisible();
-      const hasWebGPUError = await page.getByText('WebGPU Not Supported').isVisible();
+      const hasWebGPUError = await page.getByText(/WebGPU Not Supported/).isVisible();
       return hasModelCards !== hasWebGPUError;
     }).toBe(true);
   });
