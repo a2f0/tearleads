@@ -1,8 +1,4 @@
-type RedisValue =
-  | string
-  | string[]
-  | Set<string>
-  | Record<string, string>;
+type RedisValue = string | string[] | Set<string> | Record<string, string>;
 
 type RedisErrorHandler = (error: Error) => void;
 type RedisMessageHandler = (message: string, channel: string) => void;
