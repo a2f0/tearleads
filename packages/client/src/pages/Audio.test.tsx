@@ -568,8 +568,33 @@ describe('AudioPage', () => {
   });
 
   describe('audio context integration', () => {
+    let consoleSpy: ReturnType<typeof mockConsoleError> | null = null;
+
     beforeEach(() => {
+      consoleSpy = mockConsoleError();
       mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_TRACK]));
+    });
+
+    afterEach(() => {
+      if (consoleSpy) {
+        const allowedErrors = [
+          'The current testing environment is not configured to support act(...)'
+        ];
+        const unexpectedErrors = consoleSpy.mock.calls.filter((call) => {
+          const firstArg = call[0];
+          const message =
+            typeof firstArg === 'string'
+              ? firstArg
+              : firstArg instanceof Error
+                ? firstArg.message
+                : '';
+          return !allowedErrors.some((allowed) => message.includes(allowed));
+        });
+
+        expect(unexpectedErrors).toEqual([]);
+        consoleSpy.mockRestore();
+        consoleSpy = null;
+      }
     });
 
     it('calls play when track is double-clicked on web/electron', async () => {

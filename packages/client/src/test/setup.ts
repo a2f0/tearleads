@@ -2,6 +2,13 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 
+// Enable React act() environment checks before tests run.
+// https://react.dev/reference/react-dom/test-utils/act#environment
+Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
+  value: true,
+  writable: true
+});
+
 // Initialize i18n for tests (side-effect import)
 import '../i18n';
 import { server } from './msw/server';
@@ -35,12 +42,6 @@ vi.mock('pdfjs-dist', () => {
 
 // Fail tests on React act() warnings
 beforeAll(() => {
-  // Enable React act() environment checks to avoid noisy warnings in tests.
-  // https://react.dev/reference/react-dom/test-utils/act#environment
-  Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
-    value: true,
-    writable: true
-  });
   const originalError = console.error;
   console.error = (...args: unknown[]) => {
     const message = typeof args[0] === 'string' ? args[0] : '';
