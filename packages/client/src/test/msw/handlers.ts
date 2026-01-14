@@ -24,9 +24,7 @@ const defaultKeyValue = (key: string): RedisKeyValueResponse => ({
 });
 
 export const handlers = [
-  http.get(/\/ping$/, () =>
-    ok<PingData>({ version: 'test', dbVersion: '0' })
-  ),
+  http.get(/\/ping$/, () => ok<PingData>({ version: 'test', dbVersion: '0' })),
   http.get(/\/admin\/redis\/dbsize$/, () => ok({ count: defaultKeys.length })),
   http.get(/\/admin\/redis\/keys$/, ({ request }) => {
     const url = new URL(request.url);
