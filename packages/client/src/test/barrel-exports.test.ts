@@ -100,6 +100,9 @@ import * as card from '@/components/ui/card/index';
 import * as contextMenu from '@/components/ui/context-menu/index';
 import * as editableTitle from '@/components/ui/editable-title/index';
 import * as gridSquare from '@/components/ui/grid-square/index';
+import * as schema from '@/db/schema/index';
+import * as i18n from '@/i18n/index';
+import * as translations from '@/i18n/translations';
 import * as pagesAdmin from '@/pages/admin/index';
 import * as pagesAnalytics from '@/pages/analytics/index';
 import * as pagesCacheStorage from '@/pages/cache-storage/index';
@@ -110,9 +113,6 @@ import * as pagesKeychain from '@/pages/keychain/index';
 import * as pagesLocalStorage from '@/pages/local-storage/index';
 import * as pagesModels from '@/pages/models/index';
 import * as pagesOpfs from '@/pages/opfs/index';
-import * as i18n from '@/i18n/index';
-import * as translations from '@/i18n/translations';
-import * as schema from '@/db/schema/index';
 import * as sse from '@/sse/index';
 import * as video from '@/video/index';
 
@@ -185,7 +185,9 @@ describe('barrel exports', () => {
     expect(i18n.supportedLanguages).toBeDefined();
 
     expect(translations.translations).toBeDefined();
-    expect(translations.translations.ua.common.languageName.length).toBeGreaterThan(0);
+    expect(
+      translations.translations.ua.common.languageName.length
+    ).toBeGreaterThan(0);
 
     expect(schema.contacts).toBeDefined();
     expect(schema.userSettings).toBeDefined();

@@ -2,8 +2,8 @@ import { renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { describe, expect, it } from 'vitest';
-import { i18n } from './i18n';
 import { useTypedTranslation } from './hooks';
+import { i18n } from './i18n';
 
 describe('useTypedTranslation', () => {
   const wrapper = ({ children }: { children: ReactNode }) => (
@@ -23,8 +23,8 @@ describe('useTypedTranslation', () => {
       wrapper
     });
 
-    expect(
-      result.current.t('language', { defaultValue: 'Language' })
-    ).toBe('Language');
+    expect(result.current.t('language', { defaultValue: 'Language' })).toBe(
+      'Language'
+    );
   });
 });
