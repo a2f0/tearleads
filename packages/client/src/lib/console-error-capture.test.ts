@@ -1,5 +1,5 @@
-import { logStore } from '@/stores/logStore';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { logStore } from '@/stores/logStore';
 import { installConsoleErrorCapture } from './console-error-capture';
 
 describe('installConsoleErrorCapture', () => {
