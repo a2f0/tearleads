@@ -18,9 +18,11 @@ interface RedisMockClient {
   connect: () => Promise<void>;
   quit: () => Promise<void>;
   on: (event: string, handler: RedisErrorHandler) => RedisMockClient;
+  emitError: (error: Error) => void;
   duplicate: () => RedisMockClient;
   subscribe: (channel: string, handler: RedisMessageHandler) => Promise<void>;
   unsubscribe: (channel: string) => Promise<void>;
+  publish: (channel: string, message: string) => Promise<number>;
   scan: (
     cursor: string | number,
     options?: ScanOptions
@@ -36,7 +38,7 @@ interface RedisMockClient {
 }
 
 type PubSubState = {
-  handlers: Map<string, RedisMessageHandler>;
+  handlers: Map<string, Set<RedisMessageHandler>>;
 };
 
 type StoreState = {
@@ -73,6 +75,20 @@ const getValueType = (value: RedisValue | undefined): string => {
   return 'hash';
 };
 
+const patternToRegex = (pattern: string): RegExp => {
+  const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const withWildcards = escaped.replace(/\\\*/g, '.*').replace(/\\\?/g, '.');
+  return new RegExp(`^${withWildcards}$`);
+};
+
+const matchesPattern = (key: string, pattern?: string): boolean => {
+  if (!pattern || pattern === '*') {
+    return true;
+  }
+
+  return patternToRegex(pattern).test(key);
+};
+
 const createClientWithState = (
   store: StoreState,
   pubSub: PubSubState
@@ -88,18 +104,44 @@ const createClientWithState = (
       }
       return client;
     },
+    emitError: (error) => {
+      for (const handler of errorHandlers) {
+        handler(error);
+      }
+    },
     duplicate: () => createClientWithState(store, pubSub),
     subscribe: async (channel, handler) => {
-      pubSub.handlers.set(channel, handler);
+      const existing = pubSub.handlers.get(channel);
+      if (existing) {
+        existing.add(handler);
+      } else {
+        pubSub.handlers.set(channel, new Set([handler]));
+      }
     },
     unsubscribe: async (channel) => {
       pubSub.handlers.delete(channel);
     },
+    publish: async (channel, message) => {
+      const handlers = pubSub.handlers.get(channel);
+      if (!handlers) {
+        return 0;
+      }
+
+      for (const handler of handlers) {
+        handler(message, channel);
+      }
+
+      return handlers.size;
+    },
     scan: async (_cursor, options) => {
-      const keys = Array.from(store.values.keys());
+      const cursor = Number(_cursor) || 0;
+      const keys = Array.from(store.values.keys()).filter((key) =>
+        matchesPattern(key, options?.MATCH)
+      );
       const count = options?.COUNT ?? keys.length;
-      const limited = keys.slice(0, count);
-      return { cursor: 0, keys: limited };
+      const page = keys.slice(cursor, cursor + count);
+      const nextCursor = cursor + page.length;
+      return { cursor: nextCursor < keys.length ? nextCursor : 0, keys: page };
     },
     multi: () => {
       const commands: Array<() => Promise<string | number | null | undefined>> =
