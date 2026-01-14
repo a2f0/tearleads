@@ -130,6 +130,12 @@ git push --force-with-lease      # WRONG - wastes tokens
 
 The `.claude/commands/` folder contains reusable skills (slash commands). Each workspace uses its own `.claude` folder from the repo.
 
+## PR Thread Replies (CRITICAL)
+
+- **Always reply inside the review thread** when addressing Gemini or other reviewer feedback.
+- **Never use top-level PR comments** (e.g., `gh pr comment`) to respond to review feedback.
+- Use the PR review comment reply endpoint (`/pulls/comments/{comment_id}/replies`) to keep responses in-thread.
+
 ### Adding, modifying, or deleting a skill
 
 Skills are version-controlled like any other file. Create, edit, or delete files in `.claude/commands/` and commit as normal.
