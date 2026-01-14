@@ -275,11 +275,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
       gh issue edit <associated_issue_number> --add-label "Needs QA"
       ```
 
-   3. Add a comment to the issue noting the PR was merged:
-
-      ```bash
-      gh issue comment <associated_issue_number> --body "PR #<pr-number> has been merged. This issue is now ready for QA verification."
-      ```
+   3. Prefer updating the issue description with the merge status instead of adding a comment (avoid noisy threads). If you must comment, batch it with any other QA notes in one update.
 
    This ensures the issue is open and clearly marked for QA follow-up, even if it was previously closed.
 

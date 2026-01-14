@@ -30,15 +30,30 @@ When the user requests a change or new feature:
 3. **Reference the issue**: Include `Closes #<issue>` in the PR description body to auto-close the issue when merged. To close multiple issues, you can list them (e.g., `Closes #123, #456`).
 
 ```bash
-# Create an issue for the user's request
-gh issue create --title "feat: <brief description>" --body "## Description
-<what the user requested>
+# Create an issue for the user's request (rewrite in your own words; add context)
+gh issue create --title "feat: <brief description>" --body "## Summary
+<one paragraph describing the user goal and outcome in your own words>
 
-## Tasks
-- [ ] Implementation task 1
-- [ ] Implementation task 2
+## Context
+<why this matters, impacted area, or constraints mentioned by the user>
+
+## Requirements
+- [ ] <clear, testable requirement 1>
+- [ ] <clear, testable requirement 2>
+
+## Implementation Notes
+<initial approach, dependencies, or questions to resolve>
 "
 ```
+
+Issue-writing guidelines:
+- Do not paste the user request verbatim; rewrite and organize it.
+- Prefer clear, testable requirements over vague tasks.
+- Add relevant context (impact, affected users, scope, constraints, examples).
+
+Issue update guidelines:
+- Avoid verbose comment threading; prefer updating the issue description with new info.
+- If comments are needed, batch updates into larger chunks (milestones, decisions, blockers).
 
 Skip issue creation for:
 
