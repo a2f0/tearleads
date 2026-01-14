@@ -127,12 +127,7 @@ describe('Analytics', () => {
       y: 0,
       toJSON: () => ({})
     }));
-    SVGElement.prototype.getBBox = vi.fn(() => ({
-      x: 0,
-      y: 0,
-      width: 400,
-      height: 200
-    }));
+    SVGElement.prototype.getBBox = vi.fn(() => new DOMRect(0, 0, 400, 200));
     Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
       configurable: true,
       get: () => 400
