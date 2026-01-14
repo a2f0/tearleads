@@ -41,7 +41,9 @@ describe('Backup/Restore Integration Tests', () => {
       await adapter.close();
     }
     if (warnSpy) {
-      const allowedWarnings = ['Ignoring inability to install OPFS sqlite3_vfs'];
+      const allowedWarnings = [
+        'Ignoring inability to install OPFS sqlite3_vfs'
+      ];
       const unexpectedWarnings = warnSpy.mock.calls.filter((call) => {
         const firstArg = call[0];
         const message =
