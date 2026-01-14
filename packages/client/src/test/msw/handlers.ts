@@ -3,7 +3,7 @@ import type {
   RedisKeysResponse,
   RedisKeyValueResponse
 } from '@rapid/shared';
-import { http, HttpResponse } from 'msw';
+import { HttpResponse, http } from 'msw';
 
 const ok = <T extends object>(body: T) => HttpResponse.json(body);
 
