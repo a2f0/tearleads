@@ -5,7 +5,10 @@ describe('msw handlers', () => {
     const response = await fetch('http://localhost/ping');
 
     expect(response.ok).toBe(true);
-    await expect(response.json()).resolves.toEqual({ version: 'test' });
+    await expect(response.json()).resolves.toEqual({
+      version: 'test',
+      dbVersion: '0'
+    });
   });
 
   it('mocks admin redis endpoints', async () => {
