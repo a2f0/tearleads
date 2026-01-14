@@ -23,8 +23,7 @@ import { detectPlatform } from '../lib/utils';
 const createAudioResponse = () => {
   const response = new Response();
   Object.defineProperty(response, 'blob', {
-    value: async () =>
-      new Blob([new Uint8Array([1])], { type: 'audio/mpeg' })
+    value: async () => new Blob([new Uint8Array([1])], { type: 'audio/mpeg' })
   });
   return response;
 };
