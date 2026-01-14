@@ -101,6 +101,7 @@
     "electron-builder": "26.0.12",
     "electron-vite": "5.0.0",
     "jsdom": "27.4.0",
+    "msw": "2.6.5",
     "svgo": "4.0.0",
     "tailwindcss": "4.1.18",
     "tsx": "4.21.0",
