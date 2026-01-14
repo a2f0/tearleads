@@ -25,14 +25,16 @@ function formatConsoleArgs(args: Parameters<typeof console.error>): {
     return { message: 'Console error', details: undefined };
   }
 
+  if (args[0] instanceof Error) {
+    const message = args[0].message || 'Console error';
+    const details = args.map(formatConsoleArg).join(' ');
+    return { message, details };
+  }
+
   const formatted = args.map(formatConsoleArg);
   const message = formatted[0] || 'Console error';
   const details =
-    formatted.length > 1
-      ? formatted.slice(1).join(' ')
-      : args[0] instanceof Error
-        ? args[0].stack || args[0].message
-        : undefined;
+    formatted.length > 1 ? formatted.slice(1).join(' ') : undefined;
 
   return { message, details };
 }
