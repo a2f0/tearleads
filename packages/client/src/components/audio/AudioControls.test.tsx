@@ -303,5 +303,23 @@ describe('AudioControls', () => {
 
       expect(screen.getByTestId('audio-duration')).toHaveTextContent('0:00');
     });
+
+    it('handles invalid or negative times', () => {
+      mockUseAudio.mockReturnValue({
+        currentTrack: TEST_TRACKS[0],
+        isPlaying: true,
+        currentTime: -5,
+        duration: -10,
+        play: mockPlay,
+        pause: mockPause,
+        resume: mockResume,
+        seek: mockSeek
+      });
+
+      render(<AudioControls tracks={TEST_TRACKS} />);
+
+      expect(screen.getByTestId('audio-current-time')).toHaveTextContent('0:00');
+      expect(screen.getByTestId('audio-duration')).toHaveTextContent('0:00');
+    });
   });
 });
