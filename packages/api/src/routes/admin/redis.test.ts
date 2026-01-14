@@ -1,5 +1,6 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '../../test/console-mocks.js';
 import { app } from '../../index.js';
 
 // Define a minimal interface for the Redis client methods we use in tests
@@ -139,9 +140,7 @@ describe('Admin Redis Routes', () => {
 
     it('handles Redis connection errors', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient).mockRejectedValue(
         new Error('Connection refused')
       );
@@ -159,9 +158,7 @@ describe('Admin Redis Routes', () => {
 
     it('handles non-Error exceptions', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient).mockRejectedValue('string error');
 
       const response = await request(app).get('/v1/admin/redis/keys');
@@ -219,9 +216,7 @@ describe('Admin Redis Routes', () => {
 
     it('handles Redis connection errors', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient).mockRejectedValue(
         new Error('Connection refused')
       );
@@ -343,9 +338,7 @@ describe('Admin Redis Routes', () => {
 
     it('handles Redis connection errors', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient).mockRejectedValue(
         new Error('Connection refused')
       );
@@ -420,9 +413,7 @@ describe('Admin Redis Routes', () => {
 
     it('handles Redis connection errors', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient).mockRejectedValue(
         new Error('Connection refused')
       );
@@ -440,9 +431,7 @@ describe('Admin Redis Routes', () => {
 
     it('handles non-Error exceptions', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient).mockRejectedValue('string error');
 
       const response = await request(app).delete('/v1/admin/redis/keys/test');
