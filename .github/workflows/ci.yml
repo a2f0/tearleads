@@ -416,6 +416,7 @@ jobs:
           sudo chmod 644 /etc/ssl/certs/localhost.crt
           sudo chmod 600 /etc/ssl/private/localhost.key
           # Copy cert to workspace for Electron to access
+          mkdir -p $GITHUB_WORKSPACE/.github/ci
           cp /etc/ssl/certs/localhost.crt $GITHUB_WORKSPACE/.github/ci/localhost.crt
 
       - name: Install and configure NGINX for API proxy
