@@ -1,0 +1,35 @@
+{% set include_hsts = include_hsts | default(false) %}
+{% set app_headers %}{% include 'nginx-headers-app.conf.j2' %}{% endset %}
+# NGINX configuration for CI release testing - Website
+# Serves the built Astro website with production-like headers
+#
+# IMPORTANT: In NGINX, add_header in location blocks REPLACES parent headers.
+# All required headers must be repeated in each location block.
+
+server {
+    listen 8444 ssl http2;
+    server_name {{ ci_server_name }};
+
+    ssl_certificate {{ ci_ssl_certificate }};
+    ssl_certificate_key {{ ci_ssl_certificate_key }};
+
+    root {{ ci_workspace }}/packages/website/dist;
+    index index.html;
+
+    # Default MIME type for unknown extensions
+    default_type application/octet-stream;
+
+    # Static assets - fingerprinted, cache aggressively (Astro uses /_astro/)
+    location /_astro/ {
+        try_files $uri =404;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+{{ app_headers | indent(8, true) }}
+    }
+
+    # Static site - serve files/directories, no SPA fallback
+    location / {
+        try_files $uri $uri/ =404;
+{{ app_headers | indent(8, true) }}
+    }
+}

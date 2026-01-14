@@ -1,3 +1,5 @@
+{% set include_hsts = include_hsts | default(false) %}
+{% set app_headers %}{% include 'nginx-headers-app.conf.j2' %}{% endset %}
 server {
     listen 80;
 {% if item == 'www' %}
@@ -13,21 +15,13 @@ server {
     # Service worker - never cache, always fetch fresh
     location = /sw.js {
         add_header Cache-Control "no-cache, no-store, must-revalidate";
-        add_header X-Frame-Options "SAMEORIGIN" always;
-        add_header X-Content-Type-Options "nosniff" always;
-        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-        add_header Cross-Origin-Opener-Policy "same-origin" always;
-        add_header Cross-Origin-Embedder-Policy "require-corp" always;
+{{ app_headers | indent(8, true) }}
     }
 
     # Manifest and registerSW - short cache
     location ~* ^/(manifest\.webmanifest|registerSW\.js)$ {
         add_header Cache-Control "no-cache";
-        add_header X-Frame-Options "SAMEORIGIN" always;
-        add_header X-Content-Type-Options "nosniff" always;
-        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-        add_header Cross-Origin-Opener-Policy "same-origin" always;
-        add_header Cross-Origin-Embedder-Policy "require-corp" always;
+{{ app_headers | indent(8, true) }}
     }
 
     # Static assets - fingerprinted, cache aggressively (Vite uses /assets/)
@@ -48,11 +42,7 @@ server {
         try_files $uri =404;
         expires 1y;
         add_header Cache-Control "public, immutable";
-        add_header X-Frame-Options "SAMEORIGIN" always;
-        add_header X-Content-Type-Options "nosniff" always;
-        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-        add_header Cross-Origin-Opener-Policy "same-origin" always;
-        add_header Cross-Origin-Embedder-Policy "require-corp" always;
+{{ app_headers | indent(8, true) }}
     }
 
     # SQLite WASM files - match specific file types only (not the /sqlite SPA route)
@@ -66,11 +56,7 @@ server {
         try_files $uri =404;
         expires 7d;
         add_header Cache-Control "public";
-        add_header X-Frame-Options "SAMEORIGIN" always;
-        add_header X-Content-Type-Options "nosniff" always;
-        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-        add_header Cross-Origin-Opener-Policy "same-origin" always;
-        add_header Cross-Origin-Embedder-Policy "require-corp" always;
+{{ app_headers | indent(8, true) }}
     }
 {% else %}
     # Static assets - fingerprinted, cache aggressively (Astro uses /_astro/)
@@ -78,11 +64,7 @@ server {
         try_files $uri =404;
         expires 1y;
         add_header Cache-Control "public, immutable";
-        add_header X-Frame-Options "SAMEORIGIN" always;
-        add_header X-Content-Type-Options "nosniff" always;
-        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-        add_header Cross-Origin-Opener-Policy "same-origin" always;
-        add_header Cross-Origin-Embedder-Policy "require-corp" always;
+{{ app_headers | indent(8, true) }}
     }
 {% endif %}
 
@@ -95,11 +77,7 @@ server {
         # Static site - serve files/directories, no SPA fallback
         try_files $uri $uri/ =404;
 {% endif %}
-        add_header X-Frame-Options "SAMEORIGIN" always;
-        add_header X-Content-Type-Options "nosniff" always;
-        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-        add_header Cross-Origin-Opener-Policy "same-origin" always;
-        add_header Cross-Origin-Embedder-Policy "require-corp" always;
+{{ app_headers | indent(8, true) }}
     }
 
     # Serve .mjs files with correct MIME type for ES modules

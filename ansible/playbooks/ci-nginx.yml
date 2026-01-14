@@ -1,0 +1,53 @@
+---
+- name: Configure CI nginx
+  hosts: ci
+  become: true
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    ci_workspace: "{{ lookup('env', 'GITHUB_WORKSPACE') | default('/workspace', true) }}"
+    ci_server_name: localhost
+    ci_ssl_certificate: /etc/ssl/certs/localhost.crt
+    ci_ssl_certificate_key: /etc/ssl/private/localhost.key
+    include_hsts: true
+    nginx_ci_site: "{{ nginx_ci_site | default('client') }}"
+    nginx_ci_sites:
+      - name: client
+        template: ci/nginx-client.conf.j2
+      - name: website
+        template: ci/nginx-website.conf.j2
+      - name: api
+        template: ci/nginx-api.conf.j2
+
+  tasks:
+    - name: Render nginx site config
+      ansible.builtin.template:
+        src: "{{ item.template }}"
+        dest: "/etc/nginx/sites-available/{{ item.name }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop: "{{ nginx_ci_sites }}"
+      when: item.name == nginx_ci_site
+
+    - name: Enable nginx site
+      ansible.builtin.file:
+        src: "/etc/nginx/sites-available/{{ nginx_ci_site }}"
+        dest: "/etc/nginx/sites-enabled/{{ nginx_ci_site }}"
+        state: link
+        force: true
+
+    - name: Remove default nginx site
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Validate nginx config
+      ansible.builtin.command:
+        cmd: nginx -t
+      changed_when: false
+
+    - name: Restart nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: restarted
