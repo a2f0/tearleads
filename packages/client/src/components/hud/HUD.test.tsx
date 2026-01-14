@@ -28,9 +28,9 @@ describe('HUD', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
-  it('shows analytics tab by default', () => {
+  it('shows logs tab by default', () => {
     render(<HUD isOpen={true} onClose={() => {}} />);
-    expect(screen.getByTestId('analytics-tab')).toBeInTheDocument();
+    expect(screen.getByTestId('logs-tab')).toBeInTheDocument();
   });
 
   it('switches to logs tab when clicked', async () => {
