@@ -94,6 +94,7 @@ test.describe('Bottom Sheet (Electron)', () => {
   test('should decrease height when dragged downward', async () => {
     // First expand the sheet by dragging up
     await dragHandle(window, -150);
+    await window.waitForTimeout(400);
 
     const expandedHeight = await getSheetHeight(window);
 
