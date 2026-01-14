@@ -3,6 +3,13 @@ import { defineConfig, devices } from '@playwright/test';
 const isCI = !!process.env.CI;
 const baseURL = process.env.BASE_URL || 'http://localhost:3000';
 const isHTTPS = baseURL.startsWith('https://');
+const envWorkers = process.env.PW_WORKERS
+  ? Number(process.env.PW_WORKERS)
+  : null;
+const fullyParallel = process.env.PW_FULLY_PARALLEL === 'true';
+const hasValidWorkers =
+  envWorkers !== null && Number.isFinite(envWorkers) && envWorkers > 0;
+const workers = hasValidWorkers ? envWorkers : undefined;
 
 /**
  * Playwright configuration for integration tests
@@ -11,10 +18,10 @@ const isHTTPS = baseURL.startsWith('https://');
 export default defineConfig({
   testDir: './tests',
   testIgnore: ['**/electron/**'],
-  // Run tests serially to avoid OPFS storage conflicts
-  // OPFS is origin-scoped, so parallel tests on same origin conflict
-  fullyParallel: false,
-  workers: 1,
+  // Run tests serially by default to avoid OPFS storage conflicts
+  // OPFS is origin-scoped, so parallel tests on same origin may conflict
+  fullyParallel,
+  ...(workers !== undefined ? { workers } : {}),
   forbidOnly: isCI,
   retries: 0,
   maxFailures: 1, // Bail on first failure
