@@ -250,7 +250,7 @@ describe('DocumentDetail', () => {
         expect(screen.getByText('Storage read failed')).toBeInTheDocument();
       });
       expect(consoleSpy).toHaveBeenCalledWith(
-        'Failed to load PDF data:',
+        'Failed to download document:',
         expect.any(Error)
       );
       consoleSpy.mockRestore();
