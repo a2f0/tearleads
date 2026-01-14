@@ -289,6 +289,9 @@ describe('Admin', () => {
       mockGetKeys.mockImplementation(
         () => new Promise(() => {}) // Never resolves
       );
+      mockGetDbSize.mockImplementation(
+        () => new Promise(() => {}) // Never resolves
+      );
 
       renderAdmin();
 
