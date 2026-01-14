@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
 import { Files } from './Files';
 
 // Mock useVirtualizer to simplify testing
@@ -329,6 +330,7 @@ describe('Files', () => {
     });
 
     it('handles thumbnail load failure gracefully', async () => {
+      const consoleSpy = mockConsoleWarn();
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
       );
@@ -342,6 +344,11 @@ describe('Files', () => {
 
       // Should not have any img elements since thumbnail failed to load
       expect(screen.queryByRole('img')).not.toBeInTheDocument();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to load thumbnail for photo.jpg:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('revokes object URLs on unmount to prevent memory leaks', async () => {
@@ -549,6 +556,7 @@ describe('Files', () => {
 
   describe('error handling', () => {
     it('displays error message when fetching fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockSelect.mockReturnValue({
         from: vi.fn().mockReturnValue({
           orderBy: vi.fn().mockRejectedValue(new Error('Database error'))
@@ -560,6 +568,11 @@ describe('Files', () => {
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch files:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -627,6 +640,7 @@ describe('Files', () => {
 
     it('displays error when download fails', async () => {
       const user = userEvent.setup();
+      const consoleSpy = mockConsoleError();
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
       );
@@ -643,6 +657,11 @@ describe('Files', () => {
       await waitFor(() => {
         expect(screen.getByText('Download failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to download file:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -670,6 +689,7 @@ describe('Files', () => {
 
     it('displays error when delete fails', async () => {
       const user = userEvent.setup();
+      const consoleSpy = mockConsoleError();
       mockUpdate.mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockRejectedValue(new Error('Delete failed'))
@@ -692,6 +712,11 @@ describe('Files', () => {
       await waitFor(() => {
         expect(screen.getByText('Delete failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete file:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -722,6 +747,7 @@ describe('Files', () => {
 
     it('displays error when restore fails', async () => {
       const user = userEvent.setup();
+      const consoleSpy = mockConsoleError();
       mockSelect.mockReturnValue(createMockQueryChain([TEST_DELETED_FILE]));
       mockUpdate.mockReturnValue({
         set: vi.fn().mockReturnValue({
@@ -746,6 +772,11 @@ describe('Files', () => {
       await waitFor(() => {
         expect(screen.getByText('Restore failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to restore file:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -907,6 +938,7 @@ describe('Files', () => {
 
   describe('error handling edge cases', () => {
     it('displays error when encryption key is not available', async () => {
+      const consoleSpy = mockConsoleError();
       mockGetCurrentKey.mockReturnValue(null);
 
       await renderFiles();
@@ -914,9 +946,15 @@ describe('Files', () => {
       await waitFor(() => {
         expect(screen.getByText('Database not unlocked')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch files:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('displays error when no active instance', async () => {
+      const consoleSpy = mockConsoleError();
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: true,
         isLoading: false,
@@ -929,6 +967,11 @@ describe('Files', () => {
       await waitFor(() => {
         expect(screen.getByText('No active instance')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch files:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 

@@ -9,6 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { mockConsoleWarn } from '@/test/console-mocks';
 import type { DatabaseConfig } from './adapters/types';
 import { WasmNodeAdapter } from './adapters/wasm-node.adapter';
 
@@ -28,14 +29,35 @@ function createTestConfig(name: string): DatabaseConfig {
 
 describe('Backup/Restore Integration Tests', () => {
   let adapter: WasmNodeAdapter;
+  let warnSpy: ReturnType<typeof mockConsoleWarn> | null = null;
 
   beforeEach(() => {
+    warnSpy = mockConsoleWarn();
     adapter = new WasmNodeAdapter();
   });
 
   afterEach(async () => {
     if (adapter.isOpen()) {
       await adapter.close();
+    }
+    if (warnSpy) {
+      const allowedWarnings = [
+        'Ignoring inability to install OPFS sqlite3_vfs'
+      ];
+      const unexpectedWarnings = warnSpy.mock.calls.filter((call) => {
+        const firstArg = call[0];
+        const message =
+          typeof firstArg === 'string'
+            ? firstArg
+            : firstArg instanceof Error
+              ? firstArg.message
+              : '';
+        return !allowedWarnings.some((allowed) => message.includes(allowed));
+      });
+
+      expect(unexpectedWarnings).toEqual([]);
+      warnSpy.mockRestore();
+      warnSpy = null;
     }
   });
 

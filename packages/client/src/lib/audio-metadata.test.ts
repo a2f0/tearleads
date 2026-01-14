@@ -1,5 +1,6 @@
 import type { IAudioMetadata, ICommonTagsResult } from 'music-metadata';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleWarn } from '@/test/console-mocks';
 import {
   extractAudioCoverArt,
   extractAudioMetadata,
@@ -141,12 +142,18 @@ describe('audio-metadata', () => {
     });
 
     it('returns null when parseBuffer throws an error', async () => {
+      const consoleSpy = mockConsoleWarn();
       vi.mocked(parseBuffer).mockRejectedValue(new Error('Parse error'));
 
       const audioData = new Uint8Array([10, 20, 30]);
       const result = await extractAudioCoverArt(audioData, 'audio/mpeg');
 
       expect(result).toBeNull();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to extract audio cover art for mimeType audio/mpeg:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('returns the first picture with its format when multiple are present', async () => {
@@ -211,12 +218,18 @@ describe('audio-metadata', () => {
     });
 
     it('returns null when parseBuffer throws', async () => {
+      const consoleSpy = mockConsoleWarn();
       vi.mocked(parseBuffer).mockRejectedValue(new Error('Parse error'));
 
       const audioData = new Uint8Array([10, 20, 30]);
       const result = await extractAudioMetadata(audioData, 'audio/mpeg');
 
       expect(result).toBeNull();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to extract audio metadata for mimeType audio/mpeg:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 });
