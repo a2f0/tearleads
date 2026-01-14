@@ -21,7 +21,7 @@ import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
-import { extractAudioMetadata, type AudioMetadata } from '@/lib/audio-metadata';
+import { type AudioMetadata, extractAudioMetadata } from '@/lib/audio-metadata';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import {
