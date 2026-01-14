@@ -2,6 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { Tables } from './Tables';
 
 // Mock the database context
@@ -340,6 +341,7 @@ describe('Tables', () => {
 
   describe('error handling', () => {
     it('displays error message when fetch fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockExecute.mockRejectedValue(new Error('Database error'));
 
       renderTablesRaw();
@@ -347,6 +349,11 @@ describe('Tables', () => {
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch tables:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 

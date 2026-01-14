@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { VideoDetail } from './VideoDetail';
 
 // Mock HTMLVideoElement methods
@@ -320,6 +321,7 @@ describe('VideoDetail', () => {
     });
 
     it('shows error when share fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockShareFile.mockRejectedValue(new Error('Share failed'));
       const user = userEvent.setup();
       await renderVideoDetail();
@@ -331,6 +333,11 @@ describe('VideoDetail', () => {
       await waitFor(() => {
         expect(screen.getByText('Share failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to share video:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('shows error when sharing is not supported on device', async () => {

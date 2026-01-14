@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { KeyStatus } from '@/db/crypto/key-manager';
 import type { InstanceMetadata } from '@/db/instance-registry';
+import { mockConsoleError } from '@/test/console-mocks';
 import { Keychain } from './Keychain';
 
 // Mock key-manager functions
@@ -320,6 +321,7 @@ describe('Keychain', () => {
 
   describe('error handling', () => {
     it('displays error message when getInstances fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockGetInstances.mockRejectedValue(new Error('Failed to load instances'));
 
       renderKeychain();
@@ -329,9 +331,15 @@ describe('Keychain', () => {
           screen.getByText('Failed to load instances')
         ).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch keychain data:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('displays error message when delete fails', async () => {
+      const consoleSpy = mockConsoleError();
       const instance = createInstance('test-instance', 'Test');
       mockGetInstances.mockResolvedValue([instance]);
       mockGetKeyStatusForInstance.mockResolvedValue(
@@ -354,6 +362,11 @@ describe('Keychain', () => {
       await waitFor(() => {
         expect(screen.getByText('Delete failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete session keys:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
