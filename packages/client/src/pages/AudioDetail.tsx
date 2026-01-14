@@ -21,6 +21,7 @@ import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
+import { extractAudioMetadata, type AudioMetadata } from '@/lib/audio-metadata';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import {
@@ -51,6 +52,7 @@ export function AudioDetail() {
   const [audio, setAudio] = useState<AudioInfo | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [metadata, setMetadata] = useState<AudioMetadata | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [canShare, setCanShare] = useState(false);
@@ -191,6 +193,7 @@ export function AudioDetail() {
 
     setLoading(true);
     setError(null);
+    setMetadata(null);
 
     try {
       const db = getDatabase();
@@ -235,6 +238,11 @@ export function AudioDetail() {
       // Load audio data and create object URL
       const logger = createRetrieveLogger(db);
       const data = await retrieveFileData(audioInfo.storagePath, logger);
+      const metadataResult = await extractAudioMetadata(
+        data,
+        audioInfo.mimeType
+      );
+      setMetadata(metadataResult);
       // Copy to ArrayBuffer - required because Uint8Array<ArrayBufferLike> is not
       // assignable to BlobPart in strict TypeScript (SharedArrayBuffer incompatibility)
       const buffer = new ArrayBuffer(data.byteLength);
@@ -295,6 +303,34 @@ export function AudioDetail() {
       }
     };
   }, [id]);
+
+  const trackText =
+    metadata?.trackNumber !== null && metadata?.trackNumber !== undefined
+      ? metadata.trackTotal
+        ? `${metadata.trackNumber}/${metadata.trackTotal}`
+        : `${metadata.trackNumber}`
+      : null;
+  const metadataRows = [
+    { label: 'Title', value: metadata?.title ?? null },
+    { label: 'Artist', value: metadata?.artist ?? null },
+    { label: 'Album', value: metadata?.album ?? null },
+    { label: 'Album Artist', value: metadata?.albumArtist ?? null },
+    {
+      label: 'Year',
+      value:
+        metadata?.year !== null && metadata?.year !== undefined
+          ? `${metadata.year}`
+          : null
+    },
+    { label: 'Track', value: trackText },
+    {
+      label: 'Genre',
+      value:
+        metadata?.genre && metadata.genre.length > 0
+          ? metadata.genre.join(', ')
+          : null
+    }
+  ].filter((row) => row.value !== null);
 
   return (
     <div className="space-y-6">
@@ -401,6 +437,31 @@ export function AudioDetail() {
                   {formatDate(audio.uploadDate)}
                 </span>
               </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border">
+            <div className="border-b px-4 py-3">
+              <h2 className="font-semibold">Metadata</h2>
+            </div>
+            <div className="divide-y">
+              {metadataRows.length === 0 ? (
+                <div className="px-4 py-3 text-muted-foreground text-sm">
+                  No embedded metadata found.
+                </div>
+              ) : (
+                metadataRows.map((row) => (
+                  <div
+                    key={row.label}
+                    className="flex items-center gap-3 px-4 py-3"
+                  >
+                    <span className="text-muted-foreground text-sm">
+                      {row.label}
+                    </span>
+                    <span className="ml-auto text-sm">{row.value}</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
