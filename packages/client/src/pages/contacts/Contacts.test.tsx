@@ -8,6 +8,7 @@ import {
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { Contacts } from './Contacts';
 
 // Mock useVirtualizer to simplify testing
@@ -496,6 +497,7 @@ describe('Contacts', () => {
 
   describe('error handling', () => {
     it('displays error message when fetch fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockOrderBy.mockRejectedValue(new Error('Database error'));
 
       renderContactsRaw();
@@ -503,6 +505,12 @@ describe('Contacts', () => {
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
       });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch contacts:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -927,9 +935,7 @@ describe('Contacts', () => {
       mockOrderBy.mockResolvedValue(mockContacts);
       mockUpdateWhere.mockRejectedValue(new Error('Delete failed'));
 
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      const consoleSpy = mockConsoleError();
 
       await renderContacts();
 
@@ -950,6 +956,10 @@ describe('Contacts', () => {
         expect(screen.getByText('Delete failed')).toBeInTheDocument();
       });
 
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete contact:',
+        expect.any(Error)
+      );
       consoleSpy.mockRestore();
     });
 
@@ -958,9 +968,7 @@ describe('Contacts', () => {
       mockOrderBy.mockResolvedValue(mockContacts);
       mockUpdateWhere.mockRejectedValue('String error');
 
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+      const consoleSpy = mockConsoleError();
 
       await renderContacts();
 
@@ -981,6 +989,10 @@ describe('Contacts', () => {
         expect(screen.getByText('String error')).toBeInTheDocument();
       });
 
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete contact:',
+        'String error'
+      );
       consoleSpy.mockRestore();
     });
 

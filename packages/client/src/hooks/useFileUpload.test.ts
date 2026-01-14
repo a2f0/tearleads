@@ -1,6 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UnsupportedFileTypeError } from '@/lib/errors';
+import { mockConsoleWarn } from '@/test/console-mocks';
 import { useFileUpload } from './useFileUpload';
 
 // Mock file-type
@@ -427,6 +428,7 @@ describe('useFileUpload', () => {
     });
 
     it('continues upload when thumbnail generation fails', async () => {
+      const consoleSpy = mockConsoleWarn();
       vi.mocked(fileTypeFromBuffer).mockResolvedValue({
         ext: 'png',
         mime: 'image/png'
@@ -445,6 +447,11 @@ describe('useFileUpload', () => {
       expect(uploadResult.isDuplicate).toBe(false);
       // Should only store original (thumbnail failed)
       expect(mockStorage.measureStore).toHaveBeenCalledTimes(1);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to generate thumbnail for test.png:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('logs analytics event for thumbnail generation', async () => {
@@ -468,6 +475,7 @@ describe('useFileUpload', () => {
     });
 
     it('logs failed analytics event when thumbnail generation fails', async () => {
+      const consoleSpy = mockConsoleWarn();
       vi.mocked(fileTypeFromBuffer).mockResolvedValue({
         ext: 'png',
         mime: 'image/png'
@@ -488,6 +496,11 @@ describe('useFileUpload', () => {
         expect.any(Number),
         false
       );
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to generate thumbnail for test.png:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 });

@@ -19,14 +19,20 @@ const mockSource = {
   connect: vi.fn()
 };
 
-const mockAudioContext = {
-  state: 'running' as AudioContextState,
-  createAnalyser: vi.fn(() => mockAnalyser),
-  createMediaElementSource: vi.fn(() => mockSource),
-  resume: vi.fn(),
-  close: vi.fn(),
-  destination: {}
-};
+let mockAudioContext: MockAudioContext | null = null;
+
+class MockAudioContext {
+  state: AudioContextState = 'running';
+  createAnalyser = vi.fn(() => mockAnalyser);
+  createMediaElementSource = vi.fn(() => mockSource);
+  resume = vi.fn();
+  close = vi.fn();
+  destination = {};
+
+  constructor() {
+    mockAudioContext = this;
+  }
+}
 
 // Store the original AudioContext
 const originalAudioContext = global.AudioContext;
@@ -37,12 +43,12 @@ describe('useAudioAnalyser', () => {
     vi.useFakeTimers();
 
     // Mock AudioContext constructor
-    global.AudioContext = vi.fn(
-      () => mockAudioContext
-    ) as unknown as typeof AudioContext;
+    global.AudioContext = MockAudioContext;
 
     // Reset mock state
-    mockAudioContext.state = 'running';
+    if (mockAudioContext) {
+      mockAudioContext.state = 'running';
+    }
   });
 
   afterEach(() => {

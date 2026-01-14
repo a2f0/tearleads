@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   COMMON_AUDIO_MIME_TYPES,
   useNativeFilePicker
@@ -49,8 +49,19 @@ describe('useNativeFilePicker', () => {
   });
 
   describe('on iOS platform', () => {
+    let fetchSpy: ReturnType<typeof vi.spyOn>;
+
     beforeEach(() => {
       vi.mocked(detectPlatform).mockReturnValue('ios');
+      fetchSpy = vi
+        .spyOn(global, 'fetch')
+        .mockResolvedValue(
+          new Response(new Blob([new Uint8Array([1])], { type: 'audio/mpeg' }))
+        );
+    });
+
+    afterEach(() => {
+      fetchSpy.mockRestore();
     });
 
     it('returns isNativePicker as true', () => {
