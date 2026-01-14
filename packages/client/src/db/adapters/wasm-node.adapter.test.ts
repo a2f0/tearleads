@@ -34,15 +34,17 @@ describe('WasmNodeAdapter', () => {
   it('initializes once and rejects double initialization', async () => {
     await adapter.initialize(createConfig('init-once'));
 
-    await expect(adapter.initialize(createConfig('init-twice'))).rejects.toThrow(
-      'Database already initialized'
-    );
+    await expect(
+      adapter.initialize(createConfig('init-twice'))
+    ).rejects.toThrow('Database already initialized');
   });
 
   it('executes select and non-select queries', async () => {
     await adapter.initialize(createConfig('query-test'));
 
-    await adapter.execute('CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)');
+    await adapter.execute(
+      'CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)'
+    );
     const insertResult = await adapter.execute(
       'INSERT INTO test (value) VALUES (?)',
       ['hello']
@@ -197,9 +199,7 @@ describe('WasmNodeAdapter', () => {
     await adapter.execute(
       'CREATE TABLE export_table (id INTEGER PRIMARY KEY, value TEXT)'
     );
-    await adapter.execute(
-      'CREATE INDEX export_index ON export_table (value)'
-    );
+    await adapter.execute('CREATE INDEX export_index ON export_table (value)');
 
     const json = await adapter.exportDatabaseAsJson();
     const parsed = JSON.parse(json);
@@ -211,13 +211,19 @@ describe('WasmNodeAdapter', () => {
 
   it('skips invalid table and index rows during JSON export', async () => {
     const fakeDb = {
-      exec: vi.fn((options: string | { callback?: (row: Record<string, unknown>) => void }) => {
-        if (typeof options === 'string') {
-          return undefined;
+      exec: vi.fn(
+        (
+          options:
+            | string
+            | { callback?: (row: Record<string, unknown>) => void }
+        ) => {
+          if (typeof options === 'string') {
+            return undefined;
+          }
+          options.callback?.({ name: 123, sql: null });
+          return [];
         }
-        options.callback?.({ name: 123, sql: null });
-        return [];
-      }),
+      ),
       close: vi.fn(() => undefined)
     };
 
@@ -320,9 +326,9 @@ describe('WasmNodeAdapter', () => {
       }
     });
 
-    await expect(adapter.importDatabaseFromJson(json, TEST_KEY)).rejects.toThrow(
-      'Failed to import database from JSON'
-    );
+    await expect(
+      adapter.importDatabaseFromJson(json, TEST_KEY)
+    ).rejects.toThrow('Failed to import database from JSON');
     expect(adapter.isOpen()).toBe(false);
   });
 
@@ -563,7 +569,7 @@ describe('WasmNodeAdapter', () => {
     vi.doMock(modulePath, () => ({
       default: async () => ({
         oo1: {
-          DB: function () {
+          DB: () => {
             throw new Error('boom');
           }
         },
@@ -595,7 +601,7 @@ describe('WasmNodeAdapter', () => {
     vi.doMock(modulePath, () => ({
       default: async () => ({
         oo1: {
-          DB: function () {
+          DB: () => {
             throw 'boom';
           }
         },
@@ -627,14 +633,12 @@ describe('WasmNodeAdapter', () => {
     vi.doMock(modulePath, () => ({
       default: async () => ({
         oo1: {
-          DB: function () {
-            return {
-              exec: () => {
-                throw 'boom';
-              },
-              close: () => undefined
-            };
-          }
+          DB: () => ({
+            exec: () => {
+              throw 'boom';
+            },
+            close: () => undefined
+          })
         },
         capi: {}
       })
