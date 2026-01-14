@@ -229,10 +229,7 @@ describe('native-secure-storage', () => {
       const result = await fn(TEST_INSTANCE_ID, new Uint8Array([1, 2, 3]));
 
       expect(result).toBe(false);
-      expect(consoleSpy).toHaveBeenCalledWith(
-        errorMessage,
-        expect.any(Error)
-      );
+      expect(consoleSpy).toHaveBeenCalledWith(errorMessage, expect.any(Error));
       consoleSpy.mockRestore();
     });
   });
