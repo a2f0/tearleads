@@ -20,6 +20,15 @@ vi.mock('@capawesome/capacitor-file-picker', () => ({
 import { FilePicker } from '@capawesome/capacitor-file-picker';
 import { detectPlatform } from '../lib/utils';
 
+const createAudioResponse = () => {
+  const response = new Response();
+  Object.defineProperty(response, 'blob', {
+    value: async () =>
+      new Blob([new Uint8Array([1])], { type: 'audio/mpeg' })
+  });
+  return response;
+};
+
 describe('useNativeFilePicker', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -55,9 +64,7 @@ describe('useNativeFilePicker', () => {
       vi.mocked(detectPlatform).mockReturnValue('ios');
       fetchSpy = vi
         .spyOn(global, 'fetch')
-        .mockResolvedValue(
-          new Response(new Blob([new Uint8Array([1])], { type: 'audio/mpeg' }))
-        );
+        .mockImplementation(async () => createAudioResponse());
     });
 
     afterEach(() => {
