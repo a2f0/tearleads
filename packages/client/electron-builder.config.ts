@@ -1,7 +1,7 @@
 import type {Configuration} from 'electron-builder';
 
 const config: Configuration = {
-  appId: 'com.rapid.app',
+  appId: 'com.tearleads.desktop',
   productName: 'Rapid',
   directories: {
     output: 'dist-electron',

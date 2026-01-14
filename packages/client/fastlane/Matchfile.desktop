@@ -1,5 +1,5 @@
 git_url(ENV['MATCH_GIT_URL'])
 storage_mode('git')
-app_identifier('com.rapid.app')
+app_identifier('com.tearleads.desktop')
 username(ENV['APPLE_ID'])
 team_id(ENV['TEAM_ID'])
