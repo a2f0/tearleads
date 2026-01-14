@@ -1,6 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installConsoleErrorCapture } from '@/lib/console-error-capture';
 import { logStore } from '@/stores/logStore';
 import { LogsTab } from './LogsTab';
@@ -77,8 +77,7 @@ describe('LogsTab', () => {
   });
 
   it('shows console errors captured at runtime', async () => {
-    const originalConsoleError = console.error;
-    console.error = () => {};
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const uninstall = installConsoleErrorCapture();
 
     await act(async () => {
@@ -92,7 +91,7 @@ describe('LogsTab', () => {
     expect(screen.getByText('Console blew up')).toBeInTheDocument();
 
     uninstall();
-    console.error = originalConsoleError;
+    consoleSpy.mockRestore();
   });
 
   it('expands details when log with details is clicked', async () => {
