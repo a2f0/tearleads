@@ -5,7 +5,7 @@
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+. "$SCRIPT_DIR/repoRoot.sh"
 SETTINGS_FILE="$REPO_ROOT/.vscode/settings.json"
 
 # Check if in queued state (don't clear if queued)

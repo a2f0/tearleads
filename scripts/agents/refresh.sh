@@ -4,7 +4,7 @@
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+. "$SCRIPT_DIR/repoRoot.sh"
 CLIENT_DIR="$REPO_ROOT/packages/client"
 
 cd "$REPO_ROOT"

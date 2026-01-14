@@ -1,5 +1,8 @@
 -- Tuxedo neovim configuration (neovim.lua)
 
+-- Set leader key
+vim.g.mapleader = "\\"
+
 -- Disable ShaDa to prevent corruption from multiple concurrent neovim instances
 vim.opt.shadafile = "NONE"
 
@@ -55,6 +58,7 @@ vim.opt.wildmenu = true
 
 vim.opt.number = true
 vim.opt.wrap = true
+vim.opt.mouse = "a"
 
 vim.cmd([[ let g:neo_tree_remove_legacy_commands = 1 ]])
 
@@ -63,6 +67,20 @@ vim.opt.tabstop = 2
 vim.opt.expandtab = true
 vim.opt.shiftwidth = 2
 vim.opt.list = true
+
+local function neo_tree_single_click_open(state)
+  local node = state.tree:get_node()
+  if not node then
+    return
+  end
+
+  local fs_commands = require("neo-tree.sources.filesystem.commands")
+  if node.type == "directory" then
+    fs_commands.toggle_node(state)
+  else
+    fs_commands.open(state)
+  end
+end
 
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.uv.fs_stat(lazypath) then
@@ -97,6 +115,14 @@ require("lazy").setup({
     },
     opts = {
       filesystem = {
+        window = {
+          mappings = {
+            ["<LeftRelease>"] = {
+              neo_tree_single_click_open,
+              desc = "Open file or toggle directory",
+            },
+          },
+        },
         use_libuv_file_watcher = true,
         filtered_items = {
           visible = true,
