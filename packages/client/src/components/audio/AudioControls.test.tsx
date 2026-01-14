@@ -318,7 +318,9 @@ describe('AudioControls', () => {
 
       render(<AudioControls tracks={TEST_TRACKS} />);
 
-      expect(screen.getByTestId('audio-current-time')).toHaveTextContent('0:00');
+      expect(screen.getByTestId('audio-current-time')).toHaveTextContent(
+        '0:00'
+      );
       expect(screen.getByTestId('audio-duration')).toHaveTextContent('0:00');
     });
   });

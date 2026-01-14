@@ -121,7 +121,13 @@ export function useAudioAnalyser(
         animationFrameRef.current = null;
       }
     };
-  }, [isPlaying, barCount, initializeAudioContext, updateFrequencyData]);
+  }, [
+    isPlaying,
+    barCount,
+    initializeAudioContext,
+    updateFrequencyData,
+    audioElementRef.current
+  ]);
 
   return frequencyData;
 }

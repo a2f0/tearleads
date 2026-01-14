@@ -54,7 +54,7 @@ vi.mock('@rapid/shared', async (importOriginal) => {
     exportKey: vi.fn(async (key: CryptoKey) => {
       const password =
         typeof key === 'object' && key !== null
-          ? passwordByKey.get(key) ?? 'default'
+          ? (passwordByKey.get(key) ?? 'default')
           : 'default';
       return encodePassword(password);
     }),
@@ -339,10 +339,9 @@ describe('KeyManager', () => {
     });
 
     it('clearPersistedSession clears stored session keys', async () => {
-      mockIDBStore.set(
-        `rapid_session_wrapping_key_${TEST_INSTANCE_ID}`,
-        { wrapped: true }
-      );
+      mockIDBStore.set(`rapid_session_wrapping_key_${TEST_INSTANCE_ID}`, {
+        wrapped: true
+      });
       mockIDBStore.set(`rapid_session_wrapped_key_${TEST_INSTANCE_ID}`, [1, 2]);
 
       await keyManager.clearPersistedSession();
@@ -712,12 +711,12 @@ describe('deleteSessionKeysForInstance', () => {
 
     expect(mockIDBStore.has(`rapid_db_salt_${instanceId}`)).toBe(true);
     expect(mockIDBStore.has(`rapid_db_kcv_${instanceId}`)).toBe(true);
-    expect(
-      mockIDBStore.has(`rapid_session_wrapping_key_${instanceId}`)
-    ).toBe(false);
-    expect(
-      mockIDBStore.has(`rapid_session_wrapped_key_${instanceId}`)
-    ).toBe(false);
+    expect(mockIDBStore.has(`rapid_session_wrapping_key_${instanceId}`)).toBe(
+      false
+    );
+    expect(mockIDBStore.has(`rapid_session_wrapped_key_${instanceId}`)).toBe(
+      false
+    );
   });
 
   it('completes successfully when no session keys exist', async () => {

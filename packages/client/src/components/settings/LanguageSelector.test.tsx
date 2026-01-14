@@ -95,10 +95,7 @@ describe('LanguageSelector', () => {
     const loadLanguageSpy = vi
       .spyOn(i18nModule, 'loadLanguage')
       .mockResolvedValue(undefined);
-    const changeLanguageSpy = vi.spyOn(
-      i18nModule.i18n,
-      'changeLanguage'
-    );
+    const changeLanguageSpy = vi.spyOn(i18nModule.i18n, 'changeLanguage');
 
     renderLanguageSelector();
 
