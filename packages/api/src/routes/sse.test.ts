@@ -201,6 +201,7 @@ describe('SSE Routes', () => {
     });
 
     it('ignores invalid JSON messages from Redis', async () => {
+      let messageHandlerInvoked = false;
       const response = await request(app)
         .get('/v1/sse')
         .buffer(true)
