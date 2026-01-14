@@ -142,9 +142,10 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    **Bump version immediately after successful rebase** (if `has_bumped_version` is `false`):
 
    1. Run `bumpVersion.sh` and capture its output
-   2. Stage version files: `packages/client/android/app/build.gradle`, `packages/client/ios/App/App.xcodeproj/project.pbxproj`, `packages/api/package.json`, `packages/client/package.json`
-   3. Amend the last commit with version bump info in the body (GPG signed)
-   4. Set `has_bumped_version = true`
+   2. Stage version files: `packages/client/android/app/build.gradle`, `packages/client/ios/App/App.xcodeproj/project.pbxproj`, `packages/api/package.json`, `packages/client/package.json`, `packages/chrome-extension/package.json`, `packages/chrome-extension/public/manifest.json`
+   3. Expect the Chrome extension version changes from `bumpVersion.sh`. These are valid, intentional diffs for the release bump.
+   4. Amend the last commit with version bump info in the body (GPG signed). Do NOT create a separate commit for the bump.
+   5. Set `has_bumped_version = true`
 
    This saves a full CI cycle by combining rebase + version bump into one push.
 

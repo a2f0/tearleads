@@ -1,14 +1,40 @@
 import { test, expect, type Page } from '@playwright/test';
 
-// Skip tests that require database setup in CI release builds
-// until https://github.com/a2f0/rapid/issues/687 is resolved
-const isCI = !!process.env['CI'];
-const isHTTPS = !!process.env['BASE_URL']?.startsWith('https://');
-const skipDatabaseTests = isCI && isHTTPS;
-
 const TEST_PASSWORD = 'testpassword123';
 const NEW_PASSWORD = 'newpassword456';
 const DB_OPERATION_TIMEOUT = 15000;
+
+const maybeEnableOpfsDebugLogs = async (page: Page) => {
+  if (!process.env['OPFS_DEBUG_LOGS']) return;
+
+  page.on('console', (msg) => {
+    console.log(`[browser:${msg.type()}] ${msg.text()}`);
+  });
+  page.on('pageerror', (err) => {
+    console.log(`[browser:error] ${err.message}`);
+  });
+  page.on('requestfailed', (request) => {
+    if (request.url().includes('sqlite3-opfs-async-proxy.js')) {
+      console.log(
+        `[browser:requestfailed] ${request.url()} ${request.failure()?.errorText ?? ''}`
+      );
+    }
+  });
+  page.on('requestfinished', (request) => {
+    if (request.url().includes('sqlite3-opfs-async-proxy.js')) {
+      console.log(`[browser:requestfinished] ${request.url()}`);
+    }
+  });
+
+  const browserInfo = await page.evaluate(() => ({
+    userAgent: navigator.userAgent,
+    crossOriginIsolated: self.crossOriginIsolated === true,
+    sharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
+    isSecureContext: self.isSecureContext === true,
+    serviceWorkerController: !!navigator.serviceWorker?.controller
+  }));
+  console.log(`[browser:info] ${JSON.stringify(browserInfo)}`);
+};
 
 // Helper to wait for successful database operation
 const waitForSuccess = (page: Page) =>
@@ -41,9 +67,9 @@ const setupDatabase = async (page: Page) => {
 // - Playwright must launch Chrome with --enable-features=SharedArrayBuffer
 
 test.describe('Database (Web)', () => {
-  test.skip(skipDatabaseTests, 'Database setup fails in CI release builds');
-
   test.beforeEach(async ({ page }) => {
+    await maybeEnableOpfsDebugLogs(page);
+
     // Navigate to the SQLite page where database test UI is located
     await page.goto('/sqlite');
     await expect(page.getByTestId('database-test')).toBeVisible();
@@ -368,9 +394,9 @@ test.describe('Database (Web)', () => {
 });
 
 test.describe('Session Persistence (Web)', () => {
-  test.skip(skipDatabaseTests, 'Database setup fails in CI release builds');
-
   test.beforeEach(async ({ page }) => {
+    await maybeEnableOpfsDebugLogs(page);
+
     // Navigate to the SQLite page where database test UI is located
     await page.goto('/sqlite');
     await expect(page.getByTestId('database-test')).toBeVisible();
