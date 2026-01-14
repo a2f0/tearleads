@@ -985,17 +985,11 @@ test.describe('Models page', () => {
   test('should show appropriate WebGPU status', async ({ page }) => {
     await navigateTo(page, 'Models');
 
-    // Page should show either model cards (WebGPU supported) or error message (not supported)
-    await expect(
-      page.getByText('Phi 3.5 Mini').or(page.getByText('WebGPU Not Supported'))
-    ).toBeVisible({ timeout: 10000 });
-
-    // Verify the two states are mutually exclusive
-    const hasModelCards = await page.getByText('Phi 3.5 Mini').isVisible();
-    const hasWebGPUError = await page.getByText('WebGPU Not Supported').isVisible();
-
-    // Exactly one should be true
-    expect(hasModelCards !== hasWebGPUError).toBe(true);
+    await expect.poll(async () => {
+      const hasModelCards = await page.getByText('Phi 3.5 Mini').isVisible();
+      const hasWebGPUError = await page.getByText('WebGPU Not Supported').isVisible();
+      return hasModelCards !== hasWebGPUError;
+    }).toBe(true);
   });
 });
 
