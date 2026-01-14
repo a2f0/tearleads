@@ -27,8 +27,8 @@
         owner: root
         group: root
         mode: "0644"
-      loop: "{{ nginx_ci_sites }}"
-      when: item.name == nginx_ci_site
+      loop: "{{ nginx_ci_sites | selectattr('name', 'equalto', nginx_ci_site) }}"
+      notify: Restart nginx
 
     - name: Enable nginx site
       ansible.builtin.file:
@@ -36,17 +36,21 @@
         dest: "/etc/nginx/sites-enabled/{{ nginx_ci_site }}"
         state: link
         force: true
+      notify: Restart nginx
 
     - name: Remove default nginx site
       ansible.builtin.file:
         path: /etc/nginx/sites-enabled/default
         state: absent
+      notify: Restart nginx
 
     - name: Validate nginx config
       ansible.builtin.command:
         cmd: nginx -t
       changed_when: false
+      notify: Restart nginx
 
+  handlers:
     - name: Restart nginx
       ansible.builtin.systemd:
         name: nginx
