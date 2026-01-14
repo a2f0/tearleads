@@ -271,7 +271,6 @@ export function useBottomSheetGesture({
   useEffect(() => {
     if (!handleElement) return;
 
-    let isDragging = false;
     let startY = 0;
     let lastY = 0;
     let lastTime = 0;
@@ -280,7 +279,6 @@ export function useBottomSheetGesture({
       // Prevent text selection and default behavior
       e.preventDefault();
 
-      isDragging = true;
       startY = e.clientY;
       lastY = e.clientY;
       lastTime = Date.now();
@@ -312,7 +310,6 @@ export function useBottomSheetGesture({
     };
 
     const handleMouseUp = (e: MouseEvent) => {
-      isDragging = false;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
 
