@@ -1,3 +1,5 @@
+{% set include_hsts = include_hsts | default(false) %}
+{% set api_headers %}{% include 'nginx-headers-api.conf.j2' %}{% endset %}
 server {
     listen 80;
     server_name api.{{ domain }};
@@ -17,8 +19,5 @@ server {
     }
 
     # Security Headers
-    add_header X-Frame-Options "DENY" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Content-Security-Policy "default-src 'none'; frame-ancestors 'none';" always;
+{{ api_headers | indent(4, true) }}
 }
