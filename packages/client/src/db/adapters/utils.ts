@@ -59,11 +59,15 @@ export function extractSelectColumns(sql: string): string[] | null {
     }
 
     // Handle table.column or "table"."column"
-    const colParts = col.split('.');
-    const lastPart = colParts[colParts.length - 1].trim();
+    const colParts = col.split('.').filter((part) => part.length > 0);
+    const lastPart = colParts[colParts.length - 1];
+    if (lastPart === undefined) {
+      return col.replace(/"/g, '');
+    }
+    const trimmed = lastPart.trim();
 
     // Remove quotes from the final part
-    return lastPart.replace(/"/g, '');
+    return trimmed.replace(/"/g, '');
   });
 }
 
