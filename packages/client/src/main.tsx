@@ -13,6 +13,7 @@ import {
 } from './components/ui/error-boundary';
 import { DatabaseProvider, SettingsProvider } from './db/hooks';
 import { i18n } from './i18n';
+import { installConsoleErrorCapture } from './lib/console-error-capture';
 import { SSEProvider } from './sse';
 import { VideoProvider } from './video';
 import './index.css';
@@ -135,6 +136,8 @@ window.addEventListener('error', (event: ErrorEvent) => {
     errorBoundaryRef.current?.setError(event.error);
   }
 });
+
+installConsoleErrorCapture();
 
 const rootElement = document.getElementById('root');
 if (rootElement) {

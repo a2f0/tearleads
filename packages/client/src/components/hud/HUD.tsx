@@ -22,7 +22,7 @@ interface HUDProps {
 }
 
 export function HUD({ isOpen, onClose }: HUDProps) {
-  const [activeTab, setActiveTab] = useState<TabId>('analytics');
+  const [activeTab, setActiveTab] = useState<TabId>('logs');
   const { height, handleMouseDown, handleTouchStart } = useResizable({
     defaultHeight: DEFAULT_HEIGHT,
     minHeight: MIN_HEIGHT,
