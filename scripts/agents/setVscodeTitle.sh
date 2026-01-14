@@ -2,7 +2,12 @@
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SCRIPT_REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+if command -v git >/dev/null 2>&1 && git -C "${PWD}" rev-parse --show-toplevel >/dev/null 2>&1; then
+    REPO_ROOT=$(git -C "$PWD" rev-parse --show-toplevel)
+else
+    REPO_ROOT="$SCRIPT_REPO_ROOT"
+fi
 
 VSCODE_DIR="$REPO_ROOT/.vscode"
 SETTINGS_FILE="$VSCODE_DIR/settings.json"
