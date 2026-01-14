@@ -308,7 +308,8 @@ export function Files() {
       const fileType = file.mimeType.split('/')[0] ?? '';
       const routeMapping: Record<string, string> = {
         image: '/photos',
-        audio: '/audio'
+        audio: '/audio',
+        video: '/videos'
       };
 
       // Handle PDFs specifically since they use application/pdf
@@ -493,7 +494,7 @@ export function Files() {
                         file.id
                       );
                       const fileType = file.mimeType.split('/')[0] ?? '';
-                      const viewableTypes = ['image', 'audio'];
+                      const viewableTypes = ['image', 'audio', 'video'];
                       const isPdf = file.mimeType === 'application/pdf';
                       const isClickable =
                         (viewableTypes.includes(fileType) || isPdf) &&
