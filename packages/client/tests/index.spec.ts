@@ -42,6 +42,11 @@ async function importContacts(page: Page, csvContent: string) {
 type WebGPUState = 'models' | 'error';
 
 async function waitForModelsOrWebGPUError(page: Page): Promise<WebGPUState> {
+  const checkingStatus = page.getByText('Checking WebGPU support...');
+  if (await checkingStatus.count()) {
+    await checkingStatus.waitFor({ state: 'hidden', timeout: 15000 });
+  }
+
   const supportsWebGPU = await page.evaluate(async () => {
     if (!('gpu' in navigator)) return false;
     try {
@@ -53,13 +58,17 @@ async function waitForModelsOrWebGPUError(page: Page): Promise<WebGPUState> {
   });
 
   if (supportsWebGPU) {
-    await expect(page.getByText('Phi 3.5 Mini')).toBeVisible({ timeout: 15000 });
+    const modelCard = page.getByText('Phi 3.5 Mini');
+    const webGPUError = page.getByText(/WebGPU Not Supported/);
+    await expect(modelCard).toBeVisible({ timeout: 15000 });
+    await expect(webGPUError).not.toBeVisible();
     return 'models';
   }
 
-  await expect(page.getByText(/WebGPU Not Supported/)).toBeVisible({
-    timeout: 15000
-  });
+  const webGPUError = page.getByText(/WebGPU Not Supported/);
+  const modelCard = page.getByText('Phi 3.5 Mini');
+  await expect(webGPUError).toBeVisible({ timeout: 15000 });
+  await expect(modelCard).not.toBeVisible();
   return 'error';
 }
 
