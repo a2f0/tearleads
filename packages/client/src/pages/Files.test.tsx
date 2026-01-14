@@ -8,17 +8,31 @@ import { Files } from './Files';
 
 // Mock useVirtualizer to simplify testing
 vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: vi.fn(({ count }) => ({
-    getVirtualItems: () =>
-      Array.from({ length: count }, (_, i) => ({
-        index: i,
-        start: i * 56,
-        size: 56,
-        key: i
-      })),
-    getTotalSize: () => count * 56,
-    measureElement: vi.fn()
-  }))
+  useVirtualizer: vi.fn(
+    (options: { count: number } & Record<string, unknown>) => {
+      const getScrollElement = options['getScrollElement'];
+      if (typeof getScrollElement === 'function') {
+        getScrollElement();
+      }
+      const estimateSize = options['estimateSize'];
+      if (typeof estimateSize === 'function') {
+        estimateSize();
+      }
+
+      const { count } = options;
+      return {
+        getVirtualItems: () =>
+          Array.from({ length: count }, (_, i) => ({
+            index: i,
+            start: i * 56,
+            size: 56,
+            key: i
+          })),
+        getTotalSize: () => count * 56,
+        measureElement: vi.fn()
+      };
+    }
+  )
 }));
 
 const mockNavigate = vi.fn();
@@ -66,7 +80,8 @@ vi.mock('@/storage/opfs', () => ({
     store: mockStore
   }),
   isFileStorageInitialized: () => mockIsFileStorageInitialized(),
-  initializeFileStorage: (key: Uint8Array) => mockInitializeFileStorage(key),
+  initializeFileStorage: (key: Uint8Array, instanceId: string) =>
+    mockInitializeFileStorage(key, instanceId),
   createRetrieveLogger: () => vi.fn()
 }));
 
@@ -80,9 +95,10 @@ vi.mock('@/lib/file-utils', () => ({
 }));
 
 // Mock useFileUpload hook
+const mockUploadFile = vi.fn();
 vi.mock('@/hooks/useFileUpload', () => ({
   useFileUpload: () => ({
-    uploadFile: vi.fn().mockResolvedValue({ id: 'new-id', isDuplicate: false })
+    uploadFile: mockUploadFile
   })
 }));
 
@@ -192,6 +208,8 @@ describe('Files', () => {
     mockGetCurrentKey.mockReturnValue(TEST_ENCRYPTION_KEY);
     mockIsFileStorageInitialized.mockReturnValue(true);
     mockRetrieve.mockResolvedValue(TEST_THUMBNAIL_DATA);
+    mockUploadFile.mockReset();
+    mockUploadFile.mockResolvedValue({ id: 'new-id', isDuplicate: false });
     mockSelect.mockReturnValue(
       createMockQueryChain([
         TEST_FILE_WITH_THUMBNAIL,
@@ -506,6 +524,27 @@ describe('Files', () => {
       });
     });
 
+    it('does not navigate for non-viewable file types', async () => {
+      const user = userEvent.setup();
+      const testFile = {
+        ...TEST_FILE_WITHOUT_THUMBNAIL,
+        id: 'file-unknown',
+        name: 'notes.txt',
+        mimeType: 'text/plain'
+      };
+      mockSelect.mockReturnValue(createMockQueryChain([testFile]));
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('notes.txt')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('notes.txt'));
+
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
     it('renders Download button for non-deleted files', async () => {
       await renderFiles();
 
@@ -548,7 +587,8 @@ describe('Files', () => {
 
       await waitFor(() => {
         expect(mockInitializeFileStorage).toHaveBeenCalledWith(
-          TEST_ENCRYPTION_KEY
+          TEST_ENCRYPTION_KEY,
+          'test-instance'
         );
       });
     });
@@ -663,6 +703,7 @@ describe('Files', () => {
       );
       consoleSpy.mockRestore();
     });
+
   });
 
   describe('delete functionality', () => {
@@ -912,13 +953,6 @@ describe('Files', () => {
 
   describe('file upload flow', () => {
     it('does not process uploads when database is locked', async () => {
-      const mockUploadFile = vi.fn();
-      vi.mocked(await import('@/hooks/useFileUpload')).useFileUpload = vi
-        .fn()
-        .mockReturnValue({
-          uploadFile: mockUploadFile
-        });
-
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
         isLoading: false,
@@ -933,6 +967,101 @@ describe('Files', () => {
 
       // Dropzone should not be present when locked
       expect(screen.queryByTestId('dropzone')).not.toBeInTheDocument();
+    });
+
+    it('uploads files, tracks progress, and shows success badge', async () => {
+      const user = userEvent.setup();
+      const file = new File(['hello'], 'upload.txt', { type: 'text/plain' });
+      let resolveUpload: ((value: { id: string; isDuplicate: boolean }) => void)
+        | undefined;
+      const uploadPromise = new Promise((resolve) => {
+        resolveUpload = resolve;
+      });
+
+      mockUploadFile.mockImplementation(async (_file, onProgress) => {
+        if (onProgress) {
+          onProgress(35);
+        }
+        return uploadPromise;
+      });
+
+      mockSelect.mockReturnValueOnce(
+        createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
+      );
+      mockSelect.mockReturnValueOnce(
+        createMockQueryChain([
+          {
+            ...TEST_FILE_WITHOUT_THUMBNAIL,
+            id: 'uploaded-id',
+            name: 'upload.txt',
+            mimeType: 'text/plain'
+          }
+        ])
+      );
+
+      await renderFiles();
+
+      const input = screen.getByTestId('dropzone-input');
+      await user.upload(input, file);
+
+      await waitFor(() => {
+        expect(screen.getAllByText('upload.txt').length).toBeGreaterThan(0);
+        expect(screen.getByText(/35%/)).toBeInTheDocument();
+      });
+
+      if (resolveUpload) {
+        resolveUpload({ id: 'uploaded-id', isDuplicate: false });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByTestId('upload-success-badge')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('upload-success-badge'));
+      expect(
+        screen.queryByTestId('upload-success-badge')
+      ).not.toBeInTheDocument();
+    });
+
+    it('marks duplicate uploads without success badge', async () => {
+      const user = userEvent.setup();
+      const file = new File(['dup'], 'dup.txt', { type: 'text/plain' });
+
+      mockUploadFile.mockResolvedValue({ id: 'dup-id', isDuplicate: true });
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
+      );
+
+      await renderFiles();
+
+      const input = screen.getByTestId('dropzone-input');
+      await user.upload(input, file);
+
+      await waitFor(() => {
+        expect(mockUploadFile).toHaveBeenCalled();
+      });
+
+      expect(
+        screen.queryByTestId('upload-success-badge')
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows error status when upload fails', async () => {
+      const user = userEvent.setup();
+      const file = new File(['fail'], 'fail.txt', { type: 'text/plain' });
+      mockUploadFile.mockRejectedValue(new Error('Upload failed'));
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
+      );
+
+      await renderFiles();
+
+      const input = screen.getByTestId('dropzone-input');
+      await user.upload(input, file);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Upload failed/)).toBeInTheDocument();
+      });
     });
   });
 
@@ -997,6 +1126,61 @@ describe('Files', () => {
       await user.click(screen.getByText('deleted.jpg'));
 
       expect(mockNavigate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('virtual list edges', () => {
+    it('skips rendering when virtualizer returns an out-of-range item', async () => {
+      const { useVirtualizer } = await import('@tanstack/react-virtual');
+      vi.mocked(useVirtualizer).mockImplementationOnce(({ count }) => ({
+        getVirtualItems: () => [
+          { index: 0, start: 0, size: 56, key: 0 },
+          { index: count, start: 56, size: 56, key: count }
+        ],
+        getTotalSize: () => count * 56,
+        measureElement: vi.fn()
+      }));
+
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL]));
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('document.pdf')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('instance switching', () => {
+    it('cleans up thumbnails when switching instances', async () => {
+      const context = {
+        isUnlocked: true,
+        isLoading: false,
+        currentInstanceId: 'instance-a'
+      };
+      mockUseDatabaseContext.mockImplementation(() => context);
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
+      );
+
+      const { rerender } = renderFilesRaw();
+
+      await waitFor(() => {
+        expect(screen.getByText('photo.jpg')).toBeInTheDocument();
+      });
+
+      context.currentInstanceId = 'instance-b';
+      rerender(
+        <MemoryRouter>
+          <ThemeProvider>
+            <Files />
+          </ThemeProvider>
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(URL.revokeObjectURL).toHaveBeenCalled();
+      });
     });
   });
 });
