@@ -7,33 +7,49 @@ import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
 import { Files } from './Files';
 
 // Mock useVirtualizer to simplify testing
-vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: vi.fn(
-    (options: { count: number } & Record<string, unknown>) => {
-      const getScrollElement = options['getScrollElement'];
-      if (typeof getScrollElement === 'function') {
-        getScrollElement();
-      }
-      const estimateSize = options['estimateSize'];
-      if (typeof estimateSize === 'function') {
-        estimateSize();
-      }
+vi.mock('@tanstack/react-virtual', async () => {
+  const { Virtualizer } = await import('@tanstack/virtual-core');
 
-      const { count } = options;
-      return {
-        getVirtualItems: () =>
-          Array.from({ length: count }, (_, i) => ({
-            index: i,
-            start: i * 56,
-            size: 56,
-            key: i
-          })),
-        getTotalSize: () => count * 56,
-        measureElement: vi.fn()
-      };
-    }
-  )
-}));
+  return {
+    useVirtualizer: vi.fn(
+      (options: { count: number } & Record<string, unknown>) => {
+        const getScrollElement = options['getScrollElement'];
+        if (typeof getScrollElement === 'function') {
+          getScrollElement();
+        }
+        const estimateSize = options['estimateSize'];
+        if (typeof estimateSize === 'function') {
+          estimateSize();
+        }
+
+        const { count } = options;
+        const virtualizer = new Virtualizer({
+          count,
+          getScrollElement: () => null,
+          estimateSize: () => 56,
+          scrollToFn: () => undefined,
+          observeElementRect: () => undefined,
+          observeElementOffset: () => undefined
+        });
+
+        virtualizer.getVirtualItems = Object.assign(
+          () =>
+            Array.from({ length: count }, (_, i) => ({
+              index: i,
+              start: i * 56,
+              end: (i + 1) * 56,
+              size: 56,
+              key: i,
+              lane: 0
+            })),
+          { updateDeps: vi.fn() }
+        );
+
+        return virtualizer;
+      }
+    )
+  };
+});
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -1132,8 +1148,19 @@ describe('Files', () => {
   describe('virtual list edges', () => {
     it('skips rendering when virtualizer returns an out-of-range item', async () => {
       const { useVirtualizer } = await import('@tanstack/react-virtual');
-      vi.mocked(useVirtualizer).mockImplementationOnce(({ count }) => ({
-        getVirtualItems: Object.assign(
+      const { Virtualizer } = await import('@tanstack/virtual-core');
+
+      vi.mocked(useVirtualizer).mockImplementationOnce(({ count }) => {
+        const virtualizer = new Virtualizer({
+          count,
+          getScrollElement: () => null,
+          estimateSize: () => 56,
+          scrollToFn: () => undefined,
+          observeElementRect: () => undefined,
+          observeElementOffset: () => undefined
+        });
+
+        virtualizer.getVirtualItems = Object.assign(
           () => [
             { index: 0, start: 0, size: 56, end: 56, key: 0, lane: 0 },
             {
@@ -1146,10 +1173,10 @@ describe('Files', () => {
             }
           ],
           { updateDeps: vi.fn() }
-        ),
-        getTotalSize: () => count * 56,
-        measureElement: vi.fn()
-      }));
+        );
+
+        return virtualizer;
+      });
 
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
