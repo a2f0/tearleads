@@ -702,6 +702,7 @@ describe('Files', () => {
         expect.any(Error)
       );
       consoleSpy.mockRestore();
+    });
   });
 
   describe('delete functionality', () => {
