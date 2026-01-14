@@ -129,16 +129,11 @@ platform :ios do
       UI.user_error!("Please set #{var} environment variable") unless ENV[var]
     end
 
-    previous_matchfile = ENV['MATCHFILE']
-    ENV['MATCHFILE'] = File.expand_path('Matchfile.desktop', __dir__)
-
-    match(type: 'developer_id', readonly: true)
-  ensure
-    if previous_matchfile
-      ENV['MATCHFILE'] = previous_matchfile
-    else
-      ENV.delete('MATCHFILE')
-    end
+    match(
+      type: 'developer_id',
+      readonly: true,
+      matchfile: File.expand_path('Matchfile.desktop', __dir__)
+    )
   end
 
   desc 'Register new device'
