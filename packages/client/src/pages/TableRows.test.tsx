@@ -612,6 +612,7 @@ describe('TableRows', () => {
 
   describe('error handling', () => {
     it('displays error when table does not exist', async () => {
+      const consoleSpy = mockConsoleError();
       mockExecute.mockImplementation((query: string) => {
         if (query.includes('sqlite_master')) {
           return Promise.resolve({ rows: [] });
@@ -626,9 +627,15 @@ describe('TableRows', () => {
           screen.getByText('Table "nonexistent_table" does not exist.')
         ).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch table data:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('displays error when query fails', async () => {
+      const consoleSpy = mockConsoleError();
       mockExecute.mockRejectedValue(new Error('Database error'));
 
       await renderTableRows();
@@ -636,6 +643,11 @@ describe('TableRows', () => {
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch table data:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 

@@ -86,6 +86,22 @@ async function renderAnalytics() {
 
 describe('Analytics', () => {
   const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+  const originalClientWidth = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'clientWidth'
+  );
+  const originalClientHeight = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'clientHeight'
+  );
+  const originalOffsetWidth = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'offsetWidth'
+  );
+  const originalOffsetHeight = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    'offsetHeight'
+  );
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -102,6 +118,22 @@ describe('Analytics', () => {
       y: 0,
       toJSON: () => ({})
     }));
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+      configurable: true,
+      get: () => 400
+    });
+    Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
+      configurable: true,
+      get: () => 200
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+      configurable: true,
+      get: () => 400
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get: () => 200
+    });
 
     mockGetEvents.mockResolvedValue([]);
     mockGetEventStats.mockResolvedValue([]);
@@ -112,6 +144,34 @@ describe('Analytics', () => {
 
   afterEach(() => {
     Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+    if (originalClientWidth) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'clientWidth',
+        originalClientWidth
+      );
+    }
+    if (originalClientHeight) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'clientHeight',
+        originalClientHeight
+      );
+    }
+    if (originalOffsetWidth) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'offsetWidth',
+        originalOffsetWidth
+      );
+    }
+    if (originalOffsetHeight) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        'offsetHeight',
+        originalOffsetHeight
+      );
+    }
   });
 
   describe('when database is loading', () => {
