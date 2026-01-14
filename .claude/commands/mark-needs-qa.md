@@ -44,11 +44,10 @@ When a PR has the `needs-qa` label:
 - The `/enter-merge-queue` command will **create an issue** for the PR if one doesn't exist
 - The `/enter-merge-queue` command will **remove any auto-close language** from the PR description (to prevent the issue from closing on merge)
 - After the PR merges, the associated issue will be labeled with **"Needs QA"**
-
-If the work is fully complete and does NOT require QA, prefer leaving off the `needs-qa` label and include `Closes #<issue>` in the PR description so GitHub auto-closes the issue on merge.
-
 - If the associated issue is already closed, it will be **reopened** for QA verification
 - This ensures QA can track and verify the changes before the issue is closed
+
+If the work is fully complete and does NOT require QA, prefer leaving off the `needs-qa` label and include `Closes #<issue>` in the PR description so GitHub auto-closes the issue on merge.
 
 ## When to Use
 
