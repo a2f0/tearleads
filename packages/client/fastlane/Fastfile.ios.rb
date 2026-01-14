@@ -123,6 +123,19 @@ platform :ios do
     match(type: 'appstore')
   end
 
+  desc 'Sync macOS Developer ID certificates for desktop app'
+  lane :sync_desktop_certs do
+    %w[APPLE_ID TEAM_ID MATCH_GIT_URL MATCH_PASSWORD].each do |var|
+      UI.user_error!("Please set #{var} environment variable") unless ENV[var]
+    end
+
+    match(
+      type: 'developer_id',
+      readonly: true,
+      matchfile: File.expand_path('Matchfile.desktop', __dir__)
+    )
+  end
+
   desc 'Register new device'
   lane :add_device do |options|
     UI.user_error!('Please provide device name using `name:`') unless options[:name]
