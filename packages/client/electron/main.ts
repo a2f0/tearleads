@@ -176,7 +176,7 @@ app.whenReady().then(() => {
     }
   });
 
-  electronApp.setAppUserModelId('com.rapid.app');
+  electronApp.setAppUserModelId('com.tearleads.desktop');
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window);
