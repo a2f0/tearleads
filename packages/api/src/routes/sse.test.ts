@@ -145,6 +145,10 @@ describe('SSE Routes', () => {
 
       expect(response.body).toContain('event: error');
       expect(response.body).toContain('Failed to establish SSE connection');
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'SSE connection error:',
+        expect.any(Error)
+      );
       consoleSpy.mockRestore();
     });
 

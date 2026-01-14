@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Models } from './Models';
+import { mockConsoleError } from '@/test/console-mocks';
 
 // Mock WebGPU API
 const mockGPUAdapter = {
@@ -508,6 +509,7 @@ describe('Models', () => {
     });
 
     it('handles cache API not available gracefully', async () => {
+      const consoleSpy = mockConsoleError();
       Object.defineProperty(window, 'caches', {
         value: undefined,
         writable: true,
@@ -523,6 +525,11 @@ describe('Models', () => {
         });
         expect(downloadButtons.length).toBe(4);
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to check model cache:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('shows delete button for cached models', async () => {

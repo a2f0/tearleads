@@ -4,6 +4,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DatabaseInsert } from '@/db/analytics';
+import { mockConsoleWarn } from '@/test/console-mocks';
 
 // Use vi.hoisted for mock functions to avoid hoisting issues
 const { mockImportKey, mockEncrypt, mockDecrypt } = vi.hoisted(() => ({
@@ -527,6 +528,7 @@ describe('opfs storage', () => {
       });
 
       it('silently ignores callback errors', async () => {
+        const consoleSpy = mockConsoleWarn();
         const storage = await initializeFileStorage(
           testEncryptionKey,
           testInstanceId
@@ -543,6 +545,11 @@ describe('opfs storage', () => {
 
         // Should still return the path
         expect(path).toBe('file-id.enc');
+        expect(consoleSpy).toHaveBeenCalledWith(
+          'onMetrics callback failed in measureStore:',
+          expect.any(Error)
+        );
+        consoleSpy.mockRestore();
       });
     });
 
@@ -671,6 +678,7 @@ describe('opfs storage', () => {
       });
 
       it('silently ignores callback errors', async () => {
+        const consoleSpy = mockConsoleWarn();
         const storage = await initializeFileStorage(
           testEncryptionKey,
           testInstanceId
@@ -690,6 +698,11 @@ describe('opfs storage', () => {
 
         // Should still return the data
         expect(result).toBeInstanceOf(Uint8Array);
+        expect(consoleSpy).toHaveBeenCalledWith(
+          'onMetrics callback failed in measureRetrieve:',
+          expect.any(Error)
+        );
+        consoleSpy.mockRestore();
       });
     });
 
