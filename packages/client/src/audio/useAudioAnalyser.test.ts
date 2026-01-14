@@ -43,7 +43,7 @@ describe('useAudioAnalyser', () => {
     vi.useFakeTimers();
 
     // Mock AudioContext constructor
-    global.AudioContext = MockAudioContext;
+    vi.stubGlobal('AudioContext', MockAudioContext);
 
     // Reset mock state
     if (mockAudioContext) {
@@ -53,7 +53,7 @@ describe('useAudioAnalyser', () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    global.AudioContext = originalAudioContext;
+    vi.stubGlobal('AudioContext', originalAudioContext);
   });
 
   it('returns empty frequency data when not playing', () => {
