@@ -7,6 +7,12 @@ import type { AnalyticsEvent } from '@/db/analytics';
 import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
 import { Analytics } from './Analytics';
 
+declare global {
+  interface SVGElement {
+    getBBox(): DOMRect;
+  }
+}
+
 // Mock useVirtualizer to simplify testing
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: vi.fn(({ count }) => ({
