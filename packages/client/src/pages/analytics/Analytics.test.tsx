@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnalyticsEvent } from '@/db/analytics';
-import { mockConsoleError } from '@/test/console-mocks';
+import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
 import { Analytics } from './Analytics';
 
 // Mock useVirtualizer to simplify testing
@@ -86,6 +86,7 @@ async function renderAnalytics() {
 
 describe('Analytics', () => {
   const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+  const originalGetBBox = SVGElement.prototype.getBBox;
   const originalClientWidth = Object.getOwnPropertyDescriptor(
     HTMLElement.prototype,
     'clientWidth'
@@ -102,11 +103,13 @@ describe('Analytics', () => {
     HTMLElement.prototype,
     'offsetHeight'
   );
+  let warnSpy: ReturnType<typeof mockConsoleWarn> | null = null;
 
   beforeEach(() => {
     vi.clearAllMocks();
     getEventsCallCount = 0;
     getEventStatsCallCount = 0;
+    warnSpy = mockConsoleWarn();
     Element.prototype.getBoundingClientRect = vi.fn(() => ({
       width: 400,
       height: 200,
@@ -117,6 +120,12 @@ describe('Analytics', () => {
       x: 0,
       y: 0,
       toJSON: () => ({})
+    }));
+    SVGElement.prototype.getBBox = vi.fn(() => ({
+      x: 0,
+      y: 0,
+      width: 400,
+      height: 200
     }));
     Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
       configurable: true,
@@ -144,6 +153,7 @@ describe('Analytics', () => {
 
   afterEach(() => {
     Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+    SVGElement.prototype.getBBox = originalGetBBox;
     if (originalClientWidth) {
       Object.defineProperty(
         HTMLElement.prototype,
@@ -171,6 +181,22 @@ describe('Analytics', () => {
         'offsetHeight',
         originalOffsetHeight
       );
+    }
+    if (warnSpy) {
+      const allowedWarnings = ['width(-1) and height(-1)'];
+      const unexpectedWarnings = warnSpy.mock.calls.filter((call) => {
+        const firstArg = call[0];
+        const message =
+          typeof firstArg === 'string'
+            ? firstArg
+            : firstArg instanceof Error
+              ? firstArg.message
+              : '';
+        return !allowedWarnings.some((allowed) => message.includes(allowed));
+      });
+      expect(unexpectedWarnings).toEqual([]);
+      warnSpy.mockRestore();
+      warnSpy = null;
     }
   });
 
