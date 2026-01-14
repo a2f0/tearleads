@@ -5,6 +5,7 @@ import { DurationChart } from './DurationChart';
 // Track ResizeObserver callbacks for testing
 let resizeObserverCallback: ResizeObserverCallback | null = null;
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
 // Mock ResizeObserver which is required by Recharts ResponsiveContainer
 // and our useContainerReady hook
@@ -24,6 +25,7 @@ const mockGetBoundingClientRect = vi.fn();
 beforeEach(() => {
   resizeObserverCallback = null;
   consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   // Default to valid dimensions
   mockGetBoundingClientRect.mockReturnValue({
     width: 400,
@@ -41,6 +43,7 @@ beforeEach(() => {
 
 afterEach(() => {
   consoleErrorSpy.mockRestore();
+  consoleWarnSpy.mockRestore();
 });
 
 const mockEvents = [

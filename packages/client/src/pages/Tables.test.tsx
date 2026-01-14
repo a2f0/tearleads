@@ -257,6 +257,7 @@ describe('Tables', () => {
     });
 
     it('shows an error when counts are invalid', async () => {
+      const consoleSpy = mockConsoleError();
       mockExecute.mockImplementation((sql: string) => {
         if (sql.includes('sqlite_master')) {
           return Promise.resolve({
@@ -276,9 +277,15 @@ describe('Tables', () => {
           screen.getByText('Unexpected count format for table "users"')
         ).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch tables:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('shows an error when count rows are missing', async () => {
+      const consoleSpy = mockConsoleError();
       mockExecute.mockImplementation((sql: string) => {
         if (sql.includes('sqlite_master')) {
           return Promise.resolve({
@@ -298,6 +305,11 @@ describe('Tables', () => {
           screen.getByText('Unexpected count format for table "users"')
         ).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch tables:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('renders tables as links', async () => {

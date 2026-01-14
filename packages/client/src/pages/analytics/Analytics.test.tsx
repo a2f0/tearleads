@@ -2,7 +2,7 @@ import { ThemeProvider } from '@rapid/ui';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnalyticsEvent } from '@/db/analytics';
 import { mockConsoleError } from '@/test/console-mocks';
 import { Analytics } from './Analytics';
@@ -85,16 +85,33 @@ async function renderAnalytics() {
 }
 
 describe('Analytics', () => {
+  const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+
   beforeEach(() => {
     vi.clearAllMocks();
     getEventsCallCount = 0;
     getEventStatsCallCount = 0;
+    Element.prototype.getBoundingClientRect = vi.fn(() => ({
+      width: 400,
+      height: 200,
+      top: 0,
+      left: 0,
+      bottom: 200,
+      right: 400,
+      x: 0,
+      y: 0,
+      toJSON: () => ({})
+    }));
 
     mockGetEvents.mockResolvedValue([]);
     mockGetEventStats.mockResolvedValue([]);
     mockClearEvents.mockResolvedValue(undefined);
     mockGetDistinctEventTypes.mockResolvedValue([]);
     mockGetEventCount.mockResolvedValue(0);
+  });
+
+  afterEach(() => {
+    Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;
   });
 
   describe('when database is loading', () => {
