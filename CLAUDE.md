@@ -135,6 +135,7 @@ The `.claude/commands/` folder contains reusable skills (slash commands). Each w
 - **Always reply inside the review thread** when addressing Gemini or other reviewer feedback.
 - **Never use top-level PR comments** (e.g., `gh pr comment`) to respond to review feedback.
 - Use the PR review comment reply endpoint (`/pulls/comments/{comment_id}/replies`) to keep responses in-thread.
+- Include the relevant commit message(s) in replies to Gemini.
 
 ### Adding, modifying, or deleting a skill
 
