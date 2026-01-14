@@ -1119,7 +1119,9 @@ describe('CapacitorKeyStorage session persistence', () => {
 
   it('returns null when wrapping key is missing', async () => {
     const nativeStorage = await import('./native-secure-storage');
-    vi.mocked(nativeStorage.retrieveWrappingKeyBytes).mockResolvedValueOnce(null);
+      vi.mocked(nativeStorage.retrieveWrappingKeyBytes).mockResolvedValueOnce(
+        null
+      );
     vi.mocked(nativeStorage.retrieveWrappedKey).mockResolvedValueOnce(
       new Uint8Array([1, 2, 3])
     );
@@ -1498,9 +1500,9 @@ describe('validateAndPruneOrphanedInstances', () => {
     const nativeStorage = await import('./native-secure-storage');
 
     vi.mocked(utils.detectPlatform).mockReturnValue('ios');
-    vi.mocked(nativeStorage.getTrackedKeystoreInstanceIds).mockRejectedValueOnce(
-      new Error('cleanup failed')
-    );
+      vi.mocked(
+        nativeStorage.getTrackedKeystoreInstanceIds
+      ).mockRejectedValueOnce(new Error('cleanup failed'));
 
     const result = await validateAndPruneOrphanedInstances(['id-1'], vi.fn());
 

@@ -702,8 +702,6 @@ describe('Files', () => {
         expect.any(Error)
       );
       consoleSpy.mockRestore();
-    });
-
   });
 
   describe('delete functionality', () => {
@@ -972,7 +970,8 @@ describe('Files', () => {
     it('uploads files, tracks progress, and shows success badge', async () => {
       const user = userEvent.setup();
       const file = new File(['hello'], 'upload.txt', { type: 'text/plain' });
-      let resolveUpload: ((value: { id: string; isDuplicate: boolean }) => void)
+      let resolveUpload:
+        | ((value: { id: string; isDuplicate: boolean }) => void)
         | undefined;
       const uploadPromise = new Promise((resolve) => {
         resolveUpload = resolve;
@@ -1141,7 +1140,9 @@ describe('Files', () => {
         measureElement: vi.fn()
       }));
 
-      mockSelect.mockReturnValue(createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL]));
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
+      );
 
       await renderFiles();
 
