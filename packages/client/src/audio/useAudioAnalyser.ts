@@ -41,16 +41,6 @@ export function useAudioAnalyser(
     const audioElement = audioElementRef.current;
     if (!audioElement) return;
 
-    // Already connected to this element
-    if (globalState.connectedElement === audioElement) return;
-
-    // If connected to a different element, we can't reconnect
-    // (createMediaElementSource can only be called once per element)
-    if (globalState.connectedElement !== null) {
-      console.warn('Audio analyser already connected to a different element');
-      return;
-    }
-
     try {
       const audioContext = new AudioContext();
       const analyser = audioContext.createAnalyser();
@@ -104,11 +94,17 @@ export function useAudioAnalyser(
 
   useEffect(() => {
     if (!isPlaying) {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
       setFrequencyData(new Uint8Array(barCount));
+      return;
+    }
+
+    const audioElement = audioElementRef.current;
+    if (
+      audioElement &&
+      globalState.connectedElement &&
+      globalState.connectedElement !== audioElement
+    ) {
+      console.warn('Audio analyser already connected to a different element');
       return;
     }
 

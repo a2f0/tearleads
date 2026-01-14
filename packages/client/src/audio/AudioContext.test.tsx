@@ -1,5 +1,6 @@
 import { act, render, renderHook, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { AudioProvider, useAudio } from './AudioContext';
 
 // Mock HTMLAudioElement methods
@@ -34,6 +35,14 @@ const TEST_TRACK_2 = {
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return <AudioProvider>{children}</AudioProvider>;
+}
+
+function getAudioElement(): HTMLAudioElement {
+  const audio = document.querySelector('audio');
+  if (!(audio instanceof HTMLAudioElement)) {
+    throw new Error('Audio element not found');
+  }
+  return audio;
 }
 
 describe('AudioProvider', () => {
@@ -395,7 +404,7 @@ describe('useAudio', () => {
         result.current.play(TEST_TRACK);
       });
 
-      const audio = document.querySelector('audio') as HTMLAudioElement;
+      const audio = getAudioElement();
 
       // Mock the duration property
       Object.defineProperty(audio, 'duration', {
@@ -409,13 +418,49 @@ describe('useAudio', () => {
 
       expect(result.current.duration).toBe(180);
     });
+
+    it('throttles time updates to reduce re-renders', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      const audio = getAudioElement();
+      let nowValue = 300;
+      const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => nowValue);
+
+      act(() => {
+        audio.currentTime = 5;
+        audio.dispatchEvent(new Event('timeupdate'));
+      });
+
+      expect(result.current.currentTime).toBe(5);
+
+      nowValue = 400;
+      act(() => {
+        audio.currentTime = 7;
+        audio.dispatchEvent(new Event('timeupdate'));
+      });
+
+      expect(result.current.currentTime).toBe(5);
+
+      nowValue = 600;
+      act(() => {
+        audio.currentTime = 9;
+        audio.dispatchEvent(new Event('timeupdate'));
+      });
+
+      expect(result.current.currentTime).toBe(9);
+      nowSpy.mockRestore();
+    });
   });
 
   describe('play error handling', () => {
-    let consoleSpy: ReturnType<typeof vi.spyOn>;
+    let consoleSpy: ReturnType<typeof mockConsoleError>;
 
     beforeEach(() => {
-      consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      consoleSpy = mockConsoleError();
     });
 
     afterEach(() => {
@@ -472,10 +517,10 @@ describe('useAudio', () => {
   });
 
   describe('clearError', () => {
-    let consoleSpy: ReturnType<typeof vi.spyOn>;
+    let consoleSpy: ReturnType<typeof mockConsoleError>;
 
     beforeEach(() => {
-      consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      consoleSpy = mockConsoleError();
     });
 
     afterEach(() => {
@@ -503,14 +548,15 @@ describe('useAudio', () => {
 
   describe('audio error event', () => {
     // MediaError constants: ABORTED=1, NETWORK=2, DECODE=3, SRC_NOT_SUPPORTED=4
+    const MEDIA_ERR_ABORTED = 1;
     const MEDIA_ERR_NETWORK = 2;
     const MEDIA_ERR_DECODE = 3;
     const MEDIA_ERR_SRC_NOT_SUPPORTED = 4;
 
-    let consoleSpy: ReturnType<typeof vi.spyOn>;
+    let consoleSpy: ReturnType<typeof mockConsoleError>;
 
     beforeEach(() => {
-      consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      consoleSpy = mockConsoleError();
     });
 
     afterEach(() => {
@@ -524,7 +570,7 @@ describe('useAudio', () => {
         result.current.play(TEST_TRACK);
       });
 
-      const audio = document.querySelector('audio') as HTMLAudioElement;
+      const audio = getAudioElement();
 
       // Mock the error property
       Object.defineProperty(audio, 'error', {
@@ -547,6 +593,30 @@ describe('useAudio', () => {
       expect(result.current.isPlaying).toBe(false);
     });
 
+    it('handles aborted playback error', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      const audio = getAudioElement();
+
+      Object.defineProperty(audio, 'error', {
+        value: {
+          code: MEDIA_ERR_ABORTED,
+          message: 'Playback aborted'
+        },
+        configurable: true
+      });
+
+      act(() => {
+        audio.dispatchEvent(new Event('error'));
+      });
+
+      expect(result.current.error?.message).toBe('Audio playback was aborted');
+    });
+
     it('handles network error', () => {
       const { result } = renderHook(() => useAudio(), { wrapper });
 
@@ -554,7 +624,7 @@ describe('useAudio', () => {
         result.current.play(TEST_TRACK);
       });
 
-      const audio = document.querySelector('audio') as HTMLAudioElement;
+      const audio = getAudioElement();
 
       Object.defineProperty(audio, 'error', {
         value: {
@@ -580,7 +650,7 @@ describe('useAudio', () => {
         result.current.play(TEST_TRACK);
       });
 
-      const audio = document.querySelector('audio') as HTMLAudioElement;
+      const audio = getAudioElement();
 
       Object.defineProperty(audio, 'error', {
         value: {
