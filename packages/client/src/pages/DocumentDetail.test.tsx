@@ -236,9 +236,9 @@ describe('DocumentDetail', () => {
 
     it('shows error when download fails', async () => {
       const consoleSpy = mockConsoleError();
-      mockRetrieveFileData.mockRejectedValueOnce(
-        new Error('Storage read failed')
-      );
+      mockRetrieveFileData
+        .mockResolvedValueOnce(TEST_PDF_DATA)
+        .mockRejectedValueOnce(new Error('Storage read failed'));
       const user = userEvent.setup();
       await renderDocumentDetail();
 
