@@ -667,3 +667,14 @@ export class WasmNodeAdapter implements DatabaseAdapter {
     );
   }
 }
+
+export const __test__ = {
+  getStringField,
+  initializeSqliteWasm,
+  isJsonBackupData,
+  isNameSqlEntry,
+  keyToHex,
+  parseJsonBackupData,
+  patchFetchForFileUrls,
+  restoreFetch
+};
