@@ -150,6 +150,14 @@ platform :android do
     run_gradle(task: 'connectedAndroidTest')
   end
 
+  desc 'Run Android instrumented tests (release build)'
+  lane :test_instrumented_release do
+    run_gradle(
+      task: 'connectedAndroidTest',
+      properties: { 'android.testBuildType' => 'release' }
+    )
+  end
+
   desc 'Clean build artifacts'
   lane :clean do
     run_gradle(task: 'clean')
@@ -223,7 +231,8 @@ platform :android do
   private_lane :run_gradle do |options|
     gradle(
       project_dir: './android',
-      task: options[:task]
+      task: options[:task],
+      properties: options[:properties]
     )
   end
 end
