@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { LocalStorage } from './LocalStorage';
 
 // Store localStorage data for tests
@@ -276,6 +277,7 @@ describe('LocalStorage', () => {
 
   describe('error handling', () => {
     it('displays error when localStorage read fails', async () => {
+      const consoleSpy = mockConsoleError();
       const mockError = new Error('Storage access denied');
       Object.defineProperty(window, 'localStorage', {
         value: {
@@ -306,6 +308,11 @@ describe('LocalStorage', () => {
       await waitFor(() => {
         expect(screen.getByText('Storage access denied')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to read localStorage:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 

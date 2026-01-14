@@ -747,6 +747,7 @@ describe('Files', () => {
 
     it('displays error when restore fails', async () => {
       const user = userEvent.setup();
+      const consoleSpy = mockConsoleError();
       mockSelect.mockReturnValue(createMockQueryChain([TEST_DELETED_FILE]));
       mockUpdate.mockReturnValue({
         set: vi.fn().mockReturnValue({
@@ -771,6 +772,11 @@ describe('Files', () => {
       await waitFor(() => {
         expect(screen.getByText('Restore failed')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to restore file:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 
@@ -932,6 +938,7 @@ describe('Files', () => {
 
   describe('error handling edge cases', () => {
     it('displays error when encryption key is not available', async () => {
+      const consoleSpy = mockConsoleError();
       mockGetCurrentKey.mockReturnValue(null);
 
       await renderFiles();
@@ -939,9 +946,15 @@ describe('Files', () => {
       await waitFor(() => {
         expect(screen.getByText('Database not unlocked')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch files:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('displays error when no active instance', async () => {
+      const consoleSpy = mockConsoleError();
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: true,
         isLoading: false,
@@ -954,6 +967,11 @@ describe('Files', () => {
       await waitFor(() => {
         expect(screen.getByText('No active instance')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch files:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 

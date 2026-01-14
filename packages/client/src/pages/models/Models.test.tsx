@@ -61,6 +61,14 @@ describe('Models', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsWebGPUSupported.mockResolvedValue(true);
+    Object.defineProperty(window, 'caches', {
+      value: {
+        has: vi.fn().mockResolvedValue(false),
+        open: vi.fn()
+      },
+      writable: true,
+      configurable: true
+    });
 
     // Setup WebGPU mock
     Object.defineProperty(navigator, 'gpu', {
@@ -75,6 +83,11 @@ describe('Models', () => {
   afterEach(() => {
     // Clean up WebGPU mock
     Object.defineProperty(navigator, 'gpu', {
+      value: undefined,
+      writable: true,
+      configurable: true
+    });
+    Object.defineProperty(window, 'caches', {
       value: undefined,
       writable: true,
       configurable: true

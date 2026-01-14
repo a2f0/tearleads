@@ -9,6 +9,7 @@ import userEvent from '@testing-library/user-event';
 import type { ComponentProps, FC } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { TableRows } from './TableRows';
 
 // Mock lucide-react icons to add testids
@@ -432,6 +433,7 @@ describe('TableRows', () => {
 
     it('shows error when truncate fails with non-sqlite_sequence error', async () => {
       const user = userEvent.setup();
+      const consoleSpy = mockConsoleError();
       mockExecute.mockImplementation((query: string) => {
         if (query.includes('sqlite_master')) {
           return Promise.resolve({ rows: [{ name: 'test_table' }] });
@@ -465,6 +467,11 @@ describe('TableRows', () => {
       await waitFor(() => {
         expect(screen.getByText('different error')).toBeInTheDocument();
       });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to truncate table:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 

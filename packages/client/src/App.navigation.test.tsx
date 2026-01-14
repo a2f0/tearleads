@@ -12,6 +12,14 @@ import { Settings } from './pages/Settings';
 import { Sqlite } from './pages/Sqlite';
 import { Tables } from './pages/Tables';
 
+const mockExecute = vi.fn().mockResolvedValue({ rows: [] });
+
+vi.mock('@/db', () => ({
+  getDatabaseAdapter: () => ({
+    execute: mockExecute
+  })
+}));
+
 // Mock database context - shared mock factory
 const createDatabaseContextMock = () => ({
   isUnlocked: true,
