@@ -3,6 +3,10 @@ import { test, expect, Page } from '@playwright/test';
 // Use dbTest for tests that require database setup
 const dbTest = test;
 
+const MODEL_CARD_TEXT = 'Phi 3.5 Mini';
+const WEBGPU_ERROR_REGEX = /WebGPU Not Supported/;
+const WEBGPU_CHECKING_TEXT = 'Checking WebGPU support...';
+
 // Helper to navigate via sidebar (visible on desktop viewport)
 async function navigateTo(page: Page, linkName: string) {
   const link = page.locator('aside nav').getByRole('link', { name: linkName });
@@ -42,21 +46,36 @@ async function importContacts(page: Page, csvContent: string) {
 type WebGPUState = 'models' | 'error';
 
 async function waitForModelsOrWebGPUError(page: Page): Promise<WebGPUState> {
-  let state: WebGPUState | null = null;
-  await expect
-    .poll(async () => {
-      const hasModelCards = await page.getByText('Phi 3.5 Mini').isVisible();
-      const hasWebGPUError = await page.getByText('WebGPU Not Supported').isVisible();
-      state = hasModelCards ? 'models' : hasWebGPUError ? 'error' : null;
-      return state;
-    }, { timeout: 15000 })
-    .not.toBeNull();
-
-  if (!state) {
-    throw new Error('WebGPU status did not resolve');
+  const checkingStatus = page.getByText(WEBGPU_CHECKING_TEXT);
+  if (await checkingStatus.count()) {
+    await checkingStatus.waitFor({ state: 'hidden', timeout: 15000 });
   }
 
-  return state;
+  const supportsWebGPU = await page.evaluate<boolean>(`
+    (async () => {
+      if (!('gpu' in navigator)) return false;
+      try {
+        const adapter = await navigator.gpu.requestAdapter();
+        return !!adapter;
+      } catch {
+        return false;
+      }
+    })()
+  `);
+
+  if (supportsWebGPU) {
+    const modelCard = page.getByText(MODEL_CARD_TEXT);
+    const webGPUError = page.getByText(WEBGPU_ERROR_REGEX);
+    await expect(modelCard).toBeVisible({ timeout: 15000 });
+    await expect(webGPUError).not.toBeVisible();
+    return 'models';
+  }
+
+  const webGPUError = page.getByText(WEBGPU_ERROR_REGEX);
+  const modelCard = page.getByText(MODEL_CARD_TEXT);
+  await expect(webGPUError).toBeVisible({ timeout: 15000 });
+  await expect(modelCard).not.toBeVisible();
+  return 'error';
 }
 
 const IGNORED_WARNING_PATTERNS: RegExp[] = [
@@ -911,11 +930,11 @@ test.describe('Models page', () => {
     const webGPUState = await waitForModelsOrWebGPUError(page);
 
     if (webGPUState === 'models') {
-      await expect(page.getByText('Phi 3.5 Mini')).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText(MODEL_CARD_TEXT)).toBeVisible({ timeout: 15000 });
       await expect(page.getByText('SmolVLM 256M')).toBeVisible({ timeout: 15000 });
       await expect(page.getByText('PaliGemma 2 3B')).toBeVisible({ timeout: 15000 });
     } else {
-      await expect(page.getByText('WebGPU Not Supported')).toBeVisible();
+      await expect(page.getByText(WEBGPU_ERROR_REGEX)).toBeVisible();
     }
   });
 
@@ -928,7 +947,7 @@ test.describe('Models page', () => {
       await expect(page.getByText(/~2GB/)).toBeVisible({ timeout: 15000 });
       await expect(page.getByText(/~500MB/)).toBeVisible({ timeout: 15000 });
     } else {
-      await expect(page.getByText('WebGPU Not Supported')).toBeVisible();
+      await expect(page.getByText(WEBGPU_ERROR_REGEX)).toBeVisible();
     }
   });
 
@@ -942,7 +961,7 @@ test.describe('Models page', () => {
         timeout: 15000
       });
     } else {
-      await expect(page.getByText('WebGPU Not Supported')).toBeVisible();
+      await expect(page.getByText(WEBGPU_ERROR_REGEX)).toBeVisible();
     }
   });
 
@@ -978,7 +997,7 @@ test.describe('Models page', () => {
     await page.reload();
 
     // Wait for models page to load again
-    await expect(page.getByText('Phi 3.5 Mini')).toBeVisible({
+    await expect(page.getByText(MODEL_CARD_TEXT)).toBeVisible({
       timeout: 10000
     });
 
@@ -993,8 +1012,8 @@ test.describe('Models page', () => {
     await navigateTo(page, 'Models');
 
     await expect.poll(async () => {
-      const hasModelCards = await page.getByText('Phi 3.5 Mini').isVisible();
-      const hasWebGPUError = await page.getByText('WebGPU Not Supported').isVisible();
+      const hasModelCards = await page.getByText(MODEL_CARD_TEXT).isVisible();
+      const hasWebGPUError = await page.getByText(WEBGPU_ERROR_REGEX).isVisible();
       return hasModelCards !== hasWebGPUError;
     }).toBe(true);
   });
