@@ -125,10 +125,9 @@ platform :ios do
 
   desc 'Sync macOS Developer ID certificates for desktop app'
   lane :sync_desktop_certs do
-    UI.user_error!('Please set APPLE_ID environment variable') unless ENV['APPLE_ID']
-    UI.user_error!('Please set TEAM_ID environment variable') unless ENV['TEAM_ID']
-    UI.user_error!('Please set MATCH_GIT_URL environment variable') unless ENV['MATCH_GIT_URL']
-    UI.user_error!('Please set MATCH_PASSWORD environment variable') unless ENV['MATCH_PASSWORD']
+    %w[APPLE_ID TEAM_ID MATCH_GIT_URL MATCH_PASSWORD].each do |var|
+      UI.user_error!("Please set #{var} environment variable") unless ENV[var]
+    end
 
     previous_matchfile = ENV['MATCHFILE']
     ENV['MATCHFILE'] = File.expand_path('Matchfile.desktop', __dir__)
