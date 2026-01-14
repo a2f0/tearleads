@@ -104,6 +104,7 @@ function renderVideoDetailRaw(videoId: string = 'video-123') {
       <MemoryRouter initialEntries={[`/videos/${videoId}`]}>
         <Routes>
           <Route path="/videos/:id" element={<VideoDetail />} />
+          <Route path="/videos" element={<div>Videos</div>} />
         </Routes>
       </MemoryRouter>
     </ThemeProvider>
