@@ -18,7 +18,16 @@ fi
 # Using nohup prevents the background process from being killed when parent exits.
 exit_command="${EXIT_COMMAND:-}"
 # Allow explicit override for Codex (/quit) vs Claude (/exit).
-if [ -z "$exit_command" ]; then
+if [ -n "$exit_command" ]; then
+    case "$exit_command" in
+        "/quit" | "/exit")
+            ;;
+        *)
+            echo "Invalid EXIT_COMMAND: use /quit or /exit" >&2
+            exit 1
+            ;;
+    esac
+else
     exit_command="/exit"
     # Codex sets CODEX_HOME via scripts/codex.sh, so prefer /quit there.
     if [ -n "${CODEX_HOME:-}" ]; then
