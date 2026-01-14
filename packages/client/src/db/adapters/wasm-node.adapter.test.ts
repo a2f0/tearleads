@@ -13,8 +13,12 @@ const createConfig = (name: string) => ({
 });
 
 describe('WasmNodeAdapter', () => {
-  let WasmNodeAdapter: typeof import('./wasm-node.adapter').WasmNodeAdapter;
-  let adapter: WasmNodeAdapter;
+  type WasmNodeAdapterClass =
+    typeof import('./wasm-node.adapter').WasmNodeAdapter;
+  type WasmNodeAdapterInstance = InstanceType<WasmNodeAdapterClass>;
+
+  let WasmNodeAdapter: WasmNodeAdapterClass;
+  let adapter: WasmNodeAdapterInstance;
   let warnSpy: ReturnType<typeof mockConsoleWarn>;
 
   beforeEach(async () => {

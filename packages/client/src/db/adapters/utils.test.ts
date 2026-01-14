@@ -144,6 +144,11 @@ describe('extractSelectColumns', () => {
       const sql = 'SELECT id, FROM users';
       expect(extractSelectColumns(sql)).toEqual(['id']);
     });
+
+    it('falls back when column parts are empty', () => {
+      const sql = 'SELECT . FROM users';
+      expect(extractSelectColumns(sql)).toEqual(['.']);
+    });
   });
 });
 

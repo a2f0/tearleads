@@ -157,27 +157,37 @@ const mockDB = {
   createObjectStore: vi.fn()
 };
 
-const createOpenRequest = () => ({
+type MockOpenRequest = {
+  result: typeof mockDB;
+  error: Error | null;
+  onsuccess: (() => void) | null;
+  onerror: (() => void) | null;
+  onupgradeneeded: (() => void) | null;
+};
+
+const createOpenRequest = (): MockOpenRequest => ({
   result: mockDB,
   error: null,
-  onsuccess: null as (() => void) | null,
-  onerror: null as (() => void) | null,
-  onupgradeneeded: null as (() => void) | null
+  onsuccess: null,
+  onerror: null,
+  onupgradeneeded: null
+});
+
+const indexedDbOpenMock = vi.fn(() => {
+  const request = createOpenRequest();
+  setTimeout(() => {
+    if (mockDB.objectStoreNames.contains()) {
+      request.onsuccess?.();
+      return;
+    }
+    request.onupgradeneeded?.();
+    request.onsuccess?.();
+  }, 0);
+  return request;
 });
 
 vi.stubGlobal('indexedDB', {
-  open: vi.fn(() => {
-    const request = createOpenRequest();
-    setTimeout(() => {
-      if (mockDB.objectStoreNames.contains()) {
-        request.onsuccess?.();
-        return;
-      }
-      request.onupgradeneeded?.();
-      request.onsuccess?.();
-    }, 0);
-    return request;
-  })
+  open: indexedDbOpenMock
 });
 
 const flushTimers = async () => {
@@ -425,8 +435,7 @@ describe('KeyManager', () => {
       mockDB.createObjectStore.mockClear();
       mockDB.objectStoreNames.contains.mockReturnValue(true);
 
-      const openMock = vi.mocked(indexedDB.open);
-      openMock.mockImplementationOnce(() => {
+      indexedDbOpenMock.mockImplementationOnce(() => {
         const request = createOpenRequest();
         setTimeout(() => {
           request.onupgradeneeded?.();
@@ -442,8 +451,7 @@ describe('KeyManager', () => {
     });
 
     it('rejects when IndexedDB open fails', async () => {
-      const openMock = vi.mocked(indexedDB.open);
-      openMock.mockImplementationOnce(() => {
+      indexedDbOpenMock.mockImplementationOnce(() => {
         const request = createOpenRequest();
         request.error = new Error('open failed');
         setTimeout(() => request.onerror?.(), 0);
