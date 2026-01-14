@@ -12,6 +12,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    env:
+      DESKTOP_APP_IDENTIFIER: com.tearleads.desktop
     strategy:
       fail-fast: false
       matrix:
