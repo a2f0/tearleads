@@ -277,6 +277,13 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    3. Prefer updating the issue description with the merge status instead of adding a comment (avoid noisy threads). If you must comment, batch it with any other QA notes in one update.
 
+      Example description update:
+
+      ```bash
+      BODY=$(gh issue view <associated_issue_number> --json body -q .body)
+      gh issue edit <associated_issue_number> --body "$BODY\n\n**Update**: PR #<pr-number> has been merged. This issue is now ready for QA verification."
+      ```
+
    This ensures the issue is open and clearly marked for QA follow-up, even if it was previously closed.
 
 6. **Report success**: Confirm the PR was merged and provide a summary:

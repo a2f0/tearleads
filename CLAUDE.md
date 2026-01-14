@@ -31,7 +31,8 @@ When the user requests a change or new feature:
 
 ```bash
 # Create an issue for the user's request (rewrite in your own words; add context)
-gh issue create --title "feat: <brief description>" --body "## Summary
+cat <<'EOF' | gh issue create --title "feat: <brief description>" --body-file -
+## Summary
 <one paragraph describing the user goal and outcome in your own words>
 
 ## Context
@@ -43,7 +44,7 @@ gh issue create --title "feat: <brief description>" --body "## Summary
 
 ## Implementation Notes
 <initial approach, dependencies, or questions to resolve>
-"
+EOF
 ```
 
 Issue-writing guidelines:
