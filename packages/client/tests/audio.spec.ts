@@ -1,12 +1,6 @@
 import { test, expect, Page, Locator } from '@playwright/test';
 import { MINIMAL_WAV } from './test-utils';
 
-// Skip tests that require database setup in CI release builds
-// until https://github.com/a2f0/rapid/issues/687 is resolved
-const isCI = !!process.env['CI'];
-const isHTTPS = !!process.env['BASE_URL']?.startsWith('https://');
-const skipDatabaseTests = isCI && isHTTPS;
-
 // Helper to check if viewport is mobile (sidebar hidden at lg breakpoint = 1024px)
 function isMobileViewport(page: Page): boolean {
   const viewport = page.viewportSize();
@@ -174,8 +168,6 @@ async function expectVisibleThumb(slider: Locator) {
 }
 
 test.describe('Audio player slider visibility', () => {
-  test.skip(skipDatabaseTests, 'Database setup fails in CI release builds');
-
   test.describe('Desktop viewport (1280px)', () => {
     test.use({ viewport: { width: 1280, height: 800 } });
 
