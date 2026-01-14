@@ -556,7 +556,7 @@ jobs:
           script: |
             adb wait-for-device
             adb shell input keyevent 82
-            bundle exec fastlane android test_instrumented_release
+            bundle exec fastlane android test_instrumented
 
   android-maestro-release:
     name: Android Maestro Tests (Release)
