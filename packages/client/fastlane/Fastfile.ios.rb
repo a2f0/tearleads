@@ -123,6 +123,25 @@ platform :ios do
     match(type: 'appstore')
   end
 
+  desc 'Sync macOS Developer ID certificates for desktop app'
+  lane :sync_desktop_certs do
+    UI.user_error!('Please set APPLE_ID environment variable') unless ENV['APPLE_ID']
+    UI.user_error!('Please set TEAM_ID environment variable') unless ENV['TEAM_ID']
+    UI.user_error!('Please set MATCH_GIT_URL environment variable') unless ENV['MATCH_GIT_URL']
+    UI.user_error!('Please set MATCH_PASSWORD environment variable') unless ENV['MATCH_PASSWORD']
+
+    previous_matchfile = ENV['MATCHFILE']
+    ENV['MATCHFILE'] = File.expand_path('Matchfile.desktop', __dir__)
+
+    match(type: 'developer_id', readonly: true)
+  ensure
+    if previous_matchfile
+      ENV['MATCHFILE'] = previous_matchfile
+    else
+      ENV.delete('MATCHFILE')
+    end
+  end
+
   desc 'Register new device'
   lane :add_device do |options|
     UI.user_error!('Please provide device name using `name:`') unless options[:name]
