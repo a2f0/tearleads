@@ -29,32 +29,32 @@ const formatHandle = (handle: unknown): string => {
   const record = handle as Record<string, unknown>;
   const summary: Record<string, unknown> = {};
 
-  if (typeof record.timeout === 'number') {
-    summary.timeout = record.timeout;
+  if (typeof record['timeout'] === 'number') {
+    summary.timeout = record['timeout'];
   }
-  if (typeof record._idleTimeout === 'number') {
-    summary.idleTimeout = record._idleTimeout;
+  if (typeof record['_idleTimeout'] === 'number') {
+    summary.idleTimeout = record['_idleTimeout'];
   }
-  if (typeof record._idleStart === 'number') {
-    summary.idleStart = record._idleStart;
+  if (typeof record['_idleStart'] === 'number') {
+    summary.idleStart = record['_idleStart'];
   }
-  if (typeof record.localPort === 'number') {
-    summary.localPort = record.localPort;
+  if (typeof record['localPort'] === 'number') {
+    summary.localPort = record['localPort'];
   }
-  if (typeof record.remotePort === 'number') {
-    summary.remotePort = record.remotePort;
+  if (typeof record['remotePort'] === 'number') {
+    summary.remotePort = record['remotePort'];
   }
-  if (typeof record.remoteAddress === 'string') {
-    summary.remoteAddress = record.remoteAddress;
+  if (typeof record['remoteAddress'] === 'string') {
+    summary.remoteAddress = record['remoteAddress'];
   }
-  if (typeof record.listening === 'boolean') {
-    summary.listening = record.listening;
+  if (typeof record['listening'] === 'boolean') {
+    summary.listening = record['listening'];
   }
-  if (typeof record.readable === 'boolean') {
-    summary.readable = record.readable;
+  if (typeof record['readable'] === 'boolean') {
+    summary.readable = record['readable'];
   }
-  if (typeof record.writable === 'boolean') {
-    summary.writable = record.writable;
+  if (typeof record['writable'] === 'boolean') {
+    summary.writable = record['writable'];
   }
 
   return `${getHandleLabel(handle)} ${util.inspect(summary, {
@@ -65,7 +65,7 @@ const formatHandle = (handle: unknown): string => {
 };
 
 export default async function globalTeardown(): Promise<void> {
-  if (process.env.PW_DEBUG_HANDLES !== 'true') {
+  if (process.env['PW_DEBUG_HANDLES'] !== 'true') {
     return;
   }
 

@@ -145,6 +145,7 @@ async function expectVisibleThumb(slider: Locator) {
 }
 
 test.describe('Audio player slider visibility', () => {
+  test.skip(skipDatabaseTests, 'Database setup fails in CI release builds');
   test.describe('Desktop viewport (1280px)', () => {
     test.use({ viewport: { width: 1280, height: 800 } });
 
