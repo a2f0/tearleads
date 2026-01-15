@@ -47,6 +47,8 @@ When a PR has the `needs-qa` label:
 - If the associated issue is already closed, it will be **reopened** for QA verification
 - This ensures QA can track and verify the changes before the issue is closed
 
+If the work is fully complete and does NOT require QA, prefer leaving off the `needs-qa` label and include `Closes #<issue>` in the PR description so GitHub auto-closes the issue on merge.
+
 ## When to Use
 
 - Features that need manual QA verification before release
