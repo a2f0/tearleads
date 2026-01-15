@@ -57,10 +57,9 @@ export async function launchElectronApp(
   if (clearStorage) {
     // Clear all storage to ensure clean state for each test.
     // This is more robust than UI-based reset as it works even if app UI is broken.
+    // Omitting the storages option clears all storage types by default.
     await app.evaluate(async ({session}) => {
-      await session.defaultSession.clearStorageData({
-        storages: ['indexdb', 'localstorage', 'cachestorage', 'filesystem'],
-      });
+      await session.defaultSession.clearStorageData();
     });
   }
 
