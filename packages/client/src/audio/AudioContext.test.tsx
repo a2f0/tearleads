@@ -844,4 +844,98 @@ describe('useAudio', () => {
       expect(result.current.error).toBeNull();
     });
   });
+
+  describe('repeatMode', () => {
+    it('has initial repeat mode of off', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      expect(result.current.repeatMode).toBe('off');
+    });
+
+    it('sets repeat mode directly', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.setRepeatMode('all');
+      });
+
+      expect(result.current.repeatMode).toBe('all');
+    });
+
+    it('cycles from off to all', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.cycleRepeatMode();
+      });
+
+      expect(result.current.repeatMode).toBe('all');
+    });
+
+    it('cycles from all to one', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.setRepeatMode('all');
+      });
+
+      act(() => {
+        result.current.cycleRepeatMode();
+      });
+
+      expect(result.current.repeatMode).toBe('one');
+    });
+
+    it('cycles from one to off', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.setRepeatMode('one');
+      });
+
+      act(() => {
+        result.current.cycleRepeatMode();
+      });
+
+      expect(result.current.repeatMode).toBe('off');
+    });
+  });
+
+  describe('setOnTrackEnd', () => {
+    it('registers a callback for track end', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+      const callback = vi.fn();
+
+      act(() => {
+        result.current.setOnTrackEnd(callback);
+      });
+
+      const audio = getAudioElement();
+      act(() => {
+        audio.dispatchEvent(new Event('ended'));
+      });
+
+      expect(callback).toHaveBeenCalled();
+    });
+
+    it('can unregister the callback', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+      const callback = vi.fn();
+
+      act(() => {
+        result.current.setOnTrackEnd(callback);
+      });
+
+      act(() => {
+        result.current.setOnTrackEnd(undefined);
+      });
+
+      const audio = getAudioElement();
+      act(() => {
+        audio.dispatchEvent(new Event('ended'));
+      });
+
+      expect(callback).not.toHaveBeenCalled();
+    });
+  });
 });

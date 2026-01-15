@@ -5,11 +5,19 @@ export type ConnectionState = 'connected' | 'connecting' | 'disconnected';
 export interface ConnectionIndicatorProps {
   state: ConnectionState;
   className?: string;
+  tooltip?: string;
 }
+
+const tooltipLabels: Record<ConnectionState, string> = {
+  connected: 'SSE: Connected',
+  connecting: 'SSE: Connecting',
+  disconnected: 'SSE: Disconnected'
+};
 
 export function ConnectionIndicator({
   state,
-  className
+  className,
+  tooltip
 }: ConnectionIndicatorProps) {
   return (
     <output
@@ -21,6 +29,7 @@ export function ConnectionIndicator({
         className
       )}
       aria-label={`Connection status: ${state}`}
+      title={tooltip ?? tooltipLabels[state]}
     />
   );
 }

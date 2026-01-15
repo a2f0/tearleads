@@ -1,5 +1,6 @@
 import { ConnectionIndicator, Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
+import { useTranslation } from 'react-i18next';
 import { Link, Outlet } from 'react-router-dom';
 import { AccountSwitcher } from './components/AccountSwitcher';
 import { MiniPlayer } from './components/audio/MiniPlayer';
@@ -10,7 +11,14 @@ import { Sidebar } from './components/Sidebar';
 import { useAppVersion } from './hooks/useAppVersion';
 import { useSSEContext } from './sse';
 
+const sseTooltipKeys = {
+  connected: 'sseConnected',
+  connecting: 'sseConnecting',
+  disconnected: 'sseDisconnected'
+} as const;
+
 function App() {
+  const { t } = useTranslation('tooltips');
   const version = useAppVersion();
   const sse = useSSEContext();
 
@@ -46,7 +54,12 @@ function App() {
         version={version}
         className="lg:left-64"
         connectionIndicator={
-          sse && <ConnectionIndicator state={sse.connectionState} />
+          sse && (
+            <ConnectionIndicator
+              state={sse.connectionState}
+              tooltip={t(sseTooltipKeys[sse.connectionState])}
+            />
+          )
         }
         rightAction={<HUDTrigger />}
       >
