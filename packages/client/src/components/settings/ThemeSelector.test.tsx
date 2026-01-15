@@ -7,7 +7,12 @@ import { ThemeSelector } from './ThemeSelector';
 describe('ThemeSelector', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    document.documentElement.classList.remove('light', 'dark', 'tokyo-night');
+    document.documentElement.classList.remove(
+      'light',
+      'dark',
+      'tokyo-night',
+      'graphite'
+    );
 
     Object.defineProperty(window, 'localStorage', {
       value: {
@@ -30,7 +35,12 @@ describe('ThemeSelector', () => {
   });
 
   function renderThemeSelector(
-    defaultTheme: 'light' | 'dark' | 'tokyo-night' | 'system' = 'light'
+    defaultTheme:
+      | 'light'
+      | 'dark'
+      | 'tokyo-night'
+      | 'graphite'
+      | 'system' = 'light'
   ) {
     return render(
       <ThemeProvider defaultTheme={defaultTheme}>
@@ -39,11 +49,12 @@ describe('ThemeSelector', () => {
     );
   }
 
-  it('renders all three theme options', () => {
+  it('renders all four theme options', () => {
     renderThemeSelector();
     expect(screen.getByTestId('theme-option-light')).toBeInTheDocument();
     expect(screen.getByTestId('theme-option-dark')).toBeInTheDocument();
     expect(screen.getByTestId('theme-option-tokyo-night')).toBeInTheDocument();
+    expect(screen.getByTestId('theme-option-graphite')).toBeInTheDocument();
   });
 
   it('shows current theme as selected', () => {
@@ -99,5 +110,6 @@ describe('ThemeSelector', () => {
     expect(screen.getByText('Light')).toBeInTheDocument();
     expect(screen.getByText('Dark')).toBeInTheDocument();
     expect(screen.getByText('Tokyo Night')).toBeInTheDocument();
+    expect(screen.getByText('Graphite')).toBeInTheDocument();
   });
 });
