@@ -40,6 +40,12 @@ describe('llm-worker-utils', () => {
       const b = new Float32Array([0, 1, 0]);
       expect(cosineSimilarity(a, b)).toBeCloseTo(0, 5);
     });
+
+    it('treats missing values as zero', () => {
+      const a = new Float32Array([1, 2, 0]);
+      const b = new Float32Array([3]);
+      expect(cosineSimilarity(a, b)).toBeCloseTo(1 / Math.sqrt(5), 5);
+    });
   });
 
   describe('model type detection', () => {

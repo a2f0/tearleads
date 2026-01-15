@@ -35,4 +35,49 @@ describe('installConsoleErrorCapture', () => {
     uninstall();
     consoleSpy.mockRestore();
   });
+
+  it('handles calls with no arguments', () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const uninstall = installConsoleErrorCapture();
+
+    console.error();
+
+    const [entry] = logStore.getRecentLogs(1);
+    expect(entry?.message).toBe('Console error');
+    expect(entry?.details).toBeUndefined();
+
+    uninstall();
+    consoleSpy.mockRestore();
+  });
+
+  it('falls back when arguments cannot be stringified', () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const uninstall = installConsoleErrorCapture();
+    const circular: Record<string, unknown> = {};
+    circular['self'] = circular;
+
+    console.error('Failed to log', circular);
+
+    const [entry] = logStore.getRecentLogs(1);
+    expect(entry?.message).toBe('Failed to log');
+    expect(entry?.details).toContain('[object Object]');
+
+    uninstall();
+    consoleSpy.mockRestore();
+  });
+
+  it('returns a no-op when installed twice', () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const uninstall = installConsoleErrorCapture();
+    const noOp = installConsoleErrorCapture();
+
+    console.error('Double install');
+
+    const [entry] = logStore.getRecentLogs(1);
+    expect(entry?.message).toBe('Double install');
+
+    noOp();
+    uninstall();
+    consoleSpy.mockRestore();
+  });
 });
