@@ -5,7 +5,8 @@ const baseURL = process.env.BASE_URL || 'http://localhost:3000';
 const isHTTPS = baseURL.startsWith('https://');
 const parsedWorkers = Number(process.env.PW_WORKERS);
 const fullyParallel = process.env.PW_FULLY_PARALLEL === 'true';
-const debugHandles = process.env.PW_DEBUG_HANDLES === 'true';
+const debugHandles = process.env['PW_DEBUG_HANDLES'] === 'true';
+const forceCleanup = process.env['PW_FORCE_CLEANUP'] === 'true';
 const workers =
   Number.isFinite(parsedWorkers) && parsedWorkers > 0
     ? parsedWorkers
@@ -28,7 +29,7 @@ export default defineConfig({
   reporter: isCI
     ? [['list'], ['html', { open: 'never' }]]
     : [['html', { open: 'never' }]],
-  ...(debugHandles
+  ...(debugHandles || forceCleanup
     ? { globalTeardown: './tests/playwright-global-teardown.ts' }
     : {}),
   use: {
