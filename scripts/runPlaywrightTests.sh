@@ -17,7 +17,11 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 # Set PW_DEBUG_HANDLES=true to dump open handle info after tests complete.
 : "${PW_DEBUG_HANDLES:=false}"
 
+# Set PW_FORCE_CLEANUP=true to force-close handles after tests (prevents hang).
+# Enabled by default for local development.
+: "${PW_FORCE_CLEANUP:=true}"
+
 cd "$SCRIPT_DIR/../packages/client"
 
 echo "==> Running Playwright tests..."
-PW_DEBUG_HANDLES="$PW_DEBUG_HANDLES" pnpm test:e2e -- "$@"
+PW_DEBUG_HANDLES="$PW_DEBUG_HANDLES" PW_FORCE_CLEANUP="$PW_FORCE_CLEANUP" pnpm test:e2e -- "$@"

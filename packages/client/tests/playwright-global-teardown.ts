@@ -64,27 +64,81 @@ const formatHandle = (handle: unknown): string => {
   })}`;
 };
 
-export default async function globalTeardown(): Promise<void> {
-  if (process.env['PW_DEBUG_HANDLES'] !== 'true') {
-    return;
+/**
+ * Force-close a handle to allow process exit.
+ */
+function forceCloseHandle(handle: unknown): void {
+  if (!handle || typeof handle !== 'object') return;
+
+  const h = handle as Record<string, unknown>;
+
+  // Try various cleanup methods
+  if (typeof h['destroy'] === 'function') {
+    try {
+      (h['destroy'] as () => void)();
+    } catch {
+      // ignore
+    }
+  } else if (typeof h['close'] === 'function') {
+    try {
+      (h['close'] as () => void)();
+    } catch {
+      // ignore
+    }
+  } else if (typeof h['end'] === 'function') {
+    try {
+      (h['end'] as () => void)();
+    } catch {
+      // ignore
+    }
+  } else if (typeof h['unref'] === 'function') {
+    try {
+      (h['unref'] as () => void)();
+    } catch {
+      // ignore
+    }
   }
+
+  // For ChildProcess, try to kill
+  if (typeof h['kill'] === 'function') {
+    try {
+      (h['kill'] as (signal?: string) => void)('SIGTERM');
+    } catch {
+      // ignore
+    }
+  }
+}
+
+export default async function globalTeardown(): Promise<void> {
+  const debugHandles = process.env['PW_DEBUG_HANDLES'] === 'true';
+  const forceCleanup = process.env['PW_FORCE_CLEANUP'] === 'true';
 
   const handles = process._getActiveHandles?.() ?? [];
   const requests = process._getActiveRequests?.() ?? [];
 
-  console.log('[playwright] active handles:', handles.length);
-  if (handles.length > 0) {
-    console.log('[playwright] handle summary:', summarizeObjects(handles).join(', '));
-    handles.slice(0, 20).forEach((handle, index) => {
-      console.log(`[playwright] handle ${index + 1}:`, formatHandle(handle));
-    });
+  if (debugHandles) {
+    console.log('[playwright] active handles:', handles.length);
+    if (handles.length > 0) {
+      console.log('[playwright] handle summary:', summarizeObjects(handles).join(', '));
+      handles.slice(0, 20).forEach((handle, index) => {
+        console.log(`[playwright] handle ${index + 1}:`, formatHandle(handle));
+      });
+    }
+
+    console.log('[playwright] active requests:', requests.length);
+    if (requests.length > 0) {
+      console.log('[playwright] request summary:', summarizeObjects(requests).join(', '));
+      requests.slice(0, 20).forEach((request, index) => {
+        console.log(`[playwright] request ${index + 1}:`, formatHandle(request));
+      });
+    }
   }
 
-  console.log('[playwright] active requests:', requests.length);
-  if (requests.length > 0) {
-    console.log('[playwright] request summary:', summarizeObjects(requests).join(', '));
-    requests.slice(0, 20).forEach((request, index) => {
-      console.log(`[playwright] request ${index + 1}:`, formatHandle(request));
-    });
+  // Force cleanup handles to prevent process hang
+  if (forceCleanup) {
+    console.log('[playwright] forcing cleanup of', handles.length, 'handles...');
+    for (const handle of handles) {
+      forceCloseHandle(handle);
+    }
   }
 }
