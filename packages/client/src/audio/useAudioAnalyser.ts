@@ -92,6 +92,7 @@ export function useAudioAnalyser(
     animationFrameRef.current = requestAnimationFrame(updateFrequencyData);
   }, [barCount]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: ref.current should not be a dependency (React doesn't track ref changes)
   useEffect(() => {
     if (!isPlaying) {
       setFrequencyData(new Uint8Array(barCount));
@@ -121,13 +122,7 @@ export function useAudioAnalyser(
         animationFrameRef.current = null;
       }
     };
-  }, [
-    isPlaying,
-    barCount,
-    initializeAudioContext,
-    updateFrequencyData,
-    audioElementRef.current
-  ]);
+  }, [isPlaying, barCount, initializeAudioContext, updateFrequencyData]);
 
   return frequencyData;
 }
