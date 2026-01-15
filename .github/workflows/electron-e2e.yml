@@ -1,0 +1,134 @@
+name: Electron E2E Tests
+
+on:
+  workflow_run:
+    workflows: ["Build"]
+    types: [completed]
+
+jobs:
+  changes:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      core: ${{ steps.read.outputs.core }}
+      client-src: ${{ steps.read.outputs.client-src }}
+      api: ${{ steps.read.outputs.api }}
+      mobile: ${{ steps.read.outputs.mobile }}
+      electron: ${{ steps.read.outputs.electron }}
+      web-e2e-tests: ${{ steps.read.outputs.web-e2e-tests }}
+      website: ${{ steps.read.outputs.website }}
+      run_event: ${{ steps.read.outputs.run_event }}
+    steps:
+      - name: Download change summary
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: detect-changes
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read change summary
+        id: read
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          path = 'changes.json'
+          data = {}
+          if os.path.exists(path):
+            with open(path) as handle:
+              data = json.load(handle)
+
+          keys = [
+            'run_event',
+            'core',
+            'client-src',
+            'api',
+            'mobile',
+            'electron',
+            'web-e2e-tests',
+            'website'
+          ]
+
+          defaults = {
+            'run_event': 'push'
+          }
+
+          output_path = os.environ['GITHUB_OUTPUT']
+          with open(output_path, 'a') as output:
+            for key in keys:
+              output.write(f"{key}={data.get(key, defaults.get(key, 'false'))}\n")
+          PY
+
+  electron-e2e:
+    name: Electron E2E Tests
+    needs: [changes]
+    if: >-
+      needs.changes.result == 'success' && (
+      needs.changes.outputs.run_event == 'workflow_dispatch' ||
+      needs.changes.outputs.core == 'true' ||
+      needs.changes.outputs.client-src == 'true' ||
+      needs.changes.outputs.electron == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install system dependencies for Electron
+        run: sudo apt-get install -y xvfb libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2t64
+
+      - name: Download SQLite WASM
+        run: ./scripts/downloadSqliteWasm.sh
+
+      - name: Generate self-signed certificate
+        run: |
+          sudo mkdir -p /etc/ssl/private
+          sudo openssl req -x509 -nodes -days 1 \
+            -newkey rsa:2048 \
+            -keyout /etc/ssl/private/localhost.key \
+            -out /etc/ssl/certs/localhost.crt \
+            -subj "/CN=localhost" \
+            -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+          sudo chmod 644 /etc/ssl/certs/localhost.crt
+          sudo chmod 600 /etc/ssl/private/localhost.key
+          # Copy cert to workspace for Electron to access
+          mkdir -p $GITHUB_WORKSPACE/.github/ci
+          cp /etc/ssl/certs/localhost.crt $GITHUB_WORKSPACE/.github/ci/localhost.crt
+
+      - name: Install and configure NGINX for API proxy
+        run: |
+          sudo apt-get update && sudo apt-get install -y nginx ansible
+          ansible-playbook -i ansible/inventories/ci.yml ansible/playbooks/ci-nginx.yml -e nginx_ci_site=api
+
+      - name: Start API server
+        run: |
+          pnpm --filter @rapid/api dev &
+          echo "Waiting for API server to be ready..."
+          timeout 30 bash -c 'until curl -f http://localhost:5001/v1/ping; do sleep 1; done'
+
+      - name: Verify NGINX is proxying API
+        run: curl -k https://localhost:8443/v1/ping
+
+      - name: Build Electron app
+        run: pnpm --filter @rapid/client electron:build
+        env:
+          VITE_API_URL: https://localhost:8443/v1
+
+      - name: Run Electron tests
+        run: xvfb-run --auto-servernum -- pnpm --filter @rapid/client electron:test
+        env:
+          NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/.github/ci/localhost.crt
