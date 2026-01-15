@@ -20,6 +20,7 @@ import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { useTypedTranslation } from '@/i18n';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import {
@@ -85,6 +86,7 @@ function useColumnCount() {
 export function Photos() {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const { t } = useTypedTranslation('contextMenu');
   const [photos, setPhotos] = useState<PhotoWithUrl[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -586,13 +588,13 @@ export function Photos() {
             icon={<Info className="h-4 w-4" />}
             onClick={handleGetInfo}
           >
-            Get info
+            {t('getInfo')}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Trash2 className="h-4 w-4" />}
             onClick={handleDelete}
           >
-            Delete
+            {t('delete')}
           </ContextMenuItem>
         </ContextMenu>
       )}
