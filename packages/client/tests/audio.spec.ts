@@ -1,12 +1,6 @@
 import { test, expect, Page, Locator } from '@playwright/test';
 import { clearOriginStorage, MINIMAL_WAV } from './test-utils';
 
-// Skip tests that require database setup in CI release builds
-// until https://github.com/a2f0/rapid/issues/687 is resolved
-const isCI = !!process.env['CI'];
-const isHTTPS = !!process.env['BASE_URL']?.startsWith('https://');
-const skipDatabaseTests = isCI && isHTTPS;
-
 test.beforeEach(async ({ page }) => {
   await clearOriginStorage(page);
 });
