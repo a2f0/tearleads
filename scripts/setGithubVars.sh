@@ -1,7 +1,13 @@
 #!/bin/sh
 set -e
+SCRIPT_PATH=$0
+case $SCRIPT_PATH in
+  */*) ;;
+  *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
+esac
+SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
-cd "$(dirname "$0")/.."
+cd "$SCRIPT_DIR/.."
 
 check_var() {
   var_name="$1"

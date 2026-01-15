@@ -5,6 +5,7 @@ const baseURL = process.env.BASE_URL || 'http://localhost:3000';
 const isHTTPS = baseURL.startsWith('https://');
 const parsedWorkers = Number(process.env.PW_WORKERS);
 const fullyParallel = process.env.PW_FULLY_PARALLEL === 'true';
+const debugHandles = process.env.PW_DEBUG_HANDLES === 'true';
 const workers =
   Number.isFinite(parsedWorkers) && parsedWorkers > 0
     ? parsedWorkers
@@ -24,7 +25,12 @@ export default defineConfig({
   forbidOnly: isCI,
   retries: 0,
   maxFailures: 1, // Bail on first failure
-  reporter: [['html', { open: 'never' }]],
+  reporter: isCI
+    ? [['list'], ['html', { open: 'never' }]]
+    : [['html', { open: 'never' }]],
+  ...(debugHandles
+    ? { globalTeardown: './tests/playwright-global-teardown.ts' }
+    : {}),
   use: {
     baseURL,
     // Accept self-signed certificates in CI when using HTTPS

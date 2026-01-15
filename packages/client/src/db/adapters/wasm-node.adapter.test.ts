@@ -38,9 +38,9 @@ describe('WasmNodeAdapter', () => {
   it('initializes once and rejects double initialization', async () => {
     await adapter.initialize(createConfig('init-once'));
 
-    await expect(adapter.initialize(createConfig('init-twice'))).rejects.toThrow(
-      'Database already initialized'
-    );
+    await expect(
+      adapter.initialize(createConfig('init-twice'))
+    ).rejects.toThrow('Database already initialized');
   });
 
   it('executes select and non-select queries', async () => {
@@ -330,9 +330,9 @@ describe('WasmNodeAdapter', () => {
       }
     });
 
-    await expect(adapter.importDatabaseFromJson(json, TEST_KEY)).rejects.toThrow(
-      'Failed to import database from JSON'
-    );
+    await expect(
+      adapter.importDatabaseFromJson(json, TEST_KEY)
+    ).rejects.toThrow('Failed to import database from JSON');
     expect(adapter.isOpen()).toBe(false);
   });
 

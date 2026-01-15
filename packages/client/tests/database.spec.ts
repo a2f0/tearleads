@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { clearOriginStorage } from './test-utils';
 
 const TEST_PASSWORD = 'testpassword123';
 const NEW_PASSWORD = 'newpassword456';
@@ -71,6 +72,7 @@ test.describe('Database (Web)', () => {
     await maybeEnableOpfsDebugLogs(page);
 
     // Navigate to the SQLite page where database test UI is located
+    await clearOriginStorage(page);
     await page.goto('/sqlite');
     await expect(page.getByTestId('database-test')).toBeVisible();
 
@@ -398,6 +400,7 @@ test.describe('Session Persistence (Web)', () => {
     await maybeEnableOpfsDebugLogs(page);
 
     // Navigate to the SQLite page where database test UI is located
+    await clearOriginStorage(page);
     await page.goto('/sqlite');
     await expect(page.getByTestId('database-test')).toBeVisible();
 

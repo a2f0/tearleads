@@ -277,7 +277,7 @@ describe('useNativeFilePicker', () => {
             name: 'broken.mp3',
             mimeType: 'audio/mpeg',
             size: 1024,
-            data: null
+            data: ''
           }
         ]
       });
