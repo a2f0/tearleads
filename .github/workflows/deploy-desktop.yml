@@ -1,17 +1,13 @@
 name: Deploy Desktop
 
 on:
-  workflow_run:
-    workflows: ["CI Complete"]
-    types: [completed]
-    branches: [main]
+  workflow_call:
 
 jobs:
   deploy:
     name: Deploy Desktop (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     env:
       DESKTOP_APP_IDENTIFIER: com.tearleads.desktop
     strategy:
