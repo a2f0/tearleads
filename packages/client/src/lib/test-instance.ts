@@ -4,33 +4,35 @@
  * When running Playwright tests with multiple workers, each worker needs
  * its own isolated database instance to avoid OPFS race conditions.
  *
- * Workers pass their index via URL query param: ?testWorker=0, ?testWorker=1, etc.
+ * Workers inject their index via addInitScript as a global variable.
  * The app detects this and uses a deterministic instance ID for that worker.
  */
 
-const TEST_WORKER_PARAM = 'testWorker';
+/**
+ * Global variable name used to receive worker index from Playwright.
+ * Must match the name used in tests/fixtures.ts
+ */
+const WORKER_INDEX_GLOBAL = '__PLAYWRIGHT_WORKER_INDEX__';
 const TEST_INSTANCE_PREFIX = 'test-worker-';
 
 /**
  * Check if the app is running in Playwright test mode.
  */
 export function isTestMode(): boolean {
-  if (typeof window === 'undefined') return false;
-  const params = new URLSearchParams(window.location.search);
-  return params.has(TEST_WORKER_PARAM);
+  return getTestWorkerIndex() !== null;
 }
 
 /**
- * Get the test worker index from the URL, or null if not in test mode.
+ * Get the test worker index from the injected global, or null if not in test mode.
  */
 export function getTestWorkerIndex(): number | null {
   if (typeof window === 'undefined') return null;
-  const params = new URLSearchParams(window.location.search);
-  const workerParam = params.get(TEST_WORKER_PARAM);
-  if (workerParam === null) return null;
-
-  const index = parseInt(workerParam, 10);
-  return Number.isFinite(index) && index >= 0 ? index : null;
+  const index = (window as unknown as Record<string, unknown>)[
+    WORKER_INDEX_GLOBAL
+  ];
+  return typeof index === 'number' && Number.isFinite(index) && index >= 0
+    ? index
+    : null;
 }
 
 /**
