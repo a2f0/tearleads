@@ -76,58 +76,104 @@ const formatHandle = (handle: unknown): string => {
 };
 
 /**
+ * Expected handles that are normal after tests complete.
+ * These are typically internal Node.js handles that don't prevent exit.
+ */
+const EXPECTED_HANDLE_TYPES = new Set([
+  'Socket',      // Internal Node.js sockets (stdio, etc.)
+  'WriteStream', // stdout/stderr
+  'ReadStream',  // stdin
+  'Pipe',        // IPC channels (Playwright workers, etc.)
+]);
+
+/**
+ * Check if a ChildProcess is Playwright-related (webServer or worker).
+ * Playwright manages these and terminates them after globalTeardown.
+ */
+function isPlaywrightProcess(handle: unknown): boolean {
+  if (!handle || typeof handle !== 'object') return false;
+  const record = handle as Record<string, unknown>;
+  if (getHandleLabel(handle) !== 'ChildProcess') return false;
+
+  const spawnargs = record['spawnargs'];
+  if (Array.isArray(spawnargs)) {
+    const argsStr = spawnargs.join(' ');
+    // webServer (Vite dev server)
+    if (argsStr.includes('pnpm run dev') || argsStr.includes('npm run dev') ||
+        argsStr.includes('vite') || argsStr.includes('webpack serve')) {
+      return true;
+    }
+    // Playwright worker processes
+    if (argsStr.includes('playwright/lib/common/process.js') ||
+        argsStr.includes('playwright/lib/') ||
+        argsStr.includes('@playwright/')) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Maximum number of handles considered acceptable.
+ * With parallel workers, Playwright may have many internal handles.
+ */
+const MAX_EXPECTED_HANDLES = 30;
+
+/**
+ * Check if a handle is an "expected" type that doesn't indicate a leak.
+ */
+function isExpectedHandle(handle: unknown): boolean {
+  const label = getHandleLabel(handle);
+  if (EXPECTED_HANDLE_TYPES.has(label)) return true;
+  // Allow Playwright's internal processes (webServer, workers)
+  if (isPlaywrightProcess(handle)) return true;
+  return false;
+}
+
+/**
  * Force-close a handle to allow process exit.
  */
 function forceCloseHandle(handle: unknown): void {
   if (!handle || typeof handle !== 'object') return;
 
-  const h = handle as Record<string, unknown>;
+  const record = handle as Record<string, unknown>;
+  const label = getHandleLabel(handle);
 
-  // Try various cleanup methods
-  if (typeof h['destroy'] === 'function') {
-    try {
-      (h['destroy'] as () => void)();
-    } catch {
-      // ignore
+  try {
+    // Kill child processes
+    if (label === 'ChildProcess' && typeof record['kill'] === 'function') {
+      (record['kill'] as (signal?: string) => boolean)('SIGKILL');
+      return;
     }
-  } else if (typeof h['close'] === 'function') {
-    try {
-      (h['close'] as () => void)();
-    } catch {
-      // ignore
-    }
-  } else if (typeof h['end'] === 'function') {
-    try {
-      (h['end'] as () => void)();
-    } catch {
-      // ignore
-    }
-  } else if (typeof h['unref'] === 'function') {
-    try {
-      (h['unref'] as () => void)();
-    } catch {
-      // ignore
-    }
-  }
 
-  // For ChildProcess, try to kill
-  if (typeof h['kill'] === 'function') {
-    try {
-      (h['kill'] as (signal?: string) => void)('SIGTERM');
-    } catch {
-      // ignore
+    // Close sockets, pipes, streams
+    if (typeof record['destroy'] === 'function') {
+      (record['destroy'] as () => void)();
+      return;
     }
+
+    // Unref to allow process exit
+    if (typeof record['unref'] === 'function') {
+      (record['unref'] as () => void)();
+    }
+  } catch {
+    // Ignore errors during cleanup
   }
 }
 
 export default async function globalTeardown(): Promise<void> {
   const debugHandles = process.env['PW_DEBUG_HANDLES'] === 'true';
-  const forceCleanup = process.env['PW_FORCE_CLEANUP'] === 'true';
 
   const handles = process._getActiveHandles?.() ?? [];
   const requests = process._getActiveRequests?.() ?? [];
 
-  if (debugHandles) {
+  // Separate handles into expected and unexpected
+  const unexpectedHandles = handles.filter((h) => !isExpectedHandle(h));
+  const hasUnexpectedHandles = unexpectedHandles.length > 0;
+  const tooManyHandles = handles.length > MAX_EXPECTED_HANDLES;
+
+  // Always log if there are issues, or if debug mode is on
+  if (debugHandles || hasUnexpectedHandles || tooManyHandles) {
     console.log('[playwright] active handles:', handles.length);
     if (handles.length > 0) {
       console.log('[playwright] handle summary:', summarizeObjects(handles).join(', '));
@@ -145,11 +191,30 @@ export default async function globalTeardown(): Promise<void> {
     }
   }
 
-  // Force cleanup handles to prevent process hang
-  if (forceCleanup) {
-    console.log('[playwright] forcing cleanup of', handles.length, 'handles...');
-    for (const handle of handles) {
+  // Build error message if there are leaks
+  let errorMessage: string | null = null;
+
+  if (hasUnexpectedHandles) {
+    const unexpectedSummary = summarizeObjects(unexpectedHandles).join(', ');
+    errorMessage =
+      `Handle leak detected! Found ${unexpectedHandles.length} unexpected handles: ${unexpectedSummary}\n` +
+      `This indicates tests are not properly cleaning up resources.\n` +
+      `Run with PW_DEBUG_HANDLES=true to see full details.`;
+  } else if (tooManyHandles) {
+    errorMessage =
+      `Too many handles open (${handles.length} > ${MAX_EXPECTED_HANDLES})!\n` +
+      `This may indicate a resource leak. Run with PW_DEBUG_HANDLES=true to investigate.`;
+  }
+
+  // Force-close unexpected handles to allow process exit
+  if (hasUnexpectedHandles || tooManyHandles) {
+    for (const handle of unexpectedHandles) {
       forceCloseHandle(handle);
     }
+  }
+
+  // Throw after cleanup so process can exit
+  if (errorMessage) {
+    throw new Error(errorMessage);
   }
 }
