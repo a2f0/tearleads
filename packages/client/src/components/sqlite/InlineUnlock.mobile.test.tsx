@@ -56,9 +56,7 @@ describe('InlineUnlock mobile biometric flows', () => {
     renderWithRouter(<InlineUnlock />);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(`Remember with ${label}`)
-      ).toBeInTheDocument();
+      expect(screen.getByText(`Remember with ${label}`)).toBeInTheDocument();
     });
   });
 
