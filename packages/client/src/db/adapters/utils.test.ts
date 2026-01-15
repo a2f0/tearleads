@@ -139,6 +139,15 @@ describe('extractSelectColumns', () => {
       const sql = 'SELECT $id, name$ FROM users';
       expect(extractSelectColumns(sql)).toEqual(['$id', 'name$']);
     });
+
+    it('ignores trailing comma in select clause', () => {
+      const sql = 'SELECT id, FROM users';
+      expect(extractSelectColumns(sql)).toEqual(['id']);
+    });
+    it('falls back when column parts are empty', () => {
+      const sql = 'SELECT . FROM users';
+      expect(extractSelectColumns(sql)).toEqual(['.']);
+    });
   });
 });
 
@@ -201,6 +210,12 @@ describe('convertRowsToArrays', () => {
         ['john@test.com', 'John', 1]
       ]);
     });
+
+    it('returns undefined values for non-object rows', () => {
+      const sql = 'SELECT id, name FROM users';
+      const rows = [1];
+      expect(convertRowsToArrays(sql, rows)).toEqual([[undefined, undefined]]);
+    });
   });
 
   describe('with SELECT * queries', () => {
@@ -233,6 +248,12 @@ describe('convertRowsToArrays', () => {
       const sql = 'INSERT INTO users (name) VALUES (?)';
       const rows: unknown[] = [];
       expect(convertRowsToArrays(sql, rows)).toEqual([]);
+    });
+
+    it('returns non-object rows as-is when columns cannot be parsed', () => {
+      const sql = 'UPDATE users SET name = ?';
+      const rows = [1];
+      expect(convertRowsToArrays(sql, rows)).toEqual([1]);
     });
   });
 

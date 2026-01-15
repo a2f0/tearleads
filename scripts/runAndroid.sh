@@ -1,7 +1,13 @@
 #!/bin/sh
 set -eu
+SCRIPT_PATH=$0
+case $SCRIPT_PATH in
+  */*) ;;
+  *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
+esac
+SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
-cd "$(dirname "$0")/../packages/client"
+cd "$SCRIPT_DIR/../packages/client"
 
 PACKAGE_ID="com.tearleads.rapid"
 DEVICE="Maestro_Pixel_6_API_33_1"

@@ -8,8 +8,14 @@
 #   ./scripts/runElectronTests.sh -g "persist data"            # Run tests matching pattern
 #   ./scripts/runElectronTests.sh --headed                     # Run with visible window
 set -eu
+SCRIPT_PATH=$0
+case $SCRIPT_PATH in
+  */*) ;;
+  *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
+esac
+SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
-cd "$(dirname "$0")/../packages/client"
+cd "$SCRIPT_DIR/../packages/client"
 
 echo "==> Building Electron app..."
 pnpm electron:build

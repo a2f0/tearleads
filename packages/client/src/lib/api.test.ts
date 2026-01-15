@@ -200,5 +200,40 @@ describe('api', () => {
         true
       );
     });
+
+    it('logs the dbsize endpoint event', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ count: 123 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      const { api } = await import('./api');
+      await api.admin.redis.getDbSize();
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_admin_redis_dbsize',
+        expect.any(Number),
+        true
+      );
+    });
+
+    it('handles getKeys without pagination params', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ keys: [], nextCursor: null }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      const { api } = await import('./api');
+      await api.admin.redis.getKeys();
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/admin/redis/keys',
+        undefined
+      );
+    });
   });
 });

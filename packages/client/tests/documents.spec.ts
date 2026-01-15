@@ -1,4 +1,6 @@
-import { test, expect, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
+import { clearOriginStorage } from './test-utils';
 
 // Test constants
 const TEST_PASSWORD = 'testpassword123';
@@ -25,6 +27,10 @@ const MINIMAL_PDF = Buffer.from(
     '%%EOF',
   'utf-8'
 );
+
+test.beforeEach(async ({ page }) => {
+  await clearOriginStorage(page);
+});
 
 // Helper to check if viewport is mobile (sidebar hidden at lg breakpoint = 1024px)
 function isMobileViewport(page: Page): boolean {
