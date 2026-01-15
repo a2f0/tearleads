@@ -35,3 +35,6 @@
 # Keep Kotlin stdlib classes used by AndroidX test runner in release instrumentation
 -keep class kotlin.jvm.internal.Intrinsics { *; }
 -keep class kotlin.** { *; }
+
+# Keep AndroidX tracing classes required by instrumentation runner
+-keep class androidx.tracing.** { *; }
