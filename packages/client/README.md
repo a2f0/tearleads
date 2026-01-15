@@ -57,22 +57,14 @@ pnpm electron:test                     # Run all Electron E2E tests (headless)
 HEADED=true pnpm electron:test         # Run with visible window
 ```
 
-### Debug Handle Inspection
+### Handle Leak Detection
 
-Set `PW_DEBUG_HANDLES=true` to dump open handles after tests complete:
+Tests automatically fail if unexpected handles remain open after completion. This detects resource leaks (unclosed sockets, timers, child processes) that would otherwise hang the test runner.
+
+Expected handles (stdio streams) are allowed. To see verbose handle details:
 
 ```bash
 PW_DEBUG_HANDLES=true pnpm test:e2e
-```
-
-### Force Cleanup (Prevent Hang)
-
-The script `./scripts/runPlaywrightTests.sh` enables `PW_FORCE_CLEANUP=true` by default to prevent the process from hanging after tests complete. This force-closes any open handles (sockets, child processes) that would otherwise keep Node.js alive.
-
-To disable (e.g., for debugging):
-
-```bash
-PW_FORCE_CLEANUP=false ./scripts/runPlaywrightTests.sh
 ```
 
 ## Android

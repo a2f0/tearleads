@@ -88,10 +88,10 @@ export default defineConfig({
         'src/pages/opfs/types.ts'
       ],
       thresholds: {
-        statements: 88,
-        branches: 80.4,
-        functions: 86.8,
-        lines: 90.2
+        statements: 94,
+        branches: 86.5,
+        functions: 95,
+        lines: 96
       }
     }
   },
