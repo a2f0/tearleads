@@ -29,5 +29,30 @@ export const ua = {
     models: 'Моделі',
     admin: 'Адмін',
     settings: 'Налаштування'
+  },
+  audio: {
+    play: 'Відтворити',
+    pause: 'Пауза',
+    previousTrack: 'Попередній трек',
+    nextTrack: 'Наступний трек',
+    restart: 'Перезапустити трек',
+    rewind: 'Перемотати назад',
+    close: 'Закрити плеєр',
+    repeatOff: 'Повтор: Вимкнено',
+    repeatAll: 'Повтор: Усі треки',
+    repeatOne: 'Повтор: Поточний трек'
+  },
+  tooltips: {
+    sseConnected: 'SSE: Підключено',
+    sseConnecting: 'SSE: Підключення',
+    sseDisconnected: "SSE: Від'єднано",
+    keychainSalt:
+      'Випадкове значення, що використовується з вашим паролем для створення ключа шифрування',
+    keychainKeyCheckValue:
+      'Хеш для перевірки правильності пароля без його збереження',
+    keychainSessionWrappingKey:
+      "Тимчасовий ключ, що шифрує дані сесії в пам'яті",
+    keychainSessionWrappedKey:
+      'Ваш ключ шифрування, захищений ключем обгортки сесії'
   }
 } as const satisfies I18NextTranslations;

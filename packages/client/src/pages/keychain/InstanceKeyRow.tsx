@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronRight, Key, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import type { KeyStatus } from '@/db/crypto/key-manager';
 import type { InstanceMetadata } from '@/db/instance-registry';
@@ -28,6 +29,7 @@ export function InstanceKeyRow({
   onToggle,
   onContextMenu
 }: InstanceKeyRowProps) {
+  const { t } = useTranslation('tooltips');
   const hasSessionKeys =
     info.keyStatus.wrappingKey || info.keyStatus.wrappedKey;
 
@@ -76,22 +78,22 @@ export function InstanceKeyRow({
             <KeyStatusIndicator
               exists={info.keyStatus.salt}
               label="Salt"
-              tooltip="Random value used with your password to derive the encryption key"
+              tooltip={t('keychainSalt')}
             />
             <KeyStatusIndicator
               exists={info.keyStatus.keyCheckValue}
               label="Key Check Value"
-              tooltip="Hash used to verify your password is correct without storing it"
+              tooltip={t('keychainKeyCheckValue')}
             />
             <KeyStatusIndicator
               exists={info.keyStatus.wrappingKey}
               label="Session Wrapping Key"
-              tooltip="Temporary key that encrypts your session data in memory"
+              tooltip={t('keychainSessionWrappingKey')}
             />
             <KeyStatusIndicator
               exists={info.keyStatus.wrappedKey}
               label="Session Wrapped Key"
-              tooltip="Your encryption key protected by the session wrapping key"
+              tooltip={t('keychainSessionWrappedKey')}
             />
           </div>
         </div>
