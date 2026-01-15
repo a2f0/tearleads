@@ -122,7 +122,7 @@ export function KeychainDetail() {
       {!loading && !error && instanceInfo && (
         <div className="space-y-6">
           <div className="flex items-center gap-3">
-            <Key className="h-6 w-6 text-amber-500" />
+            <Key className="h-6 w-6 text-chart-5" />
             <h1 className="font-bold text-2xl tracking-tight">
               {instanceInfo.instance.name}
             </h1>
