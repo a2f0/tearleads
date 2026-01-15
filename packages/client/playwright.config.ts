@@ -6,7 +6,6 @@ const baseURL = process.env.BASE_URL || 'http://localhost:3000';
 const isHTTPS = baseURL.startsWith('https://');
 const parsedWorkers = Number(process.env.PW_WORKERS);
 const fullyParallel = process.env.PW_FULLY_PARALLEL === 'true';
-const debugHandles = process.env['PW_DEBUG_HANDLES'] === 'true';
 // Scale workers based on CPU cores (half cores, min 1, max 8)
 // Set PW_WORKERS to override (e.g., PW_WORKERS=1 for serial)
 // Each worker uses its own database instance via ?testWorker param
@@ -23,8 +22,8 @@ const workers =
 export default defineConfig({
   testDir: './tests',
   testIgnore: ['**/electron/**'],
-  // Run tests serially by default to avoid OPFS storage conflicts
-  // OPFS is origin-scoped, so parallel tests on same origin may conflict
+  // Each worker has isolated OPFS via ?testWorker param (see tests/fixtures.ts)
+  // Set PW_FULLY_PARALLEL=true to also run tests within files in parallel
   fullyParallel,
   workers,
   forbidOnly: isCI,
