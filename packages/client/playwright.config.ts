@@ -7,9 +7,10 @@ const isHTTPS = baseURL.startsWith('https://');
 const parsedWorkers = Number(process.env.PW_WORKERS);
 const fullyParallel = process.env.PW_FULLY_PARALLEL === 'true';
 const debugHandles = process.env['PW_DEBUG_HANDLES'] === 'true';
-// Scale workers based on CPU cores (half cores, min 1, max 4)
+// Scale workers based on CPU cores (half cores, min 1, max 2)
 // Set PW_WORKERS to override (e.g., PW_WORKERS=1 for serial)
-const defaultWorkers = Math.max(1, Math.min(4, Math.floor(cpus().length / 2)));
+// Max 2 workers to avoid OPFS/parallel cleanup issues
+const defaultWorkers = Math.max(1, Math.min(2, Math.floor(cpus().length / 2)));
 const workers =
   Number.isFinite(parsedWorkers) && parsedWorkers > 0
     ? parsedWorkers
@@ -29,8 +30,8 @@ export default defineConfig({
   forbidOnly: isCI,
   retries: 0,
   maxFailures: 1, // Bail on first failure
-  // Safety timeout to force exit if workers hang (5 minutes)
-  globalTimeout: 5 * 60 * 1000,
+  // Safety timeout to force exit if workers hang (10 minutes)
+  globalTimeout: 10 * 60 * 1000,
   reporter: isCI
     ? [['list'], ['html', { open: 'never' }]]
     : [['html', { open: 'never' }]],
