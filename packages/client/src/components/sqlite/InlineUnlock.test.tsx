@@ -129,9 +129,7 @@ describe('InlineUnlock', () => {
     it('ignores submit when password is empty', () => {
       renderWithRouter(<InlineUnlock />);
 
-      const form = screen
-        .getByTestId('inline-unlock-button')
-        .closest('form');
+      const form = screen.getByTestId('inline-unlock-button').closest('form');
 
       if (!form) {
         throw new Error('Unlock form not found');

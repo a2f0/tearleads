@@ -103,7 +103,9 @@ describe('useResizable', () => {
 
     if (typeof moveHandler === 'function') {
       act(() => {
-        moveHandler(new MouseEvent('mousemove', { bubbles: true, clientY: 300 }));
+        moveHandler(
+          new MouseEvent('mousemove', { bubbles: true, clientY: 300 })
+        );
       });
     }
 
