@@ -44,7 +44,7 @@ describe('CustomTooltip', () => {
     expect(screen.getByText(/Time:/)).toBeInTheDocument();
     const status = screen.getByText('Success');
     expect(status).toBeInTheDocument();
-    expect(status).toHaveClass('text-green-600');
+    expect(status).toHaveClass('text-success');
   });
 
   it('renders failure details when active', () => {
@@ -66,6 +66,6 @@ describe('CustomTooltip', () => {
 
     const status = screen.getByText('Failed');
     expect(status).toBeInTheDocument();
-    expect(status).toHaveClass('text-red-600');
+    expect(status).toHaveClass('text-destructive');
   });
 });
