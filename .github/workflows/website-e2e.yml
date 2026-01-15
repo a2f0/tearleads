@@ -1,4 +1,4 @@
-name: Website E2E Tests
+name: Website E2E Tests (Release)
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
 
 jobs:
   website-e2e:
-    name: Website E2E Tests
+    name: Website E2E Tests (Release)
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
