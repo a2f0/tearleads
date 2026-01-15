@@ -1,4 +1,5 @@
-import { test, expect, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { clearOriginStorage } from './test-utils';
 
 // Use dbTest for tests that require database setup
