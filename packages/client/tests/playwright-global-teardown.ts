@@ -57,6 +57,17 @@ const formatHandle = (handle: unknown): string => {
     summary['writable'] = record['writable'];
   }
 
+  // For ChildProcess, include PID and spawn info
+  if (typeof record['pid'] === 'number') {
+    summary['pid'] = record['pid'];
+  }
+  if (typeof record['spawnfile'] === 'string') {
+    summary['spawnfile'] = record['spawnfile'];
+  }
+  if (Array.isArray(record['spawnargs'])) {
+    summary['spawnargs'] = (record['spawnargs'] as string[]).slice(0, 3);
+  }
+
   return `${getHandleLabel(handle)} ${util.inspect(summary, {
     depth: 1,
     breakLength: 80,
