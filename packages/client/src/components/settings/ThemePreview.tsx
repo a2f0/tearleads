@@ -26,7 +26,7 @@ const THEME_COLORS: Record<
     primary: '#7aa2f7',
     muted: '#414868'
   },
-  graphite: {
+  monochrome: {
     background: '#2b2b2b',
     foreground: '#d9d9d9',
     primary: '#a8a8a8',
@@ -38,7 +38,7 @@ const THEME_LABELS: Record<ResolvedTheme, string> = {
   light: 'Light',
   dark: 'Dark',
   'tokyo-night': 'Tokyo Night',
-  graphite: 'Graphite'
+  monochrome: 'Monochrome'
 };
 
 export function ThemePreview({ theme }: ThemePreviewProps) {
