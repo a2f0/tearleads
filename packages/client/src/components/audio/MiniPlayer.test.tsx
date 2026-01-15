@@ -200,7 +200,7 @@ describe('MiniPlayer', () => {
 
     render(<MiniPlayer />);
 
-    const playButton = screen.getByRole('button', { name: /play/i });
+    const playButton = screen.getByTestId('mini-player-play-pause');
     await user.click(playButton);
 
     expect(mockResume).toHaveBeenCalled();

@@ -29,5 +29,30 @@ export const es = {
     models: 'Modelos',
     admin: 'Admin',
     settings: 'Configuración'
+  },
+  audio: {
+    play: 'Reproducir',
+    pause: 'Pausar',
+    previousTrack: 'Pista anterior',
+    nextTrack: 'Pista siguiente',
+    restart: 'Reiniciar pista',
+    rewind: 'Rebobinar',
+    close: 'Cerrar reproductor',
+    repeatOff: 'Repetir: Desactivado',
+    repeatAll: 'Repetir: Todas las pistas',
+    repeatOne: 'Repetir: Pista actual'
+  },
+  tooltips: {
+    sseConnected: 'SSE: Conectado',
+    sseConnecting: 'SSE: Conectando',
+    sseDisconnected: 'SSE: Desconectado',
+    keychainSalt:
+      'Valor aleatorio usado con tu contraseña para derivar la clave de cifrado',
+    keychainKeyCheckValue:
+      'Hash usado para verificar que tu contraseña es correcta sin almacenarla',
+    keychainSessionWrappingKey:
+      'Clave temporal que cifra los datos de tu sesión en memoria',
+    keychainSessionWrappedKey:
+      'Tu clave de cifrado protegida por la clave de envoltura de sesión'
   }
 } as const satisfies I18NextTranslations;
