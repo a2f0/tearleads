@@ -54,9 +54,9 @@ export function TreeNode({
               <span className="w-4" />
             )}
             {isExpanded ? (
-              <FolderOpen className="h-4 w-4 shrink-0 text-amber-500" />
+              <FolderOpen className="h-4 w-4 shrink-0 text-chart-5" />
             ) : (
-              <FolderIcon className="h-4 w-4 shrink-0 text-amber-500" />
+              <FolderIcon className="h-4 w-4 shrink-0 text-chart-5" />
             )}
             <span className="truncate text-sm">{entry.name}</span>
           </button>
