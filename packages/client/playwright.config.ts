@@ -7,10 +7,10 @@ const isHTTPS = baseURL.startsWith('https://');
 const parsedWorkers = Number(process.env.PW_WORKERS);
 const fullyParallel = process.env.PW_FULLY_PARALLEL === 'true';
 const debugHandles = process.env['PW_DEBUG_HANDLES'] === 'true';
-// Scale workers based on CPU cores (half cores, min 1, max 2)
+// Scale workers based on CPU cores (half cores, min 1, max 8)
 // Set PW_WORKERS to override (e.g., PW_WORKERS=1 for serial)
-// Max 2 workers to avoid OPFS/parallel cleanup issues
-const defaultWorkers = Math.max(1, Math.min(2, Math.floor(cpus().length / 2)));
+// Each worker uses its own database instance via ?testWorker param
+const defaultWorkers = Math.max(1, Math.min(8, Math.floor(cpus().length / 2)));
 const workers =
   Number.isFinite(parsedWorkers) && parsedWorkers > 0
     ? parsedWorkers
