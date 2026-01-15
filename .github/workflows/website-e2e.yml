@@ -4,7 +4,6 @@ on:
   workflow_run:
     workflows: ["build"]
     types: [completed]
-  push:
 
 jobs:
   changes:
