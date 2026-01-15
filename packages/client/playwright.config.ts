@@ -1,3 +1,4 @@
+import { cpus } from 'node:os';
 import { defineConfig, devices } from '@playwright/test';
 
 const isCI = !!process.env.CI;
@@ -5,10 +6,14 @@ const baseURL = process.env.BASE_URL || 'http://localhost:3000';
 const isHTTPS = baseURL.startsWith('https://');
 const parsedWorkers = Number(process.env.PW_WORKERS);
 const fullyParallel = process.env.PW_FULLY_PARALLEL === 'true';
+// Scale workers based on CPU cores (half cores, min 1, max 8)
+// Set PW_WORKERS to override (e.g., PW_WORKERS=1 for serial)
+// Each worker uses its own database instance via ?testWorker param
+const defaultWorkers = Math.max(1, Math.min(8, Math.floor(cpus().length / 2)));
 const workers =
   Number.isFinite(parsedWorkers) && parsedWorkers > 0
     ? parsedWorkers
-    : undefined;
+    : defaultWorkers;
 
 /**
  * Playwright configuration for integration tests
@@ -17,14 +22,21 @@ const workers =
 export default defineConfig({
   testDir: './tests',
   testIgnore: ['**/electron/**'],
-  // Run tests serially by default to avoid OPFS storage conflicts
-  // OPFS is origin-scoped, so parallel tests on same origin may conflict
+  // Each worker has isolated OPFS via ?testWorker param (see tests/fixtures.ts)
+  // Set PW_FULLY_PARALLEL=true to also run tests within files in parallel
   fullyParallel,
-  ...(workers !== undefined ? { workers } : {}),
+  workers,
   forbidOnly: isCI,
   retries: 0,
   maxFailures: 1, // Bail on first failure
-  reporter: [['html', { open: 'never' }]],
+  // Safety timeout to force exit if workers hang (10 minutes)
+  globalTimeout: 10 * 60 * 1000,
+  reporter: isCI
+    ? [['list'], ['html', { open: 'never' }]]
+    : [['html', { open: 'never' }]],
+  // Always run teardown to detect handle leaks
+  // Set PW_DEBUG_HANDLES=true for verbose handle info
+  globalTeardown: './tests/playwright-global-teardown.ts',
   use: {
     baseURL,
     // Accept self-signed certificates in CI when using HTTPS

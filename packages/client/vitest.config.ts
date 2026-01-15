@@ -53,15 +53,47 @@ export default defineConfig({
         // Barrel files that only re-export from other modules
         // (footer.tsx re-exports Footer from @rapid/ui package)
         'src/audio/index.ts',
+        'src/components/contacts/column-mapper/index.ts',
+        'src/components/duration-chart/index.ts',
+        'src/components/hud/index.ts',
+        'src/components/pdf/index.ts',
+        'src/components/settings/index.ts',
+        'src/components/ui/back-link/index.ts',
+        'src/components/ui/bottom-sheet/index.ts',
+        'src/components/ui/card/index.ts',
+        'src/components/ui/context-menu/index.ts',
+        'src/components/ui/editable-title/index.ts',
         'src/db/crypto/index.ts',
         'src/db/hooks/index.ts',
-        'src/components/ui/footer.tsx'
+        'src/db/schema/index.ts',
+        'src/components/ui/footer.tsx',
+        'src/components/ui/grid-square/index.ts',
+        'src/i18n/index.ts',
+        'src/pages/admin/index.ts',
+        'src/pages/analytics/index.ts',
+        'src/pages/cache-storage/index.ts',
+        'src/pages/chat/index.ts',
+        'src/pages/contacts/index.ts',
+        'src/pages/debug/index.ts',
+        'src/pages/keychain/index.ts',
+        'src/pages/local-storage/index.ts',
+        'src/pages/models/index.ts',
+        'src/pages/opfs/index.ts',
+        'src/sse/index.ts',
+        'src/video/index.ts',
+        // Type-only modules with no runtime behavior
+        'src/components/contacts/column-mapper/types.ts',
+        'src/db/migrations/types.ts',
+        'src/i18n/translations/types.ts',
+        'src/pages/opfs/types.ts',
+        // Test infrastructure for Playwright parallel execution
+        'src/lib/test-instance.ts'
       ],
       thresholds: {
-        statements: 88,
-        branches: 80.4,
-        functions: 86.8,
-        lines: 90.2
+        statements: 94,
+        branches: 86,
+        functions: 95,
+        lines: 95.5
       }
     }
   },

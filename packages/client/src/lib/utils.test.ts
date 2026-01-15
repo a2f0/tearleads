@@ -144,6 +144,21 @@ describe('detectPlatform', () => {
       );
       expect(detectPlatform()).toBe('android');
     });
+
+    it('defaults to android when navigator is unavailable', () => {
+      const originalNavigator = globalThis.navigator;
+      Object.defineProperty(globalThis, 'navigator', {
+        value: undefined,
+        configurable: true
+      });
+
+      expect(detectPlatform()).toBe('android');
+
+      Object.defineProperty(globalThis, 'navigator', {
+        value: originalNavigator,
+        configurable: true
+      });
+    });
   });
 
   describe('WebView detection fallback', () => {
@@ -185,6 +200,21 @@ describe('detectPlatform', () => {
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       );
       expect(detectPlatform()).toBe('web');
+    });
+
+    it('returns web when navigator is unavailable', () => {
+      const originalNavigator = globalThis.navigator;
+      Object.defineProperty(globalThis, 'navigator', {
+        value: undefined,
+        configurable: true
+      });
+
+      expect(detectPlatform()).toBe('web');
+
+      Object.defineProperty(globalThis, 'navigator', {
+        value: originalNavigator,
+        configurable: true
+      });
     });
   });
 });

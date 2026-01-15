@@ -20,8 +20,13 @@
 # To kill screens too: screen -ls | grep tux- | cut -d. -f1 | xargs -I{} screen -X -S {} quit
 
 set -eu
+SCRIPT_PATH=$0
+case $SCRIPT_PATH in
+  */*) ;;
+  *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
+esac
+SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONFIG_DIR="$SCRIPT_DIR/config"
 GHOSTTY_CONF="$CONFIG_DIR/ghostty.conf"
 

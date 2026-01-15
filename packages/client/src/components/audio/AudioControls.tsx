@@ -1,5 +1,5 @@
 import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
-import { useCallback } from 'react';
+import { type CSSProperties, useCallback } from 'react';
 import { type AudioTrack, useAudio } from '@/audio';
 import { Button } from '@/components/ui/button';
 
@@ -74,6 +74,9 @@ export function AudioControls({ tracks }: AudioControlsProps) {
   }
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const progressStyle: CSSProperties & { '--progress'?: string } = {
+    '--progress': `${progress}%`
+  };
 
   return (
     <div
@@ -96,11 +99,7 @@ export function AudioControls({ tracks }: AudioControlsProps) {
             value={currentTime}
             onChange={handleSeek}
             className="audio-slider-seek h-2 w-full cursor-pointer appearance-none rounded-full"
-            style={
-              {
-                '--progress': `${progress}%`
-              } as React.CSSProperties
-            }
+            style={progressStyle}
             aria-label="Seek"
             data-testid="audio-seekbar"
           />

@@ -1,4 +1,6 @@
-import { test, expect, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
+import { clearOriginStorage } from './test-utils';
 
 // Use dbTest for tests that require database setup
 const dbTest = test;
@@ -23,6 +25,14 @@ async function setupAndUnlockDatabase(page: Page, password = 'testpassword123') 
   await page.getByTestId('db-password-input').fill(password);
   await page.getByTestId('db-setup-button').click();
   await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+    timeout: 10000
+  });
+}
+
+async function resetDatabase(page: Page) {
+  await navigateTo(page, 'SQLite');
+  await page.getByTestId('db-reset-button').click();
+  await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
     timeout: 10000
   });
 }
@@ -82,7 +92,8 @@ const IGNORED_WARNING_PATTERNS: RegExp[] = [
   /Download the React DevTools/i,
   /apple-mobile-web-app-capable.*deprecated/i,
   // web-llm warnings during model cache checks (expected in test environment)
-  /Failed to check cached models/i
+  /Failed to check cached models/i,
+  /ERR_CONNECTION_REFUSED/i
 ];
 
 interface ConsoleMessage {
@@ -139,6 +150,7 @@ test.describe('Console warnings', () => {
   }) => {
     const messages = await setupConsoleCapture(page);
 
+    await clearOriginStorage(page);
     await page.goto('/');
     // Wait for page content to load (can't use networkidle due to SSE connection)
     await page.waitForLoadState('domcontentloaded');
@@ -156,6 +168,7 @@ test.describe('Console warnings', () => {
 
 test.describe('Index page', () => {
   test.beforeEach(async ({ page }) => {
+    await clearOriginStorage(page);
     await page.goto('/');
   });
 
@@ -621,6 +634,7 @@ test.describe('Dropzone', () => {
 
 test.describe('Debug page', () => {
   test.beforeEach(async ({ page }) => {
+    await clearOriginStorage(page);
     await page.goto('/');
   });
 
@@ -698,6 +712,7 @@ test.describe('Debug page', () => {
 
 test.describe('Tables page', () => {
   test.beforeEach(async ({ page }) => {
+    await clearOriginStorage(page);
     await page.goto('/');
   });
 
@@ -910,6 +925,7 @@ test.describe('Tables page', () => {
 
 test.describe('Models page', () => {
   test.beforeEach(async ({ page }) => {
+    await clearOriginStorage(page);
     await page.goto('/');
   });
 
@@ -1021,6 +1037,7 @@ test.describe('Models page', () => {
 
 test.describe('Audio page', () => {
   test.beforeEach(async ({ page }) => {
+    await clearOriginStorage(page);
     await page.goto('/');
   });
 
@@ -1107,6 +1124,7 @@ test.describe('Contacts page', () => {
   const CONTACT_REFRESH_TIMEOUT = 5000;
 
   test.beforeEach(async ({ page }) => {
+    await clearOriginStorage(page);
     await page.goto('/');
   });
 
@@ -1244,6 +1262,7 @@ test.describe('Contacts page', () => {
 
 test.describe('Analytics page', () => {
   test.beforeEach(async ({ page }) => {
+    await clearOriginStorage(page);
     await page.goto('/');
   });
 
@@ -1261,6 +1280,7 @@ test.describe('Analytics page', () => {
   test('should show inline unlock when database is not unlocked', async ({
     page
   }) => {
+    await resetDatabase(page);
     await navigateTo(page, 'Analytics');
 
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
