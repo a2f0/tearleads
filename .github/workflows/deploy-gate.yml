@@ -1,4 +1,4 @@
-name: CI Complete
+name: Deploy Gate
 
 on:
   workflow_run:

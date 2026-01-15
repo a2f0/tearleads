@@ -41,7 +41,7 @@ jobs:
               - '.github/workflows/android.yml'
               - '.github/workflows/android-maestro-release.yml'
               - '.github/workflows/ios-maestro-release.yml'
-              - '.github/workflows/ci-complete.yml'
+              - '.github/workflows/deploy-gate.yml'
               - 'package.json'
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
