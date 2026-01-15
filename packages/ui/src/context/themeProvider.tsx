@@ -6,8 +6,8 @@ import {
   useState
 } from 'react';
 
-export type Theme = 'light' | 'dark' | 'tokyo-night' | 'system';
-export type ResolvedTheme = 'light' | 'dark' | 'tokyo-night';
+export type Theme = 'light' | 'dark' | 'tokyo-night' | 'graphite' | 'system';
+export type ResolvedTheme = 'light' | 'dark' | 'tokyo-night' | 'graphite';
 
 export interface ThemeContextValue {
   theme: Theme;
@@ -18,7 +18,13 @@ export interface ThemeContextValue {
 export const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 const STORAGE_KEY = 'theme';
-const VALID_THEMES: Theme[] = ['light', 'dark', 'tokyo-night', 'system'];
+const VALID_THEMES: Theme[] = [
+  'light',
+  'dark',
+  'tokyo-night',
+  'graphite',
+  'system'
+];
 
 function isTheme(value: string): value is Theme {
   return VALID_THEMES.some((theme) => theme === value);
@@ -78,7 +84,7 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove('light', 'dark', 'tokyo-night');
+    root.classList.remove('light', 'dark', 'tokyo-night', 'graphite');
     root.classList.add(resolvedTheme);
   }, [resolvedTheme]);
 

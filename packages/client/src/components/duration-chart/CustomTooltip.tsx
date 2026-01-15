@@ -31,7 +31,7 @@ export function CustomTooltip({ active, payload }: CustomTooltipProps) {
       </p>
       <p className="text-sm">
         Status:{' '}
-        <span className={data.success ? 'text-green-600' : 'text-red-600'}>
+        <span className={data.success ? 'text-success' : 'text-destructive'}>
           {data.success ? 'Success' : 'Failed'}
         </span>
       </p>

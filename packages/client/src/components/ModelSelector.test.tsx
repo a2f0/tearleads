@@ -71,8 +71,8 @@ describe('ModelSelector', () => {
       render(<ModelSelector modelDisplayName="Phi 3.5 Mini" />);
 
       const button = screen.getByRole('button');
-      expect(button).toHaveClass('bg-green-500/10');
-      expect(button).toHaveClass('text-green-500');
+      expect(button).toHaveClass('bg-success/10');
+      expect(button).toHaveClass('text-success');
     });
   });
 

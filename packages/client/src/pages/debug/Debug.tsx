@@ -109,7 +109,7 @@ export function Debug() {
             data-testid="copy-debug-info"
           >
             {isCopied ? (
-              <Check className="h-4 w-4 text-green-600" />
+              <Check className="h-4 w-4 text-success" />
             ) : (
               <Copy className="h-4 w-4" />
             )}
@@ -143,7 +143,7 @@ export function Debug() {
           <div className="space-y-1 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Version</span>
-              <span className="font-medium text-green-600">{ping.version}</span>
+              <span className="font-medium text-success">{ping.version}</span>
             </div>
           </div>
         )}

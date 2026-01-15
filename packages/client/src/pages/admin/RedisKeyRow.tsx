@@ -14,19 +14,19 @@ interface RedisKeyRowProps {
 function getTypeBadgeColor(type: string): string {
   switch (type) {
     case 'string':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      return 'bg-chart-1/20 text-chart-1';
     case 'list':
-      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      return 'bg-chart-2/20 text-chart-2';
     case 'set':
-      return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+      return 'bg-chart-4/20 text-chart-4';
     case 'hash':
-      return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      return 'bg-chart-5/20 text-chart-5';
     case 'zset':
-      return 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200';
+      return 'bg-chart-7/20 text-chart-7';
     case 'stream':
-      return 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200';
+      return 'bg-chart-6/20 text-chart-6';
     default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+      return 'bg-muted text-muted-foreground';
   }
 }
 
@@ -193,7 +193,7 @@ export function RedisKeyRow({
         ) : (
           <ChevronRight className="h-4 w-4 text-muted-foreground" />
         )}
-        <Database className="h-4 w-4 text-red-500" />
+        <Database className="h-4 w-4 text-destructive" />
         <span className="flex-1 truncate font-mono text-sm">{keyInfo.key}</span>
         <span
           className={cn(

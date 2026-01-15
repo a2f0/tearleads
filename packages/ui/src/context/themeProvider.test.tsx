@@ -26,6 +26,9 @@ function TestConsumer() {
       <button type="button" onClick={() => setTheme('tokyo-night')}>
         Set Tokyo Night
       </button>
+      <button type="button" onClick={() => setTheme('graphite')}>
+        Set Graphite
+      </button>
       <button type="button" onClick={() => setTheme('system')}>
         Set System
       </button>
@@ -41,7 +44,12 @@ describe('ThemeProvider', () => {
     mockMatchMediaListeners.length = 0;
 
     // Reset document classes
-    document.documentElement.classList.remove('light', 'dark', 'tokyo-night');
+    document.documentElement.classList.remove(
+      'light',
+      'dark',
+      'tokyo-night',
+      'graphite'
+    );
 
     // Mock localStorage
     Object.defineProperty(window, 'localStorage', {
@@ -130,6 +138,18 @@ describe('ThemeProvider', () => {
       expect(screen.getByTestId('theme')).toHaveTextContent('tokyo-night');
     });
 
+    it('loads graphite theme from localStorage', () => {
+      localStorageData['theme'] = 'graphite';
+
+      render(
+        <ThemeProvider>
+          <TestConsumer />
+        </ThemeProvider>
+      );
+
+      expect(screen.getByTestId('theme')).toHaveTextContent('graphite');
+    });
+
     it('uses custom storage key', () => {
       localStorageData['custom-theme'] = 'light';
 
@@ -185,6 +205,18 @@ describe('ThemeProvider', () => {
 
       expect(screen.getByTestId('resolved-theme')).toHaveTextContent(
         'tokyo-night'
+      );
+    });
+
+    it('resolves to graphite when theme is graphite', () => {
+      render(
+        <ThemeProvider defaultTheme="graphite">
+          <TestConsumer />
+        </ThemeProvider>
+      );
+
+      expect(screen.getByTestId('resolved-theme')).toHaveTextContent(
+        'graphite'
       );
     });
 
@@ -294,6 +326,23 @@ describe('ThemeProvider', () => {
       expect(document.documentElement.classList.contains('dark')).toBe(false);
     });
 
+    it('adds graphite class to document when resolved to graphite', () => {
+      render(
+        <ThemeProvider defaultTheme="graphite">
+          <TestConsumer />
+        </ThemeProvider>
+      );
+
+      expect(document.documentElement.classList.contains('graphite')).toBe(
+        true
+      );
+      expect(document.documentElement.classList.contains('light')).toBe(false);
+      expect(document.documentElement.classList.contains('dark')).toBe(false);
+      expect(document.documentElement.classList.contains('tokyo-night')).toBe(
+        false
+      );
+    });
+
     it('updates document class when theme changes', async () => {
       const user = userEvent.setup();
 
@@ -384,6 +433,24 @@ describe('ThemeProvider', () => {
       });
 
       expect(screen.getByTestId('theme')).toHaveTextContent('tokyo-night');
+    });
+
+    it('updates to graphite theme from settings-synced event', async () => {
+      render(
+        <ThemeProvider defaultTheme="light">
+          <TestConsumer />
+        </ThemeProvider>
+      );
+
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('settings-synced', {
+            detail: { settings: { theme: 'graphite' } }
+          })
+        );
+      });
+
+      expect(screen.getByTestId('theme')).toHaveTextContent('graphite');
     });
 
     it('ignores invalid theme in settings-synced event', async () => {
