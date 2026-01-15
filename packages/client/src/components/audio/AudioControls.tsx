@@ -97,7 +97,7 @@ export function AudioControls({ tracks }: AudioControlsProps) {
             onChange={handleSeek}
             className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted"
             style={{
-              background: `linear-gradient(to right, hsl(var(--primary)) ${progress}%, hsl(var(--muted)) ${progress}%)`
+              background: `linear-gradient(to right, var(--primary) ${progress}%, var(--muted) ${progress}%)`
             }}
             aria-label="Seek"
             data-testid="audio-seekbar"
