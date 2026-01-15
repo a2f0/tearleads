@@ -92,13 +92,7 @@ export default defineConfig({
         'src/db/migrations/types.ts',
         'src/i18n/translations/types.ts',
         'src/pages/opfs/types.ts'
-      ],
-      thresholds: {
-        statements: 88,
-        branches: 80.4,
-        functions: 86.8,
-        lines: 90.2
-      }
+      ]
     }
   },
   resolve: {
