@@ -54,5 +54,12 @@ export const es = {
       'Clave temporal que cifra los datos de tu sesión en memoria',
     keychainSessionWrappedKey:
       'Tu clave de cifrado protegida por la clave de envoltura de sesión'
+  },
+  contextMenu: {
+    play: 'Reproducir',
+    pause: 'Pausar',
+    getInfo: 'Obtener información',
+    viewDetails: 'Ver detalles',
+    delete: 'Eliminar'
   }
 } as const satisfies I18NextTranslations;

@@ -52,11 +52,20 @@ export interface TooltipsTranslations {
   keychainSessionWrappedKey: string;
 }
 
+export interface ContextMenuTranslations {
+  play: string;
+  pause: string;
+  getInfo: string;
+  viewDetails: string;
+  delete: string;
+}
+
 export interface Translations {
   common: CommonTranslations;
   menu: MenuTranslations;
   audio: AudioTranslations;
   tooltips: TooltipsTranslations;
+  contextMenu: ContextMenuTranslations;
 }
 
 export type I18NextTranslations = {
@@ -64,12 +73,14 @@ export type I18NextTranslations = {
   menu: MenuTranslations;
   audio: AudioTranslations;
   tooltips: TooltipsTranslations;
+  contextMenu: ContextMenuTranslations;
 } & Record<string, Record<string, string>>;
 
 export type CommonKeys = keyof CommonTranslations;
 export type MenuKeys = keyof MenuTranslations;
 export type AudioKeys = keyof AudioTranslations;
 export type TooltipsKeys = keyof TooltipsTranslations;
+export type ContextMenuKeys = keyof ContextMenuTranslations;
 
 export type NamespaceKeys = keyof Translations;
 
