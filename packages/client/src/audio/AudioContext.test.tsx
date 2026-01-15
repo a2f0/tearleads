@@ -1,4 +1,5 @@
 import { act, render, renderHook, screen } from '@testing-library/react';
+import { useLayoutEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
 import { AudioProvider, useAudio } from './AudioContext';
@@ -43,6 +44,16 @@ function getAudioElement(): HTMLAudioElement {
     throw new Error('Audio element not found');
   }
   return audio;
+}
+
+function NullAudioRef() {
+  const { audioElementRef } = useAudio();
+
+  useLayoutEffect(() => {
+    audioElementRef.current = null;
+  }, [audioElementRef]);
+
+  return null;
 }
 
 describe('AudioProvider', () => {
@@ -139,6 +150,18 @@ describe('useAudio', () => {
       const audio = document.querySelector('audio');
       expect(audio?.src).toBe(TEST_TRACK.objectUrl);
     });
+
+    it('no-ops when the audio element is missing', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      result.current.audioElementRef.current = null;
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      expect(mockPlay).not.toHaveBeenCalled();
+    });
   });
 
   describe('pause', () => {
@@ -169,6 +192,18 @@ describe('useAudio', () => {
 
       expect(result.current.currentTrack).toEqual(TEST_TRACK);
     });
+
+    it('no-ops when the audio element is missing', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      result.current.audioElementRef.current = null;
+
+      act(() => {
+        result.current.pause();
+      });
+
+      expect(mockPause).not.toHaveBeenCalled();
+    });
   });
 
   describe('resume', () => {
@@ -186,6 +221,32 @@ describe('useAudio', () => {
       });
 
       expect(mockPlay).toHaveBeenCalled();
+    });
+
+    it('no-ops when there is no current track', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.resume();
+      });
+
+      expect(mockPlay).not.toHaveBeenCalled();
+    });
+
+    it('no-ops when the audio element is missing', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      result.current.audioElementRef.current = null;
+
+      act(() => {
+        result.current.resume();
+      });
+
+      expect(mockPlay).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -251,6 +312,18 @@ describe('useAudio', () => {
 
       expect(result.current.error).toBeNull();
     });
+
+    it('no-ops when the audio element is missing', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      result.current.audioElementRef.current = null;
+
+      act(() => {
+        result.current.stop();
+      });
+
+      expect(mockPause).not.toHaveBeenCalled();
+    });
   });
 
   describe('seek', () => {
@@ -267,6 +340,19 @@ describe('useAudio', () => {
 
       const audio = document.querySelector('audio');
       expect(audio?.currentTime).toBe(30);
+    });
+
+    it('no-ops when the audio element is missing', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      result.current.audioElementRef.current = null;
+
+      act(() => {
+        result.current.seek(12);
+      });
+
+      const audio = document.querySelector('audio');
+      expect(audio?.currentTime).toBe(0);
     });
   });
 
@@ -310,6 +396,19 @@ describe('useAudio', () => {
       });
 
       expect(result.current.volume).toBe(1);
+    });
+
+    it('no-ops on audio element when the ref is missing', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      result.current.audioElementRef.current = null;
+
+      act(() => {
+        result.current.setVolume(0.25);
+      });
+
+      expect(result.current.volume).toBe(0.25);
+      expect(mockPlay).not.toHaveBeenCalled();
     });
   });
 
@@ -454,6 +553,17 @@ describe('useAudio', () => {
       expect(result.current.currentTime).toBe(9);
       nowSpy.mockRestore();
     });
+
+    it('skips event binding when the audio element ref is cleared', () => {
+      render(
+        <AudioProvider>
+          <NullAudioRef />
+        </AudioProvider>
+      );
+
+      const audio = document.querySelector('audio');
+      expect(audio).toBeInTheDocument();
+    });
   });
 
   describe('play error handling', () => {
@@ -510,6 +620,22 @@ describe('useAudio', () => {
 
       expect(result.current.error).toEqual({
         message: 'Resume failed',
+        trackId: TEST_TRACK.id,
+        trackName: TEST_TRACK.name
+      });
+    });
+
+    it('uses a fallback message when play rejects with a non-Error', async () => {
+      mockPlay.mockRejectedValueOnce('Not an error');
+
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      await act(async () => {
+        result.current.play(TEST_TRACK);
+      });
+
+      expect(result.current.error).toEqual({
+        message: 'Failed to play audio',
         trackId: TEST_TRACK.id,
         trackName: TEST_TRACK.name
       });
@@ -667,6 +793,47 @@ describe('useAudio', () => {
       expect(result.current.error?.message).toBe(
         'Audio file could not be decoded'
       );
+    });
+
+    it('keeps the default message when media error is missing', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      act(() => {
+        result.current.play(TEST_TRACK);
+      });
+
+      const audio = getAudioElement();
+
+      Object.defineProperty(audio, 'error', {
+        value: null,
+        configurable: true
+      });
+
+      act(() => {
+        audio.dispatchEvent(new Event('error'));
+      });
+
+      expect(result.current.error?.message).toBe('Failed to load audio');
+    });
+
+    it('returns early when no track is loaded', () => {
+      const { result } = renderHook(() => useAudio(), { wrapper });
+
+      const audio = getAudioElement();
+
+      Object.defineProperty(audio, 'error', {
+        value: {
+          code: MEDIA_ERR_NETWORK,
+          message: 'Network error'
+        },
+        configurable: true
+      });
+
+      act(() => {
+        audio.dispatchEvent(new Event('error'));
+      });
+
+      expect(result.current.error).toBeNull();
     });
   });
 
