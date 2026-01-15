@@ -56,6 +56,14 @@ describe('i18n', () => {
     it('has menu namespace', () => {
       expect(i18n.hasResourceBundle('en', 'menu')).toBe(true);
     });
+
+    it('ignores unsupported language change events', () => {
+      const currentLang = i18n.language;
+
+      i18n.emit('languageChanged', 'fr');
+
+      expect(i18n.language).toBe(currentLang);
+    });
   });
 
   describe('settings-synced event', () => {

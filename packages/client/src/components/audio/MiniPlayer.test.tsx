@@ -182,6 +182,30 @@ describe('MiniPlayer', () => {
     });
   });
 
+  it('renders resume controls when playback state flips after mount', async () => {
+    const user = userEvent.setup();
+    let readCount = 0;
+
+    mockUseAudioContext.mockReturnValue({
+      currentTrack: TEST_TRACK,
+      get isPlaying() {
+        readCount += 1;
+        return readCount === 1;
+      },
+      pause: mockPause,
+      resume: mockResume,
+      stop: mockStop,
+      seek: mockSeek
+    });
+
+    render(<MiniPlayer />);
+
+    const playButton = screen.getByRole('button', { name: /play/i });
+    await user.click(playButton);
+
+    expect(mockResume).toHaveBeenCalled();
+  });
+
   describe('track name display', () => {
     it('shows track name as title attribute for long names', () => {
       const longNameTrack = {

@@ -158,6 +158,21 @@ describe('ContextMenu', () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('does not call onClose for other keys', async () => {
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <ContextMenu x={100} y={200} onClose={onClose}>
+        <div>Menu content</div>
+      </ContextMenu>
+    );
+
+    await user.keyboard('{Enter}');
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
 
 describe('ContextMenu integration', () => {

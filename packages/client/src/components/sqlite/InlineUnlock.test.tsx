@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -124,6 +124,22 @@ describe('InlineUnlock', () => {
 
       const unlockButton = screen.getByTestId('inline-unlock-button');
       expect(unlockButton).toBeDisabled();
+    });
+
+    it('ignores submit when password is empty', () => {
+      renderWithRouter(<InlineUnlock />);
+
+      const form = screen
+        .getByTestId('inline-unlock-button')
+        .closest('form');
+
+      if (!form) {
+        throw new Error('Unlock form not found');
+      }
+
+      fireEvent.submit(form);
+
+      expect(mockUnlock).not.toHaveBeenCalled();
     });
 
     it('enables unlock button when password is entered', async () => {
