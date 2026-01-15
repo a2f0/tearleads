@@ -8,7 +8,7 @@ jobs:
   website-e2e:
     name: Website E2E Tests (Release)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
