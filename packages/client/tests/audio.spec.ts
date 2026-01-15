@@ -150,6 +150,29 @@ async function expectVisibleThumb(slider: Locator) {
   expect(thumbStyle.borderColor).not.toBe('rgba(0, 0, 0, 0)');
 }
 
+async function expectVisibleTrack(slider: Locator) {
+  const baseStyle = await getSliderBaseStyle(slider);
+  const hasGradient =
+    baseStyle.backgroundImage !== 'none' &&
+    baseStyle.backgroundImage !== 'initial';
+  const hasSolidBackground = baseStyle.backgroundColor !== 'rgba(0, 0, 0, 0)';
+  expect(hasGradient || hasSolidBackground).toBe(true);
+  expect(baseStyle.borderColor).not.toBe('rgba(0, 0, 0, 0)');
+
+  const trackStyle = await getWebkitTrackStyle(slider);
+  expect(trackStyle.backgroundImage).not.toBe('none');
+  expect(trackStyle.borderColor).not.toBe('rgba(0, 0, 0, 0)');
+}
+
+async function expectVisibleThumb(slider: Locator) {
+  const thumbStyle = await getWebkitThumbStyle(slider);
+  expect(thumbStyle.width).toBeGreaterThan(0);
+  expect(thumbStyle.height).toBeGreaterThan(0);
+  expect(thumbStyle.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+  expect(thumbStyle.borderColor).not.toBe('rgba(0, 0, 0, 0)');
+  expect(thumbStyle.boxShadow).not.toBe('none');
+}
+
 test.describe('Audio player slider visibility', () => {
   test.skip(skipDatabaseTests, 'Database setup fails in CI release builds');
 
