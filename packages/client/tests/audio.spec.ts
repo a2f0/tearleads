@@ -95,30 +95,22 @@ async function getWebkitThumbStyle(slider: Locator) {
   });
 }
 
-async function getWebkitTrackStyle(slider: Locator) {
-  return slider.evaluate((el) => {
-    const style = getComputedStyle(el, '::-webkit-slider-runnable-track');
-    return {
-      backgroundImage: style.backgroundImage,
-      backgroundColor: style.backgroundColor,
-      borderColor: style.borderColor
-    };
-  });
-}
-
-async function getSliderBaseStyle(slider: Locator) {
-  return slider.evaluate((el) => {
-    const style = getComputedStyle(el);
-    return {
-      backgroundImage: style.backgroundImage,
-      backgroundColor: style.backgroundColor,
-      borderColor: style.borderColor
-    };
-  });
+async function getSliderStyle(slider: Locator, pseudo?: string) {
+  return slider.evaluate(
+    (el, pseudoElement) => {
+      const style = getComputedStyle(el, pseudoElement || undefined);
+      return {
+        backgroundImage: style.backgroundImage,
+        backgroundColor: style.backgroundColor,
+        borderColor: style.borderColor
+      };
+    },
+    pseudo
+  );
 }
 
 async function expectVisibleTrack(slider: Locator) {
-  const baseStyle = await getSliderBaseStyle(slider);
+  const baseStyle = await getSliderStyle(slider);
   const hasGradient =
     baseStyle.backgroundImage !== 'none' &&
     baseStyle.backgroundImage !== 'initial';
@@ -126,7 +118,10 @@ async function expectVisibleTrack(slider: Locator) {
   expect(hasGradient || hasSolidBackground).toBe(true);
   expect(baseStyle.borderColor).not.toBe('rgba(0, 0, 0, 0)');
 
-  const trackStyle = await getWebkitTrackStyle(slider);
+  const trackStyle = await getSliderStyle(
+    slider,
+    '::-webkit-slider-runnable-track'
+  );
   expect(trackStyle.backgroundImage).not.toBe('none');
   expect(trackStyle.borderColor).not.toBe('rgba(0, 0, 0, 0)');
 }
