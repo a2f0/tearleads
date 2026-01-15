@@ -2,18 +2,11 @@ name: Web E2E Tests
 
 on:
   pull_request:
-  workflow_run:
-    workflows: ["build"]
-    types: [completed]
+  workflow_call:
 
 jobs:
   web-e2e:
     name: Web E2E Tests
-    if: >-
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

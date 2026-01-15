@@ -2,18 +2,11 @@ name: iOS Maestro Tests (Release)
 
 on:
   pull_request:
-  workflow_run:
-    workflows: ["build"]
-    types: [completed]
+  workflow_call:
 
 jobs:
   ios-maestro-release:
     name: iOS Maestro Tests (Release)
-    if: >-
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.conclusion == 'success')
     runs-on: macos-latest
     timeout-minutes: 35
 
