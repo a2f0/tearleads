@@ -2,7 +2,7 @@ name: Deploy Desktop
 
 on:
   workflow_run:
-    workflows: ["CI Complete"]
+    workflows: ["Deploy Gate"]
     types: [completed]
     branches: [main]
 
