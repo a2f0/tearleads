@@ -4,8 +4,13 @@
 # - Restores CFBundleVersion placeholder in Info.plist
 # Then verifies the git workspace is clean (no uncommitted changes).
 set -e
+SCRIPT_PATH=$0
+case $SCRIPT_PATH in
+  */*) ;;
+  *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
+esac
+SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 PROJECT_FILE="$PROJECT_ROOT/packages/client/ios/App/App.xcodeproj/project.pbxproj"

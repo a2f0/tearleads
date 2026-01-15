@@ -9,6 +9,12 @@
 #   ./scripts/runMaestroIosTests.sh --headless .maestro/app-loads.yaml
 #   ./scripts/runMaestroIosTests.sh --record-video
 set -eu
+SCRIPT_PATH=$0
+case $SCRIPT_PATH in
+  */*) ;;
+  *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
+esac
+SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
 export MAESTRO_CLI_NO_ANALYTICS=1
 
@@ -48,7 +54,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-cd "$(dirname "$0")/../packages/client"
+cd "$SCRIPT_DIR/../packages/client"
 
 if [ -n "$FLOW_PATH" ] && [ "${FLOW_PATH#/.maestro/}" = "$FLOW_PATH" ] && [ "${FLOW_PATH#./.maestro/}" = "$FLOW_PATH" ] && [ "${FLOW_PATH#./}" = "$FLOW_PATH" ]; then
   # Prepend ../.maestro/ since Fastlane runs from fastlane/ subdirectory

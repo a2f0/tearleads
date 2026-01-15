@@ -2,6 +2,8 @@
  * Shared test utilities for Playwright e2e tests
  */
 
+import type { Page } from '@playwright/test';
+
 // WAV format constants
 const WAV_HEADER_SIZE = 44;
 const RIFF_CHUNK_DESCRIPTOR_SIZE = 8; // 'RIFF' identifier + chunk size field
@@ -84,3 +86,25 @@ export const MINIMAL_PNG = Buffer.from([
   0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, // IEND chunk (length=0)
   0xae, 0x42, 0x60, 0x82 // IEND CRC
 ]);
+
+export async function clearOriginStorage(
+  page: Page,
+  originOverride?: string
+): Promise<void> {
+  const origin =
+    originOverride ??
+    new URL(process.env['BASE_URL'] ?? 'http://localhost:3000').origin;
+  const client = await page.context().newCDPSession(page);
+  try {
+    await client.send('Storage.clearDataForOrigin', {
+      origin,
+      storageTypes: 'all'
+    });
+  } finally {
+    try {
+      await client.detach();
+    } catch {
+      // Best-effort cleanup for CDP session.
+    }
+  }
+}

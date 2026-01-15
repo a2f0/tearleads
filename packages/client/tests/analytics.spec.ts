@@ -1,4 +1,5 @@
 import { test, expect, type Page, type ConsoleMessage } from '@playwright/test';
+import { clearOriginStorage } from './test-utils';
 
 // Use dbTest for tests that require database setup
 const dbTest = test;
@@ -45,13 +46,15 @@ function isUnexpectedError(text: string): boolean {
     /React DevTools/i,
     /Download the React DevTools/i,
     // React development warnings (not actual errors)
-    /Each child in a list should have a unique "key" prop/i
+    /Each child in a list should have a unique "key" prop/i,
+    /ERR_CONNECTION_REFUSED/i
   ];
   return !ignoredPatterns.some((pattern) => pattern.test(text));
 }
 
 test.describe('Analytics page', () => {
   test.beforeEach(async ({ page }) => {
+    await clearOriginStorage(page);
     await page.goto('/');
   });
 

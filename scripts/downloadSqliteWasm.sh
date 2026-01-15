@@ -4,13 +4,18 @@
 #
 
 set -e
+SCRIPT_PATH=$0
+case $SCRIPT_PATH in
+  */*) ;;
+  *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
+esac
+SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
 SQLITE3MC_VERSION="2.2.6"
 SQLITE_VERSION="3.51.1"
 PACKAGE_NAME="sqlite3mc-${SQLITE3MC_VERSION}-sqlite-${SQLITE_VERSION}-wasm.zip"
 DOWNLOAD_URL="https://github.com/utelle/SQLite3MultipleCiphers/releases/download/v${SQLITE3MC_VERSION}/${PACKAGE_NAME}"
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CLIENT_DIR="${PROJECT_ROOT}/packages/client"
 WASM_DIR="${CLIENT_DIR}/src/workers/sqlite-wasm"

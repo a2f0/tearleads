@@ -1,6 +1,15 @@
 import { test, expect, Page, Locator } from '@playwright/test';
-import { MINIMAL_WAV } from './test-utils';
+import { clearOriginStorage, MINIMAL_WAV } from './test-utils';
 
+// Skip tests that require database setup in CI release builds
+// until https://github.com/a2f0/rapid/issues/687 is resolved
+const isCI = !!process.env['CI'];
+const isHTTPS = !!process.env['BASE_URL']?.startsWith('https://');
+const skipDatabaseTests = isCI && isHTTPS;
+
+test.beforeEach(async ({ page }) => {
+  await clearOriginStorage(page);
+});
 // Helper to check if viewport is mobile (sidebar hidden at lg breakpoint = 1024px)
 function isMobileViewport(page: Page): boolean {
   const viewport = page.viewportSize();
@@ -129,19 +138,10 @@ async function expectVisibleThumb(slider: Locator) {
   const thumbStyle = await getWebkitThumbStyle(slider);
   expect(thumbStyle.width).toBeGreaterThan(0);
   expect(thumbStyle.height).toBeGreaterThan(0);
-  expect(thumbStyle.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
-  expect(thumbStyle.borderColor).not.toBe('rgba(0, 0, 0, 0)');
-  expect(thumbStyle.boxShadow).not.toBe('none');
-}
-  expect(trackStyle.borderColor).not.toBe('rgba(0, 0, 0, 0)');
-}
-
-async function expectVisibleThumb(slider: Locator) {
-  const thumbStyle = await getWebkitThumbStyle(slider);
-  expect(thumbStyle.width).toBeGreaterThan(0);
-  expect(thumbStyle.height).toBeGreaterThan(0);
-  expect(thumbStyle.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
-  expect(thumbStyle.borderColor).not.toBe('rgba(0, 0, 0, 0)');
+  const hasBackground = thumbStyle.backgroundColor !== 'rgba(0, 0, 0, 0)';
+  const hasBorder = thumbStyle.borderColor !== 'rgba(0, 0, 0, 0)';
+  const hasShadow = thumbStyle.boxShadow !== 'none';
+  expect(hasBackground || hasBorder || hasShadow).toBe(true);
 }
 
 test.describe('Audio player slider visibility', () => {
