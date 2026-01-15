@@ -56,4 +56,28 @@ describe('ConnectionIndicator', () => {
     const indicator = screen.getByRole('status');
     expect(indicator).toHaveClass('inline-block', 'h-2', 'w-2', 'rounded-full');
   });
+
+  it('shows tooltip for connected state', () => {
+    render(<ConnectionIndicator state="connected" />);
+    expect(screen.getByRole('status')).toHaveAttribute(
+      'title',
+      'SSE: Connected'
+    );
+  });
+
+  it('shows tooltip for connecting state', () => {
+    render(<ConnectionIndicator state="connecting" />);
+    expect(screen.getByRole('status')).toHaveAttribute(
+      'title',
+      'SSE: Connecting'
+    );
+  });
+
+  it('shows tooltip for disconnected state', () => {
+    render(<ConnectionIndicator state="disconnected" />);
+    expect(screen.getByRole('status')).toHaveAttribute(
+      'title',
+      'SSE: Disconnected'
+    );
+  });
 });
