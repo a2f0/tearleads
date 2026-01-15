@@ -12,11 +12,15 @@ export function KeyStatusIndicator({
   tooltip
 }: KeyStatusIndicatorProps) {
   return (
-    <div className="flex items-center gap-2" title={tooltip}>
+    <div
+      className="flex items-center gap-2"
+      title={tooltip}
+      data-testid="key-status-indicator"
+    >
       {exists ? (
-        <Check className="h-4 w-4 text-success" />
+        <Check className="h-4 w-4 text-success" data-testid="check-icon" />
       ) : (
-        <X className="h-4 w-4 text-muted-foreground" />
+        <X className="h-4 w-4 text-muted-foreground" data-testid="x-icon" />
       )}
       <span className="text-muted-foreground text-sm">{label}</span>
     </div>
