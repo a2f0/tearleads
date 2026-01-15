@@ -22,7 +22,7 @@ jobs:
         with:
           script: |
             const headSha = context.sha;
-            const workflowName = 'CI';
+            const workflowName = 'build';
             const timeoutMinutes = 60;
             const pollIntervalMs = 60 * 1000;
             const deadline = Date.now() + timeoutMinutes * 60 * 1000;
