@@ -29,12 +29,39 @@ export function getElectronArgs(): string[] {
   return args;
 }
 
+export interface LaunchOptions {
+  /**
+   * Clear all storage (IndexedDB, localStorage, etc.) before the app loads.
+   * Default: true for test isolation.
+   * Set to false for tests that verify data persistence across app restarts.
+   */
+  clearStorage?: boolean;
+}
+
 /**
  * Launch Electron app for testing.
  * Uses headless mode by default. Set HEADED=true env var for visible windows.
+ * Clears all storage data by default to ensure test isolation.
+ *
+ * @param options.clearStorage - Whether to clear storage before app loads (default: true)
  */
-export async function launchElectronApp(): Promise<ElectronApplication> {
-  return electron.launch({
+export async function launchElectronApp(
+  options: LaunchOptions = {}
+): Promise<ElectronApplication> {
+  const {clearStorage = true} = options;
+
+  const app = await electron.launch({
     args: getElectronArgs(),
   });
+
+  if (clearStorage) {
+    // Clear all storage to ensure clean state for each test.
+    // This is more robust than UI-based reset as it works even if app UI is broken.
+    // Omitting the storages option clears all storage types by default.
+    await app.evaluate(async ({session}) => {
+      await session.defaultSession.clearStorageData();
+    });
+  }
+
+  return app;
 }
