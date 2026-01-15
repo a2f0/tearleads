@@ -79,7 +79,7 @@ test.describe('Backup & Restore (Electron)', () => {
 
     // Navigate to settings via sidebar
     await window.locator('nav').getByRole('link', { name: 'Settings' }).click();
-    await expect(window).toHaveURL(/\\/settings/);
+    await expect(window).toHaveURL(/\/settings/);
 
     const exportButton = window.getByTestId('backup-export-button');
     await expect(exportButton).toBeVisible();
@@ -90,7 +90,7 @@ test.describe('Backup & Restore (Electron)', () => {
     const download = await downloadPromise;
 
     expect(download.suggestedFilename()).toMatch(
-      /^rapid-backup-\\d{4}-\\d{2}-\\d{2}-\\d{6}\\.db$/
+      /^rapid-backup-\d{4}-\d{2}-\d{2}-\d{6}\.db$/
     );
     const path = await download.path();
     expect(path).toBeTruthy();
@@ -114,7 +114,7 @@ test.describe('Backup & Restore (Electron)', () => {
     // Export database
     const downloadPromise = window.waitForEvent('download');
     await window.locator('nav').getByRole('link', { name: 'Settings' }).click();
-    await expect(window).toHaveURL(/\\/settings/);
+    await expect(window).toHaveURL(/\/settings/);
     await window.getByTestId('backup-export-button').click();
     const download = await downloadPromise;
 
@@ -124,7 +124,7 @@ test.describe('Backup & Restore (Electron)', () => {
     try {
       // Reset database
       await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
-      await expect(window).toHaveURL(/\\/sqlite/);
+      await expect(window).toHaveURL(/\/sqlite/);
       await window.getByTestId('db-reset-button').click();
       await waitForSuccess(window);
       await expect(window.getByTestId('db-status')).toHaveText('Not Set Up');
@@ -138,7 +138,7 @@ test.describe('Backup & Restore (Electron)', () => {
 
       // Restore from backup
       await window.locator('nav').getByRole('link', { name: 'Settings' }).click();
-      await expect(window).toHaveURL(/\\/settings/);
+      await expect(window).toHaveURL(/\/settings/);
       const fileInput = window.getByTestId('dropzone-input');
       await fileInput.setInputFiles(backupPath);
 
@@ -149,7 +149,7 @@ test.describe('Backup & Restore (Electron)', () => {
 
       // After restore, unlock and verify data
       await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
-      await expect(window).toHaveURL(/\\/sqlite/);
+      await expect(window).toHaveURL(/\/sqlite/);
       await expect(window.getByTestId('db-status')).toHaveText('Locked', {
         timeout: DB_OPERATION_TIMEOUT
       });
@@ -186,7 +186,7 @@ test.describe('Backup & Restore (Electron)', () => {
 
     const downloadPromise = window.waitForEvent('download');
     await window.locator('nav').getByRole('link', { name: 'Settings' }).click();
-    await expect(window).toHaveURL(/\\/settings/);
+    await expect(window).toHaveURL(/\/settings/);
     await window.getByTestId('backup-export-button').click();
     const download = await downloadPromise;
 
@@ -195,7 +195,7 @@ test.describe('Backup & Restore (Electron)', () => {
 
     try {
       await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
-      await expect(window).toHaveURL(/\\/sqlite/);
+      await expect(window).toHaveURL(/\/sqlite/);
       await window.getByTestId('db-reset-button').click();
       await waitForSuccess(window);
 
@@ -206,7 +206,7 @@ test.describe('Backup & Restore (Electron)', () => {
       });
 
       await window.locator('nav').getByRole('link', { name: 'Settings' }).click();
-      await expect(window).toHaveURL(/\\/settings/);
+      await expect(window).toHaveURL(/\/settings/);
       await window.getByTestId('dropzone-input').setInputFiles(backupPath);
       await expect(window.getByTestId('backup-restore-confirm')).toBeVisible({
         timeout: 5000
