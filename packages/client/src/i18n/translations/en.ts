@@ -54,5 +54,12 @@ export const en = {
       'Temporary key that encrypts your session data in memory',
     keychainSessionWrappedKey:
       'Your encryption key protected by the session wrapping key'
+  },
+  contextMenu: {
+    play: 'Play',
+    pause: 'Pause',
+    getInfo: 'Get info',
+    viewDetails: 'View Details',
+    delete: 'Delete'
   }
 } as const satisfies I18NextTranslations;

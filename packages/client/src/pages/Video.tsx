@@ -16,6 +16,7 @@ import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
+import { useTypedTranslation } from '@/i18n';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { detectPlatform, formatFileSize } from '@/lib/utils';
 import {
@@ -56,6 +57,7 @@ const ROW_HEIGHT_ESTIMATE = 56;
 export function VideoPage() {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const { t } = useTypedTranslation('contextMenu');
   const [videos, setVideos] = useState<VideoWithThumbnail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -474,13 +476,13 @@ export function VideoPage() {
             icon={<Info className="h-4 w-4" />}
             onClick={() => handleGetInfo(contextMenu.video)}
           >
-            Get info
+            {t('getInfo')}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Trash2 className="h-4 w-4" />}
             onClick={() => handleDelete(contextMenu.video)}
           >
-            Delete
+            {t('delete')}
           </ContextMenuItem>
         </ContextMenu>
       )}

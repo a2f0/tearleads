@@ -32,6 +32,7 @@ import {
   useContactsImport
 } from '@/hooks/useContactsImport';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
+import { useTypedTranslation } from '@/i18n';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { AddContactCard } from './AddContactCard';
 
@@ -51,6 +52,7 @@ export function Contacts() {
   const navigate = useNavigate();
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const { t } = useTypedTranslation('contextMenu');
   const [contacts, setContacts] = useState<ContactInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -535,13 +537,13 @@ export function Contacts() {
             icon={<Info className="h-4 w-4" />}
             onClick={handleGetInfo}
           >
-            Get info
+            {t('getInfo')}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Trash2 className="h-4 w-4" />}
             onClick={handleDelete}
           >
-            Delete
+            {t('delete')}
           </ContextMenuItem>
         </ContextMenu>
       )}

@@ -27,6 +27,7 @@ import { files } from '@/db/schema';
 import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
+import { useTypedTranslation } from '@/i18n';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { detectPlatform, formatFileSize } from '@/lib/utils';
 import {
@@ -73,6 +74,7 @@ export function AudioPage() {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
+  const { t } = useTypedTranslation('contextMenu');
   useAudioErrorHandler();
   const currentTrackRef = useRef(currentTrack);
   const [tracks, setTracks] = useState<AudioWithUrl[]>([]);
@@ -564,20 +566,20 @@ export function AudioPage() {
             onClick={() => handleContextMenuPlay(contextMenu.track)}
           >
             {contextMenu.track.id === currentTrack?.id && isPlaying
-              ? 'Pause'
-              : 'Play'}
+              ? t('pause')
+              : t('play')}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Info className="h-4 w-4" />}
             onClick={() => handleGetInfo(contextMenu.track)}
           >
-            Get info
+            {t('getInfo')}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Trash2 className="h-4 w-4" />}
             onClick={() => handleDelete(contextMenu.track)}
           >
-            Delete
+            {t('delete')}
           </ContextMenuItem>
         </ContextMenu>
       )}
