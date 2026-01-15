@@ -9,19 +9,15 @@ describe('KeyStatusIndicator', () => {
   });
 
   it('renders check icon when exists is true', () => {
-    const { container } = render(
-      <KeyStatusIndicator exists={true} label="Salt" />
-    );
-    const checkIcon = container.querySelector('.text-green-500');
-    expect(checkIcon).toBeInTheDocument();
+    render(<KeyStatusIndicator exists={true} label="Salt" />);
+    expect(screen.getByTestId('check-icon')).toBeInTheDocument();
+    expect(screen.queryByTestId('x-icon')).not.toBeInTheDocument();
   });
 
   it('renders X icon when exists is false', () => {
-    const { container } = render(
-      <KeyStatusIndicator exists={false} label="Salt" />
-    );
-    const xIcon = container.querySelector('.text-muted-foreground');
-    expect(xIcon).toBeInTheDocument();
+    render(<KeyStatusIndicator exists={false} label="Salt" />);
+    expect(screen.getByTestId('x-icon')).toBeInTheDocument();
+    expect(screen.queryByTestId('check-icon')).not.toBeInTheDocument();
   });
 
   it('displays tooltip when provided', () => {
@@ -32,7 +28,7 @@ describe('KeyStatusIndicator', () => {
         tooltip="Random value used for key derivation"
       />
     );
-    const container = screen.getByText('Salt').closest('div');
+    const container = screen.getByTestId('key-status-indicator');
     expect(container).toHaveAttribute(
       'title',
       'Random value used for key derivation'
@@ -41,7 +37,7 @@ describe('KeyStatusIndicator', () => {
 
   it('does not have title attribute when tooltip is not provided', () => {
     render(<KeyStatusIndicator exists={true} label="Salt" />);
-    const container = screen.getByText('Salt').closest('div');
+    const container = screen.getByTestId('key-status-indicator');
     expect(container).not.toHaveAttribute('title');
   });
 });
