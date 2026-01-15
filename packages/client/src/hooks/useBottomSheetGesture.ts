@@ -310,6 +310,7 @@ export function useBottomSheetGesture({
     };
 
     const handleMouseUp = (e: MouseEvent) => {
+      isDragging = false;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
 
