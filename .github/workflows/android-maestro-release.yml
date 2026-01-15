@@ -1,7 +1,9 @@
 name: Android Maestro Tests (Release)
 
 on:
-  push:
+  workflow_run:
+    workflows: ["build"]
+    types: [completed]
 
 jobs:
   changes:

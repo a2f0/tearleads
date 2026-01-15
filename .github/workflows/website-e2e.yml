@@ -1,7 +1,9 @@
 name: Website E2E Tests
 
 on:
-  push:
+  workflow_run:
+    workflows: ["build"]
+    types: [completed]
 
 jobs:
   changes:
