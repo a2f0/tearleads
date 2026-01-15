@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
+import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { RedisKeyRow } from './RedisKeyRow';
@@ -13,6 +14,7 @@ const PAGE_SIZE = 50;
 const ROW_HEIGHT_ESTIMATE = 48;
 
 export function Admin() {
+  const { t } = useTypedTranslation('contextMenu');
   const [keys, setKeys] = useState<RedisKeyInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -270,7 +272,7 @@ export function Admin() {
             icon={<Trash2 className="h-4 w-4" />}
             onClick={handleDeleteKey}
           >
-            Delete
+            {t('delete')}
           </ContextMenuItem>
         </ContextMenu>
       )}
