@@ -7,6 +7,7 @@ import {
   Loader2,
   Music,
   Pause,
+  Play,
   Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -26,6 +27,7 @@ import { files } from '@/db/schema';
 import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
+import { useTypedTranslation } from '@/i18n';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { detectPlatform, formatFileSize } from '@/lib/utils';
 import {
@@ -72,6 +74,7 @@ export function AudioPage() {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
+  const { t } = useTypedTranslation('contextMenu');
   useAudioErrorHandler();
   const currentTrackRef = useRef(currentTrack);
   const [tracks, setTracks] = useState<AudioWithUrl[]>([]);
@@ -346,6 +349,14 @@ export function AudioPage() {
     [navigateWithFrom]
   );
 
+  const handleContextMenuPlay = useCallback(
+    (track: AudioWithUrl) => {
+      handlePlayPause(track);
+      setContextMenu(null);
+    },
+    [handlePlayPause]
+  );
+
   const handleDelete = useCallback(async (trackToDelete: AudioWithUrl) => {
     setContextMenu(null);
 
@@ -545,16 +556,30 @@ export function AudioPage() {
           onClose={handleCloseContextMenu}
         >
           <ContextMenuItem
+            icon={
+              contextMenu.track.id === currentTrack?.id && isPlaying ? (
+                <Pause className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )
+            }
+            onClick={() => handleContextMenuPlay(contextMenu.track)}
+          >
+            {contextMenu.track.id === currentTrack?.id && isPlaying
+              ? t('pause')
+              : t('play')}
+          </ContextMenuItem>
+          <ContextMenuItem
             icon={<Info className="h-4 w-4" />}
             onClick={() => handleGetInfo(contextMenu.track)}
           >
-            Get info
+            {t('getInfo')}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Trash2 className="h-4 w-4" />}
             onClick={() => handleDelete(contextMenu.track)}
           >
-            Delete
+            {t('delete')}
           </ContextMenuItem>
         </ContextMenu>
       )}

@@ -22,6 +22,7 @@ import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
+import { useTypedTranslation } from '@/i18n';
 import { retrieveFileData } from '@/lib/data-retrieval';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { useNavigateWithFrom } from '@/lib/navigation';
@@ -53,6 +54,7 @@ const ROW_HEIGHT_ESTIMATE = 56;
 export function Documents() {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const { t } = useTypedTranslation('contextMenu');
   const [documents, setDocuments] = useState<DocumentWithUrl[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -511,13 +513,13 @@ export function Documents() {
             icon={<Info className="h-4 w-4" />}
             onClick={handleGetInfo}
           >
-            Get info
+            {t('getInfo')}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Trash2 className="h-4 w-4" />}
             onClick={handleDelete}
           >
-            Delete
+            {t('delete')}
           </ContextMenuItem>
         </ContextMenu>
       )}

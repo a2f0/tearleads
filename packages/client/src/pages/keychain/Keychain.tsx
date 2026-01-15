@@ -7,11 +7,13 @@ import {
   getKeyStatusForInstance
 } from '@/db/crypto/key-manager';
 import { getInstances } from '@/db/instance-registry';
+import { useTypedTranslation } from '@/i18n';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { type InstanceKeyInfo, InstanceKeyRow } from './InstanceKeyRow';
 
 export function Keychain() {
   const navigateWithFrom = useNavigateWithFrom();
+  const { t } = useTypedTranslation('contextMenu');
   const [instanceKeyInfos, setInstanceKeyInfos] = useState<InstanceKeyInfo[]>(
     []
   );
@@ -162,7 +164,7 @@ export function Keychain() {
             icon={<Info className="h-4 w-4" />}
             onClick={() => handleViewDetails(contextMenu.info)}
           >
-            View Details
+            {t('viewDetails')}
           </ContextMenuItem>
         </ContextMenu>
       )}
