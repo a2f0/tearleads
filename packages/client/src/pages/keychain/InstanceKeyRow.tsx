@@ -48,7 +48,7 @@ export function InstanceKeyRow({
           ) : (
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           )}
-          <Key className="h-4 w-4 text-amber-500" />
+          <Key className="h-4 w-4 text-chart-5" />
           <span className="font-medium">{info.instance.name}</span>
         </button>
         {hasSessionKeys && (

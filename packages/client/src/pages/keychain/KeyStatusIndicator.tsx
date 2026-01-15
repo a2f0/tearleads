@@ -9,7 +9,7 @@ export function KeyStatusIndicator({ exists, label }: KeyStatusIndicatorProps) {
   return (
     <div className="flex items-center gap-2">
       {exists ? (
-        <Check className="h-4 w-4 text-green-500" />
+        <Check className="h-4 w-4 text-success" />
       ) : (
         <X className="h-4 w-4 text-muted-foreground" />
       )}

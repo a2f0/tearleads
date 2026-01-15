@@ -135,7 +135,7 @@ describe('LogsTab', () => {
     });
 
     const levelElement = screen.getByText('error');
-    expect(levelElement).toHaveClass('text-red-500');
+    expect(levelElement).toHaveClass('text-destructive');
   });
 
   it('applies correct color for warn level', async () => {
@@ -147,7 +147,7 @@ describe('LogsTab', () => {
     });
 
     const levelElement = screen.getByText('warn');
-    expect(levelElement).toHaveClass('text-yellow-500');
+    expect(levelElement).toHaveClass('text-warning');
   });
 
   it('applies correct color for info level', async () => {
@@ -159,7 +159,7 @@ describe('LogsTab', () => {
     });
 
     const levelElement = screen.getByText('info');
-    expect(levelElement).toHaveClass('text-blue-500');
+    expect(levelElement).toHaveClass('text-info');
   });
 
   it('applies correct color for debug level', async () => {

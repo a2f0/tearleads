@@ -25,13 +25,20 @@ const THEME_COLORS: Record<
     foreground: '#c0caf5',
     primary: '#7aa2f7',
     muted: '#414868'
+  },
+  graphite: {
+    background: '#2b2b2b',
+    foreground: '#d9d9d9',
+    primary: '#a8a8a8',
+    muted: '#404040'
   }
 };
 
 const THEME_LABELS: Record<ResolvedTheme, string> = {
   light: 'Light',
   dark: 'Dark',
-  'tokyo-night': 'Tokyo Night'
+  'tokyo-night': 'Tokyo Night',
+  graphite: 'Graphite'
 };
 
 export function ThemePreview({ theme }: ThemePreviewProps) {

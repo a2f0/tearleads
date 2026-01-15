@@ -61,13 +61,13 @@ export class ErrorBoundary extends Component<Props, State> {
         {this.state.error && (
           <div
             data-testid="error-boundary-bar"
-            className="fixed right-0 bottom-0 left-0 flex items-center justify-between bg-red-600 px-4 py-2 text-sm text-white"
+            className="fixed right-0 bottom-0 left-0 flex items-center justify-between bg-destructive px-4 py-2 text-destructive-foreground text-sm"
           >
             <span>{this.state.error.message}</span>
             <button
               type="button"
               onClick={this.clearError}
-              className="ml-4 rounded p-1 hover:bg-red-700"
+              className="ml-4 rounded p-1 hover:bg-destructive/80"
               aria-label="Dismiss error"
               data-testid="error-boundary-dismiss"
             >
