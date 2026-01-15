@@ -2,7 +2,7 @@ name: Deploy Gate
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["build"]
     types: [completed]
 
 permissions:
