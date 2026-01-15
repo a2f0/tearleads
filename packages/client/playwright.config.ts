@@ -8,7 +8,7 @@ const parsedWorkers = Number(process.env.PW_WORKERS);
 const fullyParallel = process.env.PW_FULLY_PARALLEL === 'true';
 // Scale workers based on CPU cores (half cores, min 1, max 8)
 // Set PW_WORKERS to override (e.g., PW_WORKERS=1 for serial)
-// Each worker uses its own database instance via ?testWorker param
+// Each worker uses its own database instance via injected global (see tests/fixtures.ts)
 const defaultWorkers = Math.max(1, Math.min(8, Math.floor(cpus().length / 2)));
 const workers =
   Number.isFinite(parsedWorkers) && parsedWorkers > 0
@@ -22,7 +22,7 @@ const workers =
 export default defineConfig({
   testDir: './tests',
   testIgnore: ['**/electron/**'],
-  // Each worker has isolated OPFS via ?testWorker param (see tests/fixtures.ts)
+  // Each worker has isolated OPFS via addInitScript (see tests/fixtures.ts)
   // Set PW_FULLY_PARALLEL=true to also run tests within files in parallel
   fullyParallel,
   workers,

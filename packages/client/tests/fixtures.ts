@@ -1,57 +1,35 @@
 /**
  * Custom Playwright fixtures for parallel test isolation.
  *
- * Each worker gets a unique testWorker query param appended to URLs,
- * which the app uses to select a worker-specific database instance.
- * This eliminates OPFS race conditions when running tests in parallel.
+ * Each worker injects its index via addInitScript before page scripts run.
+ * The app reads this global to select a worker-specific database instance,
+ * eliminating OPFS race conditions when running tests in parallel.
  */
 
 import { test as base } from '@playwright/test';
 
 /**
- * Extended test with worker-isolated page navigation.
+ * Global variable name used to pass worker index to the browser.
+ * Must match the name used in src/lib/test-instance.ts
+ */
+const WORKER_INDEX_GLOBAL = '__PLAYWRIGHT_WORKER_INDEX__';
+
+/**
+ * Extended test with worker-isolated database instances.
  *
- * Automatically appends ?testWorker={workerIndex} to all page.goto() calls,
+ * Injects the worker index as a global variable before any page script runs,
  * ensuring each worker uses its own database instance.
  */
 export const test = base.extend({
   page: async ({ page }, use, testInfo) => {
-    const workerIndex = testInfo.workerIndex;
-
-    // Override goto to automatically append worker index
-    const originalGoto = page.goto.bind(page);
-
-    page.goto = async (url: string, options?: Parameters<typeof page.goto>[1]) => {
-      const urlWithWorker = appendWorkerIndex(url, workerIndex);
-      return originalGoto(urlWithWorker, options);
-    };
-
+    await page.addInitScript(
+      ({ globalName, index }) => {
+        (window as unknown as Record<string, number>)[globalName] = index;
+      },
+      { globalName: WORKER_INDEX_GLOBAL, index: testInfo.workerIndex }
+    );
     await use(page);
   }
 });
-
-/**
- * Append the worker index as a query parameter to a URL.
- */
-function appendWorkerIndex(url: string, workerIndex: number): string {
-  // Handle relative URLs (starting with /)
-  if (url.startsWith('/')) {
-    const hasQuery = url.includes('?');
-    const separator = hasQuery ? '&' : '?';
-    return `${url}${separator}testWorker=${workerIndex}`;
-  }
-
-  // Handle absolute URLs
-  try {
-    const parsed = new URL(url);
-    parsed.searchParams.set('testWorker', String(workerIndex));
-    return parsed.toString();
-  } catch {
-    // If URL parsing fails, just append as query string
-    const hasQuery = url.includes('?');
-    const separator = hasQuery ? '&' : '?';
-    return `${url}${separator}testWorker=${workerIndex}`;
-  }
-}
 
 export { expect } from '@playwright/test';
