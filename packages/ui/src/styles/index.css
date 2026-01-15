@@ -119,7 +119,7 @@
   --chart-8: hsl(95 65% 55%);
 }
 
-.graphite {
+.monochrome {
   --background: hsl(0 0% 12%);
   --foreground: hsl(0 0% 85%);
   --card: hsl(0 0% 15%);
