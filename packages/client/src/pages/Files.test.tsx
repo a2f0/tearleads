@@ -708,6 +708,7 @@ describe('Files', () => {
       );
       consoleSpy.mockRestore();
     });
+
   });
 
   describe('delete functionality', () => {
