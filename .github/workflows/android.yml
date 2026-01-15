@@ -8,8 +8,7 @@ jobs:
   android:
     name: Android Instrumented Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    timeout-minutes: 20
     steps:
       - name: Free disk space
         run: |
@@ -41,6 +40,9 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
@@ -90,6 +92,11 @@ jobs:
         run: bundle exec fastlane android test
         working-directory: packages/client
 
+      - name: Restart adb
+        run: |
+          adb kill-server || true
+          adb start-server
+
       - name: Run Android instrumented tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -102,4 +109,4 @@ jobs:
           script: |
             adb wait-for-device
             adb shell input keyevent 82
-            bundle exec fastlane android test_instrumented
+            bundle exec fastlane android test_instrumented_release

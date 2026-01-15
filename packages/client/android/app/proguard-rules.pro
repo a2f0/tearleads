@@ -31,3 +31,7 @@
 # Kotlin Coroutines - keep SpillingKt class used by Capacitor Filesystem plugin
 -keep class kotlin.coroutines.jvm.internal.SpillingKt { *; }
 -dontwarn kotlin.coroutines.jvm.internal.SpillingKt
+
+# Keep Kotlin stdlib classes used by AndroidX test runner in release instrumentation
+-keep class kotlin.jvm.internal.Intrinsics { *; }
+-keep class kotlin.** { *; }
