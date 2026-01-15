@@ -80,7 +80,7 @@ Skip issue creation for:
 - Add "Generated with Claude Code" footers
 - Force push unless explicitly instructed
 - Use `--no-verify` to bypass git hooks
-- Commit or push to `main` branch; create a new branch instead
+- Commit or push to `main` branch; create a new branch instead. To merge PRs, use `gh pr merge` or the GitHub UI - never merge locally and push.
 - Use `any` typings or `as` TypeScript assertions
 - Decrease code coverage thresholds; always write tests for new code
 - Commit binary files (PNG, JPG, ICO, etc.); use SVG or external URLs
