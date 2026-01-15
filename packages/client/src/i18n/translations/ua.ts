@@ -54,5 +54,12 @@ export const ua = {
       "Тимчасовий ключ, що шифрує дані сесії в пам'яті",
     keychainSessionWrappedKey:
       'Ваш ключ шифрування, захищений ключем обгортки сесії'
+  },
+  contextMenu: {
+    play: 'Відтворити',
+    pause: 'Пауза',
+    getInfo: 'Інформація',
+    viewDetails: 'Детальніше',
+    delete: 'Видалити'
   }
 } as const satisfies I18NextTranslations;
