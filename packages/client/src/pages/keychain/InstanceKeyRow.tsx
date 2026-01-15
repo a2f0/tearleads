@@ -73,18 +73,25 @@ export function InstanceKeyRow({
             <p>Last accessed: {formatDate(info.instance.lastAccessedAt)}</p>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <KeyStatusIndicator exists={info.keyStatus.salt} label="Salt" />
+            <KeyStatusIndicator
+              exists={info.keyStatus.salt}
+              label="Salt"
+              tooltip="Random value used with your password to derive the encryption key"
+            />
             <KeyStatusIndicator
               exists={info.keyStatus.keyCheckValue}
               label="Key Check Value"
+              tooltip="Hash used to verify your password is correct without storing it"
             />
             <KeyStatusIndicator
               exists={info.keyStatus.wrappingKey}
               label="Session Wrapping Key"
+              tooltip="Temporary key that encrypts your session data in memory"
             />
             <KeyStatusIndicator
               exists={info.keyStatus.wrappedKey}
               label="Session Wrapped Key"
+              tooltip="Your encryption key protected by the session wrapping key"
             />
           </div>
         </div>
