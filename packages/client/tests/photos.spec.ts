@@ -1,4 +1,5 @@
-import { test, expect, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { clearOriginStorage, MINIMAL_PNG } from './test-utils';
 
 // Helper to check if viewport is mobile (sidebar hidden at lg breakpoint = 1024px)

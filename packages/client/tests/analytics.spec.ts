@@ -1,4 +1,5 @@
-import { test, expect, type Page, type ConsoleMessage } from '@playwright/test';
+import type { ConsoleMessage, Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { clearOriginStorage } from './test-utils';
 
 // Use dbTest for tests that require database setup
