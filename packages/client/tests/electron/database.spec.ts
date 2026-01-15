@@ -225,8 +225,8 @@ test.describe('Database (Electron)', () => {
     // Close the app
     await electronApp.close();
 
-    // Relaunch the app
-    electronApp = await launchElectronApp();
+    // Relaunch the app without clearing storage to test persistence
+    electronApp = await launchElectronApp({clearStorage: false});
     window = await electronApp.firstWindow();
 
     // Navigate to SQLite page via sidebar
@@ -364,8 +364,8 @@ test.describe('Database (Electron)', () => {
     // Close the app
     await electronApp.close();
 
-    // Relaunch the app
-    electronApp = await launchElectronApp();
+    // Relaunch the app without clearing storage to test persistence
+    electronApp = await launchElectronApp({clearStorage: false});
     window = await electronApp.firstWindow();
 
     // Navigate to SQLite page via sidebar

@@ -289,9 +289,9 @@ test.describe('Instance Switching (Electron)', () => {
       .textContent();
     expect(secondInstanceData).toBeTruthy();
 
-    // Close and relaunch the app
+    // Close and relaunch the app without clearing storage to test persistence
     await electronApp.close();
-    electronApp = await launchElectronApp();
+    electronApp = await launchElectronApp({clearStorage: false});
     window = await electronApp.firstWindow();
 
     // Wait for app to load
