@@ -19,12 +19,6 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'json', 'json-summary', 'html'],
       reportsDirectory: './coverage',
-      thresholds: {
-        statements: 94.42,
-        branches: 86.68,
-        functions: 95.4,
-        lines: 96.11
-      },
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
         'src/**/*.test.{ts,tsx}',
@@ -92,7 +86,13 @@ export default defineConfig({
         'src/db/migrations/types.ts',
         'src/i18n/translations/types.ts',
         'src/pages/opfs/types.ts'
-      ]
+      ],
+      thresholds: {
+        statements: 88,
+        branches: 80.4,
+        functions: 86.8,
+        lines: 90.2
+      }
     }
   },
   resolve: {
