@@ -3,8 +3,13 @@
 # then moves tmux window to the back of the window list.
 # Does NOT clear queued status - that is handled by clearQueued.sh
 set -eu
+SCRIPT_PATH=$0
+case $SCRIPT_PATH in
+  */*) ;;
+  *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
+esac
+SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/repoRoot.sh"
 SETTINGS_FILE="$REPO_ROOT/.vscode/settings.json"
 

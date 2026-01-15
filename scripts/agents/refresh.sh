@@ -2,8 +2,13 @@
 # Refresh workspace after a PR is merged: switches to main, pulls latest,
 # installs dependencies, builds packages, and sets VS Code title to "ready".
 set -eu
+SCRIPT_PATH=$0
+case $SCRIPT_PATH in
+  */*) ;;
+  *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
+esac
+SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/repoRoot.sh"
 CLIENT_DIR="$REPO_ROOT/packages/client"
 

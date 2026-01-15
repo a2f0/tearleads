@@ -1,6 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { type SnapPoint, useBottomSheetGesture } from './useBottomSheetGesture';
+import {
+  type SnapPoint,
+  setupResizeListener,
+  useBottomSheetGesture
+} from './useBottomSheetGesture';
 
 type GestureCallback = (detail: { deltaY: number; velocityY: number }) => void;
 
@@ -571,6 +575,44 @@ describe('useBottomSheetGesture', () => {
       handle.remove();
     });
 
+    it('snaps to nearest when velocity has no lower snap point', async () => {
+      vi.useFakeTimers();
+      const handle = createMockHandle();
+
+      const { result } = renderHook(() =>
+        useBottomSheetGesture({
+          snapPoints: defaultSnapPoints,
+          initialSnapPoint: 'collapsed',
+          minHeight: 100,
+          maxHeightPercent: 0.85
+        })
+      );
+
+      act(() => {
+        result.current.handleRef(handle);
+      });
+
+      vi.setSystemTime(new Date('2024-01-01T00:00:00.000Z'));
+      act(() => {
+        dispatchMouseEvent(handle, 'mousedown', 500);
+      });
+
+      vi.setSystemTime(new Date('2024-01-01T00:00:00.010Z'));
+      act(() => {
+        dispatchMouseEvent(document, 'mousemove', 510);
+      });
+
+      vi.setSystemTime(new Date('2024-01-01T00:00:00.011Z'));
+      act(() => {
+        dispatchMouseEvent(document, 'mouseup', 515);
+        vi.advanceTimersByTime(350);
+      });
+
+      expect(result.current.height).toBe(200);
+      vi.useRealTimers();
+      handle.remove();
+    });
+
     it('respects min and max height constraints during mouse drag', () => {
       const handle = createMockHandle();
 
@@ -689,6 +731,23 @@ describe('useBottomSheetGesture', () => {
       // Height should still be correct
       expect(result.current.height).toBe(200);
     });
+
+    it('returns a no-op cleanup when window is unavailable', () => {
+      const originalWindow = globalThis.window;
+      Object.defineProperty(globalThis, 'window', {
+        value: undefined,
+        configurable: true
+      });
+
+      const cleanup = setupResizeListener(() => {});
+      expect(typeof cleanup).toBe('function');
+      cleanup();
+
+      Object.defineProperty(globalThis, 'window', {
+        value: originalWindow,
+        configurable: true
+      });
+    });
   });
 
   describe('Ionic gesture handlers', () => {
@@ -757,6 +816,64 @@ describe('useBottomSheetGesture', () => {
       });
 
       expect(onDismiss).toHaveBeenCalled();
+      handle.remove();
+    });
+
+    it('falls back when no valid snap points exist', async () => {
+      vi.useFakeTimers();
+      const handle = createMockHandle();
+
+      const { result } = renderHook(() =>
+        useBottomSheetGesture({
+          snapPoints: [{ name: 'too-tall', height: 1000 }],
+          initialSnapPoint: 'too-tall',
+          minHeight: 100,
+          maxHeightPercent: 0.1
+        })
+      );
+
+      act(() => {
+        result.current.handleRef(handle);
+      });
+
+      await act(async () => {
+        mockGestureCallbacks?.onStart({ deltaY: 0, velocityY: 0 });
+        mockGestureCallbacks?.onMove({ deltaY: 20, velocityY: 0 });
+        mockGestureCallbacks?.onEnd({ deltaY: 20, velocityY: 0.1 });
+        vi.advanceTimersByTime(350);
+      });
+
+      expect(result.current.height).toBe(100);
+      vi.useRealTimers();
+      handle.remove();
+    });
+
+    it('handles velocity with no available snap points', async () => {
+      vi.useFakeTimers();
+      const handle = createMockHandle();
+
+      const { result } = renderHook(() =>
+        useBottomSheetGesture({
+          snapPoints: [{ name: 'too-tall', height: 1000 }],
+          initialSnapPoint: 'too-tall',
+          minHeight: 100,
+          maxHeightPercent: 0.1
+        })
+      );
+
+      act(() => {
+        result.current.handleRef(handle);
+      });
+
+      await act(async () => {
+        mockGestureCallbacks?.onStart({ deltaY: 0, velocityY: 0 });
+        mockGestureCallbacks?.onMove({ deltaY: 20, velocityY: 0 });
+        mockGestureCallbacks?.onEnd({ deltaY: 20, velocityY: 0.9 });
+        vi.advanceTimersByTime(350);
+      });
+
+      expect(result.current.height).toBe(100);
+      vi.useRealTimers();
       handle.remove();
     });
   });

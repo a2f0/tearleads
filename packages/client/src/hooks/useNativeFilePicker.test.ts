@@ -269,6 +269,25 @@ describe('useNativeFilePicker', () => {
       expect(FilePicker.pickImages).not.toHaveBeenCalled();
       expect(FilePicker.pickMedia).not.toHaveBeenCalled();
     });
+
+    it('throws when a picked file has no data', async () => {
+      vi.mocked(FilePicker.pickFiles).mockResolvedValue({
+        files: [
+          {
+            name: 'broken.mp3',
+            mimeType: 'audio/mpeg',
+            size: 1024,
+            data: ''
+          }
+        ]
+      });
+
+      const { result } = renderHook(() => useNativeFilePicker());
+
+      await expect(
+        result.current.pickFiles({ accept: 'audio/*' })
+      ).rejects.toThrow('No data returned for file: broken.mp3');
+    });
   });
 
   describe('on Android platform', () => {

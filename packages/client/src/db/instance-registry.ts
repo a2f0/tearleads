@@ -4,6 +4,8 @@
  * is visible before entering a password.
  */
 
+import { getTestInstanceId, isTestMode } from '@/lib/test-instance';
+
 const REGISTRY_DB_NAME = 'rapid_instance_registry';
 const REGISTRY_STORE_NAME = 'registry';
 const REGISTRY_KEY = 'instances';
@@ -214,8 +216,19 @@ export async function getInstance(
 /**
  * Initialize the registry with a default instance if empty.
  * Returns the active instance (creating one if needed).
+ *
+ * In test mode (Playwright), uses a deterministic instance ID based on
+ * the worker index to enable parallel test execution without OPFS conflicts.
  */
 export async function initializeRegistry(): Promise<InstanceMetadata> {
+  // In test mode, use a deterministic instance ID for the worker
+  if (isTestMode()) {
+    const testInstanceId = getTestInstanceId();
+    if (testInstanceId) {
+      return initializeTestInstance(testInstanceId);
+    }
+  }
+
   const instances = await getInstances();
   const activeId = await getActiveInstanceId();
 
@@ -239,6 +252,32 @@ export async function initializeRegistry(): Promise<InstanceMetadata> {
   }
 
   return activeInstance;
+}
+
+/**
+ * Initialize a test-specific instance with a deterministic ID.
+ * Creates the instance if it doesn't exist, or returns existing one.
+ */
+async function initializeTestInstance(
+  testInstanceId: string
+): Promise<InstanceMetadata> {
+  const instances = await getInstances();
+  let testInstance = instances.find((inst) => inst.id === testInstanceId);
+
+  if (!testInstance) {
+    const now = Date.now();
+    testInstance = {
+      id: testInstanceId,
+      name: `Test Worker ${testInstanceId.replace('test-worker-', '')}`,
+      createdAt: now,
+      lastAccessedAt: now
+    };
+    instances.push(testInstance);
+    await setInStore(REGISTRY_KEY, instances);
+  }
+
+  await setActiveInstanceId(testInstanceId);
+  return testInstance;
 }
 
 /**

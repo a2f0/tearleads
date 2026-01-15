@@ -1,4 +1,6 @@
-import { test, expect, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
+import { clearOriginStorage } from './test-utils';
 
 /**
  * Get the current height of the bottom sheet
@@ -72,6 +74,7 @@ async function dragHandle(
 
 test.describe('Bottom Sheet', () => {
   test.beforeEach(async ({ page }) => {
+    await clearOriginStorage(page);
     await page.goto('/');
     // Open the settings sheet
     await page.getByTestId('settings-button').click();

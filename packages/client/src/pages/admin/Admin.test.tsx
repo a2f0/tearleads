@@ -26,17 +26,33 @@ vi.mock('@/lib/api', () => ({
 
 // Mock useVirtualizer to simplify testing
 vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: vi.fn(({ count }) => ({
-    getVirtualItems: () =>
-      Array.from({ length: count }, (_, i) => ({
-        index: i,
-        start: i * 48,
-        size: 48,
-        key: i
-      })),
-    getTotalSize: () => count * 48,
-    measureElement: vi.fn()
-  }))
+  useVirtualizer: vi.fn(
+    (options: { count: number } & Record<string, unknown>) => {
+      const getScrollElement = options['getScrollElement'];
+      if (typeof getScrollElement === 'function') {
+        getScrollElement();
+      }
+
+      const estimateSize = options['estimateSize'];
+      if (typeof estimateSize === 'function') {
+        estimateSize();
+      }
+
+      const { count } = options;
+
+      return {
+        getVirtualItems: () =>
+          Array.from({ length: count }, (_, i) => ({
+            index: i,
+            start: i * 48,
+            size: 48,
+            key: i
+          })),
+        getTotalSize: () => count * 48,
+        measureElement: vi.fn()
+      };
+    }
+  )
 }));
 
 function renderAdmin() {

@@ -5,6 +5,7 @@ import {
   Page
 } from '@playwright/test';
 import {dirname, join} from 'node:path';
+import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import * as fs from 'node:fs';
 import {launchElectronApp} from './electron-test-helper';
@@ -68,20 +69,182 @@ test.describe('Backup & Restore (Electron)', () => {
     await expect(window.getByText('Create Backup')).toBeVisible();
   });
 
-  // Skip export/restore tests that require download events
-  // Electron uses native file dialogs instead of browser download events
-  // These tests would need to mock electron's dialog.showSaveDialog
+  // This test requires mocking Electron's native file dialog
+  // which is not supported in Playwright's Electron testing
   test.skip('should export database', async () => {
-    // This test requires mocking Electron's native file dialog
-    // which is not supported in Playwright's Electron testing
+    // Setup database first
+    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await window.getByTestId('db-setup-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Navigate to settings via sidebar
+    await window.locator('nav').getByRole('link', { name: 'Settings' }).click();
+    await expect(window).toHaveURL(/\/settings/);
+
+    const exportButton = window.getByTestId('backup-export-button');
+    await expect(exportButton).toBeVisible();
+    await expect(exportButton).toBeEnabled();
+
+    const downloadPromise = window.waitForEvent('download');
+    await exportButton.click();
+    const download = await downloadPromise;
+
+    expect(download.suggestedFilename()).toMatch(
+      /^rapid-backup-\d{4}-\d{2}-\d{2}-\d{6}\.db$/
+    );
+    const path = await download.path();
+    expect(path).toBeTruthy();
   });
 
+  // Depends on export test which requires native file dialog mocking
   test.skip('should restore from backup and preserve data', async () => {
-    // This test requires export functionality which uses native dialogs
+    // Setup database first
+    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await window.getByTestId('db-setup-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Write some data
+    await window.getByTestId('db-write-button').click();
+    await waitForSuccess(window);
+    const originalValue = await window
+      .getByTestId('db-test-data')
+      .textContent();
+
+    // Export database
+    const downloadPromise = window.waitForEvent('download');
+    await window.locator('nav').getByRole('link', { name: 'Settings' }).click();
+    await expect(window).toHaveURL(/\/settings/);
+    await window.getByTestId('backup-export-button').click();
+    const download = await downloadPromise;
+
+    const backupPath = join(tmpdir(), `rapid-electron-backup-${Date.now()}.db`);
+    await download.saveAs(backupPath);
+
+    try {
+      // Reset database
+      await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
+      await expect(window).toHaveURL(/\/sqlite/);
+      await window.getByTestId('db-reset-button').click();
+      await waitForSuccess(window);
+      await expect(window.getByTestId('db-status')).toHaveText('Not Set Up');
+
+      // Set up a fresh database
+      await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+      await window.getByTestId('db-setup-button').click();
+      await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+        timeout: DB_OPERATION_TIMEOUT
+      });
+
+      // Restore from backup
+      await window.locator('nav').getByRole('link', { name: 'Settings' }).click();
+      await expect(window).toHaveURL(/\/settings/);
+      const fileInput = window.getByTestId('dropzone-input');
+      await fileInput.setInputFiles(backupPath);
+
+      await expect(window.getByTestId('backup-restore-confirm')).toBeVisible({
+        timeout: 5000
+      });
+      await window.getByTestId('backup-restore-confirm').click();
+
+      // After restore, unlock and verify data
+      await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
+      await expect(window).toHaveURL(/\/sqlite/);
+      await expect(window.getByTestId('db-status')).toHaveText('Locked', {
+        timeout: DB_OPERATION_TIMEOUT
+      });
+      await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+      await window.getByTestId('db-unlock-button').click();
+      await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+        timeout: DB_OPERATION_TIMEOUT
+      });
+      await window.getByTestId('db-read-button').click();
+      await waitForSuccess(window);
+      const restoredValue = await window
+        .getByTestId('db-test-data')
+        .textContent();
+
+      expect(restoredValue).toBe(originalValue);
+    } finally {
+      fs.unlinkSync(backupPath);
+    }
   });
 
+  // Depends on restore test which requires native file dialog mocking
   test.skip('should persist restored data across app restarts', async () => {
-    // This test requires export functionality which uses native dialogs
+    // Setup database first
+    await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+    await window.getByTestId('db-setup-button').click();
+    await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    await window.getByTestId('db-write-button').click();
+    await waitForSuccess(window);
+    const originalValue = await window
+      .getByTestId('db-test-data')
+      .textContent();
+
+    const downloadPromise = window.waitForEvent('download');
+    await window.locator('nav').getByRole('link', { name: 'Settings' }).click();
+    await expect(window).toHaveURL(/\/settings/);
+    await window.getByTestId('backup-export-button').click();
+    const download = await downloadPromise;
+
+    const backupPath = join(tmpdir(), `rapid-electron-restart-${Date.now()}.db`);
+    await download.saveAs(backupPath);
+
+    try {
+      await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
+      await expect(window).toHaveURL(/\/sqlite/);
+      await window.getByTestId('db-reset-button').click();
+      await waitForSuccess(window);
+
+      await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+      await window.getByTestId('db-setup-button').click();
+      await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+        timeout: DB_OPERATION_TIMEOUT
+      });
+
+      await window.locator('nav').getByRole('link', { name: 'Settings' }).click();
+      await expect(window).toHaveURL(/\/settings/);
+      await window.getByTestId('dropzone-input').setInputFiles(backupPath);
+      await expect(window.getByTestId('backup-restore-confirm')).toBeVisible({
+        timeout: 5000
+      });
+      await window.getByTestId('backup-restore-confirm').click();
+
+      await electronApp.close();
+      electronApp = await launchElectronApp();
+      window = await electronApp.firstWindow();
+
+      await expect(
+        window.getByRole('heading', { name: 'Tearleads', level: 1 })
+      ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
+
+      await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
+      await expect(window.getByTestId('database-test')).toBeVisible();
+      await expect(window.getByTestId('db-status')).toHaveText('Locked', {
+        timeout: DB_OPERATION_TIMEOUT
+      });
+      await window.getByTestId('db-password-input').fill(TEST_PASSWORD);
+      await window.getByTestId('db-unlock-button').click();
+      await expect(window.getByTestId('db-status')).toHaveText('Unlocked', {
+        timeout: DB_OPERATION_TIMEOUT
+      });
+      await window.getByTestId('db-read-button').click();
+      await waitForSuccess(window);
+      const restoredValue = await window
+        .getByTestId('db-test-data')
+        .textContent();
+
+      expect(restoredValue).toBe(originalValue);
+    } finally {
+      fs.unlinkSync(backupPath);
+    }
   });
 
   test('should show error for invalid file type', async () => {

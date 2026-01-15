@@ -1,11 +1,16 @@
-import { test, expect, Page } from '@playwright/test';
-import { MINIMAL_PNG } from './test-utils';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
+import { clearOriginStorage, MINIMAL_PNG } from './test-utils';
 
 // Helper to check if viewport is mobile (sidebar hidden at lg breakpoint = 1024px)
 function isMobileViewport(page: Page): boolean {
   const viewport = page.viewportSize();
   return (viewport?.width ?? 0) < 1024;
 }
+
+test.beforeEach(async ({ page }) => {
+  await clearOriginStorage(page);
+});
 
 // Helper to navigate to a page, handling mobile/desktop differences
 async function navigateToPage(page: Page, pageName: 'SQLite' | 'Photos') {

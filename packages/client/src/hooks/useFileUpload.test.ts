@@ -48,10 +48,14 @@ vi.mock('@/storage/opfs', () => ({
 import { fileTypeFromBuffer } from 'file-type';
 import { getDatabase } from '@/db';
 import { logEvent } from '@/db/analytics';
-import { getKeyManager } from '@/db/crypto';
+import { getCurrentInstanceId, getKeyManager } from '@/db/crypto';
 import { computeContentHash, readFileAsUint8Array } from '@/lib/file-utils';
 import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
-import { getFileStorage, isFileStorageInitialized } from '@/storage/opfs';
+import {
+  getFileStorage,
+  initializeFileStorage,
+  isFileStorageInitialized
+} from '@/storage/opfs';
 
 describe('useFileUpload', () => {
   const mockEncryptionKey = new Uint8Array(32);
@@ -237,6 +241,87 @@ describe('useFileUpload', () => {
       // Should store original but no thumbnail
       expect(mockStorage.measureStore).toHaveBeenCalledTimes(1);
       expect(generateThumbnail).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('environment errors', () => {
+    it('throws when no active instance is available', async () => {
+      vi.mocked(getCurrentInstanceId).mockReturnValue(null);
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+        ext: 'png',
+        mime: 'image/png'
+      });
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['fake-png-data'], 'image.png', {
+        type: 'image/png'
+      });
+
+      await expect(result.current.uploadFile(file)).rejects.toThrow(
+        'No active instance'
+      );
+    });
+
+    it('initializes storage when not already initialized', async () => {
+      vi.mocked(isFileStorageInitialized).mockReturnValue(false);
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+        ext: 'png',
+        mime: 'image/png'
+      });
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['fake-png-data'], 'image.png', {
+        type: 'image/png'
+      });
+
+      await result.current.uploadFile(file);
+
+      expect(initializeFileStorage).toHaveBeenCalledWith(
+        mockEncryptionKey,
+        'test-instance'
+      );
+    });
+
+    it('logs a warning when thumbnail analytics fail', async () => {
+      const warnSpy = mockConsoleWarn();
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+        ext: 'png',
+        mime: 'image/png'
+      });
+      vi.mocked(isThumbnailSupported).mockReturnValue(true);
+      vi.mocked(generateThumbnail).mockResolvedValue(new Uint8Array([1, 2, 3]));
+      vi.mocked(logEvent).mockRejectedValue(new Error('log failed'));
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['fake-png-data'], 'image.png', {
+        type: 'image/png'
+      });
+
+      await result.current.uploadFile(file);
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Failed to log thumbnail_generation event:',
+        expect.any(Error)
+      );
+      warnSpy.mockRestore();
+    });
+
+    it('skips storing thumbnails when none are generated', async () => {
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+        ext: 'png',
+        mime: 'image/png'
+      });
+      vi.mocked(isThumbnailSupported).mockReturnValue(true);
+      vi.mocked(generateThumbnail).mockResolvedValue(null);
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['fake-png-data'], 'image.png', {
+        type: 'image/png'
+      });
+
+      await result.current.uploadFile(file);
+
+      expect(mockStorage.store).not.toHaveBeenCalled();
     });
   });
 
