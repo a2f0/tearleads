@@ -1,0 +1,73 @@
+name: Integration & Deploy
+
+on:
+  workflow_run:
+    workflows: ["build"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  check-build:
+    name: Verify Build Success
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    steps:
+      - run: echo "Build succeeded, proceeding with integration tests and deploy"
+
+  web-e2e:
+    name: Web E2E
+    needs: check-build
+    uses: ./.github/workflows/web-e2e.yml
+
+  website-e2e:
+    name: Website E2E
+    needs: check-build
+    uses: ./.github/workflows/website-e2e.yml
+
+  electron-e2e:
+    name: Electron E2E
+    needs: check-build
+    uses: ./.github/workflows/electron-e2e.yml
+
+  android:
+    name: Android Tests
+    needs: check-build
+    uses: ./.github/workflows/android.yml
+
+  android-maestro:
+    name: Android Maestro
+    needs: check-build
+    uses: ./.github/workflows/android-maestro-release.yml
+
+  ios-maestro:
+    name: iOS Maestro
+    needs: check-build
+    uses: ./.github/workflows/ios-maestro-release.yml
+
+  deploy-web:
+    name: Deploy Web
+    needs: [web-e2e, website-e2e, electron-e2e, android, android-maestro, ios-maestro]
+    uses: ./.github/workflows/deploy-web.yml
+    secrets: inherit
+
+  deploy-android:
+    name: Deploy Android
+    needs: [web-e2e, website-e2e, electron-e2e, android, android-maestro, ios-maestro]
+    uses: ./.github/workflows/deploy-android-play-store.yml
+    secrets: inherit
+
+  deploy-ios:
+    name: Deploy iOS
+    needs: [web-e2e, website-e2e, electron-e2e, android, android-maestro, ios-maestro]
+    uses: ./.github/workflows/deploy-ios-testflight.yml
+    secrets: inherit
+
+  deploy-desktop:
+    name: Deploy Desktop
+    needs: [web-e2e, website-e2e, electron-e2e, android, android-maestro, ios-maestro]
+    uses: ./.github/workflows/deploy-desktop.yml
+    secrets: inherit
