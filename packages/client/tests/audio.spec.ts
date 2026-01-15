@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page, Locator } from '@playwright/test';
 import { MINIMAL_WAV } from './test-utils';
 
 // Skip tests that require database setup in CI release builds
@@ -82,6 +82,59 @@ async function playFirstTrack(page: Page) {
   await expect(page.getByTestId('audio-player')).toBeVisible({ timeout: 10000 });
 }
 
+async function getWebkitThumbStyle(slider: Locator) {
+  return slider.evaluate((el) => {
+    const style = getComputedStyle(el, '::-webkit-slider-thumb');
+    return {
+      width: Number.parseFloat(style.width),
+      height: Number.parseFloat(style.height),
+      backgroundColor: style.backgroundColor,
+      borderColor: style.borderColor,
+      boxShadow: style.boxShadow
+    };
+  });
+}
+
+async function getSliderStyle(slider: Locator, pseudo?: string) {
+  return slider.evaluate(
+    (el, pseudoElement) => {
+      const style = getComputedStyle(el, pseudoElement || undefined);
+      return {
+        backgroundImage: style.backgroundImage,
+        backgroundColor: style.backgroundColor,
+        borderColor: style.borderColor
+      };
+    },
+    pseudo
+  );
+}
+
+async function expectVisibleTrack(slider: Locator) {
+  const baseStyle = await getSliderStyle(slider);
+  const hasGradient =
+    baseStyle.backgroundImage !== 'none' &&
+    baseStyle.backgroundImage !== 'initial';
+  const hasSolidBackground = baseStyle.backgroundColor !== 'rgba(0, 0, 0, 0)';
+  expect(hasGradient || hasSolidBackground).toBe(true);
+  expect(baseStyle.borderColor).not.toBe('rgba(0, 0, 0, 0)');
+
+  const trackStyle = await getSliderStyle(
+    slider,
+    '::-webkit-slider-runnable-track'
+  );
+  expect(trackStyle.backgroundImage).not.toBe('none');
+  expect(trackStyle.borderColor).not.toBe('rgba(0, 0, 0, 0)');
+}
+
+async function expectVisibleThumb(slider: Locator) {
+  const thumbStyle = await getWebkitThumbStyle(slider);
+  expect(thumbStyle.width).toBeGreaterThan(0);
+  expect(thumbStyle.height).toBeGreaterThan(0);
+  expect(thumbStyle.backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+  expect(thumbStyle.borderColor).not.toBe('rgba(0, 0, 0, 0)');
+  expect(thumbStyle.boxShadow).not.toBe('none');
+}
+
 test.describe('Audio player slider visibility', () => {
   test.skip(skipDatabaseTests, 'Database setup fails in CI release builds');
 
@@ -120,6 +173,8 @@ test.describe('Audio player slider visibility', () => {
         return getComputedStyle(el).getPropertyValue('--progress');
       });
       expect(progressVar).toBeTruthy();
+
+      await expectVisibleTrack(seekSlider);
     });
 
     test('volume slider track should be visible with wedge shape', async ({
@@ -157,6 +212,9 @@ test.describe('Audio player slider visibility', () => {
         return getComputedStyle(el).getPropertyValue('--progress');
       });
       expect(progressVar).toBeTruthy();
+
+      await expectVisibleTrack(volumeSlider);
+      await expectVisibleThumb(volumeSlider);
     });
 
     test('seek slider thumb should be visible and centered', async ({
@@ -175,6 +233,8 @@ test.describe('Audio player slider visibility', () => {
 
       // Verify that the slider is interactable (can click on it)
       // This implicitly tests that the thumb is there and the slider is functional
+      await expectVisibleThumb(seekSlider);
+
       const boundingBox = await seekSlider.boundingBox();
       expect(boundingBox).not.toBeNull();
 
