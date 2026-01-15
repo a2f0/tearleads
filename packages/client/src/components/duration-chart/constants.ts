@@ -17,15 +17,16 @@ const CHART_COLOR_VARS = [
  */
 export function getChartColors(): string[] {
   if (typeof document === 'undefined') {
+    // Use distinct, evenly distributed grayscale values for SSR fallback
     return [
+      '#505050',
+      '#606060',
+      '#707070',
       '#808080',
       '#909090',
       '#a0a0a0',
       '#b0b0b0',
-      '#c0c0c0',
-      '#858585',
-      '#959595',
-      '#a5a5a5'
+      '#c0c0c0'
     ];
   }
 
