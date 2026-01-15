@@ -4,10 +4,11 @@ on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
+  pull_request:
 
 jobs:
   changes:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       core: ${{ steps.read.outputs.core }}
@@ -19,8 +20,51 @@ jobs:
       website: ${{ steps.read.outputs.website }}
       run_event: ${{ steps.read.outputs.run_event }}
     steps:
+      - uses: actions/checkout@v4
+        if: ${{ github.event_name != 'workflow_run' }}
+
+      - uses: dorny/paths-filter@v3
+        if: ${{ github.event_name != 'workflow_run' }}
+        id: filter
+        with:
+          filters: |
+            core:
+              - 'packages/shared/**'
+              - 'packages/ui/**'
+              - '.github/workflows/build.yml'
+              - '.github/workflows/web-e2e.yml'
+              - '.github/workflows/website-e2e.yml'
+              - '.github/workflows/electron-e2e.yml'
+              - '.github/workflows/android.yml'
+              - '.github/workflows/android-maestro-release.yml'
+              - '.github/workflows/ios-maestro-release.yml'
+              - '.github/workflows/ci-complete.yml'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+            client-src:
+              - 'packages/client/src/**'
+            api:
+              - 'packages/api/**'
+            mobile:
+              - 'packages/client/android/**'
+              - 'packages/client/ios/**'
+              - 'packages/client/.maestro/**'
+              - 'packages/client/capacitor.config.ts'
+              - 'packages/client/fastlane/**'
+            electron:
+              - 'packages/client/electron/**'
+              - 'packages/client/tests/electron/**'
+            web-e2e-tests:
+              - 'packages/client/tests/*.spec.ts'
+              - 'packages/client/playwright.config.ts'
+            website:
+              - 'packages/website/**'
+
       - name: Download change summary
         uses: actions/download-artifact@v4
+        if: ${{ github.event_name == 'workflow_run' }}
         continue-on-error: true
         with:
           name: detect-changes
@@ -39,6 +83,17 @@ jobs:
           if os.path.exists(path):
             with open(path) as handle:
               data = json.load(handle)
+          else:
+            data = {
+              'run_event': os.environ.get('RUN_EVENT', 'pull_request'),
+              'core': os.environ.get('FILTER_CORE', 'false'),
+              'client-src': os.environ.get('FILTER_CLIENT_SRC', 'false'),
+              'api': os.environ.get('FILTER_API', 'false'),
+              'mobile': os.environ.get('FILTER_MOBILE', 'false'),
+              'electron': os.environ.get('FILTER_ELECTRON', 'false'),
+              'web-e2e-tests': os.environ.get('FILTER_WEB_E2E_TESTS', 'false'),
+              'website': os.environ.get('FILTER_WEBSITE', 'false')
+            }
 
           keys = [
             'run_event',
@@ -60,6 +115,15 @@ jobs:
             for key in keys:
               output.write(f"{key}={data.get(key, defaults.get(key, 'false'))}\n")
           PY
+        env:
+          RUN_EVENT: ${{ github.event_name }}
+          FILTER_CORE: ${{ steps.filter.outputs.core }}
+          FILTER_CLIENT_SRC: ${{ steps.filter.outputs.client-src }}
+          FILTER_API: ${{ steps.filter.outputs.api }}
+          FILTER_MOBILE: ${{ steps.filter.outputs.mobile }}
+          FILTER_ELECTRON: ${{ steps.filter.outputs.electron }}
+          FILTER_WEB_E2E_TESTS: ${{ steps.filter.outputs.web-e2e-tests }}
+          FILTER_WEBSITE: ${{ steps.filter.outputs.website }}
 
   website-e2e:
     name: Website E2E Tests
