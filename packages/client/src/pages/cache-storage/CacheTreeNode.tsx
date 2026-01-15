@@ -66,9 +66,9 @@ export function CacheTreeNode({
             <span className="w-4" />
           )}
           {isExpanded ? (
-            <FolderOpen className="h-4 w-4 shrink-0 text-blue-500" />
+            <FolderOpen className="h-4 w-4 shrink-0 text-info" />
           ) : (
-            <FolderIcon className="h-4 w-4 shrink-0 text-blue-500" />
+            <FolderIcon className="h-4 w-4 shrink-0 text-info" />
           )}
           <span className="truncate font-medium text-sm">{cache.name}</span>
           <span className="ml-auto shrink-0 text-muted-foreground text-xs">

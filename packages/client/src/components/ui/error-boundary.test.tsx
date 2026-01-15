@@ -71,7 +71,7 @@ describe('ErrorBoundary', () => {
     await user.click(screen.getByText('Trigger error'));
 
     const errorBar = screen.getByTestId('error-boundary-bar');
-    expect(errorBar).toHaveClass('bg-red-600');
+    expect(errorBar).toHaveClass('bg-destructive');
     expect(errorBar).toHaveClass('fixed', 'bottom-0');
   });
 

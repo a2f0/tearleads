@@ -19,6 +19,24 @@
   --input: hsl(0 0% 90%);
   --ring: hsl(221 83% 53%);
   --radius: 0.5rem;
+
+  /* Status colors */
+  --success: hsl(142 71% 45%);
+  --success-foreground: hsl(0 0% 98%);
+  --warning: hsl(45 93% 47%);
+  --warning-foreground: hsl(0 0% 9%);
+  --info: hsl(217 91% 60%);
+  --info-foreground: hsl(0 0% 98%);
+
+  /* Chart colors */
+  --chart-1: hsl(221 83% 53%);
+  --chart-2: hsl(142 71% 45%);
+  --chart-3: hsl(0 84% 60%);
+  --chart-4: hsl(270 75% 60%);
+  --chart-5: hsl(25 95% 53%);
+  --chart-6: hsl(188 85% 43%);
+  --chart-7: hsl(292 84% 61%);
+  --chart-8: hsl(85 80% 45%);
 }
 
 .dark {
@@ -41,6 +59,24 @@
   --border: hsl(0 0% 15%);
   --input: hsl(0 0% 15%);
   --ring: hsl(224 76% 48%);
+
+  /* Status colors */
+  --success: hsl(142 76% 55%);
+  --success-foreground: hsl(0 0% 9%);
+  --warning: hsl(45 93% 58%);
+  --warning-foreground: hsl(0 0% 9%);
+  --info: hsl(217 91% 65%);
+  --info-foreground: hsl(0 0% 9%);
+
+  /* Chart colors */
+  --chart-1: hsl(217 91% 60%);
+  --chart-2: hsl(142 76% 55%);
+  --chart-3: hsl(0 72% 51%);
+  --chart-4: hsl(270 75% 65%);
+  --chart-5: hsl(25 95% 58%);
+  --chart-6: hsl(188 85% 50%);
+  --chart-7: hsl(292 84% 66%);
+  --chart-8: hsl(85 80% 50%);
 }
 
 .tokyo-night {
@@ -63,6 +99,64 @@
   --border: hsl(228 20% 22%);
   --input: hsl(228 20% 22%);
   --ring: hsl(220 89% 72%);
+
+  /* Status colors */
+  --success: hsl(140 68% 65%);
+  --success-foreground: hsl(230 20% 14%);
+  --warning: hsl(45 90% 65%);
+  --warning-foreground: hsl(230 20% 14%);
+  --info: hsl(220 89% 72%);
+  --info-foreground: hsl(230 20% 14%);
+
+  /* Chart colors */
+  --chart-1: hsl(220 89% 72%);
+  --chart-2: hsl(140 68% 65%);
+  --chart-3: hsl(10 70% 60%);
+  --chart-4: hsl(280 70% 70%);
+  --chart-5: hsl(40 90% 65%);
+  --chart-6: hsl(190 65% 70%);
+  --chart-7: hsl(310 70% 65%);
+  --chart-8: hsl(95 65% 55%);
+}
+
+.graphite {
+  --background: hsl(0 0% 12%);
+  --foreground: hsl(0 0% 85%);
+  --card: hsl(0 0% 15%);
+  --card-foreground: hsl(0 0% 85%);
+  --popover: hsl(0 0% 15%);
+  --popover-foreground: hsl(0 0% 85%);
+  --primary: hsl(0 0% 70%);
+  --primary-foreground: hsl(0 0% 12%);
+  --secondary: hsl(0 0% 20%);
+  --secondary-foreground: hsl(0 0% 85%);
+  --muted: hsl(0 0% 20%);
+  --muted-foreground: hsl(0 0% 60%);
+  --accent: hsl(0 0% 25%);
+  --accent-foreground: hsl(0 0% 85%);
+  --destructive: hsl(0 0% 40%);
+  --destructive-foreground: hsl(0 0% 95%);
+  --border: hsl(0 0% 25%);
+  --input: hsl(0 0% 25%);
+  --ring: hsl(0 0% 70%);
+
+  /* Status colors - all grayscale */
+  --success: hsl(0 0% 75%);
+  --success-foreground: hsl(0 0% 12%);
+  --warning: hsl(0 0% 55%);
+  --warning-foreground: hsl(0 0% 12%);
+  --info: hsl(0 0% 65%);
+  --info-foreground: hsl(0 0% 12%);
+
+  /* Chart colors - grayscale gradient */
+  --chart-1: hsl(0 0% 85%);
+  --chart-2: hsl(0 0% 75%);
+  --chart-3: hsl(0 0% 65%);
+  --chart-4: hsl(0 0% 55%);
+  --chart-5: hsl(0 0% 45%);
+  --chart-6: hsl(0 0% 70%);
+  --chart-7: hsl(0 0% 60%);
+  --chart-8: hsl(0 0% 50%);
 }
 
 @theme inline {
@@ -86,6 +180,25 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --radius: var(--radius);
+
+  /* Status colors */
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+
+  /* Chart colors */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+
   /* Override Tailwind's oklch colors with hsl for older browser compatibility */
   --color-red-600: hsl(0 72% 51%);
   --color-green-600: hsl(142 71% 45%);

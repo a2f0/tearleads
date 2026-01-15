@@ -46,9 +46,9 @@ export function ModelCard({
         <div className="flex items-center gap-3">
           <div
             className={`flex h-10 w-10 items-center justify-center rounded-lg ${(() => {
-              if (isLoaded) return 'bg-green-500/10 text-green-500';
-              if (isCached) return 'bg-blue-500/10 text-blue-500';
-              if (model.isVision) return 'bg-purple-500/10 text-purple-500';
+              if (isLoaded) return 'bg-success/10 text-success';
+              if (isCached) return 'bg-info/10 text-info';
+              if (model.isVision) return 'bg-chart-4/10 text-chart-4';
               return 'bg-muted text-muted-foreground';
             })()}`}
           >
@@ -62,7 +62,7 @@ export function ModelCard({
             <div className="flex items-center gap-2">
               <h3 className="font-medium">{model.name}</h3>
               {model.isVision && (
-                <span className="rounded-full bg-purple-500/10 px-2 py-0.5 font-medium text-purple-500 text-xs">
+                <span className="rounded-full bg-chart-4/10 px-2 py-0.5 font-medium text-chart-4 text-xs">
                   Vision
                 </span>
               )}
@@ -74,13 +74,13 @@ export function ModelCard({
         </div>
         <div className="flex items-center gap-2">
           {isLoaded && (
-            <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-1 font-medium text-green-500 text-xs">
+            <span className="flex items-center gap-1 rounded-full bg-success/10 px-2 py-1 font-medium text-success text-xs">
               <Check className="h-3 w-3" />
               Loaded
             </span>
           )}
           {isCached && (
-            <span className="flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-1 font-medium text-blue-500 text-xs">
+            <span className="flex items-center gap-1 rounded-full bg-info/10 px-2 py-1 font-medium text-info text-xs">
               <Check className="h-3 w-3" />
               Downloaded
             </span>

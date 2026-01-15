@@ -378,11 +378,11 @@ export function DatabaseTest() {
   const getStatusColor = (status: TestStatus) => {
     switch (status) {
       case 'success':
-        return 'text-green-600';
+        return 'text-success';
       case 'error':
-        return 'text-red-600';
+        return 'text-destructive';
       case 'running':
-        return 'text-yellow-600';
+        return 'text-warning';
       default:
         return 'text-muted-foreground';
     }
@@ -672,7 +672,7 @@ export function DatabaseTest() {
               aria-label="Copy error to clipboard"
             >
               {copied ? (
-                <Check className="h-3 w-3 text-green-600" />
+                <Check className="h-3 w-3 text-success" />
               ) : (
                 <Copy className="h-3 w-3" />
               )}
