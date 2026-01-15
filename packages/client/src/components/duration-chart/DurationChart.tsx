@@ -1,3 +1,4 @@
+import { useTheme } from '@rapid/ui';
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import {
   CartesianGrid,
@@ -11,7 +12,7 @@ import {
 import { type AnalyticsEvent, getEventDisplayName } from '@/db/analytics';
 import { CustomDot } from './CustomDot';
 import { CustomTooltip } from './CustomTooltip';
-import { EVENT_COLORS } from './constants';
+import { getChartColors } from './constants';
 import { formatDuration, formatXAxisTick } from './formatters';
 
 /**
@@ -85,6 +86,11 @@ export function DurationChart({
   timeFilter
 }: DurationChartProps) {
   const [chartContainerRef, isContainerReady] = useContainerReady();
+  const { resolvedTheme } = useTheme();
+
+  // Get chart colors from CSS variables (reactive to theme changes)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: resolvedTheme triggers recalculation when theme changes
+  const chartColors = useMemo(() => getChartColors(), [resolvedTheme]);
 
   const { chartData, eventTypeColors, dataByEventType } = useMemo(() => {
     const filteredEvents = events.filter((e) =>
@@ -95,10 +101,7 @@ export function DurationChart({
     const uniqueTypes = [...new Set(filteredEvents.map((e) => e.eventName))];
     const colorMap = new Map<string, string>();
     uniqueTypes.forEach((type, index) => {
-      colorMap.set(
-        type,
-        EVENT_COLORS[index % EVENT_COLORS.length] ?? '#2563eb'
-      );
+      colorMap.set(type, chartColors[index % chartColors.length] ?? '#808080');
     });
 
     // Transform events to chart data
@@ -123,7 +126,7 @@ export function DurationChart({
       eventTypeColors: colorMap,
       dataByEventType: groupedData
     };
-  }, [events, selectedEventTypes]);
+  }, [events, selectedEventTypes, chartColors]);
 
   if (chartData.length === 0) {
     return (
@@ -181,7 +184,7 @@ export function DurationChart({
                   key={eventType}
                   name={getEventDisplayName(eventType)}
                   data={data}
-                  fill={eventTypeColors.get(eventType) ?? '#2563eb'}
+                  fill={eventTypeColors.get(eventType) ?? '#808080'}
                   shape={<CustomDot />}
                 />
               ))}

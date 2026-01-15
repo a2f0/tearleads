@@ -157,7 +157,7 @@ describe('Models', () => {
           .getByText('Phi 3.5 Mini')
           .closest('.rounded-lg');
         const phi3VisionBadges = phi3Card?.querySelectorAll(
-          '.text-purple-500'
+          '.text-chart-4'
         ) as NodeListOf<HTMLElement>;
         const hasVisionBadge = Array.from(phi3VisionBadges).some(
           (el) => el.textContent === 'Vision'

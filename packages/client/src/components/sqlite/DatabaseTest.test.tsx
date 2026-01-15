@@ -317,12 +317,12 @@ describe('DatabaseTest', () => {
       {
         status: 'success',
         mock: () => vi.fn().mockResolvedValue(undefined),
-        expectedClass: 'text-green-600'
+        expectedClass: 'text-success'
       },
       {
         status: 'error',
         mock: () => vi.fn().mockRejectedValue(new Error('Setup failed')),
-        expectedClass: 'text-red-600'
+        expectedClass: 'text-destructive'
       }
     ])('uses correct color class for $status status', async ({
       mock,
@@ -360,7 +360,7 @@ describe('DatabaseTest', () => {
       // While setup is running, check for yellow color
       await waitFor(() => {
         const result = screen.getByTestId('db-test-result');
-        expect(result).toHaveClass('text-yellow-600');
+        expect(result).toHaveClass('text-warning');
         expect(result).toHaveAttribute('data-status', 'running');
       });
 

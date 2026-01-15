@@ -523,7 +523,7 @@ export function Files() {
                                   if (isClickable) e.stopPropagation();
                                   clearRecentlyUploaded(file.id);
                                 }}
-                                className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-white"
+                                className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-success text-success-foreground"
                                 title="Upload successful - click to dismiss"
                                 data-testid="upload-success-badge"
                               >

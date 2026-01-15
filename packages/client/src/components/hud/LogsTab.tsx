@@ -4,9 +4,9 @@ import { cn } from '@/lib/utils';
 import { type LogEntry, logStore } from '@/stores/logStore';
 
 const LEVEL_COLORS: Record<string, string> = {
-  error: 'text-red-500',
-  warn: 'text-yellow-500',
-  info: 'text-blue-500',
+  error: 'text-destructive',
+  warn: 'text-warning',
+  info: 'text-info',
   debug: 'text-muted-foreground'
 };
 
