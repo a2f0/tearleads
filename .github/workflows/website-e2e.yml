@@ -1,10 +1,7 @@
 name: Website E2E Tests
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-  pull_request:
+  push:
 
 jobs:
   changes:
@@ -85,7 +82,7 @@ jobs:
               data = json.load(handle)
           else:
             data = {
-              'run_event': os.environ.get('RUN_EVENT', 'pull_request'),
+              'run_event': os.environ.get('RUN_EVENT', 'push'),
               'core': os.environ.get('FILTER_CORE', 'false'),
               'client-src': os.environ.get('FILTER_CLIENT_SRC', 'false'),
               'api': os.environ.get('FILTER_API', 'false'),
