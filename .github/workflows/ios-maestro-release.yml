@@ -1,0 +1,184 @@
+name: iOS Maestro Tests (Release)
+
+on:
+  workflow_run:
+    workflows: ["Build"]
+    types: [completed]
+
+jobs:
+  changes:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      core: ${{ steps.read.outputs.core }}
+      client-src: ${{ steps.read.outputs.client-src }}
+      api: ${{ steps.read.outputs.api }}
+      mobile: ${{ steps.read.outputs.mobile }}
+      electron: ${{ steps.read.outputs.electron }}
+      web-e2e-tests: ${{ steps.read.outputs.web-e2e-tests }}
+      website: ${{ steps.read.outputs.website }}
+      run_event: ${{ steps.read.outputs.run_event }}
+    steps:
+      - name: Download change summary
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: detect-changes
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read change summary
+        id: read
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          path = 'changes.json'
+          data = {}
+          if os.path.exists(path):
+            with open(path) as handle:
+              data = json.load(handle)
+
+          keys = [
+            'run_event',
+            'core',
+            'client-src',
+            'api',
+            'mobile',
+            'electron',
+            'web-e2e-tests',
+            'website'
+          ]
+
+          defaults = {
+            'run_event': 'push'
+          }
+
+          output_path = os.environ['GITHUB_OUTPUT']
+          with open(output_path, 'a') as output:
+            for key in keys:
+              output.write(f"{key}={data.get(key, defaults.get(key, 'false'))}\n")
+          PY
+
+  ios-maestro-release:
+    name: iOS Maestro Tests (Release)
+    needs: [changes]
+    if: >-
+      needs.changes.result == 'success' && (
+      needs.changes.outputs.run_event == 'workflow_dispatch' ||
+      needs.changes.outputs.core == 'true' ||
+      needs.changes.outputs.mobile == 'true')
+    runs-on: macos-latest
+    timeout-minutes: 35
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.0'
+          bundler-cache: true
+          working-directory: packages/client
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Download SQLite WASM
+        run: ./scripts/downloadSqliteWasm.sh
+
+      - name: Build web assets
+        run: pnpm --filter @rapid/client build
+
+      - name: Install ImageMagick
+        run: brew install imagemagick
+
+      - name: Generate iOS images
+        run: ./packages/client/scripts/buildIosImageAssets.sh
+
+      - name: Install CocoaPods dependencies
+        run: pod install
+        working-directory: packages/client/ios/App
+
+      - name: Sync Capacitor
+        run: pnpm --filter @rapid/client run cap:sync
+
+      - name: Build iOS release app for simulator
+        run: bundle exec fastlane ios build_release_simulator
+        working-directory: packages/client
+
+      - name: Install Maestro
+        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+
+      - name: Boot iOS simulator
+        run: |
+          # List available devices for debugging
+          echo "Available simulators:"
+          xcrun simctl list devices available | head -20
+
+          # Prefer iPhone SE for faster boot and lower resource usage
+          DEVICE=$(xcrun simctl list devices available | grep "iPhone SE" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+
+          if [ -z "$DEVICE" ]; then
+            echo "No iPhone SE found, trying iPhone 16/15"
+            DEVICE=$(xcrun simctl list devices available | grep -E "iPhone (16|15)" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
+
+          if [ -z "$DEVICE" ]; then
+            echo "No iPhone 15/16 found, trying any iPhone"
+            DEVICE=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
+
+          if [ -z "$DEVICE" ]; then
+            echo "ERROR: No iPhone simulator found"
+            exit 1
+          fi
+
+          echo "Using simulator: $DEVICE"
+          xcrun simctl boot "$DEVICE" || true
+          echo "SIMULATOR_UDID=$DEVICE" >> $GITHUB_ENV
+
+      - name: Install app on simulator
+        run: |
+          # Release build outputs to DerivedData-Release
+          APP_PATH="packages/client/build/DerivedData-Release/Build/Products/Release-iphonesimulator/App.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "App not found at expected path, searching..."
+            APP_PATH=$(find . -name "App.app" -path "*Release-iphonesimulator*" -type d | head -1)
+          fi
+          echo "Installing release app from: $APP_PATH"
+          xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
+
+      - name: Run Maestro tests
+        run: |
+          # Run Maestro tests
+          $HOME/.maestro/bin/maestro test .maestro/ --output maestro-debug/report.xml --debug-output maestro-debug --format junit || true
+          MAESTRO_EXIT=$?
+
+          # Capture final screenshot
+          xcrun simctl io "$SIMULATOR_UDID" screenshot maestro-debug/02-after-tests.png || true
+
+          # Get device logs
+          xcrun simctl spawn "$SIMULATOR_UDID" log show --last 5m --predicate 'subsystem contains "com.tearleads"' > maestro-debug/device-logs.txt 2>&1 || true
+
+          exit $MAESTRO_EXIT
+        working-directory: packages/client
+
+      - name: Upload Maestro artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-maestro-release-artifacts
+          path: packages/client/maestro-debug/
+          retention-days: 7
+          if-no-files-found: ignore

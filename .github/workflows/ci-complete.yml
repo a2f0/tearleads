@@ -1,0 +1,84 @@
+name: CI Complete
+
+on:
+  workflow_run:
+    workflows: ["Build"]
+    types: [completed]
+
+permissions:
+  actions: read
+
+jobs:
+  wait-for-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Ensure build succeeded
+        run: |
+          if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
+            echo "Build workflow did not succeed."
+            exit 1
+          fi
+
+      - name: Wait for test workflows
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const headSha = context.payload.workflow_run.head_sha;
+            const workflows = [
+              { name: 'Web E2E Tests', file: 'web-e2e.yml' },
+              { name: 'Website E2E Tests', file: 'website-e2e.yml' },
+              { name: 'Electron E2E Tests', file: 'electron-e2e.yml' },
+              { name: 'Android Instrumented Tests', file: 'android.yml' },
+              { name: 'Android Maestro Tests (Release)', file: 'android-maestro-release.yml' },
+              { name: 'iOS Maestro Tests (Release)', file: 'ios-maestro-release.yml' }
+            ];
+
+            const timeoutMinutes = 90;
+            const pollIntervalMs = 60 * 1000;
+            const deadline = Date.now() + timeoutMinutes * 60 * 1000;
+
+            const fetchRuns = async (workflow) => {
+              const response = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: workflow.file,
+                head_sha: headSha,
+                per_page: 1
+              });
+              const run = response.data.workflow_runs[0];
+              return run || null;
+            };
+
+            while (true) {
+              const states = [];
+              for (const workflow of workflows) {
+                const run = await fetchRuns(workflow);
+                if (!run) {
+                  states.push({ name: workflow.name, status: 'queued', conclusion: null });
+                  continue;
+                }
+                states.push({ name: workflow.name, status: run.status, conclusion: run.conclusion });
+              }
+
+              const allCompleted = states.every(state => state.status === 'completed');
+              if (allCompleted) {
+                const failures = states.filter(state => state.conclusion !== 'success');
+                if (failures.length > 0) {
+                  core.setFailed(`Test workflows failed: ${failures.map(f => `${f.name} (${f.conclusion})`).join(', ')}`);
+                  return;
+                }
+                core.info('All test workflows completed successfully.');
+                return;
+              }
+
+              core.info(`Waiting for test workflows to finish: ${states.map(state => `${state.name}=${state.status}`).join(', ')}`);
+
+              if (Date.now() > deadline) {
+                core.setFailed('Timed out waiting for test workflows to complete.');
+                return;
+              }
+
+              await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+            }

@@ -1,0 +1,155 @@
+name: Website E2E Tests
+
+on:
+  workflow_run:
+    workflows: ["Build"]
+    types: [completed]
+
+jobs:
+  changes:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      core: ${{ steps.read.outputs.core }}
+      client-src: ${{ steps.read.outputs.client-src }}
+      api: ${{ steps.read.outputs.api }}
+      mobile: ${{ steps.read.outputs.mobile }}
+      electron: ${{ steps.read.outputs.electron }}
+      web-e2e-tests: ${{ steps.read.outputs.web-e2e-tests }}
+      website: ${{ steps.read.outputs.website }}
+      run_event: ${{ steps.read.outputs.run_event }}
+    steps:
+      - name: Download change summary
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: detect-changes
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read change summary
+        id: read
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          path = 'changes.json'
+          data = {}
+          if os.path.exists(path):
+            with open(path) as handle:
+              data = json.load(handle)
+
+          keys = [
+            'run_event',
+            'core',
+            'client-src',
+            'api',
+            'mobile',
+            'electron',
+            'web-e2e-tests',
+            'website'
+          ]
+
+          defaults = {
+            'run_event': 'push'
+          }
+
+          output_path = os.environ['GITHUB_OUTPUT']
+          with open(output_path, 'a') as output:
+            for key in keys:
+              output.write(f"{key}={data.get(key, defaults.get(key, 'false'))}\n")
+          PY
+
+  website-e2e:
+    name: Website E2E Tests
+    needs: [changes]
+    if: >-
+      needs.changes.result == 'success' && (
+      needs.changes.outputs.run_event == 'workflow_dispatch' ||
+      needs.changes.outputs.core == 'true' ||
+      needs.changes.outputs.website == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Get Playwright version
+        id: playwright-version
+        run: echo "version=$(pnpm --filter @rapid/website exec playwright --version)" >> $GITHUB_OUTPUT
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-website-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @rapid/website exec playwright install --with-deps chromium firefox webkit
+
+      - name: Install Playwright dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm --filter @rapid/website exec playwright install-deps
+
+      - name: Build API OpenAPI spec
+        run: pnpm --filter @rapid/api buildOpenapi
+
+      - name: Install Playwright for mermaid rendering
+        run: pnpm --filter @rapid/website exec playwright install chromium
+
+      - name: Build website
+        run: pnpm --filter @rapid/website build
+
+      - name: Generate self-signed certificate
+        run: |
+          sudo mkdir -p /etc/ssl/private
+          sudo openssl req -x509 -nodes -days 1 \
+            -newkey rsa:2048 \
+            -keyout /etc/ssl/private/localhost.key \
+            -out /etc/ssl/certs/localhost.crt \
+            -subj "/CN=localhost" \
+            -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+          sudo chmod 644 /etc/ssl/certs/localhost.crt
+          sudo chmod 600 /etc/ssl/private/localhost.key
+
+      - name: Make workspace accessible to NGINX
+        run: |
+          # NGINX runs as www-data and needs execute permission on ALL parent directories
+          sudo chmod a+x /home/runner /home/runner/work /home/runner/work/rapid /home/runner/work/rapid/rapid
+          sudo chmod -R a+rX $GITHUB_WORKSPACE
+
+      - name: Install and configure NGINX
+        run: |
+          sudo apt-get update && sudo apt-get install -y nginx ansible
+          ansible-playbook -i ansible/inventories/ci.yml ansible/playbooks/ci-nginx.yml -e nginx_ci_site=website
+
+      - name: Verify NGINX is serving
+        run: curl -k https://localhost:8444/ -I
+
+      - name: Run Playwright tests
+        run: pnpm --filter @rapid/website test:e2e
+        env:
+          BASE_URL: https://localhost:8444
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: website-playwright-report
+          path: packages/website/playwright-report/
+          retention-days: 30
