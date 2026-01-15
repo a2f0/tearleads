@@ -6,8 +6,8 @@ import {
   useState
 } from 'react';
 
-export type Theme = 'light' | 'dark' | 'tokyo-night' | 'graphite' | 'system';
-export type ResolvedTheme = 'light' | 'dark' | 'tokyo-night' | 'graphite';
+export type Theme = 'light' | 'dark' | 'tokyo-night' | 'monochrome' | 'system';
+export type ResolvedTheme = 'light' | 'dark' | 'tokyo-night' | 'monochrome';
 
 export interface ThemeContextValue {
   theme: Theme;
@@ -22,7 +22,7 @@ const VALID_THEMES: Theme[] = [
   'light',
   'dark',
   'tokyo-night',
-  'graphite',
+  'monochrome',
   'system'
 ];
 
@@ -84,7 +84,7 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove('light', 'dark', 'tokyo-night', 'graphite');
+    root.classList.remove('light', 'dark', 'tokyo-night', 'monochrome');
     root.classList.add(resolvedTheme);
   }, [resolvedTheme]);
 
