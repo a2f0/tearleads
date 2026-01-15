@@ -2,7 +2,7 @@ name: Deploy Web
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["CI Complete"]
     types: [completed]
     branches: [main]
 
