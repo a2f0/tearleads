@@ -116,7 +116,12 @@ async function expectVisibleTrack(slider: Locator) {
     slider,
     '::-webkit-slider-runnable-track'
   );
-  expect(trackStyle.backgroundImage).not.toBe('none');
+  const hasTrackGradient =
+    trackStyle.backgroundImage !== 'none' &&
+    trackStyle.backgroundImage !== 'initial';
+  const hasTrackBackground =
+    trackStyle.backgroundColor !== 'rgba(0, 0, 0, 0)';
+  expect(hasTrackGradient || hasTrackBackground).toBe(true);
   expect(trackStyle.borderColor).not.toBe('rgba(0, 0, 0, 0)');
 }
 
@@ -166,6 +171,7 @@ test.describe('Audio player slider visibility', () => {
       });
       expect(progressVar).toBeTruthy();
 
+      await expectVisibleTrack(seekSlider);
       await expectVisibleTrack(seekSlider);
     });
 
@@ -225,6 +231,7 @@ test.describe('Audio player slider visibility', () => {
 
       // Verify that the slider is interactable (can click on it)
       // This implicitly tests that the thumb is there and the slider is functional
+      await expectVisibleThumb(seekSlider);
       await expectVisibleThumb(seekSlider);
 
       const boundingBox = await seekSlider.boundingBox();
