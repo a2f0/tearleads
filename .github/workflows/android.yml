@@ -2,18 +2,11 @@ name: Android Instrumented Tests
 
 on:
   pull_request:
-  workflow_run:
-    workflows: ["build"]
-    types: [completed]
+  workflow_call:
 
 jobs:
   android:
     name: Android Instrumented Tests
-    if: >-
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
