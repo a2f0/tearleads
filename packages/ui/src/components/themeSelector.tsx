@@ -3,7 +3,7 @@ import { useTheme } from '../context/useTheme.js';
 import { cn } from '../lib/utils.js';
 import { ThemePreview } from './themePreview.js';
 
-const THEMES: ResolvedTheme[] = ['light', 'dark', 'tokyo-night'];
+const THEMES: ResolvedTheme[] = ['light', 'dark', 'tokyo-night', 'graphite'];
 
 export function ThemeSelector() {
   const { resolvedTheme, setTheme } = useTheme();

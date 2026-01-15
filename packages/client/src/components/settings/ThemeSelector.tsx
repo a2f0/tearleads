@@ -4,7 +4,7 @@ import { GridSquare } from '@/components/ui/grid-square';
 import { useTypedTranslation } from '@/i18n';
 import { ThemePreview } from './ThemePreview';
 
-const THEMES: ResolvedTheme[] = ['light', 'dark', 'tokyo-night'];
+const THEMES: ResolvedTheme[] = ['light', 'dark', 'tokyo-night', 'graphite'];
 
 export function ThemeSelector() {
   const { t } = useTypedTranslation('common');

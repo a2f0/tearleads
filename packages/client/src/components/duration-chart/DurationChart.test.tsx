@@ -1,6 +1,22 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { ThemeProvider } from '@rapid/ui';
+import {
+  act,
+  render as rtlRender,
+  screen,
+  waitFor
+} from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DurationChart } from './DurationChart';
+
+function TestWrapper({ children }: { children: ReactNode }) {
+  return <ThemeProvider defaultTheme="light">{children}</ThemeProvider>;
+}
+
+// Custom render function that wraps components with ThemeProvider
+function render(ui: React.ReactElement) {
+  return rtlRender(ui, { wrapper: TestWrapper });
+}
 
 // Track ResizeObserver callbacks for testing
 let resizeObserverCallback: ResizeObserverCallback | null = null;

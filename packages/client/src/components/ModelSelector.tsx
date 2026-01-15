@@ -69,7 +69,7 @@ export function ModelSelector({ modelDisplayName }: ModelSelectorProps) {
         aria-expanded={isOpen}
         className={`flex items-center gap-2 rounded-full px-3 py-1 font-medium text-sm transition-colors ${
           modelDisplayName
-            ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20'
+            ? 'bg-success/10 text-success hover:bg-success/20'
             : 'bg-muted text-muted-foreground hover:bg-accent'
         } ${isLoading ? 'cursor-wait' : 'cursor-pointer'}`}
       >

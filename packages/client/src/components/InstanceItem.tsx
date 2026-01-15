@@ -62,7 +62,7 @@ export const InstanceItem = memo(function InstanceItem({
         {isSelected && isUnlocked ? (
           <>
             <LockOpen
-              className="h-3.5 w-3.5 flex-shrink-0 text-green-600"
+              className="h-3.5 w-3.5 flex-shrink-0 text-success"
               data-testid={`instance-unlocked-${instance.id}`}
               aria-hidden="true"
             />
