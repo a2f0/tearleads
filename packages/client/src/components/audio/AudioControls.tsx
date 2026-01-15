@@ -95,9 +95,9 @@ export function AudioControls({ tracks }: AudioControlsProps) {
             step={0.1}
             value={currentTime}
             onChange={handleSeek}
-            className="h-2 w-full cursor-pointer appearance-none rounded-full bg-muted"
+            className="audio-slider-seek h-2 w-full cursor-pointer appearance-none rounded-full"
             style={{
-              background: `linear-gradient(to right, var(--primary) ${progress}%, var(--muted) ${progress}%)`
+              '--progress': `${progress}%`
             }}
             aria-label="Seek"
             data-testid="audio-seekbar"
