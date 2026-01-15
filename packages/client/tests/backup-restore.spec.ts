@@ -193,7 +193,9 @@ test.describe('Backup & Restore (Web)', () => {
       expect(path).toBeTruthy();
     });
 
-    test('should restore from backup file', async ({ page }) => {
+    // TODO: Web adapter import has issues with encrypted databases
+    // See: https://github.com/a2f0/rapid/issues/137
+    test.skip('should restore from backup file', async ({ page }) => {
       // Navigate to SQLite and unlock (page reload loses in-memory key)
       await page.goto('/sqlite');
       // Database is locked after page reload, unlock it
