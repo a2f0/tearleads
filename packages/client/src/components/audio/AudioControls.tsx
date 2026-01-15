@@ -96,9 +96,11 @@ export function AudioControls({ tracks }: AudioControlsProps) {
             value={currentTime}
             onChange={handleSeek}
             className="audio-slider-seek h-2 w-full cursor-pointer appearance-none rounded-full"
-            style={{
-              '--progress': `${progress}%`
-            }}
+            style={
+              {
+                '--progress': `${progress}%`
+              } as React.CSSProperties
+            }
             aria-label="Seek"
             data-testid="audio-seekbar"
           />
