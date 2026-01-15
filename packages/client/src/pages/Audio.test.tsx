@@ -796,7 +796,7 @@ describe('AudioPage', () => {
       });
     });
 
-    it('pauses track when "Play" is clicked on currently playing track', async () => {
+    it('pauses track when "Pause" is clicked on currently playing track', async () => {
       mockUseAudio.mockReturnValue({
         currentTrack: {
           id: 'track-1',
@@ -816,7 +816,8 @@ describe('AudioPage', () => {
 
       await openContextMenuOnTrack(user, 'track-1');
 
-      await user.click(screen.getByText('Play'));
+      expect(screen.getByText('Pause')).toBeInTheDocument();
+      await user.click(screen.getByText('Pause'));
 
       expect(mockPause).toHaveBeenCalled();
     });

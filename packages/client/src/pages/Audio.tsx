@@ -554,10 +554,18 @@ export function AudioPage() {
           onClose={handleCloseContextMenu}
         >
           <ContextMenuItem
-            icon={<Play className="h-4 w-4" />}
+            icon={
+              contextMenu.track.id === currentTrack?.id && isPlaying ? (
+                <Pause className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )
+            }
             onClick={() => handleContextMenuPlay(contextMenu.track)}
           >
-            Play
+            {contextMenu.track.id === currentTrack?.id && isPlaying
+              ? 'Pause'
+              : 'Play'}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Info className="h-4 w-4" />}
