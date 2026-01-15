@@ -1,8 +1,8 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AnalyticsTab } from './AnalyticsTab';
 import { logStore } from '@/stores/logStore';
+import { AnalyticsTab } from './AnalyticsTab';
 
 const mockEvents = [
   {
@@ -63,13 +63,16 @@ const mockGetDistinctEventTypes = getDistinctEventTypes as ReturnType<
 >;
 
 function createDeferred<T>() {
-  let resolve: (value: T) => void;
-  let reject: (reason?: unknown) => void;
+  let resolve: ((value: T) => void) | undefined;
+  let reject: ((reason?: unknown) => void) | undefined;
   const promise = new Promise<T>((res, rej) => {
     resolve = res;
     reject = rej;
   });
-  return { promise, resolve: resolve!, reject: reject! };
+  if (!resolve || !reject) {
+    throw new Error('Deferred promise was not initialized');
+  }
+  return { promise, resolve, reject };
 }
 
 async function flushPromises(): Promise<void> {

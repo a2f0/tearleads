@@ -14,9 +14,9 @@ describe('addColumnIfNotExists', () => {
       'TEXT'
     );
 
-    expect(execute).toHaveBeenCalledWith('PRAGMA table_info(\"test_table\")');
+    expect(execute).toHaveBeenCalledWith('PRAGMA table_info("test_table")');
     expect(execute).toHaveBeenCalledWith(
-      'ALTER TABLE \"test_table\" ADD COLUMN \"new_col\" TEXT'
+      'ALTER TABLE "test_table" ADD COLUMN "new_col" TEXT'
     );
   });
 
