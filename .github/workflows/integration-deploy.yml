@@ -37,16 +37,19 @@ jobs:
     name: Android Tests
     needs: check-build
     uses: ./.github/workflows/android.yml
+    secrets: inherit
 
   android-maestro:
     name: Android Maestro
     needs: check-build
     uses: ./.github/workflows/android-maestro-release.yml
+    secrets: inherit
 
   ios-maestro:
     name: iOS Maestro
     needs: check-build
     uses: ./.github/workflows/ios-maestro-release.yml
+    secrets: inherit
 
   deploy-web:
     name: Deploy Web
