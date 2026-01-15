@@ -1,11 +1,21 @@
 import { ThemeProvider } from '@rapid/ui';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  render as rtlRender,
+  screen,
+  waitFor
+} from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DurationChart } from './DurationChart';
 
 function TestWrapper({ children }: { children: ReactNode }) {
   return <ThemeProvider defaultTheme="light">{children}</ThemeProvider>;
+}
+
+// Custom render function that wraps components with ThemeProvider
+function render(ui: React.ReactElement) {
+  return rtlRender(ui, { wrapper: TestWrapper });
 }
 
 // Track ResizeObserver callbacks for testing
@@ -82,13 +92,11 @@ const mockEvents = [
 describe('DurationChart', () => {
   it('renders empty state when no events match selection', () => {
     render(
-      <TestWrapper>
-        <DurationChart
-          events={mockEvents}
-          selectedEventTypes={new Set()}
-          timeFilter="day"
-        />
-      </TestWrapper>
+      <DurationChart
+        events={mockEvents}
+        selectedEventTypes={new Set()}
+        timeFilter="day"
+      />
     );
 
     expect(screen.getByText(/No events to display/i)).toBeInTheDocument();
@@ -96,13 +104,11 @@ describe('DurationChart', () => {
 
   it('renders chart title when events are present', () => {
     render(
-      <TestWrapper>
-        <DurationChart
-          events={mockEvents}
-          selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
-          timeFilter="day"
-        />
-      </TestWrapper>
+      <DurationChart
+        events={mockEvents}
+        selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
+        timeFilter="day"
+      />
     );
 
     expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
@@ -110,13 +116,11 @@ describe('DurationChart', () => {
 
   it('renders legend for selected event types', () => {
     render(
-      <TestWrapper>
-        <DurationChart
-          events={mockEvents}
-          selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
-          timeFilter="day"
-        />
-      </TestWrapper>
+      <DurationChart
+        events={mockEvents}
+        selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
+        timeFilter="day"
+      />
     );
 
     expect(screen.getByText('Database Setup')).toBeInTheDocument();
@@ -125,13 +129,11 @@ describe('DurationChart', () => {
 
   it('filters events based on selectedEventTypes', () => {
     render(
-      <TestWrapper>
-        <DurationChart
-          events={mockEvents}
-          selectedEventTypes={new Set(['db_setup'])}
-          timeFilter="day"
-        />
-      </TestWrapper>
+      <DurationChart
+        events={mockEvents}
+        selectedEventTypes={new Set(['db_setup'])}
+        timeFilter="day"
+      />
     );
 
     expect(screen.getByText('Database Setup')).toBeInTheDocument();
@@ -140,13 +142,11 @@ describe('DurationChart', () => {
 
   it('renders with empty events array', () => {
     render(
-      <TestWrapper>
-        <DurationChart
-          events={[]}
-          selectedEventTypes={new Set(['db_setup'])}
-          timeFilter="day"
-        />
-      </TestWrapper>
+      <DurationChart
+        events={[]}
+        selectedEventTypes={new Set(['db_setup'])}
+        timeFilter="day"
+      />
     );
 
     expect(screen.getByText(/No events to display/i)).toBeInTheDocument();
@@ -154,37 +154,31 @@ describe('DurationChart', () => {
 
   it('handles different time filters', () => {
     const { rerender } = render(
-      <TestWrapper>
-        <DurationChart
-          events={mockEvents}
-          selectedEventTypes={new Set(['db_setup'])}
-          timeFilter="hour"
-        />
-      </TestWrapper>
+      <DurationChart
+        events={mockEvents}
+        selectedEventTypes={new Set(['db_setup'])}
+        timeFilter="hour"
+      />
     );
 
     expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
 
     rerender(
-      <TestWrapper>
-        <DurationChart
-          events={mockEvents}
-          selectedEventTypes={new Set(['db_setup'])}
-          timeFilter="week"
-        />
-      </TestWrapper>
+      <DurationChart
+        events={mockEvents}
+        selectedEventTypes={new Set(['db_setup'])}
+        timeFilter="week"
+      />
     );
 
     expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
 
     rerender(
-      <TestWrapper>
-        <DurationChart
-          events={mockEvents}
-          selectedEventTypes={new Set(['db_setup'])}
-          timeFilter="all"
-        />
-      </TestWrapper>
+      <DurationChart
+        events={mockEvents}
+        selectedEventTypes={new Set(['db_setup'])}
+        timeFilter="all"
+      />
     );
 
     expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
@@ -192,13 +186,11 @@ describe('DurationChart', () => {
 
   it('assigns different colors to different event types', () => {
     render(
-      <TestWrapper>
-        <DurationChart
-          events={mockEvents}
-          selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
-          timeFilter="day"
-        />
-      </TestWrapper>
+      <DurationChart
+        events={mockEvents}
+        selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
+        timeFilter="day"
+      />
     );
 
     const legendItems = screen
@@ -214,13 +206,11 @@ describe('DurationChart', () => {
 
   it('displays total events count', () => {
     render(
-      <TestWrapper>
-        <DurationChart
-          events={mockEvents}
-          selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
-          timeFilter="day"
-        />
-      </TestWrapper>
+      <DurationChart
+        events={mockEvents}
+        selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
+        timeFilter="day"
+      />
     );
 
     // 3 events total (2 db_setup + 1 db_unlock)
@@ -229,13 +219,11 @@ describe('DurationChart', () => {
 
   it('displays singular event count for one event', () => {
     render(
-      <TestWrapper>
-        <DurationChart
-          events={mockEvents}
-          selectedEventTypes={new Set(['db_unlock'])}
-          timeFilter="day"
-        />
-      </TestWrapper>
+      <DurationChart
+        events={mockEvents}
+        selectedEventTypes={new Set(['db_unlock'])}
+        timeFilter="day"
+      />
     );
 
     // Only 1 db_unlock event
@@ -245,13 +233,11 @@ describe('DurationChart', () => {
   describe('legend formatting', () => {
     it('formats event names by removing db_ prefix and capitalizing', () => {
       render(
-        <TestWrapper>
-          <DurationChart
-            events={mockEvents}
-            selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
-            timeFilter="day"
-          />
-        </TestWrapper>
+        <DurationChart
+          events={mockEvents}
+          selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
+          timeFilter="day"
+        />
       );
 
       // db_setup -> Setup, db_unlock -> Unlock
@@ -272,13 +258,11 @@ describe('DurationChart', () => {
       ];
 
       render(
-        <TestWrapper>
-          <DurationChart
-            events={eventsWithUnderscores}
-            selectedEventTypes={new Set(['db_session_restore'])}
-            timeFilter="day"
-          />
-        </TestWrapper>
+        <DurationChart
+          events={eventsWithUnderscores}
+          selectedEventTypes={new Set(['db_session_restore'])}
+          timeFilter="day"
+        />
       );
 
       // db_session_restore -> Session Restore
@@ -312,13 +296,11 @@ describe('DurationChart', () => {
       const selectedTypes = new Set(manyEventTypes.map((e) => e.eventName));
 
       render(
-        <TestWrapper>
-          <DurationChart
-            events={manyEventTypes}
-            selectedEventTypes={selectedTypes}
-            timeFilter="day"
-          />
-        </TestWrapper>
+        <DurationChart
+          events={manyEventTypes}
+          selectedEventTypes={selectedTypes}
+          timeFilter="day"
+        />
       );
 
       // Should render all 10 legend items (one per event type)
@@ -349,13 +331,11 @@ describe('DurationChart', () => {
       ];
 
       render(
-        <TestWrapper>
-          <DurationChart
-            events={failedEvents}
-            selectedEventTypes={new Set(['file_decrypt'])}
-            timeFilter="day"
-          />
-        </TestWrapper>
+        <DurationChart
+          events={failedEvents}
+          selectedEventTypes={new Set(['file_decrypt'])}
+          timeFilter="day"
+        />
       );
 
       expect(screen.getByText('File Decrypt')).toBeInTheDocument();
@@ -378,13 +358,11 @@ describe('DurationChart', () => {
       ];
 
       render(
-        <TestWrapper>
-          <DurationChart
-            events={groupedEvents}
-            selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
-            timeFilter="day"
-          />
-        </TestWrapper>
+        <DurationChart
+          events={groupedEvents}
+          selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
+          timeFilter="day"
+        />
       );
 
       // Should still show only 2 legend items even with 4 events
@@ -407,13 +385,11 @@ describe('DurationChart', () => {
       ];
 
       render(
-        <TestWrapper>
-          <DurationChart
-            events={fastEvents}
-            selectedEventTypes={new Set(['api_get_ping'])}
-            timeFilter="day"
-          />
-        </TestWrapper>
+        <DurationChart
+          events={fastEvents}
+          selectedEventTypes={new Set(['api_get_ping'])}
+          timeFilter="day"
+        />
       );
 
       expect(screen.getByText('API Ping')).toBeInTheDocument();
@@ -433,13 +409,11 @@ describe('DurationChart', () => {
       ];
 
       render(
-        <TestWrapper>
-          <DurationChart
-            events={slowEvents}
-            selectedEventTypes={new Set(['llm_model_load'])}
-            timeFilter="day"
-          />
-        </TestWrapper>
+        <DurationChart
+          events={slowEvents}
+          selectedEventTypes={new Set(['llm_model_load'])}
+          timeFilter="day"
+        />
       );
 
       expect(screen.getByText('LLM Model Load')).toBeInTheDocument();
@@ -460,13 +434,11 @@ describe('DurationChart', () => {
       ];
 
       render(
-        <TestWrapper>
-          <DurationChart
-            events={hourEvents}
-            selectedEventTypes={new Set(['db_setup'])}
-            timeFilter="hour"
-          />
-        </TestWrapper>
+        <DurationChart
+          events={hourEvents}
+          selectedEventTypes={new Set(['db_setup'])}
+          timeFilter="hour"
+        />
       );
 
       expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
@@ -493,13 +465,11 @@ describe('DurationChart', () => {
       ];
 
       render(
-        <TestWrapper>
-          <DurationChart
-            events={weekEvents}
-            selectedEventTypes={new Set(['db_setup'])}
-            timeFilter="week"
-          />
-        </TestWrapper>
+        <DurationChart
+          events={weekEvents}
+          selectedEventTypes={new Set(['db_setup'])}
+          timeFilter="week"
+        />
       );
 
       expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
@@ -526,13 +496,11 @@ describe('DurationChart', () => {
       ];
 
       render(
-        <TestWrapper>
-          <DurationChart
-            events={allEvents}
-            selectedEventTypes={new Set(['db_setup'])}
-            timeFilter="all"
-          />
-        </TestWrapper>
+        <DurationChart
+          events={allEvents}
+          selectedEventTypes={new Set(['db_setup'])}
+          timeFilter="all"
+        />
       );
 
       expect(screen.getByText('Duration Over Time')).toBeInTheDocument();
@@ -553,13 +521,11 @@ describe('DurationChart', () => {
       ];
 
       render(
-        <TestWrapper>
-          <DurationChart
-            events={noDbPrefixEvents}
-            selectedEventTypes={new Set(['file_encrypt'])}
-            timeFilter="day"
-          />
-        </TestWrapper>
+        <DurationChart
+          events={noDbPrefixEvents}
+          selectedEventTypes={new Set(['file_encrypt'])}
+          timeFilter="day"
+        />
       );
 
       // file_encrypt -> File Encrypt
@@ -570,13 +536,11 @@ describe('DurationChart', () => {
   describe('empty selection behavior', () => {
     it('shows empty state with events but no selection', () => {
       render(
-        <TestWrapper>
-          <DurationChart
-            events={mockEvents}
-            selectedEventTypes={new Set()}
-            timeFilter="day"
-          />
-        </TestWrapper>
+        <DurationChart
+          events={mockEvents}
+          selectedEventTypes={new Set()}
+          timeFilter="day"
+        />
       );
 
       expect(screen.getByText(/No events to display/i)).toBeInTheDocument();
@@ -599,13 +563,11 @@ describe('DurationChart', () => {
       });
 
       render(
-        <TestWrapper>
-          <DurationChart
-            events={mockEvents}
-            selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
-            timeFilter="day"
-          />
-        </TestWrapper>
+        <DurationChart
+          events={mockEvents}
+          selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
+          timeFilter="day"
+        />
       );
 
       // Title and legend should be visible even before chart renders
@@ -652,13 +614,11 @@ describe('DurationChart', () => {
     it('renders chart immediately when container has valid initial dimensions', () => {
       // Container already has valid dimensions (default mock)
       render(
-        <TestWrapper>
-          <DurationChart
-            events={mockEvents}
-            selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
-            timeFilter="day"
-          />
-        </TestWrapper>
+        <DurationChart
+          events={mockEvents}
+          selectedEventTypes={new Set(['db_setup', 'db_unlock'])}
+          timeFilter="day"
+        />
       );
 
       // Chart should render immediately
