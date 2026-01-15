@@ -1,7 +1,9 @@
 name: Android Instrumented Tests
 
 on:
-  push:
+  workflow_run:
+    workflows: ["build"]
+    types: [completed]
 
 jobs:
   changes:
