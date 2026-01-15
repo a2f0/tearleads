@@ -23,7 +23,7 @@ export function cosineSimilarity(a: Float32Array, b: Float32Array): number {
   let normA = 0;
   let normB = 0;
   for (let i = 0; i < a.length; i++) {
-    const aVal = a[i] ?? 0;
+    const aVal = a[i];
     const bVal = b[i] ?? 0;
     dotProduct += aVal * bVal;
     normA += aVal * aVal;
