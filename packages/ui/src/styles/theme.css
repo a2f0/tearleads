@@ -160,8 +160,6 @@
 }
 
 /* Monochrome theme: grayscale all images and PDF previews */
-.monochrome img,
-.monochrome canvas,
-.monochrome video {
+.monochrome :is(img, canvas, video) {
   filter: grayscale(1) contrast(1.1);
 }

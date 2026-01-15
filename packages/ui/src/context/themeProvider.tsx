@@ -84,7 +84,7 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove('light', 'dark', 'tokyo-night', 'monochrome');
+    root.classList.remove(...VALID_THEMES);
     root.classList.add(resolvedTheme);
   }, [resolvedTheme]);
 
