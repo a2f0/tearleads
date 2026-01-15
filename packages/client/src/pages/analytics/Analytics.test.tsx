@@ -369,7 +369,7 @@ describe('Analytics', () => {
 
       await waitFor(() => {
         const successRateElement = screen.getByText('75%');
-        expect(successRateElement).toHaveClass('text-yellow-600');
+        expect(successRateElement).toHaveClass('text-warning');
       });
     });
 
@@ -393,7 +393,7 @@ describe('Analytics', () => {
 
       await waitFor(() => {
         const successRateElement = screen.getByText('50%');
-        expect(successRateElement).toHaveClass('text-red-600');
+        expect(successRateElement).toHaveClass('text-destructive');
       });
     });
 

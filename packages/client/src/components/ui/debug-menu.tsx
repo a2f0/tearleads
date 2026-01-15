@@ -111,7 +111,7 @@ export function DebugMenu() {
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Version</span>
-                      <span className="font-medium text-green-600">
+                      <span className="font-medium text-success">
                         {ping.version}
                       </span>
                     </div>

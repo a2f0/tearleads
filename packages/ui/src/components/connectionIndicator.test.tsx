@@ -6,7 +6,7 @@ describe('ConnectionIndicator', () => {
   it('renders connected state with green color', () => {
     render(<ConnectionIndicator state="connected" />);
     const indicator = screen.getByRole('status');
-    expect(indicator).toHaveClass('bg-green-500');
+    expect(indicator).toHaveClass('bg-success');
   });
 
   it('renders connecting state with pulse animation', () => {
@@ -18,7 +18,7 @@ describe('ConnectionIndicator', () => {
   it('renders disconnected state with red color', () => {
     render(<ConnectionIndicator state="disconnected" />);
     const indicator = screen.getByRole('status');
-    expect(indicator).toHaveClass('bg-red-500');
+    expect(indicator).toHaveClass('bg-destructive');
   });
 
   it('has accessible label for connected state', () => {

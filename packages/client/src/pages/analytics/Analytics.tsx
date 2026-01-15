@@ -66,9 +66,9 @@ const TIME_FILTERS: TimeFilter[] = ['hour', 'day', 'week', 'all'];
 
 const getSuccessRateColor = (rate: number) => {
   if (rate == null || Number.isNaN(rate)) return 'text-muted-foreground';
-  if (rate >= 90) return 'text-green-600';
-  if (rate >= 70) return 'text-yellow-600';
-  return 'text-red-600';
+  if (rate >= 90) return 'text-success';
+  if (rate >= 70) return 'text-warning';
+  return 'text-destructive';
 };
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -706,7 +706,7 @@ export function Analytics() {
                             </div>
                             <div>
                               {event.success ? (
-                                <span className="inline-flex items-center gap-1 text-green-600">
+                                <span className="inline-flex items-center gap-1 text-success">
                                   <CheckCircle
                                     className="h-3 w-3 sm:h-4 sm:w-4"
                                     aria-hidden="true"
@@ -716,7 +716,7 @@ export function Analytics() {
                                   </span>
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-red-600">
+                                <span className="inline-flex items-center gap-1 text-destructive">
                                   <XCircle
                                     className="h-3 w-3 sm:h-4 sm:w-4"
                                     aria-hidden="true"

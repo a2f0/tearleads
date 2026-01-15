@@ -14,15 +14,15 @@ export function ModelOption({ model, isLoaded, onSelect }: ModelOptionProps) {
       role="menuitem"
       onClick={onSelect}
       className={`flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent ${
-        isLoaded ? 'bg-green-500/5' : ''
+        isLoaded ? 'bg-success/5' : ''
       }`}
     >
       <div
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${
           isLoaded
-            ? 'bg-green-500/10 text-green-500'
+            ? 'bg-success/10 text-success'
             : model.isVision
-              ? 'bg-purple-500/10 text-purple-500'
+              ? 'bg-chart-4/10 text-chart-4'
               : 'bg-muted text-muted-foreground'
         }`}
       >
@@ -36,14 +36,14 @@ export function ModelOption({ model, isLoaded, onSelect }: ModelOptionProps) {
         <div className="flex items-center gap-2">
           <span className="font-medium text-sm">{model.name}</span>
           {model.isVision && (
-            <span className="rounded-full bg-purple-500/10 px-1.5 py-0.5 font-medium text-purple-500 text-xs">
+            <span className="rounded-full bg-chart-4/10 px-1.5 py-0.5 font-medium text-chart-4 text-xs">
               Vision
             </span>
           )}
         </div>
         <p className="truncate text-muted-foreground text-xs">{model.size}</p>
       </div>
-      {isLoaded && <Check className="h-4 w-4 shrink-0 text-green-500" />}
+      {isLoaded && <Check className="h-4 w-4 shrink-0 text-success" />}
     </button>
   );
 }

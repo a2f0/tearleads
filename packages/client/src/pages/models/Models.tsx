@@ -197,10 +197,10 @@ export function Models() {
       )}
 
       {previouslyLoadedModel && !loadedModel && !loadingModelId && (
-        <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-4">
+        <div className="rounded-lg border border-info/30 bg-info/5 p-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <RefreshCw className="h-5 w-5 text-blue-500" />
+              <RefreshCw className="h-5 w-5 text-info" />
               <div>
                 <p className="font-medium text-sm">
                   Model was unloaded after app reload

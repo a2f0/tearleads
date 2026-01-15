@@ -15,9 +15,9 @@ export function ConnectionIndicator({
     <output
       className={cn(
         'inline-block h-2 w-2 rounded-full',
-        state === 'connected' && 'bg-green-500 dark:bg-green-400',
+        state === 'connected' && 'bg-success',
         state === 'connecting' && 'animate-pulse bg-muted-foreground',
-        state === 'disconnected' && 'bg-red-500 dark:bg-red-400',
+        state === 'disconnected' && 'bg-destructive',
         className
       )}
       aria-label={`Connection status: ${state}`}
