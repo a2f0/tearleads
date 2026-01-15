@@ -1,14 +1,32 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { DatabaseAdapter } from '@/db/adapters/types';
 import { addColumnIfNotExists } from './utils';
+
+const createAdapter = (
+  execute: DatabaseAdapter['execute']
+): DatabaseAdapter => ({
+  initialize: vi.fn(async () => {}),
+  close: vi.fn(async () => {}),
+  isOpen: vi.fn(() => true),
+  execute,
+  executeMany: vi.fn(async () => {}),
+  beginTransaction: vi.fn(async () => {}),
+  commitTransaction: vi.fn(async () => {}),
+  rollbackTransaction: vi.fn(async () => {}),
+  rekeyDatabase: vi.fn(async () => {}),
+  getConnection: vi.fn(() => null),
+  exportDatabase: vi.fn(async () => new Uint8Array()),
+  importDatabase: vi.fn(async () => {})
+});
 
 describe('addColumnIfNotExists', () => {
   it('adds the column when it is missing', async () => {
-    const execute = vi.fn().mockResolvedValueOnce({
+    const execute = vi.fn<DatabaseAdapter['execute']>().mockResolvedValueOnce({
       rows: [{ name: 'existing_col' }]
     });
 
     await addColumnIfNotExists(
-      { execute } as { execute: typeof execute },
+      createAdapter(execute),
       'test_table',
       'new_col',
       'TEXT'
@@ -21,12 +39,12 @@ describe('addColumnIfNotExists', () => {
   });
 
   it('does not add the column when it already exists', async () => {
-    const execute = vi.fn().mockResolvedValueOnce({
+    const execute = vi.fn<DatabaseAdapter['execute']>().mockResolvedValueOnce({
       rows: [{ name: 'existing_col' }, { name: 'new_col' }]
     });
 
     await addColumnIfNotExists(
-      { execute } as { execute: typeof execute },
+      createAdapter(execute),
       'test_table',
       'new_col',
       'TEXT'
@@ -36,11 +54,13 @@ describe('addColumnIfNotExists', () => {
   });
 
   it('logs a warning when the PRAGMA query fails', async () => {
-    const execute = vi.fn().mockRejectedValueOnce(new Error('No PRAGMA'));
+    const execute = vi
+      .fn<DatabaseAdapter['execute']>()
+      .mockRejectedValueOnce(new Error('No PRAGMA'));
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     await addColumnIfNotExists(
-      { execute } as { execute: typeof execute },
+      createAdapter(execute),
       'test_table',
       'new_col',
       'TEXT'

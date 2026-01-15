@@ -3,8 +3,13 @@
 # Skips if already in queued state (queued takes precedence).
 # Does NOT set orange working status - use setWorking.sh for that.
 set -eu
+SCRIPT_PATH=$0
+case $SCRIPT_PATH in
+  */*) ;;
+  *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
+esac
+SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/repoRoot.sh"
 SETTINGS_FILE="$REPO_ROOT/.vscode/settings.json"
 

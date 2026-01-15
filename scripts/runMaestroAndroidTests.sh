@@ -10,6 +10,12 @@
 #   ./scripts/runMaestroAndroidTests.sh --record-video
 #   ./scripts/runMaestroAndroidTests.sh --record-video --video-seconds 120
 set -eu
+SCRIPT_PATH=$0
+case $SCRIPT_PATH in
+  */*) ;;
+  *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
+esac
+SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
 export MAESTRO_CLI_NO_ANALYTICS=1
 
@@ -57,7 +63,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-cd "$(dirname "$0")/../packages/client"
+cd "$SCRIPT_DIR/../packages/client"
 
 if [ -z "${ANDROID_SERIAL:-}" ]; then
   ANDROID_SERIAL="$(adb devices | awk 'NR>1 && $2=="device"{print $1}' | grep -m 1 '^emulator-' || true)"

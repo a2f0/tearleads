@@ -207,7 +207,7 @@ describe('AnalyticsTab', () => {
     expect(icon).toHaveClass('animate-spin');
     expect(refreshButton).toBeDisabled();
     act(() => {
-      refreshButton.onclick?.(new MouseEvent('click'));
+      refreshButton.onclick?.(new PointerEvent('click'));
     });
     expect(mockGetEvents).toHaveBeenCalledTimes(2);
 

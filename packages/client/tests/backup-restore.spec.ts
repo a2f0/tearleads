@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { clearOriginStorage } from './test-utils';
 
 // Helper to navigate via sidebar (visible on desktop viewport)
 async function navigateTo(page: Page, linkName: string) {
@@ -36,6 +37,7 @@ async function setupDatabase(page: Page) {
 
 test.describe('Backup & Restore (Web)', () => {
   test.beforeEach(async ({ page }) => {
+    await clearOriginStorage(page);
     await setupDatabase(page);
   });
 

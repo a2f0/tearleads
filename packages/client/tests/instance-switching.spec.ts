@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { MINIMAL_PNG } from './test-utils';
+import { clearOriginStorage, MINIMAL_PNG } from './test-utils';
 
 const TEST_PASSWORD = 'testpassword123';
 const DB_OPERATION_TIMEOUT = 15000;
@@ -118,6 +118,7 @@ const deleteAllOtherInstances = async (page: Page) => {
 test.describe('Instance Switching State Isolation', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to the SQLite page
+    await clearOriginStorage(page);
     await page.goto('/sqlite');
     await expect(page.getByTestId('database-test')).toBeVisible();
 
@@ -343,6 +344,7 @@ async function forceRefreshFiles(page: Page) {
 test.describe('Files Route Instance Switching', () => {
   test.beforeEach(async ({ page }) => {
     // Start fresh by going to SQLite and resetting
+    await clearOriginStorage(page);
     await page.goto('/sqlite');
     await expect(page.getByTestId('database-test')).toBeVisible();
 
