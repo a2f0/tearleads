@@ -7,6 +7,7 @@ import {
   Loader2,
   Music,
   Pause,
+  Play,
   Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -346,6 +347,14 @@ export function AudioPage() {
     [navigateWithFrom]
   );
 
+  const handleContextMenuPlay = useCallback(
+    (track: AudioWithUrl) => {
+      handlePlayPause(track);
+      setContextMenu(null);
+    },
+    [handlePlayPause]
+  );
+
   const handleDelete = useCallback(async (trackToDelete: AudioWithUrl) => {
     setContextMenu(null);
 
@@ -544,6 +553,12 @@ export function AudioPage() {
           y={contextMenu.y}
           onClose={handleCloseContextMenu}
         >
+          <ContextMenuItem
+            icon={<Play className="h-4 w-4" />}
+            onClick={() => handleContextMenuPlay(contextMenu.track)}
+          >
+            Play
+          </ContextMenuItem>
           <ContextMenuItem
             icon={<Info className="h-4 w-4" />}
             onClick={() => handleGetInfo(contextMenu.track)}

@@ -770,8 +770,80 @@ describe('AudioPage', () => {
 
       await openContextMenuOnTrack(user, 'track-1');
 
+      expect(screen.getByText('Play')).toBeInTheDocument();
       expect(screen.getByText('Get info')).toBeInTheDocument();
       expect(screen.getByText('Delete')).toBeInTheDocument();
+    });
+
+    it('plays track when "Play" is clicked from context menu', async () => {
+      const user = userEvent.setup();
+      await renderAudio();
+
+      await openContextMenuOnTrack(user, 'track-1');
+
+      await user.click(screen.getByText('Play'));
+
+      expect(mockPlay).toHaveBeenCalledWith({
+        id: 'track-1',
+        name: 'test-song.mp3',
+        objectUrl: 'blob:test-url',
+        mimeType: 'audio/mpeg'
+      });
+
+      // Context menu should be closed
+      await waitFor(() => {
+        expect(screen.queryByText('Play')).not.toBeInTheDocument();
+      });
+    });
+
+    it('pauses track when "Play" is clicked on currently playing track', async () => {
+      mockUseAudio.mockReturnValue({
+        currentTrack: {
+          id: 'track-1',
+          name: 'test-song.mp3',
+          objectUrl: 'blob:test-url',
+          mimeType: 'audio/mpeg'
+        },
+        isPlaying: true,
+        play: mockPlay,
+        pause: mockPause,
+        resume: mockResume,
+        audioElementRef: { current: null }
+      });
+
+      const user = userEvent.setup();
+      await renderAudio();
+
+      await openContextMenuOnTrack(user, 'track-1');
+
+      await user.click(screen.getByText('Play'));
+
+      expect(mockPause).toHaveBeenCalled();
+    });
+
+    it('resumes track when "Play" is clicked on paused track', async () => {
+      mockUseAudio.mockReturnValue({
+        currentTrack: {
+          id: 'track-1',
+          name: 'test-song.mp3',
+          objectUrl: 'blob:test-url',
+          mimeType: 'audio/mpeg'
+        },
+        isPlaying: false,
+        play: mockPlay,
+        pause: mockPause,
+        resume: mockResume,
+        audioElementRef: { current: null }
+      });
+
+      const user = userEvent.setup();
+      await renderAudio();
+
+      await openContextMenuOnTrack(user, 'track-1');
+
+      await user.click(screen.getByText('Play'));
+
+      expect(mockResume).toHaveBeenCalled();
     });
 
     it('navigates to audio detail when "Get info" is clicked', async () => {
