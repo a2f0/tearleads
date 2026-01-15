@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronRight, Key, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import type { KeyStatus } from '@/db/crypto/key-manager';
 import type { InstanceMetadata } from '@/db/instance-registry';
@@ -28,6 +29,7 @@ export function InstanceKeyRow({
   onToggle,
   onContextMenu
 }: InstanceKeyRowProps) {
+  const { t } = useTranslation('tooltips');
   const hasSessionKeys =
     info.keyStatus.wrappingKey || info.keyStatus.wrappedKey;
 
@@ -73,18 +75,25 @@ export function InstanceKeyRow({
             <p>Last accessed: {formatDate(info.instance.lastAccessedAt)}</p>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <KeyStatusIndicator exists={info.keyStatus.salt} label="Salt" />
+            <KeyStatusIndicator
+              exists={info.keyStatus.salt}
+              label="Salt"
+              tooltip={t('keychainSalt')}
+            />
             <KeyStatusIndicator
               exists={info.keyStatus.keyCheckValue}
               label="Key Check Value"
+              tooltip={t('keychainKeyCheckValue')}
             />
             <KeyStatusIndicator
               exists={info.keyStatus.wrappingKey}
               label="Session Wrapping Key"
+              tooltip={t('keychainSessionWrappingKey')}
             />
             <KeyStatusIndicator
               exists={info.keyStatus.wrappedKey}
               label="Session Wrapped Key"
+              tooltip={t('keychainSessionWrappedKey')}
             />
           </div>
         </div>

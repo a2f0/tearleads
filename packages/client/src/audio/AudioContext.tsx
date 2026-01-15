@@ -33,6 +33,8 @@ export interface AudioError {
   trackName: string;
 }
 
+export type RepeatMode = 'off' | 'all' | 'one';
+
 interface AudioState {
   currentTrack: AudioTrack | null;
   isPlaying: boolean;
@@ -40,6 +42,7 @@ interface AudioState {
   duration: number;
   volume: number;
   error: AudioError | null;
+  repeatMode: RepeatMode;
 }
 
 interface AudioContextValue extends AudioState {
@@ -57,8 +60,16 @@ interface AudioContextValue extends AudioState {
   setVolume: (volume: number) => void;
   /** Clear any playback error */
   clearError: () => void;
+  /** Set repeat mode (off, all, one) */
+  setRepeatMode: (mode: RepeatMode) => void;
+  /** Cycle through repeat modes */
+  cycleRepeatMode: () => void;
   /** Reference to the audio element for Web Audio API integration */
   audioElementRef: React.RefObject<HTMLAudioElement | null>;
+  /** Callback for when track ends - used by AudioControls to handle repeat */
+  onTrackEnd?: () => void;
+  /** Register callback for track end */
+  setOnTrackEnd: (callback: (() => void) | undefined) => void;
 }
 
 const AudioContext = createContext<AudioContextValue | null>(null);
@@ -81,6 +92,8 @@ export function AudioProvider({ children }: AudioProviderProps) {
   const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(1);
   const [error, setError] = useState<AudioError | null>(null);
+  const [repeatMode, setRepeatModeState] = useState<RepeatMode>('off');
+  const onTrackEndRef = useRef<(() => void) | undefined>(undefined);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -154,6 +167,22 @@ export function AudioProvider({ children }: AudioProviderProps) {
     }
   }, []);
 
+  const setRepeatMode = useCallback((mode: RepeatMode) => {
+    setRepeatModeState(mode);
+  }, []);
+
+  const cycleRepeatMode = useCallback(() => {
+    setRepeatModeState((current) => {
+      if (current === 'off') return 'all';
+      if (current === 'all') return 'one';
+      return 'off';
+    });
+  }, []);
+
+  const setOnTrackEnd = useCallback((callback: (() => void) | undefined) => {
+    onTrackEndRef.current = callback;
+  }, []);
+
   // Keep currentTrackRef in sync with currentTrack for error handler
   useEffect(() => {
     currentTrackRef.current = currentTrack;
@@ -169,6 +198,8 @@ export function AudioProvider({ children }: AudioProviderProps) {
     const handleEnded = () => {
       setIsPlaying(false);
       setCurrentTime(0);
+      // Call the onTrackEnd callback (used by AudioControls for repeat modes)
+      onTrackEndRef.current?.();
     };
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
@@ -240,6 +271,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
       duration,
       volume,
       error,
+      repeatMode,
       play,
       pause,
       resume,
@@ -247,6 +279,9 @@ export function AudioProvider({ children }: AudioProviderProps) {
       seek,
       setVolume,
       clearError,
+      setRepeatMode,
+      cycleRepeatMode,
+      setOnTrackEnd,
       audioElementRef: audioRef
     }),
     [
@@ -256,13 +291,17 @@ export function AudioProvider({ children }: AudioProviderProps) {
       duration,
       volume,
       error,
+      repeatMode,
       play,
       pause,
       resume,
       stop,
       seek,
       setVolume,
-      clearError
+      clearError,
+      setRepeatMode,
+      cycleRepeatMode,
+      setOnTrackEnd
     ]
   );
 

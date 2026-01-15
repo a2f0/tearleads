@@ -3,15 +3,24 @@ import { Check, X } from 'lucide-react';
 interface KeyStatusIndicatorProps {
   exists: boolean;
   label: string;
+  tooltip?: string;
 }
 
-export function KeyStatusIndicator({ exists, label }: KeyStatusIndicatorProps) {
+export function KeyStatusIndicator({
+  exists,
+  label,
+  tooltip
+}: KeyStatusIndicatorProps) {
   return (
-    <div className="flex items-center gap-2">
+    <div
+      className="flex items-center gap-2"
+      title={tooltip}
+      data-testid="key-status-indicator"
+    >
       {exists ? (
-        <Check className="h-4 w-4 text-success" />
+        <Check className="h-4 w-4 text-success" data-testid="check-icon" />
       ) : (
-        <X className="h-4 w-4 text-muted-foreground" />
+        <X className="h-4 w-4 text-muted-foreground" data-testid="x-icon" />
       )}
       <span className="text-muted-foreground text-sm">{label}</span>
     </div>

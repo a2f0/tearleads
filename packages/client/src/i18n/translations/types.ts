@@ -29,18 +29,47 @@ export interface MenuTranslations {
   settings: string;
 }
 
+export interface AudioTranslations {
+  play: string;
+  pause: string;
+  previousTrack: string;
+  nextTrack: string;
+  restart: string;
+  rewind: string;
+  close: string;
+  repeatOff: string;
+  repeatAll: string;
+  repeatOne: string;
+}
+
+export interface TooltipsTranslations {
+  sseConnected: string;
+  sseConnecting: string;
+  sseDisconnected: string;
+  keychainSalt: string;
+  keychainKeyCheckValue: string;
+  keychainSessionWrappingKey: string;
+  keychainSessionWrappedKey: string;
+}
+
 export interface Translations {
   common: CommonTranslations;
   menu: MenuTranslations;
+  audio: AudioTranslations;
+  tooltips: TooltipsTranslations;
 }
 
 export type I18NextTranslations = {
   common: CommonTranslations;
   menu: MenuTranslations;
+  audio: AudioTranslations;
+  tooltips: TooltipsTranslations;
 } & Record<string, Record<string, string>>;
 
 export type CommonKeys = keyof CommonTranslations;
 export type MenuKeys = keyof MenuTranslations;
+export type AudioKeys = keyof AudioTranslations;
+export type TooltipsKeys = keyof TooltipsTranslations;
 
 export type NamespaceKeys = keyof Translations;
 
