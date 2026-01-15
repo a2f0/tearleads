@@ -1,6 +1,15 @@
-import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
-import { type CSSProperties, useCallback } from 'react';
-import { type AudioTrack, useAudio } from '@/audio';
+import {
+  Pause,
+  Play,
+  Repeat,
+  Repeat1,
+  RotateCcw,
+  SkipBack,
+  SkipForward
+} from 'lucide-react';
+import { type CSSProperties, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { type AudioTrack, type RepeatMode, useAudio } from '@/audio';
 import { Button } from '@/components/ui/button';
 
 interface AudioControlsProps {
@@ -17,15 +26,19 @@ function formatTime(seconds: number): string {
 }
 
 export function AudioControls({ tracks }: AudioControlsProps) {
+  const { t } = useTranslation('audio');
   const {
     currentTrack,
     isPlaying,
     currentTime,
     duration,
+    repeatMode,
     play,
     pause,
     resume,
-    seek
+    seek,
+    cycleRepeatMode,
+    setOnTrackEnd
   } = useAudio();
 
   const currentIndex = currentTrack
@@ -33,7 +46,9 @@ export function AudioControls({ tracks }: AudioControlsProps) {
     : -1;
 
   const hasPrevious = currentIndex > 0;
-  const hasNext = currentIndex >= 0 && currentIndex < tracks.length - 1;
+  const hasNext =
+    (currentIndex >= 0 && currentIndex < tracks.length - 1) ||
+    (repeatMode === 'all' && tracks.length > 0);
 
   const handleSeek = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,8 +81,44 @@ export function AudioControls({ tracks }: AudioControlsProps) {
     const nextTrack = tracks[currentIndex + 1];
     if (nextTrack) {
       play(nextTrack);
+    } else if (repeatMode === 'all') {
+      // Wrap to first track in repeat-all mode
+      const firstTrack = tracks[0];
+      if (firstTrack) {
+        play(firstTrack);
+      }
     }
-  }, [tracks, currentIndex, play]);
+  }, [tracks, currentIndex, play, repeatMode]);
+
+  // Handle track end based on repeat mode
+  const handleTrackEnd = useCallback(() => {
+    if (repeatMode === 'one') {
+      // Replay current track
+      seek(0);
+      resume();
+    } else if (repeatMode === 'all') {
+      // Go to next track (will wrap to first)
+      handleNext();
+    }
+    // repeatMode === 'off': do nothing, track just ends
+  }, [repeatMode, seek, resume, handleNext]);
+
+  // Register track end handler
+  useEffect(() => {
+    setOnTrackEnd(handleTrackEnd);
+    return () => setOnTrackEnd(undefined);
+  }, [setOnTrackEnd, handleTrackEnd]);
+
+  const getRepeatTooltip = (mode: RepeatMode): string => {
+    switch (mode) {
+      case 'off':
+        return t('repeatOff');
+      case 'all':
+        return t('repeatAll');
+      case 'one':
+        return t('repeatOne');
+    }
+  };
 
   if (!currentTrack) {
     return null;
@@ -118,7 +169,8 @@ export function AudioControls({ tracks }: AudioControlsProps) {
           size="icon"
           onClick={handlePrevious}
           disabled={!hasPrevious}
-          aria-label="Previous track"
+          aria-label={t('previousTrack')}
+          title={t('previousTrack')}
           data-testid="audio-previous"
         >
           <SkipBack />
@@ -127,7 +179,8 @@ export function AudioControls({ tracks }: AudioControlsProps) {
           variant="ghost"
           size="icon"
           onClick={handleRestart}
-          aria-label="Restart track"
+          aria-label={t('restart')}
+          title={t('restart')}
           data-testid="audio-restart"
         >
           <RotateCcw />
@@ -136,7 +189,8 @@ export function AudioControls({ tracks }: AudioControlsProps) {
           variant="default"
           size="icon"
           onClick={handlePlayPause}
-          aria-label={isPlaying ? 'Pause' : 'Play'}
+          aria-label={isPlaying ? t('pause') : t('play')}
+          title={isPlaying ? t('pause') : t('play')}
           data-testid="audio-play-pause"
         >
           {isPlaying ? <Pause /> : <Play />}
@@ -146,10 +200,22 @@ export function AudioControls({ tracks }: AudioControlsProps) {
           size="icon"
           onClick={handleNext}
           disabled={!hasNext}
-          aria-label="Next track"
+          aria-label={t('nextTrack')}
+          title={t('nextTrack')}
           data-testid="audio-next"
         >
           <SkipForward />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={cycleRepeatMode}
+          aria-label={getRepeatTooltip(repeatMode)}
+          title={getRepeatTooltip(repeatMode)}
+          data-testid="audio-repeat"
+          className={repeatMode !== 'off' ? 'text-primary' : undefined}
+        >
+          {repeatMode === 'one' ? <Repeat1 /> : <Repeat />}
         </Button>
       </div>
     </div>

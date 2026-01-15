@@ -65,4 +65,12 @@ describe('ConnectionIndicator', () => {
     render(<ConnectionIndicator state={state} />);
     expect(screen.getByRole('status')).toHaveAttribute('title', expected);
   });
+
+  it('uses custom tooltip when provided', () => {
+    render(<ConnectionIndicator state="connected" tooltip="Custom Tooltip" />);
+    expect(screen.getByRole('status')).toHaveAttribute(
+      'title',
+      'Custom Tooltip'
+    );
+  });
 });

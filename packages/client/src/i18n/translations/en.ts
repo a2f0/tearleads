@@ -29,5 +29,30 @@ export const en = {
     models: 'Models',
     admin: 'Admin',
     settings: 'Settings'
+  },
+  audio: {
+    play: 'Play',
+    pause: 'Pause',
+    previousTrack: 'Previous track',
+    nextTrack: 'Next track',
+    restart: 'Restart track',
+    rewind: 'Rewind',
+    close: 'Close player',
+    repeatOff: 'Repeat: Off',
+    repeatAll: 'Repeat: All tracks',
+    repeatOne: 'Repeat: Current track'
+  },
+  tooltips: {
+    sseConnected: 'SSE: Connected',
+    sseConnecting: 'SSE: Connecting',
+    sseDisconnected: 'SSE: Disconnected',
+    keychainSalt:
+      'Random value used with your password to derive the encryption key',
+    keychainKeyCheckValue:
+      'Hash used to verify your password is correct without storing it',
+    keychainSessionWrappingKey:
+      'Temporary key that encrypts your session data in memory',
+    keychainSessionWrappedKey:
+      'Your encryption key protected by the session wrapping key'
   }
 } as const satisfies I18NextTranslations;

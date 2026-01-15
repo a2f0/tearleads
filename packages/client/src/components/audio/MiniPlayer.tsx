@@ -1,4 +1,5 @@
 import { Music, Pause, Play, SkipBack, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { useAudioContext } from '@/audio';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/button';
  * Only shows when navigating away from audio pages to avoid redundant controls.
  */
 export function MiniPlayer() {
+  const { t } = useTranslation('audio');
   const audio = useAudioContext();
   const location = useLocation();
 
@@ -37,7 +39,8 @@ export function MiniPlayer() {
           variant="ghost"
           size="icon"
           onClick={() => seek(0)}
-          aria-label="Rewind"
+          aria-label={t('rewind')}
+          title={t('rewind')}
           data-testid="mini-player-rewind"
         >
           <SkipBack />
@@ -46,7 +49,8 @@ export function MiniPlayer() {
           variant="ghost"
           size="icon"
           onClick={isPlaying ? pause : resume}
-          aria-label={isPlaying ? 'Pause' : 'Play'}
+          aria-label={isPlaying ? t('pause') : t('play')}
+          title={isPlaying ? t('pause') : t('play')}
           data-testid="mini-player-play-pause"
         >
           {isPlaying ? <Pause /> : <Play />}
@@ -55,7 +59,8 @@ export function MiniPlayer() {
           variant="ghost"
           size="icon"
           onClick={stop}
-          aria-label="Close"
+          aria-label={t('close')}
+          title={t('close')}
           data-testid="mini-player-close"
         >
           <X />
