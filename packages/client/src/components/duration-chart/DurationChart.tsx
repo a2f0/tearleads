@@ -1,5 +1,11 @@
 import { useTheme } from '@rapid/ui';
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useDeferredValue,
+  useLayoutEffect,
+  useMemo,
+  useState
+} from 'react';
 import {
   CartesianGrid,
   ResponsiveContainer,
@@ -88,13 +94,18 @@ export function DurationChart({
   const [chartContainerRef, isContainerReady] = useContainerReady();
   const { resolvedTheme } = useTheme();
 
+  // Defer heavy data to allow React to interrupt rendering on navigation
+  const deferredEvents = useDeferredValue(events);
+  const deferredSelectedTypes = useDeferredValue(selectedEventTypes);
+  const isStale = deferredEvents !== events;
+
   // Get chart colors from CSS variables (reactive to theme changes)
   // biome-ignore lint/correctness/useExhaustiveDependencies: resolvedTheme triggers recalculation when theme changes
   const chartColors = useMemo(() => getChartColors(), [resolvedTheme]);
 
   const { chartData, eventTypeColors, dataByEventType } = useMemo(() => {
-    const filteredEvents = events.filter((e) =>
-      selectedEventTypes.has(e.eventName)
+    const filteredEvents = deferredEvents.filter((e) =>
+      deferredSelectedTypes.has(e.eventName)
     );
 
     // Build color map for event types
@@ -126,7 +137,7 @@ export function DurationChart({
       eventTypeColors: colorMap,
       dataByEventType: groupedData
     };
-  }, [events, selectedEventTypes, chartColors]);
+  }, [deferredEvents, deferredSelectedTypes, chartColors]);
 
   if (chartData.length === 0) {
     return (
@@ -144,12 +155,14 @@ export function DurationChart({
         </h2>
         <span className="text-muted-foreground text-xs">
           {chartData.length} event{chartData.length !== 1 ? 's' : ''}
+          {isStale && ' (updating...)'}
         </span>
       </div>
       <div
         ref={chartContainerRef}
         className="h-48 w-full sm:h-56"
         data-testid="duration-chart"
+        style={{ opacity: isStale ? 0.7 : 1, transition: 'opacity 150ms' }}
       >
         {isContainerReady && (
           <ResponsiveContainer
