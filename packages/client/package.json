@@ -57,6 +57,7 @@
     "@rapid/shared": "workspace:*",
     "@rapid/ui": "workspace:*",
     "@tanstack/react-virtual": "3.13.18",
+    "@uiw/react-md-editor": "4.0.11",
     "class-variance-authority": "0.7.1",
     "drizzle-orm": "0.45.1",
     "file-type": "21.2.0",

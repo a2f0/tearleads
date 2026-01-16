@@ -360,6 +360,53 @@ export const analyticsEventsTable: TableDefinition = {
 };
 
 /**
+ * Notes table for storing user notes with markdown content.
+ */
+export const notesTable: TableDefinition = {
+  name: 'notes',
+  propertyName: 'notes',
+  comment: 'Notes table for storing user notes with markdown content.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    title: {
+      type: 'text',
+      sqlName: 'title',
+      notNull: true
+    },
+    content: {
+      type: 'text',
+      sqlName: 'content',
+      notNull: true,
+      defaultValue: ''
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    },
+    updatedAt: {
+      type: 'timestamp',
+      sqlName: 'updated_at',
+      notNull: true
+    },
+    deleted: {
+      type: 'boolean',
+      sqlName: 'deleted',
+      notNull: true,
+      defaultValue: false
+    }
+  },
+  indexes: [
+    { name: 'notes_updated_at_idx', columns: ['updatedAt'] },
+    { name: 'notes_title_idx', columns: ['title'] }
+  ]
+};
+
+/**
  * All table definitions in the schema.
  */
 export const allTables: TableDefinition[] = [
@@ -371,5 +418,6 @@ export const allTables: TableDefinition[] = [
   contactsTable,
   contactPhonesTable,
   contactEmailsTable,
-  analyticsEventsTable
+  analyticsEventsTable,
+  notesTable
 ];
