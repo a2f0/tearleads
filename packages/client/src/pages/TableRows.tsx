@@ -212,14 +212,17 @@ export function TableRows() {
 
         // Update total count on reset
         if (countResult) {
-          const countRows = Array.isArray(countResult.rows)
-            ? countResult.rows
-            : [];
-          const firstRow = countRows[0];
+          const firstRow = Array.isArray(countResult.rows)
+            ? countResult.rows[0]
+            : undefined;
           if (isRecord(firstRow)) {
             const count = getNumberField(firstRow, 'count');
             setTotalCount(count);
             totalCountRef.current = count;
+          } else {
+            // If count query was run but returned no rows/count, reset the total.
+            setTotalCount(null);
+            totalCountRef.current = null;
           }
         }
 
