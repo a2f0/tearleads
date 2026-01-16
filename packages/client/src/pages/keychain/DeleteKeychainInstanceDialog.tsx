@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 
 interface DeleteKeychainInstanceDialogProps {
@@ -15,14 +15,26 @@ export function DeleteKeychainInstanceDialog({
   onDelete
 }: DeleteKeychainInstanceDialogProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
       await onDelete();
-      onOpenChange(false);
-    } finally {
-      setIsDeleting(false);
+      if (isMountedRef.current) {
+        onOpenChange(false);
+      }
+    } catch (error) {
+      if (isMountedRef.current) {
+        setIsDeleting(false);
+      }
     }
   };
 
