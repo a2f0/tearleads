@@ -1030,10 +1030,7 @@ describe('Files', () => {
 
       await renderFiles();
 
-      const inputs = screen.getAllByTestId('dropzone-input');
-      const input = inputs[0];
-      if (!input) throw new Error('Dropzone input not found');
-
+      const input = screen.getAllByTestId('dropzone-input')[0] as HTMLElement;
       await user.upload(input, file);
 
       await waitFor(() => {
@@ -1066,10 +1063,7 @@ describe('Files', () => {
 
       await renderFiles();
 
-      const inputs = screen.getAllByTestId('dropzone-input');
-      const input = inputs[0];
-      if (!input) throw new Error('Dropzone input not found');
-
+      const input = screen.getAllByTestId('dropzone-input')[0] as HTMLElement;
       await user.upload(input, file);
 
       await waitFor(() => {
@@ -1091,10 +1085,7 @@ describe('Files', () => {
 
       await renderFiles();
 
-      const inputs = screen.getAllByTestId('dropzone-input');
-      const input = inputs[0];
-      if (!input) throw new Error('Dropzone input not found');
-
+      const input = screen.getAllByTestId('dropzone-input')[0] as HTMLElement;
       await user.upload(input, file);
 
       await waitFor(() => {
