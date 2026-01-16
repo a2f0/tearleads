@@ -139,11 +139,11 @@ export function TableRows() {
     async (reset = true) => {
       if (!isUnlocked || !tableName) return;
 
+      setError(null);
       if (reset) {
         setLoading(true);
         setRows([]);
         offsetRef.current = 0;
-        setError(null);
         fetchTotalCount();
       } else {
         setLoadingMore(true);
@@ -169,8 +169,9 @@ export function TableRows() {
           throw new Error(`Table "${tableName}" does not exist.`);
         }
 
-        // Get column info using PRAGMA (only on reset)
-        if (reset) {
+        // Get column info using PRAGMA (only on initial load when columns aren't loaded)
+        let currentColumns = columns;
+        if (reset && columns.length === 0) {
           const schemaResult = await adapter.execute(
             `PRAGMA table_info("${tableName}")`,
             []
@@ -193,10 +194,11 @@ export function TableRows() {
             .filter((col): col is ColumnInfo => col !== null);
 
           setColumns(columnInfo);
+          currentColumns = columnInfo;
         }
 
         // Validate sort column if set
-        const validColumns = columns.map((c) => c.name);
+        const validColumns = currentColumns.map((c) => c.name);
         const sortColumn =
           sort.column && validColumns.includes(sort.column)
             ? sort.column
@@ -644,16 +646,13 @@ export function TableRows() {
           />
 
           {documentView ? (
-            <div className="min-h-0 flex-1 rounded-lg border">
+            <div className="flex min-h-0 flex-1 flex-col rounded-lg border">
               {rows.length === 0 && !loading ? (
                 <div className="p-8 text-center text-muted-foreground">
                   No rows in this table
                 </div>
               ) : (
-                <div
-                  ref={parentRef}
-                  className="h-[calc(100vh-280px)] overflow-auto p-2"
-                >
+                <div ref={parentRef} className="flex-1 overflow-auto p-2">
                   <div
                     className="relative w-full"
                     style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -705,7 +704,7 @@ export function TableRows() {
               )}
             </div>
           ) : (
-            <div className="min-h-0 flex-1 overflow-hidden rounded-lg border">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
               {/* Header row - sticky */}
               <div
                 className="grid border-b bg-muted/50"
@@ -767,10 +766,7 @@ export function TableRows() {
                   No rows in this table
                 </div>
               ) : (
-                <div
-                  ref={parentRef}
-                  className="h-[calc(100vh-320px)] overflow-auto"
-                >
+                <div ref={parentRef} className="flex-1 overflow-auto">
                   <div
                     className="relative w-full"
                     style={{ height: `${virtualizer.getTotalSize()}px` }}
