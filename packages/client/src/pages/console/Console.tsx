@@ -1,5 +1,5 @@
 import { AlertTriangle, Terminal } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
 import { Input } from '@/components/ui/input';
@@ -27,7 +27,8 @@ export function Console() {
     changePassword
   } = useDatabaseContext();
 
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<Array<{ id: string; message: string }>>([]);
+  const logIdRef = useRef(0);
   const [setupPassword, setSetupPassword] = useState('');
   const [setupConfirm, setSetupConfirm] = useState('');
   const [unlockPassword, setUnlockPassword] = useState('');
@@ -42,7 +43,11 @@ export function Console() {
   const [activeCommand, setActiveCommand] = useState<string | null>(null);
 
   const appendLog = useCallback((message: string) => {
-    setLogs((prev) => [...prev, message]);
+    logIdRef.current += 1;
+    setLogs((prev) => [
+      ...prev,
+      { id: `${Date.now()}-${logIdRef.current}`, message }
+    ]);
   }, []);
 
   const clearLogs = useCallback(() => {
@@ -139,13 +144,7 @@ export function Console() {
     } finally {
       setActiveCommand(null);
     }
-  }, [
-    appendLog,
-    isSetUp,
-    persistUnlock,
-    unlock,
-    unlockPassword
-  ]);
+  }, [appendLog, isSetUp, persistUnlock, unlock, unlockPassword]);
 
   const handleRestoreSession = useCallback(async () => {
     setActiveCommand('restore-session');
@@ -406,10 +405,7 @@ export function Console() {
             type="button"
             onClick={handleUnlock}
             disabled={
-              isLoading ||
-              activeCommand !== null ||
-              !unlockPassword ||
-              !isSetUp
+              isLoading || activeCommand !== null || !unlockPassword || !isSetUp
             }
             data-testid="console-unlock-button"
           >
@@ -420,9 +416,7 @@ export function Console() {
             variant="outline"
             onClick={handleRestoreSession}
             disabled={
-              isLoading ||
-              activeCommand !== null ||
-              !hasPersistedSession
+              isLoading || activeCommand !== null || !hasPersistedSession
             }
             data-testid="console-restore-session-button"
           >
@@ -574,15 +568,15 @@ export function Console() {
           </Button>
         </div>
         <div
-          className="min-h-32 rounded-md border bg-muted p-3 font-mono text-xs text-foreground"
+          className="min-h-32 rounded-md border bg-muted p-3 font-mono text-foreground text-xs"
           data-testid="console-output"
         >
           {logs.length === 0 ? (
             <span className="text-muted-foreground">No output yet.</span>
           ) : (
             <div className="space-y-1">
-              {logs.map((entry, index) => (
-                <div key={`${entry}-${index}`}>{entry}</div>
+              {logs.map((entry) => (
+                <div key={entry.id}>{entry.message}</div>
               ))}
             </div>
           )}
