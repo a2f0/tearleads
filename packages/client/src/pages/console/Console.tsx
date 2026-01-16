@@ -42,14 +42,18 @@ export function Console() {
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
   const [activeCommand, setActiveCommand] = useState<string | null>(null);
 
-  const appendLog = useCallback((message: string) => {
-    let nextId = globalThis.crypto?.randomUUID?.();
-    if (!nextId) {
-      logIdRef.current += 1;
-      nextId = String(logIdRef.current);
+  const getNextLogId = useCallback(() => {
+    if (globalThis.crypto?.randomUUID) {
+      return globalThis.crypto.randomUUID();
     }
-    setLogs((prev) => [...prev, { id: nextId, message }]);
+    logIdRef.current += 1;
+    return String(logIdRef.current);
   }, []);
+
+  const appendLog = useCallback((message: string) => {
+    const nextId = getNextLogId();
+    setLogs((prev) => [...prev, { id: nextId, message }]);
+  }, [getNextLogId]);
 
   const clearLogs = useCallback(() => {
     setLogs([]);
