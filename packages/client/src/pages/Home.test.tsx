@@ -363,19 +363,23 @@ describe('Home', () => {
   });
 
   it('constrains positions on window resize', () => {
-    // Mock container with dimensions
+    // Mock container with dimensions smaller than the out-of-bounds position
     const mockContainer = {
-      offsetWidth: 800,
-      offsetHeight: 600
+      offsetWidth: 400,
+      offsetHeight: 300
     };
 
-    // Save positions that are within bounds
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_SAVED_POSITIONS));
+    // Save positions with one that is outside the viewport
+    const outOfBoundsPositions = {
+      ...MOCK_SAVED_POSITIONS,
+      '/files': { x: 1000, y: 800 }
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(outOfBoundsPositions));
 
     const { container } = renderHome();
     const canvas = container.querySelector('[role="application"]');
 
-    // Mock the container dimensions
+    // Mock the container dimensions before triggering resize
     if (canvas) {
       Object.defineProperty(canvas, 'offsetWidth', {
         value: mockContainer.offsetWidth,
@@ -387,16 +391,19 @@ describe('Home', () => {
       });
     }
 
-    // Trigger resize event
+    // Trigger resize event - this should constrain the out-of-bounds position
     act(() => {
       window.dispatchEvent(new Event('resize'));
     });
 
-    // Icons should still be rendered after resize
-    expect(screen.getByRole('button', { name: 'Files' })).toBeInTheDocument();
+    // Icon should be constrained to viewport bounds (max x = 400 - 64 = 336, max y = 300 - 96 = 204)
+    const filesButton = screen.getByRole('button', { name: 'Files' });
+    expect(filesButton).toBeInTheDocument();
+    // Verify the position was constrained (no longer at 1000, 800)
+    expect(filesButton).not.toHaveStyle({ left: '1000px', top: '800px' });
   });
 
-  it('constrains saved positions when container has dimensions', () => {
+  it('uses saved positions as-is when container has no dimensions', () => {
     // Save positions with one that would be outside a small viewport
     const savedPositions = {
       ...MOCK_SAVED_POSITIONS,
