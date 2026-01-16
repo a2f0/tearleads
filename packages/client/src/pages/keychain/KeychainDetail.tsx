@@ -185,10 +185,10 @@ export function KeychainDetail() {
 
           <div className="flex gap-2">
             {hasSessionKeys && (
-            <Button variant="outline" onClick={handleDeleteSessionKeys}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete Session Keys
-            </Button>
+              <Button variant="outline" onClick={handleDeleteSessionKeys}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Session Keys
+              </Button>
             )}
             <Button
               variant="outline"
