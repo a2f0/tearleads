@@ -2,6 +2,7 @@ import { AlertTriangle, ChevronRight, Download, Scale } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  FontSelector,
   SettingsSection,
   ThemeSelector,
   TooltipsToggle
@@ -11,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
 import { useDatabaseContext } from '@/db/hooks';
 import { useAppVersion } from '@/hooks/useAppVersion';
+import { useFontEffect } from '@/hooks/useFontEffect';
 import {
   generateBackupFilename,
   readFileAsUint8Array,
@@ -20,6 +22,7 @@ import {
 export function Settings() {
   const { exportDatabase, importDatabase, lock } = useDatabaseContext();
   const version = useAppVersion();
+  useFontEffect();
 
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -100,6 +103,10 @@ export function Settings() {
 
       <SettingsSection>
         <LanguageSelector />
+      </SettingsSection>
+
+      <SettingsSection>
+        <FontSelector />
       </SettingsSection>
 
       <SettingsSection>
