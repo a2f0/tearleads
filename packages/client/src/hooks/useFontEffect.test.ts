@@ -1,6 +1,5 @@
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SettingsSyncedDetail } from '@/db/user-settings';
 import { useFontEffect } from './useFontEffect';
 
 // Mock the useSettings hook
@@ -34,44 +33,21 @@ describe('useFontEffect', () => {
     );
   });
 
-  it('handles settings-synced event with monospace font', () => {
+  it('toggles class when font setting changes', () => {
     mockGetSetting.mockReturnValue('system');
-    renderHook(() => useFontEffect());
-
-    const event = new CustomEvent<SettingsSyncedDetail>('settings-synced', {
-      detail: { settings: { font: 'monospace' } }
-    });
-    window.dispatchEvent(event);
-
-    expect(document.documentElement.classList.contains('font-mono')).toBe(true);
-  });
-
-  it('handles settings-synced event with system font', () => {
-    document.documentElement.classList.add('font-mono');
-    mockGetSetting.mockReturnValue('monospace');
-    renderHook(() => useFontEffect());
-
-    const event = new CustomEvent<SettingsSyncedDetail>('settings-synced', {
-      detail: { settings: { font: 'system' } }
-    });
-    window.dispatchEvent(event);
-
+    const { rerender } = renderHook(() => useFontEffect());
     expect(document.documentElement.classList.contains('font-mono')).toBe(
       false
     );
-  });
 
-  it('removes event listener on unmount', () => {
-    const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
+    mockGetSetting.mockReturnValue('monospace');
+    rerender();
+    expect(document.documentElement.classList.contains('font-mono')).toBe(true);
+
     mockGetSetting.mockReturnValue('system');
-    const { unmount } = renderHook(() => useFontEffect());
-
-    unmount();
-
-    expect(removeEventListenerSpy).toHaveBeenCalledWith(
-      'settings-synced',
-      expect.any(Function)
+    rerender();
+    expect(document.documentElement.classList.contains('font-mono')).toBe(
+      false
     );
-    removeEventListenerSpy.mockRestore();
   });
 });
