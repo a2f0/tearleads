@@ -376,38 +376,38 @@ describe('NoteDetail', () => {
       { theme: 'dark' as Theme, expectedMode: 'dark' },
       { theme: 'monochrome' as Theme, expectedMode: 'dark' },
       { theme: 'tokyo-night' as Theme, expectedMode: 'dark' }
-    ])(
-      'sets data-color-mode to $expectedMode for $theme theme',
-      async ({ theme, expectedMode }) => {
-        await renderNoteDetail({ theme });
+    ])('sets data-color-mode to $expectedMode for $theme theme', async ({
+      theme,
+      expectedMode
+    }) => {
+      await renderNoteDetail({ theme });
 
-        const editor = screen.getByTestId('markdown-editor');
-        expect(editor).toHaveAttribute('data-color-mode', expectedMode);
-      }
-    );
+      const editor = screen.getByTestId('markdown-editor');
+      expect(editor).toHaveAttribute('data-color-mode', expectedMode);
+    });
 
     it.each([
       { theme: 'dark', expectedMode: 'dark' },
       { theme: 'monochrome', expectedMode: 'dark' },
       { theme: 'tokyo-night', expectedMode: 'dark' }
-    ])(
-      'updates data-color-mode when switching to $theme',
-      async ({ theme, expectedMode }) => {
-        await renderNoteDetail({ theme: 'light' });
+    ])('updates data-color-mode when switching to $theme', async ({
+      theme,
+      expectedMode
+    }) => {
+      await renderNoteDetail({ theme: 'light' });
 
-        const editor = screen.getByTestId('markdown-editor');
-        expect(editor).toHaveAttribute('data-color-mode', 'light');
+      const editor = screen.getByTestId('markdown-editor');
+      expect(editor).toHaveAttribute('data-color-mode', 'light');
 
-        act(() => {
-          window.dispatchEvent(
-            new CustomEvent('settings-synced', {
-              detail: { settings: { theme } }
-            })
-          );
-        });
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('settings-synced', {
+            detail: { settings: { theme } }
+          })
+        );
+      });
 
-        expect(editor).toHaveAttribute('data-color-mode', expectedMode);
-      }
-    );
+      expect(editor).toHaveAttribute('data-color-mode', expectedMode);
+    });
   });
 });
