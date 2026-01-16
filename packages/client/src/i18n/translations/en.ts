@@ -21,6 +21,7 @@ export const en = {
     tables: 'Tables',
     analytics: 'Analytics',
     sqlite: 'SQLite',
+    console: 'Console',
     debug: 'Debug',
     opfs: 'OPFS',
     cacheStorage: 'Cache Storage',
