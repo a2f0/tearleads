@@ -19,7 +19,14 @@ vi.mock('@uiw/react-md-editor', () => ({
       value={value}
       onChange={(e) => onChange(e.target.value)}
     />
-  )
+  ),
+  commands: {
+    codeEdit: { name: 'codeEdit' },
+    codeLive: { name: 'codeLive' },
+    codePreview: { name: 'codePreview' },
+    divider: { name: 'divider' },
+    fullscreen: { name: 'fullscreen' }
+  }
 }));
 
 const mockUseDatabaseContext = vi.fn();
