@@ -428,7 +428,6 @@ describe('Opfs', () => {
       });
 
       it('shows confirmation dialog when deleting a file', async () => {
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
         const user = userEvent.setup();
         renderOpfs();
 
@@ -440,14 +439,15 @@ describe('Opfs', () => {
         const deleteButton = screen.getByTitle('Delete');
         await user.click(deleteButton);
 
-        expect(confirmSpy).toHaveBeenCalledWith(
-          'Are you sure you want to delete the file "file.txt"?'
-        );
-        confirmSpy.mockRestore();
+        await waitFor(() => {
+          expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+          expect(
+            screen.getByText(/Are you sure you want to delete the file/)
+          ).toBeInTheDocument();
+        });
       });
 
       it('does not delete when confirmation is cancelled', async () => {
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
         const user = userEvent.setup();
         renderOpfs();
 
@@ -458,12 +458,22 @@ describe('Opfs', () => {
         const deleteButton = screen.getByTitle('Delete');
         await user.click(deleteButton);
 
+        await waitFor(() => {
+          expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+        });
+
+        await user.click(screen.getByTestId('confirm-dialog-cancel'));
+
+        await waitFor(() => {
+          expect(
+            screen.queryByTestId('confirm-dialog')
+          ).not.toBeInTheDocument();
+        });
+
         expect(mockRoot.removeEntry).not.toHaveBeenCalled();
-        confirmSpy.mockRestore();
       });
 
       it('deletes file when confirmation is accepted', async () => {
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
         const user = userEvent.setup();
         renderOpfs();
 
@@ -473,13 +483,18 @@ describe('Opfs', () => {
 
         const deleteButton = screen.getByTitle('Delete');
         await user.click(deleteButton);
+
+        await waitFor(() => {
+          expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+        });
+
+        await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
         await waitFor(() => {
           expect(mockRoot.removeEntry).toHaveBeenCalledWith('file.txt', {
             recursive: false
           });
         });
-        confirmSpy.mockRestore();
       });
     });
 
@@ -506,7 +521,6 @@ describe('Opfs', () => {
       });
 
       it('shows confirmation dialog when deleting a directory', async () => {
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
         const user = userEvent.setup();
         renderOpfs();
 
@@ -517,14 +531,15 @@ describe('Opfs', () => {
         const deleteButton = screen.getByTitle('Delete');
         await user.click(deleteButton);
 
-        expect(confirmSpy).toHaveBeenCalledWith(
-          'Are you sure you want to delete the directory "mydir" and all its contents?'
-        );
-        confirmSpy.mockRestore();
+        await waitFor(() => {
+          expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+          expect(
+            screen.getByText(/Are you sure you want to delete the directory/)
+          ).toBeInTheDocument();
+        });
       });
 
       it('deletes directory recursively when confirmation is accepted', async () => {
-        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
         const user = userEvent.setup();
         renderOpfs();
 
@@ -534,13 +549,18 @@ describe('Opfs', () => {
 
         const deleteButton = screen.getByTitle('Delete');
         await user.click(deleteButton);
+
+        await waitFor(() => {
+          expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+        });
+
+        await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
         await waitFor(() => {
           expect(mockRoot.removeEntry).toHaveBeenCalledWith('mydir', {
             recursive: true
           });
         });
-        confirmSpy.mockRestore();
       });
     });
   });
@@ -567,7 +587,6 @@ describe('Opfs', () => {
 
     it('displays error message when delete fails', async () => {
       const consoleSpy = mockConsoleError();
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
       const user = userEvent.setup();
 
       const entries = new Map<
@@ -594,6 +613,12 @@ describe('Opfs', () => {
       await user.click(deleteButton);
 
       await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
+
+      await waitFor(() => {
         expect(screen.getByText('Delete failed')).toBeInTheDocument();
       });
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -601,7 +626,6 @@ describe('Opfs', () => {
         expect.any(Error)
       );
       consoleSpy.mockRestore();
-      confirmSpy.mockRestore();
     });
   });
 });
