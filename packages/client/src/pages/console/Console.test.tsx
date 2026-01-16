@@ -450,7 +450,9 @@ describe('Console', () => {
     await user.click(screen.getByTestId('console-lock-button'));
 
     await waitFor(() => {
-      expect(screen.getByText('Lock failed: Lock exploded')).toBeInTheDocument();
+      expect(
+        screen.getByText('Lock failed: Lock exploded')
+      ).toBeInTheDocument();
     });
   });
 
@@ -518,10 +520,7 @@ describe('Console', () => {
       'oldpassword'
     );
     await user.type(screen.getByTestId('console-password-new'), 'newpassword');
-    await user.type(
-      screen.getByTestId('console-password-confirm'),
-      'mismatch'
-    );
+    await user.type(screen.getByTestId('console-password-confirm'), 'mismatch');
     await user.click(screen.getByTestId('console-password-button'));
 
     await waitFor(() => {
