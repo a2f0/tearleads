@@ -473,6 +473,12 @@ export function VideoPage() {
           onClose={handleCloseContextMenu}
         >
           <ContextMenuItem
+            icon={<Play className="h-4 w-4" />}
+            onClick={() => handleGetInfo(contextMenu.video)}
+          >
+            {t('play')}
+          </ContextMenuItem>
+          <ContextMenuItem
             icon={<Info className="h-4 w-4" />}
             onClick={() => handleGetInfo(contextMenu.video)}
           >
