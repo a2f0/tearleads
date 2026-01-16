@@ -7,6 +7,7 @@
  * still only executed on the appropriate platform.
  */
 
+import { CapacitorAdapter } from './capacitor.adapter';
 import { ElectronAdapter } from './electron.adapter';
 import {
   type DatabaseAdapter,
@@ -43,10 +44,11 @@ export async function createAdapter(
 
     case 'ios':
     case 'android':
-      // Use WebAdapter on mobile to avoid Capacitor SQLite's single global
-      // encryption key limitation which breaks multi-instance support.
-      // OPFS is supported in Android WebView (Chrome 109+) and iOS Safari 15.2+.
-      return new WebAdapter();
+      // Use CapacitorAdapter (native SQLCipher) on mobile.
+      // OPFS/WebAdapter requires SharedArrayBuffer which isn't available in
+      // iOS WebView due to missing COOP/COEP header support.
+      // See: https://github.com/a2f0/rapid/issues/772
+      return new CapacitorAdapter();
 
     case 'web':
       return new WebAdapter();
