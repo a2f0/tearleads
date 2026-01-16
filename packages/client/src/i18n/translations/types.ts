@@ -61,6 +61,7 @@ export interface ContextMenuTranslations {
   download: string;
   edit: string;
   delete: string;
+  exportVCard: string;
 }
 
 export interface SettingsTranslations {

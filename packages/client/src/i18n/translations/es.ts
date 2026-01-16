@@ -63,7 +63,8 @@ export const es = {
     viewDetails: 'Ver detalles',
     download: 'Descargar',
     edit: 'Editar',
-    delete: 'Eliminar'
+    delete: 'Eliminar',
+    exportVCard: 'Exportar vCard'
   },
   settings: {
     font: 'Fuente',
