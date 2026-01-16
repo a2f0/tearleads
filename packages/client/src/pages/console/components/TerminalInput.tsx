@@ -56,7 +56,7 @@ export function TerminalInput({
   return (
     <div className={cn('flex items-center font-mono text-sm', className)}>
       <span
-        className="select-none text-emerald-400"
+        className="select-none text-[var(--terminal-prompt)]"
         data-testid="terminal-prompt"
       >
         {prompt}
@@ -69,8 +69,8 @@ export function TerminalInput({
         onKeyDown={handleKeyDown}
         disabled={disabled}
         className={cn(
-          'flex-1 bg-transparent text-base text-zinc-100 outline-none',
-          'placeholder:text-zinc-600',
+          'flex-1 bg-transparent text-[var(--terminal-output)] text-base outline-none',
+          'placeholder:text-[var(--terminal-command)]',
           disabled && 'cursor-not-allowed opacity-50'
         )}
         autoComplete={isPasswordMode ? 'current-password' : 'off'}

@@ -28,7 +28,7 @@ describe('TerminalOutput', () => {
     render(<TerminalOutput lines={lines} />);
 
     const line = screen.getByText('> status');
-    expect(line).toHaveClass('text-zinc-400');
+    expect(line).toHaveClass('text-[var(--terminal-command)]');
   });
 
   it('renders error lines with correct styling', () => {
@@ -38,7 +38,7 @@ describe('TerminalOutput', () => {
     render(<TerminalOutput lines={lines} />);
 
     const line = screen.getByText('Error occurred');
-    expect(line).toHaveClass('text-red-400');
+    expect(line).toHaveClass('text-destructive');
   });
 
   it('renders success lines with correct styling', () => {
@@ -48,7 +48,7 @@ describe('TerminalOutput', () => {
     render(<TerminalOutput lines={lines} />);
 
     const line = screen.getByText('Success!');
-    expect(line).toHaveClass('text-emerald-400');
+    expect(line).toHaveClass('text-success');
   });
 
   it('renders output lines with correct styling', () => {
@@ -58,7 +58,7 @@ describe('TerminalOutput', () => {
     render(<TerminalOutput lines={lines} />);
 
     const line = screen.getByText('Regular output');
-    expect(line).toHaveClass('text-zinc-100');
+    expect(line).toHaveClass('text-[var(--terminal-output)]');
   });
 
   it('applies custom className', () => {
@@ -86,13 +86,17 @@ describe('TerminalOutput', () => {
     ];
     render(<TerminalOutput lines={lines} />);
 
-    expect(screen.getByText('> setup')).toHaveClass('text-zinc-400');
-    expect(screen.getByText('Initializing...')).toHaveClass('text-zinc-100');
+    expect(screen.getByText('> setup')).toHaveClass(
+      'text-[var(--terminal-command)]'
+    );
+    expect(screen.getByText('Initializing...')).toHaveClass(
+      'text-[var(--terminal-output)]'
+    );
     expect(screen.getByText('Database initialized.')).toHaveClass(
-      'text-emerald-400'
+      'text-success'
     );
     expect(screen.getByText('Warning: test failed')).toHaveClass(
-      'text-red-400'
+      'text-destructive'
     );
   });
 });
