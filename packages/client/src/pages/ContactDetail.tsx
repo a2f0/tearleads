@@ -12,8 +12,8 @@ import {
   User,
   X
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
@@ -75,6 +75,7 @@ interface PhoneFormData {
 
 export function ContactDetail() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const { isUnlocked, isLoading } = useDatabaseContext();
   const [contact, setContact] = useState<ContactInfo | null>(null);
   const [emails, setEmails] = useState<ContactEmail[]>([]);
@@ -84,6 +85,7 @@ export function ContactDetail() {
 
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
+  const autoEditTriggered = useRef(false);
   const [formData, setFormData] = useState<ContactFormData | null>(null);
   const [emailsForm, setEmailsForm] = useState<EmailFormData[]>([]);
   const [phonesForm, setPhonesForm] = useState<PhoneFormData[]>([]);
@@ -173,6 +175,20 @@ export function ContactDetail() {
     setIsEditing(true);
     setError(null);
   }, [contact, emails, phones]);
+
+  // Auto-enter edit mode if navigated with autoEdit state
+  useEffect(() => {
+    const state = location.state as { autoEdit?: boolean } | null;
+    if (
+      state?.autoEdit &&
+      contact &&
+      !autoEditTriggered.current &&
+      !isEditing
+    ) {
+      autoEditTriggered.current = true;
+      handleEditClick();
+    }
+  }, [contact, location.state, isEditing, handleEditClick]);
 
   // Cancel and discard changes
   const handleCancel = useCallback(() => {
