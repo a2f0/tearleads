@@ -71,8 +71,11 @@ export function HUD({ isOpen, onClose }: HUDProps) {
         className="fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-lg border bg-background/95 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80 md:inset-x-auto md:right-4 md:bottom-16 md:rounded-lg"
         style={{
           height: `${height}px`,
-          maxHeight: '70vh',
-          ...(isDesktop && { width: `${width}px`, maxWidth: '60vw' })
+          maxHeight: `${MAX_HEIGHT_PERCENT * 100}vh`,
+          ...(isDesktop && {
+            width: `${width}px`,
+            maxWidth: `${MAX_WIDTH_PERCENT * 100}vw`
+          })
         }}
         role="dialog"
         aria-modal="true"

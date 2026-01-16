@@ -337,4 +337,53 @@ describe('useResizableBidirectional', () => {
       document.dispatchEvent(new Event('touchend', { bubbles: true }));
     });
   });
+
+  it('respects max dimensions', () => {
+    Object.defineProperty(window, 'innerWidth', {
+      writable: true,
+      configurable: true,
+      value: 1000
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      writable: true,
+      configurable: true,
+      value: 1000
+    });
+
+    render(<BidirectionalHarness />);
+
+    const handle = screen.getByTestId('corner-handle');
+    const widthEl = screen.getByTestId('width');
+    const heightEl = screen.getByTestId('height');
+
+    act(() => {
+      handle.dispatchEvent(
+        new MouseEvent('mousedown', {
+          bubbles: true,
+          clientX: 500,
+          clientY: 400
+        })
+      );
+    });
+
+    act(() => {
+      document.dispatchEvent(
+        new MouseEvent('mousemove', {
+          bubbles: true,
+          clientX: -500,
+          clientY: -500
+        })
+      );
+    });
+
+    // From harness: maxWidthPercent: 0.6, maxHeightPercent: 0.5
+    // maxWidth = 1000 * 0.6 = 600
+    // maxHeight = 1000 * 0.5 = 500
+    expect(widthEl.textContent).toBe('600');
+    expect(heightEl.textContent).toBe('500');
+
+    act(() => {
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+  });
 });
