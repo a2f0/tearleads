@@ -64,23 +64,48 @@ describe('Console', () => {
     mockSaveFile.mockResolvedValue(undefined);
   });
 
-  it('renders the console title and status', () => {
+  it('renders the console title', () => {
     renderConsole();
 
     expect(screen.getByText('Console')).toBeInTheDocument();
-    expect(screen.getByText('Status')).toBeInTheDocument();
   });
 
-  it('runs setup when passwords match', async () => {
+  it('renders the terminal component', () => {
+    renderConsole();
+
+    expect(screen.getByTestId('terminal')).toBeInTheDocument();
+  });
+
+  it('shows welcome message', async () => {
+    renderConsole();
+
+    await waitFor(() => {
+      expect(screen.getByText('Rapid Terminal v1.0')).toBeInTheDocument();
+    });
+  });
+
+  it('runs setup command when passwords match', async () => {
     const user = userEvent.setup();
     renderConsole();
 
-    await user.type(
-      screen.getByTestId('console-setup-password'),
-      'testpass123'
-    );
-    await user.type(screen.getByTestId('console-setup-confirm'), 'testpass123');
-    await user.click(screen.getByTestId('console-setup-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'setup{Enter}');
+
+    // Enter password
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'New password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'testpass123{Enter}');
+
+    // Confirm password
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'Confirm password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'testpass123{Enter}');
 
     await waitFor(() => {
       expect(mockSetup).toHaveBeenCalledWith('testpass123');
@@ -92,34 +117,34 @@ describe('Console', () => {
     mockContext.isSetUp = true;
     renderConsole();
 
-    await user.type(
-      screen.getByTestId('console-setup-password'),
-      'testpass123'
-    );
-    await user.type(screen.getByTestId('console-setup-confirm'), 'testpass123');
-    await user.click(screen.getByTestId('console-setup-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'setup{Enter}');
 
     await waitFor(() => {
       expect(screen.getByText('Database already set up.')).toBeInTheDocument();
     });
   });
 
-  it('disables setup button when passwords are missing', () => {
-    renderConsole();
-
-    expect(screen.getByTestId('console-setup-button')).toBeDisabled();
-  });
-
   it('logs when setup passwords do not match', async () => {
     const user = userEvent.setup();
     renderConsole();
 
-    await user.type(
-      screen.getByTestId('console-setup-password'),
-      'testpass123'
-    );
-    await user.type(screen.getByTestId('console-setup-confirm'), 'mismatch');
-    await user.click(screen.getByTestId('console-setup-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'setup{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'New password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'testpass123{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'Confirm password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'mismatch{Enter}');
 
     await waitFor(() => {
       expect(screen.getByText('Passwords do not match.')).toBeInTheDocument();
@@ -131,28 +156,40 @@ describe('Console', () => {
     mockSetup.mockResolvedValue(false);
     renderConsole();
 
-    await user.type(
-      screen.getByTestId('console-setup-password'),
-      'testpass123'
-    );
-    await user.type(screen.getByTestId('console-setup-confirm'), 'testpass123');
-    await user.click(screen.getByTestId('console-setup-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'setup{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'New password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'testpass123{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'Confirm password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'testpass123{Enter}');
 
     await waitFor(() => {
       expect(screen.getByText('Database setup failed.')).toBeInTheDocument();
     });
   });
 
-  it('disables unlock when database is not set up', async () => {
+  it('shows error when unlock is attempted on non-setup database', async () => {
     const user = userEvent.setup();
     renderConsole();
 
-    await user.type(
-      screen.getByTestId('console-unlock-password'),
-      'testpass123'
-    );
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'unlock{Enter}');
 
-    expect(screen.getByTestId('console-unlock-button')).toBeDisabled();
+    await waitFor(() => {
+      expect(
+        screen.getByText('Database not set up. Run "setup" first.')
+      ).toBeInTheDocument();
+    });
   });
 
   it('exports a backup when unlocked', async () => {
@@ -161,7 +198,8 @@ describe('Console', () => {
     mockContext.isUnlocked = true;
     renderConsole();
 
-    await user.click(screen.getByTestId('console-backup-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'backup{Enter}');
 
     await waitFor(() => {
       expect(mockExportDatabase).toHaveBeenCalledTimes(1);
@@ -178,8 +216,15 @@ describe('Console', () => {
     mockUnlock.mockResolvedValue(false);
     renderConsole();
 
-    await user.type(screen.getByTestId('console-unlock-password'), 'wrongpass');
-    await user.click(screen.getByTestId('console-unlock-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'unlock{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'Password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'wrongpass{Enter}');
 
     await waitFor(() => {
       expect(screen.getByText('Incorrect password.')).toBeInTheDocument();
@@ -192,11 +237,15 @@ describe('Console', () => {
     mockUnlock.mockRejectedValue(new Error('Unlock exploded'));
     renderConsole();
 
-    await user.type(
-      screen.getByTestId('console-unlock-password'),
-      'testpass123'
-    );
-    await user.click(screen.getByTestId('console-unlock-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'unlock{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'Password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'testpass123{Enter}');
 
     await waitFor(() => {
       expect(
@@ -211,12 +260,15 @@ describe('Console', () => {
     mockContext.isUnlocked = false;
     renderConsole();
 
-    await user.type(
-      screen.getByTestId('console-unlock-password'),
-      'testpass123'
-    );
-    await user.click(screen.getByTestId('console-unlock-persist'));
-    await user.click(screen.getByTestId('console-unlock-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'unlock --persist{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'Password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'testpass123{Enter}');
 
     await waitFor(() => {
       expect(mockUnlock).toHaveBeenCalledWith('testpass123', true);
@@ -226,54 +278,6 @@ describe('Console', () => {
     ).toBeInTheDocument();
   });
 
-  it('logs when restore session is not available', async () => {
-    const user = userEvent.setup();
-    mockContext.isSetUp = true;
-    mockContext.hasPersistedSession = true;
-    mockRestoreSession.mockResolvedValue(false);
-    renderConsole();
-
-    await user.click(screen.getByTestId('console-restore-session-button'));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('No persisted session found.')
-      ).toBeInTheDocument();
-    });
-  });
-
-  it('restores a session successfully', async () => {
-    const user = userEvent.setup();
-    mockContext.isSetUp = true;
-    mockContext.hasPersistedSession = true;
-    mockRestoreSession.mockResolvedValue(true);
-    renderConsole();
-
-    await user.click(screen.getByTestId('console-restore-session-button'));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Database unlocked (session restored).')
-      ).toBeInTheDocument();
-    });
-  });
-
-  it('logs when restore session fails with error', async () => {
-    const user = userEvent.setup();
-    mockContext.isSetUp = true;
-    mockContext.hasPersistedSession = true;
-    mockRestoreSession.mockRejectedValue(new Error('Restore exploded'));
-    renderConsole();
-
-    await user.click(screen.getByTestId('console-restore-session-button'));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Restore session failed: Restore exploded')
-      ).toBeInTheDocument();
-    });
-  });
-
   it('logs when backup requested while locked', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
@@ -281,7 +285,8 @@ describe('Console', () => {
     mockContext.hasPersistedSession = false;
     renderConsole();
 
-    await user.click(screen.getByTestId('console-backup-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'backup{Enter}');
 
     await waitFor(() => {
       expect(
@@ -297,7 +302,8 @@ describe('Console', () => {
     mockExportDatabase.mockRejectedValue(new Error('Backup exploded'));
     renderConsole();
 
-    await user.click(screen.getByTestId('console-backup-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'backup{Enter}');
 
     await waitFor(() => {
       expect(
@@ -314,7 +320,8 @@ describe('Console', () => {
     mockRestoreSession.mockResolvedValue(true);
     renderConsole();
 
-    await user.click(screen.getByTestId('console-backup-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'backup{Enter}');
 
     await waitFor(() => {
       expect(screen.getByText('Session restored.')).toBeInTheDocument();
@@ -330,99 +337,14 @@ describe('Console', () => {
     mockRestoreSession.mockResolvedValue(false);
     renderConsole();
 
-    await user.click(screen.getByTestId('console-backup-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'backup{Enter}');
 
     await waitFor(() => {
       expect(
         screen.getByText('Session expired. Unlock first.')
       ).toBeInTheDocument();
     });
-  });
-
-  it('logs when restore file has invalid extension', async () => {
-    const user = userEvent.setup();
-    renderConsole();
-
-    const input = screen.getByTestId('dropzone-input');
-    input.removeAttribute('accept');
-    const file = new File(['test'], 'backup.txt', {
-      type: 'text/plain'
-    });
-
-    await user.upload(input, file);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Please select a .db backup file.')
-      ).toBeInTheDocument();
-    });
-  });
-
-  it('restores a backup after confirmation', async () => {
-    const user = userEvent.setup();
-    mockContext.isSetUp = true;
-    renderConsole();
-
-    const input = screen.getByTestId('dropzone-input');
-    const file = new File(['test'], 'backup.db', {
-      type: 'application/octet-stream'
-    });
-
-    await user.upload(input, file);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Warning: This will replace your current data')
-      ).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByTestId('console-restore-confirm'));
-
-    await waitFor(() => {
-      expect(mockImportDatabase).toHaveBeenCalledTimes(1);
-    });
-    expect(mockLock).toHaveBeenCalledTimes(1);
-  });
-
-  it('cancels the restore confirmation prompt', async () => {
-    const user = userEvent.setup();
-    mockContext.isSetUp = true;
-    renderConsole();
-
-    const input = screen.getByTestId('dropzone-input');
-    const file = new File(['test'], 'backup.db', {
-      type: 'application/octet-stream'
-    });
-
-    await user.upload(input, file);
-    await user.click(screen.getByText('Cancel'));
-
-    await waitFor(() => {
-      expect(
-        screen.queryByText('Warning: This will replace your current data')
-      ).not.toBeInTheDocument();
-    });
-  });
-
-  it('logs when restore is attempted before setup', async () => {
-    const user = userEvent.setup();
-    mockContext.isSetUp = false;
-    renderConsole();
-
-    const input = screen.getByTestId('dropzone-input');
-    const file = new File(['test'], 'backup.db', {
-      type: 'application/octet-stream'
-    });
-
-    await user.upload(input, file);
-    await user.click(screen.getByTestId('console-restore-confirm'));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('Database not set up. Run setup first.')
-      ).toBeInTheDocument();
-    });
-    expect(mockImportDatabase).not.toHaveBeenCalled();
   });
 
   it('logs when lock clears the persisted session', async () => {
@@ -432,7 +354,8 @@ describe('Console', () => {
     mockContext.hasPersistedSession = true;
     renderConsole();
 
-    await user.click(screen.getByTestId('console-lock-clear-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'lock --clear{Enter}');
 
     await waitFor(() => {
       expect(mockLock).toHaveBeenCalledWith(true);
@@ -449,7 +372,8 @@ describe('Console', () => {
     mockLock.mockRejectedValue(new Error('Lock exploded'));
     renderConsole();
 
-    await user.click(screen.getByTestId('console-lock-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'lock{Enter}');
 
     await waitFor(() => {
       expect(
@@ -464,40 +388,13 @@ describe('Console', () => {
     mockContext.isUnlocked = true;
     renderConsole();
 
-    await user.click(screen.getByTestId('console-lock-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'lock{Enter}');
 
     await waitFor(() => {
       expect(mockLock).toHaveBeenCalledWith(false);
     });
     expect(screen.getByText('Database locked.')).toBeInTheDocument();
-  });
-
-  it('disables change password when current password is missing', async () => {
-    const user = userEvent.setup();
-    mockContext.isSetUp = true;
-    mockContext.isUnlocked = true;
-    renderConsole();
-
-    await user.type(screen.getByTestId('console-password-new'), 'newpassword');
-    await user.type(
-      screen.getByTestId('console-password-confirm'),
-      'newpassword'
-    );
-
-    expect(screen.getByTestId('console-password-button')).toBeDisabled();
-  });
-
-  it('disables change password when new password is missing', async () => {
-    const user = userEvent.setup();
-    mockContext.isSetUp = true;
-    mockContext.isUnlocked = true;
-    renderConsole();
-
-    await user.type(
-      screen.getByTestId('console-password-current'),
-      'oldpassword'
-    );
-    expect(screen.getByTestId('console-password-button')).toBeDisabled();
   });
 
   it('logs when new password confirmation mismatches', async () => {
@@ -506,18 +403,35 @@ describe('Console', () => {
     mockContext.isUnlocked = true;
     renderConsole();
 
-    await user.type(
-      screen.getByTestId('console-password-current'),
-      'oldpassword'
-    );
-    await user.type(screen.getByTestId('console-password-new'), 'newpassword');
-    await user.type(screen.getByTestId('console-password-confirm'), 'mismatch');
-    await user.click(screen.getByTestId('console-password-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'password{Enter}');
+
+    // Current password
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'Current password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'oldpassword{Enter}');
+
+    // New password
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'New password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'newpassword{Enter}');
+
+    // Confirm new password
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'Confirm new password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'mismatch{Enter}');
 
     await waitFor(() => {
-      expect(
-        screen.getByText('New passwords do not match.')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Passwords do not match.')).toBeInTheDocument();
     });
   });
 
@@ -528,16 +442,32 @@ describe('Console', () => {
     mockChangePassword.mockResolvedValue(true);
     renderConsole();
 
-    await user.type(
-      screen.getByTestId('console-password-current'),
-      'oldpassword'
-    );
-    await user.type(screen.getByTestId('console-password-new'), 'newpassword');
-    await user.type(
-      screen.getByTestId('console-password-confirm'),
-      'newpassword'
-    );
-    await user.click(screen.getByTestId('console-password-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'password{Enter}');
+
+    // Current password
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'Current password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'oldpassword{Enter}');
+
+    // New password
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'New password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'newpassword{Enter}');
+
+    // Confirm new password
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'Confirm new password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'newpassword{Enter}');
 
     await waitFor(() => {
       expect(
@@ -553,16 +483,29 @@ describe('Console', () => {
     mockChangePassword.mockRejectedValue(new Error('Password exploded'));
     renderConsole();
 
-    await user.type(
-      screen.getByTestId('console-password-current'),
-      'oldpassword'
-    );
-    await user.type(screen.getByTestId('console-password-new'), 'newpassword');
-    await user.type(
-      screen.getByTestId('console-password-confirm'),
-      'newpassword'
-    );
-    await user.click(screen.getByTestId('console-password-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'password{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'Current password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'oldpassword{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'New password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'newpassword{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'Confirm new password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'newpassword{Enter}');
 
     await waitFor(() => {
       expect(
@@ -578,16 +521,29 @@ describe('Console', () => {
     mockChangePassword.mockResolvedValue(false);
     renderConsole();
 
-    await user.type(
-      screen.getByTestId('console-password-current'),
-      'oldpassword'
-    );
-    await user.type(screen.getByTestId('console-password-new'), 'newpassword');
-    await user.type(
-      screen.getByTestId('console-password-confirm'),
-      'newpassword'
-    );
-    await user.click(screen.getByTestId('console-password-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'password{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'Current password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'oldpassword{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'New password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'newpassword{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
+        'Confirm new password:'
+      );
+    });
+    await user.type(screen.getByTestId('terminal-input'), 'newpassword{Enter}');
 
     await waitFor(() => {
       expect(
@@ -596,13 +552,14 @@ describe('Console', () => {
     });
   });
 
-  it('clears console output', async () => {
+  it('clears console output with clear command', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
     mockContext.isUnlocked = false;
     renderConsole();
 
-    await user.click(screen.getByTestId('console-backup-button'));
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'backup{Enter}');
 
     await waitFor(() => {
       expect(
@@ -610,10 +567,51 @@ describe('Console', () => {
       ).toBeInTheDocument();
     });
 
-    await user.click(screen.getByTestId('console-clear-output'));
+    await user.type(input, 'clear{Enter}');
 
     await waitFor(() => {
-      expect(screen.getByText('No output yet.')).toBeInTheDocument();
+      expect(
+        screen.queryByText('Database locked. Unlock first.')
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows status information', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = false;
+    renderConsole();
+
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'status{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByText(/Instance:.*Default/)).toBeInTheDocument();
+      expect(screen.getByText(/Database:.*Locked/)).toBeInTheDocument();
+    });
+  });
+
+  it('shows help for available commands', async () => {
+    const user = userEvent.setup();
+    renderConsole();
+
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'help{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByText('Available commands:')).toBeInTheDocument();
+    });
+  });
+
+  it('shows error for unknown commands', async () => {
+    const user = userEvent.setup();
+    renderConsole();
+
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'unknown{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByText('Unknown command: unknown')).toBeInTheDocument();
     });
   });
 });
