@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+export type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
 function getCursorForCorner(corner: Corner): string {
   switch (corner) {
@@ -59,8 +59,12 @@ export function useFloatingWindow({
   // Refs to track current dimensions for use in callbacks without causing re-renders
   const widthRef = useRef(width);
   const heightRef = useRef(height);
-  widthRef.current = width;
-  heightRef.current = height;
+
+  // Update refs via useEffect to follow React best practices for side effects
+  useEffect(() => {
+    widthRef.current = width;
+    heightRef.current = height;
+  }, [width, height]);
 
   const isDraggingRef = useRef(false);
   const modeRef = useRef<'drag' | Corner>('drag');
