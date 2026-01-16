@@ -11,8 +11,9 @@ const ICON_SIZE_MOBILE = 56;
 const GAP = 40;
 const GAP_MOBILE = 28;
 const LABEL_HEIGHT = 24;
-const ITEM_HEIGHT = ICON_SIZE + LABEL_HEIGHT + 8;
-const ITEM_HEIGHT_MOBILE = ICON_SIZE_MOBILE + LABEL_HEIGHT + 8;
+const ICON_LABEL_GAP = 8;
+const ITEM_HEIGHT = ICON_SIZE + LABEL_HEIGHT + ICON_LABEL_GAP;
+const ITEM_HEIGHT_MOBILE = ICON_SIZE_MOBILE + LABEL_HEIGHT + ICON_LABEL_GAP;
 const STORAGE_KEY = 'desktop-icon-positions';
 
 type Position = { x: number; y: number };
@@ -20,6 +21,57 @@ type Positions = Record<string, Position>;
 
 function isElement(target: EventTarget | null): target is Element {
   return target !== null && target instanceof Element;
+}
+
+function positionsAreEqual(p1: Positions, p2: Positions): boolean {
+  const keys1 = Object.keys(p1);
+  const keys2 = Object.keys(p2);
+  if (keys1.length !== keys2.length) {
+    return false;
+  }
+  for (const key of keys1) {
+    const pos1 = p1[key];
+    const pos2 = p2[key];
+    if (!pos1 || !pos2 || pos1.x !== pos2.x || pos1.y !== pos2.y) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function constrainPosition(
+  pos: Position,
+  containerWidth: number,
+  containerHeight: number,
+  iconSize: number,
+  labelHeight: number
+): Position {
+  const itemWidth = iconSize;
+  const itemHeight = iconSize + labelHeight + ICON_LABEL_GAP;
+  return {
+    x: Math.max(0, Math.min(pos.x, containerWidth - itemWidth)),
+    y: Math.max(0, Math.min(pos.y, containerHeight - itemHeight))
+  };
+}
+
+function constrainAllPositions(
+  positions: Positions,
+  containerWidth: number,
+  containerHeight: number,
+  iconSize: number,
+  labelHeight: number
+): Positions {
+  const constrained: Positions = {};
+  for (const [key, pos] of Object.entries(positions)) {
+    constrained[key] = constrainPosition(
+      pos,
+      containerWidth,
+      containerHeight,
+      iconSize,
+      labelHeight
+    );
+  }
+  return constrained;
 }
 
 function calculateGridPositions(
@@ -75,11 +127,35 @@ export function Home() {
     typeof window !== 'undefined' ? window.innerWidth < 640 : false
   );
 
-  const itemHeight = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
-  const gap = isMobile ? GAP_MOBILE : GAP;
+  const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+      // Constrain positions to new viewport bounds (only if container has valid dimensions)
+      if (containerRef.current) {
+        const width = containerRef.current.offsetWidth;
+        const height = containerRef.current.offsetHeight;
+        if (width > 0 && height > 0) {
+          const currentIconSize =
+            window.innerWidth < 640 ? ICON_SIZE_MOBILE : ICON_SIZE;
+          setPositions((prev) => {
+            const constrained = constrainAllPositions(
+              prev,
+              width,
+              height,
+              currentIconSize,
+              LABEL_HEIGHT
+            );
+            // Only update localStorage if positions actually changed
+            if (!positionsAreEqual(constrained, prev)) {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(constrained));
+            }
+            return constrained;
+          });
+        }
+      }
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -87,6 +163,7 @@ export function Home() {
   useEffect(() => {
     if (containerRef.current) {
       const width = containerRef.current.offsetWidth;
+      const height = containerRef.current.offsetHeight;
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         try {
@@ -99,7 +176,21 @@ export function Home() {
             );
           });
           if (allItemsHavePositions) {
-            setPositions(savedPositions);
+            // Constrain saved positions to current viewport bounds (only if container has valid dimensions)
+            if (width > 0 && height > 0) {
+              const currentIconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
+              const constrained = constrainAllPositions(
+                savedPositions,
+                width,
+                height,
+                currentIconSize,
+                LABEL_HEIGHT
+              );
+              setPositions(constrained);
+            } else {
+              // Container not yet laid out, use saved positions as-is
+              setPositions(savedPositions);
+            }
             return;
           }
         } catch {
@@ -137,12 +228,19 @@ export function Home() {
       const rect = containerRef.current.getBoundingClientRect();
       const newX = e.clientX - rect.left - dragOffset.x;
       const newY = e.clientY - rect.top - dragOffset.y;
+      const constrained = constrainPosition(
+        { x: newX, y: newY },
+        rect.width,
+        rect.height,
+        iconSize,
+        LABEL_HEIGHT
+      );
       setPositions((prev) => ({
         ...prev,
-        [dragging]: { x: Math.max(0, newX), y: Math.max(0, newY) }
+        [dragging]: constrained
       }));
     },
-    [dragging, dragOffset]
+    [dragging, dragOffset, iconSize]
   );
 
   const handlePointerUp = useCallback(() => {
@@ -191,31 +289,13 @@ export function Home() {
     setIconContextMenu(null);
   }, [iconContextMenu, navigate]);
 
-  const rows = Math.ceil(
-    appItems.length /
-      Math.max(
-        1,
-        Math.floor(
-          (containerRef.current?.offsetWidth || 400) /
-            (isMobile ? ICON_SIZE_MOBILE + GAP_MOBILE : ICON_SIZE + GAP)
-        )
-      )
-  );
-  const canvasHeight = Math.max(
-    rows * (itemHeight + gap),
-    Object.values(positions).reduce(
-      (max, p) => Math.max(max, p.y + itemHeight + gap),
-      0
-    )
-  );
-
   return (
-    <div className="flex h-full flex-1 flex-col">
+    <div className="flex h-full flex-1 flex-col overflow-hidden">
       <div
         ref={containerRef}
         role="application"
-        className="relative h-full w-full flex-1 bg-background"
-        style={{ minHeight: canvasHeight, touchAction: 'none' }}
+        className="relative h-full w-full flex-1 overflow-hidden bg-background"
+        style={{ touchAction: 'none' }}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onContextMenu={handleCanvasContextMenu}
