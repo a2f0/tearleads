@@ -423,7 +423,7 @@ describe('Admin', () => {
       });
     });
 
-    it('closes context menu when clicking delete', async () => {
+    it('shows confirm dialog when clicking delete', async () => {
       const user = userEvent.setup();
       renderAdmin();
 
@@ -442,11 +442,14 @@ describe('Admin', () => {
       await user.click(screen.getByText('Delete'));
 
       await waitFor(() => {
-        expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+        expect(
+          screen.getByText(/Are you sure you want to delete/)
+        ).toBeInTheDocument();
       });
     });
 
-    it('removes key from list after delete', async () => {
+    it('removes key from list after confirming delete', async () => {
       const user = userEvent.setup();
       renderAdmin();
 
@@ -463,13 +466,19 @@ describe('Admin', () => {
       });
 
       await user.click(screen.getByText('Delete'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
       await waitFor(() => {
         expect(screen.queryByText('test:key')).not.toBeInTheDocument();
       });
     });
 
-    it('calls deleteKey API with correct key', async () => {
+    it('calls deleteKey API with correct key after confirming', async () => {
       const user = userEvent.setup();
       renderAdmin();
 
@@ -488,8 +497,46 @@ describe('Admin', () => {
       await user.click(screen.getByText('Delete'));
 
       await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
+
+      await waitFor(() => {
         expect(mockDeleteKey).toHaveBeenCalledWith('test:key');
       });
+    });
+
+    it('does not delete when cancel is clicked', async () => {
+      const user = userEvent.setup();
+      renderAdmin();
+
+      await waitFor(() => {
+        expect(screen.getByText('test:key')).toBeInTheDocument();
+      });
+
+      const keyRow = screen.getByText('test:key').closest('div');
+      expect(keyRow).not.toBeNull();
+      await user.pointer({ target: keyRow as Element, keys: '[MouseRight]' });
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Delete'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-cancel'));
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('confirm-dialog')).not.toBeInTheDocument();
+      });
+
+      expect(mockDeleteKey).not.toHaveBeenCalled();
+      expect(screen.getByText('test:key')).toBeInTheDocument();
     });
 
     it('closes context menu on escape key', async () => {
@@ -536,6 +583,12 @@ describe('Admin', () => {
       await user.click(screen.getByText('Delete'));
 
       await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
+
+      await waitFor(() => {
         expect(screen.getByText('Delete failed')).toBeInTheDocument();
       });
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -565,7 +618,13 @@ describe('Admin', () => {
       await user.click(screen.getByText('Delete'));
 
       await waitFor(() => {
-        expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('confirm-dialog')).not.toBeInTheDocument();
       });
 
       // Key should still be in the list
