@@ -21,6 +21,7 @@ export const ua = {
     tables: 'Таблиці',
     analytics: 'Аналітика',
     sqlite: 'SQLite',
+    console: 'Консоль',
     debug: 'Налагодження',
     opfs: 'OPFS',
     cacheStorage: 'Кеш',
