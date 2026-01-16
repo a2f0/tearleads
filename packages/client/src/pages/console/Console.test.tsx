@@ -96,16 +96,11 @@ describe('Console', () => {
       screen.getByTestId('console-setup-password'),
       'testpass123'
     );
-    await user.type(
-      screen.getByTestId('console-setup-confirm'),
-      'testpass123'
-    );
+    await user.type(screen.getByTestId('console-setup-confirm'), 'testpass123');
     await user.click(screen.getByTestId('console-setup-button'));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Database already set up.')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Database already set up.')).toBeInTheDocument();
     });
   });
 
@@ -166,10 +161,7 @@ describe('Console', () => {
     mockUnlock.mockResolvedValue(false);
     renderConsole();
 
-    await user.type(
-      screen.getByTestId('console-unlock-password'),
-      'wrongpass'
-    );
+    await user.type(screen.getByTestId('console-unlock-password'), 'wrongpass');
     await user.click(screen.getByTestId('console-unlock-button'));
 
     await waitFor(() => {
@@ -273,7 +265,9 @@ describe('Console', () => {
     await user.click(screen.getByTestId('console-backup-button'));
 
     await waitFor(() => {
-      expect(screen.getByText('Session expired. Unlock first.')).toBeInTheDocument();
+      expect(
+        screen.getByText('Session expired. Unlock first.')
+      ).toBeInTheDocument();
     });
   });
 
