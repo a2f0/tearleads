@@ -1,5 +1,5 @@
 import { ExternalLink, LayoutGrid } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { navItems } from '@/components/Sidebar';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
@@ -48,7 +48,13 @@ function calculateGridPositions(
 export function Home() {
   const { t } = useTypedTranslation('menu');
   const navigate = useNavigate();
-  const appItems = navItems.filter((item) => item.path !== '/');
+
+  // Memoize appItems to prevent new array reference on every render
+  // which would cause the position calculation effect to run continuously
+  const appItems = useMemo(
+    () => navItems.filter((item) => item.path !== '/'),
+    []
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [positions, setPositions] = useState<Positions>({});
