@@ -165,23 +165,71 @@
 }
 
 /* MDEditor theme integration - override library defaults with theme variables.
-   Note: !important is required because @uiw/react-md-editor applies inline styles
-   and uses high-specificity selectors internally. Increasing selector specificity
-   alone is insufficient to override the library's styles reliably across all
-   nested elements and pseudo-states. */
+   The library uses selectors like [data-color-mode*='dark'] .wmde-markdown which
+   have higher specificity than simple class selectors. We need to match or exceed
+   that specificity to override the library's hardcoded colors. */
 .w-md-editor {
-  --color-canvas-default: var(--background) !important;
-  --color-canvas-subtle: var(--card) !important;
-  --color-border-default: var(--border) !important;
-  --color-border-muted: var(--border) !important;
-  --color-fg-default: var(--foreground) !important;
-  --color-fg-muted: var(--muted-foreground) !important;
-  --color-accent-fg: var(--primary) !important;
-  --color-accent-emphasis: var(--primary) !important;
-  --color-neutral-muted: var(--muted) !important;
   background-color: var(--background) !important;
   border-color: var(--border) !important;
   color: var(--foreground) !important;
+}
+
+/* Override library's CSS variables at the same specificity level.
+   The library uses [data-color-mode*='dark/light'] selectors, so we match that. */
+[data-color-mode] .w-md-editor,
+[data-color-mode] .wmde-markdown,
+[data-color-mode] .wmde-markdown-var {
+  --color-canvas-default: var(--background);
+  --color-canvas-subtle: var(--card);
+  --color-border-default: var(--border);
+  --color-border-muted: var(--border);
+  --color-fg-default: var(--foreground);
+  --color-fg-muted: var(--muted-foreground);
+  --color-fg-subtle: var(--muted-foreground);
+  --color-accent-fg: var(--primary);
+  --color-accent-emphasis: var(--primary);
+  --color-neutral-muted: var(--muted);
+  --color-attention-subtle: var(--muted);
+  --color-danger-fg: var(--destructive);
+  --color-danger-emphasis: var(--destructive);
+  --color-success-fg: var(--success);
+  --color-success-emphasis: var(--success);
+}
+
+/* Monochrome theme: grayscale syntax highlighting */
+.monochrome [data-color-mode] .wmde-markdown,
+.monochrome [data-color-mode] .wmde-markdown-var {
+  --color-prettylights-syntax-comment: oklch(55% 0 0);
+  --color-prettylights-syntax-constant: oklch(70% 0 0);
+  --color-prettylights-syntax-entity: oklch(75% 0 0);
+  --color-prettylights-syntax-storage-modifier-import: oklch(80% 0 0);
+  --color-prettylights-syntax-entity-tag: oklch(72% 0 0);
+  --color-prettylights-syntax-keyword: oklch(78% 0 0);
+  --color-prettylights-syntax-string: oklch(68% 0 0);
+  --color-prettylights-syntax-variable: oklch(75% 0 0);
+  --color-prettylights-syntax-brackethighlighter-unmatched: oklch(50% 0 0);
+  --color-prettylights-syntax-string-regexp: oklch(70% 0 0);
+  --color-prettylights-syntax-markup-heading: oklch(80% 0 0);
+  --color-prettylights-syntax-markup-italic: oklch(75% 0 0);
+  --color-prettylights-syntax-markup-bold: oklch(85% 0 0);
+}
+
+/* Tokyo Night theme: blue-tinted syntax highlighting */
+.tokyo-night [data-color-mode] .wmde-markdown,
+.tokyo-night [data-color-mode] .wmde-markdown-var {
+  --color-prettylights-syntax-comment: oklch(55% 0.04 265);
+  --color-prettylights-syntax-constant: oklch(75% 0.12 250);
+  --color-prettylights-syntax-entity: oklch(78% 0.14 300);
+  --color-prettylights-syntax-storage-modifier-import: oklch(80% 0.045 267);
+  --color-prettylights-syntax-entity-tag: oklch(72% 0.12 165);
+  --color-prettylights-syntax-keyword: oklch(75% 0.14 320);
+  --color-prettylights-syntax-string: oklch(72% 0.1 165);
+  --color-prettylights-syntax-variable: oklch(78% 0.12 55);
+  --color-prettylights-syntax-brackethighlighter-unmatched: oklch(65% 0.2 15);
+  --color-prettylights-syntax-string-regexp: oklch(70% 0.12 165);
+  --color-prettylights-syntax-markup-heading: oklch(70% 0.14 250);
+  --color-prettylights-syntax-markup-italic: oklch(80% 0.045 267);
+  --color-prettylights-syntax-markup-bold: oklch(85% 0.045 267);
 }
 
 .w-md-editor-toolbar {
