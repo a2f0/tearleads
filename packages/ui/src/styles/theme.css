@@ -163,3 +163,113 @@
 .monochrome :is(img, canvas, video) {
   filter: grayscale(1) contrast(1.1);
 }
+
+/* MDEditor theme integration - override library defaults with theme variables.
+   Note: !important is required because @uiw/react-md-editor applies inline styles
+   and uses high-specificity selectors internally. Increasing selector specificity
+   alone is insufficient to override the library's styles reliably across all
+   nested elements and pseudo-states. */
+.w-md-editor {
+  --color-canvas-default: var(--background) !important;
+  --color-canvas-subtle: var(--card) !important;
+  --color-border-default: var(--border) !important;
+  --color-border-muted: var(--border) !important;
+  --color-fg-default: var(--foreground) !important;
+  --color-fg-muted: var(--muted-foreground) !important;
+  --color-accent-fg: var(--primary) !important;
+  --color-accent-emphasis: var(--primary) !important;
+  --color-neutral-muted: var(--muted) !important;
+  background-color: var(--background) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+.w-md-editor-toolbar {
+  background-color: var(--card) !important;
+  border-color: var(--border) !important;
+}
+
+.w-md-editor-toolbar li > button {
+  color: var(--foreground) !important;
+}
+
+.w-md-editor-toolbar li > button:hover {
+  background-color: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+}
+
+.w-md-editor-toolbar li.active > button {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.w-md-editor-content {
+  background-color: var(--background) !important;
+}
+
+.w-md-editor-text-input,
+.w-md-editor-text-pre > code,
+.w-md-editor-text {
+  color: var(--foreground) !important;
+  caret-color: var(--foreground) !important;
+}
+
+.w-md-editor-preview {
+  background-color: var(--background) !important;
+}
+
+.wmde-markdown {
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+}
+
+.wmde-markdown hr {
+  background-color: var(--border) !important;
+}
+
+.wmde-markdown a {
+  color: var(--primary) !important;
+}
+
+.wmde-markdown blockquote {
+  border-left-color: var(--border) !important;
+  color: var(--muted-foreground) !important;
+}
+
+.wmde-markdown code {
+  background-color: var(--muted) !important;
+  color: var(--foreground) !important;
+}
+
+.wmde-markdown pre {
+  background-color: var(--card) !important;
+  border-color: var(--border) !important;
+}
+
+.wmde-markdown pre code {
+  background-color: transparent !important;
+}
+
+.wmde-markdown table th,
+.wmde-markdown table td {
+  border-color: var(--border) !important;
+}
+
+.wmde-markdown table tr {
+  background-color: var(--background) !important;
+  border-color: var(--border) !important;
+}
+
+.wmde-markdown table tr:nth-child(2n) {
+  background-color: var(--card) !important;
+}
+
+.wmde-markdown h1,
+.wmde-markdown h2,
+.wmde-markdown h3,
+.wmde-markdown h4,
+.wmde-markdown h5,
+.wmde-markdown h6 {
+  color: var(--foreground) !important;
+  border-color: var(--border) !important;
+}
