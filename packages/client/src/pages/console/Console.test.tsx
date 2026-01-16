@@ -214,6 +214,22 @@ describe('Console', () => {
     });
   });
 
+  it('restores a session successfully', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.hasPersistedSession = true;
+    mockRestoreSession.mockResolvedValue(true);
+    renderConsole();
+
+    await user.click(screen.getByTestId('console-restore-session-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Database unlocked (session restored).')
+      ).toBeInTheDocument();
+    });
+  });
+
   it('logs when backup requested while locked', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
@@ -228,6 +244,22 @@ describe('Console', () => {
         screen.getByText('Database locked. Unlock first.')
       ).toBeInTheDocument();
     });
+  });
+
+  it('backs up after restoring the session', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = false;
+    mockContext.hasPersistedSession = true;
+    mockRestoreSession.mockResolvedValue(true);
+    renderConsole();
+
+    await user.click(screen.getByTestId('console-backup-button'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Session restored.')).toBeInTheDocument();
+    });
+    expect(mockExportDatabase).toHaveBeenCalledTimes(1);
   });
 
   it('logs when session restore fails during backup', async () => {
@@ -288,6 +320,26 @@ describe('Console', () => {
     expect(mockLock).toHaveBeenCalledTimes(1);
   });
 
+  it('cancels the restore confirmation prompt', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    renderConsole();
+
+    const input = screen.getByTestId('dropzone-input');
+    const file = new File(['test'], 'backup.db', {
+      type: 'application/octet-stream'
+    });
+
+    await user.upload(input, file);
+    await user.click(screen.getByText('Cancel'));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText('Warning: This will replace your current data')
+      ).not.toBeInTheDocument();
+    });
+  });
+
   it('logs when restore is attempted before setup', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = false;
@@ -326,6 +378,20 @@ describe('Console', () => {
     ).toBeInTheDocument();
   });
 
+  it('locks without clearing session', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = true;
+    renderConsole();
+
+    await user.click(screen.getByTestId('console-lock-button'));
+
+    await waitFor(() => {
+      expect(mockLock).toHaveBeenCalledWith(false);
+    });
+    expect(screen.getByText('Database locked.')).toBeInTheDocument();
+  });
+
   it('logs when changing password without current password', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
@@ -342,6 +408,31 @@ describe('Console', () => {
     await waitFor(() => {
       expect(
         screen.getByText('Current password cannot be empty.')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('changes password successfully', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = true;
+    mockChangePassword.mockResolvedValue(true);
+    renderConsole();
+
+    await user.type(
+      screen.getByTestId('console-password-current'),
+      'oldpassword'
+    );
+    await user.type(screen.getByTestId('console-password-new'), 'newpassword');
+    await user.type(
+      screen.getByTestId('console-password-confirm'),
+      'newpassword'
+    );
+    await user.click(screen.getByTestId('console-password-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Password changed successfully.')
       ).toBeInTheDocument();
     });
   });
@@ -368,6 +459,27 @@ describe('Console', () => {
       expect(
         screen.getByText('Incorrect current password.')
       ).toBeInTheDocument();
+    });
+  });
+
+  it('clears console output', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = false;
+    renderConsole();
+
+    await user.click(screen.getByTestId('console-backup-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Database locked. Unlock first.')
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('console-clear-output'));
+
+    await waitFor(() => {
+      expect(screen.getByText('No output yet.')).toBeInTheDocument();
     });
   });
 });
