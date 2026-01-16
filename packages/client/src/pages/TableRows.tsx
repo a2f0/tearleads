@@ -1,9 +1,11 @@
 import { isRecord } from '@rapid/shared';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
   Braces,
+  Loader2,
   Settings,
   Trash2
 } from 'lucide-react';
@@ -13,10 +15,13 @@ import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { cn } from '@/lib/utils';
 
+const PAGE_SIZE = 50;
+const ROW_HEIGHT_ESTIMATE = 40;
 const MIN_COLUMN_WIDTH = 50;
 const KEYBOARD_RESIZE_STEP = 10;
 const CONFIRM_TRUNCATE_TIMEOUT_MS = 3000;
@@ -84,7 +89,12 @@ export function TableRows() {
   const [columns, setColumns] = useState<ColumnInfo[]>([]);
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const offsetRef = useRef<number>(0);
+  const parentRef = useRef<HTMLDivElement>(null);
   const [documentView, setDocumentView] = useState(isMobileViewport);
   const userToggledViewRef = useRef(false);
   const [sort, setSort] = useState<SortState>({
@@ -106,80 +116,125 @@ export function TableRows() {
   const [truncating, setTruncating] = useState(false);
   const truncateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchTableData = useCallback(async () => {
-    if (!isUnlocked || !tableName) return;
-
-    setLoading(true);
-    setError(null);
-
+  const fetchTotalCount = useCallback(async () => {
+    if (!tableName) return;
     try {
       const adapter = getDatabaseAdapter();
-
-      // Validate tableName against actual tables to prevent SQL injection
-      const tablesResult = await adapter.execute(
-        `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`,
+      const result = await adapter.execute(
+        `SELECT COUNT(*) as count FROM "${tableName}"`,
         []
       );
-      const tableRows = Array.isArray(tablesResult.rows)
-        ? tablesResult.rows
-        : [];
-      const validTables = tableRows
-        .filter(isRecord)
-        .map((row) => getStringField(row, 'name'))
-        .filter((name): name is string => Boolean(name));
-
-      if (!validTables.includes(tableName)) {
-        throw new Error(`Table "${tableName}" does not exist.`);
+      const rawRows = Array.isArray(result.rows) ? result.rows : [];
+      const firstRow = rawRows[0];
+      if (isRecord(firstRow)) {
+        const count = getNumberField(firstRow, 'count');
+        setTotalCount(count);
       }
-
-      // Get column info using PRAGMA
-      const schemaResult = await adapter.execute(
-        `PRAGMA table_info("${tableName}")`,
-        []
-      );
-
-      const schemaRows = Array.isArray(schemaResult.rows)
-        ? schemaResult.rows
-        : [];
-      const columnInfo = schemaRows
-        .filter(isRecord)
-        .map((row) => {
-          const name = getStringField(row, 'name');
-          const type = getStringField(row, 'type');
-          const pk = getNumberField(row, 'pk');
-          if (!name || !type || pk === null) {
-            return null;
-          }
-          return { name, type, pk };
-        })
-        .filter((col): col is ColumnInfo => col !== null);
-
-      setColumns(columnInfo);
-
-      // Validate sort column if set
-      const validColumns = columnInfo.map((c) => c.name);
-      const sortColumn =
-        sort.column && validColumns.includes(sort.column) ? sort.column : null;
-
-      // Fetch rows (with limit for performance)
-      let query = `SELECT * FROM "${tableName}"`;
-      if (sortColumn && sort.direction) {
-        const direction = sort.direction === 'desc' ? 'DESC' : 'ASC';
-        query += ` ORDER BY "${sortColumn}" ${direction}`;
-      }
-      query += ' LIMIT 100';
-
-      const rowsResult = await adapter.execute(query, []);
-      const rawRows = Array.isArray(rowsResult.rows) ? rowsResult.rows : [];
-      const safeRows = rawRows.filter(isRecord);
-      setRows(safeRows);
     } catch (err) {
-      console.error('Failed to fetch table data:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
+      console.error('Failed to fetch total count:', err);
     }
-  }, [isUnlocked, tableName, sort]);
+  }, [tableName]);
+
+  const fetchTableData = useCallback(
+    async (reset = true) => {
+      if (!isUnlocked || !tableName) return;
+
+      setError(null);
+      if (reset) {
+        setLoading(true);
+        setRows([]);
+        offsetRef.current = 0;
+        fetchTotalCount();
+      } else {
+        setLoadingMore(true);
+      }
+
+      try {
+        const adapter = getDatabaseAdapter();
+
+        // Validate tableName against actual tables to prevent SQL injection
+        const tablesResult = await adapter.execute(
+          `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`,
+          []
+        );
+        const tableRows = Array.isArray(tablesResult.rows)
+          ? tablesResult.rows
+          : [];
+        const validTables = tableRows
+          .filter(isRecord)
+          .map((row) => getStringField(row, 'name'))
+          .filter((name): name is string => Boolean(name));
+
+        if (!validTables.includes(tableName)) {
+          throw new Error(`Table "${tableName}" does not exist.`);
+        }
+
+        // Get column info using PRAGMA (only on initial load when columns aren't loaded)
+        let currentColumns = columns;
+        if (reset && columns.length === 0) {
+          const schemaResult = await adapter.execute(
+            `PRAGMA table_info("${tableName}")`,
+            []
+          );
+
+          const schemaRows = Array.isArray(schemaResult.rows)
+            ? schemaResult.rows
+            : [];
+          const columnInfo = schemaRows
+            .filter(isRecord)
+            .map((row) => {
+              const name = getStringField(row, 'name');
+              const type = getStringField(row, 'type');
+              const pk = getNumberField(row, 'pk');
+              if (!name || !type || pk === null) {
+                return null;
+              }
+              return { name, type, pk };
+            })
+            .filter((col): col is ColumnInfo => col !== null);
+
+          setColumns(columnInfo);
+          currentColumns = columnInfo;
+        }
+
+        // Validate sort column if set
+        const validColumns = currentColumns.map((c) => c.name);
+        const sortColumn =
+          sort.column && validColumns.includes(sort.column)
+            ? sort.column
+            : null;
+
+        // Fetch rows with pagination
+        const offset = reset ? 0 : offsetRef.current;
+        let query = `SELECT * FROM "${tableName}"`;
+        if (sortColumn && sort.direction) {
+          const direction = sort.direction === 'desc' ? 'DESC' : 'ASC';
+          query += ` ORDER BY "${sortColumn}" ${direction}`;
+        }
+        query += ` LIMIT ${PAGE_SIZE} OFFSET ${offset}`;
+
+        const rowsResult = await adapter.execute(query, []);
+        const rawRows = Array.isArray(rowsResult.rows) ? rowsResult.rows : [];
+        const newRows = rawRows.filter(isRecord);
+
+        if (reset) {
+          setRows(newRows);
+        } else {
+          setRows((prev) => [...prev, ...newRows]);
+        }
+
+        offsetRef.current = offset + newRows.length;
+        setHasMore(newRows.length === PAGE_SIZE);
+      } catch (err) {
+        console.error('Failed to fetch table data:', err);
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [isUnlocked, tableName, sort, columns, fetchTotalCount]
+  );
 
   const handleSort = useCallback((columnName: string) => {
     setSort((prev) => {
@@ -356,6 +411,44 @@ export function TableRows() {
     [columns, hiddenColumns]
   );
 
+  // Setup virtualizer for infinite scroll
+  const virtualizer = useVirtualizer({
+    count: rows.length + (hasMore ? 1 : 0),
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT_ESTIMATE,
+    overscan: 5
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
+
+  // Calculate visible range (excluding loader row)
+  const visibleRowItems = virtualItems.filter(
+    (item) => item.index < rows.length
+  );
+  const firstVisible =
+    visibleRowItems.length > 0 ? (visibleRowItems[0]?.index ?? null) : null;
+  const lastVisible =
+    visibleRowItems.length > 0
+      ? (visibleRowItems[visibleRowItems.length - 1]?.index ?? null)
+      : null;
+
+  // Load more when scrolling near the end
+  useEffect(() => {
+    if (!hasMore || loadingMore || loading || virtualItems.length === 0) return;
+
+    const lastItem = virtualItems[virtualItems.length - 1];
+    if (lastItem && lastItem.index >= rows.length - 5) {
+      fetchTableData(false);
+    }
+  }, [
+    virtualItems,
+    hasMore,
+    loadingMore,
+    loading,
+    rows.length,
+    fetchTableData
+  ]);
+
   // Reset sort if the sorted column is hidden
   useEffect(() => {
     if (sort.column && hiddenColumns.has(sort.column)) {
@@ -370,23 +463,57 @@ export function TableRows() {
     }
   }, [tableName]);
 
+  // Track previous sort to detect changes
+  const prevSortRef = useRef<SortState>({ column: null, direction: null });
+
+  // Refetch when sort changes
+  useEffect(() => {
+    const sortChanged =
+      prevSortRef.current.column !== sort.column ||
+      prevSortRef.current.direction !== sort.direction;
+
+    prevSortRef.current = sort;
+
+    // Only refetch if sort actually changed and we have data
+    if (sortChanged && columns.length > 0 && isUnlocked && !loading) {
+      fetchTableData();
+    }
+  }, [sort, columns.length, isUnlocked, loading, fetchTableData]);
+
   // Fetch data on initial load, when the table changes, or when instance changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: loading, rows, and columns intentionally omitted to prevent re-fetch loops
   useEffect(() => {
     if (!isUnlocked || loading) return;
 
     // Check if we need to reset for instance change
-    if (
+    const instanceChanged =
       fetchedForInstanceRef.current !== currentInstanceId &&
-      fetchedForInstanceRef.current !== null
-    ) {
+      fetchedForInstanceRef.current !== null;
+
+    if (instanceChanged) {
       // Instance changed - clear data
       setRows([]);
       setColumns([]);
       setError(null);
+      fetchedForInstanceRef.current = currentInstanceId;
+
+      // Defer fetch to next tick to ensure database singleton is updated
+      const timeoutId = setTimeout(() => {
+        fetchTableData();
+      }, 0);
+
+      return () => clearTimeout(timeoutId);
     }
 
-    // Update ref before fetching
+    // Skip fetch if already loaded for this instance (prevents re-fetch on unrelated re-renders)
+    if (
+      fetchedForInstanceRef.current === currentInstanceId &&
+      columns.length > 0
+    ) {
+      return;
+    }
+
+    // Update ref before fetching (initial load)
     fetchedForInstanceRef.current = currentInstanceId;
 
     // Defer fetch to next tick to ensure database singleton is updated
@@ -395,7 +522,7 @@ export function TableRows() {
     }, 0);
 
     return () => clearTimeout(timeoutId);
-  }, [isUnlocked, currentInstanceId, fetchTableData]);
+  }, [isUnlocked, currentInstanceId, fetchTableData, columns.length]);
 
   return (
     <div className="space-y-6">
@@ -508,119 +635,203 @@ export function TableRows() {
       )}
 
       {isUnlocked && !error && columns.length > 0 && (
-        <div className="space-y-4">
-          <p className="text-muted-foreground text-sm">
-            Showing {rows.length} row{rows.length !== 1 ? 's' : ''}
-            {rows.length === 100 ? ' (limited to 100)' : ''}
-          </p>
+        <div className="flex min-h-0 flex-1 flex-col space-y-4">
+          <VirtualListStatus
+            firstVisible={firstVisible}
+            lastVisible={lastVisible}
+            loadedCount={rows.length}
+            totalCount={totalCount}
+            hasMore={hasMore}
+            itemLabel="row"
+          />
 
           {documentView ? (
-            <div className="space-y-3">
-              {rows.length === 0 ? (
-                <div className="rounded-lg border p-8 text-center text-muted-foreground">
+            <div className="flex min-h-0 flex-1 flex-col rounded-lg border">
+              {rows.length === 0 && !loading ? (
+                <div className="p-8 text-center text-muted-foreground">
                   No rows in this table
                 </div>
               ) : (
-                rows.map((row, index) => (
-                  <pre
-                    key={getRowKey(row, columns, index)}
-                    className="overflow-x-auto rounded-lg border bg-muted/30 p-4 font-mono text-sm"
+                <div ref={parentRef} className="flex-1 overflow-auto p-2">
+                  <div
+                    className="relative w-full"
+                    style={{ height: `${virtualizer.getTotalSize()}px` }}
                   >
-                    {JSON.stringify(row, null, 2)}
-                  </pre>
-                ))
+                    {virtualItems.map((virtualItem) => {
+                      const isLoaderRow = virtualItem.index >= rows.length;
+
+                      if (isLoaderRow) {
+                        return (
+                          <div
+                            key="loader"
+                            className="absolute top-0 left-0 flex w-full items-center justify-center p-4 text-muted-foreground"
+                            style={{
+                              height: `${virtualItem.size}px`,
+                              transform: `translateY(${virtualItem.start}px)`
+                            }}
+                          >
+                            {loadingMore && (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading more...
+                              </>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      const row = rows[virtualItem.index];
+                      if (!row) return null;
+
+                      return (
+                        <div
+                          key={getRowKey(row, columns, virtualItem.index)}
+                          data-index={virtualItem.index}
+                          ref={virtualizer.measureElement}
+                          className="absolute top-0 left-0 w-full pb-2"
+                          style={{
+                            transform: `translateY(${virtualItem.start}px)`
+                          }}
+                        >
+                          <pre className="overflow-x-auto rounded-lg border bg-muted/30 p-4 font-mono text-sm">
+                            {JSON.stringify(row, null, 2)}
+                          </pre>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
-              <table
-                className="min-w-full divide-y divide-border"
-                style={{ tableLayout: 'fixed' }}
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+              {/* Header row - sticky */}
+              <div
+                className="grid border-b bg-muted/50"
+                style={{
+                  gridTemplateColumns: visibleColumns
+                    .map((col) =>
+                      columnWidths[col.name]
+                        ? `${columnWidths[col.name]}px`
+                        : 'minmax(100px, 1fr)'
+                    )
+                    .join(' ')
+                }}
               >
-                <thead className="bg-muted/50">
-                  <tr>
-                    {visibleColumns.map((col) => (
-                      <th
-                        key={col.name}
-                        className="group relative px-4 py-3 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider"
-                        style={{
-                          width: columnWidths[col.name]
-                            ? `${columnWidths[col.name]}px`
-                            : 'auto'
-                        }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => handleSort(col.name)}
-                          className="inline-flex items-center gap-1 hover:text-foreground"
-                          data-testid={`sort-${col.name}`}
-                        >
-                          {col.name}
-                          {col.pk > 0 && (
-                            <span className="text-primary">PK</span>
-                          )}
-                          {sort.column === col.name ? (
-                            sort.direction === 'asc' ? (
-                              <ArrowUp className="h-3 w-3" />
-                            ) : (
-                              <ArrowDown className="h-3 w-3" />
-                            )
-                          ) : (
-                            <ArrowUpDown className="h-3 w-3 opacity-50" />
-                          )}
-                        </button>
-                        {/* Resize handle */}
-                        {/* biome-ignore lint/a11y/useSemanticElements: vertical separator for column resize, hr is not appropriate */}
-                        <div
-                          role="separator"
-                          aria-orientation="vertical"
-                          aria-valuenow={columnWidths[col.name] || 150}
-                          aria-label={`Resize ${col.name} column`}
-                          tabIndex={0}
-                          className={cn(
-                            'absolute top-0 right-0 h-full w-1 cursor-col-resize bg-border opacity-0 transition-opacity hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary group-hover:opacity-50',
-                            resizing?.column === col.name && 'opacity-100'
-                          )}
-                          onMouseDown={(e) => handleResizeStart(col.name, e)}
-                          onKeyDown={(e) => handleKeyboardResize(col.name, e)}
-                        />
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border bg-background">
-                  {rows.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={visibleColumns.length}
-                        className="px-4 py-8 text-center text-muted-foreground"
-                      >
-                        No rows in this table
-                      </td>
-                    </tr>
-                  ) : (
-                    rows.map((row, index) => (
-                      <tr
-                        key={getRowKey(row, columns, index)}
-                        className="hover:bg-muted/25"
-                      >
-                        {visibleColumns.map((col) => (
-                          <td
-                            key={col.name}
-                            className={`whitespace-nowrap px-4 py-2 font-mono text-sm ${
-                              row[col.name] === null
-                                ? 'text-muted-foreground italic'
-                                : ''
-                            }`}
+                {visibleColumns.map((col) => (
+                  <div
+                    key={col.name}
+                    className="group relative px-4 py-3 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleSort(col.name)}
+                      className="inline-flex items-center gap-1 hover:text-foreground"
+                      data-testid={`sort-${col.name}`}
+                    >
+                      {col.name}
+                      {col.pk > 0 && <span className="text-primary">PK</span>}
+                      {sort.column === col.name ? (
+                        sort.direction === 'asc' ? (
+                          <ArrowUp className="h-3 w-3" />
+                        ) : (
+                          <ArrowDown className="h-3 w-3" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="h-3 w-3 opacity-50" />
+                      )}
+                    </button>
+                    {/* Resize handle */}
+                    {/* biome-ignore lint/a11y/useSemanticElements: vertical separator for column resize, hr is not appropriate */}
+                    <div
+                      role="separator"
+                      aria-orientation="vertical"
+                      aria-valuenow={columnWidths[col.name] || 150}
+                      aria-label={`Resize ${col.name} column`}
+                      tabIndex={0}
+                      className={cn(
+                        'absolute top-0 right-0 h-full w-1 cursor-col-resize bg-border opacity-0 transition-opacity hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary group-hover:opacity-50',
+                        resizing?.column === col.name && 'opacity-100'
+                      )}
+                      onMouseDown={(e) => handleResizeStart(col.name, e)}
+                      onKeyDown={(e) => handleKeyboardResize(col.name, e)}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Virtual scroll container */}
+              {rows.length === 0 && !loading ? (
+                <div className="px-4 py-8 text-center text-muted-foreground">
+                  No rows in this table
+                </div>
+              ) : (
+                <div ref={parentRef} className="flex-1 overflow-auto">
+                  <div
+                    className="relative w-full"
+                    style={{ height: `${virtualizer.getTotalSize()}px` }}
+                  >
+                    {virtualItems.map((virtualItem) => {
+                      const isLoaderRow = virtualItem.index >= rows.length;
+
+                      if (isLoaderRow) {
+                        return (
+                          <div
+                            key="loader"
+                            className="absolute top-0 left-0 flex w-full items-center justify-center border-b p-4 text-muted-foreground"
+                            style={{
+                              height: `${virtualItem.size}px`,
+                              transform: `translateY(${virtualItem.start}px)`
+                            }}
                           >
-                            {formatCellValue(row[col.name])}
-                          </td>
-                        ))}
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                            {loadingMore && (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading more...
+                              </>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      const row = rows[virtualItem.index];
+                      if (!row) return null;
+
+                      return (
+                        <div
+                          key={getRowKey(row, columns, virtualItem.index)}
+                          data-index={virtualItem.index}
+                          ref={virtualizer.measureElement}
+                          className="absolute top-0 left-0 grid w-full border-b hover:bg-muted/25"
+                          style={{
+                            gridTemplateColumns: visibleColumns
+                              .map((col) =>
+                                columnWidths[col.name]
+                                  ? `${columnWidths[col.name]}px`
+                                  : 'minmax(100px, 1fr)'
+                              )
+                              .join(' '),
+                            transform: `translateY(${virtualItem.start}px)`
+                          }}
+                        >
+                          {visibleColumns.map((col) => (
+                            <div
+                              key={col.name}
+                              className={cn(
+                                'truncate whitespace-nowrap px-4 py-2 font-mono text-sm',
+                                row[col.name] === null &&
+                                  'text-muted-foreground italic'
+                              )}
+                            >
+                              {formatCellValue(row[col.name])}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

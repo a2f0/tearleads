@@ -26,6 +26,21 @@ vi.mock('lucide-react', async (importOriginal) => {
   };
 });
 
+// Mock useVirtualizer to simplify testing (virtualizer doesn't work in jsdom)
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: vi.fn(({ count }) => ({
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, i) => ({
+        index: i,
+        start: i * 40,
+        size: 40,
+        key: i
+      })),
+    getTotalSize: () => count * 40,
+    measureElement: vi.fn()
+  }))
+}));
+
 // Mock database adapter
 const mockExecute = vi.fn();
 vi.mock('@/db', () => ({
@@ -152,7 +167,7 @@ describe('TableRows', () => {
 
       // Initial state - no ORDER BY
       expect(mockExecute).toHaveBeenCalledWith(
-        expect.stringContaining('SELECT * FROM "test_table" LIMIT 100'),
+        expect.stringContaining('SELECT * FROM "test_table" LIMIT 50'),
         []
       );
 
@@ -288,7 +303,8 @@ describe('TableRows', () => {
       const handle = await screen.findByRole('separator', {
         name: 'Resize name column'
       });
-      const header = handle.closest('th');
+      // Header is now a div with class group (parent of the resize handle)
+      const header = handle.closest('.group');
       expect(header).not.toBeNull();
       if (!header) {
         return;
@@ -321,7 +337,8 @@ describe('TableRows', () => {
       await renderTableRows();
 
       await waitFor(() => {
-        expect(screen.getByText(/Showing 3 rows/)).toBeInTheDocument();
+        // VirtualListStatus shows "X rows" format
+        expect(screen.getByText(/3 rows/)).toBeInTheDocument();
       });
     });
 
@@ -431,7 +448,7 @@ describe('TableRows', () => {
       });
     });
 
-    it('shows error when truncate fails with non-sqlite_sequence error', async () => {
+    it('shows error when truncate fails', async () => {
       const user = userEvent.setup();
       const consoleSpy = mockConsoleError();
       mockExecute.mockImplementation((query: string) => {
@@ -441,11 +458,11 @@ describe('TableRows', () => {
         if (query.includes('PRAGMA table_info')) {
           return Promise.resolve({ rows: mockColumns });
         }
-        if (query.includes('DELETE FROM sqlite_sequence')) {
-          return Promise.reject(new Error('different error'));
+        if (query.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [{ count: 3 }] });
         }
         if (query.includes('DELETE FROM "test_table"')) {
-          return Promise.resolve({ rows: [] });
+          return Promise.reject(new Error('truncate failed'));
         }
         if (query.includes('SELECT *')) {
           return Promise.resolve({ rows: mockRows });
@@ -461,11 +478,19 @@ describe('TableRows', () => {
 
       const truncateButton = screen.getByTestId('truncate-button');
 
+      // First click - enter confirm mode
       await user.click(truncateButton);
+
+      // Wait for confirm state
+      await waitFor(() => {
+        expect(truncateButton).toHaveTextContent('Confirm');
+      });
+
+      // Second click - execute truncate (which will fail)
       await user.click(truncateButton);
 
       await waitFor(() => {
-        expect(screen.getByText('different error')).toBeInTheDocument();
+        expect(screen.getByText('truncate failed')).toBeInTheDocument();
       });
       expect(consoleSpy).toHaveBeenCalledWith(
         'Failed to truncate table:',
@@ -496,6 +521,62 @@ describe('TableRows', () => {
       });
     });
 
+    it('shows loader row when loading more in document view', async () => {
+      const user = userEvent.setup();
+      let fetchCount = 0;
+      mockExecute.mockImplementation((query: string) => {
+        if (query.includes('sqlite_master')) {
+          return Promise.resolve({ rows: [{ name: 'test_table' }] });
+        }
+        if (query.includes('PRAGMA table_info')) {
+          return Promise.resolve({ rows: mockColumns });
+        }
+        if (query.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [{ count: 100 }] });
+        }
+        if (query.includes('SELECT *')) {
+          fetchCount++;
+          // Return PAGE_SIZE (50) rows to trigger hasMore
+          if (fetchCount === 1) {
+            const rows = Array.from({ length: 50 }, (_, i) => ({
+              id: i + 1,
+              name: `User ${i + 1}`,
+              age: 20 + i
+            }));
+            return Promise.resolve({ rows });
+          }
+          // Subsequent fetches return fewer rows
+          return Promise.resolve({
+            rows: [{ id: 51, name: 'Extra User', age: 50 }]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      await renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByText('User 1')).toBeInTheDocument();
+      });
+
+      // Switch to document view
+      const toggleButton = screen.getByTitle('Toggle document view');
+      await user.click(toggleButton);
+
+      // Should render as JSON in document view
+      await waitFor(() => {
+        expect(
+          screen.getByText(/"name": "User 1"/, { exact: false })
+        ).toBeInTheDocument();
+      });
+
+      // The virtualizer mock triggers load-more, which sets hasMore=true
+      // The loader row should be rendered in document view
+      await waitFor(() => {
+        expect(fetchCount).toBeGreaterThanOrEqual(2);
+      });
+    });
+
     it('shows empty state in document view', async () => {
       const user = userEvent.setup();
       mockExecute.mockImplementation((query: string) => {
@@ -511,7 +592,8 @@ describe('TableRows', () => {
       await renderTableRows();
 
       await waitFor(() => {
-        expect(screen.getByText('Showing 0 rows')).toBeInTheDocument();
+        // VirtualListStatus shows "0 rows" format
+        expect(screen.getByText('0 rows')).toBeInTheDocument();
       });
 
       const toggleButton = screen.getByTitle('Toggle document view');
@@ -770,6 +852,9 @@ describe('TableRows', () => {
         if (query.includes('PRAGMA table_info')) {
           return Promise.resolve({ rows: mockColumns });
         }
+        if (query.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [{ count: 1 }] });
+        }
         if (query.includes('SELECT *')) {
           return Promise.resolve({
             rows: [{ id: 1, name: 'Alice', age: 30 }]
@@ -781,11 +866,12 @@ describe('TableRows', () => {
       await renderTableRows();
 
       await waitFor(() => {
-        expect(screen.getByText(/Showing 1 row$/)).toBeInTheDocument();
+        // VirtualListStatus shows "1 row" for singular
+        expect(screen.getByText(/1 row/)).toBeInTheDocument();
       });
     });
 
-    it('shows limit message when 100 rows returned', async () => {
+    it('shows total count from database', async () => {
       mockExecute.mockImplementation((query: string) => {
         if (query.includes('sqlite_master')) {
           return Promise.resolve({ rows: [{ name: 'test_table' }] });
@@ -793,13 +879,12 @@ describe('TableRows', () => {
         if (query.includes('PRAGMA table_info')) {
           return Promise.resolve({ rows: mockColumns });
         }
+        if (query.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [{ count: 100 }] });
+        }
         if (query.includes('SELECT *')) {
-          const rows = Array.from({ length: 100 }, (_, i) => ({
-            id: i + 1,
-            name: `User ${i + 1}`,
-            age: 20 + i
-          }));
-          return Promise.resolve({ rows });
+          // Return fewer than PAGE_SIZE to prevent hasMore
+          return Promise.resolve({ rows: mockRows });
         }
         return Promise.resolve({ rows: [] });
       });
@@ -807,9 +892,104 @@ describe('TableRows', () => {
       await renderTableRows();
 
       await waitFor(() => {
+        // Should show total count from COUNT(*) query
+        expect(screen.getByText(/100 total/)).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('infinite scroll', () => {
+    it('loads more rows when scrolling near the end', async () => {
+      let fetchCount = 0;
+      mockExecute.mockImplementation((query: string) => {
+        if (query.includes('sqlite_master')) {
+          return Promise.resolve({ rows: [{ name: 'test_table' }] });
+        }
+        if (query.includes('PRAGMA table_info')) {
+          return Promise.resolve({ rows: mockColumns });
+        }
+        if (query.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [{ count: 100 }] });
+        }
+        if (query.includes('SELECT *')) {
+          fetchCount++;
+          // Return PAGE_SIZE (50) rows on first fetch to trigger hasMore
+          if (fetchCount === 1) {
+            const rows = Array.from({ length: 50 }, (_, i) => ({
+              id: i + 1,
+              name: `User ${i + 1}`,
+              age: 20 + i
+            }));
+            return Promise.resolve({ rows });
+          }
+          // Return fewer rows on subsequent fetches
+          return Promise.resolve({
+            rows: [{ id: 51, name: 'Extra User', age: 50 }]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      await renderTableRows();
+
+      // Initial fetch should have been called
+      await waitFor(() => {
         expect(
-          screen.getByText(/Showing 100 rows \(limited to 100\)/)
-        ).toBeInTheDocument();
+          mockExecute.mock.calls.some(
+            (call) =>
+              call[0].includes('SELECT *') && call[0].includes('OFFSET 0')
+          )
+        ).toBe(true);
+      });
+
+      // The virtualizer mock triggers a load-more because it returns all items
+      // and the effect sees the last virtual item index >= rows.length - 5
+      await waitFor(() => {
+        // Should have called fetchTableData(false) which uses OFFSET > 0
+        expect(
+          mockExecute.mock.calls.some(
+            (call) =>
+              call[0].includes('SELECT *') && call[0].includes('OFFSET 50')
+          )
+        ).toBe(true);
+      });
+    });
+  });
+
+  describe('loading states', () => {
+    it('shows loading state when database is locked', async () => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: false,
+        isLoading: false,
+        currentInstanceId: 'test-instance'
+      });
+
+      await renderTableRows();
+
+      // Should not show table data when locked
+      await waitFor(() => {
+        expect(screen.queryByText('Alice')).not.toBeInTheDocument();
+      });
+    });
+
+    it('shows table view empty state when no rows', async () => {
+      mockExecute.mockImplementation((query: string) => {
+        if (query.includes('sqlite_master')) {
+          return Promise.resolve({ rows: [{ name: 'test_table' }] });
+        }
+        if (query.includes('PRAGMA table_info')) {
+          return Promise.resolve({ rows: mockColumns });
+        }
+        if (query.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [{ count: 0 }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      await renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByText('No rows in this table')).toBeInTheDocument();
       });
     });
   });

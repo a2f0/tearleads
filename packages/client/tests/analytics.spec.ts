@@ -48,7 +48,9 @@ function isUnexpectedError(text: string): boolean {
     /Download the React DevTools/i,
     // React development warnings (not actual errors)
     /Each child in a list should have a unique "key" prop/i,
-    /ERR_CONNECTION_REFUSED/i
+    // Network errors are expected when API server isn't running (PWA works offline)
+    /ERR_CONNECTION_REFUSED/i,
+    /Failed to load resource/i
   ];
   return !ignoredPatterns.some((pattern) => pattern.test(text));
 }
