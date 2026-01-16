@@ -229,6 +229,8 @@ export function Opfs() {
     };
   };
 
+  const deleteDialogContent = getDeleteDialogContent();
+
   if (!supported) {
     return (
       <div className="space-y-6">
@@ -311,8 +313,8 @@ export function Opfs() {
         onOpenChange={(open) => {
           if (!open) setDeleteDialog(null);
         }}
-        title={getDeleteDialogContent().title}
-        description={getDeleteDialogContent().description}
+        title={deleteDialogContent.title}
+        description={deleteDialogContent.description}
         confirmLabel="Delete"
         confirmingLabel="Deleting..."
         onConfirm={handleConfirmDelete}

@@ -247,9 +247,7 @@ describe('KeychainDetail', () => {
       await user.click(screen.getByText('Delete Session Keys'));
 
       await waitFor(() => {
-        expect(screen.getAllByTestId('confirm-dialog').length).toBeGreaterThan(
-          0
-        );
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
         expect(
           screen.getByText(/Are you sure you want to delete session keys/)
         ).toBeInTheDocument();
@@ -290,9 +288,7 @@ describe('KeychainDetail', () => {
       await user.click(screen.getByText('Delete Session Keys'));
 
       await waitFor(() => {
-        expect(screen.getAllByTestId('confirm-dialog').length).toBeGreaterThan(
-          0
-        );
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
       });
 
       // Click cancel

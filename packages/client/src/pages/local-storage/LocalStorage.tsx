@@ -119,6 +119,7 @@ export function LocalStorage() {
   };
 
   const totalSize = getTotalSize(entries);
+  const deleteDialogContent = getDeleteDialogContent();
 
   return (
     <div className="space-y-6">
@@ -184,8 +185,8 @@ export function LocalStorage() {
         onOpenChange={(open) => {
           if (!open) setDeleteDialog(null);
         }}
-        title={getDeleteDialogContent().title}
-        description={getDeleteDialogContent().description}
+        title={deleteDialogContent.title}
+        description={deleteDialogContent.description}
         confirmLabel="Delete"
         confirmingLabel="Deleting..."
         onConfirm={handleConfirmDelete}

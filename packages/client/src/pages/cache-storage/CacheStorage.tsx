@@ -210,6 +210,7 @@ export function CacheStorage() {
 
   const totalSize = caches.reduce((sum, c) => sum + c.totalSize, 0);
   const totalEntries = caches.reduce((sum, c) => sum + c.entries.length, 0);
+  const deleteDialogContent = getDeleteDialogContent();
 
   if (!supported) {
     return (
@@ -297,8 +298,8 @@ export function CacheStorage() {
         onOpenChange={(open) => {
           if (!open) setDeleteDialog(null);
         }}
-        title={getDeleteDialogContent().title}
-        description={getDeleteDialogContent().description}
+        title={deleteDialogContent.title}
+        description={deleteDialogContent.description}
         confirmLabel="Delete"
         confirmingLabel="Deleting..."
         onConfirm={handleConfirmDelete}
