@@ -14,6 +14,7 @@ import {
   getInstances,
   type InstanceMetadata
 } from '@/db/instance-registry';
+import { DeleteKeychainInstanceDialog } from './DeleteKeychainInstanceDialog';
 import { KeyStatusIndicator } from './KeyStatusIndicator';
 
 function formatDate(timestamp: number): string {
@@ -33,6 +34,7 @@ export function KeychainDetail() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const fetchInstanceInfo = useCallback(async () => {
     if (!id) return;
@@ -81,10 +83,6 @@ export function KeychainDetail() {
 
   const handleDeleteInstance = useCallback(async () => {
     if (!instanceInfo) return;
-
-    const confirmationMessage = `Are you sure you want to delete the instance "${instanceInfo.instance.name}"?\n\nThis will permanently remove all keys for this instance.`;
-
-    if (!window.confirm(confirmationMessage)) return;
 
     try {
       const keyManager = getKeyManagerForInstance(instanceInfo.instance.id);
@@ -192,12 +190,20 @@ export function KeychainDetail() {
                 Delete Session Keys
               </Button>
             )}
-            <Button variant="outline" onClick={handleDeleteInstance}>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(true)}>
               <Trash2 className="mr-2 h-4 w-4" />
               Delete Instance
             </Button>
           </div>
         </div>
+      )}
+      {instanceInfo && (
+        <DeleteKeychainInstanceDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          instanceName={instanceInfo.instance.name}
+          onDelete={handleDeleteInstance}
+        />
       )}
     </div>
   );
