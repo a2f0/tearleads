@@ -371,83 +371,43 @@ describe('NoteDetail', () => {
   });
 
   describe('theme integration', () => {
-    it('sets data-color-mode to light for light theme', async () => {
-      await renderNoteDetail({ theme: 'light' });
+    it.each([
+      { theme: 'light' as Theme, expectedMode: 'light' },
+      { theme: 'dark' as Theme, expectedMode: 'dark' },
+      { theme: 'monochrome' as Theme, expectedMode: 'dark' },
+      { theme: 'tokyo-night' as Theme, expectedMode: 'dark' }
+    ])(
+      'sets data-color-mode to $expectedMode for $theme theme',
+      async ({ theme, expectedMode }) => {
+        await renderNoteDetail({ theme });
 
-      const editor = screen.getByTestId('markdown-editor');
-      expect(editor).toHaveAttribute('data-color-mode', 'light');
-    });
+        const editor = screen.getByTestId('markdown-editor');
+        expect(editor).toHaveAttribute('data-color-mode', expectedMode);
+      }
+    );
 
-    it('sets data-color-mode to dark for dark theme', async () => {
-      await renderNoteDetail({ theme: 'dark' });
+    it.each([
+      { theme: 'dark', expectedMode: 'dark' },
+      { theme: 'monochrome', expectedMode: 'dark' },
+      { theme: 'tokyo-night', expectedMode: 'dark' }
+    ])(
+      'updates data-color-mode when switching to $theme',
+      async ({ theme, expectedMode }) => {
+        await renderNoteDetail({ theme: 'light' });
 
-      const editor = screen.getByTestId('markdown-editor');
-      expect(editor).toHaveAttribute('data-color-mode', 'dark');
-    });
+        const editor = screen.getByTestId('markdown-editor');
+        expect(editor).toHaveAttribute('data-color-mode', 'light');
 
-    it('sets data-color-mode to dark for monochrome theme', async () => {
-      await renderNoteDetail({ theme: 'monochrome' });
+        act(() => {
+          window.dispatchEvent(
+            new CustomEvent('settings-synced', {
+              detail: { settings: { theme } }
+            })
+          );
+        });
 
-      const editor = screen.getByTestId('markdown-editor');
-      expect(editor).toHaveAttribute('data-color-mode', 'dark');
-    });
-
-    it('sets data-color-mode to dark for tokyo-night theme', async () => {
-      await renderNoteDetail({ theme: 'tokyo-night' });
-
-      const editor = screen.getByTestId('markdown-editor');
-      expect(editor).toHaveAttribute('data-color-mode', 'dark');
-    });
-
-    it('updates data-color-mode when theme changes', async () => {
-      await renderNoteDetail({ theme: 'light' });
-
-      const editor = screen.getByTestId('markdown-editor');
-      expect(editor).toHaveAttribute('data-color-mode', 'light');
-
-      act(() => {
-        window.dispatchEvent(
-          new CustomEvent('settings-synced', {
-            detail: { settings: { theme: 'dark' } }
-          })
-        );
-      });
-
-      expect(editor).toHaveAttribute('data-color-mode', 'dark');
-    });
-
-    it('updates data-color-mode when switching to monochrome', async () => {
-      await renderNoteDetail({ theme: 'light' });
-
-      const editor = screen.getByTestId('markdown-editor');
-      expect(editor).toHaveAttribute('data-color-mode', 'light');
-
-      act(() => {
-        window.dispatchEvent(
-          new CustomEvent('settings-synced', {
-            detail: { settings: { theme: 'monochrome' } }
-          })
-        );
-      });
-
-      expect(editor).toHaveAttribute('data-color-mode', 'dark');
-    });
-
-    it('updates data-color-mode when switching to tokyo-night', async () => {
-      await renderNoteDetail({ theme: 'light' });
-
-      const editor = screen.getByTestId('markdown-editor');
-      expect(editor).toHaveAttribute('data-color-mode', 'light');
-
-      act(() => {
-        window.dispatchEvent(
-          new CustomEvent('settings-synced', {
-            detail: { settings: { theme: 'tokyo-night' } }
-          })
-        );
-      });
-
-      expect(editor).toHaveAttribute('data-color-mode', 'dark');
-    });
+        expect(editor).toHaveAttribute('data-color-mode', expectedMode);
+      }
+    );
   });
 });
