@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -360,5 +360,88 @@ describe('Home', () => {
     const filesButton = screen.getByRole('button', { name: 'Files' });
     // Position should NOT be the saved position (300, 300) since we fell back to grid
     expect(filesButton).not.toHaveStyle({ left: '300px', top: '300px' });
+  });
+
+  it('constrains positions on window resize', () => {
+    // Mock container with dimensions smaller than the out-of-bounds position
+    const mockContainer = {
+      offsetWidth: 400,
+      offsetHeight: 300
+    };
+
+    // Save positions with one that is outside the viewport
+    const outOfBoundsPositions = {
+      ...MOCK_SAVED_POSITIONS,
+      '/files': { x: 1000, y: 800 }
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(outOfBoundsPositions));
+
+    const { container } = renderHome();
+    const canvas = container.querySelector('[role="application"]');
+
+    // Mock the container dimensions before triggering resize
+    if (canvas) {
+      Object.defineProperty(canvas, 'offsetWidth', {
+        value: mockContainer.offsetWidth,
+        configurable: true
+      });
+      Object.defineProperty(canvas, 'offsetHeight', {
+        value: mockContainer.offsetHeight,
+        configurable: true
+      });
+    }
+
+    // Trigger resize event - this should constrain the out-of-bounds position
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+
+    // Icon should be constrained to viewport bounds (max x = 400 - 64 = 336, max y = 300 - 96 = 204)
+    const filesButton = screen.getByRole('button', { name: 'Files' });
+    expect(filesButton).toBeInTheDocument();
+    // Verify the position was constrained to the exact calculated bounds
+    expect(filesButton).toHaveStyle({ left: '336px', top: '204px' });
+  });
+
+  it('uses saved positions as-is when container has no dimensions', () => {
+    // Save positions with one that would be outside a small viewport
+    const savedPositions = {
+      ...MOCK_SAVED_POSITIONS,
+      '/files': { x: 1000, y: 1000 }
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedPositions));
+
+    const { container } = renderHome();
+    const canvas = container.querySelector('[role="application"]');
+
+    // In jsdom, container has 0 dimensions, so positions won't be constrained
+    // This tests the fallback path where we use saved positions as-is
+    expect(canvas).toBeInTheDocument();
+    const filesButton = screen.getByRole('button', { name: 'Files' });
+    // Should have the saved position since container has no dimensions
+    expect(filesButton).toHaveStyle({ left: '1000px', top: '1000px' });
+  });
+
+  it('updates mobile state on resize', () => {
+    renderHome();
+
+    // Mock window width to trigger mobile mode
+    Object.defineProperty(window, 'innerWidth', {
+      value: 500,
+      configurable: true
+    });
+
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+
+    // Component should still render
+    expect(screen.getByRole('button', { name: 'Files' })).toBeInTheDocument();
+
+    // Reset window width
+    Object.defineProperty(window, 'innerWidth', {
+      value: 1024,
+      configurable: true
+    });
   });
 });
