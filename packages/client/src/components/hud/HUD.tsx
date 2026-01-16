@@ -1,11 +1,22 @@
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import type { Corner } from '@/hooks/useFloatingWindow';
 import { useFloatingWindow } from '@/hooks/useFloatingWindow';
 import { cn } from '@/lib/utils';
 import { AnalyticsTab } from './AnalyticsTab';
+import {
+  DEFAULT_HEIGHT,
+  DEFAULT_WIDTH,
+  DESKTOP_BREAKPOINT,
+  MAX_HEIGHT_PERCENT,
+  MAX_WIDTH_PERCENT,
+  MIN_HEIGHT,
+  MIN_WIDTH
+} from './constants';
 import { LogsTab } from './LogsTab';
 
-const DESKTOP_BREAKPOINT = 768;
+export type { Corner } from '@/hooks/useFloatingWindow';
+export { MIN_HEIGHT, MIN_WIDTH } from './constants';
 
 type TabId = 'analytics' | 'logs';
 
@@ -14,41 +25,41 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'logs', label: 'Logs' }
 ];
 
-const DEFAULT_WIDTH = 400;
-const DEFAULT_HEIGHT = 300;
-const MIN_WIDTH = 280;
-const MIN_HEIGHT = 150;
-const MAX_WIDTH_PERCENT = 0.6;
-const MAX_HEIGHT_PERCENT = 0.7;
-
 interface HUDProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-function ResizeHandle({
-  corner,
-  handlers
-}: {
-  corner: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+const POSITION_CLASSES: Record<Corner, string> = {
+  'top-left': 'top-0 left-0',
+  'top-right': 'top-0 right-0',
+  'bottom-left': 'bottom-0 left-0',
+  'bottom-right': 'bottom-0 right-0'
+};
+
+const BORDER_CLASSES: Record<Corner, string> = {
+  'top-left': 'border-t-2 border-l-2 rounded-tl-lg',
+  'top-right': 'border-t-2 border-r-2 rounded-tr-lg',
+  'bottom-left': 'border-b-2 border-l-2 rounded-bl-lg',
+  'bottom-right': 'border-b-2 border-r-2 rounded-br-lg'
+};
+
+interface ResizeHandleProps {
+  corner: Corner;
   handlers: {
     onMouseDown: (e: React.MouseEvent) => void;
     onTouchStart: (e: React.TouchEvent) => void;
   };
-}) {
-  const positionClasses = {
-    'top-left': 'top-0 left-0 cursor-nwse-resize',
-    'top-right': 'top-0 right-0 cursor-nesw-resize',
-    'bottom-left': 'bottom-0 left-0 cursor-nesw-resize',
-    'bottom-right': 'bottom-0 right-0 cursor-nwse-resize'
-  };
+}
 
+function ResizeHandle({ corner, handlers }: ResizeHandleProps) {
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: Resize handle for mouse/touch drag only
     <div
       className={cn(
-        'absolute z-10 h-3 w-3 touch-none',
-        positionClasses[corner]
+        'absolute z-10 h-4 w-4 touch-none border-transparent transition-colors hover:border-primary',
+        POSITION_CLASSES[corner],
+        BORDER_CLASSES[corner]
       )}
       onMouseDown={handlers.onMouseDown}
       onTouchStart={handlers.onTouchStart}
