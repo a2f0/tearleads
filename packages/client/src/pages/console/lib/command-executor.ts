@@ -436,15 +436,20 @@ async function startRestore(
     `Warning: Restoring from "${file.name}" will overwrite existing data.`,
     'error'
   );
-  terminal.setPendingCommand({
-    name: 'restore',
-    step: 'confirm',
-    data: { fileName: file.name, fileData: '' }
-  });
 
   // Store file data as base64 for later use
+  // Process in chunks to avoid "Maximum call stack size exceeded" for large files
   const data = await readFileAsUint8Array(file);
-  const base64 = btoa(String.fromCharCode(...data));
+  const CHUNK_SIZE = 8192;
+  let binaryString = '';
+  for (let i = 0; i < data.length; i += CHUNK_SIZE) {
+    binaryString += String.fromCharCode.apply(
+      null,
+      Array.from(data.subarray(i, i + CHUNK_SIZE))
+    );
+  }
+  const base64 = btoa(binaryString);
+
   terminal.setPendingCommand({
     name: 'restore',
     step: 'confirm',

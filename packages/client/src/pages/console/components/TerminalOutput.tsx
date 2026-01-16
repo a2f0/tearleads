@@ -27,7 +27,7 @@ export function TerminalOutput({ lines, className }: TerminalOutputProps) {
     if (containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [lines.length]);
+  }, [lines]);
 
   return (
     <div
