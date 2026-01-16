@@ -730,16 +730,12 @@ test.describe('Debug page', () => {
 
     // Click the logo/title to go back home
     await page.getByRole('link', { name: 'Tearleads' }).click();
+    await page.waitForURL('/');
 
-    // Should be back on the home page (shows app icons grid)
-    // Verify by checking for one of the app icons in the main content area
-    // The home page can render items as either links or buttons depending on context
-    await expect(
-      page
-        .getByRole('main')
-        .getByRole('link', { name: 'Files' })
-        .or(page.getByRole('main').getByRole('button', { name: 'Files' }))
-    ).toBeVisible();
+    // Should be back on the home page (shows draggable app icons canvas)
+    // Verify by checking for the canvas application area and one of the app icon buttons
+    await expect(page.getByRole('application')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Files' })).toBeVisible();
   });
 });
 
