@@ -1,9 +1,16 @@
 import { HardDrive, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { formatFileSize } from '@/lib/utils';
 import { TreeNode } from './TreeNode';
 import type { FileSystemEntry, StorageEstimate } from './types';
+
+type DeleteDialogState = {
+  path: string;
+  name: string;
+  isDirectory: boolean;
+} | null;
 
 function calculateTotalSize(entries: FileSystemEntry[]): number {
   return entries.reduce((total, entry) => {
@@ -88,6 +95,7 @@ export function Opfs() {
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [storageEstimate, setStorageEstimate] =
     useState<StorageEstimate | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(null);
   const isMountedRef = useRef(true);
 
   const fetchOpfsContents = useCallback(async () => {
@@ -161,15 +169,15 @@ export function Opfs() {
     });
   };
 
-  const handleDelete = async (path: string, isDirectory: boolean) => {
-    const entryName = path.substring(path.lastIndexOf('/') + 1);
-    const confirmationMessage = isDirectory
-      ? `Are you sure you want to delete the directory "${entryName}" and all its contents?`
-      : `Are you sure you want to delete the file "${entryName}"?`;
+  const handleDeleteClick = (path: string, isDirectory: boolean) => {
+    const name = path.substring(path.lastIndexOf('/') + 1);
+    setDeleteDialog({ path, name, isDirectory });
+  };
 
-    if (!window.confirm(confirmationMessage)) {
-      return;
-    }
+  const handleConfirmDelete = async () => {
+    if (!deleteDialog) return;
+
+    const { path, isDirectory } = deleteDialog;
 
     try {
       const root = await navigator.storage.getDirectory();
@@ -192,8 +200,36 @@ export function Opfs() {
     } catch (err) {
       console.error('Failed to delete:', err);
       setError(err instanceof Error ? err.message : String(err));
+      throw err;
     }
   };
+
+  const getDeleteDialogContent = () => {
+    if (!deleteDialog) return { title: '', description: '' };
+
+    if (deleteDialog.isDirectory) {
+      return {
+        title: 'Delete Directory',
+        description: (
+          <p>
+            Are you sure you want to delete the directory{' '}
+            <strong>{deleteDialog.name}</strong> and all its contents?
+          </p>
+        )
+      };
+    }
+    return {
+      title: 'Delete File',
+      description: (
+        <p>
+          Are you sure you want to delete the file{' '}
+          <strong>{deleteDialog.name}</strong>?
+        </p>
+      )
+    };
+  };
+
+  const deleteDialogContent = getDeleteDialogContent();
 
   if (!supported) {
     return (
@@ -265,12 +301,24 @@ export function Opfs() {
                 expandedPaths={expandedPaths}
                 path={`/${entry.name}`}
                 onToggle={handleToggle}
-                onDelete={handleDelete}
+                onDelete={handleDeleteClick}
               />
             ))}
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteDialog}
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialog(null);
+        }}
+        title={deleteDialogContent.title}
+        description={deleteDialogContent.description}
+        confirmLabel="Delete"
+        confirmingLabel="Deleting..."
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }
