@@ -19,6 +19,7 @@ export interface MenuTranslations {
   tables: string;
   analytics: string;
   sqlite: string;
+  console: string;
   debug: string;
   opfs: string;
   cacheStorage: string;
