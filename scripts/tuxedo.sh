@@ -192,12 +192,14 @@ sync_all_titles() {
 # Export for tmux config reload binding
 export TUXEDO_TMUX_CONF="$TMUX_CONF"
 
-# Scripts directories to add to PATH
-SCRIPTS_PATH="$SCRIPT_DIR:$SCRIPT_DIR/agents"
-export PATH="$SCRIPTS_PATH:$PATH"
+# Save base PATH before any modifications (used for per-workspace PATH)
+BASE_PATH="$PATH"
 
-ensure_tmux_path() {
-    tmux set-environment -t "$SESSION_NAME" PATH "$PATH"
+# Build a workspace-specific PATH that includes that workspace's scripts
+workspace_path() {
+    workspace="$1"
+    [ -z "$workspace" ] && { echo "$BASE_PATH"; return; }
+    echo "$workspace/scripts:$workspace/scripts/agents:$BASE_PATH"
 }
 
 # Update workspaces that are on main with no uncommitted changes FIRST
@@ -218,7 +220,6 @@ if [ -d "$SHARED_DIR" ]; then
 fi
 
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-    ensure_tmux_path
     # Sync VS Code titles before attaching
     sync_all_titles
     tmux attach-session -t "$SESSION_NAME"
@@ -228,33 +229,35 @@ fi
 # Create session starting with rapid-shared (source of truth)
 # Terminal pane runs in a persistent screen session
 screen_shared=$(screen_cmd tux-shared)
+shared_path=$(workspace_path "$SHARED_DIR")
 if [ -n "$screen_shared" ]; then
-    tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n rapid-shared "$screen_shared"
+    tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n rapid-shared -e "PATH=$shared_path" "$screen_shared"
 else
-    tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n rapid-shared
+    tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n rapid-shared -e "PATH=$shared_path"
 fi
-tmux split-window -h -t "$SESSION_NAME:rapid-shared" -c "$SHARED_DIR" "$EDITOR"
+tmux split-window -h -t "$SESSION_NAME:rapid-shared" -c "$SHARED_DIR" -e "PATH=$shared_path" "$EDITOR"
 
 # Add rapid-main as second window
 screen_main=$(screen_cmd tux-main)
+main_path=$(workspace_path "$BASE_DIR/rapid-main")
 if [ -n "$screen_main" ]; then
-    tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main "$screen_main"
+    tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main -e "PATH=$main_path" "$screen_main"
 else
-    tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main
+    tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main -e "PATH=$main_path"
 fi
-tmux split-window -h -t "$SESSION_NAME:rapid-main" -c "$BASE_DIR/rapid-main" "$EDITOR"
-
-ensure_tmux_path
+tmux split-window -h -t "$SESSION_NAME:rapid-main" -c "$BASE_DIR/rapid-main" -e "PATH=$main_path" "$EDITOR"
 
 i=2
 while [ "$i" -le "$NUM_WORKSPACES" ]; do
+    workspace_dir="$BASE_DIR/rapid${i}"
+    ws_path=$(workspace_path "$workspace_dir")
     screen_i=$(screen_cmd "tux-${i}")
     if [ -n "$screen_i" ]; then
-        tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid${i}" -n "rapid${i}" "$screen_i"
+        tmux new-window -t "$SESSION_NAME" -c "$workspace_dir" -n "rapid${i}" -e "PATH=$ws_path" "$screen_i"
     else
-        tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid${i}" -n "rapid${i}"
+        tmux new-window -t "$SESSION_NAME" -c "$workspace_dir" -n "rapid${i}" -e "PATH=$ws_path"
     fi
-    tmux split-window -h -t "$SESSION_NAME:rapid${i}" -c "$BASE_DIR/rapid${i}" "$EDITOR"
+    tmux split-window -h -t "$SESSION_NAME:rapid${i}" -c "$workspace_dir" -e "PATH=$ws_path" "$EDITOR"
     i=$((i + 1))
 done
 
