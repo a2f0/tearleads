@@ -97,7 +97,8 @@ export function DurationChart({
   // Defer heavy data to allow React to interrupt rendering on navigation
   const deferredEvents = useDeferredValue(events);
   const deferredSelectedTypes = useDeferredValue(selectedEventTypes);
-  const isStale = deferredEvents !== events;
+  const isStale =
+    deferredEvents !== events || deferredSelectedTypes !== selectedEventTypes;
 
   // Get chart colors from CSS variables (reactive to theme changes)
   // biome-ignore lint/correctness/useExhaustiveDependencies: resolvedTheme triggers recalculation when theme changes
