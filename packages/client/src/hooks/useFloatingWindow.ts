@@ -56,6 +56,12 @@ export function useFloatingWindow({
   const [x, setX] = useState(defaultX ?? 0);
   const [y, setY] = useState(defaultY ?? 0);
 
+  // Refs to track current dimensions for use in callbacks without causing re-renders
+  const widthRef = useRef(width);
+  const heightRef = useRef(height);
+  widthRef.current = width;
+  heightRef.current = height;
+
   const isDraggingRef = useRef(false);
   const modeRef = useRef<'drag' | Corner>('drag');
   const startMouseXRef = useRef(0);
@@ -78,14 +84,14 @@ export function useFloatingWindow({
         const newX = startXRef.current + deltaX;
         const newY = startYRef.current + deltaY;
 
-        // Constrain position to be within the viewport
+        // Constrain position to be within the viewport (use refs for current dimensions)
         const constrainedX = Math.max(
           0,
-          Math.min(newX, window.innerWidth - width)
+          Math.min(newX, window.innerWidth - widthRef.current)
         );
         const constrainedY = Math.max(
           0,
-          Math.min(newY, window.innerHeight - height)
+          Math.min(newY, window.innerHeight - heightRef.current)
         );
 
         setX(constrainedX);
@@ -156,7 +162,7 @@ export function useFloatingWindow({
         }
       }
     },
-    [maxWidthPercent, maxHeightPercent, minWidth, minHeight, width, height]
+    [maxWidthPercent, maxHeightPercent, minWidth, minHeight]
   );
 
   const handleMouseMove = useCallback(
@@ -172,22 +178,29 @@ export function useFloatingWindow({
     [handleMove]
   );
 
+  // Use a ref for handleEnd to avoid stale closure issues with event listeners
+  const handleEndRef = useRef<() => void>(() => {});
+
   const handleEnd = useCallback(() => {
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
     document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleEnd);
+    document.removeEventListener('mouseup', handleEndRef.current);
     document.removeEventListener('touchmove', handleTouchMove);
-    document.removeEventListener('touchend', handleEnd);
+    document.removeEventListener('touchend', handleEndRef.current);
   }, [handleMouseMove, handleTouchMove]);
 
+  // Keep the ref updated with the latest handleEnd
+  handleEndRef.current = handleEnd;
+
+  // Cleanup on unmount only - using ref to avoid re-running on handleEnd changes
   useEffect(() => {
     return () => {
-      handleEnd();
+      handleEndRef.current();
     };
-  }, [handleEnd]);
+  }, []);
 
   // Keep window within viewport on browser resize
   useEffect(() => {
