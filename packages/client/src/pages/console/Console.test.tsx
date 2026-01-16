@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -87,6 +87,34 @@ describe('Console', () => {
     });
   });
 
+  it('logs when setup is already complete', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    renderConsole();
+
+    await user.type(
+      screen.getByTestId('console-setup-password'),
+      'testpass123'
+    );
+    await user.type(
+      screen.getByTestId('console-setup-confirm'),
+      'testpass123'
+    );
+    await user.click(screen.getByTestId('console-setup-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Database already set up.')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('disables setup button when passwords are missing', () => {
+    renderConsole();
+
+    expect(screen.getByTestId('console-setup-button')).toBeDisabled();
+  });
+
   it('logs when setup passwords do not match', async () => {
     const user = userEvent.setup();
     renderConsole();
@@ -132,6 +160,23 @@ describe('Console', () => {
     );
   });
 
+  it('logs when unlock fails with incorrect password', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockUnlock.mockResolvedValue(false);
+    renderConsole();
+
+    await user.type(
+      screen.getByTestId('console-unlock-password'),
+      'wrongpass'
+    );
+    await user.click(screen.getByTestId('console-unlock-button'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Incorrect password.')).toBeInTheDocument();
+    });
+  });
+
   it('unlocks the database with persisted session', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
@@ -153,6 +198,22 @@ describe('Console', () => {
     ).toBeInTheDocument();
   });
 
+  it('logs when restore session is not available', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.hasPersistedSession = true;
+    mockRestoreSession.mockResolvedValue(false);
+    renderConsole();
+
+    await user.click(screen.getByTestId('console-restore-session-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('No persisted session found.')
+      ).toBeInTheDocument();
+    });
+  });
+
   it('logs when backup requested while locked', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
@@ -165,6 +226,38 @@ describe('Console', () => {
     await waitFor(() => {
       expect(
         screen.getByText('Database locked. Unlock first.')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('logs when session restore fails during backup', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = false;
+    mockContext.hasPersistedSession = true;
+    mockRestoreSession.mockResolvedValue(false);
+    renderConsole();
+
+    await user.click(screen.getByTestId('console-backup-button'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Session expired. Unlock first.')).toBeInTheDocument();
+    });
+  });
+
+  it('logs when restore file has invalid extension', async () => {
+    renderConsole();
+
+    const input = screen.getByTestId('dropzone-input');
+    const file = new File(['test'], 'backup.txt', {
+      type: 'text/plain'
+    });
+
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Please select a .db backup file.')
       ).toBeInTheDocument();
     });
   });
@@ -195,6 +288,44 @@ describe('Console', () => {
     expect(mockLock).toHaveBeenCalledTimes(1);
   });
 
+  it('logs when restore is attempted before setup', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = false;
+    renderConsole();
+
+    const input = screen.getByTestId('dropzone-input');
+    const file = new File(['test'], 'backup.db', {
+      type: 'application/octet-stream'
+    });
+
+    await user.upload(input, file);
+    await user.click(screen.getByTestId('console-restore-confirm'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Database not set up. Run setup first.')
+      ).toBeInTheDocument();
+    });
+    expect(mockImportDatabase).not.toHaveBeenCalled();
+  });
+
+  it('logs when lock clears the persisted session', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = true;
+    mockContext.hasPersistedSession = true;
+    renderConsole();
+
+    await user.click(screen.getByTestId('console-lock-clear-button'));
+
+    await waitFor(() => {
+      expect(mockLock).toHaveBeenCalledWith(true);
+    });
+    expect(
+      screen.getByText('Database locked (session cleared).')
+    ).toBeInTheDocument();
+  });
+
   it('logs when changing password without current password', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
@@ -211,6 +342,31 @@ describe('Console', () => {
     await waitFor(() => {
       expect(
         screen.getByText('Current password cannot be empty.')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('logs when current password is incorrect', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = true;
+    mockChangePassword.mockResolvedValue(false);
+    renderConsole();
+
+    await user.type(
+      screen.getByTestId('console-password-current'),
+      'oldpassword'
+    );
+    await user.type(screen.getByTestId('console-password-new'), 'newpassword');
+    await user.type(
+      screen.getByTestId('console-password-confirm'),
+      'newpassword'
+    );
+    await user.click(screen.getByTestId('console-password-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Incorrect current password.')
       ).toBeInTheDocument();
     });
   });
