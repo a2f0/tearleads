@@ -258,6 +258,11 @@
   caret-color: var(--foreground) !important;
 }
 
+/* Ensure textarea fills full height so clicks anywhere focus the editor */
+.w-md-editor-text {
+  min-height: 100% !important;
+}
+
 .w-md-editor-preview {
   background-color: var(--background) !important;
 }
