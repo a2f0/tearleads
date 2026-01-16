@@ -81,7 +81,6 @@ describe('KeychainDetail', () => {
     mockDeleteSessionKeysForInstance.mockResolvedValue(undefined);
     mockKeyManagerReset.mockResolvedValue(undefined);
     mockDeleteInstanceFromRegistry.mockResolvedValue(undefined);
-    vi.spyOn(window, 'confirm').mockImplementation(() => true);
   });
 
   describe('loading state', () => {
@@ -247,9 +246,14 @@ describe('KeychainDetail', () => {
 
       await user.click(screen.getByText('Delete Session Keys'));
 
-      expect(window.confirm).toHaveBeenCalledWith(
-        expect.stringContaining('Are you sure you want to delete session keys')
-      );
+      await waitFor(() => {
+        expect(screen.getAllByTestId('confirm-dialog').length).toBeGreaterThan(
+          0
+        );
+        expect(
+          screen.getByText(/Are you sure you want to delete session keys/)
+        ).toBeInTheDocument();
+      });
     });
 
     it('deletes session keys when confirmed', async () => {
@@ -263,6 +267,12 @@ describe('KeychainDetail', () => {
       await user.click(screen.getByText('Delete Session Keys'));
 
       await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
+
+      await waitFor(() => {
         expect(mockDeleteSessionKeysForInstance).toHaveBeenCalledWith(
           'test-id'
         );
@@ -270,7 +280,6 @@ describe('KeychainDetail', () => {
     });
 
     it('does not delete when confirmation cancelled', async () => {
-      vi.spyOn(window, 'confirm').mockImplementation(() => false);
       const user = userEvent.setup();
       renderKeychainDetail('test-id');
 
@@ -279,6 +288,15 @@ describe('KeychainDetail', () => {
       });
 
       await user.click(screen.getByText('Delete Session Keys'));
+
+      await waitFor(() => {
+        expect(screen.getAllByTestId('confirm-dialog').length).toBeGreaterThan(
+          0
+        );
+      });
+
+      // Click cancel
+      await user.click(screen.getByTestId('confirm-dialog-cancel'));
 
       expect(mockDeleteSessionKeysForInstance).not.toHaveBeenCalled();
     });
@@ -292,7 +310,13 @@ describe('KeychainDetail', () => {
       });
 
       await user.click(screen.getByText('Delete Instance'));
-      await user.click(await screen.findByTestId('confirm-delete-instance'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      // Click the confirm button for delete instance dialog
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
       await waitFor(() => {
         expect(mockGetKeyManagerForInstance).toHaveBeenCalledWith('test-id');
@@ -315,6 +339,13 @@ describe('KeychainDetail', () => {
       });
 
       await user.click(screen.getByText('Delete Session Keys'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      // Click confirm
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
       await waitFor(() => {
         expect(
@@ -341,7 +372,13 @@ describe('KeychainDetail', () => {
       });
 
       await user.click(screen.getByText('Delete Instance'));
-      await user.click(await screen.findByTestId('confirm-delete-instance'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      // Click the confirm button for delete instance dialog
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
       await waitFor(() => {
         expect(screen.getByText('Delete instance failed')).toBeInTheDocument();
@@ -366,6 +403,13 @@ describe('KeychainDetail', () => {
       await user.click(screen.getByText('Delete Session Keys'));
 
       await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      // Click confirm
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
+
+      await waitFor(() => {
         expect(screen.getByText('Session key error')).toBeInTheDocument();
       });
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -386,7 +430,13 @@ describe('KeychainDetail', () => {
       });
 
       await user.click(screen.getByText('Delete Instance'));
-      await user.click(await screen.findByTestId('confirm-delete-instance'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      // Click the confirm button for delete instance dialog
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
       await waitFor(() => {
         expect(screen.getByText('Instance error')).toBeInTheDocument();
