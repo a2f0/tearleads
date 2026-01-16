@@ -60,12 +60,20 @@ export interface ContextMenuTranslations {
   delete: string;
 }
 
+export interface SettingsTranslations {
+  tooltips: string;
+  tooltipsDescription: string;
+  tooltipsEnabled: string;
+  tooltipsDisabled: string;
+}
+
 export interface Translations {
   common: CommonTranslations;
   menu: MenuTranslations;
   audio: AudioTranslations;
   tooltips: TooltipsTranslations;
   contextMenu: ContextMenuTranslations;
+  settings: SettingsTranslations;
 }
 
 export type I18NextTranslations = {
@@ -74,6 +82,7 @@ export type I18NextTranslations = {
   audio: AudioTranslations;
   tooltips: TooltipsTranslations;
   contextMenu: ContextMenuTranslations;
+  settings: SettingsTranslations;
 } & Record<string, Record<string, string>>;
 
 export type CommonKeys = keyof CommonTranslations;
@@ -81,6 +90,7 @@ export type MenuKeys = keyof MenuTranslations;
 export type AudioKeys = keyof AudioTranslations;
 export type TooltipsKeys = keyof TooltipsTranslations;
 export type ContextMenuKeys = keyof ContextMenuTranslations;
+export type SettingsKeys = keyof SettingsTranslations;
 
 export type NamespaceKeys = keyof Translations;
 

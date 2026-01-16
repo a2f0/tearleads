@@ -61,5 +61,12 @@ export const es = {
     getInfo: 'Obtener información',
     viewDetails: 'Ver detalles',
     delete: 'Eliminar'
+  },
+  settings: {
+    tooltips: 'Información emergente',
+    tooltipsDescription:
+      'Mostrar sugerencias útiles al pasar el cursor sobre los elementos',
+    tooltipsEnabled: 'Activado',
+    tooltipsDisabled: 'Desactivado'
   }
 } as const satisfies I18NextTranslations;
