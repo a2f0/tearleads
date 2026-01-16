@@ -26,8 +26,8 @@ function TestConsumer() {
       <button type="button" onClick={() => setTheme('tokyo-night')}>
         Set Tokyo Night
       </button>
-      <button type="button" onClick={() => setTheme('graphite')}>
-        Set Graphite
+      <button type="button" onClick={() => setTheme('monochrome')}>
+        Set Monochrome
       </button>
       <button type="button" onClick={() => setTheme('system')}>
         Set System
@@ -48,7 +48,7 @@ describe('ThemeProvider', () => {
       'light',
       'dark',
       'tokyo-night',
-      'graphite'
+      'monochrome'
     );
 
     // Mock localStorage
@@ -138,8 +138,8 @@ describe('ThemeProvider', () => {
       expect(screen.getByTestId('theme')).toHaveTextContent('tokyo-night');
     });
 
-    it('loads graphite theme from localStorage', () => {
-      localStorageData['theme'] = 'graphite';
+    it('loads monochrome theme from localStorage', () => {
+      localStorageData['theme'] = 'monochrome';
 
       render(
         <ThemeProvider>
@@ -147,7 +147,7 @@ describe('ThemeProvider', () => {
         </ThemeProvider>
       );
 
-      expect(screen.getByTestId('theme')).toHaveTextContent('graphite');
+      expect(screen.getByTestId('theme')).toHaveTextContent('monochrome');
     });
 
     it('uses custom storage key', () => {
@@ -208,15 +208,15 @@ describe('ThemeProvider', () => {
       );
     });
 
-    it('resolves to graphite when theme is graphite', () => {
+    it('resolves to monochrome when theme is monochrome', () => {
       render(
-        <ThemeProvider defaultTheme="graphite">
+        <ThemeProvider defaultTheme="monochrome">
           <TestConsumer />
         </ThemeProvider>
       );
 
       expect(screen.getByTestId('resolved-theme')).toHaveTextContent(
-        'graphite'
+        'monochrome'
       );
     });
 
@@ -326,14 +326,14 @@ describe('ThemeProvider', () => {
       expect(document.documentElement.classList.contains('dark')).toBe(false);
     });
 
-    it('adds graphite class to document when resolved to graphite', () => {
+    it('adds monochrome class to document when resolved to monochrome', () => {
       render(
-        <ThemeProvider defaultTheme="graphite">
+        <ThemeProvider defaultTheme="monochrome">
           <TestConsumer />
         </ThemeProvider>
       );
 
-      expect(document.documentElement.classList.contains('graphite')).toBe(
+      expect(document.documentElement.classList.contains('monochrome')).toBe(
         true
       );
       expect(document.documentElement.classList.contains('light')).toBe(false);
@@ -435,7 +435,7 @@ describe('ThemeProvider', () => {
       expect(screen.getByTestId('theme')).toHaveTextContent('tokyo-night');
     });
 
-    it('updates to graphite theme from settings-synced event', async () => {
+    it('updates to monochrome theme from settings-synced event', async () => {
       render(
         <ThemeProvider defaultTheme="light">
           <TestConsumer />
@@ -445,12 +445,12 @@ describe('ThemeProvider', () => {
       act(() => {
         window.dispatchEvent(
           new CustomEvent('settings-synced', {
-            detail: { settings: { theme: 'graphite' } }
+            detail: { settings: { theme: 'monochrome' } }
           })
         );
       });
 
-      expect(screen.getByTestId('theme')).toHaveTextContent('graphite');
+      expect(screen.getByTestId('theme')).toHaveTextContent('monochrome');
     });
 
     it('ignores invalid theme in settings-synced event', async () => {

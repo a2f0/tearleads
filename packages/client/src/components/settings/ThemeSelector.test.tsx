@@ -11,7 +11,7 @@ describe('ThemeSelector', () => {
       'light',
       'dark',
       'tokyo-night',
-      'graphite'
+      'monochrome'
     );
 
     Object.defineProperty(window, 'localStorage', {
@@ -39,7 +39,7 @@ describe('ThemeSelector', () => {
       | 'light'
       | 'dark'
       | 'tokyo-night'
-      | 'graphite'
+      | 'monochrome'
       | 'system' = 'light'
   ) {
     return render(
@@ -54,7 +54,7 @@ describe('ThemeSelector', () => {
     expect(screen.getByTestId('theme-option-light')).toBeInTheDocument();
     expect(screen.getByTestId('theme-option-dark')).toBeInTheDocument();
     expect(screen.getByTestId('theme-option-tokyo-night')).toBeInTheDocument();
-    expect(screen.getByTestId('theme-option-graphite')).toBeInTheDocument();
+    expect(screen.getByTestId('theme-option-monochrome')).toBeInTheDocument();
   });
 
   it('shows current theme as selected', () => {
@@ -110,6 +110,6 @@ describe('ThemeSelector', () => {
     expect(screen.getByText('Light')).toBeInTheDocument();
     expect(screen.getByText('Dark')).toBeInTheDocument();
     expect(screen.getByText('Tokyo Night')).toBeInTheDocument();
-    expect(screen.getByText('Graphite')).toBeInTheDocument();
+    expect(screen.getByText('Monochrome')).toBeInTheDocument();
   });
 });

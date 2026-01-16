@@ -119,7 +119,7 @@
   --chart-8: oklch(72% 0.14 140);
 }
 
-.graphite {
+.monochrome {
   --background: oklch(18% 0 0);
   --foreground: oklch(88% 0 0);
   --card: oklch(22% 0 0);
@@ -157,4 +157,9 @@
   --chart-6: oklch(70% 0 0);
   --chart-7: oklch(60% 0 0);
   --chart-8: oklch(50% 0 0);
+}
+
+/* Monochrome theme: grayscale all images and PDF previews */
+.monochrome :is(img, canvas, video) {
+  filter: grayscale(1) contrast(1.1);
 }
