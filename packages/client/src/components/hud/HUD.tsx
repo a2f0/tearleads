@@ -26,37 +26,39 @@ interface HUDProps {
   onClose: () => void;
 }
 
+type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+const POSITION_CLASSES: Record<Corner, string> = {
+  'top-left': 'top-0 left-0 cursor-nwse-resize',
+  'top-right': 'top-0 right-0 cursor-nesw-resize',
+  'bottom-left': 'bottom-0 left-0 cursor-nesw-resize',
+  'bottom-right': 'bottom-0 right-0 cursor-nwse-resize'
+};
+
+const BORDER_CLASSES: Record<Corner, string> = {
+  'top-left': 'border-t-2 border-l-2 rounded-tl-lg',
+  'top-right': 'border-t-2 border-r-2 rounded-tr-lg',
+  'bottom-left': 'border-b-2 border-l-2 rounded-bl-lg',
+  'bottom-right': 'border-b-2 border-r-2 rounded-br-lg'
+};
+
 function ResizeHandle({
   corner,
   handlers
 }: {
-  corner: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  corner: Corner;
   handlers: {
     onMouseDown: (e: React.MouseEvent) => void;
     onTouchStart: (e: React.TouchEvent) => void;
   };
 }) {
-  const positionClasses = {
-    'top-left': 'top-0 left-0 cursor-nwse-resize',
-    'top-right': 'top-0 right-0 cursor-nesw-resize',
-    'bottom-left': 'bottom-0 left-0 cursor-nesw-resize',
-    'bottom-right': 'bottom-0 right-0 cursor-nwse-resize'
-  };
-
-  const borderClasses = {
-    'top-left': 'border-t-2 border-l-2 rounded-tl-lg',
-    'top-right': 'border-t-2 border-r-2 rounded-tr-lg',
-    'bottom-left': 'border-b-2 border-l-2 rounded-bl-lg',
-    'bottom-right': 'border-b-2 border-r-2 rounded-br-lg'
-  };
-
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: Resize handle for mouse/touch drag only
     <div
       className={cn(
         'absolute z-10 h-4 w-4 touch-none border-muted-foreground/40 transition-colors hover:border-primary',
-        positionClasses[corner],
-        borderClasses[corner]
+        POSITION_CLASSES[corner],
+        BORDER_CLASSES[corner]
       )}
       onMouseDown={handlers.onMouseDown}
       onTouchStart={handlers.onTouchStart}
