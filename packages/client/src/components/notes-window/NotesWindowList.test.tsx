@@ -298,4 +298,90 @@ describe('NotesWindowList', () => {
       expect(mockDb.select).toHaveBeenCalled();
     });
   });
+
+  it('does not fetch when database is locked', () => {
+    mockDatabaseState.isUnlocked = false;
+    render(<NotesWindowList {...defaultProps} />);
+
+    expect(mockDb.select).not.toHaveBeenCalled();
+  });
+
+  it('shows error when create note fails from header button', async () => {
+    mockDb.orderBy.mockResolvedValue(mockNotes);
+    mockDb.values.mockRejectedValue(new Error('Create failed'));
+    const user = userEvent.setup();
+    render(<NotesWindowList {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('window-create-note-button')
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-create-note-button'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Create failed')).toBeInTheDocument();
+    });
+  });
+
+  it('displays content preview for notes', async () => {
+    mockDb.orderBy.mockResolvedValue(mockNotes);
+    render(<NotesWindowList {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('First Note')).toBeInTheDocument();
+    });
+
+    // The content preview should show the content without markdown symbols
+    expect(screen.getByText(/Hello World/)).toBeInTheDocument();
+  });
+
+  it('renders search input with placeholder', async () => {
+    mockDb.orderBy.mockResolvedValue(mockNotes);
+    render(<NotesWindowList {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-notes-search')).toBeInTheDocument();
+    });
+
+    expect(screen.getByPlaceholderText('Search notes...')).toBeInTheDocument();
+  });
+
+  it('shows formatted date for notes', async () => {
+    mockDb.orderBy.mockResolvedValue(mockNotes);
+    render(<NotesWindowList {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('First Note')).toBeInTheDocument();
+    });
+
+    // Date should be formatted and visible - multiple notes have January dates
+    const dateElements = screen.getAllByText(/January/);
+    expect(dateElements.length).toBeGreaterThan(0);
+  });
+
+  it('handles search query clearing', async () => {
+    mockDb.orderBy.mockResolvedValue(mockNotes);
+    const user = userEvent.setup();
+    render(<NotesWindowList {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('First Note')).toBeInTheDocument();
+    });
+
+    const searchInput = screen.getByTestId('window-notes-search');
+    await user.type(searchInput, 'Second');
+
+    expect(screen.queryByText('First Note')).not.toBeInTheDocument();
+    expect(screen.getByText('Second Note')).toBeInTheDocument();
+
+    // Clear the search
+    await user.clear(searchInput);
+
+    await waitFor(() => {
+      expect(screen.getByText('First Note')).toBeInTheDocument();
+      expect(screen.getByText('Second Note')).toBeInTheDocument();
+    });
+  });
 });
