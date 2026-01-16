@@ -44,8 +44,8 @@ function App() {
       </header>
       <div className="flex flex-1">
         <Sidebar />
-        <main className="min-w-0 flex-1 pb-20">
-          <div className="container mx-auto max-w-2xl px-4 pb-16 lg:max-w-none lg:px-8">
+        <main className="flex min-w-0 flex-1 flex-col pb-20">
+          <div className="container mx-auto flex max-w-2xl flex-1 flex-col px-4 pb-16 lg:max-w-none lg:px-8">
             <Outlet />
           </div>
         </main>
