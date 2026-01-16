@@ -124,14 +124,31 @@ describe('useFileUpload', () => {
       vi.mocked(fileTypeFromBuffer).mockResolvedValue(undefined);
 
       const { result } = renderHook(() => useFileUpload());
-      const file = new File(['test'], 'document.txt', { type: 'text/plain' });
+      const file = new File(['test'], 'unknown.bin', {
+        type: 'application/octet-stream'
+      });
 
       await expect(result.current.uploadFile(file)).rejects.toThrow(
         UnsupportedFileTypeError
       );
       await expect(result.current.uploadFile(file)).rejects.toThrow(
-        'Unable to detect file type for "document.txt"'
+        'Unable to detect file type for "unknown.bin"'
       );
+    });
+
+    it('successfully uploads text files using browser-provided MIME type', async () => {
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['Hello, world!'], 'notes.txt', {
+        type: 'text/plain'
+      });
+
+      const uploadResult = await result.current.uploadFile(file);
+
+      expect(uploadResult.id).toBe('test-uuid-1234');
+      expect(uploadResult.isDuplicate).toBe(false);
+      expect(mockDb.insert).toHaveBeenCalled();
     });
 
     it('successfully uploads when file type is detected as PNG', async () => {
@@ -382,13 +399,13 @@ describe('useFileUpload', () => {
       );
     });
 
-    it('throws UnsupportedFileTypeError for files with no magic bytes', async () => {
+    it('throws UnsupportedFileTypeError for non-text files with no magic bytes', async () => {
       vi.mocked(fileTypeFromBuffer).mockResolvedValue(undefined);
 
       const { result } = renderHook(() => useFileUpload());
-      // Plain text files have no magic bytes
-      const file = new File(['Hello, world!'], 'notes.txt', {
-        type: 'text/plain'
+      // Binary files without magic bytes should still fail
+      const file = new File(['random binary data'], 'mystery.dat', {
+        type: 'application/octet-stream'
       });
 
       await expect(result.current.uploadFile(file)).rejects.toBeInstanceOf(

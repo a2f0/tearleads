@@ -577,6 +577,33 @@ test.describe('Dropzone', () => {
     expect(textStyles.scrollWidth).toBeGreaterThan(textStyles.clientWidth);
   });
 
+  dbTest('should successfully upload plain text files', async ({ page }) => {
+    // First unlock the database
+    await navigateTo(page, 'SQLite');
+    await page.getByTestId('db-setup-button').click();
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: 10000
+    });
+
+    // Go to Files page
+    await navigateTo(page, 'Files');
+
+    const fileInput = page.getByTestId('dropzone-input');
+
+    // Upload a plain text file (no magic bytes, but text/* types are allowed)
+    await fileInput.setInputFiles({
+      name: 'notes.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('This is just plain text content')
+    });
+
+    // Should show success badge and the file in the list
+    await expect(page.getByTestId('upload-success-badge')).toBeVisible({
+      timeout: 10000
+    });
+    await expect(page.getByText('notes.txt')).toBeVisible();
+  });
+
   dbTest('should show error when file type cannot be detected', async ({ page }) => {
     // First unlock the database
     await navigateTo(page, 'SQLite');
@@ -590,18 +617,18 @@ test.describe('Dropzone', () => {
 
     const fileInput = page.getByTestId('dropzone-input');
 
-    // Upload a plain text file (no magic bytes, so file-type cannot detect it)
+    // Upload a binary file with no magic bytes and non-text MIME type
     await fileInput.setInputFiles({
-      name: 'notes.txt',
-      mimeType: 'text/plain',
-      buffer: Buffer.from('This is just plain text with no magic bytes')
+      name: 'unknown.bin',
+      mimeType: 'application/octet-stream',
+      buffer: Buffer.from('random binary data without magic bytes')
     });
 
     // Should show error message for unsupported file type
     await expect(page.getByText(/Unable to detect file type/)).toBeVisible({
       timeout: 10000
     });
-    await expect(page.getByText('notes.txt', { exact: true })).toBeVisible();
+    await expect(page.getByText('unknown.bin', { exact: true })).toBeVisible();
   });
 
   dbTest('should show green check badge after successful upload', async ({
