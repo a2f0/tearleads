@@ -48,7 +48,10 @@ export function DeleteKeychainInstanceDialog({
         aria-labelledby="delete-keychain-instance-title"
         data-testid="delete-keychain-instance-dialog"
       >
-        <h2 id="delete-keychain-instance-title" className="font-semibold text-lg">
+        <h2
+          id="delete-keychain-instance-title"
+          className="font-semibold text-lg"
+        >
           Delete Instance
         </h2>
         <p className="mt-2 text-muted-foreground text-sm">
