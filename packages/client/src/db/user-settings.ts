@@ -10,13 +10,19 @@ import type { Database } from './index';
 import { userSettings } from './schema';
 
 // All known settings keys (stored in DB as key column)
-export type UserSettingKey = 'theme' | 'language' | 'tooltips' | 'font';
+export type UserSettingKey =
+  | 'theme'
+  | 'language'
+  | 'tooltips'
+  | 'font'
+  | 'desktopPattern';
 
 // Per-setting value types
 export type ThemeValue = 'light' | 'dark' | 'tokyo-night' | 'system';
 export type LanguageValue = 'en' | 'es' | 'ua';
 export type TooltipsValue = 'enabled' | 'disabled';
 export type FontValue = 'system' | 'monospace';
+export type DesktopPatternValue = 'solid' | 'honeycomb' | 'isometric';
 
 // Map settings keys to their value types
 export interface SettingValueMap {
@@ -24,6 +30,7 @@ export interface SettingValueMap {
   language: LanguageValue;
   tooltips: TooltipsValue;
   font: FontValue;
+  desktopPattern: DesktopPatternValue;
 }
 
 // Default values for each setting
@@ -31,7 +38,8 @@ export const SETTING_DEFAULTS: { [K in UserSettingKey]: SettingValueMap[K] } = {
   theme: 'system',
   language: 'en',
   tooltips: 'enabled',
-  font: 'system'
+  font: 'system',
+  desktopPattern: 'solid'
 };
 
 // localStorage keys for each setting (maps our keys to existing localStorage keys)
@@ -39,7 +47,8 @@ export const SETTING_STORAGE_KEYS: Record<UserSettingKey, string> = {
   theme: 'theme',
   language: 'i18nextLng',
   tooltips: 'tooltips',
-  font: 'font'
+  font: 'font',
+  desktopPattern: 'desktopPattern'
 };
 
 // Type guard functions
@@ -57,6 +66,12 @@ export function isTooltipsValue(value: string): value is TooltipsValue {
 
 export function isFontValue(value: string): value is FontValue {
   return ['system', 'monospace'].includes(value);
+}
+
+export function isDesktopPatternValue(
+  value: string
+): value is DesktopPatternValue {
+  return ['solid', 'honeycomb', 'isometric'].includes(value);
 }
 
 // Settings sync event detail type
@@ -85,6 +100,9 @@ export function getSettingFromStorage<K extends UserSettingKey>(
       return value as SettingValueMap[K];
     }
     if (key === 'font' && isFontValue(value)) {
+      return value as SettingValueMap[K];
+    }
+    if (key === 'desktopPattern' && isDesktopPatternValue(value)) {
       return value as SettingValueMap[K];
     }
 
@@ -138,6 +156,8 @@ export async function getSettingsFromDb(
       settings.tooltips = value;
     } else if (key === 'font' && isFontValue(value)) {
       settings.font = value;
+    } else if (key === 'desktopPattern' && isDesktopPatternValue(value)) {
+      settings.desktopPattern = value;
     }
   }
 

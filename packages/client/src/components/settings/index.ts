@@ -1,4 +1,6 @@
 export { FontSelector } from './FontSelector';
+export { PatternPreview, type PatternPreviewProps } from './PatternPreview';
+export { PatternSelector } from './PatternSelector';
 export { SettingsSection } from './SettingsSection';
 export { SettingsSheet } from './SettingsSheet';
 export { ThemePreview, type ThemePreviewProps } from './ThemePreview';

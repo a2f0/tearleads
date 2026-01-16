@@ -62,10 +62,13 @@ vi.mock('@/db', () => ({
   })
 }));
 
-// Mock SettingsProvider for TooltipsToggle
+// Mock SettingsProvider for TooltipsToggle and DesktopBackground
 vi.mock('@/db/SettingsProvider', () => ({
   useSettings: () => ({
-    getSetting: vi.fn(() => 'enabled'),
+    getSetting: vi.fn((key: string) => {
+      if (key === 'desktopPattern') return 'solid';
+      return 'enabled';
+    }),
     setSetting: vi.fn()
   })
 }));
