@@ -32,6 +32,7 @@ export default defineConfig(({ mode }) => ({
   clearScreen: false,
   server: {
     port: 3000,
+    strictPort: true,
     headers: {
       // Required for SharedArrayBuffer (used by some WASM implementations)
       'Cross-Origin-Opener-Policy': 'same-origin',
