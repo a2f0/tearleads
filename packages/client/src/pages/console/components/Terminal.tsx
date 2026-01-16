@@ -161,11 +161,10 @@ export function Terminal({ className }: TerminalProps) {
   // Reset history position when input changes manually
   const handleInputChange = useCallback(
     (value: string) => {
+      history.resetPosition();
       terminal.setInput(value);
-      // Don't reset history when navigating - only when typing
-      // This is handled implicitly because navigateUp/Down set the input
     },
-    [terminal]
+    [terminal, history]
   );
 
   // Show welcome message on mount
