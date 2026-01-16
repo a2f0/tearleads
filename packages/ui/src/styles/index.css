@@ -37,6 +37,13 @@
   --chart-6: hsl(188 85% 43%);
   --chart-7: hsl(292 84% 61%);
   --chart-8: hsl(85 80% 45%);
+
+  /* Terminal colors */
+  --terminal-bg: hsl(0 0% 5%);
+  --terminal-border: hsl(0 0% 20%);
+  --terminal-prompt: hsl(142 71% 45%);
+  --terminal-command: hsl(0 0% 55%);
+  --terminal-output: hsl(0 0% 90%);
 }
 
 .dark {
@@ -77,6 +84,13 @@
   --chart-6: hsl(188 85% 50%);
   --chart-7: hsl(292 84% 66%);
   --chart-8: hsl(85 80% 50%);
+
+  /* Terminal colors */
+  --terminal-bg: hsl(0 0% 5%);
+  --terminal-border: hsl(0 0% 20%);
+  --terminal-prompt: hsl(142 76% 55%);
+  --terminal-command: hsl(0 0% 55%);
+  --terminal-output: hsl(0 0% 90%);
 }
 
 .tokyo-night {
@@ -117,6 +131,13 @@
   --chart-6: hsl(190 65% 70%);
   --chart-7: hsl(310 70% 65%);
   --chart-8: hsl(95 65% 55%);
+
+  /* Terminal colors */
+  --terminal-bg: hsl(230 20% 10%);
+  --terminal-border: hsl(228 20% 22%);
+  --terminal-prompt: hsl(140 68% 65%);
+  --terminal-command: hsl(227 22% 55%);
+  --terminal-output: hsl(227 32% 75%);
 }
 
 .monochrome {
@@ -157,6 +178,13 @@
   --chart-6: hsl(0 0% 70%);
   --chart-7: hsl(0 0% 60%);
   --chart-8: hsl(0 0% 50%);
+
+  /* Terminal colors - all grayscale */
+  --terminal-bg: hsl(0 0% 8%);
+  --terminal-border: hsl(0 0% 25%);
+  --terminal-prompt: hsl(0 0% 75%);
+  --terminal-command: hsl(0 0% 50%);
+  --terminal-output: hsl(0 0% 85%);
 }
 
 /* Monochrome theme: grayscale all images and PDF previews */
@@ -203,6 +231,13 @@
   --color-chart-6: var(--chart-6);
   --color-chart-7: var(--chart-7);
   --color-chart-8: var(--chart-8);
+
+  /* Terminal colors */
+  --color-terminal-bg: var(--terminal-bg);
+  --color-terminal-border: var(--terminal-border);
+  --color-terminal-prompt: var(--terminal-prompt);
+  --color-terminal-command: var(--terminal-command);
+  --color-terminal-output: var(--terminal-output);
 
   /* Override Tailwind's oklch colors with hsl for older browser compatibility */
   --color-red-600: hsl(0 72% 51%);
