@@ -60,6 +60,7 @@ export const ua = {
     pause: 'Пауза',
     getInfo: 'Інформація',
     viewDetails: 'Детальніше',
+    download: 'Завантажити',
     delete: 'Видалити'
   },
   settings: {

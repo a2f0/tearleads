@@ -57,6 +57,7 @@ export interface ContextMenuTranslations {
   pause: string;
   getInfo: string;
   viewDetails: string;
+  download: string;
   delete: string;
 }
 

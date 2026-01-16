@@ -60,6 +60,7 @@ export const es = {
     pause: 'Pausar',
     getInfo: 'Obtener información',
     viewDetails: 'Ver detalles',
+    download: 'Descargar',
     delete: 'Eliminar'
   },
   settings: {
