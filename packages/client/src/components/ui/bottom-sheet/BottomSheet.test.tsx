@@ -1,6 +1,14 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi
+} from 'vitest';
 import { ANIMATION_DURATION_MS, BottomSheet } from './BottomSheet';
 
 type GestureCallback = (detail: { deltaY: number; velocityY: number }) => void;
@@ -525,6 +533,99 @@ describe('BottomSheet', () => {
       const dialog = screen.getByRole('dialog');
       expect(parseInt(dialog.style.height, 10)).toBe(200);
       vi.useRealTimers();
+    });
+  });
+
+  describe('fitContent behavior', () => {
+    let mockObserve: Mock;
+    let mockDisconnect: Mock;
+    const originalResizeObserver = global.ResizeObserver;
+
+    beforeEach(() => {
+      mockObserve = vi.fn();
+      mockDisconnect = vi.fn();
+
+      class MockResizeObserver implements ResizeObserver {
+        observe = mockObserve;
+        unobserve = vi.fn();
+        disconnect = mockDisconnect;
+      }
+
+      global.ResizeObserver = MockResizeObserver;
+    });
+
+    afterEach(() => {
+      global.ResizeObserver = originalResizeObserver;
+    });
+
+    it('renders with fitContent prop', () => {
+      render(
+        <BottomSheet open={true} onOpenChange={() => {}} fitContent>
+          <div>Content</div>
+        </BottomSheet>
+      );
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    it('sets up ResizeObserver on content container when fitContent is true', () => {
+      render(
+        <BottomSheet open={true} onOpenChange={() => {}} fitContent>
+          <p>Content</p>
+        </BottomSheet>
+      );
+
+      expect(mockObserve).toHaveBeenCalled();
+    });
+
+    it('does not set up ResizeObserver when fitContent is false', () => {
+      render(
+        <BottomSheet open={true} onOpenChange={() => {}}>
+          <p>Content</p>
+        </BottomSheet>
+      );
+
+      expect(mockObserve).not.toHaveBeenCalled();
+    });
+
+    it('disconnects ResizeObserver on unmount', () => {
+      const { unmount } = render(
+        <BottomSheet open={true} onOpenChange={() => {}} fitContent>
+          <p>Content</p>
+        </BottomSheet>
+      );
+
+      unmount();
+
+      expect(mockDisconnect).toHaveBeenCalled();
+    });
+
+    it('uses default snap points when fitContent is false', () => {
+      render(
+        <BottomSheet open={true} onOpenChange={() => {}}>
+          <p>Content</p>
+        </BottomSheet>
+      );
+
+      const dialog = screen.getByRole('dialog');
+      const height = parseInt(dialog.style.height, 10);
+
+      // Default collapsed height is 200
+      expect(height).toBe(200);
+    });
+
+    it('renders content container with ref for measurement', () => {
+      render(
+        <BottomSheet open={true} onOpenChange={() => {}} fitContent>
+          <p>Test content</p>
+        </BottomSheet>
+      );
+
+      const contentContainer = screen
+        .getByRole('dialog')
+        .querySelector('.overflow-y-auto');
+      expect(contentContainer).toBeInTheDocument();
+      expect(contentContainer).toHaveTextContent('Test content');
     });
   });
 });
