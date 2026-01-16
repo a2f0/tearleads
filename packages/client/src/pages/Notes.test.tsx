@@ -358,28 +358,25 @@ describe('Notes', () => {
   });
 
   describe('empty state', () => {
-    it('shows empty state when no notes exist', async () => {
+    it('shows add note card when no notes exist', async () => {
       mockDb.orderBy.mockResolvedValue([]);
 
       await renderNotes();
 
       await waitFor(() => {
-        expect(screen.getByText('No notes yet')).toBeInTheDocument();
+        expect(screen.getByTestId('add-note-card')).toBeInTheDocument();
       });
 
-      expect(
-        screen.getByText('Create your first note to get started')
-      ).toBeInTheDocument();
-      expect(screen.getByTestId('empty-create-note')).toBeInTheDocument();
+      expect(screen.getByText('Add new note')).toBeInTheDocument();
     });
   });
 
   describe('create note', () => {
-    it('renders create note button when unlocked', async () => {
+    it('renders add note card at bottom of list when unlocked', async () => {
       await renderNotes();
 
       await waitFor(() => {
-        expect(screen.getByTestId('create-note-button')).toBeInTheDocument();
+        expect(screen.getByTestId('add-note-card')).toBeInTheDocument();
       });
     });
 
@@ -388,10 +385,10 @@ describe('Notes', () => {
       await renderNotes();
 
       await waitFor(() => {
-        expect(screen.getByTestId('create-note-button')).toBeInTheDocument();
+        expect(screen.getByTestId('add-note-card')).toBeInTheDocument();
       });
 
-      await user.click(screen.getByTestId('create-note-button'));
+      await user.click(screen.getByTestId('add-note-card'));
 
       await waitFor(() => {
         expect(mockInsert).toHaveBeenCalled();
@@ -413,10 +410,10 @@ describe('Notes', () => {
       await renderNotes();
 
       await waitFor(() => {
-        expect(screen.getByTestId('create-note-button')).toBeInTheDocument();
+        expect(screen.getByTestId('add-note-card')).toBeInTheDocument();
       });
 
-      await user.click(screen.getByTestId('create-note-button'));
+      await user.click(screen.getByTestId('add-note-card'));
 
       await waitFor(() => {
         expect(screen.getByText('Create failed')).toBeInTheDocument();
