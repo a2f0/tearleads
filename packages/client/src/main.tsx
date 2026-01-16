@@ -55,6 +55,9 @@ const Chat = lazy(() =>
 const ContactDetail = lazy(() =>
   import('./pages/ContactDetail').then((m) => ({ default: m.ContactDetail }))
 );
+const Console = lazy(() =>
+  import('./pages/console').then((m) => ({ default: m.Console }))
+);
 const ContactNew = lazy(() =>
   import('./pages/ContactNew').then((m) => ({ default: m.ContactNew }))
 );
@@ -211,6 +214,7 @@ if (rootElement) {
                                   element={<VideoDetail />}
                                 />
                                 <Route path="sqlite" element={<Sqlite />} />
+                                <Route path="console" element={<Console />} />
                                 <Route path="debug" element={<Debug />} />
                                 <Route path="chat" element={<Chat />} />
                                 <Route path="models" element={<Models />} />
