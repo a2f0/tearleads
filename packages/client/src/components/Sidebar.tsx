@@ -15,6 +15,7 @@ import {
   Music,
   Settings,
   Shield,
+  StickyNote,
   Table2,
   Users
 } from 'lucide-react';
@@ -66,6 +67,13 @@ export const navItems: NavItem[] = [
     labelKey: 'documents',
     inMobileMenu: true,
     testId: 'documents-link'
+  },
+  {
+    path: '/notes',
+    icon: StickyNote,
+    labelKey: 'notes',
+    inMobileMenu: true,
+    testId: 'notes-link'
   },
   {
     path: '/audio',
