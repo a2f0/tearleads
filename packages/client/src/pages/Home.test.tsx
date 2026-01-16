@@ -13,6 +13,31 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+const STORAGE_KEY = 'desktop-icon-positions';
+
+const MOCK_SAVED_POSITIONS = {
+  '/files': { x: 300, y: 300 },
+  '/contacts': { x: 400, y: 100 },
+  '/photos': { x: 100, y: 200 },
+  '/documents': { x: 200, y: 200 },
+  '/notes': { x: 300, y: 200 },
+  '/audio': { x: 400, y: 200 },
+  '/videos': { x: 100, y: 300 },
+  '/tables': { x: 200, y: 300 },
+  '/analytics': { x: 300, y: 300 },
+  '/sqlite': { x: 400, y: 300 },
+  '/console': { x: 100, y: 400 },
+  '/debug': { x: 200, y: 400 },
+  '/opfs': { x: 300, y: 400 },
+  '/cache-storage': { x: 400, y: 400 },
+  '/local-storage': { x: 100, y: 500 },
+  '/keychain': { x: 200, y: 500 },
+  '/chat': { x: 300, y: 500 },
+  '/models': { x: 400, y: 500 },
+  '/admin': { x: 100, y: 600 },
+  '/settings': { x: 200, y: 600 }
+};
+
 describe('Home', () => {
   const renderHome = () => {
     return render(
@@ -24,6 +49,7 @@ describe('Home', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     // Mock setPointerCapture since jsdom doesn't support it
     Element.prototype.setPointerCapture = vi.fn();
     Element.prototype.releasePointerCapture = vi.fn();
@@ -244,5 +270,95 @@ describe('Home', () => {
     await user.keyboard('{Escape}');
 
     expect(screen.queryByText('Open')).not.toBeInTheDocument();
+  });
+
+  it('saves icon positions to localStorage after drag', () => {
+    const { container } = renderHome();
+
+    const filesButton = screen.getByRole('button', { name: 'Files' });
+    const canvas = container.querySelector('[role="application"]');
+
+    // Start drag
+    fireEvent.pointerDown(filesButton, {
+      button: 0,
+      clientX: 100,
+      clientY: 100,
+      pointerId: 1
+    });
+
+    if (canvas) {
+      // Move pointer to trigger drag
+      fireEvent.pointerMove(canvas, {
+        clientX: 200,
+        clientY: 200,
+        pointerId: 1
+      });
+
+      // End drag
+      fireEvent.pointerUp(canvas, { pointerId: 1 });
+    }
+
+    // Positions should be saved to localStorage
+    const saved = localStorage.getItem(STORAGE_KEY);
+    expect(saved).not.toBeNull();
+    if (saved) {
+      expect(JSON.parse(saved)).toHaveProperty('/files');
+    }
+  });
+
+  it('loads saved positions from localStorage on mount', () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_SAVED_POSITIONS));
+
+    renderHome();
+
+    const filesButton = screen.getByRole('button', { name: 'Files' });
+    // Icon should be at the saved position
+    expect(filesButton).toHaveStyle({ left: '300px', top: '300px' });
+  });
+
+  it('clears localStorage on auto arrange', async () => {
+    const user = userEvent.setup();
+
+    // Pre-populate localStorage with saved positions
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_SAVED_POSITIONS));
+
+    const { container } = renderHome();
+    const canvas = container.querySelector('[role="application"]');
+
+    // Open canvas context menu
+    if (canvas) {
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    // Click Auto Arrange
+    const autoArrangeItem = screen.getByText('Auto Arrange');
+    await user.click(autoArrangeItem);
+
+    // localStorage should be cleared
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it('uses grid positions when localStorage has invalid JSON', () => {
+    localStorage.setItem(STORAGE_KEY, 'invalid-json');
+
+    renderHome();
+
+    // Should render without error
+    expect(screen.getByRole('button', { name: 'Files' })).toBeInTheDocument();
+  });
+
+  it('uses grid positions when localStorage is missing items', () => {
+    // Save positions missing some items
+    const partialPositions = {
+      '/files': { x: 300, y: 300 }
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(partialPositions));
+
+    renderHome();
+
+    // Should fall back to grid positions since not all items have saved positions
+    const filesButton = screen.getByRole('button', { name: 'Files' });
+    // Position should NOT be the saved position (300, 300) since we fell back to grid
+    expect(filesButton).not.toHaveStyle({ left: '300px', top: '300px' });
   });
 });
