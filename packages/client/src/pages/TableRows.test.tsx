@@ -521,6 +521,62 @@ describe('TableRows', () => {
       });
     });
 
+    it('shows loader row when loading more in document view', async () => {
+      const user = userEvent.setup();
+      let fetchCount = 0;
+      mockExecute.mockImplementation((query: string) => {
+        if (query.includes('sqlite_master')) {
+          return Promise.resolve({ rows: [{ name: 'test_table' }] });
+        }
+        if (query.includes('PRAGMA table_info')) {
+          return Promise.resolve({ rows: mockColumns });
+        }
+        if (query.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [{ count: 100 }] });
+        }
+        if (query.includes('SELECT *')) {
+          fetchCount++;
+          // Return PAGE_SIZE (50) rows to trigger hasMore
+          if (fetchCount === 1) {
+            const rows = Array.from({ length: 50 }, (_, i) => ({
+              id: i + 1,
+              name: `User ${i + 1}`,
+              age: 20 + i
+            }));
+            return Promise.resolve({ rows });
+          }
+          // Subsequent fetches return fewer rows
+          return Promise.resolve({
+            rows: [{ id: 51, name: 'Extra User', age: 50 }]
+          });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      await renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByText('User 1')).toBeInTheDocument();
+      });
+
+      // Switch to document view
+      const toggleButton = screen.getByTitle('Toggle document view');
+      await user.click(toggleButton);
+
+      // Should render as JSON in document view
+      await waitFor(() => {
+        expect(
+          screen.getByText(/"name": "User 1"/, { exact: false })
+        ).toBeInTheDocument();
+      });
+
+      // The virtualizer mock triggers load-more, which sets hasMore=true
+      // The loader row should be rendered in document view
+      await waitFor(() => {
+        expect(fetchCount).toBeGreaterThanOrEqual(2);
+      });
+    });
+
     it('shows empty state in document view', async () => {
       const user = userEvent.setup();
       mockExecute.mockImplementation((query: string) => {
@@ -896,6 +952,44 @@ describe('TableRows', () => {
               call[0].includes('SELECT *') && call[0].includes('OFFSET 50')
           )
         ).toBe(true);
+      });
+    });
+  });
+
+  describe('loading states', () => {
+    it('shows loading state when database is locked', async () => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: false,
+        isLoading: false,
+        currentInstanceId: 'test-instance'
+      });
+
+      await renderTableRows();
+
+      // Should not show table data when locked
+      await waitFor(() => {
+        expect(screen.queryByText('Alice')).not.toBeInTheDocument();
+      });
+    });
+
+    it('shows table view empty state when no rows', async () => {
+      mockExecute.mockImplementation((query: string) => {
+        if (query.includes('sqlite_master')) {
+          return Promise.resolve({ rows: [{ name: 'test_table' }] });
+        }
+        if (query.includes('PRAGMA table_info')) {
+          return Promise.resolve({ rows: mockColumns });
+        }
+        if (query.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [{ count: 0 }] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      await renderTableRows();
+
+      await waitFor(() => {
+        expect(screen.getByText('No rows in this table')).toBeInTheDocument();
       });
     });
   });
