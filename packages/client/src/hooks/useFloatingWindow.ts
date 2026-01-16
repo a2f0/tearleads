@@ -75,8 +75,21 @@ export function useFloatingWindow({
       const deltaY = clientY - startMouseYRef.current;
 
       if (modeRef.current === 'drag') {
-        setX(startXRef.current + deltaX);
-        setY(startYRef.current + deltaY);
+        const newX = startXRef.current + deltaX;
+        const newY = startYRef.current + deltaY;
+
+        // Constrain position to be within the viewport
+        const constrainedX = Math.max(
+          0,
+          Math.min(newX, window.innerWidth - width)
+        );
+        const constrainedY = Math.max(
+          0,
+          Math.min(newY, window.innerHeight - height)
+        );
+
+        setX(constrainedX);
+        setY(constrainedY);
         return;
       }
 
@@ -143,7 +156,7 @@ export function useFloatingWindow({
         }
       }
     },
-    [maxWidthPercent, maxHeightPercent, minWidth, minHeight]
+    [maxWidthPercent, maxHeightPercent, minWidth, minHeight, width, height]
   );
 
   const handleMouseMove = useCallback(
@@ -176,6 +189,22 @@ export function useFloatingWindow({
     };
   }, [handleEnd]);
 
+  // Keep window within viewport on browser resize
+  useEffect(() => {
+    const handleResize = () => {
+      setX((currentX) =>
+        Math.max(0, Math.min(currentX, window.innerWidth - width))
+      );
+      setY((currentY) =>
+        Math.max(0, Math.min(currentY, window.innerHeight - height))
+      );
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, [width, height]);
+
   const handleStart = useCallback(
     (clientX: number, clientY: number, mode: 'drag' | Corner) => {
       isDraggingRef.current = true;
@@ -205,6 +234,7 @@ export function useFloatingWindow({
       onTouchStart: (e: React.TouchEvent) => {
         const touch = e.touches[0];
         if (!touch) return;
+        e.preventDefault();
         e.stopPropagation();
         handleStart(touch.clientX, touch.clientY, corner);
         document.addEventListener('touchmove', handleTouchMove, {
@@ -227,6 +257,7 @@ export function useFloatingWindow({
       onTouchStart: (e: React.TouchEvent) => {
         const touch = e.touches[0];
         if (!touch) return;
+        e.preventDefault();
         handleStart(touch.clientX, touch.clientY, 'drag');
         document.addEventListener('touchmove', handleTouchMove, {
           passive: true
