@@ -399,8 +399,8 @@ describe('Home', () => {
     // Icon should be constrained to viewport bounds (max x = 400 - 64 = 336, max y = 300 - 96 = 204)
     const filesButton = screen.getByRole('button', { name: 'Files' });
     expect(filesButton).toBeInTheDocument();
-    // Verify the position was constrained (no longer at 1000, 800)
-    expect(filesButton).not.toHaveStyle({ left: '1000px', top: '800px' });
+    // Verify the position was constrained to the exact calculated bounds
+    expect(filesButton).toHaveStyle({ left: '336px', top: '204px' });
   });
 
   it('uses saved positions as-is when container has no dimensions', () => {
