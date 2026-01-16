@@ -79,10 +79,7 @@ describe('Console', () => {
       screen.getByTestId('console-setup-password'),
       'testpass123'
     );
-    await user.type(
-      screen.getByTestId('console-setup-confirm'),
-      'testpass123'
-    );
+    await user.type(screen.getByTestId('console-setup-confirm'), 'testpass123');
     await user.click(screen.getByTestId('console-setup-button'));
 
     await waitFor(() => {
