@@ -18,7 +18,10 @@ vi.mock('@rapid/ui', () => ({
 }));
 
 describe('AppTooltipProvider', () => {
-  it('renders children without TooltipProvider when tooltips disabled', () => {
+  it('always renders TooltipProvider wrapper (with long delay when disabled)', () => {
+    // TooltipProvider is always rendered because some components like ConnectionIndicator
+    // use Tooltip internally and require the provider context. When tooltips are disabled,
+    // a very long delay (999999ms) effectively prevents tooltips from showing.
     mockGetSetting.mockReturnValue('disabled');
 
     render(
@@ -28,7 +31,7 @@ describe('AppTooltipProvider', () => {
     );
 
     expect(screen.getByText('Test Content')).toBeInTheDocument();
-    expect(screen.queryByTestId('tooltip-provider')).not.toBeInTheDocument();
+    expect(screen.getByTestId('tooltip-provider')).toBeInTheDocument();
   });
 
   it('renders TooltipProvider when tooltips enabled', () => {

@@ -142,12 +142,15 @@ describe('App Integration', () => {
     });
 
     it('renders home page with app icons by default', () => {
-      // Home page should display app icon links (multiple links due to sidebar + home icons)
-      const filesLinks = screen.getAllByRole('link', { name: 'Files' });
-      const contactsLinks = screen.getAllByRole('link', { name: 'Contacts' });
-      // Should have at least 2 each (sidebar + home page icon)
-      expect(filesLinks.length).toBeGreaterThanOrEqual(2);
-      expect(contactsLinks.length).toBeGreaterThanOrEqual(2);
+      // Sidebar has links, home page has draggable buttons (double-click to open)
+      const filesLink = screen.getByRole('link', { name: 'Files' });
+      const filesButton = screen.getByRole('button', { name: 'Files' });
+      const contactsLink = screen.getByRole('link', { name: 'Contacts' });
+      const contactsButton = screen.getByRole('button', { name: 'Contacts' });
+      expect(filesLink).toBeInTheDocument();
+      expect(filesButton).toBeInTheDocument();
+      expect(contactsLink).toBeInTheDocument();
+      expect(contactsButton).toBeInTheDocument();
     });
 
     it('navigates to Contacts page when clicking sidebar link', async () => {
