@@ -134,8 +134,8 @@ export function generateVCards(contacts: VCardContact[]): string {
  * For multiple contacts: "contacts-YYYY-MM-DD.vcf"
  */
 export function generateVCardFilename(contacts: VCardContact[]): string {
-  if (contacts.length === 1 && contacts[0]) {
-    const contact = contacts[0];
+  const [contact] = contacts;
+  if (contacts.length === 1 && contact) {
     const name = contact.lastName
       ? `${contact.firstName} ${contact.lastName}`
       : contact.firstName;
