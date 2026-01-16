@@ -934,8 +934,8 @@ describe('Files', () => {
     it('renders dropzone for file uploads', async () => {
       await renderFiles();
 
-      const dropzone = screen.getByTestId('dropzone');
-      expect(dropzone).toBeInTheDocument();
+      const dropzones = screen.getAllByTestId('dropzone');
+      expect(dropzones[0]).toBeInTheDocument();
 
       // Verify dropzone has the expected structure
       expect(screen.getByText(/Drag and drop files here/i)).toBeInTheDocument();
@@ -1030,7 +1030,10 @@ describe('Files', () => {
 
       await renderFiles();
 
-      const input = screen.getByTestId('dropzone-input');
+      const inputs = screen.getAllByTestId('dropzone-input');
+      const input = inputs[0];
+      if (!input) throw new Error('Dropzone input not found');
+
       await user.upload(input, file);
 
       await waitFor(() => {
@@ -1063,7 +1066,10 @@ describe('Files', () => {
 
       await renderFiles();
 
-      const input = screen.getByTestId('dropzone-input');
+      const inputs = screen.getAllByTestId('dropzone-input');
+      const input = inputs[0];
+      if (!input) throw new Error('Dropzone input not found');
+
       await user.upload(input, file);
 
       await waitFor(() => {
@@ -1085,7 +1091,10 @@ describe('Files', () => {
 
       await renderFiles();
 
-      const input = screen.getByTestId('dropzone-input');
+      const inputs = screen.getAllByTestId('dropzone-input');
+      const input = inputs[0];
+      if (!input) throw new Error('Dropzone input not found');
+
       await user.upload(input, file);
 
       await waitFor(() => {

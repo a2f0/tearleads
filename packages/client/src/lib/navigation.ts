@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 interface NavigateWithFromOptions {
   fromLabel?: string;
+  state?: Record<string, unknown>;
 }
 
 export function useNavigateWithFrom() {
@@ -14,7 +15,8 @@ export function useNavigateWithFrom() {
       navigate(to, {
         state: {
           from: location.pathname,
-          fromLabel: options?.fromLabel
+          fromLabel: options?.fromLabel,
+          ...options?.state
         }
       });
     },
