@@ -31,6 +31,9 @@ export default defineConfig({
         ),
       },
     },
+    server: {
+      strictPort: true,
+    },
   },
   server: {
     port: 3001,
