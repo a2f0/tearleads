@@ -17,6 +17,7 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
       onOpenChange={onOpenChange}
       title={t('settings')}
       data-testid="settings-sheet"
+      fitContent
     >
       <div className="space-y-6">
         <ThemeSelector />

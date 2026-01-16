@@ -1,5 +1,13 @@
 import { GripHorizontal } from 'lucide-react';
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
 import {
   type SnapPoint,
   useBottomSheetGesture
@@ -11,6 +19,10 @@ const MIN_HEIGHT = 150;
 const MAX_HEIGHT_PERCENT = 0.85;
 const VELOCITY_THRESHOLD = 0.5;
 const DISMISS_THRESHOLD = 100;
+const HANDLE_HEIGHT = 40; // Coupled to classes: h-5 icon, pt-3, pb-2
+const TITLE_HEIGHT = 36; // Coupled to classes: text-lg, pb-2
+const CONTENT_PADDING = 16; // Coupled to class: pb-4
+const MIN_SNAP_SEPARATION = 25; // Minimum gap between snap points
 
 interface BottomSheetProps {
   open: boolean;
@@ -20,6 +32,8 @@ interface BottomSheetProps {
   'data-testid'?: string;
   snapPoints?: SnapPoint[];
   initialSnapPoint?: string;
+  /** When true, the sheet will measure its content and open to fit it */
+  fitContent?: boolean;
 }
 
 function getDefaultSnapPoints(windowHeight: number): SnapPoint[] {
@@ -37,13 +51,16 @@ export function BottomSheet({
   title,
   'data-testid': testId = 'bottom-sheet',
   snapPoints: customSnapPoints,
-  initialSnapPoint = 'collapsed'
+  initialSnapPoint = 'collapsed',
+  fitContent = false
 }: BottomSheetProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [shouldRender, setShouldRender] = useState(open);
   const [windowHeight, setWindowHeight] = useState(
     typeof window !== 'undefined' ? window.innerHeight : 0
   );
+  const [contentHeight, setContentHeight] = useState<number | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
   useEffect(() => {
@@ -57,10 +74,56 @@ export function BottomSheet({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const snapPoints = useMemo(
-    () => customSnapPoints ?? getDefaultSnapPoints(windowHeight),
-    [customSnapPoints, windowHeight]
-  );
+  // Measure content height when fitContent is enabled
+  useLayoutEffect(() => {
+    if (!fitContent || !open || !contentRef.current) return;
+
+    const measureContent = () => {
+      if (contentRef.current) {
+        const height = contentRef.current.scrollHeight;
+        setContentHeight(height);
+      }
+    };
+
+    measureContent();
+
+    // Use ResizeObserver to handle dynamic content changes
+    const observer = new ResizeObserver(measureContent);
+    observer.observe(contentRef.current);
+
+    return () => observer.disconnect();
+  }, [fitContent, open]);
+
+  const snapPoints = useMemo(() => {
+    if (customSnapPoints) return customSnapPoints;
+
+    const defaultPoints = getDefaultSnapPoints(windowHeight);
+
+    // Add content-based snap point when fitContent is enabled and measured
+    if (fitContent && contentHeight !== null) {
+      const totalHeight =
+        HANDLE_HEIGHT +
+        (title ? TITLE_HEIGHT : 0) +
+        contentHeight +
+        CONTENT_PADDING;
+      const maxHeight = windowHeight * MAX_HEIGHT_PERCENT;
+      const clampedHeight = Math.min(
+        Math.max(totalHeight, MIN_HEIGHT),
+        maxHeight
+      );
+
+      return [
+        { name: 'content', height: clampedHeight },
+        ...defaultPoints.filter(
+          (p) => p.height > clampedHeight + MIN_SNAP_SEPARATION
+        )
+      ];
+    }
+
+    return defaultPoints;
+  }, [customSnapPoints, windowHeight, fitContent, contentHeight, title]);
+
+  const effectiveInitialSnapPoint = fitContent ? 'content' : initialSnapPoint;
 
   const handleDismiss = useCallback(() => {
     onOpenChange(false);
@@ -70,16 +133,33 @@ export function BottomSheet({
     height,
     sheetRef,
     handleRef,
-    isAnimating: isGestureAnimating
+    isAnimating: isGestureAnimating,
+    snapTo
   } = useBottomSheetGesture({
     snapPoints,
-    initialSnapPoint,
+    initialSnapPoint: effectiveInitialSnapPoint,
     minHeight: MIN_HEIGHT,
     maxHeightPercent: MAX_HEIGHT_PERCENT,
     onDismiss: handleDismiss,
     dismissThreshold: DISMISS_THRESHOLD,
     velocityThreshold: VELOCITY_THRESHOLD
   });
+
+  // Snap to content height when it's first measured
+  const hasSnappedToContent = useRef(false);
+  useEffect(() => {
+    if (fitContent && contentHeight !== null && !hasSnappedToContent.current) {
+      hasSnappedToContent.current = true;
+      snapTo('content');
+    }
+  }, [fitContent, contentHeight, snapTo]);
+
+  // Reset the snap flag when the sheet closes
+  useEffect(() => {
+    if (!open) {
+      hasSnappedToContent.current = false;
+    }
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -161,7 +241,9 @@ export function BottomSheet({
           </h2>
         )}
 
-        <div className="flex-1 overflow-y-auto px-4 pb-4">{children}</div>
+        <div ref={contentRef} className="flex-1 overflow-y-auto px-4 pb-4">
+          {children}
+        </div>
       </div>
     </div>
   );
