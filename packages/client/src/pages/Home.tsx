@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { navItems } from '@/components/Sidebar';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
+import { DesktopBackground } from '@/components/ui/desktop-background';
 import { useTypedTranslation } from '@/i18n';
 
 const ICON_SIZE = 64;
@@ -300,6 +301,7 @@ export function Home() {
         onPointerUp={handlePointerUp}
         onContextMenu={handleCanvasContextMenu}
       >
+        <DesktopBackground />
         {appItems.map((item) => {
           const Icon = item.icon;
           const isSettings = item.path === '/settings';
