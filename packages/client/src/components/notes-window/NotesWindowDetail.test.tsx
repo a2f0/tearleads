@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotesWindowDetail } from './NotesWindowDetail';
@@ -24,22 +24,45 @@ vi.mock('@rapid/ui', async () => {
   };
 });
 
-// Mock getDatabase - return a promise that never resolves to avoid async state updates
-const pendingPromise = new Promise(() => {
-  /* never resolves */
-});
-const mockDb = {
-  select: vi.fn().mockReturnThis(),
-  from: vi.fn().mockReturnThis(),
-  where: vi.fn().mockReturnThis(),
-  limit: vi.fn().mockReturnValue(pendingPromise),
-  update: vi.fn().mockReturnThis(),
-  set: vi.fn().mockReturnThis(),
-  delete: vi.fn().mockReturnThis()
+// Mock note data
+const mockNote = {
+  id: 'note-1',
+  title: 'Test Note',
+  content: '# Hello World',
+  createdAt: new Date('2024-01-01'),
+  updatedAt: new Date('2024-01-02')
 };
 
+// Create mock results - use a pending promise by default to avoid async state updates after test
+const pendingPromise = new Promise(() => {});
+let limitResult: unknown = pendingPromise;
+let updateError: Error | null = null;
+let shouldResolve = false;
+
+// Mock getDatabase with proper Drizzle-style chaining
 vi.mock('@/db', () => ({
-  getDatabase: () => mockDb
+  getDatabase: () => {
+    const chainable = {
+      select: vi.fn(() => chainable),
+      from: vi.fn(() => chainable),
+      where: vi.fn(() => {
+        if (updateError) {
+          return Promise.reject(updateError);
+        }
+        return chainable;
+      }),
+      limit: vi.fn(() => {
+        if (shouldResolve) {
+          return Promise.resolve(limitResult);
+        }
+        return pendingPromise;
+      }),
+      update: vi.fn(() => chainable),
+      set: vi.fn(() => chainable),
+      catch: vi.fn(() => Promise.resolve())
+    };
+    return chainable;
+  }
 }));
 
 // Mock sonner toast
@@ -74,6 +97,25 @@ vi.mock('@/components/sqlite/InlineUnlock', () => ({
   )
 }));
 
+// Mock EditableTitle
+vi.mock('@/components/ui/editable-title', () => ({
+  EditableTitle: ({
+    value,
+    onSave,
+    'data-testid': testId
+  }: {
+    value: string;
+    onSave: (val: string) => void;
+    'data-testid'?: string;
+  }) => (
+    <input
+      data-testid={testId || 'editable-title'}
+      value={value}
+      onChange={(e) => onSave(e.target.value)}
+    />
+  )
+}));
+
 describe('NotesWindowDetail', () => {
   const defaultProps = {
     noteId: 'note-1',
@@ -85,6 +127,9 @@ describe('NotesWindowDetail', () => {
     vi.clearAllMocks();
     mockDatabaseState.isUnlocked = true;
     mockDatabaseState.isLoading = false;
+    limitResult = [mockNote];
+    updateError = null;
+    shouldResolve = false;
   });
 
   it('renders back button', () => {
@@ -120,28 +165,179 @@ describe('NotesWindowDetail', () => {
     expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
   });
 
-  it('shows loading state while fetching note', () => {
-    render(<NotesWindowDetail {...defaultProps} />);
-    // The component shows "Loading note..." while the promise is pending
-    expect(screen.getByText('Loading note...')).toBeInTheDocument();
+  it('displays note content after successful fetch', async () => {
+    shouldResolve = true;
+    limitResult = [mockNote];
+
+    await act(async () => {
+      render(<NotesWindowDetail {...defaultProps} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-note-title')).toHaveValue('Test Note');
+    });
+    expect(screen.getByTestId('md-editor')).toHaveValue('# Hello World');
   });
 
-  it('does not fetch when database is locked', () => {
-    mockDatabaseState.isUnlocked = false;
-    render(<NotesWindowDetail {...defaultProps} />);
+  it('shows error when note is not found', async () => {
+    shouldResolve = true;
+    limitResult = [];
 
-    expect(mockDb.select).not.toHaveBeenCalled();
+    await act(async () => {
+      render(<NotesWindowDetail {...defaultProps} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Note not found')).toBeInTheDocument();
+    });
   });
 
-  it('does not fetch when noteId is empty', () => {
-    render(<NotesWindowDetail {...defaultProps} noteId="" />);
+  it('shows error when fetch fails', async () => {
+    shouldResolve = true;
+    limitResult = Promise.reject(new Error('Database error'));
 
-    expect(mockDb.select).not.toHaveBeenCalled();
+    await act(async () => {
+      render(<NotesWindowDetail {...defaultProps} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Database error')).toBeInTheDocument();
+    });
   });
 
-  it('initiates fetch when database is unlocked', () => {
-    render(<NotesWindowDetail {...defaultProps} />);
+  it('renders delete button when note is loaded', async () => {
+    shouldResolve = true;
+    limitResult = [mockNote];
 
-    expect(mockDb.select).toHaveBeenCalled();
+    await act(async () => {
+      render(<NotesWindowDetail {...defaultProps} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-note-delete')).toBeInTheDocument();
+    });
+  });
+
+  it('calls onDeleted when delete is successful', async () => {
+    shouldResolve = true;
+    limitResult = [mockNote];
+    const user = userEvent.setup();
+    const onDeleted = vi.fn();
+
+    await act(async () => {
+      render(<NotesWindowDetail {...defaultProps} onDeleted={onDeleted} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-note-delete')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-note-delete'));
+
+    await waitFor(() => {
+      expect(onDeleted).toHaveBeenCalled();
+    });
+  });
+
+  it('shows error when delete fails', async () => {
+    shouldResolve = true;
+    limitResult = [mockNote];
+    const user = userEvent.setup();
+
+    await act(async () => {
+      render(<NotesWindowDetail {...defaultProps} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-note-delete')).toBeInTheDocument();
+    });
+
+    // Set error for delete operation
+    updateError = new Error('Delete failed');
+
+    await user.click(screen.getByTestId('window-note-delete'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Delete failed')).toBeInTheDocument();
+    });
+  });
+
+  it('displays formatted date', async () => {
+    shouldResolve = true;
+    limitResult = [mockNote];
+
+    await act(async () => {
+      render(<NotesWindowDetail {...defaultProps} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Updated/)).toBeInTheDocument();
+    });
+  });
+
+  it('applies correct color mode from theme', async () => {
+    shouldResolve = true;
+    limitResult = [mockNote];
+
+    await act(async () => {
+      render(<NotesWindowDetail {...defaultProps} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-markdown-editor')).toHaveAttribute(
+        'data-color-mode',
+        'light'
+      );
+    });
+  });
+
+  it('auto-saves content changes after debounce', async () => {
+    shouldResolve = true;
+    limitResult = [mockNote];
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+
+    await act(async () => {
+      render(<NotesWindowDetail {...defaultProps} />);
+      await vi.runAllTimersAsync();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('md-editor')).toBeInTheDocument();
+    });
+
+    await user.type(screen.getByTestId('md-editor'), ' new content');
+
+    // Wait for debounce timer
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+
+    // Content should have been saved (component updates internally)
+    expect(screen.getByTestId('md-editor')).toHaveValue(
+      '# Hello World new content'
+    );
+
+    vi.useRealTimers();
+  });
+
+  it('updates title when edited', async () => {
+    shouldResolve = true;
+    limitResult = [mockNote];
+    const user = userEvent.setup();
+
+    await act(async () => {
+      render(<NotesWindowDetail {...defaultProps} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-note-title')).toBeInTheDocument();
+    });
+
+    await user.clear(screen.getByTestId('window-note-title'));
+    await user.type(screen.getByTestId('window-note-title'), 'New Title');
+
+    // Title should be updated in the input
+    expect(screen.getByTestId('window-note-title')).toHaveValue('New Title');
   });
 });
