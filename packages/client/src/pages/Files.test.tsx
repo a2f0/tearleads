@@ -934,8 +934,8 @@ describe('Files', () => {
     it('renders dropzone for file uploads', async () => {
       await renderFiles();
 
-      const dropzone = screen.getByTestId('dropzone');
-      expect(dropzone).toBeInTheDocument();
+      const dropzones = screen.getAllByTestId('dropzone');
+      expect(dropzones[0]).toBeInTheDocument();
 
       // Verify dropzone has the expected structure
       expect(screen.getByText(/Drag and drop files here/i)).toBeInTheDocument();
@@ -1030,7 +1030,7 @@ describe('Files', () => {
 
       await renderFiles();
 
-      const input = screen.getByTestId('dropzone-input');
+      const input = screen.getAllByTestId('dropzone-input')[0] as HTMLElement;
       await user.upload(input, file);
 
       await waitFor(() => {
@@ -1063,7 +1063,7 @@ describe('Files', () => {
 
       await renderFiles();
 
-      const input = screen.getByTestId('dropzone-input');
+      const input = screen.getAllByTestId('dropzone-input')[0] as HTMLElement;
       await user.upload(input, file);
 
       await waitFor(() => {
@@ -1085,7 +1085,7 @@ describe('Files', () => {
 
       await renderFiles();
 
-      const input = screen.getByTestId('dropzone-input');
+      const input = screen.getAllByTestId('dropzone-input')[0] as HTMLElement;
       await user.upload(input, file);
 
       await waitFor(() => {

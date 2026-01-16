@@ -4,6 +4,7 @@ import {
   Info,
   Loader2,
   Mail,
+  Pencil,
   Phone,
   Search,
   Trash2,
@@ -292,6 +293,16 @@ export function Contacts() {
     }
   }, [contextMenu, navigateWithFrom]);
 
+  const handleEdit = useCallback(() => {
+    if (contextMenu) {
+      navigateWithFrom(`/contacts/${contextMenu.contact.id}`, {
+        fromLabel: 'Back to Contacts',
+        state: { autoEdit: true }
+      });
+      setContextMenu(null);
+    }
+  }, [contextMenu, navigateWithFrom]);
+
   const handleDelete = useCallback(async () => {
     if (!contextMenu) return;
 
@@ -533,6 +544,12 @@ export function Contacts() {
           y={contextMenu.y}
           onClose={handleCloseContextMenu}
         >
+          <ContextMenuItem
+            icon={<Pencil className="h-4 w-4" />}
+            onClick={handleEdit}
+          >
+            {t('edit')}
+          </ContextMenuItem>
           <ContextMenuItem
             icon={<Info className="h-4 w-4" />}
             onClick={handleGetInfo}

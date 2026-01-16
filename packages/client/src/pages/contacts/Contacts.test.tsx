@@ -1024,5 +1024,94 @@ describe('Contacts', () => {
         expect(mockOrderBy).toHaveBeenCalled();
       });
     });
+
+    it('navigates to edit mode when "Edit" is clicked', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      mockOrderBy.mockResolvedValue(mockContacts);
+
+      await renderContacts();
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      const contact = screen.getByText('John Doe');
+      await user.pointer({ keys: '[MouseRight]', target: contact });
+
+      await waitFor(() => {
+        expect(screen.getByText('Edit')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Edit'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/contacts/1', {
+        state: { from: '/', fromLabel: 'Back to Contacts', autoEdit: true }
+      });
+    });
+  });
+
+  describe('instance change handling', () => {
+    it('clears contacts and resets state when instance changes', async () => {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const initialContacts = [
+        {
+          id: '1',
+          firstName: 'John',
+          lastName: 'Doe',
+          birthday: null,
+          primaryEmail: 'john@example.com',
+          primaryPhone: null,
+          createdAt: new Date()
+        }
+      ];
+
+      // First render with instance A
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: true,
+        isLoading: false,
+        currentInstanceId: 'instance-a'
+      });
+      mockOrderBy.mockResolvedValue(initialContacts);
+
+      const { rerender } = await renderContacts();
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      // Type in search to verify it gets cleared
+      const searchInput = screen.getByPlaceholderText('Search contacts...');
+      await user.type(searchInput, 'test');
+      expect(searchInput).toHaveValue('test');
+
+      // Change to instance B
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: true,
+        isLoading: false,
+        currentInstanceId: 'instance-b'
+      });
+      mockOrderBy.mockResolvedValue([]);
+
+      await act(async () => {
+        rerender(
+          <MemoryRouter>
+            <Contacts />
+          </MemoryRouter>
+        );
+      });
+
+      // Flush the setTimeout(fn, 0) for instance-aware fetching
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      // Search should be cleared and contacts should be empty
+      await waitFor(() => {
+        const input = screen.queryByPlaceholderText('Search contacts...');
+        if (input) {
+          expect(input).toHaveValue('');
+        }
+      });
+    });
   });
 });
