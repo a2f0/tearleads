@@ -9,6 +9,7 @@ import { render, waitFor } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { expect } from 'vitest';
+import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
 import { TestDatabaseProvider } from './test-database-provider';
 
 export interface RenderWithDatabaseOptions
@@ -76,9 +77,11 @@ function createWrapper({
           password={password}
           showLoading={showLoading}
         >
-          <MemoryRouter initialEntries={initialEntries}>
-            {children}
-          </MemoryRouter>
+          <WindowManagerProvider>
+            <MemoryRouter initialEntries={initialEntries}>
+              {children}
+            </MemoryRouter>
+          </WindowManagerProvider>
         </TestDatabaseProvider>
       </ThemeProvider>
     );

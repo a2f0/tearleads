@@ -1,10 +1,11 @@
-import { ExternalLink, LayoutGrid } from 'lucide-react';
+import { AppWindow, ExternalLink, LayoutGrid } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { navItems } from '@/components/Sidebar';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
 import { DesktopBackground } from '@/components/ui/desktop-background';
+import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useTypedTranslation } from '@/i18n';
 
 const ICON_SIZE = 64;
@@ -102,6 +103,7 @@ function calculateGridPositions(
 export function Home() {
   const { t } = useTypedTranslation('menu');
   const navigate = useNavigate();
+  const { openWindow } = useWindowManager();
 
   // Memoize appItems to prevent new array reference on every render
   // which would cause the position calculation effect to run continuously
@@ -290,6 +292,18 @@ export function Home() {
     setIconContextMenu(null);
   }, [iconContextMenu, navigate]);
 
+  const handleOpenInWindow = useCallback(() => {
+    if (iconContextMenu) {
+      const path = iconContextMenu.path;
+      if (path === '/notes') {
+        openWindow('notes');
+      }
+    }
+    setIconContextMenu(null);
+  }, [iconContextMenu, openWindow]);
+
+  const canOpenInWindow = (path: string) => path === '/notes';
+
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden">
       <div
@@ -373,6 +387,14 @@ export function Home() {
           >
             Open
           </ContextMenuItem>
+          {canOpenInWindow(iconContextMenu.path) && (
+            <ContextMenuItem
+              icon={<AppWindow className="h-4 w-4" />}
+              onClick={handleOpenInWindow}
+            >
+              Open in Window
+            </ContextMenuItem>
+          )}
         </ContextMenu>
       )}
     </div>
