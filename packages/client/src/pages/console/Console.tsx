@@ -43,12 +43,12 @@ export function Console() {
   const [activeCommand, setActiveCommand] = useState<string | null>(null);
 
   const appendLog = useCallback((message: string) => {
-    const nextId =
-      globalThis.crypto?.randomUUID?.() ?? String((logIdRef.current += 1));
-    setLogs((prev) => [
-      ...prev,
-      { id: nextId, message }
-    ]);
+    let nextId = globalThis.crypto?.randomUUID?.();
+    if (!nextId) {
+      logIdRef.current += 1;
+      nextId = String(logIdRef.current);
+    }
+    setLogs((prev) => [...prev, { id: nextId, message }]);
   }, []);
 
   const clearLogs = useCallback(() => {

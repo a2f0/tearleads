@@ -201,10 +201,7 @@ describe('Console', () => {
     mockContext.isUnlocked = true;
     renderConsole();
 
-    await user.type(
-      screen.getByTestId('console-password-new'),
-      'newpassword'
-    );
+    await user.type(screen.getByTestId('console-password-new'), 'newpassword');
     await user.type(
       screen.getByTestId('console-password-confirm'),
       'newpassword'
