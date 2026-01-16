@@ -1,5 +1,5 @@
 import { useTheme } from '@rapid/ui';
-import MDEditor from '@uiw/react-md-editor';
+import MDEditor, { commands } from '@uiw/react-md-editor';
 import { and, eq } from 'drizzle-orm';
 import { Calendar, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -228,6 +228,13 @@ export function NoteDetail() {
               preview="live"
               hideToolbar={false}
               visibleDragbar={false}
+              extraCommands={[
+                commands.codeEdit,
+                commands.codeLive,
+                commands.codePreview,
+                commands.divider,
+                commands.fullscreen
+              ]}
             />
           </div>
 
