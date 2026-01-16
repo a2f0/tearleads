@@ -15,6 +15,13 @@ export {
   ThemeSwitcher,
   type ThemeSwitcherProps
 } from './components/themeSwitcher.js';
+export {
+  Tooltip,
+  TooltipContent,
+  type TooltipContentProps,
+  TooltipProvider,
+  TooltipTrigger
+} from './components/tooltip.js';
 
 // Context
 export {

@@ -59,6 +59,7 @@ import {
   getSettingsFromDb,
   isLanguageValue,
   isThemeValue,
+  isTooltipsValue,
   SETTING_DEFAULTS,
   SETTING_STORAGE_KEYS,
   saveSettingToDb,
@@ -100,17 +101,33 @@ describe('user-settings', () => {
         expect(isLanguageValue('EN')).toBe(false);
       });
     });
+
+    describe('isTooltipsValue', () => {
+      it('returns true for valid tooltips values', () => {
+        expect(isTooltipsValue('enabled')).toBe(true);
+        expect(isTooltipsValue('disabled')).toBe(true);
+      });
+
+      it('returns false for invalid tooltips values', () => {
+        expect(isTooltipsValue('true')).toBe(false);
+        expect(isTooltipsValue('false')).toBe(false);
+        expect(isTooltipsValue('')).toBe(false);
+        expect(isTooltipsValue('ENABLED')).toBe(false);
+      });
+    });
   });
 
   describe('constants', () => {
     it('has correct default values', () => {
       expect(SETTING_DEFAULTS.theme).toBe('system');
       expect(SETTING_DEFAULTS.language).toBe('en');
+      expect(SETTING_DEFAULTS.tooltips).toBe('enabled');
     });
 
     it('has correct storage keys', () => {
       expect(SETTING_STORAGE_KEYS.theme).toBe('theme');
       expect(SETTING_STORAGE_KEYS.language).toBe('i18nextLng');
+      expect(SETTING_STORAGE_KEYS.tooltips).toBe('tooltips');
     });
   });
 
@@ -118,6 +135,7 @@ describe('user-settings', () => {
     it('returns null when key not in localStorage', () => {
       expect(getSettingFromStorage('theme')).toBeNull();
       expect(getSettingFromStorage('language')).toBeNull();
+      expect(getSettingFromStorage('tooltips')).toBeNull();
     });
 
     it('returns theme value from localStorage', () => {
@@ -130,6 +148,11 @@ describe('user-settings', () => {
       expect(getSettingFromStorage('language')).toBe('es');
     });
 
+    it('returns tooltips value from localStorage', () => {
+      localStorageData['tooltips'] = 'disabled';
+      expect(getSettingFromStorage('tooltips')).toBe('disabled');
+    });
+
     it('returns null for invalid theme value', () => {
       localStorageData['theme'] = 'invalid-theme';
       expect(getSettingFromStorage('theme')).toBeNull();
@@ -138,6 +161,11 @@ describe('user-settings', () => {
     it('returns null for invalid language value', () => {
       localStorageData['i18nextLng'] = 'fr';
       expect(getSettingFromStorage('language')).toBeNull();
+    });
+
+    it('returns null for invalid tooltips value', () => {
+      localStorageData['tooltips'] = 'true';
+      expect(getSettingFromStorage('tooltips')).toBeNull();
     });
 
     it('handles localStorage errors gracefully', () => {
@@ -165,6 +193,11 @@ describe('user-settings', () => {
     it('sets language in localStorage with correct key', () => {
       setSettingInStorage('language', 'ua');
       expect(localStorage.setItem).toHaveBeenCalledWith('i18nextLng', 'ua');
+    });
+
+    it('sets tooltips in localStorage', () => {
+      setSettingInStorage('tooltips', 'disabled');
+      expect(localStorage.setItem).toHaveBeenCalledWith('tooltips', 'disabled');
     });
 
     it('handles localStorage errors gracefully', () => {
@@ -211,6 +244,14 @@ describe('user-settings', () => {
       expect(result.language).toBe('es');
     });
 
+    it('returns tooltips from database', async () => {
+      mockWhere.mockResolvedValueOnce([{ key: 'tooltips', value: 'disabled' }]);
+
+      const result = await getSettingsFromDb(mockDb);
+
+      expect(result.tooltips).toBe('disabled');
+    });
+
     it('returns both theme and language from database', async () => {
       mockWhere.mockResolvedValueOnce([
         { key: 'theme', value: 'tokyo-night' },
@@ -251,6 +292,14 @@ describe('user-settings', () => {
 
       expect(result.language).toBeUndefined();
     });
+
+    it('ignores invalid tooltips values', async () => {
+      mockWhere.mockResolvedValueOnce([{ key: 'tooltips', value: 'true' }]);
+
+      const result = await getSettingsFromDb(mockDb);
+
+      expect(result.tooltips).toBeUndefined();
+    });
   });
 
   describe('saveSettingToDb', () => {
@@ -274,6 +323,18 @@ describe('user-settings', () => {
         expect.objectContaining({
           key: 'language',
           value: 'es'
+        })
+      );
+    });
+
+    it('inserts tooltips with correct values', async () => {
+      await saveSettingToDb(mockDb, 'tooltips', 'disabled');
+
+      expect(mockDb.insert).toHaveBeenCalled();
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          key: 'tooltips',
+          value: 'disabled'
         })
       );
     });

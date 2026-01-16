@@ -20,6 +20,14 @@ vi.mock('@/db/hooks', () => ({
   }))
 }));
 
+// Mock useSettings for TooltipsToggle
+vi.mock('@/db/SettingsProvider', () => ({
+  useSettings: () => ({
+    getSetting: vi.fn(() => 'enabled'),
+    setSetting: vi.fn()
+  })
+}));
+
 vi.mock('@/hooks/useAppVersion', () => ({
   useAppVersion: vi.fn(() => packageJson.version)
 }));
@@ -69,6 +77,12 @@ describe('Settings', () => {
     it('renders the language selector', () => {
       expect(
         screen.getByTestId('language-selector-container')
+      ).toBeInTheDocument();
+    });
+
+    it('renders the tooltips toggle', () => {
+      expect(
+        screen.getByTestId('tooltips-toggle-container')
       ).toBeInTheDocument();
     });
 
