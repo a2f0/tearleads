@@ -1,3 +1,4 @@
+import { useTheme } from '@rapid/ui';
 import MDEditor from '@uiw/react-md-editor';
 import { and, eq } from 'drizzle-orm';
 import { Calendar, Loader2 } from 'lucide-react';
@@ -24,6 +25,8 @@ export function NoteDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isUnlocked, isLoading } = useDatabaseContext();
+  const { resolvedTheme } = useTheme();
+  const editorColorMode = resolvedTheme === 'light' ? 'light' : 'dark';
   const [note, setNote] = useState<NoteInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -216,7 +219,7 @@ export function NoteDetail() {
           <div
             className="min-h-0 flex-1"
             data-testid="markdown-editor"
-            data-color-mode="auto"
+            data-color-mode={editorColorMode}
           >
             <MDEditor
               value={content}
