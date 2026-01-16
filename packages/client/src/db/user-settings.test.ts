@@ -57,6 +57,7 @@ import {
   dispatchSettingsSyncedEvent,
   getSettingFromStorage,
   getSettingsFromDb,
+  isDesktopPatternValue,
   isFontValue,
   isLanguageValue,
   isThemeValue,
@@ -129,6 +130,20 @@ describe('user-settings', () => {
         expect(isFontValue('SYSTEM')).toBe(false);
       });
     });
+
+    describe('isDesktopPatternValue', () => {
+      it('returns true for valid desktop pattern values', () => {
+        expect(isDesktopPatternValue('solid')).toBe(true);
+        expect(isDesktopPatternValue('honeycomb')).toBe(true);
+        expect(isDesktopPatternValue('isometric')).toBe(true);
+      });
+
+      it('returns false for invalid desktop pattern values', () => {
+        expect(isDesktopPatternValue('grid')).toBe(false);
+        expect(isDesktopPatternValue('')).toBe(false);
+        expect(isDesktopPatternValue('SOLID')).toBe(false);
+      });
+    });
   });
 
   describe('constants', () => {
@@ -137,6 +152,7 @@ describe('user-settings', () => {
       expect(SETTING_DEFAULTS.language).toBe('en');
       expect(SETTING_DEFAULTS.tooltips).toBe('enabled');
       expect(SETTING_DEFAULTS.font).toBe('system');
+      expect(SETTING_DEFAULTS.desktopPattern).toBe('solid');
     });
 
     it('has correct storage keys', () => {
@@ -144,6 +160,7 @@ describe('user-settings', () => {
       expect(SETTING_STORAGE_KEYS.language).toBe('i18nextLng');
       expect(SETTING_STORAGE_KEYS.tooltips).toBe('tooltips');
       expect(SETTING_STORAGE_KEYS.font).toBe('font');
+      expect(SETTING_STORAGE_KEYS.desktopPattern).toBe('desktopPattern');
     });
   });
 
@@ -153,6 +170,7 @@ describe('user-settings', () => {
       expect(getSettingFromStorage('language')).toBeNull();
       expect(getSettingFromStorage('tooltips')).toBeNull();
       expect(getSettingFromStorage('font')).toBeNull();
+      expect(getSettingFromStorage('desktopPattern')).toBeNull();
     });
 
     it('returns theme value from localStorage', () => {
@@ -175,6 +193,11 @@ describe('user-settings', () => {
       expect(getSettingFromStorage('font')).toBe('monospace');
     });
 
+    it('returns desktopPattern value from localStorage', () => {
+      localStorageData['desktopPattern'] = 'honeycomb';
+      expect(getSettingFromStorage('desktopPattern')).toBe('honeycomb');
+    });
+
     it('returns null for invalid theme value', () => {
       localStorageData['theme'] = 'invalid-theme';
       expect(getSettingFromStorage('theme')).toBeNull();
@@ -193,6 +216,11 @@ describe('user-settings', () => {
     it('returns null for invalid font value', () => {
       localStorageData['font'] = 'serif';
       expect(getSettingFromStorage('font')).toBeNull();
+    });
+
+    it('returns null for invalid desktopPattern value', () => {
+      localStorageData['desktopPattern'] = 'grid';
+      expect(getSettingFromStorage('desktopPattern')).toBeNull();
     });
 
     it('handles localStorage errors gracefully', () => {
@@ -230,6 +258,14 @@ describe('user-settings', () => {
     it('sets font in localStorage', () => {
       setSettingInStorage('font', 'monospace');
       expect(localStorage.setItem).toHaveBeenCalledWith('font', 'monospace');
+    });
+
+    it('sets desktopPattern in localStorage', () => {
+      setSettingInStorage('desktopPattern', 'isometric');
+      expect(localStorage.setItem).toHaveBeenCalledWith(
+        'desktopPattern',
+        'isometric'
+      );
     });
 
     it('handles localStorage errors gracefully', () => {
@@ -292,6 +328,16 @@ describe('user-settings', () => {
       expect(result.font).toBe('monospace');
     });
 
+    it('returns desktopPattern from database', async () => {
+      mockWhere.mockResolvedValueOnce([
+        { key: 'desktopPattern', value: 'isometric' }
+      ]);
+
+      const result = await getSettingsFromDb(mockDb);
+
+      expect(result.desktopPattern).toBe('isometric');
+    });
+
     it('returns both theme and language from database', async () => {
       mockWhere.mockResolvedValueOnce([
         { key: 'theme', value: 'tokyo-night' },
@@ -339,6 +385,16 @@ describe('user-settings', () => {
       const result = await getSettingsFromDb(mockDb);
 
       expect(result.tooltips).toBeUndefined();
+    });
+
+    it('ignores invalid desktopPattern values', async () => {
+      mockWhere.mockResolvedValueOnce([
+        { key: 'desktopPattern', value: 'grid' }
+      ]);
+
+      const result = await getSettingsFromDb(mockDb);
+
+      expect(result.desktopPattern).toBeUndefined();
     });
 
     it('ignores invalid font values', async () => {
