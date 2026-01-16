@@ -17,6 +17,7 @@ import {
   Shield,
   StickyNote,
   Table2,
+  Terminal,
   Users
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
@@ -109,6 +110,13 @@ export const navItems: NavItem[] = [
     labelKey: 'sqlite',
     inMobileMenu: true,
     testId: 'sqlite-link'
+  },
+  {
+    path: '/console',
+    icon: Terminal,
+    labelKey: 'console',
+    inMobileMenu: true,
+    testId: 'console-link'
   },
   {
     path: '/debug',
