@@ -9,6 +9,7 @@ import {
 import { getInstances } from '@/db/instance-registry';
 import { useTypedTranslation } from '@/i18n';
 import { useNavigateWithFrom } from '@/lib/navigation';
+import { DeleteSessionKeysDialog } from './DeleteSessionKeysDialog';
 import { type InstanceKeyInfo, InstanceKeyRow } from './InstanceKeyRow';
 
 export function Keychain() {
@@ -25,6 +26,8 @@ export function Keychain() {
     x: number;
     y: number;
   } | null>(null);
+  const [deleteSessionKeysInstance, setDeleteSessionKeysInstance] =
+    useState<InstanceKeyInfo | null>(null);
 
   const fetchKeychainData = useCallback(async () => {
     setLoading(true);
@@ -55,20 +58,23 @@ export function Keychain() {
     fetchKeychainData();
   }, [fetchKeychainData]);
 
-  const handleDeleteSessionKeys = async (instanceId: string) => {
+  const handleDeleteSessionKeysClick = (instanceId: string) => {
     const instance = instanceKeyInfos.find((i) => i.instance.id === instanceId);
-    const name = instance?.instance.name || instanceId;
+    if (instance) {
+      setDeleteSessionKeysInstance(instance);
+    }
+  };
 
-    const confirmationMessage = `Are you sure you want to delete session keys for "${name}"?\n\nThis will end your session and require re-entering your password.`;
-
-    if (!window.confirm(confirmationMessage)) return;
+  const handleDeleteSessionKeys = async () => {
+    if (!deleteSessionKeysInstance) return;
 
     try {
-      await deleteSessionKeysForInstance(instanceId);
+      await deleteSessionKeysForInstance(deleteSessionKeysInstance.instance.id);
       await fetchKeychainData();
     } catch (err) {
       console.error('Failed to delete session keys:', err);
       setError(err instanceof Error ? err.message : String(err));
+      throw err;
     }
   };
 
@@ -145,7 +151,7 @@ export function Keychain() {
             <InstanceKeyRow
               key={info.instance.id}
               info={info}
-              onDeleteSessionKeys={handleDeleteSessionKeys}
+              onDeleteSessionKeys={handleDeleteSessionKeysClick}
               isExpanded={expandedIds.has(info.instance.id)}
               onToggle={() => handleToggle(info.instance.id)}
               onContextMenu={handleContextMenu}
@@ -167,6 +173,17 @@ export function Keychain() {
             {t('viewDetails')}
           </ContextMenuItem>
         </ContextMenu>
+      )}
+
+      {deleteSessionKeysInstance && (
+        <DeleteSessionKeysDialog
+          open={!!deleteSessionKeysInstance}
+          onOpenChange={(open) => {
+            if (!open) setDeleteSessionKeysInstance(null);
+          }}
+          instanceName={deleteSessionKeysInstance.instance.name}
+          onDelete={handleDeleteSessionKeys}
+        />
       )}
     </div>
   );

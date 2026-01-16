@@ -1,9 +1,12 @@
 import { Database, Loader2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { formatFileSize } from '@/lib/utils';
 import { type StorageEntry, StorageRow } from './StorageRow';
+
+type DeleteDialogState = { type: 'item'; key: string } | { type: 'all' } | null;
 
 function getStorageEntries(): StorageEntry[] {
   const entries: StorageEntry[] = [];
@@ -31,6 +34,7 @@ export function LocalStorage() {
   const [entries, setEntries] = useState<StorageEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(null);
   const isMountedRef = useRef(true);
 
   const fetchStorageContents = useCallback(() => {
@@ -64,39 +68,54 @@ export function LocalStorage() {
     };
   }, [fetchStorageContents]);
 
-  const handleDelete = (key: string) => {
-    const confirmationMessage = `Are you sure you want to delete "${key}"?`;
+  const handleDeleteClick = (key: string) => {
+    setDeleteDialog({ type: 'item', key });
+  };
 
-    if (!window.confirm(confirmationMessage)) {
-      return;
-    }
+  const handleClearAllClick = () => {
+    if (entries.length === 0) return;
+    setDeleteDialog({ type: 'all' });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteDialog) return;
 
     try {
-      localStorage.removeItem(key);
+      if (deleteDialog.type === 'item') {
+        localStorage.removeItem(deleteDialog.key);
+      } else {
+        localStorage.clear();
+      }
       fetchStorageContents();
     } catch (err) {
       console.error('Failed to delete:', err);
       setError(err instanceof Error ? err.message : String(err));
+      throw err;
     }
   };
 
-  const handleClearAll = () => {
-    if (entries.length === 0) return;
+  const getDeleteDialogContent = () => {
+    if (!deleteDialog) return { title: '', description: '' };
 
-    const confirmationMessage =
-      'Are you sure you want to clear ALL localStorage data? This cannot be undone.';
-
-    if (!window.confirm(confirmationMessage)) {
-      return;
+    if (deleteDialog.type === 'item') {
+      return {
+        title: 'Delete Item',
+        description: (
+          <p>
+            Are you sure you want to delete <strong>{deleteDialog.key}</strong>?
+          </p>
+        )
+      };
     }
-
-    try {
-      localStorage.clear();
-      fetchStorageContents();
-    } catch (err) {
-      console.error('Failed to clear localStorage:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    }
+    return {
+      title: 'Clear All',
+      description: (
+        <p>
+          Are you sure you want to clear ALL localStorage data? This cannot be
+          undone.
+        </p>
+      )
+    };
   };
 
   const totalSize = getTotalSize(entries);
@@ -120,7 +139,7 @@ export function LocalStorage() {
             <Button
               variant="destructive"
               size="icon"
-              onClick={handleClearAll}
+              onClick={handleClearAllClick}
               aria-label="Clear all localStorage"
             >
               <Trash2 className="h-4 w-4" />
@@ -153,12 +172,24 @@ export function LocalStorage() {
               <StorageRow
                 key={entry.key}
                 entry={entry}
-                onDelete={handleDelete}
+                onDelete={handleDeleteClick}
               />
             ))}
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteDialog}
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialog(null);
+        }}
+        title={getDeleteDialogContent().title}
+        description={getDeleteDialogContent().description}
+        confirmLabel="Delete"
+        confirmingLabel="Deleting..."
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

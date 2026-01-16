@@ -2,7 +2,7 @@ import { ThemeProvider } from '@rapid/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DeleteKeychainInstanceDialog } from './DeleteKeychainInstanceDialog';
+import { DeleteSessionKeysDialog } from './DeleteSessionKeysDialog';
 
 function renderDialog(props: {
   open?: boolean;
@@ -19,12 +19,12 @@ function renderDialog(props: {
 
   return render(
     <ThemeProvider>
-      <DeleteKeychainInstanceDialog {...defaultProps} {...props} />
+      <DeleteSessionKeysDialog {...defaultProps} {...props} />
     </ThemeProvider>
   );
 }
 
-describe('DeleteKeychainInstanceDialog', () => {
+describe('DeleteSessionKeysDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

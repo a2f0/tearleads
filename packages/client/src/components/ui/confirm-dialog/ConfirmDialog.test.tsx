@@ -2,29 +2,35 @@ import { ThemeProvider } from '@rapid/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DeleteKeychainInstanceDialog } from './DeleteKeychainInstanceDialog';
+import { ConfirmDialog } from './ConfirmDialog';
 
 function renderDialog(props: {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  instanceName?: string;
-  onDelete?: () => Promise<void>;
+  title?: string;
+  description?: React.ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  confirmingLabel?: string;
+  onConfirm?: () => Promise<void>;
+  variant?: 'default' | 'destructive';
 }) {
   const defaultProps = {
     open: true,
     onOpenChange: vi.fn(),
-    instanceName: 'Test Instance',
-    onDelete: vi.fn().mockResolvedValue(undefined)
+    title: 'Test Title',
+    description: 'Test description',
+    onConfirm: vi.fn().mockResolvedValue(undefined)
   };
 
   return render(
     <ThemeProvider>
-      <DeleteKeychainInstanceDialog {...defaultProps} {...props} />
+      <ConfirmDialog {...defaultProps} {...props} />
     </ThemeProvider>
   );
 }
 
-describe('DeleteKeychainInstanceDialog', () => {
+describe('ConfirmDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -39,9 +45,19 @@ describe('DeleteKeychainInstanceDialog', () => {
     expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
   });
 
-  it('displays instance name in confirmation message', () => {
-    renderDialog({ instanceName: 'Alpha Instance' });
-    expect(screen.getByText('Alpha Instance')).toBeInTheDocument();
+  it('displays title and description', () => {
+    renderDialog({ title: 'Custom Title', description: 'Custom description' });
+    expect(screen.getByText('Custom Title')).toBeInTheDocument();
+    expect(screen.getByText('Custom description')).toBeInTheDocument();
+  });
+
+  it('uses custom button labels', () => {
+    renderDialog({
+      confirmLabel: 'Yes, delete',
+      cancelLabel: 'No, keep it'
+    });
+    expect(screen.getByText('Yes, delete')).toBeInTheDocument();
+    expect(screen.getByText('No, keep it')).toBeInTheDocument();
   });
 
   it('calls onOpenChange with false when cancel is clicked', async () => {
@@ -54,38 +70,38 @@ describe('DeleteKeychainInstanceDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('calls onDelete and onOpenChange when delete is confirmed', async () => {
-    const onDelete = vi.fn().mockResolvedValue(undefined);
+  it('calls onConfirm and onOpenChange when confirm is clicked', async () => {
+    const onConfirm = vi.fn().mockResolvedValue(undefined);
     const onOpenChange = vi.fn();
     const user = userEvent.setup();
-    renderDialog({ onDelete, onOpenChange });
+    renderDialog({ onConfirm, onOpenChange });
 
     await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
     await waitFor(() => {
-      expect(onDelete).toHaveBeenCalled();
+      expect(onConfirm).toHaveBeenCalled();
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
   });
 
-  it('shows deleting state while delete is in progress', async () => {
-    let resolveDelete: () => void = () => {};
-    const deletePromise = new Promise<void>((resolve) => {
-      resolveDelete = resolve;
+  it('shows confirming state while confirm is in progress', async () => {
+    let resolveConfirm: () => void = () => {};
+    const confirmPromise = new Promise<void>((resolve) => {
+      resolveConfirm = resolve;
     });
-    const onDelete = vi.fn().mockReturnValue(deletePromise);
+    const onConfirm = vi.fn().mockReturnValue(confirmPromise);
     const user = userEvent.setup();
-    renderDialog({ onDelete });
+    renderDialog({ onConfirm, confirmingLabel: 'Processing...' });
 
     await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
-    expect(screen.getByText('Deleting...')).toBeInTheDocument();
+    expect(screen.getByText('Processing...')).toBeInTheDocument();
     expect(screen.getByTestId('confirm-dialog-confirm')).toBeDisabled();
     expect(screen.getByTestId('confirm-dialog-cancel')).toBeDisabled();
 
-    resolveDelete();
+    resolveConfirm();
     await waitFor(() => {
-      expect(onDelete).toHaveBeenCalled();
+      expect(onConfirm).toHaveBeenCalled();
     });
   });
 
@@ -97,5 +113,16 @@ describe('DeleteKeychainInstanceDialog', () => {
     await user.click(screen.getByTestId('confirm-dialog-backdrop'));
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('renders ReactNode description', () => {
+    renderDialog({
+      description: (
+        <p>
+          Are you sure you want to delete <strong>test item</strong>?
+        </p>
+      )
+    });
+    expect(screen.getByText('test item')).toBeInTheDocument();
   });
 });

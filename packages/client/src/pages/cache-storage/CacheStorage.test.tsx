@@ -59,8 +59,6 @@ function renderCacheStorage() {
 describe('CacheStorage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset window.confirm mock
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
   describe('when Cache Storage API is not supported', () => {
@@ -236,7 +234,6 @@ describe('CacheStorage', () => {
     });
 
     it('shows confirmation dialog before deleting cache', async () => {
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
       const user = userEvent.setup();
       renderCacheStorage();
 
@@ -248,13 +245,12 @@ describe('CacheStorage', () => {
       const deleteButton = screen.getByTitle('Delete cache');
       await user.click(deleteButton);
 
-      expect(confirmSpy).toHaveBeenCalledWith(
-        'Are you sure you want to delete the cache "test-cache" and all its contents?'
-      );
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
     });
 
     it('deletes cache when confirmed', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       const user = userEvent.setup();
       renderCacheStorage();
 
@@ -264,6 +260,12 @@ describe('CacheStorage', () => {
 
       const deleteButton = screen.getByTitle('Delete cache');
       await user.click(deleteButton);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
       await waitFor(() => {
         expect(mockCaches.delete).toHaveBeenCalledWith('test-cache');
@@ -271,7 +273,6 @@ describe('CacheStorage', () => {
     });
 
     it('does not delete cache when cancelled', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(false);
       const user = userEvent.setup();
       renderCacheStorage();
 
@@ -281,6 +282,12 @@ describe('CacheStorage', () => {
 
       const deleteButton = screen.getByTitle('Delete cache');
       await user.click(deleteButton);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-cancel'));
 
       expect(mockCaches.delete).not.toHaveBeenCalled();
     });
@@ -297,7 +304,6 @@ describe('CacheStorage', () => {
     });
 
     it('shows confirmation dialog before deleting entry', async () => {
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
       const user = userEvent.setup();
       renderCacheStorage();
 
@@ -308,13 +314,15 @@ describe('CacheStorage', () => {
       const deleteButton = screen.getByTitle('Delete entry');
       await user.click(deleteButton);
 
-      expect(confirmSpy).toHaveBeenCalledWith(
-        'Are you sure you want to delete this cached entry?'
-      );
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+        expect(
+          screen.getByText('Are you sure you want to delete this cached entry?')
+        ).toBeInTheDocument();
+      });
     });
 
     it('deletes entry when confirmed', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       const user = userEvent.setup();
       renderCacheStorage();
 
@@ -324,6 +332,12 @@ describe('CacheStorage', () => {
 
       const deleteButton = screen.getByTitle('Delete entry');
       await user.click(deleteButton);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
       await waitFor(() => {
         expect(testCache.delete).toHaveBeenCalledWith(
@@ -351,7 +365,6 @@ describe('CacheStorage', () => {
     });
 
     it('shows confirmation dialog before clearing all', async () => {
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
       const user = userEvent.setup();
       renderCacheStorage();
 
@@ -361,13 +374,15 @@ describe('CacheStorage', () => {
 
       await user.click(screen.getByText('Clear All'));
 
-      expect(confirmSpy).toHaveBeenCalledWith(
-        'Are you sure you want to clear ALL cache storage data? This cannot be undone.'
-      );
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+        expect(
+          screen.getByText(/Are you sure you want to clear ALL cache storage/)
+        ).toBeInTheDocument();
+      });
     });
 
     it('deletes all caches when confirmed', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       const user = userEvent.setup();
       renderCacheStorage();
 
@@ -376,6 +391,12 @@ describe('CacheStorage', () => {
       });
 
       await user.click(screen.getByText('Clear All'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
       await waitFor(() => {
         expect(mockCaches.delete).toHaveBeenCalledWith('cache-1');
@@ -385,7 +406,6 @@ describe('CacheStorage', () => {
     });
 
     it('does not delete caches when cancelled', async () => {
-      vi.spyOn(window, 'confirm').mockReturnValue(false);
       const user = userEvent.setup();
       renderCacheStorage();
 
@@ -395,12 +415,17 @@ describe('CacheStorage', () => {
 
       await user.click(screen.getByText('Clear All'));
 
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-cancel'));
+
       expect(mockCaches.delete).not.toHaveBeenCalled();
     });
 
     it('continues deleting other caches when some deletions fail', async () => {
       const consoleSpy = mockConsoleError();
-      vi.spyOn(window, 'confirm').mockReturnValue(true);
       // Make one deletion fail
       mockCaches.delete.mockImplementation((name: string) => {
         if (name === 'cache-2') {
@@ -417,6 +442,12 @@ describe('CacheStorage', () => {
       });
 
       await user.click(screen.getByText('Clear All'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
       // Verify all caches were attempted to be deleted (Promise.allSettled behavior)
       await waitFor(() => {
