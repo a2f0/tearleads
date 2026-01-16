@@ -198,6 +198,7 @@ BASE_PATH="$PATH"
 # Build a workspace-specific PATH that includes that workspace's scripts
 workspace_path() {
     workspace="$1"
+    [ -z "$workspace" ] && { echo "$BASE_PATH"; return; }
     echo "$workspace/scripts:$workspace/scripts/agents:$BASE_PATH"
 }
 
