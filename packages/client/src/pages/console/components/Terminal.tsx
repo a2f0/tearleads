@@ -177,7 +177,7 @@ export function Terminal({ className }: TerminalProps) {
   return (
     <div
       className={cn(
-        'flex h-[400px] min-h-[300px] flex-col rounded-lg border border-zinc-800 bg-zinc-950',
+        'flex h-[400px] min-h-[300px] flex-col rounded-lg border border-terminal-border bg-terminal-bg',
         className
       )}
       data-testid="terminal"
@@ -186,7 +186,7 @@ export function Terminal({ className }: TerminalProps) {
         lines={terminal.lines}
         className="flex-1 overflow-y-auto p-4"
       />
-      <div className="border-zinc-800 border-t p-4">
+      <div className="border-terminal-border border-t p-4">
         <TerminalInput
           value={terminal.input}
           prompt={terminal.prompt}
