@@ -12,8 +12,8 @@ interface TerminalOutputProps {
 }
 
 const lineTypeStyles: Record<OutputLineType, string> = {
-  command: 'text-[var(--terminal-command)]',
-  output: 'text-[var(--terminal-output)]',
+  command: 'text-terminal-command',
+  output: 'text-terminal-output',
   error: 'text-destructive',
   success: 'text-success'
 };

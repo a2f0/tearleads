@@ -28,7 +28,7 @@ describe('TerminalOutput', () => {
     render(<TerminalOutput lines={lines} />);
 
     const line = screen.getByText('> status');
-    expect(line).toHaveClass('text-[var(--terminal-command)]');
+    expect(line).toHaveClass('text-terminal-command');
   });
 
   it('renders error lines with correct styling', () => {
@@ -58,7 +58,7 @@ describe('TerminalOutput', () => {
     render(<TerminalOutput lines={lines} />);
 
     const line = screen.getByText('Regular output');
-    expect(line).toHaveClass('text-[var(--terminal-output)]');
+    expect(line).toHaveClass('text-terminal-output');
   });
 
   it('applies custom className', () => {
@@ -86,11 +86,9 @@ describe('TerminalOutput', () => {
     ];
     render(<TerminalOutput lines={lines} />);
 
-    expect(screen.getByText('> setup')).toHaveClass(
-      'text-[var(--terminal-command)]'
-    );
+    expect(screen.getByText('> setup')).toHaveClass('text-terminal-command');
     expect(screen.getByText('Initializing...')).toHaveClass(
-      'text-[var(--terminal-output)]'
+      'text-terminal-output'
     );
     expect(screen.getByText('Database initialized.')).toHaveClass(
       'text-success'
