@@ -37,13 +37,6 @@
   --chart-6: oklch(60% 0.15 200);
   --chart-7: oklch(65% 0.25 325);
   --chart-8: oklch(68% 0.19 130);
-
-  /* Terminal colors */
-  --terminal-bg: oklch(8% 0 0);
-  --terminal-border: oklch(30% 0 0);
-  --terminal-prompt: oklch(62% 0.19 145);
-  --terminal-command: oklch(60% 0 0);
-  --terminal-output: oklch(90% 0 0);
 }
 
 .dark {
@@ -84,13 +77,6 @@
   --chart-6: oklch(65% 0.14 200);
   --chart-7: oklch(68% 0.22 325);
   --chart-8: oklch(70% 0.17 130);
-
-  /* Terminal colors */
-  --terminal-bg: oklch(8% 0 0);
-  --terminal-border: oklch(30% 0 0);
-  --terminal-prompt: oklch(65% 0.17 145);
-  --terminal-command: oklch(60% 0 0);
-  --terminal-output: oklch(90% 0 0);
 }
 
 .tokyo-night {
@@ -131,13 +117,6 @@
   --chart-6: oklch(78% 0.12 205);
   --chart-7: oklch(70% 0.18 330);
   --chart-8: oklch(72% 0.14 140);
-
-  /* Terminal colors */
-  --terminal-bg: oklch(16% 0.02 264);
-  --terminal-border: oklch(30% 0.025 262);
-  --terminal-prompt: oklch(70% 0.15 165);
-  --terminal-command: oklch(65% 0.04 265);
-  --terminal-output: oklch(83.5% 0.045 267.5);
 }
 
 .monochrome {
@@ -178,13 +157,6 @@
   --chart-6: oklch(70% 0 0);
   --chart-7: oklch(60% 0 0);
   --chart-8: oklch(50% 0 0);
-
-  /* Terminal colors - all grayscale */
-  --terminal-bg: oklch(12% 0 0);
-  --terminal-border: oklch(32% 0 0);
-  --terminal-prompt: oklch(75% 0 0);
-  --terminal-command: oklch(55% 0 0);
-  --terminal-output: oklch(88% 0 0);
 }
 
 /* Monochrome theme: grayscale all images and PDF previews */
