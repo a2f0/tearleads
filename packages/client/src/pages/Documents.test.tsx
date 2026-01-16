@@ -435,7 +435,7 @@ describe('Documents', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(/Drag and drop PDF documents here/)
+          screen.getByText(/Drag and drop PDF or text documents here/)
         ).toBeInTheDocument();
       });
 
