@@ -63,6 +63,10 @@ export interface ContextMenuTranslations {
 }
 
 export interface SettingsTranslations {
+  font: string;
+  fontDescription: string;
+  fontSystem: string;
+  fontMonospace: string;
   tooltips: string;
   tooltipsDescription: string;
   tooltipsEnabled: string;

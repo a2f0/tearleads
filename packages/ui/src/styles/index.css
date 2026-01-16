@@ -217,6 +217,9 @@
   body {
     @apply bg-background text-foreground;
   }
+  .font-mono body {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
   input[type='checkbox'],
   input[type='radio'] {
     accent-color: var(--primary);
