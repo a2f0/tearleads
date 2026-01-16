@@ -86,6 +86,7 @@ describe('useFloatingWindow', () => {
 
       act(() => {
         dragHandlers.onTouchStart({
+          preventDefault: vi.fn(),
           touches: [{ clientX: 150, clientY: 150 }]
         } as unknown as React.TouchEvent);
       });
@@ -239,6 +240,7 @@ describe('useFloatingWindow', () => {
 
       act(() => {
         cornerHandlers.onTouchStart({
+          preventDefault: vi.fn(),
           stopPropagation: vi.fn(),
           touches: [{ clientX: 500, clientY: 400 }]
         } as unknown as React.TouchEvent);
@@ -418,6 +420,7 @@ describe('useFloatingWindow', () => {
 
       act(() => {
         dragHandlers.onTouchStart({
+          preventDefault: vi.fn(),
           touches: [{ clientX: 150, clientY: 150 }]
         } as unknown as React.TouchEvent);
       });
@@ -496,6 +499,7 @@ describe('useFloatingWindow', () => {
 
       act(() => {
         dragHandlers.onTouchStart({
+          preventDefault: vi.fn(),
           touches: [{ clientX: 150, clientY: 150 }]
         } as unknown as React.TouchEvent);
       });
@@ -510,6 +514,98 @@ describe('useFloatingWindow', () => {
       });
 
       expect(result.current.x).toBe(initialX);
+    });
+  });
+
+  describe('viewport constraints', () => {
+    it('constrains position within viewport on drag', () => {
+      const { result } = renderHook(() => useFloatingWindow(defaultOptions));
+
+      const dragHandlers = result.current.createDragHandlers();
+
+      act(() => {
+        dragHandlers.onMouseDown({
+          preventDefault: vi.fn(),
+          clientX: 100,
+          clientY: 100
+        } as unknown as React.MouseEvent);
+      });
+
+      // Try to drag way off screen to the right/bottom
+      act(() => {
+        const moveEvent = new MouseEvent('mousemove', {
+          clientX: 5000,
+          clientY: 5000
+        });
+        document.dispatchEvent(moveEvent);
+      });
+
+      // Position should be constrained to viewport
+      expect(result.current.x).toBeLessThanOrEqual(
+        window.innerWidth - result.current.width
+      );
+      expect(result.current.y).toBeLessThanOrEqual(
+        window.innerHeight - result.current.height
+      );
+    });
+
+    it('constrains position to not go negative', () => {
+      const { result } = renderHook(() => useFloatingWindow(defaultOptions));
+
+      const dragHandlers = result.current.createDragHandlers();
+
+      act(() => {
+        dragHandlers.onMouseDown({
+          preventDefault: vi.fn(),
+          clientX: 100,
+          clientY: 100
+        } as unknown as React.MouseEvent);
+      });
+
+      // Try to drag way off screen to the left/top
+      act(() => {
+        const moveEvent = new MouseEvent('mousemove', {
+          clientX: -5000,
+          clientY: -5000
+        });
+        document.dispatchEvent(moveEvent);
+      });
+
+      expect(result.current.x).toBeGreaterThanOrEqual(0);
+      expect(result.current.y).toBeGreaterThanOrEqual(0);
+    });
+
+    it('adjusts position on window resize', () => {
+      const { result } = renderHook(() =>
+        useFloatingWindow({
+          ...defaultOptions,
+          defaultX: 800,
+          defaultY: 600
+        })
+      );
+
+      // Initial position is at 800, 600
+      expect(result.current.x).toBe(800);
+      expect(result.current.y).toBe(600);
+
+      // Simulate window resize to smaller size
+      act(() => {
+        Object.defineProperty(window, 'innerWidth', {
+          writable: true,
+          configurable: true,
+          value: 500
+        });
+        Object.defineProperty(window, 'innerHeight', {
+          writable: true,
+          configurable: true,
+          value: 400
+        });
+        window.dispatchEvent(new Event('resize'));
+      });
+
+      // Position should be constrained to new viewport
+      expect(result.current.x).toBeLessThanOrEqual(500 - result.current.width);
+      expect(result.current.y).toBeLessThanOrEqual(400 - result.current.height);
     });
   });
 });

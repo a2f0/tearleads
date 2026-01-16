@@ -101,15 +101,17 @@ describe('HUD', () => {
       const initialLeft = parseInt(dialog.style.left, 10);
       const initialTop = parseInt(dialog.style.top, 10);
 
-      fireEvent.mouseDown(titleBar, { clientX: 100, clientY: 100 });
-      fireEvent.mouseMove(document, { clientX: 200, clientY: 150 });
+      // Drag window toward top-left where there's room to move
+      fireEvent.mouseDown(titleBar, { clientX: 500, clientY: 300 });
+      fireEvent.mouseMove(document, { clientX: 400, clientY: 250 });
       fireEvent.mouseUp(document);
 
       const newLeft = parseInt(dialog.style.left, 10);
       const newTop = parseInt(dialog.style.top, 10);
 
-      expect(newLeft).toBe(initialLeft + 100);
-      expect(newTop).toBe(initialTop + 50);
+      // Position should decrease (moved left and up)
+      expect(newLeft).toBe(initialLeft - 100);
+      expect(newTop).toBe(initialTop - 50);
     });
 
     it('handles touch-based dragging on desktop', () => {
@@ -120,19 +122,21 @@ describe('HUD', () => {
       const initialLeft = parseInt(dialog.style.left, 10);
       const initialTop = parseInt(dialog.style.top, 10);
 
+      // Drag window toward top-left where there's room to move
       fireEvent.touchStart(titleBar, {
-        touches: [{ clientX: 100, clientY: 100, identifier: 0 }]
+        touches: [{ clientX: 500, clientY: 300, identifier: 0 }]
       });
       fireEvent.touchMove(document, {
-        touches: [{ clientX: 200, clientY: 150, identifier: 0 }]
+        touches: [{ clientX: 400, clientY: 250, identifier: 0 }]
       });
       fireEvent.touchEnd(document);
 
       const newLeft = parseInt(dialog.style.left, 10);
       const newTop = parseInt(dialog.style.top, 10);
 
-      expect(newLeft).toBe(initialLeft + 100);
-      expect(newTop).toBe(initialTop + 50);
+      // Position should decrease (moved left and up)
+      expect(newLeft).toBe(initialLeft - 100);
+      expect(newTop).toBe(initialTop - 50);
     });
   });
 
