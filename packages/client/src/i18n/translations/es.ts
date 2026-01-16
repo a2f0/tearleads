@@ -65,6 +65,10 @@ export const es = {
     delete: 'Eliminar'
   },
   settings: {
+    font: 'Fuente',
+    fontDescription: 'Elige tu estilo de fuente preferido',
+    fontSystem: 'Sistema',
+    fontMonospace: 'Monoespaciada',
     tooltips: 'Información emergente',
     tooltipsDescription:
       'Mostrar sugerencias útiles al pasar el cursor sobre los elementos',

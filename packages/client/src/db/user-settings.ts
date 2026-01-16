@@ -10,32 +10,36 @@ import type { Database } from './index';
 import { userSettings } from './schema';
 
 // All known settings keys (stored in DB as key column)
-export type UserSettingKey = 'theme' | 'language' | 'tooltips';
+export type UserSettingKey = 'theme' | 'language' | 'tooltips' | 'font';
 
 // Per-setting value types
 export type ThemeValue = 'light' | 'dark' | 'tokyo-night' | 'system';
 export type LanguageValue = 'en' | 'es' | 'ua';
 export type TooltipsValue = 'enabled' | 'disabled';
+export type FontValue = 'system' | 'monospace';
 
 // Map settings keys to their value types
 export interface SettingValueMap {
   theme: ThemeValue;
   language: LanguageValue;
   tooltips: TooltipsValue;
+  font: FontValue;
 }
 
 // Default values for each setting
 export const SETTING_DEFAULTS: { [K in UserSettingKey]: SettingValueMap[K] } = {
   theme: 'system',
   language: 'en',
-  tooltips: 'enabled'
+  tooltips: 'enabled',
+  font: 'system'
 };
 
 // localStorage keys for each setting (maps our keys to existing localStorage keys)
 export const SETTING_STORAGE_KEYS: Record<UserSettingKey, string> = {
   theme: 'theme',
   language: 'i18nextLng',
-  tooltips: 'tooltips'
+  tooltips: 'tooltips',
+  font: 'font'
 };
 
 // Type guard functions
@@ -49,6 +53,10 @@ export function isLanguageValue(value: string): value is LanguageValue {
 
 export function isTooltipsValue(value: string): value is TooltipsValue {
   return ['enabled', 'disabled'].includes(value);
+}
+
+export function isFontValue(value: string): value is FontValue {
+  return ['system', 'monospace'].includes(value);
 }
 
 // Settings sync event detail type
@@ -74,6 +82,9 @@ export function getSettingFromStorage<K extends UserSettingKey>(
       return value as SettingValueMap[K];
     }
     if (key === 'tooltips' && isTooltipsValue(value)) {
+      return value as SettingValueMap[K];
+    }
+    if (key === 'font' && isFontValue(value)) {
       return value as SettingValueMap[K];
     }
 
@@ -125,6 +136,8 @@ export async function getSettingsFromDb(
       settings.language = value;
     } else if (key === 'tooltips' && isTooltipsValue(value)) {
       settings.tooltips = value;
+    } else if (key === 'font' && isFontValue(value)) {
+      settings.font = value;
     }
   }
 

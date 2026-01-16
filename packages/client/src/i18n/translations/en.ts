@@ -65,6 +65,10 @@ export const en = {
     delete: 'Delete'
   },
   settings: {
+    font: 'Font',
+    fontDescription: 'Choose your preferred font style',
+    fontSystem: 'System',
+    fontMonospace: 'Monospace',
     tooltips: 'Tooltips',
     tooltipsDescription: 'Show helpful hints when hovering over elements',
     tooltipsEnabled: 'Enabled',
