@@ -242,7 +242,7 @@ export function useFloatingWindow({
         e.stopPropagation();
         handleStart(e.clientX, e.clientY, corner);
         document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleEnd);
+        document.addEventListener('mouseup', handleEndRef.current);
       },
       onTouchStart: (e: React.TouchEvent) => {
         const touch = e.touches[0];
@@ -253,10 +253,10 @@ export function useFloatingWindow({
         document.addEventListener('touchmove', handleTouchMove, {
           passive: true
         });
-        document.addEventListener('touchend', handleEnd);
+        document.addEventListener('touchend', handleEndRef.current);
       }
     }),
-    [handleStart, handleMouseMove, handleTouchMove, handleEnd]
+    [handleStart, handleMouseMove, handleTouchMove]
   );
 
   const createDragHandlers = useCallback(
@@ -265,7 +265,7 @@ export function useFloatingWindow({
         e.preventDefault();
         handleStart(e.clientX, e.clientY, 'drag');
         document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleEnd);
+        document.addEventListener('mouseup', handleEndRef.current);
       },
       onTouchStart: (e: React.TouchEvent) => {
         const touch = e.touches[0];
@@ -275,10 +275,10 @@ export function useFloatingWindow({
         document.addEventListener('touchmove', handleTouchMove, {
           passive: true
         });
-        document.addEventListener('touchend', handleEnd);
+        document.addEventListener('touchend', handleEndRef.current);
       }
     }),
-    [handleStart, handleMouseMove, handleTouchMove, handleEnd]
+    [handleStart, handleMouseMove, handleTouchMove]
   );
 
   return {
