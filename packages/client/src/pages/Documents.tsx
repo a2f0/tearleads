@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, like, or } from 'drizzle-orm';
 import {
   Download,
   FileText,
@@ -34,8 +34,6 @@ import {
 } from '@/storage/opfs';
 
 const PDF_MIME_TYPE = 'application/pdf';
-const TEXT_MIME_TYPE = 'text/plain';
-const DOCUMENT_MIME_TYPES = [PDF_MIME_TYPE, TEXT_MIME_TYPE];
 
 interface DocumentInfo {
   id: string;
@@ -135,11 +133,13 @@ export function Documents() {
       setUploading(true);
       setUploadProgress(0);
 
+      const isDocumentType = (type: string) =>
+        type === PDF_MIME_TYPE || type.startsWith('text/');
       const validFiles = selectedFiles.filter((file) =>
-        DOCUMENT_MIME_TYPES.includes(file.type)
+        isDocumentType(file.type)
       );
       const invalidFileErrors = selectedFiles
-        .filter((file) => !DOCUMENT_MIME_TYPES.includes(file.type))
+        .filter((file) => !isDocumentType(file.type))
         .map((file) => `"${file.name}" is not a supported document type.`);
 
       const errors: string[] = [...invalidFileErrors];
@@ -205,7 +205,10 @@ export function Documents() {
         .from(files)
         .where(
           and(
-            inArray(files.mimeType, DOCUMENT_MIME_TYPES),
+            or(
+              eq(files.mimeType, PDF_MIME_TYPE),
+              like(files.mimeType, 'text/%')
+            ),
             eq(files.deleted, false)
           )
         )
@@ -404,7 +407,7 @@ export function Documents() {
         ) : documents.length === 0 && hasFetched ? (
           <Dropzone
             onFilesSelected={handleFilesSelected}
-            accept="application/pdf,text/plain"
+            accept="application/pdf,text/*"
             multiple={true}
             disabled={uploading}
             label="PDF or text documents"
@@ -499,7 +502,7 @@ export function Documents() {
             </div>
             <Dropzone
               onFilesSelected={handleFilesSelected}
-              accept="application/pdf,text/plain"
+              accept="application/pdf,text/*"
               multiple={true}
               disabled={uploading}
               label="PDF or text documents"

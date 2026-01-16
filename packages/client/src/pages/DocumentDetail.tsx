@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, like, or } from 'drizzle-orm';
 import { Calendar, FileType, HardDrive, Loader2 } from 'lucide-react';
 import {
   lazy,
@@ -25,8 +25,6 @@ const PdfViewer = lazy(() =>
 );
 
 const PDF_MIME_TYPE = 'application/pdf';
-const TEXT_MIME_TYPE = 'text/plain';
-const DOCUMENT_MIME_TYPES = [PDF_MIME_TYPE, TEXT_MIME_TYPE];
 
 interface DocumentInfo {
   id: string;
@@ -153,7 +151,10 @@ export function DocumentDetail() {
         .where(
           and(
             eq(files.id, id),
-            inArray(files.mimeType, DOCUMENT_MIME_TYPES),
+            or(
+              eq(files.mimeType, PDF_MIME_TYPE),
+              like(files.mimeType, 'text/%')
+            ),
             eq(files.deleted, false)
           )
         )
@@ -205,8 +206,8 @@ export function DocumentDetail() {
         );
         if (!cancelled) {
           loadedStoragePathRef.current = document.storagePath;
-          if (document.mimeType === TEXT_MIME_TYPE) {
-            const decoder = new TextDecoder('utf-8');
+          if (document.mimeType.startsWith('text/')) {
+            const decoder = new TextDecoder('utf-8', { fatal: false });
             setTextContent(decoder.decode(data));
           } else {
             setDocumentData(data);
@@ -295,7 +296,7 @@ export function DocumentDetail() {
 
           {!contentLoading &&
             textContent !== null &&
-            document.mimeType === TEXT_MIME_TYPE && (
+            document.mimeType.startsWith('text/') && (
               <div
                 className="overflow-auto rounded-lg border bg-muted p-4"
                 data-testid="text-viewer"
