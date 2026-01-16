@@ -764,6 +764,14 @@ export function Files() {
                   {isPlayingCurrentFile ? t('pause') : t('play')}
                 </ContextMenuItem>
               )}
+              {contextMenu.file.mimeType.startsWith('video/') && (
+                <ContextMenuItem
+                  icon={<Play className="h-4 w-4" />}
+                  onClick={() => handleContextMenuGetInfo(contextMenu.file)}
+                >
+                  {t('play')}
+                </ContextMenuItem>
+              )}
               {isViewable && (
                 <ContextMenuItem
                   icon={<Info className="h-4 w-4" />}
