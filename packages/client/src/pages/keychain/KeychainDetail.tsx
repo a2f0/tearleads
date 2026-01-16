@@ -15,6 +15,7 @@ import {
   type InstanceMetadata
 } from '@/db/instance-registry';
 import { DeleteKeychainInstanceDialog } from './DeleteKeychainInstanceDialog';
+import { DeleteSessionKeysDialog } from './DeleteSessionKeysDialog';
 import { KeyStatusIndicator } from './KeyStatusIndicator';
 
 function formatDate(timestamp: number): string {
@@ -35,6 +36,7 @@ export function KeychainDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [sessionKeysDialogOpen, setSessionKeysDialogOpen] = useState(false);
 
   const fetchInstanceInfo = useCallback(async () => {
     if (!id) return;
@@ -68,16 +70,13 @@ export function KeychainDetail() {
   const handleDeleteSessionKeys = useCallback(async () => {
     if (!instanceInfo) return;
 
-    const confirmationMessage = `Are you sure you want to delete session keys for "${instanceInfo.instance.name}"?\n\nThis will end your session and require re-entering your password.`;
-
-    if (!window.confirm(confirmationMessage)) return;
-
     try {
       await deleteSessionKeysForInstance(instanceInfo.instance.id);
       await fetchInstanceInfo();
     } catch (err) {
       console.error('Failed to delete session keys:', err);
       setError(err instanceof Error ? err.message : String(err));
+      throw err;
     }
   }, [instanceInfo, fetchInstanceInfo]);
 
@@ -185,7 +184,10 @@ export function KeychainDetail() {
 
           <div className="flex gap-2">
             {hasSessionKeys && (
-              <Button variant="outline" onClick={handleDeleteSessionKeys}>
+              <Button
+                variant="outline"
+                onClick={() => setSessionKeysDialogOpen(true)}
+              >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete Session Keys
               </Button>
@@ -198,12 +200,20 @@ export function KeychainDetail() {
         </div>
       )}
       {instanceInfo && (
-        <DeleteKeychainInstanceDialog
-          open={deleteDialogOpen}
-          onOpenChange={setDeleteDialogOpen}
-          instanceName={instanceInfo.instance.name}
-          onDelete={handleDeleteInstance}
-        />
+        <>
+          <DeleteSessionKeysDialog
+            open={sessionKeysDialogOpen}
+            onOpenChange={setSessionKeysDialogOpen}
+            instanceName={instanceInfo.instance.name}
+            onDelete={handleDeleteSessionKeys}
+          />
+          <DeleteKeychainInstanceDialog
+            open={deleteDialogOpen}
+            onOpenChange={setDeleteDialogOpen}
+            instanceName={instanceInfo.instance.name}
+            onDelete={handleDeleteInstance}
+          />
+        </>
       )}
     </div>
   );

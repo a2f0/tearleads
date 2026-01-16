@@ -1,6 +1,7 @@
 import { Database, Loader2, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { formatFileSize } from '@/lib/utils';
 import {
@@ -8,6 +9,12 @@ import {
   type CacheInfo,
   CacheTreeNode
 } from './CacheTreeNode';
+
+type DeleteDialogState =
+  | { type: 'cache'; cacheName: string }
+  | { type: 'entry'; cacheName: string; url: string }
+  | { type: 'all' }
+  | null;
 
 async function getCacheInfo(cache: Cache, name: string): Promise<CacheInfo> {
   const keys = await cache.keys();
@@ -56,6 +63,7 @@ export function CacheStorage() {
   const [supported, setSupported] = useState(true);
   const [expandedCaches, setExpandedCaches] = useState<Set<string>>(new Set());
   const [refreshKey, setRefreshKey] = useState(0);
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(null);
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
@@ -125,68 +133,79 @@ export function CacheStorage() {
     });
   };
 
-  const handleDeleteCache = async (cacheName: string) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to delete the cache "${cacheName}" and all its contents?`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      await window.caches.delete(cacheName);
-      refresh();
-    } catch (err) {
-      console.error('Failed to delete cache:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    }
+  const handleDeleteCacheClick = (cacheName: string) => {
+    setDeleteDialog({ type: 'cache', cacheName });
   };
 
-  const handleDeleteEntry = async (cacheName: string, url: string) => {
-    if (!window.confirm(`Are you sure you want to delete this cached entry?`)) {
-      return;
-    }
-
-    try {
-      const cache = await window.caches.open(cacheName);
-      await cache.delete(url);
-      refresh();
-    } catch (err) {
-      console.error('Failed to delete cache entry:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    }
+  const handleDeleteEntryClick = (cacheName: string, url: string) => {
+    setDeleteDialog({ type: 'entry', cacheName, url });
   };
 
-  const handleClearAll = async () => {
-    if (
-      !window.confirm(
-        'Are you sure you want to clear ALL cache storage data? This cannot be undone.'
-      )
-    ) {
-      return;
-    }
+  const handleClearAllClick = () => {
+    setDeleteDialog({ type: 'all' });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteDialog) return;
 
     try {
-      const cacheNames = await window.caches.keys();
-      const results = await Promise.allSettled(
-        cacheNames.map((name) => window.caches.delete(name))
-      );
-
-      const failed = results.filter((r) => r.status === 'rejected');
-
-      if (failed.length > 0) {
-        console.error('Failed to delete some caches:', failed);
-        setError(
-          `Failed to delete ${failed.length} cache(s). See console for details.`
+      if (deleteDialog.type === 'cache') {
+        await window.caches.delete(deleteDialog.cacheName);
+      } else if (deleteDialog.type === 'entry') {
+        const cache = await window.caches.open(deleteDialog.cacheName);
+        await cache.delete(deleteDialog.url);
+      } else if (deleteDialog.type === 'all') {
+        const cacheNames = await window.caches.keys();
+        const results = await Promise.allSettled(
+          cacheNames.map((name) => window.caches.delete(name))
         );
-      }
 
+        const failed = results.filter((r) => r.status === 'rejected');
+
+        if (failed.length > 0) {
+          console.error('Failed to delete some caches:', failed);
+          setError(
+            `Failed to delete ${failed.length} cache(s). See console for details.`
+          );
+        }
+      }
       refresh();
     } catch (err) {
-      console.error('Failed to clear cache storage:', err);
+      console.error('Failed to delete:', err);
       setError(err instanceof Error ? err.message : String(err));
+      throw err;
     }
+  };
+
+  const getDeleteDialogContent = () => {
+    if (!deleteDialog) return { title: '', description: '' };
+
+    if (deleteDialog.type === 'cache') {
+      return {
+        title: 'Delete Cache',
+        description: (
+          <p>
+            Are you sure you want to delete the cache{' '}
+            <strong>{deleteDialog.cacheName}</strong> and all its contents?
+          </p>
+        )
+      };
+    }
+    if (deleteDialog.type === 'entry') {
+      return {
+        title: 'Delete Cached Entry',
+        description: <p>Are you sure you want to delete this cached entry?</p>
+      };
+    }
+    return {
+      title: 'Clear All Caches',
+      description: (
+        <p>
+          Are you sure you want to clear ALL cache storage data? This cannot be
+          undone.
+        </p>
+      )
+    };
   };
 
   const totalSize = caches.reduce((sum, c) => sum + c.totalSize, 0);
@@ -224,7 +243,11 @@ export function CacheStorage() {
         </div>
         <div className="flex gap-2">
           {caches.length > 0 && (
-            <Button variant="destructive" size="sm" onClick={handleClearAll}>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleClearAllClick}
+            >
               <Trash2 className="mr-2 h-4 w-4" />
               Clear All
             </Button>
@@ -261,13 +284,25 @@ export function CacheStorage() {
                 cache={cache}
                 isExpanded={expandedCaches.has(cache.name)}
                 onToggle={() => handleToggle(cache.name)}
-                onDeleteCache={handleDeleteCache}
-                onDeleteEntry={handleDeleteEntry}
+                onDeleteCache={handleDeleteCacheClick}
+                onDeleteEntry={handleDeleteEntryClick}
               />
             ))}
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!deleteDialog}
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialog(null);
+        }}
+        title={getDeleteDialogContent().title}
+        description={getDeleteDialogContent().description}
+        confirmLabel="Delete"
+        confirmingLabel="Deleting..."
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }
