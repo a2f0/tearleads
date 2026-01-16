@@ -176,9 +176,7 @@
 
 /* Override library's CSS variables at the same specificity level.
    The library uses [data-color-mode*='dark/light'] selectors, so we match that. */
-[data-color-mode] .w-md-editor,
-[data-color-mode] .wmde-markdown,
-[data-color-mode] .wmde-markdown-var {
+[data-color-mode] :is(.w-md-editor, .wmde-markdown, .wmde-markdown-var) {
   --color-canvas-default: var(--background);
   --color-canvas-subtle: var(--card);
   --color-border-default: var(--border);
@@ -197,8 +195,7 @@
 }
 
 /* Monochrome theme: grayscale syntax highlighting */
-.monochrome [data-color-mode] .wmde-markdown,
-.monochrome [data-color-mode] .wmde-markdown-var {
+.monochrome [data-color-mode] :is(.wmde-markdown, .wmde-markdown-var) {
   --color-prettylights-syntax-comment: oklch(55% 0 0);
   --color-prettylights-syntax-constant: oklch(70% 0 0);
   --color-prettylights-syntax-entity: oklch(75% 0 0);
@@ -215,8 +212,7 @@
 }
 
 /* Tokyo Night theme: blue-tinted syntax highlighting */
-.tokyo-night [data-color-mode] .wmde-markdown,
-.tokyo-night [data-color-mode] .wmde-markdown-var {
+.tokyo-night [data-color-mode] :is(.wmde-markdown, .wmde-markdown-var) {
   --color-prettylights-syntax-comment: oklch(55% 0.04 265);
   --color-prettylights-syntax-constant: oklch(75% 0.12 250);
   --color-prettylights-syntax-entity: oklch(78% 0.14 300);
