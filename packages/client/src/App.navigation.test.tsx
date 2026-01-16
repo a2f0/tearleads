@@ -66,8 +66,10 @@ vi.mock('@/db', () => ({
 vi.mock('@/db/SettingsProvider', () => ({
   useSettings: () => ({
     getSetting: vi.fn((key: string) => {
-      if (key === 'desktopPattern') return 'solid';
-      return 'enabled';
+      const settings: Partial<Record<string, string>> = {
+        desktopPattern: 'solid'
+      };
+      return settings[key] ?? 'enabled';
     }),
     setSetting: vi.fn()
   })

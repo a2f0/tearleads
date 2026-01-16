@@ -1,5 +1,9 @@
 export { FontSelector } from './FontSelector';
-export { PatternPreview, type PatternPreviewProps } from './PatternPreview';
+export {
+  PATTERN_LABELS,
+  PatternPreview,
+  type PatternPreviewProps
+} from './PatternPreview';
 export { PatternSelector } from './PatternSelector';
 export { SettingsSection } from './SettingsSection';
 export { SettingsSheet } from './SettingsSheet';
