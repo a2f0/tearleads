@@ -87,6 +87,17 @@ export function Files() {
     x: number;
     y: number;
   } | null>(null);
+  const audioObjectUrlRef = useRef<string | null>(null);
+
+  // Clean up audio object URL on component unmount
+  useEffect(() => {
+    return () => {
+      if (audioObjectUrlRef.current) {
+        URL.revokeObjectURL(audioObjectUrlRef.current);
+        audioObjectUrlRef.current = null;
+      }
+    };
+  }, []);
 
   const filteredFiles = files.filter((f) => showDeleted || !f.deleted);
 
@@ -455,7 +466,12 @@ export function Files() {
           const blob = new Blob([new Uint8Array(data)], {
             type: file.mimeType
           });
+          // Revoke previous object URL to prevent memory leak
+          if (audioObjectUrlRef.current) {
+            URL.revokeObjectURL(audioObjectUrlRef.current);
+          }
           const objectUrl = URL.createObjectURL(blob);
+          audioObjectUrlRef.current = objectUrl;
           play({
             id: file.id,
             name: file.name,
@@ -711,53 +727,59 @@ export function Files() {
         </div>
       )}
 
-      {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={handleCloseContextMenu}
-        >
-          {contextMenu.file.mimeType.startsWith('audio/') && (
-            <ContextMenuItem
-              icon={
-                contextMenu.file.id === currentTrack?.id && isPlaying ? (
-                  <Pause className="h-4 w-4" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )
-              }
-              onClick={() => handleContextMenuPlayPause(contextMenu.file)}
-            >
-              {contextMenu.file.id === currentTrack?.id && isPlaying
-                ? t('pause')
-                : t('play')}
-            </ContextMenuItem>
-          )}
-          {(contextMenu.file.mimeType.startsWith('audio/') ||
+      {contextMenu &&
+        (() => {
+          const isPlayingCurrentFile =
+            contextMenu.file.id === currentTrack?.id && isPlaying;
+          const isViewable =
+            contextMenu.file.mimeType.startsWith('audio/') ||
             contextMenu.file.mimeType.startsWith('image/') ||
             contextMenu.file.mimeType.startsWith('video/') ||
-            contextMenu.file.mimeType === 'application/pdf') && (
-            <ContextMenuItem
-              icon={<Info className="h-4 w-4" />}
-              onClick={() => handleContextMenuGetInfo(contextMenu.file)}
+            contextMenu.file.mimeType === 'application/pdf';
+
+          return (
+            <ContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              onClose={handleCloseContextMenu}
             >
-              {t('getInfo')}
-            </ContextMenuItem>
-          )}
-          <ContextMenuItem
-            icon={<Download className="h-4 w-4" />}
-            onClick={() => handleContextMenuDownload(contextMenu.file)}
-          >
-            {t('download')}
-          </ContextMenuItem>
-          <ContextMenuItem
-            icon={<Trash2 className="h-4 w-4" />}
-            onClick={() => handleContextMenuDelete(contextMenu.file)}
-          >
-            {t('delete')}
-          </ContextMenuItem>
-        </ContextMenu>
-      )}
+              {contextMenu.file.mimeType.startsWith('audio/') && (
+                <ContextMenuItem
+                  icon={
+                    isPlayingCurrentFile ? (
+                      <Pause className="h-4 w-4" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )
+                  }
+                  onClick={() => handleContextMenuPlayPause(contextMenu.file)}
+                >
+                  {isPlayingCurrentFile ? t('pause') : t('play')}
+                </ContextMenuItem>
+              )}
+              {isViewable && (
+                <ContextMenuItem
+                  icon={<Info className="h-4 w-4" />}
+                  onClick={() => handleContextMenuGetInfo(contextMenu.file)}
+                >
+                  {t('getInfo')}
+                </ContextMenuItem>
+              )}
+              <ContextMenuItem
+                icon={<Download className="h-4 w-4" />}
+                onClick={() => handleContextMenuDownload(contextMenu.file)}
+              >
+                {t('download')}
+              </ContextMenuItem>
+              <ContextMenuItem
+                icon={<Trash2 className="h-4 w-4" />}
+                onClick={() => handleContextMenuDelete(contextMenu.file)}
+              >
+                {t('delete')}
+              </ContextMenuItem>
+            </ContextMenu>
+          );
+        })()}
     </div>
   );
 }
