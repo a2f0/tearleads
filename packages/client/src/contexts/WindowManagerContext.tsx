@@ -42,7 +42,7 @@ export function WindowManagerProvider({
 
   const openWindow = useCallback(
     (type: WindowType, customId?: string): string => {
-      const id = customId ?? `${type}-${Date.now()}`;
+      const id = customId ?? `${type}-${crypto.randomUUID()}`;
 
       setWindows((prev) => {
         const existing = prev.find((w) => w.id === id);
