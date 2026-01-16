@@ -61,6 +61,7 @@ export const en = {
     getInfo: 'Get info',
     viewDetails: 'View Details',
     download: 'Download',
+    edit: 'Edit',
     delete: 'Delete'
   },
   settings: {
