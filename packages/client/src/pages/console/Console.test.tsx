@@ -126,6 +126,23 @@ describe('Console', () => {
     });
   });
 
+  it('logs when setup fails', async () => {
+    const user = userEvent.setup();
+    mockSetup.mockResolvedValue(false);
+    renderConsole();
+
+    await user.type(
+      screen.getByTestId('console-setup-password'),
+      'testpass123'
+    );
+    await user.type(screen.getByTestId('console-setup-confirm'), 'testpass123');
+    await user.click(screen.getByTestId('console-setup-button'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Database setup failed.')).toBeInTheDocument();
+    });
+  });
+
   it('disables unlock when database is not set up', async () => {
     const user = userEvent.setup();
     renderConsole();
@@ -166,6 +183,25 @@ describe('Console', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Incorrect password.')).toBeInTheDocument();
+    });
+  });
+
+  it('logs when unlock fails with error', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockUnlock.mockRejectedValue(new Error('Unlock exploded'));
+    renderConsole();
+
+    await user.type(
+      screen.getByTestId('console-unlock-password'),
+      'testpass123'
+    );
+    await user.click(screen.getByTestId('console-unlock-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Unlock failed: Unlock exploded')
+      ).toBeInTheDocument();
     });
   });
 
@@ -222,6 +258,22 @@ describe('Console', () => {
     });
   });
 
+  it('logs when restore session fails with error', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.hasPersistedSession = true;
+    mockRestoreSession.mockRejectedValue(new Error('Restore exploded'));
+    renderConsole();
+
+    await user.click(screen.getByTestId('console-restore-session-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Restore session failed: Restore exploded')
+      ).toBeInTheDocument();
+    });
+  });
+
   it('logs when backup requested while locked', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
@@ -234,6 +286,22 @@ describe('Console', () => {
     await waitFor(() => {
       expect(
         screen.getByText('Database locked. Unlock first.')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('logs when backup fails', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = true;
+    mockExportDatabase.mockRejectedValue(new Error('Backup exploded'));
+    renderConsole();
+
+    await user.click(screen.getByTestId('console-backup-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Backup failed: Backup exploded')
       ).toBeInTheDocument();
     });
   });
@@ -372,6 +440,20 @@ describe('Console', () => {
     ).toBeInTheDocument();
   });
 
+  it('logs when lock fails', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = true;
+    mockLock.mockRejectedValue(new Error('Lock exploded'));
+    renderConsole();
+
+    await user.click(screen.getByTestId('console-lock-button'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Lock failed: Lock exploded')).toBeInTheDocument();
+    });
+  });
+
   it('locks without clearing session', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
@@ -406,6 +488,49 @@ describe('Console', () => {
     });
   });
 
+  it('logs when new password is missing', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = true;
+    renderConsole();
+
+    await user.type(
+      screen.getByTestId('console-password-current'),
+      'oldpassword'
+    );
+    await user.click(screen.getByTestId('console-password-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('New password cannot be empty.')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('logs when new password confirmation mismatches', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = true;
+    renderConsole();
+
+    await user.type(
+      screen.getByTestId('console-password-current'),
+      'oldpassword'
+    );
+    await user.type(screen.getByTestId('console-password-new'), 'newpassword');
+    await user.type(
+      screen.getByTestId('console-password-confirm'),
+      'mismatch'
+    );
+    await user.click(screen.getByTestId('console-password-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('New passwords do not match.')
+      ).toBeInTheDocument();
+    });
+  });
+
   it('changes password successfully', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
@@ -427,6 +552,31 @@ describe('Console', () => {
     await waitFor(() => {
       expect(
         screen.getByText('Password changed successfully.')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('logs when password change fails with error', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = true;
+    mockChangePassword.mockRejectedValue(new Error('Password exploded'));
+    renderConsole();
+
+    await user.type(
+      screen.getByTestId('console-password-current'),
+      'oldpassword'
+    );
+    await user.type(screen.getByTestId('console-password-new'), 'newpassword');
+    await user.type(
+      screen.getByTestId('console-password-confirm'),
+      'newpassword'
+    );
+    await user.click(screen.getByTestId('console-password-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Password change failed: Password exploded')
       ).toBeInTheDocument();
     });
   });
