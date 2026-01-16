@@ -484,7 +484,7 @@ export function Console() {
             onFilesSelected={handleFilesSelected}
             accept=".db"
             multiple={false}
-            className={activeCommand ? 'pointer-events-none opacity-50' : ''}
+            disabled={activeCommand !== null}
           />
         )}
         {showRestoreConfirm && (
@@ -532,6 +532,7 @@ export function Console() {
             onChange={(e) => setOldPassword(e.target.value)}
             data-testid="console-password-current"
             autoComplete="current-password"
+            disabled={!isUnlocked}
           />
           <Input
             type="password"
@@ -540,6 +541,7 @@ export function Console() {
             onChange={(e) => setNewPassword(e.target.value)}
             data-testid="console-password-new"
             autoComplete="new-password"
+            disabled={!isUnlocked}
           />
           <Input
             type="password"
@@ -548,12 +550,20 @@ export function Console() {
             onChange={(e) => setConfirmPassword(e.target.value)}
             data-testid="console-password-confirm"
             autoComplete="new-password"
+            disabled={!isUnlocked}
           />
         </div>
         <Button
           type="button"
           onClick={handleChangePassword}
-          disabled={isLoading || activeCommand !== null}
+          disabled={
+            isLoading ||
+            activeCommand !== null ||
+            !isUnlocked ||
+            !oldPassword ||
+            !newPassword ||
+            !confirmPassword
+          }
           data-testid="console-password-button"
           className="w-full"
         >

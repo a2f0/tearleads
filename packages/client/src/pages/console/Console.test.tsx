@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -340,14 +340,16 @@ describe('Console', () => {
   });
 
   it('logs when restore file has invalid extension', async () => {
+    const user = userEvent.setup();
     renderConsole();
 
     const input = screen.getByTestId('dropzone-input');
+    input.removeAttribute('accept');
     const file = new File(['test'], 'backup.txt', {
       type: 'text/plain'
     });
 
-    fireEvent.change(input, { target: { files: [file] } });
+    await user.upload(input, file);
 
     await waitFor(() => {
       expect(
@@ -470,7 +472,7 @@ describe('Console', () => {
     expect(screen.getByText('Database locked.')).toBeInTheDocument();
   });
 
-  it('logs when changing password without current password', async () => {
+  it('disables change password when current password is missing', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
     mockContext.isUnlocked = true;
@@ -481,16 +483,11 @@ describe('Console', () => {
       screen.getByTestId('console-password-confirm'),
       'newpassword'
     );
-    await user.click(screen.getByTestId('console-password-button'));
 
-    await waitFor(() => {
-      expect(
-        screen.getByText('Current password cannot be empty.')
-      ).toBeInTheDocument();
-    });
+    expect(screen.getByTestId('console-password-button')).toBeDisabled();
   });
 
-  it('logs when new password is missing', async () => {
+  it('disables change password when new password is missing', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
     mockContext.isUnlocked = true;
@@ -500,13 +497,7 @@ describe('Console', () => {
       screen.getByTestId('console-password-current'),
       'oldpassword'
     );
-    await user.click(screen.getByTestId('console-password-button'));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('New password cannot be empty.')
-      ).toBeInTheDocument();
-    });
+    expect(screen.getByTestId('console-password-button')).toBeDisabled();
   });
 
   it('logs when new password confirmation mismatches', async () => {
