@@ -1,5 +1,5 @@
-import { ThemeProvider } from '@rapid/ui';
-import { render, screen, waitFor } from '@testing-library/react';
+import { type Theme, ThemeProvider } from '@rapid/ui';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -19,7 +19,14 @@ vi.mock('@uiw/react-md-editor', () => ({
       value={value}
       onChange={(e) => onChange(e.target.value)}
     />
-  )
+  ),
+  commands: {
+    codeEdit: { name: 'codeEdit' },
+    codeLive: { name: 'codeLive' },
+    codePreview: { name: 'codePreview' },
+    divider: { name: 'divider' },
+    fullscreen: { name: 'fullscreen' }
+  }
 }));
 
 const mockUseDatabaseContext = vi.fn();
@@ -54,9 +61,15 @@ function createMockQueryChain(result: unknown[]) {
   };
 }
 
-function renderNoteDetailRaw(noteId: string = 'note-123') {
+interface RenderOptions {
+  noteId?: string;
+  theme?: Theme;
+}
+
+function renderNoteDetailRaw(options: RenderOptions = {}) {
+  const { noteId = 'note-123', theme = 'light' } = options;
   return render(
-    <ThemeProvider>
+    <ThemeProvider defaultTheme={theme}>
       <MemoryRouter initialEntries={[`/notes/${noteId}`]}>
         <Routes>
           <Route path="/notes/:id" element={<NoteDetail />} />
@@ -66,8 +79,8 @@ function renderNoteDetailRaw(noteId: string = 'note-123') {
   );
 }
 
-async function renderNoteDetail(noteId: string = 'note-123') {
-  const result = renderNoteDetailRaw(noteId);
+async function renderNoteDetail(options: RenderOptions = {}) {
+  const result = renderNoteDetailRaw(options);
   await waitFor(() => {
     expect(screen.queryByText('Loading note...')).not.toBeInTheDocument();
   });
@@ -354,6 +367,47 @@ describe('NoteDetail', () => {
 
       expect(screen.queryByTestId('note-title-input')).not.toBeInTheDocument();
       expect(screen.getByText('Test Note')).toBeInTheDocument();
+    });
+  });
+
+  describe('theme integration', () => {
+    it.each([
+      { theme: 'light' as Theme, expectedMode: 'light' },
+      { theme: 'dark' as Theme, expectedMode: 'dark' },
+      { theme: 'monochrome' as Theme, expectedMode: 'dark' },
+      { theme: 'tokyo-night' as Theme, expectedMode: 'dark' }
+    ])('sets data-color-mode to $expectedMode for $theme theme', async ({
+      theme,
+      expectedMode
+    }) => {
+      await renderNoteDetail({ theme });
+
+      const editor = screen.getByTestId('markdown-editor');
+      expect(editor).toHaveAttribute('data-color-mode', expectedMode);
+    });
+
+    it.each([
+      { theme: 'dark', expectedMode: 'dark' },
+      { theme: 'monochrome', expectedMode: 'dark' },
+      { theme: 'tokyo-night', expectedMode: 'dark' }
+    ])('updates data-color-mode when switching to $theme', async ({
+      theme,
+      expectedMode
+    }) => {
+      await renderNoteDetail({ theme: 'light' });
+
+      const editor = screen.getByTestId('markdown-editor');
+      expect(editor).toHaveAttribute('data-color-mode', 'light');
+
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent('settings-synced', {
+            detail: { settings: { theme } }
+          })
+        );
+      });
+
+      expect(editor).toHaveAttribute('data-color-mode', expectedMode);
     });
   });
 });
