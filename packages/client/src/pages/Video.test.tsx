@@ -651,8 +651,22 @@ describe('VideoPage', () => {
 
       await openContextMenuOnVideo(user, 'video-1');
 
+      expect(screen.getByText('Play')).toBeInTheDocument();
       expect(screen.getByText('Get info')).toBeInTheDocument();
       expect(screen.getByText('Delete')).toBeInTheDocument();
+    });
+
+    it('navigates to video detail when "Play" is clicked', async () => {
+      const user = userEvent.setup();
+      await renderVideo();
+
+      await openContextMenuOnVideo(user, 'video-1');
+
+      await user.click(screen.getByText('Play'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/videos/video-1', {
+        state: { from: '/', fromLabel: 'Back to Videos' }
+      });
     });
 
     it('navigates to video detail when "Get info" is clicked', async () => {
