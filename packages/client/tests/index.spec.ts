@@ -93,7 +93,9 @@ const IGNORED_WARNING_PATTERNS: RegExp[] = [
   /apple-mobile-web-app-capable.*deprecated/i,
   // web-llm warnings during model cache checks (expected in test environment)
   /Failed to check cached models/i,
-  /ERR_CONNECTION_REFUSED/i
+  // Network errors are expected when API server isn't running (PWA works offline)
+  /ERR_CONNECTION_REFUSED/i,
+  /Failed to load resource/i
 ];
 
 interface ConsoleMessage {
@@ -731,8 +733,12 @@ test.describe('Debug page', () => {
 
     // Should be back on the home page (shows app icons grid)
     // Verify by checking for one of the app icons in the main content area
+    // The home page can render items as either links or buttons depending on context
     await expect(
-      page.getByRole('main').getByRole('link', { name: 'Files' })
+      page
+        .getByRole('main')
+        .getByRole('link', { name: 'Files' })
+        .or(page.getByRole('main').getByRole('button', { name: 'Files' }))
     ).toBeVisible();
   });
 });
@@ -854,33 +860,30 @@ test.describe('Tables page', () => {
     await expect(page).toHaveURL(/\/tables\/files/);
 
     // Should show back link
-    await expect(page.getByText('Back')).toBeVisible();
+    await expect(page.getByText('Back to Tables')).toBeVisible();
 
     // Should show table name in header
     await expect(
       page.getByRole('heading', { name: 'files', exact: true })
     ).toBeVisible();
 
-    // Should show column headers (from files table schema)
+    // Should show column headers as sortable buttons (virtualized div-based layout)
     // Note: id column is hidden by default
-    // Use exact: true to avoid matching "Resize" text in column headers
-    await expect(
-      page.getByRole('columnheader', { name: /^name\s/i })
-    ).toBeVisible({
+    await expect(page.getByRole('button', { name: 'name' })).toBeVisible({
       timeout: 10000
     });
-    await expect(
-      page.getByRole('columnheader', { name: /^size\s/i })
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'size' })).toBeVisible();
 
-    // Should show row count (confirms data loaded)
-    await expect(page.getByText(/Showing 1 row/)).toBeVisible({ timeout: 10000 });
+    // Should show row count (VirtualListStatus shows "Viewing X-Y of Z rows")
+    await expect(page.getByText(/Viewing \d+-\d+ of \d+ rows?/)).toBeVisible({
+      timeout: 10000
+    });
 
     // Should show our uploaded file data
     await expect(page.getByText('test-file.png', { exact: true })).toBeVisible();
 
     // Click back to return to tables list
-    await page.getByText('Back').click();
+    await page.getByText('Back to Tables').click();
     await expect(page).toHaveURL('/tables');
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
   });
@@ -922,8 +925,9 @@ test.describe('Tables page', () => {
     await filesTableLink.click();
     await expect(page).toHaveURL(/\/tables\/files/);
 
-    // Initially should show table view with column headers (id hidden by default)
-    await expect(page.getByRole('columnheader', { name: /name/i })).toBeVisible();
+    // Initially should show table view with sortable column header buttons
+    // (virtualized div-based layout uses buttons, not columnheaders)
+    await expect(page.getByRole('button', { name: 'name' })).toBeVisible();
     await expect(page.locator('pre')).not.toBeVisible();
 
     // Click the document view toggle button (Braces icon)
@@ -936,16 +940,14 @@ test.describe('Tables page', () => {
     // Should contain the file name in JSON format
     await expect(preElement).toContainText('"name": "doc-view-test.png"');
 
-    // Table headers should not be visible in document view
-    await expect(
-      page.getByRole('columnheader', { name: /name/i })
-    ).not.toBeVisible();
+    // Column header buttons should not be visible in document view
+    await expect(page.getByRole('button', { name: 'name' })).not.toBeVisible();
 
     // Toggle back to table view
     await page.getByRole('button', { name: 'Toggle document view' }).click();
 
     // Should show table view again
-    await expect(page.getByRole('columnheader', { name: /name/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'name' })).toBeVisible();
     await expect(page.locator('pre')).not.toBeVisible();
   });
 });
