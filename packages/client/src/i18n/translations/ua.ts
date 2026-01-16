@@ -65,6 +65,10 @@ export const ua = {
     delete: 'Видалити'
   },
   settings: {
+    font: 'Шрифт',
+    fontDescription: 'Виберіть бажаний стиль шрифту',
+    fontSystem: 'Системний',
+    fontMonospace: 'Моноширинний',
     tooltips: 'Підказки',
     tooltipsDescription:
       'Показувати корисні підказки при наведенні на елементи',
