@@ -12,10 +12,10 @@ interface TerminalOutputProps {
 }
 
 const lineTypeStyles: Record<OutputLineType, string> = {
-  command: 'text-zinc-400',
-  output: 'text-zinc-100',
-  error: 'text-red-400',
-  success: 'text-emerald-400'
+  command: 'text-[var(--terminal-command)]',
+  output: 'text-[var(--terminal-output)]',
+  error: 'text-destructive',
+  success: 'text-success'
 };
 
 export function TerminalOutput({ lines, className }: TerminalOutputProps) {
