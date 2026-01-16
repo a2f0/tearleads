@@ -8,6 +8,7 @@ import { HUDTrigger } from './components/hud';
 import { MobileMenu } from './components/MobileMenu';
 import { SettingsButton } from './components/SettingsButton';
 import { Sidebar } from './components/Sidebar';
+import { WindowRenderer } from './components/window-renderer';
 import { useAppVersion } from './hooks/useAppVersion';
 import { useSSEContext } from './sse';
 
@@ -66,6 +67,7 @@ function App() {
         <p>&copy; {new Date().getFullYear()} Tearleads. All rights reserved.</p>
       </Footer>
       <MiniPlayer />
+      <WindowRenderer />
     </div>
   );
 }

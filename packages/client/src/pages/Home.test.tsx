@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
 import { Home } from './Home';
 
 const mockNavigate = vi.fn();
@@ -48,9 +49,11 @@ const MOCK_SAVED_POSITIONS = {
 describe('Home', () => {
   const renderHome = () => {
     return render(
-      <MemoryRouter>
-        <Home />
-      </MemoryRouter>
+      <WindowManagerProvider>
+        <MemoryRouter>
+          <Home />
+        </MemoryRouter>
+      </WindowManagerProvider>
     );
   };
 
