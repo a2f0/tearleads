@@ -9,6 +9,7 @@ import { ANIMATION_DURATION_MS } from './ui/bottom-sheet';
 describe('SettingsButton', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
     setupThemeMocks();
   });
 
