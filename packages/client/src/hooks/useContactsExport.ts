@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
 import { getDatabase } from '../db';
 import { contactEmails, contactPhones, contacts } from '../db/schema';
@@ -98,16 +98,18 @@ export function useContactsExport() {
         throw new Error('No contacts to export');
       }
 
-      // Fetch all emails and phones in batch
+      // Fetch emails and phones in batch, filtered by contact IDs at the database level
       const contactIds = allContacts.map((c) => c.id);
       const [emailsResult, phonesResult] = await Promise.all([
         db
           .select()
           .from(contactEmails)
+          .where(inArray(contactEmails.contactId, contactIds))
           .orderBy(desc(contactEmails.isPrimary), asc(contactEmails.email)),
         db
           .select()
           .from(contactPhones)
+          .where(inArray(contactPhones.contactId, contactIds))
           .orderBy(
             desc(contactPhones.isPrimary),
             asc(contactPhones.phoneNumber)
@@ -120,7 +122,6 @@ export function useContactsExport() {
         Array<{ email: string; label: string | null; isPrimary: boolean }>
       >();
       for (const email of emailsResult) {
-        if (!contactIds.includes(email.contactId)) continue;
         const emails = emailsByContact.get(email.contactId) ?? [];
         emails.push({
           email: email.email,
@@ -135,7 +136,6 @@ export function useContactsExport() {
         Array<{ phoneNumber: string; label: string | null; isPrimary: boolean }>
       >();
       for (const phone of phonesResult) {
-        if (!contactIds.includes(phone.contactId)) continue;
         const phones = phonesByContact.get(phone.contactId) ?? [];
         phones.push({
           phoneNumber: phone.phoneNumber,
