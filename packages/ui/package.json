@@ -29,12 +29,12 @@
     "react-dom": "19.2.3"
   },
   "dependencies": {
-    "@radix-ui/react-tooltip": "1.2.8",
     "clsx": "2.1.1",
     "lucide-react": "0.562.0",
     "tailwind-merge": "3.4.0"
   },
   "devDependencies": {
+    "@radix-ui/react-tooltip": "1.2.8",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.1",
     "@testing-library/user-event": "14.6.1",
