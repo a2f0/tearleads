@@ -31,7 +31,7 @@ export function DeleteKeychainInstanceDialog({
       if (isMountedRef.current) {
         onOpenChange(false);
       }
-    } catch (error) {
+    } catch (_error) {
       if (isMountedRef.current) {
         setIsDeleting(false);
       }
