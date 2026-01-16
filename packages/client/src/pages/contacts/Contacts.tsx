@@ -1,6 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, asc, eq, like, or, type SQL } from 'drizzle-orm';
 import {
+  Download,
   Info,
   Loader2,
   Mail,
@@ -27,6 +28,7 @@ import {
   contactPhones,
   contacts as contactsTable
 } from '@/db/schema';
+import { useContactsExport } from '@/hooks/useContactsExport';
 import {
   type ColumnMapping,
   type ParsedCSV,
@@ -104,6 +106,8 @@ export function Contacts() {
 
   const { parseFile, importContacts, importing, progress } =
     useContactsImport();
+
+  const { exportContact } = useContactsExport();
 
   // Focus search input when database is unlocked
   useEffect(() => {
@@ -325,6 +329,19 @@ export function Contacts() {
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);
   }, []);
+
+  const handleExportContact = useCallback(async () => {
+    if (!contextMenu) return;
+
+    try {
+      await exportContact(contextMenu.contact.id);
+    } catch (err) {
+      console.error('Failed to export contact:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu, exportContact]);
 
   return (
     <div className="flex h-full flex-col space-y-6">
@@ -555,6 +572,12 @@ export function Contacts() {
             onClick={handleGetInfo}
           >
             {t('getInfo')}
+          </ContextMenuItem>
+          <ContextMenuItem
+            icon={<Download className="h-4 w-4" />}
+            onClick={handleExportContact}
+          >
+            {t('exportVCard')}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Trash2 className="h-4 w-4" />}
