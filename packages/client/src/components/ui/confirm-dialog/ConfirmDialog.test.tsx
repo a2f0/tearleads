@@ -125,4 +125,75 @@ describe('ConfirmDialog', () => {
     });
     expect(screen.getByText('test item')).toBeInTheDocument();
   });
+
+  it('closes dialog when escape key is pressed', async () => {
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    renderDialog({ onOpenChange });
+
+    await user.keyboard('{Escape}');
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('does not close on escape when confirming', async () => {
+    let resolveConfirm: () => void = () => {};
+    const confirmPromise = new Promise<void>((resolve) => {
+      resolveConfirm = resolve;
+    });
+    const onConfirm = vi.fn().mockReturnValue(confirmPromise);
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    renderDialog({ onConfirm, onOpenChange });
+
+    await user.click(screen.getByTestId('confirm-dialog-confirm'));
+
+    expect(screen.getByTestId('confirm-dialog-confirm')).toBeDisabled();
+
+    await user.keyboard('{Escape}');
+
+    // onOpenChange should not be called for escape while confirming
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+
+    resolveConfirm();
+    await waitFor(() => {
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+  });
+
+  it('traps focus within the dialog', async () => {
+    const user = userEvent.setup();
+    renderDialog({});
+
+    const cancelButton = screen.getByTestId('confirm-dialog-cancel');
+    const confirmButton = screen.getByTestId('confirm-dialog-confirm');
+
+    // Focus the cancel button first
+    cancelButton.focus();
+    expect(document.activeElement).toBe(cancelButton);
+
+    // Tab should move to confirm button
+    await user.tab();
+    expect(document.activeElement).toBe(confirmButton);
+
+    // Tab again should wrap back to cancel button (focus trap)
+    await user.tab();
+    expect(document.activeElement).toBe(cancelButton);
+  });
+
+  it('traps focus in reverse with shift+tab', async () => {
+    const user = userEvent.setup();
+    renderDialog({});
+
+    const cancelButton = screen.getByTestId('confirm-dialog-cancel');
+    const confirmButton = screen.getByTestId('confirm-dialog-confirm');
+
+    // Focus the cancel button first
+    cancelButton.focus();
+    expect(document.activeElement).toBe(cancelButton);
+
+    // Shift+Tab should wrap to confirm button (focus trap)
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(confirmButton);
+  });
 });
