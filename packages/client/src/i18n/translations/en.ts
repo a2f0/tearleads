@@ -15,6 +15,7 @@ export const en = {
     contacts: 'Contacts',
     photos: 'Photos',
     documents: 'Documents',
+    notes: 'Notes',
     audio: 'Audio',
     videos: 'Videos',
     tables: 'Tables',

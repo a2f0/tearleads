@@ -6,6 +6,7 @@ export {
   contacts,
   files,
   migrations,
+  notes,
   secrets,
   syncMetadata,
   userSettings

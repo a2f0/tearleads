@@ -15,6 +15,7 @@ export const ua = {
     contacts: 'Контакти',
     photos: 'Фото',
     documents: 'Документи',
+    notes: 'Нотатки',
     audio: 'Аудіо',
     videos: 'Відео',
     tables: 'Таблиці',
