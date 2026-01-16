@@ -52,7 +52,6 @@ export function Home() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [positions, setPositions] = useState<Positions>({});
-  const [initialized, setInitialized] = useState(false);
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<Position>({ x: 0, y: 0 });
   const [hasDragged, setHasDragged] = useState(false);
@@ -65,19 +64,25 @@ export function Home() {
     y: number;
     path: string;
   } | null>(null);
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < 640 : false
+  );
 
-  const isMobile =
-    typeof window !== 'undefined' ? window.innerWidth < 640 : false;
   const itemHeight = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
   const gap = isMobile ? GAP_MOBILE : GAP;
 
   useEffect(() => {
-    if (containerRef.current && !initialized) {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (containerRef.current) {
       const width = containerRef.current.offsetWidth;
       setPositions(calculateGridPositions(appItems, width, isMobile));
-      setInitialized(true);
     }
-  }, [appItems, initialized, isMobile]);
+  }, [appItems, isMobile]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, path: string) => {
@@ -210,7 +215,8 @@ export function Home() {
               onDoubleClick={() => handleDoubleClick(item.path)}
               onContextMenu={(e) => handleIconContextMenu(e, item.path)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
                   navigate(item.path);
                 }
               }}
