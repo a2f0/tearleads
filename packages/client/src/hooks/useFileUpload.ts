@@ -50,10 +50,15 @@ export function useFileUpload() {
 
       // Detect MIME type from file content (magic bytes)
       const detectedType = await fileTypeFromBuffer(data);
-      if (!detectedType) {
+      let mimeType: string;
+      if (detectedType) {
+        mimeType = detectedType.mime;
+      } else if (file.type.startsWith('text/')) {
+        // Text files don't have magic bytes, so fall back to browser-provided MIME type
+        mimeType = file.type;
+      } else {
         throw new UnsupportedFileTypeError(file.name);
       }
-      const mimeType = detectedType.mime;
 
       // Compute content hash for deduplication
       const contentHash = await computeContentHash(data);

@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, like, or } from 'drizzle-orm';
 import {
   Download,
   FileText,
@@ -133,12 +133,14 @@ export function Documents() {
       setUploading(true);
       setUploadProgress(0);
 
-      const validFiles = selectedFiles.filter(
-        (file) => file.type === PDF_MIME_TYPE
+      const isDocumentType = (type: string) =>
+        type === PDF_MIME_TYPE || type.startsWith('text/');
+      const validFiles = selectedFiles.filter((file) =>
+        isDocumentType(file.type)
       );
       const invalidFileErrors = selectedFiles
-        .filter((file) => file.type !== PDF_MIME_TYPE)
-        .map((file) => `"${file.name}" is not a PDF file.`);
+        .filter((file) => !isDocumentType(file.type))
+        .map((file) => `"${file.name}" is not a supported document type.`);
 
       const errors: string[] = [...invalidFileErrors];
       const progresses = Array(validFiles.length).fill(0);
@@ -201,7 +203,15 @@ export function Documents() {
           thumbnailPath: files.thumbnailPath
         })
         .from(files)
-        .where(and(eq(files.mimeType, PDF_MIME_TYPE), eq(files.deleted, false)))
+        .where(
+          and(
+            or(
+              eq(files.mimeType, PDF_MIME_TYPE),
+              like(files.mimeType, 'text/%')
+            ),
+            eq(files.deleted, false)
+          )
+        )
         .orderBy(desc(files.uploadDate));
 
       const documentList: DocumentInfo[] = result.map((row) => ({
@@ -397,10 +407,10 @@ export function Documents() {
         ) : documents.length === 0 && hasFetched ? (
           <Dropzone
             onFilesSelected={handleFilesSelected}
-            accept="application/pdf"
+            accept="application/pdf,text/*"
             multiple={true}
             disabled={uploading}
-            label="PDF documents"
+            label="PDF or text documents"
             source="files"
           />
         ) : (
@@ -492,10 +502,10 @@ export function Documents() {
             </div>
             <Dropzone
               onFilesSelected={handleFilesSelected}
-              accept="application/pdf"
+              accept="application/pdf,text/*"
               multiple={true}
               disabled={uploading}
-              label="PDF documents"
+              label="PDF or text documents"
               source="files"
               compact
               variant="row"
