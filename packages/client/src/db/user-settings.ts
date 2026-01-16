@@ -106,7 +106,12 @@ export async function getSettingsFromDb(
   const allRows = await db
     .select()
     .from(userSettings)
-    .where(inArray(userSettings.key, ['theme', 'language', 'tooltips']));
+    .where(
+      inArray(
+        userSettings.key,
+        Object.keys(SETTING_DEFAULTS) as UserSettingKey[]
+      )
+    );
 
   const settings: Partial<{ [K in UserSettingKey]: SettingValueMap[K] }> = {};
 
