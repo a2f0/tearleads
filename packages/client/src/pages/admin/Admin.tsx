@@ -2,6 +2,7 @@ import type { RedisKeyInfo } from '@rapid/shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Database, Loader2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
@@ -27,6 +28,9 @@ export function Admin() {
     y: number;
   } | null>(null);
   const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ key: string } | null>(
+    null
+  );
 
   const cursorRef = useRef<string>('0');
   const parentRef = useRef<HTMLDivElement>(null);
@@ -128,12 +132,17 @@ export function Admin() {
     setContextMenu(null);
   }, []);
 
-  const handleDeleteKey = useCallback(async () => {
+  const handleDeleteKeyClick = useCallback(() => {
     if (!contextMenu) return;
+    setDeleteDialog({ key: contextMenu.keyInfo.key });
+    setContextMenu(null);
+  }, [contextMenu]);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteDialog) return;
 
     setError(null);
-    const keyToDelete = contextMenu.keyInfo.key;
-    setContextMenu(null);
+    const keyToDelete = deleteDialog.key;
 
     try {
       const result = await api.admin.redis.deleteKey(keyToDelete);
@@ -149,8 +158,9 @@ export function Admin() {
     } catch (err) {
       console.error('Failed to delete key:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete key');
+      throw err;
     }
-  }, [contextMenu]);
+  }, [deleteDialog]);
 
   // Calculate visible range from virtual items (excluding loader row)
   const visibleKeyItems = virtualItems.filter(
@@ -270,12 +280,34 @@ export function Admin() {
         >
           <ContextMenuItem
             icon={<Trash2 className="h-4 w-4" />}
-            onClick={handleDeleteKey}
+            onClick={handleDeleteKeyClick}
           >
             {t('delete')}
           </ContextMenuItem>
         </ContextMenu>
       )}
+
+      <ConfirmDialog
+        open={!!deleteDialog}
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialog(null);
+        }}
+        title="Delete Redis Key"
+        description={
+          deleteDialog ? (
+            <p>
+              Are you sure you want to delete the key{' '}
+              <strong className="break-all font-mono">
+                {deleteDialog.key}
+              </strong>
+              ?
+            </p>
+          ) : null
+        }
+        confirmLabel="Delete"
+        confirmingLabel="Deleting..."
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

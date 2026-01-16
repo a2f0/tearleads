@@ -43,9 +43,6 @@ describe('LocalStorage', () => {
       },
       writable: true
     });
-
-    // Mock window.confirm
-    vi.spyOn(window, 'confirm').mockImplementation(() => true);
   });
 
   describe('page rendering', () => {
@@ -192,15 +189,18 @@ describe('LocalStorage', () => {
       const deleteButton = screen.getByTitle('Delete');
       await user.click(deleteButton);
 
-      expect(window.confirm).toHaveBeenCalledWith(
-        'Are you sure you want to delete "delete-me"?'
-      );
-      expect(localStorage.removeItem).toHaveBeenCalledWith('delete-me');
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
+
+      await waitFor(() => {
+        expect(localStorage.removeItem).toHaveBeenCalledWith('delete-me');
+      });
     });
 
     it('does not delete entry when confirmation is cancelled', async () => {
-      vi.spyOn(window, 'confirm').mockImplementation(() => false);
-
       const user = userEvent.setup();
       renderLocalStorage();
 
@@ -210,6 +210,12 @@ describe('LocalStorage', () => {
 
       const deleteButton = screen.getByTitle('Delete');
       await user.click(deleteButton);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-cancel'));
 
       expect(localStorage.removeItem).not.toHaveBeenCalled();
     });
@@ -233,15 +239,21 @@ describe('LocalStorage', () => {
 
       await user.click(clearAllButton);
 
-      expect(window.confirm).toHaveBeenCalledWith(
-        'Are you sure you want to clear ALL localStorage data? This cannot be undone.'
-      );
-      expect(localStorage.clear).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+        expect(
+          screen.getByText(/Are you sure you want to clear ALL localStorage/)
+        ).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
+
+      await waitFor(() => {
+        expect(localStorage.clear).toHaveBeenCalled();
+      });
     });
 
     it('does not clear when confirmation is cancelled', async () => {
-      vi.spyOn(window, 'confirm').mockImplementation(() => false);
-
       const user = userEvent.setup();
       renderLocalStorage();
 
@@ -250,6 +262,12 @@ describe('LocalStorage', () => {
       });
 
       await user.click(clearAllButton);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-cancel'));
 
       expect(localStorage.clear).not.toHaveBeenCalled();
     });
