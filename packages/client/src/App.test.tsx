@@ -56,6 +56,10 @@ vi.mock('./components/Sidebar', () => ({
   Sidebar: () => <div data-testid="sidebar" />
 }));
 
+vi.mock('./components/window-renderer', () => ({
+  WindowRenderer: () => null
+}));
+
 vi.mock('./hooks/useAppVersion', () => ({
   useAppVersion: () => mockUseAppVersion()
 }));
