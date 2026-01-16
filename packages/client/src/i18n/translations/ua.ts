@@ -61,6 +61,7 @@ export const ua = {
     getInfo: 'Інформація',
     viewDetails: 'Детальніше',
     download: 'Завантажити',
+    edit: 'Редагувати',
     delete: 'Видалити'
   },
   settings: {

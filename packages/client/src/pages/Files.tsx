@@ -722,6 +722,13 @@ export function Files() {
                   </div>
                 </div>
               </div>
+              <Dropzone
+                onFilesSelected={handleFilesSelected}
+                disabled={false}
+                compact
+                variant="row"
+                className="mt-2"
+              />
             </>
           )}
         </div>
