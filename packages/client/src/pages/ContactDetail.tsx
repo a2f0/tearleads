@@ -2,6 +2,7 @@ import { and, asc, desc, eq } from 'drizzle-orm';
 import {
   Cake,
   Calendar,
+  Download,
   Loader2,
   Mail,
   Pencil,
@@ -21,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
+import { useContactsExport } from '@/hooks/useContactsExport';
 import { formatDate } from '@/lib/utils';
 
 interface ContactInfo {
@@ -90,6 +92,19 @@ export function ContactDetail() {
   const [emailsForm, setEmailsForm] = useState<EmailFormData[]>([]);
   const [phonesForm, setPhonesForm] = useState<PhoneFormData[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // Export functionality
+  const { exportContact, exporting } = useContactsExport();
+
+  const handleExport = useCallback(async () => {
+    if (!id) return;
+    try {
+      await exportContact(id);
+    } catch (err) {
+      console.error('Failed to export contact:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [id, exportContact]);
 
   const fetchContact = useCallback(async () => {
     if (!isUnlocked || !id) return;
@@ -540,15 +555,31 @@ export function ContactDetail() {
                   </Button>
                 </div>
               ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleEditClick}
-                  data-testid="edit-button"
-                >
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExport}
+                    disabled={exporting}
+                    data-testid="export-button"
+                  >
+                    {exporting ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    Export
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEditClick}
+                    data-testid="edit-button"
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Edit
+                  </Button>
+                </div>
               )}
             </div>
           </div>
