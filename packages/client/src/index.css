@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@rapid/ui/styles.css";
+@import "@rapid/ui/theme.css";
 
 @source "../../ui/src";
 
