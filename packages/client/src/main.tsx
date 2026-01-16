@@ -91,6 +91,12 @@ const LocalStorage = lazy(() =>
 const Models = lazy(() =>
   import('./pages/models').then((m) => ({ default: m.Models }))
 );
+const NoteDetail = lazy(() =>
+  import('./pages/NoteDetail').then((m) => ({ default: m.NoteDetail }))
+);
+const Notes = lazy(() =>
+  import('./pages/Notes').then((m) => ({ default: m.Notes }))
+);
 const Opfs = lazy(() =>
   import('./pages/opfs').then((m) => ({ default: m.Opfs }))
 );
@@ -183,6 +189,11 @@ if (rootElement) {
                                 <Route
                                   path="documents/:id"
                                   element={<DocumentDetail />}
+                                />
+                                <Route path="notes" element={<Notes />} />
+                                <Route
+                                  path="notes/:id"
+                                  element={<NoteDetail />}
                                 />
                                 <Route path="photos" element={<Photos />} />
                                 <Route

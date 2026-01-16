@@ -148,3 +148,22 @@ export const analyticsEvents = pgTable(
   },
   (table) => [index('analytics_events_timestamp_idx').on(table.timestamp)]
 );
+
+/**
+ * Notes table for storing user notes with markdown content.
+ */
+export const notes = pgTable(
+  'notes',
+  {
+    id: text('id').primaryKey(),
+    title: text('title').notNull(),
+    content: text('content').notNull().default(''),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
+    deleted: boolean('deleted').notNull().default(false)
+  },
+  (table) => [
+    index('notes_updated_at_idx').on(table.updatedAt),
+    index('notes_title_idx').on(table.title)
+  ]
+);
