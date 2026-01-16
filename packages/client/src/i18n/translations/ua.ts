@@ -61,5 +61,12 @@ export const ua = {
     getInfo: 'Інформація',
     viewDetails: 'Детальніше',
     delete: 'Видалити'
+  },
+  settings: {
+    tooltips: 'Підказки',
+    tooltipsDescription:
+      'Показувати корисні підказки при наведенні на елементи',
+    tooltipsEnabled: 'Увімкнено',
+    tooltipsDisabled: 'Вимкнено'
   }
 } as const satisfies I18NextTranslations;

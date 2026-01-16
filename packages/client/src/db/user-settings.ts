@@ -10,28 +10,32 @@ import type { Database } from './index';
 import { userSettings } from './schema';
 
 // All known settings keys (stored in DB as key column)
-export type UserSettingKey = 'theme' | 'language';
+export type UserSettingKey = 'theme' | 'language' | 'tooltips';
 
 // Per-setting value types
 export type ThemeValue = 'light' | 'dark' | 'tokyo-night' | 'system';
 export type LanguageValue = 'en' | 'es' | 'ua';
+export type TooltipsValue = 'enabled' | 'disabled';
 
 // Map settings keys to their value types
 export interface SettingValueMap {
   theme: ThemeValue;
   language: LanguageValue;
+  tooltips: TooltipsValue;
 }
 
 // Default values for each setting
 export const SETTING_DEFAULTS: { [K in UserSettingKey]: SettingValueMap[K] } = {
   theme: 'system',
-  language: 'en'
+  language: 'en',
+  tooltips: 'enabled'
 };
 
 // localStorage keys for each setting (maps our keys to existing localStorage keys)
 export const SETTING_STORAGE_KEYS: Record<UserSettingKey, string> = {
   theme: 'theme',
-  language: 'i18nextLng'
+  language: 'i18nextLng',
+  tooltips: 'tooltips'
 };
 
 // Type guard functions
@@ -41,6 +45,10 @@ export function isThemeValue(value: string): value is ThemeValue {
 
 export function isLanguageValue(value: string): value is LanguageValue {
   return ['en', 'es', 'ua'].includes(value);
+}
+
+export function isTooltipsValue(value: string): value is TooltipsValue {
+  return ['enabled', 'disabled'].includes(value);
 }
 
 // Settings sync event detail type
@@ -63,6 +71,9 @@ export function getSettingFromStorage<K extends UserSettingKey>(
       return value as SettingValueMap[K];
     }
     if (key === 'language' && isLanguageValue(value)) {
+      return value as SettingValueMap[K];
+    }
+    if (key === 'tooltips' && isTooltipsValue(value)) {
       return value as SettingValueMap[K];
     }
 
@@ -95,7 +106,12 @@ export async function getSettingsFromDb(
   const allRows = await db
     .select()
     .from(userSettings)
-    .where(inArray(userSettings.key, ['theme', 'language']));
+    .where(
+      inArray(
+        userSettings.key,
+        Object.keys(SETTING_DEFAULTS) as UserSettingKey[]
+      )
+    );
 
   const settings: Partial<{ [K in UserSettingKey]: SettingValueMap[K] }> = {};
 
@@ -107,6 +123,8 @@ export async function getSettingsFromDb(
       settings.theme = value;
     } else if (key === 'language' && isLanguageValue(value)) {
       settings.language = value;
+    } else if (key === 'tooltips' && isTooltipsValue(value)) {
+      settings.tooltips = value;
     }
   }
 
