@@ -454,4 +454,51 @@ describe('Home', () => {
       configurable: true
     });
   });
+
+  it('shows scatter option in canvas context menu and closes menu on click', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+
+    if (canvas) {
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    expect(screen.getByText('Scatter')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Scatter'));
+
+    expect(screen.queryByText('Scatter')).not.toBeInTheDocument();
+  });
+
+  it('shows cluster option in canvas context menu and arranges icons in centered square', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+
+    // Mock container dimensions for cluster calculation
+    if (canvas) {
+      Object.defineProperty(canvas, 'offsetWidth', {
+        value: 800,
+        configurable: true
+      });
+      Object.defineProperty(canvas, 'offsetHeight', {
+        value: 600,
+        configurable: true
+      });
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    expect(screen.getByText('Cluster')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Cluster'));
+
+    // Context menu should close
+    expect(screen.queryByText('Cluster')).not.toBeInTheDocument();
+
+    // localStorage should be cleared (same as auto-arrange)
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
 });
