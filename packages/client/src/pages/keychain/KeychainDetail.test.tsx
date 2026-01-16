@@ -386,6 +386,7 @@ describe('KeychainDetail', () => {
       });
 
       await user.click(screen.getByText('Delete Instance'));
+      await user.click(await screen.findByTestId('confirm-delete-instance'));
 
       await waitFor(() => {
         expect(screen.getByText('Instance error')).toBeInTheDocument();
