@@ -1325,6 +1325,62 @@ describe('Files', () => {
       });
     });
 
+    it('shows Play action for video files', async () => {
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_VIDEO_FILE]));
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('clip.mp4')).toBeInTheDocument();
+      });
+
+      // Right-click on the video file row
+      const fileRow = screen
+        .getByText('clip.mp4')
+        .closest('div[class*="flex"]');
+      expect(fileRow).toBeInTheDocument();
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      // Context menu should show Play action for video
+      await waitFor(() => {
+        expect(screen.getByText('Play')).toBeInTheDocument();
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+        expect(screen.getByText('Download')).toBeInTheDocument();
+      });
+    });
+
+    it('navigates to video detail when Play is clicked for video file', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_VIDEO_FILE]));
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('clip.mp4')).toBeInTheDocument();
+      });
+
+      // Right-click on the video file row
+      const fileRow = screen
+        .getByText('clip.mp4')
+        .closest('div[class*="flex"]');
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Play')).toBeInTheDocument();
+      });
+
+      // Click Play
+      await user.click(screen.getByText('Play'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/videos/file-4', {
+        state: { from: '/', fromLabel: 'Back to Files' }
+      });
+    });
+
     it('does not show Get Info for non-viewable file types', async () => {
       const textFile = {
         id: 'text-1',
