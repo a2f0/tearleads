@@ -19,9 +19,10 @@ const MIN_HEIGHT = 150;
 const MAX_HEIGHT_PERCENT = 0.85;
 const VELOCITY_THRESHOLD = 0.5;
 const DISMISS_THRESHOLD = 100;
-const HANDLE_HEIGHT = 40;
-const TITLE_HEIGHT = 36;
-const CONTENT_PADDING = 16;
+const HANDLE_HEIGHT = 40; // Coupled to classes: h-5 icon, pt-3, pb-2
+const TITLE_HEIGHT = 36; // Coupled to classes: text-lg, pb-2
+const CONTENT_PADDING = 16; // Coupled to class: pb-4
+const MIN_SNAP_SEPARATION = 25; // Minimum gap between snap points
 
 interface BottomSheetProps {
   open: boolean;
@@ -113,7 +114,9 @@ export function BottomSheet({
 
       return [
         { name: 'content', height: clampedHeight },
-        ...defaultPoints.filter((p) => p.height > clampedHeight)
+        ...defaultPoints.filter(
+          (p) => p.height > clampedHeight + MIN_SNAP_SEPARATION
+        )
       ];
     }
 
