@@ -62,6 +62,14 @@ vi.mock('@/db', () => ({
   })
 }));
 
+// Mock SettingsProvider for TooltipsToggle
+vi.mock('@/db/SettingsProvider', () => ({
+  useSettings: () => ({
+    getSetting: vi.fn(() => 'enabled'),
+    setSetting: vi.fn()
+  })
+}));
+
 // Mock API
 vi.mock('@/lib/api', () => ({
   api: {

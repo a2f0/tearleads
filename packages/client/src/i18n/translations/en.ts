@@ -61,5 +61,11 @@ export const en = {
     getInfo: 'Get info',
     viewDetails: 'View Details',
     delete: 'Delete'
+  },
+  settings: {
+    tooltips: 'Tooltips',
+    tooltipsDescription: 'Show helpful hints when hovering over elements',
+    tooltipsEnabled: 'Enabled',
+    tooltipsDisabled: 'Disabled'
   }
 } as const satisfies I18NextTranslations;

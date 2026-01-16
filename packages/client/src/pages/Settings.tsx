@@ -1,7 +1,11 @@
 import { AlertTriangle, ChevronRight, Download, Scale } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { SettingsSection, ThemeSelector } from '@/components/settings';
+import {
+  SettingsSection,
+  ThemeSelector,
+  TooltipsToggle
+} from '@/components/settings';
 import { LanguageSelector } from '@/components/settings/LanguageSelector';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
@@ -96,6 +100,10 @@ export function Settings() {
 
       <SettingsSection>
         <LanguageSelector />
+      </SettingsSection>
+
+      <SettingsSection>
+        <TooltipsToggle />
       </SettingsSection>
 
       {/* Backup & Restore Section */}
