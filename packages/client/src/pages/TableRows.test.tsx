@@ -655,12 +655,14 @@ describe('TableRows', () => {
       await user.click(screen.getByTestId('column-settings-button'));
       await user.click(screen.getByTestId('column-toggle-name'));
 
-      // Sort should be cleared - last query should not have ORDER BY
+      // Sort should be cleared - find the most recent SELECT * query
       await waitFor(() => {
-        const lastCall =
-          mockExecute.mock.calls[mockExecute.mock.calls.length - 1];
-        expect(lastCall?.[0]).toContain('SELECT *');
-        expect(lastCall?.[0]).not.toContain('ORDER BY');
+        const selectCalls = mockExecute.mock.calls.filter((call) =>
+          call[0]?.includes('SELECT *')
+        );
+        const lastSelectCall = selectCalls[selectCalls.length - 1];
+        expect(lastSelectCall?.[0]).toContain('SELECT *');
+        expect(lastSelectCall?.[0]).not.toContain('ORDER BY');
       });
     });
 
@@ -952,6 +954,67 @@ describe('TableRows', () => {
               call[0].includes('SELECT *') && call[0].includes('OFFSET 50')
           )
         ).toBe(true);
+      });
+    });
+
+    it('stops loading when all rows have been fetched (offset >= totalCount)', async () => {
+      let fetchCount = 0;
+      const TOTAL_COUNT = 75; // Less than 2 full pages
+
+      mockExecute.mockImplementation((query: string) => {
+        if (query.includes('sqlite_master')) {
+          return Promise.resolve({ rows: [{ name: 'test_table' }] });
+        }
+        if (query.includes('PRAGMA table_info')) {
+          return Promise.resolve({ rows: mockColumns });
+        }
+        if (query.includes('COUNT(*)')) {
+          return Promise.resolve({ rows: [{ count: TOTAL_COUNT }] });
+        }
+        if (query.includes('SELECT *')) {
+          fetchCount++;
+          if (fetchCount === 1) {
+            // First page: 50 rows (offset 0-49)
+            const rows = Array.from({ length: 50 }, (_, i) => ({
+              id: i + 1,
+              name: `User ${i + 1}`,
+              age: 20 + i
+            }));
+            return Promise.resolve({ rows });
+          }
+          if (fetchCount === 2) {
+            // Second page: 25 rows (offset 50-74)
+            const rows = Array.from({ length: 25 }, (_, i) => ({
+              id: 51 + i,
+              name: `User ${51 + i}`,
+              age: 70 + i
+            }));
+            return Promise.resolve({ rows });
+          }
+          // Should not reach here - no third fetch expected
+          return Promise.resolve({ rows: [] });
+        }
+        return Promise.resolve({ rows: [] });
+      });
+
+      await renderTableRows();
+
+      // Wait for initial fetch and load-more to complete
+      await waitFor(() => {
+        expect(fetchCount).toBe(2);
+      });
+
+      // Wait a bit to ensure no additional fetches occur
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      });
+
+      // Verify no third fetch was made (pagination stopped at totalCount)
+      expect(fetchCount).toBe(2);
+
+      // Verify the status shows all rows loaded (75 total, 75 loaded)
+      await waitFor(() => {
+        expect(screen.getByText(/75 rows/)).toBeInTheDocument();
       });
     });
   });
