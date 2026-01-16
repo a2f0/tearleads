@@ -4,7 +4,7 @@ export interface PatternPreviewProps {
   pattern: DesktopPatternValue;
 }
 
-const PATTERN_LABELS: Record<DesktopPatternValue, string> = {
+export const PATTERN_LABELS: Record<DesktopPatternValue, string> = {
   solid: 'Solid',
   honeycomb: 'Honeycomb',
   isometric: 'Isometric'
@@ -91,8 +91,13 @@ export function PatternPreview({ pattern }: PatternPreviewProps) {
   return (
     <div className="flex h-full w-full flex-col bg-background text-foreground">
       <div className="flex-1">
-        {pattern === 'honeycomb' && <HoneycombPattern />}
-        {pattern === 'isometric' && <IsometricPattern />}
+        {
+          {
+            solid: null,
+            honeycomb: <HoneycombPattern />,
+            isometric: <IsometricPattern />
+          }[pattern]
+        }
       </div>
       <p className="bg-background py-2 text-center font-medium text-xs">
         {PATTERN_LABELS[pattern]}
