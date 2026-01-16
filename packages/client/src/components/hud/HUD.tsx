@@ -29,10 +29,10 @@ interface HUDProps {
 type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
 const POSITION_CLASSES: Record<Corner, string> = {
-  'top-left': 'top-0 left-0 cursor-nwse-resize',
-  'top-right': 'top-0 right-0 cursor-nesw-resize',
-  'bottom-left': 'bottom-0 left-0 cursor-nesw-resize',
-  'bottom-right': 'bottom-0 right-0 cursor-nwse-resize'
+  'top-left': 'top-0 left-0',
+  'top-right': 'top-0 right-0',
+  'bottom-left': 'bottom-0 left-0',
+  'bottom-right': 'bottom-0 right-0'
 };
 
 const BORDER_CLASSES: Record<Corner, string> = {
@@ -56,7 +56,7 @@ function ResizeHandle({
     // biome-ignore lint/a11y/noStaticElementInteractions: Resize handle for mouse/touch drag only
     <div
       className={cn(
-        'absolute z-10 h-4 w-4 touch-none border-muted-foreground/40 transition-colors hover:border-primary',
+        'absolute z-10 h-4 w-4 touch-none border-transparent transition-colors hover:border-primary',
         POSITION_CLASSES[corner],
         BORDER_CLASSES[corner]
       )}
