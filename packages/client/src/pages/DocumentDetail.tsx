@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, like, or } from 'drizzle-orm';
 import { Calendar, FileType, HardDrive, Loader2 } from 'lucide-react';
 import {
   lazy,
@@ -40,9 +40,10 @@ export function DocumentDetail() {
   const navigate = useNavigate();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [document, setDocument] = useState<DocumentInfo | null>(null);
-  const [pdfData, setPdfData] = useState<Uint8Array | null>(null);
+  const [documentData, setDocumentData] = useState<Uint8Array | null>(null);
+  const [textContent, setTextContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [pdfLoading, setPdfLoading] = useState(false);
+  const [contentLoading, setContentLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [canShare, setCanShare] = useState(false);
   const [actionLoading, setActionLoading] = useState<ActionType | null>(null);
@@ -150,7 +151,10 @@ export function DocumentDetail() {
         .where(
           and(
             eq(files.id, id),
-            eq(files.mimeType, PDF_MIME_TYPE),
+            or(
+              eq(files.mimeType, PDF_MIME_TYPE),
+              like(files.mimeType, 'text/%')
+            ),
             eq(files.deleted, false)
           )
         )
@@ -193,8 +197,8 @@ export function DocumentDetail() {
 
     let cancelled = false;
 
-    const loadPdfData = async () => {
-      setPdfLoading(true);
+    const loadDocumentData = async () => {
+      setContentLoading(true);
       try {
         const data = await retrieveFileData(
           document.storagePath,
@@ -202,21 +206,26 @@ export function DocumentDetail() {
         );
         if (!cancelled) {
           loadedStoragePathRef.current = document.storagePath;
-          setPdfData(data);
+          if (document.mimeType.startsWith('text/')) {
+            const decoder = new TextDecoder('utf-8', { fatal: false });
+            setTextContent(decoder.decode(data));
+          } else {
+            setDocumentData(data);
+          }
         }
       } catch (err) {
         if (!cancelled) {
-          console.error('Failed to load PDF data:', err);
+          console.error('Failed to load document data:', err);
           setError(err instanceof Error ? err.message : String(err));
         }
       } finally {
         if (!cancelled) {
-          setPdfLoading(false);
+          setContentLoading(false);
         }
       }
     };
 
-    loadPdfData();
+    loadDocumentData();
 
     return () => {
       cancelled = true;
@@ -260,28 +269,43 @@ export function DocumentDetail() {
             data-testid="document-title"
           />
 
-          {pdfLoading && (
+          {contentLoading && (
             <div
               className="flex items-center justify-center gap-2 rounded-lg border bg-muted p-12 text-muted-foreground"
-              data-testid="pdf-loading"
+              data-testid="content-loading"
             >
               <Loader2 className="h-5 w-5 animate-spin" />
-              Loading PDF...
+              Loading document...
             </div>
           )}
 
-          {!pdfLoading && pdfData && (
-            <Suspense
-              fallback={
-                <div className="flex items-center justify-center gap-2 rounded-lg border bg-muted p-12 text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Loading viewer...
-                </div>
-              }
-            >
-              <PdfViewer data={pdfData} />
-            </Suspense>
-          )}
+          {!contentLoading &&
+            documentData &&
+            document.mimeType === PDF_MIME_TYPE && (
+              <Suspense
+                fallback={
+                  <div className="flex items-center justify-center gap-2 rounded-lg border bg-muted p-12 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Loading viewer...
+                  </div>
+                }
+              >
+                <PdfViewer data={documentData} />
+              </Suspense>
+            )}
+
+          {!contentLoading &&
+            textContent !== null &&
+            document.mimeType.startsWith('text/') && (
+              <div
+                className="overflow-auto rounded-lg border bg-muted p-4"
+                data-testid="text-viewer"
+              >
+                <pre className="whitespace-pre-wrap break-words font-mono text-sm">
+                  {textContent}
+                </pre>
+              </div>
+            )}
 
           <ActionToolbar
             onDownload={handleDownload}
