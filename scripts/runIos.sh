@@ -10,7 +10,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 cd "$SCRIPT_DIR/../packages/client"
 
 BUNDLE_ID="com.tearleads.rapid"
-DEVICE="iPhone 16 Pro"
+DEVICE="${1:-"iPhone 16 Pro"}"
 
 pnpm build && pnpm exec cap sync ios
 xcrun simctl terminate booted "$BUNDLE_ID" 2>/dev/null || true
