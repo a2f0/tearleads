@@ -1,9 +1,8 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { desc, eq } from 'drizzle-orm';
-import { Info, Loader2, Plus, StickyNote, Trash2 } from 'lucide-react';
+import { Info, Loader2, StickyNote, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Input } from '@/components/ui/input';
 import { ListRow } from '@/components/ui/list-row';
@@ -15,6 +14,7 @@ import { notes } from '@/db/schema';
 import { useTypedTranslation } from '@/i18n';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { formatDate } from '@/lib/utils';
+import { AddNoteCard } from './notes/AddNoteCard';
 
 interface NoteInfo {
   id: string;
@@ -219,20 +219,7 @@ export function Notes() {
           <StickyNote className="h-8 w-8 text-muted-foreground" />
           <h1 className="font-bold text-2xl tracking-tight">Notes</h1>
         </div>
-        {isUnlocked && (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleCreateNote}
-              data-testid="create-note-button"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              New Note
-            </Button>
-            <RefreshButton onClick={fetchNotes} loading={loading} />
-          </div>
-        )}
+        {isUnlocked && <RefreshButton onClick={fetchNotes} loading={loading} />}
       </div>
 
       {isLoading && (
@@ -257,19 +244,7 @@ export function Notes() {
             Loading notes...
           </div>
         ) : notesList.length === 0 && hasFetched ? (
-          <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
-            <StickyNote className="h-12 w-12 text-muted-foreground" />
-            <div>
-              <h3 className="font-semibold">No notes yet</h3>
-              <p className="text-muted-foreground text-sm">
-                Create your first note to get started
-              </p>
-            </div>
-            <Button onClick={handleCreateNote} data-testid="empty-create-note">
-              <Plus className="mr-2 h-4 w-4" />
-              Create Note
-            </Button>
-          </div>
+          <AddNoteCard onClick={handleCreateNote} size="large" />
         ) : (
           <div
             className="flex min-h-0 flex-1 flex-col space-y-2"
@@ -337,6 +312,7 @@ export function Notes() {
                 </div>
               </div>
             </div>
+            <AddNoteCard onClick={handleCreateNote} size="small" />
           </div>
         ))}
 
