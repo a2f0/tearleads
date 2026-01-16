@@ -13,6 +13,13 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+vi.mock('@/db/SettingsProvider', () => ({
+  useSettings: () => ({
+    getSetting: () => 'solid',
+    setSetting: vi.fn()
+  })
+}));
+
 const STORAGE_KEY = 'desktop-icon-positions';
 
 const MOCK_SAVED_POSITIONS = {
