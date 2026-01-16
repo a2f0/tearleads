@@ -50,10 +50,13 @@ export function Console() {
     return String(logIdRef.current);
   }, []);
 
-  const appendLog = useCallback((message: string) => {
-    const nextId = getNextLogId();
-    setLogs((prev) => [...prev, { id: nextId, message }]);
-  }, [getNextLogId]);
+  const appendLog = useCallback(
+    (message: string) => {
+      const nextId = getNextLogId();
+      setLogs((prev) => [...prev, { id: nextId, message }]);
+    },
+    [getNextLogId]
+  );
 
   const clearLogs = useCallback(() => {
     setLogs([]);
