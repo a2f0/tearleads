@@ -292,9 +292,7 @@ describe('KeychainDetail', () => {
       });
 
       await user.click(screen.getByText('Delete Instance'));
-      await user.click(
-        await screen.findByTestId('confirm-delete-instance')
-      );
+      await user.click(await screen.findByTestId('confirm-delete-instance'));
 
       await waitFor(() => {
         expect(mockGetKeyManagerForInstance).toHaveBeenCalledWith('test-id');
@@ -343,9 +341,7 @@ describe('KeychainDetail', () => {
       });
 
       await user.click(screen.getByText('Delete Instance'));
-      await user.click(
-        await screen.findByTestId('confirm-delete-instance')
-      );
+      await user.click(await screen.findByTestId('confirm-delete-instance'));
 
       await waitFor(() => {
         expect(screen.getByText('Delete instance failed')).toBeInTheDocument();
