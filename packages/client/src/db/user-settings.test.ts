@@ -57,6 +57,7 @@ import {
   dispatchSettingsSyncedEvent,
   getSettingFromStorage,
   getSettingsFromDb,
+  isFontValue,
   isLanguageValue,
   isThemeValue,
   isTooltipsValue,
@@ -115,6 +116,19 @@ describe('user-settings', () => {
         expect(isTooltipsValue('ENABLED')).toBe(false);
       });
     });
+
+    describe('isFontValue', () => {
+      it('returns true for valid font values', () => {
+        expect(isFontValue('system')).toBe(true);
+        expect(isFontValue('monospace')).toBe(true);
+      });
+
+      it('returns false for invalid font values', () => {
+        expect(isFontValue('serif')).toBe(false);
+        expect(isFontValue('')).toBe(false);
+        expect(isFontValue('SYSTEM')).toBe(false);
+      });
+    });
   });
 
   describe('constants', () => {
@@ -122,12 +136,14 @@ describe('user-settings', () => {
       expect(SETTING_DEFAULTS.theme).toBe('system');
       expect(SETTING_DEFAULTS.language).toBe('en');
       expect(SETTING_DEFAULTS.tooltips).toBe('enabled');
+      expect(SETTING_DEFAULTS.font).toBe('system');
     });
 
     it('has correct storage keys', () => {
       expect(SETTING_STORAGE_KEYS.theme).toBe('theme');
       expect(SETTING_STORAGE_KEYS.language).toBe('i18nextLng');
       expect(SETTING_STORAGE_KEYS.tooltips).toBe('tooltips');
+      expect(SETTING_STORAGE_KEYS.font).toBe('font');
     });
   });
 
@@ -136,6 +152,7 @@ describe('user-settings', () => {
       expect(getSettingFromStorage('theme')).toBeNull();
       expect(getSettingFromStorage('language')).toBeNull();
       expect(getSettingFromStorage('tooltips')).toBeNull();
+      expect(getSettingFromStorage('font')).toBeNull();
     });
 
     it('returns theme value from localStorage', () => {
@@ -153,6 +170,11 @@ describe('user-settings', () => {
       expect(getSettingFromStorage('tooltips')).toBe('disabled');
     });
 
+    it('returns font value from localStorage', () => {
+      localStorageData['font'] = 'monospace';
+      expect(getSettingFromStorage('font')).toBe('monospace');
+    });
+
     it('returns null for invalid theme value', () => {
       localStorageData['theme'] = 'invalid-theme';
       expect(getSettingFromStorage('theme')).toBeNull();
@@ -166,6 +188,11 @@ describe('user-settings', () => {
     it('returns null for invalid tooltips value', () => {
       localStorageData['tooltips'] = 'true';
       expect(getSettingFromStorage('tooltips')).toBeNull();
+    });
+
+    it('returns null for invalid font value', () => {
+      localStorageData['font'] = 'serif';
+      expect(getSettingFromStorage('font')).toBeNull();
     });
 
     it('handles localStorage errors gracefully', () => {
@@ -198,6 +225,11 @@ describe('user-settings', () => {
     it('sets tooltips in localStorage', () => {
       setSettingInStorage('tooltips', 'disabled');
       expect(localStorage.setItem).toHaveBeenCalledWith('tooltips', 'disabled');
+    });
+
+    it('sets font in localStorage', () => {
+      setSettingInStorage('font', 'monospace');
+      expect(localStorage.setItem).toHaveBeenCalledWith('font', 'monospace');
     });
 
     it('handles localStorage errors gracefully', () => {
@@ -252,6 +284,14 @@ describe('user-settings', () => {
       expect(result.tooltips).toBe('disabled');
     });
 
+    it('returns font from database', async () => {
+      mockWhere.mockResolvedValueOnce([{ key: 'font', value: 'monospace' }]);
+
+      const result = await getSettingsFromDb(mockDb);
+
+      expect(result.font).toBe('monospace');
+    });
+
     it('returns both theme and language from database', async () => {
       mockWhere.mockResolvedValueOnce([
         { key: 'theme', value: 'tokyo-night' },
@@ -299,6 +339,14 @@ describe('user-settings', () => {
       const result = await getSettingsFromDb(mockDb);
 
       expect(result.tooltips).toBeUndefined();
+    });
+
+    it('ignores invalid font values', async () => {
+      mockWhere.mockResolvedValueOnce([{ key: 'font', value: 'serif' }]);
+
+      const result = await getSettingsFromDb(mockDb);
+
+      expect(result.font).toBeUndefined();
     });
   });
 
