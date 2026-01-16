@@ -63,7 +63,8 @@ export const ua = {
     viewDetails: 'Детальніше',
     download: 'Завантажити',
     edit: 'Редагувати',
-    delete: 'Видалити'
+    delete: 'Видалити',
+    exportVCard: 'Експортувати vCard'
   },
   settings: {
     font: 'Шрифт',
