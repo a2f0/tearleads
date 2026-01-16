@@ -3,6 +3,19 @@ import { expect, test } from './fixtures';
 import { clearOriginStorage } from './test-utils';
 
 /**
+ * Corner type for resize handles.
+ * Must stay in sync with Corner type exported from @/hooks/useFloatingWindow
+ */
+type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+/**
+ * HUD minimum size constraints.
+ * Must stay in sync with MIN_WIDTH/MIN_HEIGHT from @/components/hud/constants
+ */
+const MIN_WIDTH = 280;
+const MIN_HEIGHT = 150;
+
+/**
  * Get the current dimensions and position of the HUD dialog
  */
 async function getHUDDimensions(page: Page) {
@@ -17,12 +30,35 @@ async function getHUDDimensions(page: Page) {
 }
 
 /**
+ * Simulate a mouse drag operation from a starting position.
+ * Uses Playwright's mouse API to trigger drag handlers.
+ */
+async function simulateDrag(
+  page: Page,
+  startX: number,
+  startY: number,
+  deltaX: number,
+  deltaY: number,
+  { steps = 10 }: { steps?: number } = {}
+) {
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+
+  for (let i = 1; i <= steps; i++) {
+    const currentX = Math.round(startX + (deltaX * i) / steps);
+    const currentY = Math.round(startY + (deltaY * i) / steps);
+    await page.mouse.move(currentX, currentY);
+  }
+
+  await page.mouse.up();
+}
+
+/**
  * Simulate a corner resize drag on the HUD.
- * Uses Playwright's mouse API to trigger the resize handlers.
  */
 async function dragCorner(
   page: Page,
-  corner: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right',
+  corner: Corner,
   deltaX: number,
   deltaY: number,
   { steps = 10 }: { steps?: number } = {}
@@ -35,17 +71,7 @@ async function dragCorner(
   const startX = Math.round(box.x + box.width / 2);
   const startY = Math.round(box.y + box.height / 2);
 
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-
-  // Use Playwright mouse API for movement (document listeners capture these)
-  for (let i = 1; i <= steps; i++) {
-    const currentX = Math.round(startX + (deltaX * i) / steps);
-    const currentY = Math.round(startY + (deltaY * i) / steps);
-    await page.mouse.move(currentX, currentY);
-  }
-
-  await page.mouse.up();
+  await simulateDrag(page, startX, startY, deltaX, deltaY, { steps });
 }
 
 /**
@@ -65,16 +91,7 @@ async function dragTitleBar(
   const startX = Math.round(box.x + box.width / 2);
   const startY = Math.round(box.y + box.height / 2);
 
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-
-  for (let i = 1; i <= steps; i++) {
-    const currentX = Math.round(startX + (deltaX * i) / steps);
-    const currentY = Math.round(startY + (deltaY * i) / steps);
-    await page.mouse.move(currentX, currentY);
-  }
-
-  await page.mouse.up();
+  await simulateDrag(page, startX, startY, deltaX, deltaY, { steps });
 }
 
 test.describe('HUD Floating Window', () => {
@@ -173,9 +190,9 @@ test.describe('HUD Floating Window', () => {
 
     const final = await getHUDDimensions(page);
 
-    // Should not go below minimum (280x150)
-    expect(final.width).toBeGreaterThanOrEqual(280);
-    expect(final.height).toBeGreaterThanOrEqual(150);
+    // Should not go below minimum constraints
+    expect(final.width).toBeGreaterThanOrEqual(MIN_WIDTH);
+    expect(final.height).toBeGreaterThanOrEqual(MIN_HEIGHT);
   });
 
   test('should close when backdrop is clicked', async ({ page }) => {
