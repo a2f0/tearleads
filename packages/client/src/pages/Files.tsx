@@ -5,15 +5,20 @@ import {
   Download,
   FileIcon,
   FileText,
+  Info,
   Loader2,
   Music,
+  Pause,
+  Play,
   RotateCcw,
   Trash2,
   XCircle
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
+import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
@@ -24,6 +29,7 @@ import { useDatabaseContext } from '@/db/hooks';
 import { files as filesTable } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
+import { useTypedTranslation } from '@/i18n';
 import { retrieveFileData } from '@/lib/data-retrieval';
 import { getErrorMessage } from '@/lib/errors';
 import { downloadFile } from '@/lib/file-utils';
@@ -74,6 +80,24 @@ export function Files() {
   );
   const { uploadFile } = useFileUpload();
   const parentRef = useRef<HTMLDivElement>(null);
+  const { currentTrack, isPlaying, play, pause, resume } = useAudio();
+  const { t } = useTypedTranslation('contextMenu');
+  const [contextMenu, setContextMenu] = useState<{
+    file: FileWithThumbnail;
+    x: number;
+    y: number;
+  } | null>(null);
+  const audioObjectUrlRef = useRef<string | null>(null);
+
+  // Clean up audio object URL on component unmount
+  useEffect(() => {
+    return () => {
+      if (audioObjectUrlRef.current) {
+        URL.revokeObjectURL(audioObjectUrlRef.current);
+        audioObjectUrlRef.current = null;
+      }
+    };
+  }, []);
 
   const filteredFiles = files.filter((f) => showDeleted || !f.deleted);
 
@@ -386,6 +410,84 @@ export function Files() {
     }
   }, []);
 
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, file: FileWithThumbnail) => {
+      e.preventDefault();
+      setContextMenu({ file, x: e.clientX, y: e.clientY });
+    },
+    []
+  );
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  const handleContextMenuGetInfo = useCallback(
+    (file: FileWithThumbnail) => {
+      handleView(file);
+      setContextMenu(null);
+    },
+    [handleView]
+  );
+
+  const handleContextMenuDownload = useCallback(
+    async (file: FileWithThumbnail) => {
+      await handleDownload(file);
+      setContextMenu(null);
+    },
+    [handleDownload]
+  );
+
+  const handleContextMenuDelete = useCallback(
+    async (file: FileWithThumbnail) => {
+      await handleDelete(file);
+      setContextMenu(null);
+    },
+    [handleDelete]
+  );
+
+  const handleContextMenuPlayPause = useCallback(
+    async (file: FileWithThumbnail) => {
+      if (!currentInstanceId) return;
+
+      if (currentTrack?.id === file.id) {
+        if (isPlaying) {
+          pause();
+        } else {
+          resume();
+        }
+      } else {
+        // Load and play the audio file
+        try {
+          const data = await retrieveFileData(
+            file.storagePath,
+            currentInstanceId
+          );
+          const blob = new Blob([new Uint8Array(data)], {
+            type: file.mimeType
+          });
+          // Revoke previous object URL to prevent memory leak
+          if (audioObjectUrlRef.current) {
+            URL.revokeObjectURL(audioObjectUrlRef.current);
+          }
+          const objectUrl = URL.createObjectURL(blob);
+          audioObjectUrlRef.current = objectUrl;
+          play({
+            id: file.id,
+            name: file.name,
+            objectUrl,
+            mimeType: file.mimeType
+          });
+        } catch (err) {
+          console.error('Failed to load audio:', err);
+          setError(err instanceof Error ? err.message : String(err));
+        }
+      }
+      setContextMenu(null);
+    },
+    [currentInstanceId, currentTrack?.id, isPlaying, pause, resume, play]
+  );
+
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="flex items-center justify-between">
@@ -560,6 +662,11 @@ export function Files() {
                         >
                           <ListRow
                             className={`${file.deleted ? 'opacity-60' : ''}`}
+                            onContextMenu={
+                              file.deleted
+                                ? undefined
+                                : (e) => handleContextMenu(e, file)
+                            }
                           >
                             {isClickable ? (
                               <button
@@ -619,6 +726,60 @@ export function Files() {
           )}
         </div>
       )}
+
+      {contextMenu &&
+        (() => {
+          const isPlayingCurrentFile =
+            contextMenu.file.id === currentTrack?.id && isPlaying;
+          const isViewable =
+            contextMenu.file.mimeType.startsWith('audio/') ||
+            contextMenu.file.mimeType.startsWith('image/') ||
+            contextMenu.file.mimeType.startsWith('video/') ||
+            contextMenu.file.mimeType === 'application/pdf';
+
+          return (
+            <ContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              onClose={handleCloseContextMenu}
+            >
+              {contextMenu.file.mimeType.startsWith('audio/') && (
+                <ContextMenuItem
+                  icon={
+                    isPlayingCurrentFile ? (
+                      <Pause className="h-4 w-4" />
+                    ) : (
+                      <Play className="h-4 w-4" />
+                    )
+                  }
+                  onClick={() => handleContextMenuPlayPause(contextMenu.file)}
+                >
+                  {isPlayingCurrentFile ? t('pause') : t('play')}
+                </ContextMenuItem>
+              )}
+              {isViewable && (
+                <ContextMenuItem
+                  icon={<Info className="h-4 w-4" />}
+                  onClick={() => handleContextMenuGetInfo(contextMenu.file)}
+                >
+                  {t('getInfo')}
+                </ContextMenuItem>
+              )}
+              <ContextMenuItem
+                icon={<Download className="h-4 w-4" />}
+                onClick={() => handleContextMenuDownload(contextMenu.file)}
+              >
+                {t('download')}
+              </ContextMenuItem>
+              <ContextMenuItem
+                icon={<Trash2 className="h-4 w-4" />}
+                onClick={() => handleContextMenuDelete(contextMenu.file)}
+              >
+                {t('delete')}
+              </ContextMenuItem>
+            </ContextMenu>
+          );
+        })()}
     </div>
   );
 }

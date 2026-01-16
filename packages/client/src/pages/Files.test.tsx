@@ -1,5 +1,5 @@
 import { ThemeProvider } from '@rapid/ui';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -105,6 +105,29 @@ vi.mock('@/hooks/useFileUpload', () => ({
   useFileUpload: () => ({
     uploadFile: mockUploadFile
   })
+}));
+
+// Mock useAudio hook
+const mockPlay = vi.fn();
+const mockPause = vi.fn();
+const mockResume = vi.fn();
+const mockCurrentTrack = { current: null as { id: string } | null };
+const mockIsPlaying = { current: false };
+vi.mock('@/audio', () => ({
+  useAudio: () => ({
+    currentTrack: mockCurrentTrack.current,
+    isPlaying: mockIsPlaying.current,
+    play: mockPlay,
+    pause: mockPause,
+    resume: mockResume
+  })
+}));
+
+// Mock data-retrieval
+const mockRetrieveFileData = vi.fn();
+vi.mock('@/lib/data-retrieval', () => ({
+  retrieveFileData: (storagePath: string, instanceId: string) =>
+    mockRetrieveFileData(storagePath, instanceId)
 }));
 
 const TEST_FILE_WITH_THUMBNAIL = {
@@ -213,6 +236,7 @@ describe('Files', () => {
     mockGetCurrentKey.mockReturnValue(TEST_ENCRYPTION_KEY);
     mockIsFileStorageInitialized.mockReturnValue(true);
     mockRetrieve.mockResolvedValue(TEST_THUMBNAIL_DATA);
+    mockRetrieveFileData.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
     mockUploadFile.mockReset();
     mockUploadFile.mockResolvedValue({ id: 'new-id', isDuplicate: false });
     mockSelect.mockReturnValue(
@@ -643,7 +667,7 @@ describe('Files', () => {
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
       );
-      mockRetrieve.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
+      mockRetrieveFileData.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
 
       await renderFiles();
 
@@ -654,9 +678,9 @@ describe('Files', () => {
       await user.click(screen.getByTitle('Download'));
 
       await waitFor(() => {
-        expect(mockRetrieve).toHaveBeenCalledWith(
+        expect(mockRetrieveFileData).toHaveBeenCalledWith(
           '/files/document.pdf',
-          expect.any(Function)
+          'test-instance'
         );
         expect(mockDownloadFile).toHaveBeenCalled();
       });
@@ -668,7 +692,7 @@ describe('Files', () => {
         createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
       );
       mockIsFileStorageInitialized.mockReturnValue(false);
-      mockRetrieve.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
+      mockRetrieveFileData.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
 
       await renderFiles();
 
@@ -689,7 +713,7 @@ describe('Files', () => {
       mockSelect.mockReturnValue(
         createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
       );
-      mockRetrieve.mockRejectedValue(new Error('Download failed'));
+      mockRetrieveFileData.mockRejectedValueOnce(new Error('Download failed'));
 
       await renderFiles();
 
@@ -1198,6 +1222,537 @@ describe('Files', () => {
 
       await waitFor(() => {
         expect(URL.revokeObjectURL).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('context menu', () => {
+    const TEST_AUDIO_FILE = {
+      id: 'audio-1',
+      name: 'song.mp3',
+      size: 5000,
+      mimeType: 'audio/mpeg',
+      uploadDate: new Date('2024-01-16'),
+      storagePath: '/files/song.mp3',
+      thumbnailPath: null,
+      deleted: false
+    };
+
+    beforeEach(() => {
+      mockCurrentTrack.current = null;
+      mockIsPlaying.current = false;
+      mockPlay.mockClear();
+      mockPause.mockClear();
+      mockResume.mockClear();
+    });
+
+    it('opens context menu on right-click for non-deleted files', async () => {
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
+      );
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('photo.jpg')).toBeInTheDocument();
+      });
+
+      // Right-click on the file row
+      const fileRow = screen
+        .getByText('photo.jpg')
+        .closest('div[class*="flex"]');
+      expect(fileRow).toBeInTheDocument();
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      // Context menu should appear
+      await waitFor(() => {
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+        expect(screen.getByText('Download')).toBeInTheDocument();
+      });
+    });
+
+    it('shows Play action for audio files', async () => {
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_FILE]));
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('song.mp3')).toBeInTheDocument();
+      });
+
+      // Right-click on the audio file row
+      const fileRow = screen
+        .getByText('song.mp3')
+        .closest('div[class*="flex"]');
+      expect(fileRow).toBeInTheDocument();
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      // Context menu should show Play action for audio
+      await waitFor(() => {
+        expect(screen.getByText('Play')).toBeInTheDocument();
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+        expect(screen.getByText('Download')).toBeInTheDocument();
+      });
+    });
+
+    it('shows Pause action when audio is playing', async () => {
+      mockCurrentTrack.current = { id: 'audio-1' };
+      mockIsPlaying.current = true;
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_FILE]));
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('song.mp3')).toBeInTheDocument();
+      });
+
+      // Right-click on the playing audio file row
+      const fileRow = screen
+        .getByText('song.mp3')
+        .closest('div[class*="flex"]');
+      expect(fileRow).toBeInTheDocument();
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      // Context menu should show Pause action for currently playing audio
+      await waitFor(() => {
+        expect(screen.getByText('Pause')).toBeInTheDocument();
+      });
+    });
+
+    it('does not show Get Info for non-viewable file types', async () => {
+      const textFile = {
+        id: 'text-1',
+        name: 'notes.txt',
+        size: 100,
+        mimeType: 'text/plain',
+        uploadDate: new Date('2024-01-16'),
+        storagePath: '/files/notes.txt',
+        thumbnailPath: null,
+        deleted: false
+      };
+      mockSelect.mockReturnValue(createMockQueryChain([textFile]));
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('notes.txt')).toBeInTheDocument();
+      });
+
+      // Right-click on the text file row
+      const fileRow = screen
+        .getByText('notes.txt')
+        .closest('div[class*="flex"]');
+      expect(fileRow).toBeInTheDocument();
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      // Context menu should NOT show Get info for non-viewable types
+      await waitFor(() => {
+        expect(screen.getByText('Download')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('Get info')).not.toBeInTheDocument();
+      expect(screen.queryByText('Play')).not.toBeInTheDocument();
+    });
+
+    it('closes context menu when Escape is pressed', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
+      );
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('photo.jpg')).toBeInTheDocument();
+      });
+
+      // Right-click to open context menu
+      const fileRow = screen
+        .getByText('photo.jpg')
+        .closest('div[class*="flex"]');
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+      });
+
+      // Press Escape to close
+      await user.keyboard('{Escape}');
+
+      await waitFor(() => {
+        expect(screen.queryByText('Get info')).not.toBeInTheDocument();
+      });
+    });
+
+    it('closes context menu when backdrop is clicked', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
+      );
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('photo.jpg')).toBeInTheDocument();
+      });
+
+      // Right-click to open context menu
+      const fileRow = screen
+        .getByText('photo.jpg')
+        .closest('div[class*="flex"]');
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+      });
+
+      // Click backdrop to close
+      await user.click(
+        screen.getByRole('button', { name: /close context menu/i })
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText('Get info')).not.toBeInTheDocument();
+      });
+    });
+
+    it('does not open context menu for deleted files', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_DELETED_FILE]));
+
+      await renderFiles();
+
+      // Enable show deleted toggle
+      await waitFor(() => {
+        expect(screen.getByRole('switch')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('switch'));
+
+      await waitFor(() => {
+        expect(screen.getByText('deleted.jpg')).toBeInTheDocument();
+      });
+
+      // Right-click on the deleted file row
+      const fileRow = screen
+        .getByText('deleted.jpg')
+        .closest('div[class*="flex"]');
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      // Context menu should NOT appear for deleted files
+      expect(screen.queryByText('Get info')).not.toBeInTheDocument();
+      // Note: Download text might still exist from inline button title
+    });
+
+    it('navigates to detail page when Get Info is clicked', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
+      );
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('photo.jpg')).toBeInTheDocument();
+      });
+
+      // Right-click to open context menu
+      const fileRow = screen
+        .getByText('photo.jpg')
+        .closest('div[class*="flex"]');
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+      });
+
+      // Click Get Info
+      await user.click(screen.getByText('Get info'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/photos/file-1', {
+        state: { from: '/', fromLabel: 'Back to Files' }
+      });
+
+      // Context menu should close
+      await waitFor(() => {
+        expect(screen.queryByText('Get info')).not.toBeInTheDocument();
+      });
+    });
+
+    it('downloads file when Download is clicked in context menu', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_FILE_WITHOUT_THUMBNAIL])
+      );
+      mockRetrieveFileData.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('document.pdf')).toBeInTheDocument();
+      });
+
+      // Right-click to open context menu
+      const fileRow = screen
+        .getByText('document.pdf')
+        .closest('div[class*="flex"]');
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Download')).toBeInTheDocument();
+      });
+
+      // Click Download in context menu
+      await user.click(screen.getByText('Download'));
+
+      await waitFor(() => {
+        expect(mockDownloadFile).toHaveBeenCalled();
+      });
+    });
+
+    it('plays audio when Play is clicked in context menu', async () => {
+      const user = userEvent.setup();
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_FILE]));
+      mockRetrieveFileData.mockResolvedValue(new Uint8Array([1, 2, 3, 4]));
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('song.mp3')).toBeInTheDocument();
+      });
+
+      // Right-click to open context menu
+      const fileRow = screen
+        .getByText('song.mp3')
+        .closest('div[class*="flex"]');
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Play')).toBeInTheDocument();
+      });
+
+      // Click Play
+      await user.click(screen.getByText('Play'));
+
+      await waitFor(() => {
+        expect(mockPlay).toHaveBeenCalled();
+      });
+    });
+
+    it('pauses audio when Pause is clicked in context menu', async () => {
+      const user = userEvent.setup();
+      mockCurrentTrack.current = { id: 'audio-1' };
+      mockIsPlaying.current = true;
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_FILE]));
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('song.mp3')).toBeInTheDocument();
+      });
+
+      // Right-click to open context menu
+      const fileRow = screen
+        .getByText('song.mp3')
+        .closest('div[class*="flex"]');
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Pause')).toBeInTheDocument();
+      });
+
+      // Click Pause
+      await user.click(screen.getByText('Pause'));
+
+      await waitFor(() => {
+        expect(mockPause).toHaveBeenCalled();
+      });
+    });
+
+    it('resumes audio when Play is clicked for paused track', async () => {
+      const user = userEvent.setup();
+      mockCurrentTrack.current = { id: 'audio-1' };
+      mockIsPlaying.current = false; // Paused
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_FILE]));
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('song.mp3')).toBeInTheDocument();
+      });
+
+      // Right-click to open context menu
+      const fileRow = screen
+        .getByText('song.mp3')
+        .closest('div[class*="flex"]');
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Play')).toBeInTheDocument();
+      });
+
+      // Click Play (should resume)
+      await user.click(screen.getByText('Play'));
+
+      await waitFor(() => {
+        expect(mockResume).toHaveBeenCalled();
+      });
+    });
+
+    it('revokes previous URL when playing a different track', async () => {
+      const user = userEvent.setup();
+      const SECOND_AUDIO_FILE = {
+        id: 'audio-2',
+        name: 'song2.mp3',
+        size: 3072,
+        mimeType: 'audio/mpeg',
+        uploadDate: new Date('2024-01-13'),
+        storagePath: '/files/song2.mp3',
+        thumbnailPath: null,
+        deleted: false
+      };
+      mockCurrentTrack.current = null;
+      mockIsPlaying.current = false;
+      mockSelect.mockReturnValue(
+        createMockQueryChain([TEST_AUDIO_FILE, SECOND_AUDIO_FILE])
+      );
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('song.mp3')).toBeInTheDocument();
+        expect(screen.getByText('song2.mp3')).toBeInTheDocument();
+      });
+
+      // Play first track
+      const firstRow = screen
+        .getByText('song.mp3')
+        .closest('div[class*="flex"]');
+      if (firstRow) {
+        fireEvent.contextMenu(firstRow, { clientX: 100, clientY: 100 });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Play')).toBeInTheDocument();
+      });
+      await user.click(screen.getByText('Play'));
+
+      await waitFor(() => {
+        expect(mockPlay).toHaveBeenCalled();
+      });
+
+      // Reset and play second track - this should revoke the first URL
+      mockPlay.mockClear();
+      const revokeCallsBefore = vi.mocked(URL.revokeObjectURL).mock.calls
+        .length;
+
+      const secondRow = screen
+        .getByText('song2.mp3')
+        .closest('div[class*="flex"]');
+      if (secondRow) {
+        fireEvent.contextMenu(secondRow, { clientX: 100, clientY: 100 });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Play')).toBeInTheDocument();
+      });
+      await user.click(screen.getByText('Play'));
+
+      await waitFor(() => {
+        expect(mockPlay).toHaveBeenCalled();
+        // URL.revokeObjectURL should have been called more times than before
+        expect(
+          vi.mocked(URL.revokeObjectURL).mock.calls.length
+        ).toBeGreaterThan(revokeCallsBefore);
+      });
+    });
+
+    it('handles errors when loading audio fails', async () => {
+      const user = userEvent.setup();
+      mockCurrentTrack.current = null;
+      mockIsPlaying.current = false;
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_FILE]));
+      mockRetrieveFileData.mockRejectedValueOnce(new Error('Failed to load'));
+      mockConsoleError();
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('song.mp3')).toBeInTheDocument();
+      });
+
+      // Right-click to open context menu
+      const fileRow = screen
+        .getByText('song.mp3')
+        .closest('div[class*="flex"]');
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Play')).toBeInTheDocument();
+      });
+
+      // Click Play - should fail
+      await user.click(screen.getByText('Play'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Failed to load')).toBeInTheDocument();
+      });
+    });
+
+    it('deletes file when Delete is clicked in context menu', async () => {
+      const user = userEvent.setup();
+      mockCurrentTrack.current = null;
+      mockIsPlaying.current = false;
+      mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_FILE]));
+
+      await renderFiles();
+
+      await waitFor(() => {
+        expect(screen.getByText('song.mp3')).toBeInTheDocument();
+      });
+
+      // Right-click to open context menu
+      const fileRow = screen
+        .getByText('song.mp3')
+        .closest('div[class*="flex"]');
+      if (fileRow) {
+        fireEvent.contextMenu(fileRow, { clientX: 100, clientY: 100 });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+
+      // Click Delete
+      await user.click(screen.getByText('Delete'));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalled();
       });
     });
   });
