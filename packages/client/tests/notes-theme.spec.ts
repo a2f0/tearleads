@@ -27,10 +27,10 @@ async function createAndOpenNote(page: Page) {
   await navigateTo(page, 'Notes');
   await expect(page.getByRole('heading', { name: 'Notes', exact: true })).toBeVisible();
 
-  // Click create note button
-  const createButton = page.getByTestId('create-note-button');
-  await expect(createButton).toBeVisible({ timeout: 10000 });
-  await createButton.click();
+  // Click add note card
+  const addNoteCard = page.getByTestId('add-note-card');
+  await expect(addNoteCard).toBeVisible({ timeout: 10000 });
+  await addNoteCard.click();
 
   // Wait for navigation to note detail page
   await expect(page.getByTestId('markdown-editor')).toBeVisible({ timeout: 10000 });
