@@ -11,8 +11,9 @@ const ICON_SIZE_MOBILE = 56;
 const GAP = 40;
 const GAP_MOBILE = 28;
 const LABEL_HEIGHT = 24;
-const ITEM_HEIGHT = ICON_SIZE + LABEL_HEIGHT + 8;
-const ITEM_HEIGHT_MOBILE = ICON_SIZE_MOBILE + LABEL_HEIGHT + 8;
+const ICON_LABEL_GAP = 8;
+const ITEM_HEIGHT = ICON_SIZE + LABEL_HEIGHT + ICON_LABEL_GAP;
+const ITEM_HEIGHT_MOBILE = ICON_SIZE_MOBILE + LABEL_HEIGHT + ICON_LABEL_GAP;
 const STORAGE_KEY = 'desktop-icon-positions';
 
 type Position = { x: number; y: number };
@@ -20,6 +21,22 @@ type Positions = Record<string, Position>;
 
 function isElement(target: EventTarget | null): target is Element {
   return target !== null && target instanceof Element;
+}
+
+function positionsAreEqual(p1: Positions, p2: Positions): boolean {
+  const keys1 = Object.keys(p1);
+  const keys2 = Object.keys(p2);
+  if (keys1.length !== keys2.length) {
+    return false;
+  }
+  for (const key of keys1) {
+    const pos1 = p1[key];
+    const pos2 = p2[key];
+    if (!pos1 || !pos2 || pos1.x !== pos2.x || pos1.y !== pos2.y) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function constrainPosition(
@@ -30,7 +47,7 @@ function constrainPosition(
   labelHeight: number
 ): Position {
   const itemWidth = iconSize;
-  const itemHeight = iconSize + labelHeight + 8;
+  const itemHeight = iconSize + labelHeight + ICON_LABEL_GAP;
   return {
     x: Math.max(0, Math.min(pos.x, containerWidth - itemWidth)),
     y: Math.max(0, Math.min(pos.y, containerHeight - itemHeight))
@@ -131,7 +148,7 @@ export function Home() {
               LABEL_HEIGHT
             );
             // Only update localStorage if positions actually changed
-            if (JSON.stringify(constrained) !== JSON.stringify(prev)) {
+            if (!positionsAreEqual(constrained, prev)) {
               localStorage.setItem(STORAGE_KEY, JSON.stringify(constrained));
             }
             return constrained;
@@ -161,11 +178,12 @@ export function Home() {
           if (allItemsHavePositions) {
             // Constrain saved positions to current viewport bounds (only if container has valid dimensions)
             if (width > 0 && height > 0) {
+              const currentIconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
               const constrained = constrainAllPositions(
                 savedPositions,
                 width,
                 height,
-                iconSize,
+                currentIconSize,
                 LABEL_HEIGHT
               );
               setPositions(constrained);
@@ -181,7 +199,7 @@ export function Home() {
       }
       setPositions(calculateGridPositions(appItems, width, isMobile));
     }
-  }, [appItems, isMobile, iconSize]);
+  }, [appItems, isMobile]);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, path: string) => {
