@@ -87,6 +87,34 @@ describe('Console', () => {
     });
   });
 
+  it('logs when setup passwords do not match', async () => {
+    const user = userEvent.setup();
+    renderConsole();
+
+    await user.type(
+      screen.getByTestId('console-setup-password'),
+      'testpass123'
+    );
+    await user.type(screen.getByTestId('console-setup-confirm'), 'mismatch');
+    await user.click(screen.getByTestId('console-setup-button'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Passwords do not match.')).toBeInTheDocument();
+    });
+  });
+
+  it('disables unlock when database is not set up', async () => {
+    const user = userEvent.setup();
+    renderConsole();
+
+    await user.type(
+      screen.getByTestId('console-unlock-password'),
+      'testpass123'
+    );
+
+    expect(screen.getByTestId('console-unlock-button')).toBeDisabled();
+  });
+
   it('exports a backup when unlocked', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
@@ -102,5 +130,91 @@ describe('Console', () => {
       expect.any(Uint8Array),
       'rapid-backup.db'
     );
+  });
+
+  it('unlocks the database with persisted session', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = false;
+    renderConsole();
+
+    await user.type(
+      screen.getByTestId('console-unlock-password'),
+      'testpass123'
+    );
+    await user.click(screen.getByTestId('console-unlock-persist'));
+    await user.click(screen.getByTestId('console-unlock-button'));
+
+    await waitFor(() => {
+      expect(mockUnlock).toHaveBeenCalledWith('testpass123', true);
+    });
+    expect(
+      screen.getByText('Database unlocked (session persisted).')
+    ).toBeInTheDocument();
+  });
+
+  it('logs when backup requested while locked', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = false;
+    mockContext.hasPersistedSession = false;
+    renderConsole();
+
+    await user.click(screen.getByTestId('console-backup-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Database locked. Unlock first.')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('restores a backup after confirmation', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    renderConsole();
+
+    const input = screen.getByTestId('dropzone-input');
+    const file = new File(['test'], 'backup.db', {
+      type: 'application/octet-stream'
+    });
+
+    await user.upload(input, file);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Warning: This will replace your current data')
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('console-restore-confirm'));
+
+    await waitFor(() => {
+      expect(mockImportDatabase).toHaveBeenCalledTimes(1);
+    });
+    expect(mockLock).toHaveBeenCalledTimes(1);
+  });
+
+  it('logs when changing password without current password', async () => {
+    const user = userEvent.setup();
+    mockContext.isSetUp = true;
+    mockContext.isUnlocked = true;
+    renderConsole();
+
+    await user.type(
+      screen.getByTestId('console-password-new'),
+      'newpassword'
+    );
+    await user.type(
+      screen.getByTestId('console-password-confirm'),
+      'newpassword'
+    );
+    await user.click(screen.getByTestId('console-password-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Current password cannot be empty.')
+      ).toBeInTheDocument();
+    });
   });
 });
