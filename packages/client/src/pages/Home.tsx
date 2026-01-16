@@ -13,6 +13,7 @@ const GAP_MOBILE = 28;
 const LABEL_HEIGHT = 24;
 const ITEM_HEIGHT = ICON_SIZE + LABEL_HEIGHT + 8;
 const ITEM_HEIGHT_MOBILE = ICON_SIZE_MOBILE + LABEL_HEIGHT + 8;
+const STORAGE_KEY = 'desktop-icon-positions';
 
 type Position = { x: number; y: number };
 type Positions = Record<string, Position>;
@@ -86,6 +87,25 @@ export function Home() {
   useEffect(() => {
     if (containerRef.current) {
       const width = containerRef.current.offsetWidth;
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const savedPositions = JSON.parse(saved) as Positions;
+          // Validate that all current app items have positions
+          const allItemsHavePositions = appItems.every((item) => {
+            const pos = savedPositions[item.path];
+            return (
+              pos && typeof pos.x === 'number' && typeof pos.y === 'number'
+            );
+          });
+          if (allItemsHavePositions) {
+            setPositions(savedPositions);
+            return;
+          }
+        } catch {
+          // Invalid JSON, fall through to default grid
+        }
+      }
       setPositions(calculateGridPositions(appItems, width, isMobile));
     }
   }, [appItems, isMobile]);
@@ -126,8 +146,11 @@ export function Home() {
   );
 
   const handlePointerUp = useCallback(() => {
+    if (dragging && hasDragged) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
+    }
     setDragging(null);
-  }, []);
+  }, [dragging, hasDragged, positions]);
 
   const handleDoubleClick = useCallback(
     (path: string) => {
@@ -156,6 +179,7 @@ export function Home() {
     if (containerRef.current) {
       const width = containerRef.current.offsetWidth;
       setPositions(calculateGridPositions(appItems, width, isMobile));
+      localStorage.removeItem(STORAGE_KEY);
     }
     setCanvasContextMenu(null);
   }, [appItems, isMobile]);
