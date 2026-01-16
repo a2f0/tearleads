@@ -92,9 +92,12 @@ export function Home() {
         try {
           const savedPositions = JSON.parse(saved) as Positions;
           // Validate that all current app items have positions
-          const allItemsHavePositions = appItems.every(
-            (item) => savedPositions[item.path]
-          );
+          const allItemsHavePositions = appItems.every((item) => {
+            const pos = savedPositions[item.path];
+            return (
+              pos && typeof pos.x === 'number' && typeof pos.y === 'number'
+            );
+          });
           if (allItemsHavePositions) {
             setPositions(savedPositions);
             return;
@@ -144,13 +147,10 @@ export function Home() {
 
   const handlePointerUp = useCallback(() => {
     if (dragging && hasDragged) {
-      setPositions((current) => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(current));
-        return current;
-      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
     }
     setDragging(null);
-  }, [dragging, hasDragged]);
+  }, [dragging, hasDragged, positions]);
 
   const handleDoubleClick = useCallback(
     (path: string) => {

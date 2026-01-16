@@ -15,6 +15,29 @@ vi.mock('react-router-dom', async () => {
 
 const STORAGE_KEY = 'desktop-icon-positions';
 
+const MOCK_SAVED_POSITIONS = {
+  '/files': { x: 300, y: 300 },
+  '/contacts': { x: 400, y: 100 },
+  '/photos': { x: 100, y: 200 },
+  '/documents': { x: 200, y: 200 },
+  '/notes': { x: 300, y: 200 },
+  '/audio': { x: 400, y: 200 },
+  '/videos': { x: 100, y: 300 },
+  '/tables': { x: 200, y: 300 },
+  '/analytics': { x: 300, y: 300 },
+  '/sqlite': { x: 400, y: 300 },
+  '/console': { x: 100, y: 400 },
+  '/debug': { x: 200, y: 400 },
+  '/opfs': { x: 300, y: 400 },
+  '/cache-storage': { x: 400, y: 400 },
+  '/local-storage': { x: 100, y: 500 },
+  '/keychain': { x: 200, y: 500 },
+  '/chat': { x: 300, y: 500 },
+  '/models': { x: 400, y: 500 },
+  '/admin': { x: 100, y: 600 },
+  '/settings': { x: 200, y: 600 }
+};
+
 describe('Home', () => {
   const renderHome = () => {
     return render(
@@ -284,28 +307,7 @@ describe('Home', () => {
   });
 
   it('loads saved positions from localStorage on mount', () => {
-    const savedPositions = {
-      '/files': { x: 300, y: 300 },
-      '/contacts': { x: 400, y: 100 },
-      '/photos': { x: 100, y: 200 },
-      '/documents': { x: 200, y: 200 },
-      '/notes': { x: 300, y: 200 },
-      '/audio': { x: 400, y: 200 },
-      '/videos': { x: 100, y: 300 },
-      '/tables': { x: 200, y: 300 },
-      '/analytics': { x: 300, y: 300 },
-      '/sqlite': { x: 400, y: 300 },
-      '/debug': { x: 100, y: 400 },
-      '/opfs': { x: 200, y: 400 },
-      '/cache-storage': { x: 300, y: 400 },
-      '/local-storage': { x: 400, y: 400 },
-      '/keychain': { x: 100, y: 500 },
-      '/chat': { x: 200, y: 500 },
-      '/models': { x: 300, y: 500 },
-      '/admin': { x: 400, y: 500 },
-      '/settings': { x: 100, y: 600 }
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedPositions));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_SAVED_POSITIONS));
 
     renderHome();
 
@@ -318,28 +320,7 @@ describe('Home', () => {
     const user = userEvent.setup();
 
     // Pre-populate localStorage with saved positions
-    const savedPositions = {
-      '/files': { x: 300, y: 300 },
-      '/contacts': { x: 400, y: 100 },
-      '/photos': { x: 100, y: 200 },
-      '/documents': { x: 200, y: 200 },
-      '/notes': { x: 300, y: 200 },
-      '/audio': { x: 400, y: 200 },
-      '/videos': { x: 100, y: 300 },
-      '/tables': { x: 200, y: 300 },
-      '/analytics': { x: 300, y: 300 },
-      '/sqlite': { x: 400, y: 300 },
-      '/debug': { x: 100, y: 400 },
-      '/opfs': { x: 200, y: 400 },
-      '/cache-storage': { x: 300, y: 400 },
-      '/local-storage': { x: 400, y: 400 },
-      '/keychain': { x: 100, y: 500 },
-      '/chat': { x: 200, y: 500 },
-      '/models': { x: 300, y: 500 },
-      '/admin': { x: 400, y: 500 },
-      '/settings': { x: 100, y: 600 }
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedPositions));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_SAVED_POSITIONS));
 
     const { container } = renderHome();
     const canvas = container.querySelector('[role="application"]');
