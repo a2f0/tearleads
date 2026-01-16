@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FontSelector,
+  PatternSelector,
   SettingsSection,
   ThemeSelector,
   TooltipsToggle
@@ -99,6 +100,10 @@ export function Settings() {
 
       <SettingsSection>
         <ThemeSelector />
+      </SettingsSection>
+
+      <SettingsSection>
+        <PatternSelector />
       </SettingsSection>
 
       <SettingsSection>

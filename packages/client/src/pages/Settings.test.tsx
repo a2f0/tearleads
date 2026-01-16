@@ -86,6 +86,12 @@ describe('Settings', () => {
       ).toBeInTheDocument();
     });
 
+    it('renders the pattern selector', () => {
+      expect(
+        screen.getByTestId('pattern-selector-container')
+      ).toBeInTheDocument();
+    });
+
     it('renders the version at the bottom', () => {
       expect(screen.getByTestId('app-version')).toHaveTextContent(
         `v${packageJson.version}`
