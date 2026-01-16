@@ -164,7 +164,11 @@
   filter: grayscale(1) contrast(1.1);
 }
 
-/* MDEditor theme integration - override library defaults with theme variables */
+/* MDEditor theme integration - override library defaults with theme variables.
+   Note: !important is required because @uiw/react-md-editor applies inline styles
+   and uses high-specificity selectors internally. Increasing selector specificity
+   alone is insufficient to override the library's styles reliably across all
+   nested elements and pseudo-states. */
 .w-md-editor {
   --color-canvas-default: var(--background) !important;
   --color-canvas-subtle: var(--card) !important;
