@@ -106,10 +106,9 @@ export function WindowManagerProvider({
         prev.map((w) => {
           if (w.id !== id) return w;
           const newDimensions = dimensions ?? w.dimensions;
-          if (newDimensions) {
-            return { ...w, isMinimized: true, dimensions: newDimensions };
-          }
-          return { ...w, isMinimized: true };
+          return newDimensions
+            ? { ...w, isMinimized: true, dimensions: newDimensions }
+            : { ...w, isMinimized: true };
         })
       );
     },
