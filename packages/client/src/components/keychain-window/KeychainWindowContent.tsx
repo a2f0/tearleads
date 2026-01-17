@@ -89,12 +89,20 @@ export const KeychainWindowContent = forwardRef<KeychainWindowContentRef>(
 
     const handleDeleteSessionKeys = async () => {
       if (!deleteSessionKeysInstance) return;
+      const { id: instanceId } = deleteSessionKeysInstance.instance;
 
       try {
-        await deleteSessionKeysForInstance(
-          deleteSessionKeysInstance.instance.id
+        await deleteSessionKeysForInstance(instanceId);
+
+        // Update just the modified instance instead of a full refetch
+        const newKeyStatus = await getKeyStatusForInstance(instanceId);
+        setInstanceKeyInfos((prevInfos) =>
+          prevInfos.map((info) =>
+            info.instance.id === instanceId
+              ? { ...info, keyStatus: newKeyStatus }
+              : info
+          )
         );
-        await fetchKeychainData();
       } catch (err) {
         console.error('Failed to delete session keys:', err);
         setError(err instanceof Error ? err.message : String(err));
