@@ -1,9 +1,11 @@
 import {
+  AppWindow,
   Archive,
   BarChart3,
   Bot,
   Bug,
   Database,
+  ExternalLink,
   FileIcon,
   FileText,
   Film,
@@ -23,6 +25,8 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
+import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import type { MenuKeys } from '@/i18n';
@@ -194,13 +198,26 @@ export const navItems: NavItem[] = [
   }
 ];
 
-// Paths that can be opened in a floating window
+// Paths that automatically open in a floating window on single click (desktop only)
 // Note: Most paths are excluded for now since E2E tests depend on full-page routes
 // TODO: Update E2E tests to handle floating windows, then re-enable these paths
 const WINDOW_PATHS: Record<string, WindowType> = {
   '/console': 'console',
   '/email': 'email'
 };
+
+// Paths that CAN be opened in a window (shown in context menu)
+// This is a superset of WINDOW_PATHS - these show "Open in Window" option in context menu
+const OPENABLE_IN_WINDOW_PATHS: Record<string, WindowType> = {
+  '/notes': 'notes',
+  '/console': 'console',
+  '/settings': 'settings',
+  '/files': 'files',
+  '/email': 'email'
+};
+
+const canOpenInWindow = (path: string): boolean =>
+  path in OPENABLE_IN_WINDOW_PATHS;
 
 export interface SidebarProps {
   isOpen: boolean;
@@ -213,6 +230,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const { openWindow } = useWindowManager();
   const [isMobile, setIsMobile] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    path: string;
+  } | null>(null);
 
   useEffect(() => {
     // Corresponds to Tailwind's `lg` breakpoint (min-width: 1024px).
@@ -247,22 +269,35 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const handleClick = useCallback(
     (path: string) => {
-      if (isMobile) {
-        handleLaunch(path);
-      }
-      // On desktop, single click does nothing (wait for double click)
+      handleLaunch(path);
     },
-    [isMobile, handleLaunch]
+    [handleLaunch]
   );
 
-  const handleDoubleClick = useCallback(
-    (path: string) => {
-      if (!isMobile) {
-        handleLaunch(path);
+  const handleContextMenu = useCallback((e: React.MouseEvent, path: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, path });
+  }, []);
+
+  const handleOpenFromContextMenu = useCallback(() => {
+    if (contextMenu) {
+      navigate(contextMenu.path);
+      onClose();
+    }
+    setContextMenu(null);
+  }, [contextMenu, navigate, onClose]);
+
+  const handleOpenInWindow = useCallback(() => {
+    if (contextMenu) {
+      const windowType = OPENABLE_IN_WINDOW_PATHS[contextMenu.path];
+      if (windowType) {
+        openWindow(windowType);
+        onClose();
       }
-    },
-    [isMobile, handleLaunch]
-  );
+    }
+    setContextMenu(null);
+  }, [contextMenu, openWindow, onClose]);
 
   return (
     <aside
@@ -288,7 +323,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   type="button"
                   data-testid={item.testId}
                   onClick={() => handleClick(item.path)}
-                  onDoubleClick={() => handleDoubleClick(item.path)}
+                  onContextMenu={(e) => handleContextMenu(e, item.path)}
                   className={cn(
                     'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left font-medium text-sm transition-colors',
                     isActive
@@ -304,6 +339,29 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           })}
         </ul>
       </nav>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+        >
+          <ContextMenuItem
+            icon={<ExternalLink className="h-4 w-4" />}
+            onClick={handleOpenFromContextMenu}
+          >
+            Open
+          </ContextMenuItem>
+          {canOpenInWindow(contextMenu.path) && (
+            <ContextMenuItem
+              icon={<AppWindow className="h-4 w-4" />}
+              onClick={handleOpenInWindow}
+            >
+              Open in Window
+            </ContextMenuItem>
+          )}
+        </ContextMenu>
+      )}
     </aside>
   );
 }
