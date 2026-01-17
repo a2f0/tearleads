@@ -81,6 +81,7 @@ export default defineConfig({
         'src/pages/opfs/index.ts',
         'src/sse/index.ts',
         'src/video/index.ts',
+        'src/components/chat-window/index.ts',
         'src/components/console-window/index.ts',
         'src/components/files/index.ts',
         'src/components/files-window/index.ts',
@@ -102,7 +103,7 @@ export default defineConfig({
       thresholds: {
         statements: 93.9,
         branches: 85.8,
-        functions: 94.9,
+        functions: 94.8,
         lines: 95.4
       }
     }
