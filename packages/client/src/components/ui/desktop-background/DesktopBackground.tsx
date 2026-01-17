@@ -83,12 +83,86 @@ function IsometricSvg() {
   );
 }
 
+function TrianglesSvg() {
+  return (
+    <svg
+      className="absolute inset-0 h-full w-full"
+      xmlns="http://www.w3.org/2000/svg"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+    >
+      <defs>
+        <pattern
+          id="triangles-bg"
+          width="64"
+          height="56"
+          patternUnits="userSpaceOnUse"
+        >
+          <path
+            d="M32 0 L64 56 L0 56 Z"
+            fill="none"
+            stroke="currentColor"
+            strokeOpacity="0.05"
+            strokeWidth="1"
+          />
+          <path
+            d="M32 56 L64 0 L0 0 Z"
+            fill="none"
+            stroke="currentColor"
+            strokeOpacity="0.035"
+            strokeWidth="1"
+          />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#triangles-bg)" />
+    </svg>
+  );
+}
+
+function DiamondsSvg() {
+  return (
+    <svg
+      className="absolute inset-0 h-full w-full"
+      xmlns="http://www.w3.org/2000/svg"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+    >
+      <defs>
+        <pattern
+          id="diamonds-bg"
+          width="72"
+          height="72"
+          patternUnits="userSpaceOnUse"
+        >
+          <path
+            d="M36 0 L72 36 L36 72 L0 36 Z"
+            fill="none"
+            stroke="currentColor"
+            strokeOpacity="0.045"
+            strokeWidth="1"
+          />
+          <path
+            d="M36 16 L56 36 L36 56 L16 36 Z"
+            fill="none"
+            stroke="currentColor"
+            strokeOpacity="0.03"
+            strokeWidth="1"
+          />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#diamonds-bg)" />
+    </svg>
+  );
+}
+
 const PATTERN_COMPONENTS: Record<
   Exclude<DesktopPatternValue, 'solid'>,
   () => ReactNode
 > = {
   honeycomb: HoneycombSvg,
-  isometric: IsometricSvg
+  isometric: IsometricSvg,
+  triangles: TrianglesSvg,
+  diamonds: DiamondsSvg
 };
 
 export function DesktopBackground() {

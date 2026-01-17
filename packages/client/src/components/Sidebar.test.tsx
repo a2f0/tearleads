@@ -7,11 +7,11 @@ import { en } from '@/i18n/translations/en';
 import { navItems, Sidebar } from './Sidebar';
 
 describe('Sidebar', () => {
-  const renderSidebar = (initialRoute = '/') => {
+  const renderSidebar = (initialRoute = '/', isOpen = true) => {
     return render(
       <I18nextProvider i18n={i18n}>
         <MemoryRouter initialEntries={[initialRoute]}>
-          <Sidebar />
+          <Sidebar isOpen={isOpen} />
         </MemoryRouter>
       </I18nextProvider>
     );
@@ -75,6 +75,12 @@ describe('Sidebar', () => {
 
     const aside = container.querySelector('aside');
     expect(aside).toBeInTheDocument();
+  });
+
+  it('hides the sidebar when closed', () => {
+    const { container } = renderSidebar('/', false);
+    const aside = container.querySelector('aside');
+    expect(aside).toHaveClass('lg:hidden');
   });
 
   it('contains a nav element', () => {

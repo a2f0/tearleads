@@ -10,7 +10,6 @@ import { useNavigate } from 'react-router-dom';
 import { navItems } from '@/components/Sidebar';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
-import { DesktopBackground } from '@/components/ui/desktop-background';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useTypedTranslation } from '@/i18n';
 
@@ -411,13 +410,12 @@ export function Home() {
       <div
         ref={containerRef}
         role="application"
-        className="relative h-full w-full flex-1 overflow-hidden bg-background"
+        className="relative h-full w-full flex-1 overflow-hidden bg-transparent"
         style={{ touchAction: isMobile ? 'auto' : 'none' }}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onContextMenu={handleCanvasContextMenu}
       >
-        <DesktopBackground />
         {appItems.map((item) => {
           const Icon = item.icon;
           const isSettings = item.path === '/settings';

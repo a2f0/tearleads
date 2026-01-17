@@ -136,6 +136,8 @@ describe('user-settings', () => {
         expect(isDesktopPatternValue('solid')).toBe(true);
         expect(isDesktopPatternValue('honeycomb')).toBe(true);
         expect(isDesktopPatternValue('isometric')).toBe(true);
+        expect(isDesktopPatternValue('triangles')).toBe(true);
+        expect(isDesktopPatternValue('diamonds')).toBe(true);
       });
 
       it('returns false for invalid desktop pattern values', () => {
@@ -194,8 +196,8 @@ describe('user-settings', () => {
     });
 
     it('returns desktopPattern value from localStorage', () => {
-      localStorageData['desktopPattern'] = 'honeycomb';
-      expect(getSettingFromStorage('desktopPattern')).toBe('honeycomb');
+      localStorageData['desktopPattern'] = 'triangles';
+      expect(getSettingFromStorage('desktopPattern')).toBe('triangles');
     });
 
     it('returns null for invalid theme value', () => {
@@ -261,10 +263,10 @@ describe('user-settings', () => {
     });
 
     it('sets desktopPattern in localStorage', () => {
-      setSettingInStorage('desktopPattern', 'isometric');
+      setSettingInStorage('desktopPattern', 'diamonds');
       expect(localStorage.setItem).toHaveBeenCalledWith(
         'desktopPattern',
-        'isometric'
+        'diamonds'
       );
     });
 
@@ -330,12 +332,12 @@ describe('user-settings', () => {
 
     it('returns desktopPattern from database', async () => {
       mockWhere.mockResolvedValueOnce([
-        { key: 'desktopPattern', value: 'isometric' }
+        { key: 'desktopPattern', value: 'diamonds' }
       ]);
 
       const result = await getSettingsFromDb(mockDb);
 
-      expect(result.desktopPattern).toBe('isometric');
+      expect(result.desktopPattern).toBe('diamonds');
     });
 
     it('returns both theme and language from database', async () => {
