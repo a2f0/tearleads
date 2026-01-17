@@ -321,4 +321,14 @@ describe('ContactsWindow', () => {
       expect(screen.getByTestId('contacts-list')).toBeInTheDocument();
     });
   });
+
+  it('passes initialDimensions to FloatingWindow when provided', () => {
+    render(
+      <ContactsWindow
+        {...defaultProps}
+        initialDimensions={{ x: 100, y: 200, width: 600, height: 500 }}
+      />
+    );
+    expect(screen.getByTestId('floating-window')).toBeInTheDocument();
+  });
 });
