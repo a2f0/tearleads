@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { cn } from '@/lib/utils';
 import { Settings } from '@/pages/Settings';
 import { SettingsWindowMenuBar } from './SettingsWindowMenuBar';
 
@@ -43,7 +44,7 @@ export function SettingsWindow({
           onCompactChange={setCompact}
           onClose={onClose}
         />
-        <div className={`flex-1 overflow-auto ${compact ? 'p-3' : 'p-6'}`}>
+        <div className={cn('flex-1 overflow-auto', compact ? 'p-3' : 'p-6')}>
           <Settings />
         </div>
       </div>
