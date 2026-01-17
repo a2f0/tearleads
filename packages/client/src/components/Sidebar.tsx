@@ -212,16 +212,22 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { openWindow } = useWindowManager();
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== 'undefined' ? window.innerWidth < 1024 : false
-  );
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    // Corresponds to Tailwind's `lg` breakpoint (min-width: 1024px).
+    // isMobile is true when screen is smaller than that.
+    const mediaQuery = window.matchMedia('(max-width: 1023px)');
+
+    const handleMediaChange = (e: MediaQueryListEvent) =>
+      setIsMobile(e.matches);
+
+    // Set initial state and add listener
+    setIsMobile(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleMediaChange);
+
+    // Cleanup on unmount
+    return () => mediaQuery.removeEventListener('change', handleMediaChange);
   }, []);
 
   const handleLaunch = useCallback(
