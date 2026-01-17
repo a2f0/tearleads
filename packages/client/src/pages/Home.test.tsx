@@ -110,7 +110,7 @@ describe('Home', () => {
     expect(icons.length).toBeGreaterThan(0);
   });
 
-  it('navigates on double-click', async () => {
+  it('navigates on double-click for icons without floating window support', async () => {
     const user = userEvent.setup();
     renderHome();
 
@@ -118,6 +118,28 @@ describe('Home', () => {
     await user.dblClick(filesButton);
 
     expect(mockNavigate).toHaveBeenCalledWith('/files');
+  });
+
+  it('opens floating window on double-click for Notes icon', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const notesButton = screen.getByRole('button', { name: 'Notes' });
+    await user.dblClick(notesButton);
+
+    // Should NOT navigate when double-clicking Notes
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('opens floating window on double-click for Console icon', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const consoleButton = screen.getByRole('button', { name: 'Console' });
+    await user.dblClick(consoleButton);
+
+    // Should NOT navigate when double-clicking Console
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('navigates on Enter key press', async () => {
