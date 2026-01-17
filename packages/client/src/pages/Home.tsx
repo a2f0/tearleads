@@ -384,12 +384,15 @@ export function Home() {
       const path = iconContextMenu.path;
       if (path === '/notes') {
         openWindow('notes');
+      } else if (path === '/console') {
+        openWindow('console');
       }
     }
     setIconContextMenu(null);
   }, [iconContextMenu, openWindow]);
 
-  const canOpenInWindow = (path: string) => path === '/notes';
+  const canOpenInWindow = (path: string) =>
+    path === '/notes' || path === '/console';
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden">

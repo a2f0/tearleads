@@ -31,6 +31,32 @@ vi.mock('@/components/notes-window', () => ({
   )
 }));
 
+vi.mock('@/components/console-window', () => ({
+  ConsoleWindow: ({
+    id,
+    onClose,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`console-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+    </div>
+  )
+}));
+
 const mockOpenWindow = vi.fn();
 const mockCloseWindow = vi.fn();
 const mockFocusWindow = vi.fn();
@@ -144,5 +170,30 @@ describe('WindowRenderer', () => {
     // Should render backdrop but no window content
     expect(screen.getByTestId('window-backdrop')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('renders console window for console type', () => {
+    mockWindows = [{ id: 'console-1', type: 'console', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('console-window-console-1')).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when console close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'console-1', type: 'console', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-console-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('console-1');
+  });
+
+  it('renders mixed window types', () => {
+    mockWindows = [
+      { id: 'notes-1', type: 'notes', zIndex: 100 },
+      { id: 'console-1', type: 'console', zIndex: 101 }
+    ];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
+    expect(screen.getByTestId('console-window-console-1')).toBeInTheDocument();
   });
 });
