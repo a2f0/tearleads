@@ -14,7 +14,8 @@ export type WindowType =
   | 'files'
   | 'email'
   | 'contacts'
-  | 'photos';
+  | 'photos'
+  | 'keychain';
 
 export interface WindowDimensions {
   width: number;

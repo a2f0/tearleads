@@ -178,6 +178,41 @@ vi.mock('@/components/settings-window', () => ({
   )
 }));
 
+vi.mock('@/components/contacts-window', () => ({
+  ContactsWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`contacts-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 650, height: 500 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/photos-window', () => ({
   PhotosWindow: ({
     id,
@@ -208,6 +243,32 @@ vi.mock('@/components/photos-window', () => ({
         data-testid={`minimize-${id}`}
       >
         Minimize
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/components/keychain-window', () => ({
+  KeychainWindow: ({
+    id,
+    onClose,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`keychain-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
       </button>
     </div>
   )
@@ -492,5 +553,57 @@ describe('WindowRenderer', () => {
       width: 550,
       height: 450
     });
+  });
+
+  it('renders contacts window for contacts type', () => {
+    mockWindows = [{ id: 'contacts-1', type: 'contacts', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(
+      screen.getByTestId('contacts-window-contacts-1')
+    ).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when contacts close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'contacts-1', type: 'contacts', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-contacts-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('contacts-1');
+  });
+
+  it('calls focusWindow when contacts window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'contacts-1', type: 'contacts', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('contacts-window-contacts-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('contacts-1');
+  });
+
+  it('renders keychain window for keychain type', () => {
+    mockWindows = [{ id: 'keychain-1', type: 'keychain', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(
+      screen.getByTestId('keychain-window-keychain-1')
+    ).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when keychain close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'keychain-1', type: 'keychain', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-keychain-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('keychain-1');
+  });
+
+  it('calls focusWindow when keychain window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'keychain-1', type: 'keychain', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('keychain-window-keychain-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('keychain-1');
   });
 });
