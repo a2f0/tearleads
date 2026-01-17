@@ -4,7 +4,7 @@
  */
 
 import type { KeyboardEvent } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useDatabaseContext } from '@/db/hooks';
 import { cn } from '@/lib/utils';
 import { useCommandHistory } from '../hooks/useCommandHistory';
@@ -24,7 +24,7 @@ export function Terminal({ className }: TerminalProps) {
   const history = useCommandHistory();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileResolverRef = useRef<((file: File | null) => void) | null>(null);
-  const [hasShownWelcome, setHasShownWelcome] = useState(false);
+  const welcomeShownRef = useRef(false);
 
   // File picker implementation
   const pickFile = useCallback((accept: string): Promise<File | null> => {
@@ -170,12 +170,12 @@ export function Terminal({ className }: TerminalProps) {
 
   // Show welcome message on mount (only once)
   useEffect(() => {
-    if (hasShownWelcome) return;
-    setHasShownWelcome(true);
+    if (welcomeShownRef.current) return;
+    welcomeShownRef.current = true;
     terminal.appendLine('Rapid Terminal v1.0', 'output');
     terminal.appendLine('Type "help" for available commands.', 'output');
     terminal.appendLine('', 'output');
-  }, [hasShownWelcome, terminal.appendLine]);
+  }, [terminal.appendLine]);
 
   return (
     <div
