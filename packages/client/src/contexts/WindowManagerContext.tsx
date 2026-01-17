@@ -18,7 +18,8 @@ export type WindowType =
   | 'keychain'
   | 'sqlite'
   | 'chat'
-  | 'analytics';
+  | 'analytics'
+  | 'audio';
 
 export interface WindowDimensions {
   width: number;

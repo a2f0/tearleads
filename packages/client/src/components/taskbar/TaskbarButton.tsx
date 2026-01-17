@@ -6,6 +6,7 @@ import {
   KeyRound,
   Mail,
   MessageSquare,
+  Music,
   Settings,
   StickyNote,
   Terminal,
@@ -25,7 +26,8 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   keychain: <KeyRound className="h-3 w-3" />,
   sqlite: <Database className="h-3 w-3" />,
   chat: <MessageSquare className="h-3 w-3" />,
-  analytics: <BarChart2 className="h-3 w-3" />
+  analytics: <BarChart2 className="h-3 w-3" />,
+  audio: <Music className="h-3 w-3" />
 };
 
 const WINDOW_LABELS: Record<WindowType, string> = {
@@ -39,7 +41,8 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   keychain: 'Keychain',
   sqlite: 'SQLite',
   chat: 'Chat',
-  analytics: 'Analytics'
+  analytics: 'Analytics',
+  audio: 'Audio'
 };
 
 interface TaskbarButtonProps {
