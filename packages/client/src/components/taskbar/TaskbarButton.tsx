@@ -1,15 +1,17 @@
-import { StickyNote, Terminal } from 'lucide-react';
+import { Settings, StickyNote, Terminal } from 'lucide-react';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 import { cn } from '@/lib/utils';
 
 const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   notes: <StickyNote className="h-3 w-3" />,
-  console: <Terminal className="h-3 w-3" />
+  console: <Terminal className="h-3 w-3" />,
+  settings: <Settings className="h-3 w-3" />
 };
 
 const WINDOW_LABELS: Record<WindowType, string> = {
   notes: 'Notes',
-  console: 'Console'
+  console: 'Console',
+  settings: 'Settings'
 };
 
 interface TaskbarButtonProps {
