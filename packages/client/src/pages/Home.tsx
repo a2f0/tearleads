@@ -28,7 +28,8 @@ const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/keychain': 'keychain',
   '/sqlite': 'sqlite',
   '/chat': 'chat',
-  '/analytics': 'analytics'
+  '/analytics': 'analytics',
+  '/audio': 'audio'
 };
 
 const ICON_SIZE = 64;
