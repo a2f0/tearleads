@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
 import { Home } from './Home';
 
@@ -452,6 +452,88 @@ describe('Home', () => {
     Object.defineProperty(window, 'innerWidth', {
       value: 1024,
       configurable: true
+    });
+  });
+
+  describe('mobile behavior', () => {
+    const renderMobileHome = () => {
+      // Set mobile viewport before rendering
+      Object.defineProperty(window, 'innerWidth', {
+        value: 500,
+        configurable: true
+      });
+      const result = renderHome();
+      // Trigger resize to ensure state is updated
+      act(() => {
+        window.dispatchEvent(new Event('resize'));
+      });
+      return result;
+    };
+
+    afterEach(() => {
+      // Reset to desktop viewport
+      Object.defineProperty(window, 'innerWidth', {
+        value: 1024,
+        configurable: true
+      });
+    });
+
+    it('navigates on single click in mobile mode', async () => {
+      const user = userEvent.setup();
+      renderMobileHome();
+
+      const filesButton = screen.getByRole('button', { name: 'Files' });
+      await user.click(filesButton);
+
+      expect(mockNavigate).toHaveBeenCalledWith('/files');
+    });
+
+    it('does not start drag on pointer down in mobile mode', () => {
+      const { container } = renderMobileHome();
+
+      const filesButton = screen.getByRole('button', { name: 'Files' });
+      const canvas = container.querySelector('[role="application"]');
+
+      // Try to start drag
+      fireEvent.pointerDown(filesButton, {
+        button: 0,
+        clientX: 100,
+        clientY: 100,
+        pointerId: 1
+      });
+
+      if (canvas) {
+        // Move pointer
+        fireEvent.pointerMove(canvas, {
+          clientX: 200,
+          clientY: 200,
+          pointerId: 1
+        });
+
+        // End drag
+        fireEvent.pointerUp(canvas, { pointerId: 1 });
+      }
+
+      // Positions should NOT be saved to localStorage since drag was disabled
+      const saved = localStorage.getItem(STORAGE_KEY);
+      expect(saved).toBeNull();
+    });
+
+    it('uses pointer cursor on mobile instead of grab cursor', () => {
+      renderMobileHome();
+
+      const filesButton = screen.getByRole('button', { name: 'Files' });
+      expect(filesButton).toHaveStyle({ cursor: 'pointer' });
+    });
+
+    it('allows default touch behavior on mobile', () => {
+      const { container } = renderMobileHome();
+
+      const canvas = container.querySelector(
+        '[role="application"]'
+      ) as HTMLElement;
+      expect(canvas).toBeInTheDocument();
+      expect(canvas.style.touchAction).toBe('auto');
     });
   });
 

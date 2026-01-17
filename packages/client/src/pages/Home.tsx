@@ -269,6 +269,7 @@ export function Home() {
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, path: string) => {
+      if (isMobile) return; // Disable dragging on mobile
       if (e.button !== 0) return;
       e.preventDefault();
       const pos = positions[path];
@@ -284,7 +285,7 @@ export function Home() {
         e.target.setPointerCapture(e.pointerId);
       }
     },
-    [positions]
+    [positions, isMobile]
   );
 
   const handlePointerMove = useCallback(
@@ -400,7 +401,7 @@ export function Home() {
         ref={containerRef}
         role="application"
         className="relative h-full w-full flex-1 overflow-hidden bg-background"
-        style={{ touchAction: 'none' }}
+        style={{ touchAction: isMobile ? 'auto' : 'none' }}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onContextMenu={handleCanvasContextMenu}
@@ -425,10 +426,15 @@ export function Home() {
                 top: pos.y,
                 transition: isDragging ? 'none' : 'left 0.2s, top 0.2s',
                 zIndex: isDragging ? 100 : 1,
-                cursor: isDragging ? 'grabbing' : 'grab'
+                cursor: isMobile ? 'pointer' : isDragging ? 'grabbing' : 'grab'
               }}
-              onPointerDown={(e) => handlePointerDown(e, item.path)}
-              onDoubleClick={() => handleDoubleClick(item.path)}
+              onClick={isMobile ? () => navigate(item.path) : undefined}
+              onPointerDown={
+                isMobile ? undefined : (e) => handlePointerDown(e, item.path)
+              }
+              onDoubleClick={
+                isMobile ? undefined : () => handleDoubleClick(item.path)
+              }
               onContextMenu={(e) => handleIconContextMenu(e, item.path)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
