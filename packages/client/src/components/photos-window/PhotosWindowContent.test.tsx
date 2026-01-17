@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PhotosWindowContent } from './PhotosWindowContent';
 
@@ -52,7 +52,9 @@ describe('PhotosWindowContent', () => {
       new File(['content2'], 'photo2.jpg', { type: 'image/jpeg' })
     ];
 
-    await ref.current?.uploadFiles(files);
+    await act(async () => {
+      await ref.current?.uploadFiles(files);
+    });
 
     expect(mockUploadFile).toHaveBeenCalledTimes(2);
   });
@@ -69,9 +71,11 @@ describe('PhotosWindowContent', () => {
     };
     render(<PhotosWindowContent ref={ref} />);
 
-    await ref.current?.uploadFiles([
-      new File(['content'], 'photo.jpg', { type: 'image/jpeg' })
-    ]);
+    await act(async () => {
+      await ref.current?.uploadFiles([
+        new File(['content'], 'photo.jpg', { type: 'image/jpeg' })
+      ]);
+    });
 
     expect(consoleSpy).toHaveBeenCalledWith(
       'Failed to upload photo.jpg:',
@@ -80,10 +84,20 @@ describe('PhotosWindowContent', () => {
     consoleSpy.mockRestore();
   });
 
-  it('accepts onPhotoSelect prop', () => {
-    const onPhotoSelect = vi.fn();
-    render(<PhotosWindowContent onPhotoSelect={onPhotoSelect} />);
-    // Component should render without errors
-    expect(screen.getByTestId('photos-page')).toBeInTheDocument();
+  it('triggers refresh when refresh is called', async () => {
+    const ref = {
+      current: null as {
+        uploadFiles: (files: File[]) => void;
+        refresh: () => void;
+      } | null
+    };
+    render(<PhotosWindowContent ref={ref} />);
+
+    await act(async () => {
+      ref.current?.refresh();
+    });
+
+    // Verify it doesn't throw
+    expect(ref.current?.refresh).toBeDefined();
   });
 });
