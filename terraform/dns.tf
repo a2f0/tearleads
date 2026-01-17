@@ -85,3 +85,33 @@ resource "hcloud_zone_rrset" "api_ipv6" {
     { value = local.ipv6_address }
   ]
 }
+
+resource "hcloud_zone_rrset" "email" {
+  zone = data.hcloud_zone.main.name
+  name = "email"
+  type = "A"
+  ttl  = 60
+  records = [
+    { value = hcloud_server.main.ipv4_address }
+  ]
+}
+
+resource "hcloud_zone_rrset" "email_ipv6" {
+  zone = data.hcloud_zone.main.name
+  name = "email"
+  type = "AAAA"
+  ttl  = 60
+  records = [
+    { value = local.ipv6_address }
+  ]
+}
+
+resource "hcloud_zone_rrset" "mx" {
+  zone = data.hcloud_zone.main.name
+  name = "@"
+  type = "MX"
+  ttl  = 300
+  records = [
+    { value = "10 email.${var.domain}." }
+  ]
+}

@@ -156,6 +156,7 @@ jobs:
           pnpm --filter @rapid/shared test:coverage
           pnpm --filter @rapid/ui test:coverage
           pnpm --filter @rapid/api test:coverage
+          pnpm --filter @rapid/smtp-listener test:coverage
           pnpm --filter @rapid/client test:coverage
           pnpm --filter @rapid/chrome-extension test:coverage
           pnpm --filter @rapid/website test:coverage
@@ -168,6 +169,7 @@ jobs:
             packages/shared/coverage/
             packages/ui/coverage/
             packages/api/coverage/
+            packages/smtp-listener/coverage/
             packages/client/coverage/
             packages/chrome-extension/coverage/
             packages/website/coverage/
@@ -177,7 +179,7 @@ jobs:
         run: |
           echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          for pkg in shared ui api client chrome-extension website; do
+          for pkg in shared ui api smtp-listener client chrome-extension website; do
             if [ -f "packages/$pkg/coverage/coverage-summary.json" ]; then
               echo "### @rapid/$pkg" >> $GITHUB_STEP_SUMMARY
               node -e "

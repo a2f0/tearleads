@@ -1,0 +1,36 @@
+[Unit]
+Description=Rapid SMTP Listener
+Documentation=https://github.com/a2f0/rapid
+After=network.target redis-server.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/rapid-smtp-listener
+ExecStart=/usr/bin/node dist/server.cjs
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rapid-smtp-listener
+
+# Environment
+Environment=NODE_ENV=production
+Environment=SMTP_PORT=25
+Environment=SMTP_HOST=0.0.0.0
+Environment=REDIS_URL=redis://localhost:6379
+
+# Allow binding to privileged port 25 without running as root
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/rapid-smtp-listener
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
