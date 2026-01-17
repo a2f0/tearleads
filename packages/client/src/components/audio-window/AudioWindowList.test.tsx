@@ -95,9 +95,13 @@ const mockStorage = {
   measureRetrieve: vi.fn().mockResolvedValue(new ArrayBuffer(100))
 };
 
+let mockIsFileStorageInitialized = true;
+const mockInitializeFileStorage = vi.fn();
+
 vi.mock('@/storage/opfs', () => ({
-  isFileStorageInitialized: () => true,
-  initializeFileStorage: vi.fn(),
+  isFileStorageInitialized: () => mockIsFileStorageInitialized,
+  initializeFileStorage: (...args: unknown[]) =>
+    mockInitializeFileStorage(...args),
   getFileStorage: () => mockStorage,
   createRetrieveLogger: () => ({})
 }));
@@ -145,6 +149,7 @@ describe('AudioWindowList', () => {
     mockDb.where.mockReturnThis();
     mockStorage.measureRetrieve.mockResolvedValue(new ArrayBuffer(100));
     mockPlatform = 'web';
+    mockIsFileStorageInitialized = true;
 
     global.URL.createObjectURL = mockCreateObjectURL;
     global.URL.revokeObjectURL = mockRevokeObjectURL;
@@ -864,5 +869,86 @@ describe('AudioWindowList', () => {
     await user.dblClick(playButton);
 
     expect(mockAudioState.resume).toHaveBeenCalled();
+  });
+
+  it('deletes track with thumbnail and revokes thumbnail URL', async () => {
+    const tracksWithThumbnail = [
+      {
+        ...mockTracks[1],
+        thumbnailPath: '/thumb/track-2'
+      }
+    ];
+    mockDb.orderBy.mockResolvedValue(tracksWithThumbnail);
+    const user = userEvent.setup();
+    render(<AudioWindowList />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Song Two.mp3')).toBeInTheDocument();
+    });
+
+    const trackRow = screen.getByText('Song Two.mp3').closest('button');
+    if (trackRow) {
+      await user.pointer({ keys: '[MouseRight]', target: trackRow });
+    }
+
+    await waitFor(() => {
+      expect(screen.getByText('Delete')).toBeInTheDocument();
+    });
+
+    mockDb.set.mockReturnThis();
+    mockDb.where.mockResolvedValueOnce(undefined);
+
+    await user.click(screen.getByText('Delete'));
+
+    await waitFor(() => {
+      expect(mockDb.update).toHaveBeenCalled();
+      // Track should be removed from the list
+      expect(screen.queryByText('Song Two.mp3')).not.toBeInTheDocument();
+    });
+
+    // Verify URLs were revoked (at least for the deleted track's object URL and thumbnail)
+    expect(mockRevokeObjectURL).toHaveBeenCalled();
+  });
+
+  it('closes context menu when clicking backdrop', async () => {
+    mockDb.orderBy.mockResolvedValue(mockTracks);
+    const user = userEvent.setup();
+    render(<AudioWindowList />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Song One.mp3')).toBeInTheDocument();
+    });
+
+    const trackRow = screen.getByText('Song One.mp3').closest('button');
+    if (trackRow) {
+      await user.pointer({ keys: '[MouseRight]', target: trackRow });
+    }
+
+    await waitFor(() => {
+      expect(screen.getByText('Play')).toBeInTheDocument();
+    });
+
+    // Click backdrop to close context menu
+    const backdrop = screen.getByRole('button', { name: 'Close context menu' });
+    await user.click(backdrop);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Play')).not.toBeInTheDocument();
+    });
+  });
+
+  it('initializes file storage when not already initialized', async () => {
+    mockIsFileStorageInitialized = false;
+    mockDb.orderBy.mockResolvedValue(mockTracks);
+    render(<AudioWindowList />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Song One.mp3')).toBeInTheDocument();
+    });
+
+    expect(mockInitializeFileStorage).toHaveBeenCalledWith(
+      'mock-key',
+      'test-instance'
+    );
   });
 });
