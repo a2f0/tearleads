@@ -204,6 +204,22 @@ describe('vcard', () => {
       expect(vcard).toContain('TEL;PREF=1:+1234567890');
     });
 
+    it('includes phone numbers without parameters when no label and not primary', () => {
+      const contact: VCardContact = {
+        id: '123',
+        firstName: 'John',
+        lastName: null,
+        birthday: null,
+        emails: [],
+        phones: [{ phoneNumber: '+1234567890', label: null, isPrimary: false }]
+      };
+
+      const vcard = generateVCard(contact);
+
+      expect(vcard).toContain('TEL:+1234567890');
+      expect(vcard).not.toContain('TEL;');
+    });
+
     it('includes email addresses with TYPE', () => {
       const contact: VCardContact = {
         id: '123',
@@ -232,6 +248,22 @@ describe('vcard', () => {
       const vcard = generateVCard(contact);
 
       expect(vcard).toContain('EMAIL;TYPE=home;PREF=1:john@home.com');
+    });
+
+    it('includes email addresses without parameters when no label and not primary', () => {
+      const contact: VCardContact = {
+        id: '123',
+        firstName: 'John',
+        lastName: null,
+        birthday: null,
+        emails: [{ email: 'john@example.com', label: null, isPrimary: false }],
+        phones: []
+      };
+
+      const vcard = generateVCard(contact);
+
+      expect(vcard).toContain('EMAIL:john@example.com');
+      expect(vcard).not.toContain('EMAIL;');
     });
 
     it('generates complete vCard with all fields', () => {
