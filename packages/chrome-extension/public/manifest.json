@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Rapid",
-  "version": "0.0.76",
+  "version": "0.0.77",
   "description": "Rapid Chrome Extension",
   "permissions": [
     "storage",

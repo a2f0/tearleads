@@ -456,4 +456,82 @@ describe('NotesWindowList', () => {
     expect(screen.getByText('Delete')).toBeInTheDocument();
     expect(screen.queryByText('New Note')).not.toBeInTheDocument();
   });
+
+  it('calls onSelectNote when Get Info is clicked from context menu', async () => {
+    mockDb.orderBy.mockResolvedValue(mockNotes);
+    const onSelectNote = vi.fn();
+    const user = userEvent.setup();
+    render(<NotesWindowList onSelectNote={onSelectNote} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('First Note')).toBeInTheDocument();
+    });
+
+    const noteRow = screen.getByText('First Note').closest('button');
+    if (noteRow) {
+      await user.pointer({ keys: '[MouseRight]', target: noteRow });
+    }
+
+    await waitFor(() => {
+      expect(screen.getByText('Get Info')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Get Info'));
+    expect(onSelectNote).toHaveBeenCalledWith('note-1');
+  });
+
+  it('deletes note via context menu', async () => {
+    mockDb.orderBy.mockResolvedValue(mockNotes);
+    mockDb.set.mockReturnThis();
+    mockDb.where.mockReturnThis();
+    const user = userEvent.setup();
+    render(<NotesWindowList {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('First Note')).toBeInTheDocument();
+    });
+
+    const noteRow = screen.getByText('First Note').closest('button');
+    if (noteRow) {
+      await user.pointer({ keys: '[MouseRight]', target: noteRow });
+    }
+
+    await waitFor(() => {
+      expect(screen.getByText('Delete')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Delete'));
+
+    await waitFor(() => {
+      expect(mockDb.update).toHaveBeenCalled();
+    });
+  });
+
+  it('handles delete error gracefully', async () => {
+    mockDb.orderBy.mockResolvedValue(mockNotes);
+    const user = userEvent.setup();
+    render(<NotesWindowList {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('First Note')).toBeInTheDocument();
+    });
+
+    const noteRow = screen.getByText('First Note').closest('button');
+    if (noteRow) {
+      await user.pointer({ keys: '[MouseRight]', target: noteRow });
+    }
+
+    await waitFor(() => {
+      expect(screen.getByText('Delete')).toBeInTheDocument();
+    });
+
+    mockDb.set.mockReturnThis();
+    mockDb.where.mockRejectedValueOnce(new Error('Delete failed'));
+
+    await user.click(screen.getByText('Delete'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Delete failed')).toBeInTheDocument();
+    });
+  });
 });
