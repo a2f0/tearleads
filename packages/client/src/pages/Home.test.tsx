@@ -661,7 +661,7 @@ describe('Home', () => {
     expect(screen.getByText('Open in Window')).toBeInTheDocument();
   });
 
-  it('does not show Open in Window option for Files icon', async () => {
+  it('shows Open in Window option for Files icon', async () => {
     const user = userEvent.setup();
     renderHome();
 
@@ -669,7 +669,7 @@ describe('Home', () => {
     await user.pointer({ keys: '[MouseRight]', target: filesButton });
 
     expect(screen.getByText('Open')).toBeInTheDocument();
-    expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
+    expect(screen.getByText('Open in Window')).toBeInTheDocument();
   });
 
   it('opens console in floating window when Open in Window is clicked', async () => {
@@ -717,6 +717,31 @@ describe('Home', () => {
 
     const settingsButton = screen.getByRole('button', { name: 'Settings' });
     await user.pointer({ keys: '[MouseRight]', target: settingsButton });
+
+    const openInWindowItem = screen.getByText('Open in Window');
+    await user.click(openInWindowItem);
+
+    // Context menu should close
+    expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
+  });
+
+  it('shows Open in Window option for Files icon', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const filesButton = screen.getByRole('button', { name: 'Files' });
+    await user.pointer({ keys: '[MouseRight]', target: filesButton });
+
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.getByText('Open in Window')).toBeInTheDocument();
+  });
+
+  it('opens files in floating window when Open in Window is clicked', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const filesButton = screen.getByRole('button', { name: 'Files' });
+    await user.pointer({ keys: '[MouseRight]', target: filesButton });
 
     const openInWindowItem = screen.getByText('Open in Window');
     await user.click(openInWindowItem);

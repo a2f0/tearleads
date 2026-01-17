@@ -335,4 +335,34 @@ describe('HUD', () => {
       expect(screen.getByTestId('hud-title-bar')).toBeInTheDocument();
     });
   });
+
+  describe('window resize', () => {
+    it('updates isDesktop state when window is resized', () => {
+      Object.defineProperty(window, 'innerWidth', {
+        writable: true,
+        configurable: true,
+        value: 1024
+      });
+
+      render(<HUD isOpen={true} onClose={() => {}} />);
+
+      // Desktop: resize handles should be visible
+      expect(
+        screen.getByTestId('hud-resize-handle-bottom-right')
+      ).toBeInTheDocument();
+
+      // Resize to mobile
+      Object.defineProperty(window, 'innerWidth', {
+        writable: true,
+        configurable: true,
+        value: 375
+      });
+      fireEvent(window, new Event('resize'));
+
+      // Mobile: resize handles should not be visible
+      expect(
+        screen.queryByTestId('hud-resize-handle-bottom-right')
+      ).not.toBeInTheDocument();
+    });
+  });
 });
