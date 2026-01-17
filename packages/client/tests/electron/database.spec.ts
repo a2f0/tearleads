@@ -11,6 +11,13 @@ const NEW_PASSWORD = 'newpassword456';
 const DB_OPERATION_TIMEOUT = 15000;
 const APP_LOAD_TIMEOUT = 10000;
 
+async function openSidebar(window: Page) {
+  const startButton = window.getByTestId('start-button');
+  await expect(startButton).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+  await startButton.click();
+  await expect(window.locator('nav')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+}
+
 test.describe('Database (Electron)', () => {
   let electronApp: ElectronApplication;
   let window: Page;
@@ -19,12 +26,13 @@ test.describe('Database (Electron)', () => {
     electronApp = await launchElectronApp();
     window = await electronApp.firstWindow();
 
-    // Wait for app to load
+    // Wait for app to load - verify Start button is visible
     await expect(
-      window.getByRole('heading', { name: 'Tearleads', level: 1 })
+      window.getByTestId('start-button')
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
 
-    // Navigate to SQLite page via sidebar (visible on desktop)
+    // Open sidebar and navigate to SQLite page
+    await openSidebar(window);
     await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
@@ -229,10 +237,11 @@ test.describe('Database (Electron)', () => {
     electronApp = await launchElectronApp({clearStorage: false});
     window = await electronApp.firstWindow();
 
-    // Navigate to SQLite page via sidebar
+    // Wait for app to load and navigate to SQLite page
     await expect(
-      window.getByRole('heading', { name: 'Tearleads', level: 1 })
+      window.getByTestId('start-button')
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
+    await openSidebar(window);
     await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
@@ -368,10 +377,11 @@ test.describe('Database (Electron)', () => {
     electronApp = await launchElectronApp({clearStorage: false});
     window = await electronApp.firstWindow();
 
-    // Navigate to SQLite page via sidebar
+    // Wait for app to load and navigate to SQLite page
     await expect(
-      window.getByRole('heading', { name: 'Tearleads', level: 1 })
+      window.getByTestId('start-button')
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
+    await openSidebar(window);
     await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
     await expect(window.getByTestId('database-test')).toBeVisible();
 

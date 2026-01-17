@@ -9,10 +9,29 @@ const MODEL_CARD_TEXT = 'Phi 3.5 Mini';
 const WEBGPU_ERROR_REGEX = /WebGPU Not Supported/;
 const WEBGPU_CHECKING_TEXT = 'Checking WebGPU support...';
 
-// Helper to navigate via sidebar (visible on desktop viewport)
+// Helper to open sidebar via Start button
+async function openSidebar(page: Page) {
+  const startButton = page.getByTestId('start-button');
+  await expect(startButton).toBeVisible({ timeout: 10000 });
+  await startButton.click();
+  await expect(page.locator('aside nav')).toBeVisible({ timeout: 10000 });
+}
+
+// Helper to navigate via sidebar (requires opening sidebar first)
 async function navigateTo(page: Page, linkName: string) {
-  const link = page.locator('aside nav').getByRole('link', { name: linkName });
+  // Check if sidebar is visible, if not open it
+  const sidebar = page.locator('aside nav');
+  if (!(await sidebar.isVisible())) {
+    await openSidebar(page);
+  }
+  const link = sidebar.getByRole('link', { name: linkName });
   await link.click();
+  // Close sidebar after navigation to prevent it from intercepting pointer events
+  const startButton = page.getByTestId('start-button');
+  if (await sidebar.isVisible()) {
+    await startButton.click();
+    await expect(sidebar).not.toBeVisible({ timeout: 5000 });
+  }
 }
 
 // Helper to reset, setup, and unlock the database
@@ -174,11 +193,12 @@ test.describe('Index page', () => {
     await page.goto('/');
   });
 
-  test('should load and display the main heading', async ({ page }) => {
+  test('should load and display the Start button', async ({ page }) => {
     await expect(page).toHaveTitle('Tearleads');
 
-    const heading = page.getByRole('heading', { name: 'Tearleads', level: 1 });
-    await expect(heading).toBeVisible();
+    // Verify Start button is visible (main entry point to navigation)
+    const startButton = page.getByTestId('start-button');
+    await expect(startButton).toBeVisible();
   });
 
   test('should have the root element mounted', async ({ page }) => {
@@ -190,9 +210,10 @@ test.describe('Index page', () => {
   });
 
   test('should navigate to settings page', async ({ page }) => {
-    const settingsLink = page.locator('aside nav').getByRole('link', { name: 'Settings' });
-    await expect(settingsLink).toBeVisible();
+    // Open sidebar via Start button
+    await openSidebar(page);
 
+    const settingsLink = page.locator('aside nav').getByRole('link', { name: 'Settings' });
     await settingsLink.click();
 
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
@@ -670,9 +691,10 @@ test.describe('Debug page', () => {
   test('should navigate to debug page when debug link is clicked', async ({
     page
   }) => {
-    const debugLink = page.locator('aside nav').getByRole('link', { name: 'Debug' });
-    await expect(debugLink).toBeVisible();
+    // Open sidebar via Start button
+    await openSidebar(page);
 
+    const debugLink = page.locator('aside nav').getByRole('link', { name: 'Debug' });
     await debugLink.click();
 
     await expect(page.getByRole('heading', { name: 'Debug' })).toBeVisible();
@@ -722,14 +744,14 @@ test.describe('Debug page', () => {
     ).toBeVisible();
   });
 
-  test('should navigate back to home when logo is clicked', async ({
+  test('should navigate back to home when Home link is clicked', async ({
     page
   }) => {
     await navigateTo(page, 'Debug');
     await expect(page.getByRole('heading', { name: 'Debug' })).toBeVisible();
 
-    // Click the logo/title to go back home
-    await page.getByRole('link', { name: 'Tearleads' }).click();
+    // Navigate back home via sidebar
+    await navigateTo(page, 'Home');
     await page.waitForURL('/');
 
     // Should be back on the home page (shows draggable app icons canvas)
@@ -748,9 +770,10 @@ test.describe('Tables page', () => {
   test('should navigate to tables page when tables link is clicked', async ({
     page
   }) => {
-    const tablesLink = page.locator('aside nav').getByRole('link', { name: 'Tables' });
-    await expect(tablesLink).toBeVisible();
+    // Open sidebar via Start button
+    await openSidebar(page);
 
+    const tablesLink = page.locator('aside nav').getByRole('link', { name: 'Tables' });
     await tablesLink.click();
 
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
@@ -957,9 +980,10 @@ test.describe('Models page', () => {
   test('should navigate to models page when models link is clicked', async ({
     page
   }) => {
-    const modelsLink = page.locator('aside nav').getByRole('link', { name: 'Models' });
-    await expect(modelsLink).toBeVisible();
+    // Open sidebar via Start button
+    await openSidebar(page);
 
+    const modelsLink = page.locator('aside nav').getByRole('link', { name: 'Models' });
     await modelsLink.click();
 
     await expect(page.getByRole('heading', { name: 'Models' })).toBeVisible();
@@ -1069,9 +1093,10 @@ test.describe('Audio page', () => {
   test('should navigate to audio page when audio link is clicked', async ({
     page
   }) => {
-    const audioLink = page.locator('aside nav').getByRole('link', { name: 'Audio' });
-    await expect(audioLink).toBeVisible();
+    // Open sidebar via Start button
+    await openSidebar(page);
 
+    const audioLink = page.locator('aside nav').getByRole('link', { name: 'Audio' });
     await audioLink.click();
 
     await expect(page.getByRole('heading', { name: 'Audio' })).toBeVisible();
@@ -1156,9 +1181,10 @@ test.describe('Contacts page', () => {
   test('should navigate to contacts page when contacts link is clicked', async ({
     page
   }) => {
-    const contactsLink = page.locator('aside nav').getByRole('link', { name: 'Contacts' });
-    await expect(contactsLink).toBeVisible();
+    // Open sidebar via Start button
+    await openSidebar(page);
 
+    const contactsLink = page.locator('aside nav').getByRole('link', { name: 'Contacts' });
     await contactsLink.click();
 
     await expect(page.getByRole('heading', { name: 'Contacts' })).toBeVisible();
@@ -1294,9 +1320,10 @@ test.describe('Analytics page', () => {
   test('should navigate to analytics page when analytics link is clicked', async ({
     page
   }) => {
-    const analyticsLink = page.locator('aside nav').getByRole('link', { name: 'Analytics' });
-    await expect(analyticsLink).toBeVisible();
+    // Open sidebar via Start button
+    await openSidebar(page);
 
+    const analyticsLink = page.locator('aside nav').getByRole('link', { name: 'Analytics' });
     await analyticsLink.click();
 
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();

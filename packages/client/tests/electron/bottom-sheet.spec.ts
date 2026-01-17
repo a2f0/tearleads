@@ -82,9 +82,9 @@ test.describe('Bottom Sheet (Electron)', () => {
     window = await electronApp.firstWindow();
     await window.bringToFront();
 
-    // Wait for app to load
-    const heading = window.getByRole('heading', { name: 'Tearleads', level: 1 });
-    await expect(heading).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
+    // Wait for app to load - verify Start button is visible
+    const startButton = window.getByTestId('start-button');
+    await expect(startButton).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
 
     // Open the settings sheet
     await window.getByTestId('settings-button').click();

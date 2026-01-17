@@ -8,6 +8,14 @@ const packageJson: { version: string } = require('../../package.json');
 const APP_LOAD_TIMEOUT = 10000;
 const DB_OPERATION_TIMEOUT = 15000;
 
+async function openSidebar(window: Page) {
+  const startButton = window.getByTestId('start-button');
+  await expect(startButton).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+  await startButton.click();
+  // Wait for sidebar to be visible
+  await expect(window.locator('nav')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+}
+
 test.describe('Electron App', () => {
   let electronApp: ElectronApplication;
   let window: Page;
@@ -22,8 +30,9 @@ test.describe('Electron App', () => {
   });
 
   test('should launch and display the main window with version in title', async () => {
-    const heading = window.getByRole('heading', {name: 'Tearleads', level: 1});
-    await expect(heading).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+    // Verify Start button is visible (main entry point to navigation)
+    const startButton = window.getByTestId('start-button');
+    await expect(startButton).toBeVisible({timeout: APP_LOAD_TIMEOUT});
 
     // Wait for title to be set after page load
     const expectedTitle = `Tearleads v${packageJson.version}`;
@@ -34,10 +43,10 @@ test.describe('Electron App', () => {
   });
 
   test('should navigate to settings page', async () => {
-    // Use sidebar navigation (visible on desktop)
-    const settingsLink = window.locator('nav').getByRole('link', { name: 'Settings' });
-    await expect(settingsLink).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+    // Open sidebar via Start button
+    await openSidebar(window);
 
+    const settingsLink = window.locator('nav').getByRole('link', { name: 'Settings' });
     await settingsLink.click();
 
     await expect(
@@ -46,10 +55,10 @@ test.describe('Electron App', () => {
   });
 
   test('should navigate to tables page', async () => {
-    // Use sidebar navigation (visible on desktop)
-    const tablesLink = window.locator('nav').getByRole('link', { name: 'Tables' });
-    await expect(tablesLink).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+    // Open sidebar via Start button
+    await openSidebar(window);
 
+    const tablesLink = window.locator('nav').getByRole('link', { name: 'Tables' });
     await tablesLink.click();
 
     await expect(
@@ -58,6 +67,9 @@ test.describe('Electron App', () => {
   });
 
   test('should show inline unlock on tables page when database not unlocked', async () => {
+    // Open sidebar via Start button
+    await openSidebar(window);
+
     await window.locator('nav').getByRole('link', { name: 'Tables' }).click();
 
     // Should show inline unlock component
@@ -69,6 +81,9 @@ test.describe('Electron App', () => {
   });
 
   test('should show tables list after database is unlocked', async () => {
+    // Open sidebar via Start button
+    await openSidebar(window);
+
     // Setup database via SQLite page (using sidebar navigation)
     await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
     await expect(window.getByTestId('database-test')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
