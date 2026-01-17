@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { AdminWindow } from '@/components/admin-window';
 import { AnalyticsWindow } from '@/components/analytics-window';
 import { AudioWindow } from '@/components/audio-window';
 import { ChatWindow } from '@/components/chat-window';
@@ -221,6 +222,22 @@ export function WindowRenderer() {
           case 'audio':
             return (
               <AudioWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'admin':
+            return (
+              <AdminWindow
                 key={window.id}
                 id={window.id}
                 onClose={() => closeWindow(window.id)}
