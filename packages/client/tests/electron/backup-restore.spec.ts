@@ -67,7 +67,8 @@ test.describe('Backup & Restore (Electron)', () => {
       timeout: DB_OPERATION_TIMEOUT
     });
 
-    // Navigate to settings via sidebar
+    // Reopen sidebar and navigate to settings
+    await openSidebar(window);
     await window.locator('nav').getByRole('button', { name: 'Settings' }).dblclick();
     await expect(window).toHaveURL(/\/settings/);
 
@@ -264,7 +265,8 @@ test.describe('Backup & Restore (Electron)', () => {
       timeout: DB_OPERATION_TIMEOUT
     });
 
-    // Navigate to settings via sidebar
+    // Reopen sidebar and navigate to settings
+    await openSidebar(window);
     await window.locator('nav').getByRole('button', { name: 'Settings' }).dblclick();
     await expect(window).toHaveURL(/\/settings/);
 
