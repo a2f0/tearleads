@@ -24,6 +24,7 @@ import {
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
+import { logStore } from '@/stores/logStore';
 
 interface AudioInfo {
   id: string;
@@ -154,16 +155,16 @@ export function AudioWindowList() {
                   });
                   thumbnailUrl = URL.createObjectURL(thumbBlob);
                 } catch (err) {
-                  console.warn(
-                    `Failed to load thumbnail for ${track.name}:`,
-                    err
+                  logStore.warn(
+                    `Failed to load thumbnail for ${track.name}`,
+                    String(err)
                   );
                 }
               }
 
               return { ...track, objectUrl, thumbnailUrl };
             } catch (err) {
-              console.error(`Failed to load track ${track.name}:`, err);
+              logStore.error(`Failed to load track ${track.name}`, String(err));
               return null;
             }
           })
@@ -173,7 +174,7 @@ export function AudioWindowList() {
       setTracks(tracksWithUrls);
       setHasFetched(true);
     } catch (err) {
-      console.error('Failed to fetch tracks:', err);
+      logStore.error('Failed to fetch tracks', String(err));
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
@@ -294,7 +295,7 @@ export function AudioWindowList() {
         return remaining;
       });
     } catch (err) {
-      console.error('Failed to delete track:', err);
+      logStore.error('Failed to delete track', String(err));
       setError(err instanceof Error ? err.message : String(err));
     }
   }, []);

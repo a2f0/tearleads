@@ -4,21 +4,25 @@ import { describe, expect, it, vi } from 'vitest';
 import { AudioWindow } from './AudioWindow';
 
 vi.mock('@/components/floating-window', () => ({
-  FloatingWindow: ({
-    children,
-    title,
-    onClose
-  }: {
+  FloatingWindow: (props: {
     children: React.ReactNode;
     title: string;
     onClose: () => void;
+    initialDimensions?: { x: number; y: number; width: number; height: number };
   }) => (
-    <div data-testid="floating-window">
-      <div data-testid="window-title">{title}</div>
-      <button type="button" onClick={onClose} data-testid="close-window">
+    <div
+      data-testid="floating-window"
+      data-initial-dimensions={
+        props.initialDimensions
+          ? JSON.stringify(props.initialDimensions)
+          : undefined
+      }
+    >
+      <div data-testid="window-title">{props.title}</div>
+      <button type="button" onClick={props.onClose} data-testid="close-window">
         Close
       </button>
-      {children}
+      {props.children}
     </div>
   )
 }));
@@ -76,12 +80,15 @@ describe('AudioWindow', () => {
   });
 
   it('passes initialDimensions to FloatingWindow when provided', () => {
+    const initialDimensions = { x: 100, y: 200, width: 500, height: 450 };
     render(
-      <AudioWindow
-        {...defaultProps}
-        initialDimensions={{ x: 100, y: 200, width: 500, height: 450 }}
-      />
+      <AudioWindow {...defaultProps} initialDimensions={initialDimensions} />
     );
-    expect(screen.getByTestId('floating-window')).toBeInTheDocument();
+    const window = screen.getByTestId('floating-window');
+    expect(window).toBeInTheDocument();
+    expect(window).toHaveAttribute(
+      'data-initial-dimensions',
+      JSON.stringify(initialDimensions)
+    );
   });
 });
