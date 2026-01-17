@@ -1,0 +1,10 @@
+# Minimal config for email.{{ domain }} - exists only for certbot SSL deployment
+# SMTP traffic goes directly to smtp-listener, not through nginx
+server {
+    listen 80;
+    server_name email.{{ domain }};
+
+    location / {
+        return 444;
+    }
+}
