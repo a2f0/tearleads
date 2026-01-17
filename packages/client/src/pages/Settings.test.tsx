@@ -160,7 +160,9 @@ describe('Settings', () => {
 
       await user.click(screen.getByTestId('backup-export-button'));
 
-      expect(screen.getByText('Exporting...')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('Exporting...')).toBeInTheDocument();
+      });
     });
 
     it('shows error message when export fails', async () => {

@@ -117,41 +117,6 @@ vi.mock('@/components/email-window', () => ({
   )
 }));
 
-vi.mock('@/components/files-window', () => ({
-  FilesWindow: ({
-    id,
-    onClose,
-    onMinimize,
-    onFocus,
-    zIndex
-  }: {
-    id: string;
-    onClose: () => void;
-    onMinimize: (dimensions: WindowDimensions) => void;
-    onFocus: () => void;
-    zIndex: number;
-  }) => (
-    <div
-      role="dialog"
-      data-testid={`files-window-${id}`}
-      data-zindex={zIndex}
-      onClick={onFocus}
-      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
-    >
-      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
-        Close
-      </button>
-      <button
-        type="button"
-        onClick={() => onMinimize({ x: 0, y: 0, width: 800, height: 600 })}
-        data-testid={`minimize-${id}`}
-      >
-        Minimize
-      </button>
-    </div>
-  )
-}));
-
 vi.mock('@/components/settings-window', () => ({
   SettingsWindow: ({
     id,
@@ -173,41 +138,6 @@ vi.mock('@/components/settings-window', () => ({
     >
       <button type="button" onClick={onClose} data-testid={`close-${id}`}>
         Close
-      </button>
-    </div>
-  )
-}));
-
-vi.mock('@/components/contacts-window', () => ({
-  ContactsWindow: ({
-    id,
-    onClose,
-    onMinimize,
-    onFocus,
-    zIndex
-  }: {
-    id: string;
-    onClose: () => void;
-    onMinimize: (dimensions: WindowDimensions) => void;
-    onFocus: () => void;
-    zIndex: number;
-  }) => (
-    <div
-      role="dialog"
-      data-testid={`contacts-window-${id}`}
-      data-zindex={zIndex}
-      onClick={onFocus}
-      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
-    >
-      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
-        Close
-      </button>
-      <button
-        type="button"
-        onClick={() => onMinimize({ x: 0, y: 0, width: 650, height: 500 })}
-        data-testid={`minimize-${id}`}
-      >
-        Minimize
       </button>
     </div>
   )
@@ -252,11 +182,13 @@ vi.mock('@/components/keychain-window', () => ({
   KeychainWindow: ({
     id,
     onClose,
+    onMinimize,
     onFocus,
     zIndex
   }: {
     id: string;
     onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
     onFocus: () => void;
     zIndex: number;
   }) => (
@@ -269,6 +201,118 @@ vi.mock('@/components/keychain-window', () => ({
     >
       <button type="button" onClick={onClose} data-testid={`close-${id}`}>
         Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 600, height: 500 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/components/files-window', () => ({
+  FilesWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`files-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 500, height: 400 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/components/contacts-window', () => ({
+  ContactsWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`contacts-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 600, height: 500 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/components/sqlite-window', () => ({
+  SqliteWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`sqlite-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 600, height: 500 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
       </button>
     </div>
   )
@@ -457,13 +501,12 @@ describe('WindowRenderer', () => {
     expect(mockFocusWindow).toHaveBeenCalledWith('email-1');
   });
 
-  it('renders all window types together', () => {
+  it('renders all four window types together', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'console-1', type: 'console', zIndex: 101 },
       { id: 'settings-1', type: 'settings', zIndex: 102 },
-      { id: 'email-1', type: 'email', zIndex: 103 },
-      { id: 'photos-1', type: 'photos', zIndex: 104 }
+      { id: 'email-1', type: 'email', zIndex: 103 }
     ];
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
@@ -472,45 +515,6 @@ describe('WindowRenderer', () => {
       screen.getByTestId('settings-window-settings-1')
     ).toBeInTheDocument();
     expect(screen.getByTestId('email-window-email-1')).toBeInTheDocument();
-    expect(screen.getByTestId('photos-window-photos-1')).toBeInTheDocument();
-  });
-
-  it('renders photos window for photos type', () => {
-    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('photos-window-photos-1')).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when photos close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-photos-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('photos-1');
-  });
-
-  it('calls focusWindow when photos window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('photos-window-photos-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('photos-1');
-  });
-
-  it('calls minimizeWindow when photos minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-photos-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('photos-1', {
-      x: 0,
-      y: 0,
-      width: 700,
-      height: 550
-    });
   });
 
   it('calls minimizeWindow when notes minimize button is clicked', async () => {
@@ -555,12 +559,38 @@ describe('WindowRenderer', () => {
     });
   });
 
+  it('renders files window for files type', () => {
+    mockWindows = [{ id: 'files-1', type: 'files', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('files-window-files-1')).toBeInTheDocument();
+  });
+
+  it('renders photos window for photos type', () => {
+    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('photos-window-photos-1')).toBeInTheDocument();
+  });
+
+  it('renders keychain window for keychain type', () => {
+    mockWindows = [{ id: 'keychain-1', type: 'keychain', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(
+      screen.getByTestId('keychain-window-keychain-1')
+    ).toBeInTheDocument();
+  });
+
   it('renders contacts window for contacts type', () => {
     mockWindows = [{ id: 'contacts-1', type: 'contacts', zIndex: 100 }];
     render(<WindowRenderer />, { wrapper });
     expect(
       screen.getByTestId('contacts-window-contacts-1')
     ).toBeInTheDocument();
+  });
+
+  it('renders sqlite window for sqlite type', () => {
+    mockWindows = [{ id: 'sqlite-1', type: 'sqlite', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('sqlite-window-sqlite-1')).toBeInTheDocument();
   });
 
   it('calls closeWindow when contacts close button is clicked', async () => {
@@ -581,12 +611,114 @@ describe('WindowRenderer', () => {
     expect(mockFocusWindow).toHaveBeenCalledWith('contacts-1');
   });
 
-  it('renders keychain window for keychain type', () => {
-    mockWindows = [{ id: 'keychain-1', type: 'keychain', zIndex: 100 }];
+  it('calls minimizeWindow when contacts minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'contacts-1', type: 'contacts', zIndex: 100 }];
     render(<WindowRenderer />, { wrapper });
-    expect(
-      screen.getByTestId('keychain-window-keychain-1')
-    ).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('minimize-contacts-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('contacts-1', {
+      x: 0,
+      y: 0,
+      width: 600,
+      height: 500
+    });
+  });
+
+  it('calls closeWindow when sqlite close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'sqlite-1', type: 'sqlite', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-sqlite-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('sqlite-1');
+  });
+
+  it('calls focusWindow when sqlite window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'sqlite-1', type: 'sqlite', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('sqlite-window-sqlite-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('sqlite-1');
+  });
+
+  it('calls minimizeWindow when sqlite minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'sqlite-1', type: 'sqlite', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-sqlite-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('sqlite-1', {
+      x: 0,
+      y: 0,
+      width: 600,
+      height: 500
+    });
+  });
+
+  it('calls closeWindow when files close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'files-1', type: 'files', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-files-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('files-1');
+  });
+
+  it('calls focusWindow when files window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'files-1', type: 'files', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('files-window-files-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('files-1');
+  });
+
+  it('calls minimizeWindow when files minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'files-1', type: 'files', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-files-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('files-1', {
+      x: 0,
+      y: 0,
+      width: 500,
+      height: 400
+    });
+  });
+
+  it('calls closeWindow when photos close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-photos-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('photos-1');
+  });
+
+  it('calls focusWindow when photos window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('photos-window-photos-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('photos-1');
+  });
+
+  it('calls minimizeWindow when photos minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-photos-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('photos-1', {
+      x: 0,
+      y: 0,
+      width: 700,
+      height: 550
+    });
   });
 
   it('calls closeWindow when keychain close button is clicked', async () => {
@@ -605,5 +737,49 @@ describe('WindowRenderer', () => {
 
     await user.click(screen.getByTestId('keychain-window-keychain-1'));
     expect(mockFocusWindow).toHaveBeenCalledWith('keychain-1');
+  });
+
+  it('calls minimizeWindow when keychain minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'keychain-1', type: 'keychain', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-keychain-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('keychain-1', {
+      x: 0,
+      y: 0,
+      width: 600,
+      height: 500
+    });
+  });
+
+  it('renders all nine window types together', () => {
+    mockWindows = [
+      { id: 'notes-1', type: 'notes', zIndex: 100 },
+      { id: 'console-1', type: 'console', zIndex: 101 },
+      { id: 'settings-1', type: 'settings', zIndex: 102 },
+      { id: 'email-1', type: 'email', zIndex: 103 },
+      { id: 'files-1', type: 'files', zIndex: 104 },
+      { id: 'photos-1', type: 'photos', zIndex: 105 },
+      { id: 'keychain-1', type: 'keychain', zIndex: 106 },
+      { id: 'contacts-1', type: 'contacts', zIndex: 107 },
+      { id: 'sqlite-1', type: 'sqlite', zIndex: 108 }
+    ];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
+    expect(screen.getByTestId('console-window-console-1')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('settings-window-settings-1')
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('email-window-email-1')).toBeInTheDocument();
+    expect(screen.getByTestId('files-window-files-1')).toBeInTheDocument();
+    expect(screen.getByTestId('photos-window-photos-1')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('keychain-window-keychain-1')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('contacts-window-contacts-1')
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('sqlite-window-sqlite-1')).toBeInTheDocument();
   });
 });
