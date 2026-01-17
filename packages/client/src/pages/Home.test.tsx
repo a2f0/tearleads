@@ -751,6 +751,54 @@ describe('Home', () => {
     expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
   });
 
+  it('shows Open in Window option for SQLite icon', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const sqliteButton = screen.getByRole('button', { name: 'SQLite' });
+    await user.pointer({ keys: '[MouseRight]', target: sqliteButton });
+
+    expect(screen.getByText('Open in Window')).toBeInTheDocument();
+  });
+
+  it('opens sqlite in floating window when Open in Window is clicked', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const sqliteButton = screen.getByRole('button', { name: 'SQLite' });
+    await user.pointer({ keys: '[MouseRight]', target: sqliteButton });
+
+    const openInWindowItem = screen.getByText('Open in Window');
+    await user.click(openInWindowItem);
+
+    // Context menu should close
+    expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
+  });
+
+  it('shows Open in Window option for Contacts icon', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const contactsButton = screen.getByRole('button', { name: 'Contacts' });
+    await user.pointer({ keys: '[MouseRight]', target: contactsButton });
+
+    expect(screen.getByText('Open in Window')).toBeInTheDocument();
+  });
+
+  it('opens contacts in floating window when Open in Window is clicked', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const contactsButton = screen.getByRole('button', { name: 'Contacts' });
+    await user.pointer({ keys: '[MouseRight]', target: contactsButton });
+
+    const openInWindowItem = screen.getByText('Open in Window');
+    await user.click(openInWindowItem);
+
+    // Context menu should close
+    expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
+  });
+
   describe('marquee selection', () => {
     const setupCanvasMocks = (canvas: Element) => {
       Object.defineProperty(canvas, 'offsetWidth', {
