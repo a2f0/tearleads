@@ -7,6 +7,7 @@ import {
   contactsTable,
   filesTable,
   migrationsTable,
+  notesTable,
   secretsTable,
   syncMetadataTable,
   userSettingsTable
@@ -227,9 +228,35 @@ describe('analyticsEventsTable', () => {
   });
 });
 
+describe('notesTable', () => {
+  it('is a valid table definition', () => {
+    expect(isTableDefinition(notesTable)).toBe(true);
+  });
+
+  it('has correct table name and property name', () => {
+    expect(notesTable.name).toBe('notes');
+    expect(notesTable.propertyName).toBe('notes');
+  });
+
+  it('has required columns', () => {
+    expect(notesTable.columns.id).toBeDefined();
+    expect(notesTable.columns.title).toBeDefined();
+    expect(notesTable.columns.content).toBeDefined();
+    expect(notesTable.columns.createdAt).toBeDefined();
+    expect(notesTable.columns.updatedAt).toBeDefined();
+    expect(notesTable.columns.deleted).toBeDefined();
+  });
+
+  it('has indexes', () => {
+    expect(notesTable.indexes).toHaveLength(2);
+    expect(notesTable.indexes?.[0]?.name).toBe('notes_updated_at_idx');
+    expect(notesTable.indexes?.[1]?.name).toBe('notes_title_idx');
+  });
+});
+
 describe('allTables', () => {
-  it('contains all 9 tables', () => {
-    expect(allTables).toHaveLength(9);
+  it('contains all 10 tables', () => {
+    expect(allTables).toHaveLength(10);
   });
 
   it('contains all table definitions', () => {
@@ -242,6 +269,7 @@ describe('allTables', () => {
     expect(allTables).toContain(contactPhonesTable);
     expect(allTables).toContain(contactEmailsTable);
     expect(allTables).toContain(analyticsEventsTable);
+    expect(allTables).toContain(notesTable);
   });
 
   it('all tables are valid definitions', () => {
