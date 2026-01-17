@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface ContextMenuProps {
   x: number;
@@ -45,8 +46,10 @@ export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
-  return (
-    <div className="fixed inset-0 z-50">
+  // Use Portal to render outside FloatingWindow DOM tree
+  // This fixes positioning issues caused by backdrop-blur creating a new containing block
+  return createPortal(
+    <div className="fixed inset-0 z-[100]">
       <button
         type="button"
         className="fixed inset-0 cursor-default"
@@ -60,6 +63,7 @@ export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
