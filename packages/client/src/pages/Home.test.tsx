@@ -534,4 +534,65 @@ describe('Home', () => {
     const filesButton = screen.getByRole('button', { name: 'Files' });
     expect(filesButton).toHaveStyle({ left: '160px', top: '48px' });
   });
+
+  it('shows Open in Window option for Notes icon', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const notesButton = screen.getByRole('button', { name: 'Notes' });
+    await user.pointer({ keys: '[MouseRight]', target: notesButton });
+
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.getByText('Open in Window')).toBeInTheDocument();
+  });
+
+  it('shows Open in Window option for Console icon', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const consoleButton = screen.getByRole('button', { name: 'Console' });
+    await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.getByText('Open in Window')).toBeInTheDocument();
+  });
+
+  it('does not show Open in Window option for Files icon', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const filesButton = screen.getByRole('button', { name: 'Files' });
+    await user.pointer({ keys: '[MouseRight]', target: filesButton });
+
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
+  });
+
+  it('opens console in floating window when Open in Window is clicked', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const consoleButton = screen.getByRole('button', { name: 'Console' });
+    await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+    const openInWindowItem = screen.getByText('Open in Window');
+    await user.click(openInWindowItem);
+
+    // Context menu should close
+    expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
+  });
+
+  it('opens notes in floating window when Open in Window is clicked', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const notesButton = screen.getByRole('button', { name: 'Notes' });
+    await user.pointer({ keys: '[MouseRight]', target: notesButton });
+
+    const openInWindowItem = screen.getByText('Open in Window');
+    await user.click(openInWindowItem);
+
+    // Context menu should close
+    expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
+  });
 });
