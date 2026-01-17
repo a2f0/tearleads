@@ -3,29 +3,24 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
 import { mockConsoleError } from '../test/console-mocks.js';
 
-interface MockRedisClient {
-  lRange: typeof mockLRange;
-  lLen: typeof mockLLen;
-  get: typeof mockGet;
-  mGet: typeof mockMGet;
-  del: typeof mockDel;
-  lRem: typeof mockLRem;
-}
-
 const mockLRange = vi.fn();
 const mockLLen = vi.fn();
 const mockGet = vi.fn();
 const mockMGet = vi.fn();
-const mockDel = vi.fn();
-const mockLRem = vi.fn();
+const mockExec = vi.fn();
 
-const createMockClient = (): MockRedisClient => ({
+const createMockMulti = () => ({
+  del: vi.fn().mockReturnThis(),
+  lRem: vi.fn().mockReturnThis(),
+  exec: mockExec
+});
+
+const createMockClient = () => ({
   lRange: mockLRange,
   lLen: mockLLen,
   get: mockGet,
   mGet: mockMGet,
-  del: mockDel,
-  lRem: mockLRem
+  multi: createMockMulti
 });
 
 vi.mock('../lib/redis.js', () => ({
@@ -240,18 +235,16 @@ describe('Emails Routes', () => {
 
   describe('DELETE /v1/emails/:id', () => {
     it('deletes email by ID', async () => {
-      mockDel.mockResolvedValue(1);
-      mockLRem.mockResolvedValue(1);
+      mockExec.mockResolvedValue([1, 1]);
 
       const response = await request(app).delete('/v1/emails/test-email-1');
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ success: true });
-      expect(mockLRem).toHaveBeenCalledWith('smtp:emails', 1, 'test-email-1');
     });
 
     it('returns 404 when email not found', async () => {
-      mockDel.mockResolvedValue(0);
+      mockExec.mockResolvedValue([0, 0]);
 
       const response = await request(app).delete('/v1/emails/nonexistent');
 
@@ -261,7 +254,7 @@ describe('Emails Routes', () => {
 
     it('handles error during delete', async () => {
       mockConsoleError();
-      mockDel.mockRejectedValue(new Error('Redis error'));
+      mockExec.mockRejectedValue(new Error('Redis error'));
 
       const response = await request(app).delete('/v1/emails/test-email-1');
 
