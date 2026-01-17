@@ -21,7 +21,8 @@ vi.mock('@/i18n', () => ({
     t: (key: string) =>
       ({
         getInfo: 'Get Info',
-        delete: 'Delete'
+        delete: 'Delete',
+        newNote: 'New Note'
       })[key] ?? key
   })
 }));
@@ -102,6 +103,7 @@ describe('NotesWindowList', () => {
     mockDb.orderBy.mockResolvedValue([]);
     mockDb.set.mockReturnThis();
     mockDb.where.mockReturnThis();
+    mockDb.values.mockResolvedValue(undefined);
   });
 
   it('shows database loading state', () => {
@@ -383,5 +385,75 @@ describe('NotesWindowList', () => {
       expect(screen.getByText('First Note')).toBeInTheDocument();
       expect(screen.getByText('Second Note')).toBeInTheDocument();
     });
+  });
+
+  it('shows New Note menu when right-clicking blank space', async () => {
+    mockDb.orderBy.mockResolvedValue(mockNotes);
+    const user = userEvent.setup();
+    render(<NotesWindowList {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('First Note')).toBeInTheDocument();
+    });
+
+    // Find the scroll container and right-click it
+    const scrollContainer = screen
+      .getByText('First Note')
+      .closest('.overflow-auto');
+    expect(scrollContainer).toBeInTheDocument();
+
+    if (scrollContainer) {
+      await user.pointer({ keys: '[MouseRight]', target: scrollContainer });
+    }
+
+    expect(screen.getByText('New Note')).toBeInTheDocument();
+  });
+
+  it('creates note when clicking New Note from blank space menu', async () => {
+    mockDb.orderBy.mockResolvedValue(mockNotes);
+    const onSelectNote = vi.fn();
+    const user = userEvent.setup();
+    render(<NotesWindowList onSelectNote={onSelectNote} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('First Note')).toBeInTheDocument();
+    });
+
+    const scrollContainer = screen
+      .getByText('First Note')
+      .closest('.overflow-auto');
+
+    if (scrollContainer) {
+      await user.pointer({ keys: '[MouseRight]', target: scrollContainer });
+    }
+
+    expect(screen.getByText('New Note')).toBeInTheDocument();
+    await user.click(screen.getByText('New Note'));
+
+    expect(mockDb.insert).toHaveBeenCalled();
+    expect(onSelectNote).toHaveBeenCalled();
+  });
+
+  it('shows note-specific menu when right-clicking on a note', async () => {
+    mockDb.orderBy.mockResolvedValue(mockNotes);
+    const user = userEvent.setup();
+    render(<NotesWindowList {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('First Note')).toBeInTheDocument();
+    });
+
+    // Right-click on the note element (the ListRow containing the note)
+    const noteElement = screen.getByText('First Note').closest('button');
+    expect(noteElement).toBeInTheDocument();
+
+    if (noteElement) {
+      await user.pointer({ keys: '[MouseRight]', target: noteElement });
+    }
+
+    // Should show note menu, not blank space menu
+    expect(screen.getByText('Get Info')).toBeInTheDocument();
+    expect(screen.getByText('Delete')).toBeInTheDocument();
+    expect(screen.queryByText('New Note')).not.toBeInTheDocument();
   });
 });
