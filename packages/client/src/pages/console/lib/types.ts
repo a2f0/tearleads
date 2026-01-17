@@ -111,4 +111,4 @@ export const VALID_COMMANDS: CommandName[] = Object.keys(
 ) as CommandName[];
 
 /** Default prompt displayed in command mode */
-export const DEFAULT_PROMPT = 'tearleads> ';
+export const DEFAULT_PROMPT = 'tearleads>';
