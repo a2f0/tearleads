@@ -11,8 +11,22 @@ import { navItems } from '@/components/Sidebar';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
 import { DesktopBackground } from '@/components/ui/desktop-background';
-import { useWindowManager } from '@/contexts/WindowManagerContext';
+import {
+  useWindowManager,
+  type WindowType
+} from '@/contexts/WindowManagerContext';
 import { useTypedTranslation } from '@/i18n';
+
+const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
+  '/notes': 'notes',
+  '/console': 'console',
+  '/settings': 'settings',
+  '/files': 'files',
+  '/email': 'email',
+  '/contacts': 'contacts',
+  '/photos': 'photos',
+  '/keychain': 'keychain'
+};
 
 const ICON_SIZE = 64;
 const ICON_SIZE_MOBILE = 56;
@@ -447,11 +461,9 @@ export function Home() {
   const handleDoubleClick = useCallback(
     (path: string) => {
       if (!hasDragged) {
-        // Open in floating window if supported, otherwise navigate
-        if (path === '/notes') {
-          openWindow('notes');
-        } else if (path === '/console') {
-          openWindow('console');
+        const windowType = PATH_TO_WINDOW_TYPE[path];
+        if (windowType) {
+          openWindow(windowType);
         } else {
           navigate(path);
         }
@@ -533,38 +545,15 @@ export function Home() {
 
   const handleOpenInWindow = useCallback(() => {
     if (iconContextMenu) {
-      const path = iconContextMenu.path;
-      if (path === '/notes') {
-        openWindow('notes');
-      } else if (path === '/console') {
-        openWindow('console');
-      } else if (path === '/settings') {
-        openWindow('settings');
-      } else if (path === '/files') {
-        openWindow('files');
-      } else if (path === '/email') {
-        openWindow('email');
-      } else if (path === '/contacts') {
-        openWindow('contacts');
-      } else if (path === '/photos') {
-        openWindow('photos');
+      const windowType = PATH_TO_WINDOW_TYPE[iconContextMenu.path];
+      if (windowType) {
+        openWindow(windowType);
       }
     }
     setIconContextMenu(null);
   }, [iconContextMenu, openWindow]);
 
-  const OPENABLE_IN_WINDOW_PATHS = [
-    '/notes',
-    '/console',
-    '/settings',
-    '/files',
-    '/email',
-    '/contacts',
-    '/photos'
-  ];
-
-  const canOpenInWindow = (path: string) =>
-    OPENABLE_IN_WINDOW_PATHS.includes(path);
+  const canOpenInWindow = (path: string) => path in PATH_TO_WINDOW_TYPE;
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden">
