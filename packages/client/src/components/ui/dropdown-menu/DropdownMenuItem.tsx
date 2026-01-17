@@ -35,7 +35,7 @@ export function DropdownMenuItem({
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       disabled={disabled}
-      className="flex w-full items-center gap-2 px-3 py-1 text-left text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-1 text-left text-xs hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
     >
       <span className="w-3 shrink-0">
         {checked !== undefined && checked && (
