@@ -116,24 +116,8 @@ export function TableRows() {
   const [truncating, setTruncating] = useState(false);
   const truncateTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchTotalCount = useCallback(async () => {
-    if (!tableName) return;
-    try {
-      const adapter = getDatabaseAdapter();
-      const result = await adapter.execute(
-        `SELECT COUNT(*) as count FROM "${tableName}"`,
-        []
-      );
-      const rawRows = Array.isArray(result.rows) ? result.rows : [];
-      const firstRow = rawRows[0];
-      if (isRecord(firstRow)) {
-        const count = getNumberField(firstRow, 'count');
-        setTotalCount(count);
-      }
-    } catch (err) {
-      console.error('Failed to fetch total count:', err);
-    }
-  }, [tableName]);
+  // Track total count for pagination (ref to avoid fetchData dependency)
+  const totalCountRef = useRef<number | null>(null);
 
   const fetchTableData = useCallback(
     async (reset = true) => {
@@ -144,7 +128,6 @@ export function TableRows() {
         setLoading(true);
         setRows([]);
         offsetRef.current = 0;
-        fetchTotalCount();
       } else {
         setLoadingMore(true);
       }
@@ -213,9 +196,35 @@ export function TableRows() {
         }
         query += ` LIMIT ${PAGE_SIZE} OFFSET ${offset}`;
 
-        const rowsResult = await adapter.execute(query, []);
+        // Fetch rows and count in parallel (count only on reset)
+        const [rowsResult, countResult] = await Promise.all([
+          adapter.execute(query, []),
+          reset
+            ? adapter.execute(
+                `SELECT COUNT(*) as count FROM "${tableName}"`,
+                []
+              )
+            : Promise.resolve(null)
+        ]);
+
         const rawRows = Array.isArray(rowsResult.rows) ? rowsResult.rows : [];
         const newRows = rawRows.filter(isRecord);
+
+        // Update total count on reset
+        if (countResult) {
+          const firstRow = Array.isArray(countResult.rows)
+            ? countResult.rows[0]
+            : undefined;
+          if (isRecord(firstRow)) {
+            const count = getNumberField(firstRow, 'count');
+            setTotalCount(count);
+            totalCountRef.current = count;
+          } else {
+            // If count query was run but returned no rows/count, reset the total.
+            setTotalCount(null);
+            totalCountRef.current = null;
+          }
+        }
 
         if (reset) {
           setRows(newRows);
@@ -223,8 +232,16 @@ export function TableRows() {
           setRows((prev) => [...prev, ...newRows]);
         }
 
-        offsetRef.current = offset + newRows.length;
-        setHasMore(newRows.length === PAGE_SIZE);
+        const newOffset = offset + newRows.length;
+        offsetRef.current = newOffset;
+
+        // Use total count for accurate hasMore calculation
+        const currentTotal = totalCountRef.current;
+        setHasMore(
+          currentTotal !== null
+            ? newOffset < currentTotal
+            : newRows.length === PAGE_SIZE
+        );
       } catch (err) {
         console.error('Failed to fetch table data:', err);
         setError(err instanceof Error ? err.message : String(err));
@@ -233,7 +250,7 @@ export function TableRows() {
         setLoadingMore(false);
       }
     },
-    [isUnlocked, tableName, sort, columns, fetchTotalCount]
+    [isUnlocked, tableName, sort, columns]
   );
 
   const handleSort = useCallback((columnName: string) => {
