@@ -19,7 +19,8 @@ export type WindowType =
   | 'sqlite'
   | 'chat'
   | 'analytics'
-  | 'audio';
+  | 'audio'
+  | 'admin';
 
 export interface WindowDimensions {
   width: number;
