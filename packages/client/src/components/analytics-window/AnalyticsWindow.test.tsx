@@ -28,13 +28,15 @@ vi.mock('@/components/floating-window', () => ({
   FloatingWindow: ({
     children,
     title,
-    onClose
+    onClose,
+    ...rest
   }: {
     children: React.ReactNode;
     title: string;
     onClose: () => void;
+    [key: string]: unknown;
   }) => (
-    <div data-testid="floating-window">
+    <div data-testid="floating-window" data-props={JSON.stringify(rest)}>
       <div data-testid="window-title">{title}</div>
       <button type="button" onClick={onClose} data-testid="close-window">
         Close
@@ -86,12 +88,15 @@ describe('AnalyticsWindow', () => {
   });
 
   it('passes initialDimensions to FloatingWindow when provided', () => {
+    const initialDimensions = { x: 100, y: 200, width: 700, height: 550 };
     render(
       <AnalyticsWindow
         {...defaultProps}
-        initialDimensions={{ x: 100, y: 200, width: 700, height: 550 }}
+        initialDimensions={initialDimensions}
       />
     );
-    expect(screen.getByTestId('floating-window')).toBeInTheDocument();
+    const window = screen.getByTestId('floating-window');
+    const props = JSON.parse(window.dataset['props'] || '{}');
+    expect(props.initialDimensions).toEqual(initialDimensions);
   });
 });
