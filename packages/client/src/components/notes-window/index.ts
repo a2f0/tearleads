@@ -1,0 +1,1 @@
+export { NotesWindow } from './NotesWindow';

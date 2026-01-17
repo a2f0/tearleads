@@ -1,0 +1,1 @@
+export { WindowRenderer } from './WindowRenderer';
