@@ -7,7 +7,7 @@ SMTP listener for receiving and storing inbound emails. Uses the [smtp-server](h
 The listener is configured via environment variables:
 
 | Variable | Default | Description |
-|----------|---------|-------------|
+| -------- | ------- | ----------- |
 | `SMTP_PORT` | `25` | Port to listen on |
 | `SMTP_HOST` | `0.0.0.0` | Host/interface to bind to |
 | `REDIS_URL` | `redis://localhost:6379` | Redis connection URL for email storage |
@@ -38,6 +38,7 @@ SMTP_PORT=2525 pnpm dev
 The listener runs as a systemd service named `rapid-smtp-listener`. The service configuration is managed via Ansible (see [`rapid-smtp-listener.service.j2`](../../ansible/playbooks/templates/rapid-smtp-listener.service.j2)).
 
 Key service features:
+
 - Runs as `www-data` user (not root)
 - Uses `CAP_NET_BIND_SERVICE` capability to bind to port 25
 - Auto-restarts on failure (10 second delay)
@@ -98,7 +99,7 @@ swaks --to test@yourdomain.com --from sender@example.com \
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                    SMTP Listener                        │
 │                                                         │
