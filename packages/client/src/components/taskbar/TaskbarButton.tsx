@@ -8,6 +8,7 @@ import {
   MessageSquare,
   Music,
   Settings,
+  Shield,
   StickyNote,
   Terminal,
   User
@@ -27,7 +28,8 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   sqlite: <Database className="h-3 w-3" />,
   chat: <MessageSquare className="h-3 w-3" />,
   analytics: <BarChart2 className="h-3 w-3" />,
-  audio: <Music className="h-3 w-3" />
+  audio: <Music className="h-3 w-3" />,
+  admin: <Shield className="h-3 w-3" />
 };
 
 const WINDOW_LABELS: Record<WindowType, string> = {
@@ -42,7 +44,8 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   sqlite: 'SQLite',
   chat: 'Chat',
   analytics: 'Analytics',
-  audio: 'Audio'
+  audio: 'Audio',
+  admin: 'Admin'
 };
 
 interface TaskbarButtonProps {
