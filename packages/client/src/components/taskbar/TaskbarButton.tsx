@@ -1,4 +1,11 @@
-import { FileIcon, Mail, Settings, StickyNote, Terminal } from 'lucide-react';
+import {
+  FileIcon,
+  Mail,
+  Settings,
+  StickyNote,
+  Terminal,
+  User
+} from 'lucide-react';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 import { cn } from '@/lib/utils';
 
@@ -7,7 +14,8 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   console: <Terminal className="h-3 w-3" />,
   settings: <Settings className="h-3 w-3" />,
   files: <FileIcon className="h-3 w-3" />,
-  email: <Mail className="h-3 w-3" />
+  email: <Mail className="h-3 w-3" />,
+  contacts: <User className="h-3 w-3" />
 };
 
 const WINDOW_LABELS: Record<WindowType, string> = {
@@ -15,7 +23,8 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   console: 'Console',
   settings: 'Settings',
   files: 'Files',
-  email: 'Email'
+  email: 'Email',
+  contacts: 'Contacts'
 };
 
 interface TaskbarButtonProps {
