@@ -1,5 +1,5 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react';
-import { FilesList } from '@/components/files';
+import { FilesList, type FilesListRef } from '@/components/files';
 
 export interface FilesWindowContentRef {
   uploadFiles: (files: File[]) => void;
@@ -13,9 +13,7 @@ export const FilesWindowContent = forwardRef<
   FilesWindowContentRef,
   FilesWindowContentProps
 >(function FilesWindowContent({ showDeleted }, ref) {
-  const filesListRef = useRef<{ triggerUpload?: (files: File[]) => void }>(
-    null
-  );
+  const filesListRef = useRef<FilesListRef>(null);
 
   useImperativeHandle(
     ref,
@@ -29,7 +27,11 @@ export const FilesWindowContent = forwardRef<
 
   return (
     <div className="h-full overflow-auto p-3">
-      <FilesList showDeleted={showDeleted} showHeader={false} />
+      <FilesList
+        ref={filesListRef}
+        showDeleted={showDeleted}
+        showHeader={false}
+      />
     </div>
   );
 });

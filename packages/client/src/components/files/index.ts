@@ -1,1 +1,1 @@
-export { FilesList } from './FilesList';
+export { FilesList, type FilesListRef } from './FilesList';
