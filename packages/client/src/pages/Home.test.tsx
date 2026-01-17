@@ -699,4 +699,29 @@ describe('Home', () => {
     // Context menu should close
     expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
   });
+
+  it('shows Open in Window option for Settings icon', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const settingsButton = screen.getByRole('button', { name: 'Settings' });
+    await user.pointer({ keys: '[MouseRight]', target: settingsButton });
+
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.getByText('Open in Window')).toBeInTheDocument();
+  });
+
+  it('opens settings in floating window when Open in Window is clicked', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const settingsButton = screen.getByRole('button', { name: 'Settings' });
+    await user.pointer({ keys: '[MouseRight]', target: settingsButton });
+
+    const openInWindowItem = screen.getByText('Open in Window');
+    await user.click(openInWindowItem);
+
+    // Context menu should close
+    expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
+  });
 });
