@@ -3,17 +3,9 @@ import { useCallback, useEffect, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { API_BASE_URL } from '@/lib/api';
+import { type EmailItem, formatEmailDate, formatEmailSize } from '@/lib/email';
 import type { ViewMode } from './EmailWindowMenuBar';
 import { EmailWindowMenuBar } from './EmailWindowMenuBar';
-
-interface Email {
-  id: string;
-  from: string;
-  to: string[];
-  subject: string;
-  receivedAt: string;
-  size: number;
-}
 
 interface EmailWindowProps {
   id: string;
@@ -32,7 +24,7 @@ export function EmailWindow({
   zIndex,
   initialDimensions
 }: EmailWindowProps) {
-  const [emails, setEmails] = useState<Email[]>([]);
+  const [emails, setEmails] = useState<EmailItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -60,22 +52,6 @@ export function EmailWindow({
   useEffect(() => {
     fetchEmails();
   }, [fetchEmails]);
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
 
   const selectedEmail = emails.find((e) => e.id === selectedEmailId);
 
@@ -129,8 +105,8 @@ export function EmailWindow({
                   To: {selectedEmail.to.join(', ')}
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  {formatDate(selectedEmail.receivedAt)} ·{' '}
-                  {formatSize(selectedEmail.size)}
+                  {formatEmailDate(selectedEmail.receivedAt)} ·{' '}
+                  {formatEmailSize(selectedEmail.size)}
                 </p>
               </div>
               <div className="flex-1 overflow-auto p-3">
@@ -162,7 +138,7 @@ export function EmailWindow({
                       {email.from}
                     </p>
                     <p className="text-muted-foreground text-xs">
-                      {formatDate(email.receivedAt)}
+                      {formatEmailDate(email.receivedAt)}
                     </p>
                   </div>
                 </button>
@@ -193,10 +169,10 @@ export function EmailWindow({
                         {email.from}
                       </td>
                       <td className="whitespace-nowrap p-2 text-muted-foreground">
-                        {formatDate(email.receivedAt)}
+                        {formatEmailDate(email.receivedAt)}
                       </td>
                       <td className="p-2 text-right text-muted-foreground">
-                        {formatSize(email.size)}
+                        {formatEmailSize(email.size)}
                       </td>
                     </tr>
                   ))}
