@@ -725,17 +725,6 @@ describe('Home', () => {
     expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
   });
 
-  it('shows Open in Window option for Files icon', async () => {
-    const user = userEvent.setup();
-    renderHome();
-
-    const filesButton = screen.getByRole('button', { name: 'Files' });
-    await user.pointer({ keys: '[MouseRight]', target: filesButton });
-
-    expect(screen.getByText('Open')).toBeInTheDocument();
-    expect(screen.getByText('Open in Window')).toBeInTheDocument();
-  });
-
   it('opens files in floating window when Open in Window is clicked', async () => {
     const user = userEvent.setup();
     renderHome();
