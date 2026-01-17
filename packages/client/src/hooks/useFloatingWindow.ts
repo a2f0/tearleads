@@ -31,6 +31,7 @@ interface UseFloatingWindowReturn {
   height: number;
   x: number;
   y: number;
+  setDimensions: (width: number, height: number, x: number, y: number) => void;
   createCornerHandlers: (corner: Corner) => {
     onMouseDown: (e: React.MouseEvent) => void;
     onTouchStart: (e: React.TouchEvent) => void;
@@ -285,11 +286,22 @@ export function useFloatingWindow({
     [handleStart, handleMouseMove, handleTouchMove]
   );
 
+  const setDimensions = useCallback(
+    (newWidth: number, newHeight: number, newX: number, newY: number) => {
+      setWidth(newWidth);
+      setHeight(newHeight);
+      setX(newX);
+      setY(newY);
+    },
+    []
+  );
+
   return {
     width,
     height,
     x,
     y,
+    setDimensions,
     createCornerHandlers,
     createDragHandlers
   };

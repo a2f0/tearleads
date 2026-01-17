@@ -8,6 +8,7 @@ import { HUDTrigger } from './components/hud';
 import { MobileMenu } from './components/MobileMenu';
 import { SettingsButton } from './components/SettingsButton';
 import { Sidebar } from './components/Sidebar';
+import { Taskbar } from './components/taskbar';
 import { WindowRenderer } from './components/window-renderer';
 import { useAppVersion } from './hooks/useAppVersion';
 import { useSSEContext } from './sse';
@@ -62,7 +63,12 @@ function App() {
             />
           )
         }
-        rightAction={<HUDTrigger />}
+        rightAction={
+          <div className="flex items-center gap-2">
+            <Taskbar />
+            <HUDTrigger />
+          </div>
+        }
       >
         <p>&copy; {new Date().getFullYear()} Tearleads. All rights reserved.</p>
       </Footer>
