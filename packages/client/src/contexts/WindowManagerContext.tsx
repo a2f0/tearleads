@@ -16,7 +16,8 @@ export type WindowType =
   | 'contacts'
   | 'photos'
   | 'keychain'
-  | 'sqlite';
+  | 'sqlite'
+  | 'chat';
 
 export interface WindowDimensions {
   width: number;
