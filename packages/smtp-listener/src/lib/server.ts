@@ -19,7 +19,9 @@ function toEmailAddress(
   if (!addr) {
     return false;
   }
-  return addr.name ? { address: addr.address, name: addr.name } : { address: addr.address };
+  return addr.name
+    ? { address: addr.address, name: addr.name }
+    : { address: addr.address };
 }
 
 function buildEnvelope(session: SMTPServerSession): EmailEnvelope {
@@ -28,7 +30,9 @@ function buildEnvelope(session: SMTPServerSession): EmailEnvelope {
   );
   const rcptTo = (
     session.envelope.rcptTo as Array<{ address: string; name?: string }>
-  ).map((r) => (r.name ? { address: r.address, name: r.name } : { address: r.address }));
+  ).map((r) =>
+    r.name ? { address: r.address, name: r.name } : { address: r.address }
+  );
   return { mailFrom, rcptTo };
 }
 
@@ -98,7 +102,10 @@ export async function createSmtpListener(
       return new Promise((resolve) => {
         server.close(() => {
           if (storage) {
-            storage.close().then(resolve).catch(() => resolve());
+            storage
+              .close()
+              .then(resolve)
+              .catch(() => resolve());
           } else {
             resolve();
           }
