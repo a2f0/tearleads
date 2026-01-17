@@ -117,6 +117,41 @@ vi.mock('@/components/email-window', () => ({
   )
 }));
 
+vi.mock('@/components/files-window', () => ({
+  FilesWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`files-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 800, height: 600 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/settings-window', () => ({
   SettingsWindow: ({
     id,
@@ -138,6 +173,41 @@ vi.mock('@/components/settings-window', () => ({
     >
       <button type="button" onClick={onClose} data-testid={`close-${id}`}>
         Close
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/components/photos-window', () => ({
+  PhotosWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`photos-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 700, height: 550 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
       </button>
     </div>
   )
@@ -326,12 +396,13 @@ describe('WindowRenderer', () => {
     expect(mockFocusWindow).toHaveBeenCalledWith('email-1');
   });
 
-  it('renders all four window types together', () => {
+  it('renders all window types together', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'console-1', type: 'console', zIndex: 101 },
       { id: 'settings-1', type: 'settings', zIndex: 102 },
-      { id: 'email-1', type: 'email', zIndex: 103 }
+      { id: 'email-1', type: 'email', zIndex: 103 },
+      { id: 'photos-1', type: 'photos', zIndex: 104 }
     ];
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
@@ -340,6 +411,45 @@ describe('WindowRenderer', () => {
       screen.getByTestId('settings-window-settings-1')
     ).toBeInTheDocument();
     expect(screen.getByTestId('email-window-email-1')).toBeInTheDocument();
+    expect(screen.getByTestId('photos-window-photos-1')).toBeInTheDocument();
+  });
+
+  it('renders photos window for photos type', () => {
+    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('photos-window-photos-1')).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when photos close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-photos-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('photos-1');
+  });
+
+  it('calls focusWindow when photos window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('photos-window-photos-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('photos-1');
+  });
+
+  it('calls minimizeWindow when photos minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-photos-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('photos-1', {
+      x: 0,
+      y: 0,
+      width: 700,
+      height: 550
+    });
   });
 
   it('calls minimizeWindow when notes minimize button is clicked', async () => {

@@ -13,7 +13,8 @@ export type WindowType =
   | 'settings'
   | 'files'
   | 'email'
-  | 'contacts';
+  | 'contacts'
+  | 'photos';
 
 export interface WindowDimensions {
   width: number;
