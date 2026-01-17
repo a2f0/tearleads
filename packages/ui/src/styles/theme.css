@@ -168,7 +168,7 @@
   /* Scrollbar colors - blue-tinted to match theme */
   --scrollbar-track: oklch(26% 0.025 264);
   --scrollbar-thumb: oklch(40% 0.03 264);
-  --scrollbar-thumb-hover: oklch(70.5% 0.14 250.5);
+  --scrollbar-thumb-hover: var(--primary);
 }
 
 .monochrome {

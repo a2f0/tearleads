@@ -287,7 +287,7 @@
     accent-color: var(--primary);
   }
 
-  /* Custom scrollbar styling - WebKit browsers (Chrome, Safari, Edge) */
+  /* Custom scrollbar styling - Standard (e.g., Firefox) */
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
@@ -313,8 +313,6 @@
 
   ::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-hover);
-    border: 2px solid var(--scrollbar-track);
-    background-clip: padding-box;
     box-shadow: 0 0 8px color-mix(in srgb, var(--scrollbar-thumb-hover) 50%, transparent);
   }
 
