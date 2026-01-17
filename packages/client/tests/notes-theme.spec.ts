@@ -18,7 +18,7 @@ async function navigateTo(page: Page, linkName: string) {
   }
   const button = sidebar.getByRole('button', { name: linkName });
   // Desktop requires double-click; sidebar auto-closes after launch
-  await button.dblclick();
+  await button.click();
   await expect(sidebar).not.toBeVisible({ timeout: 5000 });
 }
 

@@ -26,7 +26,7 @@ async function navigateTo(page: Page, linkName: string) {
   }
   const button = sidebar.getByRole('button', { name: linkName });
   // Desktop requires double-click; sidebar auto-closes after launch
-  await button.dblclick();
+  await button.click();
   await expect(sidebar).not.toBeVisible({ timeout: 5000 });
 }
 
@@ -210,7 +210,7 @@ test.describe('Index page', () => {
     await openSidebar(page);
 
     const settingsButton = page.locator('aside nav').getByRole('button', { name: 'Settings' });
-    await settingsButton.dblclick();
+    await settingsButton.click();
 
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
   });
@@ -691,7 +691,7 @@ test.describe('Debug page', () => {
     await openSidebar(page);
 
     const debugButton = page.locator('aside nav').getByRole('button', { name: 'Debug' });
-    await debugButton.dblclick();
+    await debugButton.click();
 
     await expect(page.getByRole('heading', { name: 'Debug' })).toBeVisible();
   });
@@ -770,7 +770,7 @@ test.describe('Tables page', () => {
     await openSidebar(page);
 
     const tablesButton = page.locator('aside nav').getByRole('button', { name: 'Tables' });
-    await tablesButton.dblclick();
+    await tablesButton.click();
 
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
   });
@@ -980,7 +980,7 @@ test.describe('Models page', () => {
     await openSidebar(page);
 
     const modelsButton = page.locator('aside nav').getByRole('button', { name: 'Models' });
-    await modelsButton.dblclick();
+    await modelsButton.click();
 
     await expect(page.getByRole('heading', { name: 'Models' })).toBeVisible();
   });
@@ -1093,7 +1093,7 @@ test.describe('Audio page', () => {
     await openSidebar(page);
 
     const audioButton = page.locator('aside nav').getByRole('button', { name: 'Audio' });
-    await audioButton.dblclick();
+    await audioButton.click();
 
     await expect(page.getByRole('heading', { name: 'Audio' })).toBeVisible();
   });
@@ -1181,7 +1181,7 @@ test.describe('Contacts page', () => {
     await openSidebar(page);
 
     const contactsButton = page.locator('aside nav').getByRole('button', { name: 'Contacts' });
-    await contactsButton.dblclick();
+    await contactsButton.click();
 
     await expect(page.getByRole('heading', { name: 'Contacts' })).toBeVisible();
   });
@@ -1320,7 +1320,7 @@ test.describe('Analytics page', () => {
     await openSidebar(page);
 
     const analyticsButton = page.locator('aside nav').getByRole('button', { name: 'Analytics' });
-    await analyticsButton.dblclick();
+    await analyticsButton.click();
 
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
   });
