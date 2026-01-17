@@ -110,6 +110,15 @@ vi.mock('@rapid/shared', () => ({
   assertPlainArrayBuffer: vi.fn()
 }));
 
+vi.mock('@/stores/logStore', () => ({
+  logStore: {
+    warn: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn()
+  }
+}));
+
 let mockPlatform = 'web';
 vi.mock('@/lib/utils', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/utils')>();
