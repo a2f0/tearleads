@@ -65,7 +65,8 @@ export const ua = {
     download: 'Завантажити',
     edit: 'Редагувати',
     delete: 'Видалити',
-    exportVCard: 'Експортувати vCard'
+    exportVCard: 'Експортувати vCard',
+    newNote: 'Нова Нотатка'
   },
   settings: {
     font: 'Шрифт',
