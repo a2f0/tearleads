@@ -85,4 +85,38 @@ describe('SettingsWindow', () => {
       JSON.stringify(initialDimensions)
     );
   });
+
+  it('renders menu bar with File and View menus', () => {
+    render(<SettingsWindow {...defaultProps} />);
+    expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+  });
+
+  it('calls onClose from File menu Close option', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<SettingsWindow {...defaultProps} onClose={onClose} />);
+
+    await user.click(screen.getByRole('button', { name: 'File' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Close' }));
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('toggles compact mode from View menu', async () => {
+    const user = userEvent.setup();
+    render(<SettingsWindow {...defaultProps} />);
+
+    // Initially should have p-6 padding (not compact)
+    const contentContainer =
+      screen.getByTestId('settings-content').parentElement;
+    expect(contentContainer).toHaveClass('p-6');
+
+    // Click View menu and toggle compact
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Compact' }));
+
+    // Now should have p-3 padding (compact)
+    expect(contentContainer).toHaveClass('p-3');
+  });
 });
