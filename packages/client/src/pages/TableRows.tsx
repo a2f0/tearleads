@@ -487,7 +487,6 @@ export function TableRows() {
     if (!scrollElement) return;
 
     const handleScroll = () => {
-      // Mark as scrolled on any scroll event (user interaction detected)
       setHasScrolled(true);
     };
 
@@ -593,7 +592,7 @@ export function TableRows() {
   }, [isUnlocked, currentInstanceId, fetchTableData, columns.length]);
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full flex-col space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-4">
           <BackLink defaultTo="/tables" defaultLabel="Back to Tables" />
@@ -714,7 +713,12 @@ export function TableRows() {
           />
 
           {documentView ? (
-            <div className="flex min-h-0 flex-1 flex-col rounded-lg border">
+            <div
+              className={cn(
+                'flex min-h-0 flex-1 flex-col rounded-lg border',
+                rows.length > 0 && 'h-[calc(100vh-280px)]'
+              )}
+            >
               {rows.length === 0 && !loading ? (
                 <div className="p-8 text-center text-muted-foreground">
                   No rows in this table
@@ -722,7 +726,7 @@ export function TableRows() {
               ) : (
                 <div
                   ref={parentRef}
-                  className="flex-1 overflow-auto p-2"
+                  className="h-full overflow-auto p-2"
                   data-testid="scroll-container"
                 >
                   <div
@@ -776,7 +780,12 @@ export function TableRows() {
               )}
             </div>
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+            <div
+              className={cn(
+                'flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border',
+                rows.length > 0 && 'h-[calc(100vh-280px)]'
+              )}
+            >
               {/* Header row - sticky */}
               <div
                 className="grid border-b bg-muted/50"
@@ -840,7 +849,7 @@ export function TableRows() {
               ) : (
                 <div
                   ref={parentRef}
-                  className="flex-1 overflow-auto"
+                  className="h-full overflow-auto"
                   data-testid="scroll-container"
                 >
                   <div
