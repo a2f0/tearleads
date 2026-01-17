@@ -59,9 +59,7 @@ export function WindowRenderer() {
                 }
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
+                initialDimensions={window.dimensions}
               />
             );
           default:
