@@ -336,7 +336,9 @@ describe('WindowRenderer', () => {
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
     expect(screen.getByTestId('console-window-console-1')).toBeInTheDocument();
-    expect(screen.getByTestId('settings-window-settings-1')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('settings-window-settings-1')
+    ).toBeInTheDocument();
     expect(screen.getByTestId('email-window-email-1')).toBeInTheDocument();
   });
 
