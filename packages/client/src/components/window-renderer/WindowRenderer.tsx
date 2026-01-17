@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { AnalyticsWindow } from '@/components/analytics-window';
 import { ChatWindow } from '@/components/chat-window';
 import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
@@ -187,6 +188,22 @@ export function WindowRenderer() {
           case 'chat':
             return (
               <ChatWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'analytics':
+            return (
+              <AnalyticsWindow
                 key={window.id}
                 id={window.id}
                 onClose={() => closeWindow(window.id)}
