@@ -291,14 +291,6 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - Output a brief description of what was merged (1-3 sentences summarizing the changes based on the PR title and commits)
    - If `needs_qa` was `true`, mention the associated issue number, whether it was reopened, and that it has been labeled "Needs QA" for follow-up
 
-7. **Auto-exit session**: After reporting success, run the exit script to close the session:
-
-   ```bash
-   ./scripts/agents/exitSession.sh
-   ```
-
-   This sends `/exit` to the tmux pane after a 2-second delay, allowing the success message to be displayed first.
-
 ## Opening GitHub Issues
 
 Create issues for problems that shouldn't block the PR (flaky tests, infrastructure issues, tech debt). Use labels: `flaky-test`, `ci`, `bug`, `enhancement`. Don't let issue creation block the merge - create it and continue.
@@ -360,7 +352,6 @@ git rebase origin/main      # Can be noisy and waste tokens
 - Prioritize staying up-to-date over waiting for CI in congested queues
 - Fixable: lint/type errors, test failures. Non-fixable: merge conflicts, infra failures
 - If stuck (same fix attempted twice), ask user for help
-- On early exit, run `clearQueued.sh`
 - Gemini confirmation detection: positive phrases ("looks good", "lgtm", etc.) WITHOUT negative qualifiers ("but", "however", "still")
 - Only resolve threads after explicit Gemini confirmation
 
