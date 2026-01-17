@@ -2,10 +2,28 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { clearOriginStorage } from './test-utils';
 
+// Helper to open sidebar via Start button
+async function openSidebar(page: Page) {
+  const startButton = page.getByTestId('start-button');
+  await expect(startButton).toBeVisible({ timeout: 10000 });
+  await startButton.click();
+  await expect(page.locator('aside nav')).toBeVisible({ timeout: 10000 });
+}
+
 // Helper to navigate via sidebar
 async function navigateTo(page: Page, linkName: string) {
-  const link = page.locator('aside nav').getByRole('link', { name: linkName });
+  const sidebar = page.locator('aside nav');
+  if (!(await sidebar.isVisible())) {
+    await openSidebar(page);
+  }
+  const link = sidebar.getByRole('link', { name: linkName });
   await link.click();
+  // Close sidebar after navigation to prevent it from intercepting pointer events
+  const startButton = page.getByTestId('start-button');
+  if (await sidebar.isVisible()) {
+    await startButton.click();
+    await expect(sidebar).not.toBeVisible({ timeout: 5000 });
+  }
 }
 
 // Helper to setup and unlock the database
