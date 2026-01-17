@@ -1,4 +1,5 @@
 import { Minimize2 } from 'lucide-react';
+import { useCallback } from 'react';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 
 interface SettingsWindowMenuBarProps {
@@ -12,6 +13,10 @@ export function SettingsWindowMenuBar({
   onCompactChange,
   onClose
 }: SettingsWindowMenuBarProps) {
+  const handleCompactChange = useCallback(() => {
+    onCompactChange(!compact);
+  }, [compact, onCompactChange]);
+
   return (
     <div className="flex shrink-0 border-b bg-muted/30 px-1">
       <DropdownMenu trigger="File">
@@ -19,7 +24,7 @@ export function SettingsWindowMenuBar({
       </DropdownMenu>
       <DropdownMenu trigger="View">
         <DropdownMenuItem
-          onClick={() => onCompactChange(!compact)}
+          onClick={handleCompactChange}
           checked={compact}
           icon={<Minimize2 className="h-3 w-3" />}
         >
