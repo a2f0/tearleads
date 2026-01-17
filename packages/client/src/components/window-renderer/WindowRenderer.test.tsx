@@ -353,6 +353,111 @@ vi.mock('@/components/analytics-window', () => ({
   )
 }));
 
+vi.mock('@/components/audio-window', () => ({
+  AudioWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`audio-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 600, height: 500 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/components/admin-window', () => ({
+  AdminWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`admin-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 700, height: 600 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/components/chat-window', () => ({
+  ChatWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`chat-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 700, height: 600 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 const mockOpenWindow = vi.fn();
 const mockCloseWindow = vi.fn();
 const mockFocusWindow = vi.fn();
@@ -828,7 +933,121 @@ describe('WindowRenderer', () => {
     });
   });
 
-  it('renders all ten window types together', () => {
+  it('renders audio window for audio type', () => {
+    mockWindows = [{ id: 'audio-1', type: 'audio', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('audio-window-audio-1')).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when audio close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'audio-1', type: 'audio', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-audio-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('audio-1');
+  });
+
+  it('calls focusWindow when audio window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'audio-1', type: 'audio', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('audio-window-audio-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('audio-1');
+  });
+
+  it('calls minimizeWindow when audio minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'audio-1', type: 'audio', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-audio-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('audio-1', {
+      x: 0,
+      y: 0,
+      width: 600,
+      height: 500
+    });
+  });
+
+  it('renders admin window for admin type', () => {
+    mockWindows = [{ id: 'admin-1', type: 'admin', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('admin-window-admin-1')).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when admin close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'admin-1', type: 'admin', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-admin-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('admin-1');
+  });
+
+  it('calls focusWindow when admin window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'admin-1', type: 'admin', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('admin-window-admin-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('admin-1');
+  });
+
+  it('calls minimizeWindow when admin minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'admin-1', type: 'admin', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-admin-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('admin-1', {
+      x: 0,
+      y: 0,
+      width: 700,
+      height: 600
+    });
+  });
+
+  it('renders chat window for chat type', () => {
+    mockWindows = [{ id: 'chat-1', type: 'chat', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('chat-window-chat-1')).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when chat close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'chat-1', type: 'chat', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-chat-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('chat-1');
+  });
+
+  it('calls focusWindow when chat window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'chat-1', type: 'chat', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('chat-window-chat-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('chat-1');
+  });
+
+  it('calls minimizeWindow when chat minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'chat-1', type: 'chat', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-chat-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('chat-1', {
+      x: 0,
+      y: 0,
+      width: 700,
+      height: 600
+    });
+  });
+
+  it('renders all thirteen window types together', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'console-1', type: 'console', zIndex: 101 },
@@ -839,7 +1058,10 @@ describe('WindowRenderer', () => {
       { id: 'keychain-1', type: 'keychain', zIndex: 106 },
       { id: 'contacts-1', type: 'contacts', zIndex: 107 },
       { id: 'sqlite-1', type: 'sqlite', zIndex: 108 },
-      { id: 'analytics-1', type: 'analytics', zIndex: 109 }
+      { id: 'chat-1', type: 'chat', zIndex: 109 },
+      { id: 'analytics-1', type: 'analytics', zIndex: 110 },
+      { id: 'audio-1', type: 'audio', zIndex: 111 },
+      { id: 'admin-1', type: 'admin', zIndex: 112 }
     ];
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
@@ -857,8 +1079,11 @@ describe('WindowRenderer', () => {
       screen.getByTestId('contacts-window-contacts-1')
     ).toBeInTheDocument();
     expect(screen.getByTestId('sqlite-window-sqlite-1')).toBeInTheDocument();
+    expect(screen.getByTestId('chat-window-chat-1')).toBeInTheDocument();
     expect(
       screen.getByTestId('analytics-window-analytics-1')
     ).toBeInTheDocument();
+    expect(screen.getByTestId('audio-window-audio-1')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-window-admin-1')).toBeInTheDocument();
   });
 });

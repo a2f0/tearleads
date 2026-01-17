@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
@@ -264,6 +264,117 @@ describe('Sidebar', () => {
 
     // Context menu should be closed
     expect(screen.queryByText('Open')).not.toBeInTheDocument();
+  });
+
+  it('calls onClose when clicking a nav item on mobile', async () => {
+    const localMockOnClose = vi.fn();
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query === '(max-width: 1023px)',
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    }));
+
+    const user = userEvent.setup();
+    render(
+      <I18nextProvider i18n={i18n}>
+        <MemoryRouter initialEntries={['/']}>
+          <WindowManagerProvider>
+            <Sidebar isOpen={true} onClose={localMockOnClose} />
+          </WindowManagerProvider>
+        </MemoryRouter>
+      </I18nextProvider>
+    );
+
+    const contactsButton = screen.getByRole('button', { name: 'Contacts' });
+    await user.click(contactsButton);
+
+    expect(localMockOnClose).toHaveBeenCalled();
+
+    window.matchMedia = originalMatchMedia;
+  });
+
+  it('opens window on double-click on desktop', async () => {
+    const localMockOnClose = vi.fn();
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    }));
+
+    const user = userEvent.setup();
+    render(
+      <I18nextProvider i18n={i18n}>
+        <MemoryRouter initialEntries={['/']}>
+          <WindowManagerProvider>
+            <Sidebar isOpen={true} onClose={localMockOnClose} />
+          </WindowManagerProvider>
+        </MemoryRouter>
+      </I18nextProvider>
+    );
+
+    const emailButton = screen.getByRole('button', { name: 'Email' });
+    await user.dblClick(emailButton);
+
+    expect(localMockOnClose).toHaveBeenCalled();
+
+    window.matchMedia = originalMatchMedia;
+  });
+
+  it('updates isMobile when media query changes', async () => {
+    const localMockOnClose = vi.fn();
+    let mediaChangeHandler: ((e: MediaQueryListEvent) => void) | null = null;
+
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn((_, handler) => {
+        mediaChangeHandler = handler;
+      }),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    }));
+
+    const user = userEvent.setup();
+    render(
+      <I18nextProvider i18n={i18n}>
+        <MemoryRouter initialEntries={['/']}>
+          <WindowManagerProvider>
+            <Sidebar isOpen={true} onClose={localMockOnClose} />
+          </WindowManagerProvider>
+        </MemoryRouter>
+      </I18nextProvider>
+    );
+
+    // Trigger the media change handler
+    act(() => {
+      if (mediaChangeHandler) {
+        mediaChangeHandler({ matches: true } as MediaQueryListEvent);
+      }
+    });
+
+    // Click a nav item - should use mobile behavior now
+    const contactsButton = screen.getByRole('button', { name: 'Contacts' });
+    await user.click(contactsButton);
+
+    expect(localMockOnClose).toHaveBeenCalled();
+
+    window.matchMedia = originalMatchMedia;
   });
 });
 
