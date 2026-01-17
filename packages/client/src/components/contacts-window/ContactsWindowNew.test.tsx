@@ -376,4 +376,156 @@ describe('ContactsWindowNew', () => {
 
     expect(birthdayInput).toHaveValue('1990-01-15');
   });
+
+  it('allows changing primary email', async () => {
+    const user = userEvent.setup();
+    render(<ContactsWindowNew {...defaultProps} />);
+
+    await user.click(screen.getByTestId('window-new-add-email'));
+    await user.click(screen.getByTestId('window-new-add-email'));
+
+    await waitFor(() => {
+      const radioButtons = screen.getAllByRole('radio');
+      expect(radioButtons.length).toBe(2);
+    });
+
+    const radioButtons = screen.getAllByRole('radio');
+    const secondRadio = radioButtons[1];
+    if (secondRadio) {
+      await user.click(secondRadio);
+      expect(secondRadio).toBeChecked();
+    }
+  });
+
+  it('allows changing primary phone', async () => {
+    const user = userEvent.setup();
+    render(<ContactsWindowNew {...defaultProps} />);
+
+    await user.click(screen.getByTestId('window-new-add-phone'));
+    await user.click(screen.getByTestId('window-new-add-phone'));
+
+    await waitFor(() => {
+      const radioButtons = screen.getAllByRole('radio');
+      expect(radioButtons.length).toBe(2);
+    });
+
+    const radioButtons = screen.getAllByRole('radio');
+    const secondRadio = radioButtons[1];
+    if (secondRadio) {
+      await user.click(secondRadio);
+      expect(secondRadio).toBeChecked();
+    }
+  });
+
+  it('creates contact with email and phone', async () => {
+    const user = userEvent.setup();
+    const onCreated = vi.fn();
+    render(<ContactsWindowNew {...defaultProps} onCreated={onCreated} />);
+
+    const firstNameInput = screen.getByTestId('window-new-first-name');
+    await user.type(firstNameInput, 'John');
+
+    await user.click(screen.getByTestId('window-new-add-email'));
+
+    await waitFor(() => {
+      const emailInputs = screen.getAllByPlaceholderText('Email');
+      expect(emailInputs.length).toBe(1);
+    });
+
+    const emailInputs = screen.getAllByPlaceholderText('Email');
+    const emailInput = emailInputs[0];
+    if (emailInput) {
+      await user.type(emailInput, 'john@example.com');
+    }
+
+    await user.click(screen.getByTestId('window-new-add-phone'));
+
+    await waitFor(() => {
+      const phoneInputs = screen.getAllByPlaceholderText('Phone');
+      expect(phoneInputs.length).toBe(1);
+    });
+
+    const phoneInputs = screen.getAllByPlaceholderText('Phone');
+    const phoneInput = phoneInputs[0];
+    if (phoneInput) {
+      await user.type(phoneInput, '+1234567890');
+    }
+
+    await user.click(screen.getByTestId('window-new-contact-save'));
+
+    await waitFor(() => {
+      expect(mockDb.insert).toHaveBeenCalled();
+      expect(onCreated).toHaveBeenCalled();
+    });
+  });
+
+  it('first email is automatically primary', async () => {
+    const user = userEvent.setup();
+    render(<ContactsWindowNew {...defaultProps} />);
+
+    await user.click(screen.getByTestId('window-new-add-email'));
+
+    await waitFor(() => {
+      const radioButtons = screen.getAllByRole('radio');
+      expect(radioButtons.length).toBe(1);
+    });
+
+    const radioButtons = screen.getAllByRole('radio');
+    const firstRadio = radioButtons[0];
+    expect(firstRadio).toBeChecked();
+  });
+
+  it('first phone is automatically primary', async () => {
+    const user = userEvent.setup();
+    render(<ContactsWindowNew {...defaultProps} />);
+
+    await user.click(screen.getByTestId('window-new-add-phone'));
+
+    await waitFor(() => {
+      const radioButtons = screen.getAllByRole('radio');
+      expect(radioButtons.length).toBe(1);
+    });
+
+    const radioButtons = screen.getAllByRole('radio');
+    const firstRadio = radioButtons[0];
+    expect(firstRadio).toBeChecked();
+  });
+
+  it('allows editing phone label', async () => {
+    const user = userEvent.setup();
+    render(<ContactsWindowNew {...defaultProps} />);
+
+    await user.click(screen.getByTestId('window-new-add-phone'));
+
+    await waitFor(() => {
+      const labelInputs = screen.getAllByPlaceholderText('Label');
+      expect(labelInputs.length).toBe(1);
+    });
+
+    const labelInputs = screen.getAllByPlaceholderText('Label');
+    const labelInput = labelInputs[0];
+    if (labelInput) {
+      await user.type(labelInput, 'Work');
+      expect(labelInput).toHaveValue('Work');
+    }
+  });
+
+  it('allows entering phone number', async () => {
+    const user = userEvent.setup();
+    render(<ContactsWindowNew {...defaultProps} />);
+
+    await user.click(screen.getByTestId('window-new-add-phone'));
+
+    await waitFor(() => {
+      const phoneInputs = screen.getAllByPlaceholderText('Phone');
+      expect(phoneInputs.length).toBe(1);
+    });
+
+    const phoneInputs = screen.getAllByPlaceholderText('Phone');
+    const phoneInput = phoneInputs[0];
+    if (phoneInput) {
+      await user.type(phoneInput, '+1234567890');
+      expect(phoneInput).toHaveValue('+1234567890');
+    }
+  });
 });
