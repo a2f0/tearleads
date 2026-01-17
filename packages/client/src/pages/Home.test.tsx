@@ -454,4 +454,84 @@ describe('Home', () => {
       configurable: true
     });
   });
+
+  it('shows scatter option in canvas context menu and randomizes icon positions', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+
+    // Mock container dimensions for scatter calculation
+    if (canvas) {
+      Object.defineProperty(canvas, 'offsetWidth', {
+        value: 800,
+        configurable: true
+      });
+      Object.defineProperty(canvas, 'offsetHeight', {
+        value: 600,
+        configurable: true
+      });
+    }
+
+    // Get initial position of an icon
+    const filesButton = screen.getByRole('button', { name: 'Files' });
+    const initialStyle = filesButton.getAttribute('style');
+
+    if (canvas) {
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    expect(screen.getByText('Scatter')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Scatter'));
+
+    // Context menu should close
+    expect(screen.queryByText('Scatter')).not.toBeInTheDocument();
+
+    // localStorage should be cleared
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+
+    // Position should have changed (scatter assigns random positions)
+    const newStyle = filesButton.getAttribute('style');
+    expect(newStyle).not.toEqual(initialStyle);
+  });
+
+  it('shows cluster option in canvas context menu and arranges icons in centered square', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+
+    // Mock container dimensions for cluster calculation
+    if (canvas) {
+      Object.defineProperty(canvas, 'offsetWidth', {
+        value: 800,
+        configurable: true
+      });
+      Object.defineProperty(canvas, 'offsetHeight', {
+        value: 600,
+        configurable: true
+      });
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    expect(screen.getByText('Cluster')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Cluster'));
+
+    // Context menu should close
+    expect(screen.queryByText('Cluster')).not.toBeInTheDocument();
+
+    // localStorage should be cleared (same as auto-arrange)
+    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+
+    // With 20 icons in an 800x600 container:
+    // cols = ceil(sqrt(20)) = 5, rows = ceil(20/5) = 4
+    // itemWidth = 64 + 40 = 104, itemHeightWithGap = 96 + 40 = 136
+    // clusterWidth = 5*104 - 40 = 480, clusterHeight = 4*136 - 40 = 504
+    // startX = (800 - 480) / 2 = 160, startY = (600 - 504) / 2 = 48
+    // First icon (Files) at index 0: col=0, row=0 -> (160, 48)
+    const filesButton = screen.getByRole('button', { name: 'Files' });
+    expect(filesButton).toHaveStyle({ left: '160px', top: '48px' });
+  });
 });

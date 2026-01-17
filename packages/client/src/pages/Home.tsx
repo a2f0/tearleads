@@ -1,4 +1,10 @@
-import { AppWindow, ExternalLink, LayoutGrid } from 'lucide-react';
+import {
+  AppWindow,
+  ExternalLink,
+  LayoutGrid,
+  Maximize2,
+  Square
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { navItems } from '@/components/Sidebar';
@@ -95,6 +101,63 @@ function calculateGridPositions(
     positions[item.path] = {
       x: startX + col * itemWidth,
       y: row * (isMobile ? ITEM_HEIGHT_MOBILE + gap : ITEM_HEIGHT + gap)
+    };
+  });
+  return positions;
+}
+
+function calculateScatterPositions(
+  items: typeof navItems,
+  containerWidth: number,
+  containerHeight: number,
+  isMobile: boolean
+): Positions {
+  const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
+  const itemHeight = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
+  const maxX = Math.max(0, containerWidth - iconSize);
+  const maxY = Math.max(0, containerHeight - itemHeight);
+
+  const positions: Positions = {};
+  items.forEach((item) => {
+    positions[item.path] = {
+      x: Math.floor(Math.random() * maxX),
+      y: Math.floor(Math.random() * maxY)
+    };
+  });
+  return positions;
+}
+
+function calculateClusterPositions(
+  items: typeof navItems,
+  containerWidth: number,
+  containerHeight: number,
+  isMobile: boolean
+): Positions {
+  const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
+  const gap = isMobile ? GAP_MOBILE : GAP;
+  const itemHeight = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
+  const itemWidth = iconSize + gap;
+  const itemHeightWithGap = itemHeight + gap;
+
+  // Calculate grid dimensions for a square-ish arrangement
+  const cols = Math.ceil(Math.sqrt(items.length));
+  const rows = Math.ceil(items.length / cols);
+
+  // Calculate total cluster dimensions
+  const clusterWidth = cols * itemWidth - gap;
+  const clusterHeight = rows * itemHeightWithGap - gap;
+
+  // Center the cluster
+  const startX = Math.max(0, (containerWidth - clusterWidth) / 2);
+  const startY = Math.max(0, (containerHeight - clusterHeight) / 2);
+
+  const positions: Positions = {};
+  items.forEach((item, index) => {
+    const col = index % cols;
+    const row = Math.floor(index / cols);
+    positions[item.path] = {
+      x: startX + col * itemWidth,
+      y: startY + row * itemHeightWithGap
     };
   });
   return positions;
@@ -285,6 +348,30 @@ export function Home() {
     setCanvasContextMenu(null);
   }, [appItems, isMobile]);
 
+  const handleScatter = useCallback(() => {
+    if (containerRef.current) {
+      const width = containerRef.current.offsetWidth;
+      const height = containerRef.current.offsetHeight;
+      setPositions(
+        calculateScatterPositions(appItems, width, height, isMobile)
+      );
+      localStorage.removeItem(STORAGE_KEY);
+    }
+    setCanvasContextMenu(null);
+  }, [appItems, isMobile]);
+
+  const handleCluster = useCallback(() => {
+    if (containerRef.current) {
+      const width = containerRef.current.offsetWidth;
+      const height = containerRef.current.offsetHeight;
+      setPositions(
+        calculateClusterPositions(appItems, width, height, isMobile)
+      );
+      localStorage.removeItem(STORAGE_KEY);
+    }
+    setCanvasContextMenu(null);
+  }, [appItems, isMobile]);
+
   const handleOpenFromContextMenu = useCallback(() => {
     if (iconContextMenu) {
       navigate(iconContextMenu.path);
@@ -371,6 +458,18 @@ export function Home() {
             onClick={handleAutoArrange}
           >
             Auto Arrange
+          </ContextMenuItem>
+          <ContextMenuItem
+            icon={<Maximize2 className="h-4 w-4" />}
+            onClick={handleScatter}
+          >
+            Scatter
+          </ContextMenuItem>
+          <ContextMenuItem
+            icon={<Square className="h-4 w-4" />}
+            onClick={handleCluster}
+          >
+            Cluster
           </ContextMenuItem>
         </ContextMenu>
       )}
