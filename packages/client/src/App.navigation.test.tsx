@@ -151,20 +151,23 @@ describe('App Integration', () => {
     });
 
     it('renders home page with app icons by default', () => {
-      // Sidebar has links, home page has draggable buttons (double-click to open)
-      const filesLink = screen.getByRole('link', { name: 'Files' });
-      const filesButton = screen.getByRole('button', { name: 'Files' });
-      const contactsLink = screen.getByRole('link', { name: 'Contacts' });
-      const contactsButton = screen.getByRole('button', { name: 'Contacts' });
-      expect(filesLink).toBeInTheDocument();
-      expect(filesButton).toBeInTheDocument();
-      expect(contactsLink).toBeInTheDocument();
-      expect(contactsButton).toBeInTheDocument();
+      // Sidebar has buttons, home page has draggable buttons (double-click to open)
+      // Both are buttons now, but with different test IDs
+      const sidebarFilesButton = screen.getByTestId('files-link');
+      const filesButtons = screen.getAllByRole('button', { name: 'Files' });
+      const contactsButtons = screen.getAllByRole('button', {
+        name: 'Contacts'
+      });
+      expect(sidebarFilesButton).toBeInTheDocument();
+      // Should have both sidebar and home page buttons
+      expect(filesButtons.length).toBeGreaterThanOrEqual(2);
+      expect(contactsButtons.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('navigates to Contacts page when clicking sidebar link', async () => {
-      const contactsLinks = screen.getAllByText('Contacts');
-      await user.click(contactsLinks[0] as HTMLElement);
+    it('navigates to Contacts page when double-clicking sidebar button', async () => {
+      // On desktop, sidebar items require double-click to open
+      const contactsButton = screen.getByTestId('contacts-link');
+      await user.dblClick(contactsButton);
 
       // When no contacts exist, the add contact card is shown instead of search
       await waitFor(() => {
@@ -279,7 +282,7 @@ describe('App Integration', () => {
       });
     });
 
-    it('home link navigates back to Home', async () => {
+    it('home button navigates back to Home', async () => {
       const user = userEvent.setup();
       renderAppWithRoutes('/debug');
 
@@ -287,9 +290,12 @@ describe('App Integration', () => {
         expect(screen.getByText('System Info')).toBeInTheDocument();
       });
 
-      // Click home link in sidebar
-      const homeLink = screen.getByRole('link', { name: 'Home' });
-      await user.click(homeLink);
+      // Open sidebar first
+      await user.click(screen.getByTestId('start-button'));
+
+      // Double-click home button in sidebar (desktop requires double-click)
+      const homeButton = screen.getByTestId('home-link');
+      await user.dblClick(homeButton);
 
       await waitFor(() => {
         // Should be back at Home page with app icons
