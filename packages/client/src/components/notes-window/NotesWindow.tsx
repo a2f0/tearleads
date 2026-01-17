@@ -1,22 +1,35 @@
 import { useCallback, useState } from 'react';
+import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { getDatabase } from '@/db';
+import { useDatabaseContext } from '@/db/hooks';
+import { notes } from '@/db/schema';
 import { NotesWindowDetail } from './NotesWindowDetail';
 import { NotesWindowList } from './NotesWindowList';
+import type { ViewMode } from './NotesWindowMenuBar';
+import { NotesWindowMenuBar } from './NotesWindowMenuBar';
+import { NotesWindowTableView } from './NotesWindowTableView';
 
 interface NotesWindowProps {
   id: string;
   onClose: () => void;
+  onMinimize: (dimensions: WindowDimensions) => void;
   onFocus: () => void;
   zIndex: number;
+  initialDimensions?: WindowDimensions;
 }
 
 export function NotesWindow({
   id,
   onClose,
+  onMinimize,
   onFocus,
-  zIndex
+  zIndex,
+  initialDimensions
 }: NotesWindowProps) {
+  const { isUnlocked } = useDatabaseContext();
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   const handleSelectNote = useCallback((noteId: string) => {
     setSelectedNoteId(noteId);
@@ -30,27 +43,66 @@ export function NotesWindow({
     setSelectedNoteId(null);
   }, []);
 
+  const handleNewNote = useCallback(async () => {
+    if (!isUnlocked) return;
+
+    try {
+      const db = getDatabase();
+      const noteId = crypto.randomUUID();
+      const now = new Date();
+
+      await db.insert(notes).values({
+        id: noteId,
+        title: 'Untitled Note',
+        content: '',
+        createdAt: now,
+        updatedAt: now,
+        deleted: false
+      });
+
+      setSelectedNoteId(noteId);
+    } catch (err) {
+      console.error('Failed to create note:', err);
+    }
+  }, [isUnlocked]);
+
   return (
     <FloatingWindow
       id={id}
       title={selectedNoteId ? 'Note' : 'Notes'}
       onClose={onClose}
+      onMinimize={onMinimize}
       onFocus={onFocus}
       zIndex={zIndex}
+      {...(initialDimensions && { initialDimensions })}
       defaultWidth={500}
       defaultHeight={450}
       minWidth={350}
       minHeight={300}
     >
-      {selectedNoteId ? (
-        <NotesWindowDetail
-          noteId={selectedNoteId}
-          onBack={handleBack}
-          onDeleted={handleDeleted}
-        />
-      ) : (
-        <NotesWindowList onSelectNote={handleSelectNote} />
-      )}
+      <div className="flex h-full flex-col">
+        {!selectedNoteId && (
+          <NotesWindowMenuBar
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            onNewNote={handleNewNote}
+            onClose={onClose}
+          />
+        )}
+        <div className="flex-1 overflow-hidden">
+          {selectedNoteId ? (
+            <NotesWindowDetail
+              noteId={selectedNoteId}
+              onBack={handleBack}
+              onDeleted={handleDeleted}
+            />
+          ) : viewMode === 'table' ? (
+            <NotesWindowTableView onSelectNote={handleSelectNote} />
+          ) : (
+            <NotesWindowList onSelectNote={handleSelectNote} />
+          )}
+        </div>
+      </div>
     </FloatingWindow>
   );
 }

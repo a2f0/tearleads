@@ -60,6 +60,10 @@ vi.mock('./components/window-renderer', () => ({
   WindowRenderer: () => null
 }));
 
+vi.mock('./components/taskbar', () => ({
+  Taskbar: () => <div data-testid="taskbar" />
+}));
+
 vi.mock('./hooks/useAppVersion', () => ({
   useAppVersion: () => mockUseAppVersion()
 }));
