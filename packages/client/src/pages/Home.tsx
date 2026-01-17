@@ -395,12 +395,19 @@ export function Home() {
         openWindow('console');
       } else if (path === '/settings') {
         openWindow('settings');
+      } else if (path === '/files') {
+        openWindow('files');
       }
     }
     setIconContextMenu(null);
   }, [iconContextMenu, openWindow]);
 
-  const OPENABLE_IN_WINDOW_PATHS = ['/notes', '/console', '/settings'];
+  const OPENABLE_IN_WINDOW_PATHS = [
+    '/notes',
+    '/console',
+    '/settings',
+    '/files'
+  ];
 
   const canOpenInWindow = (path: string) =>
     OPENABLE_IN_WINDOW_PATHS.includes(path);
