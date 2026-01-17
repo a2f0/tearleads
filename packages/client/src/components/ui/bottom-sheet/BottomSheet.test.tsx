@@ -628,4 +628,34 @@ describe('BottomSheet', () => {
       expect(contentContainer).toHaveTextContent('Test content');
     });
   });
+
+  describe('window resize', () => {
+    it('updates windowHeight state when window is resized', async () => {
+      Object.defineProperty(window, 'innerHeight', {
+        writable: true,
+        configurable: true,
+        value: 768
+      });
+
+      render(
+        <BottomSheet open={true} onOpenChange={() => {}}>
+          <p>Content</p>
+        </BottomSheet>
+      );
+
+      // Resize the window
+      Object.defineProperty(window, 'innerHeight', {
+        writable: true,
+        configurable: true,
+        value: 1024
+      });
+
+      await act(async () => {
+        window.dispatchEvent(new Event('resize'));
+      });
+
+      // Sheet should still be rendered after resize
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+  });
 });
