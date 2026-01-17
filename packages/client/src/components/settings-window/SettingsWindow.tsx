@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { cn } from '@/lib/utils';
 import { Settings } from '@/pages/Settings';
+import { SettingsWindowMenuBar } from './SettingsWindowMenuBar';
 
 interface SettingsWindowProps {
   id: string;
@@ -19,6 +22,8 @@ export function SettingsWindow({
   zIndex,
   initialDimensions
 }: SettingsWindowProps) {
+  const [compact, setCompact] = useState(false);
+
   return (
     <FloatingWindow
       id={id}
@@ -33,8 +38,15 @@ export function SettingsWindow({
       minWidth={400}
       minHeight={400}
     >
-      <div className="h-full overflow-auto p-6">
-        <Settings />
+      <div className="flex h-full flex-col">
+        <SettingsWindowMenuBar
+          compact={compact}
+          onCompactChange={setCompact}
+          onClose={onClose}
+        />
+        <div className={cn('flex-1 overflow-auto', compact ? 'p-3' : 'p-6')}>
+          <Settings />
+        </div>
       </div>
     </FloatingWindow>
   );
