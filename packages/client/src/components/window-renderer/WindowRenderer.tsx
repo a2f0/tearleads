@@ -4,6 +4,7 @@ import { ContactsWindow } from '@/components/contacts-window';
 import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
 import { NotesWindow } from '@/components/notes-window';
+import { PhotosWindow } from '@/components/photos-window';
 import { SettingsWindow } from '@/components/settings-window';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 
@@ -119,6 +120,22 @@ export function WindowRenderer() {
           case 'contacts':
             return (
               <ContactsWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'photos':
+            return (
+              <PhotosWindow
                 key={window.id}
                 id={window.id}
                 onClose={() => closeWindow(window.id)}

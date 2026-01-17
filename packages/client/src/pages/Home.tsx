@@ -546,6 +546,8 @@ export function Home() {
         openWindow('email');
       } else if (path === '/contacts') {
         openWindow('contacts');
+      } else if (path === '/photos') {
+        openWindow('photos');
       }
     }
     setIconContextMenu(null);
@@ -557,7 +559,8 @@ export function Home() {
     '/settings',
     '/files',
     '/email',
-    '/contacts'
+    '/contacts',
+    '/photos'
   ];
 
   const canOpenInWindow = (path: string) =>
