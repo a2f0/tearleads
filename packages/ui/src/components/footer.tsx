@@ -22,7 +22,7 @@ export function Footer({
       data-slot="footer"
       ref={ref}
       className={cn(
-        'fixed right-0 bottom-0 left-0 border-t bg-background py-6 text-muted-foreground text-sm',
+        'fixed right-0 bottom-0 left-0 z-50 border-t bg-background py-6 text-muted-foreground text-sm',
         className
       )}
       style={{

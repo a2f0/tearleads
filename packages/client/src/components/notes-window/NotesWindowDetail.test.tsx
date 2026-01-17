@@ -324,7 +324,8 @@ describe('NotesWindowDetail', () => {
   it('updates title when edited', async () => {
     shouldResolve = true;
     limitResult = [mockNote];
-    const user = userEvent.setup();
+    // Add delay between keystrokes to prevent race conditions in CI
+    const user = userEvent.setup({ delay: 10 });
 
     await act(async () => {
       render(<NotesWindowDetail {...defaultProps} />);
