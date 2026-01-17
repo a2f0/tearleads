@@ -81,6 +81,7 @@ export default defineConfig({
         'src/pages/opfs/index.ts',
         'src/sse/index.ts',
         'src/video/index.ts',
+        'src/components/console-window/index.ts',
         'src/components/floating-window/index.ts',
         'src/components/notes-window/index.ts',
         'src/components/window-renderer/index.ts',
