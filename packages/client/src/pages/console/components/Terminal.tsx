@@ -24,6 +24,7 @@ export function Terminal({ className }: TerminalProps) {
   const history = useCommandHistory();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileResolverRef = useRef<((file: File | null) => void) | null>(null);
+  const welcomeShownRef = useRef(false);
 
   // File picker implementation
   const pickFile = useCallback((accept: string): Promise<File | null> => {
@@ -167,8 +168,10 @@ export function Terminal({ className }: TerminalProps) {
     [terminal, history]
   );
 
-  // Show welcome message on mount
+  // Show welcome message on mount (only once)
   useEffect(() => {
+    if (welcomeShownRef.current) return;
+    welcomeShownRef.current = true;
     terminal.appendLine('Rapid Terminal v1.0', 'output');
     terminal.appendLine('Type "help" for available commands.', 'output');
     terminal.appendLine('', 'output');

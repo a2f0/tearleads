@@ -69,7 +69,7 @@ export function TerminalInput({
         onKeyDown={handleKeyDown}
         disabled={disabled}
         className={cn(
-          'flex-1 bg-transparent text-base text-terminal-output outline-none',
+          'ml-1 flex-1 bg-transparent text-base text-terminal-output outline-none',
           'placeholder:text-terminal-command',
           disabled && 'cursor-not-allowed opacity-50'
         )}
