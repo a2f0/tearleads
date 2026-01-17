@@ -691,7 +691,7 @@ export function FilesWindowTableView({
                   icon={<RotateCcw className="h-4 w-4" />}
                   onClick={handleContextMenuRestore}
                 >
-                  Restore
+                  {t('restore')}
                 </ContextMenuItem>
               )}
             </ContextMenu>
