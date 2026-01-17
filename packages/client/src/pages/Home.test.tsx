@@ -115,10 +115,10 @@ describe('Home', () => {
     const user = userEvent.setup();
     renderHome();
 
-    const filesButton = screen.getByRole('button', { name: 'Files' });
-    await user.dblClick(filesButton);
+    const contactsButton = screen.getByRole('button', { name: 'Contacts' });
+    await user.dblClick(contactsButton);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/files');
+    expect(mockNavigate).toHaveBeenCalledWith('/contacts');
   });
 
   it('opens floating window on double-click for Notes icon', async () => {
