@@ -5,7 +5,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy Website, Client & API
+    name: Deploy Website, Client, API & SMTP Listener
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -85,3 +85,21 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
             "sudo systemctl restart rapid-api && sudo systemctl --no-pager status rapid-api"
+
+      - name: Build SMTP Listener bundle
+        run: pnpm --filter @rapid/smtp-listener build:bundle
+
+      - name: Deploy SMTP Listener
+        run: |
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+            "mkdir -p /opt/rapid-smtp-listener/dist"
+          rsync -avz --delete -e "ssh -i ~/.ssh/deploy.key" \
+            packages/smtp-listener/dist/ \
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/opt/rapid-smtp-listener/dist/
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+            "chgrp -R www-data /opt/rapid-smtp-listener && chmod -R u=rwX,g=rX,o= /opt/rapid-smtp-listener"
+
+      - name: Restart SMTP Listener service
+        run: |
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
+            "sudo systemctl restart rapid-smtp-listener && sudo systemctl --no-pager status rapid-smtp-listener"

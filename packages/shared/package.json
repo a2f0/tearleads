@@ -10,6 +10,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./redis": {
+      "types": "./dist/redis/index.d.ts",
+      "import": "./dist/redis/index.js"
+    },
     "./licenses.json": "./dist/licenses.json"
   },
   "files": [
@@ -30,6 +34,9 @@
   ],
   "author": "",
   "license": "Unlicensed",
+  "dependencies": {
+    "redis": "5.10.0"
+  },
   "devDependencies": {
     "@vitest/coverage-v8": "4.0.16",
     "tsx": "4.21.0",
