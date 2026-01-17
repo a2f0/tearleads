@@ -37,4 +37,29 @@ describe('TaskbarButton', () => {
     const button = screen.getByTestId('taskbar-button-notes');
     expect(button.querySelector('svg')).toBeInTheDocument();
   });
+
+  it('renders with correct label for console type', () => {
+    render(<TaskbarButton type="console" isActive={false} onClick={vi.fn()} />);
+    expect(screen.getByText('Console')).toBeInTheDocument();
+  });
+
+  it('renders icon for console type', () => {
+    render(<TaskbarButton type="console" isActive={false} onClick={vi.fn()} />);
+    const button = screen.getByTestId('taskbar-button-console');
+    expect(button.querySelector('svg')).toBeInTheDocument();
+  });
+
+  it('shows minimized styling when isMinimized is true', () => {
+    render(
+      <TaskbarButton
+        type="notes"
+        isActive={false}
+        isMinimized={true}
+        onClick={vi.fn()}
+      />
+    );
+    const button = screen.getByTestId('taskbar-button-notes');
+    expect(button).toHaveClass('opacity-60');
+    expect(button).toHaveAttribute('data-minimized', 'true');
+  });
 });
