@@ -57,6 +57,32 @@ vi.mock('@/components/console-window', () => ({
   )
 }));
 
+vi.mock('@/components/settings-window', () => ({
+  SettingsWindow: ({
+    id,
+    onClose,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`settings-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+    </div>
+  )
+}));
+
 const mockOpenWindow = vi.fn();
 const mockCloseWindow = vi.fn();
 const mockFocusWindow = vi.fn();
@@ -195,5 +221,22 @@ describe('WindowRenderer', () => {
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
     expect(screen.getByTestId('console-window-console-1')).toBeInTheDocument();
+  });
+
+  it('renders settings window for settings type', () => {
+    mockWindows = [{ id: 'settings-1', type: 'settings', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(
+      screen.getByTestId('settings-window-settings-1')
+    ).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when settings close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'settings-1', type: 'settings', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-settings-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('settings-1');
   });
 });
