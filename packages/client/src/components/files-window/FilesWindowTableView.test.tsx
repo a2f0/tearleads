@@ -367,6 +367,38 @@ describe('FilesWindowTableView', () => {
     });
   });
 
+  it('preserves other files when one is deleted', async () => {
+    mockDb.orderBy.mockResolvedValue(mockFiles);
+    const user = userEvent.setup();
+    render(<FilesWindowTableView {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('document.pdf')).toBeInTheDocument();
+      expect(screen.getByText('image.jpg')).toBeInTheDocument();
+    });
+
+    const fileRow = screen.getByText('document.pdf').closest('tr');
+    if (fileRow) {
+      await user.pointer({ keys: '[MouseRight]', target: fileRow });
+    }
+
+    await waitFor(() => {
+      expect(screen.getByText('Delete')).toBeInTheDocument();
+    });
+
+    mockDb.set.mockReturnThis();
+    mockDb.where.mockReturnThis();
+
+    await user.click(screen.getByText('Delete'));
+
+    await waitFor(() => {
+      expect(mockDb.update).toHaveBeenCalled();
+    });
+
+    // Verify other file (image.jpg) is still visible and unchanged
+    expect(screen.getByText('image.jpg')).toBeInTheDocument();
+  });
+
   it('handles delete error gracefully', async () => {
     mockDb.orderBy.mockResolvedValue(mockFiles);
     const user = userEvent.setup();
@@ -484,6 +516,42 @@ describe('FilesWindowTableView', () => {
     await waitFor(() => {
       expect(mockDb.update).toHaveBeenCalled();
     });
+  });
+
+  it('preserves other files when one is restored', async () => {
+    const filesWithDeleted = [
+      { ...mockFiles[0], deleted: true },
+      { ...mockFiles[1], deleted: true }
+    ];
+    mockDb.orderBy.mockResolvedValue(filesWithDeleted);
+    const user = userEvent.setup();
+    render(<FilesWindowTableView {...defaultProps} showDeleted={true} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('document.pdf')).toBeInTheDocument();
+      expect(screen.getByText('image.jpg')).toBeInTheDocument();
+    });
+
+    const fileRow = screen.getByText('document.pdf').closest('tr');
+    if (fileRow) {
+      await user.pointer({ keys: '[MouseRight]', target: fileRow });
+    }
+
+    await waitFor(() => {
+      expect(screen.getByText('Restore')).toBeInTheDocument();
+    });
+
+    mockDb.set.mockReturnThis();
+    mockDb.where.mockReturnThis();
+
+    await user.click(screen.getByText('Restore'));
+
+    await waitFor(() => {
+      expect(mockDb.update).toHaveBeenCalled();
+    });
+
+    // Verify other file (image.jpg) is still visible
+    expect(screen.getByText('image.jpg')).toBeInTheDocument();
   });
 
   it('handles restore error gracefully', async () => {
