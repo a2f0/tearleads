@@ -217,38 +217,27 @@
         state: absent
       notify: Reload nginx
 
-    # API nginx configuration
-    - name: Deploy nginx API reverse proxy config
+    # Special nginx configs (API reverse proxy, email subdomain for certbot)
+    - name: Deploy special nginx configs
       ansible.builtin.template:
-        src: nginx-api.conf.j2
-        dest: /etc/nginx/sites-available/api.conf
+        src: "nginx-{{ item }}.conf.j2"
+        dest: "/etc/nginx/sites-available/{{ item }}.conf"
         owner: root
         group: root
         mode: "0644"
+      loop:
+        - api
+        - email
       notify: Reload nginx
 
-    - name: Enable nginx API config
+    - name: Enable special nginx configs
       ansible.builtin.file:
-        src: /etc/nginx/sites-available/api.conf
-        dest: /etc/nginx/sites-enabled/api.conf
+        src: "/etc/nginx/sites-available/{{ item }}.conf"
+        dest: "/etc/nginx/sites-enabled/{{ item }}.conf"
         state: link
-      notify: Reload nginx
-
-    # Email subdomain nginx config (for certbot SSL deployment only)
-    - name: Deploy nginx email config
-      ansible.builtin.template:
-        src: nginx-email.conf.j2
-        dest: /etc/nginx/sites-available/email.conf
-        owner: root
-        group: root
-        mode: "0644"
-      notify: Reload nginx
-
-    - name: Enable nginx email config
-      ansible.builtin.file:
-        src: /etc/nginx/sites-available/email.conf
-        dest: /etc/nginx/sites-enabled/email.conf
-        state: link
+      loop:
+        - api
+        - email
       notify: Reload nginx
 
     - name: Ensure nginx is running and enabled
