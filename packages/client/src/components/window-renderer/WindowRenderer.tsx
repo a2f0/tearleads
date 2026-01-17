@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { ConsoleWindow } from '@/components/console-window';
 import { NotesWindow } from '@/components/notes-window';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 
@@ -34,6 +35,22 @@ export function WindowRenderer() {
           case 'notes':
             return (
               <NotesWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'console':
+            return (
+              <ConsoleWindow
                 key={window.id}
                 id={window.id}
                 onClose={() => closeWindow(window.id)}
