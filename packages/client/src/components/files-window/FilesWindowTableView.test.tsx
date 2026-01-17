@@ -21,7 +21,8 @@ vi.mock('@/i18n', () => ({
         delete: 'Delete',
         download: 'Download',
         play: 'Play',
-        pause: 'Pause'
+        pause: 'Pause',
+        restore: 'Restore'
       })[key] ?? key
   })
 }));
