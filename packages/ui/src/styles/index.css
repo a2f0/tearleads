@@ -44,6 +44,13 @@
   --terminal-prompt: hsl(142 71% 45%);
   --terminal-command: hsl(0 0% 55%);
   --terminal-output: hsl(0 0% 90%);
+
+  /* Scrollbar colors */
+  --scrollbar-track: hsl(0 0% 92%);
+  --scrollbar-thumb: hsl(0 0% 70%);
+  --scrollbar-thumb-hover: hsl(221 83% 53%);
+  --scrollbar-width: 10px;
+  --scrollbar-radius: 5px;
 }
 
 .dark {
@@ -91,6 +98,11 @@
   --terminal-prompt: hsl(142 76% 55%);
   --terminal-command: hsl(0 0% 55%);
   --terminal-output: hsl(0 0% 90%);
+
+  /* Scrollbar colors */
+  --scrollbar-track: hsl(0 0% 15%);
+  --scrollbar-thumb: hsl(0 0% 35%);
+  --scrollbar-thumb-hover: hsl(217 91% 60%);
 }
 
 .tokyo-night {
@@ -138,6 +150,11 @@
   --terminal-prompt: hsl(140 68% 65%);
   --terminal-command: hsl(227 22% 55%);
   --terminal-output: hsl(227 32% 75%);
+
+  /* Scrollbar colors */
+  --scrollbar-track: hsl(230 20% 18%);
+  --scrollbar-thumb: hsl(228 20% 35%);
+  --scrollbar-thumb-hover: hsl(220 89% 72%);
 }
 
 .monochrome {
@@ -185,6 +202,11 @@
   --terminal-prompt: hsl(0 0% 75%);
   --terminal-command: hsl(0 0% 50%);
   --terminal-output: hsl(0 0% 85%);
+
+  /* Scrollbar colors - grayscale */
+  --scrollbar-track: hsl(0 0% 18%);
+  --scrollbar-thumb: hsl(0 0% 40%);
+  --scrollbar-thumb-hover: hsl(0 0% 60%);
 }
 
 /* Monochrome theme: grayscale all images and PDF previews */
@@ -239,6 +261,11 @@
   --color-terminal-command: var(--terminal-command);
   --color-terminal-output: var(--terminal-output);
 
+  /* Scrollbar colors */
+  --color-scrollbar-track: var(--scrollbar-track);
+  --color-scrollbar-thumb: var(--scrollbar-thumb);
+  --color-scrollbar-thumb-hover: var(--scrollbar-thumb-hover);
+
   /* Override Tailwind's oklch colors with hsl for older browser compatibility */
   --color-red-600: hsl(0 72% 51%);
   --color-green-600: hsl(142 71% 45%);
@@ -258,5 +285,38 @@
   input[type='checkbox'],
   input[type='radio'] {
     accent-color: var(--primary);
+  }
+
+  /* Custom scrollbar styling - Standard (e.g., Firefox) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+
+  ::-webkit-scrollbar {
+    width: var(--scrollbar-width);
+    height: var(--scrollbar-width);
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+    border-radius: var(--scrollbar-radius);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: var(--scrollbar-radius);
+    border: 2px solid var(--scrollbar-track);
+    background-clip: padding-box;
+    transition: background 0.2s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-hover);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--scrollbar-thumb-hover) 50%, transparent);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: var(--scrollbar-track);
   }
 }
