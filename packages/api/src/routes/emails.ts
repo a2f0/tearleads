@@ -148,15 +148,22 @@ router.get('/', async (req: Request, res: Response) => {
     for (let i = 0; i < results.length; i++) {
       const data = results[i];
       if (data) {
-        const email: StoredEmail = JSON.parse(data);
-        emails.push({
-          id: email.id,
-          from: formatEmailAddress(email.envelope.mailFrom),
-          to: email.envelope.rcptTo.map((r) => r.address),
-          subject: extractSubject(email.rawData),
-          receivedAt: email.receivedAt,
-          size: email.size
-        });
+        try {
+          const email: StoredEmail = JSON.parse(data);
+          emails.push({
+            id: email.id,
+            from: formatEmailAddress(email.envelope.mailFrom),
+            to: email.envelope.rcptTo.map((r) => r.address),
+            subject: extractSubject(email.rawData),
+            receivedAt: email.receivedAt,
+            size: email.size
+          });
+        } catch (parseError) {
+          console.error(
+            `Failed to parse email data for id ${emailIds[i]}:`,
+            parseError
+          );
+        }
       }
     }
 
@@ -245,10 +252,15 @@ router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
     const client = await getRedisClient();
     const key = `${EMAIL_PREFIX}${id}`;
-    const deleted = await client.del(key);
 
-    if (deleted > 0) {
-      await client.lRem(EMAIL_LIST_KEY, 1, id);
+    const results = await client
+      .multi()
+      .del(key)
+      .lRem(EMAIL_LIST_KEY, 1, id)
+      .exec();
+
+    const delResult = results?.[0];
+    if (delResult && Number(delResult) > 0) {
       res.json({ success: true });
     } else {
       res.status(404).json({ error: 'Email not found' });
