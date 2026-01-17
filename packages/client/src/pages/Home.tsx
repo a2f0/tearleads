@@ -428,13 +428,13 @@ export function Home() {
                 zIndex: isDragging ? 100 : 1,
                 cursor: isMobile ? 'pointer' : isDragging ? 'grabbing' : 'grab'
               }}
-              onClick={isMobile ? () => navigate(item.path) : undefined}
-              onPointerDown={
-                isMobile ? undefined : (e) => handlePointerDown(e, item.path)
-              }
-              onDoubleClick={
-                isMobile ? undefined : () => handleDoubleClick(item.path)
-              }
+              {...(isMobile
+                ? { onClick: () => navigate(item.path) }
+                : {
+                    onPointerDown: (e: React.PointerEvent) =>
+                      handlePointerDown(e, item.path),
+                    onDoubleClick: () => handleDoubleClick(item.path)
+                  })}
               onContextMenu={(e) => handleIconContextMenu(e, item.path)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
