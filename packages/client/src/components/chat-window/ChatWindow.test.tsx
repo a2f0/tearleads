@@ -1,7 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useEffect } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatWindow } from './ChatWindow';
+
+const mockMountCallback = vi.fn();
 
 vi.mock('@/hooks/useLLM', () => ({
   useLLM: vi.fn(() => ({
@@ -32,9 +35,12 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 vi.mock('@/pages/chat/ChatInterface', () => ({
-  ChatInterface: (_props: { generate: () => void }) => (
-    <div data-testid="chat-interface">Chat Interface</div>
-  )
+  ChatInterface: (_props: { generate: () => void }) => {
+    useEffect(() => {
+      mockMountCallback();
+    }, []);
+    return <div data-testid="chat-interface">Chat Interface</div>;
+  }
 }));
 
 vi.mock('@/pages/chat/NoModelLoadedContent', () => ({
@@ -172,17 +178,15 @@ describe('ChatWindow', () => {
     });
 
     const user = userEvent.setup();
-    const { rerender } = render(<ChatWindow {...defaultProps} />);
+    render(<ChatWindow {...defaultProps} />);
 
-    const chatInterface = screen.getByTestId('chat-interface');
-    expect(chatInterface).toBeInTheDocument();
+    expect(screen.getByTestId('chat-interface')).toBeInTheDocument();
+    expect(mockMountCallback).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByTestId('new-chat-button'));
 
-    rerender(<ChatWindow {...defaultProps} />);
-
     await waitFor(() => {
-      expect(screen.getByTestId('chat-interface')).toBeInTheDocument();
+      expect(mockMountCallback).toHaveBeenCalledTimes(2);
     });
   });
 
