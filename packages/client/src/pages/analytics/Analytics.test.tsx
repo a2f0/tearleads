@@ -1428,4 +1428,87 @@ describe('Analytics', () => {
       });
     });
   });
+
+  describe('pagination cascade prevention', () => {
+    beforeEach(() => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: true,
+        isLoading: false
+      });
+    });
+
+    it('does not trigger load-more without user scroll', async () => {
+      // Create a large dataset that would trigger load-more if guards weren't in place
+      const mockEvents = Array.from({ length: 50 }, (_, i) => ({
+        id: `${i + 1}`,
+        eventName: 'db_setup',
+        durationMs: 100 + i,
+        success: true,
+        timestamp: new Date('2025-01-01T12:00:00Z')
+      }));
+
+      mockGetEvents.mockResolvedValue(mockEvents);
+      mockGetEventStats.mockResolvedValue([]);
+      mockGetDistinctEventTypes.mockResolvedValue(['db_setup']);
+      // Return total count greater than page size to indicate more data available
+      mockGetEventCount.mockResolvedValue(200);
+
+      await renderAnalytics();
+
+      // Wait for initial load
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledTimes(1);
+      });
+
+      // Wait a bit to ensure no additional load-more requests happen
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      });
+
+      // Should still only have 1 fetch - no load-more without scroll
+      expect(getEventsCallCount).toBe(1);
+    });
+
+    it('resets scroll state on refresh', async () => {
+      const user = userEvent.setup();
+
+      const mockEvents = [
+        {
+          id: '1',
+          eventName: 'db_setup',
+          durationMs: 150,
+          success: true,
+          timestamp: new Date('2025-01-01T12:00:00Z')
+        }
+      ];
+
+      mockGetEvents.mockResolvedValue(mockEvents);
+      mockGetEventStats.mockResolvedValue([]);
+      mockGetDistinctEventTypes.mockResolvedValue(['db_setup']);
+      mockGetEventCount.mockResolvedValue(1);
+
+      await renderAnalytics();
+
+      // Wait for initial load
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledTimes(1);
+      });
+
+      // Click refresh button
+      await user.click(screen.getByRole('button', { name: 'Refresh' }));
+
+      // Should fetch again (reset=true)
+      await waitFor(() => {
+        expect(mockGetEvents).toHaveBeenCalledTimes(2);
+      });
+
+      // After refresh, scroll state should be reset, so load-more shouldn't trigger
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      });
+
+      // Still only 2 fetches (initial + refresh), no load-more cascade
+      expect(getEventsCallCount).toBe(2);
+    });
+  });
 });
