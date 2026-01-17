@@ -101,9 +101,14 @@ describe('ContactsWindowDetail', () => {
     expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
   });
 
-  it('renders back button', () => {
+  it('renders back button', async () => {
     render(<ContactsWindowDetail {...defaultProps} />);
     expect(screen.getByTestId('window-contact-back')).toBeInTheDocument();
+
+    // Wait for any async operations to complete
+    await waitFor(() => {
+      expect(screen.queryByText('Loading contact...')).not.toBeInTheDocument();
+    });
   });
 
   it('calls onBack when back button is clicked', async () => {
@@ -113,6 +118,11 @@ describe('ContactsWindowDetail', () => {
 
     await user.click(screen.getByTestId('window-contact-back'));
     expect(onBack).toHaveBeenCalled();
+
+    // Wait for any async operations to complete
+    await waitFor(() => {
+      expect(screen.queryByText('Loading contact...')).not.toBeInTheDocument();
+    });
   });
 
   it('displays contact name when loaded', async () => {
@@ -332,5 +342,683 @@ describe('ContactsWindowDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('First name is required')).toBeInTheDocument();
     });
+  });
+
+  it('allows adding email in edit mode', async () => {
+    const user = userEvent.setup();
+    mockDb.orderBy.mockImplementation(() => {
+      return Promise.resolve([]);
+    });
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-contact-edit'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Email Addresses')).toBeInTheDocument();
+    });
+
+    const addButtons = screen.getAllByRole('button', { name: /add/i });
+    const emailAddButton = addButtons[0];
+    if (emailAddButton) {
+      await user.click(emailAddButton);
+    }
+
+    await waitFor(() => {
+      const emailInputs = screen.getAllByPlaceholderText('Email');
+      expect(emailInputs.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('allows adding phone in edit mode', async () => {
+    const user = userEvent.setup();
+    mockDb.orderBy.mockImplementation(() => {
+      return Promise.resolve([]);
+    });
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-contact-edit'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Phone Numbers')).toBeInTheDocument();
+    });
+
+    const addButtons = screen.getAllByRole('button', { name: /add/i });
+    const phoneAddButton = addButtons[addButtons.length - 1];
+    if (phoneAddButton) {
+      await user.click(phoneAddButton);
+    }
+
+    await waitFor(() => {
+      const phoneInputs = screen.getAllByPlaceholderText('Phone');
+      expect(phoneInputs.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('allows editing email value in edit mode', async () => {
+    const user = userEvent.setup();
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-contact-edit'));
+
+    await waitFor(() => {
+      const emailInputs = screen.getAllByPlaceholderText('Email');
+      expect(emailInputs.length).toBeGreaterThan(0);
+    });
+
+    const emailInputs = screen.getAllByPlaceholderText('Email');
+    const emailInput = emailInputs[0];
+    if (emailInput) {
+      await user.clear(emailInput);
+      await user.type(emailInput, 'updated@example.com');
+      expect(emailInput).toHaveValue('updated@example.com');
+    }
+  });
+
+  it('allows editing email label in edit mode', async () => {
+    const user = userEvent.setup();
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-contact-edit'));
+
+    await waitFor(() => {
+      const labelInputs = screen.getAllByPlaceholderText('Label');
+      expect(labelInputs.length).toBeGreaterThan(0);
+    });
+
+    const labelInputs = screen.getAllByPlaceholderText('Label');
+    const labelInput = labelInputs[0];
+    if (labelInput) {
+      await user.clear(labelInput);
+      await user.type(labelInput, 'Personal');
+      expect(labelInput).toHaveValue('Personal');
+    }
+  });
+
+  it('allows changing primary email', async () => {
+    const user = userEvent.setup();
+    const mockMultipleEmails = [
+      { ...mockEmails[0], isPrimary: true },
+      {
+        id: 'email-2',
+        contactId: 'contact-123',
+        email: 'john2@example.com',
+        label: 'Home',
+        isPrimary: false
+      }
+    ];
+    mockDb.orderBy.mockImplementation(() => {
+      return Promise.resolve(mockMultipleEmails);
+    });
+
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-contact-edit'));
+
+    await waitFor(() => {
+      const radioButtons = screen.getAllByRole('radio');
+      expect(radioButtons.length).toBeGreaterThan(0);
+    });
+
+    const radioButtons = screen.getAllByRole('radio');
+    const secondRadio = radioButtons[1];
+    if (secondRadio) {
+      await user.click(secondRadio);
+    }
+  });
+
+  it('allows deleting email in edit mode', async () => {
+    const user = userEvent.setup();
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-contact-edit'));
+
+    await waitFor(() => {
+      const emailInputs = screen.getAllByPlaceholderText('Email');
+      expect(emailInputs.length).toBe(1);
+    });
+
+    const deleteButtons = screen
+      .getAllByRole('button')
+      .filter((btn) => btn.querySelector('svg.lucide-trash-2'));
+    if (deleteButtons[0]) {
+      await user.click(deleteButtons[0]);
+    }
+
+    await waitFor(() => {
+      const emailInputs = screen.queryAllByPlaceholderText('Email');
+      expect(emailInputs.length).toBe(0);
+    });
+  });
+
+  it('shows error when saving with empty email', async () => {
+    const user = userEvent.setup();
+    mockDb.orderBy.mockImplementation(() => {
+      return Promise.resolve([]);
+    });
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-contact-edit'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Email Addresses')).toBeInTheDocument();
+    });
+
+    const addButtons = screen.getAllByRole('button', { name: /add/i });
+    const emailAddButton = addButtons[0];
+    if (emailAddButton) {
+      await user.click(emailAddButton);
+    }
+
+    await user.click(screen.getByTestId('window-contact-save'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Email address cannot be empty')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('shows error when saving with empty phone', async () => {
+    const user = userEvent.setup();
+    mockDb.orderBy.mockImplementation(() => {
+      return Promise.resolve([]);
+    });
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-contact-edit'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Phone Numbers')).toBeInTheDocument();
+    });
+
+    const addButtons = screen.getAllByRole('button', { name: /add/i });
+    const phoneAddButton = addButtons[addButtons.length - 1];
+    if (phoneAddButton) {
+      await user.click(phoneAddButton);
+    }
+
+    await user.click(screen.getByTestId('window-contact-save'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Phone number cannot be empty')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('successfully saves contact changes', async () => {
+    // Use empty emails and phones for simpler test
+    mockDb.orderBy.mockImplementation(() => {
+      return Promise.resolve([]);
+    });
+    mockDb.set.mockReturnThis();
+    mockDb.where.mockReturnThis();
+
+    const user = userEvent.setup();
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-contact-edit'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-edit-first-name')).toBeInTheDocument();
+    });
+
+    const firstNameInput = screen.getByTestId('window-edit-first-name');
+    await user.clear(firstNameInput);
+    await user.type(firstNameInput, 'Jane');
+
+    await user.click(screen.getByTestId('window-contact-save'));
+
+    await waitFor(() => {
+      expect(mockDb.update).toHaveBeenCalled();
+    });
+  });
+
+  it('displays only first name when last name is null', async () => {
+    const contactWithoutLastName = { ...mockContact, lastName: null };
+    mockDb.limit.mockResolvedValue([contactWithoutLastName]);
+
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('John')).toBeInTheDocument();
+    });
+  });
+
+  it('does not display birthday when null', async () => {
+    const contactWithoutBirthday = { ...mockContact, birthday: null };
+    mockDb.limit.mockResolvedValue([contactWithoutBirthday]);
+
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('John Doe')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('1990-01-15')).not.toBeInTheDocument();
+  });
+
+  it('displays email without label correctly', async () => {
+    const emailWithoutLabel = [{ ...mockEmails[0], label: null }];
+    mockDb.orderBy.mockImplementation(() => {
+      return Promise.resolve(emailWithoutLabel);
+    });
+
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('john@example.com')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('(Work)')).not.toBeInTheDocument();
+  });
+
+  it('displays phone numbers correctly', async () => {
+    const mockPhones = [
+      {
+        id: 'phone-1',
+        contactId: 'contact-123',
+        phoneNumber: '+1234567890',
+        label: 'Mobile',
+        isPrimary: true
+      }
+    ];
+    let callCount = 0;
+    mockDb.orderBy.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return Promise.resolve(mockEmails);
+      return Promise.resolve(mockPhones);
+    });
+
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('+1234567890')).toBeInTheDocument();
+    });
+  });
+
+  it('allows editing phone value in edit mode', async () => {
+    const mockPhones = [
+      {
+        id: 'phone-1',
+        contactId: 'contact-123',
+        phoneNumber: '+1234567890',
+        label: 'Mobile',
+        isPrimary: true
+      }
+    ];
+    let callCount = 0;
+    mockDb.orderBy.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return Promise.resolve([]);
+      return Promise.resolve(mockPhones);
+    });
+
+    const user = userEvent.setup();
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-contact-edit'));
+
+    await waitFor(() => {
+      const phoneInputs = screen.getAllByPlaceholderText('Phone');
+      expect(phoneInputs.length).toBeGreaterThan(0);
+    });
+
+    const phoneInputs = screen.getAllByPlaceholderText('Phone');
+    const phoneInput = phoneInputs[0];
+    if (phoneInput) {
+      await user.clear(phoneInput);
+      await user.type(phoneInput, '+9876543210');
+      expect(phoneInput).toHaveValue('+9876543210');
+    }
+  });
+
+  it('allows changing primary phone', async () => {
+    const mockPhones = [
+      {
+        id: 'phone-1',
+        contactId: 'contact-123',
+        phoneNumber: '+1234567890',
+        label: 'Mobile',
+        isPrimary: true
+      },
+      {
+        id: 'phone-2',
+        contactId: 'contact-123',
+        phoneNumber: '+0987654321',
+        label: 'Work',
+        isPrimary: false
+      }
+    ];
+    mockDb.orderBy.mockImplementation(() => {
+      return Promise.resolve(mockPhones);
+    });
+
+    const user = userEvent.setup();
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-contact-edit'));
+
+    await waitFor(() => {
+      const radioButtons = screen.getAllByRole('radio');
+      expect(radioButtons.length).toBeGreaterThan(1);
+    });
+
+    const radioButtons = screen.getAllByRole('radio');
+    const secondRadio = radioButtons[1];
+    if (secondRadio) {
+      await user.click(secondRadio);
+    }
+  });
+
+  it('allows deleting phone in edit mode', async () => {
+    const mockPhones = [
+      {
+        id: 'phone-1',
+        contactId: 'contact-123',
+        phoneNumber: '+1234567890',
+        label: 'Mobile',
+        isPrimary: true
+      }
+    ];
+    let callCount = 0;
+    mockDb.orderBy.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return Promise.resolve([]);
+      return Promise.resolve(mockPhones);
+    });
+
+    const user = userEvent.setup();
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-contact-edit'));
+
+    await waitFor(() => {
+      const phoneInputs = screen.getAllByPlaceholderText('Phone');
+      expect(phoneInputs.length).toBe(1);
+    });
+
+    const deleteButtons = screen
+      .getAllByRole('button')
+      .filter((btn) => btn.querySelector('svg.lucide-trash-2'));
+    if (deleteButtons[0]) {
+      await user.click(deleteButtons[0]);
+    }
+
+    await waitFor(() => {
+      const phoneInputs = screen.queryAllByPlaceholderText('Phone');
+      expect(phoneInputs.length).toBe(0);
+    });
+  });
+
+  it('handles delete error gracefully', async () => {
+    const user = userEvent.setup();
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-delete')).toBeInTheDocument();
+    });
+
+    mockDb.set.mockReturnThis();
+    mockDb.where.mockRejectedValueOnce(new Error('Delete failed'));
+
+    await user.click(screen.getByTestId('window-contact-delete'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Delete failed')).toBeInTheDocument();
+    });
+  });
+
+  it('handles save error gracefully', async () => {
+    // Use empty emails and phones for simpler test
+    mockDb.orderBy.mockImplementation(() => {
+      return Promise.resolve([]);
+    });
+
+    const user = userEvent.setup();
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-contact-edit'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-edit-first-name')).toBeInTheDocument();
+    });
+
+    mockDb.set.mockReturnThis();
+    mockDb.where.mockRejectedValueOnce(new Error('Save failed'));
+
+    await user.click(screen.getByTestId('window-contact-save'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Save failed')).toBeInTheDocument();
+    });
+  });
+
+  it('saves contact with new email successfully', async () => {
+    mockDb.orderBy.mockImplementation(() => {
+      return Promise.resolve([]);
+    });
+    mockDb.set.mockReturnThis();
+    mockDb.where.mockReturnThis();
+    mockDb.insert.mockReturnThis();
+    mockDb.values.mockResolvedValue(undefined);
+
+    const user = userEvent.setup();
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-contact-edit'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Email Addresses')).toBeInTheDocument();
+    });
+
+    const addButtons = screen.getAllByRole('button', { name: /add/i });
+    const emailAddButton = addButtons[0];
+    if (emailAddButton) {
+      await user.click(emailAddButton);
+    }
+
+    await waitFor(() => {
+      const emailInputs = screen.getAllByPlaceholderText('Email');
+      expect(emailInputs.length).toBe(1);
+    });
+
+    const emailInputs = screen.getAllByPlaceholderText('Email');
+    const emailInput = emailInputs[0];
+    if (emailInput) {
+      await user.type(emailInput, 'test@example.com');
+    }
+
+    await user.click(screen.getByTestId('window-contact-save'));
+
+    await waitFor(() => {
+      expect(mockDb.insert).toHaveBeenCalled();
+    });
+  });
+
+  it('saves contact with new phone successfully', async () => {
+    mockDb.orderBy.mockImplementation(() => {
+      return Promise.resolve([]);
+    });
+    mockDb.set.mockReturnThis();
+    mockDb.where.mockReturnThis();
+    mockDb.insert.mockReturnThis();
+    mockDb.values.mockResolvedValue(undefined);
+
+    const user = userEvent.setup();
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-contact-edit')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-contact-edit'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Phone Numbers')).toBeInTheDocument();
+    });
+
+    const addButtons = screen.getAllByRole('button', { name: /add/i });
+    const phoneAddButton = addButtons[addButtons.length - 1];
+    if (phoneAddButton) {
+      await user.click(phoneAddButton);
+    }
+
+    await waitFor(() => {
+      const phoneInputs = screen.getAllByPlaceholderText('Phone');
+      expect(phoneInputs.length).toBe(1);
+    });
+
+    const phoneInputs = screen.getAllByPlaceholderText('Phone');
+    const phoneInput = phoneInputs[0];
+    if (phoneInput) {
+      await user.type(phoneInput, '+1234567890');
+    }
+
+    await user.click(screen.getByTestId('window-contact-save'));
+
+    await waitFor(() => {
+      expect(mockDb.insert).toHaveBeenCalled();
+    });
+  });
+
+  it('does not fetch when database is locked', () => {
+    mockDatabaseState.isUnlocked = false;
+    mockDatabaseState.isLoading = false;
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    expect(mockDb.select).not.toHaveBeenCalled();
+  });
+
+  it('displays phone without label correctly', async () => {
+    const mockPhones = [
+      {
+        id: 'phone-1',
+        contactId: 'contact-123',
+        phoneNumber: '+1234567890',
+        label: null,
+        isPrimary: false
+      }
+    ];
+    let callCount = 0;
+    mockDb.orderBy.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return Promise.resolve([]);
+      return Promise.resolve(mockPhones);
+    });
+
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('+1234567890')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('(Mobile)')).not.toBeInTheDocument();
+  });
+
+  it('displays non-primary email correctly', async () => {
+    const mockNonPrimaryEmails = [
+      {
+        id: 'email-1',
+        contactId: 'contact-123',
+        email: 'john@example.com',
+        label: 'Work',
+        isPrimary: false
+      }
+    ];
+    mockDb.orderBy.mockImplementation(() => {
+      return Promise.resolve(mockNonPrimaryEmails);
+    });
+
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('john@example.com')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Primary')).not.toBeInTheDocument();
+  });
+
+  it('displays non-primary phone correctly', async () => {
+    const mockPhones = [
+      {
+        id: 'phone-1',
+        contactId: 'contact-123',
+        phoneNumber: '+1234567890',
+        label: 'Mobile',
+        isPrimary: false
+      }
+    ];
+    let callCount = 0;
+    mockDb.orderBy.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return Promise.resolve([]);
+      return Promise.resolve(mockPhones);
+    });
+
+    render(<ContactsWindowDetail {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('+1234567890')).toBeInTheDocument();
+    });
+
+    const primaryBadges = screen.queryAllByText('Primary');
+    expect(primaryBadges.length).toBe(0);
   });
 });

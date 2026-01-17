@@ -1,4 +1,11 @@
-import { FileIcon, Mail, Settings, StickyNote, Terminal, User } from 'lucide-react';
+import {
+  FileIcon,
+  Mail,
+  Settings,
+  StickyNote,
+  Terminal,
+  User
+} from 'lucide-react';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 import { cn } from '@/lib/utils';
 
