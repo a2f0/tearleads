@@ -4,6 +4,7 @@ import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
+import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { Contacts } from './pages/contacts';
 import { Debug } from './pages/debug';
 import { Files } from './pages/Files';
@@ -111,21 +112,23 @@ vi.mock('@/storage', () => ({
 
 function renderAppWithRoutes(initialPath = '/') {
   return render(
-    <MemoryRouter initialEntries={[initialPath]}>
-      <ThemeProvider>
-        <Routes>
-          <Route path="/" element={<App />}>
-            <Route index element={<Home />} />
-            <Route path="files" element={<Files />} />
-            <Route path="contacts" element={<Contacts />} />
-            <Route path="sqlite" element={<Sqlite />} />
-            <Route path="debug" element={<Debug />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="tables" element={<Tables />} />
-          </Route>
-        </Routes>
-      </ThemeProvider>
-    </MemoryRouter>
+    <ThemeProvider>
+      <WindowManagerProvider>
+        <MemoryRouter initialEntries={[initialPath]}>
+          <Routes>
+            <Route path="/" element={<App />}>
+              <Route index element={<Home />} />
+              <Route path="files" element={<Files />} />
+              <Route path="contacts" element={<Contacts />} />
+              <Route path="sqlite" element={<Sqlite />} />
+              <Route path="debug" element={<Debug />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="tables" element={<Tables />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </WindowManagerProvider>
+    </ThemeProvider>
   );
 }
 
