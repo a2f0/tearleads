@@ -23,6 +23,8 @@ interface NoteInfo {
   updatedAt: Date;
 }
 
+type MenuPosition = { x: number; y: number };
+
 const ROW_HEIGHT_ESTIMATE = 56;
 
 interface NotesWindowListProps {
@@ -42,6 +44,9 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
     x: number;
     y: number;
   } | null>(null);
+  const [blankSpaceMenu, setBlankSpaceMenu] = useState<MenuPosition | null>(
+    null
+  );
   const parentRef = useRef<HTMLDivElement>(null);
 
   const filteredNotes = notesList.filter((note) =>
@@ -140,6 +145,7 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, note: NoteInfo) => {
       e.preventDefault();
+      e.stopPropagation();
       setContextMenu({ note, x: e.clientX, y: e.clientY });
     },
     []
@@ -175,6 +181,11 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
     setContextMenu(null);
   }, []);
 
+  const handleBlankSpaceContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setBlankSpaceMenu({ x: e.clientX, y: e.clientY });
+  }, []);
+
   const handleCreateNote = useCallback(async () => {
     try {
       const db = getDatabase();
@@ -196,6 +207,11 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
       setError(err instanceof Error ? err.message : String(err));
     }
   }, [onSelectNote]);
+
+  const handleCreateNoteFromMenu = useCallback(() => {
+    setBlankSpaceMenu(null);
+    handleCreateNote();
+  }, [handleCreateNote]);
 
   const getContentPreview = (content: string) => {
     const plainText = content
@@ -287,7 +303,12 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
               itemLabel="note"
             />
             <div className="flex-1 rounded-lg border">
-              <div ref={parentRef} className="h-full overflow-auto">
+              <div
+                ref={parentRef}
+                role="application"
+                className="h-full overflow-auto"
+                onContextMenu={handleBlankSpaceContextMenu}
+              >
                 <div
                   className="relative w-full"
                   style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -352,6 +373,21 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
             onClick={handleDelete}
           >
             {t('delete')}
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
+
+      {blankSpaceMenu && (
+        <ContextMenu
+          x={blankSpaceMenu.x}
+          y={blankSpaceMenu.y}
+          onClose={() => setBlankSpaceMenu(null)}
+        >
+          <ContextMenuItem
+            icon={<Plus className="h-4 w-4" />}
+            onClick={handleCreateNoteFromMenu}
+          >
+            {t('newNote')}
           </ContextMenuItem>
         </ContextMenu>
       )}

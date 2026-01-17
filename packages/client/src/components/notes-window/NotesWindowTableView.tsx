@@ -27,6 +27,8 @@ interface NoteInfo {
   updatedAt: Date;
 }
 
+type MenuPosition = { x: number; y: number };
+
 type SortColumn = 'title' | 'createdAt' | 'updatedAt';
 type SortDirection = 'asc' | 'desc';
 
@@ -87,6 +89,9 @@ export function NotesWindowTableView({
     x: number;
     y: number;
   } | null>(null);
+  const [blankSpaceMenu, setBlankSpaceMenu] = useState<MenuPosition | null>(
+    null
+  );
 
   const fetchNotes = useCallback(async () => {
     if (!isUnlocked) return;
@@ -178,6 +183,7 @@ export function NotesWindowTableView({
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, note: NoteInfo) => {
       e.preventDefault();
+      e.stopPropagation();
       setContextMenu({ note, x: e.clientX, y: e.clientY });
     },
     []
@@ -209,6 +215,11 @@ export function NotesWindowTableView({
     }
   }, [contextMenu]);
 
+  const handleBlankSpaceContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setBlankSpaceMenu({ x: e.clientX, y: e.clientY });
+  }, []);
+
   const handleCreateNote = useCallback(async () => {
     try {
       const db = getDatabase();
@@ -230,6 +241,11 @@ export function NotesWindowTableView({
       setError(err instanceof Error ? err.message : String(err));
     }
   }, [onSelectNote]);
+
+  const handleCreateNoteFromMenu = useCallback(() => {
+    setBlankSpaceMenu(null);
+    handleCreateNote();
+  }, [handleCreateNote]);
 
   return (
     <div className="flex h-full flex-col space-y-2 p-3">
@@ -294,7 +310,11 @@ export function NotesWindowTableView({
             </Button>
           </div>
         ) : (
-          <div className="flex-1 overflow-auto rounded-lg border">
+          <div
+            role="application"
+            className="flex-1 overflow-auto rounded-lg border"
+            onContextMenu={handleBlankSpaceContextMenu}
+          >
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
                 <tr>
@@ -371,6 +391,21 @@ export function NotesWindowTableView({
             onClick={handleDelete}
           >
             {t('delete')}
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
+
+      {blankSpaceMenu && (
+        <ContextMenu
+          x={blankSpaceMenu.x}
+          y={blankSpaceMenu.y}
+          onClose={() => setBlankSpaceMenu(null)}
+        >
+          <ContextMenuItem
+            icon={<Plus className="h-4 w-4" />}
+            onClick={handleCreateNoteFromMenu}
+          >
+            {t('newNote')}
           </ContextMenuItem>
         </ContextMenu>
       )}
