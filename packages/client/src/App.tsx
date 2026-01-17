@@ -36,7 +36,9 @@ function App() {
     >
       <div className="flex flex-1">
         <Sidebar isOpen={isSidebarOpen} />
-        <div className="relative flex min-w-0 flex-1 flex-col">
+        <div
+          className={`relative flex min-w-0 flex-1 flex-col ${isSidebarOpen ? 'lg:ml-64' : ''}`}
+        >
           {isHome && <DesktopBackground />}
           <header className="w-full px-4 py-4">
             <div className="flex items-center justify-end gap-1">
