@@ -62,4 +62,19 @@ describe('TaskbarButton', () => {
     expect(button).toHaveClass('opacity-60');
     expect(button).toHaveAttribute('data-minimized', 'true');
   });
+
+  it('renders with correct label for settings type', () => {
+    render(
+      <TaskbarButton type="settings" isActive={false} onClick={vi.fn()} />
+    );
+    expect(screen.getByText('Settings')).toBeInTheDocument();
+  });
+
+  it('renders icon for settings type', () => {
+    render(
+      <TaskbarButton type="settings" isActive={false} onClick={vi.fn()} />
+    );
+    const button = screen.getByTestId('taskbar-button-settings');
+    expect(button.querySelector('svg')).toBeInTheDocument();
+  });
 });
