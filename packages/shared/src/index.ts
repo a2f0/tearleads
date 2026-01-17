@@ -5,8 +5,8 @@
 // Crypto utilities
 export * from './crypto/web-crypto.js';
 
-// Redis client
-export * from './redis/client.js';
+// Note: Redis client is exported separately via '@rapid/shared/redis'
+// to avoid bundling Node.js-only code into browser bundles
 
 // License types
 export interface LicenseInfo {

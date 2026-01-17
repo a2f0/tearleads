@@ -16,6 +16,7 @@
       - www
       - app
       - api
+      - email
     patch_time: "03:00"
     patch_timezone: "UTC"
     postgresql_version: 16
@@ -154,6 +155,31 @@
     - name: Enable rapid-api service
       ansible.builtin.systemd:
         name: rapid-api
+        enabled: true
+        daemon_reload: true
+
+    # SMTP Listener directory and service
+    - name: Create SMTP Listener directory
+      ansible.builtin.file:
+        path: /opt/rapid-smtp-listener
+        state: directory
+        owner: "{{ lookup('env', 'TF_VAR_server_username') }}"
+        group: www-data
+        mode: "0775"
+        recurse: true
+
+    - name: Deploy rapid-smtp-listener systemd service
+      ansible.builtin.template:
+        src: rapid-smtp-listener.service.j2
+        dest: /etc/systemd/system/rapid-smtp-listener.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload systemd
+
+    - name: Enable rapid-smtp-listener service
+      ansible.builtin.systemd:
+        name: rapid-smtp-listener
         enabled: true
         daemon_reload: true
 
