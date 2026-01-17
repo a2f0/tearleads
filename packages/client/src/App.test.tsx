@@ -64,6 +64,10 @@ vi.mock('./components/taskbar', () => ({
   Taskbar: () => <div data-testid="taskbar" />
 }));
 
+vi.mock('./components/ui/desktop-background', () => ({
+  DesktopBackground: () => <div data-testid="desktop-background" />
+}));
+
 vi.mock('./hooks/useAppVersion', () => ({
   useAppVersion: () => mockUseAppVersion()
 }));

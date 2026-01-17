@@ -35,11 +35,13 @@ describe('PatternSelector', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders all three pattern options', () => {
+  it('renders all pattern options', () => {
     renderPatternSelector();
     expect(screen.getByTestId('pattern-option-solid')).toBeInTheDocument();
     expect(screen.getByTestId('pattern-option-honeycomb')).toBeInTheDocument();
     expect(screen.getByTestId('pattern-option-isometric')).toBeInTheDocument();
+    expect(screen.getByTestId('pattern-option-triangles')).toBeInTheDocument();
+    expect(screen.getByTestId('pattern-option-diamonds')).toBeInTheDocument();
   });
 
   it('shows solid option as selected when pattern is solid', () => {
@@ -66,6 +68,22 @@ describe('PatternSelector', () => {
     expect(isometricOption).toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('shows triangles option as selected when pattern is triangles', () => {
+    mockGetSetting.mockReturnValue('triangles');
+    renderPatternSelector();
+
+    const trianglesOption = screen.getByTestId('pattern-option-triangles');
+    expect(trianglesOption).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('shows diamonds option as selected when pattern is diamonds', () => {
+    mockGetSetting.mockReturnValue('diamonds');
+    renderPatternSelector();
+
+    const diamondsOption = screen.getByTestId('pattern-option-diamonds');
+    expect(diamondsOption).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('calls setSetting when honeycomb option is clicked', async () => {
     mockGetSetting.mockReturnValue('solid');
     const user = userEvent.setup();
@@ -84,6 +102,26 @@ describe('PatternSelector', () => {
     await user.click(screen.getByTestId('pattern-option-isometric'));
 
     expect(mockSetSetting).toHaveBeenCalledWith('desktopPattern', 'isometric');
+  });
+
+  it('calls setSetting when triangles option is clicked', async () => {
+    mockGetSetting.mockReturnValue('solid');
+    const user = userEvent.setup();
+    renderPatternSelector();
+
+    await user.click(screen.getByTestId('pattern-option-triangles'));
+
+    expect(mockSetSetting).toHaveBeenCalledWith('desktopPattern', 'triangles');
+  });
+
+  it('calls setSetting when diamonds option is clicked', async () => {
+    mockGetSetting.mockReturnValue('solid');
+    const user = userEvent.setup();
+    renderPatternSelector();
+
+    await user.click(screen.getByTestId('pattern-option-diamonds'));
+
+    expect(mockSetSetting).toHaveBeenCalledWith('desktopPattern', 'diamonds');
   });
 
   it('calls setSetting when solid option is clicked', async () => {
@@ -122,5 +160,7 @@ describe('PatternSelector', () => {
     expect(screen.getByText('Solid')).toBeInTheDocument();
     expect(screen.getByText('Honeycomb')).toBeInTheDocument();
     expect(screen.getByText('Isometric')).toBeInTheDocument();
+    expect(screen.getByText('Triangles')).toBeInTheDocument();
+    expect(screen.getByText('Diamonds')).toBeInTheDocument();
   });
 });

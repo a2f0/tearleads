@@ -1,12 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import type { DesktopPatternValue } from '@/db/user-settings';
 import { PatternPreview } from './PatternPreview';
 
 describe('PatternPreview', () => {
-  const patterns: Array<'solid' | 'honeycomb' | 'isometric'> = [
+  const patterns: DesktopPatternValue[] = [
     'solid',
     'honeycomb',
-    'isometric'
+    'isometric',
+    'triangles',
+    'diamonds'
   ];
 
   it.each(patterns)('renders %s pattern preview with label', (pattern) => {
@@ -14,7 +17,9 @@ describe('PatternPreview', () => {
     const labels = {
       solid: 'Solid',
       honeycomb: 'Honeycomb',
-      isometric: 'Isometric'
+      isometric: 'Isometric',
+      triangles: 'Triangles',
+      diamonds: 'Diamonds'
     };
     expect(screen.getByText(labels[pattern])).toBeInTheDocument();
   });
@@ -32,6 +37,22 @@ describe('PatternPreview', () => {
     const svg = container.querySelector('svg');
     expect(svg).toBeInTheDocument();
     const pattern = container.querySelector('pattern#isometric-preview');
+    expect(pattern).toBeInTheDocument();
+  });
+
+  it('renders SVG for triangles pattern', () => {
+    const { container } = render(<PatternPreview pattern="triangles" />);
+    const svg = container.querySelector('svg');
+    expect(svg).toBeInTheDocument();
+    const pattern = container.querySelector('pattern#triangles-preview');
+    expect(pattern).toBeInTheDocument();
+  });
+
+  it('renders SVG for diamonds pattern', () => {
+    const { container } = render(<PatternPreview pattern="diamonds" />);
+    const svg = container.querySelector('svg');
+    expect(svg).toBeInTheDocument();
+    const pattern = container.querySelector('pattern#diamonds-preview');
     expect(pattern).toBeInTheDocument();
   });
 
