@@ -1,4 +1,5 @@
 import {
+  BarChart2,
   Database,
   FileIcon,
   ImageIcon,
@@ -23,7 +24,8 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   photos: <ImageIcon className="h-3 w-3" />,
   keychain: <KeyRound className="h-3 w-3" />,
   sqlite: <Database className="h-3 w-3" />,
-  chat: <MessageSquare className="h-3 w-3" />
+  chat: <MessageSquare className="h-3 w-3" />,
+  analytics: <BarChart2 className="h-3 w-3" />
 };
 
 const WINDOW_LABELS: Record<WindowType, string> = {
@@ -36,7 +38,8 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   photos: 'Photos',
   keychain: 'Keychain',
   sqlite: 'SQLite',
-  chat: 'Chat'
+  chat: 'Chat',
+  analytics: 'Analytics'
 };
 
 interface TaskbarButtonProps {
