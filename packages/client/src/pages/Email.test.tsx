@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Email } from './Email';
@@ -86,6 +87,8 @@ describe('Email', () => {
     await waitFor(() => {
       expect(screen.getByText(/Failed to fetch emails/)).toBeInTheDocument();
     });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   it('renders page title and refresh button', async () => {
@@ -102,5 +105,26 @@ describe('Email', () => {
     await waitFor(() => {
       expect(screen.getByText('No emails yet')).toBeInTheDocument();
     });
+  });
+
+  it('shows email details when an item is selected', async () => {
+    const user = userEvent.setup();
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ emails: mockEmails })
+    });
+
+    renderWithRouter(<Email />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Email Subject')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Test Email Subject'));
+
+    expect(
+      screen.getByRole('button', { name: /Back to Email/ })
+    ).toBeInTheDocument();
+    expect(screen.getByText('To: recipient@example.com')).toBeInTheDocument();
   });
 });
