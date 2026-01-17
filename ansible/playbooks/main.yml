@@ -234,6 +234,23 @@
         state: link
       notify: Reload nginx
 
+    # Email subdomain nginx config (for certbot SSL deployment only)
+    - name: Deploy nginx email config
+      ansible.builtin.template:
+        src: nginx-email.conf.j2
+        dest: /etc/nginx/sites-available/email.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload nginx
+
+    - name: Enable nginx email config
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/email.conf
+        dest: /etc/nginx/sites-enabled/email.conf
+        state: link
+      notify: Reload nginx
+
     - name: Ensure nginx is running and enabled
       ansible.builtin.systemd:
         name: nginx
