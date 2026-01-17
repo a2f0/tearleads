@@ -21,7 +21,8 @@ vi.mock('@/i18n', () => ({
     t: (key: string) =>
       ({
         getInfo: 'Get Info',
-        delete: 'Delete'
+        delete: 'Delete',
+        newNote: 'New Note'
       })[key] ?? key
   })
 }));
@@ -234,5 +235,71 @@ describe('NotesWindowTableView', () => {
     await waitFor(() => {
       expect(mockDb.select).toHaveBeenCalled();
     });
+  });
+
+  it('shows New Note menu when right-clicking blank space', async () => {
+    mockDb.orderBy.mockResolvedValue(mockNotes);
+    const user = userEvent.setup();
+    render(<NotesWindowTableView {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Alpha Note')).toBeInTheDocument();
+    });
+
+    // Find the table container and right-click it
+    const tableContainer = screen.getByRole('table').parentElement;
+    expect(tableContainer).toBeInTheDocument();
+
+    if (tableContainer) {
+      await user.pointer({ keys: '[MouseRight]', target: tableContainer });
+    }
+
+    expect(screen.getByText('New Note')).toBeInTheDocument();
+  });
+
+  it('creates note when clicking New Note from blank space menu', async () => {
+    mockDb.orderBy.mockResolvedValue(mockNotes);
+    const onSelectNote = vi.fn();
+    const user = userEvent.setup();
+    render(<NotesWindowTableView onSelectNote={onSelectNote} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Alpha Note')).toBeInTheDocument();
+    });
+
+    const tableContainer = screen.getByRole('table').parentElement;
+
+    if (tableContainer) {
+      await user.pointer({ keys: '[MouseRight]', target: tableContainer });
+    }
+
+    expect(screen.getByText('New Note')).toBeInTheDocument();
+    await user.click(screen.getByText('New Note'));
+
+    expect(mockDb.insert).toHaveBeenCalled();
+    expect(onSelectNote).toHaveBeenCalled();
+  });
+
+  it('shows note-specific menu when right-clicking on a table row', async () => {
+    mockDb.orderBy.mockResolvedValue(mockNotes);
+    const user = userEvent.setup();
+    render(<NotesWindowTableView {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Alpha Note')).toBeInTheDocument();
+    });
+
+    // Right-click on a table row
+    const noteRow = screen.getByText('Alpha Note').closest('tr');
+    expect(noteRow).toBeInTheDocument();
+
+    if (noteRow) {
+      await user.pointer({ keys: '[MouseRight]', target: noteRow });
+    }
+
+    // Should show note menu, not blank space menu
+    expect(screen.getByText('Get Info')).toBeInTheDocument();
+    expect(screen.getByText('Delete')).toBeInTheDocument();
+    expect(screen.queryByText('New Note')).not.toBeInTheDocument();
   });
 });
