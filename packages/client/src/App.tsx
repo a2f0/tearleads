@@ -1,7 +1,8 @@
 import { ConnectionIndicator, Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { AccountSwitcher } from './components/AccountSwitcher';
 import { MiniPlayer } from './components/audio/MiniPlayer';
 import { HUDTrigger } from './components/hud';
@@ -9,6 +10,7 @@ import { MobileMenu } from './components/MobileMenu';
 import { SettingsButton } from './components/SettingsButton';
 import { Sidebar } from './components/Sidebar';
 import { Taskbar } from './components/taskbar';
+import { DesktopBackground } from './components/ui/desktop-background';
 import { WindowRenderer } from './components/window-renderer';
 import { useAppVersion } from './hooks/useAppVersion';
 import { useSSEContext } from './sse';
@@ -23,38 +25,38 @@ function App() {
   const { t } = useTranslation('tooltips');
   const version = useAppVersion();
   const sse = useSSEContext();
+  const location = useLocation();
+  const isHome = location.pathname === '/';
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
     <div
       className="safe-area-inset flex min-h-screen flex-col bg-background"
       data-testid="app-container"
     >
-      <header className="w-full px-4 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link to="/" className="flex items-center gap-3">
-              <img src={logo} alt="Tearleads" className="h-8 w-8" />
-              <h1 className="font-bold text-4xl tracking-tight">Tearleads</h1>
-            </Link>
-          </div>
-          <div className="flex items-center gap-1">
-            <MobileMenu />
-            <SettingsButton />
-            <AccountSwitcher />
-          </div>
-        </div>
-      </header>
       <div className="flex flex-1">
-        <Sidebar />
-        <main className="flex min-w-0 flex-1 flex-col pb-20">
-          <div className="container mx-auto flex max-w-2xl flex-1 flex-col px-4 pb-16 lg:max-w-none lg:px-8">
-            <Outlet />
-          </div>
-        </main>
+        <Sidebar isOpen={isSidebarOpen} />
+        <div
+          className={`relative flex min-w-0 flex-1 flex-col ${isSidebarOpen ? 'lg:ml-64' : ''}`}
+        >
+          {isHome && <DesktopBackground />}
+          <header className="w-full px-4 py-4">
+            <div className="flex items-center justify-end gap-1">
+              <MobileMenu />
+              <SettingsButton />
+              <AccountSwitcher />
+            </div>
+          </header>
+          <main className="relative flex min-w-0 flex-1 flex-col pb-20">
+            <div className="container relative mx-auto flex max-w-2xl flex-1 flex-col px-4 pb-16 lg:max-w-none lg:px-8">
+              <Outlet />
+            </div>
+          </main>
+        </div>
       </div>
       <Footer
         version={version}
-        className="lg:left-64"
+        className={isSidebarOpen ? 'lg:left-64' : undefined}
         connectionIndicator={
           sse && (
             <ConnectionIndicator
@@ -72,6 +74,22 @@ function App() {
       >
         <p>&copy; {new Date().getFullYear()} Tearleads. All rights reserved.</p>
       </Footer>
+      <button
+        type="button"
+        onClick={() => setIsSidebarOpen((prev) => !prev)}
+        className="fixed bottom-6 left-4 z-50 hidden items-center gap-2 rounded-full border border-border bg-background/90 px-3 py-2 font-semibold text-foreground text-sm shadow-lg backdrop-blur lg:flex"
+        aria-label="Toggle sidebar"
+        aria-pressed={isSidebarOpen}
+        aria-controls="sidebar"
+        data-testid="start-button"
+        style={{
+          bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
+          left: 'max(1rem, env(safe-area-inset-left, 0px))'
+        }}
+      >
+        <img src={logo} alt="" className="h-5 w-5" aria-hidden="true" />
+        <span>Start</span>
+      </button>
       <MiniPlayer />
       <WindowRenderer />
     </div>

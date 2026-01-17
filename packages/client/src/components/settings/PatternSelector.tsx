@@ -3,7 +3,13 @@ import { useSettings } from '@/db/SettingsProvider';
 import type { DesktopPatternValue } from '@/db/user-settings';
 import { PatternPreview } from './PatternPreview';
 
-const PATTERNS: DesktopPatternValue[] = ['solid', 'honeycomb', 'isometric'];
+const PATTERNS: DesktopPatternValue[] = [
+  'solid',
+  'honeycomb',
+  'isometric',
+  'triangles',
+  'diamonds'
+];
 
 export function PatternSelector() {
   const { getSetting, setSetting } = useSettings();

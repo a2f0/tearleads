@@ -38,6 +38,14 @@ function isMobileViewport(page: Page): boolean {
   return (viewport?.width ?? 0) < 1024;
 }
 
+// Helper to open sidebar via Start button (desktop only)
+async function openSidebar(page: Page) {
+  const startButton = page.getByTestId('start-button');
+  await expect(startButton).toBeVisible({ timeout: 10000 });
+  await startButton.click();
+  await expect(page.locator('aside nav')).toBeVisible({ timeout: 10000 });
+}
+
 // Helper to navigate to a page, handling mobile/desktop differences
 async function navigateToPage(
   page: Page,
@@ -52,10 +60,19 @@ async function navigateToPage(
       .getByTestId(`${pageName.toLowerCase()}-link`)
       .click();
   } else {
-    const link = page
-      .locator('aside nav')
-      .getByRole('link', { name: pageName });
+    // Open sidebar if not visible
+    const sidebar = page.locator('aside nav');
+    if (!(await sidebar.isVisible())) {
+      await openSidebar(page);
+    }
+    const link = sidebar.getByRole('link', { name: pageName });
     await link.click();
+    // Close sidebar after navigation to prevent it from intercepting pointer events
+    const startButton = page.getByTestId('start-button');
+    if (await sidebar.isVisible()) {
+      await startButton.click();
+      await expect(sidebar).not.toBeVisible({ timeout: 5000 });
+    }
   }
 }
 

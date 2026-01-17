@@ -24,6 +24,13 @@ const waitForSuccess = (page: Page) =>
     { timeout: DB_OPERATION_TIMEOUT }
   );
 
+async function openSidebar(window: Page) {
+  const startButton = window.getByTestId('start-button');
+  await expect(startButton).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+  await startButton.click();
+  await expect(window.locator('nav')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+}
+
 test.describe('Backup & Restore (Electron)', () => {
   let electronApp: ElectronApplication;
   let window: Page;
@@ -34,10 +41,11 @@ test.describe('Backup & Restore (Electron)', () => {
 
     // Wait for app to load
     await expect(
-      window.getByRole('heading', { name: 'Tearleads', level: 1 })
+      window.getByTestId('start-button')
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
 
-    // Navigate to SQLite page via sidebar (visible on desktop)
+    // Open sidebar and navigate to SQLite page
+    await openSidebar(window);
     await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
@@ -222,9 +230,10 @@ test.describe('Backup & Restore (Electron)', () => {
       window = await electronApp.firstWindow();
 
       await expect(
-        window.getByRole('heading', { name: 'Tearleads', level: 1 })
+        window.getByTestId('start-button')
       ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
 
+      await openSidebar(window);
       await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
       await expect(window.getByTestId('database-test')).toBeVisible();
       await expect(window.getByTestId('db-status')).toHaveText('Locked', {
