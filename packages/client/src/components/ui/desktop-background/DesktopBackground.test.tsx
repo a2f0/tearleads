@@ -44,6 +44,28 @@ describe('DesktopBackground', () => {
     expect(pattern).toBeInTheDocument();
   });
 
+  it('renders triangles SVG when pattern is triangles', () => {
+    mockGetSetting.mockReturnValue('triangles');
+    const { container } = render(<DesktopBackground />);
+
+    const svg = container.querySelector('svg');
+    expect(svg).toBeInTheDocument();
+
+    const pattern = container.querySelector('pattern#triangles-bg');
+    expect(pattern).toBeInTheDocument();
+  });
+
+  it('renders diamonds SVG when pattern is diamonds', () => {
+    mockGetSetting.mockReturnValue('diamonds');
+    const { container } = render(<DesktopBackground />);
+
+    const svg = container.querySelector('svg');
+    expect(svg).toBeInTheDocument();
+
+    const pattern = container.querySelector('pattern#diamonds-bg');
+    expect(pattern).toBeInTheDocument();
+  });
+
   it('has aria-hidden attribute for accessibility', () => {
     mockGetSetting.mockReturnValue('honeycomb');
     const { container } = render(<DesktopBackground />);

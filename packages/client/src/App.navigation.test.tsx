@@ -145,8 +145,9 @@ describe('App Integration', () => {
       user = userEvent.setup();
       renderAppWithRoutes('/');
       await waitFor(() => {
-        expect(screen.getByText('Tearleads')).toBeInTheDocument();
+        expect(screen.getByTestId('start-button')).toBeInTheDocument();
       });
+      await user.click(screen.getByTestId('start-button'));
     });
 
     it('renders home page with app icons by default', () => {
@@ -226,7 +227,7 @@ describe('App Integration', () => {
       renderAppWithRoutes('/contacts');
 
       await waitFor(() => {
-        expect(screen.getByText('Tearleads')).toBeInTheDocument();
+        expect(screen.getByTestId('start-button')).toBeInTheDocument();
         expect(
           screen.getByPlaceholderText('Search contacts...')
         ).toBeInTheDocument();
@@ -237,7 +238,7 @@ describe('App Integration', () => {
       renderAppWithRoutes('/sqlite');
 
       await waitFor(() => {
-        expect(screen.getByText('Tearleads')).toBeInTheDocument();
+        expect(screen.getByTestId('start-button')).toBeInTheDocument();
         expect(screen.getByTestId('database-test')).toBeInTheDocument();
       });
     });
@@ -246,7 +247,7 @@ describe('App Integration', () => {
       renderAppWithRoutes('/debug');
 
       await waitFor(() => {
-        expect(screen.getByText('Tearleads')).toBeInTheDocument();
+        expect(screen.getByTestId('start-button')).toBeInTheDocument();
         expect(screen.getByText('System Info')).toBeInTheDocument();
       });
     });
@@ -273,7 +274,7 @@ describe('App Integration', () => {
       await waitFor(() => {
         expect(screen.getByTestId('app-container')).toBeInTheDocument();
         expect(screen.getByRole('navigation')).toBeInTheDocument();
-        expect(screen.getByText('Tearleads')).toBeInTheDocument();
+        expect(screen.getByTestId('start-button')).toBeInTheDocument();
         expect(screen.getByText('System Info')).toBeInTheDocument();
       });
     });
@@ -286,8 +287,8 @@ describe('App Integration', () => {
         expect(screen.getByText('System Info')).toBeInTheDocument();
       });
 
-      // Click home link (Tearleads logo/title)
-      const homeLink = screen.getByRole('link', { name: /Tearleads/i });
+      // Click home link in sidebar
+      const homeLink = screen.getByRole('link', { name: 'Home' });
       await user.click(homeLink);
 
       await waitFor(() => {
