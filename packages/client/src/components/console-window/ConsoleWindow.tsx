@@ -41,7 +41,7 @@ export function ConsoleWindow({
       onMinimize={onMinimize}
       onFocus={onFocus}
       zIndex={zIndex}
-      initialDimensions={initialDimensions}
+      {...(initialDimensions && { initialDimensions })}
       defaultWidth={700}
       defaultHeight={500}
       minWidth={400}
