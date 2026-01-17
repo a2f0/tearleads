@@ -5,15 +5,24 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
 import { WindowRenderer } from './WindowRenderer';
 
+interface WindowDimensions {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 vi.mock('@/components/notes-window', () => ({
   NotesWindow: ({
     id,
     onClose,
+    onMinimize,
     onFocus,
     zIndex
   }: {
     id: string;
     onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
     onFocus: () => void;
     zIndex: number;
   }) => (
@@ -27,6 +36,13 @@ vi.mock('@/components/notes-window', () => ({
       <button type="button" onClick={onClose} data-testid={`close-${id}`}>
         Close
       </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 400, height: 300 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
     </div>
   )
 }));
@@ -35,11 +51,13 @@ vi.mock('@/components/console-window', () => ({
   ConsoleWindow: ({
     id,
     onClose,
+    onMinimize,
     onFocus,
     zIndex
   }: {
     id: string;
     onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
     onFocus: () => void;
     zIndex: number;
   }) => (
@@ -52,6 +70,48 @@ vi.mock('@/components/console-window', () => ({
     >
       <button type="button" onClick={onClose} data-testid={`close-${id}`}>
         Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 600, height: 400 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/components/email-window', () => ({
+  EmailWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`email-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 550, height: 450 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
       </button>
     </div>
   )
@@ -86,6 +146,7 @@ vi.mock('@/components/settings-window', () => ({
 const mockOpenWindow = vi.fn();
 const mockCloseWindow = vi.fn();
 const mockFocusWindow = vi.fn();
+const mockMinimizeWindow = vi.fn();
 
 vi.mock('@/contexts/WindowManagerContext', async () => {
   const actual = await vi.importActual('@/contexts/WindowManagerContext');
@@ -96,6 +157,7 @@ vi.mock('@/contexts/WindowManagerContext', async () => {
       openWindow: mockOpenWindow,
       closeWindow: mockCloseWindow,
       focusWindow: mockFocusWindow,
+      minimizeWindow: mockMinimizeWindow,
       isWindowOpen: vi.fn(),
       getWindow: vi.fn()
     })
@@ -238,5 +300,87 @@ describe('WindowRenderer', () => {
 
     await user.click(screen.getByTestId('close-settings-1'));
     expect(mockCloseWindow).toHaveBeenCalledWith('settings-1');
+  });
+
+  it('renders email window for email type', () => {
+    mockWindows = [{ id: 'email-1', type: 'email', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('email-window-email-1')).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when email close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'email-1', type: 'email', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-email-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('email-1');
+  });
+
+  it('calls focusWindow when email window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'email-1', type: 'email', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('email-window-email-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('email-1');
+  });
+
+  it('renders all four window types together', () => {
+    mockWindows = [
+      { id: 'notes-1', type: 'notes', zIndex: 100 },
+      { id: 'console-1', type: 'console', zIndex: 101 },
+      { id: 'settings-1', type: 'settings', zIndex: 102 },
+      { id: 'email-1', type: 'email', zIndex: 103 }
+    ];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
+    expect(screen.getByTestId('console-window-console-1')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('settings-window-settings-1')
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('email-window-email-1')).toBeInTheDocument();
+  });
+
+  it('calls minimizeWindow when notes minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'notes-1', type: 'notes', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-notes-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('notes-1', {
+      x: 0,
+      y: 0,
+      width: 400,
+      height: 300
+    });
+  });
+
+  it('calls minimizeWindow when console minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'console-1', type: 'console', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-console-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('console-1', {
+      x: 0,
+      y: 0,
+      width: 600,
+      height: 400
+    });
+  });
+
+  it('calls minimizeWindow when email minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'email-1', type: 'email', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-email-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('email-1', {
+      x: 0,
+      y: 0,
+      width: 550,
+      height: 450
+    });
   });
 });

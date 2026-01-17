@@ -7,7 +7,7 @@ import {
   useState
 } from 'react';
 
-export type WindowType = 'notes' | 'console' | 'settings' | 'files';
+export type WindowType = 'notes' | 'console' | 'settings' | 'files' | 'email';
 
 export interface WindowDimensions {
   width: number;

@@ -30,7 +30,8 @@ export const es = {
     chat: 'Chat',
     models: 'Modelos',
     admin: 'Admin',
-    settings: 'Configuración'
+    settings: 'Configuración',
+    email: 'Correo'
   },
   audio: {
     play: 'Reproducir',
