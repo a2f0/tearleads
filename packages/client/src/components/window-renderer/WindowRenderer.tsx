@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { ChatWindow } from '@/components/chat-window';
 import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
 import { EmailWindow } from '@/components/email-window';
@@ -170,6 +171,22 @@ export function WindowRenderer() {
           case 'sqlite':
             return (
               <SqliteWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'chat':
+            return (
+              <ChatWindow
                 key={window.id}
                 id={window.id}
                 onClose={() => closeWindow(window.id)}
