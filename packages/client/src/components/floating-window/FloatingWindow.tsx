@@ -1,6 +1,6 @@
-import { X } from 'lucide-react';
+import { Copy, Minus, Square, X } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Corner } from '@/hooks/useFloatingWindow';
 import { useFloatingWindow } from '@/hooks/useFloatingWindow';
 import { cn } from '@/lib/utils';
@@ -46,11 +46,27 @@ function ResizeHandle({ corner, windowId, handlers }: ResizeHandleProps) {
   );
 }
 
+export interface WindowDimensions {
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+  isMaximized?: boolean;
+  preMaximizeDimensions?: {
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+  };
+}
+
 export interface FloatingWindowProps {
   id: string;
   title: string;
   children: ReactNode;
   onClose: () => void;
+  onMinimize?: (dimensions: WindowDimensions) => void;
+  initialDimensions?: WindowDimensions;
   defaultWidth?: number;
   defaultHeight?: number;
   defaultX?: number;
@@ -63,11 +79,20 @@ export interface FloatingWindowProps {
   onFocus?: () => void;
 }
 
+interface PreMaximizeState {
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+}
+
 export function FloatingWindow({
   id,
   title,
   children,
   onClose,
+  onMinimize,
+  initialDimensions,
   defaultWidth = 500,
   defaultHeight = 400,
   defaultX,
@@ -82,26 +107,41 @@ export function FloatingWindow({
   const [isDesktop, setIsDesktop] = useState(
     typeof window !== 'undefined' && window.innerWidth >= DESKTOP_BREAKPOINT
   );
+  const [isMaximized, setIsMaximized] = useState(
+    initialDimensions?.isMaximized ?? false
+  );
+  const preMaximizeStateRef = useRef<PreMaximizeState | null>(
+    initialDimensions?.preMaximizeDimensions ?? null
+  );
 
-  const { width, height, x, y, createCornerHandlers, createDragHandlers } =
-    useFloatingWindow({
-      defaultWidth,
-      defaultHeight,
-      defaultX:
-        defaultX ??
-        (typeof window !== 'undefined'
-          ? Math.max(50, (window.innerWidth - defaultWidth) / 2)
-          : 0),
-      defaultY:
-        defaultY ??
-        (typeof window !== 'undefined'
-          ? Math.max(50, (window.innerHeight - defaultHeight) / 2)
-          : 0),
-      minWidth,
-      minHeight,
-      maxWidthPercent,
-      maxHeightPercent
-    });
+  const {
+    width,
+    height,
+    x,
+    y,
+    setDimensions,
+    createCornerHandlers,
+    createDragHandlers
+  } = useFloatingWindow({
+    defaultWidth: initialDimensions?.width ?? defaultWidth,
+    defaultHeight: initialDimensions?.height ?? defaultHeight,
+    defaultX:
+      initialDimensions?.x ??
+      defaultX ??
+      (typeof window !== 'undefined'
+        ? Math.max(50, (window.innerWidth - defaultWidth) / 2)
+        : 0),
+    defaultY:
+      initialDimensions?.y ??
+      defaultY ??
+      (typeof window !== 'undefined'
+        ? Math.max(50, (window.innerHeight - defaultHeight) / 2)
+        : 0),
+    minWidth,
+    minHeight,
+    maxWidthPercent,
+    maxHeightPercent
+  });
 
   const dragHandlers = createDragHandlers();
 
@@ -117,12 +157,35 @@ export function FloatingWindow({
     onFocus?.();
   };
 
+  const handleMaximize = useCallback(() => {
+    if (isMaximized) {
+      // Restore to previous size/position
+      if (preMaximizeStateRef.current) {
+        const {
+          width: prevWidth,
+          height: prevHeight,
+          x: prevX,
+          y: prevY
+        } = preMaximizeStateRef.current;
+        setDimensions(prevWidth, prevHeight, prevX, prevY);
+        preMaximizeStateRef.current = null;
+      }
+      setIsMaximized(false);
+    } else {
+      // Save current state and maximize
+      preMaximizeStateRef.current = { width, height, x, y };
+      setDimensions(window.innerWidth, window.innerHeight, 0, 0);
+      setIsMaximized(true);
+    }
+  }, [isMaximized, width, height, x, y, setDimensions]);
+
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: Window focus on click
     <div
       className={cn(
         'fixed flex flex-col overflow-hidden border bg-background/95 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80',
-        isDesktop ? 'rounded-lg' : 'inset-x-0 bottom-0 rounded-t-lg'
+        isDesktop && !isMaximized && 'rounded-lg',
+        !isDesktop && 'inset-x-0 bottom-0 rounded-t-lg'
       )}
       style={{
         zIndex,
@@ -132,8 +195,12 @@ export function FloatingWindow({
               height: `${height}px`,
               left: `${x}px`,
               top: `${y}px`,
-              maxWidth: `${maxWidthPercent * 100}vw`,
-              maxHeight: `${maxHeightPercent * 100}vh`
+              ...(isMaximized
+                ? {}
+                : {
+                    maxWidth: `${maxWidthPercent * 100}vw`,
+                    maxHeight: `${maxHeightPercent * 100}vh`
+                  })
             }
           : {
               height: `${height}px`,
@@ -145,8 +212,9 @@ export function FloatingWindow({
       aria-label={title}
       onClick={handleWindowClick}
       data-testid={`floating-window-${id}`}
+      data-maximized={isMaximized}
     >
-      {isDesktop && (
+      {isDesktop && !isMaximized && (
         <>
           <ResizeHandle
             corner="top-left"
@@ -171,28 +239,78 @@ export function FloatingWindow({
         </>
       )}
 
-      {/* Title bar - draggable on desktop */}
+      {/* Title bar - draggable on desktop when not maximized */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: Title bar for mouse/touch drag only */}
       <div
         className={cn(
           'flex h-7 shrink-0 items-center justify-between border-b bg-muted/50 px-2',
-          isDesktop && 'cursor-grab active:cursor-grabbing'
+          isDesktop && !isMaximized && 'cursor-grab active:cursor-grabbing'
         )}
-        onMouseDown={isDesktop ? dragHandlers.onMouseDown : undefined}
-        onTouchStart={isDesktop ? dragHandlers.onTouchStart : undefined}
+        onMouseDown={
+          isDesktop && !isMaximized ? dragHandlers.onMouseDown : undefined
+        }
+        onTouchStart={
+          isDesktop && !isMaximized ? dragHandlers.onTouchStart : undefined
+        }
+        onDoubleClick={isDesktop ? handleMaximize : undefined}
         data-testid={`floating-window-${id}-title-bar`}
       >
         <span className="select-none font-medium text-muted-foreground text-xs">
           {title}
         </span>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label={`Close ${title}`}
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
+        <div className="flex items-center gap-0.5">
+          {onMinimize && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const dimensions: WindowDimensions = { width, height, x, y };
+                if (isMaximized) {
+                  dimensions.isMaximized = true;
+                  if (preMaximizeStateRef.current) {
+                    dimensions.preMaximizeDimensions =
+                      preMaximizeStateRef.current;
+                  }
+                }
+                onMinimize(dimensions);
+              }}
+              className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label={`Minimize ${title}`}
+            >
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {isDesktop && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleMaximize();
+              }}
+              className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label={
+                isMaximized ? `Restore ${title}` : `Maximize ${title}`
+              }
+            >
+              {isMaximized ? (
+                <Copy className="h-3.5 w-3.5" />
+              ) : (
+                <Square className="h-3.5 w-3.5" />
+              )}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+            className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label={`Close ${title}`}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
       {/* Window content */}
