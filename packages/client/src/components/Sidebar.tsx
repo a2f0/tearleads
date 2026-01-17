@@ -21,7 +21,10 @@ import {
   Terminal,
   Users
 } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import type { WindowType } from '@/contexts/WindowManagerContext';
+import { useWindowManager } from '@/contexts/WindowManagerContext';
 import type { MenuKeys } from '@/i18n';
 import { useTypedTranslation } from '@/i18n';
 import { cn } from '@/lib/utils';
@@ -191,12 +194,75 @@ export const navItems: NavItem[] = [
   }
 ];
 
+// Paths that can be opened in a floating window
+// Note: Most paths are excluded for now since E2E tests depend on full-page routes
+// TODO: Update E2E tests to handle floating windows, then re-enable these paths
+const WINDOW_PATHS: Record<string, WindowType> = {
+  '/console': 'console',
+  '/email': 'email'
+};
+
 export interface SidebarProps {
   isOpen: boolean;
+  onClose: () => void;
 }
 
-export function Sidebar({ isOpen }: SidebarProps) {
+export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { t } = useTypedTranslation('menu');
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { openWindow } = useWindowManager();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    // Corresponds to Tailwind's `lg` breakpoint (min-width: 1024px).
+    // isMobile is true when screen is smaller than that.
+    const mediaQuery = window.matchMedia('(max-width: 1023px)');
+
+    const handleMediaChange = (e: MediaQueryListEvent) =>
+      setIsMobile(e.matches);
+
+    // Set initial state and add listener
+    setIsMobile(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleMediaChange);
+
+    // Cleanup on unmount
+    return () => mediaQuery.removeEventListener('change', handleMediaChange);
+  }, []);
+
+  const handleLaunch = useCallback(
+    (path: string) => {
+      const windowType = WINDOW_PATHS[path];
+      if (windowType && !isMobile) {
+        // Open in floating window on desktop if supported
+        openWindow(windowType);
+      } else {
+        // Navigate for mobile or non-window paths
+        navigate(path);
+      }
+      onClose();
+    },
+    [isMobile, navigate, openWindow, onClose]
+  );
+
+  const handleClick = useCallback(
+    (path: string) => {
+      if (isMobile) {
+        handleLaunch(path);
+      }
+      // On desktop, single click does nothing (wait for double click)
+    },
+    [isMobile, handleLaunch]
+  );
+
+  const handleDoubleClick = useCallback(
+    (path: string) => {
+      if (!isMobile) {
+        handleLaunch(path);
+      }
+    },
+    [isMobile, handleLaunch]
+  );
 
   return (
     <aside
@@ -204,7 +270,7 @@ export function Sidebar({ isOpen }: SidebarProps) {
       className={cn(
         'hidden w-64 shrink-0 flex-col border-r bg-background lg:flex',
         isOpen
-          ? 'lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:shadow-lg'
+          ? 'lg:fixed lg:inset-y-0 lg:left-0 lg:z-[60] lg:shadow-lg'
           : 'lg:hidden'
       )}
     >
@@ -212,24 +278,27 @@ export function Sidebar({ isOpen }: SidebarProps) {
         <ul className="space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const isActive =
+              item.path === '/'
+                ? location.pathname === '/'
+                : location.pathname.startsWith(item.path);
             return (
               <li key={item.path}>
-                <NavLink
-                  to={item.path}
-                  end={item.path === '/'}
+                <button
+                  type="button"
                   data-testid={item.testId}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex items-center gap-3 rounded-md px-3 py-2 font-medium text-sm transition-colors',
-                      isActive
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                    )
-                  }
+                  onClick={() => handleClick(item.path)}
+                  onDoubleClick={() => handleDoubleClick(item.path)}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left font-medium text-sm transition-colors',
+                    isActive
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
                 >
                   <Icon className="h-5 w-5" />
                   {t(item.labelKey)}
-                </NavLink>
+                </button>
               </li>
             );
           })}

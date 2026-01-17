@@ -1,17 +1,22 @@
 import { render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
 import { i18n } from '@/i18n';
 import { en } from '@/i18n/translations/en';
 import { navItems, Sidebar } from './Sidebar';
 
 describe('Sidebar', () => {
+  const mockOnClose = vi.fn();
+
   const renderSidebar = (initialRoute = '/', isOpen = true) => {
     return render(
       <I18nextProvider i18n={i18n}>
         <MemoryRouter initialEntries={[initialRoute]}>
-          <Sidebar isOpen={isOpen} />
+          <WindowManagerProvider>
+            <Sidebar isOpen={isOpen} onClose={mockOnClose} />
+          </WindowManagerProvider>
         </MemoryRouter>
       </I18nextProvider>
     );
@@ -26,13 +31,13 @@ describe('Sidebar', () => {
     }
   });
 
-  it('renders navigation links with correct paths', () => {
+  it('renders navigation buttons with correct test ids', () => {
     renderSidebar();
 
     for (const item of navItems) {
       const label = en.menu[item.labelKey];
-      const link = screen.getByRole('link', { name: label });
-      expect(link).toHaveAttribute('href', item.path);
+      const button = screen.getByRole('button', { name: label });
+      expect(button).toHaveAttribute('data-testid', item.testId);
     }
   });
 
@@ -40,9 +45,9 @@ describe('Sidebar', () => {
     renderSidebar();
 
     // Each nav item should have an svg icon
-    const links = screen.getAllByRole('link');
-    for (const link of links) {
-      const svg = link.querySelector('svg');
+    const buttons = screen.getAllByRole('button');
+    for (const button of buttons) {
+      const svg = button.querySelector('svg');
       expect(svg).toBeInTheDocument();
     }
   });
@@ -50,24 +55,24 @@ describe('Sidebar', () => {
   it('applies active styles to the current route', () => {
     renderSidebar('/contacts');
 
-    const contactsLink = screen.getByRole('link', { name: 'Contacts' });
-    expect(contactsLink).toHaveClass('bg-accent');
+    const contactsButton = screen.getByRole('button', { name: 'Contacts' });
+    expect(contactsButton).toHaveClass('bg-accent');
   });
 
   it('applies inactive styles to non-current routes', () => {
     renderSidebar('/contacts');
 
-    const homeLink = screen.getByRole('link', { name: 'Home' });
-    expect(homeLink).toHaveClass('text-muted-foreground');
-    expect(homeLink).not.toHaveClass('bg-accent');
+    const homeButton = screen.getByRole('button', { name: 'Home' });
+    expect(homeButton).toHaveClass('text-muted-foreground');
+    expect(homeButton).not.toHaveClass('bg-accent');
   });
 
   it('uses end matching for the root route', () => {
     renderSidebar('/contacts');
 
-    // When on /contacts, the Home link (/) should not be active
-    const homeLink = screen.getByRole('link', { name: 'Home' });
-    expect(homeLink).not.toHaveClass('bg-accent');
+    // When on /contacts, the Home button (/) should not be active
+    const homeButton = screen.getByRole('button', { name: 'Home' });
+    expect(homeButton).not.toHaveClass('bg-accent');
   });
 
   it('renders as an aside element', () => {

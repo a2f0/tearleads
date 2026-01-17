@@ -141,7 +141,7 @@ test.describe('Instance Switching (Electron)', () => {
 
     // Open sidebar and navigate to SQLite page
     await openSidebar(window);
-    await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
+    await window.locator('nav').getByRole('button', { name: 'SQLite' }).dblclick();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Delete all other instances to ensure test isolation
@@ -309,7 +309,7 @@ test.describe('Instance Switching (Electron)', () => {
 
     // Open sidebar and navigate to SQLite page
     await openSidebar(window);
-    await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
+    await window.locator('nav').getByRole('button', { name: 'SQLite' }).dblclick();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Should start on the last active instance (second instance)
