@@ -83,7 +83,11 @@ function useColumnCount() {
   return columns;
 }
 
-export function Photos() {
+interface PhotosProps {
+  onSelectPhoto?: ((photoId: string) => void) | undefined;
+}
+
+export function Photos({ onSelectPhoto }: PhotosProps = {}) {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { t } = useTypedTranslation('contextMenu');
@@ -393,12 +397,16 @@ export function Photos() {
 
   const handleGetInfo = useCallback(() => {
     if (contextMenu) {
-      navigateWithFrom(`/photos/${contextMenu.photo.id}`, {
-        fromLabel: 'Back to Photos'
-      });
+      if (onSelectPhoto) {
+        onSelectPhoto(contextMenu.photo.id);
+      } else {
+        navigateWithFrom(`/photos/${contextMenu.photo.id}`, {
+          fromLabel: 'Back to Photos'
+        });
+      }
       setContextMenu(null);
     }
-  }, [contextMenu, navigateWithFrom]);
+  }, [contextMenu, navigateWithFrom, onSelectPhoto]);
 
   const handleDelete = useCallback(async () => {
     if (!contextMenu) return;
