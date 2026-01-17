@@ -394,13 +394,17 @@ export function Home() {
         openWindow('notes');
       } else if (path === '/console') {
         openWindow('console');
+      } else if (path === '/settings') {
+        openWindow('settings');
       }
     }
     setIconContextMenu(null);
   }, [iconContextMenu, openWindow]);
 
+  const OPENABLE_IN_WINDOW_PATHS = ['/notes', '/console', '/settings'];
+
   const canOpenInWindow = (path: string) =>
-    path === '/notes' || path === '/console';
+    OPENABLE_IN_WINDOW_PATHS.includes(path);
 
   return (
     <div className="flex h-full flex-1 flex-col overflow-hidden">
