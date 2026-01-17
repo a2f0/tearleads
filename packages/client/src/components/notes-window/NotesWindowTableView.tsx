@@ -27,6 +27,8 @@ interface NoteInfo {
   updatedAt: Date;
 }
 
+type MenuPosition = { x: number; y: number };
+
 type SortColumn = 'title' | 'createdAt' | 'updatedAt';
 type SortDirection = 'asc' | 'desc';
 
@@ -87,10 +89,9 @@ export function NotesWindowTableView({
     x: number;
     y: number;
   } | null>(null);
-  const [blankSpaceMenu, setBlankSpaceMenu] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
+  const [blankSpaceMenu, setBlankSpaceMenu] = useState<MenuPosition | null>(
+    null
+  );
 
   const fetchNotes = useCallback(async () => {
     if (!isUnlocked) return;
@@ -240,6 +241,11 @@ export function NotesWindowTableView({
       setError(err instanceof Error ? err.message : String(err));
     }
   }, [onSelectNote]);
+
+  const handleCreateNoteFromMenu = useCallback(() => {
+    setBlankSpaceMenu(null);
+    handleCreateNote();
+  }, [handleCreateNote]);
 
   return (
     <div className="flex h-full flex-col space-y-2 p-3">
@@ -397,10 +403,7 @@ export function NotesWindowTableView({
         >
           <ContextMenuItem
             icon={<Plus className="h-4 w-4" />}
-            onClick={() => {
-              setBlankSpaceMenu(null);
-              handleCreateNote();
-            }}
+            onClick={handleCreateNoteFromMenu}
           >
             {t('newNote')}
           </ContextMenuItem>
