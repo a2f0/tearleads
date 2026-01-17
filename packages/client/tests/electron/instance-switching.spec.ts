@@ -119,6 +119,13 @@ const deleteAllOtherInstances = async (window: Page) => {
   await expect(window.getByTestId('create-instance-button')).not.toBeVisible();
 };
 
+async function openSidebar(window: Page) {
+  const startButton = window.getByTestId('start-button');
+  await expect(startButton).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+  await startButton.click();
+  await expect(window.locator('nav')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+}
+
 test.describe('Instance Switching (Electron)', () => {
   let electronApp: ElectronApplication;
   let window: Page;
@@ -129,10 +136,11 @@ test.describe('Instance Switching (Electron)', () => {
 
     // Wait for app to load
     await expect(
-      window.getByRole('heading', { name: 'Tearleads', level: 1 })
+      window.getByTestId('start-button')
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
 
-    // Navigate to SQLite page via sidebar (visible on desktop)
+    // Open sidebar and navigate to SQLite page
+    await openSidebar(window);
     await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
@@ -296,10 +304,11 @@ test.describe('Instance Switching (Electron)', () => {
 
     // Wait for app to load
     await expect(
-      window.getByRole('heading', { name: 'Tearleads', level: 1 })
+      window.getByTestId('start-button')
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
 
-    // Navigate to SQLite page
+    // Open sidebar and navigate to SQLite page
+    await openSidebar(window);
     await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
