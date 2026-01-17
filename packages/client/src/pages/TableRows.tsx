@@ -490,7 +490,10 @@ export function TableRows() {
       setHasScrolled(true);
     };
 
-    scrollElement.addEventListener('scroll', handleScroll, { passive: true });
+    scrollElement.addEventListener('scroll', handleScroll, {
+      once: true,
+      passive: true
+    });
     return () => scrollElement.removeEventListener('scroll', handleScroll);
   }, [columns.length, documentView]);
 
@@ -543,9 +546,9 @@ export function TableRows() {
 
     // Only refetch if sort actually changed and we have data
     if (sortChanged && columns.length > 0 && isUnlocked && !loading) {
-      fetchTableData();
+      fetchTableDataRef.current();
     }
-  }, [sort, columns.length, isUnlocked, loading, fetchTableData]);
+  }, [sort, columns.length, isUnlocked, loading]);
 
   // Fetch data on initial load, when the table changes, or when instance changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: loading, rows, and columns intentionally omitted to prevent re-fetch loops
@@ -566,7 +569,7 @@ export function TableRows() {
 
       // Defer fetch to next tick to ensure database singleton is updated
       const timeoutId = setTimeout(() => {
-        fetchTableData();
+        fetchTableDataRef.current();
       }, 0);
 
       return () => clearTimeout(timeoutId);
@@ -585,11 +588,11 @@ export function TableRows() {
 
     // Defer fetch to next tick to ensure database singleton is updated
     const timeoutId = setTimeout(() => {
-      fetchTableData();
+      fetchTableDataRef.current();
     }, 0);
 
     return () => clearTimeout(timeoutId);
-  }, [isUnlocked, currentInstanceId, fetchTableData, columns.length]);
+  }, [isUnlocked, currentInstanceId, columns.length]);
 
   return (
     <div className="flex max-h-[calc(100vh-200px)] flex-col space-y-4 overflow-hidden">
