@@ -75,9 +75,11 @@ function getRowKey(
 ): string {
   const pkColumns = columns.filter((col) => col.pk > 0);
   if (pkColumns.length > 0) {
-    return pkColumns.map((col) => String(row[col.name])).join('-');
+    // Prefix with 'pk-' to distinguish from index-based keys
+    return `pk-${pkColumns.map((col) => String(row[col.name])).join('-')}`;
   }
-  return String(index);
+  // Prefix with 'idx-' to distinguish from pk-based keys
+  return `idx-${index}`;
 }
 
 export function TableRows() {
@@ -119,6 +121,15 @@ export function TableRows() {
   // Track total count for pagination (ref to avoid fetchData dependency)
   const totalCountRef = useRef<number | null>(null);
 
+  // Track if initial load is complete (to prevent load more during first render)
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+
+  // Ref-based guard to prevent concurrent load-more calls (state updates are async)
+  const isLoadingMoreRef = useRef(false);
+
+  // Track if user has scrolled (to prevent auto-loading all data on large screens)
+  const [hasScrolled, setHasScrolled] = useState(false);
+
   const fetchTableData = useCallback(
     async (reset = true) => {
       if (!isUnlocked || !tableName) return;
@@ -128,7 +139,13 @@ export function TableRows() {
         setLoading(true);
         setRows([]);
         offsetRef.current = 0;
+        setInitialLoadComplete(false);
+        isLoadingMoreRef.current = false;
+        setHasScrolled(false);
       } else {
+        // Use ref guard to prevent concurrent load-more calls
+        if (isLoadingMoreRef.current) return;
+        isLoadingMoreRef.current = true;
         setLoadingMore(true);
       }
 
@@ -246,6 +263,15 @@ export function TableRows() {
         console.error('Failed to fetch table data:', err);
         setError(err instanceof Error ? err.message : String(err));
       } finally {
+        if (reset) {
+          // Mark initial load complete after a brief delay to allow React to settle
+          // This prevents the load more effect from triggering immediately
+          requestAnimationFrame(() => {
+            setInitialLoadComplete(true);
+          });
+        } else {
+          isLoadingMoreRef.current = false;
+        }
         setLoading(false);
         setLoadingMore(false);
       }
@@ -449,21 +475,46 @@ export function TableRows() {
       ? (visibleRowItems[visibleRowItems.length - 1]?.index ?? null)
       : null;
 
+  // Store fetchTableData in a ref to avoid re-triggering load more effect
+  const fetchTableDataRef = useRef(fetchTableData);
+  fetchTableDataRef.current = fetchTableData;
+
+  // Track scroll events to enable load-more (prevents auto-loading all data on large screens)
+  // Re-run when columns load or view changes (scroll container element may change)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: documentView triggers re-run when scroll container changes
+  useEffect(() => {
+    const scrollElement = parentRef.current;
+    if (!scrollElement) return;
+
+    const handleScroll = () => {
+      // Mark as scrolled on any scroll event (user interaction detected)
+      setHasScrolled(true);
+    };
+
+    scrollElement.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scrollElement.removeEventListener('scroll', handleScroll);
+  }, [columns.length, documentView]);
+
   // Load more when scrolling near the end
   useEffect(() => {
+    // Don't load more until initial load is complete
+    if (!initialLoadComplete) return;
+    // Require user to have scrolled (prevents auto-loading all data on large screens)
+    if (!hasScrolled) return;
     if (!hasMore || loadingMore || loading || virtualItems.length === 0) return;
 
     const lastItem = virtualItems[virtualItems.length - 1];
     if (lastItem && lastItem.index >= rows.length - 5) {
-      fetchTableData(false);
+      fetchTableDataRef.current(false);
     }
   }, [
+    initialLoadComplete,
+    hasScrolled,
     virtualItems,
     hasMore,
     loadingMore,
     loading,
-    rows.length,
-    fetchTableData
+    rows.length
   ]);
 
   // Reset sort if the sorted column is hidden
@@ -669,7 +720,11 @@ export function TableRows() {
                   No rows in this table
                 </div>
               ) : (
-                <div ref={parentRef} className="flex-1 overflow-auto p-2">
+                <div
+                  ref={parentRef}
+                  className="flex-1 overflow-auto p-2"
+                  data-testid="scroll-container"
+                >
                   <div
                     className="relative w-full"
                     style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -783,7 +838,11 @@ export function TableRows() {
                   No rows in this table
                 </div>
               ) : (
-                <div ref={parentRef} className="flex-1 overflow-auto">
+                <div
+                  ref={parentRef}
+                  className="flex-1 overflow-auto"
+                  data-testid="scroll-container"
+                >
                   <div
                     className="relative w-full"
                     style={{ height: `${virtualizer.getTotalSize()}px` }}
