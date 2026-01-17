@@ -248,6 +248,37 @@ describe('Photos', () => {
       });
     });
 
+    it('calls onSelectPhoto callback instead of navigating when provided', async () => {
+      const user = userEvent.setup();
+      const onSelectPhoto = vi.fn();
+
+      render(
+        <MemoryRouter>
+          <Photos onSelectPhoto={onSelectPhoto} />
+        </MemoryRouter>
+      );
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      const photo = screen.getByAltText('test-image.jpg');
+      await user.pointer({ keys: '[MouseRight]', target: photo });
+
+      await waitFor(() => {
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Get info'));
+
+      expect(onSelectPhoto).toHaveBeenCalledWith('photo-1');
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
     it('closes context menu when clicking elsewhere', async () => {
       const user = userEvent.setup();
       await renderPhotos();
