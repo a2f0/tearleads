@@ -154,6 +154,33 @@ describe('FilesWindowTableView', () => {
     expect(screen.getByTestId('table-upload-button')).toBeInTheDocument();
   });
 
+  it('renders refresh button when unlocked', () => {
+    render(<FilesWindowTableView {...defaultProps} />);
+    expect(
+      screen.getByRole('button', { name: /refresh/i })
+    ).toBeInTheDocument();
+  });
+
+  it('refetches files when refresh button is clicked', async () => {
+    mockDb.orderBy.mockResolvedValue(mockFiles);
+    const user = userEvent.setup();
+    render(<FilesWindowTableView {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('document.pdf')).toBeInTheDocument();
+    });
+
+    vi.clearAllMocks();
+    mockDb.orderBy.mockResolvedValue(mockFiles);
+
+    const refreshButton = screen.getByRole('button', { name: /refresh/i });
+    await user.click(refreshButton);
+
+    await waitFor(() => {
+      expect(mockDb.orderBy).toHaveBeenCalled();
+    });
+  });
+
   it('shows empty state when no files exist', async () => {
     mockDb.orderBy.mockResolvedValue([]);
     render(<FilesWindowTableView {...defaultProps} />);
@@ -377,6 +404,10 @@ describe('FilesWindowTableView', () => {
       expect(screen.getByText('image.jpg')).toBeInTheDocument();
     });
 
+    // Verify both files are shown before delete
+    const imageRowBefore = screen.getByText('image.jpg').closest('tr');
+    expect(imageRowBefore).toBeInTheDocument();
+
     const fileRow = screen.getByText('document.pdf').closest('tr');
     if (fileRow) {
       await user.pointer({ keys: '[MouseRight]', target: fileRow });
@@ -395,8 +426,10 @@ describe('FilesWindowTableView', () => {
       expect(mockDb.update).toHaveBeenCalled();
     });
 
-    // Verify other file (image.jpg) is still visible and unchanged
-    expect(screen.getByText('image.jpg')).toBeInTheDocument();
+    // Verify other file (image.jpg) is still visible, unchanged, and in the document
+    const imageRowAfter = screen.getByText('image.jpg').closest('tr');
+    expect(imageRowAfter).toBeInTheDocument();
+    expect(screen.getByText('500 KB')).toBeInTheDocument(); // image.jpg size
   });
 
   it('handles delete error gracefully', async () => {
@@ -1207,5 +1240,25 @@ describe('FilesWindowTableView', () => {
       expect(screen.getByText('photo.jpeg')).toBeInTheDocument();
     });
     expect(screen.getByText('JPEG')).toBeInTheDocument();
+  });
+
+  it('handles empty mimeType gracefully', async () => {
+    const emptyMimeFile = {
+      id: 'file-empty',
+      name: 'noextension',
+      size: 1024,
+      mimeType: '',
+      uploadDate: new Date('2024-01-15'),
+      storagePath: '/files/noextension',
+      thumbnailPath: null,
+      deleted: false
+    };
+    mockDb.orderBy.mockResolvedValue([emptyMimeFile]);
+    render(<FilesWindowTableView {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('noextension')).toBeInTheDocument();
+    });
+    // Empty mimeType renders without crashing (type column will be empty)
   });
 });
