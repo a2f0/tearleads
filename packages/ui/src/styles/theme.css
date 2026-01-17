@@ -55,6 +55,13 @@
   --chart-6: oklch(50% 0.08 200);
   --chart-7: oklch(52% 0.12 330);
   --chart-8: oklch(55% 0.1 130);
+
+  /* Scrollbar colors */
+  --scrollbar-track: oklch(95% 0.006 250);
+  --scrollbar-thumb: oklch(75% 0.01 250);
+  --scrollbar-thumb-hover: var(--light-primary);
+  --scrollbar-width: 10px;
+  --scrollbar-radius: 5px;
 }
 
 .dark {
@@ -112,6 +119,11 @@
   --chart-6: oklch(70% 0.08 200);
   --chart-7: oklch(68% 0.12 330);
   --chart-8: oklch(72% 0.1 130);
+
+  /* Scrollbar colors */
+  --scrollbar-track: oklch(20% 0.015 240);
+  --scrollbar-thumb: oklch(40% 0.015 240);
+  --scrollbar-thumb-hover: var(--dark-primary);
 }
 
 .tokyo-night {
@@ -152,6 +164,11 @@
   --chart-6: oklch(78% 0.12 205);
   --chart-7: oklch(70% 0.18 330);
   --chart-8: oklch(72% 0.14 140);
+
+  /* Scrollbar colors - blue-tinted to match theme */
+  --scrollbar-track: oklch(26% 0.025 264);
+  --scrollbar-thumb: oklch(40% 0.03 264);
+  --scrollbar-thumb-hover: var(--primary);
 }
 
 .monochrome {
@@ -192,6 +209,11 @@
   --chart-6: oklch(70% 0 0);
   --chart-7: oklch(60% 0 0);
   --chart-8: oklch(50% 0 0);
+
+  /* Scrollbar colors - grayscale */
+  --scrollbar-track: oklch(22% 0 0);
+  --scrollbar-thumb: oklch(45% 0 0);
+  --scrollbar-thumb-hover: oklch(65% 0 0);
 }
 
 /* Monochrome theme: grayscale all images and PDF previews */
