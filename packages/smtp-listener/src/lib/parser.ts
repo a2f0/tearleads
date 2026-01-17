@@ -1,4 +1,8 @@
-import type { EmailAddress, EmailEnvelope, StoredEmail } from '../types/email.js';
+import type {
+  EmailAddress,
+  EmailEnvelope,
+  StoredEmail
+} from '../types/email.js';
 
 export function generateEmailId(): string {
   const timestamp = Date.now().toString(36);

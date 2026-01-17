@@ -1,4 +1,8 @@
-import { closeRedisClient, getRedisClient, type RedisClient } from '@rapid/shared';
+import {
+  closeRedisClient,
+  getRedisClient,
+  type RedisClient
+} from '@rapid/shared';
 import type { StoredEmail } from '../types/email.js';
 
 const EMAIL_PREFIX = 'smtp:email:';
