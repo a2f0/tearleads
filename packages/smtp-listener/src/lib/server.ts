@@ -14,25 +14,17 @@ export interface SmtpListener {
 }
 
 function toEmailAddress(
-  addr: { address: string; name?: string } | undefined
+  addr: { address: string; args: unknown } | false
 ): EmailAddress | false {
   if (!addr) {
     return false;
   }
-  return addr.name
-    ? { address: addr.address, name: addr.name }
-    : { address: addr.address };
+  return { address: addr.address };
 }
 
 function buildEnvelope(session: SMTPServerSession): EmailEnvelope {
-  const mailFrom = toEmailAddress(
-    session.envelope.mailFrom as { address: string; name?: string } | undefined
-  );
-  const rcptTo = (
-    session.envelope.rcptTo as Array<{ address: string; name?: string }>
-  ).map((r) =>
-    r.name ? { address: r.address, name: r.name } : { address: r.address }
-  );
+  const mailFrom = toEmailAddress(session.envelope.mailFrom);
+  const rcptTo = session.envelope.rcptTo.map((r) => ({ address: r.address }));
   return { mailFrom, rcptTo };
 }
 
@@ -53,26 +45,23 @@ export async function createSmtpListener(
         chunks.push(chunk);
       });
 
-      stream.on('end', () => {
-        const rawData = Buffer.concat(chunks).toString('utf8');
-        const envelope = buildEnvelope(session);
-        const email = createStoredEmail(envelope, rawData);
+      stream.on('end', async () => {
+        try {
+          const rawData = Buffer.concat(chunks).toString('utf8');
+          const envelope = buildEnvelope(session);
+          const email = createStoredEmail(envelope, rawData);
 
-        const processEmail = async (): Promise<void> => {
           if (storage) {
             await storage.store(email);
           }
           if (config.onEmail) {
             await config.onEmail(email);
           }
-        };
-
-        processEmail()
-          .then(() => callback())
-          .catch((err: unknown) => {
-            const error = err instanceof Error ? err : new Error(String(err));
-            callback(error);
-          });
+          callback();
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          callback(error);
+        }
       });
 
       stream.on('error', (err: Error) => {
@@ -105,7 +94,13 @@ export async function createSmtpListener(
             storage
               .close()
               .then(resolve)
-              .catch(() => resolve());
+              .catch((err) => {
+                console.error(
+                  'Failed to close Redis storage on SMTP listener stop:',
+                  err
+                );
+                resolve();
+              });
           } else {
             resolve();
           }

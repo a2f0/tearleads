@@ -8,9 +8,11 @@
     "dist"
   ],
   "scripts": {
-    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "dev": "tsx watch --clear-screen=false src/main.ts",
     "build": "tsc",
+    "build:bundle": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/server.cjs --minify --sourcemap",
     "clean": "rm -rf dist",
+    "start": "node dist/server.cjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
@@ -29,6 +31,7 @@
     "@types/node": "25.0.3",
     "@types/smtp-server": "3.5.10",
     "@vitest/coverage-v8": "4.0.16",
+    "esbuild": "0.27.2",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
     "vitest": "4.0.16"

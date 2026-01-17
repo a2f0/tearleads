@@ -9,7 +9,7 @@ const mockLRange = vi.fn();
 const mockLRem = vi.fn();
 const mockCloseRedisClient = vi.fn();
 
-vi.mock('@rapid/shared', () => ({
+vi.mock('@rapid/shared/redis', () => ({
   getRedisClient: vi.fn(() =>
     Promise.resolve({
       set: mockSet,
@@ -48,7 +48,7 @@ describe('storage', () => {
 
   describe('createStorage', () => {
     it('should create a storage instance using shared redis client', async () => {
-      const { getRedisClient } = await import('@rapid/shared');
+      const { getRedisClient } = await import('@rapid/shared/redis');
       const storage = await createStorage('redis://localhost:6379');
 
       expect(getRedisClient).toHaveBeenCalledWith('redis://localhost:6379');
@@ -56,7 +56,7 @@ describe('storage', () => {
     });
 
     it('should work without explicit redis URL', async () => {
-      const { getRedisClient } = await import('@rapid/shared');
+      const { getRedisClient } = await import('@rapid/shared/redis');
       const storage = await createStorage();
 
       expect(getRedisClient).toHaveBeenCalledWith(undefined);
@@ -139,7 +139,7 @@ describe('storage', () => {
 
   describe('close', () => {
     it('should close the redis connection using shared closeRedisClient', async () => {
-      const { closeRedisClient } = await import('@rapid/shared');
+      const { closeRedisClient } = await import('@rapid/shared/redis');
       const storage = await createStorage('redis://localhost:6379');
       await storage.close();
 

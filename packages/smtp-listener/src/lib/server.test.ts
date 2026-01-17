@@ -279,8 +279,8 @@ describe('server', () => {
 
       const session = {
         envelope: {
-          mailFrom: { address: 'sender@test.com', name: 'Sender' },
-          rcptTo: [{ address: 'recipient@test.com', name: 'Recipient' }]
+          mailFrom: { address: 'sender@test.com', args: {} },
+          rcptTo: [{ address: 'recipient@test.com', args: {} }]
         }
       };
 
@@ -292,8 +292,8 @@ describe('server', () => {
         expect(onEmail).toHaveBeenCalledWith(
           expect.objectContaining({
             envelope: {
-              mailFrom: { address: 'sender@test.com', name: 'Sender' },
-              rcptTo: [{ address: 'recipient@test.com', name: 'Recipient' }]
+              mailFrom: { address: 'sender@test.com' },
+              rcptTo: [{ address: 'recipient@test.com' }]
             }
           })
         );
