@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { navItems } from '@/components/Sidebar';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
+import { DesktopBackground } from '@/components/ui/desktop-background';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useTypedTranslation } from '@/i18n';
 
@@ -84,7 +85,9 @@ function constrainAllPositions(
 function calculateGridPositions(
   items: typeof navItems,
   containerWidth: number,
-  isMobile: boolean
+  isMobile: boolean,
+  selectedPaths?: Set<string>,
+  currentPositions?: Positions
 ): Positions {
   const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
   const gap = isMobile ? GAP_MOBILE : GAP;
@@ -93,8 +96,14 @@ function calculateGridPositions(
   const totalWidth = cols * itemWidth - gap;
   const startX = (containerWidth - totalWidth) / 2;
 
-  const positions: Positions = {};
-  items.forEach((item, index) => {
+  // If we have a selection, only arrange selected items
+  const itemsToArrange =
+    selectedPaths && selectedPaths.size > 0
+      ? items.filter((item) => selectedPaths.has(item.path))
+      : items;
+
+  const positions: Positions = currentPositions ? { ...currentPositions } : {};
+  itemsToArrange.forEach((item, index) => {
     const col = index % cols;
     const row = Math.floor(index / cols);
     positions[item.path] = {
@@ -109,15 +118,23 @@ function calculateScatterPositions(
   items: typeof navItems,
   containerWidth: number,
   containerHeight: number,
-  isMobile: boolean
+  isMobile: boolean,
+  selectedPaths?: Set<string>,
+  currentPositions?: Positions
 ): Positions {
   const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
-  const itemHeight = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
+  const itemHeightCalc = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
   const maxX = Math.max(0, containerWidth - iconSize);
-  const maxY = Math.max(0, containerHeight - itemHeight);
+  const maxY = Math.max(0, containerHeight - itemHeightCalc);
 
-  const positions: Positions = {};
-  items.forEach((item) => {
+  // If we have a selection, only scatter selected items
+  const itemsToArrange =
+    selectedPaths && selectedPaths.size > 0
+      ? items.filter((item) => selectedPaths.has(item.path))
+      : items;
+
+  const positions: Positions = currentPositions ? { ...currentPositions } : {};
+  itemsToArrange.forEach((item) => {
     positions[item.path] = {
       x: Math.floor(Math.random() * maxX),
       y: Math.floor(Math.random() * maxY)
@@ -126,21 +143,56 @@ function calculateScatterPositions(
   return positions;
 }
 
+function boxIntersectsIcon(
+  box: { startX: number; startY: number; endX: number; endY: number },
+  iconPos: Position,
+  iconSize: number,
+  itemHeight: number
+): boolean {
+  // Normalize box coordinates (handle dragging in any direction)
+  const boxLeft = Math.min(box.startX, box.endX);
+  const boxRight = Math.max(box.startX, box.endX);
+  const boxTop = Math.min(box.startY, box.endY);
+  const boxBottom = Math.max(box.startY, box.endY);
+
+  // Icon bounding box
+  const iconLeft = iconPos.x;
+  const iconRight = iconPos.x + iconSize;
+  const iconTop = iconPos.y;
+  const iconBottom = iconPos.y + itemHeight;
+
+  // Check for intersection
+  return !(
+    boxRight < iconLeft ||
+    boxLeft > iconRight ||
+    boxBottom < iconTop ||
+    boxTop > iconBottom
+  );
+}
+
 function calculateClusterPositions(
   items: typeof navItems,
   containerWidth: number,
   containerHeight: number,
-  isMobile: boolean
+  isMobile: boolean,
+  selectedPaths?: Set<string>,
+  currentPositions?: Positions
 ): Positions {
   const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
   const gap = isMobile ? GAP_MOBILE : GAP;
-  const itemHeight = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
+  const itemHeightCalc = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
   const itemWidth = iconSize + gap;
-  const itemHeightWithGap = itemHeight + gap;
+  const itemHeightWithGap = itemHeightCalc + gap;
+
+  // If we have a selection, only cluster selected items
+  const itemsToArrange =
+    selectedPaths && selectedPaths.size > 0
+      ? items.filter((item) => selectedPaths.has(item.path))
+      : items;
 
   // Calculate grid dimensions for a square-ish arrangement
-  const cols = Math.ceil(Math.sqrt(items.length));
-  const rows = Math.ceil(items.length / cols);
+  const cols = Math.ceil(Math.sqrt(itemsToArrange.length));
+  const rows = Math.ceil(itemsToArrange.length / cols);
 
   // Calculate total cluster dimensions
   const clusterWidth = cols * itemWidth - gap;
@@ -150,8 +202,8 @@ function calculateClusterPositions(
   const startX = Math.max(0, (containerWidth - clusterWidth) / 2);
   const startY = Math.max(0, (containerHeight - clusterHeight) / 2);
 
-  const positions: Positions = {};
-  items.forEach((item, index) => {
+  const positions: Positions = currentPositions ? { ...currentPositions } : {};
+  itemsToArrange.forEach((item, index) => {
     const col = index % cols;
     const row = Math.floor(index / cols);
     positions[item.path] = {
@@ -191,8 +243,17 @@ export function Home() {
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' ? window.innerWidth < 640 : false
   );
+  const [selectedIcons, setSelectedIcons] = useState<Set<string>>(new Set());
+  const [selectionBox, setSelectionBox] = useState<{
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+  } | null>(null);
+  const isSelectingRef = useRef(false);
 
   const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
+  const itemHeight = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
 
   useEffect(() => {
     const handleResize = () => {
@@ -276,6 +337,7 @@ export function Home() {
       const rect = containerRef.current.getBoundingClientRect();
       setDragging(path);
       setHasDragged(false);
+      setSelectedIcons(new Set()); // Clear selection when dragging an icon
       setDragOffset({
         x: e.clientX - rect.left - pos.x,
         y: e.clientY - rect.top - pos.y
@@ -287,11 +349,44 @@ export function Home() {
     [positions, isMobile]
   );
 
+  const handleCanvasPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (isMobile) return;
+      if (e.button !== 0) return;
+      // Only start selection if clicking on the canvas itself, not an icon
+      if (isElement(e.target) && e.target.closest('button')) return;
+      if (!containerRef.current) return;
+
+      e.preventDefault();
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      isSelectingRef.current = true;
+      setSelectionBox({ startX: x, startY: y, endX: x, endY: y });
+      setSelectedIcons(new Set()); // Clear previous selection
+    },
+    [isMobile]
+  );
+
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (!dragging || !containerRef.current) return;
-      setHasDragged(true);
+      if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
+
+      // Handle selection box drawing
+      if (isSelectingRef.current && selectionBox) {
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        setSelectionBox((prev) =>
+          prev ? { ...prev, endX: x, endY: y } : null
+        );
+        return;
+      }
+
+      // Handle icon dragging
+      if (!dragging) return;
+      setHasDragged(true);
       const newX = e.clientX - rect.left - dragOffset.x;
       const newY = e.clientY - rect.top - dragOffset.y;
       const constrained = constrainPosition(
@@ -306,15 +401,49 @@ export function Home() {
         [dragging]: constrained
       }));
     },
-    [dragging, dragOffset, iconSize]
+    [dragging, dragOffset, iconSize, selectionBox]
   );
 
   const handlePointerUp = useCallback(() => {
+    // Handle selection box finalization
+    if (isSelectingRef.current && selectionBox) {
+      const boxWidth = Math.abs(selectionBox.endX - selectionBox.startX);
+      const boxHeight = Math.abs(selectionBox.endY - selectionBox.startY);
+
+      // Only select icons if the box is large enough (not just a click)
+      if (boxWidth > 5 || boxHeight > 5) {
+        const selected = new Set<string>();
+        appItems.forEach((item) => {
+          const pos = positions[item.path];
+          if (
+            pos &&
+            boxIntersectsIcon(selectionBox, pos, iconSize, itemHeight)
+          ) {
+            selected.add(item.path);
+          }
+        });
+        setSelectedIcons(selected);
+      }
+
+      isSelectingRef.current = false;
+      setSelectionBox(null);
+      return;
+    }
+
+    // Handle icon drag finalization
     if (dragging && hasDragged) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
     }
     setDragging(null);
-  }, [dragging, hasDragged, positions]);
+  }, [
+    dragging,
+    hasDragged,
+    positions,
+    selectionBox,
+    appItems,
+    iconSize,
+    itemHeight
+  ]);
 
   const handleDoubleClick = useCallback(
     (path: string) => {
@@ -349,35 +478,72 @@ export function Home() {
   const handleAutoArrange = useCallback(() => {
     if (containerRef.current) {
       const width = containerRef.current.offsetWidth;
-      setPositions(calculateGridPositions(appItems, width, isMobile));
-      localStorage.removeItem(STORAGE_KEY);
+      const hasSelection = selectedIcons.size > 0;
+      const newPositions = calculateGridPositions(
+        appItems,
+        width,
+        isMobile,
+        hasSelection ? selectedIcons : undefined,
+        hasSelection ? positions : undefined
+      );
+      setPositions(newPositions);
+      if (hasSelection) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newPositions));
+        setSelectedIcons(new Set());
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
     }
     setCanvasContextMenu(null);
-  }, [appItems, isMobile]);
+  }, [appItems, isMobile, selectedIcons, positions]);
 
   const handleScatter = useCallback(() => {
     if (containerRef.current) {
       const width = containerRef.current.offsetWidth;
       const height = containerRef.current.offsetHeight;
-      setPositions(
-        calculateScatterPositions(appItems, width, height, isMobile)
+      const hasSelection = selectedIcons.size > 0;
+      const newPositions = calculateScatterPositions(
+        appItems,
+        width,
+        height,
+        isMobile,
+        hasSelection ? selectedIcons : undefined,
+        hasSelection ? positions : undefined
       );
-      localStorage.removeItem(STORAGE_KEY);
+      setPositions(newPositions);
+      if (hasSelection) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newPositions));
+        setSelectedIcons(new Set());
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
     }
     setCanvasContextMenu(null);
-  }, [appItems, isMobile]);
+  }, [appItems, isMobile, selectedIcons, positions]);
 
   const handleCluster = useCallback(() => {
     if (containerRef.current) {
       const width = containerRef.current.offsetWidth;
       const height = containerRef.current.offsetHeight;
-      setPositions(
-        calculateClusterPositions(appItems, width, height, isMobile)
+      const hasSelection = selectedIcons.size > 0;
+      const newPositions = calculateClusterPositions(
+        appItems,
+        width,
+        height,
+        isMobile,
+        hasSelection ? selectedIcons : undefined,
+        hasSelection ? positions : undefined
       );
-      localStorage.removeItem(STORAGE_KEY);
+      setPositions(newPositions);
+      if (hasSelection) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newPositions));
+        setSelectedIcons(new Set());
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
     }
     setCanvasContextMenu(null);
-  }, [appItems, isMobile]);
+  }, [appItems, isMobile, selectedIcons, positions]);
 
   const handleOpenFromContextMenu = useCallback(() => {
     if (iconContextMenu) {
@@ -422,10 +588,25 @@ export function Home() {
         role="application"
         className="relative h-full w-full flex-1 overflow-hidden bg-transparent"
         style={{ touchAction: isMobile ? 'auto' : 'none' }}
+        onPointerDown={handleCanvasPointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onContextMenu={handleCanvasContextMenu}
       >
+        <DesktopBackground />
+        {/* Selection box overlay */}
+        {selectionBox && (
+          <div
+            className="pointer-events-none absolute border-2 border-primary bg-primary/20"
+            style={{
+              left: Math.min(selectionBox.startX, selectionBox.endX),
+              top: Math.min(selectionBox.startY, selectionBox.endY),
+              width: Math.abs(selectionBox.endX - selectionBox.startX),
+              height: Math.abs(selectionBox.endY - selectionBox.startY),
+              zIndex: 50
+            }}
+          />
+        )}
         {appItems.map((item) => {
           const Icon = item.icon;
           const isSettings = item.path === '/settings';
@@ -434,6 +615,7 @@ export function Home() {
             : 'bg-primary from-primary/80 to-primary';
           const pos = positions[item.path] || { x: 0, y: 0 };
           const isDragging = dragging === item.path;
+          const isSelected = selectedIcons.has(item.path);
 
           return (
             <button
@@ -444,7 +626,7 @@ export function Home() {
                 left: pos.x,
                 top: pos.y,
                 transition: isDragging ? 'none' : 'left 0.2s, top 0.2s',
-                zIndex: isDragging ? 100 : 1,
+                zIndex: isDragging ? 100 : isSelected ? 10 : 1,
                 cursor: isMobile ? 'pointer' : isDragging ? 'grabbing' : 'grab'
               }}
               {...(isMobile
@@ -463,7 +645,7 @@ export function Home() {
               }}
             >
               <div
-                className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${bgClasses} shadow-lg transition-transform hover:scale-105 active:scale-95 sm:h-16 sm:w-16`}
+                className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${bgClasses} shadow-lg transition-transform hover:scale-105 active:scale-95 sm:h-16 sm:w-16 ${isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
               >
                 <Icon className="h-7 w-7 text-primary-foreground sm:h-8 sm:w-8" />
               </div>
@@ -485,19 +667,19 @@ export function Home() {
             icon={<LayoutGrid className="h-4 w-4" />}
             onClick={handleAutoArrange}
           >
-            Auto Arrange
+            {selectedIcons.size > 0 ? 'Auto Arrange Selected' : 'Auto Arrange'}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Maximize2 className="h-4 w-4" />}
             onClick={handleScatter}
           >
-            Scatter
+            {selectedIcons.size > 0 ? 'Scatter Selected' : 'Scatter'}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Square className="h-4 w-4" />}
             onClick={handleCluster}
           >
-            Cluster
+            {selectedIcons.size > 0 ? 'Cluster Selected' : 'Cluster'}
           </ContextMenuItem>
         </ContextMenu>
       )}
