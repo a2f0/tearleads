@@ -34,6 +34,24 @@ vi.mock('@/contexts/WindowManagerContext', async () => {
   };
 });
 
+function mockMatchMedia(isMobile: boolean) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: isMobile
+        ? query === '(max-width: 1023px)'
+        : query !== '(max-width: 1023px)',
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    }))
+  });
+}
+
 describe('Sidebar', () => {
   const mockOnClose = vi.fn();
 
@@ -148,20 +166,7 @@ describe('Sidebar', () => {
 
   it('opens floating window on single click for window paths on desktop', async () => {
     const user = userEvent.setup();
-    // Mock desktop viewport (>= 1024px)
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: vi.fn().mockImplementation((query: string) => ({
-        matches: query !== '(max-width: 1023px)',
-        media: query,
-        onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn()
-      }))
-    });
+    mockMatchMedia(false); // Desktop viewport
 
     renderSidebar();
 
@@ -175,20 +180,7 @@ describe('Sidebar', () => {
 
   it('navigates on single click for window paths on mobile', async () => {
     const user = userEvent.setup();
-    // Mock mobile viewport (< 1024px)
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: vi.fn().mockImplementation((query: string) => ({
-        matches: query === '(max-width: 1023px)',
-        media: query,
-        onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn()
-      }))
-    });
+    mockMatchMedia(true); // Mobile viewport
 
     renderSidebar();
 
