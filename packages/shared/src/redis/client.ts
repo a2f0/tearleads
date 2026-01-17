@@ -5,9 +5,7 @@ export type RedisClient = ReturnType<typeof createClient>;
 let clientPromise: Promise<RedisClient> | null = null;
 let currentUrl: string | null = null;
 
-export async function getRedisClient(
-  url?: string
-): Promise<RedisClient> {
+export async function getRedisClient(url?: string): Promise<RedisClient> {
   const redisUrl = url ?? process.env['REDIS_URL'] ?? 'redis://localhost:6379';
 
   if (clientPromise && currentUrl === redisUrl) {

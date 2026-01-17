@@ -1,4 +1,12 @@
-import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi
+} from 'vitest';
 
 type OnDataHandler = (
   stream: { on: Mock },
@@ -225,7 +233,8 @@ describe('server', () => {
 
       const mockStream = {
         on: vi.fn((event: string, handler: unknown) => {
-          if (event === 'data') dataHandler = handler as (chunk: Buffer) => void;
+          if (event === 'data')
+            dataHandler = handler as (chunk: Buffer) => void;
           if (event === 'end') endHandler = handler as () => void;
         })
       };
@@ -262,7 +271,8 @@ describe('server', () => {
 
       const mockStream = {
         on: vi.fn((event: string, handler: unknown) => {
-          if (event === 'data') dataHandler = handler as (chunk: Buffer) => void;
+          if (event === 'data')
+            dataHandler = handler as (chunk: Buffer) => void;
           if (event === 'end') endHandler = handler as () => void;
         })
       };
