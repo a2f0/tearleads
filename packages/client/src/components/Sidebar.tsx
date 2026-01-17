@@ -11,6 +11,7 @@ import {
   Home,
   ImageIcon,
   Key,
+  Mail,
   MessageSquare,
   Music,
   Settings,
@@ -159,6 +160,13 @@ export const navItems: NavItem[] = [
     labelKey: 'chat',
     inMobileMenu: true,
     testId: 'chat-link'
+  },
+  {
+    path: '/email',
+    icon: Mail,
+    labelKey: 'email',
+    inMobileMenu: true,
+    testId: 'email-link'
   },
   {
     path: '/models',

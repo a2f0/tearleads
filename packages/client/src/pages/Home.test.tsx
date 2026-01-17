@@ -41,9 +41,10 @@ const MOCK_SAVED_POSITIONS = {
   '/local-storage': { x: 100, y: 500 },
   '/keychain': { x: 200, y: 500 },
   '/chat': { x: 300, y: 500 },
-  '/models': { x: 400, y: 500 },
-  '/admin': { x: 100, y: 600 },
-  '/settings': { x: 200, y: 600 }
+  '/email': { x: 400, y: 500 },
+  '/models': { x: 100, y: 600 },
+  '/admin': { x: 200, y: 600 },
+  '/settings': { x: 300, y: 600 }
 };
 
 describe('Home', () => {
@@ -629,14 +630,14 @@ describe('Home', () => {
     // localStorage should be cleared (same as auto-arrange)
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
 
-    // With 20 icons in an 800x600 container:
-    // cols = ceil(sqrt(20)) = 5, rows = ceil(20/5) = 4
+    // With 21 icons in an 800x600 container:
+    // cols = ceil(sqrt(21)) = 5, rows = ceil(21/5) = 5
     // itemWidth = 64 + 40 = 104, itemHeightWithGap = 96 + 40 = 136
-    // clusterWidth = 5*104 - 40 = 480, clusterHeight = 4*136 - 40 = 504
-    // startX = (800 - 480) / 2 = 160, startY = (600 - 504) / 2 = 48
-    // First icon (Files) at index 0: col=0, row=0 -> (160, 48)
+    // clusterWidth = 5*104 - 40 = 480, clusterHeight = 5*136 - 40 = 640
+    // startX = (800 - 480) / 2 = 160, startY = max(0, (600 - 640) / 2) = 0
+    // First icon (Files) at index 0: col=0, row=0 -> (160, 0)
     const filesButton = screen.getByRole('button', { name: 'Files' });
-    expect(filesButton).toHaveStyle({ left: '160px', top: '48px' });
+    expect(filesButton).toHaveStyle({ left: '160px', top: '0px' });
   });
 
   it('shows Open in Window option for Notes icon', async () => {
@@ -656,6 +657,17 @@ describe('Home', () => {
 
     const consoleButton = screen.getByRole('button', { name: 'Console' });
     await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.getByText('Open in Window')).toBeInTheDocument();
+  });
+
+  it('shows Open in Window option for Email icon', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const emailButton = screen.getByRole('button', { name: 'Email' });
+    await user.pointer({ keys: '[MouseRight]', target: emailButton });
 
     expect(screen.getByText('Open')).toBeInTheDocument();
     expect(screen.getByText('Open in Window')).toBeInTheDocument();
