@@ -529,11 +529,11 @@ describe('Home', () => {
     it('allows default touch behavior on mobile', () => {
       const { container } = renderMobileHome();
 
-      const canvas = container.querySelector(
+      const canvas = container.querySelector<HTMLElement>(
         '[role="application"]'
-      ) as HTMLElement;
+      );
       expect(canvas).toBeInTheDocument();
-      expect(canvas.style.touchAction).toBe('auto');
+      expect(canvas?.style.touchAction).toBe('auto');
     });
   });
 
