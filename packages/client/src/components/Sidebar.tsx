@@ -203,7 +203,8 @@ export const navItems: NavItem[] = [
 // TODO: Update E2E tests to handle floating windows, then re-enable these paths
 const WINDOW_PATHS: Record<string, WindowType> = {
   '/console': 'console',
-  '/email': 'email'
+  '/email': 'email',
+  '/chat': 'chat'
 };
 
 // Paths that CAN be opened in a window (shown in context menu)
