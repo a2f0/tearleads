@@ -1310,6 +1310,43 @@ describe('Analytics', () => {
       });
     });
 
+    it('triggers sort for min and max duration columns', async () => {
+      const user = userEvent.setup();
+      await renderAnalytics();
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('summary-sort-minDurationMs')
+        ).toBeInTheDocument();
+      });
+
+      // Click min duration sort
+      await user.click(screen.getByTestId('summary-sort-minDurationMs'));
+
+      await waitFor(() => {
+        expect(mockGetEventStats).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: 'minDurationMs',
+            sortDirection: 'asc'
+          })
+        );
+      });
+
+      // Click max duration sort
+      await user.click(screen.getByTestId('summary-sort-maxDurationMs'));
+
+      await waitFor(() => {
+        expect(mockGetEventStats).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            sortColumn: 'maxDurationMs',
+            sortDirection: 'asc'
+          })
+        );
+      });
+    });
+
     it('calls getEventStats with sort parameters when sorting', async () => {
       const user = userEvent.setup();
       await renderAnalytics();
