@@ -63,10 +63,23 @@ const router: RouterType = Router();
  * @openapi
  * /emails:
  *   get:
- *     summary: List all emails
- *     description: Returns a list of all stored emails with parsed metadata
+ *     summary: List emails with pagination
+ *     description: Returns a paginated list of stored emails with parsed metadata
  *     tags:
  *       - Emails
+ *     parameters:
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: Number of emails to skip
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: Maximum number of emails to return
  *     responses:
  *       200:
  *         description: List of emails
@@ -94,18 +107,46 @@ const router: RouterType = Router();
  *                         type: string
  *                       size:
  *                         type: number
+ *                 total:
+ *                   type: integer
+ *                   description: Total number of emails
+ *                 offset:
+ *                   type: integer
+ *                 limit:
+ *                   type: integer
  *       500:
  *         description: Server error
  */
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
+    const offset = Math.max(
+      0,
+      parseInt(req.query['offset'] as string, 10) || 0
+    );
+    const limit = Math.min(
+      100,
+      Math.max(1, parseInt(req.query['limit'] as string, 10) || 50)
+    );
+
     const client = await getRedisClient();
-    const emailIds = await client.lRange(EMAIL_LIST_KEY, 0, -1);
+    const total = await client.lLen(EMAIL_LIST_KEY);
+    const emailIds = await client.lRange(
+      EMAIL_LIST_KEY,
+      offset,
+      offset + limit - 1
+    );
+
+    if (emailIds.length === 0) {
+      res.json({ emails: [], total, offset, limit });
+      return;
+    }
+
+    const keys = emailIds.map((id) => `${EMAIL_PREFIX}${id}`);
+    const results = await client.mGet(keys);
 
     const emails: EmailListItem[] = [];
-
-    for (const id of emailIds) {
-      const data = await client.get(`${EMAIL_PREFIX}${id}`);
+    for (let i = 0; i < results.length; i++) {
+      const data = results[i];
       if (data) {
         const email: StoredEmail = JSON.parse(data);
         emails.push({
@@ -119,7 +160,7 @@ router.get('/', async (_req: Request, res: Response) => {
       }
     }
 
-    res.json({ emails });
+    res.json({ emails, total, offset, limit });
   } catch (error) {
     console.error('Failed to list emails:', error);
     res.status(500).json({ error: 'Failed to list emails' });

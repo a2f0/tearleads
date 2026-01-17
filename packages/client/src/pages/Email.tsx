@@ -2,18 +2,10 @@ import { Loader2, Mail } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { API_BASE_URL } from '@/lib/api';
-
-interface Email {
-  id: string;
-  from: string;
-  to: string[];
-  subject: string;
-  receivedAt: string;
-  size: number;
-}
+import { type EmailItem, formatEmailDate, formatEmailSize } from '@/lib/email';
 
 export function Email() {
-  const [emails, setEmails] = useState<Email[]>([]);
+  const [emails, setEmails] = useState<EmailItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
@@ -45,22 +37,6 @@ export function Email() {
       fetchEmails();
     }
   }, [hasFetched, fetchEmails]);
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
 
   const selectedEmail = emails.find((email) => email.id === selectedEmailId);
 
@@ -113,8 +89,8 @@ export function Email() {
               To: {selectedEmail.to.join(', ')}
             </p>
             <p className="text-muted-foreground text-xs">
-              {formatDate(selectedEmail.receivedAt)} ·{' '}
-              {formatSize(selectedEmail.size)}
+              {formatEmailDate(selectedEmail.receivedAt)} ·{' '}
+              {formatEmailSize(selectedEmail.size)}
             </p>
           </div>
           <div className="flex-1 overflow-auto p-4">
@@ -142,7 +118,8 @@ export function Email() {
                     From: {email.from}
                   </p>
                   <p className="text-muted-foreground text-xs">
-                    {formatDate(email.receivedAt)} · {formatSize(email.size)}
+                    {formatEmailDate(email.receivedAt)} ·{' '}
+                    {formatEmailSize(email.size)}
                   </p>
                 </div>
               </button>
