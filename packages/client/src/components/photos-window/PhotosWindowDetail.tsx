@@ -77,11 +77,8 @@ export function PhotosWindowDetail({
     setCanShare(canShareFiles());
   }, []);
 
-  const handleDownload = useCallback(async () => {
-    if (!photo) return;
-
-    setActionLoading('download');
-    try {
+  const retrievePhotoData = useCallback(
+    async (photoToRetrieve: PhotoInfo) => {
       const db = getDatabase();
       const keyManager = getKeyManager();
       const encryptionKey = keyManager.getCurrentKey();
@@ -93,10 +90,20 @@ export function PhotosWindowDetail({
       }
 
       const storage = getFileStorage();
-      const data = await storage.measureRetrieve(
-        photo.storagePath,
+      return storage.measureRetrieve(
+        photoToRetrieve.storagePath,
         createRetrieveLogger(db)
       );
+    },
+    [currentInstanceId]
+  );
+
+  const handleDownload = useCallback(async () => {
+    if (!photo) return;
+
+    setActionLoading('download');
+    try {
+      const data = await retrievePhotoData(photo);
       downloadFile(data, photo.name);
     } catch (err) {
       console.error('Failed to download photo:', err);
@@ -104,28 +111,14 @@ export function PhotosWindowDetail({
     } finally {
       setActionLoading(null);
     }
-  }, [photo, currentInstanceId]);
+  }, [photo, retrievePhotoData]);
 
   const handleShare = useCallback(async () => {
     if (!photo) return;
 
     setActionLoading('share');
     try {
-      const db = getDatabase();
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
-      if (!currentInstanceId) throw new Error('No active instance');
-
-      if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey, currentInstanceId);
-      }
-
-      const storage = getFileStorage();
-      const data = await storage.measureRetrieve(
-        photo.storagePath,
-        createRetrieveLogger(db)
-      );
+      const data = await retrievePhotoData(photo);
       const shared = await shareFile(data, photo.name, photo.mimeType);
       if (!shared) {
         setError('Sharing is not supported on this device');
@@ -139,7 +132,7 @@ export function PhotosWindowDetail({
     } finally {
       setActionLoading(null);
     }
-  }, [photo, currentInstanceId]);
+  }, [photo, retrievePhotoData]);
 
   const handleClassify = useCallback(async () => {
     if (!objectUrl) return;
@@ -211,20 +204,7 @@ export function PhotosWindowDetail({
       };
       setPhoto(photoInfo);
 
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
-      if (!currentInstanceId) throw new Error('No active instance');
-
-      if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey, currentInstanceId);
-      }
-
-      const storage = getFileStorage();
-      const data = await storage.measureRetrieve(
-        photoInfo.storagePath,
-        createRetrieveLogger(db)
-      );
+      const data = await retrievePhotoData(photoInfo);
       assertPlainArrayBuffer(data);
       const blob = new Blob([data], { type: photoInfo.mimeType });
       const url = URL.createObjectURL(blob);
@@ -236,7 +216,7 @@ export function PhotosWindowDetail({
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, photoId, currentInstanceId]);
+  }, [isUnlocked, photoId, retrievePhotoData]);
 
   useEffect(() => {
     if (isUnlocked && photoId) {
