@@ -320,10 +320,17 @@ export function Home() {
   const handleDoubleClick = useCallback(
     (path: string) => {
       if (!hasDragged) {
-        navigate(path);
+        // Open in floating window if supported, otherwise navigate
+        if (path === '/notes') {
+          openWindow('notes');
+        } else if (path === '/console') {
+          openWindow('console');
+        } else {
+          navigate(path);
+        }
       }
     },
-    [hasDragged, navigate]
+    [hasDragged, navigate, openWindow]
   );
 
   const handleCanvasContextMenu = useCallback((e: React.MouseEvent) => {
