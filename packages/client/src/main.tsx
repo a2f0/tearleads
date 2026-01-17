@@ -74,6 +74,9 @@ const DocumentDetail = lazy(() =>
 const Documents = lazy(() =>
   import('./pages/Documents').then((m) => ({ default: m.Documents }))
 );
+const Email = lazy(() =>
+  import('./pages/Email').then((m) => ({ default: m.Email }))
+);
 const Files = lazy(() =>
   import('./pages/Files').then((m) => ({ default: m.Files }))
 );
@@ -225,6 +228,7 @@ if (rootElement) {
                                   <Route path="console" element={<Console />} />
                                   <Route path="debug" element={<Debug />} />
                                   <Route path="chat" element={<Chat />} />
+                                  <Route path="email" element={<Email />} />
                                   <Route path="models" element={<Models />} />
                                   <Route
                                     path="settings"

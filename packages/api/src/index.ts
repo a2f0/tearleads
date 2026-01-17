@@ -8,6 +8,7 @@ import packageJson from '../package.json' with { type: 'json' };
 import { closeRedisClient } from './lib/redis.js';
 import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
 import { redisRouter } from './routes/admin/redis.js';
+import { emailsRouter } from './routes/emails.js';
 import { closeAllSSEConnections, sseRouter } from './routes/sse.js';
 
 dotenv.config();
@@ -74,6 +75,9 @@ app.get('/v1/ping', (_req: Request, res: Response) => {
 
 // Admin routes
 app.use('/v1/admin/redis', redisRouter);
+
+// Email routes
+app.use('/v1/emails', emailsRouter);
 
 // SSE route
 app.use('/v1/sse', sseRouter);

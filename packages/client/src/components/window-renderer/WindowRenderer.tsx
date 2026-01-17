@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { ConsoleWindow } from '@/components/console-window';
+import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
 import { NotesWindow } from '@/components/notes-window';
 import { SettingsWindow } from '@/components/settings-window';
@@ -85,6 +86,22 @@ export function WindowRenderer() {
           case 'files':
             return (
               <FilesWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'email':
+            return (
+              <EmailWindow
                 key={window.id}
                 id={window.id}
                 onClose={() => closeWindow(window.id)}
