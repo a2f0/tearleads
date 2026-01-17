@@ -23,6 +23,8 @@ interface NoteInfo {
   updatedAt: Date;
 }
 
+type MenuPosition = { x: number; y: number };
+
 const ROW_HEIGHT_ESTIMATE = 56;
 
 interface NotesWindowListProps {
@@ -42,10 +44,9 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
     x: number;
     y: number;
   } | null>(null);
-  const [blankSpaceMenu, setBlankSpaceMenu] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
+  const [blankSpaceMenu, setBlankSpaceMenu] = useState<MenuPosition | null>(
+    null
+  );
   const parentRef = useRef<HTMLDivElement>(null);
 
   const filteredNotes = notesList.filter((note) =>
@@ -206,6 +207,11 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
       setError(err instanceof Error ? err.message : String(err));
     }
   }, [onSelectNote]);
+
+  const handleCreateNoteFromMenu = useCallback(() => {
+    setBlankSpaceMenu(null);
+    handleCreateNote();
+  }, [handleCreateNote]);
 
   const getContentPreview = (content: string) => {
     const plainText = content
@@ -379,10 +385,7 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
         >
           <ContextMenuItem
             icon={<Plus className="h-4 w-4" />}
-            onClick={() => {
-              setBlankSpaceMenu(null);
-              handleCreateNote();
-            }}
+            onClick={handleCreateNoteFromMenu}
           >
             {t('newNote')}
           </ContextMenuItem>
