@@ -126,8 +126,6 @@ export function Analytics() {
   const offsetRef = useRef(0);
   // Track total count for pagination (ref to avoid fetchData dependency)
   const totalCountRef = useRef<number | null>(null);
-  // Prevent concurrent load-more requests
-  const isLoadingMoreRef = useRef(false);
 
   const virtualizer = useVirtualizer({
     count: events.length + (hasMore ? 1 : 0),
@@ -159,12 +157,6 @@ export function Analytics() {
         // Keep stale data visible during refresh to prevent UI flicker
         offsetRef.current = 0;
       } else {
-        // Prevent concurrent load-more requests
-        if (isLoadingMoreRef.current) {
-          fetchingRef.current = false;
-          return;
-        }
-        isLoadingMoreRef.current = true;
         setLoadingMore(true);
       }
       setError(null);
@@ -255,7 +247,6 @@ export function Analytics() {
         setLoading(false);
         setLoadingMore(false);
         fetchingRef.current = false;
-        isLoadingMoreRef.current = false;
       }
     },
     [isUnlocked, timeFilter, sort, summarySort]
@@ -343,13 +334,16 @@ export function Analytics() {
     }
   }, [isUnlocked, fetchData]);
 
-  // Detect scroll to enable pagination
+  // Detect scroll to enable pagination (once: true auto-removes after first scroll)
   useEffect(() => {
     const scrollElement = parentRef.current;
     if (!scrollElement) return;
 
     const handleScroll = () => setHasScrolled(true);
-    scrollElement.addEventListener('scroll', handleScroll, { passive: true });
+    scrollElement.addEventListener('scroll', handleScroll, {
+      passive: true,
+      once: true
+    });
     return () => scrollElement.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -634,8 +628,8 @@ export function Analytics() {
             />
           </div>
 
-          {/* Events table - constrained height, independent scroll */}
-          <div className="flex max-h-[calc(100vh-350px)] min-h-[200px] flex-col space-y-2">
+          {/* Events table - fills remaining space with independent scroll */}
+          <div className="flex min-h-0 flex-1 flex-col space-y-2">
             <VirtualListStatus
               firstVisible={firstVisible}
               lastVisible={lastVisible}
