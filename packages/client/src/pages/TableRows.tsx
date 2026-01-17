@@ -592,7 +592,7 @@ export function TableRows() {
   }, [isUnlocked, currentInstanceId, fetchTableData, columns.length]);
 
   return (
-    <div className="flex h-full flex-col space-y-6">
+    <div className="flex max-h-[calc(100vh-200px)] flex-col space-y-4 overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-4">
           <BackLink defaultTo="/tables" defaultLabel="Back to Tables" />
@@ -713,12 +713,7 @@ export function TableRows() {
           />
 
           {documentView ? (
-            <div
-              className={cn(
-                'flex min-h-0 flex-1 flex-col rounded-lg border',
-                rows.length > 0 && 'h-[calc(100vh-280px)]'
-              )}
-            >
+            <div className="flex min-h-0 flex-1 flex-col rounded-lg border">
               {rows.length === 0 && !loading ? (
                 <div className="p-8 text-center text-muted-foreground">
                   No rows in this table
@@ -780,12 +775,7 @@ export function TableRows() {
               )}
             </div>
           ) : (
-            <div
-              className={cn(
-                'flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border',
-                rows.length > 0 && 'h-[calc(100vh-280px)]'
-              )}
-            >
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
               {/* Header row - sticky */}
               <div
                 className="grid border-b bg-muted/50"
