@@ -552,4 +552,87 @@ describe('PhotosWindowDetail', () => {
     // Button should show "Classify" text when not loading
     expect(screen.getByText('Classify')).toBeInTheDocument();
   });
+
+  it('handles share AbortError gracefully without showing error', async () => {
+    shouldResolve = true;
+    limitResult = [mockPhoto];
+    setMockCanShare(true);
+    const abortError = new Error('User cancelled');
+    abortError.name = 'AbortError';
+    mockShareFile.mockRejectedValue(abortError);
+    const user = userEvent.setup();
+
+    await act(async () => {
+      render(<PhotosWindowDetail {...defaultProps} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-photo-share')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-photo-share'));
+
+    // AbortError should not show an error message
+    await waitFor(() => {
+      expect(screen.queryByText(/User cancelled/)).not.toBeInTheDocument();
+    });
+  });
+
+  it('handles share error with non-Error object', async () => {
+    shouldResolve = true;
+    limitResult = [mockPhoto];
+    setMockCanShare(true);
+    mockShareFile.mockRejectedValue('String error');
+    const user = userEvent.setup();
+
+    await act(async () => {
+      render(<PhotosWindowDetail {...defaultProps} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-photo-share')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-photo-share'));
+
+    await waitFor(() => {
+      expect(screen.getByText('String error')).toBeInTheDocument();
+    });
+  });
+
+  it('handles download error with non-Error object', async () => {
+    shouldResolve = true;
+    limitResult = [mockPhoto];
+    mockDownloadFile.mockImplementation(() => {
+      throw 'Download string error';
+    });
+    const user = userEvent.setup();
+
+    await act(async () => {
+      render(<PhotosWindowDetail {...defaultProps} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-photo-download')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('window-photo-download'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Download string error')).toBeInTheDocument();
+    });
+  });
+
+  it('handles fetch error with non-Error object', async () => {
+    shouldResolve = true;
+    limitResult = Promise.reject('Fetch string error');
+
+    await act(async () => {
+      render(<PhotosWindowDetail {...defaultProps} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Fetch string error')).toBeInTheDocument();
+    });
+  });
 });
