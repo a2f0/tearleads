@@ -24,14 +24,10 @@ async function navigateTo(page: Page, linkName: string) {
   if (!(await sidebar.isVisible())) {
     await openSidebar(page);
   }
-  const link = sidebar.getByRole('link', { name: linkName });
-  await link.click();
-  // Close sidebar after navigation to prevent it from intercepting pointer events
-  const startButton = page.getByTestId('start-button');
-  if (await sidebar.isVisible()) {
-    await startButton.click();
-    await expect(sidebar).not.toBeVisible({ timeout: 5000 });
-  }
+  const button = sidebar.getByRole('button', { name: linkName });
+  // Desktop requires double-click; sidebar auto-closes after launch
+  await button.dblclick();
+  await expect(sidebar).not.toBeVisible({ timeout: 5000 });
 }
 
 // Helper to reset, setup, and unlock the database
@@ -213,8 +209,8 @@ test.describe('Index page', () => {
     // Open sidebar via Start button
     await openSidebar(page);
 
-    const settingsLink = page.locator('aside nav').getByRole('link', { name: 'Settings' });
-    await settingsLink.click();
+    const settingsButton = page.locator('aside nav').getByRole('button', { name: 'Settings' });
+    await settingsButton.dblclick();
 
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
   });
@@ -694,8 +690,8 @@ test.describe('Debug page', () => {
     // Open sidebar via Start button
     await openSidebar(page);
 
-    const debugLink = page.locator('aside nav').getByRole('link', { name: 'Debug' });
-    await debugLink.click();
+    const debugButton = page.locator('aside nav').getByRole('button', { name: 'Debug' });
+    await debugButton.dblclick();
 
     await expect(page.getByRole('heading', { name: 'Debug' })).toBeVisible();
   });
@@ -773,8 +769,8 @@ test.describe('Tables page', () => {
     // Open sidebar via Start button
     await openSidebar(page);
 
-    const tablesLink = page.locator('aside nav').getByRole('link', { name: 'Tables' });
-    await tablesLink.click();
+    const tablesButton = page.locator('aside nav').getByRole('button', { name: 'Tables' });
+    await tablesButton.dblclick();
 
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
   });
@@ -983,8 +979,8 @@ test.describe('Models page', () => {
     // Open sidebar via Start button
     await openSidebar(page);
 
-    const modelsLink = page.locator('aside nav').getByRole('link', { name: 'Models' });
-    await modelsLink.click();
+    const modelsButton = page.locator('aside nav').getByRole('button', { name: 'Models' });
+    await modelsButton.dblclick();
 
     await expect(page.getByRole('heading', { name: 'Models' })).toBeVisible();
   });
@@ -1096,8 +1092,8 @@ test.describe('Audio page', () => {
     // Open sidebar via Start button
     await openSidebar(page);
 
-    const audioLink = page.locator('aside nav').getByRole('link', { name: 'Audio' });
-    await audioLink.click();
+    const audioButton = page.locator('aside nav').getByRole('button', { name: 'Audio' });
+    await audioButton.dblclick();
 
     await expect(page.getByRole('heading', { name: 'Audio' })).toBeVisible();
   });
@@ -1184,8 +1180,8 @@ test.describe('Contacts page', () => {
     // Open sidebar via Start button
     await openSidebar(page);
 
-    const contactsLink = page.locator('aside nav').getByRole('link', { name: 'Contacts' });
-    await contactsLink.click();
+    const contactsButton = page.locator('aside nav').getByRole('button', { name: 'Contacts' });
+    await contactsButton.dblclick();
 
     await expect(page.getByRole('heading', { name: 'Contacts' })).toBeVisible();
   });
@@ -1323,8 +1319,8 @@ test.describe('Analytics page', () => {
     // Open sidebar via Start button
     await openSidebar(page);
 
-    const analyticsLink = page.locator('aside nav').getByRole('link', { name: 'Analytics' });
-    await analyticsLink.click();
+    const analyticsButton = page.locator('aside nav').getByRole('button', { name: 'Analytics' });
+    await analyticsButton.dblclick();
 
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
   });

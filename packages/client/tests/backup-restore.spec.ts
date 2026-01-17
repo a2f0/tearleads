@@ -16,14 +16,10 @@ async function navigateTo(page: Page, linkName: string) {
   if (!(await sidebar.isVisible())) {
     await openSidebar(page);
   }
-  const link = sidebar.getByRole('link', { name: linkName });
-  await link.click();
-  // Close sidebar after navigation to prevent it from intercepting pointer events
-  const startButton = page.getByTestId('start-button');
-  if (await sidebar.isVisible()) {
-    await startButton.click();
-    await expect(sidebar).not.toBeVisible({ timeout: 5000 });
-  }
+  const button = sidebar.getByRole('button', { name: linkName });
+  // Desktop requires double-click; sidebar auto-closes after launch
+  await button.dblclick();
+  await expect(sidebar).not.toBeVisible({ timeout: 5000 });
 }
 
 const TEST_PASSWORD = 'testpassword123';
