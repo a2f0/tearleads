@@ -5,6 +5,9 @@
 // Crypto utilities
 export * from './crypto/web-crypto.js';
 
+// Redis client
+export * from './redis/client.js';
+
 // License types
 export interface LicenseInfo {
   name: string;
