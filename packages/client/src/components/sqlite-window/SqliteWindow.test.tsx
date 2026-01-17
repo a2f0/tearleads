@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import React from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqliteWindow } from './SqliteWindow';
 
 // Mock FloatingWindow
@@ -31,11 +32,15 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-// Mock DatabaseTest component
+// Mock DatabaseTest component with mount tracking
+const databaseTestMount = vi.fn();
 vi.mock('@/components/sqlite/DatabaseTest', () => ({
-  DatabaseTest: () => (
-    <div data-testid="database-test-content">DatabaseTest Content</div>
-  )
+  DatabaseTest: () => {
+    React.useEffect(() => {
+      databaseTestMount();
+    }, []);
+    return <div data-testid="database-test-content">DatabaseTest Content</div>;
+  }
 }));
 
 // Mock TableSizes component
@@ -53,6 +58,10 @@ describe('SqliteWindow', () => {
     onFocus: vi.fn(),
     zIndex: 100
   };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('renders in FloatingWindow', () => {
     render(<SqliteWindow {...defaultProps} />);
@@ -131,11 +140,14 @@ describe('SqliteWindow', () => {
     const user = userEvent.setup();
     render(<SqliteWindow {...defaultProps} />);
 
+    expect(databaseTestMount).toHaveBeenCalledTimes(1);
+
     // Click View menu and then Refresh
     await user.click(screen.getByRole('button', { name: 'View' }));
     await user.click(screen.getByRole('menuitem', { name: 'Refresh' }));
 
-    // The refresh remounts components with a new key, so DatabaseTest should still be present
+    // The refresh remounts components with a new key, so mount should be called again
+    expect(databaseTestMount).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId('database-test-content')).toBeInTheDocument();
     expect(screen.getByTestId('table-sizes-content')).toBeInTheDocument();
   });
