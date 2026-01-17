@@ -183,11 +183,23 @@ export const navItems: NavItem[] = [
   }
 ];
 
-export function Sidebar() {
+export interface SidebarProps {
+  isOpen: boolean;
+}
+
+export function Sidebar({ isOpen }: SidebarProps) {
   const { t } = useTypedTranslation('menu');
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r bg-background lg:flex">
+    <aside
+      id="sidebar"
+      className={cn(
+        'hidden w-64 shrink-0 flex-col border-r bg-background lg:flex',
+        isOpen
+          ? 'lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:shadow-lg'
+          : 'lg:hidden'
+      )}
+    >
       <nav className="flex-1 p-4">
         <ul className="space-y-1">
           {navItems.map((item) => {

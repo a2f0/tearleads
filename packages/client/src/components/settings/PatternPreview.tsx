@@ -7,7 +7,9 @@ export interface PatternPreviewProps {
 export const PATTERN_LABELS: Record<DesktopPatternValue, string> = {
   solid: 'Solid',
   honeycomb: 'Honeycomb',
-  isometric: 'Isometric'
+  isometric: 'Isometric',
+  triangles: 'Triangles',
+  diamonds: 'Diamonds'
 };
 
 function HoneycombPattern() {
@@ -87,6 +89,82 @@ function IsometricPattern() {
   );
 }
 
+function TrianglesPattern() {
+  return (
+    <svg
+      className="h-full w-full"
+      xmlns="http://www.w3.org/2000/svg"
+      preserveAspectRatio="xMidYMid slice"
+      role="img"
+      aria-label="Triangles pattern preview"
+    >
+      <defs>
+        <pattern
+          id="triangles-preview"
+          width="24"
+          height="20"
+          patternUnits="userSpaceOnUse"
+          patternTransform="scale(0.6)"
+        >
+          <path
+            d="M12 0 L24 20 L0 20 Z"
+            fill="none"
+            stroke="currentColor"
+            strokeOpacity="0.14"
+            strokeWidth="1"
+          />
+          <path
+            d="M12 20 L24 0 L0 0 Z"
+            fill="none"
+            stroke="currentColor"
+            strokeOpacity="0.08"
+            strokeWidth="1"
+          />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#triangles-preview)" />
+    </svg>
+  );
+}
+
+function DiamondsPattern() {
+  return (
+    <svg
+      className="h-full w-full"
+      xmlns="http://www.w3.org/2000/svg"
+      preserveAspectRatio="xMidYMid slice"
+      role="img"
+      aria-label="Diamonds pattern preview"
+    >
+      <defs>
+        <pattern
+          id="diamonds-preview"
+          width="24"
+          height="24"
+          patternUnits="userSpaceOnUse"
+          patternTransform="scale(0.6)"
+        >
+          <path
+            d="M12 0 L24 12 L12 24 L0 12 Z"
+            fill="none"
+            stroke="currentColor"
+            strokeOpacity="0.12"
+            strokeWidth="1"
+          />
+          <path
+            d="M12 6 L18 12 L12 18 L6 12 Z"
+            fill="none"
+            stroke="currentColor"
+            strokeOpacity="0.08"
+            strokeWidth="1"
+          />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#diamonds-preview)" />
+    </svg>
+  );
+}
+
 export function PatternPreview({ pattern }: PatternPreviewProps) {
   return (
     <div className="flex h-full w-full flex-col bg-background text-foreground">
@@ -95,7 +173,9 @@ export function PatternPreview({ pattern }: PatternPreviewProps) {
           {
             solid: null,
             honeycomb: <HoneycombPattern />,
-            isometric: <IsometricPattern />
+            isometric: <IsometricPattern />,
+            triangles: <TrianglesPattern />,
+            diamonds: <DiamondsPattern />
           }[pattern]
         }
       </div>

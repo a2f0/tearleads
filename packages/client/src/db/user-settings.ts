@@ -22,7 +22,12 @@ export type ThemeValue = 'light' | 'dark' | 'tokyo-night' | 'system';
 export type LanguageValue = 'en' | 'es' | 'ua';
 export type TooltipsValue = 'enabled' | 'disabled';
 export type FontValue = 'system' | 'monospace';
-export type DesktopPatternValue = 'solid' | 'honeycomb' | 'isometric';
+export type DesktopPatternValue =
+  | 'solid'
+  | 'honeycomb'
+  | 'isometric'
+  | 'triangles'
+  | 'diamonds';
 
 // Map settings keys to their value types
 export interface SettingValueMap {
@@ -71,7 +76,9 @@ export function isFontValue(value: string): value is FontValue {
 export function isDesktopPatternValue(
   value: string
 ): value is DesktopPatternValue {
-  return ['solid', 'honeycomb', 'isometric'].includes(value);
+  return ['solid', 'honeycomb', 'isometric', 'triangles', 'diamonds'].includes(
+    value
+  );
 }
 
 // Settings sync event detail type
