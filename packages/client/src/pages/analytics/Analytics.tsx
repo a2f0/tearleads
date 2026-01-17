@@ -113,6 +113,9 @@ export function Analytics() {
   const [selectedEventTypes, setSelectedEventTypes] = useState<Set<string>>(
     new Set()
   );
+  // Pagination cascade prevention guards
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [hasScrolled, setHasScrolled] = useState(false);
 
   // Use ref to prevent duplicate fetches during React strict mode or re-renders
   const fetchingRef = useRef(false);
@@ -215,6 +218,11 @@ export function Analytics() {
               return filtered;
             });
           }
+
+          // Mark initial load complete after reset - use requestAnimationFrame
+          // to ensure state updates have been applied
+          requestAnimationFrame(() => setInitialLoadComplete(true));
+          setHasScrolled(false);
         } else {
           // On load more, only fetch events
           const eventsData = await getEvents(db, {
@@ -313,6 +321,12 @@ export function Analytics() {
     [stats, selectedEventTypes]
   );
 
+  // Compute visible events for the DurationChart based on virtual scroll viewport
+  const visibleEvents = useMemo(() => {
+    if (firstVisible === null || lastVisible === null) return events;
+    return events.slice(firstVisible, lastVisible + 1);
+  }, [events, firstVisible, lastVisible]);
+
   // Fetch data when unlocked state or time filter changes
   useEffect(() => {
     if (isUnlocked) {
@@ -320,15 +334,39 @@ export function Analytics() {
     }
   }, [isUnlocked, fetchData]);
 
+  // Detect scroll to enable pagination (once: true auto-removes after first scroll)
+  useEffect(() => {
+    const scrollElement = parentRef.current;
+    if (!scrollElement) return;
+
+    const handleScroll = () => setHasScrolled(true);
+    scrollElement.addEventListener('scroll', handleScroll, {
+      passive: true,
+      once: true
+    });
+    return () => scrollElement.removeEventListener('scroll', handleScroll);
+  }, []);
+
   // Load more when scrolling near the end
   useEffect(() => {
+    // Guard: wait for initial load and user scroll before loading more
+    if (!initialLoadComplete || !hasScrolled) return;
     if (!hasMore || loadingMore || loading || virtualItems.length === 0) return;
 
     const lastItem = virtualItems[virtualItems.length - 1];
     if (lastItem && lastItem.index >= events.length - 5) {
       fetchData(false);
     }
-  }, [virtualItems, hasMore, loadingMore, loading, events.length, fetchData]);
+  }, [
+    initialLoadComplete,
+    hasScrolled,
+    virtualItems,
+    hasMore,
+    loadingMore,
+    loading,
+    events.length,
+    fetchData
+  ]);
 
   const formatDuration = (ms: number) => {
     if (ms == null || Number.isNaN(ms)) return '—';
@@ -354,8 +392,9 @@ export function Analytics() {
   };
 
   return (
-    <div className="flex h-full min-w-0 flex-col space-y-4 sm:space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="flex h-full min-w-0 flex-col overflow-hidden">
+      {/* Fixed header with title and buttons */}
+      <div className="flex items-center justify-between pb-4">
         <h1 className="font-bold text-xl tracking-tight sm:text-2xl">
           Analytics
         </h1>
@@ -390,7 +429,7 @@ export function Analytics() {
       )}
 
       {isUnlocked && !error && (
-        <>
+        <div className="flex-1 space-y-4 overflow-auto">
           {/* Time filter */}
           <div className="flex flex-wrap gap-2">
             {TIME_FILTERS.map((filter) => (
@@ -580,14 +619,16 @@ export function Analytics() {
             </div>
           )}
 
-          {/* Duration chart */}
-          <DurationChart
-            events={events}
-            selectedEventTypes={selectedEventTypes}
-            timeFilter={timeFilter}
-          />
+          {/* Duration chart - shows only visible events from the virtual scroll viewport */}
+          <div className="sticky top-0 z-10 bg-background pb-4">
+            <DurationChart
+              events={visibleEvents}
+              selectedEventTypes={selectedEventTypes}
+              timeFilter={timeFilter}
+            />
+          </div>
 
-          {/* Events table */}
+          {/* Events table - fills remaining space with independent scroll */}
           <div className="flex min-h-0 flex-1 flex-col space-y-2">
             <VirtualListStatus
               firstVisible={firstVisible}
@@ -607,7 +648,7 @@ export function Analytics() {
                 operations.
               </div>
             ) : (
-              <div className="flex min-h-0 flex-1 flex-col rounded-lg border">
+              <div className="flex flex-1 flex-col overflow-hidden rounded-lg border">
                 <div className="border-b bg-muted/50">
                   <div
                     data-testid="analytics-header"
@@ -739,7 +780,7 @@ export function Analytics() {
               </div>
             )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
