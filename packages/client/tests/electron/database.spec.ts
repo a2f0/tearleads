@@ -33,7 +33,7 @@ test.describe('Database (Electron)', () => {
 
     // Open sidebar and navigate to SQLite page
     await openSidebar(window);
-    await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
+    await window.locator('nav').getByRole('button', { name: 'SQLite' }).dblclick();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Reset the database to ensure clean state
@@ -242,7 +242,7 @@ test.describe('Database (Electron)', () => {
       window.getByTestId('start-button')
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
     await openSidebar(window);
-    await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
+    await window.locator('nav').getByRole('button', { name: 'SQLite' }).dblclick();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Database should be in "Locked" state (set up but not unlocked)
@@ -382,7 +382,7 @@ test.describe('Database (Electron)', () => {
       window.getByTestId('start-button')
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
     await openSidebar(window);
-    await window.locator('nav').getByRole('link', { name: 'SQLite' }).click();
+    await window.locator('nav').getByRole('button', { name: 'SQLite' }).dblclick();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Database should be in "Locked" state

@@ -35,10 +35,11 @@ function App() {
       data-testid="app-container"
     >
       <div className="flex flex-1">
-        <Sidebar isOpen={isSidebarOpen} />
-        <div
-          className={`relative flex min-w-0 flex-1 flex-col ${isSidebarOpen ? 'lg:ml-64' : ''}`}
-        >
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+        />
+        <div className="relative flex min-w-0 flex-1 flex-col">
           {isHome && <DesktopBackground />}
           <header className="w-full px-4 py-4">
             <div className="flex items-center justify-end gap-1">
@@ -56,7 +57,6 @@ function App() {
       </div>
       <Footer
         version={version}
-        className={isSidebarOpen ? 'lg:left-64' : undefined}
         connectionIndicator={
           sse && (
             <ConnectionIndicator
