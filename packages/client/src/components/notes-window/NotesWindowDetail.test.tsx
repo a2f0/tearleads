@@ -334,10 +334,13 @@ describe('NotesWindowDetail', () => {
       expect(screen.getByTestId('window-note-title')).toBeInTheDocument();
     });
 
-    await user.clear(screen.getByTestId('window-note-title'));
-    await user.type(screen.getByTestId('window-note-title'), 'New Title');
+    const titleInput = screen.getByTestId('window-note-title');
+    await user.clear(titleInput);
+    await user.type(titleInput, 'New Title');
 
     // Title should be updated in the input
-    expect(screen.getByTestId('window-note-title')).toHaveValue('New Title');
+    await waitFor(() => {
+      expect(titleInput).toHaveValue('New Title');
+    });
   });
 });

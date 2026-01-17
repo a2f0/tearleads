@@ -9,10 +9,19 @@ import {
 
 export type WindowType = 'notes';
 
+export interface WindowDimensions {
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+}
+
 export interface WindowInstance {
   id: string;
   type: WindowType;
   zIndex: number;
+  isMinimized: boolean;
+  dimensions?: WindowDimensions;
 }
 
 interface WindowManagerContextValue {
@@ -20,6 +29,9 @@ interface WindowManagerContextValue {
   openWindow: (type: WindowType, id?: string) => string;
   closeWindow: (id: string) => void;
   focusWindow: (id: string) => void;
+  minimizeWindow: (id: string, dimensions?: WindowDimensions) => void;
+  restoreWindow: (id: string) => void;
+  updateWindowDimensions: (id: string, dimensions: WindowDimensions) => void;
   isWindowOpen: (type: WindowType, id?: string) => boolean;
   getWindow: (id: string) => WindowInstance | undefined;
 }
@@ -55,7 +67,8 @@ export function WindowManagerProvider({
           {
             id,
             type,
-            zIndex: nextZIndex
+            zIndex: nextZIndex,
+            isMinimized: false
           }
         ];
       });
@@ -76,14 +89,51 @@ export function WindowManagerProvider({
       if (!windowToFocus) return prev;
 
       const maxZIndex = Math.max(...prev.map((w) => w.zIndex));
-      if (windowToFocus.zIndex === maxZIndex) return prev;
+      if (windowToFocus.zIndex === maxZIndex && !windowToFocus.isMinimized) {
+        return prev;
+      }
 
       return prev.map((w) =>
-        w.id === id ? { ...w, zIndex: maxZIndex + 1 } : w
+        w.id === id ? { ...w, zIndex: maxZIndex + 1, isMinimized: false } : w
       );
     });
     setNextZIndex((prev) => prev + 1);
   }, []);
+
+  const minimizeWindow = useCallback(
+    (id: string, dimensions?: WindowDimensions) => {
+      setWindows((prev) =>
+        prev.map((w) => {
+          if (w.id !== id) return w;
+          const newDimensions = dimensions ?? w.dimensions;
+          if (newDimensions) {
+            return { ...w, isMinimized: true, dimensions: newDimensions };
+          }
+          return { ...w, isMinimized: true };
+        })
+      );
+    },
+    []
+  );
+
+  const restoreWindow = useCallback((id: string) => {
+    setWindows((prev) => {
+      const maxZIndex = Math.max(...prev.map((w) => w.zIndex));
+      return prev.map((w) =>
+        w.id === id ? { ...w, isMinimized: false, zIndex: maxZIndex + 1 } : w
+      );
+    });
+    setNextZIndex((prev) => prev + 1);
+  }, []);
+
+  const updateWindowDimensions = useCallback(
+    (id: string, dimensions: WindowDimensions) => {
+      setWindows((prev) =>
+        prev.map((w) => (w.id === id ? { ...w, dimensions } : w))
+      );
+    },
+    []
+  );
 
   const isWindowOpen = useCallback(
     (type: WindowType, id?: string): boolean => {
@@ -108,10 +158,23 @@ export function WindowManagerProvider({
       openWindow,
       closeWindow,
       focusWindow,
+      minimizeWindow,
+      restoreWindow,
+      updateWindowDimensions,
       isWindowOpen,
       getWindow
     }),
-    [windows, openWindow, closeWindow, focusWindow, isWindowOpen, getWindow]
+    [
+      windows,
+      openWindow,
+      closeWindow,
+      focusWindow,
+      minimizeWindow,
+      restoreWindow,
+      updateWindowDimensions,
+      isWindowOpen,
+      getWindow
+    ]
   );
 
   return (
