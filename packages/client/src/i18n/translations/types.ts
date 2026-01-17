@@ -29,6 +29,7 @@ export interface MenuTranslations {
   models: string;
   admin: string;
   settings: string;
+  email: string;
 }
 
 export interface AudioTranslations {

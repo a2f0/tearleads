@@ -30,7 +30,8 @@ export const ua = {
     chat: 'Чат',
     models: 'Моделі',
     admin: 'Адмін',
-    settings: 'Налаштування'
+    settings: 'Налаштування',
+    email: 'Пошта'
   },
   audio: {
     play: 'Відтворити',
