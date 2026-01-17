@@ -67,40 +67,37 @@ export function DropdownMenu({
   }, [isOpen, close]);
 
   useEffect(() => {
-    if (!isOpen || !menuRef.current) return undefined;
+    if (isOpen && menuRef.current) {
+      menuRef.current.focus();
+    }
+  }, [isOpen]);
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const items = menuRef.current?.querySelectorAll<HTMLButtonElement>(
-        '[role="menuitem"]:not([disabled])'
-      );
-      if (!items || items.length === 0) return;
+  const handleMenuKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const items = menuRef.current?.querySelectorAll<HTMLButtonElement>(
+      '[role="menuitem"]:not([disabled])'
+    );
+    if (!items || items.length === 0) return;
 
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const nextIndex =
-          focusedIndex < items.length - 1 ? focusedIndex + 1 : 0;
-        setFocusedIndex(nextIndex);
-        items[nextIndex]?.focus();
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prevIndex =
-          focusedIndex > 0 ? focusedIndex - 1 : items.length - 1;
-        setFocusedIndex(prevIndex);
-        items[prevIndex]?.focus();
-      } else if (e.key === 'Home') {
-        e.preventDefault();
-        setFocusedIndex(0);
-        items[0]?.focus();
-      } else if (e.key === 'End') {
-        e.preventDefault();
-        setFocusedIndex(items.length - 1);
-        items[items.length - 1]?.focus();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, focusedIndex]);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const nextIndex = focusedIndex < items.length - 1 ? focusedIndex + 1 : 0;
+      setFocusedIndex(nextIndex);
+      items[nextIndex]?.focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prevIndex = focusedIndex > 0 ? focusedIndex - 1 : items.length - 1;
+      setFocusedIndex(prevIndex);
+      items[prevIndex]?.focus();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setFocusedIndex(0);
+      items[0]?.focus();
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setFocusedIndex(items.length - 1);
+      items[items.length - 1]?.focus();
+    }
+  };
 
   return (
     <div ref={containerRef} className="relative">
@@ -117,8 +114,10 @@ export function DropdownMenu({
         <div
           ref={menuRef}
           role="menu"
+          tabIndex={-1}
+          onKeyDown={handleMenuKeyDown}
           className={cn(
-            'absolute top-full z-[10000] mt-0.5 min-w-32 rounded border bg-background py-1 shadow-md',
+            'absolute top-full z-[10000] mt-0.5 min-w-32 rounded border bg-background py-1 shadow-md outline-none',
             align === 'left' ? 'left-0' : 'right-0'
           )}
           data-align={align}

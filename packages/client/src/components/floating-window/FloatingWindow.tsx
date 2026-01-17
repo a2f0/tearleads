@@ -114,6 +114,9 @@ export function FloatingWindow({
     initialDimensions?.preMaximizeDimensions ?? null
   );
 
+  const effectiveDefaultWidth = initialDimensions?.width ?? defaultWidth;
+  const effectiveDefaultHeight = initialDimensions?.height ?? defaultHeight;
+
   const {
     width,
     height,
@@ -123,19 +126,19 @@ export function FloatingWindow({
     createCornerHandlers,
     createDragHandlers
   } = useFloatingWindow({
-    defaultWidth: initialDimensions?.width ?? defaultWidth,
-    defaultHeight: initialDimensions?.height ?? defaultHeight,
+    defaultWidth: effectiveDefaultWidth,
+    defaultHeight: effectiveDefaultHeight,
     defaultX:
       initialDimensions?.x ??
       defaultX ??
       (typeof window !== 'undefined'
-        ? Math.max(50, (window.innerWidth - defaultWidth) / 2)
+        ? Math.max(50, (window.innerWidth - effectiveDefaultWidth) / 2)
         : 0),
     defaultY:
       initialDimensions?.y ??
       defaultY ??
       (typeof window !== 'undefined'
-        ? Math.max(50, (window.innerHeight - defaultHeight) / 2)
+        ? Math.max(50, (window.innerHeight - effectiveDefaultHeight) / 2)
         : 0),
     minWidth,
     minHeight,
