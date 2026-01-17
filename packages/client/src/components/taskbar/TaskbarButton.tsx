@@ -1,4 +1,5 @@
 import {
+  Database,
   FileIcon,
   ImageIcon,
   KeyRound,
@@ -19,7 +20,8 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   email: <Mail className="h-3 w-3" />,
   contacts: <User className="h-3 w-3" />,
   photos: <ImageIcon className="h-3 w-3" />,
-  keychain: <KeyRound className="h-3 w-3" />
+  keychain: <KeyRound className="h-3 w-3" />,
+  sqlite: <Database className="h-3 w-3" />
 };
 
 const WINDOW_LABELS: Record<WindowType, string> = {
@@ -30,7 +32,8 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   email: 'Email',
   contacts: 'Contacts',
   photos: 'Photos',
-  keychain: 'Keychain'
+  keychain: 'Keychain',
+  sqlite: 'SQLite'
 };
 
 interface TaskbarButtonProps {

@@ -7,6 +7,7 @@ import { KeychainWindow } from '@/components/keychain-window';
 import { NotesWindow } from '@/components/notes-window';
 import { PhotosWindow } from '@/components/photos-window';
 import { SettingsWindow } from '@/components/settings-window';
+import { SqliteWindow } from '@/components/sqlite-window';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 
 export function WindowRenderer() {
@@ -153,6 +154,22 @@ export function WindowRenderer() {
           case 'keychain':
             return (
               <KeychainWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'sqlite':
+            return (
+              <SqliteWindow
                 key={window.id}
                 id={window.id}
                 onClose={() => closeWindow(window.id)}
