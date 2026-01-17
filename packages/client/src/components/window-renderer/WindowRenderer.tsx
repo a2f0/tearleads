@@ -3,6 +3,7 @@ import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
 import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
+import { KeychainWindow } from '@/components/keychain-window';
 import { NotesWindow } from '@/components/notes-window';
 import { PhotosWindow } from '@/components/photos-window';
 import { SettingsWindow } from '@/components/settings-window';
@@ -136,6 +137,22 @@ export function WindowRenderer() {
           case 'photos':
             return (
               <PhotosWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'keychain':
+            return (
+              <KeychainWindow
                 key={window.id}
                 id={window.id}
                 onClose={() => closeWindow(window.id)}
