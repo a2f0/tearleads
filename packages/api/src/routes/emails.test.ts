@@ -235,7 +235,11 @@ describe('Emails Routes', () => {
 
   describe('DELETE /v1/emails/:id', () => {
     it('deletes email by ID', async () => {
-      mockExec.mockResolvedValue([1, 1]);
+      // Redis multi/exec returns [error, result] tuples for each command
+      mockExec.mockResolvedValue([
+        [null, 1],
+        [null, 1]
+      ]);
 
       const response = await request(app).delete('/v1/emails/test-email-1');
 
@@ -244,7 +248,11 @@ describe('Emails Routes', () => {
     });
 
     it('returns 404 when email not found', async () => {
-      mockExec.mockResolvedValue([0, 0]);
+      // Redis multi/exec returns [error, result] tuples for each command
+      mockExec.mockResolvedValue([
+        [null, 0],
+        [null, 0]
+      ]);
 
       const response = await request(app).delete('/v1/emails/nonexistent');
 

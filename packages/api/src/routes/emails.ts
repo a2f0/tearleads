@@ -259,8 +259,8 @@ router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
       .lRem(EMAIL_LIST_KEY, 1, id)
       .exec();
 
-    const delResult = results?.[0];
-    if (delResult && Number(delResult) > 0) {
+    const delResult = results?.[0] as [Error | null, number] | undefined;
+    if (delResult && delResult[1] > 0) {
       res.json({ success: true });
     } else {
       res.status(404).json({ error: 'Email not found' });
