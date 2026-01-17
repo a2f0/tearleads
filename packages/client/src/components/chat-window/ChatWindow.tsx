@@ -61,7 +61,7 @@ export function ChatWindow({
       onMinimize={onMinimize}
       onFocus={onFocus}
       zIndex={zIndex}
-      {...(initialDimensions && { initialDimensions })}
+      {...(initialDimensions !== undefined && { initialDimensions })}
       defaultWidth={500}
       defaultHeight={550}
       minWidth={400}
