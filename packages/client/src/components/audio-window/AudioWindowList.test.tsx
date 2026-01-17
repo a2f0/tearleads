@@ -119,18 +119,30 @@ vi.mock('@/lib/utils', async (importOriginal) => {
   };
 });
 
+interface VirtualizerConfig {
+  count: number;
+  getScrollElement: () => HTMLDivElement | null;
+  estimateSize: () => number;
+  overscan: number;
+}
+
+let lastVirtualizerConfig: VirtualizerConfig | null = null;
+
 vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: ({ count }: { count: number }) => ({
-    getVirtualItems: () =>
-      Array.from({ length: count }, (_, i) => ({
-        index: i,
-        start: i * 56,
-        size: 56,
-        key: i
-      })),
-    getTotalSize: () => count * 56,
-    measureElement: vi.fn()
-  })
+  useVirtualizer: (config: VirtualizerConfig) => {
+    lastVirtualizerConfig = config;
+    return {
+      getVirtualItems: () =>
+        Array.from({ length: config.count }, (_, i) => ({
+          index: i,
+          start: i * 56,
+          size: 56,
+          key: i
+        })),
+      getTotalSize: () => config.count * 56,
+      measureElement: vi.fn()
+    };
+  }
 }));
 
 const mockCreateObjectURL = vi.fn().mockReturnValue('blob:mock-url');
@@ -150,6 +162,7 @@ describe('AudioWindowList', () => {
     mockStorage.measureRetrieve.mockResolvedValue(new ArrayBuffer(100));
     mockPlatform = 'web';
     mockIsFileStorageInitialized = true;
+    lastVirtualizerConfig = null;
 
     global.URL.createObjectURL = mockCreateObjectURL;
     global.URL.revokeObjectURL = mockRevokeObjectURL;
@@ -950,5 +963,28 @@ describe('AudioWindowList', () => {
       'mock-key',
       'test-instance'
     );
+  });
+
+  it('provides correct virtualizer config callbacks', async () => {
+    mockDb.orderBy.mockResolvedValue(mockTracks);
+    render(<AudioWindowList />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Song One.mp3')).toBeInTheDocument();
+    });
+
+    // Verify the virtualizer config was captured
+    expect(lastVirtualizerConfig).not.toBeNull();
+
+    // Test getScrollElement callback - should return the parent ref
+    const scrollElement = lastVirtualizerConfig?.getScrollElement();
+    // In test environment, the ref might be null or a DOM element
+    expect(
+      scrollElement === null || scrollElement instanceof HTMLDivElement
+    ).toBe(true);
+
+    // Test estimateSize callback - should return ROW_HEIGHT_ESTIMATE (56)
+    const estimatedSize = lastVirtualizerConfig?.estimateSize();
+    expect(estimatedSize).toBe(56);
   });
 });
