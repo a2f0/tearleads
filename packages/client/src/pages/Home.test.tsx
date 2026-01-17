@@ -752,33 +752,34 @@ describe('Home', () => {
   });
 
   describe('marquee selection', () => {
+    const setupCanvasMocks = (canvas: Element) => {
+      Object.defineProperty(canvas, 'offsetWidth', {
+        value: 800,
+        configurable: true
+      });
+      Object.defineProperty(canvas, 'offsetHeight', {
+        value: 600,
+        configurable: true
+      });
+      vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+        left: 0,
+        top: 0,
+        right: 800,
+        bottom: 600,
+        width: 800,
+        height: 600,
+        x: 0,
+        y: 0,
+        toJSON: () => ({})
+      });
+    };
+
     it('draws a selection box when dragging on empty canvas', () => {
       const { container } = renderHome();
       const canvas = container.querySelector('[role="application"]');
 
       if (canvas) {
-        // Mock container dimensions
-        Object.defineProperty(canvas, 'offsetWidth', {
-          value: 800,
-          configurable: true
-        });
-        Object.defineProperty(canvas, 'offsetHeight', {
-          value: 600,
-          configurable: true
-        });
-
-        // Mock getBoundingClientRect
-        vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
-          left: 0,
-          top: 0,
-          right: 800,
-          bottom: 600,
-          width: 800,
-          height: 600,
-          x: 0,
-          y: 0,
-          toJSON: () => ({})
-        });
+        setupCanvasMocks(canvas);
 
         // Start selection by clicking on empty canvas
         fireEvent.pointerDown(canvas, {
@@ -807,28 +808,7 @@ describe('Home', () => {
       const canvas = container.querySelector('[role="application"]');
 
       if (canvas) {
-        // Mock container dimensions
-        Object.defineProperty(canvas, 'offsetWidth', {
-          value: 800,
-          configurable: true
-        });
-        Object.defineProperty(canvas, 'offsetHeight', {
-          value: 600,
-          configurable: true
-        });
-
-        // Mock getBoundingClientRect
-        vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
-          left: 0,
-          top: 0,
-          right: 800,
-          bottom: 600,
-          width: 800,
-          height: 600,
-          x: 0,
-          y: 0,
-          toJSON: () => ({})
-        });
+        setupCanvasMocks(canvas);
 
         // Start selection on empty canvas area
         fireEvent.pointerDown(canvas, {
@@ -864,28 +844,7 @@ describe('Home', () => {
       const canvas = container.querySelector('[role="application"]');
 
       if (canvas) {
-        // Mock container dimensions
-        Object.defineProperty(canvas, 'offsetWidth', {
-          value: 800,
-          configurable: true
-        });
-        Object.defineProperty(canvas, 'offsetHeight', {
-          value: 600,
-          configurable: true
-        });
-
-        // Mock getBoundingClientRect
-        vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
-          left: 0,
-          top: 0,
-          right: 800,
-          bottom: 600,
-          width: 800,
-          height: 600,
-          x: 0,
-          y: 0,
-          toJSON: () => ({})
-        });
+        setupCanvasMocks(canvas);
 
         // First create a selection
         fireEvent.pointerDown(canvas, {
@@ -936,28 +895,7 @@ describe('Home', () => {
       const canvas = container.querySelector('[role="application"]');
 
       if (canvas) {
-        // Mock container dimensions
-        Object.defineProperty(canvas, 'offsetWidth', {
-          value: 800,
-          configurable: true
-        });
-        Object.defineProperty(canvas, 'offsetHeight', {
-          value: 600,
-          configurable: true
-        });
-
-        // Mock getBoundingClientRect
-        vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
-          left: 0,
-          top: 0,
-          right: 800,
-          bottom: 600,
-          width: 800,
-          height: 600,
-          x: 0,
-          y: 0,
-          toJSON: () => ({})
-        });
+        setupCanvasMocks(canvas);
 
         // First create a selection
         fireEvent.pointerDown(canvas, {
@@ -1001,28 +939,7 @@ describe('Home', () => {
       const canvas = container.querySelector('[role="application"]');
 
       if (canvas) {
-        // Mock container dimensions
-        Object.defineProperty(canvas, 'offsetWidth', {
-          value: 800,
-          configurable: true
-        });
-        Object.defineProperty(canvas, 'offsetHeight', {
-          value: 600,
-          configurable: true
-        });
-
-        // Mock getBoundingClientRect
-        vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
-          left: 0,
-          top: 0,
-          right: 800,
-          bottom: 600,
-          width: 800,
-          height: 600,
-          x: 0,
-          y: 0,
-          toJSON: () => ({})
-        });
+        setupCanvasMocks(canvas);
 
         // First create a selection
         fireEvent.pointerDown(canvas, {
@@ -1057,28 +974,7 @@ describe('Home', () => {
       const canvas = container.querySelector('[role="application"]');
 
       if (canvas) {
-        // Mock container dimensions
-        Object.defineProperty(canvas, 'offsetWidth', {
-          value: 800,
-          configurable: true
-        });
-        Object.defineProperty(canvas, 'offsetHeight', {
-          value: 600,
-          configurable: true
-        });
-
-        // Mock getBoundingClientRect
-        vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
-          left: 0,
-          top: 0,
-          right: 800,
-          bottom: 600,
-          width: 800,
-          height: 600,
-          x: 0,
-          y: 0,
-          toJSON: () => ({})
-        });
+        setupCanvasMocks(canvas);
 
         // First create a selection
         fireEvent.pointerDown(canvas, {
@@ -1153,28 +1049,7 @@ describe('Home', () => {
       const canvas = container.querySelector('[role="application"]');
 
       if (canvas) {
-        // Mock container dimensions
-        Object.defineProperty(canvas, 'offsetWidth', {
-          value: 800,
-          configurable: true
-        });
-        Object.defineProperty(canvas, 'offsetHeight', {
-          value: 600,
-          configurable: true
-        });
-
-        // Mock getBoundingClientRect
-        vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
-          left: 0,
-          top: 0,
-          right: 800,
-          bottom: 600,
-          width: 800,
-          height: 600,
-          x: 0,
-          y: 0,
-          toJSON: () => ({})
-        });
+        setupCanvasMocks(canvas);
 
         // Get initial position of Settings (at x:200, y:600)
         const settingsButton = screen.getByRole('button', { name: 'Settings' });

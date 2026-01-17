@@ -23,9 +23,19 @@ const ICON_LABEL_GAP = 8;
 const ITEM_HEIGHT = ICON_SIZE + LABEL_HEIGHT + ICON_LABEL_GAP;
 const ITEM_HEIGHT_MOBILE = ICON_SIZE_MOBILE + LABEL_HEIGHT + ICON_LABEL_GAP;
 const STORAGE_KEY = 'desktop-icon-positions';
+const MIN_SELECTION_DRAG_DISTANCE = 5;
 
 type Position = { x: number; y: number };
 type Positions = Record<string, Position>;
+
+function getItemsToArrange(
+  items: typeof navItems,
+  selectedPaths?: Set<string>
+): typeof navItems {
+  return selectedPaths && selectedPaths.size > 0
+    ? items.filter((item) => selectedPaths.has(item.path))
+    : items;
+}
 
 function isElement(target: EventTarget | null): target is Element {
   return target !== null && target instanceof Element;
@@ -96,12 +106,7 @@ function calculateGridPositions(
   const totalWidth = cols * itemWidth - gap;
   const startX = (containerWidth - totalWidth) / 2;
 
-  // If we have a selection, only arrange selected items
-  const itemsToArrange =
-    selectedPaths && selectedPaths.size > 0
-      ? items.filter((item) => selectedPaths.has(item.path))
-      : items;
-
+  const itemsToArrange = getItemsToArrange(items, selectedPaths);
   const positions: Positions = currentPositions ? { ...currentPositions } : {};
   itemsToArrange.forEach((item, index) => {
     const col = index % cols;
@@ -127,12 +132,7 @@ function calculateScatterPositions(
   const maxX = Math.max(0, containerWidth - iconSize);
   const maxY = Math.max(0, containerHeight - itemHeightCalc);
 
-  // If we have a selection, only scatter selected items
-  const itemsToArrange =
-    selectedPaths && selectedPaths.size > 0
-      ? items.filter((item) => selectedPaths.has(item.path))
-      : items;
-
+  const itemsToArrange = getItemsToArrange(items, selectedPaths);
   const positions: Positions = currentPositions ? { ...currentPositions } : {};
   itemsToArrange.forEach((item) => {
     positions[item.path] = {
@@ -184,11 +184,7 @@ function calculateClusterPositions(
   const itemWidth = iconSize + gap;
   const itemHeightWithGap = itemHeightCalc + gap;
 
-  // If we have a selection, only cluster selected items
-  const itemsToArrange =
-    selectedPaths && selectedPaths.size > 0
-      ? items.filter((item) => selectedPaths.has(item.path))
-      : items;
+  const itemsToArrange = getItemsToArrange(items, selectedPaths);
 
   // Calculate grid dimensions for a square-ish arrangement
   const cols = Math.ceil(Math.sqrt(itemsToArrange.length));
@@ -411,7 +407,10 @@ export function Home() {
       const boxHeight = Math.abs(selectionBox.endY - selectionBox.startY);
 
       // Only select icons if the box is large enough (not just a click)
-      if (boxWidth > 5 || boxHeight > 5) {
+      if (
+        boxWidth > MIN_SELECTION_DRAG_DISTANCE ||
+        boxHeight > MIN_SELECTION_DRAG_DISTANCE
+      ) {
         const selected = new Set<string>();
         appItems.forEach((item) => {
           const pos = positions[item.path];
@@ -475,17 +474,30 @@ export function Home() {
     []
   );
 
-  const handleAutoArrange = useCallback(() => {
-    if (containerRef.current) {
-      const width = containerRef.current.offsetWidth;
+  const applyArrangement = useCallback(
+    (
+      arrangementFn: (
+        items: typeof navItems,
+        width: number,
+        height: number,
+        isMobile: boolean,
+        selectedPaths?: Set<string>,
+        currentPositions?: Positions
+      ) => Positions
+    ) => {
+      if (!containerRef.current) return;
+      const { offsetWidth: width, offsetHeight: height } = containerRef.current;
       const hasSelection = selectedIcons.size > 0;
-      const newPositions = calculateGridPositions(
+
+      const newPositions = arrangementFn(
         appItems,
         width,
+        height,
         isMobile,
         hasSelection ? selectedIcons : undefined,
         hasSelection ? positions : undefined
       );
+
       setPositions(newPositions);
       if (hasSelection) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newPositions));
@@ -493,57 +505,24 @@ export function Home() {
       } else {
         localStorage.removeItem(STORAGE_KEY);
       }
-    }
-    setCanvasContextMenu(null);
-  }, [appItems, isMobile, selectedIcons, positions]);
+      setCanvasContextMenu(null);
+    },
+    [appItems, isMobile, selectedIcons, positions]
+  );
+
+  const handleAutoArrange = useCallback(() => {
+    applyArrangement((items, width, _height, mobile, selected, current) =>
+      calculateGridPositions(items, width, mobile, selected, current)
+    );
+  }, [applyArrangement]);
 
   const handleScatter = useCallback(() => {
-    if (containerRef.current) {
-      const width = containerRef.current.offsetWidth;
-      const height = containerRef.current.offsetHeight;
-      const hasSelection = selectedIcons.size > 0;
-      const newPositions = calculateScatterPositions(
-        appItems,
-        width,
-        height,
-        isMobile,
-        hasSelection ? selectedIcons : undefined,
-        hasSelection ? positions : undefined
-      );
-      setPositions(newPositions);
-      if (hasSelection) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newPositions));
-        setSelectedIcons(new Set());
-      } else {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-    setCanvasContextMenu(null);
-  }, [appItems, isMobile, selectedIcons, positions]);
+    applyArrangement(calculateScatterPositions);
+  }, [applyArrangement]);
 
   const handleCluster = useCallback(() => {
-    if (containerRef.current) {
-      const width = containerRef.current.offsetWidth;
-      const height = containerRef.current.offsetHeight;
-      const hasSelection = selectedIcons.size > 0;
-      const newPositions = calculateClusterPositions(
-        appItems,
-        width,
-        height,
-        isMobile,
-        hasSelection ? selectedIcons : undefined,
-        hasSelection ? positions : undefined
-      );
-      setPositions(newPositions);
-      if (hasSelection) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newPositions));
-        setSelectedIcons(new Set());
-      } else {
-        localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-    setCanvasContextMenu(null);
-  }, [appItems, isMobile, selectedIcons, positions]);
+    applyArrangement(calculateClusterPositions);
+  }, [applyArrangement]);
 
   const handleOpenFromContextMenu = useCallback(() => {
     if (iconContextMenu) {
