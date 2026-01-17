@@ -1,82 +1,117 @@
 :root {
-  --background: oklch(100% 0 0);
-  --foreground: oklch(14.1% 0 0);
-  --card: oklch(100% 0 0);
-  --card-foreground: oklch(14.1% 0 0);
-  --popover: oklch(100% 0 0);
-  --popover-foreground: oklch(14.1% 0 0);
-  --primary: oklch(54.6% 0.245 262.88);
-  --primary-foreground: oklch(98.5% 0 0);
-  --secondary: oklch(96.7% 0 0);
-  --secondary-foreground: oklch(21% 0 0);
-  --muted: oklch(96.7% 0 0);
-  --muted-foreground: oklch(55.2% 0 0);
-  --accent: oklch(96.7% 0 0);
-  --accent-foreground: oklch(21% 0 0);
-  --destructive: oklch(57.7% 0.245 27.33);
-  --destructive-foreground: oklch(98.5% 0 0);
-  --border: oklch(92.8% 0 0);
-  --input: oklch(92.8% 0 0);
-  --ring: oklch(54.6% 0.245 262.88);
+  /* Classic Refined Light: off-white with muted navy accents */
+
+  /* --- Light Theme Palette --- */
+  --light-bg: oklch(98% 0.006 250);
+  --light-bg-elevated: oklch(99% 0.004 250);
+  --light-fg: oklch(22% 0.02 255);
+  --light-fg-secondary: oklch(25% 0.02 255);
+  --light-fg-muted: oklch(50% 0.02 255);
+  --light-surface: oklch(95% 0.01 250);
+  --light-surface-hover: oklch(93% 0.015 250);
+  --light-border: oklch(90% 0.012 250);
+  --light-primary: oklch(42% 0.08 255);
+  --light-success: oklch(52% 0.12 155);
+  --light-warning: oklch(68% 0.12 75);
+  --light-destructive: oklch(50% 0.15 25);
+  --light-info: oklch(52% 0.1 240);
+
+  /* --- Semantic Variables --- */
+  --background: var(--light-bg);
+  --foreground: var(--light-fg);
+  --card: var(--light-bg-elevated);
+  --card-foreground: var(--light-fg);
+  --popover: var(--light-bg-elevated);
+  --popover-foreground: var(--light-fg);
+  --primary: var(--light-primary);
+  --primary-foreground: var(--light-bg);
+  --secondary: var(--light-surface);
+  --secondary-foreground: var(--light-fg-secondary);
+  --muted: var(--light-surface);
+  --muted-foreground: var(--light-fg-muted);
+  --accent: var(--light-surface-hover);
+  --accent-foreground: var(--light-fg-secondary);
+  --destructive: var(--light-destructive);
+  --destructive-foreground: var(--light-bg);
+  --border: var(--light-border);
+  --input: var(--light-border);
+  --ring: var(--light-primary);
   --radius: 0.5rem;
 
   /* Status colors */
-  --success: oklch(62% 0.19 145);
-  --success-foreground: oklch(98.5% 0 0);
-  --warning: oklch(75% 0.18 85);
-  --warning-foreground: oklch(21% 0 0);
-  --info: oklch(62% 0.19 250);
-  --info-foreground: oklch(98.5% 0 0);
+  --success: var(--light-success);
+  --success-foreground: var(--light-bg);
+  --warning: var(--light-warning);
+  --warning-foreground: var(--light-fg);
+  --info: var(--light-info);
+  --info-foreground: var(--light-bg);
 
-  /* Chart colors */
-  --chart-1: oklch(54.6% 0.245 262.88);
-  --chart-2: oklch(62% 0.19 145);
-  --chart-3: oklch(57.7% 0.245 27.33);
-  --chart-4: oklch(58% 0.22 295);
-  --chart-5: oklch(65% 0.2 50);
-  --chart-6: oklch(60% 0.15 200);
-  --chart-7: oklch(65% 0.25 325);
-  --chart-8: oklch(68% 0.19 130);
+  /* Chart colors - derived from semantic palette */
+  --chart-1: var(--light-primary);
+  --chart-2: var(--light-success);
+  --chart-3: var(--light-destructive);
+  --chart-4: oklch(48% 0.1 295);
+  --chart-5: oklch(58% 0.1 55);
+  --chart-6: oklch(50% 0.08 200);
+  --chart-7: oklch(52% 0.12 330);
+  --chart-8: oklch(55% 0.1 130);
 }
 
 .dark {
-  --background: oklch(14.1% 0 0);
-  --foreground: oklch(98.5% 0 0);
-  --card: oklch(14.1% 0 0);
-  --card-foreground: oklch(98.5% 0 0);
-  --popover: oklch(14.1% 0 0);
-  --popover-foreground: oklch(98.5% 0 0);
-  --primary: oklch(62.3% 0.214 259.81);
-  --primary-foreground: oklch(21% 0 0);
-  --secondary: oklch(26.9% 0 0);
-  --secondary-foreground: oklch(98.5% 0 0);
-  --muted: oklch(26.9% 0 0);
-  --muted-foreground: oklch(71.2% 0 0);
-  --accent: oklch(26.9% 0 0);
-  --accent-foreground: oklch(98.5% 0 0);
-  --destructive: oklch(42.3% 0.165 25.34);
-  --destructive-foreground: oklch(98.5% 0 0);
-  --border: oklch(26.9% 0 0);
-  --input: oklch(26.9% 0 0);
-  --ring: oklch(48.8% 0.243 264.38);
+  /* Classic Refined Dark: deep slate with soft cyan accents */
+
+  /* --- Dark Theme Palette --- */
+  --dark-bg: oklch(16% 0.015 240);
+  --dark-bg-elevated: oklch(19% 0.015 240);
+  --dark-fg: oklch(92% 0.01 240);
+  --dark-fg-muted: oklch(65% 0.015 240);
+  --dark-surface: oklch(24% 0.015 240);
+  --dark-surface-hover: oklch(28% 0.02 240);
+  --dark-border: oklch(28% 0.015 240);
+  --dark-primary: oklch(72% 0.1 205);
+  --dark-success: oklch(68% 0.12 160);
+  --dark-warning: oklch(75% 0.12 80);
+  --dark-destructive: oklch(58% 0.15 20);
+  --dark-info: oklch(70% 0.1 220);
+
+  /* --- Semantic Variables --- */
+  --background: var(--dark-bg);
+  --foreground: var(--dark-fg);
+  --card: var(--dark-bg-elevated);
+  --card-foreground: var(--dark-fg);
+  --popover: var(--dark-bg-elevated);
+  --popover-foreground: var(--dark-fg);
+  --primary: var(--dark-primary);
+  --primary-foreground: var(--dark-bg);
+  --secondary: var(--dark-surface);
+  --secondary-foreground: var(--dark-fg);
+  --muted: var(--dark-surface);
+  --muted-foreground: var(--dark-fg-muted);
+  --accent: var(--dark-surface-hover);
+  --accent-foreground: var(--dark-fg);
+  --destructive: var(--dark-destructive);
+  --destructive-foreground: var(--dark-fg);
+  --border: var(--dark-border);
+  --input: var(--dark-border);
+  --ring: var(--dark-primary);
 
   /* Status colors */
-  --success: oklch(65% 0.17 145);
-  --success-foreground: oklch(21% 0 0);
-  --warning: oklch(78% 0.16 85);
-  --warning-foreground: oklch(21% 0 0);
-  --info: oklch(65% 0.17 250);
-  --info-foreground: oklch(21% 0 0);
+  --success: var(--dark-success);
+  --success-foreground: var(--dark-bg);
+  --warning: var(--dark-warning);
+  --warning-foreground: var(--dark-bg);
+  --info: var(--dark-info);
+  --info-foreground: var(--dark-bg);
 
-  /* Chart colors */
-  --chart-1: oklch(62.3% 0.214 259.81);
-  --chart-2: oklch(65% 0.17 145);
-  --chart-3: oklch(55% 0.2 27.33);
-  --chart-4: oklch(62% 0.2 295);
-  --chart-5: oklch(68% 0.18 50);
-  --chart-6: oklch(65% 0.14 200);
-  --chart-7: oklch(68% 0.22 325);
-  --chart-8: oklch(70% 0.17 130);
+  /* Chart colors - derived from semantic palette */
+  --chart-1: var(--dark-primary);
+  --chart-2: var(--dark-success);
+  --chart-3: var(--dark-destructive);
+  --chart-4: oklch(68% 0.1 295);
+  --chart-5: oklch(72% 0.1 55);
+  --chart-6: oklch(70% 0.08 200);
+  --chart-7: oklch(68% 0.12 330);
+  --chart-8: oklch(72% 0.1 130);
 }
 
 .tokyo-night {
