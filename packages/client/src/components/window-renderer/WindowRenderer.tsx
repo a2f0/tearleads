@@ -3,7 +3,8 @@ import { NotesWindow } from '@/components/notes-window';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 
 export function WindowRenderer() {
-  const { windows, closeWindow, focusWindow } = useWindowManager();
+  const { windows, closeWindow, focusWindow, minimizeWindow } =
+    useWindowManager();
 
   const handleCloseAll = useCallback(() => {
     for (const window of windows) {
@@ -11,7 +12,9 @@ export function WindowRenderer() {
     }
   }, [windows, closeWindow]);
 
-  if (windows.length === 0) {
+  const visibleWindows = windows.filter((w) => !w.isMinimized);
+
+  if (visibleWindows.length === 0) {
     return null;
   }
 
@@ -25,8 +28,8 @@ export function WindowRenderer() {
         data-testid="window-backdrop"
       />
 
-      {/* Render all open windows */}
-      {windows.map((window) => {
+      {/* Render all visible (non-minimized) windows */}
+      {visibleWindows.map((window) => {
         switch (window.type) {
           case 'notes':
             return (
@@ -34,8 +37,14 @@ export function WindowRenderer() {
                 key={window.id}
                 id={window.id}
                 onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
               />
             );
           default:

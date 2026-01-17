@@ -182,4 +182,207 @@ describe('FloatingWindow', () => {
     expect(newLeft).toBe(initialLeft + 100);
     expect(newTop).toBe(initialTop + 50);
   });
+
+  it('renders minimize button when onMinimize is provided', () => {
+    const onMinimize = vi.fn();
+    render(<FloatingWindow {...defaultProps} onMinimize={onMinimize} />);
+    expect(
+      screen.getByRole('button', { name: /minimize/i })
+    ).toBeInTheDocument();
+  });
+
+  it('calls onMinimize with dimensions when minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    const onMinimize = vi.fn();
+    render(
+      <FloatingWindow
+        {...defaultProps}
+        onMinimize={onMinimize}
+        defaultWidth={500}
+        defaultHeight={400}
+        defaultX={100}
+        defaultY={50}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /minimize/i }));
+    expect(onMinimize).toHaveBeenCalledWith({
+      width: 500,
+      height: 400,
+      x: 100,
+      y: 50
+    });
+  });
+
+  it('renders maximize button on desktop', () => {
+    render(<FloatingWindow {...defaultProps} />);
+    expect(
+      screen.getByRole('button', { name: /maximize/i })
+    ).toBeInTheDocument();
+  });
+
+  it('maximizes window on double-click of title bar', () => {
+    render(<FloatingWindow {...defaultProps} defaultWidth={400} />);
+    const dialog = screen.getByRole('dialog');
+    const titleBar = screen.getByTestId(
+      'floating-window-test-window-title-bar'
+    );
+
+    fireEvent.doubleClick(titleBar);
+
+    expect(dialog).toHaveAttribute('data-maximized', 'true');
+  });
+
+  it('restores window from maximized state', async () => {
+    const user = userEvent.setup();
+    render(<FloatingWindow {...defaultProps} defaultWidth={400} />);
+    const dialog = screen.getByRole('dialog');
+    const titleBar = screen.getByTestId(
+      'floating-window-test-window-title-bar'
+    );
+
+    // Maximize
+    fireEvent.doubleClick(titleBar);
+    expect(dialog).toHaveAttribute('data-maximized', 'true');
+
+    // Restore via button
+    await user.click(screen.getByRole('button', { name: /restore/i }));
+    expect(dialog).toHaveAttribute('data-maximized', 'false');
+  });
+
+  it('uses initial dimensions from props', () => {
+    render(
+      <FloatingWindow
+        {...defaultProps}
+        initialDimensions={{ width: 600, height: 500, x: 150, y: 100 }}
+      />
+    );
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveStyle({
+      width: '600px',
+      height: '500px',
+      left: '150px',
+      top: '100px'
+    });
+  });
+
+  it('restores to maximized state from initial dimensions', () => {
+    render(
+      <FloatingWindow
+        {...defaultProps}
+        initialDimensions={{
+          width: 1024,
+          height: 768,
+          x: 0,
+          y: 0,
+          isMaximized: true,
+          preMaximizeDimensions: { width: 400, height: 300, x: 100, y: 50 }
+        }}
+      />
+    );
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAttribute('data-maximized', 'true');
+  });
+
+  it('includes maximize state in minimize callback when maximized', async () => {
+    const user = userEvent.setup();
+    const onMinimize = vi.fn();
+    render(
+      <FloatingWindow
+        {...defaultProps}
+        onMinimize={onMinimize}
+        defaultWidth={400}
+        defaultHeight={300}
+        defaultX={100}
+        defaultY={50}
+      />
+    );
+
+    // First maximize
+    const titleBar = screen.getByTestId(
+      'floating-window-test-window-title-bar'
+    );
+    fireEvent.doubleClick(titleBar);
+
+    // Then minimize
+    await user.click(screen.getByRole('button', { name: /minimize/i }));
+
+    expect(onMinimize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isMaximized: true,
+        preMaximizeDimensions: { width: 400, height: 300, x: 100, y: 50 }
+      })
+    );
+  });
+
+  it('does not render resize handles when maximized', () => {
+    render(<FloatingWindow {...defaultProps} defaultWidth={400} />);
+    const titleBar = screen.getByTestId(
+      'floating-window-test-window-title-bar'
+    );
+
+    // Maximize
+    fireEvent.doubleClick(titleBar);
+
+    expect(
+      screen.queryByTestId('floating-window-test-window-resize-handle-top-left')
+    ).not.toBeInTheDocument();
+  });
+
+  describe('mobile mode', () => {
+    beforeEach(() => {
+      Object.defineProperty(window, 'innerWidth', {
+        writable: true,
+        configurable: true,
+        value: 600
+      });
+    });
+
+    it('does not render maximize button on mobile', () => {
+      render(<FloatingWindow {...defaultProps} />);
+      expect(
+        screen.queryByRole('button', { name: /maximize/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it('does not render resize handles on mobile', () => {
+      render(<FloatingWindow {...defaultProps} />);
+      expect(
+        screen.queryByTestId(
+          'floating-window-test-window-resize-handle-top-left'
+        )
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  describe('responsive behavior', () => {
+    it('updates to desktop mode when window is resized', () => {
+      Object.defineProperty(window, 'innerWidth', {
+        writable: true,
+        configurable: true,
+        value: 600
+      });
+
+      render(<FloatingWindow {...defaultProps} />);
+
+      // Should be mobile mode initially
+      expect(
+        screen.queryByRole('button', { name: /maximize/i })
+      ).not.toBeInTheDocument();
+
+      // Resize to desktop
+      Object.defineProperty(window, 'innerWidth', {
+        writable: true,
+        configurable: true,
+        value: 1024
+      });
+
+      fireEvent(window, new Event('resize'));
+
+      // Should now be desktop mode
+      expect(
+        screen.getByRole('button', { name: /maximize/i })
+      ).toBeInTheDocument();
+    });
+  });
 });

@@ -226,4 +226,150 @@ describe('WindowManagerContext', () => {
       expect(window).toBeUndefined();
     });
   });
+
+  describe('minimizeWindow', () => {
+    it('sets window isMinimized to true', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'to-minimize');
+      });
+
+      expect(result.current.windows[0]?.isMinimized).toBe(false);
+
+      act(() => {
+        result.current.minimizeWindow('to-minimize');
+      });
+
+      expect(result.current.windows[0]?.isMinimized).toBe(true);
+    });
+
+    it('stores dimensions when minimizing', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'to-minimize');
+      });
+
+      act(() => {
+        result.current.minimizeWindow('to-minimize', {
+          width: 500,
+          height: 400,
+          x: 100,
+          y: 50
+        });
+      });
+
+      const window = result.current.getWindow('to-minimize');
+      expect(window?.dimensions).toEqual({
+        width: 500,
+        height: 400,
+        x: 100,
+        y: 50
+      });
+    });
+
+    it('preserves existing dimensions when no new dimensions provided', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'to-minimize');
+      });
+
+      act(() => {
+        result.current.updateWindowDimensions('to-minimize', {
+          width: 600,
+          height: 500,
+          x: 150,
+          y: 100
+        });
+      });
+
+      act(() => {
+        result.current.minimizeWindow('to-minimize');
+      });
+
+      const window = result.current.getWindow('to-minimize');
+      expect(window?.dimensions).toEqual({
+        width: 600,
+        height: 500,
+        x: 150,
+        y: 100
+      });
+    });
+  });
+
+  describe('restoreWindow', () => {
+    it('sets window isMinimized to false', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'to-restore');
+      });
+
+      act(() => {
+        result.current.minimizeWindow('to-restore');
+      });
+
+      expect(result.current.windows[0]?.isMinimized).toBe(true);
+
+      act(() => {
+        result.current.restoreWindow('to-restore');
+      });
+
+      expect(result.current.windows[0]?.isMinimized).toBe(false);
+    });
+
+    it('brings restored window to front', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'window-1');
+      });
+
+      act(() => {
+        result.current.openWindow('notes', 'window-2');
+      });
+
+      act(() => {
+        result.current.minimizeWindow('window-1');
+      });
+
+      act(() => {
+        result.current.restoreWindow('window-1');
+      });
+
+      const window1 = result.current.windows.find((w) => w.id === 'window-1');
+      const window2 = result.current.windows.find((w) => w.id === 'window-2');
+
+      expect(window1?.zIndex).toBeGreaterThan(window2?.zIndex ?? 0);
+    });
+  });
+
+  describe('updateWindowDimensions', () => {
+    it('updates window dimensions', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'to-update');
+      });
+
+      act(() => {
+        result.current.updateWindowDimensions('to-update', {
+          width: 800,
+          height: 600,
+          x: 200,
+          y: 150
+        });
+      });
+
+      const window = result.current.getWindow('to-update');
+      expect(window?.dimensions).toEqual({
+        width: 800,
+        height: 600,
+        x: 200,
+        y: 150
+      });
+    });
+  });
 });
