@@ -186,6 +186,8 @@ describe('FilesWindow', () => {
 
     fireEvent.change(fileInput);
 
+    expect(mockUploadFiles).toHaveBeenCalledWith([file]);
+
     // Input should be reset after change
     expect(fileInput.value).toBe('');
   });
