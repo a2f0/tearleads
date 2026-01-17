@@ -1,0 +1,1 @@
+export { FilesWindow } from './FilesWindow';
