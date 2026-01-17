@@ -8,13 +8,20 @@ vi.mock('@/components/floating-window', () => ({
   FloatingWindow: ({
     children,
     title,
-    onClose
+    onClose,
+    initialDimensions
   }: {
     children: React.ReactNode;
     title: string;
     onClose: () => void;
+    initialDimensions?: { width: number; height: number; x: number; y: number };
   }) => (
-    <div data-testid="floating-window">
+    <div
+      data-testid="floating-window"
+      data-initial-dimensions={
+        initialDimensions ? JSON.stringify(initialDimensions) : undefined
+      }
+    >
       <div data-testid="window-title">{title}</div>
       <button type="button" onClick={onClose} data-testid="close-window">
         Close
@@ -62,7 +69,7 @@ describe('SettingsWindow', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('renders with initialDimensions when provided', () => {
+  it('passes initialDimensions to FloatingWindow when provided', () => {
     const initialDimensions = {
       width: 600,
       height: 700,
@@ -72,6 +79,10 @@ describe('SettingsWindow', () => {
     render(
       <SettingsWindow {...defaultProps} initialDimensions={initialDimensions} />
     );
-    expect(screen.getByTestId('floating-window')).toBeInTheDocument();
+    const floatingWindow = screen.getByTestId('floating-window');
+    expect(floatingWindow).toHaveAttribute(
+      'data-initial-dimensions',
+      JSON.stringify(initialDimensions)
+    );
   });
 });
