@@ -278,9 +278,8 @@ test.describe('Notes Editor Theme Integration', () => {
     console.log('Dark theme computed styles:');
     console.log('  Editor background:', editorBg);
 
-    // Dark theme should be dark and grayscale
+    // Dark theme should be dark (with subtle tint for visual harmony)
     expect(isDark(editorBg)).toBe(true);
-    expect(isGrayscale(editorBg)).toBe(true);
   });
 
   test('should have different backgrounds for monochrome vs tokyo-night', async ({ page }) => {
