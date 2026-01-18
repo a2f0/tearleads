@@ -1,5 +1,6 @@
 import { Loader2, Mail } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { BackLink } from '@/components/ui/back-link';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { API_BASE_URL } from '@/lib/api';
 import { type EmailItem, formatEmailDate, formatEmailSize } from '@/lib/email';
@@ -42,12 +43,15 @@ export function Email() {
 
   return (
     <div className="flex h-full flex-col space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Mail className="h-8 w-8 text-muted-foreground" />
-          <h1 className="font-bold text-2xl tracking-tight">Email</h1>
+      <div className="space-y-2">
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Mail className="h-8 w-8 text-muted-foreground" />
+            <h1 className="font-bold text-2xl tracking-tight">Email</h1>
+          </div>
+          <RefreshButton onClick={fetchEmails} loading={loading} />
         </div>
-        <RefreshButton onClick={fetchEmails} loading={loading} />
       </div>
 
       {error && (

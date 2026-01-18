@@ -12,6 +12,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DurationChart } from '@/components/duration-chart';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
@@ -394,24 +395,27 @@ export function Analytics() {
   return (
     <div className="flex h-full min-w-0 flex-col overflow-hidden">
       {/* Fixed header with title and buttons */}
-      <div className="flex items-center justify-between pb-4">
-        <h1 className="font-bold text-xl tracking-tight sm:text-2xl">
-          Analytics
-        </h1>
-        {isUnlocked && (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleClear}
-              disabled={loading || events.length === 0}
-              aria-label="Clear events"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-            <RefreshButton onClick={fetchData} loading={loading} />
-          </div>
-        )}
+      <div className="flex flex-col gap-2 pb-4">
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        <div className="flex items-center justify-between">
+          <h1 className="font-bold text-xl tracking-tight sm:text-2xl">
+            Analytics
+          </h1>
+          {isUnlocked && (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleClear}
+                disabled={loading || events.length === 0}
+                aria-label="Clear events"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+              <RefreshButton onClick={fetchData} loading={loading} />
+            </div>
+          )}
+        </div>
       </div>
 
       {isLoading && (

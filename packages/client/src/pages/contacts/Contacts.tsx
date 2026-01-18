@@ -17,6 +17,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ColumnMapper } from '@/components/contacts/column-mapper';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { BackLink } from '@/components/ui/back-link';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { RefreshButton } from '@/components/ui/refresh-button';
@@ -345,42 +346,45 @@ export function Contacts() {
 
   return (
     <div className="flex h-full flex-col space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <User className="h-8 w-8 text-muted-foreground" />
-          <h1 className="font-bold text-2xl tracking-tight">Contacts</h1>
-        </div>
-        {isUnlocked &&
-          !parsedData &&
-          (contacts.length > 0 || searchQuery || !hasFetched) && (
-            <div className="flex items-center gap-2">
-              <div className="relative min-w-0 flex-1 sm:flex-initial">
-                <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Search contacts..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-9 w-full rounded-md border bg-background py-2 pr-10 pl-9 text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring sm:w-48"
+      <div className="space-y-2">
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <User className="h-8 w-8 text-muted-foreground" />
+            <h1 className="font-bold text-2xl tracking-tight">Contacts</h1>
+          </div>
+          {isUnlocked &&
+            !parsedData &&
+            (contacts.length > 0 || searchQuery || !hasFetched) && (
+              <div className="flex items-center gap-2">
+                <div className="relative min-w-0 flex-1 sm:flex-initial">
+                  <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder="Search contacts..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-9 w-full rounded-md border bg-background py-2 pr-10 pl-9 text-base placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring sm:w-48"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      aria-label="Clear search"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute top-1/2 right-1 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  )}
+                </div>
+                <RefreshButton
+                  onClick={() => fetchContacts(debouncedSearch)}
+                  loading={loading}
                 />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    aria-label="Clear search"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute top-1/2 right-1 -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                )}
               </div>
-              <RefreshButton
-                onClick={() => fetchContacts(debouncedSearch)}
-                loading={loading}
-              />
-            </div>
-          )}
+            )}
+        </div>
       </div>
 
       {isLoading && (

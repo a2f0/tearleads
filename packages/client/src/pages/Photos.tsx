@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { BackLink } from '@/components/ui/back-link';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { RefreshButton } from '@/components/ui/refresh-button';
@@ -433,14 +434,17 @@ export function Photos({ onSelectPhoto }: PhotosProps = {}) {
 
   return (
     <div className="flex h-full flex-col space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <ImageIcon className="h-8 w-8 text-muted-foreground" />
-          <h1 className="font-bold text-2xl tracking-tight">Photos</h1>
+      <div className="space-y-2">
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <ImageIcon className="h-8 w-8 text-muted-foreground" />
+            <h1 className="font-bold text-2xl tracking-tight">Photos</h1>
+          </div>
+          {isUnlocked && (
+            <RefreshButton onClick={fetchPhotos} loading={loading} />
+          )}
         </div>
-        {isUnlocked && (
-          <RefreshButton onClick={fetchPhotos} loading={loading} />
-        )}
       </div>
 
       {isLoading && (

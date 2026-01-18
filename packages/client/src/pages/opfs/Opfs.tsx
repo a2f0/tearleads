@@ -1,5 +1,6 @@
 import { HardDrive, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { BackLink } from '@/components/ui/back-link';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { formatFileSize } from '@/lib/utils';
@@ -234,7 +235,10 @@ export function Opfs() {
   if (!supported) {
     return (
       <div className="space-y-6">
-        <h1 className="font-bold text-2xl tracking-tight">OPFS Browser</h1>
+        <div className="space-y-2">
+          <BackLink defaultTo="/" defaultLabel="Back to Home" />
+          <h1 className="font-bold text-2xl tracking-tight">OPFS Browser</h1>
+        </div>
         <div className="rounded-lg border p-8 text-center">
           <HardDrive className="mx-auto h-12 w-12 text-muted-foreground/50" />
           <p className="mt-4 text-muted-foreground">
@@ -250,28 +254,31 @@ export function Opfs() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-bold text-2xl tracking-tight">OPFS Browser</h1>
-          {(entries.length > 0 || storageEstimate) && (
-            <p className="text-muted-foreground text-sm">
-              {fileCount > 0 && (
-                <>
-                  {fileCount} file{fileCount !== 1 ? 's' : ''} (
-                  {formatFileSize(totalSize)})
-                </>
-              )}
-              {storageEstimate && (
-                <>
-                  {fileCount > 0 && ' · '}
-                  {formatFileSize(storageEstimate.usage)} /{' '}
-                  {formatFileSize(storageEstimate.quota)} total capacity
-                </>
-              )}
-            </p>
-          )}
+      <div className="space-y-2">
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-bold text-2xl tracking-tight">OPFS Browser</h1>
+            {(entries.length > 0 || storageEstimate) && (
+              <p className="text-muted-foreground text-sm">
+                {fileCount > 0 && (
+                  <>
+                    {fileCount} file{fileCount !== 1 ? 's' : ''} (
+                    {formatFileSize(totalSize)})
+                  </>
+                )}
+                {storageEstimate && (
+                  <>
+                    {fileCount > 0 && ' · '}
+                    {formatFileSize(storageEstimate.usage)} /{' '}
+                    {formatFileSize(storageEstimate.quota)} total capacity
+                  </>
+                )}
+              </p>
+            )}
+          </div>
+          <RefreshButton onClick={fetchOpfsContents} loading={loading} />
         </div>
-        <RefreshButton onClick={fetchOpfsContents} loading={loading} />
       </div>
 
       {error && (
