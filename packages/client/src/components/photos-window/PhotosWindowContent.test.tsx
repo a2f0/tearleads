@@ -7,18 +7,9 @@ const mockUsePhotosWindowData = vi.fn();
 const mockDownloadFile = vi.fn();
 const mockShareFile = vi.fn();
 const mockCanShareFiles = vi.fn(() => false);
-const mockRetrieve = vi.fn();
-const mockIsFileStorageInitialized = vi.fn((_instanceId?: string) => true);
-const mockInitializeFileStorage = vi.fn();
-const mockUpdate = vi.fn();
-const mockSet = vi.fn();
-const mockWhere = vi.fn();
-const mockDb = {
-  update: mockUpdate
-};
-
-mockUpdate.mockReturnValue({ set: mockSet });
-mockSet.mockReturnValue({ where: mockWhere });
+const mockDeletePhoto = vi.fn();
+const mockDownloadPhoto = vi.fn();
+const mockSharePhoto = vi.fn();
 
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: () => ({
@@ -29,26 +20,11 @@ vi.mock('@tanstack/react-virtual', () => ({
 }));
 
 vi.mock('./usePhotosWindowData', () => ({
-  usePhotosWindowData: () => mockUsePhotosWindowData()
-}));
-
-vi.mock('@/db', () => ({
-  getDatabase: () => mockDb
-}));
-
-vi.mock('@/db/crypto', () => ({
-  getKeyManager: () => ({
-    getCurrentKey: () => new Uint8Array(32)
-  })
-}));
-
-vi.mock('@/storage/opfs', () => ({
-  isFileStorageInitialized: (instanceId?: string) =>
-    mockIsFileStorageInitialized(instanceId),
-  initializeFileStorage: (encryptionKey: Uint8Array, instanceId: string) =>
-    mockInitializeFileStorage(encryptionKey, instanceId),
-  getFileStorage: () => ({
-    retrieve: mockRetrieve
+  usePhotosWindowData: () => ({
+    ...mockUsePhotosWindowData(),
+    deletePhoto: mockDeletePhoto,
+    downloadPhoto: mockDownloadPhoto,
+    sharePhoto: mockSharePhoto
   })
 }));
 
@@ -66,7 +42,8 @@ vi.mock('@/i18n', () => ({
       ({
         getInfo: 'Get Info',
         delete: 'Delete',
-        download: 'Download'
+        download: 'Download',
+        share: 'Share'
       })[key] ?? key
   })
 }));
@@ -91,7 +68,8 @@ describe('PhotosWindowContent', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRetrieve.mockResolvedValue(new ArrayBuffer(8));
+    mockDownloadPhoto.mockResolvedValue(new ArrayBuffer(8));
+    mockSharePhoto.mockResolvedValue(new ArrayBuffer(8));
   });
 
   it('shows empty state when no photos are available', () => {
@@ -173,11 +151,12 @@ describe('PhotosWindowContent', () => {
     await user.click(screen.getByTitle('Download'));
     await user.click(screen.getByTitle('Share'));
 
-    expect(mockRetrieve).toHaveBeenCalledWith('/photos/photo.jpg');
+    expect(mockDownloadPhoto).toHaveBeenCalledWith(photo);
     expect(mockDownloadFile).toHaveBeenCalledWith(
       expect.any(ArrayBuffer),
       'photo.jpg'
     );
+    expect(mockSharePhoto).toHaveBeenCalledWith(photo);
     expect(mockShareFile).toHaveBeenCalledWith(
       expect.any(ArrayBuffer),
       'photo.jpg',
@@ -254,8 +233,9 @@ describe('PhotosWindowContent', () => {
     consoleSpy.mockRestore();
   });
 
-  it('handles missing instance id during download', async () => {
+  it('logs download errors', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockDownloadPhoto.mockRejectedValueOnce(new Error('Download failed'));
     mockUsePhotosWindowData.mockReturnValue({
       photos: [photo],
       loading: false,
@@ -358,7 +338,6 @@ describe('PhotosWindowContent', () => {
   });
 
   it('deletes photo from context menu', async () => {
-    const refresh = vi.fn();
     mockUsePhotosWindowData.mockReturnValue({
       photos: [photo],
       loading: false,
@@ -366,7 +345,7 @@ describe('PhotosWindowContent', () => {
       hasFetched: true,
       isUnlocked: true,
       isLoading: false,
-      refresh,
+      refresh: vi.fn(),
       currentInstanceId: 'instance-1'
     });
 
@@ -379,7 +358,6 @@ describe('PhotosWindowContent', () => {
     });
     await user.click(screen.getByRole('button', { name: 'Delete' }));
 
-    expect(mockWhere).toHaveBeenCalled();
-    expect(refresh).toHaveBeenCalled();
+    expect(mockDeletePhoto).toHaveBeenCalledWith('photo-1');
   });
 });
