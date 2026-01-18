@@ -49,7 +49,7 @@ export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
   // Use Portal to render outside FloatingWindow DOM tree
   // This fixes positioning issues caused by backdrop-blur creating a new containing block
   return createPortal(
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-[9999]">
       <button
         type="button"
         className="fixed inset-0 cursor-default"
@@ -58,7 +58,7 @@ export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
       />
       <div
         ref={menuRef}
-        className="fixed z-10 min-w-40 rounded-md border bg-background py-1 shadow-lg"
+        className="fixed z-[10000] min-w-40 rounded-md border bg-background py-1 shadow-lg"
         style={{ top: position.top, left: position.left }}
       >
         {children}
