@@ -18,7 +18,7 @@ async function navigateTo(page: Page, linkName: string) {
   }
   const button = sidebar.getByRole('button', { name: linkName });
   // Sidebar auto-closes after launch
-  await button.click();
+  await button.dblclick();
   await expect(sidebar).not.toBeVisible({ timeout: 5000 });
 }
 

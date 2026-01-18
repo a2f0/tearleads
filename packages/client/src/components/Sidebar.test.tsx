@@ -34,13 +34,17 @@ vi.mock('@/contexts/WindowManagerContext', async () => {
   };
 });
 
-function mockMatchMedia(isMobile: boolean) {
+function mockMatchMedia({
+  isMobile,
+  isTouch = false
+}: {
+  isMobile: boolean;
+  isTouch?: boolean;
+}) {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
-      matches: isMobile
-        ? query === '(max-width: 1023px)'
-        : query !== '(max-width: 1023px)',
+      matches: query === '(max-width: 1023px)' ? isMobile : isTouch,
       media: query,
       onchange: null,
       addListener: vi.fn(),
@@ -59,6 +63,11 @@ describe('Sidebar', () => {
     mockNavigate.mockClear();
     mockOpenWindow.mockClear();
     mockOnClose.mockClear();
+    Object.defineProperty(navigator, 'maxTouchPoints', {
+      value: 0,
+      configurable: true
+    });
+    mockMatchMedia({ isMobile: false, isTouch: false });
   });
 
   const renderSidebar = (initialRoute = '/', isOpen = true) => {
@@ -153,26 +162,26 @@ describe('Sidebar', () => {
     expect(listItems).toHaveLength(navItems.length);
   });
 
-  it('navigates on single click for non-window paths', async () => {
+  it('navigates on double click for non-window paths on desktop', async () => {
     const user = userEvent.setup();
     renderSidebar();
 
-    const contactsButton = screen.getByRole('button', { name: 'Contacts' });
-    await user.click(contactsButton);
+    const documentsButton = screen.getByRole('button', { name: 'Documents' });
+    await user.dblClick(documentsButton);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/contacts');
+    expect(mockNavigate).toHaveBeenCalledWith('/documents');
     expect(mockOnClose).toHaveBeenCalled();
   });
 
-  it('opens floating window on single click for window paths on desktop', async () => {
+  it('opens floating window on double click for window paths on desktop', async () => {
     const user = userEvent.setup();
-    mockMatchMedia(false); // Desktop viewport
+    mockMatchMedia({ isMobile: false, isTouch: false }); // Desktop viewport
 
     renderSidebar();
 
     // Console is a window path
     const consoleButton = screen.getByRole('button', { name: 'Console' });
-    await user.click(consoleButton);
+    await user.dblClick(consoleButton);
 
     expect(mockOpenWindow).toHaveBeenCalledWith('console');
     expect(mockOnClose).toHaveBeenCalled();
@@ -180,7 +189,7 @@ describe('Sidebar', () => {
 
   it('navigates on single click for window paths on mobile', async () => {
     const user = userEvent.setup();
-    mockMatchMedia(true); // Mobile viewport
+    mockMatchMedia({ isMobile: true, isTouch: true }); // Mobile viewport
 
     renderSidebar();
 
@@ -193,84 +202,11 @@ describe('Sidebar', () => {
     expect(mockOnClose).toHaveBeenCalled();
   });
 
-  it('shows context menu on right-click with "Open" option', async () => {
-    const user = userEvent.setup();
-    renderSidebar();
-
-    const contactsButton = screen.getByRole('button', { name: 'Contacts' });
-    await user.pointer({ keys: '[MouseRight]', target: contactsButton });
-
-    // Context menu should be visible with "Open" option
-    expect(screen.getByText('Open')).toBeInTheDocument();
-    // Contacts path doesn't support window, so "Open in Window" should not be shown
-    expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
-  });
-
-  it('shows context menu with both "Open" and "Open in Window" for window-capable paths', async () => {
-    const user = userEvent.setup();
-    renderSidebar();
-
-    const consoleButton = screen.getByRole('button', { name: 'Console' });
-    await user.pointer({ keys: '[MouseRight]', target: consoleButton });
-
-    // Context menu should be visible with both options
-    expect(screen.getByText('Open')).toBeInTheDocument();
-    expect(screen.getByText('Open in Window')).toBeInTheDocument();
-  });
-
-  it('navigates when clicking "Open" in context menu', async () => {
-    const user = userEvent.setup();
-    renderSidebar();
-
-    const photosButton = screen.getByRole('button', { name: 'Photos' });
-    await user.pointer({ keys: '[MouseRight]', target: photosButton });
-
-    const openOption = screen.getByText('Open');
-    await user.click(openOption);
-
-    expect(mockNavigate).toHaveBeenCalledWith('/photos');
-    expect(mockOnClose).toHaveBeenCalled();
-  });
-
-  it('opens floating window when clicking "Open in Window" in context menu', async () => {
-    const user = userEvent.setup();
-    renderSidebar();
-
-    const notesButton = screen.getByRole('button', { name: 'Notes' });
-    await user.pointer({ keys: '[MouseRight]', target: notesButton });
-
-    const openInWindowOption = screen.getByText('Open in Window');
-    await user.click(openInWindowOption);
-
-    expect(mockOpenWindow).toHaveBeenCalledWith('notes');
-    expect(mockOnClose).toHaveBeenCalled();
-  });
-
-  it('closes context menu when clicking outside', async () => {
-    const user = userEvent.setup();
-    renderSidebar();
-
-    const consoleButton = screen.getByRole('button', { name: 'Console' });
-    await user.pointer({ keys: '[MouseRight]', target: consoleButton });
-
-    // Context menu should be visible
-    expect(screen.getByText('Open')).toBeInTheDocument();
-
-    // Click the close button (invisible overlay)
-    const closeButton = screen.getByRole('button', {
-      name: 'Close context menu'
-    });
-    await user.click(closeButton);
-
-    // Context menu should be closed
-    expect(screen.queryByText('Open')).not.toBeInTheDocument();
-  });
-
   it('calls onClose when clicking a nav item on mobile', async () => {
     const localMockOnClose = vi.fn();
     const originalMatchMedia = window.matchMedia;
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: query === '(max-width: 1023px)',
+      matches: query === '(max-width: 1023px)' || query === '(pointer: coarse)',
       media: query,
       onchange: null,
       addListener: vi.fn(),
@@ -335,16 +271,19 @@ describe('Sidebar', () => {
   it('updates isMobile when media query changes', async () => {
     const localMockOnClose = vi.fn();
     let mediaChangeHandler: ((e: MediaQueryListEvent) => void) | null = null;
+    let isMobileMatches = false;
 
     const originalMatchMedia = window.matchMedia;
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: false,
+      matches: query === '(max-width: 1023px)' ? isMobileMatches : false,
       media: query,
       onchange: null,
       addListener: vi.fn(),
       removeListener: vi.fn(),
       addEventListener: vi.fn((_, handler) => {
-        mediaChangeHandler = handler;
+        if (query === '(max-width: 1023px)') {
+          mediaChangeHandler = handler;
+        }
       }),
       removeEventListener: vi.fn(),
       dispatchEvent: vi.fn()
@@ -363,16 +302,18 @@ describe('Sidebar', () => {
 
     // Trigger the media change handler
     act(() => {
+      isMobileMatches = true;
       if (mediaChangeHandler) {
         mediaChangeHandler({ matches: true } as MediaQueryListEvent);
       }
     });
 
     // Click a nav item - should use mobile behavior now
-    const contactsButton = screen.getByRole('button', { name: 'Contacts' });
-    await user.click(contactsButton);
+    const documentsButton = screen.getByRole('button', { name: 'Documents' });
+    await user.click(documentsButton);
 
     expect(localMockOnClose).toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('/documents');
 
     window.matchMedia = originalMatchMedia;
   });
