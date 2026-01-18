@@ -194,7 +194,7 @@ export function PhotosWindowTableView({
         console.error('Failed to share photo:', err);
       }
     },
-    [currentInstanceId]
+    [sharePhoto]
   );
 
   return (
