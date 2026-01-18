@@ -203,6 +203,30 @@ describe('PhotosWindowContent', () => {
     expect(screen.queryByTitle('Share')).not.toBeInTheDocument();
   });
 
+  it('ignores share abort errors', async () => {
+    const abortError = new Error('Share aborted');
+    abortError.name = 'AbortError';
+    mockCanShareFiles.mockReturnValue(true);
+    mockShareFile.mockRejectedValueOnce(abortError);
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowContent refreshToken={0} />);
+
+    await user.click(screen.getByTitle('Share'));
+
+    expect(mockShareFile).toHaveBeenCalled();
+  });
+
   it('renders the unlock prompt when database is locked', () => {
     mockUsePhotosWindowData.mockReturnValue({
       photos: [],
