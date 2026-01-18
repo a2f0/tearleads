@@ -3,7 +3,7 @@ set -e
 
 TO_ADDRESS="test@{{ domain }}"
 FROM_ADDRESS="test@example.com"
-TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+TIMESTAMP=$(date -R)
 
 echo "Sending test email to ${TO_ADDRESS} via localhost:25..."
 
