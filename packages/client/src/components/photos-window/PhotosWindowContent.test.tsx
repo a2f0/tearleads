@@ -179,6 +179,24 @@ describe('PhotosWindowContent', () => {
     );
   });
 
+  it('hides share action when sharing is unsupported', () => {
+    mockCanShareFiles.mockReturnValue(false);
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    render(<PhotosWindowContent refreshToken={0} />);
+
+    expect(screen.queryByTitle('Share')).not.toBeInTheDocument();
+  });
+
   it('deletes photo from context menu', async () => {
     const refresh = vi.fn();
     mockUsePhotosWindowData.mockReturnValue({
