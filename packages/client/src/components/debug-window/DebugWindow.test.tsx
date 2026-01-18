@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CacheStorageWindow } from './CacheStorageWindow';
+import { DebugWindow } from './DebugWindow';
 
 vi.mock('@/components/floating-window', () => ({
   FloatingWindow: ({
@@ -29,32 +29,15 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/cache-storage', () => ({
-  CacheStorage: () => (
-    <div data-testid="cache-storage-content">Cache Storage Content</div>
-  )
-}));
-
-vi.mock('./CacheStorageWindowMenuBar', () => ({
-  CacheStorageWindowMenuBar: ({
-    onRefresh,
-    onClose
-  }: {
-    onRefresh: () => void;
-    onClose: () => void;
-  }) => (
-    <div data-testid="menu-bar">
-      <button type="button" onClick={onRefresh} data-testid="refresh-button">
-        Refresh
-      </button>
-      <button type="button" onClick={onClose} data-testid="menu-close-button">
-        Close
-      </button>
+vi.mock('@/pages/debug', () => ({
+  Debug: ({ showTitle }: { showTitle?: boolean }) => (
+    <div data-testid="debug-content" data-show-title={showTitle}>
+      Debug Content
     </div>
   )
 }));
 
-describe('CacheStorageWindow', () => {
+describe('DebugWindow', () => {
   const defaultProps = {
     id: 'test-window',
     onClose: vi.fn(),
@@ -68,52 +51,35 @@ describe('CacheStorageWindow', () => {
   });
 
   it('renders in FloatingWindow', () => {
-    render(<CacheStorageWindow {...defaultProps} />);
+    render(<DebugWindow {...defaultProps} />);
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
   });
 
   it('displays the correct title', () => {
-    render(<CacheStorageWindow {...defaultProps} />);
-    expect(screen.getByTestId('window-title')).toHaveTextContent(
-      'Cache Storage'
-    );
+    render(<DebugWindow {...defaultProps} />);
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Debug');
   });
 
-  it('renders cache storage content', () => {
-    render(<CacheStorageWindow {...defaultProps} />);
-    expect(screen.getByTestId('cache-storage-content')).toBeInTheDocument();
-  });
-
-  it('renders menu bar', () => {
-    render(<CacheStorageWindow {...defaultProps} />);
-    expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
+  it('renders debug content with showTitle=false', () => {
+    render(<DebugWindow {...defaultProps} />);
+    const content = screen.getByTestId('debug-content');
+    expect(content).toBeInTheDocument();
+    expect(content).toHaveAttribute('data-show-title', 'false');
   });
 
   it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<CacheStorageWindow {...defaultProps} onClose={onClose} />);
+    render(<DebugWindow {...defaultProps} onClose={onClose} />);
 
     await user.click(screen.getByTestId('close-window'));
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('triggers refresh when refresh button is clicked', async () => {
-    const user = userEvent.setup();
-    render(<CacheStorageWindow {...defaultProps} />);
-
-    await user.click(screen.getByTestId('refresh-button'));
-    // The refresh changes the key on the container, re-rendering content
-    expect(screen.getByTestId('cache-storage-content')).toBeInTheDocument();
-  });
-
   it('passes initialDimensions to FloatingWindow when provided', () => {
-    const initialDimensions = { x: 100, y: 100, width: 650, height: 500 };
+    const initialDimensions = { x: 120, y: 140, width: 520, height: 560 };
     render(
-      <CacheStorageWindow
-        {...defaultProps}
-        initialDimensions={initialDimensions}
-      />
+      <DebugWindow {...defaultProps} initialDimensions={initialDimensions} />
     );
     const window = screen.getByTestId('floating-window');
     const props = JSON.parse(window.dataset['props'] || '{}');
@@ -123,10 +89,7 @@ describe('CacheStorageWindow', () => {
   it('passes onDimensionsChange to FloatingWindow when provided', () => {
     const onDimensionsChange = vi.fn();
     render(
-      <CacheStorageWindow
-        {...defaultProps}
-        onDimensionsChange={onDimensionsChange}
-      />
+      <DebugWindow {...defaultProps} onDimensionsChange={onDimensionsChange} />
     );
     const window = screen.getByTestId('floating-window');
     const propKeys = JSON.parse(window.dataset['propsKeys'] || '[]');

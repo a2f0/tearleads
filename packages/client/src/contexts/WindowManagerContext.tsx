@@ -29,6 +29,7 @@ export type WindowType =
   | 'chat'
   | 'analytics'
   | 'audio'
+  | 'models'
   | 'admin'
   | 'cache-storage'
   | 'local-storage';
