@@ -26,7 +26,9 @@ export function OpfsWindowMenuBar({
       </DropdownMenu>
       <DropdownMenu trigger="View">
         <DropdownMenuItem onClick={onExpandAll}>Expand All</DropdownMenuItem>
-        <DropdownMenuItem onClick={onCollapseAll}>Collapse All</DropdownMenuItem>
+        <DropdownMenuItem onClick={onCollapseAll}>
+          Collapse All
+        </DropdownMenuItem>
       </DropdownMenu>
     </div>
   );
