@@ -88,8 +88,10 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    ```
 
    If rebase conflicts:
-   - Run `git rebase --abort`.
-   - List conflicts, clear queued state with `clearQueued.sh`, and ask the user for help.
+   - Auto-resolve by incorporating upstream changes and reapplying local changes where possible.
+   - Start with upstream as the baseline, then re-add the local additions/edits if they still apply cleanly.
+   - Use manual conflict resolution in the affected files, then `git add` and `git rebase --continue`.
+   - Only abort and ask the user if conflicts are ambiguous or the correct resolution cannot be determined safely.
 
    If `has_bumped_version` is `false`, run `bumpVersion.sh`, stage the version files, amend the last commit with a GPG-signed message, and set `has_bumped_version = true`. Force push after rebase:
 
