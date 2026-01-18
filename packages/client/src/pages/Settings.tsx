@@ -9,6 +9,7 @@ import {
   TooltipsToggle
 } from '@/components/settings';
 import { LanguageSelector } from '@/components/settings/LanguageSelector';
+import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
 import { useDatabaseContext } from '@/db/hooks';
@@ -96,7 +97,10 @@ export function Settings() {
 
   return (
     <div className="space-y-6">
-      <h1 className="font-bold text-2xl tracking-tight">Settings</h1>
+      <div className="space-y-2">
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        <h1 className="font-bold text-2xl tracking-tight">Settings</h1>
+      </div>
 
       <SettingsSection>
         <ThemeSelector />
