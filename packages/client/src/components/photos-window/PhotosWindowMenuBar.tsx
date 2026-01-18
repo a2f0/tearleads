@@ -1,17 +1,23 @@
-import { RefreshCw, Upload } from 'lucide-react';
+import { List, RefreshCw, Table2, Upload } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 
+export type ViewMode = 'list' | 'table';
+
 interface PhotosWindowMenuBarProps {
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
   onRefresh: () => void;
   onUpload: () => void;
   onClose: () => void;
 }
 
 export function PhotosWindowMenuBar({
+  viewMode,
+  onViewModeChange,
   onRefresh,
   onUpload,
   onClose
@@ -33,6 +39,22 @@ export function PhotosWindowMenuBar({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
+      </DropdownMenu>
+      <DropdownMenu trigger="View">
+        <DropdownMenuItem
+          onClick={() => onViewModeChange('list')}
+          checked={viewMode === 'list'}
+          icon={<List className="h-3 w-3" />}
+        >
+          List
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => onViewModeChange('table')}
+          checked={viewMode === 'table'}
+          icon={<Table2 className="h-3 w-3" />}
+        >
+          Table
+        </DropdownMenuItem>
       </DropdownMenu>
     </div>
   );
