@@ -31,12 +31,8 @@ test.describe('Database (Electron)', () => {
       window.getByTestId('start-button')
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
 
-    // Open sidebar and navigate to SQLite page
-    await openSidebar(window);
-    await window
-      .locator('nav')
-      .getByRole('button', { name: 'SQLite' })
-      .click();
+    // Navigate to SQLite page via URL
+    await window.goto('/sqlite');
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Reset the database to ensure clean state
@@ -244,11 +240,9 @@ test.describe('Database (Electron)', () => {
     await expect(
       window.getByTestId('start-button')
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
-    await openSidebar(window);
-    await window
-      .locator('nav')
-      .getByRole('button', { name: 'SQLite' })
-      .click();
+
+    // Navigate to SQLite page via URL
+    await window.goto('/sqlite');
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Database should be in "Locked" state (set up but not unlocked)
@@ -383,15 +377,13 @@ test.describe('Database (Electron)', () => {
     electronApp = await launchElectronApp({clearStorage: false});
     window = await electronApp.firstWindow();
 
-    // Wait for app to load and navigate to SQLite page
+    // Wait for app to load
     await expect(
       window.getByTestId('start-button')
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
-    await openSidebar(window);
-    await window
-      .locator('nav')
-      .getByRole('button', { name: 'SQLite' })
-      .click();
+
+    // Navigate to SQLite page via URL
+    await window.goto('/sqlite');
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Database should be in "Locked" state
