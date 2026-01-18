@@ -166,10 +166,10 @@ describe('Sidebar', () => {
     const user = userEvent.setup();
     renderSidebar();
 
-    const contactsButton = screen.getByRole('button', { name: 'Contacts' });
-    await user.dblClick(contactsButton);
+    const documentsButton = screen.getByRole('button', { name: 'Documents' });
+    await user.dblClick(documentsButton);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/contacts');
+    expect(mockNavigate).toHaveBeenCalledWith('/documents');
     expect(mockOnClose).toHaveBeenCalled();
   });
 
@@ -271,16 +271,19 @@ describe('Sidebar', () => {
   it('updates isMobile when media query changes', async () => {
     const localMockOnClose = vi.fn();
     let mediaChangeHandler: ((e: MediaQueryListEvent) => void) | null = null;
+    let isMobileMatches = false;
 
     const originalMatchMedia = window.matchMedia;
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: false,
+      matches: query === '(max-width: 1023px)' ? isMobileMatches : false,
       media: query,
       onchange: null,
       addListener: vi.fn(),
       removeListener: vi.fn(),
       addEventListener: vi.fn((_, handler) => {
-        mediaChangeHandler = handler;
+        if (query === '(max-width: 1023px)') {
+          mediaChangeHandler = handler;
+        }
       }),
       removeEventListener: vi.fn(),
       dispatchEvent: vi.fn()
@@ -299,16 +302,18 @@ describe('Sidebar', () => {
 
     // Trigger the media change handler
     act(() => {
+      isMobileMatches = true;
       if (mediaChangeHandler) {
         mediaChangeHandler({ matches: true } as MediaQueryListEvent);
       }
     });
 
     // Click a nav item - should use mobile behavior now
-    const contactsButton = screen.getByRole('button', { name: 'Contacts' });
-    await user.click(contactsButton);
+    const documentsButton = screen.getByRole('button', { name: 'Documents' });
+    await user.click(documentsButton);
 
     expect(localMockOnClose).toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('/documents');
 
     window.matchMedia = originalMatchMedia;
   });
