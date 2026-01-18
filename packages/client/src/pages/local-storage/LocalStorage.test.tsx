@@ -234,7 +234,11 @@ describe('LocalStorage', () => {
       });
 
       const deleteButtons = screen.getAllByTitle('Delete');
-      await user.click(deleteButtons[0]);
+      const [firstDeleteButton] = deleteButtons;
+      if (!firstDeleteButton) {
+        throw new Error('Expected a delete button to be available.');
+      }
+      await user.click(firstDeleteButton);
 
       await waitFor(() => {
         expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
