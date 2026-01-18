@@ -11,11 +11,14 @@ import { navItems } from '@/components/Sidebar';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
 import { DesktopBackground } from '@/components/ui/desktop-background';
+import { MOBILE_BREAKPOINT } from '@/constants/breakpoints';
 import {
   useWindowManager,
   type WindowType
 } from '@/contexts/WindowManagerContext';
 import { useTypedTranslation } from '@/i18n';
+import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/notes': 'notes',
@@ -256,9 +259,7 @@ export function Home() {
     y: number;
     path: string;
   } | null>(null);
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== 'undefined' ? window.innerWidth < 640 : false
-  );
+  const isMobile = useIsMobile();
   const [selectedIcons, setSelectedIcons] = useState<Set<string>>(new Set());
   const [selectionBox, setSelectionBox] = useState<{
     startX: number;
@@ -274,14 +275,15 @@ export function Home() {
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 640);
       // Constrain positions to new viewport bounds (only if container has valid dimensions)
       if (containerRef.current) {
         const width = containerRef.current.offsetWidth;
         const height = containerRef.current.offsetHeight;
         if (width > 0 && height > 0) {
           const currentIconSize =
-            window.innerWidth < 640 ? ICON_SIZE_MOBILE : ICON_SIZE;
+            window.innerWidth < MOBILE_BREAKPOINT
+              ? ICON_SIZE_MOBILE
+              : ICON_SIZE;
           setPositions((prev) => {
             const constrained = constrainAllPositions(
               prev,
@@ -567,9 +569,10 @@ export function Home() {
       <div
         ref={containerRef}
         role="application"
-        className={`relative h-full w-full flex-1 bg-transparent ${
+        className={cn(
+          'relative h-full w-full flex-1 bg-transparent',
           isMobile ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden'
-        }`}
+        )}
         style={{ touchAction: isMobile ? 'auto' : 'none' }}
         onPointerDown={handleCanvasPointerDown}
         onPointerMove={handlePointerMove}
@@ -591,11 +594,11 @@ export function Home() {
           />
         )}
         <div
-          className={`relative z-10 w-full ${
-            isMobile
-              ? 'grid min-h-full content-start justify-items-center gap-6 pt-2 pb-6'
-              : ''
-          }`}
+          className={cn(
+            'relative z-10 w-full',
+            isMobile &&
+              'grid min-h-full content-start justify-items-center gap-6 pt-2 pb-6'
+          )}
           style={isMobile ? { gridTemplateColumns } : undefined}
           data-testid={isMobile ? 'home-grid' : undefined}
         >
@@ -618,9 +621,10 @@ export function Home() {
               <button
                 key={item.path}
                 type="button"
-                className={`flex select-none flex-col items-center gap-2 border-none bg-transparent p-0 ${
-                  isMobile ? '' : 'absolute'
-                }`}
+                className={cn(
+                  'flex select-none flex-col items-center gap-2 border-none bg-transparent p-0',
+                  !isMobile && 'absolute'
+                )}
                 style={
                   isMobile
                     ? { cursor }
@@ -648,7 +652,12 @@ export function Home() {
                 }}
               >
                 <div
-                  className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${bgClasses} shadow-lg transition-transform hover:scale-105 active:scale-95 sm:h-16 sm:w-16 ${isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
+                  className={cn(
+                    'flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg transition-transform hover:scale-105 active:scale-95 sm:h-16 sm:w-16',
+                    bgClasses,
+                    isSelected &&
+                      'ring-2 ring-primary ring-offset-2 ring-offset-background'
+                  )}
                 >
                   <Icon className="h-7 w-7 text-primary-foreground sm:h-8 sm:w-8" />
                 </div>
