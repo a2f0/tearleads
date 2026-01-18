@@ -1,5 +1,6 @@
 import { Bot, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { useLLM } from '@/hooks/useLLM';
 import { RECOMMENDED_MODELS } from '@/lib/models';
@@ -166,7 +167,10 @@ export function Models() {
     const errorInfo = getWebGPUErrorInfo();
     return (
       <div className="space-y-6">
-        <h1 className="font-bold text-2xl tracking-tight">Models</h1>
+        <div className="space-y-2">
+          <BackLink defaultTo="/" defaultLabel="Back to Home" />
+          <h1 className="font-bold text-2xl tracking-tight">Models</h1>
+        </div>
         <div className="rounded-lg border border-destructive bg-destructive/10 p-8 text-center">
           <Bot className="mx-auto h-12 w-12 text-destructive" />
           <h2 className="mt-4 font-semibold text-lg">{errorInfo.title}</h2>
@@ -181,13 +185,16 @@ export function Models() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-bold text-2xl tracking-tight">Models</h1>
-        {webGPUSupported === null && (
-          <span className="text-muted-foreground text-sm">
-            Checking WebGPU support...
-          </span>
-        )}
+      <div className="space-y-2">
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        <div className="flex items-center justify-between">
+          <h1 className="font-bold text-2xl tracking-tight">Models</h1>
+          {webGPUSupported === null && (
+            <span className="text-muted-foreground text-sm">
+              Checking WebGPU support...
+            </span>
+          )}
+        </div>
       </div>
 
       {error && (

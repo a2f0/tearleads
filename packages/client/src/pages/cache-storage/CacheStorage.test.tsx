@@ -1,6 +1,7 @@
 import { ThemeProvider } from '@rapid/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
 import { CacheStorage } from './CacheStorage';
@@ -51,7 +52,9 @@ function setupMockCaches(
 function renderCacheStorage() {
   return render(
     <ThemeProvider>
-      <CacheStorage />
+      <MemoryRouter>
+        <CacheStorage />
+      </MemoryRouter>
     </ThemeProvider>
   );
 }

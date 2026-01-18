@@ -11,11 +11,14 @@ import { navItems } from '@/components/Sidebar';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
 import { DesktopBackground } from '@/components/ui/desktop-background';
+import { MOBILE_BREAKPOINT } from '@/constants/breakpoints';
 import {
   useWindowManager,
   type WindowType
 } from '@/contexts/WindowManagerContext';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTypedTranslation } from '@/i18n';
+import { cn } from '@/lib/utils';
 
 const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/notes': 'notes',
@@ -39,6 +42,7 @@ const GAP = 40;
 const GAP_MOBILE = 28;
 const LABEL_HEIGHT = 24;
 const ICON_LABEL_GAP = 8;
+const MOBILE_COLUMNS = 4;
 const ITEM_HEIGHT = ICON_SIZE + LABEL_HEIGHT + ICON_LABEL_GAP;
 const ITEM_HEIGHT_MOBILE = ICON_SIZE_MOBILE + LABEL_HEIGHT + ICON_LABEL_GAP;
 const STORAGE_KEY = 'desktop-icon-positions';
@@ -255,9 +259,7 @@ export function Home() {
     y: number;
     path: string;
   } | null>(null);
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== 'undefined' ? window.innerWidth < 640 : false
-  );
+  const isMobile = useIsMobile();
   const [selectedIcons, setSelectedIcons] = useState<Set<string>>(new Set());
   const [selectionBox, setSelectionBox] = useState<{
     startX: number;
@@ -269,17 +271,19 @@ export function Home() {
 
   const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
   const itemHeight = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
+  const gridTemplateColumns = `repeat(${MOBILE_COLUMNS}, minmax(0, 1fr))`;
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 640);
       // Constrain positions to new viewport bounds (only if container has valid dimensions)
       if (containerRef.current) {
         const width = containerRef.current.offsetWidth;
         const height = containerRef.current.offsetHeight;
         if (width > 0 && height > 0) {
           const currentIconSize =
-            window.innerWidth < 640 ? ICON_SIZE_MOBILE : ICON_SIZE;
+            window.innerWidth < MOBILE_BREAKPOINT
+              ? ICON_SIZE_MOBILE
+              : ICON_SIZE;
           setPositions((prev) => {
             const constrained = constrainAllPositions(
               prev,
@@ -565,7 +569,10 @@ export function Home() {
       <div
         ref={containerRef}
         role="application"
-        className="relative h-full w-full flex-1 overflow-hidden bg-transparent"
+        className={cn(
+          'relative h-full w-full flex-1 bg-transparent',
+          isMobile ? 'overflow-y-auto overflow-x-hidden' : 'overflow-hidden'
+        )}
         style={{ touchAction: isMobile ? 'auto' : 'none' }}
         onPointerDown={handleCanvasPointerDown}
         onPointerMove={handlePointerMove}
@@ -586,54 +593,81 @@ export function Home() {
             }}
           />
         )}
-        {appItems.map((item) => {
-          const Icon = item.icon;
-          const isSettings = item.path === '/settings';
-          const bgClasses = isSettings
-            ? 'bg-muted-foreground from-muted-foreground/60 to-muted-foreground'
-            : 'bg-primary from-primary/80 to-primary';
-          const pos = positions[item.path] || { x: 0, y: 0 };
-          const isDragging = dragging === item.path;
-          const isSelected = selectedIcons.has(item.path);
+        <div
+          className={cn(
+            'relative z-10 w-full',
+            isMobile &&
+              'grid min-h-full content-start justify-items-center gap-6 pt-2 pb-6'
+          )}
+          style={isMobile ? { gridTemplateColumns } : undefined}
+          data-testid={isMobile ? 'home-grid' : undefined}
+        >
+          {appItems.map((item) => {
+            const Icon = item.icon;
+            const isSettings = item.path === '/settings';
+            const bgClasses = isSettings
+              ? 'bg-muted-foreground from-muted-foreground/60 to-muted-foreground'
+              : 'bg-primary from-primary/80 to-primary';
+            const pos = positions[item.path] || { x: 0, y: 0 };
+            const isDragging = dragging === item.path;
+            const isSelected = selectedIcons.has(item.path);
+            const cursor = isMobile
+              ? 'pointer'
+              : isDragging
+                ? 'grabbing'
+                : 'grab';
 
-          return (
-            <button
-              key={item.path}
-              type="button"
-              className="absolute flex select-none flex-col items-center gap-2 border-none bg-transparent p-0"
-              style={{
-                left: pos.x,
-                top: pos.y,
-                transition: isDragging ? 'none' : 'left 0.2s, top 0.2s',
-                zIndex: isDragging ? 100 : isSelected ? 10 : 1,
-                cursor: isMobile ? 'pointer' : isDragging ? 'grabbing' : 'grab'
-              }}
-              {...(isMobile
-                ? { onClick: () => navigate(item.path) }
-                : {
-                    onPointerDown: (e: React.PointerEvent) =>
-                      handlePointerDown(e, item.path),
-                    onDoubleClick: () => handleDoubleClick(item.path)
-                  })}
-              onContextMenu={(e) => handleIconContextMenu(e, item.path)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  navigate(item.path);
+            return (
+              <button
+                key={item.path}
+                type="button"
+                className={cn(
+                  'flex select-none flex-col items-center gap-2 border-none bg-transparent p-0',
+                  !isMobile && 'absolute'
+                )}
+                style={
+                  isMobile
+                    ? { cursor }
+                    : {
+                        left: pos.x,
+                        top: pos.y,
+                        transition: isDragging ? 'none' : 'left 0.2s, top 0.2s',
+                        zIndex: isDragging ? 100 : isSelected ? 10 : 1,
+                        cursor
+                      }
                 }
-              }}
-            >
-              <div
-                className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${bgClasses} shadow-lg transition-transform hover:scale-105 active:scale-95 sm:h-16 sm:w-16 ${isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
+                {...(isMobile
+                  ? { onClick: () => navigate(item.path) }
+                  : {
+                      onPointerDown: (e: React.PointerEvent) =>
+                        handlePointerDown(e, item.path),
+                      onDoubleClick: () => handleDoubleClick(item.path)
+                    })}
+                onContextMenu={(e) => handleIconContextMenu(e, item.path)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    navigate(item.path);
+                  }
+                }}
               >
-                <Icon className="h-7 w-7 text-primary-foreground sm:h-8 sm:w-8" />
-              </div>
-              <span className="max-w-full truncate text-center text-foreground text-xs">
-                {t(item.labelKey)}
-              </span>
-            </button>
-          );
-        })}
+                <div
+                  className={cn(
+                    'flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg transition-transform hover:scale-105 active:scale-95 sm:h-16 sm:w-16',
+                    bgClasses,
+                    isSelected &&
+                      'ring-2 ring-primary ring-offset-2 ring-offset-background'
+                  )}
+                >
+                  <Icon className="h-7 w-7 text-primary-foreground sm:h-8 sm:w-8" />
+                </div>
+                <span className="max-w-full truncate text-center text-foreground text-xs">
+                  {t(item.labelKey)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {canvasContextMenu && (

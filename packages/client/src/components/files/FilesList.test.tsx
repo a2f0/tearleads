@@ -1,5 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FilesList } from './FilesList';
 
@@ -132,33 +134,36 @@ vi.mock('@/hooks/useVirtualVisibleRange', () => ({
 }));
 
 describe('FilesList', () => {
+  const renderWithRouter = (ui: ReactElement) =>
+    render(<MemoryRouter>{ui}</MemoryRouter>);
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it('renders header when showHeader is true', () => {
-    render(<FilesList showDeleted={false} showHeader={true} />);
+    renderWithRouter(<FilesList showDeleted={false} showHeader={true} />);
     expect(screen.getByText('Files')).toBeInTheDocument();
   });
 
   it('does not render header when showHeader is false', () => {
-    render(<FilesList showDeleted={false} showHeader={false} />);
+    renderWithRouter(<FilesList showDeleted={false} showHeader={false} />);
     expect(screen.queryByText('Files')).not.toBeInTheDocument();
   });
 
   it('renders dropzone when unlocked', () => {
-    render(<FilesList showDeleted={false} />);
+    renderWithRouter(<FilesList showDeleted={false} />);
     expect(screen.getByTestId('dropzone')).toBeInTheDocument();
   });
 
   it('renders refresh button when unlocked', () => {
-    render(<FilesList showDeleted={false} showHeader={true} />);
+    renderWithRouter(<FilesList showDeleted={false} showHeader={true} />);
     expect(screen.getByTestId('refresh-button')).toBeInTheDocument();
   });
 
   it('renders show deleted toggle when onShowDeletedChange is provided', () => {
     const onShowDeletedChange = vi.fn();
-    render(
+    renderWithRouter(
       <FilesList
         showDeleted={false}
         showHeader={true}
@@ -171,7 +176,7 @@ describe('FilesList', () => {
   it('calls onShowDeletedChange when toggle is clicked', async () => {
     const user = userEvent.setup();
     const onShowDeletedChange = vi.fn();
-    render(
+    renderWithRouter(
       <FilesList
         showDeleted={false}
         showHeader={true}
@@ -184,7 +189,7 @@ describe('FilesList', () => {
   });
 
   it('shows loading state initially', () => {
-    render(<FilesList showDeleted={false} />);
+    renderWithRouter(<FilesList showDeleted={false} />);
     expect(screen.getByText('Loading files...')).toBeInTheDocument();
   });
 });

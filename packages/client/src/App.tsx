@@ -1,6 +1,6 @@
 import { ConnectionIndicator, Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AccountSwitcher } from './components/AccountSwitcher';
@@ -26,8 +26,15 @@ function App() {
   const version = useAppVersion();
   const sse = useSSEContext();
   const location = useLocation();
-  const isHome = location.pathname === '/';
+  const pathname = location.pathname;
+  const isHome = pathname === '/';
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (pathname) {
+      setIsSidebarOpen(false);
+    }
+  }, [pathname]);
 
   return (
     <div
