@@ -1,10 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
-import type { PhotosWindowContentRef } from './PhotosWindowContent';
 import { PhotosWindowContent } from './PhotosWindowContent';
 import { PhotosWindowDetail } from './PhotosWindowDetail';
+import type { ViewMode } from './PhotosWindowMenuBar';
 import { PhotosWindowMenuBar } from './PhotosWindowMenuBar';
+import { PhotosWindowTableView } from './PhotosWindowTableView';
+import { useFileUpload } from '@/hooks/useFileUpload';
 
 interface PhotosWindowProps {
   id: string;
@@ -24,26 +26,44 @@ export function PhotosWindow({
   initialDimensions
 }: PhotosWindowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const contentRef = useRef<PhotosWindowContentRef>(null);
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [refreshToken, setRefreshToken] = useState(0);
+  const { uploadFile } = useFileUpload();
 
   const handleUpload = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
 
   const handleRefresh = useCallback(() => {
-    contentRef.current?.refresh();
+    setRefreshToken((value) => value + 1);
   }, []);
+
+  const handleUploadFiles = useCallback(
+    async (files: File[]) => {
+      await Promise.all(
+        files.map(async (file) => {
+          try {
+            await uploadFile(file);
+          } catch (err) {
+            console.error(`Failed to upload ${file.name}:`, err);
+          }
+        })
+      );
+      setRefreshToken((value) => value + 1);
+    },
+    [uploadFile]
+  );
 
   const handleFileInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? []);
       if (files.length > 0) {
-        contentRef.current?.uploadFiles(files);
+        void handleUploadFiles(files);
       }
       e.target.value = '';
     },
-    []
+    [handleUploadFiles]
   );
 
   const handleSelectPhoto = useCallback((photoId: string) => {
@@ -56,7 +76,7 @@ export function PhotosWindow({
 
   const handleDeleted = useCallback(() => {
     setSelectedPhotoId(null);
-    contentRef.current?.refresh();
+    setRefreshToken((value) => value + 1);
   }, []);
 
   return (
@@ -79,6 +99,8 @@ export function PhotosWindow({
             onRefresh={handleRefresh}
             onUpload={handleUpload}
             onClose={onClose}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
           />
         )}
         <div className="flex-1 overflow-hidden">
@@ -90,10 +112,17 @@ export function PhotosWindow({
             />
           ) : (
             <div className="h-full p-2">
-              <PhotosWindowContent
-                ref={contentRef}
-                onSelectPhoto={handleSelectPhoto}
-              />
+              {viewMode === 'list' ? (
+                <PhotosWindowContent
+                  onSelectPhoto={handleSelectPhoto}
+                  refreshToken={refreshToken}
+                />
+              ) : (
+                <PhotosWindowTableView
+                  onSelectPhoto={handleSelectPhoto}
+                  refreshToken={refreshToken}
+                />
+              )}
             </div>
           )}
         </div>
