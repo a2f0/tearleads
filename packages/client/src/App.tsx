@@ -1,8 +1,9 @@
 import { ConnectionIndicator, Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
-import { useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AccountSwitcher } from './components/AccountSwitcher';
 import { MiniPlayer } from './components/audio/MiniPlayer';
 import { HUDTrigger } from './components/hud';
@@ -26,8 +27,28 @@ function App() {
   const version = useAppVersion();
   const sse = useSSEContext();
   const location = useLocation();
+  const navigate = useNavigate();
   const isHome = location.pathname === '/';
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < 1024 : false
+  );
+
+  const handleBack = useCallback(() => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate('/');
+  }, [navigate]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
     <div
@@ -42,10 +63,26 @@ function App() {
         <div className="relative flex min-w-0 flex-1 flex-col">
           {isHome && <DesktopBackground />}
           <header className="w-full px-4 py-4">
-            <div className="flex items-center justify-end gap-1">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center">
+                {isMobile && !isHome && (
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                    aria-label="Go back"
+                    data-testid="mobile-back-button"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-1">
               <MobileMenu />
               <SettingsButton />
               <AccountSwitcher />
+              </div>
             </div>
           </header>
           <main className="relative flex min-w-0 flex-1 flex-col pb-20">

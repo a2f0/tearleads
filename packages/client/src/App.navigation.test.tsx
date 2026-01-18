@@ -132,6 +132,28 @@ function renderAppWithRoutes(initialPath = '/') {
   );
 }
 
+function renderAppWithEntries(entries: string[], initialIndex = 0) {
+  return render(
+    <ThemeProvider>
+      <WindowManagerProvider>
+        <MemoryRouter initialEntries={entries} initialIndex={initialIndex}>
+          <Routes>
+            <Route path="/" element={<App />}>
+              <Route index element={<Home />} />
+              <Route path="files" element={<Files />} />
+              <Route path="contacts" element={<Contacts />} />
+              <Route path="sqlite" element={<Sqlite />} />
+              <Route path="debug" element={<Debug />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="tables" element={<Tables />} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </WindowManagerProvider>
+    </ThemeProvider>
+  );
+}
+
 describe('App Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -299,6 +321,40 @@ describe('App Integration', () => {
 
       await waitFor(() => {
         // Should be back at Home page with app icons
+        expect(screen.queryByText('System Info')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('mobile back navigation', () => {
+    const originalWidth = window.innerWidth;
+
+    beforeEach(() => {
+      Object.defineProperty(window, 'innerWidth', {
+        value: 500,
+        configurable: true
+      });
+    });
+
+    afterEach(() => {
+      Object.defineProperty(window, 'innerWidth', {
+        value: originalWidth,
+        configurable: true
+      });
+    });
+
+    it('shows a back button on mobile and navigates home when no history', async () => {
+      const user = userEvent.setup();
+      renderAppWithEntries(['/debug']);
+
+      await waitFor(() => {
+        expect(screen.getByText('System Info')).toBeInTheDocument();
+      });
+
+      const backButton = screen.getByTestId('mobile-back-button');
+      await user.click(backButton);
+
+      await waitFor(() => {
         expect(screen.queryByText('System Info')).not.toBeInTheDocument();
       });
     });
