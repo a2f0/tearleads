@@ -711,12 +711,41 @@ describe('Home', () => {
     expect(screen.getByText('Open in Window')).toBeInTheDocument();
   });
 
+  it('shows Open in Window option for Local Storage icon', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const localStorageButton = screen.getByRole('button', {
+      name: 'Local Storage'
+    });
+    await user.pointer({ keys: '[MouseRight]', target: localStorageButton });
+
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.getByText('Open in Window')).toBeInTheDocument();
+  });
+
   it('opens console in floating window when Open in Window is clicked', async () => {
     const user = userEvent.setup();
     renderHome();
 
     const consoleButton = screen.getByRole('button', { name: 'Console' });
     await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+    const openInWindowItem = screen.getByText('Open in Window');
+    await user.click(openInWindowItem);
+
+    // Context menu should close
+    expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
+  });
+
+  it('opens local storage in floating window when Open in Window is clicked', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const localStorageButton = screen.getByRole('button', {
+      name: 'Local Storage'
+    });
+    await user.pointer({ keys: '[MouseRight]', target: localStorageButton });
 
     const openInWindowItem = screen.getByText('Open in Window');
     await user.click(openInWindowItem);
