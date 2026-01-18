@@ -6,6 +6,7 @@ interface DocumentsWindowProps {
   id: string;
   onClose: () => void;
   onMinimize: (dimensions: WindowDimensions) => void;
+  onDimensionsChange?: (dimensions: WindowDimensions) => void;
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions;
@@ -15,6 +16,7 @@ export function DocumentsWindow({
   id,
   onClose,
   onMinimize,
+  onDimensionsChange,
   onFocus,
   zIndex,
   initialDimensions
@@ -25,6 +27,7 @@ export function DocumentsWindow({
       title="Documents"
       onClose={onClose}
       onMinimize={onMinimize}
+      onDimensionsChange={onDimensionsChange}
       onFocus={onFocus}
       zIndex={zIndex}
       {...(initialDimensions && { initialDimensions })}
