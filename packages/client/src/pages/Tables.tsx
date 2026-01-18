@@ -2,7 +2,7 @@ import { isRecord, toFiniteNumber } from '@rapid/shared';
 import { ChevronRight, Table2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { LinkWithFrom } from '@/components/ui/back-link';
+import { BackLink, LinkWithFrom } from '@/components/ui/back-link';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
@@ -121,11 +121,14 @@ export function Tables() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-bold text-2xl tracking-tight">Tables</h1>
-        {isUnlocked && (
-          <RefreshButton onClick={fetchTables} loading={loading} />
-        )}
+      <div className="space-y-2">
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        <div className="flex items-center justify-between">
+          <h1 className="font-bold text-2xl tracking-tight">Tables</h1>
+          {isUnlocked && (
+            <RefreshButton onClick={fetchTables} loading={loading} />
+          )}
+        </div>
       </div>
 
       {isLoading && (

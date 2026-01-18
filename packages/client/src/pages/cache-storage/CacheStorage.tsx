@@ -1,5 +1,6 @@
 import { Database, Loader2, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { RefreshButton } from '@/components/ui/refresh-button';
@@ -215,9 +216,12 @@ export function CacheStorage() {
   if (!supported) {
     return (
       <div className="space-y-6">
-        <h1 className="font-bold text-2xl tracking-tight">
-          Cache Storage Browser
-        </h1>
+        <div className="space-y-2">
+          <BackLink defaultTo="/" defaultLabel="Back to Home" />
+          <h1 className="font-bold text-2xl tracking-tight">
+            Cache Storage Browser
+          </h1>
+        </div>
         <div className="rounded-lg border p-8 text-center">
           <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
           <p className="mt-4 text-muted-foreground">
@@ -230,30 +234,33 @@ export function CacheStorage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-bold text-2xl tracking-tight">
-            Cache Storage Browser
-          </h1>
-          {caches.length > 0 && (
-            <p className="text-muted-foreground text-sm">
-              {caches.length} cache{caches.length !== 1 ? 's' : ''},{' '}
-              {totalEntries} total entries ({formatFileSize(totalSize)})
-            </p>
-          )}
-        </div>
-        <div className="flex gap-2">
-          {caches.length > 0 && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleClearAllClick}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Clear All
-            </Button>
-          )}
-          <RefreshButton onClick={refresh} loading={loading} />
+      <div className="space-y-2">
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-bold text-2xl tracking-tight">
+              Cache Storage Browser
+            </h1>
+            {caches.length > 0 && (
+              <p className="text-muted-foreground text-sm">
+                {caches.length} cache{caches.length !== 1 ? 's' : ''},{' '}
+                {totalEntries} total entries ({formatFileSize(totalSize)})
+              </p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {caches.length > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleClearAllClick}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Clear All
+              </Button>
+            )}
+            <RefreshButton onClick={refresh} loading={loading} />
+          </div>
         </div>
       </div>
 

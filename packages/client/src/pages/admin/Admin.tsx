@@ -2,6 +2,7 @@ import type { RedisKeyInfo } from '@rapid/shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Database, Loader2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { BackLink } from '@/components/ui/back-link';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { RefreshButton } from '@/components/ui/refresh-button';
@@ -175,12 +176,15 @@ export function Admin() {
 
   return (
     <div className="flex h-full flex-col space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-bold text-2xl tracking-tight">Admin</h1>
-          <p className="text-muted-foreground text-sm">Redis Browser</p>
+      <div className="space-y-2">
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-bold text-2xl tracking-tight">Admin</h1>
+            <p className="text-muted-foreground text-sm">Redis Browser</p>
+          </div>
+          <RefreshButton onClick={handleRefresh} loading={loading} />
         </div>
-        <RefreshButton onClick={handleRefresh} loading={loading} />
       </div>
 
       {error && (

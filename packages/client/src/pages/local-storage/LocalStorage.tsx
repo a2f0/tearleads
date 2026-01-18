@@ -1,5 +1,6 @@
 import { Database, Loader2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { RefreshButton } from '@/components/ui/refresh-button';
@@ -123,30 +124,33 @@ export function LocalStorage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-bold text-2xl tracking-tight">
-            Local Storage Browser
-          </h1>
-          {entries.length > 0 && (
-            <p className="mt-1 text-muted-foreground text-sm">
-              {entries.length} {entries.length === 1 ? 'entry' : 'entries'} (
-              {formatFileSize(totalSize)})
-            </p>
-          )}
-        </div>
-        <div className="flex gap-2">
-          {entries.length > 0 && (
-            <Button
-              variant="destructive"
-              size="icon"
-              onClick={handleClearAllClick}
-              aria-label="Clear all localStorage"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
-          <RefreshButton onClick={fetchStorageContents} loading={loading} />
+      <div className="space-y-2">
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-bold text-2xl tracking-tight">
+              Local Storage Browser
+            </h1>
+            {entries.length > 0 && (
+              <p className="mt-1 text-muted-foreground text-sm">
+                {entries.length} {entries.length === 1 ? 'entry' : 'entries'} (
+                {formatFileSize(totalSize)})
+              </p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {entries.length > 0 && (
+              <Button
+                variant="destructive"
+                size="icon"
+                onClick={handleClearAllClick}
+                aria-label="Clear all localStorage"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+            <RefreshButton onClick={fetchStorageContents} loading={loading} />
+          </div>
         </div>
       </div>
 

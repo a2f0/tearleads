@@ -24,6 +24,7 @@ import {
 } from 'react';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
@@ -496,33 +497,38 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
     return (
       <div className="flex h-full flex-col space-y-6">
         {showHeader && (
-          <div className="flex items-center justify-between">
-            <h1 className="font-bold text-2xl tracking-tight">Files</h1>
-            {isUnlocked && (
-              <div className="flex items-center gap-3">
-                {onShowDeletedChange && (
-                  <label className="flex cursor-pointer items-center gap-2 text-sm">
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={showDeleted}
-                      onClick={() => onShowDeletedChange(!showDeleted)}
-                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                        showDeleted ? 'bg-primary' : 'bg-muted'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-background shadow-sm transition-transform ${
-                          showDeleted ? 'translate-x-4' : 'translate-x-0.5'
+          <div className="space-y-2">
+            <BackLink defaultTo="/" defaultLabel="Back to Home" />
+            <div className="flex items-center justify-between">
+              <h1 className="font-bold text-2xl tracking-tight">Files</h1>
+              {isUnlocked && (
+                <div className="flex items-center gap-3">
+                  {onShowDeletedChange && (
+                    <label className="flex cursor-pointer items-center gap-2 text-sm">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={showDeleted}
+                        onClick={() => onShowDeletedChange(!showDeleted)}
+                        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                          showDeleted ? 'bg-primary' : 'bg-muted'
                         }`}
-                      />
-                    </button>
-                    <span className="text-muted-foreground">Show deleted</span>
-                  </label>
-                )}
-                <RefreshButton onClick={fetchFiles} loading={loading} />
-              </div>
-            )}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-background shadow-sm transition-transform ${
+                            showDeleted ? 'translate-x-4' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                      <span className="text-muted-foreground">
+                        Show deleted
+                      </span>
+                    </label>
+                  )}
+                  <RefreshButton onClick={fetchFiles} loading={loading} />
+                </div>
+              )}
+            </div>
           </div>
         )}
 
