@@ -19,6 +19,8 @@ const mockDb = {
 const mockRetrieve = vi.fn();
 const mockIsFileStorageInitialized = vi.fn();
 const mockInitializeFileStorage = vi.fn();
+let createObjectUrlSpy = vi.fn();
+let revokeObjectUrlSpy = vi.fn();
 
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockDatabaseState
@@ -64,27 +66,21 @@ describe('usePhotosWindowData', () => {
     mockIsFileStorageInitialized.mockReturnValue(false);
     const url = globalThis.URL;
     if (url) {
-      if (typeof url.createObjectURL !== 'function') {
-        Object.defineProperty(url, 'createObjectURL', {
-          value: vi.fn(() => 'blob:photo'),
-          writable: true
-        });
-      } else {
-        vi.spyOn(url, 'createObjectURL').mockReturnValue('blob:photo');
-      }
-      if (typeof url.revokeObjectURL !== 'function') {
-        Object.defineProperty(url, 'revokeObjectURL', {
-          value: vi.fn(),
-          writable: true
-        });
-      } else {
-        vi.spyOn(url, 'revokeObjectURL').mockImplementation(() => undefined);
-      }
+      createObjectUrlSpy = vi.fn(() => 'blob:photo');
+      revokeObjectUrlSpy = vi.fn();
+      Object.defineProperty(url, 'createObjectURL', {
+        value: createObjectUrlSpy,
+        writable: true
+      });
+      Object.defineProperty(url, 'revokeObjectURL', {
+        value: revokeObjectUrlSpy,
+        writable: true
+      });
     }
   });
 
   it('loads photos and exposes object URLs', async () => {
-    const { result } = renderHook(() =>
+    const { result, unmount } = renderHook(() =>
       usePhotosWindowData({ refreshToken: 0 })
     );
 
@@ -97,6 +93,8 @@ describe('usePhotosWindowData', () => {
       expect.any(Uint8Array),
       'instance-1'
     );
+    unmount();
+    expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:photo');
   });
 
   it('sets error when fetch fails', async () => {
@@ -109,5 +107,47 @@ describe('usePhotosWindowData', () => {
     await waitFor(() => {
       expect(result.current.error).toBe('Database error');
     });
+  });
+
+  it('prefers thumbnails and skips failed loads', async () => {
+    mockIsFileStorageInitialized.mockReturnValue(true);
+    mockOrderBy.mockResolvedValue([
+      {
+        id: 'photo-1',
+        name: 'photo.jpg',
+        size: 1024,
+        mimeType: 'image/png',
+        uploadDate: new Date('2024-01-01T00:00:00Z'),
+        storagePath: '/photos/photo.jpg',
+        thumbnailPath: '/photos/thumb.jpg'
+      },
+      {
+        id: 'photo-2',
+        name: 'broken.jpg',
+        size: 2048,
+        mimeType: 'image/jpeg',
+        uploadDate: new Date('2024-01-02T00:00:00Z'),
+        storagePath: '/photos/broken.jpg',
+        thumbnailPath: null
+      }
+    ]);
+    mockRetrieve.mockImplementation((path: string) => {
+      if (path === '/photos/thumb.jpg') {
+        return Promise.resolve(new ArrayBuffer(8));
+      }
+      return Promise.reject(new Error('Load failed'));
+    });
+
+    const { result } = renderHook(() =>
+      usePhotosWindowData({ refreshToken: 1 })
+    );
+
+    await waitFor(() => {
+      expect(result.current.photos).toHaveLength(1);
+    });
+
+    expect(mockRetrieve).toHaveBeenCalledWith('/photos/thumb.jpg');
+    expect(mockRetrieve).toHaveBeenCalledWith('/photos/broken.jpg');
+    expect(mockInitializeFileStorage).not.toHaveBeenCalled();
   });
 });
