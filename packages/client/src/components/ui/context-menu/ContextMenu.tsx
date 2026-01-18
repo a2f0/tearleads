@@ -8,6 +8,9 @@ interface ContextMenuProps {
   children: React.ReactNode;
 }
 
+const OVERLAY_Z_INDEX = 9999;
+const MENU_Z_INDEX = 10000;
+
 export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ top: y, left: x });
@@ -49,7 +52,7 @@ export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
   // Use Portal to render outside FloatingWindow DOM tree
   // This fixes positioning issues caused by backdrop-blur creating a new containing block
   return createPortal(
-    <div className="fixed inset-0 z-[9999]">
+    <div className="fixed inset-0" style={{ zIndex: OVERLAY_Z_INDEX }}>
       <button
         type="button"
         className="fixed inset-0 cursor-default"
@@ -58,8 +61,8 @@ export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
       />
       <div
         ref={menuRef}
-        className="fixed z-[10000] min-w-40 rounded-md border bg-background py-1 shadow-lg"
-        style={{ top: position.top, left: position.left }}
+        className="fixed min-w-40 rounded-md border bg-background py-1 shadow-lg"
+        style={{ top: position.top, left: position.left, zIndex: MENU_Z_INDEX }}
       >
         {children}
       </div>

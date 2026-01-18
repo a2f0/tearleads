@@ -6,15 +6,6 @@ import { ContextMenu } from './ContextMenu';
 import { ContextMenuItem } from './ContextMenuItem';
 
 describe('ContextMenu', () => {
-  const extractZIndex = (element: HTMLElement | null) => {
-    const className = element?.className ?? '';
-    const match = className.match(/z-\[(\d+)\]/);
-    if (!match) return 0;
-    const value = match[1];
-    if (!value) return 0;
-    return Number.parseInt(value, 10);
-  };
-
   it('renders children at specified position', () => {
     render(
       <ContextMenu x={100} y={200} onClose={() => {}}>
@@ -60,8 +51,21 @@ describe('ContextMenu', () => {
     const menu = screen.getByText('Menu content').parentElement;
     const windowZIndex = Number.parseInt(floatingWindow.style.zIndex, 10);
 
-    expect(extractZIndex(overlay)).toBeGreaterThan(windowZIndex);
-    expect(extractZIndex(menu)).toBeGreaterThan(windowZIndex);
+    if (!overlay || !menu) {
+      throw new Error('Missing context menu elements');
+    }
+
+    const overlayZIndex = Number.parseInt(
+      window.getComputedStyle(overlay).zIndex,
+      10
+    );
+    const menuZIndex = Number.parseInt(
+      window.getComputedStyle(menu).zIndex,
+      10
+    );
+
+    expect(overlayZIndex).toBeGreaterThan(windowZIndex);
+    expect(menuZIndex).toBeGreaterThan(windowZIndex);
   });
 
   it('adjusts horizontal position when menu would overflow right edge', async () => {
