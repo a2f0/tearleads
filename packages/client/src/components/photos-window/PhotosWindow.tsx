@@ -1,12 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { useFileUpload } from '@/hooks/useFileUpload';
 import { PhotosWindowContent } from './PhotosWindowContent';
 import { PhotosWindowDetail } from './PhotosWindowDetail';
 import type { ViewMode } from './PhotosWindowMenuBar';
 import { PhotosWindowMenuBar } from './PhotosWindowMenuBar';
 import { PhotosWindowTableView } from './PhotosWindowTableView';
-import { useFileUpload } from '@/hooks/useFileUpload';
 
 interface PhotosWindowProps {
   id: string;
