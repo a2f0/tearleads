@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PhotosWindowTableView } from './PhotosWindowTableView';
 
@@ -98,7 +99,7 @@ describe('PhotosWindowTableView', () => {
     ).toBeInTheDocument();
   });
 
-  it('calls onSelectPhoto when a row is clicked', () => {
+  it('calls onSelectPhoto when a row is clicked', async () => {
     const onSelectPhoto = vi.fn();
     mockUsePhotosWindowData.mockReturnValue({
       photos: [photo],
@@ -115,8 +116,9 @@ describe('PhotosWindowTableView', () => {
       <PhotosWindowTableView refreshToken={0} onSelectPhoto={onSelectPhoto} />
     );
 
+    const user = userEvent.setup();
     const row = screen.getByText('photo.jpg');
-    fireEvent.click(row);
+    await user.click(row);
 
     expect(onSelectPhoto).toHaveBeenCalledWith('photo-1');
   });
@@ -138,7 +140,7 @@ describe('PhotosWindowTableView', () => {
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
   });
 
-  it('handles context menu actions', () => {
+  it('handles context menu actions', async () => {
     const refresh = vi.fn();
     mockCanShareFiles.mockReturnValue(true);
     mockUsePhotosWindowData.mockReturnValue({
@@ -152,13 +154,17 @@ describe('PhotosWindowTableView', () => {
       currentInstanceId: 'instance-1'
     });
 
+    const user = userEvent.setup();
     render(<PhotosWindowTableView refreshToken={0} />);
 
-    fireEvent.contextMenu(screen.getByText('photo.jpg'));
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Download' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.click(screen.getByRole('button', { name: 'Download' }));
+    await user.click(screen.getByRole('button', { name: 'Share' }));
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
 
     expect(mockRetrieve).toHaveBeenCalledWith('/photos/photo.jpg');
     expect(mockDownloadFile).toHaveBeenCalledWith(
