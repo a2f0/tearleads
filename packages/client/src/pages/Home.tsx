@@ -593,7 +593,7 @@ export function Home() {
         <div
           className={`relative z-10 w-full ${
             isMobile
-              ? 'grid min-h-full content-start justify-items-center gap-6 pb-6 pt-2'
+              ? 'grid min-h-full content-start justify-items-center gap-6 pt-2 pb-6'
               : ''
           }`}
           style={isMobile ? { gridTemplateColumns } : undefined}
