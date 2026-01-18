@@ -8,6 +8,18 @@ const packageJson: { version: string } = require('../../package.json');
 const APP_LOAD_TIMEOUT = 10000;
 const DB_OPERATION_TIMEOUT = 15000;
 
+/**
+ * Navigate to a route in the Electron app using client-side routing.
+ * Electron uses a custom protocol that doesn't have a fallback to index.html,
+ * so we use History API to trigger React Router navigation.
+ */
+async function navigateToRoute(page: Page, path: string): Promise<void> {
+  await page.evaluate((route) => {
+    window.history.pushState({}, '', route);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, path);
+}
+
 test.describe('Electron App', () => {
   let electronApp: ElectronApplication;
   let window: Page;
@@ -15,6 +27,8 @@ test.describe('Electron App', () => {
   test.beforeEach(async () => {
     electronApp = await launchElectronApp();
     window = await electronApp.firstWindow();
+    // Wait for app to load before running tests
+    await expect(window.getByTestId('start-button')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
   });
 
   test.afterEach(async () => {
@@ -22,10 +36,7 @@ test.describe('Electron App', () => {
   });
 
   test('should launch and display the main window with version in title', async () => {
-    // Verify Start button is visible (main entry point to navigation)
-    const startButton = window.getByTestId('start-button');
-    await expect(startButton).toBeVisible({timeout: APP_LOAD_TIMEOUT});
-
+    // Start button visibility is verified in beforeEach
     // Wait for title to be set after page load
     const expectedTitle = `Tearleads v${packageJson.version}`;
     await expect(async () => {
@@ -36,7 +47,7 @@ test.describe('Electron App', () => {
 
   test('should navigate to settings page', async () => {
     // Navigate via URL for testing page behavior
-    await window.goto('/settings');
+    await navigateToRoute(window, '/settings');
 
     await expect(
       window.getByRole('heading', {name: 'Settings'})
@@ -45,7 +56,7 @@ test.describe('Electron App', () => {
 
   test('should navigate to tables page', async () => {
     // Navigate via URL for testing page behavior
-    await window.goto('/tables');
+    await navigateToRoute(window, '/tables');
 
     await expect(
       window.getByRole('heading', {name: 'Tables'})
@@ -54,7 +65,7 @@ test.describe('Electron App', () => {
 
   test('should show inline unlock on tables page when database not unlocked', async () => {
     // Navigate via URL for testing page behavior
-    await window.goto('/tables');
+    await navigateToRoute(window, '/tables');
 
     // Should show inline unlock component
     await expect(window.getByTestId('inline-unlock')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
@@ -66,7 +77,7 @@ test.describe('Electron App', () => {
 
   test('should show tables list after database is unlocked', async () => {
     // Navigate to SQLite page via URL
-    await window.goto('/sqlite');
+    await navigateToRoute(window, '/sqlite');
     await expect(window.getByTestId('database-test')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
 
     // Reset and wait for reset to complete
@@ -89,7 +100,7 @@ test.describe('Electron App', () => {
     await expect(window.getByTestId('db-status')).toContainText('Unlocked', {timeout: APP_LOAD_TIMEOUT});
 
     // Navigate to tables page via URL
-    await window.goto('/tables');
+    await navigateToRoute(window, '/tables');
     await expect(window.getByRole('heading', {name: 'Tables'})).toBeVisible();
 
     // Should show tables

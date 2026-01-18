@@ -49,9 +49,23 @@ async function setupAndUnlockDatabase(page: Page, password = 'testpassword123') 
   });
 }
 
+// Helper to unlock via inline unlock component if database is locked after page navigation
+async function unlockIfNeeded(page: Page, password = 'testpassword123') {
+  // Wait for page to stabilize after navigation
+  await page.waitForTimeout(500);
+
+  const inlineUnlock = page.getByTestId('inline-unlock-password');
+  if (await inlineUnlock.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await inlineUnlock.fill(password);
+    await page.getByTestId('inline-unlock-button').click();
+    await expect(inlineUnlock).not.toBeVisible({ timeout: 10000 });
+  }
+}
+
 // Helper to navigate to Audio page
 async function navigateToAudio(page: Page) {
   await navigateToPage(page, 'Audio');
+  await unlockIfNeeded(page);
 }
 
 // Helper to upload a test audio file and wait for track list to appear

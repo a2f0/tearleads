@@ -278,6 +278,19 @@ const PAGE_ROUTES = {
   Files: '/files'
 } as const;
 
+// Helper to unlock via inline unlock component if database is locked after page navigation
+async function unlockIfNeeded(page: Page, password = TEST_PASSWORD): Promise<void> {
+  // Wait for page to stabilize after navigation
+  await page.waitForTimeout(500);
+
+  const inlineUnlock = page.getByTestId('inline-unlock-password');
+  if (await inlineUnlock.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await inlineUnlock.fill(password);
+    await page.getByTestId('inline-unlock-button').click();
+    await expect(inlineUnlock).not.toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
+  }
+}
+
 // Helper to navigate to a page, handling mobile/desktop differences
 async function navigateToPage(page: Page, pageName: 'SQLite' | 'Files') {
   const isMobile = isMobileViewport(page);
@@ -292,6 +305,7 @@ async function navigateToPage(page: Page, pageName: 'SQLite' | 'Files') {
     // Use URL navigation for page testing on desktop
     const route = PAGE_ROUTES[pageName];
     await page.goto(route);
+    await unlockIfNeeded(page);
   }
 }
 
@@ -310,9 +324,32 @@ async function uploadTestFile(page: Page, fileName = 'test-image.png') {
   await expect(page.getByText('1 file')).toBeVisible({ timeout: 60000 });
 }
 
-// Helper to setup database on the SQLite page
+// Helper to setup database on the SQLite page (handles locked/unlocked states)
 async function setupDatabaseOnSqlitePage(page: Page) {
   await navigateToPage(page, 'SQLite');
+
+  // Check the current database status
+  const status = await page.getByTestId('db-status').textContent();
+
+  if (status === 'Unlocked') {
+    // Already unlocked, nothing to do
+    return;
+  }
+
+  if (status === 'Locked') {
+    // Database is locked, reset it first to get to "Not Set Up" state
+    await page.getByTestId('db-reset-button').click();
+    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+    await expect(page.getByTestId('db-status')).toHaveText('Not Set Up', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+  }
+
+  // Now set up the database
   await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
   await page.getByTestId('db-setup-button').click();
   await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
