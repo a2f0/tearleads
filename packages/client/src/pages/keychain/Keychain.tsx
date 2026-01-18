@@ -1,5 +1,6 @@
 import { Info, Key, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { BackLink } from '@/components/ui/back-link';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import {
@@ -117,16 +118,19 @@ export function Keychain() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-bold text-2xl tracking-tight">
-            Keychain Browser
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            {instanceCount} {instanceLabel}
-          </p>
+      <div className="space-y-2">
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-bold text-2xl tracking-tight">
+              Keychain Browser
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              {instanceCount} {instanceLabel}
+            </p>
+          </div>
+          <RefreshButton onClick={fetchKeychainData} loading={loading} />
         </div>
-        <RefreshButton onClick={fetchKeychainData} loading={loading} />
       </div>
 
       {error && (
