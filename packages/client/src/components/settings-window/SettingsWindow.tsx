@@ -36,10 +36,13 @@ export function SettingsWindow({
       onFocus={onFocus}
       zIndex={zIndex}
       {...(initialDimensions && { initialDimensions })}
+      fitContent
       defaultWidth={500}
       defaultHeight={600}
       minWidth={400}
       minHeight={400}
+      maxWidthPercent={1}
+      maxHeightPercent={1}
     >
       <div className="flex h-full flex-col">
         <SettingsWindowMenuBar

@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FloatingWindow } from './FloatingWindow';
 
 describe('FloatingWindow', () => {
@@ -383,6 +383,98 @@ describe('FloatingWindow', () => {
       expect(
         screen.getByRole('button', { name: /maximize/i })
       ).toBeInTheDocument();
+    });
+  });
+
+  describe('fitContent behavior', () => {
+    const originalResizeObserver = global.ResizeObserver;
+    const originalScrollHeight = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'scrollHeight'
+    );
+    const originalScrollWidth = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'scrollWidth'
+    );
+    const originalOffsetHeight = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      'offsetHeight'
+    );
+
+    beforeEach(() => {
+      class MockResizeObserver implements ResizeObserver {
+        observe = vi.fn();
+        unobserve = vi.fn();
+        disconnect = vi.fn();
+      }
+
+      global.ResizeObserver = MockResizeObserver;
+      Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+        configurable: true,
+        get: () => 900
+      });
+      Object.defineProperty(HTMLElement.prototype, 'scrollWidth', {
+        configurable: true,
+        get: () => 700
+      });
+      Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+        configurable: true,
+        get: () => 28
+      });
+    });
+
+    afterEach(() => {
+      if (originalScrollHeight) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          'scrollHeight',
+          originalScrollHeight
+        );
+      }
+
+      if (originalScrollWidth) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          'scrollWidth',
+          originalScrollWidth
+        );
+      }
+
+      if (originalOffsetHeight) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          'offsetHeight',
+          originalOffsetHeight
+        );
+      }
+
+      global.ResizeObserver = originalResizeObserver;
+    });
+
+    it('sizes to fit content up to the maximized bounds', async () => {
+      // Mocked values: scrollWidth=700, scrollHeight=900, offsetHeight=28
+      // FOOTER_HEIGHT=80, window: 1024x768
+      // maxHeight = (768 - 80) * 1 = 688
+      // height = min(900 + 28, 688) = 688 (clamped)
+      // width = 700 (fits within 1024)
+      // x = (1024 - 700) / 2 = 162
+      // y = (688 - 688) / 2 = 0
+      render(
+        <FloatingWindow
+          {...defaultProps}
+          fitContent
+          maxWidthPercent={1}
+          maxHeightPercent={1}
+        />
+      );
+
+      const dialog = screen.getByRole('dialog');
+
+      await waitFor(() => {
+        expect(dialog).toHaveStyle({ width: '700px', height: '688px' });
+      });
+
+      expect(dialog).toHaveStyle({ left: '162px', top: '0px' });
     });
   });
 });

@@ -176,6 +176,17 @@ describe('BottomSheet', () => {
     expect(screen.getByTestId('custom-sheet-content')).toBeInTheDocument();
   });
 
+  it('uses custom maxHeightPercent for sizing', () => {
+    render(
+      <BottomSheet open={true} onOpenChange={() => {}} maxHeightPercent={0.9}>
+        <p>Content</p>
+      </BottomSheet>
+    );
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveStyle({ maxHeight: '90vh' });
+  });
+
   it('unmounts after close animation', async () => {
     const { rerender } = render(
       <BottomSheet open={true} onOpenChange={() => {}}>
