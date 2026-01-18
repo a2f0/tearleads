@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import { AdminWindow } from '@/components/admin-window';
 import { AnalyticsWindow } from '@/components/analytics-window';
 import { AudioWindow } from '@/components/audio-window';
@@ -18,12 +17,6 @@ export function WindowRenderer() {
   const { windows, closeWindow, focusWindow, minimizeWindow } =
     useWindowManager();
 
-  const handleCloseAll = useCallback(() => {
-    for (const window of windows) {
-      closeWindow(window.id);
-    }
-  }, [windows, closeWindow]);
-
   const visibleWindows = windows.filter((w) => !w.isMinimized);
 
   if (visibleWindows.length === 0) {
@@ -32,14 +25,6 @@ export function WindowRenderer() {
 
   return (
     <>
-      {/* Backdrop - clicking closes all windows */}
-      <div
-        className="fixed inset-0 z-40"
-        onClick={handleCloseAll}
-        aria-hidden="true"
-        data-testid="window-backdrop"
-      />
-
       {/* Render all visible (non-minimized) windows */}
       {visibleWindows.map((window) => {
         switch (window.type) {

@@ -6,6 +6,7 @@ import { useFloatingWindow } from '@/hooks/useFloatingWindow';
 import { cn } from '@/lib/utils';
 
 const DESKTOP_BREAKPOINT = 768;
+const FOOTER_HEIGHT = 80;
 
 const POSITION_CLASSES: Record<Corner, string> = {
   'top-left': 'top-0 left-0',
@@ -175,9 +176,14 @@ export function FloatingWindow({
       }
       setIsMaximized(false);
     } else {
-      // Save current state and maximize
+      // Save current state and maximize (leaving space for footer/taskbar)
       preMaximizeStateRef.current = { width, height, x, y };
-      setDimensions(window.innerWidth, window.innerHeight, 0, 0);
+      setDimensions(
+        window.innerWidth,
+        window.innerHeight - FOOTER_HEIGHT,
+        0,
+        0
+      );
       setIsMaximized(true);
     }
   }, [isMaximized, width, height, x, y, setDimensions]);

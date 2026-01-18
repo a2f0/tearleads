@@ -497,12 +497,6 @@ describe('WindowRenderer', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('renders backdrop when windows are open', () => {
-    mockWindows = [{ id: 'test-1', type: 'notes', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('window-backdrop')).toBeInTheDocument();
-  });
-
   it('renders notes window for notes type', () => {
     mockWindows = [{ id: 'notes-1', type: 'notes', zIndex: 100 }];
     render(<WindowRenderer />, { wrapper });
@@ -537,19 +531,6 @@ describe('WindowRenderer', () => {
     expect(mockFocusWindow).toHaveBeenCalledWith('notes-1');
   });
 
-  it('closes all windows when backdrop is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [
-      { id: 'notes-1', type: 'notes', zIndex: 100 },
-      { id: 'notes-2', type: 'notes', zIndex: 101 }
-    ];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('window-backdrop'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('notes-1');
-    expect(mockCloseWindow).toHaveBeenCalledWith('notes-2');
-  });
-
   it('passes correct zIndex to windows', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
@@ -570,8 +551,7 @@ describe('WindowRenderer', () => {
   it('renders nothing for unknown window types', () => {
     mockWindows = [{ id: 'unknown-1', type: 'unknown' as string, zIndex: 100 }];
     render(<WindowRenderer />, { wrapper });
-    // Should render backdrop but no window content
-    expect(screen.getByTestId('window-backdrop')).toBeInTheDocument();
+    // Should render fragment but no window content
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
