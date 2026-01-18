@@ -64,6 +64,7 @@ export const es = {
     getInfo: 'Obtener información',
     viewDetails: 'Ver detalles',
     download: 'Descargar',
+    share: 'Compartir',
     edit: 'Editar',
     delete: 'Eliminar',
     restore: 'Restaurar',
