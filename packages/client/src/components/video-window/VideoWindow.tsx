@@ -1,6 +1,8 @@
+import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { VideoPage } from '@/pages/Video';
+import { VideoDetail } from '@/pages/VideoDetail';
 
 interface VideoWindowProps {
   id: string;
@@ -36,9 +38,27 @@ export function VideoWindow({
       minWidth={400}
       minHeight={300}
     >
-      <div className="h-full overflow-hidden p-3">
-        <VideoPage />
-      </div>
+      <MemoryRouter initialEntries={['/videos']}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/videos" replace />} />
+          <Route
+            path="/videos"
+            element={
+              <div className="h-full overflow-hidden p-3">
+                <VideoPage />
+              </div>
+            }
+          />
+          <Route
+            path="/videos/:id"
+            element={
+              <div className="h-full overflow-auto p-3">
+                <VideoDetail />
+              </div>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
     </FloatingWindow>
   );
 }
