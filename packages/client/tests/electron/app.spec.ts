@@ -46,8 +46,10 @@ test.describe('Electron App', () => {
     // Open sidebar via Start button
     await openSidebar(window);
 
-    const settingsButton = window.locator('nav').getByRole('button', { name: 'Settings' });
-    await settingsButton.click();
+    const settingsButton = window
+      .locator('nav')
+      .getByRole('button', { name: 'Settings' });
+    await settingsButton.dblclick();
 
     await expect(
       window.getByRole('heading', {name: 'Settings'})
@@ -58,8 +60,10 @@ test.describe('Electron App', () => {
     // Open sidebar via Start button
     await openSidebar(window);
 
-    const tablesButton = window.locator('nav').getByRole('button', { name: 'Tables' });
-    await tablesButton.click();
+    const tablesButton = window
+      .locator('nav')
+      .getByRole('button', { name: 'Tables' });
+    await tablesButton.dblclick();
 
     await expect(
       window.getByRole('heading', {name: 'Tables'})
@@ -70,7 +74,10 @@ test.describe('Electron App', () => {
     // Open sidebar via Start button
     await openSidebar(window);
 
-    await window.locator('nav').getByRole('button', { name: 'Tables' }).click();
+    await window
+      .locator('nav')
+      .getByRole('button', { name: 'Tables' })
+      .dblclick();
 
     // Should show inline unlock component
     await expect(window.getByTestId('inline-unlock')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
@@ -85,7 +92,10 @@ test.describe('Electron App', () => {
     await openSidebar(window);
 
     // Setup database via SQLite page (using sidebar navigation)
-    await window.locator('nav').getByRole('button', { name: 'SQLite' }).click();
+    await window
+      .locator('nav')
+      .getByRole('button', { name: 'SQLite' })
+      .dblclick();
     await expect(window.getByTestId('database-test')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
 
     // Reset and wait for reset to complete
@@ -109,7 +119,10 @@ test.describe('Electron App', () => {
 
     // Reopen sidebar and navigate to tables page
     await openSidebar(window);
-    await window.locator('nav').getByRole('button', { name: 'Tables' }).click();
+    await window
+      .locator('nav')
+      .getByRole('button', { name: 'Tables' })
+      .dblclick();
     await expect(window.getByRole('heading', {name: 'Tables'})).toBeVisible();
 
     // Should show tables
