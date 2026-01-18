@@ -73,9 +73,7 @@ export function WindowRenderer() {
                 onDimensionsChange={createDimensionsHandler('cache-storage')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
+                initialDimensions={window.dimensions}
               />
             );
           case 'console':
