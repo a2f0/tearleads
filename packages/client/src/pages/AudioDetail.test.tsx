@@ -6,6 +6,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
 import { AudioDetail } from './AudioDetail';
 
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual =
+    await vi.importActual<typeof import('react-router-dom')>(
+      'react-router-dom'
+    );
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate
+  };
+});
+
 // Mock the database context
 const mockUseDatabaseContext = vi.fn();
 vi.mock('@/db/hooks', () => ({
@@ -459,6 +471,60 @@ describe('AudioDetail', () => {
           screen.getByText('Sharing is not supported on this device')
         ).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('delete functionality', () => {
+    it('navigates back to audio list after delete', async () => {
+      const user = userEvent.setup();
+      await renderAudioDetail();
+
+      expect(screen.getByTestId('delete-button')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('delete-button'));
+
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith('/audio');
+      });
+    });
+
+    it('shows error when delete fails', async () => {
+      const consoleSpy = mockConsoleError();
+      mockUpdate.mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockRejectedValue(new Error('Delete failed'))
+        })
+      });
+      const user = userEvent.setup();
+      await renderAudioDetail();
+
+      await user.click(screen.getByTestId('delete-button'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete failed')).toBeInTheDocument();
+      });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete audio:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('thumbnail loading', () => {
+    it('shows album cover when thumbnail is available', async () => {
+      const audioWithThumbnail = {
+        ...TEST_AUDIO,
+        thumbnailPath: '/audio/thumb.jpg'
+      };
+      mockSelect.mockReturnValue(createMockQueryChain([audioWithThumbnail]));
+      mockRetrieve
+        .mockResolvedValueOnce(TEST_AUDIO_DATA)
+        .mockResolvedValueOnce(new Uint8Array([0x01, 0x02]));
+
+      await renderAudioDetail();
+
+      expect(await screen.findByAltText('Album cover')).toBeInTheDocument();
     });
   });
 
