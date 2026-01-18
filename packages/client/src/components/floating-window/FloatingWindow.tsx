@@ -1,6 +1,12 @@
 import { Copy, Minus, Square, X } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState
+} from 'react';
 import type { Corner } from '@/hooks/useFloatingWindow';
 import { useFloatingWindow } from '@/hooks/useFloatingWindow';
 import { cn } from '@/lib/utils';
@@ -69,6 +75,7 @@ export interface FloatingWindowProps {
   onMinimize?: ((dimensions: WindowDimensions) => void) | undefined;
   onDimensionsChange?: ((dimensions: WindowDimensions) => void) | undefined;
   initialDimensions?: WindowDimensions | undefined;
+  fitContent?: boolean | undefined;
   defaultWidth?: number | undefined;
   defaultHeight?: number | undefined;
   defaultX?: number | undefined;
@@ -105,7 +112,8 @@ export function FloatingWindow({
   maxWidthPercent = 0.8,
   maxHeightPercent = 0.8,
   zIndex = 50,
-  onFocus
+  onFocus,
+  fitContent
 }: FloatingWindowProps) {
   const [isDesktop, setIsDesktop] = useState(
     typeof window !== 'undefined' && window.innerWidth >= DESKTOP_BREAKPOINT
@@ -116,6 +124,9 @@ export function FloatingWindow({
   const preMaximizeStateRef = useRef<PreMaximizeState | null>(
     initialDimensions?.preMaximizeDimensions ?? null
   );
+  const hasFitContentRef = useRef(false);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const titleBarRef = useRef<HTMLDivElement | null>(null);
 
   const effectiveDefaultWidth = initialDimensions?.width ?? defaultWidth;
   const effectiveDefaultHeight = initialDimensions?.height ?? defaultHeight;
@@ -151,6 +162,70 @@ export function FloatingWindow({
   });
 
   const dragHandlers = createDragHandlers();
+
+  useLayoutEffect(() => {
+    if (
+      !fitContent ||
+      !isDesktop ||
+      isMaximized ||
+      initialDimensions ||
+      hasFitContentRef.current
+    ) {
+      return;
+    }
+
+    const contentElement = contentRef.current;
+    if (!contentElement) return;
+
+    const measureAndFit = () => {
+      if (hasFitContentRef.current) return;
+      const contentHeight = contentElement.scrollHeight;
+      const contentWidth = contentElement.scrollWidth;
+      if (contentHeight <= 0 || contentWidth <= 0) return;
+
+      const titleBarHeight = titleBarRef.current?.offsetHeight ?? 0;
+      const desiredHeight = Math.ceil(contentHeight + titleBarHeight);
+      const desiredWidth = Math.ceil(contentWidth);
+      const maxWidth = window.innerWidth;
+      const maxHeight = window.innerHeight - FOOTER_HEIGHT;
+
+      const nextWidth = Math.max(minWidth, Math.min(desiredWidth, maxWidth));
+      const nextHeight = Math.max(
+        minHeight,
+        Math.min(desiredHeight, maxHeight)
+      );
+      const nextX = Math.max(
+        0,
+        Math.round((window.innerWidth - nextWidth) / 2)
+      );
+      const nextY = Math.max(0, Math.round((maxHeight - nextHeight) / 2));
+
+      setDimensions(nextWidth, nextHeight, nextX, nextY);
+      onDimensionsChange?.({
+        width: nextWidth,
+        height: nextHeight,
+        x: nextX,
+        y: nextY
+      });
+      hasFitContentRef.current = true;
+    };
+
+    measureAndFit();
+
+    const observer = new ResizeObserver(measureAndFit);
+    observer.observe(contentElement);
+
+    return () => observer.disconnect();
+  }, [
+    fitContent,
+    isDesktop,
+    isMaximized,
+    initialDimensions,
+    minWidth,
+    minHeight,
+    onDimensionsChange,
+    setDimensions
+  ]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -262,6 +337,7 @@ export function FloatingWindow({
           'flex h-7 shrink-0 items-center justify-between border-b bg-muted/50 px-2',
           isDesktop && !isMaximized && 'cursor-grab active:cursor-grabbing'
         )}
+        ref={titleBarRef}
         onMouseDown={
           isDesktop && !isMaximized ? dragHandlers.onMouseDown : undefined
         }
@@ -330,7 +406,9 @@ export function FloatingWindow({
       </div>
 
       {/* Window content */}
-      <div className="flex-1 overflow-auto">{children}</div>
+      <div ref={contentRef} className="flex-1 overflow-auto">
+        {children}
+      </div>
     </div>
   );
 }
