@@ -14,6 +14,7 @@ import { Taskbar } from './components/taskbar';
 import { DesktopBackground } from './components/ui/desktop-background';
 import { WindowRenderer } from './components/window-renderer';
 import { useAppVersion } from './hooks/useAppVersion';
+import { useIsMobile } from './hooks/useIsMobile';
 import { useSSEContext } from './sse';
 
 const sseTooltipKeys = {
@@ -30,9 +31,7 @@ function App() {
   const navigate = useNavigate();
   const isHome = location.pathname === '/';
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== 'undefined' ? window.innerWidth < 1024 : false
-  );
+  const isMobile = useIsMobile();
 
   const handleBack = useCallback(() => {
     if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -43,12 +42,8 @@ function App() {
   }, [navigate]);
 
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    setIsSidebarOpen(false);
+  }, [location.pathname]);
 
   return (
     <div
