@@ -393,4 +393,32 @@ describe('PhotosWindowTableView', () => {
 
     expect(screen.getByText('Loading photos...')).toBeInTheDocument();
   });
+
+  it('opens photo details from the context menu', async () => {
+    const onSelectPhoto = vi.fn();
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(
+      <PhotosWindowTableView refreshToken={0} onSelectPhoto={onSelectPhoto} />
+    );
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Get Info' }));
+
+    expect(onSelectPhoto).toHaveBeenCalledWith('photo-1');
+  });
 });
