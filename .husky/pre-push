@@ -1,7 +1,7 @@
 set -e
 
 # Initialize version managers (rbenv, pyenv, nvm) for non-interactive shells
-. "$(dirname "$0")/../scripts/init-env.sh"
+. "$(dirname "$0")/../tuxedo/init-env.sh"
 
 pnpm lint
 pnpm lint:scripts

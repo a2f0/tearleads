@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Common test helpers for Bats tests
 
-# Get the project root directory (scripts/tests/bats/helpers -> scripts)
-SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)"
-LIB_DIR="$SCRIPTS_DIR/lib"
+# Get the tuxedo directory (tuxedo/tests/bats/helpers -> tuxedo)
+TUXEDO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../" && pwd)"
+LIB_DIR="$TUXEDO_DIR/lib"
 
 # Source the library files
 source_init_env_lib() {

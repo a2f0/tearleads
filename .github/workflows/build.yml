@@ -125,6 +125,14 @@ jobs:
       - name: Lint scripts
         run: pnpm lint:scripts
 
+      - name: Install bats-core
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats
+
+      - name: Test shell scripts
+        run: pnpm test:shell
+
       - name: Lint Markdown
         run: pnpm lint:md
 
