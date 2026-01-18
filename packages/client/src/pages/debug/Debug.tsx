@@ -1,14 +1,17 @@
 import type { PingData } from '@rapid/shared';
 import { Check, Copy } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { API_BASE_URL, api } from '@/lib/api';
 import { detectPlatform } from '@/lib/utils';
 import { InfoRow } from './InfoRow';
 
-export function Debug() {
+interface DebugProps {
+  showTitle?: boolean;
+}
+
+export function Debug({ showTitle = true }: DebugProps) {
   const [ping, setPing] = useState<PingData | null>(null);
   const [pingLoading, setPingLoading] = useState(false);
   const [pingError, setPingError] = useState<string | null>(null);
@@ -97,10 +100,9 @@ export function Debug() {
 
   return (
     <div className="space-y-6 overflow-x-hidden">
-      <div className="space-y-2">
-        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+      {showTitle && (
         <h1 className="font-bold text-2xl tracking-tight">Debug</h1>
-      </div>
+      )}
 
       <div className="space-y-3 rounded-lg border p-4">
         <div className="flex items-center justify-between">
