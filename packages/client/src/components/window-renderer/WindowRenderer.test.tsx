@@ -283,6 +283,41 @@ vi.mock('@/components/contacts-window', () => ({
   )
 }));
 
+vi.mock('@/components/local-storage-window', () => ({
+  LocalStorageWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`local-storage-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 520, height: 420 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/sqlite-window', () => ({
   SqliteWindow: ({
     id,
@@ -1004,6 +1039,32 @@ describe('WindowRenderer', () => {
       y: 0,
       width: 600,
       height: 500
+    });
+  });
+
+  it('renders local storage window for local-storage type', () => {
+    mockWindows = [
+      { id: 'local-storage-1', type: 'local-storage', zIndex: 100 }
+    ];
+    render(<WindowRenderer />, { wrapper });
+    expect(
+      screen.getByTestId('local-storage-window-local-storage-1')
+    ).toBeInTheDocument();
+  });
+
+  it('calls minimizeWindow when local storage minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [
+      { id: 'local-storage-1', type: 'local-storage', zIndex: 100 }
+    ];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-local-storage-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('local-storage-1', {
+      x: 0,
+      y: 0,
+      width: 520,
+      height: 420
     });
   });
 
