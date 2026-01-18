@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { AdminWindow } from '@/components/admin-window';
 import { AnalyticsWindow } from '@/components/analytics-window';
 import { AudioWindow } from '@/components/audio-window';
@@ -6,16 +7,30 @@ import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
 import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
+import type { WindowDimensions } from '@/components/floating-window';
 import { KeychainWindow } from '@/components/keychain-window';
 import { NotesWindow } from '@/components/notes-window';
 import { PhotosWindow } from '@/components/photos-window';
 import { SettingsWindow } from '@/components/settings-window';
 import { SqliteWindow } from '@/components/sqlite-window';
+import type { WindowType } from '@/contexts/WindowManagerContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 
 export function WindowRenderer() {
-  const { windows, closeWindow, focusWindow, minimizeWindow } =
-    useWindowManager();
+  const {
+    windows,
+    closeWindow,
+    focusWindow,
+    minimizeWindow,
+    saveWindowDimensionsForType
+  } = useWindowManager();
+
+  const createDimensionsHandler = useCallback(
+    (type: WindowType) => (dimensions: WindowDimensions) => {
+      saveWindowDimensionsForType(type, dimensions);
+    },
+    [saveWindowDimensionsForType]
+  );
 
   const visibleWindows = windows.filter((w) => !w.isMinimized);
 
@@ -37,6 +52,7 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
+                onDimensionsChange={createDimensionsHandler('notes')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -53,6 +69,7 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
+                onDimensionsChange={createDimensionsHandler('console')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -69,6 +86,7 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
+                onDimensionsChange={createDimensionsHandler('settings')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -85,6 +103,7 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
+                onDimensionsChange={createDimensionsHandler('files')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -101,6 +120,7 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
+                onDimensionsChange={createDimensionsHandler('email')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -117,6 +137,7 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
+                onDimensionsChange={createDimensionsHandler('contacts')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -133,6 +154,7 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
+                onDimensionsChange={createDimensionsHandler('photos')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -149,6 +171,7 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
+                onDimensionsChange={createDimensionsHandler('keychain')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -165,6 +188,7 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
+                onDimensionsChange={createDimensionsHandler('sqlite')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -181,6 +205,7 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
+                onDimensionsChange={createDimensionsHandler('chat')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -197,6 +222,7 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
+                onDimensionsChange={createDimensionsHandler('analytics')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -213,6 +239,7 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
+                onDimensionsChange={createDimensionsHandler('audio')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -229,6 +256,7 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
+                onDimensionsChange={createDimensionsHandler('admin')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {

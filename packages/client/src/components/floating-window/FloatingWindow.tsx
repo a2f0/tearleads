@@ -66,18 +66,19 @@ export interface FloatingWindowProps {
   title: string;
   children: ReactNode;
   onClose: () => void;
-  onMinimize?: (dimensions: WindowDimensions) => void;
-  initialDimensions?: WindowDimensions;
-  defaultWidth?: number;
-  defaultHeight?: number;
-  defaultX?: number;
-  defaultY?: number;
-  minWidth?: number;
-  minHeight?: number;
-  maxWidthPercent?: number;
-  maxHeightPercent?: number;
-  zIndex?: number;
-  onFocus?: () => void;
+  onMinimize?: ((dimensions: WindowDimensions) => void) | undefined;
+  onDimensionsChange?: ((dimensions: WindowDimensions) => void) | undefined;
+  initialDimensions?: WindowDimensions | undefined;
+  defaultWidth?: number | undefined;
+  defaultHeight?: number | undefined;
+  defaultX?: number | undefined;
+  defaultY?: number | undefined;
+  minWidth?: number | undefined;
+  minHeight?: number | undefined;
+  maxWidthPercent?: number | undefined;
+  maxHeightPercent?: number | undefined;
+  zIndex?: number | undefined;
+  onFocus?: (() => void) | undefined;
 }
 
 interface PreMaximizeState {
@@ -93,6 +94,7 @@ export function FloatingWindow({
   children,
   onClose,
   onMinimize,
+  onDimensionsChange,
   initialDimensions,
   defaultWidth = 500,
   defaultHeight = 400,
@@ -144,7 +146,8 @@ export function FloatingWindow({
     minWidth,
     minHeight,
     maxWidthPercent,
-    maxHeightPercent
+    maxHeightPercent,
+    onDimensionsChange
   });
 
   const dragHandlers = createDragHandlers();
@@ -172,21 +175,25 @@ export function FloatingWindow({
           y: prevY
         } = preMaximizeStateRef.current;
         setDimensions(prevWidth, prevHeight, prevX, prevY);
+        onDimensionsChange?.({
+          width: prevWidth,
+          height: prevHeight,
+          x: prevX,
+          y: prevY
+        });
         preMaximizeStateRef.current = null;
       }
       setIsMaximized(false);
     } else {
       // Save current state and maximize (leaving space for footer/taskbar)
       preMaximizeStateRef.current = { width, height, x, y };
-      setDimensions(
-        window.innerWidth,
-        window.innerHeight - FOOTER_HEIGHT,
-        0,
-        0
-      );
+      const maxWidth = window.innerWidth;
+      const maxHeight = window.innerHeight - FOOTER_HEIGHT;
+      setDimensions(maxWidth, maxHeight, 0, 0);
+      onDimensionsChange?.({ width: maxWidth, height: maxHeight, x: 0, y: 0 });
       setIsMaximized(true);
     }
-  }, [isMaximized, width, height, x, y, setDimensions]);
+  }, [isMaximized, width, height, x, y, setDimensions, onDimensionsChange]);
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: Window focus on click
