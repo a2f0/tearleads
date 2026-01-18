@@ -91,7 +91,11 @@ function createMockQueryChain(result: unknown[]) {
 function renderAudioWindowDetail(
   props: { audioId?: string; onBack?: () => void; onDeleted?: () => void } = {}
 ) {
-  const { audioId = 'audio-123', onBack = vi.fn(), onDeleted = vi.fn() } = props;
+  const {
+    audioId = 'audio-123',
+    onBack = vi.fn(),
+    onDeleted = vi.fn()
+  } = props;
   return render(
     <ThemeProvider>
       <AudioWindowDetail
