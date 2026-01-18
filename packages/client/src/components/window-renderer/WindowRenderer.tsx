@@ -8,13 +8,13 @@ import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
 import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
-import { VideoWindow } from '@/components/video-window';
 import type { WindowDimensions } from '@/components/floating-window';
 import { KeychainWindow } from '@/components/keychain-window';
 import { NotesWindow } from '@/components/notes-window';
 import { PhotosWindow } from '@/components/photos-window';
 import { SettingsWindow } from '@/components/settings-window';
 import { SqliteWindow } from '@/components/sqlite-window';
+import { VideoWindow } from '@/components/video-window';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 
