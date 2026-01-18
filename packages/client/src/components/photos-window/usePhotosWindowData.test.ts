@@ -234,8 +234,11 @@ describe('usePhotosWindowData', () => {
     mockRetrieve.mockClear();
     mockIsFileStorageInitialized.mockReturnValue(false);
 
+    const photoRow = photoRows[0];
+    if (!photoRow) throw new Error('Expected photo row for download test');
+
     const data = await result.current.downloadPhoto({
-      ...photoRows[0],
+      ...photoRow,
       objectUrl: 'blob:photo'
     });
 
@@ -259,8 +262,11 @@ describe('usePhotosWindowData', () => {
 
     mockRetrieve.mockClear();
 
+    const photoRow = photoRows[0];
+    if (!photoRow) throw new Error('Expected photo row for share test');
+
     const data = await result.current.sharePhoto({
-      ...photoRows[0],
+      ...photoRow,
       objectUrl: 'blob:photo'
     });
 
