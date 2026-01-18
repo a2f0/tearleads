@@ -15,7 +15,11 @@ vi.mock('@/components/floating-window', () => ({
     onClose: () => void;
     [key: string]: unknown;
   }) => (
-    <div data-testid="floating-window" data-props={JSON.stringify(rest)}>
+    <div
+      data-testid="floating-window"
+      data-props={JSON.stringify(rest)}
+      data-props-keys={JSON.stringify(Object.keys(rest))}
+    >
       <div data-testid="window-title">{title}</div>
       <button type="button" onClick={onClose} data-testid="close-window">
         Close
@@ -77,5 +81,18 @@ describe('DocumentsWindow', () => {
     const window = screen.getByTestId('floating-window');
     const props = JSON.parse(window.dataset['props'] || '{}');
     expect(props.initialDimensions).toEqual(initialDimensions);
+  });
+
+  it('passes onDimensionsChange to FloatingWindow when provided', () => {
+    const onDimensionsChange = vi.fn();
+    render(
+      <DocumentsWindow
+        {...defaultProps}
+        onDimensionsChange={onDimensionsChange}
+      />
+    );
+    const window = screen.getByTestId('floating-window');
+    const propKeys = JSON.parse(window.dataset['propsKeys'] || '[]');
+    expect(propKeys).toContain('onDimensionsChange');
   });
 });
