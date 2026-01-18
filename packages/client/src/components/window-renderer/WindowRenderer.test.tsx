@@ -1052,6 +1052,30 @@ describe('WindowRenderer', () => {
     ).toBeInTheDocument();
   });
 
+  it('calls closeWindow when local storage close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [
+      { id: 'local-storage-1', type: 'local-storage', zIndex: 100 }
+    ];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-local-storage-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('local-storage-1');
+  });
+
+  it('calls focusWindow when local storage window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [
+      { id: 'local-storage-1', type: 'local-storage', zIndex: 100 }
+    ];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(
+      screen.getByTestId('local-storage-window-local-storage-1')
+    );
+    expect(mockFocusWindow).toHaveBeenCalledWith('local-storage-1');
+  });
+
   it('calls minimizeWindow when local storage minimize button is clicked', async () => {
     const user = userEvent.setup();
     mockWindows = [
