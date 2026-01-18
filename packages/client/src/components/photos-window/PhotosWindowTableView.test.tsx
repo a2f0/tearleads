@@ -243,4 +243,28 @@ describe('PhotosWindowTableView', () => {
     rows = screen.getAllByRole('row');
     expect(rows[1]?.textContent).toContain('b.jpg');
   });
+
+  it('shows fallback type for unknown image mime types', () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [
+        {
+          ...photo,
+          id: 'photo-3',
+          name: 'scan.tiff',
+          mimeType: 'image/tiff'
+        }
+      ],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    expect(screen.getByText('TIFF')).toBeInTheDocument();
+  });
 });
