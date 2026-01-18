@@ -1,4 +1,3 @@
-import { eq } from 'drizzle-orm';
 import {
   ChevronDown,
   ChevronUp,
@@ -11,17 +10,9 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
-import { getDatabase } from '@/db';
-import { getKeyManager } from '@/db/crypto';
-import { files } from '@/db/schema';
 import { useTypedTranslation } from '@/i18n';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { formatFileSize } from '@/lib/utils';
-import {
-  getFileStorage,
-  initializeFileStorage,
-  isFileStorageInitialized
-} from '@/storage/opfs';
 import { type PhotoWithUrl, usePhotosWindowData } from './usePhotosWindowData';
 
 type SortColumn = 'name' | 'size' | 'mimeType' | 'uploadDate';
@@ -102,8 +93,9 @@ export function PhotosWindowTableView({
     hasFetched,
     isUnlocked,
     isLoading,
-    refresh,
-    currentInstanceId
+    deletePhoto,
+    downloadPhoto,
+    sharePhoto
   } = usePhotosWindowData({ refreshToken });
   const [contextMenu, setContextMenu] = useState<{
     photo: PhotoWithUrl;
@@ -170,55 +162,30 @@ export function PhotosWindowTableView({
     if (!contextMenu) return;
 
     try {
-      const db = getDatabase();
-      await db
-        .update(files)
-        .set({ deleted: true })
-        .where(eq(files.id, contextMenu.photo.id));
-      await refresh();
+      await deletePhoto(contextMenu.photo.id);
     } catch (err) {
       console.error('Failed to delete photo:', err);
     } finally {
       setContextMenu(null);
     }
-  }, [contextMenu, refresh]);
+  }, [contextMenu, deletePhoto]);
 
   const handleDownload = useCallback(
     async (photo: PhotoWithUrl) => {
       try {
-        const keyManager = getKeyManager();
-        const encryptionKey = keyManager.getCurrentKey();
-        if (!encryptionKey) throw new Error('Database not unlocked');
-        if (!currentInstanceId) throw new Error('No active instance');
-
-        if (!isFileStorageInitialized(currentInstanceId)) {
-          await initializeFileStorage(encryptionKey, currentInstanceId);
-        }
-
-        const storage = getFileStorage();
-        const data = await storage.retrieve(photo.storagePath);
+        const data = await downloadPhoto(photo);
         downloadFile(data, photo.name);
       } catch (err) {
         console.error('Failed to download photo:', err);
       }
     },
-    [currentInstanceId]
+    [downloadPhoto]
   );
 
   const handleShare = useCallback(
     async (photo: PhotoWithUrl) => {
       try {
-        const keyManager = getKeyManager();
-        const encryptionKey = keyManager.getCurrentKey();
-        if (!encryptionKey) throw new Error('Database not unlocked');
-        if (!currentInstanceId) throw new Error('No active instance');
-
-        if (!isFileStorageInitialized(currentInstanceId)) {
-          await initializeFileStorage(encryptionKey, currentInstanceId);
-        }
-
-        const storage = getFileStorage();
-        const data = await storage.retrieve(photo.storagePath);
+        const data = await sharePhoto(photo);
         await shareFile(data, photo.name, photo.mimeType);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
@@ -316,7 +283,7 @@ export function PhotosWindowTableView({
                         <div className="flex items-center gap-1.5">
                           <img
                             src={photo.objectUrl}
-                            alt=""
+                            alt={photo.name}
                             className="h-5 w-5 shrink-0 rounded object-cover"
                           />
                           <span className="truncate">{photo.name}</span>
@@ -363,7 +330,7 @@ export function PhotosWindowTableView({
               icon={<Share2 className="h-4 w-4" />}
               onClick={() => handleShare(contextMenu.photo)}
             >
-              Share
+              {t('share')}
             </ContextMenuItem>
           )}
           <ContextMenuItem

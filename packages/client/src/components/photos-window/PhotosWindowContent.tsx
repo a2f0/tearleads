@@ -1,5 +1,4 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { eq } from 'drizzle-orm';
 import { Download, ImageIcon, Info, Share2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -7,18 +6,10 @@ import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { ListRow } from '@/components/ui/list-row';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
-import { getDatabase } from '@/db';
-import { getKeyManager } from '@/db/crypto';
-import { files } from '@/db/schema';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { formatFileSize } from '@/lib/utils';
-import {
-  getFileStorage,
-  initializeFileStorage,
-  isFileStorageInitialized
-} from '@/storage/opfs';
 import { type PhotoWithUrl, usePhotosWindowData } from './usePhotosWindowData';
 
 const ROW_HEIGHT_ESTIMATE = 72;
@@ -40,8 +31,9 @@ export function PhotosWindowContent({
     hasFetched,
     isUnlocked,
     isLoading,
-    refresh,
-    currentInstanceId
+    deletePhoto,
+    downloadPhoto,
+    sharePhoto
   } = usePhotosWindowData({ refreshToken });
   const [contextMenu, setContextMenu] = useState<{
     photo: PhotoWithUrl;
@@ -94,42 +86,26 @@ export function PhotosWindowContent({
     if (!contextMenu) return;
 
     try {
-      const db = getDatabase();
-      await db
-        .update(files)
-        .set({ deleted: true })
-        .where(eq(files.id, contextMenu.photo.id));
-      await refresh();
+      await deletePhoto(contextMenu.photo.id);
     } catch (err) {
       console.error('Failed to delete photo:', err);
     } finally {
       setContextMenu(null);
     }
-  }, [contextMenu, refresh]);
+  }, [contextMenu, deletePhoto]);
 
   const handleDownload = useCallback(
     async (photo: PhotoWithUrl, event?: React.MouseEvent) => {
       event?.stopPropagation();
 
       try {
-        const keyManager = getKeyManager();
-        const encryptionKey = keyManager.getCurrentKey();
-        if (!encryptionKey) throw new Error('Database not unlocked');
-
-        if (!currentInstanceId) throw new Error('No active instance');
-
-        if (!isFileStorageInitialized(currentInstanceId)) {
-          await initializeFileStorage(encryptionKey, currentInstanceId);
-        }
-
-        const storage = getFileStorage();
-        const data = await storage.retrieve(photo.storagePath);
+        const data = await downloadPhoto(photo);
         downloadFile(data, photo.name);
       } catch (err) {
         console.error('Failed to download photo:', err);
       }
     },
-    [currentInstanceId]
+    [downloadPhoto]
   );
 
   const handleShare = useCallback(
@@ -137,18 +113,7 @@ export function PhotosWindowContent({
       event?.stopPropagation();
 
       try {
-        const keyManager = getKeyManager();
-        const encryptionKey = keyManager.getCurrentKey();
-        if (!encryptionKey) throw new Error('Database not unlocked');
-
-        if (!currentInstanceId) throw new Error('No active instance');
-
-        if (!isFileStorageInitialized(currentInstanceId)) {
-          await initializeFileStorage(encryptionKey, currentInstanceId);
-        }
-
-        const storage = getFileStorage();
-        const data = await storage.retrieve(photo.storagePath);
+        const data = await sharePhoto(photo);
         await shareFile(data, photo.name, photo.mimeType);
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
@@ -230,7 +195,7 @@ export function PhotosWindowContent({
                             >
                               <img
                                 src={photo.objectUrl}
-                                alt=""
+                                alt={photo.name}
                                 className="h-10 w-10 shrink-0 rounded object-cover"
                               />
                               <div className="min-w-0 flex-1">
@@ -302,7 +267,7 @@ export function PhotosWindowContent({
               icon={<Share2 className="h-4 w-4" />}
               onClick={() => handleShare(contextMenu.photo)}
             >
-              Share
+              {t('share')}
             </ContextMenuItem>
           )}
           <ContextMenuItem
