@@ -1,0 +1,1 @@
+export { DocumentsWindow } from './DocumentsWindow';
