@@ -6,6 +6,7 @@ import { CacheStorageWindow } from '@/components/cache-storage-window';
 import { ChatWindow } from '@/components/chat-window';
 import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
+import { DebugWindow } from '@/components/debug-window';
 import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
 import type { WindowDimensions } from '@/components/floating-window';
@@ -128,16 +129,16 @@ export function WindowRenderer() {
                 })}
               />
             );
-          case 'videos':
+          case 'debug':
             return (
-              <VideoWindow
+              <DebugWindow
                 key={window.id}
                 id={window.id}
                 onClose={() => closeWindow(window.id)}
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler('videos')}
+                onDimensionsChange={createDimensionsHandler('debug')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
