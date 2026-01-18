@@ -69,7 +69,7 @@ function App() {
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                    className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-muted-foreground text-sm hover:text-foreground"
                     aria-label="Go back"
                     data-testid="mobile-back-button"
                   >
@@ -79,9 +79,9 @@ function App() {
                 )}
               </div>
               <div className="flex items-center gap-1">
-              <MobileMenu />
-              <SettingsButton />
-              <AccountSwitcher />
+                <MobileMenu />
+                <SettingsButton />
+                <AccountSwitcher />
               </div>
             </div>
           </header>
