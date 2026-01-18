@@ -4,7 +4,6 @@ import {
   Bug,
   Database,
   FileIcon,
-  Film,
   ImageIcon,
   KeyRound,
   Mail,
