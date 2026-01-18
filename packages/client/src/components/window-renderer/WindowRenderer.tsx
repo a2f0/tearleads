@@ -2,6 +2,7 @@ import { type ComponentType, useCallback } from 'react';
 import { AdminWindow } from '@/components/admin-window';
 import { AnalyticsWindow } from '@/components/analytics-window';
 import { AudioWindow } from '@/components/audio-window';
+import { CacheStorageWindow } from '@/components/cache-storage-window';
 import { ChatWindow } from '@/components/chat-window';
 import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
@@ -45,7 +46,8 @@ const WINDOW_COMPONENTS: Record<
   chat: ChatWindow,
   analytics: AnalyticsWindow,
   audio: AudioWindow,
-  admin: AdminWindow
+  admin: AdminWindow,
+  'cache-storage': CacheStorageWindow
 };
 
 export function WindowRenderer() {
