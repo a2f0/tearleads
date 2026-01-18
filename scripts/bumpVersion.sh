@@ -43,27 +43,40 @@ UI_CHANGED=false
 CHROME_EXT_CHANGED=false
 WEBSITE_CHANGED=false
 
-if has_changes "packages/api"; then
-  API_CHANGED=true
-fi
+has_changes "packages/api" && API_CHANGED=true
+has_changes "packages/client" && CLIENT_CHANGED=true
+has_changes "packages/ui" && UI_CHANGED=true
+has_changes "packages/chrome-extension" && CHROME_EXT_CHANGED=true
+has_changes "packages/website" && WEBSITE_CHANGED=true
 
-if has_changes "packages/client"; then
-  CLIENT_CHANGED=true
-fi
+bump_npm_package_version() {
+  PKG_LABEL="$1"
+  PKG_PATH="$2"
+  PKG_CHANGED="$3"
+  PKG_DIR_NAME=$(basename "$(dirname "$PKG_PATH")")
 
-if has_changes "packages/ui"; then
-  UI_CHANGED=true
-fi
+  if [ "$PKG_CHANGED" != "true" ]; then
+    printf "  %-12s: %s\n" "$PKG_LABEL" "no changes in packages/$PKG_DIR_NAME (skipping)"
+    return
+  fi
 
-if has_changes "packages/chrome-extension"; then
-  CHROME_EXT_CHANGED=true
-fi
+  CURRENT_VERSION=$(jq -r '.version' "$PKG_PATH")
+  MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+  MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+  PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+  NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
 
-if has_changes "packages/website"; then
-  WEBSITE_CHANGED=true
-fi
+  printf "  %-12s: %s -> %s\n" "$PKG_LABEL" "$CURRENT_VERSION" "$NEW_VERSION"
 
-echo "Bumping versions (base: $BASE_BRANCH):"
+  if [ "$DRY_RUN" = "true" ]; then
+    printf "  (dry-run) Update %s version\n" "$PKG_PATH"
+  else
+    TMP_FILE=$(mktemp)
+    jq --arg v "$NEW_VERSION" '.version = $v' "$PKG_PATH" > "$TMP_FILE" && mv "$TMP_FILE" "$PKG_PATH"
+  fi
+}
+
+printf "Bumping versions (base: %s):\n" "$BASE_BRANCH"
 
 if [ "$CLIENT_CHANGED" = "true" ]; then
   # Get current Android versionCode and versionName
@@ -87,14 +100,14 @@ if [ "$CLIENT_CHANGED" = "true" ]; then
   NEW_CLIENT_PATCH=$((CLIENT_PATCH + 1))
   NEW_CLIENT_VERSION="$CLIENT_MAJOR.$CLIENT_MINOR.$NEW_CLIENT_PATCH"
 
-  echo "  Android:    $ANDROID_VERSION -> $NEW_ANDROID_VERSION"
-  echo "  iOS:        $IOS_VERSION -> $NEW_IOS_VERSION"
-  echo "  Client:     $CLIENT_VERSION -> $NEW_CLIENT_VERSION"
+  printf "  %-12s: %s -> %s\n" "Android" "$ANDROID_VERSION" "$NEW_ANDROID_VERSION"
+  printf "  %-12s: %s -> %s\n" "iOS" "$IOS_VERSION" "$NEW_IOS_VERSION"
+  printf "  %-12s: %s -> %s\n" "Client" "$CLIENT_VERSION" "$NEW_CLIENT_VERSION"
 
   if [ "$DRY_RUN" = "true" ]; then
-    echo "  (dry-run) Update Android versionCode/versionName"
-    echo "  (dry-run) Update iOS CURRENT_PROJECT_VERSION"
-    echo "  (dry-run) Update packages/client/package.json version"
+    printf "  (dry-run) Update Android versionCode/versionName\n"
+    printf "  (dry-run) Update iOS CURRENT_PROJECT_VERSION\n"
+    printf "  (dry-run) Update packages/client/package.json version\n"
   else
     # Update Android versionCode and versionName (using dynamic prefix)
     sedi "s/versionCode $ANDROID_VERSION/versionCode $NEW_ANDROID_VERSION/" "$ANDROID_GRADLE"
@@ -108,70 +121,12 @@ if [ "$CLIENT_CHANGED" = "true" ]; then
     jq --arg v "$NEW_CLIENT_VERSION" '.version = $v' "$CLIENT_PACKAGE" > "$TMP_FILE" && mv "$TMP_FILE" "$CLIENT_PACKAGE"
   fi
 else
-  echo "  Client:     no changes in packages/client (skipping)"
+  printf "  %-12s: %s\n" "Client" "no changes in packages/client (skipping)"
 fi
 
-if [ "$API_CHANGED" = "true" ]; then
-  # Get current API version using jq (more robust than sed for JSON)
-  API_VERSION=$(jq -r '.version' "$API_PACKAGE")
-  API_MAJOR=$(echo "$API_VERSION" | cut -d. -f1)
-  API_MINOR=$(echo "$API_VERSION" | cut -d. -f2)
-  API_PATCH=$(echo "$API_VERSION" | cut -d. -f3)
-  NEW_API_PATCH=$((API_PATCH + 1))
-  NEW_API_VERSION="$API_MAJOR.$API_MINOR.$NEW_API_PATCH"
-
-  echo "  API:        $API_VERSION -> $NEW_API_VERSION"
-
-  if [ "$DRY_RUN" = "true" ]; then
-    echo "  (dry-run) Update packages/api/package.json version"
-  else
-    # Update API version using jq (more robust than sed for JSON)
-    TMP_FILE=$(mktemp)
-    jq --arg v "$NEW_API_VERSION" '.version = $v' "$API_PACKAGE" > "$TMP_FILE" && mv "$TMP_FILE" "$API_PACKAGE"
-  fi
-else
-  echo "  API:        no changes in packages/api (skipping)"
-fi
-
-if [ "$UI_CHANGED" = "true" ]; then
-  UI_VERSION=$(jq -r '.version' "$UI_PACKAGE")
-  UI_MAJOR=$(echo "$UI_VERSION" | cut -d. -f1)
-  UI_MINOR=$(echo "$UI_VERSION" | cut -d. -f2)
-  UI_PATCH=$(echo "$UI_VERSION" | cut -d. -f3)
-  NEW_UI_PATCH=$((UI_PATCH + 1))
-  NEW_UI_VERSION="$UI_MAJOR.$UI_MINOR.$NEW_UI_PATCH"
-
-  echo "  UI:         $UI_VERSION -> $NEW_UI_VERSION"
-
-  if [ "$DRY_RUN" = "true" ]; then
-    echo "  (dry-run) Update packages/ui/package.json version"
-  else
-    TMP_FILE=$(mktemp)
-    jq --arg v "$NEW_UI_VERSION" '.version = $v' "$UI_PACKAGE" > "$TMP_FILE" && mv "$TMP_FILE" "$UI_PACKAGE"
-  fi
-else
-  echo "  UI:         no changes in packages/ui (skipping)"
-fi
-
-if [ "$WEBSITE_CHANGED" = "true" ]; then
-  WEBSITE_VERSION=$(jq -r '.version' "$WEBSITE_PACKAGE")
-  WEBSITE_MAJOR=$(echo "$WEBSITE_VERSION" | cut -d. -f1)
-  WEBSITE_MINOR=$(echo "$WEBSITE_VERSION" | cut -d. -f2)
-  WEBSITE_PATCH=$(echo "$WEBSITE_VERSION" | cut -d. -f3)
-  NEW_WEBSITE_PATCH=$((WEBSITE_PATCH + 1))
-  NEW_WEBSITE_VERSION="$WEBSITE_MAJOR.$WEBSITE_MINOR.$NEW_WEBSITE_PATCH"
-
-  echo "  Website:    $WEBSITE_VERSION -> $NEW_WEBSITE_VERSION"
-
-  if [ "$DRY_RUN" = "true" ]; then
-    echo "  (dry-run) Update packages/website/package.json version"
-  else
-    TMP_FILE=$(mktemp)
-    jq --arg v "$NEW_WEBSITE_VERSION" '.version = $v' "$WEBSITE_PACKAGE" > "$TMP_FILE" && mv "$TMP_FILE" "$WEBSITE_PACKAGE"
-  fi
-else
-  echo "  Website:    no changes in packages/website (skipping)"
-fi
+bump_npm_package_version "API" "$API_PACKAGE" "$API_CHANGED"
+bump_npm_package_version "UI" "$UI_PACKAGE" "$UI_CHANGED"
+bump_npm_package_version "Website" "$WEBSITE_PACKAGE" "$WEBSITE_CHANGED"
 
 if [ "$CHROME_EXT_CHANGED" = "true" ]; then
   # Get current Chrome Extension version using jq
@@ -182,11 +137,11 @@ if [ "$CHROME_EXT_CHANGED" = "true" ]; then
   NEW_CHROME_EXT_PATCH=$((CHROME_EXT_PATCH + 1))
   NEW_CHROME_EXT_VERSION="$CHROME_EXT_MAJOR.$CHROME_EXT_MINOR.$NEW_CHROME_EXT_PATCH"
 
-  echo "  Chrome Ext: $CHROME_EXT_VERSION -> $NEW_CHROME_EXT_VERSION"
+  printf "  %-12s: %s -> %s\n" "Chrome Ext" "$CHROME_EXT_VERSION" "$NEW_CHROME_EXT_VERSION"
 
   if [ "$DRY_RUN" = "true" ]; then
-    echo "  (dry-run) Update packages/chrome-extension/package.json version"
-    echo "  (dry-run) Update packages/chrome-extension/public/manifest.json version"
+    printf "  (dry-run) Update packages/chrome-extension/package.json version\n"
+    printf "  (dry-run) Update packages/chrome-extension/public/manifest.json version\n"
   else
     # Update Chrome Extension version using jq (both package.json and manifest.json)
     TMP_FILE=$(mktemp)
@@ -195,7 +150,7 @@ if [ "$CHROME_EXT_CHANGED" = "true" ]; then
     jq --arg v "$NEW_CHROME_EXT_VERSION" '.version = $v' "$CHROME_EXT_MANIFEST" > "$TMP_FILE" && mv "$TMP_FILE" "$CHROME_EXT_MANIFEST"
   fi
 else
-  echo "  Chrome Ext: no changes in packages/chrome-extension (skipping)"
+  printf "  %-12s: %s\n" "Chrome Ext" "no changes in packages/chrome-extension (skipping)"
 fi
 
 echo "Done."
