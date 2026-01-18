@@ -38,6 +38,7 @@ const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/chat': 'chat',
   '/analytics': 'analytics',
   '/audio': 'audio',
+  '/models': 'models',
   '/admin': 'admin',
   '/cache-storage': 'cache-storage',
   '/local-storage': 'local-storage'
