@@ -111,14 +111,14 @@ describe('Home', () => {
     expect(icons.length).toBeGreaterThan(0);
   });
 
-  it('navigates on double-click for icons without floating window support', async () => {
+  it('opens floating window on double-click for Documents icon', async () => {
     const user = userEvent.setup();
     renderHome();
 
     const documentsButton = screen.getByRole('button', { name: 'Documents' });
     await user.dblClick(documentsButton);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/documents');
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('opens floating window on double-click for Notes icon', async () => {
