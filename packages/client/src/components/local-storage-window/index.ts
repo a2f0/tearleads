@@ -1,0 +1,1 @@
+export { LocalStorageWindow } from './LocalStorageWindow';
