@@ -1,4 +1,5 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -25,16 +26,18 @@ vi.mock('@/lib/utils', async () => {
   };
 });
 
-function renderDebugRaw() {
+type DebugProps = ComponentProps<typeof Debug>;
+
+function renderDebugRaw(props?: DebugProps) {
   return render(
     <MemoryRouter>
-      <Debug />
+      <Debug {...props} />
     </MemoryRouter>
   );
 }
 
-async function renderDebug() {
-  const result = renderDebugRaw();
+async function renderDebug(props?: DebugProps) {
+  const result = renderDebugRaw(props);
   // Wait for initial async effects (fetchPing) to complete
   await waitFor(() => {
     expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -53,6 +56,14 @@ describe('Debug', () => {
       await renderDebug();
 
       expect(screen.getByText('Debug')).toBeInTheDocument();
+    });
+
+    it('hides the page title when showTitle is false', async () => {
+      await renderDebug({ showTitle: false });
+
+      expect(
+        screen.queryByRole('heading', { name: 'Debug' })
+      ).not.toBeInTheDocument();
     });
 
     it('renders system info section with all device and environment info', async () => {
