@@ -85,6 +85,12 @@ sudo systemctl cat rapid-smtp-listener
 
 ## Testing Inbound Email
 
+For local development, you can send a message directly to your workstation's listener:
+
+```bash
+SMTP_TO=test@localhost ./scripts/deliverMail.sh
+```
+
 ```bash
 # Install swaks (Swiss Army Knife for SMTP)
 # macOS: brew install swaks
