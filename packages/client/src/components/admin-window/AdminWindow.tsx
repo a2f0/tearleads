@@ -9,15 +9,17 @@ interface AdminWindowProps {
   id: string;
   onClose: () => void;
   onMinimize: (dimensions: WindowDimensions) => void;
+  onDimensionsChange?: ((dimensions: WindowDimensions) => void) | undefined;
   onFocus: () => void;
   zIndex: number;
-  initialDimensions?: WindowDimensions;
+  initialDimensions?: WindowDimensions | undefined;
 }
 
 export function AdminWindow({
   id,
   onClose,
   onMinimize,
+  onDimensionsChange,
   onFocus,
   zIndex,
   initialDimensions
@@ -30,6 +32,7 @@ export function AdminWindow({
       title="Admin"
       onClose={onClose}
       onMinimize={onMinimize}
+      onDimensionsChange={onDimensionsChange}
       onFocus={onFocus}
       zIndex={zIndex}
       {...(initialDimensions && { initialDimensions })}

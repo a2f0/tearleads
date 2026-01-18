@@ -6,6 +6,10 @@ import {
   useMemo,
   useState
 } from 'react';
+import {
+  loadWindowDimensions,
+  saveWindowDimensions
+} from '@/lib/windowDimensionsStorage';
 
 export type WindowType =
   | 'notes'
@@ -45,6 +49,10 @@ interface WindowManagerContextValue {
   minimizeWindow: (id: string, dimensions?: WindowDimensions) => void;
   restoreWindow: (id: string) => void;
   updateWindowDimensions: (id: string, dimensions: WindowDimensions) => void;
+  saveWindowDimensionsForType: (
+    type: WindowType,
+    dimensions: WindowDimensions
+  ) => void;
   isWindowOpen: (type: WindowType, id?: string) => boolean;
   getWindow: (id: string) => WindowInstance | undefined;
 }
@@ -69,6 +77,9 @@ export function WindowManagerProvider({
     (type: WindowType, customId?: string): string => {
       const id = customId ?? `${type}-${crypto.randomUUID()}`;
 
+      // Load saved dimensions for this window type
+      const savedDimensions = loadWindowDimensions(type);
+
       setWindows((prev) => {
         const existing = prev.find((w) => w.id === id);
         if (existing) {
@@ -81,7 +92,8 @@ export function WindowManagerProvider({
             id,
             type,
             zIndex: nextZIndex,
-            isMinimized: false
+            isMinimized: false,
+            ...(savedDimensions && { dimensions: savedDimensions })
           }
         ];
       });
@@ -147,6 +159,13 @@ export function WindowManagerProvider({
     []
   );
 
+  const saveWindowDimensionsForType = useCallback(
+    (type: WindowType, dimensions: WindowDimensions) => {
+      saveWindowDimensions(type, dimensions);
+    },
+    []
+  );
+
   const isWindowOpen = useCallback(
     (type: WindowType, id?: string): boolean => {
       if (id) {
@@ -173,6 +192,7 @@ export function WindowManagerProvider({
       minimizeWindow,
       restoreWindow,
       updateWindowDimensions,
+      saveWindowDimensionsForType,
       isWindowOpen,
       getWindow
     }),
@@ -184,6 +204,7 @@ export function WindowManagerProvider({
       minimizeWindow,
       restoreWindow,
       updateWindowDimensions,
+      saveWindowDimensionsForType,
       isWindowOpen,
       getWindow
     ]
