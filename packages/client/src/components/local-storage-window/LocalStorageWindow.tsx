@@ -45,7 +45,10 @@ export function LocalStorageWindow({
       minHeight={350}
     >
       <div className="flex h-full flex-col">
-        <LocalStorageWindowMenuBar onRefresh={handleRefresh} onClose={onClose} />
+        <LocalStorageWindowMenuBar
+          onRefresh={handleRefresh}
+          onClose={onClose}
+        />
         <div className="flex-1 overflow-auto p-4" key={refreshKey}>
           <LocalStorage />
         </div>
