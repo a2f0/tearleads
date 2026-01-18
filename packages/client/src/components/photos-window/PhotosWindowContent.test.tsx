@@ -227,6 +227,31 @@ describe('PhotosWindowContent', () => {
     expect(mockShareFile).toHaveBeenCalled();
   });
 
+  it('handles missing instance id during download', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: null
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowContent refreshToken={0} />);
+
+    await user.click(screen.getByTitle('Download'));
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to download photo:',
+      expect.any(Error)
+    );
+    consoleSpy.mockRestore();
+  });
+
   it('renders the unlock prompt when database is locked', () => {
     mockUsePhotosWindowData.mockReturnValue({
       photos: [],
