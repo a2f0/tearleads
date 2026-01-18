@@ -144,7 +144,7 @@ test.describe('Instance Switching (Electron)', () => {
     await window
       .locator('nav')
       .getByRole('button', { name: 'SQLite' })
-      .dblclick();
+      .click();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Delete all other instances to ensure test isolation
@@ -315,7 +315,7 @@ test.describe('Instance Switching (Electron)', () => {
     await window
       .locator('nav')
       .getByRole('button', { name: 'SQLite' })
-      .dblclick();
+      .click();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Should start on the last active instance (second instance)

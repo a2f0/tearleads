@@ -36,7 +36,7 @@ test.describe('Database (Electron)', () => {
     await window
       .locator('nav')
       .getByRole('button', { name: 'SQLite' })
-      .dblclick();
+      .click();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Reset the database to ensure clean state
@@ -248,7 +248,7 @@ test.describe('Database (Electron)', () => {
     await window
       .locator('nav')
       .getByRole('button', { name: 'SQLite' })
-      .dblclick();
+      .click();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Database should be in "Locked" state (set up but not unlocked)
@@ -391,7 +391,7 @@ test.describe('Database (Electron)', () => {
     await window
       .locator('nav')
       .getByRole('button', { name: 'SQLite' })
-      .dblclick();
+      .click();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Database should be in "Locked" state
