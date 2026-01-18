@@ -33,9 +33,9 @@ class TestErrorBoundary extends Component<
   { onError: (error: Error) => void; children: ReactNode },
   { hasError: boolean }
 > {
-  state = { hasError: false };
+  override state = { hasError: false };
 
-  static override getDerivedStateFromError() {
+  static getDerivedStateFromError() {
     return { hasError: true };
   }
 
