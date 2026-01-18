@@ -70,9 +70,7 @@ describe('CacheStorageWindow', () => {
 
   it('renders the cache storage content', () => {
     render(<CacheStorageWindow {...defaultProps} />);
-    expect(
-      screen.getByTestId('cache-storage-content')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('cache-storage-content')).toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', async () => {
