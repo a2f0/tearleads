@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { ContactsWindowNew } from './ContactsWindowNew';
 
 const mockDatabaseState = {
@@ -242,6 +243,7 @@ describe('ContactsWindowNew', () => {
 
   it('handles save error gracefully', async () => {
     mockDb.values.mockRejectedValueOnce(new Error('Database error'));
+    const consoleSpy = mockConsoleError();
     const user = userEvent.setup();
     render(<ContactsWindowNew {...defaultProps} />);
 
@@ -253,6 +255,11 @@ describe('ContactsWindowNew', () => {
     await waitFor(() => {
       expect(screen.getByText('Database error')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to create contact:',
+      expect.any(Error)
+    );
   });
 
   it('allows entering email label', async () => {

@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { PhotosWindowDetail } from './PhotosWindowDetail';
 
 // Create mutable mock state
@@ -223,6 +224,7 @@ describe('PhotosWindowDetail', () => {
   });
 
   it('shows error when fetch fails', async () => {
+    const consoleSpy = mockConsoleError();
     shouldResolve = true;
     limitResult = Promise.reject(new Error('Database error'));
 
@@ -233,6 +235,11 @@ describe('PhotosWindowDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('Database error')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch photo:',
+      expect.any(Error)
+    );
   });
 
   it('renders delete button when photo is loaded', async () => {
@@ -583,6 +590,7 @@ describe('PhotosWindowDetail', () => {
     limitResult = [mockPhoto];
     setMockCanShare(true);
     mockShareFile.mockRejectedValue('String error');
+    const consoleSpy = mockConsoleError();
     const user = userEvent.setup();
 
     await act(async () => {
@@ -598,6 +606,11 @@ describe('PhotosWindowDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('String error')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to share photo:',
+      'String error'
+    );
   });
 
   it('handles download error with non-Error object', async () => {
@@ -606,6 +619,7 @@ describe('PhotosWindowDetail', () => {
     mockDownloadFile.mockImplementation(() => {
       throw 'Download string error';
     });
+    const consoleSpy = mockConsoleError();
     const user = userEvent.setup();
 
     await act(async () => {
@@ -621,11 +635,17 @@ describe('PhotosWindowDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('Download string error')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to download photo:',
+      'Download string error'
+    );
   });
 
   it('handles fetch error with non-Error object', async () => {
     shouldResolve = true;
     limitResult = Promise.reject('Fetch string error');
+    const consoleSpy = mockConsoleError();
 
     await act(async () => {
       render(<PhotosWindowDetail {...defaultProps} />);
@@ -634,5 +654,10 @@ describe('PhotosWindowDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('Fetch string error')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch photo:',
+      'Fetch string error'
+    );
   });
 });
