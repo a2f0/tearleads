@@ -1,6 +1,7 @@
 import type { PingData } from '@rapid/shared';
 import { Check, Copy } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { API_BASE_URL, api } from '@/lib/api';
@@ -96,7 +97,10 @@ export function Debug() {
 
   return (
     <div className="space-y-6 overflow-x-hidden">
-      <h1 className="font-bold text-2xl tracking-tight">Debug</h1>
+      <div className="space-y-2">
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        <h1 className="font-bold text-2xl tracking-tight">Debug</h1>
+      </div>
 
       <div className="space-y-3 rounded-lg border p-4">
         <div className="flex items-center justify-between">

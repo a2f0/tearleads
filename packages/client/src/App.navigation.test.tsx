@@ -110,11 +110,21 @@ vi.mock('@/storage', () => ({
   })
 }));
 
-function renderAppWithRoutes(initialPath = '/') {
+interface RenderAppOptions {
+  entries?: string[];
+  initialIndex?: number;
+}
+
+function renderAppWithRoutes(
+  initialPath = '/',
+  { entries, initialIndex = 0 }: RenderAppOptions = {}
+) {
+  const initialEntries = entries ?? [initialPath];
+  const entryIndex = entries ? initialIndex : 0;
   return render(
     <ThemeProvider>
       <WindowManagerProvider>
-        <MemoryRouter initialEntries={[initialPath]}>
+        <MemoryRouter initialEntries={initialEntries} initialIndex={entryIndex}>
           <Routes>
             <Route path="/" element={<App />}>
               <Route index element={<Home />} />
