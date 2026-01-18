@@ -34,6 +34,7 @@ const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/videos': 'videos',
   '/keychain': 'keychain',
   '/sqlite': 'sqlite',
+  '/opfs': 'opfs',
   '/chat': 'chat',
   '/analytics': 'analytics',
   '/audio': 'audio',
