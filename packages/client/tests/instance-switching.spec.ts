@@ -399,42 +399,6 @@ async function switchToInstanceFromAnyPage(page: Page, instanceIndex: number) {
   await instanceItems.nth(instanceIndex).click();
 }
 
-// Helper to unlock on the current page if it's locked
-async function unlockOnPageIfLocked(page: Page) {
-  // Wait for page state to stabilize after instance switch
-  // Either the inline unlock will appear (locked) or files will load (unlocked)
-  const inlineUnlock = page.getByTestId('inline-unlock');
-  const filesList = page.getByText('No files found').or(page.locator('button[title="Download"]').first());
-
-  // Wait for either unlock form or files to be ready (longer timeout for instance switch)
-  try {
-    await Promise.race([
-      expect(inlineUnlock).toBeVisible({ timeout: DB_OPERATION_TIMEOUT }),
-      expect(filesList).toBeVisible({ timeout: DB_OPERATION_TIMEOUT })
-    ]);
-  } catch {
-    // If neither appears, the page might be in a loading state - continue
-  }
-
-  // Now check specifically for the password input
-  const inlineUnlockPassword = page.getByTestId('inline-unlock-password');
-  const hasInlineUnlock = await inlineUnlockPassword
-    .isVisible({ timeout: 1000 })
-    .catch(() => false);
-
-  if (hasInlineUnlock) {
-    await inlineUnlockPassword.fill(TEST_PASSWORD);
-    const unlockButton = page.getByTestId('inline-unlock-button');
-    await unlockButton.click();
-    // Wait for unlock to complete (password input should disappear)
-    await expect(inlineUnlockPassword).not.toBeVisible({
-      timeout: DB_OPERATION_TIMEOUT
-    });
-    // Wait for files to load after unlock
-    await page.waitForTimeout(500);
-  }
-}
-
 // Helper to click the refresh button on the files page
 // TODO: Automatic refresh has a race condition - investigate worker timing
 async function forceRefreshFiles(page: Page) {
@@ -539,16 +503,35 @@ test.describe('Files Route Instance Switching', () => {
     // Switch back to first instance
     await switchToInstanceFromAnyPage(page, 0);
 
-    // Wait for state to settle, unlock if needed, and force refresh
-    await page.waitForTimeout(500);
-    await unlockOnPageIfLocked(page);
+    // Wait for instance switch to complete - the second instance's file should disappear
+    // This ensures the app has processed the instance switch before we try to unlock
+    await expect(page.getByText('instance2-file.png')).not.toBeVisible({
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Now wait for the locked state or loaded state
+    // First instance should be locked since we switched away from it
+    const inlineUnlock = page.getByTestId('inline-unlock');
+    await expect(inlineUnlock).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
+
+    // Unlock the first instance's database
+    const inlineUnlockPassword = page.getByTestId('inline-unlock-password');
+    await inlineUnlockPassword.fill(TEST_PASSWORD);
+    await page.getByTestId('inline-unlock-button').click();
+
+    // Wait for unlock to complete and files to load
+    await expect(inlineUnlockPassword).not.toBeVisible({
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Force refresh to ensure files are loaded
     await forceRefreshFiles(page);
 
     // Verify first instance file is now visible (this is the key test!)
     await expect(page.getByText('instance1-file.png')).toBeVisible({
       timeout: DB_OPERATION_TIMEOUT
     });
-    // And second instance file is NOT visible
+    // And second instance file is NOT visible (already checked above, but verify again)
     await expect(page.getByText('instance2-file.png')).not.toBeVisible();
   });
 
@@ -591,9 +574,26 @@ test.describe('Files Route Instance Switching', () => {
     // Switch back to first instance
     await switchToInstanceFromAnyPage(page, 0);
 
-    // Wait for state to settle, unlock if needed, and force refresh
-    await page.waitForTimeout(500);
-    await unlockOnPageIfLocked(page);
+    // Wait for instance switch to complete - the second instance's file should disappear
+    await expect(page.getByText('second-instance-image.png')).not.toBeVisible({
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Wait for the locked state (first instance should be locked)
+    const inlineUnlock = page.getByTestId('inline-unlock');
+    await expect(inlineUnlock).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
+
+    // Unlock the first instance's database
+    const inlineUnlockPassword = page.getByTestId('inline-unlock-password');
+    await inlineUnlockPassword.fill(TEST_PASSWORD);
+    await page.getByTestId('inline-unlock-button').click();
+
+    // Wait for unlock to complete
+    await expect(inlineUnlockPassword).not.toBeVisible({
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Force refresh to ensure files are loaded
     await forceRefreshFiles(page);
 
     // Verify thumbnail loads for first instance (key assertion)
