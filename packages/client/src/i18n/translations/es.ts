@@ -66,6 +66,7 @@ export const es = {
     download: 'Descargar',
     edit: 'Editar',
     delete: 'Eliminar',
+    restore: 'Restaurar',
     exportVCard: 'Exportar vCard',
     newNote: 'Nueva Nota'
   },

@@ -3,7 +3,9 @@ import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import type { FilesWindowContentRef } from './FilesWindowContent';
 import { FilesWindowContent } from './FilesWindowContent';
+import type { ViewMode } from './FilesWindowMenuBar';
 import { FilesWindowMenuBar } from './FilesWindowMenuBar';
+import { FilesWindowTableView } from './FilesWindowTableView';
 
 interface FilesWindowProps {
   id: string;
@@ -23,6 +25,7 @@ export function FilesWindow({
   initialDimensions
 }: FilesWindowProps) {
   const [showDeleted, setShowDeleted] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<FilesWindowContentRef>(null);
 
@@ -60,11 +63,20 @@ export function FilesWindow({
         <FilesWindowMenuBar
           showDeleted={showDeleted}
           onShowDeletedChange={setShowDeleted}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
           onUpload={handleUpload}
           onClose={onClose}
         />
         <div className="flex-1 overflow-hidden">
-          <FilesWindowContent ref={contentRef} showDeleted={showDeleted} />
+          {viewMode === 'list' ? (
+            <FilesWindowContent ref={contentRef} showDeleted={showDeleted} />
+          ) : (
+            <FilesWindowTableView
+              showDeleted={showDeleted}
+              onUpload={handleUpload}
+            />
+          )}
         </div>
       </div>
       <input
