@@ -162,18 +162,18 @@ describe('Sidebar', () => {
     expect(listItems).toHaveLength(navItems.length);
   });
 
-  it('navigates on double click for non-window paths on desktop', async () => {
+  it('navigates on single click for non-window paths on desktop', async () => {
     const user = userEvent.setup();
     renderSidebar();
 
     const modelsButton = screen.getByRole('button', { name: 'Models' });
-    await user.dblClick(modelsButton);
+    await user.click(modelsButton);
 
     expect(mockNavigate).toHaveBeenCalledWith('/models');
     expect(mockOnClose).toHaveBeenCalled();
   });
 
-  it('opens floating window on double click for window paths on desktop', async () => {
+  it('opens floating window on single click for window paths on desktop', async () => {
     const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false }); // Desktop viewport
 
@@ -181,7 +181,7 @@ describe('Sidebar', () => {
 
     // Console is a window path
     const consoleButton = screen.getByRole('button', { name: 'Console' });
-    await user.dblClick(consoleButton);
+    await user.click(consoleButton);
 
     expect(mockOpenWindow).toHaveBeenCalledWith('console');
     expect(mockOnClose).toHaveBeenCalled();
@@ -274,7 +274,7 @@ describe('Sidebar', () => {
     );
 
     const emailButton = screen.getByRole('button', { name: 'Email' });
-    await user.dblClick(emailButton);
+    await user.click(emailButton);
 
     expect(localMockOnClose).toHaveBeenCalled();
 
