@@ -25,6 +25,7 @@ export type WindowType =
   | 'videos'
   | 'keychain'
   | 'sqlite'
+  | 'opfs'
   | 'chat'
   | 'analytics'
   | 'audio'
