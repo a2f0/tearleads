@@ -114,9 +114,7 @@ export const OpfsBrowser = forwardRef<OpfsBrowserHandle, OpfsBrowserProps>(
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [supported, setSupported] = useState(true);
-    const [expandedPaths, setExpandedPaths] = useState<Set<string>>(
-      new Set()
-    );
+    const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
     const [storageEstimate, setStorageEstimate] =
       useState<StorageEstimate | null>(null);
     const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>(null);
@@ -295,7 +293,9 @@ export const OpfsBrowser = forwardRef<OpfsBrowserHandle, OpfsBrowserProps>(
         {showHeader && (
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="font-bold text-2xl tracking-tight">OPFS Browser</h1>
+              <h1 className="font-bold text-2xl tracking-tight">
+                OPFS Browser
+              </h1>
               {(entries.length > 0 || storageEstimate) && (
                 <p className="text-muted-foreground text-sm">
                   {fileCount > 0 && (
