@@ -1,4 +1,5 @@
 import {
+  Archive,
   BarChart2,
   Database,
   FileIcon,
@@ -29,7 +30,8 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   chat: <MessageSquare className="h-3 w-3" />,
   analytics: <BarChart2 className="h-3 w-3" />,
   audio: <Music className="h-3 w-3" />,
-  admin: <Shield className="h-3 w-3" />
+  admin: <Shield className="h-3 w-3" />,
+  'cache-storage': <Archive className="h-3 w-3" />
 };
 
 const WINDOW_LABELS: Record<WindowType, string> = {
@@ -45,7 +47,8 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   chat: 'Chat',
   analytics: 'Analytics',
   audio: 'Audio',
-  admin: 'Admin'
+  admin: 'Admin',
+  'cache-storage': 'Cache Storage'
 };
 
 interface TaskbarButtonProps {
