@@ -8,6 +8,7 @@ import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
 import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
+import { VideoWindow } from '@/components/video-window';
 import type { WindowDimensions } from '@/components/floating-window';
 import { KeychainWindow } from '@/components/keychain-window';
 import { NotesWindow } from '@/components/notes-window';
@@ -120,6 +121,23 @@ export function WindowRenderer() {
                   minimizeWindow(window.id, dimensions)
                 }
                 onDimensionsChange={createDimensionsHandler('files')}
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'videos':
+            return (
+              <VideoWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onDimensionsChange={createDimensionsHandler('videos')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {

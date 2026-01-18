@@ -248,6 +248,41 @@ vi.mock('@/components/files-window', () => ({
   )
 }));
 
+vi.mock('@/components/video-window', () => ({
+  VideoWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`video-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 650, height: 500 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/contacts-window', () => ({
   ContactsWindow: ({
     id,
@@ -275,41 +310,6 @@ vi.mock('@/components/contacts-window', () => ({
       <button
         type="button"
         onClick={() => onMinimize({ x: 0, y: 0, width: 600, height: 500 })}
-        data-testid={`minimize-${id}`}
-      >
-        Minimize
-      </button>
-    </div>
-  )
-}));
-
-vi.mock('@/components/cache-storage-window', () => ({
-  CacheStorageWindow: ({
-    id,
-    onClose,
-    onMinimize,
-    onFocus,
-    zIndex
-  }: {
-    id: string;
-    onClose: () => void;
-    onMinimize: (dimensions: WindowDimensions) => void;
-    onFocus: () => void;
-    zIndex: number;
-  }) => (
-    <div
-      role="dialog"
-      data-testid={`cache-storage-window-${id}`}
-      data-zindex={zIndex}
-      onClick={onFocus}
-      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
-    >
-      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
-        Close
-      </button>
-      <button
-        type="button"
-        onClick={() => onMinimize({ x: 0, y: 0, width: 650, height: 500 })}
         data-testid={`minimize-${id}`}
       >
         Minimize
@@ -748,16 +748,6 @@ describe('WindowRenderer', () => {
     expect(screen.getByTestId('sqlite-window-sqlite-1')).toBeInTheDocument();
   });
 
-  it('renders cache storage window for cache storage type', () => {
-    mockWindows = [
-      { id: 'cache-storage-1', type: 'cache-storage', zIndex: 100 }
-    ];
-    render(<WindowRenderer />, { wrapper });
-    expect(
-      screen.getByTestId('cache-storage-window-cache-storage-1')
-    ).toBeInTheDocument();
-  });
-
   it('calls closeWindow when contacts close button is clicked', async () => {
     const user = userEvent.setup();
     mockWindows = [{ id: 'contacts-1', type: 'contacts', zIndex: 100 }];
@@ -958,6 +948,44 @@ describe('WindowRenderer', () => {
     });
   });
 
+  it('renders video window for videos type', () => {
+    mockWindows = [{ id: 'videos-1', type: 'videos', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('video-window-videos-1')).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when video close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'videos-1', type: 'videos', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-videos-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('videos-1');
+  });
+
+  it('calls focusWindow when video window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'videos-1', type: 'videos', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('video-window-videos-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('videos-1');
+  });
+
+  it('calls minimizeWindow when video minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'videos-1', type: 'videos', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-videos-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('videos-1', {
+      x: 0,
+      y: 0,
+      width: 650,
+      height: 500
+    });
+  });
+
   it('renders audio window for audio type', () => {
     mockWindows = [{ id: 'audio-1', type: 'audio', zIndex: 100 }];
     render(<WindowRenderer />, { wrapper });
@@ -1079,11 +1107,11 @@ describe('WindowRenderer', () => {
       { id: 'settings-1', type: 'settings', zIndex: 102 },
       { id: 'email-1', type: 'email', zIndex: 103 },
       { id: 'files-1', type: 'files', zIndex: 104 },
-      { id: 'photos-1', type: 'photos', zIndex: 105 },
-      { id: 'keychain-1', type: 'keychain', zIndex: 106 },
-      { id: 'contacts-1', type: 'contacts', zIndex: 107 },
-      { id: 'sqlite-1', type: 'sqlite', zIndex: 108 },
-      { id: 'cache-storage-1', type: 'cache-storage', zIndex: 109 },
+      { id: 'videos-1', type: 'videos', zIndex: 105 },
+      { id: 'photos-1', type: 'photos', zIndex: 106 },
+      { id: 'keychain-1', type: 'keychain', zIndex: 107 },
+      { id: 'contacts-1', type: 'contacts', zIndex: 108 },
+      { id: 'sqlite-1', type: 'sqlite', zIndex: 109 },
       { id: 'chat-1', type: 'chat', zIndex: 110 },
       { id: 'analytics-1', type: 'analytics', zIndex: 111 },
       { id: 'audio-1', type: 'audio', zIndex: 112 },
@@ -1097,6 +1125,7 @@ describe('WindowRenderer', () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId('email-window-email-1')).toBeInTheDocument();
     expect(screen.getByTestId('files-window-files-1')).toBeInTheDocument();
+    expect(screen.getByTestId('video-window-videos-1')).toBeInTheDocument();
     expect(screen.getByTestId('photos-window-photos-1')).toBeInTheDocument();
     expect(
       screen.getByTestId('keychain-window-keychain-1')
@@ -1105,9 +1134,6 @@ describe('WindowRenderer', () => {
       screen.getByTestId('contacts-window-contacts-1')
     ).toBeInTheDocument();
     expect(screen.getByTestId('sqlite-window-sqlite-1')).toBeInTheDocument();
-    expect(
-      screen.getByTestId('cache-storage-window-cache-storage-1')
-    ).toBeInTheDocument();
     expect(screen.getByTestId('chat-window-chat-1')).toBeInTheDocument();
     expect(
       screen.getByTestId('analytics-window-analytics-1')
