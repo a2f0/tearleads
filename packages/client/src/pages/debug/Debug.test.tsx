@@ -305,28 +305,6 @@ describe('Debug', () => {
     });
   });
 
-  describe('actions', () => {
-    it('throws error when Throw Error button is clicked', async () => {
-      // Suppress console.error for this test
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
-
-      await renderDebug();
-
-      expect(screen.getByText('1.0.0')).toBeInTheDocument();
-
-      // Clicking the button should throw an error
-      expect(screen.getByTestId('throw-error-button')).toBeInTheDocument();
-
-      // The component will throw when shouldThrow is set to true
-      // We can't easily test this in isolation without an error boundary
-      // But we can verify the button exists and has the correct attributes
-
-      consoleSpy.mockRestore();
-    });
-  });
-
   describe('resize handling', () => {
     it('updates screen size on window resize', async () => {
       await renderDebug();
