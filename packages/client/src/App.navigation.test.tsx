@@ -313,5 +313,4 @@ describe('App Integration', () => {
       });
     });
   });
-
 });
