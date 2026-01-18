@@ -32,6 +32,20 @@ async function navigateTo(page: Page, pageName: string) {
   await page.goto(route);
 }
 
+// Helper to unlock via inline unlock component if database is locked after page navigation
+async function unlockIfNeeded(page: Page) {
+  // Wait a moment for the page to stabilize after navigation
+  await page.waitForTimeout(500);
+
+  const inlineUnlock = page.getByTestId('inline-unlock-password');
+  if (await inlineUnlock.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await inlineUnlock.fill(TEST_PASSWORD);
+    await page.getByTestId('inline-unlock-button').click();
+    // Wait for the unlock to complete and content to load
+    await expect(inlineUnlock).not.toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
+  }
+}
+
 // Helper to setup database
 async function setupDatabase(page: Page) {
   await navigateTo(page, 'SQLite');
@@ -94,6 +108,7 @@ test.describe('Analytics page', () => {
   }) => {
     await setupDatabase(page);
     await navigateTo(page, 'Analytics');
+    await unlockIfNeeded(page);
 
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
@@ -141,6 +156,7 @@ test.describe('Analytics page', () => {
 
     await setupDatabase(page);
     await navigateTo(page, 'Analytics');
+    await unlockIfNeeded(page);
 
     // Wait for page to attempt to load - either successfully or with error boundary
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
@@ -202,6 +218,7 @@ test.describe('Analytics page', () => {
 
     await setupDatabase(page);
     await navigateTo(page, 'Analytics');
+    await unlockIfNeeded(page);
 
     // Wait for analytics page header
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
@@ -226,6 +243,7 @@ test.describe('Analytics page', () => {
 
     // Navigate to analytics
     await navigateTo(page, 'Analytics');
+    await unlockIfNeeded(page);
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for data to load
@@ -256,6 +274,7 @@ test.describe('Analytics page', () => {
 
     await setupDatabase(page);
     await navigateTo(page, 'Analytics');
+    await unlockIfNeeded(page);
 
     // Wait for page to load and data to be ready
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
@@ -306,6 +325,7 @@ test.describe('Analytics page', () => {
     await waitForSuccess(page);
 
     await navigateTo(page, 'Analytics');
+    await unlockIfNeeded(page);
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for initial data to load
@@ -336,6 +356,7 @@ test.describe('Analytics page', () => {
     await waitForSuccess(page);
 
     await navigateTo(page, 'Analytics');
+    await unlockIfNeeded(page);
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for events to load
@@ -364,16 +385,19 @@ test.describe('Analytics page', () => {
     // Rapidly navigate between pages
     for (let i = 0; i < 3; i++) {
       await navigateTo(page, 'Analytics');
+      await unlockIfNeeded(page);
       await expect(
         page.getByRole('heading', { name: 'Analytics' })
       ).toBeVisible();
 
       await navigateTo(page, 'SQLite');
+      await unlockIfNeeded(page);
       await expect(page.getByTestId('database-test')).toBeVisible();
     }
 
     // End on Analytics page
     await navigateTo(page, 'Analytics');
+    await unlockIfNeeded(page);
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for any delayed errors
@@ -403,6 +427,7 @@ test.describe('Analytics page', () => {
     await waitForSuccess(page);
 
     await navigateTo(page, 'Analytics');
+    await unlockIfNeeded(page);
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for events to load
@@ -434,6 +459,7 @@ test.describe('Analytics page', () => {
     await waitForSuccess(page);
 
     await navigateTo(page, 'Analytics');
+    await unlockIfNeeded(page);
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for events list to load (uses CSS grid, not table)
@@ -481,6 +507,7 @@ test.describe('Analytics page', () => {
     await waitForSuccess(page);
 
     await navigateTo(page, 'Analytics');
+    await unlockIfNeeded(page);
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for chart title to appear (this proves DurationChart component rendered)
