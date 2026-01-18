@@ -49,7 +49,7 @@ test.describe('Backup & Restore (Electron)', () => {
     await window
       .locator('nav')
       .getByRole('button', { name: 'SQLite' })
-      .dblclick();
+      .click();
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Reset the database to ensure clean state
@@ -75,7 +75,7 @@ test.describe('Backup & Restore (Electron)', () => {
     await window
       .locator('nav')
       .getByRole('button', { name: 'Settings' })
-      .dblclick();
+      .click();
     await expect(window).toHaveURL(/\/settings/);
 
     // Verify backup section is visible
@@ -98,7 +98,7 @@ test.describe('Backup & Restore (Electron)', () => {
     await window
       .locator('nav')
       .getByRole('button', { name: 'Settings' })
-      .dblclick();
+      .click();
     await expect(window).toHaveURL(/\/settings/);
 
     const exportButton = window.getByTestId('backup-export-button');
@@ -137,7 +137,7 @@ test.describe('Backup & Restore (Electron)', () => {
     await window
       .locator('nav')
       .getByRole('button', { name: 'Settings' })
-      .dblclick();
+      .click();
     await expect(window).toHaveURL(/\/settings/);
     await window.getByTestId('backup-export-button').click();
     const download = await downloadPromise;
@@ -150,7 +150,7 @@ test.describe('Backup & Restore (Electron)', () => {
       await window
         .locator('nav')
         .getByRole('button', { name: 'SQLite' })
-        .dblclick();
+        .click();
       await expect(window).toHaveURL(/\/sqlite/);
       await window.getByTestId('db-reset-button').click();
       await waitForSuccess(window);
@@ -167,7 +167,7 @@ test.describe('Backup & Restore (Electron)', () => {
       await window
         .locator('nav')
         .getByRole('button', { name: 'Settings' })
-        .dblclick();
+        .click();
       await expect(window).toHaveURL(/\/settings/);
       const fileInput = window.getByTestId('dropzone-input');
       await fileInput.setInputFiles(backupPath);
@@ -181,7 +181,7 @@ test.describe('Backup & Restore (Electron)', () => {
       await window
         .locator('nav')
         .getByRole('button', { name: 'SQLite' })
-        .dblclick();
+        .click();
       await expect(window).toHaveURL(/\/sqlite/);
       await expect(window.getByTestId('db-status')).toHaveText('Locked', {
         timeout: DB_OPERATION_TIMEOUT
@@ -222,7 +222,7 @@ test.describe('Backup & Restore (Electron)', () => {
     await window
       .locator('nav')
       .getByRole('button', { name: 'Settings' })
-      .dblclick();
+      .click();
     await expect(window).toHaveURL(/\/settings/);
     await window.getByTestId('backup-export-button').click();
     const download = await downloadPromise;
@@ -234,7 +234,7 @@ test.describe('Backup & Restore (Electron)', () => {
       await window
         .locator('nav')
         .getByRole('button', { name: 'SQLite' })
-        .dblclick();
+        .click();
       await expect(window).toHaveURL(/\/sqlite/);
       await window.getByTestId('db-reset-button').click();
       await waitForSuccess(window);
@@ -248,7 +248,7 @@ test.describe('Backup & Restore (Electron)', () => {
       await window
         .locator('nav')
         .getByRole('button', { name: 'Settings' })
-        .dblclick();
+        .click();
       await expect(window).toHaveURL(/\/settings/);
       await window.getByTestId('dropzone-input').setInputFiles(backupPath);
       await expect(window.getByTestId('backup-restore-confirm')).toBeVisible({
@@ -268,7 +268,7 @@ test.describe('Backup & Restore (Electron)', () => {
       await window
         .locator('nav')
         .getByRole('button', { name: 'SQLite' })
-        .dblclick();
+        .click();
       await expect(window.getByTestId('database-test')).toBeVisible();
       await expect(window.getByTestId('db-status')).toHaveText('Locked', {
         timeout: DB_OPERATION_TIMEOUT
@@ -303,7 +303,7 @@ test.describe('Backup & Restore (Electron)', () => {
     await window
       .locator('nav')
       .getByRole('button', { name: 'Settings' })
-      .dblclick();
+      .click();
     await expect(window).toHaveURL(/\/settings/);
 
     // Create and upload an invalid file
