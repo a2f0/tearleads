@@ -7,6 +7,7 @@ import {
 } from '@testing-library/react';
 import { createRef } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import type { KeychainWindowContentRef } from './KeychainWindowContent';
 import { KeychainWindowContent } from './KeychainWindowContent';
 
@@ -212,20 +213,32 @@ describe('KeychainWindowContent', () => {
 
   it('shows error state when fetch fails with Error', async () => {
     mockGetInstances.mockRejectedValue(new Error('Failed to load'));
+    const consoleSpy = mockConsoleError();
     render(<KeychainWindowContent />);
 
     await waitFor(() => {
       expect(screen.getByText('Failed to load')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch keychain data:',
+      expect.any(Error)
+    );
   });
 
   it('shows error state when fetch fails with non-Error value', async () => {
     mockGetInstances.mockRejectedValue('String error message');
+    const consoleSpy = mockConsoleError();
     render(<KeychainWindowContent />);
 
     await waitFor(() => {
       expect(screen.getByText('String error message')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch keychain data:',
+      'String error message'
+    );
   });
 
   it('wraps content in scrollable container', async () => {
@@ -517,6 +530,7 @@ describe('KeychainWindowContent', () => {
   });
 
   it('shows error when delete fails', async () => {
+    const consoleSpy = mockConsoleError();
     mockGetInstances.mockResolvedValue([
       {
         id: 'instance-1',
@@ -560,9 +574,15 @@ describe('KeychainWindowContent', () => {
     await waitFor(() => {
       expect(screen.getByText('Delete failed')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to delete session keys:',
+      expect.any(Error)
+    );
   });
 
   it('shows error when delete fails with non-Error value', async () => {
+    const consoleSpy = mockConsoleError();
     mockGetInstances.mockResolvedValue([
       {
         id: 'instance-1',
@@ -604,5 +624,10 @@ describe('KeychainWindowContent', () => {
     await waitFor(() => {
       expect(screen.getByText('Delete string error')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to delete session keys:',
+      'Delete string error'
+    );
   });
 });

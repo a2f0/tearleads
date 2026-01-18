@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { NotesWindowTableView } from './NotesWindowTableView';
 
 // Create mutable mock state
@@ -175,11 +176,17 @@ describe('NotesWindowTableView', () => {
 
   it('shows error state when fetch fails', async () => {
     mockDb.orderBy.mockRejectedValue(new Error('Database error'));
+    const consoleSpy = mockConsoleError();
     render(<NotesWindowTableView {...defaultProps} />);
 
     await waitFor(() => {
       expect(screen.getByText('Database error')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch notes:',
+      expect.any(Error)
+    );
   });
 
   it('does not fetch when database is locked', () => {
@@ -355,6 +362,7 @@ describe('NotesWindowTableView', () => {
 
   it('handles delete error gracefully', async () => {
     mockDb.orderBy.mockResolvedValue(mockNotes);
+    const consoleSpy = mockConsoleError();
     const user = userEvent.setup();
     render(<NotesWindowTableView {...defaultProps} />);
 
@@ -379,5 +387,10 @@ describe('NotesWindowTableView', () => {
     await waitFor(() => {
       expect(screen.getByText('Delete failed')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to delete note:',
+      expect.any(Error)
+    );
   });
 });
