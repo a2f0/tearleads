@@ -14,6 +14,7 @@ import {
   Settings,
   Shield,
   StickyNote,
+  Table2,
   Terminal,
   User
 } from 'lucide-react';
@@ -26,6 +27,7 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   settings: <Settings className="h-3 w-3" />,
   files: <FileIcon className="h-3 w-3" />,
   documents: <FileText className="h-3 w-3" />,
+  tables: <Table2 className="h-3 w-3" />,
   videos: <Film className="h-3 w-3" />,
   debug: <Bug className="h-3 w-3" />,
   email: <Mail className="h-3 w-3" />,
@@ -46,6 +48,7 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   settings: 'Settings',
   files: 'Files',
   documents: 'Documents',
+  tables: 'Tables',
   videos: 'Videos',
   debug: 'Debug',
   email: 'Email',
