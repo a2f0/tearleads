@@ -219,6 +219,42 @@ describe('LocalStorage', () => {
 
       expect(localStorage.removeItem).not.toHaveBeenCalled();
     });
+
+    it('resets confirming state when delete dialog is reopened', async () => {
+      localStorageData = {
+        alpha: 'value-a',
+        beta: 'value-b'
+      };
+      const user = userEvent.setup();
+      renderLocalStorage();
+
+      await waitFor(() => {
+        expect(screen.getByText('alpha')).toBeInTheDocument();
+        expect(screen.getByText('beta')).toBeInTheDocument();
+      });
+
+      const deleteButtons = screen.getAllByTitle('Delete');
+      await user.click(deleteButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('confirm-dialog-confirm'));
+
+      await waitFor(() => {
+        expect(localStorage.removeItem).toHaveBeenCalledWith('alpha');
+        expect(screen.queryByTestId('confirm-dialog')).not.toBeInTheDocument();
+      });
+
+      const remainingDeleteButton = screen.getByTitle('Delete');
+      await user.click(remainingDeleteButton);
+
+      expect(screen.getByText('Delete')).toBeInTheDocument();
+      expect(screen.queryByText('Deleting...')).not.toBeInTheDocument();
+      expect(screen.getByTestId('confirm-dialog-confirm')).not.toBeDisabled();
+      expect(screen.getByTestId('confirm-dialog-cancel')).not.toBeDisabled();
+    });
   });
 
   describe('clear all functionality', () => {
