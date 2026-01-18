@@ -261,6 +261,15 @@
       register: certbot_result
       changed_when: "'Certificate not yet due for renewal' not in certbot_result.stdout"
 
+    # Utility scripts
+    - name: Deploy deliverMail script
+      ansible.builtin.template:
+        src: scripts/deliverMail.sh.j2
+        dest: /usr/local/bin/deliverMail.sh
+        owner: root
+        group: root
+        mode: "0755"
+
     # Automatic daily patching
     - name: Deploy auto-patch script
       ansible.builtin.template:
