@@ -47,6 +47,24 @@ interface AudioWindowDetailProps {
   onDeleted: () => void;
 }
 
+function toArrayBuffer(data: Uint8Array): ArrayBuffer {
+  if (data.buffer instanceof ArrayBuffer) {
+    return data.byteLength === data.buffer.byteLength
+      ? data.buffer
+      : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+  }
+
+  const buffer = new ArrayBuffer(data.byteLength);
+  new Uint8Array(buffer).set(data);
+  return buffer;
+}
+
+function createBlobUrl(data: Uint8Array, mimeType: string): string {
+  const buffer = toArrayBuffer(data);
+  const blob = new Blob([buffer], { type: mimeType });
+  return URL.createObjectURL(blob);
+}
+
 export function AudioWindowDetail({
   audioId,
   onBack,
@@ -173,6 +191,7 @@ export function AudioWindowDetail({
     } catch (err) {
       console.error('Failed to delete audio:', err);
       setError(err instanceof Error ? err.message : String(err));
+    } finally {
       setActionLoading(null);
     }
   }, [audio, onDeleted]);
@@ -245,10 +264,7 @@ export function AudioWindowDetail({
       );
       setMetadata(metadataResult);
 
-      const buffer = new ArrayBuffer(data.byteLength);
-      new Uint8Array(buffer).set(data);
-      const blob = new Blob([buffer], { type: audioInfo.mimeType });
-      const url = URL.createObjectURL(blob);
+      const url = createBlobUrl(data, audioInfo.mimeType);
       urlsToRevoke.current.push(url);
       objectUrlRef.current = url;
       setObjectUrl(url);
@@ -259,10 +275,7 @@ export function AudioWindowDetail({
             audioInfo.thumbnailPath,
             logger
           );
-          const thumbBuffer = new ArrayBuffer(thumbData.byteLength);
-          new Uint8Array(thumbBuffer).set(thumbData);
-          const thumbBlob = new Blob([thumbBuffer], { type: 'image/jpeg' });
-          const thumbUrl = URL.createObjectURL(thumbBlob);
+          const thumbUrl = createBlobUrl(thumbData, 'image/jpeg');
           urlsToRevoke.current.push(thumbUrl);
           setThumbnailUrl(thumbUrl);
         } catch (err) {
