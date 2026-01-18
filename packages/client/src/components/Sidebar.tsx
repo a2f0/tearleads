@@ -247,8 +247,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     updateTouchState();
     pointerQuery.addEventListener('change', updateTouchState);
 
-    return () =>
-      pointerQuery.removeEventListener('change', updateTouchState);
+    return () => pointerQuery.removeEventListener('change', updateTouchState);
   }, []);
 
   const isDesktop = !isMobile && !isTouchDevice;
