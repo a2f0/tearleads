@@ -1,22 +1,14 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PhotosWindowContent } from './PhotosWindowContent';
+import { PhotosWindowTableView } from './PhotosWindowTableView';
 
 const mockUsePhotosWindowData = vi.fn();
-
-vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: () => ({
-    getVirtualItems: () => [{ index: 0, start: 0, size: 72 }],
-    getTotalSize: () => 72,
-    measureElement: () => undefined
-  })
-}));
 
 vi.mock('./usePhotosWindowData', () => ({
   usePhotosWindowData: () => mockUsePhotosWindowData()
 }));
 
-describe('PhotosWindowContent', () => {
+describe('PhotosWindowTableView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -33,7 +25,7 @@ describe('PhotosWindowContent', () => {
       currentInstanceId: 'instance-1'
     });
 
-    render(<PhotosWindowContent refreshToken={0} />);
+    render(<PhotosWindowTableView refreshToken={0} />);
 
     expect(
       screen.getByText('No photos yet. Use Upload to add images.')
@@ -65,11 +57,11 @@ describe('PhotosWindowContent', () => {
     });
 
     render(
-      <PhotosWindowContent refreshToken={0} onSelectPhoto={onSelectPhoto} />
+      <PhotosWindowTableView refreshToken={0} onSelectPhoto={onSelectPhoto} />
     );
 
-    const rowButton = screen.getByRole('button', { name: /photo\.jpg/ });
-    fireEvent.click(rowButton);
+    const row = screen.getByText('photo.jpg');
+    fireEvent.click(row);
 
     expect(onSelectPhoto).toHaveBeenCalledWith('photo-1');
   });

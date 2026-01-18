@@ -1,7 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PhotosWindow } from './PhotosWindow';
+
+const mockUploadFile = vi.fn();
 
 vi.mock('@/components/floating-window', () => ({
   FloatingWindow: ({
@@ -25,13 +27,17 @@ vi.mock('@/components/floating-window', () => ({
 
 vi.mock('./PhotosWindowMenuBar', () => ({
   PhotosWindowMenuBar: ({
+    viewMode,
     onRefresh,
     onUpload,
-    onClose
+    onClose,
+    onViewModeChange
   }: {
+    viewMode: 'list' | 'table';
     onRefresh: () => void;
     onUpload: () => void;
     onClose: () => void;
+    onViewModeChange: (mode: 'list' | 'table') => void;
   }) => (
     <div data-testid="menu-bar">
       <button type="button" onClick={onRefresh} data-testid="refresh-button">
@@ -43,23 +49,35 @@ vi.mock('./PhotosWindowMenuBar', () => ({
       <button type="button" onClick={onClose} data-testid="menu-close-button">
         Close
       </button>
+      <button
+        type="button"
+        onClick={() =>
+          onViewModeChange(viewMode === 'list' ? 'table' : 'list')
+        }
+        data-testid="toggle-view-button"
+      >
+        Toggle
+      </button>
     </div>
   )
 }));
 
-const mockUploadFiles = vi.fn();
-const mockRefresh = vi.fn();
-
 vi.mock('./PhotosWindowContent', () => ({
-  PhotosWindowContent: vi.fn().mockImplementation(
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
-    ({ ref }: { ref?: any }) => {
-      if (ref) {
-        ref.current = { uploadFiles: mockUploadFiles, refresh: mockRefresh };
-      }
-      return <div data-testid="photos-content">Photos Content</div>;
-    }
+  PhotosWindowContent: () => (
+    <div data-testid="photos-content">Photos Content</div>
   )
+}));
+
+vi.mock('./PhotosWindowTableView', () => ({
+  PhotosWindowTableView: () => (
+    <div data-testid="photos-table-content">Photos Table Content</div>
+  )
+}));
+
+vi.mock('@/hooks/useFileUpload', () => ({
+  useFileUpload: () => ({
+    uploadFile: mockUploadFile
+  })
 }));
 
 describe('PhotosWindow', () => {
@@ -73,8 +91,7 @@ describe('PhotosWindow', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUploadFiles.mockClear();
-    mockRefresh.mockClear();
+    mockUploadFile.mockClear();
   });
 
   it('renders in FloatingWindow', () => {
@@ -139,34 +156,32 @@ describe('PhotosWindow', () => {
 
     await user.click(screen.getByTestId('refresh-button'));
 
-    expect(mockRefresh).toHaveBeenCalled();
+    expect(screen.getByTestId('photos-content')).toBeInTheDocument();
   });
 
-  it('handles file input change with files', () => {
+  it('handles file input change with files', async () => {
+    const user = userEvent.setup();
     render(<PhotosWindow {...defaultProps} />);
 
-    const fileInput = screen.getByTestId(
-      'photo-file-input'
-    ) as HTMLInputElement;
+    const fileInput = screen.getByTestId('photo-file-input');
+    if (!(fileInput instanceof HTMLInputElement)) {
+      throw new Error('Expected file input to be HTMLInputElement');
+    }
     const file = new File(['test content'], 'test.jpg', { type: 'image/jpeg' });
 
-    Object.defineProperty(fileInput, 'files', {
-      value: [file],
-      writable: true
-    });
+    await user.upload(fileInput, file);
 
-    fireEvent.change(fileInput);
-
-    expect(mockUploadFiles).toHaveBeenCalledWith([file]);
+    await waitFor(() => expect(mockUploadFile).toHaveBeenCalledWith(file));
     expect(fileInput.value).toBe('');
   });
 
   it('handles file input change with no files', () => {
     render(<PhotosWindow {...defaultProps} />);
 
-    const fileInput = screen.getByTestId(
-      'photo-file-input'
-    ) as HTMLInputElement;
+    const fileInput = screen.getByTestId('photo-file-input');
+    if (!(fileInput instanceof HTMLInputElement)) {
+      throw new Error('Expected file input to be HTMLInputElement');
+    }
 
     Object.defineProperty(fileInput, 'files', {
       value: [],
@@ -176,5 +191,14 @@ describe('PhotosWindow', () => {
     fireEvent.change(fileInput);
 
     expect(fileInput.value).toBe('');
+  });
+
+  it('switches to table view when toggled', async () => {
+    const user = userEvent.setup();
+    render(<PhotosWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('toggle-view-button'));
+
+    expect(screen.getByTestId('photos-table-content')).toBeInTheDocument();
   });
 });
