@@ -8,14 +8,6 @@ const packageJson: { version: string } = require('../../package.json');
 const APP_LOAD_TIMEOUT = 10000;
 const DB_OPERATION_TIMEOUT = 15000;
 
-async function openSidebar(window: Page) {
-  const startButton = window.getByTestId('start-button');
-  await expect(startButton).toBeVisible({timeout: APP_LOAD_TIMEOUT});
-  await startButton.click();
-  // Wait for sidebar to be visible
-  await expect(window.locator('nav')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
-}
-
 test.describe('Electron App', () => {
   let electronApp: ElectronApplication;
   let window: Page;

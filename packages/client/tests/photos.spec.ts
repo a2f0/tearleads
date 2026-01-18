@@ -8,23 +8,15 @@ function isMobileViewport(page: Page): boolean {
   return (viewport?.width ?? 0) < 1024;
 }
 
-// Helper to open sidebar via Start button (desktop only)
-async function openSidebar(page: Page) {
-  const startButton = page.getByTestId('start-button');
-  await expect(startButton).toBeVisible({ timeout: 10000 });
-  await startButton.click();
-  await expect(page.locator('aside nav')).toBeVisible({ timeout: 10000 });
-}
-
 test.beforeEach(async ({ page }) => {
   await clearOriginStorage(page);
 });
 
 // Map page names to routes
-const PAGE_ROUTES: Record<string, string> = {
+const PAGE_ROUTES = {
   SQLite: '/sqlite',
   Photos: '/photos'
-};
+} as const;
 
 // Helper to navigate to a page, handling mobile/desktop differences
 async function navigateToPage(page: Page, pageName: 'SQLite' | 'Photos') {

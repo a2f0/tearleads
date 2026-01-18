@@ -74,12 +74,8 @@ test.describe('Backup & Restore (Electron)', () => {
       timeout: DB_OPERATION_TIMEOUT
     });
 
-    // Reopen sidebar and navigate to settings
-    await openSidebar(window);
-    await window
-      .locator('nav')
-      .getByRole('button', { name: 'Settings' })
-      .click();
+    // Navigate to settings via URL
+    await navigateTo(window, 'Settings');
     await expect(window).toHaveURL(/\/settings/);
 
     // Verify backup section is visible
@@ -268,11 +264,8 @@ test.describe('Backup & Restore (Electron)', () => {
         window.getByTestId('start-button')
       ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
 
-      await openSidebar(window);
-      await window
-        .locator('nav')
-        .getByRole('button', { name: 'SQLite' })
-        .click();
+      // Navigate to SQLite via URL
+      await navigateTo(window, 'SQLite');
       await expect(window.getByTestId('database-test')).toBeVisible();
       await expect(window.getByTestId('db-status')).toHaveText('Locked', {
         timeout: DB_OPERATION_TIMEOUT
@@ -302,12 +295,8 @@ test.describe('Backup & Restore (Electron)', () => {
       timeout: DB_OPERATION_TIMEOUT
     });
 
-    // Reopen sidebar and navigate to settings
-    await openSidebar(window);
-    await window
-      .locator('nav')
-      .getByRole('button', { name: 'Settings' })
-      .click();
+    // Navigate to settings via URL
+    await navigateTo(window, 'Settings');
     await expect(window).toHaveURL(/\/settings/);
 
     // Create and upload an invalid file
