@@ -18,12 +18,20 @@ function getCursorForCorner(corner: Corner): string {
 interface UseFloatingWindowOptions {
   defaultWidth: number;
   defaultHeight: number;
-  defaultX?: number;
-  defaultY?: number;
+  defaultX?: number | undefined;
+  defaultY?: number | undefined;
   minWidth: number;
   minHeight: number;
   maxWidthPercent: number;
   maxHeightPercent: number;
+  onDimensionsChange?:
+    | ((dimensions: {
+        width: number;
+        height: number;
+        x: number;
+        y: number;
+      }) => void)
+    | undefined;
 }
 
 interface UseFloatingWindowReturn {
@@ -50,7 +58,8 @@ export function useFloatingWindow({
   minWidth,
   minHeight,
   maxWidthPercent,
-  maxHeightPercent
+  maxHeightPercent,
+  onDimensionsChange
 }: UseFloatingWindowOptions): UseFloatingWindowReturn {
   const [width, setWidth] = useState(defaultWidth);
   const [height, setHeight] = useState(defaultHeight);
@@ -60,12 +69,22 @@ export function useFloatingWindow({
   // Refs to track current dimensions for use in callbacks without causing re-renders
   const widthRef = useRef(width);
   const heightRef = useRef(height);
+  const xRef = useRef(x);
+  const yRef = useRef(y);
 
   // Update refs via useEffect to follow React best practices for side effects
   useEffect(() => {
     widthRef.current = width;
     heightRef.current = height;
-  }, [width, height]);
+    xRef.current = x;
+    yRef.current = y;
+  }, [width, height, x, y]);
+
+  // Ref to hold the latest onDimensionsChange callback
+  const onDimensionsChangeRef = useRef(onDimensionsChange);
+  useEffect(() => {
+    onDimensionsChangeRef.current = onDimensionsChange;
+  }, [onDimensionsChange]);
 
   const isDraggingRef = useRef(false);
   const modeRef = useRef<'drag' | Corner>('drag');
@@ -195,6 +214,14 @@ export function useFloatingWindow({
     document.removeEventListener('mouseup', handleEndRef.current);
     document.removeEventListener('touchmove', handleTouchMove);
     document.removeEventListener('touchend', handleEndRef.current);
+
+    // Notify of dimension change after drag/resize ends
+    onDimensionsChangeRef.current?.({
+      width: widthRef.current,
+      height: heightRef.current,
+      x: xRef.current,
+      y: yRef.current
+    });
   }, [handleMouseMove, handleTouchMove]);
 
   // Keep the ref updated with the latest handleEnd
