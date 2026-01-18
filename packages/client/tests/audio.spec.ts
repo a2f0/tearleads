@@ -38,7 +38,7 @@ async function navigateToPage(page: Page, pageName: 'SQLite' | 'Audio') {
     }
     const button = sidebar.getByRole('button', { name: pageName });
     // Sidebar auto-closes after launch
-    await button.click();
+    await button.dblclick();
     await expect(sidebar).not.toBeVisible({ timeout: 5000 });
   }
 }
