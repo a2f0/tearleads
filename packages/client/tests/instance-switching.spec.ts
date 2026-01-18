@@ -333,6 +333,11 @@ async function uploadTestFile(page: Page, fileName = 'test-image.png') {
 async function setupDatabaseOnSqlitePage(page: Page) {
   await navigateToPage(page, 'SQLite');
 
+  // Wait for status to stabilize (not Loading)
+  await expect(page.getByTestId('db-status')).not.toHaveText('Loading...', {
+    timeout: DB_OPERATION_TIMEOUT
+  });
+
   // Check the current database status
   const status = await page.getByTestId('db-status').textContent();
 
@@ -357,6 +362,21 @@ async function setupDatabaseOnSqlitePage(page: Page) {
   // Now set up the database
   await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
   await page.getByTestId('db-setup-button').click();
+
+  // Wait for the operation to complete (either success or error)
+  const resultElement = page.getByTestId('db-test-result');
+  await expect(resultElement).toHaveAttribute('data-status', /(success|error)/, {
+    timeout: DB_OPERATION_TIMEOUT
+  });
+
+  // Check if it was an error
+  const resultStatus = await resultElement.getAttribute('data-status');
+  if (resultStatus === 'error') {
+    const errorText = await resultElement.textContent();
+    throw new Error(`Database setup failed: ${errorText}`);
+  }
+
+  // Verify the database is now unlocked
   await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
     timeout: DB_OPERATION_TIMEOUT
   });
