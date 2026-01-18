@@ -25,7 +25,7 @@ const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/console': 'console',
   '/settings': 'settings',
   '/files': 'files',
-  '/videos': 'videos',
+  '/debug': 'debug',
   '/email': 'email',
   '/contacts': 'contacts',
   '/photos': 'photos',

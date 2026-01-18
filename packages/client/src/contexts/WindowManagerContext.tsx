@@ -16,7 +16,7 @@ export type WindowType =
   | 'console'
   | 'settings'
   | 'files'
-  | 'videos'
+  | 'debug'
   | 'email'
   | 'contacts'
   | 'photos'
