@@ -11,7 +11,7 @@
     "build:shared": "pnpm --filter @rapid/shared build",
     "build:db": "pnpm --filter @rapid/db build",
     "build:ui": "pnpm --filter @rapid/ui build",
-    "dev": "VITE_API_URL=http://localhost:5001/v1 pnpm build:shared && pnpm build:db && pnpm build:ui && pnpm --filter @rapid/api buildOpenapi && concurrently -n api,client,website -c blue,magenta,cyan \"pnpm --filter @rapid/api dev\" \"pnpm --filter @rapid/client dev\" \"pnpm --filter @rapid/website dev\"",
+    "dev": "VITE_API_URL=http://localhost:5001/v1 pnpm build:shared && pnpm build:db && pnpm build:ui && pnpm --filter @rapid/api buildOpenapi && node scripts/checkSmtpPort.js && concurrently -n api,client,website,smtp -c blue,magenta,cyan,green \"pnpm --filter @rapid/api dev\" \"pnpm --filter @rapid/client dev\" \"pnpm --filter @rapid/website dev\" \"pnpm --filter @rapid/smtp-listener dev\"",
     "dev:api": "pnpm build:shared && pnpm build:db && pnpm --filter @rapid/api dev",
     "dev:client": "VITE_API_URL=http://localhost:5001/v1 pnpm build:shared && pnpm build:db && pnpm build:ui && pnpm --filter @rapid/client dev",
     "devWebsite": "pnpm build:ui && pnpm --filter @rapid/api buildOpenapi && pnpm --filter @rapid/website dev",
