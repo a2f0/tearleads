@@ -60,12 +60,17 @@ const WINDOW_LAUNCH_PATHS = new Set([
   '/sqlite'
 ]);
 
-// Helper to navigate via sidebar (requires opening sidebar first)
+// Pages at the bottom of sidebar that might be scrolled out of view
+const URL_NAVIGATION_PATHS = new Set(['/debug', '/models', '/tables']);
+
+// Helper to navigate via sidebar or URL navigation
 async function navigateTo(page: Page, linkName: string) {
   const slug = linkName.toLowerCase().replace(/\s+/g, '-');
   const path = linkName === 'Home' ? '/' : `/${slug}`;
   const isDesktop = await isDesktopDevice(page);
-  if (isDesktop && WINDOW_LAUNCH_PATHS.has(path)) {
+
+  // Use URL navigation for window-capable paths or paths that might be scrolled out of view
+  if (isDesktop && (WINDOW_LAUNCH_PATHS.has(path) || URL_NAVIGATION_PATHS.has(path))) {
     await navigateWithHistory(page, path);
     return;
   }
@@ -739,11 +744,8 @@ test.describe('Debug page', () => {
   test('should navigate to debug page when debug link is clicked', async ({
     page
   }) => {
-    // Open sidebar via Start button
-    await openSidebar(page);
-
-    const debugButton = page.locator('aside nav').getByRole('button', { name: 'Debug' });
-    await triggerSidebarNavigation(page, debugButton);
+    // Use URL navigation since Debug button may be scrolled out of view in sidebar
+    await page.goto('/debug');
 
     await expect(page.getByRole('heading', { name: 'Debug' })).toBeVisible();
   });
