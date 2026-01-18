@@ -1221,14 +1221,12 @@ test.describe('Contacts page', () => {
     await page.goto('/');
   });
 
-  test('should navigate to contacts page when contacts link is clicked', async ({
+  test('should display contacts page', async ({
     page
   }) => {
-    // Open sidebar via Start button
-    await openSidebar(page);
-
-    const contactsButton = page.locator('aside nav').getByRole('button', { name: 'Contacts' });
-    await triggerSidebarNavigation(page, contactsButton);
+    // Use URL navigation to access the contacts page
+    // (Sidebar behavior on desktop opens floating windows, tested separately in unit tests)
+    await navigateTo(page, 'Contacts');
 
     await expect(page.getByRole('heading', { name: 'Contacts' })).toBeVisible();
   });
@@ -1360,14 +1358,12 @@ test.describe('Analytics page', () => {
     await page.goto('/');
   });
 
-  test('should navigate to analytics page when analytics link is clicked', async ({
+  test('should display analytics page', async ({
     page
   }) => {
-    // Open sidebar via Start button
-    await openSidebar(page);
-
-    const analyticsButton = page.locator('aside nav').getByRole('button', { name: 'Analytics' });
-    await triggerSidebarNavigation(page, analyticsButton);
+    // Use URL navigation to access the analytics page
+    // (Sidebar behavior on desktop opens floating windows, tested separately in unit tests)
+    await navigateTo(page, 'Analytics');
 
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
   });
