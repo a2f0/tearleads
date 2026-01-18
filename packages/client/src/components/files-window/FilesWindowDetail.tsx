@@ -266,15 +266,15 @@ export function FilesWindowDetail({
     if (isUnlocked && fileId) {
       fetchFile();
     }
-  }, [isUnlocked, fileId, fetchFile]);
 
-  useEffect(() => {
     return () => {
       for (const url of urlsToRevoke.current) {
         URL.revokeObjectURL(url);
       }
+      urlsToRevoke.current = [];
+      fileDataRef.current = null;
     };
-  }, []);
+  }, [isUnlocked, fileId, fetchFile]);
 
   const category = file ? getFileCategory(file.mimeType) : 'unknown';
   const isCurrentlyPlaying = currentTrack?.id === file?.id && isPlaying;
