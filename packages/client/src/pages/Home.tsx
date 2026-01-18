@@ -33,7 +33,8 @@ const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/chat': 'chat',
   '/analytics': 'analytics',
   '/audio': 'audio',
-  '/admin': 'admin'
+  '/admin': 'admin',
+  '/cache-storage': 'cache-storage'
 };
 
 const ICON_SIZE = 64;
