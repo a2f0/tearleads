@@ -401,12 +401,34 @@ async function switchToInstanceFromAnyPage(page: Page, instanceIndex: number) {
 
 // Helper to unlock on the current page if it's locked
 async function unlockOnPageIfLocked(page: Page) {
+  // Try using the test ID first (more reliable)
+  const inlineUnlockPassword = page.getByTestId('inline-unlock-password');
   const passwordInput = page.getByPlaceholder('Password');
-  if (await passwordInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+
+  // Check for either form of password input
+  const hasInlineUnlock = await inlineUnlockPassword
+    .isVisible({ timeout: 2000 })
+    .catch(() => false);
+  const hasPasswordInput = await passwordInput
+    .isVisible({ timeout: 500 })
+    .catch(() => false);
+
+  if (hasInlineUnlock) {
+    await inlineUnlockPassword.fill(TEST_PASSWORD);
+    const unlockButton = page.getByTestId('inline-unlock-button');
+    await unlockButton.click();
+    // Wait for unlock to complete (password input should disappear)
+    await expect(inlineUnlockPassword).not.toBeVisible({
+      timeout: DB_OPERATION_TIMEOUT
+    });
+  } else if (hasPasswordInput) {
     await passwordInput.fill(TEST_PASSWORD);
     const unlockButton = page.getByRole('button', { name: 'Unlock' });
     if (await unlockButton.isVisible()) {
       await unlockButton.click();
+      await expect(passwordInput).not.toBeVisible({
+        timeout: DB_OPERATION_TIMEOUT
+      });
     }
   }
 }
