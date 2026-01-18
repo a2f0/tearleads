@@ -16,9 +16,9 @@ import {
   useWindowManager,
   type WindowType
 } from '@/contexts/WindowManagerContext';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTypedTranslation } from '@/i18n';
 import { cn } from '@/lib/utils';
-import { useIsMobile } from '@/hooks/useIsMobile';
 
 const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/notes': 'notes',
