@@ -3,6 +3,7 @@ import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import type { FilesWindowContentRef } from './FilesWindowContent';
 import { FilesWindowContent } from './FilesWindowContent';
+import { FilesWindowDetail } from './FilesWindowDetail';
 import type { ViewMode } from './FilesWindowMenuBar';
 import { FilesWindowMenuBar } from './FilesWindowMenuBar';
 import { FilesWindowTableView } from './FilesWindowTableView';
@@ -28,6 +29,8 @@ export function FilesWindow({
 }: FilesWindowProps) {
   const [showDeleted, setShowDeleted] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<FilesWindowContentRef>(null);
 
@@ -41,11 +44,23 @@ export function FilesWindow({
       if (files.length > 0) {
         contentRef.current?.uploadFiles(files);
       }
-      // Reset input so the same file can be selected again
       e.target.value = '';
     },
     []
   );
+
+  const handleSelectFile = useCallback((fileId: string) => {
+    setSelectedFileId(fileId);
+  }, []);
+
+  const handleBack = useCallback(() => {
+    setSelectedFileId(null);
+  }, []);
+
+  const handleDeleted = useCallback(() => {
+    setSelectedFileId(null);
+    setRefreshToken((value) => value + 1);
+  }, []);
 
   return (
     <FloatingWindow
@@ -63,21 +78,36 @@ export function FilesWindow({
       minHeight={300}
     >
       <div className="flex h-full flex-col">
-        <FilesWindowMenuBar
-          showDeleted={showDeleted}
-          onShowDeletedChange={setShowDeleted}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          onUpload={handleUpload}
-          onClose={onClose}
-        />
+        {!selectedFileId && (
+          <FilesWindowMenuBar
+            showDeleted={showDeleted}
+            onShowDeletedChange={setShowDeleted}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            onUpload={handleUpload}
+            onClose={onClose}
+          />
+        )}
         <div className="flex-1 overflow-hidden">
-          {viewMode === 'list' ? (
-            <FilesWindowContent ref={contentRef} showDeleted={showDeleted} />
+          {selectedFileId ? (
+            <FilesWindowDetail
+              fileId={selectedFileId}
+              onBack={handleBack}
+              onDeleted={handleDeleted}
+            />
+          ) : viewMode === 'list' ? (
+            <FilesWindowContent
+              ref={contentRef}
+              showDeleted={showDeleted}
+              onSelectFile={handleSelectFile}
+              refreshToken={refreshToken}
+            />
           ) : (
             <FilesWindowTableView
               showDeleted={showDeleted}
               onUpload={handleUpload}
+              onSelectFile={handleSelectFile}
+              refreshToken={refreshToken}
             />
           )}
         </div>

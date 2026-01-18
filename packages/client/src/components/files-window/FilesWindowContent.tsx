@@ -7,12 +7,17 @@ export interface FilesWindowContentRef {
 
 interface FilesWindowContentProps {
   showDeleted: boolean;
+  onSelectFile?: (fileId: string) => void;
+  refreshToken?: number;
 }
 
 export const FilesWindowContent = forwardRef<
   FilesWindowContentRef,
   FilesWindowContentProps
->(function FilesWindowContent({ showDeleted }, ref) {
+>(function FilesWindowContent(
+  { showDeleted, onSelectFile, refreshToken },
+  ref
+) {
   const filesListRef = useRef<FilesListRef>(null);
 
   useImperativeHandle(
@@ -31,6 +36,8 @@ export const FilesWindowContent = forwardRef<
         ref={filesListRef}
         showDeleted={showDeleted}
         showHeader={false}
+        {...(onSelectFile && { onSelectFile })}
+        {...(refreshToken !== undefined && { refreshToken })}
       />
     </div>
   );
