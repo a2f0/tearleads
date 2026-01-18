@@ -218,30 +218,32 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
 
     const fetchedForInstanceRef = useRef<string | null>(null);
 
-    // biome-ignore lint/correctness/useExhaustiveDependencies: files and hasFetched intentionally excluded
+    // Clear files when instance changes (even if locked)
+    // This ensures we don't show stale data from the previous instance
     useEffect(() => {
-      const needsFetch =
-        isUnlocked &&
-        !loading &&
-        (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
+      if (
+        fetchedForInstanceRef.current !== currentInstanceId &&
+        fetchedForInstanceRef.current !== null
+      ) {
+        // Revoke thumbnail URLs to prevent memory leaks
+        for (const file of files) {
+          if (file.thumbnailUrl) {
+            URL.revokeObjectURL(file.thumbnailUrl);
+          }
+        }
+        setFiles([]);
+        setError(null);
+        setHasFetched(false);
+      }
+      fetchedForInstanceRef.current = currentInstanceId;
+    }, [currentInstanceId, files]);
+
+    // Fetch files when unlocked and instance is ready
+    // biome-ignore lint/correctness/useExhaustiveDependencies: hasFetched intentionally excluded
+    useEffect(() => {
+      const needsFetch = isUnlocked && !loading && !hasFetched;
 
       if (needsFetch) {
-        if (
-          fetchedForInstanceRef.current !== currentInstanceId &&
-          fetchedForInstanceRef.current !== null
-        ) {
-          for (const file of files) {
-            if (file.thumbnailUrl) {
-              URL.revokeObjectURL(file.thumbnailUrl);
-            }
-          }
-          setFiles([]);
-          setError(null);
-        }
-
-        fetchedForInstanceRef.current = currentInstanceId;
-        setHasFetched(false);
-
         const timeoutId = setTimeout(() => {
           fetchFiles();
         }, 0);
@@ -249,7 +251,7 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
         return () => clearTimeout(timeoutId);
       }
       return undefined;
-    }, [isUnlocked, loading, currentInstanceId, fetchFiles]);
+    }, [isUnlocked, loading, fetchFiles]);
 
     useEffect(() => {
       if (refreshToken !== undefined && refreshToken > 0 && isUnlocked) {
