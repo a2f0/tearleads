@@ -29,7 +29,8 @@ function App() {
   const sse = useSSEContext();
   const location = useLocation();
   const navigate = useNavigate();
-  const isHome = location.pathname === '/';
+  const pathname = location.pathname;
+  const isHome = pathname === '/';
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isMobile = useIsMobile();
 
@@ -42,8 +43,10 @@ function App() {
   }, [navigate]);
 
   useEffect(() => {
-    setIsSidebarOpen(false);
-  }, [location.pathname]);
+    if (pathname) {
+      setIsSidebarOpen(false);
+    }
+  }, [pathname]);
 
   return (
     <div
