@@ -7,7 +7,7 @@ const mockDownloadFile = vi.fn();
 const mockShareFile = vi.fn();
 const mockCanShareFiles = vi.fn(() => false);
 const mockRetrieve = vi.fn();
-const mockIsFileStorageInitialized = vi.fn(() => true);
+const mockIsFileStorageInitialized = vi.fn((_instanceId?: string) => true);
 const mockInitializeFileStorage = vi.fn();
 const mockUpdate = vi.fn();
 const mockSet = vi.fn();
