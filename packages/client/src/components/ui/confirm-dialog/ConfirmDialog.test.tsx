@@ -202,17 +202,18 @@ describe('ConfirmDialog', () => {
     const onOpenChange = vi.fn();
     const user = userEvent.setup();
 
+    const dialogProps = {
+      onOpenChange,
+      title: 'Test',
+      description: 'Test',
+      confirmLabel: 'Delete',
+      confirmingLabel: 'Deleting...',
+      onConfirm
+    };
+
     const { rerender } = render(
       <ThemeProvider>
-        <ConfirmDialog
-          open={true}
-          onOpenChange={onOpenChange}
-          title="Test"
-          description="Test"
-          confirmLabel="Delete"
-          confirmingLabel="Deleting..."
-          onConfirm={onConfirm}
-        />
+        <ConfirmDialog open={true} {...dialogProps} />
       </ThemeProvider>
     );
 
@@ -225,30 +226,14 @@ describe('ConfirmDialog', () => {
     // Close the dialog
     rerender(
       <ThemeProvider>
-        <ConfirmDialog
-          open={false}
-          onOpenChange={onOpenChange}
-          title="Test"
-          description="Test"
-          confirmLabel="Delete"
-          confirmingLabel="Deleting..."
-          onConfirm={onConfirm}
-        />
+        <ConfirmDialog open={false} {...dialogProps} />
       </ThemeProvider>
     );
 
     // Reopen the dialog
     rerender(
       <ThemeProvider>
-        <ConfirmDialog
-          open={true}
-          onOpenChange={onOpenChange}
-          title="Test"
-          description="Test"
-          confirmLabel="Delete"
-          confirmingLabel="Deleting..."
-          onConfirm={onConfirm}
-        />
+        <ConfirmDialog open={true} {...dialogProps} />
       </ThemeProvider>
     );
 
