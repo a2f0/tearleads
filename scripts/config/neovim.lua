@@ -198,4 +198,4 @@ vim.keymap.set('n', '<leader>gv', function()
   end)
 end, { desc = 'View picker' })
 
-vim.cmd('DiffviewOpen')
+vim.cmd('Neotree show filesystem')
