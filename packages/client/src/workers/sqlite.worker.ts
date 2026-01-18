@@ -277,6 +277,12 @@ async function initializeDatabase(
   name: string,
   key: Uint8Array
 ): Promise<void> {
+  // Close any existing database connection before opening a new one
+  // This is critical for multi-instance support to avoid resource conflicts
+  if (db) {
+    closeDatabase();
+  }
+
   // Initialize WASM module if not already done
   await initializeSqliteWasm();
 
