@@ -165,15 +165,13 @@ describe('App Integration', () => {
       // Both are buttons now, but with different test IDs
       const sidebarFilesButton = screen.getByTestId('files-link');
       const filesButtons = screen.getAllByRole('button', { name: 'Files' });
-      const filesLinks = screen.getAllByRole('link', { name: 'Files' });
       const contactsButtons = screen.getAllByRole('button', {
         name: 'Contacts'
       });
-      const contactsLinks = screen.getAllByRole('link', { name: 'Contacts' });
       expect(sidebarFilesButton).toBeInTheDocument();
       // Should have both sidebar and home page buttons
-      expect(filesButtons.length + filesLinks.length).toBeGreaterThanOrEqual(2);
-      expect(contactsButtons.length + contactsLinks.length).toBeGreaterThanOrEqual(2);
+      expect(filesButtons.length).toBeGreaterThanOrEqual(2);
+      expect(contactsButtons.length).toBeGreaterThanOrEqual(2);
     });
 
     it('navigates to Contacts page when double-clicking sidebar button', async () => {
