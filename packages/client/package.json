@@ -1,6 +1,6 @@
 {
   "name": "@rapid/client",
-  "version": "0.0.178",
+  "version": "0.0.179",
   "description": "React client application for Rapid",
   "main": "out/main/main.js",
   "type": "module",
@@ -109,6 +109,7 @@
     "typescript": "5.9.3",
     "vite": "7.3.0",
     "vite-plugin-pwa": "1.2.0",
-    "vitest": "4.0.16"
+    "vitest": "4.0.16",
+    "vitest-fail-on-console": "0.10.1"
   }
 }

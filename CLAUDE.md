@@ -118,6 +118,7 @@ git push --force-with-lease      # WRONG - wastes tokens
 - Each line consumes tokens from the context window
 - On success, only the exit code matters - stdout is noise
 - On failure, errors appear on stderr (preserved by `>/dev/null`)
+- Pre-push hooks may take several minutes; set a generous timeout on `git push`
 
 ### Other token-saving practices
 
