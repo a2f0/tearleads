@@ -260,6 +260,27 @@ describe('AudioWindowDetail', () => {
     );
   });
 
+  it('falls back when thumbnail retrieval fails', async () => {
+    const audioWithThumbnail = {
+      ...TEST_AUDIO,
+      thumbnailPath: '/audio/thumb.jpg'
+    };
+    mockSelect.mockReturnValue(createMockQueryChain([audioWithThumbnail]));
+    mockRetrieve
+      .mockResolvedValueOnce(TEST_AUDIO_DATA)
+      .mockRejectedValueOnce(new Error('thumbnail failed'));
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    renderAudioWindowDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText('Audio Details')).toBeInTheDocument();
+    });
+    expect(screen.queryByAltText('Album cover')).not.toBeInTheDocument();
+    expect(consoleWarn).toHaveBeenCalled();
+    consoleWarn.mockRestore();
+  });
+
   it('plays the track when clicking play', async () => {
     const user = userEvent.setup();
     renderAudioWindowDetail();
@@ -323,6 +344,24 @@ describe('AudioWindowDetail', () => {
         screen.getByText('Sharing is not supported on this device')
       ).toBeInTheDocument();
     });
+  });
+
+  it('ignores aborted share requests', async () => {
+    const abortError = new Error('aborted');
+    abortError.name = 'AbortError';
+    mockShareFile.mockRejectedValue(abortError);
+    const user = userEvent.setup();
+    renderAudioWindowDetail();
+
+    const shareButton = await screen.findByTestId('share-button');
+    await user.click(shareButton);
+
+    await waitFor(() => {
+      expect(mockShareFile).toHaveBeenCalled();
+    });
+    expect(
+      screen.queryByText('Sharing is not supported on this device')
+    ).not.toBeInTheDocument();
   });
 
   it('downloads, shares, and deletes audio from action toolbar', async () => {
