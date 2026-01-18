@@ -15,6 +15,7 @@ import { NotesWindow } from '@/components/notes-window';
 import { PhotosWindow } from '@/components/photos-window';
 import { SettingsWindow } from '@/components/settings-window';
 import { SqliteWindow } from '@/components/sqlite-window';
+import { VideoWindow } from '@/components/video-window';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 
@@ -40,6 +41,7 @@ const WINDOW_COMPONENTS: Record<
   email: EmailWindow,
   contacts: ContactsWindow,
   photos: PhotosWindow,
+  videos: VideoWindow,
   keychain: KeychainWindow,
   sqlite: SqliteWindow,
   chat: ChatWindow,
