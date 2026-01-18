@@ -700,6 +700,17 @@ describe('Home', () => {
     expect(screen.getByText('Open in Window')).toBeInTheDocument();
   });
 
+  it('shows Open in Window option for Models icon', async () => {
+    const user = userEvent.setup();
+    renderHome();
+
+    const modelsButton = screen.getByRole('button', { name: 'Models' });
+    await user.pointer({ keys: '[MouseRight]', target: modelsButton });
+
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.getByText('Open in Window')).toBeInTheDocument();
+  });
+
   it('opens console in floating window when Open in Window is clicked', async () => {
     const user = userEvent.setup();
     renderHome();
