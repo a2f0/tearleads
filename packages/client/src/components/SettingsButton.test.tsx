@@ -1,5 +1,5 @@
 import { ThemeProvider } from '@rapid/ui';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setupThemeMocks } from '@/test/theme-test-utils';
@@ -63,7 +63,7 @@ describe('SettingsButton', () => {
     await user.click(screen.getByTestId('settings-button'));
     expect(screen.getByTestId('settings-sheet')).toBeInTheDocument();
 
-    await user.keyboard('{Escape}');
+    fireEvent.keyDown(document, { key: 'Escape' });
 
     await waitFor(
       () => {

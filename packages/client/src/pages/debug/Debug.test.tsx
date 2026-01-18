@@ -1,5 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps, ReactNode } from 'react';
+import { Component } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
@@ -25,16 +27,40 @@ vi.mock('@/lib/utils', async () => {
   };
 });
 
-function renderDebugRaw() {
+type DebugProps = ComponentProps<typeof Debug>;
+
+class TestErrorBoundary extends Component<
+  { onError: (error: Error) => void; children: ReactNode },
+  { hasError: boolean }
+> {
+  override state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  override componentDidCatch(error: Error) {
+    this.props.onError(error);
+  }
+
+  override render() {
+    if (this.state.hasError) {
+      return <div>Boundary Error</div>;
+    }
+    return this.props.children;
+  }
+}
+
+function renderDebugRaw(props?: DebugProps) {
   return render(
     <MemoryRouter>
-      <Debug />
+      <Debug {...props} />
     </MemoryRouter>
   );
 }
 
-async function renderDebug() {
-  const result = renderDebugRaw();
+async function renderDebug(props?: DebugProps) {
+  const result = renderDebugRaw(props);
   // Wait for initial async effects (fetchPing) to complete
   await waitFor(() => {
     expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -53,6 +79,14 @@ describe('Debug', () => {
       await renderDebug();
 
       expect(screen.getByText('Debug')).toBeInTheDocument();
+    });
+
+    it('hides the page title when showTitle is false', async () => {
+      await renderDebug({ showTitle: false });
+
+      expect(
+        screen.queryByRole('heading', { name: 'Debug' })
+      ).not.toBeInTheDocument();
     });
 
     it('renders system info section with all device and environment info', async () => {
@@ -152,6 +186,27 @@ describe('Debug', () => {
         expect.stringContaining('Platform: web')
       );
     });
+
+    it('logs an error when clipboard copy fails', async () => {
+      const user = userEvent.setup();
+      const consoleSpy = mockConsoleError();
+      vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(
+        new Error('Clipboard error')
+      );
+
+      await renderDebug();
+
+      await user.click(screen.getByTestId('copy-debug-info'));
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith(
+          'Failed to copy debug info:',
+          expect.any(Error)
+        );
+      });
+
+      consoleSpy.mockRestore();
+    });
   });
 
   describe('API status', () => {
@@ -227,22 +282,24 @@ describe('Debug', () => {
   });
 
   describe('actions', () => {
-    it('throws error when Throw Error button is clicked', async () => {
-      // Suppress console.error for this test
-      const consoleSpy = vi
-        .spyOn(console, 'error')
-        .mockImplementation(() => {});
+    it('throws when Throw Error is clicked', async () => {
+      const user = userEvent.setup();
+      const onError = vi.fn();
+      const consoleSpy = mockConsoleError();
 
-      await renderDebug();
+      render(
+        <MemoryRouter>
+          <TestErrorBoundary onError={onError}>
+            <Debug />
+          </TestErrorBoundary>
+        </MemoryRouter>
+      );
 
-      expect(screen.getByText('1.0.0')).toBeInTheDocument();
+      await user.click(screen.getByTestId('throw-error-button'));
 
-      // Clicking the button should throw an error
-      expect(screen.getByTestId('throw-error-button')).toBeInTheDocument();
-
-      // The component will throw when shouldThrow is set to true
-      // We can't easily test this in isolation without an error boundary
-      // But we can verify the button exists and has the correct attributes
+      await waitFor(() => {
+        expect(onError).toHaveBeenCalledWith(expect.any(Error));
+      });
 
       consoleSpy.mockRestore();
     });

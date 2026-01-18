@@ -1,6 +1,7 @@
 import {
   Archive,
   BarChart2,
+  Bug,
   Database,
   FileIcon,
   Film,
@@ -24,6 +25,7 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   settings: <Settings className="h-3 w-3" />,
   files: <FileIcon className="h-3 w-3" />,
   videos: <Film className="h-3 w-3" />,
+  debug: <Bug className="h-3 w-3" />,
   email: <Mail className="h-3 w-3" />,
   contacts: <User className="h-3 w-3" />,
   photos: <ImageIcon className="h-3 w-3" />,
@@ -42,6 +44,7 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   settings: 'Settings',
   files: 'Files',
   videos: 'Videos',
+  debug: 'Debug',
   email: 'Email',
   contacts: 'Contacts',
   photos: 'Photos',
