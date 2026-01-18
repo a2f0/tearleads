@@ -71,6 +71,12 @@ vi.mock('@/i18n', () => ({
   })
 }));
 
+vi.mock('@/components/sqlite/InlineUnlock', () => ({
+  InlineUnlock: ({ description }: { description: string }) => (
+    <div data-testid="inline-unlock">{description}</div>
+  )
+}));
+
 describe('PhotosWindowContent', () => {
   const photo = {
     id: 'photo-1',
@@ -195,6 +201,40 @@ describe('PhotosWindowContent', () => {
     render(<PhotosWindowContent refreshToken={0} />);
 
     expect(screen.queryByTitle('Share')).not.toBeInTheDocument();
+  });
+
+  it('renders the unlock prompt when database is locked', () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [],
+      loading: false,
+      error: null,
+      hasFetched: false,
+      isUnlocked: false,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: null
+    });
+
+    render(<PhotosWindowContent refreshToken={0} />);
+
+    expect(screen.getByTestId('inline-unlock')).toHaveTextContent('photos');
+  });
+
+  it('shows loading state when database is loading', () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [],
+      loading: false,
+      error: null,
+      hasFetched: false,
+      isUnlocked: false,
+      isLoading: true,
+      refresh: vi.fn(),
+      currentInstanceId: null
+    });
+
+    render(<PhotosWindowContent refreshToken={0} />);
+
+    expect(screen.getByText('Loading database...')).toBeInTheDocument();
   });
 
   it('deletes photo from context menu', async () => {
