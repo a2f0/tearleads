@@ -1,0 +1,22 @@
+#!/bin/sh
+set -e
+
+TO_ADDRESS="test@{{ domain }}"
+FROM_ADDRESS="test@example.com"
+TIMESTAMP=$(date -R)
+
+echo "Sending test email to ${TO_ADDRESS} via localhost:25..."
+
+curl --silent --show-error --url 'smtp://localhost:25' \
+  --mail-from "${FROM_ADDRESS}" \
+  --mail-rcpt "${TO_ADDRESS}" \
+  --upload-file - <<EOF
+From: ${FROM_ADDRESS}
+To: ${TO_ADDRESS}
+Subject: Test email from deliverMail.sh
+Date: ${TIMESTAMP}
+
+This is a test message sent at ${TIMESTAMP}
+EOF
+
+echo "Email sent successfully"
