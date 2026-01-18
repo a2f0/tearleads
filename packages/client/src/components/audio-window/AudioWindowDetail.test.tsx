@@ -297,6 +297,35 @@ describe('AudioWindowDetail', () => {
     );
   });
 
+  it('revokes object URLs on unmount when not playing', async () => {
+    const { unmount } = renderAudioWindowDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText('Audio Details')).toBeInTheDocument();
+    });
+
+    unmount();
+    expect(mockRevokeObjectURL).toHaveBeenCalled();
+  });
+
+  it('keeps the current track URL on unmount when playing', async () => {
+    mockUseAudio.mockReturnValue({
+      currentTrack: { id: 'audio-123' },
+      isPlaying: true,
+      play: mockPlay,
+      pause: mockPause,
+      resume: mockResume
+    });
+    const { unmount } = renderAudioWindowDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText('Audio Details')).toBeInTheDocument();
+    });
+
+    unmount();
+    expect(mockRevokeObjectURL).not.toHaveBeenCalled();
+  });
+
   it('pauses when the current track is playing', async () => {
     mockUseAudio.mockReturnValue({
       currentTrack: { id: 'audio-123' },
