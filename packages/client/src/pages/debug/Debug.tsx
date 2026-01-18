@@ -101,7 +101,9 @@ export function Debug({ showTitle = true }: DebugProps) {
 
   return (
     <div className="space-y-6 overflow-x-hidden">
-      {showTitle && <h1 className="font-bold text-2xl tracking-tight">Debug</h1>}
+      {showTitle && (
+        <h1 className="font-bold text-2xl tracking-tight">Debug</h1>
+      )}
 
       <div className="space-y-3 rounded-lg border p-4">
         <div className="flex items-center justify-between">
