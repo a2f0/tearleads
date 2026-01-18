@@ -50,6 +50,11 @@ interface AudioWithUrl extends AudioInfo {
 type SortColumn = 'name' | 'size' | 'mimeType' | 'uploadDate';
 type SortDirection = 'asc' | 'desc';
 
+interface AudioWindowTableViewProps {
+  onSelectTrack?: (trackId: string) => void;
+  refreshToken?: number;
+}
+
 interface SortHeaderProps {
   column: SortColumn;
   label: string;
@@ -107,7 +112,10 @@ function getAudioTypeDisplay(mimeType: string): string {
   return subtype?.toUpperCase() ?? 'Audio';
 }
 
-export function AudioWindowTableView() {
+export function AudioWindowTableView({
+  onSelectTrack,
+  refreshToken = 0
+}: AudioWindowTableViewProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
   const { t } = useTypedTranslation('contextMenu');
@@ -278,6 +286,11 @@ export function AudioWindowTableView() {
   }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchTracks]);
 
   useEffect(() => {
+    if (!isUnlocked || refreshToken === 0 || !hasFetched) return;
+    fetchTracks();
+  }, [fetchTracks, hasFetched, isUnlocked, refreshToken]);
+
+  useEffect(() => {
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
 
@@ -337,6 +350,12 @@ export function AudioWindowTableView() {
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);
   }, []);
+
+  const handleContextMenuInfo = useCallback(() => {
+    if (!contextMenu) return;
+    onSelectTrack?.(contextMenu.track.id);
+    setContextMenu(null);
+  }, [contextMenu, onSelectTrack]);
 
   const handleContextMenuPlay = useCallback(
     (track: AudioWithUrl) => {
@@ -552,10 +571,7 @@ export function AudioWindowTableView() {
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Info className="h-4 w-4" />}
-            onClick={() => {
-              window.open(`/audio/${contextMenu.track.id}`, '_blank');
-              setContextMenu(null);
-            }}
+            onClick={handleContextMenuInfo}
           >
             {t('getInfo')}
           </ContextMenuItem>
