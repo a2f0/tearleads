@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { clearOriginStorage } from './test-utils';
 
@@ -13,20 +13,81 @@ const WEBGPU_CHECKING_TEXT = 'Checking WebGPU support...';
 async function openSidebar(page: Page) {
   const startButton = page.getByTestId('start-button');
   await expect(startButton).toBeVisible({ timeout: 10000 });
-  await startButton.click();
+  if ((await startButton.getAttribute('aria-pressed')) !== 'true') {
+    await startButton.click();
+  }
   await expect(page.locator('aside nav')).toBeVisible({ timeout: 10000 });
 }
 
+async function isDesktopDevice(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const isMobile = window.matchMedia('(max-width: 1023px)').matches;
+    const isTouch =
+      window.matchMedia('(pointer: coarse)').matches ||
+      navigator.maxTouchPoints > 0;
+    return !isMobile && !isTouch;
+  });
+}
+
+async function navigateWithHistory(page: Page, path: string): Promise<void> {
+  await page.evaluate((targetPath) => {
+    window.history.pushState({}, '', targetPath);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, path);
+}
+
+async function triggerSidebarNavigation(
+  page: Page,
+  button: Locator
+): Promise<void> {
+  const isDesktop = await isDesktopDevice(page);
+
+  if (isDesktop) {
+    await button.dblclick();
+  } else {
+    await button.click();
+  }
+}
+
+const WINDOW_LAUNCH_PATHS = new Set([
+  '/admin',
+  '/analytics',
+  '/audio',
+  '/chat',
+  '/console',
+  '/contacts',
+  '/email',
+  '/files',
+  '/keychain',
+  '/notes',
+  '/photos',
+  '/settings',
+  '/sqlite'
+]);
+
 // Helper to navigate via sidebar (requires opening sidebar first)
 async function navigateTo(page: Page, linkName: string) {
+  const slug = linkName.toLowerCase().replace(/\s+/g, '-');
+  const path = linkName === 'Home' ? '/' : `/${slug}`;
+  const isDesktop = await isDesktopDevice(page);
+  if (isDesktop && WINDOW_LAUNCH_PATHS.has(path)) {
+    await navigateWithHistory(page, path);
+    return;
+  }
   // Check if sidebar is visible, if not open it
   const sidebar = page.locator('aside nav');
-  if (!(await sidebar.isVisible())) {
+  const startButton = page.getByTestId('start-button');
+  const isSidebarOpen =
+    (await startButton.getAttribute('aria-pressed')) === 'true';
+  if (!isSidebarOpen) {
     await openSidebar(page);
+  } else {
+    await expect(sidebar).toBeVisible({ timeout: 10000 });
   }
-  const button = sidebar.getByRole('button', { name: linkName });
+  const testId = `${slug}-link`;
+  const button = sidebar.getByTestId(testId);
   // Sidebar auto-closes after launch
-  await button.dblclick();
+  await triggerSidebarNavigation(page, button);
   await expect(sidebar).not.toBeVisible({ timeout: 5000 });
 }
 
@@ -206,11 +267,7 @@ test.describe('Index page', () => {
   });
 
   test('should navigate to settings page', async ({ page }) => {
-    // Open sidebar via Start button
-    await openSidebar(page);
-
-    const settingsButton = page.locator('aside nav').getByRole('button', { name: 'Settings' });
-    await settingsButton.click();
+    await navigateTo(page, 'Settings');
 
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
   });
@@ -1089,12 +1146,7 @@ test.describe('Audio page', () => {
   test('should navigate to audio page when audio link is clicked', async ({
     page
   }) => {
-    // Open sidebar via Start button
-    await openSidebar(page);
-
-    const audioButton = page.locator('aside nav').getByRole('button', { name: 'Audio' });
-    await audioButton.click();
-
+    await navigateTo(page, 'Audio');
     await expect(page.getByRole('heading', { name: 'Audio' })).toBeVisible();
   });
 
