@@ -1,8 +1,9 @@
 # Screen configuration for tuxedo workspaces
 # Enables mouse wheel scrolling through tmux by disabling alternate screen
 
-# Start shell as login shell (-$SHELL) so nvm and other tools initialize properly
-shell -$SHELL
+# Note: We don't use 'shell' here because we need init-env.sh to run AFTER
+# the shell's rc files. The shell is started via tuxedo-shell.sh wrapper
+# which is passed as a command argument when screen is invoked.
 
 # Enable truecolor support for Claude Code and other terminal apps
 truecolor on

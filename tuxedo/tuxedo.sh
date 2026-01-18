@@ -109,7 +109,8 @@ screen_cmd() {
         # -d -RR: detach from elsewhere if attached, reattach or create new
         # -c $CONFIG_DIR/screenrc: use our config for scrollback and mouse support
         # -T tmux-256color: enable true color support for proper terminal colors
-        echo "screen -T tmux-256color -d -RR $screen_name -c \"$CONFIG_DIR/screenrc\""
+        # The tuxedo-shell.sh wrapper ensures init-env.sh runs AFTER shell rc files
+        echo "screen -T tmux-256color -d -RR $screen_name -c \"$CONFIG_DIR/screenrc\" \"$SCRIPT_DIR/tuxedo-shell.sh\""
     else
         # Fallback: just run the shell
         echo ""
