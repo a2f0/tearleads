@@ -30,7 +30,7 @@ export function VideoWindow({
       onDimensionsChange={onDimensionsChange}
       onFocus={onFocus}
       zIndex={zIndex}
-      {...(initialDimensions && { initialDimensions })}
+      initialDimensions={initialDimensions}
       defaultWidth={700}
       defaultHeight={550}
       minWidth={400}
