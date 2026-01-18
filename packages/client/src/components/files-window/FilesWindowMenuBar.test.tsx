@@ -7,6 +7,8 @@ describe('FilesWindowMenuBar', () => {
   const defaultProps = {
     showDeleted: false,
     onShowDeletedChange: vi.fn(),
+    viewMode: 'list' as const,
+    onViewModeChange: vi.fn(),
     onUpload: vi.fn(),
     onClose: vi.fn()
   };
@@ -126,5 +128,73 @@ describe('FilesWindowMenuBar', () => {
     const checkSpan = showDeletedItem.querySelector('span.w-3');
 
     expect(checkSpan?.querySelector('svg')).not.toBeInTheDocument();
+  });
+
+  it('shows List and Table options in View menu', async () => {
+    const user = userEvent.setup();
+    render(<FilesWindowMenuBar {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+
+    expect(screen.getByRole('menuitem', { name: 'List' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Table' })).toBeInTheDocument();
+  });
+
+  it('calls onViewModeChange with list when List is clicked', async () => {
+    const user = userEvent.setup();
+    const onViewModeChange = vi.fn();
+    render(
+      <FilesWindowMenuBar
+        {...defaultProps}
+        viewMode="table"
+        onViewModeChange={onViewModeChange}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    await user.click(screen.getByRole('menuitem', { name: 'List' }));
+
+    expect(onViewModeChange).toHaveBeenCalledWith('list');
+  });
+
+  it('calls onViewModeChange with table when Table is clicked', async () => {
+    const user = userEvent.setup();
+    const onViewModeChange = vi.fn();
+    render(
+      <FilesWindowMenuBar
+        {...defaultProps}
+        viewMode="list"
+        onViewModeChange={onViewModeChange}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Table' }));
+
+    expect(onViewModeChange).toHaveBeenCalledWith('table');
+  });
+
+  it('shows checkmark on List when viewMode is list', async () => {
+    const user = userEvent.setup();
+    render(<FilesWindowMenuBar {...defaultProps} viewMode="list" />);
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+
+    const listItem = screen.getByRole('menuitem', { name: 'List' });
+    const checkSpan = listItem.querySelector('span.w-3');
+
+    expect(checkSpan?.querySelector('svg')).toBeInTheDocument();
+  });
+
+  it('shows checkmark on Table when viewMode is table', async () => {
+    const user = userEvent.setup();
+    render(<FilesWindowMenuBar {...defaultProps} viewMode="table" />);
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+
+    const tableItem = screen.getByRole('menuitem', { name: 'Table' });
+    const checkSpan = tableItem.querySelector('span.w-3');
+
+    expect(checkSpan?.querySelector('svg')).toBeInTheDocument();
   });
 });
