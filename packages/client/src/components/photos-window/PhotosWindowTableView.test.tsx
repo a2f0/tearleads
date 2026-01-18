@@ -179,4 +179,67 @@ describe('PhotosWindowTableView', () => {
     expect(mockWhere).toHaveBeenCalled();
     expect(refresh).toHaveBeenCalled();
   });
+
+  it('does not show share action when sharing is unsupported', async () => {
+    mockCanShareFiles.mockReturnValue(false);
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
+
+    expect(
+      screen.queryByRole('button', { name: 'Share' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('sorts by name when header is clicked', async () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [
+        {
+          ...photo,
+          id: 'photo-1',
+          name: 'b.jpg',
+          uploadDate: new Date('2024-01-02T00:00:00Z')
+        },
+        {
+          ...photo,
+          id: 'photo-2',
+          name: 'a.jpg',
+          uploadDate: new Date('2024-01-01T00:00:00Z')
+        }
+      ],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    await user.click(screen.getByRole('button', { name: 'Name' }));
+
+    const rows = screen.getAllByRole('row');
+    expect(rows[1]?.textContent).toContain('a.jpg');
+
+    await user.click(screen.getByRole('button', { name: 'Name' }));
+    expect(rows[1]?.textContent).toContain('b.jpg');
+  });
 });
