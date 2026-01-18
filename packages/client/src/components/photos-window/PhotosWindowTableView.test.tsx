@@ -156,9 +156,9 @@ describe('PhotosWindowTableView', () => {
 
     fireEvent.contextMenu(screen.getByText('photo.jpg'));
 
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Download' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Share' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     expect(mockRetrieve).toHaveBeenCalledWith('/photos/photo.jpg');
     expect(mockDownloadFile).toHaveBeenCalledWith(
