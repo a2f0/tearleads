@@ -1,8 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
-import { VideoWindow } from './VideoWindow';
+import { useEffect } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CacheStorageWindow } from './CacheStorageWindow';
+
+const cacheStorageMount = vi.fn();
 
 vi.mock('@/components/floating-window', () => ({
   FloatingWindow: ({
@@ -31,41 +34,66 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/Video', () => ({
-  VideoPage: () => <div data-testid="video-page">Video Page</div>
+vi.mock('@/pages/cache-storage', () => ({
+  CacheStorage: () => {
+    useEffect(() => {
+      cacheStorageMount();
+    }, []);
+    return <div data-testid="cache-storage-content">Cache Storage</div>;
+  }
 }));
 
-describe('VideoWindow', () => {
+describe('CacheStorageWindow', () => {
   const defaultProps = {
-    id: 'video-window',
+    id: 'cache-storage-window',
     onClose: vi.fn(),
     onMinimize: vi.fn(),
     onFocus: vi.fn(),
     zIndex: 100
   };
 
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('renders in FloatingWindow', () => {
-    render(<VideoWindow {...defaultProps} />);
+    render(<CacheStorageWindow {...defaultProps} />);
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
   });
 
-  it('shows Videos as title', () => {
-    render(<VideoWindow {...defaultProps} />);
-    expect(screen.getByTestId('window-title')).toHaveTextContent('Videos');
+  it('shows Cache Storage as title', () => {
+    render(<CacheStorageWindow {...defaultProps} />);
+    expect(screen.getByTestId('window-title')).toHaveTextContent(
+      'Cache Storage'
+    );
   });
 
-  it('renders the VideoPage content', () => {
-    render(<VideoWindow {...defaultProps} />);
-    expect(screen.getByTestId('video-page')).toBeInTheDocument();
+  it('renders the cache storage content', () => {
+    render(<CacheStorageWindow {...defaultProps} />);
+    expect(
+      screen.getByTestId('cache-storage-content')
+    ).toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<VideoWindow {...defaultProps} onClose={onClose} />);
+    render(<CacheStorageWindow {...defaultProps} onClose={onClose} />);
 
     await user.click(screen.getByTestId('close-window'));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('refreshes cache storage when Refresh is clicked', async () => {
+    const user = userEvent.setup();
+    render(<CacheStorageWindow {...defaultProps} />);
+
+    expect(cacheStorageMount).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: 'File' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Refresh' }));
+
+    expect(cacheStorageMount).toHaveBeenCalledTimes(2);
   });
 
   it('passes initialDimensions to FloatingWindow when provided', () => {
@@ -76,7 +104,10 @@ describe('VideoWindow', () => {
       y: 80
     };
     render(
-      <VideoWindow {...defaultProps} initialDimensions={initialDimensions} />
+      <CacheStorageWindow
+        {...defaultProps}
+        initialDimensions={initialDimensions}
+      />
     );
     const floatingWindow = screen.getByTestId('floating-window');
     expect(floatingWindow).toHaveAttribute(
