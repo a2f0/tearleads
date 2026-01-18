@@ -31,8 +31,26 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/Video', () => ({
-  VideoPage: () => <div data-testid="video-page">Video Page</div>
+vi.mock('@/pages/Video', async () => {
+  const { useNavigate } = await import('react-router-dom');
+  return {
+    VideoPage: () => {
+      const navigate = useNavigate();
+      return (
+        <button
+          type="button"
+          onClick={() => navigate('/videos/test-video')}
+          data-testid="open-video"
+        >
+          Open Video
+        </button>
+      );
+    }
+  };
+});
+
+vi.mock('@/pages/VideoDetail', () => ({
+  VideoDetail: () => <div data-testid="video-detail">Video Detail</div>
 }));
 
 describe('VideoWindow', () => {
@@ -56,7 +74,7 @@ describe('VideoWindow', () => {
 
   it('renders the VideoPage content', () => {
     render(<VideoWindow {...defaultProps} />);
-    expect(screen.getByTestId('video-page')).toBeInTheDocument();
+    expect(screen.getByTestId('open-video')).toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', async () => {
@@ -66,6 +84,14 @@ describe('VideoWindow', () => {
 
     await user.click(screen.getByTestId('close-window'));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('renders video detail when navigating to a video', async () => {
+    const user = userEvent.setup();
+    render(<VideoWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('open-video'));
+    expect(screen.getByTestId('video-detail')).toBeInTheDocument();
   });
 
   it('passes initialDimensions to FloatingWindow when provided', () => {
