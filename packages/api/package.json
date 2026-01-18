@@ -1,6 +1,6 @@
 {
   "name": "@rapid/api",
-  "version": "0.0.192",
+  "version": "0.0.195",
   "description": "Express API for Rapid",
   "main": "dist/index.js",
   "type": "module",

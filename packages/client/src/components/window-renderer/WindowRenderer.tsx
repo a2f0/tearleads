@@ -6,16 +6,20 @@ import { CacheStorageWindow } from '@/components/cache-storage-window';
 import { ChatWindow } from '@/components/chat-window';
 import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
+import { DebugWindow } from '@/components/debug-window';
+import { DocumentsWindow } from '@/components/documents-window';
 import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
 import type { WindowDimensions } from '@/components/floating-window';
 import { KeychainWindow } from '@/components/keychain-window';
+import { LocalStorageWindow } from '@/components/local-storage-window';
 import { ModelsWindow } from '@/components/models-window';
 import { NotesWindow } from '@/components/notes-window';
 import { OpfsWindow } from '@/components/opfs-window';
 import { PhotosWindow } from '@/components/photos-window';
 import { SettingsWindow } from '@/components/settings-window';
 import { SqliteWindow } from '@/components/sqlite-window';
+import { TablesWindow } from '@/components/tables-window';
 import { VideoWindow } from '@/components/video-window';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
@@ -115,6 +119,74 @@ export function WindowRenderer() {
                 })}
               />
             );
+          case 'tables':
+            return (
+              <TablesWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onDimensionsChange={createDimensionsHandler('tables')}
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'debug':
+            return (
+              <DebugWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onDimensionsChange={createDimensionsHandler('debug')}
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'documents':
+            return (
+              <DocumentsWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onDimensionsChange={createDimensionsHandler('documents')}
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'videos':
+            return (
+              <VideoWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onDimensionsChange={createDimensionsHandler('videos')}
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
           case 'email':
             return (
               <EmailWindow
@@ -193,23 +265,6 @@ export function WindowRenderer() {
                   minimizeWindow(window.id, dimensions)
                 }
                 onDimensionsChange={createDimensionsHandler('sqlite')}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'videos':
-            return (
-              <VideoWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler('videos')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
