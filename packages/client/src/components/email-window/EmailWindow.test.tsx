@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { EmailWindow } from './EmailWindow';
 
 vi.mock('@/lib/api', () => ({
@@ -148,12 +149,18 @@ describe('EmailWindow', () => {
       ok: false,
       statusText: 'Internal Server Error'
     });
+    const consoleSpy = mockConsoleError();
 
     render(<EmailWindow {...defaultProps} />);
 
     await waitFor(() => {
       expect(screen.getByText(/Failed to fetch emails/)).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch emails:',
+      expect.any(Error)
+    );
   });
 
   it('calls onClose when close button clicked', async () => {
