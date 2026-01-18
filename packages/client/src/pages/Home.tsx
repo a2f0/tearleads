@@ -39,7 +39,8 @@ const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/analytics': 'analytics',
   '/audio': 'audio',
   '/admin': 'admin',
-  '/cache-storage': 'cache-storage'
+  '/cache-storage': 'cache-storage',
+  '/local-storage': 'local-storage'
 };
 
 const ICON_SIZE = 64;
