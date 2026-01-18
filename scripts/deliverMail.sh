@@ -9,7 +9,7 @@ PORT=${SMTP_PORT:-25}
 TO_ADDRESS=${SMTP_TO:-test@localhost}
 FROM_ADDRESS=${SMTP_FROM:-test@example.com}
 SUBJECT=${SMTP_SUBJECT:-Test email from deliverMail.sh}
-TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+TIMESTAMP=$(date -R)
 
 echo "Sending test email to ${TO_ADDRESS} via ${HOST}:${PORT}..."
 
