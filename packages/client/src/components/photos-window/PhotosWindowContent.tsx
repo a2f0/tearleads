@@ -19,10 +19,7 @@ import {
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
-import {
-  type PhotoWithUrl,
-  usePhotosWindowData
-} from './usePhotosWindowData';
+import { type PhotoWithUrl, usePhotosWindowData } from './usePhotosWindowData';
 
 const ROW_HEIGHT_ESTIMATE = 72;
 
@@ -132,7 +129,7 @@ export function PhotosWindowContent({
         console.error('Failed to download photo:', err);
       }
     },
-    []
+    [currentInstanceId]
   );
 
   const handleShare = useCallback(
@@ -160,7 +157,7 @@ export function PhotosWindowContent({
         console.error('Failed to share photo:', err);
       }
     },
-    []
+    [currentInstanceId]
   );
 
   return (
@@ -223,7 +220,9 @@ export function PhotosWindowContent({
                             transform: `translateY(${virtualItem.start}px)`
                           }}
                         >
-                          <ListRow onContextMenu={(e) => handleContextMenu(e, photo)}>
+                          <ListRow
+                            onContextMenu={(e) => handleContextMenu(e, photo)}
+                          >
                             <button
                               type="button"
                               className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden text-left"
@@ -261,9 +260,7 @@ export function PhotosWindowContent({
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8"
-                                  onClick={(event) =>
-                                    handleShare(photo, event)
-                                  }
+                                  onClick={(event) => handleShare(photo, event)}
                                   title="Share"
                                 >
                                   <Share2 className="h-4 w-4" />

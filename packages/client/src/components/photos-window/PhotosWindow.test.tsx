@@ -51,9 +51,7 @@ vi.mock('./PhotosWindowMenuBar', () => ({
       </button>
       <button
         type="button"
-        onClick={() =>
-          onViewModeChange(viewMode === 'list' ? 'table' : 'list')
-        }
+        onClick={() => onViewModeChange(viewMode === 'list' ? 'table' : 'list')}
         data-testid="toggle-view-button"
       >
         Toggle

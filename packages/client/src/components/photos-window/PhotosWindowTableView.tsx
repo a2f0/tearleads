@@ -22,10 +22,7 @@ import {
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
-import {
-  type PhotoWithUrl,
-  usePhotosWindowData
-} from './usePhotosWindowData';
+import { type PhotoWithUrl, usePhotosWindowData } from './usePhotosWindowData';
 
 type SortColumn = 'name' | 'size' | 'mimeType' | 'uploadDate';
 type SortDirection = 'asc' | 'desc';
@@ -313,9 +310,7 @@ export function PhotosWindowTableView({
                       key={photo.id}
                       className="cursor-pointer border-border/50 border-b hover:bg-accent/50"
                       onClick={() => onSelectPhoto?.(photo.id)}
-                      onContextMenu={(event) =>
-                        handleContextMenu(event, photo)
-                      }
+                      onContextMenu={(event) => handleContextMenu(event, photo)}
                     >
                       <td className="px-2 py-1.5">
                         <div className="flex items-center gap-1.5">
