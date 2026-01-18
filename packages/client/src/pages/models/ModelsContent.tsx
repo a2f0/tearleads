@@ -192,9 +192,7 @@ export function ModelsContent({ showBackLink = true }: ModelsContentProps) {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        {showBackLink && (
-          <BackLink defaultTo="/" defaultLabel="Back to Home" />
-        )}
+        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
         <div className="flex items-center justify-between">
           <h1 className="font-bold text-2xl tracking-tight">Models</h1>
           {webGPUSupported === null && (
