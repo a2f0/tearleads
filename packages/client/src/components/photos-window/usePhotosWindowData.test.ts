@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePhotosWindowData } from './usePhotosWindowData';
 
@@ -13,11 +13,15 @@ const mockDatabaseState: {
 };
 
 const mockOrderBy = vi.fn();
+const mockUpdate = vi.fn();
+const mockSet = vi.fn();
+const mockWhere = vi.fn();
 const mockDb = {
   select: vi.fn().mockReturnThis(),
   from: vi.fn().mockReturnThis(),
   where: vi.fn().mockReturnThis(),
-  orderBy: mockOrderBy
+  orderBy: mockOrderBy,
+  update: mockUpdate
 };
 
 const mockRetrieve = vi.fn();
@@ -73,6 +77,8 @@ describe('usePhotosWindowData', () => {
     mockDatabaseState.isUnlocked = true;
     mockDatabaseState.currentInstanceId = 'instance-1';
     mockGetCurrentKey.mockReturnValue(new Uint8Array(32));
+    mockUpdate.mockReturnValue({ set: mockSet });
+    mockSet.mockReturnValue({ where: mockWhere });
     const url = globalThis.URL;
     if (url) {
       createObjectUrlSpy = vi.fn(() => 'blob:photo');
@@ -192,5 +198,74 @@ describe('usePhotosWindowData', () => {
     expect(mockRetrieve).toHaveBeenCalledWith('/photos/thumb.jpg');
     expect(mockRetrieve).toHaveBeenCalledWith('/photos/broken.jpg');
     expect(mockInitializeFileStorage).not.toHaveBeenCalled();
+  });
+
+  it('deletes photos and refreshes the list', async () => {
+    const { result } = renderHook(() =>
+      usePhotosWindowData({ refreshToken: 0 })
+    );
+
+    await waitFor(() => {
+      expect(result.current.photos).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await result.current.deletePhoto('photo-1');
+    });
+
+    expect(mockUpdate).toHaveBeenCalled();
+    expect(mockSet).toHaveBeenCalledWith({ deleted: true });
+    expect(mockWhere).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mockOrderBy).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('downloads the original photo data', async () => {
+    mockIsFileStorageInitialized.mockReturnValue(true);
+    const { result } = renderHook(() =>
+      usePhotosWindowData({ refreshToken: 0 })
+    );
+
+    await waitFor(() => {
+      expect(result.current.photos).toHaveLength(1);
+    });
+
+    mockRetrieve.mockClear();
+    mockIsFileStorageInitialized.mockReturnValue(false);
+
+    const data = await result.current.downloadPhoto({
+      ...photoRows[0],
+      objectUrl: 'blob:photo'
+    });
+
+    expect(data).toBeInstanceOf(ArrayBuffer);
+    expect(mockInitializeFileStorage).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      'instance-1'
+    );
+    expect(mockRetrieve).toHaveBeenCalledWith('/photos/photo.jpg');
+  });
+
+  it('shares photos without reinitializing storage when ready', async () => {
+    mockIsFileStorageInitialized.mockReturnValue(true);
+    const { result } = renderHook(() =>
+      usePhotosWindowData({ refreshToken: 0 })
+    );
+
+    await waitFor(() => {
+      expect(result.current.photos).toHaveLength(1);
+    });
+
+    mockRetrieve.mockClear();
+
+    const data = await result.current.sharePhoto({
+      ...photoRows[0],
+      objectUrl: 'blob:photo'
+    });
+
+    expect(data).toBeInstanceOf(ArrayBuffer);
+    expect(mockInitializeFileStorage).not.toHaveBeenCalled();
+    expect(mockRetrieve).toHaveBeenCalledWith('/photos/photo.jpg');
   });
 });
