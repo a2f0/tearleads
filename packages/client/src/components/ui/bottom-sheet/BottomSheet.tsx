@@ -34,13 +34,17 @@ interface BottomSheetProps {
   initialSnapPoint?: string;
   /** When true, the sheet will measure its content and open to fit it */
   fitContent?: boolean;
+  maxHeightPercent?: number;
 }
 
-function getDefaultSnapPoints(windowHeight: number): SnapPoint[] {
+function getDefaultSnapPoints(
+  windowHeight: number,
+  maxHeightPercent: number
+): SnapPoint[] {
   return [
     { name: 'collapsed', height: 200 },
     { name: 'half', height: Math.round(windowHeight * 0.5) },
-    { name: 'expanded', height: Math.round(windowHeight * 0.85) }
+    { name: 'expanded', height: Math.round(windowHeight * maxHeightPercent) }
   ];
 }
 
@@ -52,7 +56,8 @@ export function BottomSheet({
   'data-testid': testId = 'bottom-sheet',
   snapPoints: customSnapPoints,
   initialSnapPoint = 'collapsed',
-  fitContent = false
+  fitContent = false,
+  maxHeightPercent = MAX_HEIGHT_PERCENT
 }: BottomSheetProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [shouldRender, setShouldRender] = useState(open);
@@ -97,7 +102,7 @@ export function BottomSheet({
   const snapPoints = useMemo(() => {
     if (customSnapPoints) return customSnapPoints;
 
-    const defaultPoints = getDefaultSnapPoints(windowHeight);
+    const defaultPoints = getDefaultSnapPoints(windowHeight, maxHeightPercent);
 
     // Add content-based snap point when fitContent is enabled and measured
     if (fitContent && contentHeight !== null) {
@@ -106,7 +111,7 @@ export function BottomSheet({
         (title ? TITLE_HEIGHT : 0) +
         contentHeight +
         CONTENT_PADDING;
-      const maxHeight = windowHeight * MAX_HEIGHT_PERCENT;
+      const maxHeight = windowHeight * maxHeightPercent;
       const clampedHeight = Math.min(
         Math.max(totalHeight, MIN_HEIGHT),
         maxHeight
@@ -121,7 +126,14 @@ export function BottomSheet({
     }
 
     return defaultPoints;
-  }, [customSnapPoints, windowHeight, fitContent, contentHeight, title]);
+  }, [
+    customSnapPoints,
+    windowHeight,
+    fitContent,
+    contentHeight,
+    title,
+    maxHeightPercent
+  ]);
 
   const effectiveInitialSnapPoint = fitContent ? 'content' : initialSnapPoint;
 
@@ -139,7 +151,7 @@ export function BottomSheet({
     snapPoints,
     initialSnapPoint: effectiveInitialSnapPoint,
     minHeight: MIN_HEIGHT,
-    maxHeightPercent: MAX_HEIGHT_PERCENT,
+    maxHeightPercent,
     onDismiss: handleDismiss,
     dismissThreshold: DISMISS_THRESHOLD,
     velocityThreshold: VELOCITY_THRESHOLD
@@ -215,7 +227,10 @@ export function BottomSheet({
           isVisible ? 'translate-y-0' : 'translate-y-full',
           !isGestureAnimating && 'transition-transform duration-300 ease-out'
         )}
-        style={{ height: `${height}px`, maxHeight: '85vh' }}
+        style={{
+          height: `${height}px`,
+          maxHeight: `${maxHeightPercent * 100}vh`
+        }}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
@@ -227,7 +242,7 @@ export function BottomSheet({
           role="slider"
           aria-label="Resize handle"
           aria-valuemin={MIN_HEIGHT}
-          aria-valuemax={windowHeight * MAX_HEIGHT_PERCENT}
+          aria-valuemax={windowHeight * maxHeightPercent}
           aria-valuenow={height}
           tabIndex={0}
           data-testid={`${testId}-resize-handle`}
