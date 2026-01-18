@@ -199,12 +199,7 @@ export const navItems: NavItem[] = [
 // TODO: Update E2E tests to handle floating windows, then re-enable these paths
 const WINDOW_PATHS: Record<string, WindowType> = {
   '/console': 'console',
-  '/contacts': 'contacts',
-  '/email': 'email',
-  '/files': 'files',
-  '/notes': 'notes',
-  '/photos': 'photos',
-  '/settings': 'settings'
+  '/email': 'email'
 };
 
 export interface SidebarProps {
