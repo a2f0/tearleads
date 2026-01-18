@@ -44,11 +44,12 @@ for arg in "$@"; do
 done
 
 # Kill neovim processes started by tuxedo (identified by config path)
+# Uses SIGKILL (-9) to ensure processes cannot ignore the signal
 if [ "$HAS_PGREP" = true ]; then
     nvim_pattern="nvim.*$SCRIPT_DIR/config/neovim.lua"
     nvim_count=$(pgrep -f "$nvim_pattern" 2>/dev/null | wc -l | tr -d ' ')
     if [ "$nvim_count" -gt 0 ]; then
-        pkill -f "$nvim_pattern" 2>/dev/null || true
+        pkill -9 -f "$nvim_pattern" 2>/dev/null || true
         echo "Killed $nvim_count neovim session(s)"
     else
         echo "No tuxedo neovim sessions found"
@@ -58,43 +59,32 @@ else
     echo "Install with: brew install proctools (macOS) or apt install procps (Linux)"
 fi
 
-# Clean up dead screen sessions first
-screen -wipe >/dev/null 2>&1 || true
-
-# Determine screen socket directory (check SCREENDIR, common locations, then fallback)
-if [ -n "${SCREENDIR:-}" ] && [ -d "$SCREENDIR" ]; then
-    SCREEN_SOCKET_DIR="$SCREENDIR"
-elif [ -d "/run/screen/S-$USER" ]; then
-    SCREEN_SOCKET_DIR="/run/screen/S-$USER"
-elif [ -d "/var/run/screen/S-$USER" ]; then
-    SCREEN_SOCKET_DIR="/var/run/screen/S-$USER"
-else
-    SCREEN_SOCKET_DIR="$HOME/.screen"
+# Kill screen sessions by finding processes directly
+# Uses SIGKILL (-9) to ensure processes cannot ignore the signal
+if [ "$HAS_PGREP" = true ]; then
+    screen_pids=$(pgrep -f 'screen.*tux-' 2>/dev/null || true)
+    if [ -n "$screen_pids" ]; then
+        screen_count=$(echo "$screen_pids" | wc -l | tr -d ' ')
+        pkill -9 -f 'screen.*tux-' 2>/dev/null || true
+        echo "Killed $screen_count screen session(s)"
+    else
+        echo "No tux-* screen processes found"
+    fi
 fi
 
-# Find and kill screen sessions
-screen_sessions=$(screen -ls 2>/dev/null | awk '/tux-/ {print $1}')
-
-if [ -n "$screen_sessions" ]; then
-    killed=0
-    removed=0
-    for session in $screen_sessions; do
-        # Try graceful quit first (works for live sessions)
-        if screen -X -S "$session" quit >/dev/null 2>&1; then
-            killed=$((killed + 1))
-        else
-            # For dead sessions, remove the socket file directly
-            socket_file="$SCREEN_SOCKET_DIR/$session"
-            if [ -e "$socket_file" ]; then
-                rm -f "$socket_file" && removed=$((removed + 1))
-            fi
-        fi
+# Clean up screen socket files in ~/.screen (used by brew's screen)
+# These persist even after processes are killed and cause session "resurrection"
+if [ -d "$HOME/.screen" ]; then
+    socket_count=0
+    for socket in "$HOME/.screen/"*tux-*; do
+        [ -e "$socket" ] || continue
+        rm -f "$socket" && socket_count=$((socket_count + 1))
     done
-    [ "$killed" -gt 0 ] && echo "Killed $killed screen session(s)"
-    [ "$removed" -gt 0 ] && echo "Removed $removed dead screen session(s)"
-else
-    echo "No tux-* screen sessions found"
+    [ "$socket_count" -gt 0 ] && echo "Removed $socket_count screen socket(s) from ~/.screen"
 fi
+
+# Also clean sockets in macOS temp location (used by system screen)
+screen -wipe >/dev/null 2>&1 || true
 
 # Kill tmux session
 if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
