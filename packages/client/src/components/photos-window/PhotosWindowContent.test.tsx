@@ -192,7 +192,7 @@ describe('PhotosWindowContent', () => {
     render(<PhotosWindowContent refreshToken={0} />);
 
     fireEvent.contextMenu(screen.getByText('photo.jpg'));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     expect(mockWhere).toHaveBeenCalled();
     expect(refresh).toHaveBeenCalled();
