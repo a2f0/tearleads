@@ -26,8 +26,8 @@ gh pr view 123 -R "$REPO"
 When the user requests a change or new feature:
 
 1. **Check for existing issue**: Search for a related open issue first
-2. **Create an issue if none exists**: Before starting work, create a GitHub issue to track the request
-3. **Do NOT auto-close issues**: Never use `Closes #`, `Fixes #`, or `Resolves #` in PR descriptions. After merge, `/enter-merge-queue` marks the associated issue as "Needs QA" for verification before closure.
+2. **Create an issue if none exists**: Before starting work, create a GitHub issue to track the request. This issue describes the actual work (not a "QA" issue). After merge, `/enter-merge-queue` adds "Needs QA" label to this issue.
+3. **Do NOT auto-close issues**: Never use `Closes #`, `Fixes #`, or `Resolves #` in PR descriptions. Issues are marked "Needs QA" after merge for verification before manual closure.
 
 ```bash
 # Create an issue for the user's request (rewrite in your own words; add context)
