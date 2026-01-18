@@ -1,10 +1,17 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { FloatingWindow } from '@/components/floating-window';
 import { ContextMenu } from './ContextMenu';
 import { ContextMenuItem } from './ContextMenuItem';
 
 describe('ContextMenu', () => {
+  const extractZIndex = (element: HTMLElement | null) => {
+    const className = element?.className ?? '';
+    const match = className.match(/z-\[(\d+)\]/);
+    return match ? Number.parseInt(match[1], 10) : 0;
+  };
+
   it('renders children at specified position', () => {
     render(
       <ContextMenu x={100} y={200} onClose={() => {}}>
@@ -27,6 +34,31 @@ describe('ContextMenu', () => {
     await waitFor(() => {
       expect(menu).toHaveStyle({ top: '250px', left: '150px' });
     });
+  });
+
+  it('renders above floating windows', () => {
+    render(
+      <>
+        <FloatingWindow id="test" title="Test" onClose={() => {}} zIndex={200}>
+          <div>Window content</div>
+        </FloatingWindow>
+        <ContextMenu x={100} y={200} onClose={() => {}}>
+          <div>Menu content</div>
+        </ContextMenu>
+      </>
+    );
+
+    const floatingWindow = screen.getByRole('dialog', { name: 'Test' });
+    expect(floatingWindow).toHaveStyle({ zIndex: '200' });
+
+    const overlay = screen.getByRole('button', {
+      name: /close context menu/i
+    }).parentElement;
+    const menu = screen.getByText('Menu content').parentElement;
+    const windowZIndex = Number.parseInt(floatingWindow.style.zIndex, 10);
+
+    expect(extractZIndex(overlay)).toBeGreaterThan(windowZIndex);
+    expect(extractZIndex(menu)).toBeGreaterThan(windowZIndex);
   });
 
   it('adjusts horizontal position when menu would overflow right edge', async () => {
