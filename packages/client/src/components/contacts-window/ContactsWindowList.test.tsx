@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { ContactsWindowList } from './ContactsWindowList';
 
 const mockDatabaseState = {
@@ -192,11 +193,17 @@ describe('ContactsWindowList', () => {
 
   it('shows error state when fetch fails', async () => {
     mockDb.orderBy.mockRejectedValue(new Error('Database error'));
+    const consoleSpy = mockConsoleError();
     render(<ContactsWindowList {...defaultProps} />);
 
     await waitFor(() => {
       expect(screen.getByText('Database error')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch contacts:',
+      expect.any(Error)
+    );
   });
 
   it('does not render action buttons when database is locked', () => {
@@ -343,6 +350,7 @@ describe('ContactsWindowList', () => {
 
   it('handles delete error gracefully', async () => {
     mockDb.orderBy.mockResolvedValue(mockContacts);
+    const consoleSpy = mockConsoleError();
     const user = userEvent.setup();
     render(<ContactsWindowList {...defaultProps} />);
 
@@ -367,6 +375,11 @@ describe('ContactsWindowList', () => {
     await waitFor(() => {
       expect(screen.getByText('Delete failed')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to delete contact:',
+      expect.any(Error)
+    );
   });
 
   it('filters contacts by phone number', async () => {
