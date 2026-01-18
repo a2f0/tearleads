@@ -17,14 +17,6 @@ const waitForSuccess = (page: Page) =>
     { timeout: DB_OPERATION_TIMEOUT }
   );
 
-// Helper to open sidebar via Start button
-async function openSidebar(page: Page) {
-  const startButton = page.getByTestId('start-button');
-  await expect(startButton).toBeVisible({ timeout: 10000 });
-  await startButton.click();
-  await expect(page.locator('aside nav')).toBeVisible({ timeout: 10000 });
-}
-
 // Map page names to routes
 const PAGE_ROUTES: Record<string, string> = {
   Analytics: '/analytics',
