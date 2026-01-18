@@ -10,7 +10,7 @@ import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
 import type { WindowDimensions } from '@/components/floating-window';
 import { KeychainWindow } from '@/components/keychain-window';
-import { LocalStorageWindow } from '@/components/local-storage-window';
+import { ModelsWindow } from '@/components/models-window';
 import { NotesWindow } from '@/components/notes-window';
 import { OpfsWindow } from '@/components/opfs-window';
 import { PhotosWindow } from '@/components/photos-window';
@@ -293,6 +293,23 @@ export function WindowRenderer() {
                   minimizeWindow(window.id, dimensions)
                 }
                 onDimensionsChange={createDimensionsHandler('audio')}
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'models':
+            return (
+              <ModelsWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onDimensionsChange={createDimensionsHandler('models')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
