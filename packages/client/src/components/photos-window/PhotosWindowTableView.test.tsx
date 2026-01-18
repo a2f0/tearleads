@@ -360,6 +360,30 @@ describe('PhotosWindowTableView', () => {
     expect(screen.getByText('TIFF')).toBeInTheDocument();
   });
 
+  it('falls back to Image when mime type lacks subtype', () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [
+        {
+          ...photo,
+          id: 'photo-4',
+          name: 'unknown',
+          mimeType: 'image'
+        }
+      ],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    expect(screen.getByText('Image')).toBeInTheDocument();
+  });
+
   it('shows loading state when database is loading', () => {
     mockUsePhotosWindowData.mockReturnValue({
       photos: [],
