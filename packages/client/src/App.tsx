@@ -1,9 +1,8 @@
 import { ConnectionIndicator, Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
-import { ArrowLeft } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { AccountSwitcher } from './components/AccountSwitcher';
 import { MiniPlayer } from './components/audio/MiniPlayer';
 import { HUDTrigger } from './components/hud';
@@ -14,7 +13,6 @@ import { Taskbar } from './components/taskbar';
 import { DesktopBackground } from './components/ui/desktop-background';
 import { WindowRenderer } from './components/window-renderer';
 import { useAppVersion } from './hooks/useAppVersion';
-import { useIsMobile } from './hooks/useIsMobile';
 import { useSSEContext } from './sse';
 
 const sseTooltipKeys = {
@@ -28,24 +26,12 @@ function App() {
   const version = useAppVersion();
   const sse = useSSEContext();
   const location = useLocation();
-  const navigate = useNavigate();
   const pathname = location.pathname;
   const isHome = pathname === '/';
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const isMobile = useIsMobile();
-
-  const handleBack = useCallback(() => {
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-      navigate(-1);
-      return;
-    }
-    navigate('/');
-  }, [navigate]);
 
   useEffect(() => {
-    if (pathname) {
-      setIsSidebarOpen(false);
-    }
+    setIsSidebarOpen(false);
   }, [pathname]);
 
   return (
@@ -62,20 +48,7 @@ function App() {
           {isHome && <DesktopBackground />}
           <header className="w-full px-4 py-4">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center">
-                {isMobile && !isHome && (
-                  <button
-                    type="button"
-                    onClick={handleBack}
-                    className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-muted-foreground text-sm hover:text-foreground"
-                    aria-label="Go back"
-                    data-testid="mobile-back-button"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    Back
-                  </button>
-                )}
-              </div>
+              <div className="flex items-center" />
               <div className="flex items-center gap-1">
                 <MobileMenu />
                 <SettingsButton />

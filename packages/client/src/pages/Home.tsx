@@ -42,7 +42,7 @@ const GAP = 40;
 const GAP_MOBILE = 28;
 const LABEL_HEIGHT = 24;
 const ICON_LABEL_GAP = 8;
-const MOBILE_GRID_MIN = 96;
+const MOBILE_COLUMNS = 4;
 const ITEM_HEIGHT = ICON_SIZE + LABEL_HEIGHT + ICON_LABEL_GAP;
 const ITEM_HEIGHT_MOBILE = ICON_SIZE_MOBILE + LABEL_HEIGHT + ICON_LABEL_GAP;
 const STORAGE_KEY = 'desktop-icon-positions';
@@ -271,7 +271,7 @@ export function Home() {
 
   const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
   const itemHeight = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
-  const gridTemplateColumns = `repeat(auto-fit, minmax(${MOBILE_GRID_MIN}px, 1fr))`;
+  const gridTemplateColumns = `repeat(${MOBILE_COLUMNS}, minmax(0, 1fr))`;
 
   useEffect(() => {
     const handleResize = () => {
