@@ -18,6 +18,7 @@ export function SettingsSheet({ open, onOpenChange }: SettingsSheetProps) {
       title={t('settings')}
       data-testid="settings-sheet"
       fitContent
+      maxHeightPercent={1}
     >
       <div className="space-y-6">
         <ThemeSelector />
