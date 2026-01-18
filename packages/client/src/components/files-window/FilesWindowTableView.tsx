@@ -56,6 +56,8 @@ type SortDirection = 'asc' | 'desc';
 interface FilesWindowTableViewProps {
   showDeleted: boolean;
   onUpload: () => void;
+  onSelectFile?: (fileId: string) => void;
+  refreshToken?: number;
 }
 
 interface SortHeaderProps {
@@ -137,7 +139,9 @@ function getFileTypeDisplay(mimeType: string): string {
 
 export function FilesWindowTableView({
   showDeleted,
-  onUpload
+  onUpload,
+  onSelectFile,
+  refreshToken
 }: FilesWindowTableViewProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { t } = useTypedTranslation('contextMenu');
@@ -291,6 +295,12 @@ export function FilesWindowTableView({
   }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchFiles]);
 
   useEffect(() => {
+    if (refreshToken !== undefined && refreshToken > 0 && isUnlocked) {
+      fetchFiles();
+    }
+  }, [refreshToken, isUnlocked, fetchFiles]);
+
+  useEffect(() => {
     return () => {
       for (const file of files) {
         if (file.thumbnailUrl) {
@@ -322,6 +332,11 @@ export function FilesWindowTableView({
 
   const handleView = useCallback(
     (file: FileInfo) => {
+      if (onSelectFile) {
+        onSelectFile(file.id);
+        return;
+      }
+
       const fileType = file.mimeType.split('/')[0] ?? '';
       const routeMapping: Record<string, string> = {
         image: '/photos',
@@ -343,7 +358,7 @@ export function FilesWindowTableView({
         });
       }
     },
-    [navigateWithFrom]
+    [navigateWithFrom, onSelectFile]
   );
 
   const handleDownload = useCallback(
