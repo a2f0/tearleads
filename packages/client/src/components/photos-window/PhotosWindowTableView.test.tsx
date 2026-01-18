@@ -267,4 +267,21 @@ describe('PhotosWindowTableView', () => {
 
     expect(screen.getByText('TIFF')).toBeInTheDocument();
   });
+
+  it('shows loading state when database is loading', () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [],
+      loading: false,
+      error: null,
+      hasFetched: false,
+      isUnlocked: false,
+      isLoading: true,
+      refresh: vi.fn(),
+      currentInstanceId: null
+    });
+
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    expect(screen.getByText('Loading database...')).toBeInTheDocument();
+  });
 });
