@@ -236,10 +236,11 @@ describe('PhotosWindowTableView', () => {
 
     await user.click(screen.getByRole('button', { name: 'Name' }));
 
-    const rows = screen.getAllByRole('row');
+    let rows = screen.getAllByRole('row');
     expect(rows[1]?.textContent).toContain('a.jpg');
 
     await user.click(screen.getByRole('button', { name: 'Name' }));
+    rows = screen.getAllByRole('row');
     expect(rows[1]?.textContent).toContain('b.jpg');
   });
 });
