@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
+import { Component } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
@@ -27,6 +28,28 @@ vi.mock('@/lib/utils', async () => {
 });
 
 type DebugProps = ComponentProps<typeof Debug>;
+
+class TestErrorBoundary extends Component<
+  { onError: (error: Error) => void; children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    this.props.onError(error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <div>Boundary Error</div>;
+    }
+    return this.props.children;
+  }
+}
 
 function renderDebugRaw(props?: DebugProps) {
   return render(
@@ -163,6 +186,27 @@ describe('Debug', () => {
         expect.stringContaining('Platform: web')
       );
     });
+
+    it('logs an error when clipboard copy fails', async () => {
+      const user = userEvent.setup();
+      const consoleSpy = mockConsoleError();
+      vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(
+        new Error('Clipboard error')
+      );
+
+      await renderDebug();
+
+      await user.click(screen.getByTestId('copy-debug-info'));
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith(
+          'Failed to copy debug info:',
+          expect.any(Error)
+        );
+      });
+
+      consoleSpy.mockRestore();
+    });
   });
 
   describe('API status', () => {
@@ -234,6 +278,30 @@ describe('Debug', () => {
       renderDebugRaw();
 
       expect(screen.getByRole('button', { name: 'Refresh' })).toBeDisabled();
+    });
+  });
+
+  describe('actions', () => {
+    it('throws when Throw Error is clicked', async () => {
+      const user = userEvent.setup();
+      const onError = vi.fn();
+      const consoleSpy = mockConsoleError();
+
+      render(
+        <MemoryRouter>
+          <TestErrorBoundary onError={onError}>
+            <Debug />
+          </TestErrorBoundary>
+        </MemoryRouter>
+      );
+
+      await user.click(screen.getByTestId('throw-error-button'));
+
+      await waitFor(() => {
+        expect(onError).toHaveBeenCalledWith(expect.any(Error));
+      });
+
+      consoleSpy.mockRestore();
     });
   });
 
