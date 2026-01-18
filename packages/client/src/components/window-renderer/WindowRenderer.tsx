@@ -76,6 +76,9 @@ export function WindowRenderer() {
       {/* Render all visible (non-minimized) windows */}
       {visibleWindows.map((window) => {
         const WindowComponent = WINDOW_COMPONENTS[window.type];
+        if (!WindowComponent) {
+          return null;
+        }
         return (
           <WindowComponent
             key={window.id}
