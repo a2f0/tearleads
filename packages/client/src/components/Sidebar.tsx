@@ -219,30 +219,24 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     // Corresponds to Tailwind's `lg` breakpoint (min-width: 1024px).
     // isMobile is true when screen is smaller than that.
     const mediaQuery = window.matchMedia('(max-width: 1023px)');
+    const pointerQuery = window.matchMedia('(pointer: coarse)');
 
     const handleMediaChange = (e: MediaQueryListEvent) =>
       setIsMobile(e.matches);
-
-    // Set initial state and add listener
-    setIsMobile(mediaQuery.matches);
-    mediaQuery.addEventListener('change', handleMediaChange);
-
-    // Cleanup on unmount
-    return () => mediaQuery.removeEventListener('change', handleMediaChange);
-  }, []);
-
-  useEffect(() => {
-    const pointerQuery = window.matchMedia('(pointer: coarse)');
-
     const updateTouchState = () => {
       const hasTouch = pointerQuery.matches || navigator.maxTouchPoints > 0;
       setIsTouchDevice(hasTouch);
     };
 
+    setIsMobile(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleMediaChange);
     updateTouchState();
     pointerQuery.addEventListener('change', updateTouchState);
 
-    return () => pointerQuery.removeEventListener('change', updateTouchState);
+    return () => {
+      mediaQuery.removeEventListener('change', handleMediaChange);
+      pointerQuery.removeEventListener('change', updateTouchState);
+    };
   }, []);
 
   const isDesktop = !isMobile && !isTouchDevice;
