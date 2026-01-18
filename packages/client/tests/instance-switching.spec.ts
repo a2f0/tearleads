@@ -401,16 +401,25 @@ async function switchToInstanceFromAnyPage(page: Page, instanceIndex: number) {
 
 // Helper to unlock on the current page if it's locked
 async function unlockOnPageIfLocked(page: Page) {
-  // Try using the test ID first (more reliable)
-  const inlineUnlockPassword = page.getByTestId('inline-unlock-password');
-  const passwordInput = page.getByPlaceholder('Password');
+  // Wait for page state to stabilize after instance switch
+  // Either the inline unlock will appear (locked) or files will load (unlocked)
+  const inlineUnlock = page.getByTestId('inline-unlock');
+  const filesList = page.getByText('No files found').or(page.locator('button[title="Download"]').first());
 
-  // Check for either form of password input
+  // Wait for either unlock form or files to be ready (longer timeout for instance switch)
+  try {
+    await Promise.race([
+      expect(inlineUnlock).toBeVisible({ timeout: DB_OPERATION_TIMEOUT }),
+      expect(filesList).toBeVisible({ timeout: DB_OPERATION_TIMEOUT })
+    ]);
+  } catch {
+    // If neither appears, the page might be in a loading state - continue
+  }
+
+  // Now check specifically for the password input
+  const inlineUnlockPassword = page.getByTestId('inline-unlock-password');
   const hasInlineUnlock = await inlineUnlockPassword
-    .isVisible({ timeout: 2000 })
-    .catch(() => false);
-  const hasPasswordInput = await passwordInput
-    .isVisible({ timeout: 500 })
+    .isVisible({ timeout: 1000 })
     .catch(() => false);
 
   if (hasInlineUnlock) {
@@ -421,15 +430,8 @@ async function unlockOnPageIfLocked(page: Page) {
     await expect(inlineUnlockPassword).not.toBeVisible({
       timeout: DB_OPERATION_TIMEOUT
     });
-  } else if (hasPasswordInput) {
-    await passwordInput.fill(TEST_PASSWORD);
-    const unlockButton = page.getByRole('button', { name: 'Unlock' });
-    if (await unlockButton.isVisible()) {
-      await unlockButton.click();
-      await expect(passwordInput).not.toBeVisible({
-        timeout: DB_OPERATION_TIMEOUT
-      });
-    }
+    // Wait for files to load after unlock
+    await page.waitForTimeout(500);
   }
 }
 
