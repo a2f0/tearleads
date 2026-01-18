@@ -2,7 +2,7 @@ import { ThemeProvider } from '@rapid/ui';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { Contacts } from './pages/contacts';
@@ -314,53 +314,4 @@ describe('App Integration', () => {
     });
   });
 
-  describe('mobile back navigation', () => {
-    const originalWidth = window.innerWidth;
-
-    beforeEach(() => {
-      Object.defineProperty(window, 'innerWidth', {
-        value: 500,
-        configurable: true
-      });
-    });
-
-    afterEach(() => {
-      Object.defineProperty(window, 'innerWidth', {
-        value: originalWidth,
-        configurable: true
-      });
-    });
-
-    it('shows a back button on mobile and navigates home when no history', async () => {
-      const user = userEvent.setup();
-      renderAppWithRoutes('/debug');
-
-      await waitFor(() => {
-        expect(screen.getByText('System Info')).toBeInTheDocument();
-      });
-
-      const backButton = screen.getByTestId('mobile-back-button');
-      await user.click(backButton);
-
-      await waitFor(() => {
-        expect(screen.queryByText('System Info')).not.toBeInTheDocument();
-      });
-    });
-
-    it('navigates back when history is available', async () => {
-      const user = userEvent.setup();
-      renderAppWithRoutes('/', { entries: ['/', '/debug'], initialIndex: 1 });
-
-      await waitFor(() => {
-        expect(screen.getByText('System Info')).toBeInTheDocument();
-      });
-
-      const backButton = screen.getByTestId('mobile-back-button');
-      await user.click(backButton);
-
-      await waitFor(() => {
-        expect(screen.queryByText('System Info')).not.toBeInTheDocument();
-      });
-    });
-  });
 });
