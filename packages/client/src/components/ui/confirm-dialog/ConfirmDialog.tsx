@@ -37,6 +37,7 @@ export function ConfirmDialog({
 
   useEffect(() => {
     if (open) {
+      setIsConfirming(false);
       previousActiveElement.current = document.activeElement as HTMLElement;
       dialogRef.current?.focus();
     } else {
