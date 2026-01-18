@@ -38,7 +38,7 @@ export function CacheStorageWindow({
       onDimensionsChange={onDimensionsChange}
       onFocus={onFocus}
       zIndex={zIndex}
-      {...(initialDimensions && { initialDimensions })}
+      initialDimensions={initialDimensions}
       defaultWidth={650}
       defaultHeight={500}
       minWidth={400}
