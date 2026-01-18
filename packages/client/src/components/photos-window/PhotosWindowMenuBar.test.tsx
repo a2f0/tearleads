@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -10,7 +11,7 @@ describe('PhotosWindowMenuBar', () => {
     onRefresh: vi.fn(),
     onUpload: vi.fn(),
     onClose: vi.fn()
-  };
+  } satisfies ComponentProps<typeof PhotosWindowMenuBar>;
 
   it('renders File menu trigger', () => {
     render(<PhotosWindowMenuBar {...defaultProps} />);
