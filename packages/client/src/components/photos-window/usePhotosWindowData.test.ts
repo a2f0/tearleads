@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePhotosWindowData } from './usePhotosWindowData';
 
 const mockDatabaseState: {
@@ -69,7 +69,10 @@ describe('usePhotosWindowData', () => {
     }
   ];
 
+  const originalError = console.error;
+
   beforeEach(() => {
+    console.error = vi.fn();
     vi.clearAllMocks();
     mockOrderBy.mockResolvedValue(photoRows);
     mockRetrieve.mockResolvedValue(new ArrayBuffer(8));
@@ -92,6 +95,10 @@ describe('usePhotosWindowData', () => {
         writable: true
       });
     }
+  });
+
+  afterEach(() => {
+    console.error = originalError;
   });
 
   it('loads photos and exposes object URLs', async () => {
