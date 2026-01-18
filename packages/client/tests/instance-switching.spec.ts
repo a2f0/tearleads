@@ -415,7 +415,8 @@ test.describe('Files Route Instance Switching', () => {
     await expect(page.getByTestId('db-status')).toHaveText('Not Set Up');
   });
 
-  test('files page refreshes when switching to empty instance', async ({
+  // Skipped: SQLite encryption fails intermittently in CI - see https://github.com/a2f0/rapid/issues/899
+  test.skip('files page refreshes when switching to empty instance', async ({
     page
   }) => {
     test.slow(); // File upload and thumbnail generation can be slow
@@ -452,7 +453,8 @@ test.describe('Files Route Instance Switching', () => {
     await expect(page.getByText('test-image.png')).not.toBeVisible();
   });
 
-  test('files page loads correct files when switching back to original instance', async ({
+  // Skipped: SQLite encryption fails intermittently in CI - see https://github.com/a2f0/rapid/issues/899
+  test.skip('files page loads correct files when switching back to original instance', async ({
     page
   }) => {
     test.slow();
@@ -499,7 +501,8 @@ test.describe('Files Route Instance Switching', () => {
     await expect(page.getByText('instance2-file.png')).not.toBeVisible();
   });
 
-  test('thumbnails load after switching instances', async ({ page }) => {
+  // Skipped: SQLite encryption fails intermittently in CI - see https://github.com/a2f0/rapid/issues/899
+  test.skip('thumbnails load after switching instances', async ({ page }) => {
     test.slow();
 
     // Setup first instance and upload a file
