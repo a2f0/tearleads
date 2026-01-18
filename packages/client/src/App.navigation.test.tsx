@@ -164,14 +164,15 @@ describe('App Integration', () => {
       expect(contactsButtons.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('navigates to Contacts page when double-clicking sidebar button', async () => {
+    it('opens contacts window when double-clicking sidebar button', async () => {
       // On desktop, sidebar items require double-click to open
       const contactsButton = screen.getByTestId('contacts-link');
       await user.dblClick(contactsButton);
 
-      // When no contacts exist, the add contact card is shown instead of search
       await waitFor(() => {
-        expect(screen.getByTestId('add-contact-card')).toBeInTheDocument();
+        expect(
+          screen.getByRole('dialog', { name: 'Contacts' })
+        ).toBeInTheDocument();
       });
     });
 
