@@ -323,28 +323,87 @@ async function initializeDatabase(
     console.log('Using in-memory VFS (data will not persist across reloads)');
   }
 
-  try {
-    // Create/open encrypted database
+  // Helper to open the database (uses captured variables from outer scope)
+  const openDatabase = () => {
+    if (!sqlite3 || !currentDbFilename || !encryptionKey) {
+      throw new Error('Database initialization state is invalid');
+    }
     db = new sqlite3.oo1.DB({
       filename: currentDbFilename,
       flags: 'c', // Create if not exists
       hexkey: encryptionKey
     });
-
     // Verify encryption is working
     db.exec('SELECT 1;');
-
     // Enable foreign keys
     db.exec('PRAGMA foreign_keys = ON;');
+  };
 
+  try {
+    // Create/open encrypted database
+    openDatabase();
     console.log('Encrypted database opened successfully:', currentDbFilename);
   } catch (error) {
-    console.error('Failed to open encrypted database:', error);
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `Failed to open encrypted database: ${message}. ` +
-        'Encryption may not be supported in this browser.'
-    );
+
+    // If the error is SQLITE_NOTADB (file exists but wrong key or corrupted),
+    // try deleting the file and creating fresh. This handles cases where:
+    // 1. A previous test left orphaned files with different encryption
+    // 2. The clearOriginStorage didn't fully clear OPFS
+    // 3. The file got corrupted
+    if (
+      message.includes('SQLITE_NOTADB') ||
+      message.includes('not a database')
+    ) {
+      console.warn(
+        'Database file appears corrupted or has wrong key, attempting to delete and recreate...'
+      );
+
+      // Delete the corrupted file from OPFS
+      try {
+        const opfsRoot = await navigator.storage.getDirectory();
+        const filename = `${name}.sqlite3`;
+        try {
+          await opfsRoot.removeEntry(filename);
+          console.log('Deleted corrupted OPFS file:', filename);
+        } catch {
+          // File might not exist
+        }
+        // Also delete journal/WAL files
+        for (const suffix of ['-journal', '-wal', '-shm']) {
+          try {
+            await opfsRoot.removeEntry(filename + suffix);
+          } catch {
+            // Ignore
+          }
+        }
+      } catch {
+        // OPFS not available or delete failed, continue anyway
+      }
+
+      // Retry opening/creating the database
+      try {
+        openDatabase();
+        console.log(
+          'Database created successfully after deleting corrupted file:',
+          currentDbFilename
+        );
+      } catch (retryError) {
+        console.error('Failed to create database after cleanup:', retryError);
+        const retryMessage =
+          retryError instanceof Error ? retryError.message : String(retryError);
+        throw new Error(
+          `Failed to open encrypted database: ${retryMessage}. ` +
+            'Encryption may not be supported in this browser.'
+        );
+      }
+    } else {
+      console.error('Failed to open encrypted database:', error);
+      throw new Error(
+        `Failed to open encrypted database: ${message}. ` +
+          'Encryption may not be supported in this browser.'
+      );
+    }
   }
 }
 
