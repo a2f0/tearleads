@@ -33,7 +33,8 @@ vi.mock('@/storage/opfs', () => ({
     measureRetrieve: mockRetrieve
   }),
   isFileStorageInitialized: () => mockIsFileStorageInitialized(),
-  initializeFileStorage: (key: Uint8Array) => mockInitializeFileStorage(key),
+  initializeFileStorage: (key: Uint8Array, instanceId: string) =>
+    mockInitializeFileStorage(key, instanceId),
   createRetrieveLogger: () => vi.fn()
 }));
 
@@ -236,6 +237,27 @@ describe('AudioWindowDetail', () => {
         screen.getByText('No embedded metadata found.')
       ).toBeInTheDocument();
     });
+  });
+
+  it('initializes storage and loads thumbnails when available', async () => {
+    const audioWithThumbnail = {
+      ...TEST_AUDIO,
+      thumbnailPath: '/audio/thumb.jpg'
+    };
+    mockIsFileStorageInitialized.mockReturnValue(false);
+    mockSelect.mockReturnValue(createMockQueryChain([audioWithThumbnail]));
+    mockRetrieve
+      .mockResolvedValueOnce(TEST_AUDIO_DATA)
+      .mockResolvedValueOnce(new Uint8Array([0x01, 0x02]));
+
+    renderAudioWindowDetail();
+
+    const albumCover = await screen.findByAltText('Album cover');
+    expect(albumCover).toBeInTheDocument();
+    expect(mockInitializeFileStorage).toHaveBeenCalledWith(
+      TEST_ENCRYPTION_KEY,
+      'test-instance'
+    );
   });
 
   it('plays the track when clicking play', async () => {
