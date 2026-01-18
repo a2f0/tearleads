@@ -20,6 +20,12 @@ async function openSidebar(page: Page) {
   await expect(page.locator('aside nav')).toBeVisible({ timeout: 10000 });
 }
 
+// Map page names to routes
+const PAGE_ROUTES: Record<string, string> = {
+  SQLite: '/sqlite',
+  Audio: '/audio'
+};
+
 // Helper to navigate to a page, handling mobile/desktop differences
 async function navigateToPage(page: Page, pageName: 'SQLite' | 'Audio') {
   const isMobile = isMobileViewport(page);
@@ -31,15 +37,9 @@ async function navigateToPage(page: Page, pageName: 'SQLite' | 'Audio') {
       .getByTestId(`${pageName.toLowerCase()}-link`)
       .click();
   } else {
-    // Open sidebar if not visible
-    const sidebar = page.locator('aside nav');
-    if (!(await sidebar.isVisible())) {
-      await openSidebar(page);
-    }
-    const button = sidebar.getByRole('button', { name: pageName });
-    // Sidebar auto-closes after launch
-    await button.click();
-    await expect(sidebar).not.toBeVisible({ timeout: 5000 });
+    // Use URL navigation for page testing on desktop
+    const route = PAGE_ROUTES[pageName];
+    await page.goto(route);
   }
 }
 

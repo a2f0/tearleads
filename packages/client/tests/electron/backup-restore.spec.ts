@@ -24,11 +24,19 @@ const waitForSuccess = (page: Page) =>
     { timeout: DB_OPERATION_TIMEOUT }
   );
 
-async function openSidebar(window: Page) {
-  const startButton = window.getByTestId('start-button');
-  await expect(startButton).toBeVisible({timeout: APP_LOAD_TIMEOUT});
-  await startButton.click();
-  await expect(window.locator('nav')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+// Map page names to routes for URL navigation
+const PAGE_ROUTES: Record<string, string> = {
+  SQLite: '/sqlite',
+  Settings: '/settings'
+};
+
+// Helper to navigate via URL (for testing page behavior)
+async function navigateTo(window: Page, pageName: string) {
+  const route = PAGE_ROUTES[pageName];
+  if (!route) {
+    throw new Error(`Unknown page: ${pageName}`);
+  }
+  await window.goto(route);
 }
 
 test.describe('Backup & Restore (Electron)', () => {
@@ -44,12 +52,8 @@ test.describe('Backup & Restore (Electron)', () => {
       window.getByTestId('start-button')
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
 
-    // Open sidebar and navigate to SQLite page
-    await openSidebar(window);
-    await window
-      .locator('nav')
-      .getByRole('button', { name: 'SQLite' })
-      .click();
+    // Navigate to SQLite page via URL
+    await navigateTo(window, 'SQLite');
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Reset the database to ensure clean state

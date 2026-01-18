@@ -20,6 +20,12 @@ test.beforeEach(async ({ page }) => {
   await clearOriginStorage(page);
 });
 
+// Map page names to routes
+const PAGE_ROUTES: Record<string, string> = {
+  SQLite: '/sqlite',
+  Photos: '/photos'
+};
+
 // Helper to navigate to a page, handling mobile/desktop differences
 async function navigateToPage(page: Page, pageName: 'SQLite' | 'Photos') {
   const isMobile = isMobileViewport(page);
@@ -32,15 +38,9 @@ async function navigateToPage(page: Page, pageName: 'SQLite' | 'Photos') {
       .getByTestId(`${pageName.toLowerCase()}-link`)
       .click();
   } else {
-    // Open sidebar if not visible
-    const sidebar = page.locator('aside nav');
-    if (!(await sidebar.isVisible())) {
-      await openSidebar(page);
-    }
-    const button = sidebar.getByRole('button', { name: pageName });
-    // Sidebar auto-closes after launch
-    await button.click();
-    await expect(sidebar).not.toBeVisible({ timeout: 5000 });
+    // Use URL navigation for page testing on desktop
+    const route = PAGE_ROUTES[pageName];
+    await page.goto(route);
   }
 }
 

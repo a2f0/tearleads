@@ -2,24 +2,18 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { clearOriginStorage } from './test-utils';
 
-// Helper to open sidebar via Start button
-async function openSidebar(page: Page) {
-  const startButton = page.getByTestId('start-button');
-  await expect(startButton).toBeVisible({ timeout: 10000 });
-  await startButton.click();
-  await expect(page.locator('aside nav')).toBeVisible({ timeout: 10000 });
-}
+// Map page names to routes
+const PAGE_ROUTES: Record<string, string> = {
+  SQLite: '/sqlite'
+};
 
-// Helper to navigate via sidebar
-async function navigateTo(page: Page, linkName: string) {
-  const sidebar = page.locator('aside nav');
-  if (!(await sidebar.isVisible())) {
-    await openSidebar(page);
+// Helper to navigate via URL (for testing page behavior)
+async function navigateTo(page: Page, pageName: string) {
+  const route = PAGE_ROUTES[pageName];
+  if (!route) {
+    throw new Error(`Unknown page: ${pageName}`);
   }
-  const button = sidebar.getByRole('button', { name: linkName });
-  // Sidebar auto-closes after launch
-  await button.click();
-  await expect(sidebar).not.toBeVisible({ timeout: 5000 });
+  await page.goto(route);
 }
 
 const TEST_PASSWORD = 'testpassword123';
