@@ -5,6 +5,7 @@ import { AudioWindow } from '@/components/audio-window';
 import { ChatWindow } from '@/components/chat-window';
 import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
+import { CacheStorageWindow } from '@/components/cache-storage-window';
 import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
 import type { WindowDimensions } from '@/components/floating-window';
@@ -53,6 +54,23 @@ export function WindowRenderer() {
                   minimizeWindow(window.id, dimensions)
                 }
                 onDimensionsChange={createDimensionsHandler('notes')}
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'cache-storage':
+            return (
+              <CacheStorageWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onDimensionsChange={createDimensionsHandler('cache-storage')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {

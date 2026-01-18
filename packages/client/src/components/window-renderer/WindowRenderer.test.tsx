@@ -283,6 +283,41 @@ vi.mock('@/components/contacts-window', () => ({
   )
 }));
 
+vi.mock('@/components/cache-storage-window', () => ({
+  CacheStorageWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`cache-storage-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 650, height: 500 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/sqlite-window', () => ({
   SqliteWindow: ({
     id,
@@ -713,6 +748,16 @@ describe('WindowRenderer', () => {
     expect(screen.getByTestId('sqlite-window-sqlite-1')).toBeInTheDocument();
   });
 
+  it('renders cache storage window for cache storage type', () => {
+    mockWindows = [
+      { id: 'cache-storage-1', type: 'cache-storage', zIndex: 100 }
+    ];
+    render(<WindowRenderer />, { wrapper });
+    expect(
+      screen.getByTestId('cache-storage-window-cache-storage-1')
+    ).toBeInTheDocument();
+  });
+
   it('calls closeWindow when contacts close button is clicked', async () => {
     const user = userEvent.setup();
     mockWindows = [{ id: 'contacts-1', type: 'contacts', zIndex: 100 }];
@@ -1027,7 +1072,7 @@ describe('WindowRenderer', () => {
     });
   });
 
-  it('renders all thirteen window types together', () => {
+  it('renders all fourteen window types together', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'console-1', type: 'console', zIndex: 101 },
@@ -1038,10 +1083,11 @@ describe('WindowRenderer', () => {
       { id: 'keychain-1', type: 'keychain', zIndex: 106 },
       { id: 'contacts-1', type: 'contacts', zIndex: 107 },
       { id: 'sqlite-1', type: 'sqlite', zIndex: 108 },
-      { id: 'chat-1', type: 'chat', zIndex: 109 },
-      { id: 'analytics-1', type: 'analytics', zIndex: 110 },
-      { id: 'audio-1', type: 'audio', zIndex: 111 },
-      { id: 'admin-1', type: 'admin', zIndex: 112 }
+      { id: 'cache-storage-1', type: 'cache-storage', zIndex: 109 },
+      { id: 'chat-1', type: 'chat', zIndex: 110 },
+      { id: 'analytics-1', type: 'analytics', zIndex: 111 },
+      { id: 'audio-1', type: 'audio', zIndex: 112 },
+      { id: 'admin-1', type: 'admin', zIndex: 113 }
     ];
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
@@ -1059,6 +1105,9 @@ describe('WindowRenderer', () => {
       screen.getByTestId('contacts-window-contacts-1')
     ).toBeInTheDocument();
     expect(screen.getByTestId('sqlite-window-sqlite-1')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('cache-storage-window-cache-storage-1')
+    ).toBeInTheDocument();
     expect(screen.getByTestId('chat-window-chat-1')).toBeInTheDocument();
     expect(
       screen.getByTestId('analytics-window-analytics-1')
