@@ -240,6 +240,38 @@ describe('PhotosWindowTableView', () => {
     consoleSpy.mockRestore();
   });
 
+  it('logs share errors from the context menu', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockCanShareFiles.mockReturnValue(true);
+    mockShareFile.mockRejectedValueOnce(new Error('Share failed'));
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Share' }));
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to share photo:',
+      expect.any(Error)
+    );
+    consoleSpy.mockRestore();
+  });
+
   it('does not show share action when sharing is unsupported', async () => {
     mockCanShareFiles.mockReturnValue(false);
     mockUsePhotosWindowData.mockReturnValue({
