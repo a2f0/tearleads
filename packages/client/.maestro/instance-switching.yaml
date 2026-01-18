@@ -1,5 +1,9 @@
 appId: com.tearleads.rapid
 ---
+# AGENT GUARDRAIL: Do NOT skip this test.
+# Instance switching tests are critical for verifying data isolation between instances.
+# If tests fail, fix the root cause rather than skipping.
+#
 # Instance Switching State Isolation Test
 # Verifies that UI state resets correctly when switching between database instances
 

@@ -1,3 +1,8 @@
+/**
+ * AGENT GUARDRAIL: Do NOT skip any tests in this file.
+ * Instance switching tests are critical for verifying data isolation between instances.
+ * If tests fail, fix the root cause rather than skipping.
+ */
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { clearOriginStorage, MINIMAL_PNG } from './test-utils';
@@ -415,8 +420,9 @@ test.describe('Files Route Instance Switching', () => {
     await expect(page.getByTestId('db-status')).toHaveText('Not Set Up');
   });
 
-  // Skipped: SQLite encryption fails intermittently in CI - see https://github.com/a2f0/rapid/issues/899
-  test.skip('files page refreshes when switching to empty instance', async ({
+  // AGENT GUARDRAIL: Do NOT skip this test. Instance switching tests are critical for data isolation.
+  // If this test fails, fix the root cause rather than skipping.
+  test('files page refreshes when switching to empty instance', async ({
     page
   }) => {
     test.slow(); // File upload and thumbnail generation can be slow
@@ -453,8 +459,9 @@ test.describe('Files Route Instance Switching', () => {
     await expect(page.getByText('test-image.png')).not.toBeVisible();
   });
 
-  // Skipped: SQLite encryption fails intermittently in CI - see https://github.com/a2f0/rapid/issues/899
-  test.skip('files page loads correct files when switching back to original instance', async ({
+  // AGENT GUARDRAIL: Do NOT skip this test. Instance switching tests are critical for data isolation.
+  // If this test fails, fix the root cause rather than skipping.
+  test('files page loads correct files when switching back to original instance', async ({
     page
   }) => {
     test.slow();
@@ -501,8 +508,9 @@ test.describe('Files Route Instance Switching', () => {
     await expect(page.getByText('instance2-file.png')).not.toBeVisible();
   });
 
-  // Skipped: SQLite encryption fails intermittently in CI - see https://github.com/a2f0/rapid/issues/899
-  test.skip('thumbnails load after switching instances', async ({ page }) => {
+  // AGENT GUARDRAIL: Do NOT skip this test. Instance switching tests are critical for data isolation.
+  // If this test fails, fix the root cause rather than skipping.
+  test('thumbnails load after switching instances', async ({ page }) => {
     test.slow();
 
     // Setup first instance and upload a file

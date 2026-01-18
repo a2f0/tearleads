@@ -1,3 +1,8 @@
+/**
+ * AGENT GUARDRAIL: Do NOT skip any tests in this file.
+ * Instance switching tests are critical for verifying data isolation between instances.
+ * If tests fail, fix the root cause rather than skipping.
+ */
 import {
   test,
   expect,
