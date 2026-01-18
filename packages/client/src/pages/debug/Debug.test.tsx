@@ -35,15 +35,15 @@ class TestErrorBoundary extends Component<
 > {
   state = { hasError: false };
 
-  static getDerivedStateFromError() {
+  static override getDerivedStateFromError() {
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error) {
+  override componentDidCatch(error: Error) {
     this.props.onError(error);
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       return <div>Boundary Error</div>;
     }
