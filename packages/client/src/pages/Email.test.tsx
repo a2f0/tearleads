@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { Email } from './Email';
 
 vi.mock('@/lib/api', () => ({
@@ -81,6 +82,7 @@ describe('Email', () => {
       ok: false,
       statusText: 'Internal Server Error'
     });
+    const consoleSpy = mockConsoleError();
 
     renderWithRouter(<Email />);
 
@@ -89,6 +91,10 @@ describe('Email', () => {
     });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch emails:',
+      expect.any(Error)
+    );
   });
 
   it('renders page title and refresh button', async () => {

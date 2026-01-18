@@ -73,6 +73,7 @@ function renderNoteDetailRaw(options: RenderOptions = {}) {
       <MemoryRouter initialEntries={[`/notes/${noteId}`]}>
         <Routes>
           <Route path="/notes/:id" element={<NoteDetail />} />
+          <Route path="/notes" element={<div>Notes</div>} />
         </Routes>
       </MemoryRouter>
     </ThemeProvider>

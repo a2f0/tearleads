@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { FilesWindowTableView } from './FilesWindowTableView';
 
 const mockDatabaseState = {
@@ -208,11 +209,17 @@ describe('FilesWindowTableView', () => {
 
   it('shows error state when fetch fails', async () => {
     mockDb.orderBy.mockRejectedValue(new Error('Database error'));
+    const consoleSpy = mockConsoleError();
     render(<FilesWindowTableView {...defaultProps} />);
 
     await waitFor(() => {
       expect(screen.getByText('Database error')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch files:',
+      expect.any(Error)
+    );
   });
 
   it('displays file size and type in table cells', async () => {
@@ -434,6 +441,7 @@ describe('FilesWindowTableView', () => {
 
   it('handles delete error gracefully', async () => {
     mockDb.orderBy.mockResolvedValue(mockFiles);
+    const consoleSpy = mockConsoleError();
     const user = userEvent.setup();
     render(<FilesWindowTableView {...defaultProps} />);
 
@@ -458,6 +466,11 @@ describe('FilesWindowTableView', () => {
     await waitFor(() => {
       expect(screen.getByText('Delete failed')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to delete file:',
+      expect.any(Error)
+    );
   });
 
   it('calls onUpload when header upload button is clicked', async () => {
@@ -590,6 +603,7 @@ describe('FilesWindowTableView', () => {
   it('handles restore error gracefully', async () => {
     const filesWithDeleted = [{ ...mockFiles[0], deleted: true }];
     mockDb.orderBy.mockResolvedValue(filesWithDeleted);
+    const consoleSpy = mockConsoleError();
     const user = userEvent.setup();
     render(<FilesWindowTableView {...defaultProps} showDeleted={true} />);
 
@@ -614,6 +628,11 @@ describe('FilesWindowTableView', () => {
     await waitFor(() => {
       expect(screen.getByText('Restore failed')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to restore file:',
+      expect.any(Error)
+    );
   });
 
   it('downloads file via context menu', async () => {
@@ -709,6 +728,7 @@ describe('FilesWindowTableView', () => {
     vi.mocked(retrieveFileData).mockRejectedValueOnce(
       new Error('Download failed')
     );
+    const consoleSpy = mockConsoleError();
     mockDb.orderBy.mockResolvedValue(mockFiles);
     const user = userEvent.setup();
     render(<FilesWindowTableView {...defaultProps} />);
@@ -731,6 +751,11 @@ describe('FilesWindowTableView', () => {
     await waitFor(() => {
       expect(screen.getByText('Download failed')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to download file:',
+      expect.any(Error)
+    );
   });
 
   it('closes context menu when clicking outside', async () => {
@@ -1017,17 +1042,21 @@ describe('FilesWindowTableView', () => {
 
   it('handles various file type displays', async () => {
     const variousFiles = [
-      { ...mockFiles[0], mimeType: 'image/gif', name: 'anim.gif' },
-      { ...mockFiles[0], mimeType: 'image/webp', name: 'image.webp' },
-      { ...mockFiles[0], mimeType: 'image/svg+xml', name: 'icon.svg' },
-      { ...mockFiles[0], mimeType: 'audio/wav', name: 'sound.wav' },
-      { ...mockFiles[0], mimeType: 'audio/ogg', name: 'music.ogg' },
-      { ...mockFiles[0], mimeType: 'audio/flac', name: 'lossless.flac' },
-      { ...mockFiles[0], mimeType: 'video/webm', name: 'video.webm' },
-      { ...mockFiles[0], mimeType: 'video/quicktime', name: 'movie.mov' },
-      { ...mockFiles[0], mimeType: 'text/plain', name: 'readme.txt' },
-      { ...mockFiles[0], mimeType: 'application/json', name: 'data.json' }
-    ];
+      { mimeType: 'image/gif', name: 'anim.gif' },
+      { mimeType: 'image/webp', name: 'image.webp' },
+      { mimeType: 'image/svg+xml', name: 'icon.svg' },
+      { mimeType: 'audio/wav', name: 'sound.wav' },
+      { mimeType: 'audio/ogg', name: 'music.ogg' },
+      { mimeType: 'audio/flac', name: 'lossless.flac' },
+      { mimeType: 'video/webm', name: 'video.webm' },
+      { mimeType: 'video/quicktime', name: 'movie.mov' },
+      { mimeType: 'text/plain', name: 'readme.txt' },
+      { mimeType: 'application/json', name: 'data.json' }
+    ].map((entry, index) => ({
+      ...mockFiles[0],
+      ...entry,
+      id: `file-${index + 1}`
+    }));
     mockDb.orderBy.mockResolvedValue(variousFiles);
     render(<FilesWindowTableView {...defaultProps} />);
 
@@ -1174,6 +1203,7 @@ describe('FilesWindowTableView', () => {
     vi.mocked(retrieveFileData).mockRejectedValueOnce(
       new Error('Audio load failed')
     );
+    const consoleSpy = mockConsoleError();
     const audioFile = {
       id: 'audio-2',
       name: 'broken.mp3',
@@ -1206,6 +1236,11 @@ describe('FilesWindowTableView', () => {
     await waitFor(() => {
       expect(screen.getByText('Audio load failed')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to load audio:',
+      expect.any(Error)
+    );
   });
 
   it('handles edge case with empty mimeType subtype', async () => {

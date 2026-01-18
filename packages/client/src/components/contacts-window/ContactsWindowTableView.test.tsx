@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { ContactsWindowTableView } from './ContactsWindowTableView';
 
 const mockDatabaseState = {
@@ -149,11 +150,17 @@ describe('ContactsWindowTableView', () => {
 
   it('shows error state when fetch fails', async () => {
     mockDb.orderBy.mockRejectedValue(new Error('Database error'));
+    const consoleSpy = mockConsoleError();
     render(<ContactsWindowTableView {...defaultProps} />);
 
     await waitFor(() => {
       expect(screen.getByText('Database error')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch contacts:',
+      expect.any(Error)
+    );
   });
 
   it('displays email and phone in table cells', async () => {
@@ -334,6 +341,7 @@ describe('ContactsWindowTableView', () => {
 
   it('handles delete error gracefully', async () => {
     mockDb.orderBy.mockResolvedValue(mockContacts);
+    const consoleSpy = mockConsoleError();
     const user = userEvent.setup();
     render(<ContactsWindowTableView {...defaultProps} />);
 
@@ -358,6 +366,11 @@ describe('ContactsWindowTableView', () => {
     await waitFor(() => {
       expect(screen.getByText('Delete failed')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to delete contact:',
+      expect.any(Error)
+    );
   });
 
   it('calls onCreateContact when header create button is clicked', async () => {
