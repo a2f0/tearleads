@@ -349,4 +349,46 @@ describe('AudioWindowDetail', () => {
     await user.click(deleteButton);
     expect(onDeleted).toHaveBeenCalled();
   });
+
+  it('shows an error when download fails', async () => {
+    mockRetrieve
+      .mockResolvedValueOnce(TEST_AUDIO_DATA)
+      .mockRejectedValueOnce(new Error('download failed'));
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    const user = userEvent.setup();
+    renderAudioWindowDetail();
+
+    const downloadButton = await screen.findByTestId('download-button');
+    await user.click(downloadButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('download failed')).toBeInTheDocument();
+    });
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it('shows an error when delete fails', async () => {
+    mockUpdate.mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockRejectedValue(new Error('delete failed'))
+      })
+    });
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    const user = userEvent.setup();
+    renderAudioWindowDetail();
+
+    const deleteButton = await screen.findByTestId('delete-button');
+    await user.click(deleteButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('delete failed')).toBeInTheDocument();
+    });
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
 });
