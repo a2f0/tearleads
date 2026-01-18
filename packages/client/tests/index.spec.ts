@@ -37,16 +37,11 @@ async function navigateWithHistory(page: Page, path: string): Promise<void> {
 }
 
 async function triggerSidebarNavigation(
-  page: Page,
+  _page: Page,
   button: Locator
 ): Promise<void> {
-  const isDesktop = await isDesktopDevice(page);
-
-  if (isDesktop) {
-    await button.dblclick();
-  } else {
-    await button.click();
-  }
+  // All devices now use single click for sidebar navigation
+  await button.click();
 }
 
 const WINDOW_LAUNCH_PATHS = new Set([

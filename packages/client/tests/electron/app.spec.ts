@@ -49,7 +49,7 @@ test.describe('Electron App', () => {
     const settingsButton = window
       .locator('nav')
       .getByRole('button', { name: 'Settings' });
-    await settingsButton.dblclick();
+    await settingsButton.click();
 
     await expect(
       window.getByRole('heading', {name: 'Settings'})
@@ -63,7 +63,7 @@ test.describe('Electron App', () => {
     const tablesButton = window
       .locator('nav')
       .getByRole('button', { name: 'Tables' });
-    await tablesButton.dblclick();
+    await tablesButton.click();
 
     await expect(
       window.getByRole('heading', {name: 'Tables'})
@@ -77,7 +77,7 @@ test.describe('Electron App', () => {
     await window
       .locator('nav')
       .getByRole('button', { name: 'Tables' })
-      .dblclick();
+      .click();
 
     // Should show inline unlock component
     await expect(window.getByTestId('inline-unlock')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
@@ -95,7 +95,7 @@ test.describe('Electron App', () => {
     await window
       .locator('nav')
       .getByRole('button', { name: 'SQLite' })
-      .dblclick();
+      .click();
     await expect(window.getByTestId('database-test')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
 
     // Reset and wait for reset to complete
@@ -122,7 +122,7 @@ test.describe('Electron App', () => {
     await window
       .locator('nav')
       .getByRole('button', { name: 'Tables' })
-      .dblclick();
+      .click();
     await expect(window.getByRole('heading', {name: 'Tables'})).toBeVisible();
 
     // Should show tables
