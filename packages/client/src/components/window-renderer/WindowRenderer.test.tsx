@@ -423,6 +423,76 @@ vi.mock('@/components/sqlite-window', () => ({
   )
 }));
 
+vi.mock('@/components/cache-storage-window', () => ({
+  CacheStorageWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`cache-storage-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 650, height: 500 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/components/opfs-window', () => ({
+  OpfsWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`opfs-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 720, height: 560 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/analytics-window', () => ({
   AnalyticsWindow: ({
     id,
@@ -832,6 +902,12 @@ describe('WindowRenderer', () => {
     expect(screen.getByTestId('sqlite-window-sqlite-1')).toBeInTheDocument();
   });
 
+  it('renders opfs window for opfs type', () => {
+    mockWindows = [{ id: 'opfs-1', type: 'opfs', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('opfs-window-opfs-1')).toBeInTheDocument();
+  });
+
   it('calls closeWindow when contacts close button is clicked', async () => {
     const user = userEvent.setup();
     mockWindows = [{ id: 'contacts-1', type: 'contacts', zIndex: 100 }];
@@ -893,6 +969,29 @@ describe('WindowRenderer', () => {
       y: 0,
       width: 600,
       height: 500
+    });
+  });
+
+  it('calls closeWindow when opfs close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'opfs-1', type: 'opfs', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-opfs-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('opfs-1');
+  });
+
+  it('calls minimizeWindow when opfs minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'opfs-1', type: 'opfs', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-opfs-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('opfs-1', {
+      x: 0,
+      y: 0,
+      width: 720,
+      height: 560
     });
   });
 

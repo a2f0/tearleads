@@ -6,12 +6,12 @@ import { CacheStorageWindow } from '@/components/cache-storage-window';
 import { ChatWindow } from '@/components/chat-window';
 import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
-import { DocumentsWindow } from '@/components/documents-window';
 import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
 import type { WindowDimensions } from '@/components/floating-window';
 import { KeychainWindow } from '@/components/keychain-window';
 import { NotesWindow } from '@/components/notes-window';
+import { OpfsWindow } from '@/components/opfs-window';
 import { PhotosWindow } from '@/components/photos-window';
 import { SettingsWindow } from '@/components/settings-window';
 import { SqliteWindow } from '@/components/sqlite-window';
@@ -62,21 +62,6 @@ export function WindowRenderer() {
                 {...(window.dimensions && {
                   initialDimensions: window.dimensions
                 })}
-              />
-            );
-          case 'cache-storage':
-            return (
-              <CacheStorageWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler('cache-storage')}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                initialDimensions={window.dimensions}
               />
             );
           case 'console':
@@ -130,40 +115,6 @@ export function WindowRenderer() {
                 })}
               />
             );
-          case 'tables':
-            return (
-              <TablesWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler('tables')}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'videos':
-            return (
-              <VideoWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler('videos')}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
           case 'email':
             return (
               <EmailWindow
@@ -191,23 +142,6 @@ export function WindowRenderer() {
                   minimizeWindow(window.id, dimensions)
                 }
                 onDimensionsChange={createDimensionsHandler('contacts')}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'documents':
-            return (
-              <DocumentsWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler('documents')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -259,6 +193,55 @@ export function WindowRenderer() {
                   minimizeWindow(window.id, dimensions)
                 }
                 onDimensionsChange={createDimensionsHandler('sqlite')}
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'videos':
+            return (
+              <VideoWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onDimensionsChange={createDimensionsHandler('videos')}
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'opfs':
+            return (
+              <OpfsWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onDimensionsChange={createDimensionsHandler('opfs')}
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                initialDimensions={window.dimensions}
+              />
+            );
+          case 'cache-storage':
+            return (
+              <CacheStorageWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onDimensionsChange={createDimensionsHandler('cache-storage')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
