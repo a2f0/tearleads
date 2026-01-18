@@ -11,13 +11,6 @@ const NEW_PASSWORD = 'newpassword456';
 const DB_OPERATION_TIMEOUT = 15000;
 const APP_LOAD_TIMEOUT = 10000;
 
-async function openSidebar(window: Page) {
-  const startButton = window.getByTestId('start-button');
-  await expect(startButton).toBeVisible({timeout: APP_LOAD_TIMEOUT});
-  await startButton.click();
-  await expect(window.locator('nav')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
-}
-
 test.describe('Database (Electron)', () => {
   let electronApp: ElectronApplication;
   let window: Page;
