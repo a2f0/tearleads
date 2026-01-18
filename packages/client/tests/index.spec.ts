@@ -748,7 +748,7 @@ test.describe('Debug page', () => {
     await openSidebar(page);
 
     const debugButton = page.locator('aside nav').getByRole('button', { name: 'Debug' });
-    await debugButton.click();
+    await triggerSidebarNavigation(page, debugButton);
 
     await expect(page.getByRole('heading', { name: 'Debug' })).toBeVisible();
   });
@@ -827,7 +827,7 @@ test.describe('Tables page', () => {
     await openSidebar(page);
 
     const tablesButton = page.locator('aside nav').getByRole('button', { name: 'Tables' });
-    await tablesButton.click();
+    await triggerSidebarNavigation(page, tablesButton);
 
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
   });
@@ -1037,7 +1037,7 @@ test.describe('Models page', () => {
     await openSidebar(page);
 
     const modelsButton = page.locator('aside nav').getByRole('button', { name: 'Models' });
-    await modelsButton.click();
+    await triggerSidebarNavigation(page, modelsButton);
 
     await expect(page.getByRole('heading', { name: 'Models' })).toBeVisible();
   });
@@ -1233,7 +1233,7 @@ test.describe('Contacts page', () => {
     await openSidebar(page);
 
     const contactsButton = page.locator('aside nav').getByRole('button', { name: 'Contacts' });
-    await contactsButton.click();
+    await triggerSidebarNavigation(page, contactsButton);
 
     await expect(page.getByRole('heading', { name: 'Contacts' })).toBeVisible();
   });
@@ -1372,7 +1372,7 @@ test.describe('Analytics page', () => {
     await openSidebar(page);
 
     const analyticsButton = page.locator('aside nav').getByRole('button', { name: 'Analytics' });
-    await analyticsButton.click();
+    await triggerSidebarNavigation(page, analyticsButton);
 
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
   });
