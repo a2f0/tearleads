@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
+import failOnConsole from 'vitest-fail-on-console';
 
 // Enable React act() environment checks before tests run.
 // https://react.dev/reference/react-dom/test-utils/act#environment
@@ -12,6 +13,10 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 // Initialize i18n for tests (side-effect import)
 import '../i18n';
 import { server } from './msw/server';
+
+// Guardrail: fail tests on console warnings/errors unless tests explicitly mock or assert them.
+// Agents: do not add allow/skip exceptions here; ask the user first if changes are needed.
+failOnConsole();
 
 // Mock @ionic/core gestures to avoid DOM issues in jsdom
 vi.mock('@ionic/core', () => ({
