@@ -558,6 +558,22 @@ describe('Home', () => {
       expect(canvas).toBeInTheDocument();
       expect(canvas?.style.touchAction).toBe('auto');
     });
+
+    it('uses grid layout and scrollable container on mobile', () => {
+      const { container } = renderMobileHome();
+
+      const canvas = container.querySelector<HTMLElement>(
+        '[role="application"]'
+      );
+      expect(canvas).toBeInTheDocument();
+      expect(canvas).toHaveClass('overflow-y-auto');
+
+      const grid = screen.getByTestId('home-grid');
+      expect(grid).toHaveClass('grid');
+
+      const filesButton = screen.getByRole('button', { name: 'Files' });
+      expect(filesButton.className).not.toContain('absolute');
+    });
   });
 
   it('shows scatter option in canvas context menu and randomizes icon positions', async () => {
