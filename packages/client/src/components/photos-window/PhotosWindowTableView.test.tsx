@@ -180,6 +180,35 @@ describe('PhotosWindowTableView', () => {
     expect(refresh).toHaveBeenCalled();
   });
 
+  it('ignores share abort errors from the context menu', async () => {
+    const abortError = new Error('Share aborted');
+    abortError.name = 'AbortError';
+    mockCanShareFiles.mockReturnValue(true);
+    mockShareFile.mockRejectedValueOnce(abortError);
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Share' }));
+
+    expect(mockShareFile).toHaveBeenCalled();
+  });
+
   it('does not show share action when sharing is unsupported', async () => {
     mockCanShareFiles.mockReturnValue(false);
     mockUsePhotosWindowData.mockReturnValue({
