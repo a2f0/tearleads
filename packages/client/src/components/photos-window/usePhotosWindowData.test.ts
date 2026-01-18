@@ -2,7 +2,11 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePhotosWindowData } from './usePhotosWindowData';
 
-const mockDatabaseState = {
+const mockDatabaseState: {
+  isUnlocked: boolean;
+  isLoading: boolean;
+  currentInstanceId: string | null;
+} = {
   isUnlocked: true,
   isLoading: false,
   currentInstanceId: 'instance-1'
@@ -30,9 +34,11 @@ vi.mock('@/db', () => ({
   getDatabase: () => mockDb
 }));
 
+const mockGetCurrentKey = vi.fn(() => new Uint8Array(32));
+
 vi.mock('@/db/crypto', () => ({
   getKeyManager: () => ({
-    getCurrentKey: () => new Uint8Array(32)
+    getCurrentKey: () => mockGetCurrentKey()
   })
 }));
 
@@ -64,6 +70,8 @@ describe('usePhotosWindowData', () => {
     mockOrderBy.mockResolvedValue(photoRows);
     mockRetrieve.mockResolvedValue(new ArrayBuffer(8));
     mockIsFileStorageInitialized.mockReturnValue(false);
+    mockDatabaseState.currentInstanceId = 'instance-1';
+    mockGetCurrentKey.mockReturnValue(new Uint8Array(32));
     const url = globalThis.URL;
     if (url) {
       createObjectUrlSpy = vi.fn(() => 'blob:photo');
@@ -106,6 +114,30 @@ describe('usePhotosWindowData', () => {
 
     await waitFor(() => {
       expect(result.current.error).toBe('Database error');
+    });
+  });
+
+  it('sets error when encryption key is missing', async () => {
+    mockGetCurrentKey.mockReturnValue(null);
+
+    const { result } = renderHook(() =>
+      usePhotosWindowData({ refreshToken: 0 })
+    );
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('Database not unlocked');
+    });
+  });
+
+  it('sets error when instance id is missing', async () => {
+    mockDatabaseState.currentInstanceId = null;
+
+    const { result } = renderHook(() =>
+      usePhotosWindowData({ refreshToken: 0 })
+    );
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('No active instance');
     });
   });
 
