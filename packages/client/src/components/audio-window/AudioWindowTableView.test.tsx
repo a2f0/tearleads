@@ -629,6 +629,28 @@ describe('AudioWindowTableView', () => {
     expect(screen.queryByText('Song Two.mp3')).not.toBeInTheDocument();
   });
 
+  it('falls back to subtype for unknown audio types', async () => {
+    mockDb.orderBy.mockResolvedValue([
+      {
+        id: 'track-3',
+        name: 'Mystery Track',
+        size: 1024,
+        mimeType: 'audio/xyz',
+        uploadDate: new Date('2024-02-01T10:00:00'),
+        storagePath: '/audio/track-3',
+        thumbnailPath: null
+      }
+    ]);
+
+    render(<AudioWindowTableView />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Mystery Track')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('XYZ')).toBeInTheDocument();
+  });
+
   it('case-insensitive search works correctly', async () => {
     mockDb.orderBy.mockResolvedValue(mockTracks);
     const user = userEvent.setup();
