@@ -24,6 +24,8 @@
     "lint:rubocop": "pnpm --filter @rapid/client lint:rubocop",
     "lint:ansible": "ansible-lint ansible/",
     "lint:md": "markdownlint-cli2 '**/*.md'",
+    "test:shell": "bats scripts/tests/bats/*.bats",
+    "test:shellVerbose": "bats --tap scripts/tests/bats/*.bats",
     "format": "biome format --write .",
     "prepare": "husky"
   },

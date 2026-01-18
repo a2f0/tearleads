@@ -1,5 +1,8 @@
 set -e
 
+# Initialize version managers (rbenv, pyenv, nvm) for non-interactive shells
+. "$(dirname "$0")/../scripts/init-env.sh"
+
 pnpm lint
 pnpm lint:scripts
 pnpm lint:md
@@ -17,6 +20,13 @@ if ! command -v ansible-lint >/dev/null 2>&1; then
   exit 1
 fi
 pnpm lint:ansible
+
+# Run shell tests (skip if bats not installed)
+if command -v bats >/dev/null 2>&1; then
+  pnpm test:shell
+else
+  echo "Note: bats not installed, skipping shell tests. Install with: brew install bats-core"
+fi
 
 # Run tests with coverage thresholds
 pnpm --filter @rapid/shared test:coverage

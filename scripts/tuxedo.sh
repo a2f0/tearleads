@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC1091
 # Tuxedo - tmux session manager for rapid development
 #
 # Configurable via environment variables:
@@ -26,6 +27,9 @@ case $SCRIPT_PATH in
   *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
 esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
+
+# Initialize version managers (rbenv, pyenv, nvm) for non-interactive shells
+. "$SCRIPT_DIR/init-env.sh"
 
 CONFIG_DIR="$SCRIPT_DIR/config"
 GHOSTTY_CONF="$CONFIG_DIR/ghostty.conf"
