@@ -111,7 +111,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    - Use `/address-gemini-feedback` and `/follow-up-with-gemini`.
    - Reply to review comments using the REST API reply endpoint and include `@gemini-code-assist`.
-   - Include relevant commit message(s) in replies.
+   - Include relevant commit hashes in replies (not just titles).
    - Resolve threads only after explicit Gemini confirmation.
 
    4f. Wait for CI with adaptive polling and branch freshness checks:
