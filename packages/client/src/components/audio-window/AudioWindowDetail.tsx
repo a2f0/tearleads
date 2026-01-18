@@ -177,12 +177,18 @@ export function AudioWindowDetail({
     }
   }, [audio, onDeleted]);
 
-  const handleUpdateName = useCallback(async (newName: string) => {
-    const db = getDatabase();
-    await db.update(files).set({ name: newName }).where(eq(files.id, audioId));
+  const handleUpdateName = useCallback(
+    async (newName: string) => {
+      const db = getDatabase();
+      await db
+        .update(files)
+        .set({ name: newName })
+        .where(eq(files.id, audioId));
 
-    setAudio((prev) => (prev ? { ...prev, name: newName } : prev));
-  }, [audioId]);
+      setAudio((prev) => (prev ? { ...prev, name: newName } : prev));
+    },
+    [audioId]
+  );
 
   const fetchAudio = useCallback(async () => {
     if (!isUnlocked || !audioId) return;
@@ -318,12 +324,7 @@ export function AudioWindowDetail({
   return (
     <div className="flex h-full flex-col space-y-3 overflow-auto p-3">
       <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 px-2"
-          onClick={onBack}
-        >
+        <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onBack}>
           <ArrowLeft className="h-4 w-4" />
           Back
         </Button>
