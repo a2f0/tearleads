@@ -9,7 +9,10 @@ describe('ContextMenu', () => {
   const extractZIndex = (element: HTMLElement | null) => {
     const className = element?.className ?? '';
     const match = className.match(/z-\[(\d+)\]/);
-    return match ? Number.parseInt(match[1], 10) : 0;
+    if (!match) return 0;
+    const value = match[1];
+    if (!value) return 0;
+    return Number.parseInt(value, 10);
   };
 
   it('renders children at specified position', () => {
