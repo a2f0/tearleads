@@ -45,35 +45,16 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    This avoids waiting 5 minutes for Gemini to respond with "unsupported file types".
 
-   **Issue tracking (always performed)**: All PRs must have an associated issue that gets marked "Needs QA" after merge.
+   **Issue tracking (always performed)**: All PRs should have an associated issue that gets marked "Needs QA" after merge. The issue should already exist from when work started (created per CLAUDE.md guidelines). Do NOT create separate "QA: ..." issues.
 
    1. **Check for auto-close language**: Scan the PR body for patterns like `Closes #`, `Fixes #`, `Resolves #` (case-insensitive). If found:
       - Extract the issue number(s) from the pattern
       - Remove ALL auto-close language from the PR body using `gh pr edit --body`
       - Store the first extracted issue number as `associated_issue_number`
-      - **Note**: Only the first issue is tracked for QA. If the PR references multiple issues (e.g., `Fixes #123, Fixes #456`), manually create QA issues for the others.
 
-   2. **Find or create associated issue**: If no issue number was extracted from the PR body:
-      - Search for an existing open issue that references this PR: `gh issue list --search "PR #<number>" --state open --json number --limit 1`
-      - If no issue found, create one:
-
-        ```bash
-        gh issue create --title "QA: <PR title>" --body "## QA Verification Needed
-
-        This issue tracks QA verification for PR #<number>.
-
-        **PR**: <pr-url>
-
-        ## Changes to Verify
-        <brief description from PR title>
-
-        ## QA Checklist
-        - [ ] Verified in staging/production
-        - [ ] No regressions observed
-        "
-        ```
-
-      - Store the issue number as `associated_issue_number`
+   2. **Find associated issue**: If no issue number was extracted from the PR body:
+      - Search for an existing issue that references this PR or matches the PR title
+      - If no issue found, set `associated_issue_number = null` and proceed (the "Needs QA" label will just be skipped post-merge)
 
 2. **Check current branch**: Ensure you're on the PR's head branch, not `main`.
 
@@ -254,41 +235,20 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    This sets the VS Code window title to "ready" and switches back to main with the latest changes.
 
-   **Post-merge QA handling**: If `associated_issue_number` is set (should always be the case):
+   **Post-merge QA handling**: If `associated_issue_number` is set:
 
-   1. Check if the issue is closed and reopen if necessary:
-
-      ```bash
-      gh issue view <associated_issue_number> --json state
-      ```
-
-      If `state` is `CLOSED`, reopen it:
-
-      ```bash
-      gh issue reopen <associated_issue_number>
-      ```
-
-   2. Add the "Needs QA" label to the associated issue:
+   1. Add the "Needs QA" label to the associated issue:
 
       ```bash
       gh issue edit <associated_issue_number> --add-label "Needs QA"
       ```
 
-   3. Prefer updating the issue description with the merge status instead of adding a comment (avoid noisy threads). If you must comment, batch it with any other QA notes in one update.
-
-      Example description update:
-
-      ```bash
-      BODY=$(gh issue view <associated_issue_number> --json body -q .body)
-      gh issue edit <associated_issue_number> --body "$BODY\n\n**Update**: PR #<pr-number> has been merged. This issue is now ready for QA verification."
-      ```
-
-   This ensures the issue is open and clearly marked for QA follow-up, even if it was previously closed.
+   That's it. The issue already describes the work; no need to update descriptions or add comments.
 
 6. **Report success**: Confirm the PR was merged and provide a summary:
    - Show the PR URL
    - Output a brief description of what was merged (1-3 sentences summarizing the changes based on the PR title and commits)
-   - Mention the associated issue number, whether it was reopened, and that it has been labeled "Needs QA" for follow-up
+   - If an associated issue exists, mention it was labeled "Needs QA"
 
 ## Opening GitHub Issues
 
@@ -347,7 +307,8 @@ git rebase origin/main      # Can be noisy and waste tokens
 
 - Loops until PR is **actually merged**, not just auto-merge enabled
 - Non-high-priority PRs yield to high-priority ones unless all are `DIRTY` (check every 2 min with jitter)
-- All PRs: auto-close language is removed, issue is created if needed, closed issues are reopened, and issue is labeled "Needs QA" after merge
+- Auto-close language is removed from PR bodies; associated issues get "Needs QA" label after merge
+- Do NOT create "QA: ..." issues - issues should be created when work starts (per CLAUDE.md)
 - Prioritize staying up-to-date over waiting for CI in congested queues
 - Fixable: lint/type errors, test failures. Non-fixable: merge conflicts, infra failures
 - If stuck (same fix attempted twice), ask user for help
