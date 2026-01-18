@@ -196,4 +196,66 @@ describe('ConfirmDialog', () => {
     await user.tab({ shift: true });
     expect(document.activeElement).toBe(confirmButton);
   });
+
+  it('resets confirming state when reopened after successful confirmation', async () => {
+    const onConfirm = vi.fn().mockResolvedValue(undefined);
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+
+    const { rerender } = render(
+      <ThemeProvider>
+        <ConfirmDialog
+          open={true}
+          onOpenChange={onOpenChange}
+          title="Test"
+          description="Test"
+          confirmLabel="Delete"
+          confirmingLabel="Deleting..."
+          onConfirm={onConfirm}
+        />
+      </ThemeProvider>
+    );
+
+    // Click confirm and wait for it to complete
+    await user.click(screen.getByTestId('confirm-dialog-confirm'));
+    await waitFor(() => {
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+
+    // Close the dialog
+    rerender(
+      <ThemeProvider>
+        <ConfirmDialog
+          open={false}
+          onOpenChange={onOpenChange}
+          title="Test"
+          description="Test"
+          confirmLabel="Delete"
+          confirmingLabel="Deleting..."
+          onConfirm={onConfirm}
+        />
+      </ThemeProvider>
+    );
+
+    // Reopen the dialog
+    rerender(
+      <ThemeProvider>
+        <ConfirmDialog
+          open={true}
+          onOpenChange={onOpenChange}
+          title="Test"
+          description="Test"
+          confirmLabel="Delete"
+          confirmingLabel="Deleting..."
+          onConfirm={onConfirm}
+        />
+      </ThemeProvider>
+    );
+
+    // Should show "Delete" not "Deleting..." and buttons should be enabled
+    expect(screen.getByText('Delete')).toBeInTheDocument();
+    expect(screen.queryByText('Deleting...')).not.toBeInTheDocument();
+    expect(screen.getByTestId('confirm-dialog-confirm')).not.toBeDisabled();
+    expect(screen.getByTestId('confirm-dialog-cancel')).not.toBeDisabled();
+  });
 });
