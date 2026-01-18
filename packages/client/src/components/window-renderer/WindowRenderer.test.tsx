@@ -1573,41 +1573,37 @@ describe('WindowRenderer', () => {
     });
   });
 
-  it('renders tables window for tables type', () => {
-    mockWindows = [{ id: 'tables-1', type: 'tables', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('tables-window-tables-1')).toBeInTheDocument();
-  });
+  describe('tables window', () => {
+    let user: ReturnType<typeof userEvent.setup>;
 
-  it('calls closeWindow when tables close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'tables-1', type: 'tables', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
+    beforeEach(() => {
+      user = userEvent.setup();
+      mockWindows = [{ id: 'tables-1', type: 'tables', zIndex: 100 }];
+      render(<WindowRenderer />, { wrapper });
+    });
 
-    await user.click(screen.getByTestId('close-tables-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('tables-1');
-  });
+    it('renders for tables type', () => {
+      expect(screen.getByTestId('tables-window-tables-1')).toBeInTheDocument();
+    });
 
-  it('calls focusWindow when tables window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'tables-1', type: 'tables', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
+    it('calls closeWindow when tables close button is clicked', async () => {
+      await user.click(screen.getByTestId('close-tables-1'));
+      expect(mockCloseWindow).toHaveBeenCalledWith('tables-1');
+    });
 
-    await user.click(screen.getByTestId('tables-window-tables-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('tables-1');
-  });
+    it('calls focusWindow when tables window is clicked', async () => {
+      await user.click(screen.getByTestId('tables-window-tables-1'));
+      expect(mockFocusWindow).toHaveBeenCalledWith('tables-1');
+    });
 
-  it('calls minimizeWindow when tables minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'tables-1', type: 'tables', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-tables-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('tables-1', {
-      x: 0,
-      y: 0,
-      width: 850,
-      height: 600
+    it('calls minimizeWindow when tables minimize button is clicked', async () => {
+      await user.click(screen.getByTestId('minimize-tables-1'));
+      expect(mockMinimizeWindow).toHaveBeenCalledWith('tables-1', {
+        x: 0,
+        y: 0,
+        width: 850,
+        height: 600
+      });
     });
   });
 
