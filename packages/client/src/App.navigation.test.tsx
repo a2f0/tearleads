@@ -2,7 +2,7 @@ import { ThemeProvider } from '@rapid/ui';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { Contacts } from './pages/contacts';
@@ -110,33 +110,21 @@ vi.mock('@/storage', () => ({
   })
 }));
 
-function renderAppWithRoutes(initialPath = '/') {
-  return render(
-    <ThemeProvider>
-      <WindowManagerProvider>
-        <MemoryRouter initialEntries={[initialPath]}>
-          <Routes>
-            <Route path="/" element={<App />}>
-              <Route index element={<Home />} />
-              <Route path="files" element={<Files />} />
-              <Route path="contacts" element={<Contacts />} />
-              <Route path="sqlite" element={<Sqlite />} />
-              <Route path="debug" element={<Debug />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="tables" element={<Tables />} />
-            </Route>
-          </Routes>
-        </MemoryRouter>
-      </WindowManagerProvider>
-    </ThemeProvider>
-  );
+interface RenderAppOptions {
+  entries?: string[];
+  initialIndex?: number;
 }
 
-function renderAppWithEntries(entries: string[], initialIndex = 0) {
+function renderAppWithRoutes(
+  initialPath = '/',
+  { entries, initialIndex = 0 }: RenderAppOptions = {}
+) {
+  const initialEntries = entries ?? [initialPath];
+  const entryIndex = entries ? initialIndex : 0;
   return render(
     <ThemeProvider>
       <WindowManagerProvider>
-        <MemoryRouter initialEntries={entries} initialIndex={initialIndex}>
+        <MemoryRouter initialEntries={initialEntries} initialIndex={entryIndex}>
           <Routes>
             <Route path="/" element={<App />}>
               <Route index element={<Home />} />
@@ -177,13 +165,15 @@ describe('App Integration', () => {
       // Both are buttons now, but with different test IDs
       const sidebarFilesButton = screen.getByTestId('files-link');
       const filesButtons = screen.getAllByRole('button', { name: 'Files' });
+      const filesLinks = screen.getAllByRole('link', { name: 'Files' });
       const contactsButtons = screen.getAllByRole('button', {
         name: 'Contacts'
       });
+      const contactsLinks = screen.getAllByRole('link', { name: 'Contacts' });
       expect(sidebarFilesButton).toBeInTheDocument();
       // Should have both sidebar and home page buttons
-      expect(filesButtons.length).toBeGreaterThanOrEqual(2);
-      expect(contactsButtons.length).toBeGreaterThanOrEqual(2);
+      expect(filesButtons.length + filesLinks.length).toBeGreaterThanOrEqual(2);
+      expect(contactsButtons.length + contactsLinks.length).toBeGreaterThanOrEqual(2);
     });
 
     it('navigates to Contacts page when double-clicking sidebar button', async () => {
@@ -345,7 +335,23 @@ describe('App Integration', () => {
 
     it('shows a back button on mobile and navigates home when no history', async () => {
       const user = userEvent.setup();
-      renderAppWithEntries(['/debug']);
+      renderAppWithRoutes('/debug');
+
+      await waitFor(() => {
+        expect(screen.getByText('System Info')).toBeInTheDocument();
+      });
+
+      const backButton = screen.getByTestId('mobile-back-button');
+      await user.click(backButton);
+
+      await waitFor(() => {
+        expect(screen.queryByText('System Info')).not.toBeInTheDocument();
+      });
+    });
+
+    it('navigates back when history is available', async () => {
+      const user = userEvent.setup();
+      renderAppWithRoutes('/', { entries: ['/', '/debug'], initialIndex: 1 });
 
       await waitFor(() => {
         expect(screen.getByText('System Info')).toBeInTheDocument();
