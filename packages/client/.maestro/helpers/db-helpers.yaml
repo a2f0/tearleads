@@ -38,6 +38,11 @@ appId: com.tearleads.rapid
       input.value = password;
       input.dispatchEvent(new Event('input', { bubbles: true }));
     };
+    window.setNewPassword = function(password) {
+      var input = document.querySelector('[data-testid="db-new-password-input"]');
+      input.value = password;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    };
     window.waitForAuthError = function() {
       return window.waitFor(
         function() {
