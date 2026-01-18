@@ -1,0 +1,284 @@
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { usePhotosWindowData } from './usePhotosWindowData';
+
+const mockDatabaseState: {
+  isUnlocked: boolean;
+  isLoading: boolean;
+  currentInstanceId: string | null;
+} = {
+  isUnlocked: true,
+  isLoading: false,
+  currentInstanceId: 'instance-1'
+};
+
+const mockOrderBy = vi.fn();
+const mockUpdate = vi.fn();
+const mockSet = vi.fn();
+const mockWhere = vi.fn();
+const mockDb = {
+  select: vi.fn().mockReturnThis(),
+  from: vi.fn().mockReturnThis(),
+  where: vi.fn().mockReturnThis(),
+  orderBy: mockOrderBy,
+  update: mockUpdate
+};
+
+const mockRetrieve = vi.fn();
+const mockIsFileStorageInitialized = vi.fn();
+const mockInitializeFileStorage = vi.fn();
+let createObjectUrlSpy = vi.fn();
+let revokeObjectUrlSpy = vi.fn();
+
+vi.mock('@/db/hooks', () => ({
+  useDatabaseContext: () => mockDatabaseState
+}));
+
+vi.mock('@/db', () => ({
+  getDatabase: () => mockDb
+}));
+
+const mockGetCurrentKey = vi.fn((): Uint8Array | null => new Uint8Array(32));
+
+vi.mock('@/db/crypto', () => ({
+  getKeyManager: () => ({
+    getCurrentKey: () => mockGetCurrentKey()
+  })
+}));
+
+vi.mock('@/storage/opfs', () => ({
+  isFileStorageInitialized: (instanceId?: string) =>
+    mockIsFileStorageInitialized(instanceId),
+  initializeFileStorage: (encryptionKey: Uint8Array, instanceId: string) =>
+    mockInitializeFileStorage(encryptionKey, instanceId),
+  getFileStorage: () => ({
+    retrieve: mockRetrieve
+  })
+}));
+
+describe('usePhotosWindowData', () => {
+  const photoRows = [
+    {
+      id: 'photo-1',
+      name: 'photo.jpg',
+      size: 1024,
+      mimeType: 'image/jpeg',
+      uploadDate: new Date('2024-01-01T00:00:00Z'),
+      storagePath: '/photos/photo.jpg',
+      thumbnailPath: null
+    }
+  ];
+
+  const originalError = console.error;
+
+  beforeEach(() => {
+    console.error = vi.fn();
+    vi.clearAllMocks();
+    mockOrderBy.mockResolvedValue(photoRows);
+    mockRetrieve.mockResolvedValue(new ArrayBuffer(8));
+    mockIsFileStorageInitialized.mockReturnValue(false);
+    mockDatabaseState.isUnlocked = true;
+    mockDatabaseState.currentInstanceId = 'instance-1';
+    mockGetCurrentKey.mockReturnValue(new Uint8Array(32));
+    mockUpdate.mockReturnValue({ set: mockSet });
+    mockSet.mockReturnValue({ where: mockWhere });
+    const url = globalThis.URL;
+    if (url) {
+      createObjectUrlSpy = vi.fn(() => 'blob:photo');
+      revokeObjectUrlSpy = vi.fn();
+      Object.defineProperty(url, 'createObjectURL', {
+        value: createObjectUrlSpy,
+        writable: true
+      });
+      Object.defineProperty(url, 'revokeObjectURL', {
+        value: revokeObjectUrlSpy,
+        writable: true
+      });
+    }
+  });
+
+  afterEach(() => {
+    console.error = originalError;
+  });
+
+  it('loads photos and exposes object URLs', async () => {
+    const { result, unmount } = renderHook(() =>
+      usePhotosWindowData({ refreshToken: 0 })
+    );
+
+    await waitFor(() => {
+      expect(result.current.photos).toHaveLength(1);
+    });
+
+    expect(result.current.photos[0]?.objectUrl).toBe('blob:photo');
+    expect(mockInitializeFileStorage).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      'instance-1'
+    );
+    unmount();
+    expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:photo');
+  });
+
+  it('sets error when fetch fails', async () => {
+    mockOrderBy.mockRejectedValueOnce(new Error('Database error'));
+
+    const { result } = renderHook(() =>
+      usePhotosWindowData({ refreshToken: 0 })
+    );
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('Database error');
+    });
+  });
+
+  it('sets error when encryption key is missing', async () => {
+    mockGetCurrentKey.mockReturnValue(null);
+
+    const { result } = renderHook(() =>
+      usePhotosWindowData({ refreshToken: 0 })
+    );
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('Database not unlocked');
+    });
+  });
+
+  it('sets error when instance id is missing', async () => {
+    mockDatabaseState.currentInstanceId = null;
+
+    const { result } = renderHook(() =>
+      usePhotosWindowData({ refreshToken: 0 })
+    );
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('No active instance');
+    });
+  });
+
+  it('does not fetch when database is locked', async () => {
+    mockDatabaseState.isUnlocked = false;
+
+    renderHook(() => usePhotosWindowData({ refreshToken: 0 }));
+
+    await waitFor(() => {
+      expect(mockOrderBy).not.toHaveBeenCalled();
+    });
+  });
+
+  it('prefers thumbnails and skips failed loads', async () => {
+    mockIsFileStorageInitialized.mockReturnValue(true);
+    mockOrderBy.mockResolvedValue([
+      {
+        id: 'photo-1',
+        name: 'photo.jpg',
+        size: 1024,
+        mimeType: 'image/png',
+        uploadDate: new Date('2024-01-01T00:00:00Z'),
+        storagePath: '/photos/photo.jpg',
+        thumbnailPath: '/photos/thumb.jpg'
+      },
+      {
+        id: 'photo-2',
+        name: 'broken.jpg',
+        size: 2048,
+        mimeType: 'image/jpeg',
+        uploadDate: new Date('2024-01-02T00:00:00Z'),
+        storagePath: '/photos/broken.jpg',
+        thumbnailPath: null
+      }
+    ]);
+    mockRetrieve.mockImplementation((path: string) => {
+      if (path === '/photos/thumb.jpg') {
+        return Promise.resolve(new ArrayBuffer(8));
+      }
+      return Promise.reject(new Error('Load failed'));
+    });
+
+    const { result } = renderHook(() =>
+      usePhotosWindowData({ refreshToken: 1 })
+    );
+
+    await waitFor(() => {
+      expect(result.current.photos).toHaveLength(1);
+    });
+
+    expect(mockRetrieve).toHaveBeenCalledWith('/photos/thumb.jpg');
+    expect(mockRetrieve).toHaveBeenCalledWith('/photos/broken.jpg');
+    expect(mockInitializeFileStorage).not.toHaveBeenCalled();
+  });
+
+  it('deletes photos and refreshes the list', async () => {
+    const { result } = renderHook(() =>
+      usePhotosWindowData({ refreshToken: 0 })
+    );
+
+    await waitFor(() => {
+      expect(result.current.photos).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await result.current.deletePhoto('photo-1');
+    });
+
+    expect(mockUpdate).toHaveBeenCalled();
+    expect(mockSet).toHaveBeenCalledWith({ deleted: true });
+    expect(mockWhere).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mockOrderBy).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('downloads the original photo data', async () => {
+    mockIsFileStorageInitialized.mockReturnValue(true);
+    const { result } = renderHook(() =>
+      usePhotosWindowData({ refreshToken: 0 })
+    );
+
+    await waitFor(() => {
+      expect(result.current.photos).toHaveLength(1);
+    });
+
+    mockRetrieve.mockClear();
+    mockIsFileStorageInitialized.mockReturnValue(false);
+
+    const photoRow = photoRows[0];
+    if (!photoRow) throw new Error('Expected photo row for download test');
+
+    const data = await result.current.downloadPhoto({
+      ...photoRow,
+      objectUrl: 'blob:photo'
+    });
+
+    expect(data).toBeInstanceOf(ArrayBuffer);
+    expect(mockInitializeFileStorage).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      'instance-1'
+    );
+    expect(mockRetrieve).toHaveBeenCalledWith('/photos/photo.jpg');
+  });
+
+  it('shares photos without reinitializing storage when ready', async () => {
+    mockIsFileStorageInitialized.mockReturnValue(true);
+    const { result } = renderHook(() =>
+      usePhotosWindowData({ refreshToken: 0 })
+    );
+
+    await waitFor(() => {
+      expect(result.current.photos).toHaveLength(1);
+    });
+
+    mockRetrieve.mockClear();
+
+    const photoRow = photoRows[0];
+    if (!photoRow) throw new Error('Expected photo row for share test');
+
+    const data = await result.current.sharePhoto({
+      ...photoRow,
+      objectUrl: 'blob:photo'
+    });
+
+    expect(data).toBeInstanceOf(ArrayBuffer);
+    expect(mockInitializeFileStorage).not.toHaveBeenCalled();
+    expect(mockRetrieve).toHaveBeenCalledWith('/photos/photo.jpg');
+  });
+});
