@@ -224,6 +224,7 @@ export function ModelsContent({ showBackLink = true }: ModelsContentProps) {
               </div>
             </div>
             <Button size="sm" onClick={() => handleLoad(previouslyLoadedModel)}>
+              <RefreshCw className="mr-2 h-4 w-4" />
               Reload Model
             </Button>
           </div>
