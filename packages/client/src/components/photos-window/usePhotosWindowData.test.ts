@@ -70,6 +70,7 @@ describe('usePhotosWindowData', () => {
     mockOrderBy.mockResolvedValue(photoRows);
     mockRetrieve.mockResolvedValue(new ArrayBuffer(8));
     mockIsFileStorageInitialized.mockReturnValue(false);
+    mockDatabaseState.isUnlocked = true;
     mockDatabaseState.currentInstanceId = 'instance-1';
     mockGetCurrentKey.mockReturnValue(new Uint8Array(32));
     const url = globalThis.URL;
@@ -138,6 +139,16 @@ describe('usePhotosWindowData', () => {
 
     await waitFor(() => {
       expect(result.current.error).toBe('No active instance');
+    });
+  });
+
+  it('does not fetch when database is locked', async () => {
+    mockDatabaseState.isUnlocked = false;
+
+    renderHook(() => usePhotosWindowData({ refreshToken: 0 }));
+
+    await waitFor(() => {
+      expect(mockOrderBy).not.toHaveBeenCalled();
     });
   });
 
