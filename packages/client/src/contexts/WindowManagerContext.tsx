@@ -30,7 +30,8 @@ export type WindowType =
   | 'analytics'
   | 'audio'
   | 'admin'
-  | 'cache-storage';
+  | 'cache-storage'
+  | 'local-storage';
 
 export interface WindowDimensions {
   width: number;
