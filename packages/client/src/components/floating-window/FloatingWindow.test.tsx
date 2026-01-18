@@ -452,6 +452,13 @@ describe('FloatingWindow', () => {
     });
 
     it('sizes to fit content up to the maximized bounds', async () => {
+      // Mocked values: scrollWidth=700, scrollHeight=900, offsetHeight=28
+      // FOOTER_HEIGHT=80, window: 1024x768
+      // maxHeight = (768 - 80) * 1 = 688
+      // height = min(900 + 28, 688) = 688 (clamped)
+      // width = 700 (fits within 1024)
+      // x = (1024 - 700) / 2 = 162
+      // y = (688 - 688) / 2 = 0
       render(
         <FloatingWindow
           {...defaultProps}

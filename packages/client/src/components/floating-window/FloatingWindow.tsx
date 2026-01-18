@@ -186,8 +186,8 @@ export function FloatingWindow({
       const titleBarHeight = titleBarRef.current?.offsetHeight ?? 0;
       const desiredHeight = Math.ceil(contentHeight + titleBarHeight);
       const desiredWidth = Math.ceil(contentWidth);
-      const maxWidth = window.innerWidth;
-      const maxHeight = window.innerHeight - FOOTER_HEIGHT;
+      const maxWidth = window.innerWidth * maxWidthPercent;
+      const maxHeight = (window.innerHeight - FOOTER_HEIGHT) * maxHeightPercent;
 
       const nextWidth = Math.max(minWidth, Math.min(desiredWidth, maxWidth));
       const nextHeight = Math.max(
@@ -223,6 +223,8 @@ export function FloatingWindow({
     initialDimensions,
     minWidth,
     minHeight,
+    maxWidthPercent,
+    maxHeightPercent,
     onDimensionsChange,
     setDimensions
   ]);
