@@ -20,6 +20,7 @@ export type WindowType =
   | 'email'
   | 'contacts'
   | 'photos'
+  | 'videos'
   | 'keychain'
   | 'sqlite'
   | 'chat'
