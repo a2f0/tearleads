@@ -366,6 +366,9 @@ importers:
       vitest:
         specifier: 4.0.16
         version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(msw@2.6.5(@types/node@25.0.3)(typescript@5.9.3))(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
+      vitest-fail-on-console:
+        specifier: 0.10.1
+        version: 0.10.1(@vitest/utils@4.0.16)(vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1))(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(msw@2.6.5(@types/node@25.0.3)(typescript@5.9.3))(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1))
 
   packages/db:
     dependencies:
@@ -8782,6 +8785,13 @@ packages:
     peerDependenciesMeta:
       vite:
         optional: true
+
+  vitest-fail-on-console@0.10.1:
+    resolution: {integrity: sha512-Xjy2SpgND547qSy0s0zYVnh1G/WyGtdjAbi4PFV8mkYRmTq+6NzRUJYdc08BHrw7HJLpO2kMxHFB8PWn7FOVsg==}
+    peerDependencies:
+      '@vitest/utils': '>=0.26.2'
+      vite: '>=4.5.2'
+      vitest: '>=0.26.2'
 
   vitest@3.0.9:
     resolution: {integrity: sha512-BbcFDqNyBlfSpATmTtXOAOj71RNKDDvjBM/uPfnxxVGrG+FSH2RQIwgeEngTaTkuU/h0ScFvf+tRcKfYXzBybQ==}
@@ -19152,6 +19162,13 @@ snapshots:
   vitefu@1.1.1(vite@6.4.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)):
     optionalDependencies:
       vite: 6.4.1(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
+
+  vitest-fail-on-console@0.10.1(@vitest/utils@4.0.16)(vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1))(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(msw@2.6.5(@types/node@25.0.3)(typescript@5.9.3))(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)):
+    dependencies:
+      '@vitest/utils': 4.0.16
+      chalk: 5.6.2
+      vite: 7.3.0(@types/node@25.0.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
+      vitest: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(jsdom@27.4.0)(lightningcss@1.30.2)(msw@2.6.5(@types/node@25.0.3)(typescript@5.9.3))(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1)
 
   vitest@3.0.9(@types/debug@4.1.12)(@types/node@25.0.3)(jiti@2.6.1)(jsdom@26.1.0)(lightningcss@1.30.2)(msw@2.6.5(@types/node@25.0.3)(typescript@5.9.3))(terser@5.44.1)(tsx@4.21.0)(yaml@2.8.1):
     dependencies:
