@@ -188,6 +188,16 @@ describe('AudioWindowDetail', () => {
     expect(screen.getByText('Track Title')).toBeInTheDocument();
   });
 
+  it('shows an error when the audio record is missing', async () => {
+    mockSelect.mockReturnValue(createMockQueryChain([]));
+
+    renderAudioWindowDetail();
+
+    await waitFor(() => {
+      expect(screen.getByText('Audio file not found')).toBeInTheDocument();
+    });
+  });
+
   it('calls onBack when the back button is clicked', async () => {
     const onBack = vi.fn();
     const user = userEvent.setup();
@@ -197,6 +207,23 @@ describe('AudioWindowDetail', () => {
     await user.click(backButton);
 
     expect(onBack).toHaveBeenCalled();
+  });
+
+  it('updates the title when saving edits', async () => {
+    const user = userEvent.setup();
+    renderAudioWindowDetail();
+
+    await screen.findByText('test-audio.mp3');
+
+    await user.click(screen.getByTestId('audio-title-edit'));
+    const titleInput = screen.getByTestId('audio-title-input');
+    await user.clear(titleInput);
+    await user.type(titleInput, 'new-name.mp3');
+    await user.click(screen.getByTestId('audio-title-save'));
+
+    await waitFor(() => {
+      expect(screen.getByText('new-name.mp3')).toBeInTheDocument();
+    });
   });
 
   it('plays the track when clicking play', async () => {
@@ -213,6 +240,40 @@ describe('AudioWindowDetail', () => {
         mimeType: 'audio/mpeg'
       })
     );
+  });
+
+  it('pauses when the current track is playing', async () => {
+    mockUseAudio.mockReturnValue({
+      currentTrack: { id: 'audio-123' },
+      isPlaying: true,
+      play: mockPlay,
+      pause: mockPause,
+      resume: mockResume
+    });
+    const user = userEvent.setup();
+    renderAudioWindowDetail();
+
+    const playButton = await screen.findByTestId('play-pause-button');
+    await user.click(playButton);
+
+    expect(mockPause).toHaveBeenCalled();
+  });
+
+  it('resumes when the current track is paused', async () => {
+    mockUseAudio.mockReturnValue({
+      currentTrack: { id: 'audio-123' },
+      isPlaying: false,
+      play: mockPlay,
+      pause: mockPause,
+      resume: mockResume
+    });
+    const user = userEvent.setup();
+    renderAudioWindowDetail();
+
+    const playButton = await screen.findByTestId('play-pause-button');
+    await user.click(playButton);
+
+    expect(mockResume).toHaveBeenCalled();
   });
 
   it('downloads, shares, and deletes audio from action toolbar', async () => {
