@@ -749,6 +749,76 @@ vi.mock('@/components/tables-window', () => ({
   )
 }));
 
+vi.mock('@/components/debug-window', () => ({
+  DebugWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`debug-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 600, height: 500 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/components/documents-window', () => ({
+  DocumentsWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`documents-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 700, height: 550 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 const mockOpenWindow = vi.fn();
 const mockCloseWindow = vi.fn();
 const mockFocusWindow = vi.fn();
@@ -1541,7 +1611,85 @@ describe('WindowRenderer', () => {
     });
   });
 
-  it('renders all fifteen window types together', () => {
+  it('renders debug window for debug type', () => {
+    mockWindows = [{ id: 'debug-1', type: 'debug', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('debug-window-debug-1')).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when debug close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'debug-1', type: 'debug', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-debug-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('debug-1');
+  });
+
+  it('calls focusWindow when debug window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'debug-1', type: 'debug', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('debug-window-debug-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('debug-1');
+  });
+
+  it('calls minimizeWindow when debug minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'debug-1', type: 'debug', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-debug-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('debug-1', {
+      x: 0,
+      y: 0,
+      width: 600,
+      height: 500
+    });
+  });
+
+  it('renders documents window for documents type', () => {
+    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(
+      screen.getByTestId('documents-window-documents-1')
+    ).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when documents close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-documents-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('documents-1');
+  });
+
+  it('calls focusWindow when documents window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('documents-window-documents-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('documents-1');
+  });
+
+  it('calls minimizeWindow when documents minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-documents-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('documents-1', {
+      x: 0,
+      y: 0,
+      width: 700,
+      height: 550
+    });
+  });
+
+  it('renders all nineteen window types together', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'console-1', type: 'console', zIndex: 101 },
@@ -1557,7 +1705,11 @@ describe('WindowRenderer', () => {
       { id: 'analytics-1', type: 'analytics', zIndex: 111 },
       { id: 'audio-1', type: 'audio', zIndex: 112 },
       { id: 'admin-1', type: 'admin', zIndex: 113 },
-      { id: 'tables-1', type: 'tables', zIndex: 114 }
+      { id: 'tables-1', type: 'tables', zIndex: 114 },
+      { id: 'debug-1', type: 'debug', zIndex: 115 },
+      { id: 'documents-1', type: 'documents', zIndex: 116 },
+      { id: 'local-storage-1', type: 'local-storage', zIndex: 117 },
+      { id: 'opfs-1', type: 'opfs', zIndex: 118 }
     ];
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
@@ -1593,5 +1745,13 @@ describe('WindowRenderer', () => {
     expect(screen.getByTestId('audio-window-audio-1')).toBeInTheDocument();
     expect(screen.getByTestId('admin-window-admin-1')).toBeInTheDocument();
     expect(screen.getByTestId('tables-window-tables-1')).toBeInTheDocument();
+    expect(screen.getByTestId('debug-window-debug-1')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('documents-window-documents-1')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('local-storage-window-local-storage-1')
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('opfs-window-opfs-1')).toBeInTheDocument();
   });
 });
