@@ -86,7 +86,7 @@ ensure_symlinks() {
 # Use local configs
 TMUX_CONF="$CONFIG_DIR/tmux.conf"
 NVIM_INIT="$CONFIG_DIR/neovim.lua"
-EDITOR="${TUXEDO_EDITOR:-nvim -u $NVIM_INIT}"
+EDITOR="${TUXEDO_EDITOR:-nvim -u $NVIM_INIT -c 'Neotree show filesystem'}"
 
 # Check if screen is available for session persistence
 if command -v screen >/dev/null 2>&1; then
