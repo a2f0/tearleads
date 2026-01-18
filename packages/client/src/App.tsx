@@ -49,13 +49,10 @@ function App() {
         <div className="relative flex min-w-0 flex-1 flex-col">
           {isHome && <DesktopBackground />}
           <header className="w-full px-4 py-4">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center" />
-              <div className="flex items-center gap-1">
-                <MobileMenu />
-                <SettingsButton />
-                <AccountSwitcher />
-              </div>
+            <div className="flex items-center justify-end gap-1">
+              <MobileMenu />
+              <SettingsButton />
+              <AccountSwitcher />
             </div>
           </header>
           <main className="relative flex min-w-0 flex-1 flex-col pb-20">
