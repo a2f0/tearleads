@@ -25,18 +25,20 @@ const waitForSuccess = (page: Page) =>
   );
 
 // Map page names to routes for URL navigation
-const PAGE_ROUTES: Record<string, string> = {
+const PAGE_ROUTES = {
   SQLite: '/sqlite',
   Settings: '/settings'
-};
+} as const;
 
-// Helper to navigate via URL (for testing page behavior)
-async function navigateTo(window: Page, pageName: string) {
+// Helper to navigate via client-side routing (for testing page behavior)
+// Electron uses a custom protocol that doesn't have a fallback to index.html,
+// so we use History API to trigger React Router navigation.
+async function navigateTo(page: Page, pageName: keyof typeof PAGE_ROUTES) {
   const route = PAGE_ROUTES[pageName];
-  if (!route) {
-    throw new Error(`Unknown page: ${pageName}`);
-  }
-  await window.goto(route);
+  await page.evaluate((path) => {
+    globalThis.history.pushState({}, '', path);
+    globalThis.dispatchEvent(new PopStateEvent('popstate'));
+  }, route);
 }
 
 test.describe('Backup & Restore (Electron)', () => {

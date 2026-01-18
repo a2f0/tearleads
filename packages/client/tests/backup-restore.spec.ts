@@ -2,21 +2,23 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { clearOriginStorage } from './test-utils';
 
-// Map page names to routes
-const PAGE_ROUTES: Record<string, string> = {
-  SQLite: '/sqlite'
-};
+const TEST_PASSWORD = 'testpassword123';
 
-// Helper to navigate via URL (for testing page behavior)
-async function navigateTo(page: Page, pageName: string) {
+// Map page names to routes
+const PAGE_ROUTES = {
+  SQLite: '/sqlite',
+  Settings: '/settings'
+} as const;
+
+// Helper to navigate using client-side routing (preserves React state including db context)
+async function navigateTo(page: Page, pageName: keyof typeof PAGE_ROUTES) {
   const route = PAGE_ROUTES[pageName];
-  if (!route) {
-    throw new Error(`Unknown page: ${pageName}`);
-  }
-  await page.goto(route);
+  await page.evaluate((path) => {
+    window.history.pushState({}, '', path);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, route);
 }
 
-const TEST_PASSWORD = 'testpassword123';
 const DB_OPERATION_TIMEOUT = 15000;
 
 // Helper to wait for successful database operation
