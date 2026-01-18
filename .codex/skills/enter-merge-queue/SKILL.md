@@ -50,6 +50,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    - Remove auto-close language from PR body (`Closes #`, `Fixes #`, `Resolves #`).
    - If no issue is referenced, search for an open issue referencing the PR number; create one if missing.
+   - When creating the issue, describe the work from the PR and add the `Needs QA` label immediately.
    - Store the issue number as `associated_issue_number`.
 
 2. Ensure you are on the PR head branch, not `main`.
@@ -157,7 +158,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    Post-merge QA handling for `associated_issue_number`:
    - Reopen the issue if closed.
-   - Add the "Needs QA" label.
+   - Ensure the `Needs QA` label is applied.
    - Prefer updating the issue body with merge status.
 
 6. Report success with PR URL, a short description of the merged changes, and the associated issue status.
