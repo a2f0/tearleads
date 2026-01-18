@@ -226,6 +226,18 @@ describe('AudioWindowDetail', () => {
     });
   });
 
+  it('shows empty metadata when no tags are found', async () => {
+    mockExtractAudioMetadata.mockResolvedValue({});
+
+    renderAudioWindowDetail();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('No embedded metadata found.')
+      ).toBeInTheDocument();
+    });
+  });
+
   it('plays the track when clicking play', async () => {
     const user = userEvent.setup();
     renderAudioWindowDetail();
@@ -274,6 +286,21 @@ describe('AudioWindowDetail', () => {
     await user.click(playButton);
 
     expect(mockResume).toHaveBeenCalled();
+  });
+
+  it('shows an error when sharing is unsupported', async () => {
+    mockShareFile.mockResolvedValue(false);
+    const user = userEvent.setup();
+    renderAudioWindowDetail();
+
+    const shareButton = await screen.findByTestId('share-button');
+    await user.click(shareButton);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Sharing is not supported on this device')
+      ).toBeInTheDocument();
+    });
   });
 
   it('downloads, shares, and deletes audio from action toolbar', async () => {
