@@ -17,6 +17,7 @@ export type WindowType =
   | 'settings'
   | 'files'
   | 'debug'
+  | 'documents'
   | 'email'
   | 'contacts'
   | 'photos'

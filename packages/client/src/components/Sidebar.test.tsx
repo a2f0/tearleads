@@ -166,10 +166,10 @@ describe('Sidebar', () => {
     const user = userEvent.setup();
     renderSidebar();
 
-    const documentsButton = screen.getByRole('button', { name: 'Documents' });
-    await user.dblClick(documentsButton);
+    const modelsButton = screen.getByRole('button', { name: 'Models' });
+    await user.dblClick(modelsButton);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/documents');
+    expect(mockNavigate).toHaveBeenCalledWith('/models');
     expect(mockOnClose).toHaveBeenCalled();
   });
 
