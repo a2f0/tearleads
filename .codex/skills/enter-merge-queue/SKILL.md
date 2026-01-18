@@ -84,15 +84,20 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    ```bash
    git fetch origin <baseRefName> >/dev/null
-   git rebase origin/<baseRefName> >/dev/null
+   git rebase -X theirs origin/<baseRefName> >/dev/null
    ```
 
    If rebase conflicts:
-   - Auto-resolve by incorporating upstream changes and reapplying local changes where possible.
-   - Default to upstream as the baseline (keep upstream changes), then reapply local additions/edits where they still make sense.
-   - Prefer a fast path: check out upstream (`--theirs`) to clear conflicts, then manually re-add local hunks that are still relevant.
-   - Validate the merged result in each conflicted file, then `git add` and `git rebase --continue`.
-   - Only abort and ask the user if conflicts are ambiguous or the correct resolution cannot be determined safely.
+   - Prefer upstream changes and attempt an automatic resolution:
+     - List conflicts: `git diff --name-only --diff-filter=U`
+     - For each conflicted file, checkout upstream: `git checkout --theirs <file>`
+     - Stage all resolved files: `git add <file>`
+     - Continue: `git rebase --continue`
+   - If conflicts persist after preferring upstream:
+     - Run `git rebase --abort` to restore the branch
+     - List the remaining conflicting files
+     - Clear the queued status with `clearQueued.sh`
+     - Stop and ask the user for help.
 
    If `has_bumped_version` is `false`, run `bumpVersion.sh`, stage the version files, amend the last commit with a GPG-signed message, and set `has_bumped_version = true`. Force push after rebase:
 
@@ -113,7 +118,8 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    4e. Address Gemini feedback:
 
    - Use `/address-gemini-feedback` and `/follow-up-with-gemini`.
-   - Reply to review comments using the REST API reply endpoint and include `@gemini-code-assist`.
+   - Reply in-thread using the REST API reply endpoint (`/pulls/comments/{comment_id}/replies`) and include `@gemini-code-assist`.
+   - Never use `gh pr review` or GraphQL review comment mutations to reply (they create pending reviews).
    - Include relevant commit hashes in replies (not just titles).
    - Resolve threads only after explicit Gemini confirmation.
 
