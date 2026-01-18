@@ -46,7 +46,7 @@ export function OpfsWindow({
       onDimensionsChange={onDimensionsChange}
       onFocus={onFocus}
       zIndex={zIndex}
-      {...(initialDimensions && { initialDimensions })}
+      initialDimensions={initialDimensions}
       defaultWidth={720}
       defaultHeight={560}
       minWidth={420}
