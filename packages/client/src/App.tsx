@@ -31,7 +31,9 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    setIsSidebarOpen(false);
+    if (pathname) {
+      setIsSidebarOpen(false);
+    }
   }, [pathname]);
 
   return (
