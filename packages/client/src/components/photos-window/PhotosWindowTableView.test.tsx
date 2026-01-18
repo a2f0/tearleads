@@ -376,4 +376,21 @@ describe('PhotosWindowTableView', () => {
 
     expect(screen.getByText('Loading database...')).toBeInTheDocument();
   });
+
+  it('shows loading photos when fetching', () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [],
+      loading: true,
+      error: null,
+      hasFetched: false,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    expect(screen.getByText('Loading photos...')).toBeInTheDocument();
+  });
 });
