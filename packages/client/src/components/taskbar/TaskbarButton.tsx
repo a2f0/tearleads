@@ -3,7 +3,6 @@ import {
   BarChart2,
   Bug,
   Database,
-  HardDrive,
   FileIcon,
   FileText,
   Film,
