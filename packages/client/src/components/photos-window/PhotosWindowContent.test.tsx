@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PhotosWindowContent } from './PhotosWindowContent';
 
@@ -106,7 +107,7 @@ describe('PhotosWindowContent', () => {
     ).toBeInTheDocument();
   });
 
-  it('calls onSelectPhoto when a row is clicked', () => {
+  it('calls onSelectPhoto when a row is clicked', async () => {
     const onSelectPhoto = vi.fn();
     mockUsePhotosWindowData.mockReturnValue({
       photos: [photo],
@@ -123,8 +124,9 @@ describe('PhotosWindowContent', () => {
       <PhotosWindowContent refreshToken={0} onSelectPhoto={onSelectPhoto} />
     );
 
+    const user = userEvent.setup();
     const rowButton = screen.getByRole('button', { name: /photo\.jpg/ });
-    fireEvent.click(rowButton);
+    await user.click(rowButton);
 
     expect(onSelectPhoto).toHaveBeenCalledWith('photo-1');
   });
@@ -146,7 +148,7 @@ describe('PhotosWindowContent', () => {
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
   });
 
-  it('downloads and shares photos from action buttons', () => {
+  it('downloads and shares photos from action buttons', async () => {
     mockCanShareFiles.mockReturnValue(true);
     mockUsePhotosWindowData.mockReturnValue({
       photos: [photo],
@@ -159,10 +161,11 @@ describe('PhotosWindowContent', () => {
       currentInstanceId: 'instance-1'
     });
 
+    const user = userEvent.setup();
     render(<PhotosWindowContent refreshToken={0} />);
 
-    fireEvent.click(screen.getByTitle('Download'));
-    fireEvent.click(screen.getByTitle('Share'));
+    await user.click(screen.getByTitle('Download'));
+    await user.click(screen.getByTitle('Share'));
 
     expect(mockRetrieve).toHaveBeenCalledWith('/photos/photo.jpg');
     expect(mockDownloadFile).toHaveBeenCalledWith(
@@ -189,10 +192,14 @@ describe('PhotosWindowContent', () => {
       currentInstanceId: 'instance-1'
     });
 
+    const user = userEvent.setup();
     render(<PhotosWindowContent refreshToken={0} />);
 
-    fireEvent.contextMenu(screen.getByText('photo.jpg'));
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
 
     expect(mockWhere).toHaveBeenCalled();
     expect(refresh).toHaveBeenCalled();
