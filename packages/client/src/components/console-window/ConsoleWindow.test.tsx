@@ -135,31 +135,75 @@ describe('ConsoleWindow', () => {
     expect(terminal).toHaveClass('border-0');
   });
 
-  it('handles New Tab click (no-op for now)', async () => {
+  it('creates a new tab when New Tab is clicked', async () => {
     const user = userEvent.setup();
     render(<ConsoleWindow {...defaultProps} />);
 
-    // Click should not throw
+    // Initially no tab bar (only 1 tab)
+    expect(screen.queryByText('Terminal 1')).not.toBeInTheDocument();
+
+    // Click New Tab
     await user.click(screen.getByTestId('new-tab-button'));
-    expect(screen.getByTestId('floating-window')).toBeInTheDocument();
+
+    // Now tab bar should appear with 2 tabs
+    expect(screen.getByText('Terminal 1')).toBeInTheDocument();
+    expect(screen.getByText('Terminal 2')).toBeInTheDocument();
   });
 
-  it('handles Split Horizontal click (no-op for now)', async () => {
+  it('creates a horizontal split when Split Horizontal is clicked', async () => {
     const user = userEvent.setup();
     render(<ConsoleWindow {...defaultProps} />);
 
-    // Click should not throw
+    // Initially 1 terminal
+    expect(screen.getAllByTestId('terminal')).toHaveLength(1);
+
+    // Click Split Horizontal
     await user.click(screen.getByTestId('split-horizontal-button'));
-    expect(screen.getByTestId('floating-window')).toBeInTheDocument();
+
+    // Now 2 terminals (main + split pane)
+    expect(screen.getAllByTestId('terminal')).toHaveLength(2);
   });
 
-  it('handles Split Vertical click (no-op for now)', async () => {
+  it('creates a vertical split when Split Vertical is clicked', async () => {
     const user = userEvent.setup();
     render(<ConsoleWindow {...defaultProps} />);
 
-    // Click should not throw
+    // Initially 1 terminal
+    expect(screen.getAllByTestId('terminal')).toHaveLength(1);
+
+    // Click Split Vertical
     await user.click(screen.getByTestId('split-vertical-button'));
-    expect(screen.getByTestId('floating-window')).toBeInTheDocument();
+
+    // Now 2 terminals (main + split pane)
+    expect(screen.getAllByTestId('terminal')).toHaveLength(2);
+  });
+
+  it('removes split when clicked again', async () => {
+    const user = userEvent.setup();
+    render(<ConsoleWindow {...defaultProps} />);
+
+    // Click Split Horizontal
+    await user.click(screen.getByTestId('split-horizontal-button'));
+    expect(screen.getAllByTestId('terminal')).toHaveLength(2);
+
+    // Click again to remove split
+    await user.click(screen.getByTestId('split-horizontal-button'));
+    expect(screen.getAllByTestId('terminal')).toHaveLength(1);
+  });
+
+  it('can switch between tabs', async () => {
+    const user = userEvent.setup();
+    render(<ConsoleWindow {...defaultProps} />);
+
+    // Create a new tab
+    await user.click(screen.getByTestId('new-tab-button'));
+
+    // Click on Terminal 1 tab
+    await user.click(screen.getByText('Terminal 1'));
+
+    // Both tabs should still be visible in tab bar
+    expect(screen.getByText('Terminal 1')).toBeInTheDocument();
+    expect(screen.getByText('Terminal 2')).toBeInTheDocument();
   });
 
   it('renders with initialDimensions when provided', () => {
@@ -173,5 +217,107 @@ describe('ConsoleWindow', () => {
       <ConsoleWindow {...defaultProps} initialDimensions={initialDimensions} />
     );
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
+  });
+
+  it('calls onClose when closing the last tab', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<ConsoleWindow {...defaultProps} onClose={onClose} />);
+
+    // Create a second tab so we see the tab bar
+    await user.click(screen.getByTestId('new-tab-button'));
+    expect(
+      screen.getAllByRole('button', { name: /Close Terminal \d/i })
+    ).toHaveLength(2);
+
+    // Close Terminal 1 tab
+    await user.click(screen.getByRole('button', { name: /Close Terminal 1/i }));
+
+    // Now only one tab, close it - use the menu bar close button
+    // (tab bar is hidden with only 1 tab)
+    await user.click(screen.getByTestId('close-button'));
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('removes split when closing the split pane tab', async () => {
+    const user = userEvent.setup();
+    render(<ConsoleWindow {...defaultProps} />);
+
+    // Create a split
+    await user.click(screen.getByTestId('split-horizontal-button'));
+    expect(screen.getAllByTestId('terminal')).toHaveLength(2);
+
+    // Toggle off the split - should go back to 1 terminal
+    await user.click(screen.getByTestId('split-horizontal-button'));
+    expect(screen.getAllByTestId('terminal')).toHaveLength(1);
+  });
+
+  it('switches to previous tab when closing active tab that is not first', async () => {
+    const user = userEvent.setup();
+    render(<ConsoleWindow {...defaultProps} />);
+
+    // Create two more tabs
+    await user.click(screen.getByTestId('new-tab-button'));
+    await user.click(screen.getByTestId('new-tab-button'));
+
+    // Should have 3 tabs visible, Terminal 3 is active
+    expect(screen.getByText('Terminal 1')).toBeInTheDocument();
+    expect(screen.getByText('Terminal 2')).toBeInTheDocument();
+    expect(screen.getByText('Terminal 3')).toBeInTheDocument();
+
+    // Close Terminal 3 (the active tab)
+    await user.click(screen.getByRole('button', { name: /Close Terminal 3/i }));
+
+    // Should now have 2 tabs
+    expect(screen.getByText('Terminal 1')).toBeInTheDocument();
+    expect(screen.getByText('Terminal 2')).toBeInTheDocument();
+    expect(screen.queryByText('Terminal 3')).not.toBeInTheDocument();
+  });
+
+  it('switches to first tab when closing active first tab', async () => {
+    const user = userEvent.setup();
+    render(<ConsoleWindow {...defaultProps} />);
+
+    // Create a second tab
+    await user.click(screen.getByTestId('new-tab-button'));
+
+    // Switch to first tab
+    await user.click(screen.getByText('Terminal 1'));
+
+    // Close the first tab (active)
+    await user.click(screen.getByRole('button', { name: /Close Terminal 1/i }));
+
+    // Should now only have Terminal 2
+    expect(screen.queryByText('Terminal 1')).not.toBeInTheDocument();
+    // Tab bar hides when only 1 tab
+    expect(screen.queryByText('Terminal 2')).not.toBeInTheDocument();
+    expect(screen.getByTestId('terminal')).toBeInTheDocument();
+  });
+
+  it('removes vertical split and tab when toggling off', async () => {
+    const user = userEvent.setup();
+    render(<ConsoleWindow {...defaultProps} />);
+
+    // Create a vertical split
+    await user.click(screen.getByTestId('split-vertical-button'));
+    expect(screen.getAllByTestId('terminal')).toHaveLength(2);
+
+    // Toggle off
+    await user.click(screen.getByTestId('split-vertical-button'));
+    expect(screen.getAllByTestId('terminal')).toHaveLength(1);
+  });
+
+  it('switches from horizontal to vertical split', async () => {
+    const user = userEvent.setup();
+    render(<ConsoleWindow {...defaultProps} />);
+
+    // Create horizontal split
+    await user.click(screen.getByTestId('split-horizontal-button'));
+    expect(screen.getAllByTestId('terminal')).toHaveLength(2);
+
+    // Click vertical - should remove horizontal split first
+    await user.click(screen.getByTestId('split-vertical-button'));
+    expect(screen.getAllByTestId('terminal')).toHaveLength(1);
   });
 });
