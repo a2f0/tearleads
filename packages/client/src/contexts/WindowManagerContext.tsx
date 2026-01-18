@@ -24,7 +24,8 @@ export type WindowType =
   | 'chat'
   | 'analytics'
   | 'audio'
-  | 'admin';
+  | 'admin'
+  | 'cache-storage';
 
 export interface WindowDimensions {
   width: number;
