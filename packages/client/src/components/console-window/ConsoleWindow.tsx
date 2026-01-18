@@ -22,10 +22,8 @@ interface TerminalTab {
 
 type SplitDirection = 'none' | 'horizontal' | 'vertical';
 
-let tabIdCounter = 0;
 function generateTabId(): string {
-  tabIdCounter += 1;
-  return `tab-${tabIdCounter}`;
+  return crypto.randomUUID();
 }
 
 export function ConsoleWindow({
@@ -61,7 +59,8 @@ export function ConsoleWindow({
       }
 
       const tabIndex = tabs.findIndex((t) => t.id === tabId);
-      setTabs((prev) => prev.filter((t) => t.id !== tabId));
+      const newTabs = tabs.filter((t) => t.id !== tabId);
+      setTabs(newTabs);
 
       // If we're closing the split pane, remove split
       if (splitTabId === tabId) {
@@ -72,52 +71,45 @@ export function ConsoleWindow({
       // If closing the active tab, switch to another tab
       if (activeTabId === tabId) {
         const newIndex = tabIndex === 0 ? 0 : tabIndex - 1;
-        const remainingTabs = tabs.filter((t) => t.id !== tabId);
-        if (remainingTabs[newIndex]) {
-          setActiveTabId(remainingTabs[newIndex].id);
+        if (newTabs[newIndex]) {
+          setActiveTabId(newTabs[newIndex].id);
         }
       }
     },
     [tabs, activeTabId, splitTabId, onClose]
   );
 
-  const handleSplitHorizontal = useCallback(() => {
-    if (splitDirection !== 'none') {
-      // Already split, close the split
-      if (splitTabId) {
-        setTabs((prev) => prev.filter((t) => t.id !== splitTabId));
+  const handleSplit = useCallback(
+    (direction: 'horizontal' | 'vertical') => {
+      if (splitDirection !== 'none') {
+        // Already split, close the split
+        if (splitTabId) {
+          setTabs((prev) => prev.filter((t) => t.id !== splitTabId));
+        }
+        setSplitDirection('none');
+        setSplitTabId(null);
+        return;
       }
-      setSplitDirection('none');
-      setSplitTabId(null);
-      return;
-    }
-    const newTab: TerminalTab = {
-      id: generateTabId(),
-      name: `Terminal ${tabs.length + 1}`
-    };
-    setTabs((prev) => [...prev, newTab]);
-    setSplitDirection('horizontal');
-    setSplitTabId(newTab.id);
-  }, [splitDirection, splitTabId, tabs.length]);
+      const newTab: TerminalTab = {
+        id: generateTabId(),
+        name: `Terminal ${tabs.length + 1}`
+      };
+      setTabs((prev) => [...prev, newTab]);
+      setSplitDirection(direction);
+      setSplitTabId(newTab.id);
+    },
+    [splitDirection, splitTabId, tabs.length]
+  );
 
-  const handleSplitVertical = useCallback(() => {
-    if (splitDirection !== 'none') {
-      // Already split, close the split
-      if (splitTabId) {
-        setTabs((prev) => prev.filter((t) => t.id !== splitTabId));
-      }
-      setSplitDirection('none');
-      setSplitTabId(null);
-      return;
-    }
-    const newTab: TerminalTab = {
-      id: generateTabId(),
-      name: `Terminal ${tabs.length + 1}`
-    };
-    setTabs((prev) => [...prev, newTab]);
-    setSplitDirection('vertical');
-    setSplitTabId(newTab.id);
-  }, [splitDirection, splitTabId, tabs.length]);
+  const handleSplitHorizontal = useCallback(
+    () => handleSplit('horizontal'),
+    [handleSplit]
+  );
+
+  const handleSplitVertical = useCallback(
+    () => handleSplit('vertical'),
+    [handleSplit]
+  );
 
   // Get visible tabs (exclude split pane tab from tab bar)
   const visibleTabs = tabs.filter((t) => t.id !== splitTabId);
@@ -187,13 +179,7 @@ export function ConsoleWindow({
           )}
         >
           {/* Main terminal pane */}
-          <div
-            className={cn(
-              'overflow-hidden',
-              splitDirection === 'none' && 'flex-1',
-              splitDirection !== 'none' && 'flex-1'
-            )}
-          >
+          <div className="flex-1 overflow-hidden">
             {visibleTabs.map((tab) => (
               <div
                 key={tab.id}
