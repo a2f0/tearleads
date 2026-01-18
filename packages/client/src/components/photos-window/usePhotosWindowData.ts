@@ -126,6 +126,52 @@ export function usePhotosWindowData({
     };
   }, [photos]);
 
+  const deletePhoto = useCallback(
+    async (photoId: string) => {
+      const db = getDatabase();
+      await db
+        .update(files)
+        .set({ deleted: true })
+        .where(eq(files.id, photoId));
+      await fetchPhotos();
+    },
+    [fetchPhotos]
+  );
+
+  const downloadPhoto = useCallback(
+    async (photo: PhotoWithUrl) => {
+      const keyManager = getKeyManager();
+      const encryptionKey = keyManager.getCurrentKey();
+      if (!encryptionKey) throw new Error('Database not unlocked');
+      if (!currentInstanceId) throw new Error('No active instance');
+
+      if (!isFileStorageInitialized(currentInstanceId)) {
+        await initializeFileStorage(encryptionKey, currentInstanceId);
+      }
+
+      const storage = getFileStorage();
+      return storage.retrieve(photo.storagePath);
+    },
+    [currentInstanceId]
+  );
+
+  const sharePhoto = useCallback(
+    async (photo: PhotoWithUrl) => {
+      const keyManager = getKeyManager();
+      const encryptionKey = keyManager.getCurrentKey();
+      if (!encryptionKey) throw new Error('Database not unlocked');
+      if (!currentInstanceId) throw new Error('No active instance');
+
+      if (!isFileStorageInitialized(currentInstanceId)) {
+        await initializeFileStorage(encryptionKey, currentInstanceId);
+      }
+
+      const storage = getFileStorage();
+      return storage.retrieve(photo.storagePath);
+    },
+    [currentInstanceId]
+  );
+
   return {
     photos,
     loading,
@@ -134,6 +180,9 @@ export function usePhotosWindowData({
     isUnlocked,
     isLoading,
     refresh: fetchPhotos,
-    currentInstanceId
+    currentInstanceId,
+    deletePhoto,
+    downloadPhoto,
+    sharePhoto
   };
 }
