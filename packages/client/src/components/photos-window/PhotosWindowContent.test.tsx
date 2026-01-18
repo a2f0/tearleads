@@ -227,6 +227,33 @@ describe('PhotosWindowContent', () => {
     expect(mockShareFile).toHaveBeenCalled();
   });
 
+  it('logs share errors for non-abort failures', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockCanShareFiles.mockReturnValue(true);
+    mockShareFile.mockRejectedValueOnce(new Error('Share failed'));
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowContent refreshToken={0} />);
+
+    await user.click(screen.getByTitle('Share'));
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to share photo:',
+      expect.any(Error)
+    );
+    consoleSpy.mockRestore();
+  });
+
   it('handles missing instance id during download', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockUsePhotosWindowData.mockReturnValue({
