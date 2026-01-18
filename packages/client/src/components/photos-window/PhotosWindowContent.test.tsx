@@ -286,6 +286,23 @@ describe('PhotosWindowContent', () => {
     expect(screen.getByText('Loading database...')).toBeInTheDocument();
   });
 
+  it('shows loading photos when fetching', () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [],
+      loading: true,
+      error: null,
+      hasFetched: false,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    render(<PhotosWindowContent refreshToken={0} />);
+
+    expect(screen.getByText('Loading photos...')).toBeInTheDocument();
+  });
+
   it('deletes photo from context menu', async () => {
     const refresh = vi.fn();
     mockUsePhotosWindowData.mockReturnValue({
