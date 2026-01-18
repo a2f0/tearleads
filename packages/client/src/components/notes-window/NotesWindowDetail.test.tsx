@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { NotesWindowDetail } from './NotesWindowDetail';
 
 // Create mutable mock state
@@ -193,6 +194,7 @@ describe('NotesWindowDetail', () => {
   });
 
   it('shows error when fetch fails', async () => {
+    const consoleSpy = mockConsoleError();
     shouldResolve = true;
     limitResult = Promise.reject(new Error('Database error'));
 
@@ -203,6 +205,11 @@ describe('NotesWindowDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('Database error')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch note:',
+      expect.any(Error)
+    );
   });
 
   it('renders delete button when note is loaded', async () => {
@@ -240,6 +247,7 @@ describe('NotesWindowDetail', () => {
   });
 
   it('shows error when delete fails', async () => {
+    const consoleSpy = mockConsoleError();
     shouldResolve = true;
     limitResult = [mockNote];
     const user = userEvent.setup();
@@ -260,6 +268,11 @@ describe('NotesWindowDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('Delete failed')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to delete note:',
+      expect.any(Error)
+    );
   });
 
   it('displays formatted date', async () => {

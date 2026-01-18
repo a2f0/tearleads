@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { ContactsWindowDetail } from './ContactsWindowDetail';
 
 const mockDatabaseState = {
@@ -152,11 +153,17 @@ describe('ContactsWindowDetail', () => {
 
   it('shows error when fetch fails', async () => {
     mockDb.limit.mockRejectedValue(new Error('Database error'));
+    const consoleSpy = mockConsoleError();
     render(<ContactsWindowDetail {...defaultProps} />);
 
     await waitFor(() => {
       expect(screen.getByText('Database error')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch contact:',
+      expect.any(Error)
+    );
   });
 
   it('renders edit button when contact is loaded', async () => {
@@ -801,6 +808,7 @@ describe('ContactsWindowDetail', () => {
 
   it('handles delete error gracefully', async () => {
     const user = userEvent.setup();
+    const consoleSpy = mockConsoleError();
     render(<ContactsWindowDetail {...defaultProps} />);
 
     await waitFor(() => {
@@ -815,6 +823,11 @@ describe('ContactsWindowDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('Delete failed')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to delete contact:',
+      expect.any(Error)
+    );
   });
 
   it('handles save error gracefully', async () => {
@@ -824,6 +837,7 @@ describe('ContactsWindowDetail', () => {
     });
 
     const user = userEvent.setup();
+    const consoleSpy = mockConsoleError();
     render(<ContactsWindowDetail {...defaultProps} />);
 
     await waitFor(() => {
@@ -844,6 +858,11 @@ describe('ContactsWindowDetail', () => {
     await waitFor(() => {
       expect(screen.getByText('Save failed')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to save contact:',
+      expect.any(Error)
+    );
   });
 
   it('saves contact with new email successfully', async () => {

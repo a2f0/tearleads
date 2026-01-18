@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mockConsoleError } from '@/test/console-mocks';
 import { NotesWindowList } from './NotesWindowList';
 
 // Create mutable mock state
@@ -234,11 +235,17 @@ describe('NotesWindowList', () => {
 
   it('shows error state when fetch fails', async () => {
     mockDb.orderBy.mockRejectedValue(new Error('Database error'));
+    const consoleSpy = mockConsoleError();
     render(<NotesWindowList {...defaultProps} />);
 
     await waitFor(() => {
       expect(screen.getByText('Database error')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch notes:',
+      expect.any(Error)
+    );
   });
 
   it('truncates long content in preview', async () => {
@@ -311,6 +318,7 @@ describe('NotesWindowList', () => {
   it('shows error when create note fails from header button', async () => {
     mockDb.orderBy.mockResolvedValue(mockNotes);
     mockDb.values.mockRejectedValue(new Error('Create failed'));
+    const consoleSpy = mockConsoleError();
     const user = userEvent.setup();
     render(<NotesWindowList {...defaultProps} />);
 
@@ -325,6 +333,11 @@ describe('NotesWindowList', () => {
     await waitFor(() => {
       expect(screen.getByText('Create failed')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to create note:',
+      expect.any(Error)
+    );
   });
 
   it('displays content preview for notes', async () => {
@@ -509,6 +522,7 @@ describe('NotesWindowList', () => {
 
   it('handles delete error gracefully', async () => {
     mockDb.orderBy.mockResolvedValue(mockNotes);
+    const consoleSpy = mockConsoleError();
     const user = userEvent.setup();
     render(<NotesWindowList {...defaultProps} />);
 
@@ -533,5 +547,10 @@ describe('NotesWindowList', () => {
     await waitFor(() => {
       expect(screen.getByText('Delete failed')).toBeInTheDocument();
     });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to delete note:',
+      expect.any(Error)
+    );
   });
 });
