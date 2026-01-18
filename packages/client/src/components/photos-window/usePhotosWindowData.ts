@@ -29,7 +29,9 @@ interface UsePhotosWindowDataProps {
   refreshToken: number;
 }
 
-export function usePhotosWindowData({ refreshToken }: UsePhotosWindowDataProps) {
+export function usePhotosWindowData({
+  refreshToken
+}: UsePhotosWindowDataProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [photos, setPhotos] = useState<PhotoWithUrl[]>([]);
   const [loading, setLoading] = useState(false);
@@ -112,6 +114,7 @@ export function usePhotosWindowData({ refreshToken }: UsePhotosWindowDataProps) 
 
   useEffect(() => {
     if (!isUnlocked) return;
+    void refreshToken;
     fetchPhotos();
   }, [fetchPhotos, isUnlocked, refreshToken]);
 
