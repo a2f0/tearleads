@@ -34,19 +34,22 @@ export function Settings() {
   );
   const [error, setError] = useState<string | null>(null);
 
-  const handleExport = useCallback(async () => {
+  const handleExport = useCallback(() => {
     setIsExporting(true);
     setError(null);
-    try {
-      const data = await exportDatabase();
-      const filename = generateBackupFilename();
-      await saveFile(data, filename);
-    } catch (err) {
-      console.error('Export failed:', err);
-      setError(err instanceof Error ? err.message : 'Export failed');
-    } finally {
-      setIsExporting(false);
-    }
+
+    void (async () => {
+      try {
+        const data = await exportDatabase();
+        const filename = generateBackupFilename();
+        await saveFile(data, filename);
+      } catch (err) {
+        console.error('Export failed:', err);
+        setError(err instanceof Error ? err.message : 'Export failed');
+      } finally {
+        setIsExporting(false);
+      }
+    })();
   }, [exportDatabase]);
 
   const handleFilesSelected = useCallback((files: File[]) => {
