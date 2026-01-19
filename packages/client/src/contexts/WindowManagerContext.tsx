@@ -83,6 +83,14 @@ const WindowManagerContext = createContext<WindowManagerContextValue | null>(
 
 const BASE_Z_INDEX = 100;
 
+function createWindowId(type: WindowType): string {
+  const randomUUID = globalThis.crypto?.randomUUID;
+  if (typeof randomUUID === 'function') {
+    return `${type}-${randomUUID()}`;
+  }
+  return `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 interface WindowManagerProviderProps {
   children: ReactNode;
 }
@@ -121,15 +129,7 @@ export function WindowManagerProvider({
 
   const openWindow = useCallback(
     (type: WindowType, customId?: string): string => {
-      if (type === 'audio') {
-        const existingAudio = windows.find((window) => window.type === 'audio');
-        if (existingAudio) {
-          focusWindow(existingAudio.id);
-          return existingAudio.id;
-        }
-      }
-
-      const id = customId ?? `${type}-${crypto.randomUUID()}`;
+      const id = customId ?? createWindowId(type);
 
       // Load saved dimensions for this window type
       const savedDimensions = loadWindowDimensions(type);
