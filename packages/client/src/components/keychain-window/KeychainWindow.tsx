@@ -38,11 +38,7 @@ export function KeychainWindow({
     setSelectedInstanceId(instanceId);
   }, []);
 
-  const handleBack = useCallback(() => {
-    setSelectedInstanceId(null);
-  }, []);
-
-  const handleDeleted = useCallback(() => {
+  const handleCloseDetail = useCallback(() => {
     setSelectedInstanceId(null);
   }, []);
 
@@ -67,8 +63,8 @@ export function KeychainWindow({
           {selectedInstanceId ? (
             <KeychainWindowDetail
               instanceId={selectedInstanceId}
-              onBack={handleBack}
-              onDeleted={handleDeleted}
+              onBack={handleCloseDetail}
+              onDeleted={handleCloseDetail}
             />
           ) : (
             <KeychainWindowContent
