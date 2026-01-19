@@ -74,6 +74,15 @@ function getItemsToArrange(
     : items;
 }
 
+function sortItemsByLabel(
+  items: typeof navItems,
+  getLabel: (item: (typeof navItems)[number]) => string
+): typeof navItems {
+  return [...items].sort((a, b) =>
+    getLabel(a).localeCompare(getLabel(b), undefined, { sensitivity: 'base' })
+  );
+}
+
 function isElement(target: EventTarget | null): target is Element {
   return target !== null && target instanceof Element;
 }
@@ -547,10 +556,17 @@ export function Home() {
   );
 
   const handleAutoArrange = useCallback(() => {
-    applyArrangement((items, width, _height, mobile, selected, current) =>
-      calculateGridPositions(items, width, mobile, selected, current)
-    );
-  }, [applyArrangement]);
+    applyArrangement((items, width, _height, mobile, selected, current) => {
+      const sortedItems = sortItemsByLabel(items, (item) => t(item.labelKey));
+      return calculateGridPositions(
+        sortedItems,
+        width,
+        mobile,
+        selected,
+        current
+      );
+    });
+  }, [applyArrangement, t]);
 
   const handleScatter = useCallback(() => {
     applyArrangement(calculateScatterPositions);
@@ -703,12 +719,6 @@ export function Home() {
             {selectedIcons.size > 0 ? 'Auto Arrange Selected' : 'Auto Arrange'}
           </ContextMenuItem>
           <ContextMenuItem
-            icon={<Maximize2 className="h-4 w-4" />}
-            onClick={handleScatter}
-          >
-            {selectedIcons.size > 0 ? 'Scatter Selected' : 'Scatter'}
-          </ContextMenuItem>
-          <ContextMenuItem
             icon={<Square className="h-4 w-4" />}
             onClick={handleCluster}
           >
@@ -719,6 +729,12 @@ export function Home() {
             onClick={handleDisplayPropertiesOpen}
           >
             Display Properties
+          </ContextMenuItem>
+          <ContextMenuItem
+            icon={<Maximize2 className="h-4 w-4" />}
+            onClick={handleScatter}
+          >
+            {selectedIcons.size > 0 ? 'Scatter Selected' : 'Scatter'}
           </ContextMenuItem>
         </ContextMenu>
       )}
