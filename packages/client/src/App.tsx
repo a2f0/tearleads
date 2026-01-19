@@ -40,8 +40,8 @@ function App() {
     if (!isSidebarOpen) return;
 
     const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null;
-      if (!target) return;
+      const target = event.target;
+      if (!(target instanceof Node)) return;
       if (sidebarRef.current?.contains(target)) return;
       if (startButtonRef.current?.contains(target)) return;
       setIsSidebarOpen(false);
@@ -88,6 +88,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => setIsSidebarOpen((prev) => !prev)}
+                ref={startButtonRef}
                 className="hidden items-center justify-center lg:flex"
                 aria-label="Toggle sidebar"
                 aria-pressed={isSidebarOpen}
@@ -115,27 +116,10 @@ function App() {
               state={sse.connectionState}
               tooltip={t(sseTooltipKeys[sse.connectionState])}
             />
-          )
-        }
-        leftAction={<Taskbar />}
-        copyrightText=""
-      />
-      <button
-        type="button"
-        onClick={() => setIsSidebarOpen((prev) => !prev)}
-        ref={startButtonRef}
-        className="fixed bottom-6 left-4 z-50 hidden lg:block"
-        aria-label="Toggle sidebar"
-        aria-pressed={isSidebarOpen}
-        aria-controls="sidebar"
-        data-testid="start-button"
-        style={{
-          bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
-          left: 'max(1rem, env(safe-area-inset-left, 0px))'
-        }}
-      >
-        <img src={logo} alt="" className="h-6 w-6" aria-hidden="true" />
-      </button>
+          )}
+          <HUDTrigger />
+        </div>
+      </div>
       <MiniPlayer />
       <WindowRenderer />
     </div>

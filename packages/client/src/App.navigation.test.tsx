@@ -187,8 +187,7 @@ describe('App Integration', () => {
     });
 
     it('closes the sidebar when clicking outside', async () => {
-      const aside = document.querySelector('aside');
-      expect(aside).not.toBeNull();
+      const aside = screen.getByRole('complementary');
       expect(aside).not.toHaveClass('lg:hidden');
 
       await user.click(screen.getByRole('main'));
