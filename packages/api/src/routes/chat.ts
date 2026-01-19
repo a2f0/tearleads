@@ -89,13 +89,17 @@ function parseMessages(value: unknown): ChatMessage[] | null {
 router.post('/completions', async (req: Request, res: Response) => {
   const apiKey = process.env['OPENROUTER_API_KEY'];
   if (!apiKey) {
-    res.status(500).json({ error: 'OPENROUTER_API_KEY is not configured' });
+    res.status(500).json({
+      error: 'OPENROUTER_API_KEY is not configured on the server'
+    });
     return;
   }
 
   const messages = parseMessages(req.body?.['messages']);
   if (!messages) {
-    res.status(400).json({ error: 'messages must be a non-empty array' });
+    res.status(400).json({
+      error: 'messages must be a non-empty array of { role, content }'
+    });
     return;
   }
 

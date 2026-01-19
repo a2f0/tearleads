@@ -53,7 +53,7 @@ export const handlers = [
     const messages = isRecord(body) ? body['messages'] : null;
     if (!Array.isArray(messages) || messages.length === 0) {
       return HttpResponse.json(
-        { error: 'messages must be a non-empty array' },
+        { error: 'messages must be a non-empty array of { role, content }' },
         { status: 400 }
       );
     }
