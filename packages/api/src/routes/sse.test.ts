@@ -336,7 +336,7 @@ describe('SSE Routes', () => {
 
     it('unsubscribes and quits when client exists', async () => {
       const unsubscribe = vi.fn().mockResolvedValue(undefined);
-      const quit = vi.fn().mockResolvedValue(undefined);
+      const quit = vi.fn().mockResolvedValue('OK');
 
       await cleanupSseClient(
         {
