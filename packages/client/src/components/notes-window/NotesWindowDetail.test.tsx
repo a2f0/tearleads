@@ -365,7 +365,11 @@ describe('NotesWindowDetail', () => {
     });
 
     const titleInput = screen.getByTestId('window-note-title');
-    fireEvent.change(titleInput, { target: { value: 'New Title' } });
+    await user.clear(titleInput);
+    await waitFor(() => {
+      expect(titleInput).toHaveValue('');
+    });
+    await user.type(titleInput, 'New Title');
 
     // Title should be updated in the input
     await waitFor(() => {
