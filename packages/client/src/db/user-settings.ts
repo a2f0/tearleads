@@ -24,6 +24,13 @@ export type ThemeValue =
   | 'tokyo-night'
   | 'monochrome'
   | 'system';
+export const THEME_VALUES: ThemeValue[] = [
+  'light',
+  'dark',
+  'tokyo-night',
+  'monochrome',
+  'system'
+];
 export type LanguageValue = 'en' | 'es' | 'ua';
 export type TooltipsValue = 'enabled' | 'disabled';
 export type FontValue = 'system' | 'monospace';
@@ -63,9 +70,7 @@ export const SETTING_STORAGE_KEYS: Record<UserSettingKey, string> = {
 
 // Type guard functions
 export function isThemeValue(value: string): value is ThemeValue {
-  return ['light', 'dark', 'tokyo-night', 'monochrome', 'system'].includes(
-    value
-  );
+  return THEME_VALUES.some((theme) => theme === value);
 }
 
 export function isLanguageValue(value: string): value is LanguageValue {
