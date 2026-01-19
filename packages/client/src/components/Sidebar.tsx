@@ -194,13 +194,17 @@ export const navItems: NavItem[] = [
   }
 ];
 
-// Paths that can be opened in a floating window
+// AGENT GUARDRAIL: When adding a new window path here, ensure parity with:
+// - Home.tsx PATH_TO_WINDOW_TYPE mapping
+// - WindowManagerContext.tsx WindowType union
+// - WindowRenderer.tsx switch cases
 // Note: Most paths are excluded for now since E2E tests depend on full-page routes
 // TODO: Update E2E tests to handle floating windows, then re-enable these paths
 const WINDOW_PATHS: Record<string, WindowType> = {
   '/console': 'console',
   '/email': 'email',
-  '/opfs': 'opfs'
+  '/opfs': 'opfs',
+  '/videos': 'videos'
 };
 
 export interface SidebarProps {
