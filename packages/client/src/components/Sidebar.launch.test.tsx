@@ -100,10 +100,11 @@ describe('Sidebar launch behavior', () => {
 
     await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByRole('button', { name: 'Documents' }));
+    // Home is the only non-windowed app
+    fireEvent.click(screen.getByRole('button', { name: 'Home' }));
 
     expect(mockOpenWindow).not.toHaveBeenCalled();
-    expect(mockNavigate).toHaveBeenCalledWith('/documents');
+    expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 
   it('shows context menu on right-click on desktop', async () => {
@@ -146,7 +147,8 @@ describe('Sidebar launch behavior', () => {
 
     await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
 
-    fireEvent.contextMenu(screen.getByRole('button', { name: 'Documents' }));
+    // Home is the only non-windowed app
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Home' }));
 
     expect(screen.getByText('Open')).toBeInTheDocument();
     expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();

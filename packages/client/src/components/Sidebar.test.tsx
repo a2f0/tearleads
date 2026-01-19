@@ -166,10 +166,11 @@ describe('Sidebar', () => {
     const user = userEvent.setup();
     renderSidebar();
 
-    const modelsButton = screen.getByRole('button', { name: 'Models' });
-    await user.click(modelsButton);
+    // Home is the only non-window path
+    const homeButton = screen.getByRole('button', { name: 'Home' });
+    await user.click(homeButton);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/models');
+    expect(mockNavigate).toHaveBeenCalledWith('/');
     expect(mockOnClose).toHaveBeenCalled();
   });
 
@@ -390,9 +391,9 @@ describe('Sidebar', () => {
       mockMatchMedia({ isMobile: false, isTouch: false });
       renderSidebar();
 
-      // Models is not in WINDOW_PATHS
-      const modelsButton = screen.getByRole('button', { name: 'Models' });
-      await user.pointer({ keys: '[MouseRight]', target: modelsButton });
+      // Home is not in WINDOW_PATHS
+      const homeButton = screen.getByRole('button', { name: 'Home' });
+      await user.pointer({ keys: '[MouseRight]', target: homeButton });
 
       expect(screen.getByText('Open')).toBeInTheDocument();
       expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
