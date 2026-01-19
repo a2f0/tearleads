@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { ThemeProvider } from '@rapid/ui';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
@@ -50,11 +51,13 @@ const MOCK_SAVED_POSITIONS = {
 describe('Home', () => {
   const renderHome = () => {
     return render(
-      <WindowManagerProvider>
-        <MemoryRouter>
-          <Home />
-        </MemoryRouter>
-      </WindowManagerProvider>
+      <ThemeProvider>
+        <WindowManagerProvider>
+          <MemoryRouter>
+            <Home />
+          </MemoryRouter>
+        </WindowManagerProvider>
+      </ThemeProvider>
     );
   };
 
