@@ -108,7 +108,7 @@ describe('WindowManagerContext', () => {
       const window1 = result.current.windows.find((w) => w.id === 'window-1');
       const window3 = result.current.windows.find((w) => w.id === 'window-3');
 
-      expect(window3?.zIndex).toBeGreaterThan(window1?.zIndex ?? 0);
+      expect(window3?.zIndex).toBe((window1?.zIndex ?? 0) + 1);
     });
   });
 
