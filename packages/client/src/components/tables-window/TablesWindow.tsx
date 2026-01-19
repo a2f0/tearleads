@@ -40,11 +40,14 @@ export function TablesWindow({
     >
       <div className="flex h-full flex-col">
         <div className="flex-1 overflow-auto p-4">
-          <MemoryRouter initialEntries={['/tables']}>
+          <MemoryRouter initialEntries={['/sqlite/tables']}>
             <Routes>
-              <Route path="/tables" element={<Tables />} />
-              <Route path="/tables/:tableName" element={<TableRows />} />
-              <Route path="*" element={<Navigate to="/tables" replace />} />
+              <Route path="/sqlite/tables" element={<Tables />} />
+              <Route path="/sqlite/tables/:tableName" element={<TableRows />} />
+              <Route
+                path="*"
+                element={<Navigate to="/sqlite/tables" replace />}
+              />
             </Routes>
           </MemoryRouter>
         </div>

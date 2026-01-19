@@ -133,7 +133,7 @@ function renderAppWithRoutes(
               <Route path="sqlite" element={<Sqlite />} />
               <Route path="debug" element={<Debug />} />
               <Route path="settings" element={<Settings />} />
-              <Route path="tables" element={<Tables />} />
+              <Route path="sqlite/tables" element={<Tables />} />
             </Route>
           </Routes>
         </MemoryRouter>

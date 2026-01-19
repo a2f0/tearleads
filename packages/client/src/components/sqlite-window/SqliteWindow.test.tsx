@@ -45,8 +45,35 @@ vi.mock('@/components/sqlite/DatabaseTest', () => ({
 
 // Mock TableSizes component
 vi.mock('@/components/sqlite/TableSizes', () => ({
-  TableSizes: () => (
-    <div data-testid="table-sizes-content">TableSizes Content</div>
+  TableSizes: ({
+    onTableSelect
+  }: {
+    onTableSelect?: (tableName: string) => void;
+  }) => (
+    <div data-testid="table-sizes-content">
+      <button
+        type="button"
+        onClick={() => onTableSelect?.('users')}
+        data-testid="table-sizes-select"
+      >
+        Users
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/components/sqlite/TableRowsView', () => ({
+  TableRowsView: ({
+    tableName,
+    backLink
+  }: {
+    tableName: string | null;
+    backLink?: React.ReactNode;
+  }) => (
+    <div data-testid="table-rows-view">
+      <span data-testid="table-rows-name">{tableName}</span>
+      {backLink}
+    </div>
   )
 }));
 
@@ -149,6 +176,26 @@ describe('SqliteWindow', () => {
     // The refresh remounts components with a new key, so mount should be called again
     expect(databaseTestMount).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId('database-test-content')).toBeInTheDocument();
+    expect(screen.getByTestId('table-sizes-content')).toBeInTheDocument();
+  });
+
+  it('shows table rows in window when a table is selected', async () => {
+    const user = userEvent.setup();
+    render(<SqliteWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('table-sizes-select'));
+
+    expect(screen.getByTestId('table-rows-view')).toBeInTheDocument();
+    expect(screen.getByTestId('table-rows-name')).toHaveTextContent('users');
+  });
+
+  it('returns to table sizes when Back to SQLite is clicked', async () => {
+    const user = userEvent.setup();
+    render(<SqliteWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('table-sizes-select'));
+    await user.click(screen.getByRole('button', { name: 'Back to SQLite' }));
+
     expect(screen.getByTestId('table-sizes-content')).toBeInTheDocument();
   });
 });
