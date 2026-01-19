@@ -206,6 +206,18 @@ describe('NotesWindow', () => {
     });
   });
 
+  it('keeps menu bar visible in detail view', async () => {
+    const user = userEvent.setup();
+    render(<NotesWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-note'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('notes-detail')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
+  });
+
   it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

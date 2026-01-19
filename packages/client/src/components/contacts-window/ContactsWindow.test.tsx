@@ -194,6 +194,18 @@ describe('ContactsWindow', () => {
     expect(screen.queryByTestId('contacts-list')).not.toBeInTheDocument();
   });
 
+  it('keeps menu bar visible in detail view', async () => {
+    const user = userEvent.setup();
+    render(<ContactsWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-contact'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('contacts-detail')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
+  });
+
   it('passes correct contactId to detail view', async () => {
     const user = userEvent.setup();
     render(<ContactsWindow {...defaultProps} />);
