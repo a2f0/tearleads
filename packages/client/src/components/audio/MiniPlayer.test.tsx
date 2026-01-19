@@ -10,6 +10,7 @@ const mockStop = vi.fn();
 const mockSeek = vi.fn();
 const mockUseAudioContext = vi.fn();
 const mockUseLocation = vi.fn();
+const mockUseWindowManager = vi.fn();
 
 vi.mock('@/audio', () => ({
   useAudioContext: () => mockUseAudioContext()
@@ -17,6 +18,10 @@ vi.mock('@/audio', () => ({
 
 vi.mock('react-router-dom', () => ({
   useLocation: () => mockUseLocation()
+}));
+
+vi.mock('@/contexts/WindowManagerContext', () => ({
+  useWindowManager: () => mockUseWindowManager()
 }));
 
 const TEST_TRACK = {
@@ -31,6 +36,7 @@ describe('MiniPlayer', () => {
     vi.clearAllMocks();
     // Default to a non-audio page
     mockUseLocation.mockReturnValue({ pathname: '/home' });
+    mockUseWindowManager.mockReturnValue({ windows: [] });
   });
 
   describe('when no audio context', () => {
@@ -179,6 +185,30 @@ describe('MiniPlayer', () => {
       await user.click(screen.getByRole('button', { name: /close/i }));
 
       expect(mockStop).toHaveBeenCalled();
+    });
+
+    it('does not render when audio window is maximized', () => {
+      mockUseWindowManager.mockReturnValue({
+        windows: [
+          {
+            id: 'audio-1',
+            type: 'audio',
+            zIndex: 200,
+            isMinimized: false,
+            dimensions: {
+              width: 800,
+              height: 600,
+              x: 0,
+              y: 0,
+              isMaximized: true
+            }
+          }
+        ]
+      });
+
+      render(<MiniPlayer />);
+
+      expect(screen.queryByTestId('mini-player')).not.toBeInTheDocument();
     });
   });
 
