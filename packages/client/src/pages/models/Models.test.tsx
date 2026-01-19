@@ -120,6 +120,7 @@ describe('Models', () => {
         expect(screen.getByText('Phi 3.5 Mini')).toBeInTheDocument();
         expect(screen.getByText('SmolVLM 256M')).toBeInTheDocument();
         expect(screen.getByText('PaliGemma 2 3B')).toBeInTheDocument();
+        expect(screen.getByText('Mistral 7B Instruct')).toBeInTheDocument();
       });
     });
 
@@ -165,6 +166,15 @@ describe('Models', () => {
         expect(hasVisionBadge).toBe(false);
       });
     });
+
+    it('shows Remote badge for OpenRouter models', async () => {
+      renderModels();
+
+      await waitFor(() => {
+        const remoteBadges = screen.getAllByText('Remote');
+        expect(remoteBadges.length).toBeGreaterThan(0);
+      });
+    });
   });
 
   describe('WebGPU support', () => {
@@ -178,6 +188,7 @@ describe('Models', () => {
         expect(
           screen.getByText(/Your browser does not support WebGPU/)
         ).toBeInTheDocument();
+        expect(screen.getByText('Mistral 7B Instruct')).toBeInTheDocument();
       });
     });
 
@@ -491,7 +502,7 @@ describe('Models', () => {
         const downloadButtons = screen.getAllByRole('button', {
           name: /download/i
         });
-        expect(downloadButtons.length).toBe(4); // All 3 recommended models
+        expect(downloadButtons.length).toBe(4); // All recommended local models
       });
     });
 
