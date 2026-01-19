@@ -123,7 +123,10 @@ export function WindowManagerProvider({
   const openWindow = useCallback(
     (type: WindowType, customId?: string): string => {
       const id = customId ?? generateUniqueId(type);
-      let resolvedId = id;
+      const existingWindow = customId
+        ? undefined
+        : windows.find((window) => window.type === type);
+      const resolvedId = existingWindow?.id ?? id;
 
       // Load saved dimensions for this window type
       const savedDimensions = loadWindowDimensions(type);
@@ -163,7 +166,7 @@ export function WindowManagerProvider({
 
       return resolvedId;
     },
-    [getNextZIndex]
+    [getNextZIndex, windows]
   );
 
   const minimizeWindow = useCallback(
