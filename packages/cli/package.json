@@ -35,6 +35,7 @@
     "@vitest/coverage-v8": "4.0.16",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
-    "vitest": "4.0.16"
+    "vitest": "4.0.16",
+    "vitest-fail-on-console": "0.10.1"
   }
 }
