@@ -97,6 +97,7 @@ export function KeychainWindowDetail({
     } catch (err) {
       console.error('Failed to delete instance:', err);
       setError(err instanceof Error ? err.message : String(err));
+      throw err;
     }
   }, [instanceInfo, onDeleted]);
 
