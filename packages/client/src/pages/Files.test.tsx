@@ -1,5 +1,11 @@
 import { ThemeProvider } from '@rapid/ui';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -128,6 +134,14 @@ const mockRetrieveFileData = vi.fn();
 vi.mock('@/lib/data-retrieval', () => ({
   retrieveFileData: (storagePath: string, instanceId: string) =>
     mockRetrieveFileData(storagePath, instanceId)
+}));
+
+// Mock useOnInstanceChange to capture callback for testing
+let instanceChangeCallback: (() => void) | null = null;
+vi.mock('@/hooks/useInstanceChange', () => ({
+  useOnInstanceChange: (callback: () => void) => {
+    instanceChangeCallback = callback;
+  }
 }));
 
 const TEST_FILE_WITH_THUMBNAIL = {
@@ -1205,20 +1219,18 @@ describe('Files', () => {
         createMockQueryChain([TEST_FILE_WITH_THUMBNAIL])
       );
 
-      const { rerender } = renderFilesRaw();
+      renderFilesRaw();
 
       await waitFor(() => {
         expect(screen.getByText('photo.jpg')).toBeInTheDocument();
       });
 
-      context.currentInstanceId = 'instance-b';
-      rerender(
-        <MemoryRouter>
-          <ThemeProvider>
-            <Files />
-          </ThemeProvider>
-        </MemoryRouter>
-      );
+      // Trigger instance change via the captured callback
+      act(() => {
+        if (instanceChangeCallback) {
+          instanceChangeCallback();
+        }
+      });
 
       await waitFor(() => {
         expect(URL.revokeObjectURL).toHaveBeenCalled();
