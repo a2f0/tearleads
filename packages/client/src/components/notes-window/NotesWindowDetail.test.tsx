@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -349,8 +349,6 @@ describe('NotesWindowDetail', () => {
   it('updates title when edited', async () => {
     shouldResolve = true;
     limitResult = [mockNote];
-    // Add delay between keystrokes to prevent race conditions in CI
-    const user = userEvent.setup({ delay: 10 });
 
     await act(async () => {
       render(<NotesWindowDetail {...defaultProps} />);
@@ -361,8 +359,7 @@ describe('NotesWindowDetail', () => {
     });
 
     const titleInput = screen.getByTestId('window-note-title');
-    await user.clear(titleInput);
-    await user.type(titleInput, 'New{space}Title');
+    fireEvent.change(titleInput, { target: { value: 'New Title' } });
 
     // Title should be updated in the input
     await waitFor(() => {
