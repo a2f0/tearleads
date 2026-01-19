@@ -1,5 +1,4 @@
-import { ThemeProvider } from '@rapid/ui';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -171,7 +170,7 @@ describe('Home', () => {
     expect(screen.getByText('Auto Arrange')).toBeInTheDocument();
   });
 
-  it('opens display properties from the canvas context menu', async () => {
+  it('orders desktop context menu items alphabetically', async () => {
     const user = userEvent.setup();
     const { container } = renderHome();
 
@@ -182,10 +181,16 @@ describe('Home', () => {
       await user.pointer({ keys: '[MouseRight]', target: canvas });
     }
 
-    const displayPropertiesItem = screen.getByText('Display Properties');
-    await user.click(displayPropertiesItem);
+    const autoArrangeItem = screen.getByText('Auto Arrange');
+    const menuContainer = autoArrangeItem.parentElement;
+    expect(menuContainer).not.toBeNull();
 
-    expect(screen.getByTestId('display-properties-sheet')).toBeInTheDocument();
+    if (menuContainer) {
+      const labels = within(menuContainer)
+        .getAllByRole('button')
+        .map((button) => button.textContent?.trim() ?? '');
+      expect(labels).toEqual(['Auto Arrange', 'Cluster', 'Scatter']);
+    }
   });
 
   it('shows icon context menu on right-click', async () => {
