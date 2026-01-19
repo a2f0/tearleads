@@ -10,6 +10,7 @@ import {
   loadWindowDimensions,
   saveWindowDimensions
 } from '@/lib/windowDimensionsStorage';
+import { generateUniqueId } from '@/lib/utils';
 
 // AGENT GUARDRAIL: When adding a new WindowType, ensure parity across:
 // - WindowRenderer.tsx (add case to render the window component)
@@ -83,14 +84,6 @@ const WindowManagerContext = createContext<WindowManagerContextValue | null>(
 
 const BASE_Z_INDEX = 100;
 
-function createWindowId(type: WindowType): string {
-  const cryptoObj = globalThis.crypto;
-  if (cryptoObj && typeof cryptoObj.randomUUID === 'function') {
-    return `${type}-${cryptoObj.randomUUID()}`;
-  }
-  return `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-}
-
 interface WindowManagerProviderProps {
   children: ReactNode;
 }
@@ -129,7 +122,7 @@ export function WindowManagerProvider({
 
   const openWindow = useCallback(
     (type: WindowType, customId?: string): string => {
-      const id = customId ?? createWindowId(type);
+      const id = customId ?? generateUniqueId(type);
 
       // Load saved dimensions for this window type
       const savedDimensions = loadWindowDimensions(type);
