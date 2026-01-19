@@ -700,11 +700,10 @@ describe('AudioWindowList', () => {
 
   it('opens info page from context menu', async () => {
     mockDb.orderBy.mockResolvedValue(mockTracks);
-    const mockOpen = vi.fn();
-    window.open = mockOpen;
+    const onSelectTrack = vi.fn();
 
     const user = userEvent.setup();
-    render(<AudioWindowList />);
+    render(<AudioWindowList onSelectTrack={onSelectTrack} />);
 
     await waitFor(() => {
       expect(screen.getByText('Song One.mp3')).toBeInTheDocument();
@@ -720,7 +719,7 @@ describe('AudioWindowList', () => {
     });
 
     await user.click(screen.getByText('Get Info'));
-    expect(mockOpen).toHaveBeenCalledWith('/audio/track-1', '_blank');
+    expect(onSelectTrack).toHaveBeenCalledWith('track-1');
   });
 
   it('shows no results when search has no matches', async () => {

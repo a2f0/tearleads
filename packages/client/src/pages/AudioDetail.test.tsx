@@ -6,6 +6,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
 import { AudioDetail } from './AudioDetail';
 
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual =
+    await vi.importActual<typeof import('react-router-dom')>(
+      'react-router-dom'
+    );
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate
+  };
+});
+
 // Mock the database context
 const mockUseDatabaseContext = vi.fn();
 vi.mock('@/db/hooks', () => ({
@@ -269,6 +281,25 @@ describe('AudioDetail', () => {
     });
   });
 
+  describe('when audio fails to load', () => {
+    it('shows error message', async () => {
+      const consoleSpy = mockConsoleError();
+      mockRetrieve.mockRejectedValueOnce(new Error('Fetch failed'));
+
+      renderAudioDetailRaw();
+
+      await waitFor(() => {
+        expect(screen.getByText('Fetch failed')).toBeInTheDocument();
+      });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch audio:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
+    });
+  });
+
   describe('playback functionality', () => {
     it('calls play when play button is clicked and track is not current', async () => {
       const user = userEvent.setup();
@@ -459,6 +490,84 @@ describe('AudioDetail', () => {
           screen.getByText('Sharing is not supported on this device')
         ).toBeInTheDocument();
       });
+    });
+  });
+
+  describe('delete functionality', () => {
+    it('navigates back to audio list after delete', async () => {
+      const user = userEvent.setup();
+      await renderAudioDetail();
+
+      expect(screen.getByTestId('delete-button')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('delete-button'));
+
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith('/audio');
+      });
+    });
+
+    it('shows error when delete fails', async () => {
+      const consoleSpy = mockConsoleError();
+      mockUpdate.mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockRejectedValue(new Error('Delete failed'))
+        })
+      });
+      const user = userEvent.setup();
+      await renderAudioDetail();
+
+      await user.click(screen.getByTestId('delete-button'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Delete failed')).toBeInTheDocument();
+      });
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete audio:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('thumbnail loading', () => {
+    it('shows album cover when thumbnail is available', async () => {
+      const audioWithThumbnail = {
+        ...TEST_AUDIO,
+        thumbnailPath: '/audio/thumb.jpg'
+      };
+      mockSelect.mockReturnValue(createMockQueryChain([audioWithThumbnail]));
+      mockRetrieve
+        .mockResolvedValueOnce(TEST_AUDIO_DATA)
+        .mockResolvedValueOnce(new Uint8Array([0x01, 0x02]));
+
+      await renderAudioDetail();
+
+      expect(await screen.findByAltText('Album cover')).toBeInTheDocument();
+    });
+
+    it('falls back when thumbnail loading fails', async () => {
+      const audioWithThumbnail = {
+        ...TEST_AUDIO,
+        thumbnailPath: '/audio/thumb.jpg'
+      };
+      mockSelect.mockReturnValue(createMockQueryChain([audioWithThumbnail]));
+      mockRetrieve
+        .mockResolvedValueOnce(TEST_AUDIO_DATA)
+        .mockRejectedValueOnce(new Error('Thumbnail failed'));
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      await renderAudioDetail();
+
+      await waitFor(() => {
+        expect(screen.getByText('Audio Details')).toBeInTheDocument();
+      });
+      expect(screen.queryByAltText('Album cover')).not.toBeInTheDocument();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to load thumbnail:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
   });
 

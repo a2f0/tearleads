@@ -593,30 +593,24 @@ describe('AudioWindowTableView', () => {
 
   it('opens info page from context menu', async () => {
     mockDb.orderBy.mockResolvedValue(mockTracks);
-    const originalOpen = window.open;
-    const mockOpen = vi.fn();
-    window.open = mockOpen;
+    const onSelectTrack = vi.fn();
 
-    try {
-      const user = userEvent.setup();
-      render(<AudioWindowTableView />);
+    const user = userEvent.setup();
+    render(<AudioWindowTableView onSelectTrack={onSelectTrack} />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Song One.mp3')).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      expect(screen.getByText('Song One.mp3')).toBeInTheDocument();
+    });
 
-      const trackRow = screen.getByTestId('window-audio-table-track-track-1');
-      await user.pointer({ keys: '[MouseRight]', target: trackRow });
+    const trackRow = screen.getByTestId('window-audio-table-track-track-1');
+    await user.pointer({ keys: '[MouseRight]', target: trackRow });
 
-      await waitFor(() => {
-        expect(screen.getByText('Get Info')).toBeInTheDocument();
-      });
+    await waitFor(() => {
+      expect(screen.getByText('Get Info')).toBeInTheDocument();
+    });
 
-      await user.click(screen.getByText('Get Info'));
-      expect(mockOpen).toHaveBeenCalledWith('/audio/track-1', '_blank');
-    } finally {
-      window.open = originalOpen;
-    }
+    await user.click(screen.getByText('Get Info'));
+    expect(onSelectTrack).toHaveBeenCalledWith('track-1');
   });
 
   it('shows no results when search has no matches', async () => {
@@ -633,6 +627,28 @@ describe('AudioWindowTableView', () => {
 
     expect(screen.queryByText('Song One.mp3')).not.toBeInTheDocument();
     expect(screen.queryByText('Song Two.mp3')).not.toBeInTheDocument();
+  });
+
+  it('falls back to subtype for unknown audio types', async () => {
+    mockDb.orderBy.mockResolvedValue([
+      {
+        id: 'track-3',
+        name: 'Mystery Track',
+        size: 1024,
+        mimeType: 'audio/xyz',
+        uploadDate: new Date('2024-02-01T10:00:00'),
+        storagePath: '/audio/track-3',
+        thumbnailPath: null
+      }
+    ]);
+
+    render(<AudioWindowTableView />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Mystery Track')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('XYZ')).toBeInTheDocument();
   });
 
   it('case-insensitive search works correctly', async () => {
