@@ -163,6 +163,9 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
     const fetchFiles = useCallback(async () => {
       if (!isUnlocked) return;
 
+      // Capture instance ID at fetch start to detect stale responses
+      const fetchInstanceId = currentInstanceId;
+
       setLoading(true);
       setError(null);
 
@@ -225,13 +228,29 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
           })
         );
 
+        // Guard: if instance changed during fetch, discard stale results
+        if (fetchInstanceId !== currentInstanceId) {
+          // Revoke URLs we just created since they won't be used
+          for (const file of filesWithThumbnails) {
+            if (file.thumbnailUrl) {
+              URL.revokeObjectURL(file.thumbnailUrl);
+            }
+          }
+          return;
+        }
+
         setFiles(filesWithThumbnails);
         setHasFetched(true);
       } catch (err) {
+        // Guard: don't set error state if instance changed
+        if (fetchInstanceId !== currentInstanceId) return;
         console.error('Failed to fetch files:', err);
         setError(err instanceof Error ? err.message : String(err));
       } finally {
-        setLoading(false);
+        // Guard: don't clear loading if instance changed (new fetch may be starting)
+        if (fetchInstanceId === currentInstanceId) {
+          setLoading(false);
+        }
       }
     }, [isUnlocked, currentInstanceId]);
 

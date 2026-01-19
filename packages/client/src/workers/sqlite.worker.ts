@@ -359,6 +359,11 @@ async function initializeDatabase(
         'Database file appears corrupted or has wrong key, attempting to delete and recreate...'
       );
 
+      // Close any partially-opened database to release handles before deleting
+      if (db) {
+        closeDatabase();
+      }
+
       // Delete the corrupted file from OPFS
       try {
         const opfsRoot = await navigator.storage.getDirectory();
