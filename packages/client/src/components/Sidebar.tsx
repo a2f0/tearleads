@@ -325,8 +325,10 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
       id="sidebar"
       ref={ref}
       className={cn(
-        'hidden w-64 shrink-0 flex-col border-t border-r bg-background lg:flex',
-        isOpen ? 'lg:fixed lg:left-0 lg:z-[60] lg:shadow-lg' : 'lg:hidden'
+        'hidden w-64 shrink-0 flex-col border-t border-r bg-background',
+        isOpen
+          ? 'lg:flex lg:fixed lg:left-0 lg:z-[60] lg:shadow-lg'
+          : 'lg:hidden'
       )}
       style={
         isOpen
