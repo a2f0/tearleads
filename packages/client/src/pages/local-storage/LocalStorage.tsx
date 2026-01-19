@@ -119,8 +119,6 @@ export function LocalStorage() {
       console.error('Failed to delete:', err);
       setError(err instanceof Error ? err.message : String(err));
       throw err;
-    } finally {
-      setDeleteDialog(null);
     }
   };
 
