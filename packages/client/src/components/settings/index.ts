@@ -1,5 +1,6 @@
 export { DisplayPropertiesSheet } from './DisplayPropertiesSheet';
 export { FontSelector } from './FontSelector';
+export { IconDepthToggle } from './IconDepthToggle';
 export {
   PATTERN_LABELS,
   PatternPreview,
