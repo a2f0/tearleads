@@ -7,7 +7,8 @@ import {
   isOpenRouterModelId,
   isRecord,
   OPENROUTER_CHAT_MODELS,
-  toFiniteNumber
+  toFiniteNumber,
+  validateChatMessages
 } from './index.js';
 
 describe('formatDate', () => {
@@ -110,6 +111,79 @@ describe('toFiniteNumber', () => {
     expect(toFiniteNumber(undefined)).toBeNull();
     expect(toFiniteNumber({})).toBeNull();
     expect(toFiniteNumber([])).toBeNull();
+  });
+});
+
+describe('validateChatMessages', () => {
+  it('accepts text-only messages', () => {
+    const result = validateChatMessages([
+      { role: 'user', content: 'Hello' }
+    ]);
+
+    if (!result.ok) {
+      throw new Error(`Expected ok result, got: ${result.error}`);
+    }
+
+    expect(result.messages).toEqual([{ role: 'user', content: 'Hello' }]);
+  });
+
+  it('accepts multimodal messages', () => {
+    const result = validateChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Describe this.' },
+          { type: 'image_url', image_url: { url: 'data:image/png;base64,aaa' } }
+        ]
+      }
+    ]);
+
+    if (!result.ok) {
+      throw new Error(`Expected ok result, got: ${result.error}`);
+    }
+
+    expect(result.messages[0]?.role).toBe('user');
+  });
+
+  it('rejects empty message arrays', () => {
+    const result = validateChatMessages([]);
+
+    if (result.ok) {
+      throw new Error('Expected error result');
+    }
+
+    expect(result.error).toBe('messages must be a non-empty array');
+  });
+
+  it('rejects invalid roles', () => {
+    const result = validateChatMessages([
+      { role: 'unknown', content: 'Hello' }
+    ]);
+
+    if (result.ok) {
+      throw new Error('Expected error result');
+    }
+
+    expect(result.error).toBe(
+      'messages[0].role must be one of: system, user, assistant, tool'
+    );
+  });
+
+  it('rejects invalid image content', () => {
+    const result = validateChatMessages([
+      {
+        role: 'user',
+        content: [{ type: 'image_url', image_url: { url: '' } }]
+      }
+    ]);
+
+    if (result.ok) {
+      throw new Error('Expected error result');
+    }
+
+    expect(result.error).toBe(
+      'messages[0].content[0].image_url.url must be a non-empty string'
+    );
   });
 });
 

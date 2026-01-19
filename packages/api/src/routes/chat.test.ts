@@ -212,7 +212,7 @@ describe('Chat Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: 'messages must be a non-empty array of { role, content }'
+        error: 'messages must be a non-empty array'
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -246,7 +246,7 @@ describe('Chat Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: 'messages must be a non-empty array of { role, content }'
+        error: 'messages[0].role must be one of: system, user, assistant, tool'
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -260,7 +260,7 @@ describe('Chat Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: 'messages must be a non-empty array of { role, content }'
+        error: 'messages[0] must be an object'
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -279,7 +279,7 @@ describe('Chat Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: 'messages must be a non-empty array of { role, content }'
+        error: 'messages[0].content must be a non-empty string'
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -298,7 +298,7 @@ describe('Chat Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: 'messages must be a non-empty array of { role, content }'
+        error: 'messages[0].content[0].image_url.url must be a non-empty string'
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });

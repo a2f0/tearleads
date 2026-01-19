@@ -1,7 +1,9 @@
 import {
+  type ChatMessage,
   DEFAULT_OPENROUTER_MODEL_ID,
   isOpenRouterModelId,
-  isRecord
+  isRecord,
+  validateChatMessages
 } from '@rapid/shared';
 import {
   type Request,
@@ -14,104 +16,6 @@ const router: RouterType = Router();
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 export const DEFAULT_OPENROUTER_MODEL = DEFAULT_OPENROUTER_MODEL_ID;
-
-type ChatRole = 'assistant' | 'system' | 'tool' | 'user';
-
-type ChatContentPart =
-  | { type: 'text'; text: string }
-  | { type: 'image_url'; image_url: { url: string } };
-
-type ChatContent = string | ChatContentPart[];
-
-interface ChatMessage {
-  role: ChatRole;
-  content: ChatContent;
-}
-
-function parseRole(value: unknown): ChatRole | null {
-  if (
-    value === 'assistant' ||
-    value === 'system' ||
-    value === 'tool' ||
-    value === 'user'
-  ) {
-    return value;
-  }
-  return null;
-}
-
-function parseContentPart(value: unknown): ChatContentPart | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const type = value['type'];
-  if (type === 'text') {
-    const text = value['text'];
-    if (typeof text !== 'string' || text.trim().length === 0) {
-      return null;
-    }
-    return { type: 'text', text };
-  }
-
-  if (type === 'image_url') {
-    const imageUrl = value['image_url'];
-    if (!isRecord(imageUrl)) {
-      return null;
-    }
-    const url = imageUrl['url'];
-    if (typeof url !== 'string' || url.trim().length === 0) {
-      return null;
-    }
-    return { type: 'image_url', image_url: { url } };
-  }
-
-  return null;
-}
-
-function parseContent(value: unknown): ChatContent | null {
-  if (typeof value === 'string') {
-    if (value.trim().length === 0) {
-      return null;
-    }
-    return value;
-  }
-
-  if (!Array.isArray(value) || value.length === 0) {
-    return null;
-  }
-
-  const parsedParts: ChatContentPart[] = [];
-  for (const entry of value) {
-    const parsedPart = parseContentPart(entry);
-    if (!parsedPart) {
-      return null;
-    }
-    parsedParts.push(parsedPart);
-  }
-
-  return parsedParts;
-}
-
-function parseMessages(value: unknown): ChatMessage[] | null {
-  if (!Array.isArray(value) || value.length === 0) {
-    return null;
-  }
-
-  const parsed: ChatMessage[] = [];
-  for (const entry of value) {
-    if (!isRecord(entry)) {
-      return null;
-    }
-    const role = parseRole(entry['role']);
-    const content = parseContent(entry['content']);
-    if (!role || !content) {
-      return null;
-    }
-    parsed.push({ role, content });
-  }
-  return parsed;
-}
 
 /**
  * @openapi
@@ -168,11 +72,9 @@ function parseMessages(value: unknown): ChatMessage[] | null {
  *         description: Server configuration error
  */
 router.post('/completions', async (req: Request, res: Response) => {
-  const messages = parseMessages(req.body?.['messages']);
-  if (!messages) {
-    res.status(400).json({
-      error: 'messages must be a non-empty array of { role, content }'
-    });
+  const messageResult = validateChatMessages(req.body?.['messages']);
+  if (!messageResult.ok) {
+    res.status(400).json({ error: messageResult.error });
     return;
   }
 
@@ -197,6 +99,7 @@ router.post('/completions', async (req: Request, res: Response) => {
   }
 
   try {
+    const messages: ChatMessage[] = messageResult.messages;
     const response = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
