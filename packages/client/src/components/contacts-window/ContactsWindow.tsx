@@ -86,14 +86,13 @@ export function ContactsWindow({
       minHeight={300}
     >
       <div className="flex h-full flex-col">
-        {currentView === 'list' && (
-          <ContactsWindowMenuBar
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            onNewContact={handleNewContact}
-            onClose={onClose}
-          />
-        )}
+        <ContactsWindowMenuBar
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onNewContact={handleNewContact}
+          onClose={onClose}
+          isNewContactDisabled={currentView === 'create'}
+        />
         <div className="flex-1 overflow-hidden">
           {currentView === 'detail' && selectedContactId ? (
             <ContactsWindowDetail

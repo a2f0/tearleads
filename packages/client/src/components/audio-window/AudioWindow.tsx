@@ -59,13 +59,11 @@ export function AudioWindow({
       minHeight={350}
     >
       <div className="flex h-full flex-col">
-        {!selectedTrackId && (
-          <AudioWindowMenuBar
-            onClose={onClose}
-            view={view}
-            onViewChange={setView}
-          />
-        )}
+        <AudioWindowMenuBar
+          onClose={onClose}
+          view={view}
+          onViewChange={setView}
+        />
         <div className="flex-1 overflow-hidden">
           {selectedTrackId ? (
             <AudioWindowDetail

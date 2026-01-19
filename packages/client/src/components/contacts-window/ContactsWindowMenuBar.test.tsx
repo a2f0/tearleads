@@ -44,6 +44,26 @@ describe('ContactsWindowMenuBar', () => {
     expect(onNewContact).toHaveBeenCalledTimes(1);
   });
 
+  it('disables New when requested', async () => {
+    const user = userEvent.setup();
+    const onNewContact = vi.fn();
+    render(
+      <ContactsWindowMenuBar
+        {...defaultProps}
+        onNewContact={onNewContact}
+        isNewContactDisabled={true}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'File' }));
+
+    const newItem = screen.getByRole('menuitem', { name: 'New' });
+    expect(newItem).toBeDisabled();
+
+    await user.click(newItem);
+    expect(onNewContact).not.toHaveBeenCalled();
+  });
+
   it('calls onClose when Close is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
