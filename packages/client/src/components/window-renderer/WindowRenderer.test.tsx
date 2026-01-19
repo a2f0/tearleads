@@ -833,6 +833,7 @@ const mockCloseWindow = vi.fn();
 const mockFocusWindow = vi.fn();
 const mockMinimizeWindow = vi.fn();
 const mockSaveWindowDimensionsForType = vi.fn();
+const mockUpdateWindowDimensions = vi.fn();
 
 vi.mock('@/contexts/WindowManagerContext', async () => {
   const actual = await vi.importActual('@/contexts/WindowManagerContext');
@@ -845,6 +846,7 @@ vi.mock('@/contexts/WindowManagerContext', async () => {
       focusWindow: mockFocusWindow,
       minimizeWindow: mockMinimizeWindow,
       saveWindowDimensionsForType: mockSaveWindowDimensionsForType,
+      updateWindowDimensions: mockUpdateWindowDimensions,
       isWindowOpen: vi.fn(),
       getWindow: vi.fn()
     })
@@ -935,6 +937,12 @@ describe('WindowRenderer', () => {
     render(<WindowRenderer />, { wrapper });
 
     await user.click(screen.getByTestId('resize-notes-1'));
+    expect(mockUpdateWindowDimensions).toHaveBeenCalledWith('notes-1', {
+      x: 10,
+      y: 20,
+      width: 500,
+      height: 400
+    });
     expect(mockSaveWindowDimensionsForType).toHaveBeenCalledWith('notes', {
       x: 10,
       y: 20,

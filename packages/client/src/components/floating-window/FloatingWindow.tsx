@@ -128,6 +128,19 @@ export function FloatingWindow({
   const contentRef = useRef<HTMLDivElement | null>(null);
   const titleBarRef = useRef<HTMLDivElement | null>(null);
 
+  const handleDimensionsChange = useCallback(
+    (dimensions: WindowDimensions) => {
+      onDimensionsChange?.({
+        ...dimensions,
+        isMaximized,
+        ...(preMaximizeStateRef.current && {
+          preMaximizeDimensions: preMaximizeStateRef.current
+        })
+      });
+    },
+    [onDimensionsChange, isMaximized]
+  );
+
   const effectiveDefaultWidth = initialDimensions?.width ?? defaultWidth;
   const effectiveDefaultHeight = initialDimensions?.height ?? defaultHeight;
 
@@ -158,7 +171,7 @@ export function FloatingWindow({
     minHeight,
     maxWidthPercent,
     maxHeightPercent,
-    onDimensionsChange
+    onDimensionsChange: handleDimensionsChange
   });
 
   const dragHandlers = createDragHandlers();
@@ -256,7 +269,8 @@ export function FloatingWindow({
           width: prevWidth,
           height: prevHeight,
           x: prevX,
-          y: prevY
+          y: prevY,
+          isMaximized: false
         });
         preMaximizeStateRef.current = null;
       }
@@ -267,7 +281,16 @@ export function FloatingWindow({
       const maxWidth = window.innerWidth;
       const maxHeight = window.innerHeight - FOOTER_HEIGHT;
       setDimensions(maxWidth, maxHeight, 0, 0);
-      onDimensionsChange?.({ width: maxWidth, height: maxHeight, x: 0, y: 0 });
+      onDimensionsChange?.({
+        width: maxWidth,
+        height: maxHeight,
+        x: 0,
+        y: 0,
+        isMaximized: true,
+        ...(preMaximizeStateRef.current && {
+          preMaximizeDimensions: preMaximizeStateRef.current
+        })
+      });
       setIsMaximized(true);
     }
   }, [isMaximized, width, height, x, y, setDimensions, onDimensionsChange]);
