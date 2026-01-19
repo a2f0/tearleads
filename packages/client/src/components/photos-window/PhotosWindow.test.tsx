@@ -61,8 +61,39 @@ vi.mock('./PhotosWindowMenuBar', () => ({
 }));
 
 vi.mock('./PhotosWindowContent', () => ({
-  PhotosWindowContent: () => (
-    <div data-testid="photos-content">Photos Content</div>
+  PhotosWindowContent: ({
+    onSelectPhoto
+  }: {
+    onSelectPhoto?: (photoId: string) => void;
+  }) => (
+    <div data-testid="photos-content">
+      <button
+        type="button"
+        onClick={() => onSelectPhoto?.('photo-123')}
+        data-testid="select-photo-button"
+      >
+        Select Photo
+      </button>
+      Photos Content
+    </div>
+  )
+}));
+
+vi.mock('./PhotosWindowDetail', () => ({
+  PhotosWindowDetail: ({
+    photoId,
+    onBack
+  }: {
+    photoId: string;
+    onBack: () => void;
+    onDeleted: () => void;
+  }) => (
+    <div data-testid="photos-detail">
+      <span data-testid="detail-photo-id">{photoId}</span>
+      <button type="button" onClick={onBack} data-testid="detail-back-button">
+        Back
+      </button>
+    </div>
   )
 }));
 
@@ -198,5 +229,15 @@ describe('PhotosWindow', () => {
     await user.click(screen.getByTestId('toggle-view-button'));
 
     expect(screen.getByTestId('photos-table-content')).toBeInTheDocument();
+  });
+
+  it('keeps menu bar visible in detail view', async () => {
+    const user = userEvent.setup();
+    render(<PhotosWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-photo-button'));
+
+    expect(screen.getByTestId('photos-detail')).toBeInTheDocument();
+    expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
   });
 });
