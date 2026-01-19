@@ -65,9 +65,14 @@ const WINDOW_LAUNCH_PATHS = new Set([
   '/photos',
   '/settings',
   '/sqlite',
-  '/tables',
+  '/sqlite/tables',
   '/videos'
 ]);
+
+// Override paths where the slug doesn't match the actual route
+const PATH_OVERRIDES: Record<string, string> = {
+  '/tables': '/sqlite/tables'
+};
 
 // Pages at the bottom of sidebar that might be scrolled out of view
 const URL_NAVIGATION_PATHS = new Set<string>([]);
@@ -75,12 +80,9 @@ const URL_NAVIGATION_PATHS = new Set<string>([]);
 // Helper to navigate via sidebar or URL navigation
 async function navigateTo(page: Page, linkName: string) {
   const slug = linkName.toLowerCase().replace(/\s+/g, '-');
-  const path =
-    linkName === 'Home'
-      ? '/'
-      : linkName === 'Admin'
-        ? '/admin/redis'
-        : `/${slug}`;
+  const slugPath = linkName === 'Home' ? '/' : `/${slug}`;
+  // Apply path override if exists (e.g., /tables -> /sqlite/tables)
+  const path = PATH_OVERRIDES[slugPath] ?? slugPath;
   const isDesktop = await isDesktopDevice(page);
 
   // Use URL navigation for window-capable paths or paths that might be scrolled out of view
