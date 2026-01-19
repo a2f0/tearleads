@@ -212,7 +212,6 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
             setDb(database);
             markSessionActive();
             await touchInstance(activeInstance.id);
-
           } else {
             // Session restore failed, clear the invalid session
             setHasPersisted(false);
