@@ -210,13 +210,19 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/email': 'email',
   '/contacts': 'contacts',
   '/photos': 'photos',
+  '/documents': 'documents',
+  '/videos': 'videos',
+  '/tables': 'tables',
   '/keychain': 'keychain',
   '/sqlite': 'sqlite',
   '/opfs': 'opfs',
+  '/debug': 'debug',
+  '/cache-storage': 'cache-storage',
+  '/local-storage': 'local-storage',
   '/chat': 'chat',
   '/analytics': 'analytics',
   '/audio': 'audio',
-  '/videos': 'videos',
+  '/models': 'models',
   '/admin': 'admin'
 };
 

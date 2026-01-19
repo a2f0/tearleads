@@ -174,16 +174,15 @@ describe('App Integration', () => {
       expect(contactsButtons.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('navigates to Tables page when clicking sidebar button', async () => {
+    it('navigates to Home page when clicking sidebar button', async () => {
       // On desktop, sidebar items open with single click
-      // Using Tables since it's a non-windowed path (navigates instead of opening window)
-      const tablesButton = screen.getByTestId('tables-link');
-      await user.click(tablesButton);
+      // Home is the only non-windowed path (navigates instead of opening window)
+      const homeButton = screen.getByTestId('home-link');
+      await user.click(homeButton);
 
+      // Verify we're on the home page by checking for the start button
       await waitFor(() => {
-        expect(
-          screen.getByRole('heading', { name: 'Tables' })
-        ).toBeInTheDocument();
+        expect(screen.getByTestId('start-button')).toBeInTheDocument();
       });
     });
 
