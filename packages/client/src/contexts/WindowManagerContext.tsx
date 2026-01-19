@@ -79,7 +79,13 @@ export function WindowManagerProvider({
   children
 }: WindowManagerProviderProps) {
   const [windows, setWindows] = useState<WindowInstance[]>([]);
-  const [nextZIndex, setNextZIndex] = useState(BASE_Z_INDEX);
+
+  const getNextZIndex = useCallback((currentWindows: WindowInstance[]) => {
+    if (currentWindows.length === 0) {
+      return BASE_Z_INDEX;
+    }
+    return Math.max(...currentWindows.map((w) => w.zIndex)) + 1;
+  }, []);
 
   const openWindow = useCallback(
     (type: WindowType, customId?: string): string => {
@@ -94,6 +100,7 @@ export function WindowManagerProvider({
           return prev;
         }
 
+        const nextZIndex = getNextZIndex(prev);
         return [
           ...prev,
           {
@@ -106,10 +113,9 @@ export function WindowManagerProvider({
         ];
       });
 
-      setNextZIndex((prev) => prev + 1);
       return id;
     },
-    [nextZIndex]
+    [getNextZIndex]
   );
 
   const closeWindow = useCallback((id: string) => {
@@ -130,7 +136,6 @@ export function WindowManagerProvider({
         w.id === id ? { ...w, zIndex: maxZIndex + 1, isMinimized: false } : w
       );
     });
-    setNextZIndex((prev) => prev + 1);
   }, []);
 
   const minimizeWindow = useCallback(
@@ -155,7 +160,6 @@ export function WindowManagerProvider({
         w.id === id ? { ...w, isMinimized: false, zIndex: maxZIndex + 1 } : w
       );
     });
-    setNextZIndex((prev) => prev + 1);
   }, []);
 
   const updateWindowDimensions = useCallback(
