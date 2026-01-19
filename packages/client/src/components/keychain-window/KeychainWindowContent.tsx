@@ -13,7 +13,6 @@ import {
 } from '@/db/crypto/key-manager';
 import { getInstances } from '@/db/instance-registry';
 import { useTypedTranslation } from '@/i18n';
-import { useNavigateWithFrom } from '@/lib/navigation';
 import { DeleteSessionKeysDialog } from '@/pages/keychain/DeleteSessionKeysDialog';
 import {
   type InstanceKeyInfo,
@@ -24,9 +23,12 @@ export interface KeychainWindowContentRef {
   refresh: () => void;
 }
 
+interface KeychainWindowContentProps {
+  onSelectInstance?: (instanceId: string) => void;
+}
+
 export const KeychainWindowContent = forwardRef<KeychainWindowContentRef>(
-  function KeychainWindowContent(_, ref) {
-    const navigateWithFrom = useNavigateWithFrom();
+  function KeychainWindowContent({ onSelectInstance }, ref) {
     const { t } = useTypedTranslation('contextMenu');
     const [instanceKeyInfos, setInstanceKeyInfos] = useState<InstanceKeyInfo[]>(
       []
@@ -137,11 +139,9 @@ export const KeychainWindowContent = forwardRef<KeychainWindowContentRef>(
     const handleViewDetails = useCallback(
       (info: InstanceKeyInfo) => {
         setContextMenu(null);
-        navigateWithFrom(`/keychain/${info.instance.id}`, {
-          fromLabel: 'Back to Keychain'
-        });
+        onSelectInstance?.(info.instance.id);
       },
-      [navigateWithFrom]
+      [onSelectInstance]
     );
 
     const instanceCount = instanceKeyInfos.length;
