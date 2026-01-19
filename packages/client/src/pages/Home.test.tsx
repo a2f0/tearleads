@@ -182,9 +182,7 @@ describe('Home', () => {
     const displayPropertiesItem = screen.getByText('Display Properties');
     await user.click(displayPropertiesItem);
 
-    expect(
-      screen.getByTestId('display-properties-sheet')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('display-properties-sheet')).toBeInTheDocument();
   });
 
   it('shows icon context menu on right-click', async () => {
