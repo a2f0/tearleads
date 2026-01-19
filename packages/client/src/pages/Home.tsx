@@ -30,7 +30,7 @@ const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/settings': 'settings',
   '/files': 'files',
   '/documents': 'documents',
-  '/tables': 'tables',
+  '/sqlite/tables': 'tables',
   '/debug': 'debug',
   '/email': 'email',
   '/contacts': 'contacts',

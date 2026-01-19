@@ -438,7 +438,7 @@ describe('TableSizes', () => {
       expect(link).toBeInTheDocument();
     });
 
-    it('links navigate to /tables/{tableName}', async () => {
+    it('links navigate to /sqlite/tables/{tableName}', async () => {
       setupMockContext({ isUnlocked: true });
       setupMockAdapter({
         tables: { rows: [{ name: 'users' }] },
@@ -448,7 +448,7 @@ describe('TableSizes', () => {
       await renderTableSizes();
 
       const link = screen.getByRole('link', { name: 'users' });
-      expect(link).toHaveAttribute('href', '/tables/users');
+      expect(link).toHaveAttribute('href', '/sqlite/tables/users');
     });
 
     it('URL encodes special characters in table names', async () => {
@@ -461,7 +461,7 @@ describe('TableSizes', () => {
       await renderTableSizes();
 
       const link = screen.getByRole('link', { name: 'my table' });
-      expect(link).toHaveAttribute('href', '/tables/my%20table');
+      expect(link).toHaveAttribute('href', '/sqlite/tables/my%20table');
     });
 
     it('renders multiple table links correctly', async () => {
@@ -475,8 +475,8 @@ describe('TableSizes', () => {
 
       const usersLink = screen.getByRole('link', { name: 'users' });
       const postsLink = screen.getByRole('link', { name: 'posts' });
-      expect(usersLink).toHaveAttribute('href', '/tables/users');
-      expect(postsLink).toHaveAttribute('href', '/tables/posts');
+      expect(usersLink).toHaveAttribute('href', '/sqlite/tables/users');
+      expect(postsLink).toHaveAttribute('href', '/sqlite/tables/posts');
     });
 
     it('passes navigation state for back navigation', async () => {
@@ -499,7 +499,7 @@ describe('TableSizes', () => {
         <MemoryRouter initialEntries={['/sqlite']}>
           <Routes>
             <Route path="/sqlite" element={<TableSizes />} />
-            <Route path="/tables/users" element={<Destination />} />
+            <Route path="/sqlite/tables/users" element={<Destination />} />
           </Routes>
         </MemoryRouter>
       );
@@ -516,6 +516,30 @@ describe('TableSizes', () => {
         from: '/sqlite',
         fromLabel: 'Back to SQLite'
       });
+    });
+
+    it('invokes onTableSelect when provided', async () => {
+      setupMockContext({ isUnlocked: true });
+      setupMockAdapter({
+        tables: { rows: [{ name: 'users' }] },
+        dbstat: { rows: [{ size: 1024 }] }
+      });
+      const onTableSelect = vi.fn();
+
+      render(
+        <MemoryRouter>
+          <TableSizes onTableSelect={onTableSelect} />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+      });
+
+      const button = screen.getByRole('button', { name: 'users' });
+      await userEvent.setup().click(button);
+
+      expect(onTableSelect).toHaveBeenCalledWith('users');
     });
   });
 });

@@ -25,7 +25,7 @@ describe('Tables Page Integration Tests', () => {
   describe('when database is unlocked', () => {
     it('displays schema tables', async () => {
       await renderWithDatabase(<Tables />, {
-        initialRoute: '/tables'
+        initialRoute: '/sqlite/tables'
       });
 
       // Wait for tables to load
@@ -39,7 +39,7 @@ describe('Tables Page Integration Tests', () => {
 
     it('shows row counts for tables', async () => {
       await renderWithDatabase(<Tables />, {
-        initialRoute: '/tables'
+        initialRoute: '/sqlite/tables'
       });
 
       // Wait for tables to load
@@ -56,7 +56,7 @@ describe('Tables Page Integration Tests', () => {
       const user = userEvent.setup();
 
       await renderWithDatabase(<Tables />, {
-        initialRoute: '/tables'
+        initialRoute: '/sqlite/tables'
       });
 
       // Wait for initial tables
@@ -91,7 +91,7 @@ describe('Tables Page Integration Tests', () => {
 
     it('has a refresh button', async () => {
       await renderWithDatabase(<Tables />, {
-        initialRoute: '/tables'
+        initialRoute: '/sqlite/tables'
       });
 
       await waitFor(() => {
@@ -103,7 +103,7 @@ describe('Tables Page Integration Tests', () => {
 
     it('table links navigate to table detail', async () => {
       await renderWithDatabase(<Tables />, {
-        initialRoute: '/tables'
+        initialRoute: '/sqlite/tables'
       });
 
       // Wait for tables to load
@@ -113,12 +113,15 @@ describe('Tables Page Integration Tests', () => {
 
       // Check that links have correct href
       const settingsLink = screen.getByText('user_settings').closest('a');
-      expect(settingsLink).toHaveAttribute('href', '/tables/user_settings');
+      expect(settingsLink).toHaveAttribute(
+        'href',
+        '/sqlite/tables/user_settings'
+      );
     });
 
     it('shows all expected schema tables', async () => {
       await renderWithDatabase(<Tables />, {
-        initialRoute: '/tables'
+        initialRoute: '/sqlite/tables'
       });
 
       // Wait for tables to load

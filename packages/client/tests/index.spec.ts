@@ -937,7 +937,7 @@ test.describe('Tables page', () => {
     await filesTableLink.click();
 
     // Should be on table rows page
-    await expect(page).toHaveURL(/\/tables\/files/);
+    await expect(page).toHaveURL(/\/sqlite\/tables\/files/);
 
     // Should show back link
     await expect(page.getByText('Back to Tables')).toBeVisible();
@@ -964,7 +964,7 @@ test.describe('Tables page', () => {
 
     // Click back to return to tables list
     await page.getByText('Back to Tables').click();
-    await expect(page).toHaveURL('/tables');
+    await expect(page).toHaveURL('/sqlite/tables');
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
   });
 
@@ -1003,7 +1003,7 @@ test.describe('Tables page', () => {
     const filesTableLink = page.getByRole('link', { name: /files.*\d+\s+rows?/i });
     await expect(filesTableLink).toBeVisible({ timeout: 10000 });
     await filesTableLink.click();
-    await expect(page).toHaveURL(/\/tables\/files/);
+    await expect(page).toHaveURL(/\/sqlite\/tables\/files/);
 
     // Initially should show table view with sortable column header buttons
     // (virtualized div-based layout uses buttons, not columnheaders)
