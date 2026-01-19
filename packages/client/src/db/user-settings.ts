@@ -15,7 +15,8 @@ export type UserSettingKey =
   | 'language'
   | 'tooltips'
   | 'font'
-  | 'desktopPattern';
+  | 'desktopPattern'
+  | 'desktopIconDepth';
 
 // Per-setting value types
 export const THEME_VALUES: readonly [
@@ -35,6 +36,7 @@ export type DesktopPatternValue =
   | 'isometric'
   | 'triangles'
   | 'diamonds';
+export type DesktopIconDepthValue = 'embossed' | 'debossed';
 
 // Map settings keys to their value types
 export interface SettingValueMap {
@@ -43,6 +45,7 @@ export interface SettingValueMap {
   tooltips: TooltipsValue;
   font: FontValue;
   desktopPattern: DesktopPatternValue;
+  desktopIconDepth: DesktopIconDepthValue;
 }
 
 // Default values for each setting
@@ -51,7 +54,8 @@ export const SETTING_DEFAULTS: { [K in UserSettingKey]: SettingValueMap[K] } = {
   language: 'en',
   tooltips: 'enabled',
   font: 'system',
-  desktopPattern: 'isometric'
+  desktopPattern: 'isometric',
+  desktopIconDepth: 'embossed'
 };
 
 // localStorage keys for each setting (maps our keys to existing localStorage keys)
@@ -60,7 +64,8 @@ export const SETTING_STORAGE_KEYS: Record<UserSettingKey, string> = {
   language: 'i18nextLng',
   tooltips: 'tooltips',
   font: 'font',
-  desktopPattern: 'desktopPattern'
+  desktopPattern: 'desktopPattern',
+  desktopIconDepth: 'desktopIconDepth'
 };
 
 // Type guard functions
@@ -86,6 +91,12 @@ export function isDesktopPatternValue(
   return ['solid', 'honeycomb', 'isometric', 'triangles', 'diamonds'].includes(
     value
   );
+}
+
+export function isDesktopIconDepthValue(
+  value: string
+): value is DesktopIconDepthValue {
+  return ['embossed', 'debossed'].includes(value);
 }
 
 // Settings sync event detail type
@@ -117,6 +128,9 @@ export function getSettingFromStorage<K extends UserSettingKey>(
       return value as SettingValueMap[K];
     }
     if (key === 'desktopPattern' && isDesktopPatternValue(value)) {
+      return value as SettingValueMap[K];
+    }
+    if (key === 'desktopIconDepth' && isDesktopIconDepthValue(value)) {
       return value as SettingValueMap[K];
     }
 
@@ -172,6 +186,11 @@ export async function getSettingsFromDb(
       settings.font = value;
     } else if (key === 'desktopPattern' && isDesktopPatternValue(value)) {
       settings.desktopPattern = value;
+    } else if (
+      key === 'desktopIconDepth' &&
+      isDesktopIconDepthValue(value)
+    ) {
+      settings.desktopIconDepth = value;
     }
   }
 
