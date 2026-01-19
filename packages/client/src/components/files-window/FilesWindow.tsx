@@ -78,16 +78,14 @@ export function FilesWindow({
       minHeight={300}
     >
       <div className="flex h-full flex-col">
-        {!selectedFileId && (
-          <FilesWindowMenuBar
-            showDeleted={showDeleted}
-            onShowDeletedChange={setShowDeleted}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            onUpload={handleUpload}
-            onClose={onClose}
-          />
-        )}
+        <FilesWindowMenuBar
+          showDeleted={showDeleted}
+          onShowDeletedChange={setShowDeleted}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onUpload={handleUpload}
+          onClose={onClose}
+        />
         <div className="flex-1 overflow-hidden">
           {selectedFileId ? (
             <FilesWindowDetail
