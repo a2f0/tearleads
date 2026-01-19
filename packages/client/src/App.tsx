@@ -1,6 +1,6 @@
 import { ConnectionIndicator, Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AccountSwitcher } from './components/AccountSwitcher';
@@ -27,12 +27,31 @@ function App() {
   const pathname = location.pathname;
   const isHome = pathname === '/';
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const sidebarRef = useRef<HTMLElement | null>(null);
+  const startButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (pathname) {
       setIsSidebarOpen(false);
     }
   }, [pathname]);
+
+  useEffect(() => {
+    if (!isSidebarOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (sidebarRef.current?.contains(target)) return;
+      if (startButtonRef.current?.contains(target)) return;
+      setIsSidebarOpen(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [isSidebarOpen]);
 
   return (
     <div
@@ -41,6 +60,7 @@ function App() {
     >
       <div className="flex flex-1">
         <Sidebar
+          ref={sidebarRef}
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
         />
@@ -68,6 +88,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => setIsSidebarOpen((prev) => !prev)}
+                ref={startButtonRef}
                 className="hidden items-center justify-center lg:flex"
                 aria-label="Toggle sidebar"
                 aria-pressed={isSidebarOpen}
