@@ -26,7 +26,7 @@ export function DisplayPropertiesWindow({
       minHeight={320}
       maxWidthPercent={0.9}
       maxHeightPercent={0.9}
-      zIndex={60}
+      zIndex={1000}
     >
       <div className="space-y-6 p-5">
         <ThemeSelector />
