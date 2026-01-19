@@ -140,10 +140,9 @@ router.get('/', async (req: Request, res: Response) => {
       clearInterval(keepAlive);
       const clientToCleanup = client;
       client = null;
-      cleanupSseClient(clientToCleanup, channels)
-        .catch((err) => {
-          console.error('SSE cleanup error:', err);
-        });
+      cleanupSseClient(clientToCleanup, channels).catch((err) => {
+        console.error('SSE cleanup error:', err);
+      });
     });
   } catch (err) {
     removeConnection(res);

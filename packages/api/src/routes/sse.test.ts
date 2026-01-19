@@ -179,12 +179,8 @@ describe('SSE Routes', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 0));
 
-      expect(mockUnsubscribe).toHaveBeenCalledWith(
-        'channel1'
-      );
-      expect(mockUnsubscribe).toHaveBeenCalledWith(
-        'channel2'
-      );
+      expect(mockUnsubscribe).toHaveBeenCalledWith('channel1');
+      expect(mockUnsubscribe).toHaveBeenCalledWith('channel2');
       expect(mockQuit).toHaveBeenCalled();
     });
 
@@ -333,7 +329,9 @@ describe('SSE Routes', () => {
 
   describe('cleanupSseClient', () => {
     it('resolves when client is null', async () => {
-      await expect(cleanupSseClient(null, ['channel'])).resolves.toBeUndefined();
+      await expect(
+        cleanupSseClient(null, ['channel'])
+      ).resolves.toBeUndefined();
     });
 
     it('unsubscribes and quits when client exists', async () => {
