@@ -15,12 +15,17 @@ type PoolInstance = {
 };
 
 const poolInstances: PoolInstance[] = [];
-const PoolMock = vi.fn((config: PoolConfig) => {
-  const end = vi.fn().mockResolvedValue(undefined);
-  const instance = { config, end };
-  poolInstances.push(instance);
-  return instance;
-});
+
+class PoolMock {
+  config: PoolConfig;
+  end: ReturnType<typeof vi.fn>;
+
+  constructor(config: PoolConfig) {
+    this.config = config;
+    this.end = vi.fn().mockResolvedValue(undefined);
+    poolInstances.push(this);
+  }
+}
 
 vi.mock('pg', () => ({
   Pool: PoolMock
@@ -37,7 +42,6 @@ describe('postgres lib', () => {
     vi.resetModules();
     process.env = { ...originalEnv };
     poolInstances.length = 0;
-    PoolMock.mockClear();
   });
 
   afterEach(() => {
@@ -97,7 +101,7 @@ describe('postgres lib', () => {
     const secondPool = await getPostgresPool();
 
     expect(pool).toBe(secondPool);
-    expect(PoolMock).toHaveBeenCalledTimes(1);
+    expect(poolInstances).toHaveLength(1);
     expect(poolInstances[0]?.config.connectionString).toBe(
       'postgres://user@localhost:5432/db1'
     );
@@ -113,7 +117,7 @@ describe('postgres lib', () => {
     const secondPool = await getPostgresPool();
 
     expect(firstPool).not.toBe(secondPool);
-    expect(PoolMock).toHaveBeenCalledTimes(2);
+    expect(poolInstances).toHaveLength(2);
     expect(poolInstances[0]?.end).toHaveBeenCalledTimes(1);
   });
 
@@ -122,7 +126,7 @@ describe('postgres lib', () => {
 
     await closePostgresPool();
 
-    expect(PoolMock).not.toHaveBeenCalled();
+    expect(poolInstances).toHaveLength(0);
   });
 
   it('closes the active pool', async () => {
