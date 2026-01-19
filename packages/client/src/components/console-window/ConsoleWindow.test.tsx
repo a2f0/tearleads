@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useEffect, useRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { ConsoleWindow } from './ConsoleWindow';
 
@@ -35,11 +36,29 @@ vi.mock('@/components/floating-window', () => ({
 
 // Mock Terminal component
 vi.mock('@/pages/console/components/Terminal', () => ({
-  Terminal: ({ className }: { className?: string }) => (
-    <div data-testid="terminal" className={className}>
-      Terminal Mock
-    </div>
-  )
+  Terminal: ({
+    className,
+    autoFocus
+  }: {
+    className?: string;
+    autoFocus?: boolean;
+  }) => {
+    const inputRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+      if (autoFocus) {
+        inputRef.current?.focus();
+      }
+    }, [autoFocus]);
+    return (
+      <div data-testid="terminal" className={className}>
+        <input
+          ref={inputRef}
+          data-testid="terminal-input"
+          data-autofocus={autoFocus ? 'true' : 'false'}
+        />
+      </div>
+    );
+  }
 }));
 
 // Mock ConsoleWindowMenuBar
@@ -178,6 +197,20 @@ describe('ConsoleWindow', () => {
     expect(screen.getAllByTestId('terminal')).toHaveLength(2);
   });
 
+  it('focuses the split terminal input when creating a split', async () => {
+    const user = userEvent.setup();
+    render(<ConsoleWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('split-vertical-button'));
+
+    const inputs = screen.getAllByTestId('terminal-input');
+    expect(inputs).toHaveLength(2);
+    await waitFor(() => {
+      expect(inputs[1]).toHaveFocus();
+    });
+    expect(inputs[1]).toHaveAttribute('data-autofocus', 'true');
+  });
+
   it('removes split when clicked again', async () => {
     const user = userEvent.setup();
     render(<ConsoleWindow {...defaultProps} />);
@@ -306,6 +339,23 @@ describe('ConsoleWindow', () => {
     // Toggle off
     await user.click(screen.getByTestId('split-vertical-button'));
     expect(screen.getAllByTestId('terminal')).toHaveLength(1);
+  });
+
+  it('keeps terminal panes scrollable in vertical split', async () => {
+    const user = userEvent.setup();
+    render(<ConsoleWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('split-vertical-button'));
+
+    const terminals = screen.getAllByTestId('terminal');
+    const paneClasses = terminals.map(
+      (terminal) => terminal.parentElement?.parentElement?.className ?? ''
+    );
+
+    paneClasses.forEach((classes) => {
+      expect(classes).toContain('min-h-0');
+      expect(classes).toContain('min-w-0');
+    });
   });
 
   it('switches from horizontal to vertical split', async () => {

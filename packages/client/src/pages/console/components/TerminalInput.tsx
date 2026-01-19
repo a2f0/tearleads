@@ -13,6 +13,7 @@ interface TerminalInputProps {
   prompt: string;
   mode: InputMode;
   disabled?: boolean;
+  autoFocus?: boolean;
   onChange: (value: string) => void;
   onSubmit: () => void;
   onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
@@ -24,6 +25,7 @@ export function TerminalInput({
   prompt,
   mode,
   disabled = false,
+  autoFocus = true,
   onChange,
   onSubmit,
   onKeyDown,
@@ -33,10 +35,10 @@ export function TerminalInput({
 
   // Auto-focus input when not disabled
   useEffect(() => {
-    if (!disabled && inputRef.current) {
+    if (autoFocus && !disabled && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [disabled]);
+  }, [autoFocus, disabled]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     onChange(e.target.value);
