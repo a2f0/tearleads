@@ -44,9 +44,17 @@ vi.mock('@/pages/chat/ChatInterface', () => ({
 }));
 
 vi.mock('@/pages/chat/NoModelLoadedContent', () => ({
-  NoModelLoadedContent: () => (
-    <div data-testid="no-model-content">No Model Loaded</div>
+  NoModelLoadedContent: ({ onOpenModels }: { onOpenModels?: () => void }) => (
+    <div data-testid="no-model-content">
+      <button type="button" onClick={onOpenModels} data-testid="open-models">
+        Open Models
+      </button>
+    </div>
   )
+}));
+
+vi.mock('@/pages/models/ModelsContent', () => ({
+  ModelsContent: () => <div data-testid="models-content">Models Content</div>
 }));
 
 vi.mock('./ChatWindowMenuBar', () => ({
@@ -95,6 +103,16 @@ describe('ChatWindow', () => {
     render(<ChatWindow {...defaultProps} />);
     expect(screen.getByTestId('no-model-content')).toBeInTheDocument();
     expect(screen.queryByTestId('chat-interface')).not.toBeInTheDocument();
+  });
+
+  it('opens models inside the window when requested', async () => {
+    const user = userEvent.setup();
+    render(<ChatWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('open-models'));
+
+    expect(screen.getByTestId('models-content')).toBeInTheDocument();
+    expect(screen.queryByTestId('no-model-content')).not.toBeInTheDocument();
   });
 
   it('shows ChatInterface when model is loaded', async () => {
