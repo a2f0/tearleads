@@ -725,6 +725,12 @@ export function Home() {
             {selectedIcons.size > 0 ? 'Cluster Selected' : 'Cluster'}
           </ContextMenuItem>
           <ContextMenuItem
+            icon={<Monitor className="h-4 w-4" />}
+            onClick={handleDisplayPropertiesOpen}
+          >
+            Display Properties
+          </ContextMenuItem>
+          <ContextMenuItem
             icon={<Maximize2 className="h-4 w-4" />}
             onClick={handleScatter}
           >
