@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatWindowMenuBar } from './ChatWindowMenuBar';
 
 describe('ChatWindowMenuBar', () => {
@@ -8,6 +8,10 @@ describe('ChatWindowMenuBar', () => {
     onNewChat: vi.fn(),
     onClose: vi.fn()
   };
+
+  beforeEach(() => {
+    localStorage.clear();
+  });
 
   it('renders File menu trigger', () => {
     render(<ChatWindowMenuBar {...defaultProps} />);
@@ -24,6 +28,22 @@ describe('ChatWindowMenuBar', () => {
       screen.getByRole('menuitem', { name: 'New Chat' })
     ).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Close' })).toBeInTheDocument();
+  });
+
+  it('renders View menu trigger', () => {
+    render(<ChatWindowMenuBar {...defaultProps} />);
+    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+  });
+
+  it('shows Preserve Window State in View menu', async () => {
+    const user = userEvent.setup();
+    render(<ChatWindowMenuBar {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+
+    expect(
+      screen.getByRole('menuitem', { name: 'Preserve Window State' })
+    ).toBeInTheDocument();
   });
 
   it('calls onNewChat when New Chat is clicked', async () => {

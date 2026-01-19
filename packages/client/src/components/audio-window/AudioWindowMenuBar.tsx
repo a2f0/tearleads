@@ -1,4 +1,9 @@
-import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
+import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
 
 export type AudioViewMode = 'list' | 'table';
 
@@ -31,6 +36,8 @@ export function AudioWindowMenuBar({
         >
           Table View
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <PreserveWindowStateMenuItem />
       </DropdownMenu>
     </div>
   );

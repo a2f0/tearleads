@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { KeychainWindowMenuBar } from './KeychainWindowMenuBar';
 
 describe('KeychainWindowMenuBar', () => {
@@ -8,6 +8,10 @@ describe('KeychainWindowMenuBar', () => {
     onRefresh: vi.fn(),
     onClose: vi.fn()
   };
+
+  beforeEach(() => {
+    localStorage.clear();
+  });
 
   it('renders File menu trigger', () => {
     render(<KeychainWindowMenuBar {...defaultProps} />);
@@ -24,6 +28,22 @@ describe('KeychainWindowMenuBar', () => {
       screen.getByRole('menuitem', { name: 'Refresh' })
     ).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Close' })).toBeInTheDocument();
+  });
+
+  it('renders View menu trigger', () => {
+    render(<KeychainWindowMenuBar {...defaultProps} />);
+    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+  });
+
+  it('shows Preserve Window State in View menu', async () => {
+    const user = userEvent.setup();
+    render(<KeychainWindowMenuBar {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+
+    expect(
+      screen.getByRole('menuitem', { name: 'Preserve Window State' })
+    ).toBeInTheDocument();
   });
 
   it('calls onRefresh when Refresh is clicked', async () => {

@@ -1,9 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LocalStorageWindowMenuBar } from './LocalStorageWindowMenuBar';
 
 describe('LocalStorageWindowMenuBar', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('renders the File menu trigger', () => {
     render(<LocalStorageWindowMenuBar onRefresh={vi.fn()} onClose={vi.fn()} />);
 
@@ -44,5 +48,22 @@ describe('LocalStorageWindowMenuBar', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Close' }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the View menu trigger', () => {
+    render(<LocalStorageWindowMenuBar onRefresh={vi.fn()} onClose={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+  });
+
+  it('shows Preserve Window State in the View menu', async () => {
+    const user = userEvent.setup();
+    render(<LocalStorageWindowMenuBar onRefresh={vi.fn()} onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+
+    expect(
+      screen.getByRole('menuitem', { name: 'Preserve Window State' })
+    ).toBeInTheDocument();
   });
 });
