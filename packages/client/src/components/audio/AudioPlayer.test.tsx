@@ -200,10 +200,10 @@ describe('AudioPlayer', () => {
       expect(mockPlay).toHaveBeenCalledWith(TEST_TRACKS[2]);
     });
 
-    it('renders visualizer style toggle', () => {
+    it('renders visualizer toggle', () => {
       render(<AudioPlayer tracks={TEST_TRACKS} />);
 
-      expect(screen.getByTestId('visualizer-style-toggle')).toBeInTheDocument();
+      expect(screen.getByTestId('visualizer-toggle')).toBeInTheDocument();
     });
   });
 
@@ -434,7 +434,7 @@ describe('AudioPlayer', () => {
     });
   });
 
-  describe('visualizer style', () => {
+  describe('visualizer visibility', () => {
     beforeEach(() => {
       mockUseAudio.mockReturnValue({
         audioElementRef: mockAudioElementRef,
@@ -451,38 +451,34 @@ describe('AudioPlayer', () => {
       });
     });
 
-    it('uses gradient bars when stored style is gradient', () => {
-      mockLocalStorage.setItem('audio-visualizer-style', 'gradient');
+    it('shows visualizer by default', () => {
+      render(<AudioPlayer tracks={TEST_TRACKS} />);
 
-      const { container } = render(<AudioPlayer tracks={TEST_TRACKS} />);
-      const gradientBars = container.querySelectorAll(
-        'div[style*="linear-gradient"]'
+      expect(screen.getByTestId('visualizer-toggle')).toHaveAttribute(
+        'aria-label',
+        'Hide visualizer'
       );
-
-      expect(gradientBars.length).toBeGreaterThan(0);
     });
 
-    it('persists toggled visualizer style', async () => {
+    it('persists toggled visibility', async () => {
       const user = userEvent.setup();
       render(<AudioPlayer tracks={TEST_TRACKS} />);
 
-      await user.click(screen.getByTestId('visualizer-style-toggle'));
+      await user.click(screen.getByTestId('visualizer-toggle'));
 
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
-        'audio-visualizer-style',
-        'gradient'
+        'audio-visualizer-visible',
+        'hidden'
       );
     });
 
-    it('maps stored lcd style to waveform', () => {
-      mockLocalStorage.setItem('audio-visualizer-style', 'lcd');
+    it('hides visualizer when visibility is hidden', () => {
+      mockLocalStorage.setItem('audio-visualizer-visible', 'hidden');
 
-      render(<AudioPlayer tracks={TEST_TRACKS} />);
+      const { container } = render(<AudioPlayer tracks={TEST_TRACKS} />);
 
-      expect(screen.getByTestId('visualizer-style-toggle')).toHaveAttribute(
-        'aria-label',
-        'Switch to gradient style'
-      );
+      const bars = container.querySelectorAll('.flex-col-reverse');
+      expect(bars.length).toBe(0);
     });
   });
 
@@ -506,7 +502,7 @@ describe('AudioPlayer', () => {
     it('renders EQ toggle and playback controls in same row', () => {
       render(<AudioPlayer tracks={TEST_TRACKS} />);
 
-      const eqToggle = screen.getByTestId('visualizer-style-toggle');
+      const eqToggle = screen.getByTestId('visualizer-toggle');
       const playPause = screen.getByTestId('audio-play-pause');
 
       // Both should exist and be siblings in the same parent
