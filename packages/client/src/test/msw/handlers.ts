@@ -3,7 +3,11 @@ import type {
   RedisKeysResponse,
   RedisKeyValueResponse
 } from '@rapid/shared';
-import { isRecord } from '@rapid/shared';
+import {
+  DEFAULT_OPENROUTER_MODEL_ID,
+  isOpenRouterModelId,
+  isRecord
+} from '@rapid/shared';
 import { HttpResponse, http } from 'msw';
 
 const ok = <T extends object>(body: T) => HttpResponse.json(body);
@@ -51,6 +55,7 @@ export const handlers = [
   http.post(/\/chat\/completions$/, async ({ request }) => {
     const body = await request.json().catch(() => null);
     const messages = isRecord(body) ? body['messages'] : null;
+    const model = isRecord(body) ? body['model'] : undefined;
     if (!Array.isArray(messages) || messages.length === 0) {
       return HttpResponse.json(
         { error: 'messages must be a non-empty array of { role, content }' },
@@ -58,9 +63,18 @@ export const handlers = [
       );
     }
 
+    if (model !== undefined) {
+      if (typeof model !== 'string' || !isOpenRouterModelId(model)) {
+        return HttpResponse.json(
+          { error: 'model must be a supported OpenRouter chat model' },
+          { status: 400 }
+        );
+      }
+    }
+
     return ok({
       id: 'chatcmpl-test',
-      model: 'mistralai/mistral-7b-instruct:free',
+      model: DEFAULT_OPENROUTER_MODEL_ID,
       choices: [
         {
           message: {

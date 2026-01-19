@@ -1,9 +1,11 @@
 /// <reference types="@webgpu/types" />
+import { isOpenRouterModelId, isRecord } from '@rapid/shared';
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { getCurrentInstanceId, getDatabase } from '@/db';
 import type { AnalyticsEventSlug } from '@/db/analytics';
 import { logEvent as logAnalyticsEvent } from '@/db/analytics';
+import { API_BASE_URL } from '@/lib/api';
 import { getWebGPUErrorInfo } from '@/lib/utils';
 import {
   clearLastLoadedModel,
@@ -100,6 +102,26 @@ let snapshot: LLMState = { ...store };
 
 // Pub-sub mechanism for useSyncExternalStore
 const listeners = new Set<() => void>();
+
+function extractOpenRouterContent(payload: unknown): string | null {
+  if (!isRecord(payload)) {
+    return null;
+  }
+  const choices = payload['choices'];
+  if (!Array.isArray(choices) || choices.length === 0) {
+    return null;
+  }
+  const firstChoice = choices[0];
+  if (!isRecord(firstChoice)) {
+    return null;
+  }
+  const message = firstChoice['message'];
+  if (!isRecord(message)) {
+    return null;
+  }
+  const content = message['content'];
+  return typeof content === 'string' ? content : null;
+}
 
 /**
  * Log an analytics event for LLM operations.
@@ -395,6 +417,21 @@ async function loadModelInternal(modelId: string): Promise<void> {
     return;
   }
 
+  if (isOpenRouterModelId(modelId)) {
+    const start = performance.now();
+    store.loadedModel = modelId;
+    store.modelType = 'chat';
+    store.isLoading = false;
+    store.error = null;
+    store.loadProgress = null;
+    loadingModelId = null;
+    emitChange();
+
+    saveLastLoadedModel(modelId, getCurrentInstanceId() ?? undefined);
+    logLLMAnalytics('llm_model_load', performance.now() - start, true);
+    return;
+  }
+
   // Check WebGPU support
   const supported = await checkWebGPUSupport();
   if (!supported) {
@@ -418,6 +455,16 @@ async function loadModelInternal(modelId: string): Promise<void> {
 }
 
 async function unloadModelInternal(): Promise<void> {
+  if (store.loadedModel && isOpenRouterModelId(store.loadedModel)) {
+    store.loadedModel = null;
+    store.modelType = null;
+    store.error = null;
+    store.loadProgress = null;
+    loadingModelId = null;
+    emitChange();
+    clearLastLoadedModel(getCurrentInstanceId() ?? undefined);
+    return;
+  }
   sendRequest({ type: 'unload' });
 }
 
@@ -428,6 +475,46 @@ async function generateInternal(
 ): Promise<void> {
   if (!store.loadedModel) {
     throw new Error('No model loaded');
+  }
+
+  if (isOpenRouterModelId(store.loadedModel)) {
+    if (image) {
+      throw new Error('Image attachments require a local vision model');
+    }
+    if (!API_BASE_URL) {
+      throw new Error('VITE_API_URL environment variable is not set');
+    }
+
+    const start = performance.now();
+    try {
+      const response = await fetch(`${API_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: store.loadedModel,
+          messages
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const payload = await response.json();
+      const content = extractOpenRouterContent(payload);
+      if (!content) {
+        throw new Error('OpenRouter response missing content');
+      }
+
+      onToken(content);
+      logLLMAnalytics('llm_prompt_text', performance.now() - start, true);
+      return;
+    } catch (error) {
+      logLLMAnalytics('llm_prompt_text', performance.now() - start, false);
+      throw error;
+    }
   }
 
   return new Promise<void>((resolve, reject) => {

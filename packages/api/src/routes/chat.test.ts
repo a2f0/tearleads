@@ -1,20 +1,26 @@
-import { isRecord } from '@rapid/shared';
+import { DEFAULT_OPENROUTER_MODEL_ID, isRecord } from '@rapid/shared';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
-import { DEFAULT_OPENROUTER_MODEL, OPENROUTER_API_URL } from './chat.js';
+import { OPENROUTER_API_URL } from './chat.js';
 
 const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>();
+let previousApiKey: string | undefined;
 
 describe('Chat Routes', () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.stubEnv('OPENROUTER_API_KEY', 'test-key');
+    previousApiKey = process.env['OPENROUTER_API_KEY'];
+    process.env['OPENROUTER_API_KEY'] = 'test-key';
     vi.stubGlobal('fetch', fetchMock);
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
+    if (previousApiKey === undefined) {
+      delete process.env['OPENROUTER_API_KEY'];
+    } else {
+      process.env['OPENROUTER_API_KEY'] = previousApiKey;
+    }
     vi.unstubAllGlobals();
   });
 
@@ -83,8 +89,57 @@ describe('Chat Routes', () => {
 
       const parsedBody = JSON.parse(body);
       expect(parsedBody).toEqual({
-        model: DEFAULT_OPENROUTER_MODEL,
+        model: DEFAULT_OPENROUTER_MODEL_ID,
         messages: payload.messages
+      });
+    });
+
+    it('accepts an explicit OpenRouter model ID', async () => {
+      fetchMock.mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            id: 'chatcmpl-2',
+            choices: [
+              {
+                message: {
+                  role: 'assistant',
+                  content: 'Model reply'
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      );
+
+      const response = await request(app)
+        .post('/v1/chat/completions')
+        .send({
+          model: DEFAULT_OPENROUTER_MODEL_ID,
+          messages: [{ role: 'user', content: 'Hello' }]
+        });
+
+      expect(response.status).toBe(200);
+
+      const call = fetchMock.mock.calls[0];
+      if (!call) {
+        throw new Error('Expected fetch to be called');
+      }
+
+      const requestInit = call[1];
+      if (!requestInit || typeof requestInit !== 'object') {
+        throw new Error('Expected fetch options to be provided');
+      }
+
+      const body = requestInit.body;
+      if (typeof body !== 'string') {
+        throw new Error('Expected request body to be a string');
+      }
+
+      const parsedBody = JSON.parse(body);
+      expect(parsedBody).toEqual({
+        model: DEFAULT_OPENROUTER_MODEL_ID,
+        messages: [{ role: 'user', content: 'Hello' }]
       });
     });
 
@@ -96,6 +151,21 @@ describe('Chat Routes', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
         error: 'messages must be a non-empty array of { role, content }'
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 for unsupported OpenRouter models', async () => {
+      const response = await request(app)
+        .post('/v1/chat/completions')
+        .send({
+          model: 'unknown/model',
+          messages: [{ role: 'user', content: 'Hello' }]
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: 'model must be a supported OpenRouter chat model'
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -203,7 +273,7 @@ describe('Chat Routes', () => {
     });
 
     it('returns 500 when OPENROUTER_API_KEY is missing', async () => {
-      vi.stubEnv('OPENROUTER_API_KEY', '');
+      process.env['OPENROUTER_API_KEY'] = '';
 
       const response = await request(app)
         .post('/v1/chat/completions')
