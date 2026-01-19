@@ -162,9 +162,6 @@ describe('Taskbar', () => {
 
     await user.click(screen.getByRole('button', { name: 'Minimize' }));
 
-    expect(mockMinimizeWindow).toHaveBeenCalledWith(
-      'notes-2',
-      undefined
-    );
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('notes-2', undefined);
   });
 });
