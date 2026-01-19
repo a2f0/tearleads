@@ -23,7 +23,7 @@ import {
   Terminal,
   Users
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
@@ -231,7 +231,10 @@ export interface SidebarProps {
   onClose: () => void;
 }
 
-export function Sidebar({ isOpen, onClose }: SidebarProps) {
+export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
+  { isOpen, onClose },
+  ref
+) {
   const { t } = useTypedTranslation('menu');
   const navigate = useNavigate();
   const location = useLocation();
@@ -319,6 +322,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   return (
     <aside
       id="sidebar"
+      ref={ref}
       className={cn(
         'hidden w-64 shrink-0 flex-col border-r bg-background lg:flex',
         isOpen
@@ -381,4 +385,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       )}
     </aside>
   );
-}
+});
+
+Sidebar.displayName = 'Sidebar';
