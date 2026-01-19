@@ -176,6 +176,7 @@ describe('DocumentsWindow', () => {
   });
 
   it('shows upload errors when files fail to upload', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<DocumentsWindow {...defaultProps} />);
 
     const fileInput = screen.getByTestId('documents-file-input');
@@ -187,6 +188,7 @@ describe('DocumentsWindow', () => {
     expect(
       await screen.findByText('"test.txt": Upload failed')
     ).toBeInTheDocument();
+    consoleSpy.mockRestore();
   });
 
   it('returns to documents list when detail back is clicked', async () => {
