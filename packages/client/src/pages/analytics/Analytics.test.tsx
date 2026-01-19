@@ -1,6 +1,7 @@
 import { ThemeProvider } from '@rapid/ui';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnalyticsEvent } from '@/db/analytics';
@@ -71,11 +72,11 @@ vi.mock('@/db/analytics', async (importOriginal) => {
   };
 });
 
-function renderAnalyticsRaw() {
+function renderAnalyticsRaw(props: ComponentProps<typeof Analytics> = {}) {
   return render(
     <MemoryRouter>
       <ThemeProvider>
-        <Analytics />
+        <Analytics {...props} />
       </ThemeProvider>
     </MemoryRouter>
   );
@@ -271,6 +272,12 @@ describe('Analytics', () => {
     it('renders the analytics title', async () => {
       await renderAnalytics();
       expect(screen.getByText('Analytics')).toBeInTheDocument();
+    });
+
+    it('hides back link when disabled', () => {
+      renderAnalyticsRaw({ showBackLink: false });
+
+      expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
     });
 
     it('fetches analytics data on mount', async () => {

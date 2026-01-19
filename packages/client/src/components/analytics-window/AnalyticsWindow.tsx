@@ -1,6 +1,7 @@
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { Analytics } from '@/pages/analytics';
+import { AnalyticsWindowMenuBar } from './AnalyticsWindowMenuBar';
 
 interface AnalyticsWindowProps {
   id: string;
@@ -36,8 +37,11 @@ export function AnalyticsWindow({
       minWidth={400}
       minHeight={350}
     >
-      <div className="flex h-full flex-col overflow-hidden p-4">
-        <Analytics />
+      <div className="flex h-full flex-col overflow-hidden">
+        <AnalyticsWindowMenuBar onClose={onClose} />
+        <div className="flex-1 overflow-hidden p-4">
+          <Analytics showBackLink={false} />
+        </div>
       </div>
     </FloatingWindow>
   );
