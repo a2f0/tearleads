@@ -99,7 +99,7 @@ export const navItems: NavItem[] = [
     testId: 'videos-link'
   },
   {
-    path: '/tables',
+    path: '/sqlite/tables',
     icon: Table2,
     labelKey: 'tables',
     inMobileMenu: true,
