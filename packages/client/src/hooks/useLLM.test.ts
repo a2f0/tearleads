@@ -50,7 +50,7 @@ vi.mock('sonner', () => ({
 }));
 
 describe('useLLM', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mockOnMessage = null;
     vi.stubGlobal('Worker', MockWorker);
@@ -60,6 +60,8 @@ describe('useLLM', () => {
         requestAdapter: vi.fn().mockResolvedValue({})
       }
     });
+    const { getLastLoadedModel } = await import('./useAppLifecycle');
+    vi.mocked(getLastLoadedModel).mockReturnValue(null);
   });
 
   afterEach(() => {
@@ -69,6 +71,19 @@ describe('useLLM', () => {
   });
 
   describe('OpenRouter models', () => {
+    it('restores the last OpenRouter model after reload', async () => {
+      const { getLastLoadedModel } = await import('./useAppLifecycle');
+      vi.mocked(getLastLoadedModel).mockReturnValue(DEFAULT_OPENROUTER_MODEL_ID);
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(result.current.loadedModel).toBe(DEFAULT_OPENROUTER_MODEL_ID);
+    });
+
     it('loads OpenRouter models without using the worker', async () => {
       vi.stubEnv('VITE_API_URL', 'http://localhost');
       const { useLLM } = await import('./useLLM');
