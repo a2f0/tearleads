@@ -447,6 +447,7 @@ describe('FloatingWindow', () => {
     );
 
     let resizeObserverCallback: ResizeObserverCallback | null = null;
+    let resizeObserverInstance: ResizeObserver | null = null;
     let scrollHeight = 900;
     let scrollWidth = 700;
 
@@ -458,6 +459,7 @@ describe('FloatingWindow', () => {
       class MockResizeObserver implements ResizeObserver {
         constructor(callback: ResizeObserverCallback) {
           resizeObserverCallback = callback;
+          resizeObserverInstance = this;
         }
 
         observe = vi.fn();
@@ -555,7 +557,9 @@ describe('FloatingWindow', () => {
 
       scrollHeight = 420;
       act(() => {
-        resizeObserverCallback?.([]);
+        if (resizeObserverCallback && resizeObserverInstance) {
+          resizeObserverCallback([], resizeObserverInstance);
+        }
       });
 
       await waitFor(() => {
@@ -630,12 +634,16 @@ describe('FloatingWindow', () => {
       });
 
       act(() => {
-        resizeObserverCallback?.([]);
+        if (resizeObserverCallback && resizeObserverInstance) {
+          resizeObserverCallback([], resizeObserverInstance);
+        }
       });
 
       scrollHeight = 200;
       act(() => {
-        resizeObserverCallback?.([]);
+        if (resizeObserverCallback && resizeObserverInstance) {
+          resizeObserverCallback([], resizeObserverInstance);
+        }
       });
 
       await waitFor(() => {
