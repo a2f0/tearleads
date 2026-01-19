@@ -18,6 +18,7 @@ import {
   useWindowManager,
   type WindowType
 } from '@/contexts/WindowManagerContext';
+import { useSettings } from '@/db/SettingsProvider';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTypedTranslation } from '@/i18n';
 import { cn } from '@/lib/utils';
@@ -260,6 +261,7 @@ export function Home() {
   const { t } = useTypedTranslation('menu');
   const navigate = useNavigate();
   const { openWindow } = useWindowManager();
+  const { getSetting } = useSettings();
 
   // Memoize appItems to prevent new array reference on every render
   // which would cause the position calculation effect to run continuously
@@ -299,6 +301,11 @@ export function Home() {
   const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
   const itemHeight = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
   const gridTemplateColumns = `repeat(${MOBILE_COLUMNS}, minmax(0, 1fr))`;
+  const iconDepth = getSetting('desktopIconDepth');
+  const iconDepthClasses =
+    iconDepth === 'debossed'
+      ? 'bg-gradient-to-tl shadow-inner'
+      : 'bg-gradient-to-br shadow-lg';
 
   useEffect(() => {
     const handleResize = () => {
@@ -692,8 +699,9 @@ export function Home() {
               >
                 <div
                   className={cn(
-                    'flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg transition-transform hover:scale-105 active:scale-95 sm:h-16 sm:w-16',
+                    'flex h-14 w-14 items-center justify-center rounded-2xl transition-transform hover:scale-105 active:scale-95 sm:h-16 sm:w-16',
                     bgClasses,
+                    iconDepthClasses,
                     isSelected &&
                       'ring-2 ring-primary ring-offset-2 ring-offset-background'
                   )}

@@ -74,6 +74,10 @@ export interface SettingsTranslations {
   fontDescription: string;
   fontSystem: string;
   fontMonospace: string;
+  iconDepth: string;
+  iconDepthDescription: string;
+  iconDepthEmbossed: string;
+  iconDepthDebossed: string;
   tooltips: string;
   tooltipsDescription: string;
   tooltipsEnabled: string;

@@ -76,6 +76,10 @@ export const es = {
     fontDescription: 'Elige tu estilo de fuente preferido',
     fontSystem: 'Sistema',
     fontMonospace: 'Monoespaciada',
+    iconDepth: 'Profundidad de iconos',
+    iconDepthDescription: 'Elige si los iconos se ven en relieve o hundidos',
+    iconDepthEmbossed: 'En relieve',
+    iconDepthDebossed: 'Hundidos',
     tooltips: 'Información emergente',
     tooltipsDescription:
       'Mostrar sugerencias útiles al pasar el cursor sobre los elementos',
