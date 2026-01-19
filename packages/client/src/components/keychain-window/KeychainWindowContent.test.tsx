@@ -14,7 +14,6 @@ import { KeychainWindowContent } from './KeychainWindowContent';
 const mockGetInstances = vi.fn();
 const mockGetKeyStatusForInstance = vi.fn();
 const mockDeleteSessionKeysForInstance = vi.fn();
-const mockNavigateWithFrom = vi.fn();
 
 vi.mock('@/db/instance-registry', () => ({
   getInstances: () => mockGetInstances()
@@ -24,10 +23,6 @@ vi.mock('@/db/crypto/key-manager', () => ({
   getKeyStatusForInstance: (id: string) => mockGetKeyStatusForInstance(id),
   deleteSessionKeysForInstance: (id: string) =>
     mockDeleteSessionKeysForInstance(id)
-}));
-
-vi.mock('@/lib/navigation', () => ({
-  useNavigateWithFrom: () => mockNavigateWithFrom
 }));
 
 vi.mock('@/i18n', () => ({
@@ -343,7 +338,7 @@ describe('KeychainWindowContent', () => {
     });
   });
 
-  it('navigates to details when view details is clicked', async () => {
+  it('opens detail view in the floating window when view details is clicked', async () => {
     mockGetInstances.mockResolvedValue([
       {
         id: 'instance-1',
@@ -359,7 +354,8 @@ describe('KeychainWindowContent', () => {
       wrappedKey: false
     });
 
-    render(<KeychainWindowContent />);
+    const onSelectInstance = vi.fn();
+    render(<KeychainWindowContent onSelectInstance={onSelectInstance} />);
 
     await waitFor(() => {
       expect(screen.getByTestId('context-btn')).toBeInTheDocument();
@@ -377,9 +373,7 @@ describe('KeychainWindowContent', () => {
       fireEvent.click(screen.getByTestId('context-menu-item'));
     });
 
-    expect(mockNavigateWithFrom).toHaveBeenCalledWith('/keychain/instance-1', {
-      fromLabel: 'Back to Keychain'
-    });
+    expect(onSelectInstance).toHaveBeenCalledWith('instance-1');
   });
 
   it('closes context menu when onClose is called', async () => {
