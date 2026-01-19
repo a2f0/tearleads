@@ -17,10 +17,6 @@ export function Taskbar({ className }: TaskbarProps) {
     updateWindowDimensions
   } = useWindowManager();
 
-  if (windows.length === 0) {
-    return null;
-  }
-
   const sortedWindows = [...windows].sort((a, b) => a.zIndex - b.zIndex);
   const visibleWindows = sortedWindows.filter((w) => !w.isMinimized);
   const topWindowId = visibleWindows[visibleWindows.length - 1]?.id;
@@ -76,6 +72,10 @@ export function Taskbar({ className }: TaskbarProps) {
     },
     [restoreWindow, updateWindowDimensions, windows]
   );
+
+  if (windows.length === 0) {
+    return null;
+  }
 
   return (
     <div className={className} data-testid="taskbar">

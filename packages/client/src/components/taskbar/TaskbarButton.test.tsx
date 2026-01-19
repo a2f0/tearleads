@@ -17,9 +17,8 @@ const buildProps = (
   ...overrides
 });
 
-const renderTaskbarButton = (
-  overrides: Partial<TaskbarButtonProps> = {}
-) => render(<TaskbarButton {...buildProps(overrides)} />);
+const renderTaskbarButton = (overrides: Partial<TaskbarButtonProps> = {}) =>
+  render(<TaskbarButton {...buildProps(overrides)} />);
 
 describe('TaskbarButton', () => {
   it('renders with correct label for notes type', () => {
