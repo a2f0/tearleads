@@ -186,6 +186,17 @@ describe('App Integration', () => {
       });
     });
 
+    it('closes the sidebar when clicking outside', async () => {
+      const aside = screen.getByRole('complementary');
+      expect(aside).not.toHaveClass('lg:hidden');
+
+      await user.click(screen.getByRole('main'));
+
+      await waitFor(() => {
+        expect(aside).toHaveClass('lg:hidden');
+      });
+    });
+
     describe('mobile menu navigation', () => {
       beforeEach(async () => {
         // Open mobile menu for all tests in this block
