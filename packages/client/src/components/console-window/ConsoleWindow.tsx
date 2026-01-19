@@ -185,13 +185,13 @@ export function ConsoleWindow({
         {/* Terminal content area */}
         <div
           className={cn(
-            'flex flex-1 min-h-0 min-w-0 overflow-hidden',
+            'flex min-h-0 min-w-0 flex-1 overflow-hidden',
             splitDirection === 'horizontal' && 'flex-col',
             splitDirection === 'vertical' && 'flex-row'
           )}
         >
           {/* Main terminal pane */}
-          <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
+          <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
             {visibleTabs.map((tab) => (
               <div
                 key={tab.id}
@@ -217,7 +217,7 @@ export function ConsoleWindow({
                   splitDirection === 'vertical' && 'w-px'
                 )}
               />
-              <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
+              <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
                 <Terminal
                   className="h-full rounded-none border-0"
                   autoFocus={focusTarget === 'split'}
