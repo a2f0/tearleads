@@ -17,43 +17,20 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type AudioTrack, useAudio } from '@/audio';
 import { useAudioAnalyser } from '@/audio/useAudioAnalyser';
 import { Button } from '@/components/ui/button';
+import { LCDBar } from './LCDBar';
+import {
+  BAR_COUNT,
+  BAR_KEYS,
+  getStoredVisibility,
+  setStoredVisibility,
+  VISUALIZER_HEIGHT,
+  type VisualizerVisibility
+} from './visualizer.utils';
 
-export type VisualizerVisibility = 'visible' | 'hidden';
+export type { VisualizerVisibility } from './visualizer.utils';
 
 interface AudioPlayerProps {
   tracks: AudioTrack[];
-}
-
-const STORAGE_KEY = 'audio-visualizer-visible';
-const BAR_COUNT = 12;
-const SEGMENT_COUNT = 15;
-const SEGMENT_TOTAL_HEIGHT = 6;
-const VISUALIZER_HEIGHT = SEGMENT_COUNT * SEGMENT_TOTAL_HEIGHT;
-
-const BAR_KEYS = Array.from({ length: BAR_COUNT }, (_, i) => `bar-${i}`);
-const SEGMENT_KEYS = Array.from(
-  { length: SEGMENT_COUNT },
-  (_, i) => `seg-${i}`
-);
-
-function getStoredVisibility(): VisualizerVisibility {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'visible' || stored === 'hidden') {
-      return stored;
-    }
-  } catch {
-    // localStorage may not be available
-  }
-  return 'visible';
-}
-
-function setStoredVisibility(visibility: VisualizerVisibility): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, visibility);
-  } catch {
-    // localStorage may not be available
-  }
 }
 
 function formatTime(seconds: number): string {
@@ -358,44 +335,5 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
         />
       </div>
     </div>
-  );
-}
-
-interface BarProps {
-  normalizedHeight: number;
-}
-
-function LCDBar({ normalizedHeight }: BarProps) {
-  const activeSegments = Math.round(normalizedHeight * SEGMENT_COUNT);
-
-  return (
-    <>
-      {SEGMENT_KEYS.map((key, segIndex) => {
-        const isActive = segIndex < activeSegments;
-        const segmentPosition = segIndex / SEGMENT_COUNT;
-
-        let colorClass: string;
-        if (segmentPosition > 0.8) {
-          colorClass = isActive
-            ? 'bg-destructive'
-            : 'bg-destructive/20 dark:bg-destructive/30';
-        } else if (segmentPosition > 0.6) {
-          colorClass = isActive
-            ? 'bg-accent-foreground dark:bg-accent'
-            : 'bg-accent-foreground/20 dark:bg-accent/30';
-        } else {
-          colorClass = isActive
-            ? 'bg-primary'
-            : 'bg-primary/20 dark:bg-primary/30';
-        }
-
-        return (
-          <div
-            key={key}
-            className={`h-1 w-full rounded-sm transition-colors duration-75 ${colorClass}`}
-          />
-        );
-      })}
-    </>
   );
 }
