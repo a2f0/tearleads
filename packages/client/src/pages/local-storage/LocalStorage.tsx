@@ -111,7 +111,9 @@ export function LocalStorage() {
             localStorage.removeItem(entry.key);
           }
         }
-        setEntries(entriesSnapshot.filter((entry) => isProtectedKey(entry.key)));
+        setEntries(
+          entriesSnapshot.filter((entry) => isProtectedKey(entry.key))
+        );
       }
     } catch (err) {
       console.error('Failed to delete:', err);
