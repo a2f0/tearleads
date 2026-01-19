@@ -1,11 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearPreserveWindowState } from '@/lib/windowStatePreference';
 import { LocalStorageWindowMenuBar } from './LocalStorageWindowMenuBar';
 
 describe('LocalStorageWindowMenuBar', () => {
   beforeEach(() => {
     localStorage.clear();
+    clearPreserveWindowState();
   });
 
   it('renders the File menu trigger', () => {
