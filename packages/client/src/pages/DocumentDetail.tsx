@@ -1,5 +1,5 @@
 import { and, eq, like, or } from 'drizzle-orm';
-import { Calendar, FileType, HardDrive, Loader2 } from 'lucide-react';
+import { ArrowLeft, Calendar, FileType, HardDrive, Loader2 } from 'lucide-react';
 import {
   lazy,
   Suspense,
@@ -12,6 +12,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ActionToolbar, type ActionType } from '@/components/ui/action-toolbar';
 import { BackLink } from '@/components/ui/back-link';
+import { Button } from '@/components/ui/button';
 import { EditableTitle } from '@/components/ui/editable-title';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
@@ -35,8 +36,14 @@ interface DocumentInfo {
   storagePath: string;
 }
 
-export function DocumentDetail() {
-  const { id } = useParams<{ id: string }>();
+interface DocumentDetailProps {
+  documentId?: string;
+  onBack?: () => void;
+}
+
+export function DocumentDetail({ documentId, onBack }: DocumentDetailProps) {
+  const params = useParams<{ id: string }>();
+  const id = documentId ?? params.id;
   const navigate = useNavigate();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [document, setDocument] = useState<DocumentInfo | null>(null);
@@ -109,13 +116,20 @@ export function DocumentDetail() {
         .set({ deleted: true })
         .where(eq(files.id, document.id));
 
-      navigate('/documents');
+      if (onBack) {
+        onBack();
+      } else {
+        navigate('/documents');
+      }
     } catch (err) {
       console.error('Failed to delete document:', err);
       setError(err instanceof Error ? err.message : String(err));
-      setActionLoading(null);
+    } finally {
+      if (onBack) {
+        setActionLoading(null);
+      }
     }
-  }, [document, navigate]);
+  }, [document, navigate, onBack]);
 
   const handleUpdateName = useCallback(
     async (newName: string) => {
@@ -235,7 +249,19 @@ export function DocumentDetail() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <BackLink defaultTo="/documents" defaultLabel="Back to Documents" />
+        {onBack ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            className="h-7 px-2"
+            data-testid="document-detail-back"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+        ) : (
+          <BackLink defaultTo="/documents" defaultLabel="Back to Documents" />
+        )}
       </div>
 
       {isLoading && (
