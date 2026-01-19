@@ -221,10 +221,13 @@ describe('api', () => {
 
     it('logs the postgres info endpoint event', async () => {
       vi.mocked(global.fetch).mockResolvedValue(
-        new Response(JSON.stringify({ status: 'ok', info: {}, serverVersion: null }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        })
+        new Response(
+          JSON.stringify({ status: 'ok', info: {}, serverVersion: null }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
       );
 
       const { api } = await import('./api');

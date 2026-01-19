@@ -1,5 +1,5 @@
-import { Pool, type PoolConfig } from 'pg';
 import type { PostgresConnectionInfo } from '@rapid/shared';
+import { Pool, type PoolConfig } from 'pg';
 
 let pool: Pool | null = null;
 let poolConfigKey: string | null = null;
@@ -25,7 +25,9 @@ function buildConnectionInfo(): PostgresConnectionInfo {
   const databaseUrl = getEnvValue(['DATABASE_URL', 'POSTGRES_URL']);
   if (databaseUrl) {
     const parsed = new URL(databaseUrl);
-    const username = parsed.username ? decodeURIComponent(parsed.username) : null;
+    const username = parsed.username
+      ? decodeURIComponent(parsed.username)
+      : null;
     const databaseName = parsed.pathname
       ? decodeURIComponent(parsed.pathname.replace(/^\//, ''))
       : null;
