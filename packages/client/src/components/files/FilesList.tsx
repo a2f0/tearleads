@@ -36,6 +36,7 @@ import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files as filesTable } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { useOnInstanceChange } from '@/hooks/useInstanceChange';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
 import { retrieveFileData } from '@/lib/data-retrieval';
@@ -129,6 +130,24 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
       };
     }, []);
 
+    // Clear files immediately when instance changes via direct subscription
+    // This is more reliable than waiting for currentInstanceId to update in React state
+    useOnInstanceChange(
+      useCallback(() => {
+        // Revoke all thumbnail URLs to prevent memory leaks
+        setFiles((prevFiles) => {
+          for (const file of prevFiles) {
+            if (file.thumbnailUrl) {
+              URL.revokeObjectURL(file.thumbnailUrl);
+            }
+          }
+          return [];
+        });
+        setError(null);
+        setHasFetched(false);
+      }, [])
+    );
+
     const filteredFiles = files.filter((f) => showDeleted || !f.deleted);
 
     const virtualizer = useVirtualizer({
@@ -143,6 +162,9 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
 
     const fetchFiles = useCallback(async () => {
       if (!isUnlocked) return;
+
+      // Capture instance ID at fetch start to detect stale responses
+      const fetchInstanceId = currentInstanceId;
 
       setLoading(true);
       setError(null);
@@ -206,42 +228,38 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
           })
         );
 
-        setFiles(filesWithThumbnails);
-        setHasFetched(true);
-      } catch (err) {
-        console.error('Failed to fetch files:', err);
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setLoading(false);
-      }
-    }, [isUnlocked, currentInstanceId]);
-
-    const fetchedForInstanceRef = useRef<string | null>(null);
-
-    // biome-ignore lint/correctness/useExhaustiveDependencies: files and hasFetched intentionally excluded
-    useEffect(() => {
-      const needsFetch =
-        isUnlocked &&
-        !loading &&
-        (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
-
-      if (needsFetch) {
-        if (
-          fetchedForInstanceRef.current !== currentInstanceId &&
-          fetchedForInstanceRef.current !== null
-        ) {
-          for (const file of files) {
+        // Guard: if instance changed during fetch, discard stale results
+        if (fetchInstanceId !== currentInstanceId) {
+          // Revoke URLs we just created since they won't be used
+          for (const file of filesWithThumbnails) {
             if (file.thumbnailUrl) {
               URL.revokeObjectURL(file.thumbnailUrl);
             }
           }
-          setFiles([]);
-          setError(null);
+          return;
         }
 
-        fetchedForInstanceRef.current = currentInstanceId;
-        setHasFetched(false);
+        setFiles(filesWithThumbnails);
+        setHasFetched(true);
+      } catch (err) {
+        // Guard: don't set error state if instance changed
+        if (fetchInstanceId !== currentInstanceId) return;
+        console.error('Failed to fetch files:', err);
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        // Guard: don't clear loading if instance changed (new fetch may be starting)
+        if (fetchInstanceId === currentInstanceId) {
+          setLoading(false);
+        }
+      }
+    }, [isUnlocked, currentInstanceId]);
 
+    // Fetch files when unlocked and instance is ready
+    // biome-ignore lint/correctness/useExhaustiveDependencies: hasFetched intentionally excluded
+    useEffect(() => {
+      const needsFetch = isUnlocked && !loading && !hasFetched;
+
+      if (needsFetch) {
         const timeoutId = setTimeout(() => {
           fetchFiles();
         }, 0);
@@ -249,7 +267,7 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
         return () => clearTimeout(timeoutId);
       }
       return undefined;
-    }, [isUnlocked, loading, currentInstanceId, fetchFiles]);
+    }, [isUnlocked, loading, fetchFiles]);
 
     useEffect(() => {
       if (refreshToken !== undefined && refreshToken > 0 && isUnlocked) {

@@ -38,15 +38,13 @@ function isMobileViewport(page: Page): boolean {
   return (viewport?.width ?? 0) < 1024;
 }
 
-// Helper to open sidebar via Start button (desktop only)
-async function openSidebar(page: Page) {
-  const startButton = page.getByTestId('start-button');
-  await expect(startButton).toBeVisible({ timeout: 10000 });
-  await startButton.click();
-  await expect(page.locator('aside nav')).toBeVisible({ timeout: 10000 });
-}
-
 // Helper to navigate to a page, handling mobile/desktop differences
+// Map page names to routes
+const PAGE_ROUTES = {
+  SQLite: '/sqlite',
+  Documents: '/documents'
+} as const;
+
 async function navigateToPage(
   page: Page,
   pageName: 'SQLite' | 'Documents'
@@ -60,15 +58,9 @@ async function navigateToPage(
       .getByTestId(`${pageName.toLowerCase()}-link`)
       .click();
   } else {
-    // Open sidebar if not visible
-    const sidebar = page.locator('aside nav');
-    if (!(await sidebar.isVisible())) {
-      await openSidebar(page);
-    }
-    const button = sidebar.getByRole('button', { name: pageName });
-    // Sidebar auto-closes after launch
-    await button.dblclick();
-    await expect(sidebar).not.toBeVisible({ timeout: 5000 });
+    // Use URL navigation for page testing on desktop
+    const route = PAGE_ROUTES[pageName];
+    await page.goto(route);
   }
 }
 
@@ -90,9 +82,23 @@ async function setupAndUnlockDatabase(
   });
 }
 
+// Helper to unlock via inline unlock component if database is locked after page navigation
+async function unlockIfNeeded(page: Page, password = TEST_PASSWORD): Promise<void> {
+  // Wait for page to stabilize after navigation
+  await page.waitForTimeout(500);
+
+  const inlineUnlock = page.getByTestId('inline-unlock-password');
+  if (await inlineUnlock.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await inlineUnlock.fill(password);
+    await page.getByTestId('inline-unlock-button').click();
+    await expect(inlineUnlock).not.toBeVisible({ timeout: 10000 });
+  }
+}
+
 // Helper to navigate to Documents page
 async function navigateToDocuments(page: Page): Promise<void> {
   await navigateToPage(page, 'Documents');
+  await unlockIfNeeded(page);
 }
 
 // Helper to extract document ID from URL robustly

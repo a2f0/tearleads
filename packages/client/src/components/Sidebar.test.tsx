@@ -162,18 +162,19 @@ describe('Sidebar', () => {
     expect(listItems).toHaveLength(navItems.length);
   });
 
-  it('navigates on double click for non-window paths on desktop', async () => {
+  it('navigates on single click for non-window paths on desktop', async () => {
     const user = userEvent.setup();
     renderSidebar();
 
-    const modelsButton = screen.getByRole('button', { name: 'Models' });
-    await user.dblClick(modelsButton);
+    // Home is the only non-window path
+    const homeButton = screen.getByRole('button', { name: 'Home' });
+    await user.click(homeButton);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/models');
+    expect(mockNavigate).toHaveBeenCalledWith('/');
     expect(mockOnClose).toHaveBeenCalled();
   });
 
-  it('opens floating window on double click for window paths on desktop', async () => {
+  it('opens floating window on single click for window paths on desktop', async () => {
     const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false }); // Desktop viewport
 
@@ -181,7 +182,7 @@ describe('Sidebar', () => {
 
     // Console is a window path
     const consoleButton = screen.getByRole('button', { name: 'Console' });
-    await user.dblClick(consoleButton);
+    await user.click(consoleButton);
 
     expect(mockOpenWindow).toHaveBeenCalledWith('console');
     expect(mockOnClose).toHaveBeenCalled();
@@ -274,7 +275,7 @@ describe('Sidebar', () => {
     );
 
     const emailButton = screen.getByRole('button', { name: 'Email' });
-    await user.dblClick(emailButton);
+    await user.click(emailButton);
 
     expect(localMockOnClose).toHaveBeenCalled();
 
@@ -329,6 +330,111 @@ describe('Sidebar', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/documents');
 
     window.matchMedia = originalMatchMedia;
+  });
+
+  describe('context menu', () => {
+    it('shows context menu on right-click on desktop', async () => {
+      const user = userEvent.setup();
+      mockMatchMedia({ isMobile: false, isTouch: false });
+      renderSidebar();
+
+      const consoleButton = screen.getByRole('button', { name: 'Console' });
+      await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+      expect(screen.getByText('Open')).toBeInTheDocument();
+      expect(screen.getByText('Open in Window')).toBeInTheDocument();
+    });
+
+    it('does not show context menu on right-click on mobile', async () => {
+      const user = userEvent.setup();
+      mockMatchMedia({ isMobile: true, isTouch: true });
+      renderSidebar();
+
+      const consoleButton = screen.getByRole('button', { name: 'Console' });
+      await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+      expect(screen.queryByText('Open')).not.toBeInTheDocument();
+    });
+
+    it('navigates when clicking Open in context menu', async () => {
+      const user = userEvent.setup();
+      mockMatchMedia({ isMobile: false, isTouch: false });
+      renderSidebar();
+
+      const consoleButton = screen.getByRole('button', { name: 'Console' });
+      await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+      const openButton = screen.getByText('Open');
+      await user.click(openButton);
+
+      expect(mockNavigate).toHaveBeenCalledWith('/console');
+      expect(mockOnClose).toHaveBeenCalled();
+    });
+
+    it('opens window when clicking Open in Window in context menu', async () => {
+      const user = userEvent.setup();
+      mockMatchMedia({ isMobile: false, isTouch: false });
+      renderSidebar();
+
+      const consoleButton = screen.getByRole('button', { name: 'Console' });
+      await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+      const openInWindowButton = screen.getByText('Open in Window');
+      await user.click(openInWindowButton);
+
+      expect(mockOpenWindow).toHaveBeenCalledWith('console');
+      expect(mockOnClose).toHaveBeenCalled();
+    });
+
+    it('does not show Open in Window for non-window paths', async () => {
+      const user = userEvent.setup();
+      mockMatchMedia({ isMobile: false, isTouch: false });
+      renderSidebar();
+
+      // Home is not in WINDOW_PATHS
+      const homeButton = screen.getByRole('button', { name: 'Home' });
+      await user.pointer({ keys: '[MouseRight]', target: homeButton });
+
+      expect(screen.getByText('Open')).toBeInTheDocument();
+      expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
+    });
+
+    it('closes context menu when clicking overlay', async () => {
+      const user = userEvent.setup();
+      mockMatchMedia({ isMobile: false, isTouch: false });
+      renderSidebar();
+
+      const consoleButton = screen.getByRole('button', { name: 'Console' });
+      await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+      expect(screen.getByText('Open')).toBeInTheDocument();
+
+      // Click the overlay button that covers the background
+      const closeOverlay = screen.getByRole('button', {
+        name: 'Close context menu'
+      });
+      await user.click(closeOverlay);
+
+      // Context menu should be closed
+      expect(screen.queryByText('Open')).not.toBeInTheDocument();
+    });
+
+    it('closes context menu when pressing Escape', async () => {
+      const user = userEvent.setup();
+      mockMatchMedia({ isMobile: false, isTouch: false });
+      renderSidebar();
+
+      const consoleButton = screen.getByRole('button', { name: 'Console' });
+      await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+      expect(screen.getByText('Open')).toBeInTheDocument();
+
+      // Press Escape to close the context menu
+      await user.keyboard('{Escape}');
+
+      // Context menu should be closed
+      expect(screen.queryByText('Open')).not.toBeInTheDocument();
+    });
   });
 });
 

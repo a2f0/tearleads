@@ -8,12 +8,16 @@ const packageJson: { version: string } = require('../../package.json');
 const APP_LOAD_TIMEOUT = 10000;
 const DB_OPERATION_TIMEOUT = 15000;
 
-async function openSidebar(window: Page) {
-  const startButton = window.getByTestId('start-button');
-  await expect(startButton).toBeVisible({timeout: APP_LOAD_TIMEOUT});
-  await startButton.click();
-  // Wait for sidebar to be visible
-  await expect(window.locator('nav')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+/**
+ * Navigate to a route in the Electron app using client-side routing.
+ * Electron uses a custom protocol that doesn't have a fallback to index.html,
+ * so we use History API to trigger React Router navigation.
+ */
+async function navigateToRoute(page: Page, path: string): Promise<void> {
+  await page.evaluate((route) => {
+    window.history.pushState({}, '', route);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, path);
 }
 
 test.describe('Electron App', () => {
@@ -23,6 +27,8 @@ test.describe('Electron App', () => {
   test.beforeEach(async () => {
     electronApp = await launchElectronApp();
     window = await electronApp.firstWindow();
+    // Wait for app to load before running tests
+    await expect(window.getByTestId('start-button')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
   });
 
   test.afterEach(async () => {
@@ -30,10 +36,7 @@ test.describe('Electron App', () => {
   });
 
   test('should launch and display the main window with version in title', async () => {
-    // Verify Start button is visible (main entry point to navigation)
-    const startButton = window.getByTestId('start-button');
-    await expect(startButton).toBeVisible({timeout: APP_LOAD_TIMEOUT});
-
+    // Start button visibility is verified in beforeEach
     // Wait for title to be set after page load
     const expectedTitle = `Tearleads v${packageJson.version}`;
     await expect(async () => {
@@ -43,13 +46,8 @@ test.describe('Electron App', () => {
   });
 
   test('should navigate to settings page', async () => {
-    // Open sidebar via Start button
-    await openSidebar(window);
-
-    const settingsButton = window
-      .locator('nav')
-      .getByRole('button', { name: 'Settings' });
-    await settingsButton.dblclick();
+    // Navigate via URL for testing page behavior
+    await navigateToRoute(window, '/settings');
 
     await expect(
       window.getByRole('heading', {name: 'Settings'})
@@ -57,13 +55,8 @@ test.describe('Electron App', () => {
   });
 
   test('should navigate to tables page', async () => {
-    // Open sidebar via Start button
-    await openSidebar(window);
-
-    const tablesButton = window
-      .locator('nav')
-      .getByRole('button', { name: 'Tables' });
-    await tablesButton.dblclick();
+    // Navigate via URL for testing page behavior
+    await navigateToRoute(window, '/tables');
 
     await expect(
       window.getByRole('heading', {name: 'Tables'})
@@ -71,13 +64,8 @@ test.describe('Electron App', () => {
   });
 
   test('should show inline unlock on tables page when database not unlocked', async () => {
-    // Open sidebar via Start button
-    await openSidebar(window);
-
-    await window
-      .locator('nav')
-      .getByRole('button', { name: 'Tables' })
-      .dblclick();
+    // Navigate via URL for testing page behavior
+    await navigateToRoute(window, '/tables');
 
     // Should show inline unlock component
     await expect(window.getByTestId('inline-unlock')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
@@ -88,14 +76,8 @@ test.describe('Electron App', () => {
   });
 
   test('should show tables list after database is unlocked', async () => {
-    // Open sidebar via Start button
-    await openSidebar(window);
-
-    // Setup database via SQLite page (using sidebar navigation)
-    await window
-      .locator('nav')
-      .getByRole('button', { name: 'SQLite' })
-      .dblclick();
+    // Navigate to SQLite page via URL
+    await navigateToRoute(window, '/sqlite');
     await expect(window.getByTestId('database-test')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
 
     // Reset and wait for reset to complete
@@ -117,12 +99,8 @@ test.describe('Electron App', () => {
     );
     await expect(window.getByTestId('db-status')).toContainText('Unlocked', {timeout: APP_LOAD_TIMEOUT});
 
-    // Reopen sidebar and navigate to tables page
-    await openSidebar(window);
-    await window
-      .locator('nav')
-      .getByRole('button', { name: 'Tables' })
-      .dblclick();
+    // Navigate to tables page via URL
+    await navigateToRoute(window, '/tables');
     await expect(window.getByRole('heading', {name: 'Tables'})).toBeVisible();
 
     // Should show tables

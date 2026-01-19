@@ -12,13 +12,11 @@ function isMobileViewport(page: Page): boolean {
   return (viewport?.width ?? 0) < 1024;
 }
 
-// Helper to open sidebar via Start button (desktop only)
-async function openSidebar(page: Page) {
-  const startButton = page.getByTestId('start-button');
-  await expect(startButton).toBeVisible({ timeout: 10000 });
-  await startButton.click();
-  await expect(page.locator('aside nav')).toBeVisible({ timeout: 10000 });
-}
+// Map page names to routes
+const PAGE_ROUTES = {
+  SQLite: '/sqlite',
+  Audio: '/audio'
+} as const;
 
 // Helper to navigate to a page, handling mobile/desktop differences
 async function navigateToPage(page: Page, pageName: 'SQLite' | 'Audio') {
@@ -31,15 +29,8 @@ async function navigateToPage(page: Page, pageName: 'SQLite' | 'Audio') {
       .getByTestId(`${pageName.toLowerCase()}-link`)
       .click();
   } else {
-    // Open sidebar if not visible
-    const sidebar = page.locator('aside nav');
-    if (!(await sidebar.isVisible())) {
-      await openSidebar(page);
-    }
-    const button = sidebar.getByRole('button', { name: pageName });
-    // Sidebar auto-closes after launch
-    await button.dblclick();
-    await expect(sidebar).not.toBeVisible({ timeout: 5000 });
+    // Use URL navigation for page testing on desktop
+    await page.goto(PAGE_ROUTES[pageName]);
   }
 }
 
@@ -58,9 +49,23 @@ async function setupAndUnlockDatabase(page: Page, password = 'testpassword123') 
   });
 }
 
+// Helper to unlock via inline unlock component if database is locked after page navigation
+async function unlockIfNeeded(page: Page, password = 'testpassword123') {
+  // Wait for page to stabilize after navigation
+  await page.waitForTimeout(500);
+
+  const inlineUnlock = page.getByTestId('inline-unlock-password');
+  if (await inlineUnlock.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await inlineUnlock.fill(password);
+    await page.getByTestId('inline-unlock-button').click();
+    await expect(inlineUnlock).not.toBeVisible({ timeout: 10000 });
+  }
+}
+
 // Helper to navigate to Audio page
 async function navigateToAudio(page: Page) {
   await navigateToPage(page, 'Audio');
+  await unlockIfNeeded(page);
 }
 
 // Helper to upload a test audio file and wait for track list to appear

@@ -7,6 +7,7 @@ import { Sidebar } from './Sidebar';
 
 const mockOpenWindow = vi.fn();
 const mockNavigate = vi.fn();
+const mockOnClose = vi.fn();
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManager: () => ({
@@ -49,7 +50,7 @@ const renderSidebar = () =>
   render(
     <I18nextProvider i18n={i18n}>
       <MemoryRouter>
-        <Sidebar isOpen onClose={vi.fn()} />
+        <Sidebar isOpen onClose={mockOnClose} />
       </MemoryRouter>
     </I18nextProvider>
   );
@@ -58,6 +59,7 @@ describe('Sidebar launch behavior', () => {
   beforeEach(() => {
     mockOpenWindow.mockReset();
     mockNavigate.mockReset();
+    mockOnClose.mockReset();
     Object.defineProperty(navigator, 'maxTouchPoints', {
       value: 0,
       configurable: true
@@ -65,12 +67,12 @@ describe('Sidebar launch behavior', () => {
     setMatchMedia({ coarsePointer: false, mobileWidth: false });
   });
 
-  it('opens windowed apps on desktop', async () => {
+  it('opens windowed apps on single click on desktop', async () => {
     renderSidebar();
 
     await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
 
-    fireEvent.doubleClick(screen.getByRole('button', { name: 'Console' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Console' }));
 
     expect(mockOpenWindow).toHaveBeenCalledWith('console');
     expect(mockNavigate).not.toHaveBeenCalled();
@@ -91,5 +93,64 @@ describe('Sidebar launch behavior', () => {
 
     expect(mockOpenWindow).not.toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith('/console');
+  });
+
+  it('navigates for non-windowed apps on desktop', async () => {
+    renderSidebar();
+
+    await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
+
+    // Home is the only non-windowed app
+    fireEvent.click(screen.getByRole('button', { name: 'Home' }));
+
+    expect(mockOpenWindow).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('/');
+  });
+
+  it('shows context menu on right-click on desktop', async () => {
+    renderSidebar();
+
+    await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Notes' }));
+
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.getByText('Open in Window')).toBeInTheDocument();
+  });
+
+  it('context menu Open navigates to route', async () => {
+    renderSidebar();
+
+    await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Notes' }));
+    fireEvent.click(screen.getByText('Open'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/notes');
+    expect(mockOpenWindow).not.toHaveBeenCalled();
+  });
+
+  it('context menu Open in Window opens floating window', async () => {
+    renderSidebar();
+
+    await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Notes' }));
+    fireEvent.click(screen.getByText('Open in Window'));
+
+    expect(mockOpenWindow).toHaveBeenCalledWith('notes');
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('does not show Open in Window for non-windowed apps', async () => {
+    renderSidebar();
+
+    await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
+
+    // Home is the only non-windowed app
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Home' }));
+
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
   });
 });
