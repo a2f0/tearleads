@@ -50,7 +50,11 @@ function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
 }
 
-export function TableSizes() {
+interface TableSizesProps {
+  onTableSelect?: (tableName: string) => void;
+}
+
+export function TableSizes({ onTableSelect }: TableSizesProps) {
   const { isUnlocked } = useDatabaseContext();
   const [tableSizes, setTableSizes] = useState<TableSize[]>([]);
   const [totalSize, setTotalSize] = useState<number>(0);
@@ -208,24 +212,40 @@ export function TableSizes() {
                 </div>
               )}
               <div className="space-y-1">
-                {tableSizes.map((table) => (
-                  <div
-                    key={table.name}
-                    className="flex items-center justify-between"
-                  >
-                    <LinkWithFrom
-                      to={`/tables/${encodeURIComponent(table.name)}`}
-                      fromLabel="Back to SQLite"
-                      className="truncate font-mono text-muted-foreground hover:text-foreground hover:underline"
+                {tableSizes.map((table) => {
+                  const tablePath = `/sqlite/tables/${encodeURIComponent(
+                    table.name
+                  )}`;
+
+                  return (
+                    <div
+                      key={table.name}
+                      className="flex items-center justify-between"
                     >
-                      {table.name}
-                    </LinkWithFrom>
-                    <span className="shrink-0 font-mono text-xs">
-                      {table.isEstimated ? '~' : ''}
-                      {formatBytes(table.size)}
-                    </span>
-                  </div>
-                ))}
+                      {onTableSelect ? (
+                        <button
+                          type="button"
+                          onClick={() => onTableSelect(table.name)}
+                          className="truncate text-left font-mono text-muted-foreground hover:text-foreground hover:underline"
+                        >
+                          {table.name}
+                        </button>
+                      ) : (
+                        <LinkWithFrom
+                          to={tablePath}
+                          fromLabel="Back to SQLite"
+                          className="truncate font-mono text-muted-foreground hover:text-foreground hover:underline"
+                        >
+                          {table.name}
+                        </LinkWithFrom>
+                      )}
+                      <span className="shrink-0 font-mono text-xs">
+                        {table.isEstimated ? '~' : ''}
+                        {formatBytes(table.size)}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}

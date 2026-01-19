@@ -159,7 +159,7 @@ export function Tables() {
             tables.map((table) => (
               <LinkWithFrom
                 key={table.name}
-                to={`/tables/${encodeURIComponent(table.name)}`}
+                to={`/sqlite/tables/${encodeURIComponent(table.name)}`}
                 fromLabel="Back to Tables"
                 className="flex items-center gap-3 rounded-lg border bg-muted/50 p-3 transition-colors hover:bg-muted"
               >

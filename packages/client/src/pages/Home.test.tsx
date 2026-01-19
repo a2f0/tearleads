@@ -31,7 +31,7 @@ const MOCK_SAVED_POSITIONS = {
   '/notes': { x: 300, y: 200 },
   '/audio': { x: 400, y: 200 },
   '/videos': { x: 100, y: 300 },
-  '/tables': { x: 200, y: 300 },
+  '/sqlite/tables': { x: 200, y: 300 },
   '/analytics': { x: 300, y: 300 },
   '/sqlite': { x: 400, y: 300 },
   '/console': { x: 100, y: 400 },

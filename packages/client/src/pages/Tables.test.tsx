@@ -318,7 +318,7 @@ describe('Tables', () => {
       expect(screen.getByText('users')).toBeInTheDocument();
 
       const usersLink = screen.getByRole('link', { name: /users/i });
-      expect(usersLink).toHaveAttribute('href', '/tables/users');
+      expect(usersLink).toHaveAttribute('href', '/sqlite/tables/users');
     });
   });
 

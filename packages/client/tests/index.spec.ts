@@ -65,9 +65,14 @@ const WINDOW_LAUNCH_PATHS = new Set([
   '/photos',
   '/settings',
   '/sqlite',
-  '/tables',
+  '/sqlite/tables',
   '/videos'
 ]);
+
+// Override paths where the slug doesn't match the actual route
+const PATH_OVERRIDES: Record<string, string> = {
+  '/tables': '/sqlite/tables'
+};
 
 // Pages at the bottom of sidebar that might be scrolled out of view
 const URL_NAVIGATION_PATHS = new Set<string>([]);
@@ -75,12 +80,9 @@ const URL_NAVIGATION_PATHS = new Set<string>([]);
 // Helper to navigate via sidebar or URL navigation
 async function navigateTo(page: Page, linkName: string) {
   const slug = linkName.toLowerCase().replace(/\s+/g, '-');
-  const path =
-    linkName === 'Home'
-      ? '/'
-      : linkName === 'Admin'
-        ? '/admin/redis'
-        : `/${slug}`;
+  const slugPath = linkName === 'Home' ? '/' : `/${slug}`;
+  // Apply path override if exists (e.g., /tables -> /sqlite/tables)
+  const path = PATH_OVERRIDES[slugPath] ?? slugPath;
   const isDesktop = await isDesktopDevice(page);
 
   // Use URL navigation for window-capable paths or paths that might be scrolled out of view
@@ -937,7 +939,7 @@ test.describe('Tables page', () => {
     await filesTableLink.click();
 
     // Should be on table rows page
-    await expect(page).toHaveURL(/\/tables\/files/);
+    await expect(page).toHaveURL(/\/sqlite\/tables\/files/);
 
     // Should show back link
     await expect(page.getByText('Back to Tables')).toBeVisible();
@@ -964,7 +966,7 @@ test.describe('Tables page', () => {
 
     // Click back to return to tables list
     await page.getByText('Back to Tables').click();
-    await expect(page).toHaveURL('/tables');
+    await expect(page).toHaveURL('/sqlite/tables');
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
   });
 
@@ -1003,7 +1005,7 @@ test.describe('Tables page', () => {
     const filesTableLink = page.getByRole('link', { name: /files.*\d+\s+rows?/i });
     await expect(filesTableLink).toBeVisible({ timeout: 10000 });
     await filesTableLink.click();
-    await expect(page).toHaveURL(/\/tables\/files/);
+    await expect(page).toHaveURL(/\/sqlite\/tables\/files/);
 
     // Initially should show table view with sortable column header buttons
     // (virtualized div-based layout uses buttons, not columnheaders)

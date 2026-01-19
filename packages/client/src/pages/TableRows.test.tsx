@@ -57,9 +57,9 @@ vi.mock('@/db/hooks', () => ({
 
 async function renderTableRows(tableName = 'test_table') {
   const result = render(
-    <MemoryRouter initialEntries={[`/tables/${tableName}`]}>
+    <MemoryRouter initialEntries={[`/sqlite/tables/${tableName}`]}>
       <Routes>
-        <Route path="/tables/:tableName" element={<TableRows />} />
+        <Route path="/sqlite/tables/:tableName" element={<TableRows />} />
       </Routes>
     </MemoryRouter>
   );
@@ -1110,9 +1110,9 @@ describe('TableRows', () => {
 
       // Re-render with the new instance context
       rerender(
-        <MemoryRouter initialEntries={['/tables/test_table']}>
+        <MemoryRouter initialEntries={['/sqlite/tables/test_table']}>
           <Routes>
-            <Route path="/tables/:tableName" element={<TableRows />} />
+            <Route path="/sqlite/tables/:tableName" element={<TableRows />} />
           </Routes>
         </MemoryRouter>
       );
