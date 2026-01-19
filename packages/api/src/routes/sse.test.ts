@@ -111,6 +111,60 @@ describe('SSE Routes', () => {
       );
     });
 
+    it('sends keepalive events', async () => {
+      const originalSetInterval = globalThis.setInterval;
+      const intervalSpy = vi
+        .spyOn(globalThis, 'setInterval')
+        .mockImplementation((handler, timeout, ...args) => {
+          if (typeof handler === 'function') {
+            handler(...args);
+          }
+          return originalSetInterval(() => {}, timeout);
+        });
+
+      const response = await request(app)
+        .get('/v1/sse')
+        .buffer(true)
+        .parse(
+          createSseParser((data, res) => {
+            if (data.includes(': keepalive')) {
+              res.destroy();
+            }
+          })
+        );
+
+      intervalSpy.mockRestore();
+
+      expect(response.body).toContain(': keepalive');
+    });
+
+    it('logs cleanup errors when unsubscribe fails', async () => {
+      mockUnsubscribe.mockRejectedValueOnce(new Error('cleanup failed'));
+
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      await request(app)
+        .get('/v1/sse?channels=channel1')
+        .buffer(true)
+        .parse(
+          createSseParser((data, res) => {
+            if (data.includes('event: connected')) {
+              res.destroy();
+            }
+          })
+        );
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'SSE cleanup error:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
+    });
+
     it('creates a duplicate client for each connection', async () => {
       await request(app)
         .get('/v1/sse')
