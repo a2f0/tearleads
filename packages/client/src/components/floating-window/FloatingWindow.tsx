@@ -283,13 +283,7 @@ export function FloatingWindow({
     if (width <= maxWidth && height <= maxHeight) {
       setIsNearMaximized(false);
     }
-  }, [
-    height,
-    isNearMaximized,
-    maxHeightPercent,
-    maxWidthPercent,
-    width
-  ]);
+  }, [height, isNearMaximized, maxHeightPercent, maxWidthPercent, width]);
 
   const handleWindowClick = () => {
     onFocus?.();
