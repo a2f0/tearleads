@@ -9,7 +9,7 @@ import {
 } from '@/db/crypto/key-manager';
 import {
   deleteInstanceFromRegistry,
-  getInstances,
+  getInstance,
   type InstanceMetadata
 } from '@/db/instance-registry';
 import { DeleteKeychainInstanceDialog } from '@/pages/keychain/DeleteKeychainInstanceDialog';
@@ -51,8 +51,7 @@ export function KeychainWindowDetail({
     setError(null);
 
     try {
-      const instances = await getInstances();
-      const instance = instances.find((info) => info.id === instanceId);
+      const instance = await getInstance(instanceId);
 
       if (!instance) {
         setError('Instance not found');
@@ -78,13 +77,18 @@ export function KeychainWindowDetail({
 
     try {
       await deleteSessionKeysForInstance(instanceInfo.instance.id);
-      await fetchInstanceInfo();
+      const newKeyStatus = await getKeyStatusForInstance(
+        instanceInfo.instance.id
+      );
+      setInstanceInfo((prev) =>
+        prev ? { ...prev, keyStatus: newKeyStatus } : prev
+      );
     } catch (err) {
       console.error('Failed to delete session keys:', err);
       setError(err instanceof Error ? err.message : String(err));
       throw err;
     }
-  }, [instanceInfo, fetchInstanceInfo]);
+  }, [instanceInfo]);
 
   const handleDeleteInstance = useCallback(async () => {
     if (!instanceInfo) return;
@@ -97,6 +101,7 @@ export function KeychainWindowDetail({
     } catch (err) {
       console.error('Failed to delete instance:', err);
       setError(err instanceof Error ? err.message : String(err));
+      throw err;
     }
   }, [instanceInfo, onDeleted]);
 
