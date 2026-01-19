@@ -76,6 +76,11 @@ export const ua = {
     fontDescription: 'Виберіть бажаний стиль шрифту',
     fontSystem: 'Системний',
     fontMonospace: 'Моноширинний',
+    iconDepth: 'Глибина значків',
+    iconDepthDescription:
+      'Оберіть, чи виглядають значки опуклими або втиснутими',
+    iconDepthEmbossed: 'Опуклі',
+    iconDepthDebossed: 'Втиснуті',
     tooltips: 'Підказки',
     tooltipsDescription:
       'Показувати корисні підказки при наведенні на елементи',
