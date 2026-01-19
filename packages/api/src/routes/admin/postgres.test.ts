@@ -64,6 +64,14 @@ describe('admin postgres routes', () => {
             total_bytes: '2048',
             table_bytes: '1024',
             index_bytes: '1024'
+          },
+          {
+            schema: 'analytics',
+            name: 'events',
+            row_count: 7,
+            total_bytes: 4096,
+            table_bytes: 3072,
+            index_bytes: null
           }
         ]
       })
@@ -81,6 +89,14 @@ describe('admin postgres routes', () => {
           totalBytes: 2048,
           tableBytes: 1024,
           indexBytes: 1024
+        },
+        {
+          schema: 'analytics',
+          name: 'events',
+          rowCount: 7,
+          totalBytes: 4096,
+          tableBytes: 3072,
+          indexBytes: 0
         }
       ]
     });
