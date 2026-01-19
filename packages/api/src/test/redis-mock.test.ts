@@ -89,7 +89,11 @@ describe('redis mock adapter', () => {
 
     expect(await client.get('string:key')).toBe('value');
     expect(await client.get('list:key')).toBeNull();
-    expect(await client.sMembers('set:key')).toEqual(['alpha', 'beta', 'gamma']);
+    expect(await client.sMembers('set:key')).toEqual([
+      'alpha',
+      'beta',
+      'gamma'
+    ]);
     expect(await client.sMembers('string:key')).toEqual([]);
     expect(await client.hGetAll('hash:key')).toEqual({
       field: 'value',
