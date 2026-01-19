@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { formatDate, getErrorCode, isRecord, toFiniteNumber } from './index.js';
+import {
+  DEFAULT_OPENROUTER_MODEL_ID,
+  OPENROUTER_CHAT_MODELS,
+  formatDate,
+  getErrorCode,
+  isOpenRouterModelId,
+  isRecord,
+  toFiniteNumber
+} from './index.js';
 
 describe('formatDate', () => {
   it('should return an ISO string for a valid date', () => {
@@ -101,5 +109,17 @@ describe('toFiniteNumber', () => {
     expect(toFiniteNumber(undefined)).toBeNull();
     expect(toFiniteNumber({})).toBeNull();
     expect(toFiniteNumber([])).toBeNull();
+  });
+});
+
+describe('OpenRouter models', () => {
+  it('includes the default model in the list', () => {
+    const ids = OPENROUTER_CHAT_MODELS.map((model) => model.id);
+    expect(ids).toContain(DEFAULT_OPENROUTER_MODEL_ID);
+  });
+
+  it('identifies supported model IDs', () => {
+    expect(isOpenRouterModelId(DEFAULT_OPENROUTER_MODEL_ID)).toBe(true);
+    expect(isOpenRouterModelId('unknown/model')).toBe(false);
   });
 });

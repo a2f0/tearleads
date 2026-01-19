@@ -1,4 +1,5 @@
 import { Bot, Check, Eye } from 'lucide-react';
+import { isOpenRouterModelId } from '@rapid/shared';
 import type { ModelInfo } from '@/lib/models';
 
 interface ModelOptionProps {
@@ -8,6 +9,7 @@ interface ModelOptionProps {
 }
 
 export function ModelOption({ model, isLoaded, onSelect }: ModelOptionProps) {
+  const isRemote = isOpenRouterModelId(model.id);
   return (
     <button
       type="button"
@@ -38,6 +40,11 @@ export function ModelOption({ model, isLoaded, onSelect }: ModelOptionProps) {
           {model.isVision && (
             <span className="rounded-full bg-chart-4/10 px-1.5 py-0.5 font-medium text-chart-4 text-xs">
               Vision
+            </span>
+          )}
+          {isRemote && (
+            <span className="rounded-full bg-info/10 px-1.5 py-0.5 font-medium text-info text-xs">
+              Remote
             </span>
           )}
         </div>

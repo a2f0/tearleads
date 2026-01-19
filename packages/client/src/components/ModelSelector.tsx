@@ -1,5 +1,6 @@
 import { Bot, ChevronDown, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { isOpenRouterModelId } from '@rapid/shared';
 import { useLLM } from '@/hooks/useLLM';
 import { CHAT_MODELS } from '@/lib/models';
 import { ModelOption } from './ModelOption';
@@ -12,6 +13,12 @@ export function ModelSelector({ modelDisplayName }: ModelSelectorProps) {
   const { loadedModel, isLoading, loadProgress, loadModel } = useLLM();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const localModels = CHAT_MODELS.filter(
+    (model) => !isOpenRouterModelId(model.id)
+  );
+  const openRouterModels = CHAT_MODELS.filter((model) =>
+    isOpenRouterModelId(model.id)
+  );
 
   const handleToggle = useCallback(() => {
     if (!isLoading) {
@@ -97,14 +104,34 @@ export function ModelSelector({ modelDisplayName }: ModelSelectorProps) {
             <p className="mb-2 px-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
               Available Models
             </p>
-            {CHAT_MODELS.map((model) => (
-              <ModelOption
-                key={model.id}
-                model={model}
-                isLoaded={loadedModel === model.id}
-                onSelect={() => handleSelectModel(model.id)}
-              />
-            ))}
+            <div className="space-y-1">
+              <p className="px-2 font-medium text-muted-foreground text-[11px] uppercase tracking-wider">
+                Local Models
+              </p>
+              {localModels.map((model) => (
+                <ModelOption
+                  key={model.id}
+                  model={model}
+                  isLoaded={loadedModel === model.id}
+                  onSelect={() => handleSelectModel(model.id)}
+                />
+              ))}
+            </div>
+            {openRouterModels.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <p className="px-2 font-medium text-muted-foreground text-[11px] uppercase tracking-wider">
+                  OpenRouter Models
+                </p>
+                {openRouterModels.map((model) => (
+                  <ModelOption
+                    key={model.id}
+                    model={model}
+                    isLoaded={loadedModel === model.id}
+                    onSelect={() => handleSelectModel(model.id)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

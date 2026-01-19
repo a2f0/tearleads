@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_OPENROUTER_MODEL_ID } from '@rapid/shared';
 import type { ClassificationResult } from './useLLM';
 
 // Mock the worker
@@ -66,6 +67,71 @@ describe('useLLM', () => {
   afterEach(() => {
     // Reset modules to clear module-level state
     vi.resetModules();
+  });
+
+  describe('OpenRouter models', () => {
+    it('loads OpenRouter models without using the worker', async () => {
+      vi.stubEnv('VITE_API_URL', 'http://localhost');
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      await act(async () => {
+        await result.current.loadModel(DEFAULT_OPENROUTER_MODEL_ID);
+      });
+
+      expect(result.current.loadedModel).toBe(DEFAULT_OPENROUTER_MODEL_ID);
+      expect(result.current.modelType).toBe('chat');
+      expect(mockPostMessage).not.toHaveBeenCalled();
+      vi.unstubAllEnvs();
+    });
+
+    it('generates responses via the OpenRouter API', async () => {
+      vi.stubEnv('VITE_API_URL', 'http://localhost');
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  role: 'assistant',
+                  content: 'Remote reply'
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      );
+      vi.stubGlobal('fetch', mockFetch);
+
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      await act(async () => {
+        await result.current.loadModel(DEFAULT_OPENROUTER_MODEL_ID);
+      });
+
+      const onToken = vi.fn();
+      await act(async () => {
+        await result.current.generate(
+          [{ role: 'user', content: 'Hello' }],
+          onToken
+        );
+      });
+
+      expect(onToken).toHaveBeenCalledWith('Remote reply');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost/chat/completions',
+        expect.objectContaining({
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+      );
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    });
   });
 
   describe('snapshot immutability', () => {
