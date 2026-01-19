@@ -82,9 +82,7 @@ function renderAnalyticsRaw(props: ComponentProps<typeof Analytics> = {}) {
   );
 }
 
-async function renderAnalytics(
-  props: ComponentProps<typeof Analytics> = {}
-) {
+async function renderAnalytics(props: ComponentProps<typeof Analytics> = {}) {
   const result = renderAnalyticsRaw(props);
   // Wait for initial async effects to complete
   await waitFor(() => {
