@@ -84,14 +84,12 @@ export function NotesWindow({
       minHeight={300}
     >
       <div className="flex h-full flex-col">
-        {!selectedNoteId && (
-          <NotesWindowMenuBar
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            onNewNote={handleNewNote}
-            onClose={onClose}
-          />
-        )}
+        <NotesWindowMenuBar
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onNewNote={handleNewNote}
+          onClose={onClose}
+        />
         <div className="flex-1 overflow-hidden">
           {selectedNoteId ? (
             <NotesWindowDetail

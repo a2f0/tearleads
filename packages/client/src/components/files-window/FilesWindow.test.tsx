@@ -369,7 +369,7 @@ describe('FilesWindow', () => {
       'test-file-id'
     );
     expect(screen.queryByTestId('files-content')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('menu-bar')).not.toBeInTheDocument();
+    expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
   });
 
   it('returns to list view when back button is clicked', async () => {

@@ -324,7 +324,7 @@ describe('EmailWindow', () => {
     });
   });
 
-  it('hides menu bar when email is selected', async () => {
+  it('keeps menu bar when email is selected', async () => {
     const user = userEvent.setup();
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
@@ -340,7 +340,7 @@ describe('EmailWindow', () => {
     await user.click(screen.getByText('Test Subject'));
 
     await waitFor(() => {
-      expect(screen.queryByTestId('menu-bar')).not.toBeInTheDocument();
+      expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
     });
   });
 });
