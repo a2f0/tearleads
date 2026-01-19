@@ -95,6 +95,8 @@ describe('ModelSelector', () => {
       expect(screen.getByText('Phi 3.5 Mini')).toBeInTheDocument();
       expect(screen.getByText('SmolVLM 256M')).toBeInTheDocument();
       expect(screen.getByText('PaliGemma 2 3B')).toBeInTheDocument();
+      expect(screen.getByText('Mistral 7B Instruct')).toBeInTheDocument();
+      expect(screen.queryByText('CLIP ViT-B/32')).not.toBeInTheDocument();
     });
 
     it('shows Vision badge for vision models', async () => {
@@ -105,6 +107,16 @@ describe('ModelSelector', () => {
 
       const visionBadges = screen.getAllByText('Vision');
       expect(visionBadges.length).toBe(2);
+    });
+
+    it('shows OpenRouter section in the dropdown', async () => {
+      const user = userEvent.setup();
+      render(<ModelSelector modelDisplayName={undefined} />);
+
+      await user.click(screen.getByRole('button'));
+
+      expect(screen.getByText('Local Models')).toBeInTheDocument();
+      expect(screen.getByText('OpenRouter Models')).toBeInTheDocument();
     });
 
     it('closes dropdown when clicking outside', async () => {
@@ -154,6 +166,20 @@ describe('ModelSelector', () => {
       await waitFor(() => {
         expect(mockLoadModel).toHaveBeenCalledWith(
           'onnx-community/Phi-3.5-mini-instruct-onnx-web'
+        );
+      });
+    });
+
+    it('calls loadModel when an OpenRouter model is selected', async () => {
+      const user = userEvent.setup();
+      render(<ModelSelector modelDisplayName={undefined} />);
+
+      await user.click(screen.getByRole('button'));
+      await user.click(screen.getByText('Mistral 7B Instruct'));
+
+      await waitFor(() => {
+        expect(mockLoadModel).toHaveBeenCalledWith(
+          'mistralai/mistral-7b-instruct:free'
         );
       });
     });

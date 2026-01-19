@@ -1,4 +1,8 @@
-import { isRecord } from '@rapid/shared';
+import {
+  DEFAULT_OPENROUTER_MODEL_ID,
+  isOpenRouterModelId,
+  isRecord
+} from '@rapid/shared';
 import {
   type Request,
   type Response,
@@ -9,7 +13,7 @@ import {
 const router: RouterType = Router();
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-export const DEFAULT_OPENROUTER_MODEL = 'mistralai/mistral-7b-instruct:free';
+export const DEFAULT_OPENROUTER_MODEL = DEFAULT_OPENROUTER_MODEL_ID;
 
 type ChatRole = 'assistant' | 'system' | 'tool' | 'user';
 
@@ -65,6 +69,9 @@ function parseMessages(value: unknown): ChatMessage[] | null {
  *           schema:
  *             type: object
  *             properties:
+ *               model:
+ *                 type: string
+ *                 description: Optional OpenRouter model ID (defaults to the free model)
  *               messages:
  *                 type: array
  *                 items:
@@ -87,18 +94,30 @@ function parseMessages(value: unknown): ChatMessage[] | null {
  *         description: Server configuration error
  */
 router.post('/completions', async (req: Request, res: Response) => {
-  const apiKey = process.env['OPENROUTER_API_KEY'];
-  if (!apiKey) {
-    res.status(500).json({
-      error: 'OPENROUTER_API_KEY is not configured on the server'
-    });
-    return;
-  }
-
   const messages = parseMessages(req.body?.['messages']);
   if (!messages) {
     res.status(400).json({
       error: 'messages must be a non-empty array of { role, content }'
+    });
+    return;
+  }
+
+  let modelId = DEFAULT_OPENROUTER_MODEL_ID;
+  if (isRecord(req.body) && req.body['model'] !== undefined) {
+    const modelValue = req.body['model'];
+    if (typeof modelValue !== 'string' || !isOpenRouterModelId(modelValue)) {
+      res.status(400).json({
+        error: 'model must be a supported OpenRouter chat model'
+      });
+      return;
+    }
+    modelId = modelValue;
+  }
+
+  const apiKey = process.env['OPENROUTER_API_KEY'];
+  if (!apiKey) {
+    res.status(500).json({
+      error: 'OPENROUTER_API_KEY is not configured on the server'
     });
     return;
   }
@@ -111,7 +130,7 @@ router.post('/completions', async (req: Request, res: Response) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: DEFAULT_OPENROUTER_MODEL,
+        model: modelId,
         messages
       })
     });

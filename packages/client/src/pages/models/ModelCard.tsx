@@ -1,3 +1,4 @@
+import { isOpenRouterModelId } from '@rapid/shared';
 import {
   Bot,
   Check,
@@ -36,9 +37,10 @@ export function ModelCard({
   onUnload,
   onDelete
 }: ModelCardProps) {
+  const isRemote = isOpenRouterModelId(model.id);
   const isLoaded = status === 'loaded';
-  const isDownloading = status === 'downloading';
-  const isCached = status === 'cached';
+  const isDownloading = !isRemote && status === 'downloading';
+  const isCached = !isRemote && status === 'cached';
 
   return (
     <div className="rounded-lg border bg-card p-4">
@@ -64,6 +66,11 @@ export function ModelCard({
               {model.isVision && (
                 <span className="rounded-full bg-chart-4/10 px-2 py-0.5 font-medium text-chart-4 text-xs">
                   Vision
+                </span>
+              )}
+              {isRemote && (
+                <span className="rounded-full bg-info/10 px-2 py-0.5 font-medium text-info text-xs">
+                  Remote
                 </span>
               )}
             </div>
@@ -109,7 +116,7 @@ export function ModelCard({
             disabled={disabled}
           >
             <Square className="mr-2 h-4 w-4" />
-            Unload
+            {isRemote ? 'Disconnect' : 'Unload'}
           </Button>
         ) : isDownloading ? (
           <Button variant="outline" size="sm" disabled>
@@ -137,6 +144,16 @@ export function ModelCard({
               <Trash2 className="h-4 w-4" />
             </Button>
           </>
+        ) : isRemote ? (
+          <Button
+            variant="default"
+            size="sm"
+            onClick={onLoad}
+            disabled={disabled}
+          >
+            <Play className="mr-2 h-4 w-4" />
+            Use
+          </Button>
         ) : (
           <Button
             variant="default"
