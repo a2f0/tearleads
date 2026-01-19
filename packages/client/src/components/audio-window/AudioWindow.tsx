@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { AudioWindowDetail } from './AudioWindowDetail';
 import { AudioWindowList } from './AudioWindowList';
 import type { AudioViewMode } from './AudioWindowMenuBar';
 import { AudioWindowMenuBar } from './AudioWindowMenuBar';
@@ -26,6 +27,21 @@ export function AudioWindow({
   initialDimensions
 }: AudioWindowProps) {
   const [view, setView] = useState<AudioViewMode>('list');
+  const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  const handleSelectTrack = useCallback((trackId: string) => {
+    setSelectedTrackId(trackId);
+  }, []);
+
+  const handleBack = useCallback(() => {
+    setSelectedTrackId(null);
+  }, []);
+
+  const handleDeleted = useCallback(() => {
+    setSelectedTrackId(null);
+    setRefreshToken((value) => value + 1);
+  }, []);
 
   return (
     <FloatingWindow
@@ -43,13 +59,31 @@ export function AudioWindow({
       minHeight={350}
     >
       <div className="flex h-full flex-col">
-        <AudioWindowMenuBar
-          onClose={onClose}
-          view={view}
-          onViewChange={setView}
-        />
+        {!selectedTrackId && (
+          <AudioWindowMenuBar
+            onClose={onClose}
+            view={view}
+            onViewChange={setView}
+          />
+        )}
         <div className="flex-1 overflow-hidden">
-          {view === 'list' ? <AudioWindowList /> : <AudioWindowTableView />}
+          {selectedTrackId ? (
+            <AudioWindowDetail
+              audioId={selectedTrackId}
+              onBack={handleBack}
+              onDeleted={handleDeleted}
+            />
+          ) : view === 'list' ? (
+            <AudioWindowList
+              onSelectTrack={handleSelectTrack}
+              refreshToken={refreshToken}
+            />
+          ) : (
+            <AudioWindowTableView
+              onSelectTrack={handleSelectTrack}
+              refreshToken={refreshToken}
+            />
+          )}
         </div>
       </div>
     </FloatingWindow>

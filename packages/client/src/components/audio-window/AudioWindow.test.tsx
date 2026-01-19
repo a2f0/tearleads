@@ -28,7 +28,22 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 vi.mock('./AudioWindowList', () => ({
-  AudioWindowList: () => <div data-testid="audio-list">Audio List</div>
+  AudioWindowList: ({
+    onSelectTrack
+  }: {
+    onSelectTrack?: (trackId: string) => void;
+  }) => (
+    <div data-testid="audio-list">
+      <button
+        type="button"
+        onClick={() => onSelectTrack?.('track-1')}
+        data-testid="select-track"
+      >
+        Select Track
+      </button>
+      Audio List
+    </div>
+  )
 }));
 
 vi.mock('./AudioWindowMenuBar', () => ({
@@ -36,6 +51,23 @@ vi.mock('./AudioWindowMenuBar', () => ({
     <div data-testid="menu-bar">
       <button type="button" onClick={onClose} data-testid="menu-close">
         Close
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('./AudioWindowDetail', () => ({
+  AudioWindowDetail: ({
+    audioId,
+    onBack
+  }: {
+    audioId: string;
+    onBack: () => void;
+  }) => (
+    <div data-testid="audio-detail">
+      <span>{audioId}</span>
+      <button type="button" onClick={onBack} data-testid="detail-back">
+        Back
       </button>
     </div>
   )
@@ -77,6 +109,19 @@ describe('AudioWindow', () => {
 
     await user.click(screen.getByTestId('close-window'));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('shows detail view when a track is selected', async () => {
+    const user = userEvent.setup();
+    render(<AudioWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-track'));
+
+    expect(screen.getByTestId('audio-detail')).toBeInTheDocument();
+    expect(screen.queryByTestId('menu-bar')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('detail-back'));
+    expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
   });
 
   it('passes initialDimensions to FloatingWindow when provided', () => {
