@@ -118,10 +118,12 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    4e. Address Gemini feedback:
 
    - Use `/address-gemini-feedback` and `/follow-up-with-gemini`.
-   - Reply in-thread using the REST API reply endpoint (`/pulls/comments/{comment_id}/replies`) and include `@gemini-code-assist`.
+   - **Always reply in-thread immediately** (before proceeding to CI):
+     - List review comments: `gh api /repos/$REPO/pulls/<pr-number>/comments`
+     - Reply in-thread: `gh api --method POST /repos/$REPO/pulls/<pr-number>/comments/<comment_id>/replies -f body="...@gemini-code-assist ..."`
    - Never use `gh pr review` or GraphQL review comment mutations to reply (they create pending reviews).
    - Include relevant commit hashes in replies (not just titles).
-   - Resolve threads only after explicit Gemini confirmation.
+   - **Resolve threads in the loop** only after explicit Gemini confirmation; do not leave Gemini threads unresolved before continuing.
 
    4f. Wait for CI with adaptive polling and branch freshness checks:
 
