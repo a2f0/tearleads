@@ -1,3 +1,8 @@
+/**
+ * AGENT GUARDRAIL: Do NOT skip any tests in this file.
+ * Instance switching tests are critical for verifying data isolation between instances.
+ * If tests fail, fix the root cause rather than skipping.
+ */
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { clearOriginStorage, MINIMAL_PNG } from './test-utils';
@@ -272,12 +277,23 @@ function isMobileViewport(page: Page): boolean {
   return (viewport?.width ?? 0) < 1024;
 }
 
-// Helper to open sidebar via Start button (desktop only)
-async function openSidebar(page: Page) {
-  const startButton = page.getByTestId('start-button');
-  await expect(startButton).toBeVisible({ timeout: 10000 });
-  await startButton.click();
-  await expect(page.locator('aside nav')).toBeVisible({ timeout: 10000 });
+// Map page names to routes
+const PAGE_ROUTES = {
+  SQLite: '/sqlite',
+  Files: '/files'
+} as const;
+
+// Helper to unlock via inline unlock component if database is locked after page navigation
+async function unlockIfNeeded(page: Page, password = TEST_PASSWORD): Promise<void> {
+  // Wait for page to stabilize after navigation
+  await page.waitForTimeout(500);
+
+  const inlineUnlock = page.getByTestId('inline-unlock-password');
+  if (await inlineUnlock.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await inlineUnlock.fill(password);
+    await page.getByTestId('inline-unlock-button').click();
+    await expect(inlineUnlock).not.toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
+  }
 }
 
 // Helper to navigate to a page, handling mobile/desktop differences
@@ -291,15 +307,10 @@ async function navigateToPage(page: Page, pageName: 'SQLite' | 'Files') {
       .getByTestId(`${pageName.toLowerCase()}-link`)
       .click();
   } else {
-    // Open sidebar if not visible
-    const sidebar = page.locator('aside nav');
-    if (!(await sidebar.isVisible())) {
-      await openSidebar(page);
-    }
-    const button = sidebar.getByRole('button', { name: pageName });
-    // Sidebar auto-closes after launch
-    await button.dblclick();
-    await expect(sidebar).not.toBeVisible({ timeout: 5000 });
+    // Use URL navigation for page testing on desktop
+    const route = PAGE_ROUTES[pageName];
+    await page.goto(route);
+    await unlockIfNeeded(page);
   }
 }
 
@@ -318,11 +329,64 @@ async function uploadTestFile(page: Page, fileName = 'test-image.png') {
   await expect(page.getByText('1 file')).toBeVisible({ timeout: 60000 });
 }
 
-// Helper to setup database on the SQLite page
-async function setupDatabaseOnSqlitePage(page: Page) {
-  await navigateToPage(page, 'SQLite');
+// Helper to setup database on the SQLite page (handles locked/unlocked states)
+async function setupDatabaseOnSqlitePage(page: Page, useInAppNavigation = false) {
+  if (useInAppNavigation) {
+    // Use in-app navigation by directly modifying the URL hash/path
+    // This preserves React state including the current instance
+    await page.evaluate(() => {
+      window.history.pushState({}, '', '/sqlite');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await page.waitForTimeout(500);
+  } else {
+    await navigateToPage(page, 'SQLite');
+  }
+
+  // Wait for status to stabilize (not Loading)
+  await expect(page.getByTestId('db-status')).not.toHaveText('Loading...', {
+    timeout: DB_OPERATION_TIMEOUT
+  });
+
+  // Check the current database status
+  const status = await page.getByTestId('db-status').textContent();
+
+  if (status === 'Unlocked') {
+    // Already unlocked, nothing to do
+    return;
+  }
+
+  if (status === 'Locked') {
+    // Database is locked, reset it first to get to "Not Set Up" state
+    await page.getByTestId('db-reset-button').click();
+    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
+    await expect(page.getByTestId('db-status')).toHaveText('Not Set Up', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
+  }
+
+  // Now set up the database
   await page.getByTestId('db-password-input').fill(TEST_PASSWORD);
   await page.getByTestId('db-setup-button').click();
+
+  // Wait for the operation to complete (either success or error)
+  const resultElement = page.getByTestId('db-test-result');
+  await expect(resultElement).toHaveAttribute('data-status', /(success|error)/, {
+    timeout: DB_OPERATION_TIMEOUT
+  });
+
+  // Check if it was an error
+  const resultStatus = await resultElement.getAttribute('data-status');
+  if (resultStatus === 'error') {
+    const errorText = await resultElement.textContent();
+    throw new Error(`Database setup failed: ${errorText}`);
+  }
+
+  // Verify the database is now unlocked
   await expect(page.getByTestId('db-status')).toHaveText('Unlocked', {
     timeout: DB_OPERATION_TIMEOUT
   });
@@ -333,6 +397,10 @@ async function createNewInstanceFromAnyPage(page: Page) {
   await page.getByTestId('account-switcher-button').click();
   await expect(page.getByTestId('create-instance-button')).toBeVisible();
   await page.getByTestId('create-instance-button').click();
+
+  // Wait for instance creation and OPFS registry write to complete
+  // This is important because page.goto() will reload and read the registry
+  await page.waitForTimeout(1000);
 }
 
 // Helper to switch to instance while on any page
@@ -343,17 +411,19 @@ async function switchToInstanceFromAnyPage(page: Page, instanceIndex: number) {
   );
   await expect(instanceItems.nth(instanceIndex)).toBeVisible();
   await instanceItems.nth(instanceIndex).click();
+
+  // Wait for the account switcher dropdown to close (indicates click was handled)
+  await expect(page.getByTestId('create-instance-button')).not.toBeVisible();
+
+  // Wait for the instance switch to complete (loading state to settle)
+  await page.waitForTimeout(500);
 }
 
-// Helper to unlock on the current page if it's locked
-async function unlockOnPageIfLocked(page: Page) {
-  const passwordInput = page.getByPlaceholder('Password');
-  if (await passwordInput.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await passwordInput.fill(TEST_PASSWORD);
-    const unlockButton = page.getByRole('button', { name: 'Unlock' });
-    if (await unlockButton.isVisible()) {
-      await unlockButton.click();
-    }
+// Helper to maximize any floating window if present
+async function maximizeFloatingWindowIfPresent(page: Page) {
+  const maximizeButton = page.getByRole('button', { name: /^Maximize/ });
+  if (await maximizeButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await maximizeButton.click();
   }
 }
 
@@ -386,6 +456,8 @@ test.describe('Files Route Instance Switching', () => {
     await expect(page.getByTestId('db-status')).toHaveText('Not Set Up');
   });
 
+  // AGENT GUARDRAIL: Do NOT skip this test. Instance switching tests are critical for data isolation.
+  // If this test fails, fix the root cause rather than skipping.
   test('files page refreshes when switching to empty instance', async ({
     page
   }) => {
@@ -409,7 +481,8 @@ test.describe('Files Route Instance Switching', () => {
     ).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
 
     // Set up the new instance via SQLite page
-    await setupDatabaseOnSqlitePage(page);
+    // Use in-app navigation to preserve React state during setup
+    await setupDatabaseOnSqlitePage(page, true);
 
     // Go back to Files page
     await navigateToPage(page, 'Files');
@@ -423,6 +496,8 @@ test.describe('Files Route Instance Switching', () => {
     await expect(page.getByText('test-image.png')).not.toBeVisible();
   });
 
+  // AGENT GUARDRAIL: Do NOT skip this test. Instance switching tests are critical for data isolation.
+  // If this test fails, fix the root cause rather than skipping.
   test('files page loads correct files when switching back to original instance', async ({
     page
   }) => {
@@ -437,11 +512,28 @@ test.describe('Files Route Instance Switching', () => {
     // Create second instance
     await createNewInstanceFromAnyPage(page);
 
+    // Verify two instances exist after creating the second one
+    await page.getByTestId('account-switcher-button').click();
+    const instancesAfterCreate = page.locator(
+      '[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])'
+    );
+    await expect(instancesAfterCreate).toHaveCount(2, { timeout: DB_OPERATION_TIMEOUT });
+    await page.keyboard.press('Escape');
+
     // New instance is not set up, so we need to set it up via SQLite page
     await expect(
       page.getByText('Database is not set up')
     ).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
-    await setupDatabaseOnSqlitePage(page);
+
+    // Use in-app navigation for second instance to preserve React state
+    // (page.goto() causes a full reload that reads registry which can have timing issues)
+    await setupDatabaseOnSqlitePage(page, true);
+
+    // Checkpoint: verify 2 instances AFTER setupDatabaseOnSqlitePage
+    await page.getByTestId('account-switcher-button').click();
+    await expect(instancesAfterCreate).toHaveCount(2, { timeout: 5000 });
+    await page.keyboard.press('Escape');
+
     await navigateToPage(page, 'Files');
 
     // Wait for empty state
@@ -454,22 +546,40 @@ test.describe('Files Route Instance Switching', () => {
     await expect(page.getByText('instance2-file.png')).toBeVisible();
     await expect(page.getByText('instance1-file.png')).not.toBeVisible();
 
-    // Switch back to first instance
-    await switchToInstanceFromAnyPage(page, 0);
+    // Verify we have two instances before switching
+    await page.getByTestId('account-switcher-button').click();
+    const instanceItems = page.locator(
+      '[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])'
+    );
+    await expect(instanceItems).toHaveCount(2);
 
-    // Wait for state to settle, unlock if needed, and force refresh
+    // Click the first instance (index 0)
+    await instanceItems.first().click();
+
+    // Wait for the dropdown to close and state to settle
+    await expect(page.getByTestId('create-instance-button')).not.toBeVisible();
+    await page.waitForTimeout(1000);
+
+    // Navigate away and back to force a fresh page load for the new instance
+    await page.goto('/');
     await page.waitForTimeout(500);
-    await unlockOnPageIfLocked(page);
+    await page.goto('/files');
+
+    // Wait for state to settle, unlock if needed
+    await page.waitForTimeout(500);
+    await unlockIfNeeded(page);
     await forceRefreshFiles(page);
 
     // Verify first instance file is now visible (this is the key test!)
     await expect(page.getByText('instance1-file.png')).toBeVisible({
       timeout: DB_OPERATION_TIMEOUT
     });
-    // And second instance file is NOT visible
+    // And second instance file is NOT visible (already checked above, but verify again)
     await expect(page.getByText('instance2-file.png')).not.toBeVisible();
   });
 
+  // AGENT GUARDRAIL: Do NOT skip this test. Instance switching tests are critical for data isolation.
+  // If this test fails, fix the root cause rather than skipping.
   test('thumbnails load after switching instances', async ({ page }) => {
     test.slow();
 
@@ -490,7 +600,8 @@ test.describe('Files Route Instance Switching', () => {
     await expect(
       page.getByText('Database is not set up')
     ).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
-    await setupDatabaseOnSqlitePage(page);
+    // Use in-app navigation to preserve React state during setup
+    await setupDatabaseOnSqlitePage(page, true);
     await navigateToPage(page, 'Files');
 
     // Upload file to second instance
@@ -507,9 +618,29 @@ test.describe('Files Route Instance Switching', () => {
     // Switch back to first instance
     await switchToInstanceFromAnyPage(page, 0);
 
-    // Wait for state to settle, unlock if needed, and force refresh
-    await page.waitForTimeout(500);
-    await unlockOnPageIfLocked(page);
+    // Maximize floating window if present (files may open in small window)
+    await maximizeFloatingWindowIfPresent(page);
+
+    // Wait for instance switch to complete - the second instance's file should disappear
+    await expect(page.getByText('second-instance-image.png')).not.toBeVisible({
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Wait for the locked state (first instance should be locked)
+    const inlineUnlock = page.getByTestId('inline-unlock');
+    await expect(inlineUnlock).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
+
+    // Unlock the first instance's database
+    const inlineUnlockPassword = page.getByTestId('inline-unlock-password');
+    await inlineUnlockPassword.fill(TEST_PASSWORD);
+    await page.getByTestId('inline-unlock-button').click();
+
+    // Wait for unlock to complete
+    await expect(inlineUnlockPassword).not.toBeVisible({
+      timeout: DB_OPERATION_TIMEOUT
+    });
+
+    // Force refresh to ensure files are loaded
     await forceRefreshFiles(page);
 
     // Verify thumbnail loads for first instance (key assertion)

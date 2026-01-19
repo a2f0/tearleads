@@ -10,8 +10,9 @@ const fullyParallel = process.env.PW_FULLY_PARALLEL === 'true';
 // Set PW_WORKERS to override (e.g., PW_WORKERS=1 for serial)
 // Each worker uses its own database instance via injected global (see tests/fixtures.ts)
 const defaultWorkers = Math.max(1, Math.min(8, Math.floor(cpus().length / 2)));
-const workers =
-  Number.isFinite(parsedWorkers) && parsedWorkers > 0
+const workers = isCI
+  ? 1
+  : Number.isFinite(parsedWorkers) && parsedWorkers > 0
     ? parsedWorkers
     : defaultWorkers;
 

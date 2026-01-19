@@ -2,27 +2,23 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { clearOriginStorage } from './test-utils';
 
-// Helper to open sidebar via Start button
-async function openSidebar(page: Page) {
-  const startButton = page.getByTestId('start-button');
-  await expect(startButton).toBeVisible({ timeout: 10000 });
-  await startButton.click();
-  await expect(page.locator('aside nav')).toBeVisible({ timeout: 10000 });
-}
-
-// Helper to navigate via sidebar
-async function navigateTo(page: Page, linkName: string) {
-  const sidebar = page.locator('aside nav');
-  if (!(await sidebar.isVisible())) {
-    await openSidebar(page);
-  }
-  const button = sidebar.getByRole('button', { name: linkName });
-  // Sidebar auto-closes after launch
-  await button.dblclick();
-  await expect(sidebar).not.toBeVisible({ timeout: 5000 });
-}
-
 const TEST_PASSWORD = 'testpassword123';
+
+// Map page names to routes
+const PAGE_ROUTES = {
+  SQLite: '/sqlite',
+  Settings: '/settings'
+} as const;
+
+// Helper to navigate using client-side routing (preserves React state including db context)
+async function navigateTo(page: Page, pageName: keyof typeof PAGE_ROUTES) {
+  const route = PAGE_ROUTES[pageName];
+  await page.evaluate((path) => {
+    window.history.pushState({}, '', path);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, route);
+}
+
 const DB_OPERATION_TIMEOUT = 15000;
 
 // Helper to wait for successful database operation

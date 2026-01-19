@@ -174,14 +174,15 @@ describe('App Integration', () => {
       expect(contactsButtons.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('navigates to Contacts page when double-clicking sidebar button', async () => {
-      // On desktop, sidebar items require double-click to open
-      const contactsButton = screen.getByTestId('contacts-link');
-      await user.dblClick(contactsButton);
+    it('navigates to Home page when clicking sidebar button', async () => {
+      // On desktop, sidebar items open with single click
+      // Home is the only non-windowed path (navigates instead of opening window)
+      const homeButton = screen.getByTestId('home-link');
+      await user.click(homeButton);
 
-      // When no contacts exist, the add contact card is shown instead of search
+      // Verify we're on the home page by checking for the start button
       await waitFor(() => {
-        expect(screen.getByTestId('add-contact-card')).toBeInTheDocument();
+        expect(screen.getByTestId('start-button')).toBeInTheDocument();
       });
     });
 
@@ -303,9 +304,9 @@ describe('App Integration', () => {
       // Open sidebar first
       await user.click(screen.getByTestId('start-button'));
 
-      // Double-click home button in sidebar (desktop requires double-click)
+      // Click home button in sidebar
       const homeButton = screen.getByTestId('home-link');
-      await user.dblClick(homeButton);
+      await user.click(homeButton);
 
       await waitFor(() => {
         // Should be back at Home page with app icons

@@ -1,9 +1,11 @@
 import {
+  AppWindow,
   Archive,
   BarChart3,
   Bot,
   Bug,
   Database,
+  ExternalLink,
   FileIcon,
   FileText,
   Film,
@@ -23,6 +25,8 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
+import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import type { MenuKeys } from '@/i18n';
@@ -198,13 +202,28 @@ export const navItems: NavItem[] = [
 // - Home.tsx PATH_TO_WINDOW_TYPE mapping
 // - WindowManagerContext.tsx WindowType union
 // - WindowRenderer.tsx switch cases
-// Note: Most paths are excluded for now since E2E tests depend on full-page routes
-// TODO: Update E2E tests to handle floating windows, then re-enable these paths
-const WINDOW_PATHS: Record<string, WindowType> = {
+const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
+  '/notes': 'notes',
   '/console': 'console',
+  '/settings': 'settings',
+  '/files': 'files',
   '/email': 'email',
+  '/contacts': 'contacts',
+  '/photos': 'photos',
+  '/documents': 'documents',
+  '/videos': 'videos',
+  '/tables': 'tables',
+  '/keychain': 'keychain',
+  '/sqlite': 'sqlite',
   '/opfs': 'opfs',
-  '/videos': 'videos'
+  '/debug': 'debug',
+  '/cache-storage': 'cache-storage',
+  '/local-storage': 'local-storage',
+  '/chat': 'chat',
+  '/analytics': 'analytics',
+  '/audio': 'audio',
+  '/models': 'models',
+  '/admin': 'admin'
 };
 
 export interface SidebarProps {
@@ -219,6 +238,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { openWindow } = useWindowManager();
   const [isMobile, setIsMobile] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    path: string;
+  } | null>(null);
 
   useEffect(() => {
     // Corresponds to Tailwind's `lg` breakpoint (min-width: 1024px).
@@ -246,7 +270,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const isDesktop = !isMobile && !isTouchDevice;
 
-  const handleLaunch = useCallback(
+  const handleClick = useCallback(
     (path: string) => {
       const windowType = WINDOW_PATHS[path];
       if (windowType && isDesktop) {
@@ -261,24 +285,36 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     [isDesktop, navigate, openWindow, onClose]
   );
 
-  const handleClick = useCallback(
-    (path: string) => {
-      if (!isDesktop) {
-        handleLaunch(path);
-      }
-      // On desktop, single click does nothing (wait for double click)
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, path: string) => {
+      if (!isDesktop) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({ x: e.clientX, y: e.clientY, path });
     },
-    [isDesktop, handleLaunch]
+    [isDesktop]
   );
 
-  const handleDoubleClick = useCallback(
-    (path: string) => {
-      if (isDesktop) {
-        handleLaunch(path);
+  const handleOpenRoute = useCallback(() => {
+    if (contextMenu) {
+      navigate(contextMenu.path);
+      onClose();
+    }
+    setContextMenu(null);
+  }, [contextMenu, navigate, onClose]);
+
+  const handleOpenInWindow = useCallback(() => {
+    if (contextMenu) {
+      const windowType = WINDOW_PATHS[contextMenu.path];
+      if (windowType) {
+        openWindow(windowType);
+        onClose();
       }
-    },
-    [isDesktop, handleLaunch]
-  );
+    }
+    setContextMenu(null);
+  }, [contextMenu, openWindow, onClose]);
+
+  const canOpenInWindow = (path: string) => path in WINDOW_PATHS;
 
   return (
     <aside
@@ -304,7 +340,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   type="button"
                   data-testid={item.testId}
                   onClick={() => handleClick(item.path)}
-                  onDoubleClick={() => handleDoubleClick(item.path)}
+                  onContextMenu={(e) => handleContextMenu(e, item.path)}
                   className={cn(
                     'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left font-medium text-sm transition-colors',
                     isActive
@@ -320,6 +356,29 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           })}
         </ul>
       </nav>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+        >
+          <ContextMenuItem
+            icon={<ExternalLink className="h-4 w-4" />}
+            onClick={handleOpenRoute}
+          >
+            Open
+          </ContextMenuItem>
+          {canOpenInWindow(contextMenu.path) && (
+            <ContextMenuItem
+              icon={<AppWindow className="h-4 w-4" />}
+              onClick={handleOpenInWindow}
+            >
+              Open in Window
+            </ContextMenuItem>
+          )}
+        </ContextMenu>
+      )}
     </aside>
   );
 }
