@@ -96,6 +96,7 @@ describe('ModelSelector', () => {
       expect(screen.getByText('SmolVLM 256M')).toBeInTheDocument();
       expect(screen.getByText('PaliGemma 2 3B')).toBeInTheDocument();
       expect(screen.getByText('Mistral 7B Instruct')).toBeInTheDocument();
+      expect(screen.getByText('Gemma 3 4B (Free)')).toBeInTheDocument();
       expect(screen.queryByText('CLIP ViT-B/32')).not.toBeInTheDocument();
     });
 
@@ -106,7 +107,7 @@ describe('ModelSelector', () => {
       await user.click(screen.getByRole('button'));
 
       const visionBadges = screen.getAllByText('Vision');
-      expect(visionBadges.length).toBe(2);
+      expect(visionBadges.length).toBe(3);
     });
 
     it('shows OpenRouter section in the dropdown', async () => {

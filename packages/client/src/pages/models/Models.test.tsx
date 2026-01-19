@@ -121,6 +121,7 @@ describe('Models', () => {
         expect(screen.getByText('SmolVLM 256M')).toBeInTheDocument();
         expect(screen.getByText('PaliGemma 2 3B')).toBeInTheDocument();
         expect(screen.getByText('Mistral 7B Instruct')).toBeInTheDocument();
+        expect(screen.getByText('Gemma 3 4B (Free)')).toBeInTheDocument();
       });
     });
 
@@ -140,7 +141,7 @@ describe('Models', () => {
       await waitFor(() => {
         // Verify total count of vision badges
         const visionBadges = screen.getAllByText('Vision');
-        expect(visionBadges.length).toBe(2);
+        expect(visionBadges.length).toBe(3);
 
         // Verify vision badges are on the correct model cards
         const smolVLMCard = screen
@@ -152,6 +153,11 @@ describe('Models', () => {
           .getByText('PaliGemma 2 3B')
           .closest('.rounded-lg');
         expect(paligemmaCard).toHaveTextContent('Vision');
+
+        const gemmaCard = screen
+          .getByText('Gemma 3 4B (Free)')
+          .closest('.rounded-lg');
+        expect(gemmaCard).toHaveTextContent('Vision');
 
         // Verify non-vision model doesn't have vision badge
         const phi3Card = screen

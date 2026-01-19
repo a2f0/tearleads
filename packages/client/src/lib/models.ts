@@ -58,7 +58,8 @@ export const OPENROUTER_MODELS: ModelInfo[] = OPENROUTER_CHAT_MODELS.map(
     name: model.name,
     size: 'OpenRouter',
     description: model.description,
-    source: 'openrouter'
+    source: 'openrouter',
+    isVision: model.isVision ?? false
   })
 );
 
