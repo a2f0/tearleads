@@ -33,6 +33,10 @@ import {
 import { useDatabaseContext } from '@/db/hooks';
 import { SortIcon, type SortState } from './SortIcon';
 
+interface AnalyticsProps {
+  showBackLink?: boolean;
+}
+
 interface SummarySortState {
   column: StatsSortColumn | null;
   direction: SortDirection | null;
@@ -92,7 +96,7 @@ function getTimeRange(filter: TimeFilter): Date | undefined {
   }
 }
 
-export function Analytics() {
+export function Analytics({ showBackLink = true }: AnalyticsProps) {
   const { isUnlocked, isLoading } = useDatabaseContext();
   const [events, setEvents] = useState<AnalyticsEvent[]>([]);
   const [stats, setStats] = useState<EventStats[]>([]);
@@ -396,7 +400,7 @@ export function Analytics() {
     <div className="flex h-full min-w-0 flex-col overflow-hidden">
       {/* Fixed header with title and buttons */}
       <div className="flex flex-col gap-2 pb-4">
-        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
         <div className="flex items-center justify-between">
           <h1 className="font-bold text-xl tracking-tight sm:text-2xl">
             Analytics

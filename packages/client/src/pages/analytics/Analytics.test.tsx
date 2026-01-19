@@ -1,6 +1,7 @@
 import { ThemeProvider } from '@rapid/ui';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnalyticsEvent } from '@/db/analytics';
@@ -71,18 +72,18 @@ vi.mock('@/db/analytics', async (importOriginal) => {
   };
 });
 
-function renderAnalyticsRaw() {
+function renderAnalyticsRaw(props: ComponentProps<typeof Analytics> = {}) {
   return render(
     <MemoryRouter>
       <ThemeProvider>
-        <Analytics />
+        <Analytics {...props} />
       </ThemeProvider>
     </MemoryRouter>
   );
 }
 
-async function renderAnalytics() {
-  const result = renderAnalyticsRaw();
+async function renderAnalytics(props: ComponentProps<typeof Analytics> = {}) {
+  const result = renderAnalyticsRaw(props);
   // Wait for initial async effects to complete
   await waitFor(() => {
     expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -271,6 +272,17 @@ describe('Analytics', () => {
     it('renders the analytics title', async () => {
       await renderAnalytics();
       expect(screen.getByText('Analytics')).toBeInTheDocument();
+    });
+
+    it('shows back link by default', async () => {
+      await renderAnalytics();
+      expect(screen.getByTestId('back-link')).toBeInTheDocument();
+    });
+
+    it('hides back link when disabled', async () => {
+      await renderAnalytics({ showBackLink: false });
+
+      expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
     });
 
     it('fetches analytics data on mount', async () => {
