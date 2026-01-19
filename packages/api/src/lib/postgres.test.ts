@@ -15,7 +15,7 @@ type PoolInstance = {
 };
 
 const poolInstances: PoolInstance[] = [];
-const PoolMock = vi.fn(function (config: PoolConfig) {
+const PoolMock = vi.fn((config: PoolConfig) => {
   const end = vi.fn().mockResolvedValue(undefined);
   const instance = { config, end };
   poolInstances.push(instance);
@@ -128,8 +128,7 @@ describe('postgres lib', () => {
   it('closes the active pool', async () => {
     process.env.DATABASE_URL = 'postgres://user@localhost:5432/db1';
 
-    const { closePostgresPool, getPostgresPool } =
-      await loadPostgresModule();
+    const { closePostgresPool, getPostgresPool } = await loadPostgresModule();
 
     await getPostgresPool();
     await closePostgresPool();
