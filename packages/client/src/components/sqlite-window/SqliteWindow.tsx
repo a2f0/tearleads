@@ -50,7 +50,7 @@ export function SqliteWindow({
     >
       <div className="flex h-full flex-col">
         <SqliteWindowMenuBar onClose={onClose} onRefresh={handleRefresh} />
-        <div className="flex-1 min-h-0 p-4">
+        <div className="min-h-0 flex-1 p-4">
           {selectedTable ? (
             <TableRowsView
               key={`${refreshKey}-${selectedTable}`}

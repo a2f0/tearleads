@@ -226,7 +226,7 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
                         <button
                           type="button"
                           onClick={() => onTableSelect(table.name)}
-                          className="truncate font-mono text-left text-muted-foreground hover:text-foreground hover:underline"
+                          className="truncate text-left font-mono text-muted-foreground hover:text-foreground hover:underline"
                         >
                           {table.name}
                         </button>
@@ -239,11 +239,11 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
                           {table.name}
                         </LinkWithFrom>
                       )}
-                    <span className="shrink-0 font-mono text-xs">
-                      {table.isEstimated ? '~' : ''}
-                      {formatBytes(table.size)}
-                    </span>
-                  </div>
+                      <span className="shrink-0 font-mono text-xs">
+                        {table.isEstimated ? '~' : ''}
+                        {formatBytes(table.size)}
+                      </span>
+                    </div>
                   );
                 })}
               </div>

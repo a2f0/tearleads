@@ -43,10 +43,7 @@ export function TablesWindow({
           <MemoryRouter initialEntries={['/sqlite/tables']}>
             <Routes>
               <Route path="/sqlite/tables" element={<Tables />} />
-              <Route
-                path="/sqlite/tables/:tableName"
-                element={<TableRows />}
-              />
+              <Route path="/sqlite/tables/:tableName" element={<TableRows />} />
               <Route
                 path="*"
                 element={<Navigate to="/sqlite/tables" replace />}
