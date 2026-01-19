@@ -1,6 +1,13 @@
 import { assertPlainArrayBuffer } from '@rapid/shared';
 import { and, eq, like } from 'drizzle-orm';
-import { Calendar, FileType, Film, HardDrive, Loader2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calendar,
+  FileType,
+  Film,
+  HardDrive,
+  Loader2
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -31,8 +38,14 @@ interface VideoInfo {
   thumbnailPath: string | null;
 }
 
-export function VideoDetail() {
+interface VideoDetailProps {
+  videoId?: string | undefined;
+  onBack?: (() => void) | undefined;
+}
+
+export function VideoDetail({ videoId, onBack }: VideoDetailProps) {
   const { id } = useParams<{ id: string }>();
+  const resolvedId = videoId ?? id;
   const navigate = useNavigate();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [video, setVideo] = useState<VideoInfo | null>(null);
@@ -134,28 +147,35 @@ export function VideoDetail() {
         .set({ deleted: true })
         .where(eq(files.id, video.id));
 
-      navigate('/videos');
+      if (onBack) {
+        onBack();
+      } else {
+        navigate('/videos');
+      }
     } catch (err) {
       console.error('Failed to delete video:', err);
       setError(err instanceof Error ? err.message : String(err));
       setActionLoading(null);
     }
-  }, [video, navigate]);
+  }, [video, navigate, onBack]);
 
   const handleUpdateName = useCallback(
     async (newName: string) => {
-      if (!id) return;
+      if (!resolvedId) return;
 
       const db = getDatabase();
-      await db.update(files).set({ name: newName }).where(eq(files.id, id));
+      await db
+        .update(files)
+        .set({ name: newName })
+        .where(eq(files.id, resolvedId));
 
       setVideo((prev) => (prev ? { ...prev, name: newName } : prev));
     },
-    [id]
+    [resolvedId]
   );
 
   const fetchVideo = useCallback(async () => {
-    if (!isUnlocked || !id) return;
+    if (!isUnlocked || !resolvedId) return;
 
     setLoading(true);
     setError(null);
@@ -176,7 +196,7 @@ export function VideoDetail() {
         .from(files)
         .where(
           and(
-            eq(files.id, id),
+            eq(files.id, resolvedId),
             like(files.mimeType, 'video/%'),
             eq(files.deleted, false)
           )
@@ -218,13 +238,13 @@ export function VideoDetail() {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, id, retrieveFileData]);
+  }, [isUnlocked, resolvedId, retrieveFileData]);
 
   useEffect(() => {
-    if (isUnlocked && id) {
+    if (isUnlocked && resolvedId) {
       fetchVideo();
     }
-  }, [isUnlocked, id, fetchVideo]);
+  }, [isUnlocked, resolvedId, fetchVideo]);
 
   // Revoke blob URLs on unmount
   useEffect(() => {
@@ -238,7 +258,19 @@ export function VideoDetail() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <BackLink defaultTo="/videos" defaultLabel="Back to Videos" />
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center text-muted-foreground hover:text-foreground"
+            data-testid="video-back-button"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Videos
+          </button>
+        ) : (
+          <BackLink defaultTo="/videos" defaultLabel="Back to Videos" />
+        )}
       </div>
 
       {isLoading && (

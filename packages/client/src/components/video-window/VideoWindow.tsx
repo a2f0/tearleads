@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { VideoPage } from '@/pages/Video';
@@ -25,7 +24,7 @@ export function VideoWindow({
   zIndex,
   initialDimensions
 }: VideoWindowProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
 
   return (
     <FloatingWindow
@@ -42,35 +41,21 @@ export function VideoWindow({
       minWidth={400}
       minHeight={300}
     >
-      <div className="flex h-full flex-col">
-        <VideoWindowMenuBar
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-        />
-        <div className="flex-1 overflow-hidden">
-          <MemoryRouter initialEntries={['/videos']}>
-            <Routes>
-              <Route path="/" element={<Navigate to="/videos" replace />} />
-              <Route
-                path="/videos"
-                element={
-                  <div className="h-full overflow-hidden p-3">
-                    <VideoPage viewMode={viewMode} showBackLink={false} />
-                  </div>
-                }
-              />
-              <Route
-                path="/videos/:id"
-                element={
-                  <div className="h-full overflow-auto p-3">
-                    <VideoDetail />
-                  </div>
-                }
-              />
-            </Routes>
-          </MemoryRouter>
+      {activeVideoId ? (
+        <div className="h-full overflow-auto p-3">
+          <VideoDetail
+            videoId={activeVideoId}
+            onBack={() => setActiveVideoId(null)}
+          />
         </div>
-      </div>
+      ) : (
+        <div className="h-full overflow-hidden p-3">
+          <VideoPage
+            onOpenVideo={(videoId) => setActiveVideoId(videoId)}
+            hideBackLink
+          />
+        </div>
+      )}
     </FloatingWindow>
   );
 }

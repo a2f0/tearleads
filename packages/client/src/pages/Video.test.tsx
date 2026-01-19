@@ -137,7 +137,10 @@ function createMockUpdateChain() {
   };
 }
 
-function renderVideoRaw(props?: ComponentProps<typeof VideoPage>) {
+function renderVideoRaw(props?: {
+  onOpenVideo?: (videoId: string) => void;
+  hideBackLink?: boolean;
+}) {
   return render(
     <MemoryRouter>
       <VideoPage {...props} />
@@ -145,7 +148,10 @@ function renderVideoRaw(props?: ComponentProps<typeof VideoPage>) {
   );
 }
 
-async function renderVideo(props?: ComponentProps<typeof VideoPage>) {
+async function renderVideo(props?: {
+  onOpenVideo?: (videoId: string) => void;
+  hideBackLink?: boolean;
+}) {
   const result = renderVideoRaw(props);
   // Flush the setTimeout(fn, 0) used for instance-aware fetching
   await act(async () => {
@@ -186,6 +192,12 @@ describe('VideoPage', () => {
       await renderVideo();
 
       expect(screen.getByText('Videos')).toBeInTheDocument();
+    });
+
+    it('hides the back link when requested', () => {
+      renderVideoRaw({ hideBackLink: true });
+
+      expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
     });
 
     it('renders Refresh button when unlocked', async () => {
@@ -295,6 +307,17 @@ describe('VideoPage', () => {
 
       expect(screen.getByTestId('video-item-video-1')).toBeInTheDocument();
       expect(screen.getByTestId('video-item-video-2')).toBeInTheDocument();
+    });
+
+    it('uses onOpenVideo when provided', async () => {
+      const user = userEvent.setup();
+      const onOpenVideo = vi.fn();
+
+      await renderVideo({ onOpenVideo });
+
+      await user.dblClick(screen.getByTestId('video-open-video-1'));
+      expect(onOpenVideo).toHaveBeenCalledWith('video-1');
+      expect(mockNavigate).not.toHaveBeenCalled();
     });
 
     it('renders detail navigation buttons for videos', async () => {
