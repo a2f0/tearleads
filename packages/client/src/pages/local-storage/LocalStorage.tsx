@@ -4,10 +4,26 @@ import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { SETTING_STORAGE_KEYS } from '@/db/user-settings';
 import { formatFileSize } from '@/lib/utils';
 import { type StorageEntry, StorageRow } from './StorageRow';
 
 type DeleteDialogState = { type: 'item'; key: string } | { type: 'all' } | null;
+
+const PROTECTED_KEYS = new Set([
+  ...Object.values(SETTING_STORAGE_KEYS),
+  'desktop-icon-positions',
+  'audio-visualizer-style',
+  'rapid_last_loaded_model'
+]);
+const PROTECTED_PREFIXES = ['window-dimensions:'];
+
+function isProtectedKey(key: string): boolean {
+  return (
+    PROTECTED_KEYS.has(key) ||
+    PROTECTED_PREFIXES.some((prefix) => key.startsWith(prefix))
+  );
+}
 
 function getStorageEntries(): StorageEntry[] {
   const entries: StorageEntry[] = [];
@@ -85,7 +101,11 @@ export function LocalStorage() {
       if (deleteDialog.type === 'item') {
         localStorage.removeItem(deleteDialog.key);
       } else {
-        localStorage.clear();
+        for (const entry of entries) {
+          if (!isProtectedKey(entry.key)) {
+            localStorage.removeItem(entry.key);
+          }
+        }
       }
       fetchStorageContents();
     } catch (err) {
@@ -112,8 +132,8 @@ export function LocalStorage() {
       title: 'Clear All',
       description: (
         <p>
-          Are you sure you want to clear ALL localStorage data? This cannot be
-          undone.
+          Are you sure you want to clear localStorage data? App preferences and
+          window layouts will be preserved to keep Rapid running.
         </p>
       )
     };
