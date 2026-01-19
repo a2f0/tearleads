@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -150,8 +150,12 @@ describe('TableSizes', () => {
       await renderTableSizes();
 
       expect(screen.getByText('8 KB')).toBeInTheDocument();
-      expect(screen.getByText('users')).toBeInTheDocument();
-      expect(screen.getByText('2 KB')).toBeInTheDocument();
+      const usersRow = screen.getByText('users').closest('div');
+      expect(usersRow).not.toBeNull();
+      if (usersRow) {
+        expect(within(usersRow).getByText('2')).toBeInTheDocument();
+        expect(within(usersRow).getByText('KB')).toBeInTheDocument();
+      }
     });
   });
 
@@ -166,9 +170,13 @@ describe('TableSizes', () => {
       await renderTableSizes();
 
       expect(screen.getByText('Rows')).toBeInTheDocument();
-      expect(screen.getByText('users')).toBeInTheDocument();
-      expect(screen.getByText('2 KB')).toBeInTheDocument();
-      expect(screen.getByText('50')).toBeInTheDocument();
+      const usersRow = screen.getByText('users').closest('div');
+      expect(usersRow).not.toBeNull();
+      if (usersRow) {
+        expect(within(usersRow).getByText('2')).toBeInTheDocument();
+        expect(within(usersRow).getByText('KB')).toBeInTheDocument();
+        expect(within(usersRow).getByText('50')).toBeInTheDocument();
+      }
     });
 
     it('does not show estimated indicator when dbstat is available', async () => {
@@ -198,10 +206,14 @@ describe('TableSizes', () => {
 
       await renderTableSizes();
 
-      expect(screen.getByText('users')).toBeInTheDocument();
-      expect(screen.getByText('100')).toBeInTheDocument();
+      const usersRow = screen.getByText('users').closest('div');
+      expect(usersRow).not.toBeNull();
       // 100 rows * 100 bytes = 10000 bytes ≈ 9.77 KB
-      expect(screen.getByText('~9.77 KB')).toBeInTheDocument();
+      if (usersRow) {
+        expect(within(usersRow).getByText('100')).toBeInTheDocument();
+        expect(within(usersRow).getByText('~9.77')).toBeInTheDocument();
+        expect(within(usersRow).getByText('KB')).toBeInTheDocument();
+      }
     });
 
     it('shows estimated indicator when using fallback', async () => {
