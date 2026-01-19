@@ -30,6 +30,7 @@ export function DocumentsWindow({
     null
   );
   const [refreshToken, setRefreshToken] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const { uploadFile } = useFileUpload();
 
   const handleUpload = useCallback(() => {
@@ -42,18 +43,32 @@ export function DocumentsWindow({
 
   const handleFileInputChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
+      setUploadError(null);
       const files = Array.from(e.target.files ?? []);
       if (files.length > 0) {
+        let uploadedCount = 0;
+        const errors: string[] = [];
         await Promise.all(
           files.map(async (file) => {
             try {
               await uploadFile(file);
+              uploadedCount++;
             } catch (err) {
               console.error(`Failed to upload ${file.name}:`, err);
+              errors.push(
+                `"${file.name}": ${
+                  err instanceof Error ? err.message : String(err)
+                }`
+              );
             }
           })
         );
-        setRefreshToken((value) => value + 1);
+        if (uploadedCount > 0) {
+          setRefreshToken((value) => value + 1);
+        }
+        if (errors.length > 0) {
+          setUploadError(errors.join('\n'));
+        }
       }
       e.target.value = '';
     },
@@ -88,6 +103,11 @@ export function DocumentsWindow({
           />
         )}
         <div className="flex-1 overflow-hidden">
+          {uploadError && (
+            <div className="mx-3 mt-3 whitespace-pre-line rounded-lg border border-destructive bg-destructive/10 p-3 text-destructive text-sm">
+              {uploadError}
+            </div>
+          )}
           {selectedDocumentId ? (
             <div className="h-full overflow-auto p-3">
               <DocumentDetail

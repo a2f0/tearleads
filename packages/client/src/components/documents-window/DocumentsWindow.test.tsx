@@ -175,6 +175,20 @@ describe('DocumentsWindow', () => {
     });
   });
 
+  it('shows upload errors when files fail to upload', async () => {
+    render(<DocumentsWindow {...defaultProps} />);
+
+    const fileInput = screen.getByTestId('documents-file-input');
+    const file = new File(['hello'], 'test.txt', { type: 'text/plain' });
+    mockUploadFile.mockRejectedValueOnce(new Error('Upload failed'));
+
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    expect(
+      await screen.findByText('"test.txt": Upload failed')
+    ).toBeInTheDocument();
+  });
+
   it('returns to documents list when detail back is clicked', async () => {
     const user = userEvent.setup();
     render(<DocumentsWindow {...defaultProps} />);

@@ -131,9 +131,7 @@ export function DocumentDetail({ documentId, onBack }: DocumentDetailProps) {
       console.error('Failed to delete document:', err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      if (onBack) {
-        setActionLoading(null);
-      }
+      setActionLoading(null);
     }
   }, [document, navigate, onBack]);
 
