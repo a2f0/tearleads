@@ -168,6 +168,25 @@ describe('Home', () => {
     expect(screen.getByText('Auto Arrange')).toBeInTheDocument();
   });
 
+  it('opens display properties from the canvas context menu', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+    expect(canvas).toBeInTheDocument();
+
+    if (canvas) {
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    const displayPropertiesItem = screen.getByText('Display Properties');
+    await user.click(displayPropertiesItem);
+
+    expect(
+      screen.getByTestId('display-properties-sheet')
+    ).toBeInTheDocument();
+  });
+
   it('shows icon context menu on right-click', async () => {
     const user = userEvent.setup();
     renderHome();
