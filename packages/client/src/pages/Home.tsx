@@ -703,22 +703,16 @@ export function Home() {
             {selectedIcons.size > 0 ? 'Auto Arrange Selected' : 'Auto Arrange'}
           </ContextMenuItem>
           <ContextMenuItem
-            icon={<Maximize2 className="h-4 w-4" />}
-            onClick={handleScatter}
-          >
-            {selectedIcons.size > 0 ? 'Scatter Selected' : 'Scatter'}
-          </ContextMenuItem>
-          <ContextMenuItem
             icon={<Square className="h-4 w-4" />}
             onClick={handleCluster}
           >
             {selectedIcons.size > 0 ? 'Cluster Selected' : 'Cluster'}
           </ContextMenuItem>
           <ContextMenuItem
-            icon={<Monitor className="h-4 w-4" />}
-            onClick={handleDisplayPropertiesOpen}
+            icon={<Maximize2 className="h-4 w-4" />}
+            onClick={handleScatter}
           >
-            Display Properties
+            {selectedIcons.size > 0 ? 'Scatter Selected' : 'Scatter'}
           </ContextMenuItem>
         </ContextMenu>
       )}
