@@ -1,5 +1,5 @@
 /**
- * Audio frequency visualizer component with retro LCD and modern gradient styles.
+ * Audio frequency visualizer component with waveform and gradient styles.
  * Displays bouncing bars that respond to audio frequency data.
  */
 
@@ -9,7 +9,7 @@ import { useAudio } from '@/audio';
 import { useAudioAnalyser } from '@/audio/useAudioAnalyser';
 import { Button } from '@/components/ui/button';
 
-export type VisualizerStyle = 'lcd' | 'gradient';
+export type VisualizerStyle = 'waveform' | 'gradient';
 
 interface AudioVisualizerProps {
   style?: VisualizerStyle;
@@ -20,25 +20,26 @@ const STORAGE_KEY = 'audio-visualizer-style';
 const BAR_COUNT = 12;
 const SEGMENT_COUNT = 15;
 const SEGMENT_TOTAL_HEIGHT = 6; // h-1 (4px) + gap-0.5 (2px)
+const VISUALIZER_HEIGHT = SEGMENT_COUNT * SEGMENT_TOTAL_HEIGHT;
 const GRADIENT_BAR_MIN_HEIGHT = 4;
+const WAVEFORM_BAR_MIN_HEIGHT = 2;
 
-// Pre-generated stable keys for bars and segments (avoids array index key lint errors)
+// Pre-generated stable keys for bars (avoids array index key lint errors)
 const BAR_KEYS = Array.from({ length: BAR_COUNT }, (_, i) => `bar-${i}`);
-const SEGMENT_KEYS = Array.from(
-  { length: SEGMENT_COUNT },
-  (_, i) => `seg-${i}`
-);
 
 function getStoredStyle(): VisualizerStyle {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'lcd' || stored === 'gradient') {
+    if (stored === 'waveform' || stored === 'gradient') {
       return stored;
+    }
+    if (stored === 'lcd') {
+      return 'waveform';
     }
   } catch {
     // localStorage may not be available
   }
-  return 'lcd';
+  return 'waveform';
 }
 
 function setStoredStyle(style: VisualizerStyle): void {
@@ -62,7 +63,7 @@ export function AudioVisualizer({
   const style = controlledStyle ?? internalStyle;
 
   const handleToggleStyle = useCallback(() => {
-    const newStyle = style === 'lcd' ? 'gradient' : 'lcd';
+    const newStyle = style === 'waveform' ? 'gradient' : 'waveform';
     if (onStyleChange) {
       onStyleChange(newStyle);
     } else {
@@ -94,16 +95,16 @@ export function AudioVisualizer({
           const normalizedHeight = value / 255;
 
           return (
-            <div
-              key={key}
-              className="flex w-3 flex-col-reverse gap-0.5"
-              style={{ height: `${SEGMENT_COUNT * SEGMENT_TOTAL_HEIGHT}px` }}
-            >
-              {style === 'lcd' ? (
-                <LCDBar normalizedHeight={normalizedHeight} />
-              ) : (
-                <GradientBar normalizedHeight={normalizedHeight} />
-              )}
+          <div
+            key={key}
+            className="relative flex w-3 items-end justify-center"
+            style={{ height: `${VISUALIZER_HEIGHT}px` }}
+          >
+            {style === 'waveform' ? (
+              <WaveformBar normalizedHeight={normalizedHeight} />
+            ) : (
+              <GradientBar normalizedHeight={normalizedHeight} />
+            )}
             </div>
           );
         })}
@@ -113,7 +114,7 @@ export function AudioVisualizer({
         size="icon"
         className="h-8 w-8 shrink-0"
         onClick={handleToggleStyle}
-        aria-label={`Switch to ${style === 'lcd' ? 'gradient' : 'LCD'} style`}
+        aria-label={`Switch to ${style === 'waveform' ? 'gradient' : 'waveform'} style`}
         data-testid="visualizer-style-toggle"
       >
         <Sliders className="h-4 w-4 text-muted-foreground" />
@@ -126,45 +127,30 @@ interface BarProps {
   normalizedHeight: number;
 }
 
-function LCDBar({ normalizedHeight }: BarProps) {
-  const activeSegments = Math.round(normalizedHeight * SEGMENT_COUNT);
+function WaveformBar({ normalizedHeight }: BarProps) {
+  const height = Math.max(
+    WAVEFORM_BAR_MIN_HEIGHT,
+    normalizedHeight * VISUALIZER_HEIGHT
+  );
 
   return (
-    <>
-      {SEGMENT_KEYS.map((key, segIndex) => {
-        const isActive = segIndex < activeSegments;
-        const segmentPosition = segIndex / SEGMENT_COUNT;
-
-        let colorClass: string;
-        if (segmentPosition > 0.8) {
-          colorClass = isActive
-            ? 'bg-destructive'
-            : 'bg-destructive/20 dark:bg-destructive/30';
-        } else if (segmentPosition > 0.6) {
-          colorClass = isActive
-            ? 'bg-accent-foreground dark:bg-accent'
-            : 'bg-accent-foreground/20 dark:bg-accent/30';
-        } else {
-          colorClass = isActive
-            ? 'bg-primary'
-            : 'bg-primary/20 dark:bg-primary/30';
-        }
-
-        return (
-          <div
-            key={key}
-            className={`h-1 w-full rounded-sm transition-colors duration-75 ${colorClass}`}
-          />
-        );
-      })}
-    </>
+    <div
+      className="absolute left-0 right-0 rounded-full transition-all duration-75"
+      style={{
+        height: `${height}px`,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        background: 'linear-gradient(to top, var(--primary), var(--ring))',
+        boxShadow: '0 0 6px var(--ring)'
+      }}
+    />
   );
 }
 
 function GradientBar({ normalizedHeight }: BarProps) {
   const height = Math.max(
     GRADIENT_BAR_MIN_HEIGHT,
-    normalizedHeight * SEGMENT_COUNT * SEGMENT_TOTAL_HEIGHT
+    normalizedHeight * VISUALIZER_HEIGHT
   );
 
   return (
