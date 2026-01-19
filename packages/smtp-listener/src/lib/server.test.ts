@@ -161,7 +161,9 @@ describe('server', () => {
 
     it('should handle storage close error gracefully', async () => {
       mockStorageClose.mockRejectedValue(new Error('Close failed'));
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
 
       const listener = await createSmtpListener({ port: 2525 });
       await listener.start();
