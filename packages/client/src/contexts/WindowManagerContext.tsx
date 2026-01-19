@@ -126,7 +126,7 @@ export function WindowManagerProvider({
       const existingWindow = customId
         ? undefined
         : windows.find((window) => window.type === type);
-      const resolvedId = existingWindow?.id ?? id;
+      let resolvedId = existingWindow?.id ?? id;
 
       // Load saved dimensions for this window type
       const savedDimensions = loadWindowDimensions(type);
