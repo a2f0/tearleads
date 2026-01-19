@@ -13,7 +13,7 @@ const activeConnections = new Set<Response>();
 
 type SseCleanupClient = {
   unsubscribe: (channel: string) => Promise<void>;
-  quit: () => Promise<void>;
+  quit: () => Promise<string>;
 };
 
 export function addConnection(res: Response): void {
@@ -59,7 +59,7 @@ function isBroadcastMessage(value: unknown): value is BroadcastMessage {
 export function cleanupSseClient(
   client: SseCleanupClient | null,
   channels: string[]
-): Promise<void> {
+): Promise<string | void> {
   if (!client) {
     return Promise.resolve();
   }
