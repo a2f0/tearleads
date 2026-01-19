@@ -155,7 +155,7 @@ describe('user-settings', () => {
       expect(SETTING_DEFAULTS.language).toBe('en');
       expect(SETTING_DEFAULTS.tooltips).toBe('enabled');
       expect(SETTING_DEFAULTS.font).toBe('system');
-      expect(SETTING_DEFAULTS.desktopPattern).toBe('solid');
+      expect(SETTING_DEFAULTS.desktopPattern).toBe('isometric');
     });
 
     it('has correct storage keys', () => {
