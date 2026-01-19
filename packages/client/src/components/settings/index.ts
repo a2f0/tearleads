@@ -1,4 +1,4 @@
-export { DisplayPropertiesSheet } from './DisplayPropertiesSheet';
+export { DisplayPropertiesWindow } from './DisplayPropertiesWindow';
 export { FontSelector } from './FontSelector';
 export { IconDepthToggle } from './IconDepthToggle';
 export {
