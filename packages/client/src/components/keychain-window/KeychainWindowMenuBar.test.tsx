@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearPreserveWindowState } from '@/lib/windowStatePreference';
 import { KeychainWindowMenuBar } from './KeychainWindowMenuBar';
 
 describe('KeychainWindowMenuBar', () => {
@@ -11,6 +12,7 @@ describe('KeychainWindowMenuBar', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    clearPreserveWindowState();
   });
 
   it('renders File menu trigger', () => {
