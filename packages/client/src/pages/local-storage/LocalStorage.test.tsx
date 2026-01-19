@@ -270,7 +270,8 @@ describe('LocalStorage', () => {
         'desktop-icon-positions': '{"x":1,"y":2}',
         'window-dimensions:local-storage': '{"width":400}',
         rapid_last_loaded_model: 'model-123',
-        'audio-visualizer-style': 'gradient'
+        'audio-visualizer-style': 'gradient',
+        'window-state-preserve': 'true'
       };
     });
 
@@ -300,7 +301,8 @@ describe('LocalStorage', () => {
           'desktop-icon-positions',
           'window-dimensions:local-storage',
           'rapid_last_loaded_model',
-          'audio-visualizer-style'
+          'audio-visualizer-style',
+          'window-state-preserve'
         ];
 
         for (const key of unprotectedKeys) {
