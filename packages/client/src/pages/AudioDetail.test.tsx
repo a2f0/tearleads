@@ -281,6 +281,25 @@ describe('AudioDetail', () => {
     });
   });
 
+  describe('when audio fails to load', () => {
+    it('shows error message', async () => {
+      const consoleSpy = mockConsoleError();
+      mockRetrieve.mockRejectedValueOnce(new Error('Fetch failed'));
+
+      renderAudioDetailRaw();
+
+      await waitFor(() => {
+        expect(screen.getByText('Fetch failed')).toBeInTheDocument();
+      });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch audio:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
+    });
+  });
+
   describe('playback functionality', () => {
     it('calls play when play button is clicked and track is not current', async () => {
       const user = userEvent.setup();
