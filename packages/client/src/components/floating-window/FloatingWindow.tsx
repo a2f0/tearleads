@@ -13,6 +13,7 @@ import { useFloatingWindow } from '@/hooks/useFloatingWindow';
 import { cn } from '@/lib/utils';
 
 const DESKTOP_BREAKPOINT = 768;
+const MAX_FIT_CONTENT_ATTEMPTS = 5;
 
 const POSITION_CLASSES: Record<Corner, string> = {
   'top-left': 'top-0 left-0',
@@ -238,7 +239,7 @@ export function FloatingWindow({
         y: nextY
       });
       fitContentAttemptsRef.current += 1;
-      if (fitContentAttemptsRef.current >= 5) {
+      if (fitContentAttemptsRef.current >= MAX_FIT_CONTENT_ATTEMPTS) {
         hasFitContentRef.current = true;
         observer?.disconnect();
       }
