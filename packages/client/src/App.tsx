@@ -71,7 +71,7 @@ function App() {
             />
           )
         }
-        rightAction={<Taskbar />}
+        leftAction={<Taskbar />}
         copyrightText=""
       />
       <button
