@@ -157,7 +157,9 @@ describe('AudioVisualizer', () => {
     it('calls onStyleChange when toggled', async () => {
       const user = userEvent.setup();
       const onStyleChange = vi.fn();
-      render(<AudioVisualizer style="waveform" onStyleChange={onStyleChange} />);
+      render(
+        <AudioVisualizer style="waveform" onStyleChange={onStyleChange} />
+      );
 
       const toggle = screen.getByTestId('visualizer-style-toggle');
       await user.click(toggle);
