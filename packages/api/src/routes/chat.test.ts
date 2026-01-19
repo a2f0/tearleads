@@ -95,7 +95,7 @@ describe('Chat Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: 'messages must be a non-empty array'
+        error: 'messages must be a non-empty array of { role, content }'
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -114,7 +114,7 @@ describe('Chat Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: 'messages must be a non-empty array'
+        error: 'messages must be a non-empty array of { role, content }'
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -128,7 +128,7 @@ describe('Chat Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: 'messages must be a non-empty array'
+        error: 'messages must be a non-empty array of { role, content }'
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -147,7 +147,7 @@ describe('Chat Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: 'messages must be a non-empty array'
+        error: 'messages must be a non-empty array of { role, content }'
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -213,7 +213,7 @@ describe('Chat Routes', () => {
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({
-        error: 'OPENROUTER_API_KEY is not configured'
+        error: 'OPENROUTER_API_KEY is not configured on the server'
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });
