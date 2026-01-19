@@ -118,7 +118,7 @@ describe('AudioWindow', () => {
     await user.click(screen.getByTestId('select-track'));
 
     expect(screen.getByTestId('audio-detail')).toBeInTheDocument();
-    expect(screen.queryByTestId('menu-bar')).not.toBeInTheDocument();
+    expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
 
     await user.click(screen.getByTestId('detail-back'));
     expect(screen.getByTestId('menu-bar')).toBeInTheDocument();

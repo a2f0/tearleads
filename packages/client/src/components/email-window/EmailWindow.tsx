@@ -73,14 +73,12 @@ export function EmailWindow({
       minHeight={300}
     >
       <div className="flex h-full flex-col">
-        {!selectedEmailId && (
-          <EmailWindowMenuBar
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            onRefresh={fetchEmails}
-            onClose={onClose}
-          />
-        )}
+        <EmailWindowMenuBar
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onRefresh={fetchEmails}
+          onClose={onClose}
+        />
         <div className="flex-1 overflow-hidden">
           {loading ? (
             <div className="flex h-full items-center justify-center">
