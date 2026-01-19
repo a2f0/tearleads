@@ -43,6 +43,7 @@ export function ConsoleWindow({
   const [activeTabId, setActiveTabId] = useState(() => tabs[0]?.id ?? '');
   const [splitDirection, setSplitDirection] = useState<SplitDirection>('none');
   const [splitTabId, setSplitTabId] = useState<string | null>(null);
+  const [focusTarget, setFocusTarget] = useState<'main' | 'split'>('main');
 
   const handleNewTab = useCallback(() => {
     const newTab: TerminalTab = {
@@ -51,6 +52,7 @@ export function ConsoleWindow({
     };
     setTabs((prev) => [...prev, newTab]);
     setActiveTabId(newTab.id);
+    setFocusTarget('main');
   }, [tabs.length]);
 
   const handleCloseTab = useCallback(
@@ -68,6 +70,7 @@ export function ConsoleWindow({
       if (splitTabId === tabId) {
         setSplitDirection('none');
         setSplitTabId(null);
+        setFocusTarget('main');
       }
 
       // If closing the active tab, switch to another tab
@@ -75,6 +78,7 @@ export function ConsoleWindow({
         const newIndex = tabIndex === 0 ? 0 : tabIndex - 1;
         if (newTabs[newIndex]) {
           setActiveTabId(newTabs[newIndex].id);
+          setFocusTarget('main');
         }
       }
     },
@@ -90,6 +94,7 @@ export function ConsoleWindow({
         }
         setSplitDirection('none');
         setSplitTabId(null);
+        setFocusTarget('main');
         return;
       }
       const newTab: TerminalTab = {
@@ -99,6 +104,7 @@ export function ConsoleWindow({
       setTabs((prev) => [...prev, newTab]);
       setSplitDirection(direction);
       setSplitTabId(newTab.id);
+      setFocusTarget('split');
     },
     [splitDirection, splitTabId, tabs.length]
   );
@@ -153,7 +159,10 @@ export function ConsoleWindow({
               >
                 <button
                   type="button"
-                  onClick={() => setActiveTabId(tab.id)}
+                  onClick={() => {
+                    setActiveTabId(tab.id);
+                    setFocusTarget('main');
+                  }}
                   className="max-w-24 truncate"
                 >
                   {tab.name}
@@ -176,13 +185,13 @@ export function ConsoleWindow({
         {/* Terminal content area */}
         <div
           className={cn(
-            'flex flex-1 overflow-hidden',
+            'flex flex-1 min-h-0 min-w-0 overflow-hidden',
             splitDirection === 'horizontal' && 'flex-col',
             splitDirection === 'vertical' && 'flex-row'
           )}
         >
           {/* Main terminal pane */}
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
             {visibleTabs.map((tab) => (
               <div
                 key={tab.id}
@@ -191,7 +200,10 @@ export function ConsoleWindow({
                   tab.id === activeTabId ? 'block' : 'hidden'
                 )}
               >
-                <Terminal className="h-full rounded-none border-0" />
+                <Terminal
+                  className="h-full rounded-none border-0"
+                  autoFocus={focusTarget === 'main' && tab.id === activeTabId}
+                />
               </div>
             ))}
           </div>
@@ -205,8 +217,11 @@ export function ConsoleWindow({
                   splitDirection === 'vertical' && 'w-px'
                 )}
               />
-              <div className="flex-1 overflow-hidden">
-                <Terminal className="h-full rounded-none border-0" />
+              <div className="flex-1 min-h-0 min-w-0 overflow-hidden">
+                <Terminal
+                  className="h-full rounded-none border-0"
+                  autoFocus={focusTarget === 'split'}
+                />
               </div>
             </>
           )}
