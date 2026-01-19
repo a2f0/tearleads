@@ -237,6 +237,21 @@ describe('Models', () => {
       expect(mockLoadModel).toHaveBeenCalled();
     });
 
+    it('calls loadModel when OpenRouter Use button is clicked', async () => {
+      const user = userEvent.setup();
+      renderModels();
+
+      await waitFor(() => {
+        expect(screen.getByText('Mistral 7B Instruct')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: /use/i }));
+
+      expect(mockLoadModel).toHaveBeenCalledWith(
+        'mistralai/mistral-7b-instruct:free'
+      );
+    });
+
     it('shows loading button when model is being downloaded', async () => {
       let resolveLoad: (() => void) | undefined;
       const loadPromise = new Promise<void>((resolve) => {
