@@ -1,0 +1,1 @@
+export { AdminPostgresWindow } from './AdminPostgresWindow';
