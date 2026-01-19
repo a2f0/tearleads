@@ -237,7 +237,9 @@ describe('PhotosWindow', () => {
 
     await user.click(screen.getByTestId('select-photo-button'));
 
-    expect(screen.getByTestId('photos-detail')).toBeInTheDocument();
-    expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('photos-detail')).toBeInTheDocument();
+      expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
+    });
   });
 });

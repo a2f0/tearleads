@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FilesWindow } from './FilesWindow';
@@ -364,12 +364,14 @@ describe('FilesWindow', () => {
 
     await user.click(screen.getByTestId('select-file-button'));
 
-    expect(screen.getByTestId('files-detail')).toBeInTheDocument();
-    expect(screen.getByTestId('detail-file-id')).toHaveTextContent(
-      'test-file-id'
-    );
-    expect(screen.queryByTestId('files-content')).not.toBeInTheDocument();
-    expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('files-detail')).toBeInTheDocument();
+      expect(screen.getByTestId('detail-file-id')).toHaveTextContent(
+        'test-file-id'
+      );
+      expect(screen.queryByTestId('files-content')).not.toBeInTheDocument();
+      expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
+    });
   });
 
   it('returns to list view when back button is clicked', async () => {

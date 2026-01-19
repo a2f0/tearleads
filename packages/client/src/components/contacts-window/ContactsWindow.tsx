@@ -91,6 +91,7 @@ export function ContactsWindow({
           onViewModeChange={setViewMode}
           onNewContact={handleNewContact}
           onClose={onClose}
+          isNewContactDisabled={currentView === 'create'}
         />
         <div className="flex-1 overflow-hidden">
           {currentView === 'detail' && selectedContactId ? (
