@@ -13,6 +13,7 @@ import { useFloatingWindow } from '@/hooks/useFloatingWindow';
 import { cn } from '@/lib/utils';
 
 const DESKTOP_BREAKPOINT = 768;
+const MAX_FIT_CONTENT_ATTEMPTS = 5;
 
 const POSITION_CLASSES: Record<Corner, string> = {
   'top-left': 'top-0 left-0',
@@ -125,6 +126,7 @@ export function FloatingWindow({
     initialDimensions?.preMaximizeDimensions ?? null
   );
   const hasFitContentRef = useRef(false);
+  const fitContentAttemptsRef = useRef(0);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const titleBarRef = useRef<HTMLDivElement | null>(null);
 
@@ -175,6 +177,13 @@ export function FloatingWindow({
   });
 
   const dragHandlers = createDragHandlers();
+  const widthRef = useRef(width);
+  const heightRef = useRef(height);
+
+  useEffect(() => {
+    widthRef.current = width;
+    heightRef.current = height;
+  }, [width, height]);
 
   useLayoutEffect(() => {
     if (
@@ -189,6 +198,8 @@ export function FloatingWindow({
 
     const contentElement = contentRef.current;
     if (!contentElement) return;
+
+    let observer: ResizeObserver | null = null;
 
     const measureAndFit = () => {
       if (hasFitContentRef.current) return;
@@ -207,6 +218,13 @@ export function FloatingWindow({
         minHeight,
         Math.min(desiredHeight, maxHeight)
       );
+      const widthDelta = Math.abs(nextWidth - widthRef.current);
+      const heightDelta = Math.abs(nextHeight - heightRef.current);
+      if (widthDelta < 1 && heightDelta < 1) {
+        hasFitContentRef.current = true;
+        observer?.disconnect();
+        return;
+      }
       const nextX = Math.max(
         0,
         Math.round((window.innerWidth - nextWidth) / 2)
@@ -220,15 +238,21 @@ export function FloatingWindow({
         x: nextX,
         y: nextY
       });
-      hasFitContentRef.current = true;
+      fitContentAttemptsRef.current += 1;
+      if (fitContentAttemptsRef.current >= MAX_FIT_CONTENT_ATTEMPTS) {
+        hasFitContentRef.current = true;
+        observer?.disconnect();
+      }
     };
 
     measureAndFit();
 
-    const observer = new ResizeObserver(measureAndFit);
+    if (hasFitContentRef.current) return;
+
+    observer = new ResizeObserver(measureAndFit);
     observer.observe(contentElement);
 
-    return () => observer.disconnect();
+    return () => observer?.disconnect();
   }, [
     fitContent,
     isDesktop,
