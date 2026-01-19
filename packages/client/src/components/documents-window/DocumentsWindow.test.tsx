@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DocumentsWindow } from './DocumentsWindow';
@@ -168,9 +168,11 @@ describe('DocumentsWindow', () => {
     const fileInput = screen.getByTestId('documents-file-input');
     const file = new File(['hello'], 'test.txt', { type: 'text/plain' });
 
-    await user.upload(fileInput, file);
+    fireEvent.change(fileInput, { target: { files: [file] } });
 
-    expect(mockUploadFile).toHaveBeenCalledWith(file);
+    await waitFor(() => {
+      expect(mockUploadFile).toHaveBeenCalledWith(file);
+    });
   });
 
   it('returns to documents list when detail back is clicked', async () => {
