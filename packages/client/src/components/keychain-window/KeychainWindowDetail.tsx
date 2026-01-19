@@ -206,10 +206,7 @@ export function KeychainWindowDetail({
                 Delete Session Keys
               </Button>
             )}
-            <Button
-              variant="outline"
-              onClick={() => setDeleteDialogOpen(true)}
-            >
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(true)}>
               <Trash2 className="mr-2 h-4 w-4" />
               Delete Instance
             </Button>
