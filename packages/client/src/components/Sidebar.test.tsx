@@ -330,6 +330,111 @@ describe('Sidebar', () => {
 
     window.matchMedia = originalMatchMedia;
   });
+
+  describe('context menu', () => {
+    it('shows context menu on right-click on desktop', async () => {
+      const user = userEvent.setup();
+      mockMatchMedia({ isMobile: false, isTouch: false });
+      renderSidebar();
+
+      const consoleButton = screen.getByRole('button', { name: 'Console' });
+      await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+      expect(screen.getByText('Open')).toBeInTheDocument();
+      expect(screen.getByText('Open in Window')).toBeInTheDocument();
+    });
+
+    it('does not show context menu on right-click on mobile', async () => {
+      const user = userEvent.setup();
+      mockMatchMedia({ isMobile: true, isTouch: true });
+      renderSidebar();
+
+      const consoleButton = screen.getByRole('button', { name: 'Console' });
+      await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+      expect(screen.queryByText('Open')).not.toBeInTheDocument();
+    });
+
+    it('navigates when clicking Open in context menu', async () => {
+      const user = userEvent.setup();
+      mockMatchMedia({ isMobile: false, isTouch: false });
+      renderSidebar();
+
+      const consoleButton = screen.getByRole('button', { name: 'Console' });
+      await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+      const openButton = screen.getByText('Open');
+      await user.click(openButton);
+
+      expect(mockNavigate).toHaveBeenCalledWith('/console');
+      expect(mockOnClose).toHaveBeenCalled();
+    });
+
+    it('opens window when clicking Open in Window in context menu', async () => {
+      const user = userEvent.setup();
+      mockMatchMedia({ isMobile: false, isTouch: false });
+      renderSidebar();
+
+      const consoleButton = screen.getByRole('button', { name: 'Console' });
+      await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+      const openInWindowButton = screen.getByText('Open in Window');
+      await user.click(openInWindowButton);
+
+      expect(mockOpenWindow).toHaveBeenCalledWith('console');
+      expect(mockOnClose).toHaveBeenCalled();
+    });
+
+    it('does not show Open in Window for non-window paths', async () => {
+      const user = userEvent.setup();
+      mockMatchMedia({ isMobile: false, isTouch: false });
+      renderSidebar();
+
+      // Models is not in WINDOW_PATHS
+      const modelsButton = screen.getByRole('button', { name: 'Models' });
+      await user.pointer({ keys: '[MouseRight]', target: modelsButton });
+
+      expect(screen.getByText('Open')).toBeInTheDocument();
+      expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
+    });
+
+    it('closes context menu when clicking overlay', async () => {
+      const user = userEvent.setup();
+      mockMatchMedia({ isMobile: false, isTouch: false });
+      renderSidebar();
+
+      const consoleButton = screen.getByRole('button', { name: 'Console' });
+      await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+      expect(screen.getByText('Open')).toBeInTheDocument();
+
+      // Click the overlay button that covers the background
+      const closeOverlay = screen.getByRole('button', {
+        name: 'Close context menu'
+      });
+      await user.click(closeOverlay);
+
+      // Context menu should be closed
+      expect(screen.queryByText('Open')).not.toBeInTheDocument();
+    });
+
+    it('closes context menu when pressing Escape', async () => {
+      const user = userEvent.setup();
+      mockMatchMedia({ isMobile: false, isTouch: false });
+      renderSidebar();
+
+      const consoleButton = screen.getByRole('button', { name: 'Console' });
+      await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+
+      expect(screen.getByText('Open')).toBeInTheDocument();
+
+      // Press Escape to close the context menu
+      await user.keyboard('{Escape}');
+
+      // Context menu should be closed
+      expect(screen.queryByText('Open')).not.toBeInTheDocument();
+    });
+  });
 });
 
 describe('navItems', () => {
