@@ -254,28 +254,6 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
       }
     }, [isUnlocked, currentInstanceId]);
 
-    const fetchedForInstanceRef = useRef<string | null>(null);
-
-    // Clear files when instance changes (even if locked)
-    // This ensures we don't show stale data from the previous instance
-    useEffect(() => {
-      if (
-        fetchedForInstanceRef.current !== currentInstanceId &&
-        fetchedForInstanceRef.current !== null
-      ) {
-        // Revoke thumbnail URLs to prevent memory leaks
-        for (const file of files) {
-          if (file.thumbnailUrl) {
-            URL.revokeObjectURL(file.thumbnailUrl);
-          }
-        }
-        setFiles([]);
-        setError(null);
-        setHasFetched(false);
-      }
-      fetchedForInstanceRef.current = currentInstanceId;
-    }, [currentInstanceId, files]);
-
     // Fetch files when unlocked and instance is ready
     // biome-ignore lint/correctness/useExhaustiveDependencies: hasFetched intentionally excluded
     useEffect(() => {
