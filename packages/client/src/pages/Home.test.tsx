@@ -32,7 +32,6 @@ const MOCK_SAVED_POSITIONS = {
   '/notes': { x: 300, y: 200 },
   '/audio': { x: 400, y: 200 },
   '/videos': { x: 100, y: 300 },
-  '/sqlite/tables': { x: 200, y: 300 },
   '/analytics': { x: 300, y: 300 },
   '/sqlite': { x: 400, y: 300 },
   '/console': { x: 100, y: 400 },
@@ -721,14 +720,14 @@ describe('Home', () => {
     // localStorage should be cleared (same as auto-arrange)
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
 
-    // With 21 icons in an 800x600 container:
-    // cols = ceil(sqrt(21)) = 5, rows = ceil(21/5) = 5
+    // With 20 icons in an 800x600 container:
+    // cols = ceil(sqrt(20)) = 5, rows = ceil(20/5) = 4
     // itemWidth = 64 + 40 = 104, itemHeightWithGap = 96 + 40 = 136
-    // clusterWidth = 5*104 - 40 = 480, clusterHeight = 5*136 - 40 = 640
-    // startX = (800 - 480) / 2 = 160, startY = max(0, (600 - 640) / 2) = 0
-    // First icon (Files) at index 0: col=0, row=0 -> (160, 0)
+    // clusterWidth = 5*104 - 40 = 480, clusterHeight = 4*136 - 40 = 504
+    // startX = (800 - 480) / 2 = 160, startY = max(0, (600 - 504) / 2) = 48
+    // First icon (Files) at index 0: col=0, row=0 -> (160, 48)
     const filesButton = screen.getByRole('button', { name: 'Files' });
-    expect(filesButton).toHaveStyle({ left: '160px', top: '0px' });
+    expect(filesButton).toHaveStyle({ left: '160px', top: '48px' });
   });
 
   it('shows Open in Window option for Notes icon', async () => {
