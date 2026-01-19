@@ -50,6 +50,16 @@ vi.mock('@/pages/analytics', () => ({
   Analytics: () => <div data-testid="analytics-content">Analytics Content</div>
 }));
 
+vi.mock('./AnalyticsWindowMenuBar', () => ({
+  AnalyticsWindowMenuBar: ({ onClose }: { onClose: () => void }) => (
+    <div data-testid="menu-bar">
+      <button type="button" onClick={onClose} data-testid="menu-close-button">
+        Close
+      </button>
+    </div>
+  )
+}));
+
 describe('AnalyticsWindow', () => {
   const defaultProps = {
     id: 'test-window',
@@ -78,12 +88,26 @@ describe('AnalyticsWindow', () => {
     expect(screen.getByTestId('analytics-content')).toBeInTheDocument();
   });
 
+  it('renders menu bar', () => {
+    render(<AnalyticsWindow {...defaultProps} />);
+    expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
+  });
+
   it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(<AnalyticsWindow {...defaultProps} onClose={onClose} />);
 
     await user.click(screen.getByTestId('close-window'));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('calls onClose when menu close button is clicked', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<AnalyticsWindow {...defaultProps} onClose={onClose} />);
+
+    await user.click(screen.getByTestId('menu-close-button'));
     expect(onClose).toHaveBeenCalled();
   });
 
