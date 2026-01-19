@@ -1,5 +1,5 @@
-export { FontSelector } from './FontSelector';
 export { DisplayPropertiesSheet } from './DisplayPropertiesSheet';
+export { FontSelector } from './FontSelector';
 export {
   PATTERN_LABELS,
   PatternPreview,
