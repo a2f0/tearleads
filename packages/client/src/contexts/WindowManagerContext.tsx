@@ -148,7 +148,7 @@ export function WindowManagerProvider({
 
       return id;
     },
-    [focusWindow, getNextZIndex, windows]
+    [getNextZIndex]
   );
 
   const minimizeWindow = useCallback(
