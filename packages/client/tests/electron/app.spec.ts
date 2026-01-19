@@ -56,7 +56,7 @@ test.describe('Electron App', () => {
 
   test('should navigate to tables page', async () => {
     // Navigate via URL for testing page behavior
-    await navigateToRoute(window, '/tables');
+    await navigateToRoute(window, '/sqlite/tables');
 
     await expect(
       window.getByRole('heading', {name: 'Tables'})
@@ -65,7 +65,7 @@ test.describe('Electron App', () => {
 
   test('should show inline unlock on tables page when database not unlocked', async () => {
     // Navigate via URL for testing page behavior
-    await navigateToRoute(window, '/tables');
+    await navigateToRoute(window, '/sqlite/tables');
 
     // Should show inline unlock component
     await expect(window.getByTestId('inline-unlock')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
@@ -100,7 +100,7 @@ test.describe('Electron App', () => {
     await expect(window.getByTestId('db-status')).toContainText('Unlocked', {timeout: APP_LOAD_TIMEOUT});
 
     // Navigate to tables page via URL
-    await navigateToRoute(window, '/tables');
+    await navigateToRoute(window, '/sqlite/tables');
     await expect(window.getByRole('heading', {name: 'Tables'})).toBeVisible();
 
     // Should show tables
