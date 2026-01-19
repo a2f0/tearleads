@@ -3,6 +3,7 @@ import {
   DEFAULT_OPENROUTER_MODEL_ID,
   formatDate,
   getErrorCode,
+  getOpenRouterModelOption,
   isOpenRouterModelId,
   isRecord,
   OPENROUTER_CHAT_MODELS,
@@ -116,6 +117,15 @@ describe('OpenRouter models', () => {
   it('includes the default model in the list', () => {
     const ids = OPENROUTER_CHAT_MODELS.map((model) => model.id);
     expect(ids).toContain(DEFAULT_OPENROUTER_MODEL_ID);
+  });
+
+  it('returns model details for supported IDs', () => {
+    const model = getOpenRouterModelOption(DEFAULT_OPENROUTER_MODEL_ID);
+    expect(model?.id).toBe(DEFAULT_OPENROUTER_MODEL_ID);
+  });
+
+  it('returns null for unknown model IDs', () => {
+    expect(getOpenRouterModelOption('unknown/model')).toBeNull();
   });
 
   it('identifies supported model IDs', () => {
