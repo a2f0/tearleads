@@ -36,7 +36,8 @@ export type DesktopPatternValue =
   | 'isometric'
   | 'triangles'
   | 'diamonds';
-export type DesktopIconDepthValue = 'embossed' | 'debossed';
+export const DESKTOP_ICON_DEPTH_VALUES = ['embossed', 'debossed'] as const;
+export type DesktopIconDepthValue = (typeof DESKTOP_ICON_DEPTH_VALUES)[number];
 
 // Map settings keys to their value types
 export interface SettingValueMap {
@@ -96,7 +97,7 @@ export function isDesktopPatternValue(
 export function isDesktopIconDepthValue(
   value: string
 ): value is DesktopIconDepthValue {
-  return ['embossed', 'debossed'].includes(value);
+  return DESKTOP_ICON_DEPTH_VALUES.some((item) => item === value);
 }
 
 // Settings sync event detail type
