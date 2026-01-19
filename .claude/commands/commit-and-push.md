@@ -28,7 +28,41 @@ Commit and push the current changes following these rules:
 4. **Push**: After successful commit, push to the current branch's remote.
    - The pre-push hook runs full builds and all unit tests; it can take several minutes. Use a longer command timeout and do not assume a timeout means failure.
 
-5. **Open PR**: If no PR exists for this branch, create one with `gh pr create`. Do NOT include auto-close keywords (e.g., `Closes`, `Fixes`, `Resolves`) - all issues are marked "Needs QA" after merge via `/enter-merge-queue`. Include agent tracking: `Agent: $(basename "$(git rev-parse --show-toplevel)")` at the bottom. After creating, run `setVscodeTitle.sh`.
+5. **Open PR**: If no PR exists for this branch, create one with `gh pr create`. Do NOT include auto-close keywords (e.g., `Closes`, `Fixes`, `Resolves`) - all issues are marked "Needs QA" after merge via `/enter-merge-queue`. Use the Claude-style PR body format and include the computed agent ID.
+
+   **Compute agent id**:
+
+   ```bash
+   AGENT_ID=$(basename "$(git rev-parse --show-toplevel)")
+   ```
+
+   **PR body template** (fill in real bullets, keep sections and ordering):
+
+   ```bash
+   PR_BODY=$(cat <<EOF
+   ## Summary
+   - <verb-led, concrete change>
+   - <second concrete change if needed>
+
+   ## Testing
+   - <command run or "not run (reason)">
+
+   ## Issue
+   - #<issue-number>
+
+   Agent: ${AGENT_ID}
+   EOF
+   )
+   ```
+
+   If there is no associated issue, replace the `## Issue` section with:
+
+   ```text
+   ## Related
+   - <link or short reference>
+   ```
+
+   After creating the PR, run `setVscodeTitle.sh`.
 
 6. **Wait for Gemini**: Wait 60 seconds for Gemini Code Assist to review.
 
