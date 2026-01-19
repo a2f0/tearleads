@@ -59,10 +59,7 @@ export const handlers = [
     const model = isRecord(body) ? body['model'] : undefined;
     const messageResult = validateChatMessages(messages);
     if (!messageResult.ok) {
-      return HttpResponse.json(
-        { error: messageResult.error },
-        { status: 400 }
-      );
+      return HttpResponse.json({ error: messageResult.error }, { status: 400 });
     }
 
     if (model !== undefined) {

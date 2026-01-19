@@ -21,7 +21,9 @@ type ContentPartResult =
   | { ok: true; value: ChatContentPart }
   | { ok: false; error: string };
 
-type ContentResult = { ok: true; value: ChatContent } | { ok: false; error: string };
+type ContentResult =
+  | { ok: true; value: ChatContent }
+  | { ok: false; error: string };
 
 const isChatRole = (value: unknown): value is ChatRole =>
   value === 'assistant' ||
@@ -76,7 +78,10 @@ const parseContent = (value: unknown, messageIndex: number): ContentResult => {
   }
 
   if (!Array.isArray(value)) {
-    return { ok: false, error: `${prefix} must be a non-empty string or array` };
+    return {
+      ok: false,
+      error: `${prefix} must be a non-empty string or array`
+    };
   }
 
   if (value.length === 0) {

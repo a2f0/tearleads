@@ -116,9 +116,7 @@ describe('toFiniteNumber', () => {
 
 describe('validateChatMessages', () => {
   it('accepts text-only messages', () => {
-    const result = validateChatMessages([
-      { role: 'user', content: 'Hello' }
-    ]);
+    const result = validateChatMessages([{ role: 'user', content: 'Hello' }]);
 
     if (!result.ok) {
       throw new Error(`Expected ok result, got: ${result.error}`);
