@@ -1,6 +1,6 @@
+import type { PostgresTableInfo } from '@rapid/shared';
 import { HardDrive } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { PostgresTableInfo } from '@rapid/shared';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { api } from '@/lib/api';
 
@@ -52,7 +52,10 @@ export function PostgresTableSizes() {
   }, [fetchTables]);
 
   return (
-    <div className="space-y-3 rounded-lg border p-4" data-testid="postgres-table-sizes">
+    <div
+      className="space-y-3 rounded-lg border p-4"
+      data-testid="postgres-table-sizes"
+    >
       <div className="flex items-center justify-between">
         <h2 className="font-medium">Table summary</h2>
         <RefreshButton

@@ -9,7 +9,10 @@ import {
   Router,
   type Router as RouterType
 } from 'express';
-import { getPostgresConnectionInfo, getPostgresPool } from '../../lib/postgres.js';
+import {
+  getPostgresConnectionInfo,
+  getPostgresPool
+} from '../../lib/postgres.js';
 
 const router: RouterType = Router();
 
@@ -69,7 +72,8 @@ router.get('/info', async (_req: Request, res: Response) => {
   } catch (err) {
     console.error('Postgres error:', err);
     res.status(500).json({
-      error: err instanceof Error ? err.message : 'Failed to connect to Postgres'
+      error:
+        err instanceof Error ? err.message : 'Failed to connect to Postgres'
     });
   }
 });

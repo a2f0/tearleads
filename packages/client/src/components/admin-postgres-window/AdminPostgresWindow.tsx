@@ -1,9 +1,9 @@
 import { useState } from 'react';
+import { AdminWindowMenuBar } from '@/components/admin-window/AdminWindowMenuBar';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
-import { PostgresAdmin } from '@/pages/admin/PostgresAdmin';
 import { cn } from '@/lib/utils';
-import { AdminWindowMenuBar } from '@/components/admin-window/AdminWindowMenuBar';
+import { PostgresAdmin } from '@/pages/admin/PostgresAdmin';
 
 interface AdminPostgresWindowProps {
   id: string;
