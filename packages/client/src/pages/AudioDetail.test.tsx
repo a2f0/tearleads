@@ -526,6 +526,30 @@ describe('AudioDetail', () => {
 
       expect(await screen.findByAltText('Album cover')).toBeInTheDocument();
     });
+
+    it('falls back when thumbnail loading fails', async () => {
+      const audioWithThumbnail = {
+        ...TEST_AUDIO,
+        thumbnailPath: '/audio/thumb.jpg'
+      };
+      mockSelect.mockReturnValue(createMockQueryChain([audioWithThumbnail]));
+      mockRetrieve
+        .mockResolvedValueOnce(TEST_AUDIO_DATA)
+        .mockRejectedValueOnce(new Error('Thumbnail failed'));
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      await renderAudioDetail();
+
+      await waitFor(() => {
+        expect(screen.getByText('Audio Details')).toBeInTheDocument();
+      });
+      expect(screen.queryByAltText('Album cover')).not.toBeInTheDocument();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to load thumbnail:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
+    });
   });
 
   describe('audio not found', () => {
