@@ -233,6 +233,45 @@ describe('FloatingWindow', () => {
     expect(dialog).toHaveAttribute('data-maximized', 'true');
   });
 
+  it('reports maximize state in dimensions change callback', async () => {
+    const user = userEvent.setup();
+    const onDimensionsChange = vi.fn();
+    render(
+      <FloatingWindow
+        {...defaultProps}
+        onDimensionsChange={onDimensionsChange}
+        defaultWidth={400}
+        defaultHeight={300}
+        defaultX={100}
+        defaultY={50}
+      />
+    );
+    const titleBar = screen.getByTestId(
+      'floating-window-test-window-title-bar'
+    );
+
+    fireEvent.doubleClick(titleBar);
+
+    expect(onDimensionsChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        x: 0,
+        y: 0,
+        isMaximized: true
+      })
+    );
+
+    await user.click(screen.getByRole('button', { name: /restore/i }));
+
+    const lastCall = onDimensionsChange.mock.calls.at(-1)?.[0];
+    expect(lastCall).toEqual(
+      expect.objectContaining({
+        x: 100,
+        y: 50,
+        isMaximized: false
+      })
+    );
+  });
+
   it('restores window from maximized state', async () => {
     const user = userEvent.setup();
     render(<FloatingWindow {...defaultProps} defaultWidth={400} />);
