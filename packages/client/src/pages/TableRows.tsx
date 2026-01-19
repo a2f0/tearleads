@@ -8,12 +8,7 @@ export function TableRows() {
   return (
     <TableRowsView
       tableName={tableName ?? null}
-      backLink={
-        <BackLink
-          defaultTo="/sqlite/tables"
-          defaultLabel="Back to Tables"
-        />
-      }
+      backLink={<BackLink defaultTo="/sqlite/tables" defaultLabel="Back to Tables" />}
     />
   );
 }

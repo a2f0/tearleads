@@ -718,11 +718,15 @@ export function TableRowsView({
         </div>
       )}
 
-      {isUnlocked && tableName && !error && !loading && columns.length === 0 && (
-        <div className="rounded-lg border p-8 text-center text-muted-foreground">
-          Table not found or has no columns
-        </div>
-      )}
+      {isUnlocked &&
+        tableName &&
+        !error &&
+        !loading &&
+        columns.length === 0 && (
+          <div className="rounded-lg border p-8 text-center text-muted-foreground">
+            Table not found or has no columns
+          </div>
+        )}
 
       {isUnlocked && tableName && !error && columns.length > 0 && (
         <div className="flex min-h-0 flex-1 flex-col space-y-4">
