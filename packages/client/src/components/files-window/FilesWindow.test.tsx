@@ -98,21 +98,62 @@ vi.mock('./FilesWindowTableView', () => ({
 
 // Mock FilesWindowContent
 vi.mock('./FilesWindowContent', () => ({
-  FilesWindowContent: vi.fn().mockImplementation(
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
-    ({ showDeleted, ref }: { showDeleted: boolean; ref?: any }) => {
-      // Simulate forwardRef behavior by exposing uploadFiles
-      if (ref) {
-        ref.current = { uploadFiles: mockUploadFiles };
+  FilesWindowContent: vi
+    .fn()
+    .mockImplementation(
+      ({
+        showDeleted,
+        ref,
+        onSelectFile
+      }: {
+        showDeleted: boolean;
+        ref?: React.RefObject<{ uploadFiles: (files: File[]) => void } | null>;
+        onSelectFile?: (fileId: string) => void;
+      }) => {
+        // Simulate forwardRef behavior by exposing uploadFiles
+        if (ref) {
+          ref.current = { uploadFiles: mockUploadFiles };
+        }
+        return (
+          <div data-testid="files-content">
+            <span data-testid="content-show-deleted">
+              {showDeleted ? 'true' : 'false'}
+            </span>
+            {onSelectFile && (
+              <button
+                type="button"
+                data-testid="select-file-button"
+                onClick={() => onSelectFile('test-file-id')}
+              >
+                Select File
+              </button>
+            )}
+          </div>
+        );
       }
-      return (
-        <div data-testid="files-content">
-          <span data-testid="content-show-deleted">
-            {showDeleted ? 'true' : 'false'}
-          </span>
-        </div>
-      );
-    }
+    )
+}));
+
+// Mock FilesWindowDetail
+vi.mock('./FilesWindowDetail', () => ({
+  FilesWindowDetail: ({
+    fileId,
+    onBack,
+    onDeleted
+  }: {
+    fileId: string;
+    onBack: () => void;
+    onDeleted: () => void;
+  }) => (
+    <div data-testid="files-detail">
+      <span data-testid="detail-file-id">{fileId}</span>
+      <button type="button" data-testid="detail-back" onClick={onBack}>
+        Back
+      </button>
+      <button type="button" data-testid="detail-deleted" onClick={onDeleted}>
+        Deleted
+      </button>
+    </div>
   )
 }));
 
@@ -315,5 +356,46 @@ describe('FilesWindow', () => {
 
     expect(mockUploadFiles).not.toHaveBeenCalled();
     expect(fileInput.value).toBe('');
+  });
+
+  it('shows detail view when a file is selected', async () => {
+    const user = userEvent.setup();
+    render(<FilesWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-file-button'));
+
+    expect(screen.getByTestId('files-detail')).toBeInTheDocument();
+    expect(screen.getByTestId('detail-file-id')).toHaveTextContent(
+      'test-file-id'
+    );
+    expect(screen.queryByTestId('files-content')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('menu-bar')).not.toBeInTheDocument();
+  });
+
+  it('returns to list view when back button is clicked', async () => {
+    const user = userEvent.setup();
+    render(<FilesWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-file-button'));
+    expect(screen.getByTestId('files-detail')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('detail-back'));
+
+    expect(screen.queryByTestId('files-detail')).not.toBeInTheDocument();
+    expect(screen.getByTestId('files-content')).toBeInTheDocument();
+    expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
+  });
+
+  it('returns to list view when file is deleted', async () => {
+    const user = userEvent.setup();
+    render(<FilesWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-file-button'));
+    expect(screen.getByTestId('files-detail')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('detail-deleted'));
+
+    expect(screen.queryByTestId('files-detail')).not.toBeInTheDocument();
+    expect(screen.getByTestId('files-content')).toBeInTheDocument();
   });
 });

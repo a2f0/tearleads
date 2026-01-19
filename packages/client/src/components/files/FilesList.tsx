@@ -83,11 +83,20 @@ export interface FilesListProps {
   onShowDeletedChange?: (show: boolean) => void;
   showHeader?: boolean;
   onFilesChange?: () => void;
+  onSelectFile?: (fileId: string) => void;
+  refreshToken?: number;
 }
 
 export const FilesList = forwardRef<FilesListRef, FilesListProps>(
   function FilesList(
-    { showDeleted, onShowDeletedChange, showHeader = true, onFilesChange },
+    {
+      showDeleted,
+      onShowDeletedChange,
+      showHeader = true,
+      onFilesChange,
+      onSelectFile,
+      refreshToken
+    },
     ref
   ) {
     const navigateWithFrom = useNavigateWithFrom();
@@ -243,6 +252,12 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
     }, [isUnlocked, loading, currentInstanceId, fetchFiles]);
 
     useEffect(() => {
+      if (refreshToken !== undefined && refreshToken > 0 && isUnlocked) {
+        fetchFiles();
+      }
+    }, [refreshToken, isUnlocked, fetchFiles]);
+
+    useEffect(() => {
       return () => {
         for (const file of files) {
           if (file.thumbnailUrl) {
@@ -343,6 +358,11 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
 
     const handleView = useCallback(
       (file: FileInfo) => {
+        if (onSelectFile) {
+          onSelectFile(file.id);
+          return;
+        }
+
         const fileType = file.mimeType.split('/')[0] ?? '';
         const routeMapping: Record<string, string> = {
           image: '/photos',
@@ -364,7 +384,7 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
           });
         }
       },
-      [navigateWithFrom]
+      [navigateWithFrom, onSelectFile]
     );
 
     const handleDownload = useCallback(
