@@ -252,7 +252,9 @@ describe('key-manager', () => {
       // Make config paths point to a non-writable location
       const originalWriteFile = fs.writeFile;
       vi.spyOn(fs, 'writeFile').mockRejectedValueOnce(new Error('Write error'));
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
 
       const result = await persistSession();
       expect(result).toBe(false);
@@ -271,7 +273,9 @@ describe('key-manager', () => {
       const paths = getConfigPaths();
 
       await fs.writeFile(paths.session, '{"invalid": "data"}');
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
 
       const result = await restoreSession();
 
