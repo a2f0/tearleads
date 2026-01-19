@@ -83,7 +83,7 @@ function App() {
         copyrightText=""
       />
       <div
-        className="fixed bottom-6 right-4 z-50"
+        className="fixed right-4 bottom-6 z-50"
         style={{
           bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
           right: 'max(1rem, env(safe-area-inset-right, 0px))'
