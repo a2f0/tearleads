@@ -254,7 +254,7 @@ describe('Models', () => {
       const mistralCard = screen
         .getByText('Mistral 7B Instruct')
         .closest('.rounded-lg');
-      if (!mistralCard) {
+      if (!mistralCard || !(mistralCard instanceof HTMLElement)) {
         throw new Error('Expected Mistral model card to be present');
       }
       await user.click(
