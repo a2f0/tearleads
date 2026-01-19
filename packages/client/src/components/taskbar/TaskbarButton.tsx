@@ -25,9 +25,9 @@ import {
   X
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
+import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 import { cn } from '@/lib/utils';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 
 const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   notes: <StickyNote className="h-3 w-3" />,

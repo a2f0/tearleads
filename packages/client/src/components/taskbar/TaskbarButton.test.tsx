@@ -207,7 +207,9 @@ describe('TaskbarButton', () => {
     const button = screen.getByTestId('taskbar-button-notes');
     fireEvent.contextMenu(button);
 
-    expect(screen.getByRole('button', { name: 'Minimize' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Minimize' })
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
   });
 });
