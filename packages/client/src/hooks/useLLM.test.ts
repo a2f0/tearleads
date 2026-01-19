@@ -27,15 +27,6 @@ class MockWorker {
   terminate = vi.fn();
 }
 
-vi.stubGlobal('Worker', MockWorker);
-
-// Mock WebGPU
-vi.stubGlobal('navigator', {
-  gpu: {
-    requestAdapter: vi.fn().mockResolvedValue({})
-  }
-});
-
 // Mock database
 vi.mock('@/db', () => ({
   getDatabase: vi.fn().mockReturnValue(null),
@@ -62,6 +53,13 @@ describe('useLLM', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockOnMessage = null;
+    vi.stubGlobal('Worker', MockWorker);
+    // Mock WebGPU
+    vi.stubGlobal('navigator', {
+      gpu: {
+        requestAdapter: vi.fn().mockResolvedValue({})
+      }
+    });
   });
 
   afterEach(() => {
