@@ -238,9 +238,12 @@ if (rootElement) {
                                     path="licenses"
                                     element={<Licenses />}
                                   />
-                                  <Route path="tables" element={<Tables />} />
                                   <Route
-                                    path="tables/:tableName"
+                                    path="sqlite/tables"
+                                    element={<Tables />}
+                                  />
+                                  <Route
+                                    path="sqlite/tables/:tableName"
                                     element={<TableRows />}
                                   />
                                   <Route
