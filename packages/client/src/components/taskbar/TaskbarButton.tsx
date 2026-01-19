@@ -140,8 +140,7 @@ export function TaskbarButton({
         onClick={onClick}
         onContextMenu={handleContextMenu}
         className={cn(
-          'flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-xs transition-colors',
-          (isActive || isMinimized) && 'px-3 py-2 text-sm',
+          'flex items-center gap-1.5 rounded border px-2 py-1 text-xs transition-colors',
           isActive
             ? 'border-primary/50 bg-primary/10 text-foreground'
             : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -172,6 +171,12 @@ export function TaskbarButton({
                 onClick={handleMaximize}
               >
                 Maximize
+              </ContextMenuItem>
+              <ContextMenuItem
+                icon={<X className="h-4 w-4" />}
+                onClick={handleClose}
+              >
+                Close
               </ContextMenuItem>
             </>
           ) : (
