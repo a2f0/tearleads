@@ -7,9 +7,9 @@ import {
   useRef,
   useState
 } from 'react';
+import { FOOTER_HEIGHT } from '@/constants/layout';
 import type { Corner } from '@/hooks/useFloatingWindow';
 import { useFloatingWindow } from '@/hooks/useFloatingWindow';
-import { FOOTER_HEIGHT } from '@/constants/layout';
 import { cn } from '@/lib/utils';
 
 const DESKTOP_BREAKPOINT = 768;
