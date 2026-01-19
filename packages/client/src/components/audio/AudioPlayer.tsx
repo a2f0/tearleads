@@ -37,11 +37,8 @@ const BAR_KEYS = Array.from({ length: BAR_COUNT }, (_, i) => `bar-${i}`);
 function getStoredStyle(): VisualizerStyle {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'waveform' || stored === 'gradient') {
-      return stored;
-    }
-    if (stored === 'lcd') {
-      return 'waveform';
+    if (stored === 'gradient') {
+      return 'gradient';
     }
   } catch {
     // localStorage may not be available
