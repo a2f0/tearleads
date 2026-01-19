@@ -9,8 +9,7 @@ import {
 const router: RouterType = Router();
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-export const DEFAULT_OPENROUTER_MODEL =
-  'mistralai/mistral-7b-instruct:free';
+export const DEFAULT_OPENROUTER_MODEL = 'mistralai/mistral-7b-instruct:free';
 
 type ChatRole = 'assistant' | 'system' | 'tool' | 'user';
 
