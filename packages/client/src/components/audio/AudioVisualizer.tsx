@@ -95,16 +95,16 @@ export function AudioVisualizer({
           const normalizedHeight = value / 255;
 
           return (
-          <div
-            key={key}
-            className="relative flex w-3 items-end justify-center"
-            style={{ height: `${VISUALIZER_HEIGHT}px` }}
-          >
-            {style === 'waveform' ? (
-              <WaveformBar normalizedHeight={normalizedHeight} />
-            ) : (
-              <GradientBar normalizedHeight={normalizedHeight} />
-            )}
+            <div
+              key={key}
+              className="relative flex w-3 items-end justify-center"
+              style={{ height: `${VISUALIZER_HEIGHT}px` }}
+            >
+              {style === 'waveform' ? (
+                <WaveformBar normalizedHeight={normalizedHeight} />
+              ) : (
+                <GradientBar normalizedHeight={normalizedHeight} />
+              )}
             </div>
           );
         })}
@@ -135,7 +135,7 @@ function WaveformBar({ normalizedHeight }: BarProps) {
 
   return (
     <div
-      className="absolute left-0 right-0 rounded-full transition-all duration-75"
+      className="absolute right-0 left-0 rounded-full transition-all duration-75"
       style={{
         height: `${height}px`,
         top: '50%',
