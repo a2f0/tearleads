@@ -84,9 +84,9 @@ const WindowManagerContext = createContext<WindowManagerContextValue | null>(
 const BASE_Z_INDEX = 100;
 
 function createWindowId(type: WindowType): string {
-  const randomUUID = globalThis.crypto?.randomUUID;
-  if (typeof randomUUID === 'function') {
-    return `${type}-${randomUUID()}`;
+  const cryptoObj = globalThis.crypto;
+  if (cryptoObj && typeof cryptoObj.randomUUID === 'function') {
+    return `${type}-${cryptoObj.randomUUID()}`;
   }
   return `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
