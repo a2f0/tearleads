@@ -49,7 +49,6 @@ function App() {
           <header className="w-full px-4 py-4">
             <div className="flex items-center justify-end gap-1">
               <MobileMenu />
-              <HUDTrigger />
               <SettingsButton />
               <AccountSwitcher />
             </div>
@@ -63,32 +62,43 @@ function App() {
       </div>
       <Footer
         version={undefined}
-        connectionIndicator={
-          sse && (
+        leftAction={
+          <div className="flex items-center gap-2">
+            <div className="hidden items-center lg:flex lg:w-[calc(16rem-1cm)]">
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen((prev) => !prev)}
+                className="hidden items-center justify-center lg:flex"
+                aria-label="Toggle sidebar"
+                aria-pressed={isSidebarOpen}
+                aria-controls="sidebar"
+                data-testid="start-button"
+              >
+                <img src={logo} alt="" className="h-6 w-6" aria-hidden="true" />
+              </button>
+            </div>
+            <Taskbar />
+          </div>
+        }
+        copyrightText=""
+      />
+      <div
+        className="fixed bottom-6 right-4 z-50"
+        style={{
+          bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
+          right: 'max(1rem, env(safe-area-inset-right, 0px))'
+        }}
+      >
+        <div className="flex items-center gap-2">
+          {sse && (
             <ConnectionIndicator
               state={sse.connectionState}
               tooltip={t(sseTooltipKeys[sse.connectionState])}
             />
-          )
-        }
-        leftAction={<Taskbar />}
-        copyrightText=""
-      />
-      <button
-        type="button"
-        onClick={() => setIsSidebarOpen((prev) => !prev)}
-        className="fixed bottom-6 left-4 z-50 hidden lg:block"
-        aria-label="Toggle sidebar"
-        aria-pressed={isSidebarOpen}
-        aria-controls="sidebar"
-        data-testid="start-button"
-        style={{
-          bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
-          left: 'max(1rem, env(safe-area-inset-left, 0px))'
-        }}
-      >
-        <img src={logo} alt="" className="h-6 w-6" aria-hidden="true" />
-      </button>
+          )}
+          <HUDTrigger />
+        </div>
+      </div>
       <MiniPlayer />
       <WindowRenderer />
     </div>
