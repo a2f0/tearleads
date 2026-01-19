@@ -11,6 +11,7 @@ export interface ConfirmDialogProps {
   confirmingLabel?: string;
   onConfirm: () => Promise<void>;
   variant?: 'default' | 'destructive';
+  closeOnConfirmStart?: boolean;
 }
 
 export function ConfirmDialog({
@@ -22,7 +23,8 @@ export function ConfirmDialog({
   cancelLabel = 'Cancel',
   confirmingLabel = 'Confirming...',
   onConfirm,
-  variant = 'destructive'
+  variant = 'destructive',
+  closeOnConfirmStart = false
 }: ConfirmDialogProps) {
   const [isConfirming, setIsConfirming] = useState(false);
   const isMountedRef = useRef(true);
@@ -77,6 +79,16 @@ export function ConfirmDialog({
   );
 
   const handleConfirm = async () => {
+    if (closeOnConfirmStart) {
+      onOpenChange(false);
+      try {
+        await onConfirm();
+      } catch (_error) {
+        // Best-effort background work; dialog already closed.
+      }
+      return;
+    }
+
     setIsConfirming(true);
     try {
       await onConfirm();
