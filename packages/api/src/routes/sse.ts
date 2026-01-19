@@ -59,9 +59,9 @@ function isBroadcastMessage(value: unknown): value is BroadcastMessage {
 export function cleanupSseClient(
   client: SseCleanupClient | null,
   channels: string[]
-): Promise<string | void> {
+): Promise<string | undefined> {
   if (!client) {
-    return Promise.resolve();
+    return Promise.resolve(undefined);
   }
   return Promise.all(channels.map((ch) => client.unsubscribe(ch))).then(() =>
     client.quit()
