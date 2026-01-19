@@ -1,3 +1,4 @@
+import { ThemeProvider } from '@rapid/ui';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -50,11 +51,13 @@ const MOCK_SAVED_POSITIONS = {
 describe('Home', () => {
   const renderHome = () => {
     return render(
-      <WindowManagerProvider>
-        <MemoryRouter>
-          <Home />
-        </MemoryRouter>
-      </WindowManagerProvider>
+      <ThemeProvider>
+        <WindowManagerProvider>
+          <MemoryRouter>
+            <Home />
+          </MemoryRouter>
+        </WindowManagerProvider>
+      </ThemeProvider>
     );
   };
 
@@ -166,6 +169,23 @@ describe('Home', () => {
     }
 
     expect(screen.getByText('Auto Arrange')).toBeInTheDocument();
+  });
+
+  it('opens display properties from the canvas context menu', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+    expect(canvas).toBeInTheDocument();
+
+    if (canvas) {
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    const displayPropertiesItem = screen.getByText('Display Properties');
+    await user.click(displayPropertiesItem);
+
+    expect(screen.getByTestId('display-properties-sheet')).toBeInTheDocument();
   });
 
   it('shows icon context menu on right-click', async () => {
