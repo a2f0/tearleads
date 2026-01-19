@@ -39,6 +39,9 @@ if ('serviceWorker' in navigator) {
 const Admin = lazy(() =>
   import('./pages/admin').then((m) => ({ default: m.Admin }))
 );
+const PostgresAdmin = lazy(() =>
+  import('./pages/admin').then((m) => ({ default: m.PostgresAdmin }))
+);
 const Analytics = lazy(() =>
   import('./pages/analytics').then((m) => ({ default: m.Analytics }))
 );
@@ -271,6 +274,10 @@ if (rootElement) {
                                   <Route
                                     path="admin/redis"
                                     element={<Admin />}
+                                  />
+                                  <Route
+                                    path="admin/postgres"
+                                    element={<PostgresAdmin />}
                                   />
                                 </Route>
                               </Routes>

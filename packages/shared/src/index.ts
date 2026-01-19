@@ -48,6 +48,32 @@ export interface RedisKeyValueResponse {
   value: string | string[] | Record<string, string> | null;
 }
 
+export interface PostgresConnectionInfo {
+  host: string | null;
+  port: number | null;
+  database: string | null;
+  user: string | null;
+}
+
+export interface PostgresAdminInfoResponse {
+  status: 'ok';
+  info: PostgresConnectionInfo;
+  serverVersion: string | null;
+}
+
+export interface PostgresTableInfo {
+  schema: string;
+  name: string;
+  rowCount: number;
+  totalBytes: number;
+  tableBytes: number;
+  indexBytes: number;
+}
+
+export interface PostgresTablesResponse {
+  tables: PostgresTableInfo[];
+}
+
 // SSE types
 export type SSEConnectionState = 'connected' | 'connecting' | 'disconnected';
 
