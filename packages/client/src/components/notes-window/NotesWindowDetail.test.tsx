@@ -350,7 +350,7 @@ describe('NotesWindowDetail', () => {
 
     const titleInput = screen.getByTestId('window-note-title');
     await user.clear(titleInput);
-    await user.type(titleInput, 'New Title');
+    await user.type(titleInput, 'New{space}Title');
 
     // Title should be updated in the input
     await waitFor(() => {
