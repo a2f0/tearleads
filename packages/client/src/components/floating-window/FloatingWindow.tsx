@@ -7,12 +7,12 @@ import {
   useRef,
   useState
 } from 'react';
+import { FOOTER_HEIGHT } from '@/constants/layout';
 import type { Corner } from '@/hooks/useFloatingWindow';
 import { useFloatingWindow } from '@/hooks/useFloatingWindow';
 import { cn } from '@/lib/utils';
 
 const DESKTOP_BREAKPOINT = 768;
-const FOOTER_HEIGHT = 80;
 
 const POSITION_CLASSES: Record<Corner, string> = {
   'top-left': 'top-0 left-0',

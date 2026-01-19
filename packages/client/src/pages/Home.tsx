@@ -3,11 +3,13 @@ import {
   ExternalLink,
   LayoutGrid,
   Maximize2,
+  Monitor,
   Square
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { navItems } from '@/components/Sidebar';
+import { DisplayPropertiesSheet } from '@/components/settings/DisplayPropertiesSheet';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
 import { DesktopBackground } from '@/components/ui/desktop-background';
@@ -271,6 +273,7 @@ export function Home() {
     y: number;
     path: string;
   } | null>(null);
+  const [isDisplayPropertiesOpen, setIsDisplayPropertiesOpen] = useState(false);
   const isMobile = useIsMobile();
   const [selectedIcons, setSelectedIcons] = useState<Set<string>>(new Set());
   const [selectionBox, setSelectionBox] = useState<{
@@ -557,6 +560,11 @@ export function Home() {
     applyArrangement(calculateClusterPositions);
   }, [applyArrangement]);
 
+  const handleDisplayPropertiesOpen = useCallback(() => {
+    setIsDisplayPropertiesOpen(true);
+    setCanvasContextMenu(null);
+  }, []);
+
   const handleOpenFromContextMenu = useCallback(() => {
     if (iconContextMenu) {
       navigate(iconContextMenu.path);
@@ -706,6 +714,12 @@ export function Home() {
           >
             {selectedIcons.size > 0 ? 'Cluster Selected' : 'Cluster'}
           </ContextMenuItem>
+          <ContextMenuItem
+            icon={<Monitor className="h-4 w-4" />}
+            onClick={handleDisplayPropertiesOpen}
+          >
+            Display Properties
+          </ContextMenuItem>
         </ContextMenu>
       )}
 
@@ -731,6 +745,10 @@ export function Home() {
           )}
         </ContextMenu>
       )}
+      <DisplayPropertiesSheet
+        open={isDisplayPropertiesOpen}
+        onOpenChange={setIsDisplayPropertiesOpen}
+      />
     </div>
   );
 }

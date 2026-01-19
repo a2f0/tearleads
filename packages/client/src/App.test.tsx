@@ -118,14 +118,15 @@ describe('App', () => {
     );
   });
 
-  it('renders HUDTrigger in the header', () => {
+  it('renders HUDTrigger outside the header', () => {
     mockUseSSEContext.mockReturnValue(null);
 
     renderApp();
 
     const header = screen.getByRole('banner');
     const hudTrigger = screen.getByTestId('hud-trigger');
-    expect(header).toContainElement(hudTrigger);
+    expect(hudTrigger).toBeInTheDocument();
+    expect(header).not.toContainElement(hudTrigger);
   });
 
   it('renders taskbar in the footer', () => {
@@ -136,5 +137,16 @@ describe('App', () => {
     const footer = screen.getByRole('contentinfo');
     const taskbar = screen.getByTestId('taskbar');
     expect(footer).toContainElement(taskbar);
+  });
+
+  it('renders the connection indicator outside the footer', () => {
+    mockUseSSEContext.mockReturnValue({ connectionState: 'connected' });
+
+    renderApp();
+
+    const footer = screen.getByRole('contentinfo');
+    const indicator = screen.getByTestId('connection-indicator');
+    expect(indicator).toBeInTheDocument();
+    expect(footer).not.toContainElement(indicator);
   });
 });
