@@ -1,6 +1,6 @@
+import { isOpenRouterModelId } from '@rapid/shared';
 import { Bot, ChevronDown, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { isOpenRouterModelId } from '@rapid/shared';
 import { useLLM } from '@/hooks/useLLM';
 import { CHAT_MODELS } from '@/lib/models';
 import { ModelOption } from './ModelOption';
@@ -105,7 +105,7 @@ export function ModelSelector({ modelDisplayName }: ModelSelectorProps) {
               Available Models
             </p>
             <div className="space-y-1">
-              <p className="px-2 font-medium text-muted-foreground text-[11px] uppercase tracking-wider">
+              <p className="px-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
                 Local Models
               </p>
               {localModels.map((model) => (
@@ -119,7 +119,7 @@ export function ModelSelector({ modelDisplayName }: ModelSelectorProps) {
             </div>
             {openRouterModels.length > 0 && (
               <div className="mt-2 space-y-1">
-                <p className="px-2 font-medium text-muted-foreground text-[11px] uppercase tracking-wider">
+                <p className="px-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
                   OpenRouter Models
                 </p>
                 {openRouterModels.map((model) => (

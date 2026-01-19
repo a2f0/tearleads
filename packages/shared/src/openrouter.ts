@@ -5,8 +5,7 @@ export interface OpenRouterModelOption {
   isFree: boolean;
 }
 
-export const DEFAULT_OPENROUTER_MODEL_ID =
-  'mistralai/mistral-7b-instruct:free';
+export const DEFAULT_OPENROUTER_MODEL_ID = 'mistralai/mistral-7b-instruct:free';
 
 export const OPENROUTER_CHAT_MODELS: OpenRouterModelOption[] = [
   {
