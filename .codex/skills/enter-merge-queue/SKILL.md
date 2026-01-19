@@ -120,7 +120,13 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - Use `/address-gemini-feedback` and `/follow-up-with-gemini`.
    - **Always reply in-thread immediately** (before proceeding to CI):
      - List review comments: `gh api /repos/$REPO/pulls/<pr-number>/comments`
-     - Reply in-thread: `gh api --method POST /repos/$REPO/pulls/<pr-number>/comments/<comment_id>/replies -f body="...@gemini-code-assist ..."`
+     - Reply in-thread: `gh api -X POST /repos/$REPO/pulls/<pr-number>/comments -F in_reply_to=<comment_id> -f body="...@gemini-code-assist ..."`
+     - List general PR comments (issue comments): `gh api /repos/$REPO/issues/<pr-number>/comments`
+     - Reply to general PR comments: `gh api -X POST /repos/$REPO/issues/<pr-number>/comments -f body="...@gemini-code-assist ..."`
+   - When replying that a fix is complete, **include the commit hash and explicitly ask if the change addresses the issue** (e.g., "Commit <hash> ... does this address the issue?").
+   - Analyze Gemini's sentiment in follow-up replies:
+     - If Gemini confirms/approves and does not request more changes, resolve the thread.
+     - If Gemini is uncertain or requests more work, keep the thread open and iterate.
    - Never use `gh pr review` or GraphQL review comment mutations to reply (they create pending reviews).
    - Include relevant commit hashes in replies (not just titles).
    - **Resolve threads in the loop** only after explicit Gemini confirmation; do not leave Gemini threads unresolved before continuing.

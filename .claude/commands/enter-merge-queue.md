@@ -170,7 +170,15 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    **Important**: All conversation threads must be resolved before the PR can merge.
 
-   **CRITICAL - Reply in-thread only**: When replying to Gemini comments, use the REST API (`gh api repos/{owner}/{repo}/pulls/comments/{comment_database_id}/replies`), NOT `gh pr review` and NOT `gh pr comment`. Top-level PR comments are not acceptable for review feedback. The `gh pr review` command creates pending/draft reviews that remain invisible until submitted - Gemini will never see them. **Always include `@gemini-code-assist` in your reply** to ensure Gemini receives a notification. **Include the relevant commit message(s)** in the reply.
+   **CRITICAL - Reply in-thread only**: When replying to Gemini comments, use the review comment endpoint, NOT `gh pr review` and NOT `gh pr comment`:
+   - List review comments: `gh api /repos/$REPO/pulls/<pr-number>/comments`
+   - Reply in-thread: `gh api -X POST /repos/$REPO/pulls/<pr-number>/comments -F in_reply_to=<comment_id> -f body="...@gemini-code-assist ..."`
+   For general PR comments (issue comments), list and reply separately:
+   - List issue comments: `gh api /repos/$REPO/issues/<pr-number>/comments`
+   - Reply with a new PR comment: `gh api -X POST /repos/$REPO/issues/<pr-number>/comments -f body="...@gemini-code-assist ..."`
+   Top-level PR comments are not acceptable for review feedback. The `gh pr review` command creates pending/draft reviews that remain invisible until submitted - Gemini will never see them. **Always include `@gemini-code-assist` in your reply** to ensure Gemini receives a notification. **Include the relevant commit message(s)** in the reply.
+   When reporting a fix, **include the commit hash and explicitly ask if it addresses the issue** (e.g., "Commit <hash> ... does this address the issue?").
+   **Sentiment check**: If Gemini's response is an approval/confirmation without new requests, resolve the thread. If it is uncertain or requests more changes, keep the thread open and iterate.
 
    Run `/address-gemini-feedback` to handle any unresolved comments, then `/follow-up-with-gemini` to:
 
