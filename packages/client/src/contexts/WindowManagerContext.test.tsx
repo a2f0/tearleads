@@ -85,6 +85,31 @@ describe('WindowManagerContext', () => {
       expect(window1?.zIndex).toBe(100);
       expect(window2?.zIndex).toBe(101);
     });
+
+    it('opens new window above the current top window', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'window-1');
+      });
+
+      act(() => {
+        result.current.openWindow('notes', 'window-2');
+      });
+
+      act(() => {
+        result.current.focusWindow('window-1');
+      });
+
+      act(() => {
+        result.current.openWindow('notes', 'window-3');
+      });
+
+      const window1 = result.current.windows.find((w) => w.id === 'window-1');
+      const window3 = result.current.windows.find((w) => w.id === 'window-3');
+
+      expect(window3?.zIndex).toBe((window1?.zIndex ?? 0) + 1);
+    });
   });
 
   describe('closeWindow', () => {
