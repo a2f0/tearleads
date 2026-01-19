@@ -24,12 +24,13 @@ vi.mock('@/db/crypto/key-manager', () => ({
     mockGetKeyManagerForInstance(instanceId)
 }));
 
-const mockGetInstances = vi.fn<() => Promise<InstanceMetadata[]>>();
+const mockGetInstance =
+  vi.fn<(instanceId: string) => Promise<InstanceMetadata | null>>();
 const mockDeleteInstanceFromRegistry =
   vi.fn<(instanceId: string) => Promise<void>>();
 
 vi.mock('@/db/instance-registry', () => ({
-  getInstances: () => mockGetInstances(),
+  getInstance: (instanceId: string) => mockGetInstance(instanceId),
   deleteInstanceFromRegistry: (instanceId: string) =>
     mockDeleteInstanceFromRegistry(instanceId)
 }));
@@ -45,7 +46,7 @@ vi.mock('@/pages/keychain/DeleteSessionKeysDialog', () => ({
     open ? (
       <button
         type="button"
-        onClick={() => void onDelete()}
+        onClick={() => void onDelete().catch(() => {})}
         data-testid="confirm-delete-session"
       >
         Confirm Session Delete
@@ -64,7 +65,7 @@ vi.mock('@/pages/keychain/DeleteKeychainInstanceDialog', () => ({
     open ? (
       <button
         type="button"
-        onClick={() => void onDelete()}
+        onClick={() => void onDelete().catch(() => {})}
         data-testid="confirm-delete-instance"
       >
         Confirm Instance Delete
@@ -107,7 +108,7 @@ function createKeyStatus(
 describe('KeychainWindowDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetInstances.mockResolvedValue([]);
+    mockGetInstance.mockResolvedValue(null);
     mockGetKeyStatusForInstance.mockResolvedValue(createKeyStatus());
     mockDeleteSessionKeysForInstance.mockResolvedValue(undefined);
     mockKeyManagerReset.mockResolvedValue(undefined);
@@ -115,7 +116,7 @@ describe('KeychainWindowDetail', () => {
   });
 
   it('shows loading state initially', async () => {
-    mockGetInstances.mockImplementation(() => new Promise(() => {}));
+    mockGetInstance.mockImplementation(() => new Promise(() => {}));
 
     renderDetail('instance-1');
 
@@ -123,7 +124,7 @@ describe('KeychainWindowDetail', () => {
   });
 
   it('shows error when instance is missing', async () => {
-    mockGetInstances.mockResolvedValue([]);
+    mockGetInstance.mockResolvedValue(null);
 
     renderDetail('missing');
 
@@ -134,7 +135,7 @@ describe('KeychainWindowDetail', () => {
 
   it('renders instance details', async () => {
     const instance = createInstance('instance-1', 'My Instance');
-    mockGetInstances.mockResolvedValue([instance]);
+    mockGetInstance.mockResolvedValue(instance);
     mockGetKeyStatusForInstance.mockResolvedValue(
       createKeyStatus(true, true, true, true)
     );
@@ -148,9 +149,25 @@ describe('KeychainWindowDetail', () => {
     expect(screen.getByText(instance.id)).toBeInTheDocument();
   });
 
+  it('hides session key delete when no session keys exist', async () => {
+    const instance = createInstance('instance-1', 'My Instance');
+    mockGetInstance.mockResolvedValue(instance);
+    mockGetKeyStatusForInstance.mockResolvedValue(
+      createKeyStatus(false, false, false, false)
+    );
+
+    renderDetail('instance-1');
+
+    await waitFor(() => {
+      expect(screen.getByText('My Instance')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Delete Session Keys')).not.toBeInTheDocument();
+  });
+
   it('calls onBack when back button is clicked', async () => {
     const instance = createInstance('instance-1', 'My Instance');
-    mockGetInstances.mockResolvedValue([instance]);
+    mockGetInstance.mockResolvedValue(instance);
 
     const onBack = vi.fn();
     renderDetail('instance-1', onBack);
@@ -163,7 +180,7 @@ describe('KeychainWindowDetail', () => {
 
   it('deletes session keys and refreshes details', async () => {
     const instance = createInstance('instance-1', 'My Instance');
-    mockGetInstances.mockResolvedValue([instance]);
+    mockGetInstance.mockResolvedValue(instance);
     mockGetKeyStatusForInstance.mockResolvedValue(
       createKeyStatus(false, false, true, true)
     );
@@ -186,9 +203,40 @@ describe('KeychainWindowDetail', () => {
     expect(mockGetKeyStatusForInstance).toHaveBeenCalled();
   });
 
+  it('shows error when delete session keys fails', async () => {
+    const instance = createInstance('instance-1', 'My Instance');
+    mockGetInstance.mockResolvedValue(instance);
+    mockGetKeyStatusForInstance.mockResolvedValue(
+      createKeyStatus(false, false, true, true)
+    );
+    mockDeleteSessionKeysForInstance.mockRejectedValue(
+      new Error('Delete failed')
+    );
+    const consoleSpy = mockConsoleError();
+
+    renderDetail('instance-1');
+
+    const user = userEvent.setup();
+    await waitFor(() => {
+      expect(screen.getByText('Delete Session Keys')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Delete Session Keys'));
+    await user.click(screen.getByTestId('confirm-delete-session'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Delete failed')).toBeInTheDocument();
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to delete session keys:',
+      expect.any(Error)
+    );
+  });
+
   it('deletes instance and calls onDeleted', async () => {
     const instance = createInstance('instance-1', 'My Instance');
-    mockGetInstances.mockResolvedValue([instance]);
+    mockGetInstance.mockResolvedValue(instance);
 
     const onDeleted = vi.fn();
     renderDetail('instance-1', vi.fn(), onDeleted);
@@ -208,9 +256,39 @@ describe('KeychainWindowDetail', () => {
     expect(onDeleted).toHaveBeenCalled();
   });
 
+  it('shows error when delete instance fails', async () => {
+    const instance = createInstance('instance-1', 'My Instance');
+    mockGetInstance.mockResolvedValue(instance);
+    mockKeyManagerReset.mockRejectedValue(new Error('Delete failed'));
+    const consoleSpy = mockConsoleError();
+
+    renderDetail('instance-1');
+
+    const user = userEvent.setup();
+    await waitFor(() => {
+      expect(screen.getByText('Delete Instance')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Delete Instance'));
+    await waitFor(() => {
+      expect(screen.getByTestId('confirm-delete-instance')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('confirm-delete-instance'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Delete failed')).toBeInTheDocument();
+    });
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to delete instance:',
+      expect.any(Error)
+    );
+  });
+
   it('shows error when fetch fails', async () => {
     const consoleSpy = mockConsoleError();
-    mockGetInstances.mockRejectedValue(new Error('Network error'));
+    mockGetInstance.mockRejectedValue(new Error('Network error'));
 
     renderDetail('instance-1');
 
