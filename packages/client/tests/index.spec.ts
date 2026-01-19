@@ -44,24 +44,33 @@ async function triggerSidebarNavigation(
   await button.click();
 }
 
+// All paths that open as floating windows on desktop (matches Sidebar WINDOW_PATHS)
 const WINDOW_LAUNCH_PATHS = new Set([
   '/admin',
   '/analytics',
   '/audio',
+  '/cache-storage',
   '/chat',
   '/console',
   '/contacts',
+  '/debug',
+  '/documents',
   '/email',
   '/files',
   '/keychain',
+  '/local-storage',
+  '/models',
   '/notes',
+  '/opfs',
   '/photos',
   '/settings',
-  '/sqlite'
+  '/sqlite',
+  '/tables',
+  '/videos'
 ]);
 
 // Pages at the bottom of sidebar that might be scrolled out of view
-const URL_NAVIGATION_PATHS = new Set(['/debug', '/models', '/tables']);
+const URL_NAVIGATION_PATHS = new Set<string>([]);
 
 // Helper to navigate via sidebar or URL navigation
 async function navigateTo(page: Page, linkName: string) {
@@ -820,11 +829,8 @@ test.describe('Tables page', () => {
   test('should navigate to tables page when tables link is clicked', async ({
     page
   }) => {
-    // Open sidebar via Start button
-    await openSidebar(page);
-
-    const tablesButton = page.locator('aside nav').getByRole('button', { name: 'Tables' });
-    await triggerSidebarNavigation(page, tablesButton);
+    // Use URL navigation since Tables opens as floating window on desktop
+    await navigateTo(page, 'Tables');
 
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
   });
@@ -1030,13 +1036,10 @@ test.describe('Models page', () => {
   test('should navigate to models page when models link is clicked', async ({
     page
   }) => {
-    // Open sidebar via Start button
-    await openSidebar(page);
+    // Use URL navigation since Models opens as floating window on desktop
+    await navigateTo(page, 'Models');
 
-    const modelsButton = page.locator('aside nav').getByRole('button', { name: 'Models' });
-    await triggerSidebarNavigation(page, modelsButton);
-
-    await expect(page.getByRole('heading', { name: 'Models' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Models', exact: true })).toBeVisible();
   });
 
   test('should display model cards or WebGPU not supported message', async ({ page }) => {
