@@ -3,6 +3,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
+import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
 
 interface ChatWindowMenuBarProps {
   onNewChat: () => void;
@@ -19,6 +20,9 @@ export function ChatWindowMenuBar({
         <DropdownMenuItem onClick={onNewChat}>New Chat</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
+      </DropdownMenu>
+      <DropdownMenu trigger="View">
+        <PreserveWindowStateMenuItem />
       </DropdownMenu>
     </div>
   );
