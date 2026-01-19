@@ -30,7 +30,31 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 vi.mock('@/pages/Documents', () => ({
-  Documents: () => <div data-testid="documents-content">Documents Content</div>
+  Documents: ({
+    onSelectDocument
+  }: {
+    onSelectDocument?: (documentId: string) => void;
+  }) => (
+    <div data-testid="documents-content">
+      <button
+        type="button"
+        onClick={() => onSelectDocument?.('doc-1')}
+        data-testid="select-document"
+      >
+        Select Document
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/pages/DocumentDetail', () => ({
+  DocumentDetail: ({ documentId }: { documentId?: string }) => (
+    <div data-testid="document-detail">Document {documentId}</div>
+  )
+}));
+
+vi.mock('@/hooks/useFileUpload', () => ({
+  useFileUpload: () => ({ uploadFile: vi.fn() })
 }));
 
 describe('DocumentsWindow', () => {
@@ -59,6 +83,17 @@ describe('DocumentsWindow', () => {
   it('renders Documents content', () => {
     render(<DocumentsWindow {...defaultProps} />);
     expect(screen.getByTestId('documents-content')).toBeInTheDocument();
+  });
+
+  it('renders detail view when a document is selected', async () => {
+    const user = userEvent.setup();
+    render(<DocumentsWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-document'));
+
+    expect(screen.getByTestId('document-detail')).toHaveTextContent(
+      'Document doc-1'
+    );
   });
 
   it('calls onClose when close button is clicked', async () => {
