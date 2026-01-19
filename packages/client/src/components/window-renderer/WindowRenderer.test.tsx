@@ -19,6 +19,7 @@ vi.mock('@/components/notes-window', () => ({
     onMinimize,
     onFocus,
     onDimensionsChange,
+    initialDimensions,
     zIndex
   }: {
     id: string;
@@ -26,11 +27,13 @@ vi.mock('@/components/notes-window', () => ({
     onMinimize: (dimensions: WindowDimensions) => void;
     onFocus: () => void;
     onDimensionsChange?: (dimensions: WindowDimensions) => void;
+    initialDimensions?: WindowDimensions;
     zIndex: number;
   }) => (
     <div
       role="dialog"
       data-testid={`notes-window-${id}`}
+      data-initial-width={initialDimensions?.width}
       data-zindex={zIndex}
       onClick={onFocus}
       onKeyDown={(e) => e.key === 'Enter' && onFocus()}
@@ -64,17 +67,20 @@ vi.mock('@/components/console-window', () => ({
     onClose,
     onMinimize,
     onFocus,
+    initialDimensions,
     zIndex
   }: {
     id: string;
     onClose: () => void;
     onMinimize: (dimensions: WindowDimensions) => void;
     onFocus: () => void;
+    initialDimensions?: WindowDimensions;
     zIndex: number;
   }) => (
     <div
       role="dialog"
       data-testid={`console-window-${id}`}
+      data-initial-width={initialDimensions?.width}
       data-zindex={zIndex}
       onClick={onFocus}
       onKeyDown={(e) => e.key === 'Enter' && onFocus()}
@@ -99,17 +105,20 @@ vi.mock('@/components/email-window', () => ({
     onClose,
     onMinimize,
     onFocus,
+    initialDimensions,
     zIndex
   }: {
     id: string;
     onClose: () => void;
     onMinimize: (dimensions: WindowDimensions) => void;
     onFocus: () => void;
+    initialDimensions?: WindowDimensions;
     zIndex: number;
   }) => (
     <div
       role="dialog"
       data-testid={`email-window-${id}`}
+      data-initial-width={initialDimensions?.width}
       data-zindex={zIndex}
       onClick={onFocus}
       onKeyDown={(e) => e.key === 'Enter' && onFocus()}
@@ -740,7 +749,7 @@ vi.mock('@/components/tables-window', () => ({
       </button>
       <button
         type="button"
-        onClick={() => onMinimize({ x: 0, y: 0, width: 800, height: 600 })}
+        onClick={() => onMinimize({ x: 0, y: 0, width: 850, height: 600 })}
         data-testid={`minimize-${id}`}
       >
         Minimize
@@ -775,7 +784,7 @@ vi.mock('@/components/debug-window', () => ({
       </button>
       <button
         type="button"
-        onClick={() => onMinimize({ x: 0, y: 0, width: 600, height: 400 })}
+        onClick={() => onMinimize({ x: 0, y: 0, width: 600, height: 500 })}
         data-testid={`minimize-${id}`}
       >
         Minimize
@@ -784,8 +793,8 @@ vi.mock('@/components/debug-window', () => ({
   )
 }));
 
-vi.mock('@/components/cache-storage-window', () => ({
-  CacheStorageWindow: ({
+vi.mock('@/components/documents-window', () => ({
+  DocumentsWindow: ({
     id,
     onClose,
     onMinimize,
@@ -800,7 +809,7 @@ vi.mock('@/components/cache-storage-window', () => ({
   }) => (
     <div
       role="dialog"
-      data-testid={`cache-storage-window-${id}`}
+      data-testid={`documents-window-${id}`}
       data-zindex={zIndex}
       onClick={onFocus}
       onKeyDown={(e) => e.key === 'Enter' && onFocus()}
@@ -810,7 +819,7 @@ vi.mock('@/components/cache-storage-window', () => ({
       </button>
       <button
         type="button"
-        onClick={() => onMinimize({ x: 0, y: 0, width: 700, height: 500 })}
+        onClick={() => onMinimize({ x: 0, y: 0, width: 700, height: 550 })}
         data-testid={`minimize-${id}`}
       >
         Minimize
@@ -842,7 +851,13 @@ vi.mock('@/contexts/WindowManagerContext', async () => {
   };
 });
 
-let mockWindows: Array<{ id: string; type: string; zIndex: number }> = [];
+let mockWindows: Array<{
+  id: string;
+  type: string;
+  zIndex: number;
+  dimensions?: WindowDimensions;
+  isMinimized?: boolean;
+}> = [];
 
 function wrapper({ children }: { children: ReactNode }) {
   return <WindowManagerProvider>{children}</WindowManagerProvider>;
@@ -858,6 +873,26 @@ describe('WindowRenderer', () => {
     mockWindows = [];
     const { container } = render(<WindowRenderer />, { wrapper });
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('renders nothing when all windows are minimized', () => {
+    mockWindows = [
+      { id: 'notes-1', type: 'notes', zIndex: 100, isMinimized: true }
+    ];
+    const { container } = render(<WindowRenderer />, { wrapper });
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('skips minimized windows when rendering', () => {
+    mockWindows = [
+      { id: 'notes-1', type: 'notes', zIndex: 100, isMinimized: true },
+      { id: 'notes-2', type: 'notes', zIndex: 101 }
+    ];
+    render(<WindowRenderer />, { wrapper });
+    expect(
+      screen.queryByTestId('notes-window-notes-1')
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('notes-window-notes-2')).toBeInTheDocument();
   });
 
   it('renders notes window for notes type', () => {
@@ -925,8 +960,56 @@ describe('WindowRenderer', () => {
     );
   });
 
+  it('passes initial dimensions to notes window', () => {
+    mockWindows = [
+      {
+        id: 'notes-1',
+        type: 'notes',
+        zIndex: 100,
+        dimensions: { x: 12, y: 24, width: 420, height: 320 }
+      }
+    ];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('notes-window-notes-1')).toHaveAttribute(
+      'data-initial-width',
+      '420'
+    );
+  });
+
+  it('passes initial dimensions to console window', () => {
+    mockWindows = [
+      {
+        id: 'console-1',
+        type: 'console',
+        zIndex: 100,
+        dimensions: { x: 20, y: 30, width: 640, height: 480 }
+      }
+    ];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('console-window-console-1')).toHaveAttribute(
+      'data-initial-width',
+      '640'
+    );
+  });
+
+  it('passes initial dimensions to email window', () => {
+    mockWindows = [
+      {
+        id: 'email-1',
+        type: 'email',
+        zIndex: 100,
+        dimensions: { x: 24, y: 36, width: 520, height: 440 }
+      }
+    ];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('email-window-email-1')).toHaveAttribute(
+      'data-initial-width',
+      '520'
+    );
+  });
+
   it('renders nothing for unknown window types', () => {
-    mockWindows = [{ id: 'unknown-1', type: 'unknown' as string, zIndex: 100 }];
+    mockWindows = [{ id: 'unknown-1', type: 'unknown', zIndex: 100 }];
     render(<WindowRenderer />, { wrapper });
     // Should render fragment but no window content
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -1573,45 +1656,140 @@ describe('WindowRenderer', () => {
     });
   });
 
-  it('renders videos window for videos type', () => {
-    mockWindows = [{ id: 'videos-1', type: 'videos', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('video-window-videos-1')).toBeInTheDocument();
+  describe('tables window', () => {
+    let user: ReturnType<typeof userEvent.setup>;
+
+    beforeEach(() => {
+      user = userEvent.setup();
+      mockWindows = [{ id: 'tables-1', type: 'tables', zIndex: 100 }];
+      render(<WindowRenderer />, { wrapper });
+    });
+
+    it('renders for tables type', () => {
+      expect(screen.getByTestId('tables-window-tables-1')).toBeInTheDocument();
+    });
+
+    it('calls closeWindow when tables close button is clicked', async () => {
+      await user.click(screen.getByTestId('close-tables-1'));
+      expect(mockCloseWindow).toHaveBeenCalledWith('tables-1');
+    });
+
+    it('calls focusWindow when tables window is clicked', async () => {
+      await user.click(screen.getByTestId('tables-window-tables-1'));
+      expect(mockFocusWindow).toHaveBeenCalledWith('tables-1');
+    });
+
+    it('calls minimizeWindow when tables minimize button is clicked', async () => {
+      await user.click(screen.getByTestId('minimize-tables-1'));
+      expect(mockMinimizeWindow).toHaveBeenCalledWith('tables-1', {
+        x: 0,
+        y: 0,
+        width: 850,
+        height: 600
+      });
+    });
   });
 
-  it('renders cache-storage window for cache-storage type', () => {
-    mockWindows = [
-      { id: 'cache-storage-1', type: 'cache-storage', zIndex: 100 }
-    ];
+  it('renders debug window for debug type', () => {
+    mockWindows = [{ id: 'debug-1', type: 'debug', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(screen.getByTestId('debug-window-debug-1')).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when debug close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'debug-1', type: 'debug', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-debug-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('debug-1');
+  });
+
+  it('calls focusWindow when debug window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'debug-1', type: 'debug', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('debug-window-debug-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('debug-1');
+  });
+
+  it('calls minimizeWindow when debug minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'debug-1', type: 'debug', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-debug-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('debug-1', {
+      x: 0,
+      y: 0,
+      width: 600,
+      height: 500
+    });
+  });
+
+  it('renders documents window for documents type', () => {
+    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
     render(<WindowRenderer />, { wrapper });
     expect(
-      screen.getByTestId('cache-storage-window-cache-storage-1')
+      screen.getByTestId('documents-window-documents-1')
     ).toBeInTheDocument();
   });
 
-  it('renders all twenty-one window types together', () => {
+  it('calls closeWindow when documents close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-documents-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('documents-1');
+  });
+
+  it('calls focusWindow when documents window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('documents-window-documents-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('documents-1');
+  });
+
+  it('calls minimizeWindow when documents minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-documents-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('documents-1', {
+      x: 0,
+      y: 0,
+      width: 700,
+      height: 550
+    });
+  });
+
+  it('renders all twenty window types together', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'console-1', type: 'console', zIndex: 101 },
       { id: 'settings-1', type: 'settings', zIndex: 102 },
       { id: 'email-1', type: 'email', zIndex: 103 },
       { id: 'files-1', type: 'files', zIndex: 104 },
-      { id: 'tables-1', type: 'tables', zIndex: 105 },
-      { id: 'debug-1', type: 'debug', zIndex: 106 },
-      { id: 'documents-1', type: 'documents', zIndex: 107 },
-      { id: 'videos-1', type: 'videos', zIndex: 108 },
-      { id: 'photos-1', type: 'photos', zIndex: 109 },
-      { id: 'models-1', type: 'models', zIndex: 110 },
-      { id: 'keychain-1', type: 'keychain', zIndex: 111 },
-      { id: 'contacts-1', type: 'contacts', zIndex: 112 },
-      { id: 'sqlite-1', type: 'sqlite', zIndex: 113 },
-      { id: 'opfs-1', type: 'opfs', zIndex: 114 },
-      { id: 'local-storage-1', type: 'local-storage', zIndex: 115 },
-      { id: 'chat-1', type: 'chat', zIndex: 116 },
-      { id: 'analytics-1', type: 'analytics', zIndex: 117 },
-      { id: 'audio-1', type: 'audio', zIndex: 118 },
-      { id: 'admin-1', type: 'admin', zIndex: 119 },
-      { id: 'cache-storage-1', type: 'cache-storage', zIndex: 120 }
+      { id: 'videos-1', type: 'videos', zIndex: 105 },
+      { id: 'photos-1', type: 'photos', zIndex: 106 },
+      { id: 'models-1', type: 'models', zIndex: 107 },
+      { id: 'keychain-1', type: 'keychain', zIndex: 108 },
+      { id: 'contacts-1', type: 'contacts', zIndex: 109 },
+      { id: 'sqlite-1', type: 'sqlite', zIndex: 110 },
+      { id: 'chat-1', type: 'chat', zIndex: 111 },
+      { id: 'analytics-1', type: 'analytics', zIndex: 112 },
+      { id: 'audio-1', type: 'audio', zIndex: 113 },
+      { id: 'admin-1', type: 'admin', zIndex: 114 },
+      { id: 'tables-1', type: 'tables', zIndex: 115 },
+      { id: 'debug-1', type: 'debug', zIndex: 116 },
+      { id: 'documents-1', type: 'documents', zIndex: 117 },
+      { id: 'local-storage-1', type: 'local-storage', zIndex: 118 },
+      { id: 'opfs-1', type: 'opfs', zIndex: 119 }
     ];
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
@@ -1621,11 +1799,6 @@ describe('WindowRenderer', () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId('email-window-email-1')).toBeInTheDocument();
     expect(screen.getByTestId('files-window-files-1')).toBeInTheDocument();
-    expect(screen.getByTestId('tables-window-tables-1')).toBeInTheDocument();
-    expect(screen.getByTestId('debug-window-debug-1')).toBeInTheDocument();
-    expect(
-      screen.getByTestId('documents-window-documents-1')
-    ).toBeInTheDocument();
     expect(screen.getByTestId('video-window-videos-1')).toBeInTheDocument();
     expect(screen.getByTestId('photos-window-photos-1')).toBeInTheDocument();
     expect(screen.getByTestId('models-window-models-1')).toBeInTheDocument();
@@ -1646,8 +1819,14 @@ describe('WindowRenderer', () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId('audio-window-audio-1')).toBeInTheDocument();
     expect(screen.getByTestId('admin-window-admin-1')).toBeInTheDocument();
+    expect(screen.getByTestId('tables-window-tables-1')).toBeInTheDocument();
+    expect(screen.getByTestId('debug-window-debug-1')).toBeInTheDocument();
     expect(
-      screen.getByTestId('cache-storage-window-cache-storage-1')
+      screen.getByTestId('documents-window-documents-1')
     ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('local-storage-window-local-storage-1')
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('opfs-window-opfs-1')).toBeInTheDocument();
   });
 });

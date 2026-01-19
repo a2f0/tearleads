@@ -119,57 +119,6 @@ export function WindowRenderer() {
                 })}
               />
             );
-          case 'tables':
-            return (
-              <TablesWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler('tables')}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'debug':
-            return (
-              <DebugWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler('debug')}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'documents':
-            return (
-              <DocumentsWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler('documents')}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
           case 'videos':
             return (
               <VideoWindow
@@ -389,6 +338,57 @@ export function WindowRenderer() {
                 })}
               />
             );
+          case 'tables':
+            return (
+              <TablesWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onDimensionsChange={createDimensionsHandler('tables')}
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'debug':
+            return (
+              <DebugWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onDimensionsChange={createDimensionsHandler('debug')}
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'documents':
+            return (
+              <DocumentsWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onDimensionsChange={createDimensionsHandler('documents')}
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
           case 'local-storage':
             return (
               <LocalStorageWindow
@@ -401,7 +401,9 @@ export function WindowRenderer() {
                 onDimensionsChange={createDimensionsHandler('local-storage')}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
-                initialDimensions={window.dimensions}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
               />
             );
           default:
