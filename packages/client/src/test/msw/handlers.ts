@@ -3,6 +3,7 @@ import type {
   RedisKeysResponse,
   RedisKeyValueResponse
 } from '@rapid/shared';
+import { isRecord } from '@rapid/shared';
 import { HttpResponse, http } from 'msw';
 
 const ok = <T extends object>(body: T) => HttpResponse.json(body);
@@ -46,5 +47,28 @@ export const handlers = [
     const key = decodeURIComponent(url.pathname.split('/').pop() ?? '');
     return ok(defaultKeyValue(key));
   }),
-  http.delete(/\/admin\/redis\/keys\/.+$/, () => ok({ deleted: true }))
+  http.delete(/\/admin\/redis\/keys\/.+$/, () => ok({ deleted: true })),
+  http.post(/\/chat\/completions$/, async ({ request }) => {
+    const body = await request.json().catch(() => null);
+    const messages = isRecord(body) ? body['messages'] : null;
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return HttpResponse.json(
+        { error: 'messages must be a non-empty array of { role, content }' },
+        { status: 400 }
+      );
+    }
+
+    return ok({
+      id: 'chatcmpl-test',
+      model: 'mistralai/mistral-7b-instruct:free',
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: 'Mock reply'
+          }
+        }
+      ]
+    });
+  })
 ];

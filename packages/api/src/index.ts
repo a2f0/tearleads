@@ -8,6 +8,7 @@ import packageJson from '../package.json' with { type: 'json' };
 import { closeRedisClient } from './lib/redis.js';
 import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
 import { redisRouter } from './routes/admin/redis.js';
+import { chatRouter } from './routes/chat.js';
 import { emailsRouter } from './routes/emails.js';
 import { closeAllSSEConnections, sseRouter } from './routes/sse.js';
 
@@ -75,6 +76,9 @@ app.get('/v1/ping', (_req: Request, res: Response) => {
 
 // Admin routes
 app.use('/v1/admin/redis', redisRouter);
+
+// Chat completion route
+app.use('/v1/chat', chatRouter);
 
 // Email routes
 app.use('/v1/emails', emailsRouter);

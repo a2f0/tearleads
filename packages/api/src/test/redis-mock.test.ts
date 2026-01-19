@@ -60,23 +60,45 @@ describe('redis mock adapter', () => {
     expect(handler).toHaveBeenCalledWith(error);
   });
 
+  it('ignores non-error event handlers', () => {
+    const client = createClient();
+    const handler = vi.fn();
+    const error = new Error('boom');
+
+    client.on('message', handler);
+    client.emitError(error);
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it('tracks values by type and ttl', async () => {
     const client = createClient();
 
     await client.set('string:key', 'value');
     await client.sAdd('set:key', ['alpha', 'beta']);
+    await client.sAdd('set:key', ['beta', 'gamma']);
     await client.hSet('hash:key', { field: 'value' });
+    await client.hSet('hash:key', { field: 'value', next: 'entry' });
     await client.rPush('list:key', ['first', 'second']);
+    await client.rPush('list:key', ['third']);
 
     expect(await client.type('string:key')).toBe('string');
     expect(await client.type('set:key')).toBe('set');
     expect(await client.type('hash:key')).toBe('hash');
     expect(await client.type('list:key')).toBe('list');
 
+    expect(await client.get('string:key')).toBe('value');
     expect(await client.get('list:key')).toBeNull();
-    expect(await client.sMembers('set:key')).toEqual(['alpha', 'beta']);
+    expect(await client.sMembers('set:key')).toEqual([
+      'alpha',
+      'beta',
+      'gamma'
+    ]);
     expect(await client.sMembers('string:key')).toEqual([]);
-    expect(await client.hGetAll('hash:key')).toEqual({ field: 'value' });
+    expect(await client.hGetAll('hash:key')).toEqual({
+      field: 'value',
+      next: 'entry'
+    });
     expect(await client.hGetAll('string:key')).toEqual({});
 
     expect(await client.expire('string:key', 120)).toBe(1);
