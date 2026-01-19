@@ -7,6 +7,7 @@ export function TableRows() {
 
   return (
     <TableRowsView
+      key={tableName ?? 'unknown'}
       tableName={tableName ?? null}
       backLink={
         <BackLink defaultTo="/sqlite/tables" defaultLabel="Back to Tables" />
