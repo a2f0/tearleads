@@ -1,7 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { Ref } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { KeychainWindow } from './KeychainWindow';
+import type { KeychainWindowContentRef } from './KeychainWindowContent';
 
 vi.mock('@/components/floating-window', () => ({
   FloatingWindow: ({
@@ -45,14 +47,54 @@ vi.mock('./KeychainWindowMenuBar', () => ({
 }));
 
 vi.mock('./KeychainWindowContent', () => ({
-  KeychainWindowContent: vi.fn().mockImplementation(
-    // biome-ignore lint/suspicious/noExplicitAny: test mock
-    ({ ref }: { ref?: any }) => {
-      if (ref) {
-        ref.current = { refresh: mockRefresh };
+  KeychainWindowContent: vi
+    .fn()
+    .mockImplementation(
+      ({
+        ref,
+        onSelectInstance
+      }: {
+        ref?: Ref<KeychainWindowContentRef>;
+        onSelectInstance?: (instanceId: string) => void;
+      }) => {
+        if (ref && typeof ref !== 'function') {
+          ref.current = { refresh: mockRefresh };
+        }
+        return (
+          <div data-testid="keychain-content">
+            Keychain Content
+            <button
+              type="button"
+              onClick={() => onSelectInstance?.('instance-1')}
+              data-testid="open-detail"
+            >
+              Open Detail
+            </button>
+          </div>
+        );
       }
-      return <div data-testid="keychain-content">Keychain Content</div>;
-    }
+    )
+}));
+
+vi.mock('./KeychainWindowDetail', () => ({
+  KeychainWindowDetail: ({
+    instanceId,
+    onBack,
+    onDeleted
+  }: {
+    instanceId: string;
+    onBack: () => void;
+    onDeleted: () => void;
+  }) => (
+    <div data-testid="keychain-detail">
+      <span data-testid="detail-instance">{instanceId}</span>
+      <button type="button" onClick={onBack} data-testid="detail-back">
+        Back
+      </button>
+      <button type="button" onClick={onDeleted} data-testid="detail-deleted">
+        Deleted
+      </button>
+    </div>
   )
 }));
 
@@ -114,5 +156,27 @@ describe('KeychainWindow', () => {
 
     await user.click(screen.getByTestId('refresh-button'));
     expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  it('shows detail view when a keychain instance is selected', async () => {
+    const user = userEvent.setup();
+    render(<KeychainWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('open-detail'));
+    expect(screen.getByTestId('keychain-detail')).toBeInTheDocument();
+    expect(screen.getByTestId('detail-instance')).toHaveTextContent(
+      'instance-1'
+    );
+  });
+
+  it('returns to list after closing detail view', async () => {
+    const user = userEvent.setup();
+    render(<KeychainWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('open-detail'));
+    expect(screen.getByTestId('keychain-detail')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('detail-back'));
+    expect(screen.getByTestId('keychain-content')).toBeInTheDocument();
   });
 });

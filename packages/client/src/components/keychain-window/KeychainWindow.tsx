@@ -1,8 +1,9 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import type { KeychainWindowContentRef } from './KeychainWindowContent';
 import { KeychainWindowContent } from './KeychainWindowContent';
+import { KeychainWindowDetail } from './KeychainWindowDetail';
 import { KeychainWindowMenuBar } from './KeychainWindowMenuBar';
 
 interface KeychainWindowProps {
@@ -25,9 +26,20 @@ export function KeychainWindow({
   initialDimensions
 }: KeychainWindowProps) {
   const contentRef = useRef<KeychainWindowContentRef>(null);
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(
+    null
+  );
 
   const handleRefresh = useCallback(() => {
     contentRef.current?.refresh();
+  }, []);
+
+  const handleSelectInstance = useCallback((instanceId: string) => {
+    setSelectedInstanceId(instanceId);
+  }, []);
+
+  const handleCloseDetail = useCallback(() => {
+    setSelectedInstanceId(null);
   }, []);
 
   return (
@@ -48,7 +60,18 @@ export function KeychainWindow({
       <div className="flex h-full flex-col">
         <KeychainWindowMenuBar onRefresh={handleRefresh} onClose={onClose} />
         <div className="flex-1 overflow-hidden">
-          <KeychainWindowContent ref={contentRef} />
+          {selectedInstanceId ? (
+            <KeychainWindowDetail
+              instanceId={selectedInstanceId}
+              onBack={handleCloseDetail}
+              onDeleted={handleCloseDetail}
+            />
+          ) : (
+            <KeychainWindowContent
+              ref={contentRef}
+              onSelectInstance={handleSelectInstance}
+            />
+          )}
         </div>
       </div>
     </FloatingWindow>
