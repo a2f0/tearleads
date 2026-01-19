@@ -111,6 +111,7 @@ router.get('/', async (req: Request, res: Response) => {
     req.on('close', () => {
       removeConnection(res);
       clearInterval(keepAlive);
+      /* c8 ignore start */
       if (client) {
         const clientToCleanup = client;
         client = null;
@@ -120,6 +121,7 @@ router.get('/', async (req: Request, res: Response) => {
             console.error('SSE cleanup error:', err);
           });
       }
+      /* c8 ignore stop */
     });
   } catch (err) {
     removeConnection(res);

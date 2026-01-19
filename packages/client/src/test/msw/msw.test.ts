@@ -44,4 +44,41 @@ describe('msw handlers', () => {
       value: ''
     });
   });
+
+  it('mocks chat completions', async () => {
+    const response = await fetch('http://localhost/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: 'Hello' }]
+      })
+    });
+
+    expect(response.ok).toBe(true);
+    await expect(response.json()).resolves.toEqual({
+      id: 'chatcmpl-test',
+      model: 'mistralai/mistral-7b-instruct:free',
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: 'Mock reply'
+          }
+        }
+      ]
+    });
+  });
+
+  it('returns validation errors for chat completions', async () => {
+    const response = await fetch('http://localhost/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [] })
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'messages must be a non-empty array'
+    });
+  });
 });
