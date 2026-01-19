@@ -248,7 +248,7 @@ describe('Models', () => {
       await user.click(screen.getByRole('button', { name: /use/i }));
 
       expect(mockLoadModel).toHaveBeenCalledWith(
-        'mistralai/mistral-7b-instruct:free'
+        'mistralai/mistral-7b-instruct'
       );
     });
 
