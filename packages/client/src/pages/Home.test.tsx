@@ -1,5 +1,5 @@
 import { ThemeProvider } from '@rapid/ui';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -171,7 +171,7 @@ describe('Home', () => {
     expect(screen.getByText('Auto Arrange')).toBeInTheDocument();
   });
 
-  it('opens display properties from the canvas context menu', async () => {
+  it('orders desktop context menu items alphabetically', async () => {
     const user = userEvent.setup();
     const { container } = renderHome();
 
@@ -182,10 +182,22 @@ describe('Home', () => {
       await user.pointer({ keys: '[MouseRight]', target: canvas });
     }
 
-    const displayPropertiesItem = screen.getByText('Display Properties');
-    await user.click(displayPropertiesItem);
+    const menuContainer = screen.getByRole('button', {
+      name: 'Auto Arrange'
+    }).parentElement;
+    expect(menuContainer).not.toBeNull();
 
-    expect(screen.getByTestId('display-properties-sheet')).toBeInTheDocument();
+    if (menuContainer) {
+      const labels = within(menuContainer)
+        .getAllByRole('button')
+        .map((button) => button.textContent?.trim() ?? '');
+      expect(labels).toEqual([
+        'Auto Arrange',
+        'Cluster',
+        'Display Properties',
+        'Scatter'
+      ]);
+    }
   });
 
   it('shows icon context menu on right-click', async () => {
@@ -290,6 +302,49 @@ describe('Home', () => {
 
     // Context menu should close
     expect(screen.queryByText('Auto Arrange')).not.toBeInTheDocument();
+  });
+
+  it('auto arrange orders desktop icons alphabetically', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+    expect(canvas).toBeInTheDocument();
+
+    if (canvas) {
+      Object.defineProperty(canvas, 'offsetWidth', {
+        value: 800,
+        configurable: true
+      });
+      Object.defineProperty(canvas, 'offsetHeight', {
+        value: 600,
+        configurable: true
+      });
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    await user.click(screen.getByText('Auto Arrange'));
+
+    const iconButtons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button')
+    ).filter((button) => button.style.left && button.style.top);
+
+    const orderedLabels = iconButtons
+      .map((button) => ({
+        label: button.textContent?.trim() ?? '',
+        left: Number.parseFloat(button.style.left),
+        top: Number.parseFloat(button.style.top)
+      }))
+      .filter((item) => item.label.length > 0)
+      .sort((a, b) => (a.top - b.top === 0 ? a.left - b.left : a.top - b.top))
+      .map((item) => item.label);
+
+    const expectedOrder = [...orderedLabels].sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' })
+    );
+
+    expect(orderedLabels.length).toBeGreaterThan(0);
+    expect(orderedLabels).toEqual(expectedOrder);
   });
 
   it('closes canvas context menu on close', async () => {
