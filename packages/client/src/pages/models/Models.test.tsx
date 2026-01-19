@@ -257,7 +257,9 @@ describe('Models', () => {
       if (!mistralCard) {
         throw new Error('Expected Mistral model card to be present');
       }
-      await user.click(within(mistralCard).getByRole('button', { name: /use/i }));
+      await user.click(
+        within(mistralCard).getByRole('button', { name: /use/i })
+      );
 
       expect(mockLoadModel).toHaveBeenCalledWith(
         'mistralai/mistral-7b-instruct'
