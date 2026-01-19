@@ -27,6 +27,11 @@ vi.mock('@/lib/utils', async () => {
   };
 });
 
+// Mock useAppVersion
+vi.mock('@/hooks/useAppVersion', () => ({
+  useAppVersion: vi.fn(() => '0.1.234')
+}));
+
 type DebugProps = ComponentProps<typeof Debug>;
 
 class TestErrorBoundary extends Component<
@@ -93,6 +98,7 @@ describe('Debug', () => {
       await renderDebug();
 
       expect(screen.getByText('System Info')).toBeInTheDocument();
+      expect(screen.getByText('Version:')).toBeInTheDocument();
       expect(screen.getByText('Environment:')).toBeInTheDocument();
       expect(screen.getByText('Platform:')).toBeInTheDocument();
       expect(screen.getByText('Pixel Ratio:')).toBeInTheDocument();
@@ -100,6 +106,13 @@ describe('Debug', () => {
       expect(screen.getByText('Language:')).toBeInTheDocument();
       expect(screen.getByText('Touch Support:')).toBeInTheDocument();
       expect(screen.getByText('Standalone:')).toBeInTheDocument();
+    });
+
+    it('displays the client version in system info', async () => {
+      await renderDebug();
+
+      expect(screen.getByText('Version:')).toBeInTheDocument();
+      expect(screen.getByText('0.1.234')).toBeInTheDocument();
     });
 
     it('renders copy button in system info section', async () => {
@@ -179,6 +192,9 @@ describe('Debug', () => {
 
       await user.click(screen.getByTestId('copy-debug-info'));
 
+      expect(writeTextMock).toHaveBeenCalledWith(
+        expect.stringContaining('Version: 0.1.234')
+      );
       expect(writeTextMock).toHaveBeenCalledWith(
         expect.stringContaining('Environment:')
       );
