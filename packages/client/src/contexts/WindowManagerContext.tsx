@@ -44,6 +44,7 @@ export interface WindowDimensions {
   height: number;
   x: number;
   y: number;
+  isMaximized?: boolean;
 }
 
 export interface WindowInstance {
@@ -92,8 +93,36 @@ export function WindowManagerProvider({
     return Math.max(...currentWindows.map((w) => w.zIndex)) + 1;
   }, []);
 
+  const closeWindow = useCallback((id: string) => {
+    setWindows((prev) => prev.filter((w) => w.id !== id));
+  }, []);
+
+  const focusWindow = useCallback((id: string) => {
+    setWindows((prev) => {
+      const windowToFocus = prev.find((w) => w.id === id);
+      if (!windowToFocus) return prev;
+
+      const maxZIndex = Math.max(...prev.map((w) => w.zIndex));
+      if (windowToFocus.zIndex === maxZIndex && !windowToFocus.isMinimized) {
+        return prev;
+      }
+
+      return prev.map((w) =>
+        w.id === id ? { ...w, zIndex: maxZIndex + 1, isMinimized: false } : w
+      );
+    });
+  }, []);
+
   const openWindow = useCallback(
     (type: WindowType, customId?: string): string => {
+      if (type === 'audio') {
+        const existingAudio = windows.find((window) => window.type === 'audio');
+        if (existingAudio) {
+          focusWindow(existingAudio.id);
+          return existingAudio.id;
+        }
+      }
+
       const id = customId ?? `${type}-${crypto.randomUUID()}`;
 
       // Load saved dimensions for this window type
@@ -120,28 +149,8 @@ export function WindowManagerProvider({
 
       return id;
     },
-    [getNextZIndex]
+    [focusWindow, getNextZIndex, windows]
   );
-
-  const closeWindow = useCallback((id: string) => {
-    setWindows((prev) => prev.filter((w) => w.id !== id));
-  }, []);
-
-  const focusWindow = useCallback((id: string) => {
-    setWindows((prev) => {
-      const windowToFocus = prev.find((w) => w.id === id);
-      if (!windowToFocus) return prev;
-
-      const maxZIndex = Math.max(...prev.map((w) => w.zIndex));
-      if (windowToFocus.zIndex === maxZIndex && !windowToFocus.isMinimized) {
-        return prev;
-      }
-
-      return prev.map((w) =>
-        w.id === id ? { ...w, zIndex: maxZIndex + 1, isMinimized: false } : w
-      );
-    });
-  }, []);
 
   const minimizeWindow = useCallback(
     (id: string, dimensions?: WindowDimensions) => {
@@ -178,7 +187,8 @@ export function WindowManagerProvider({
 
   const saveWindowDimensionsForType = useCallback(
     (type: WindowType, dimensions: WindowDimensions) => {
-      saveWindowDimensions(type, dimensions);
+      const { width, height, x, y } = dimensions;
+      saveWindowDimensions(type, { width, height, x, y });
     },
     []
   );

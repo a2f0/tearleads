@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { useAudioContext } from '@/audio';
 import { Button } from '@/components/ui/button';
+import { useWindowManager } from '@/contexts/WindowManagerContext';
 
 /**
  * Mini player that appears in the lower-right corner when audio is playing.
@@ -12,11 +13,24 @@ export function MiniPlayer() {
   const { t } = useTranslation('audio');
   const audio = useAudioContext();
   const location = useLocation();
+  const { windows } = useWindowManager();
 
   const isOnAudioPage = location.pathname.startsWith('/audio');
+  const isAudioWindowMaximized = windows.some(
+    (window) =>
+      window.type === 'audio' &&
+      !window.isMinimized &&
+      window.dimensions?.isMaximized
+  );
 
   // Don't render if no audio context, not playing, or on audio pages
-  if (!audio || !audio.currentTrack || !audio.isPlaying || isOnAudioPage) {
+  if (
+    !audio ||
+    !audio.currentTrack ||
+    !audio.isPlaying ||
+    isOnAudioPage ||
+    isAudioWindowMaximized
+  ) {
     return null;
   }
 
