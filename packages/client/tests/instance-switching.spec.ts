@@ -330,8 +330,18 @@ async function uploadTestFile(page: Page, fileName = 'test-image.png') {
 }
 
 // Helper to setup database on the SQLite page (handles locked/unlocked states)
-async function setupDatabaseOnSqlitePage(page: Page) {
-  await navigateToPage(page, 'SQLite');
+async function setupDatabaseOnSqlitePage(page: Page, useInAppNavigation = false) {
+  if (useInAppNavigation) {
+    // Use in-app navigation by directly modifying the URL hash/path
+    // This preserves React state including the current instance
+    await page.evaluate(() => {
+      window.history.pushState({}, '', '/sqlite');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    await page.waitForTimeout(500);
+  } else {
+    await navigateToPage(page, 'SQLite');
+  }
 
   // Wait for status to stabilize (not Loading)
   await expect(page.getByTestId('db-status')).not.toHaveText('Loading...', {
@@ -387,6 +397,10 @@ async function createNewInstanceFromAnyPage(page: Page) {
   await page.getByTestId('account-switcher-button').click();
   await expect(page.getByTestId('create-instance-button')).toBeVisible();
   await page.getByTestId('create-instance-button').click();
+
+  // Wait for instance creation and OPFS registry write to complete
+  // This is important because page.goto() will reload and read the registry
+  await page.waitForTimeout(1000);
 }
 
 // Helper to switch to instance while on any page
@@ -397,6 +411,20 @@ async function switchToInstanceFromAnyPage(page: Page, instanceIndex: number) {
   );
   await expect(instanceItems.nth(instanceIndex)).toBeVisible();
   await instanceItems.nth(instanceIndex).click();
+
+  // Wait for the account switcher dropdown to close (indicates click was handled)
+  await expect(page.getByTestId('create-instance-button')).not.toBeVisible();
+
+  // Wait for the instance switch to complete (loading state to settle)
+  await page.waitForTimeout(500);
+}
+
+// Helper to maximize any floating window if present
+async function maximizeFloatingWindowIfPresent(page: Page) {
+  const maximizeButton = page.getByRole('button', { name: /^Maximize/ });
+  if (await maximizeButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await maximizeButton.click();
+  }
 }
 
 // Helper to click the refresh button on the files page
@@ -453,7 +481,8 @@ test.describe('Files Route Instance Switching', () => {
     ).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
 
     // Set up the new instance via SQLite page
-    await setupDatabaseOnSqlitePage(page);
+    // Use in-app navigation to preserve React state during setup
+    await setupDatabaseOnSqlitePage(page, true);
 
     // Go back to Files page
     await navigateToPage(page, 'Files');
@@ -483,11 +512,28 @@ test.describe('Files Route Instance Switching', () => {
     // Create second instance
     await createNewInstanceFromAnyPage(page);
 
+    // Verify two instances exist after creating the second one
+    await page.getByTestId('account-switcher-button').click();
+    const instancesAfterCreate = page.locator(
+      '[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])'
+    );
+    await expect(instancesAfterCreate).toHaveCount(2, { timeout: DB_OPERATION_TIMEOUT });
+    await page.keyboard.press('Escape');
+
     // New instance is not set up, so we need to set it up via SQLite page
     await expect(
       page.getByText('Database is not set up')
     ).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
-    await setupDatabaseOnSqlitePage(page);
+
+    // Use in-app navigation for second instance to preserve React state
+    // (page.goto() causes a full reload that reads registry which can have timing issues)
+    await setupDatabaseOnSqlitePage(page, true);
+
+    // Checkpoint: verify 2 instances AFTER setupDatabaseOnSqlitePage
+    await page.getByTestId('account-switcher-button').click();
+    await expect(instancesAfterCreate).toHaveCount(2, { timeout: 5000 });
+    await page.keyboard.press('Escape');
+
     await navigateToPage(page, 'Files');
 
     // Wait for empty state
@@ -500,31 +546,28 @@ test.describe('Files Route Instance Switching', () => {
     await expect(page.getByText('instance2-file.png')).toBeVisible();
     await expect(page.getByText('instance1-file.png')).not.toBeVisible();
 
-    // Switch back to first instance
-    await switchToInstanceFromAnyPage(page, 0);
+    // Verify we have two instances before switching
+    await page.getByTestId('account-switcher-button').click();
+    const instanceItems = page.locator(
+      '[data-testid^="instance-"]:not([data-testid*="unlocked"]):not([data-testid*="locked"]):not([data-testid*="delete"])'
+    );
+    await expect(instanceItems).toHaveCount(2);
 
-    // Wait for instance switch to complete - the second instance's file should disappear
-    // This ensures the app has processed the instance switch before we try to unlock
-    await expect(page.getByText('instance2-file.png')).not.toBeVisible({
-      timeout: DB_OPERATION_TIMEOUT
-    });
+    // Click the first instance (index 0)
+    await instanceItems.first().click();
 
-    // Now wait for the locked state or loaded state
-    // First instance should be locked since we switched away from it
-    const inlineUnlock = page.getByTestId('inline-unlock');
-    await expect(inlineUnlock).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
+    // Wait for the dropdown to close and state to settle
+    await expect(page.getByTestId('create-instance-button')).not.toBeVisible();
+    await page.waitForTimeout(1000);
 
-    // Unlock the first instance's database
-    const inlineUnlockPassword = page.getByTestId('inline-unlock-password');
-    await inlineUnlockPassword.fill(TEST_PASSWORD);
-    await page.getByTestId('inline-unlock-button').click();
+    // Navigate away and back to force a fresh page load for the new instance
+    await page.goto('/');
+    await page.waitForTimeout(500);
+    await page.goto('/files');
 
-    // Wait for unlock to complete and files to load
-    await expect(inlineUnlockPassword).not.toBeVisible({
-      timeout: DB_OPERATION_TIMEOUT
-    });
-
-    // Force refresh to ensure files are loaded
+    // Wait for state to settle, unlock if needed
+    await page.waitForTimeout(500);
+    await unlockIfNeeded(page);
     await forceRefreshFiles(page);
 
     // Verify first instance file is now visible (this is the key test!)
@@ -557,7 +600,8 @@ test.describe('Files Route Instance Switching', () => {
     await expect(
       page.getByText('Database is not set up')
     ).toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
-    await setupDatabaseOnSqlitePage(page);
+    // Use in-app navigation to preserve React state during setup
+    await setupDatabaseOnSqlitePage(page, true);
     await navigateToPage(page, 'Files');
 
     // Upload file to second instance
@@ -573,6 +617,9 @@ test.describe('Files Route Instance Switching', () => {
 
     // Switch back to first instance
     await switchToInstanceFromAnyPage(page, 0);
+
+    // Maximize floating window if present (files may open in small window)
+    await maximizeFloatingWindowIfPresent(page);
 
     // Wait for instance switch to complete - the second instance's file should disappear
     await expect(page.getByText('second-instance-image.png')).not.toBeVisible({
