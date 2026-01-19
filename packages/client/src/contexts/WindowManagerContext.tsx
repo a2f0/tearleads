@@ -123,13 +123,28 @@ export function WindowManagerProvider({
   const openWindow = useCallback(
     (type: WindowType, customId?: string): string => {
       const id = customId ?? generateUniqueId(type);
+      let resolvedId = id;
 
       // Load saved dimensions for this window type
       const savedDimensions = loadWindowDimensions(type);
 
       setWindows((prev) => {
+        if (!customId) {
+          const existingByType = prev.find((w) => w.type === type);
+          if (existingByType) {
+            resolvedId = existingByType.id;
+            const nextZIndex = getNextZIndex(prev);
+            return prev.map((w) =>
+              w.id === existingByType.id
+                ? { ...w, isMinimized: false, zIndex: nextZIndex }
+                : w
+            );
+          }
+        }
+
         const existing = prev.find((w) => w.id === id);
         if (existing) {
+          resolvedId = existing.id;
           return prev;
         }
 
@@ -146,7 +161,7 @@ export function WindowManagerProvider({
         ];
       });
 
-      return id;
+      return resolvedId;
     },
     [getNextZIndex]
   );
