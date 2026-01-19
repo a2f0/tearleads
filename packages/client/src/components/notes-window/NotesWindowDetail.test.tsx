@@ -1,5 +1,12 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
 import { NotesWindowDetail } from './NotesWindowDetail';
@@ -108,13 +115,24 @@ vi.mock('@/components/ui/editable-title', () => ({
     value: string;
     onSave: (val: string) => void;
     'data-testid'?: string;
-  }) => (
-    <input
-      data-testid={testId || 'editable-title'}
-      value={value}
-      onChange={(e) => onSave(e.target.value)}
-    />
-  )
+  }) => {
+    const [draft, setDraft] = useState(value);
+
+    useEffect(() => {
+      setDraft(value);
+    }, [value]);
+
+    return (
+      <input
+        data-testid={testId || 'editable-title'}
+        value={draft}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          onSave(e.target.value);
+        }}
+      />
+    );
+  }
 }));
 
 describe('NotesWindowDetail', () => {
@@ -337,8 +355,6 @@ describe('NotesWindowDetail', () => {
   it('updates title when edited', async () => {
     shouldResolve = true;
     limitResult = [mockNote];
-    // Add delay between keystrokes to prevent race conditions in CI
-    const user = userEvent.setup({ delay: 10 });
 
     await act(async () => {
       render(<NotesWindowDetail {...defaultProps} />);
@@ -349,8 +365,7 @@ describe('NotesWindowDetail', () => {
     });
 
     const titleInput = screen.getByTestId('window-note-title');
-    await user.clear(titleInput);
-    await user.type(titleInput, 'New Title');
+    fireEvent.change(titleInput, { target: { value: 'New Title' } });
 
     // Title should be updated in the input
     await waitFor(() => {
