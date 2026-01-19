@@ -80,10 +80,7 @@ describe('IconDepthToggle', () => {
 
     await user.click(screen.getByTestId('icon-depth-embossed-button'));
 
-    expect(mockSetSetting).toHaveBeenCalledWith(
-      'desktopIconDepth',
-      'embossed'
-    );
+    expect(mockSetSetting).toHaveBeenCalledWith('desktopIconDepth', 'embossed');
   });
 
   it('calls setSetting with debossed when debossed button is clicked', async () => {
@@ -93,10 +90,7 @@ describe('IconDepthToggle', () => {
 
     await user.click(screen.getByTestId('icon-depth-debossed-button'));
 
-    expect(mockSetSetting).toHaveBeenCalledWith(
-      'desktopIconDepth',
-      'debossed'
-    );
+    expect(mockSetSetting).toHaveBeenCalledWith('desktopIconDepth', 'debossed');
   });
 
   it('gets the icon depth setting value', () => {

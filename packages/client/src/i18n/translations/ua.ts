@@ -77,7 +77,8 @@ export const ua = {
     fontSystem: 'Системний',
     fontMonospace: 'Моноширинний',
     iconDepth: 'Глибина значків',
-    iconDepthDescription: 'Оберіть, чи виглядають значки опуклими або втиснутими',
+    iconDepthDescription:
+      'Оберіть, чи виглядають значки опуклими або втиснутими',
     iconDepthEmbossed: 'Опуклі',
     iconDepthDebossed: 'Втиснуті',
     tooltips: 'Підказки',
