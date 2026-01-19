@@ -358,16 +358,12 @@ export function FloatingWindow({
               height: `${height}px`,
               left: `${x}px`,
               top: `${y}px`,
-              ...(isMaximized
-                ? {}
-                : {
-                    ...(isNearMaximized
-                      ? {}
-                      : {
-                          maxWidth: `${maxWidthPercent * 100}vw`,
-                          maxHeight: `${maxHeightPercent * 100}vh`
-                        })
-                  })
+              ...(!isMaximized && !isNearMaximized
+                ? {
+                    maxWidth: `${maxWidthPercent * 100}vw`,
+                    maxHeight: `${maxHeightPercent * 100}vh`
+                  }
+                : {})
             }
           : {
               height: `${height}px`,
