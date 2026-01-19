@@ -73,7 +73,9 @@ describe('useLLM', () => {
   describe('OpenRouter models', () => {
     it('restores the last OpenRouter model after reload', async () => {
       const { getLastLoadedModel } = await import('./useAppLifecycle');
-      vi.mocked(getLastLoadedModel).mockReturnValue(DEFAULT_OPENROUTER_MODEL_ID);
+      vi.mocked(getLastLoadedModel).mockReturnValue(
+        DEFAULT_OPENROUTER_MODEL_ID
+      );
       const { useLLM } = await import('./useLLM');
       const { result } = renderHook(() => useLLM());
 
