@@ -23,7 +23,9 @@ vi.mock('@/db/hooks', () => ({
 // Mock useSettings for TooltipsToggle
 vi.mock('@/db/SettingsProvider', () => ({
   useSettings: () => ({
-    getSetting: vi.fn(() => 'enabled'),
+    getSetting: vi.fn((key: string) =>
+      key === 'desktopIconDepth' ? 'embossed' : 'enabled'
+    ),
     setSetting: vi.fn()
   })
 }));
@@ -83,6 +85,12 @@ describe('Settings', () => {
     it('renders the tooltips toggle', () => {
       expect(
         screen.getByTestId('tooltips-toggle-container')
+      ).toBeInTheDocument();
+    });
+
+    it('renders the icon depth toggle', () => {
+      expect(
+        screen.getByTestId('icon-depth-toggle-container')
       ).toBeInTheDocument();
     });
 

@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FontSelector,
+  IconDepthToggle,
   PatternSelector,
   SettingsSection,
   ThemeSelector,
@@ -111,6 +112,10 @@ export function Settings() {
 
       <SettingsSection>
         <PatternSelector />
+      </SettingsSection>
+
+      <SettingsSection>
+        <IconDepthToggle />
       </SettingsSection>
 
       <SettingsSection>
