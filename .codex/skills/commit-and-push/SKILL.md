@@ -42,10 +42,38 @@ Always pass `-R "$REPO"` to `gh` commands.
 5. Open PR:
    - If no PR exists, create one with `gh pr create`.
    - Do not include auto-close keywords (`Closes`, `Fixes`, `Resolves`).
-   - Include the agent tracking line at the bottom of the PR body:
+   - Use the Claude-style PR body format and include the evaluated agent id.
+
+   Compute the agent id:
 
    ```bash
-   Agent: $(basename "$(git rev-parse --show-toplevel)")
+   AGENT_ID=$(basename "$(git rev-parse --show-toplevel)")
+   ```
+
+   PR body template (fill in real bullets, keep section order):
+
+   ```bash
+   PR_BODY=$(cat <<EOF
+   ## Summary
+   - <verb-led, concrete change>
+   - <second concrete change if needed>
+
+   ## Testing
+   - <command run or "not run (reason)">
+
+   ## Issue
+   - #<issue-number>
+
+   Agent: ${AGENT_ID}
+   EOF
+   )
+   ```
+
+   If there is no associated issue, replace the `## Issue` section with:
+
+   ```text
+   ## Related
+   - <link or short reference>
    ```
 
    - After creating the PR, run `setVscodeTitle.sh`.
