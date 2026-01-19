@@ -72,6 +72,9 @@ importers:
       '@types/node':
         specifier: 25.0.3
         version: 25.0.3
+      '@types/pg':
+        specifier: 8.15.5
+        version: 8.15.5
       '@types/supertest':
         specifier: 6.0.3
         version: 6.0.3
@@ -235,7 +238,7 @@ importers:
         version: 0.7.1
       drizzle-orm:
         specifier: 0.45.1
-        version: 0.45.1(@types/better-sqlite3@7.6.13)(pg@8.13.1)(sql.js@1.13.0)
+        version: 0.45.1(@types/better-sqlite3@7.6.13)(@types/pg@8.15.5)(pg@8.13.1)(sql.js@1.13.0)
       file-type:
         specifier: 21.2.0
         version: 21.2.0
@@ -392,7 +395,7 @@ importers:
         version: link:../shared
       drizzle-orm:
         specifier: 0.45.1
-        version: 0.45.1(@types/better-sqlite3@7.6.13)(pg@8.13.1)(sql.js@1.13.0)
+        version: 0.45.1(@types/better-sqlite3@7.6.13)(@types/pg@8.15.5)(pg@8.13.1)(sql.js@1.13.0)
     devDependencies:
       '@vitest/coverage-v8':
         specifier: 4.0.16
@@ -3866,6 +3869,9 @@ packages:
 
   '@types/nodemailer@7.0.5':
     resolution: {integrity: sha512-7WtR4MFJUNN2UFy0NIowBRJswj5KXjXDhlZY43Hmots5eGu5q/dTeFd/I6GgJA/qj3RqO6dDy4SvfcV3fOVeIA==}
+
+  '@types/pg@8.15.5':
+    resolution: {integrity: sha512-LF7lF6zWEKxuT3/OR8wAZGzkg4ENGXFNyiV/JeOt9z5B+0ZVwbql9McqX5c/WStFq1GaGso7H1AzP/qSzmlCKQ==}
 
   '@types/plist@3.0.5':
     resolution: {integrity: sha512-E6OCaRmAe4WDmWNsL/9RMqdkkzDCY1etutkflWk4c+AcjDU07Pcz1fQwTX0TQz+Pxqn9i4L1TU3UFpjnrcDgxA==}
@@ -13115,6 +13121,12 @@ snapshots:
     transitivePeerDependencies:
       - aws-crt
 
+  '@types/pg@8.15.5':
+    dependencies:
+      '@types/node': 25.0.3
+      pg-protocol: 1.11.0
+      pg-types: 2.2.0
+
   '@types/plist@3.0.5':
     dependencies:
       '@types/node': 25.0.3
@@ -14542,9 +14554,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.45.1(@types/better-sqlite3@7.6.13)(pg@8.13.1)(sql.js@1.13.0):
+  drizzle-orm@0.45.1(@types/better-sqlite3@7.6.13)(@types/pg@8.15.5)(pg@8.13.1)(sql.js@1.13.0):
     optionalDependencies:
       '@types/better-sqlite3': 7.6.13
+      '@types/pg': 8.15.5
       pg: 8.13.1
       sql.js: 1.13.0
 
