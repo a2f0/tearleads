@@ -7,6 +7,7 @@ import App from './App';
 type FooterProps = {
   children: ReactNode;
   connectionIndicator?: ReactNode;
+  leftAction?: ReactNode;
   rightAction?: ReactNode;
   version?: string;
   className?: string;
@@ -19,8 +20,14 @@ vi.mock('@rapid/ui', () => ({
   ConnectionIndicator: ({ state }: { state: string }) => (
     <div data-testid="connection-indicator">{state}</div>
   ),
-  Footer: ({ children, connectionIndicator, rightAction }: FooterProps) => (
+  Footer: ({
+    children,
+    connectionIndicator,
+    leftAction,
+    rightAction
+  }: FooterProps) => (
     <footer>
+      {leftAction}
       {connectionIndicator}
       {rightAction}
       {children}
@@ -109,5 +116,25 @@ describe('App', () => {
     expect(screen.getByTestId('connection-indicator')).toHaveTextContent(
       'connected'
     );
+  });
+
+  it('renders HUDTrigger in the header', () => {
+    mockUseSSEContext.mockReturnValue(null);
+
+    renderApp();
+
+    const header = screen.getByRole('banner');
+    const hudTrigger = screen.getByTestId('hud-trigger');
+    expect(header).toContainElement(hudTrigger);
+  });
+
+  it('renders taskbar in the footer', () => {
+    mockUseSSEContext.mockReturnValue(null);
+
+    renderApp();
+
+    const footer = screen.getByRole('contentinfo');
+    const taskbar = screen.getByTestId('taskbar');
+    expect(footer).toContainElement(taskbar);
   });
 });

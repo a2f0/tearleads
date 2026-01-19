@@ -187,6 +187,19 @@ describe('Sidebar', () => {
     expect(mockOnClose).toHaveBeenCalled();
   });
 
+  it('opens videos floating window on double click on desktop', async () => {
+    const user = userEvent.setup();
+    mockMatchMedia({ isMobile: false, isTouch: false }); // Desktop viewport
+
+    renderSidebar();
+
+    const videosButton = screen.getByRole('button', { name: 'Videos' });
+    await user.dblClick(videosButton);
+
+    expect(mockOpenWindow).toHaveBeenCalledWith('videos');
+    expect(mockOnClose).toHaveBeenCalled();
+  });
+
   it('navigates on single click for window paths on mobile', async () => {
     const user = userEvent.setup();
     mockMatchMedia({ isMobile: true, isTouch: true }); // Mobile viewport

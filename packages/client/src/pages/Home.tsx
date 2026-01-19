@@ -20,6 +20,10 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTypedTranslation } from '@/i18n';
 import { cn } from '@/lib/utils';
 
+// AGENT GUARDRAIL: When adding a new path here, ensure parity with:
+// - Sidebar.tsx WINDOW_PATHS mapping
+// - WindowManagerContext.tsx WindowType union
+// - WindowRenderer.tsx switch cases
 const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/notes': 'notes',
   '/console': 'console',
