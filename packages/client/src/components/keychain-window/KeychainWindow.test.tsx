@@ -2,8 +2,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Ref } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { KeychainWindowContentRef } from './KeychainWindowContent';
 import { KeychainWindow } from './KeychainWindow';
+import type { KeychainWindowContentRef } from './KeychainWindowContent';
 
 vi.mock('@/components/floating-window', () => ({
   FloatingWindow: ({
@@ -47,31 +47,33 @@ vi.mock('./KeychainWindowMenuBar', () => ({
 }));
 
 vi.mock('./KeychainWindowContent', () => ({
-  KeychainWindowContent: vi.fn().mockImplementation(
-    ({
-      ref,
-      onSelectInstance
-    }: {
-      ref?: Ref<KeychainWindowContentRef>;
-      onSelectInstance?: (instanceId: string) => void;
-    }) => {
-      if (ref && typeof ref !== 'function') {
-        ref.current = { refresh: mockRefresh };
+  KeychainWindowContent: vi
+    .fn()
+    .mockImplementation(
+      ({
+        ref,
+        onSelectInstance
+      }: {
+        ref?: Ref<KeychainWindowContentRef>;
+        onSelectInstance?: (instanceId: string) => void;
+      }) => {
+        if (ref && typeof ref !== 'function') {
+          ref.current = { refresh: mockRefresh };
+        }
+        return (
+          <div data-testid="keychain-content">
+            Keychain Content
+            <button
+              type="button"
+              onClick={() => onSelectInstance?.('instance-1')}
+              data-testid="open-detail"
+            >
+              Open Detail
+            </button>
+          </div>
+        );
       }
-      return (
-        <div data-testid="keychain-content">
-          Keychain Content
-          <button
-            type="button"
-            onClick={() => onSelectInstance?.('instance-1')}
-            data-testid="open-detail"
-          >
-            Open Detail
-          </button>
-        </div>
-      );
-    }
-  )
+    )
 }));
 
 vi.mock('./KeychainWindowDetail', () => ({
