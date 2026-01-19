@@ -27,6 +27,7 @@ import { forwardRef, useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
+import { FOOTER_HEIGHT } from '@/constants/layout';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import type { MenuKeys } from '@/i18n';
@@ -324,13 +325,21 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
       id="sidebar"
       ref={ref}
       className={cn(
-        'hidden w-64 shrink-0 flex-col border-r bg-background lg:flex',
+        'hidden w-64 shrink-0 flex-col border-t border-r bg-background',
         isOpen
-          ? 'lg:fixed lg:inset-y-0 lg:left-0 lg:z-[60] lg:shadow-lg'
+          ? 'lg:fixed lg:left-0 lg:z-[60] lg:flex lg:shadow-lg'
           : 'lg:hidden'
       )}
+      style={
+        isOpen
+          ? {
+              bottom: FOOTER_HEIGHT,
+              maxHeight: `calc(100vh - ${FOOTER_HEIGHT}px)`
+            }
+          : undefined
+      }
     >
-      <nav className="flex-1 overflow-y-auto p-4">
+      <nav className="max-h-full overflow-y-auto p-4">
         <ul className="space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon;
