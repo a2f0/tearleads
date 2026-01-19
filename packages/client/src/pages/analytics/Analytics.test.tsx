@@ -82,8 +82,10 @@ function renderAnalyticsRaw(props: ComponentProps<typeof Analytics> = {}) {
   );
 }
 
-async function renderAnalytics() {
-  const result = renderAnalyticsRaw();
+async function renderAnalytics(
+  props: ComponentProps<typeof Analytics> = {}
+) {
+  const result = renderAnalyticsRaw(props);
   // Wait for initial async effects to complete
   await waitFor(() => {
     expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
@@ -274,8 +276,8 @@ describe('Analytics', () => {
       expect(screen.getByText('Analytics')).toBeInTheDocument();
     });
 
-    it('hides back link when disabled', () => {
-      renderAnalyticsRaw({ showBackLink: false });
+    it('hides back link when disabled', async () => {
+      await renderAnalytics({ showBackLink: false });
 
       expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
     });
