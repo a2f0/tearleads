@@ -43,7 +43,7 @@ const MOCK_SAVED_POSITIONS = {
   '/chat': { x: 300, y: 500 },
   '/email': { x: 400, y: 500 },
   '/models': { x: 100, y: 600 },
-  '/admin': { x: 200, y: 600 },
+  '/admin/redis': { x: 200, y: 600 },
   '/settings': { x: 300, y: 600 }
 };
 

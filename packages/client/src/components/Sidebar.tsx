@@ -183,7 +183,7 @@ export const navItems: NavItem[] = [
     testId: 'models-link'
   },
   {
-    path: '/admin',
+    path: '/admin/redis',
     icon: Shield,
     labelKey: 'admin',
     inMobileMenu: true,
@@ -223,7 +223,7 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/analytics': 'analytics',
   '/audio': 'audio',
   '/models': 'models',
-  '/admin': 'admin'
+  '/admin/redis': 'admin'
 };
 
 export interface SidebarProps {

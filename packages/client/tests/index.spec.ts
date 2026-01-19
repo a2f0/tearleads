@@ -46,7 +46,7 @@ async function triggerSidebarNavigation(
 
 // All paths that open as floating windows on desktop (matches Sidebar WINDOW_PATHS)
 const WINDOW_LAUNCH_PATHS = new Set([
-  '/admin',
+  '/admin/redis',
   '/analytics',
   '/audio',
   '/cache-storage',
@@ -75,7 +75,12 @@ const URL_NAVIGATION_PATHS = new Set<string>([]);
 // Helper to navigate via sidebar or URL navigation
 async function navigateTo(page: Page, linkName: string) {
   const slug = linkName.toLowerCase().replace(/\s+/g, '-');
-  const path = linkName === 'Home' ? '/' : `/${slug}`;
+  const path =
+    linkName === 'Home'
+      ? '/'
+      : linkName === 'Admin'
+        ? '/admin/redis'
+        : `/${slug}`;
   const isDesktop = await isDesktopDevice(page);
 
   // Use URL navigation for window-capable paths or paths that might be scrolled out of view
