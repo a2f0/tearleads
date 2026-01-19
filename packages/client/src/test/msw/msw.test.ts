@@ -46,6 +46,40 @@ describe('msw handlers', () => {
     });
   });
 
+  it('mocks admin postgres endpoints', async () => {
+    const infoResponse = await fetch('http://localhost/admin/postgres/info');
+    const infoPayload = await infoResponse.json();
+
+    expect(infoPayload).toEqual({
+      status: 'ok',
+      info: {
+        host: 'localhost',
+        port: 5432,
+        database: 'rapid',
+        user: 'rapid'
+      },
+      serverVersion: 'PostgreSQL 15.1'
+    });
+
+    const tablesResponse = await fetch(
+      'http://localhost/admin/postgres/tables'
+    );
+    const tablesPayload = await tablesResponse.json();
+
+    expect(tablesPayload).toEqual({
+      tables: [
+        {
+          schema: 'public',
+          name: 'users',
+          rowCount: 12,
+          totalBytes: 2048,
+          tableBytes: 1024,
+          indexBytes: 1024
+        }
+      ]
+    });
+  });
+
   it('mocks chat completions', async () => {
     const response = await fetch('http://localhost/chat/completions', {
       method: 'POST',

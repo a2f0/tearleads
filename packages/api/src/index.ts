@@ -7,7 +7,9 @@ import express, { type Express, type Request, type Response } from 'express';
 import packageJson from '../package.json' with { type: 'json' };
 import { closeRedisClient } from './lib/redis.js';
 import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
+import { closePostgresPool } from './lib/postgres.js';
 import { redisRouter } from './routes/admin/redis.js';
+import { postgresRouter } from './routes/admin/postgres.js';
 import { chatRouter } from './routes/chat.js';
 import { emailsRouter } from './routes/emails.js';
 import { closeAllSSEConnections, sseRouter } from './routes/sse.js';
@@ -76,6 +78,7 @@ app.get('/v1/ping', (_req: Request, res: Response) => {
 
 // Admin routes
 app.use('/v1/admin/redis', redisRouter);
+app.use('/v1/admin/postgres', postgresRouter);
 
 // Chat completion route
 app.use('/v1/chat', chatRouter);
@@ -123,8 +126,12 @@ export async function gracefulShutdown(
 
   server.close(async () => {
     console.log('HTTP server closed');
-    await Promise.all([closeRedisClient(), closeRedisSubscriberClient()]);
-    console.log('Redis connections closed');
+    await Promise.all([
+      closeRedisClient(),
+      closeRedisSubscriberClient(),
+      closePostgresPool()
+    ]);
+    console.log('Redis/Postgres connections closed');
     clearTimeout(timeoutId);
     process.exit(0);
   });

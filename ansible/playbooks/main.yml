@@ -53,6 +53,7 @@
           - redis-server
           - postgresql
           - postgresql-contrib
+          - python3-psycopg2
           - ncurses-bin
         state: present
 
@@ -132,6 +133,21 @@
         name: postgresql
         state: started
         enabled: true
+
+    - name: Ensure Postgres service account exists
+      community.postgresql.postgresql_user:
+        name: "{{ lookup('env', 'POSTGRES_USER') | mandatory('POSTGRES_USER environment variable is required') }}"
+        password: "{{ lookup('env', 'POSTGRES_PASSWORD') | mandatory('POSTGRES_PASSWORD environment variable is required') }}"
+        role_attr_flags: "LOGIN"
+        state: present
+      become_user: postgres
+
+    - name: Ensure Postgres database exists
+      community.postgresql.postgresql_db:
+        name: "{{ lookup('env', 'POSTGRES_DATABASE') | mandatory('POSTGRES_DATABASE environment variable is required') }}"
+        owner: "{{ lookup('env', 'POSTGRES_USER') | mandatory('POSTGRES_USER environment variable is required') }}"
+        state: present
+      become_user: postgres
 
     # API directory and service
     - name: Create API directory

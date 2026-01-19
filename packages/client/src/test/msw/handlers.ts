@@ -1,5 +1,7 @@
 import type {
   PingData,
+  PostgresAdminInfoResponse,
+  PostgresTablesResponse,
   RedisKeysResponse,
   RedisKeyValueResponse
 } from '@rapid/shared';
@@ -29,8 +31,38 @@ const defaultKeyValue = (key: string): RedisKeyValueResponse => ({
   value: ''
 });
 
+const defaultPostgresInfo: PostgresAdminInfoResponse = {
+  status: 'ok',
+  info: {
+    host: 'localhost',
+    port: 5432,
+    database: 'rapid',
+    user: 'rapid'
+  },
+  serverVersion: 'PostgreSQL 15.1'
+};
+
+const defaultPostgresTables: PostgresTablesResponse = {
+  tables: [
+    {
+      schema: 'public',
+      name: 'users',
+      rowCount: 12,
+      totalBytes: 2048,
+      tableBytes: 1024,
+      indexBytes: 1024
+    }
+  ]
+};
+
 export const handlers = [
   http.get(/\/ping$/, () => ok<PingData>({ version: 'test', dbVersion: '0' })),
+  http.get(/\/admin\/postgres\/info$/, () =>
+    ok<PostgresAdminInfoResponse>(defaultPostgresInfo)
+  ),
+  http.get(/\/admin\/postgres\/tables$/, () =>
+    ok<PostgresTablesResponse>(defaultPostgresTables)
+  ),
   http.get(/\/admin\/redis\/dbsize$/, () => ok({ count: defaultKeys.length })),
   http.get(/\/admin\/redis\/keys$/, ({ request }) => {
     const url = new URL(request.url);

@@ -157,6 +157,7 @@ describe('barrel exports', () => {
     expect(gridSquare.GridSquare).toBeDefined();
 
     expect(pagesAdmin.Admin).toBeDefined();
+    expect(pagesAdmin.PostgresAdmin).toBeDefined();
 
     expect(pagesAnalytics.Analytics).toBeDefined();
     expect(pagesAnalytics.SortIcon).toBeDefined();
