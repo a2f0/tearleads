@@ -186,10 +186,7 @@ export async function getSettingsFromDb(
       settings.font = value;
     } else if (key === 'desktopPattern' && isDesktopPatternValue(value)) {
       settings.desktopPattern = value;
-    } else if (
-      key === 'desktopIconDepth' &&
-      isDesktopIconDepthValue(value)
-    ) {
+    } else if (key === 'desktopIconDepth' && isDesktopIconDepthValue(value)) {
       settings.desktopIconDepth = value;
     }
   }
