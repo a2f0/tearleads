@@ -74,6 +74,7 @@ async function dragHandle(
 
 test.describe('Bottom Sheet', () => {
   test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
     await clearOriginStorage(page);
     await page.goto('/');
     // Open the settings sheet
