@@ -27,8 +27,10 @@ interface KeychainWindowContentProps {
   onSelectInstance?: (instanceId: string) => void;
 }
 
-export const KeychainWindowContent = forwardRef<KeychainWindowContentRef>(
-  function KeychainWindowContent({ onSelectInstance }, ref) {
+export const KeychainWindowContent = forwardRef<
+  KeychainWindowContentRef,
+  KeychainWindowContentProps
+>(function KeychainWindowContent({ onSelectInstance }, ref) {
     const { t } = useTypedTranslation('contextMenu');
     const [instanceKeyInfos, setInstanceKeyInfos] = useState<InstanceKeyInfo[]>(
       []
@@ -213,5 +215,4 @@ export const KeychainWindowContent = forwardRef<KeychainWindowContentRef>(
         )}
       </div>
     );
-  }
-);
+});
