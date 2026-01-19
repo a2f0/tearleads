@@ -1,6 +1,6 @@
 /// <reference types="@webgpu/types" />
 import { isOpenRouterModelId, isRecord } from '@rapid/shared';
-import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { getCurrentInstanceId, getDatabase } from '@/db';
 import type { AnalyticsEventSlug } from '@/db/analytics';
@@ -666,6 +666,17 @@ export function useLLM(): UseLLMReturn {
     const instanceId = getCurrentInstanceId();
     return getLastLoadedModel(instanceId ?? undefined);
   }, [state.loadedModel]);
+
+  useEffect(() => {
+    if (
+      !state.loadedModel &&
+      !state.isLoading &&
+      previouslyLoadedModel &&
+      isOpenRouterModelId(previouslyLoadedModel)
+    ) {
+      void loadModel(previouslyLoadedModel);
+    }
+  }, [loadModel, previouslyLoadedModel, state.isLoading, state.loadedModel]);
 
   return useMemo(
     () => ({
