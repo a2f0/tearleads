@@ -97,10 +97,7 @@ function renderDocumentDetailRaw(documentId: string = 'doc-123') {
   );
 }
 
-function renderDocumentDetailWithProps(
-  documentId: string,
-  onBack: () => void
-) {
+function renderDocumentDetailWithProps(documentId: string, onBack: () => void) {
   return render(
     <ThemeProvider>
       <MemoryRouter initialEntries={[`/documents/${documentId}`]}>

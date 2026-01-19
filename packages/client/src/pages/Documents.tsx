@@ -388,9 +388,7 @@ export function Documents({
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
-        {showBackLink && (
-          <BackLink defaultTo="/" defaultLabel="Back to Home" />
-        )}
+        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <FileText className="h-8 w-8 text-muted-foreground" />
