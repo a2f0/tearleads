@@ -1,7 +1,7 @@
+import type { PostgresAdminInfoResponse } from '@rapid/shared';
 import { Loader2, PlugZap } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshButton } from '@/components/ui/refresh-button';
-import type { PostgresAdminInfoResponse } from '@rapid/shared';
 import { api } from '@/lib/api';
 
 const FALLBACK_VALUE = 'Unknown';
@@ -73,13 +73,17 @@ export function PostgresConnectionPanel() {
 
           <div className="grid gap-2 sm:grid-cols-2">
             <div className="rounded-md border px-3 py-2">
-              <div className="text-muted-foreground text-xs uppercase">Host</div>
+              <div className="text-muted-foreground text-xs uppercase">
+                Host
+              </div>
               <div className="font-mono">
                 {info?.info.host ?? FALLBACK_VALUE}
               </div>
             </div>
             <div className="rounded-md border px-3 py-2">
-              <div className="text-muted-foreground text-xs uppercase">Port</div>
+              <div className="text-muted-foreground text-xs uppercase">
+                Port
+              </div>
               <div className="font-mono">
                 {info?.info.port ?? FALLBACK_VALUE}
               </div>
@@ -93,7 +97,9 @@ export function PostgresConnectionPanel() {
               </div>
             </div>
             <div className="rounded-md border px-3 py-2">
-              <div className="text-muted-foreground text-xs uppercase">User</div>
+              <div className="text-muted-foreground text-xs uppercase">
+                User
+              </div>
               <div className="font-mono">
                 {info?.info.user ?? FALLBACK_VALUE}
               </div>
