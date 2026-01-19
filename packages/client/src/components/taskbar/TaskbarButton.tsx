@@ -3,6 +3,7 @@ import {
   BarChart2,
   Bot,
   Bug,
+  Copy,
   Database,
   FileIcon,
   FileText,
@@ -12,14 +13,19 @@ import {
   KeyRound,
   Mail,
   MessageSquare,
+  Minus,
   Music,
   Settings,
   Shield,
+  Square,
   StickyNote,
   Table2,
   Terminal,
-  User
+  User,
+  X
 } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 import { cn } from '@/lib/utils';
 
@@ -76,30 +82,116 @@ interface TaskbarButtonProps {
   isActive: boolean;
   isMinimized?: boolean;
   onClick: () => void;
+  onMinimize: () => void;
+  onClose: () => void;
+  onMaximize: () => void;
 }
 
 export function TaskbarButton({
   type,
   isActive,
   isMinimized = false,
-  onClick
+  onClick,
+  onMinimize,
+  onClose,
+  onMaximize
 }: TaskbarButtonProps) {
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const handleContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      setContextMenu({ x: event.clientX, y: event.clientY });
+    },
+    []
+  );
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  const handleRestore = useCallback(() => {
+    onClick();
+    setContextMenu(null);
+  }, [onClick]);
+
+  const handleMinimize = useCallback(() => {
+    onMinimize();
+    setContextMenu(null);
+  }, [onMinimize]);
+
+  const handleClose = useCallback(() => {
+    onClose();
+    setContextMenu(null);
+  }, [onClose]);
+
+  const handleMaximize = useCallback(() => {
+    onMaximize();
+    setContextMenu(null);
+  }, [onMaximize]);
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-1.5 rounded border px-2 py-1 text-xs transition-colors',
-        isActive
-          ? 'border-primary/50 bg-primary/10 text-foreground'
-          : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
-        isMinimized && 'opacity-60'
+    <>
+      <button
+        type="button"
+        onClick={onClick}
+        onContextMenu={handleContextMenu}
+        className={cn(
+          'flex items-center gap-1.5 rounded border px-2.5 py-1.5 text-xs transition-colors',
+          (isActive || isMinimized) && 'px-3 py-2 text-sm',
+          isActive
+            ? 'border-primary/50 bg-primary/10 text-foreground'
+            : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
+          isMinimized && 'opacity-60'
+        )}
+        data-testid={`taskbar-button-${type}`}
+        data-minimized={isMinimized}
+      >
+        {WINDOW_ICONS[type]}
+        <span>{WINDOW_LABELS[type]}</span>
+      </button>
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={handleCloseContextMenu}
+        >
+          {isMinimized ? (
+            <>
+              <ContextMenuItem
+                icon={<Copy className="h-4 w-4" />}
+                onClick={handleRestore}
+              >
+                Restore
+              </ContextMenuItem>
+              <ContextMenuItem
+                icon={<Square className="h-4 w-4" />}
+                onClick={handleMaximize}
+              >
+                Maximize
+              </ContextMenuItem>
+            </>
+          ) : (
+            <>
+              <ContextMenuItem
+                icon={<Minus className="h-4 w-4" />}
+                onClick={handleMinimize}
+              >
+                Minimize
+              </ContextMenuItem>
+              <ContextMenuItem
+                icon={<X className="h-4 w-4" />}
+                onClick={handleClose}
+              >
+                Close
+              </ContextMenuItem>
+            </>
+          )}
+        </ContextMenu>
       )}
-      data-testid={`taskbar-button-${type}`}
-      data-minimized={isMinimized}
-    >
-      {WINDOW_ICONS[type]}
-      <span>{WINDOW_LABELS[type]}</span>
-    </button>
+    </>
   );
 }

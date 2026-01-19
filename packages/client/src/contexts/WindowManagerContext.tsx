@@ -45,6 +45,12 @@ export interface WindowDimensions {
   x: number;
   y: number;
   isMaximized?: boolean;
+  preMaximizeDimensions?: {
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+  };
 }
 
 export interface WindowInstance {
