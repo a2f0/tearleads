@@ -21,6 +21,7 @@
     "jsdom": "27.4.0",
     "typescript": "5.9.3",
     "vite": "7.3.0",
-    "vitest": "4.0.16"
+    "vitest": "4.0.16",
+    "vitest-fail-on-console": "0.10.1"
   }
 }

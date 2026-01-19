@@ -47,6 +47,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "typescript": "5.9.3",
-    "vitest": "4.0.16"
+    "vitest": "4.0.16",
+    "vitest-fail-on-console": "0.10.1"
   }
 }
