@@ -165,8 +165,10 @@ describe('TableSizes', () => {
 
       await renderTableSizes();
 
+      expect(screen.getByText('Rows')).toBeInTheDocument();
       expect(screen.getByText('users')).toBeInTheDocument();
       expect(screen.getByText('2 KB')).toBeInTheDocument();
+      expect(screen.getByText('50')).toBeInTheDocument();
     });
 
     it('does not show estimated indicator when dbstat is available', async () => {
@@ -197,6 +199,7 @@ describe('TableSizes', () => {
       await renderTableSizes();
 
       expect(screen.getByText('users')).toBeInTheDocument();
+      expect(screen.getByText('100')).toBeInTheDocument();
       // 100 rows * 100 bytes = 10000 bytes ≈ 9.77 KB
       expect(screen.getByText('~9.77 KB')).toBeInTheDocument();
     });
