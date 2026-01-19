@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 
 const DESKTOP_BREAKPOINT = 768;
 const MAX_FIT_CONTENT_ATTEMPTS = 5;
+const NEAR_MAXIMIZED_INSET = 16;
 
 const POSITION_CLASSES: Record<Corner, string> = {
   'top-left': 'top-0 left-0',
@@ -122,6 +123,7 @@ export function FloatingWindow({
   const [isMaximized, setIsMaximized] = useState(
     initialDimensions?.isMaximized ?? false
   );
+  const [isNearMaximized, setIsNearMaximized] = useState(false);
   const preMaximizeStateRef = useRef<PreMaximizeState | null>(
     initialDimensions?.preMaximizeDimensions ?? null
   );
@@ -274,31 +276,47 @@ export function FloatingWindow({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    if (!isNearMaximized) return;
+    const maxWidth = window.innerWidth * maxWidthPercent;
+    const maxHeight = (window.innerHeight - FOOTER_HEIGHT) * maxHeightPercent;
+    if (width <= maxWidth && height <= maxHeight) {
+      setIsNearMaximized(false);
+    }
+  }, [
+    height,
+    isNearMaximized,
+    maxHeightPercent,
+    maxWidthPercent,
+    width
+  ]);
+
   const handleWindowClick = () => {
     onFocus?.();
   };
 
   const handleMaximize = useCallback(() => {
     if (isMaximized) {
-      // Restore to previous size/position
-      if (preMaximizeStateRef.current) {
-        const {
-          width: prevWidth,
-          height: prevHeight,
-          x: prevX,
-          y: prevY
-        } = preMaximizeStateRef.current;
-        setDimensions(prevWidth, prevHeight, prevX, prevY);
-        onDimensionsChange?.({
-          width: prevWidth,
-          height: prevHeight,
-          x: prevX,
-          y: prevY,
-          isMaximized: false
-        });
-        preMaximizeStateRef.current = null;
-      }
+      const maxWidth = window.innerWidth;
+      const maxHeight = window.innerHeight - FOOTER_HEIGHT;
+      const nextWidth = Math.max(minWidth, maxWidth - NEAR_MAXIMIZED_INSET * 2);
+      const nextHeight = Math.max(
+        minHeight,
+        maxHeight - NEAR_MAXIMIZED_INSET * 2
+      );
+      const nextX = Math.max(0, Math.round((maxWidth - nextWidth) / 2));
+      const nextY = Math.max(0, Math.round((maxHeight - nextHeight) / 2));
+      setDimensions(nextWidth, nextHeight, nextX, nextY);
+      onDimensionsChange?.({
+        width: nextWidth,
+        height: nextHeight,
+        x: nextX,
+        y: nextY,
+        isMaximized: false
+      });
+      preMaximizeStateRef.current = null;
       setIsMaximized(false);
+      setIsNearMaximized(true);
     } else {
       // Save current state and maximize (leaving space for footer/taskbar)
       preMaximizeStateRef.current = { width, height, x, y };
@@ -316,8 +334,19 @@ export function FloatingWindow({
         })
       });
       setIsMaximized(true);
+      setIsNearMaximized(false);
     }
-  }, [isMaximized, width, height, x, y, setDimensions, onDimensionsChange]);
+  }, [
+    height,
+    isMaximized,
+    minHeight,
+    minWidth,
+    onDimensionsChange,
+    setDimensions,
+    width,
+    x,
+    y
+  ]);
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: Window focus on click
@@ -338,8 +367,12 @@ export function FloatingWindow({
               ...(isMaximized
                 ? {}
                 : {
-                    maxWidth: `${maxWidthPercent * 100}vw`,
-                    maxHeight: `${maxHeightPercent * 100}vh`
+                    ...(isNearMaximized
+                      ? {}
+                      : {
+                          maxWidth: `${maxWidthPercent * 100}vw`,
+                          maxHeight: `${maxHeightPercent * 100}vh`
+                        })
                   })
             }
           : {
