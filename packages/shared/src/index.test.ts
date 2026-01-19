@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_OPENROUTER_MODEL_ID,
-  OPENROUTER_CHAT_MODELS,
   formatDate,
   getErrorCode,
   isOpenRouterModelId,
   isRecord,
+  OPENROUTER_CHAT_MODELS,
   toFiniteNumber
 } from './index.js';
 

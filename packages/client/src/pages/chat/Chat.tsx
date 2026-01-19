@@ -1,5 +1,5 @@
-import { useLLM } from '@/hooks/useLLM';
 import { OPENROUTER_CHAT_MODELS } from '@rapid/shared';
+import { useLLM } from '@/hooks/useLLM';
 import { ChatHeader } from './ChatHeader';
 import { ChatInterface } from './ChatInterface';
 import { NoModelLoadedContent } from './NoModelLoadedContent';

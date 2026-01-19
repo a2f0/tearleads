@@ -1,5 +1,5 @@
-import { Bot, Check, Eye } from 'lucide-react';
 import { isOpenRouterModelId } from '@rapid/shared';
+import { Bot, Check, Eye } from 'lucide-react';
 import type { ModelInfo } from '@/lib/models';
 
 interface ModelOptionProps {
