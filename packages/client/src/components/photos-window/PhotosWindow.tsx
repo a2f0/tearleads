@@ -97,15 +97,13 @@ export function PhotosWindow({
       minHeight={300}
     >
       <div className="flex h-full flex-col">
-        {!selectedPhotoId && (
-          <PhotosWindowMenuBar
-            onRefresh={handleRefresh}
-            onUpload={handleUpload}
-            onClose={onClose}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-          />
-        )}
+        <PhotosWindowMenuBar
+          onRefresh={handleRefresh}
+          onUpload={handleUpload}
+          onClose={onClose}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+        />
         <div className="flex-1 overflow-hidden">
           {selectedPhotoId ? (
             <PhotosWindowDetail

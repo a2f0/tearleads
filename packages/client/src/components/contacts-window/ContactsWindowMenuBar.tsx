@@ -12,18 +12,25 @@ interface ContactsWindowMenuBarProps {
   onViewModeChange: (mode: ViewMode) => void;
   onNewContact: () => void;
   onClose: () => void;
+  isNewContactDisabled?: boolean;
 }
 
 export function ContactsWindowMenuBar({
   viewMode,
   onViewModeChange,
   onNewContact,
-  onClose
+  onClose,
+  isNewContactDisabled = false
 }: ContactsWindowMenuBarProps) {
   return (
     <div className="flex shrink-0 border-b bg-muted/30 px-1">
       <DropdownMenu trigger="File">
-        <DropdownMenuItem onClick={onNewContact}>New</DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={onNewContact}
+          disabled={isNewContactDisabled}
+        >
+          New
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
       </DropdownMenu>
