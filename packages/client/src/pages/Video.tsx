@@ -57,23 +57,14 @@ type ViewMode = 'list' | 'table';
 
 const ROW_HEIGHT_ESTIMATE = 56;
 
-function getVideoTypeDisplay(mimeType: string): string {
-  if (!mimeType) return 'Video';
-  const [, subtype] = mimeType.split('/');
-  if (subtype) {
-    return subtype.toUpperCase();
-  }
-  return 'Video';
-}
-
 interface VideoPageProps {
-  showBackLink?: boolean;
-  viewMode?: ViewMode;
+  onOpenVideo?: ((videoId: string) => void) | undefined;
+  hideBackLink?: boolean | undefined;
 }
 
 export function VideoPage({
-  showBackLink = true,
-  viewMode = 'list'
+  onOpenVideo,
+  hideBackLink = false
 }: VideoPageProps) {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
@@ -270,11 +261,15 @@ export function VideoPage({
 
   const handleNavigateToDetail = useCallback(
     (videoId: string) => {
+      if (onOpenVideo) {
+        onOpenVideo(videoId);
+        return;
+      }
       navigateWithFrom(`/videos/${videoId}`, {
         fromLabel: 'Back to Videos'
       });
     },
-    [navigateWithFrom]
+    [navigateWithFrom, onOpenVideo]
   );
 
   const handleContextMenu = useCallback(
@@ -332,7 +327,9 @@ export function VideoPage({
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
-        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
+        {!hideBackLink && (
+          <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        )}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Film className="h-8 w-8 text-muted-foreground" />
