@@ -1,6 +1,6 @@
+import { ThemeProvider } from '@rapid/ui';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ThemeProvider } from '@rapid/ui';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
