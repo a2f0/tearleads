@@ -6,11 +6,11 @@ import {
   useMemo,
   useState
 } from 'react';
+import { generateUniqueId } from '@/lib/utils';
 import {
   loadWindowDimensions,
   saveWindowDimensions
 } from '@/lib/windowDimensionsStorage';
-import { generateUniqueId } from '@/lib/utils';
 
 // AGENT GUARDRAIL: When adding a new WindowType, ensure parity across:
 // - WindowRenderer.tsx (add case to render the window component)
