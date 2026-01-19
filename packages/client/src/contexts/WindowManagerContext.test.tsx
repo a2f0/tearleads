@@ -110,6 +110,31 @@ describe('WindowManagerContext', () => {
 
       expect(window3?.zIndex).toBe((window1?.zIndex ?? 0) + 1);
     });
+
+    it('restores existing audio window instead of opening another', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      let audioId = '';
+      act(() => {
+        audioId = result.current.openWindow('audio');
+      });
+
+      act(() => {
+        result.current.minimizeWindow(audioId);
+      });
+
+      const minimizedAudio = result.current.getWindow(audioId);
+      expect(minimizedAudio?.isMinimized).toBe(true);
+
+      let reopenedId = '';
+      act(() => {
+        reopenedId = result.current.openWindow('audio');
+      });
+
+      expect(reopenedId).toBe(audioId);
+      expect(result.current.windows).toHaveLength(1);
+      expect(result.current.getWindow(audioId)?.isMinimized).toBe(false);
+    });
   });
 
   describe('closeWindow', () => {
