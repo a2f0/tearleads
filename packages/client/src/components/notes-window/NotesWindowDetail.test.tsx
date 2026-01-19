@@ -1,10 +1,4 @@
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor
-} from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -355,6 +349,7 @@ describe('NotesWindowDetail', () => {
   it('updates title when edited', async () => {
     shouldResolve = true;
     limitResult = [mockNote];
+    const user = userEvent.setup();
 
     await act(async () => {
       render(<NotesWindowDetail {...defaultProps} />);
@@ -365,7 +360,12 @@ describe('NotesWindowDetail', () => {
     });
 
     const titleInput = screen.getByTestId('window-note-title');
-    fireEvent.change(titleInput, { target: { value: 'New Title' } });
+    await user.clear(titleInput);
+    await waitFor(() => {
+      expect(titleInput).toHaveValue('');
+    });
+    await user.click(titleInput);
+    await user.paste('New Title');
 
     // Title should be updated in the input
     await waitFor(() => {
