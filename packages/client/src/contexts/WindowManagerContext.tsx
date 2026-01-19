@@ -80,15 +80,12 @@ export function WindowManagerProvider({
 }: WindowManagerProviderProps) {
   const [windows, setWindows] = useState<WindowInstance[]>([]);
 
-  const getNextZIndex = useCallback(
-    (currentWindows: WindowInstance[]) => {
-      if (currentWindows.length === 0) {
-        return BASE_Z_INDEX;
-      }
-      return Math.max(...currentWindows.map((w) => w.zIndex)) + 1;
-    },
-    []
-  );
+  const getNextZIndex = useCallback((currentWindows: WindowInstance[]) => {
+    if (currentWindows.length === 0) {
+      return BASE_Z_INDEX;
+    }
+    return Math.max(...currentWindows.map((w) => w.zIndex)) + 1;
+  }, []);
 
   const openWindow = useCallback(
     (type: WindowType, customId?: string): string => {
