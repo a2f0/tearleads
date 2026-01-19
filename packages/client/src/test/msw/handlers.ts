@@ -46,5 +46,31 @@ export const handlers = [
     const key = decodeURIComponent(url.pathname.split('/').pop() ?? '');
     return ok(defaultKeyValue(key));
   }),
-  http.delete(/\/admin\/redis\/keys\/.+$/, () => ok({ deleted: true }))
+  http.delete(/\/admin\/redis\/keys\/.+$/, () => ok({ deleted: true })),
+  http.post(/\/chat\/completions$/, async ({ request }) => {
+    const body = await request.json().catch(() => null);
+    if (
+      !body ||
+      !Array.isArray(body['messages']) ||
+      body['messages'].length === 0
+    ) {
+      return HttpResponse.json(
+        { error: 'messages must be a non-empty array' },
+        { status: 400 }
+      );
+    }
+
+    return ok({
+      id: 'chatcmpl-test',
+      model: 'mistralai/mistral-7b-instruct:free',
+      choices: [
+        {
+          message: {
+            role: 'assistant',
+            content: 'Mock reply'
+          }
+        }
+      ]
+    });
+  })
 ];

@@ -147,6 +147,22 @@ describe('Emails Routes', () => {
       });
     });
 
+    it('logs parse errors for invalid stored email data', async () => {
+      const consoleSpy = mockConsoleError();
+      mockLLen.mockResolvedValue(1);
+      mockLRange.mockResolvedValue(['bad-email']);
+      mockMGet.mockResolvedValue(['{not-json']);
+
+      const response = await request(app).get('/v1/emails');
+
+      expect(response.status).toBe(200);
+      expect(response.body.emails).toEqual([]);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to parse email data for id bad-email:',
+        expect.any(Error)
+      );
+    });
+
     it('skips emails that no longer exist in Redis', async () => {
       mockLLen.mockResolvedValue(2);
       mockLRange.mockResolvedValue(['test-email-1', 'missing-email']);
