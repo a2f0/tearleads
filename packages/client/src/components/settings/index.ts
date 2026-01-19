@@ -1,4 +1,5 @@
 export { FontSelector } from './FontSelector';
+export { DisplayPropertiesSheet } from './DisplayPropertiesSheet';
 export {
   PATTERN_LABELS,
   PatternPreview,
