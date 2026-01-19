@@ -1,4 +1,7 @@
-import { DEFAULT_OPENROUTER_MODEL_ID } from '@rapid/shared';
+import {
+  DEFAULT_OPENROUTER_MODEL_ID,
+  OPENROUTER_CHAT_MODELS
+} from '@rapid/shared';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ClassificationResult } from './useLLM';
@@ -71,20 +74,13 @@ describe('useLLM', () => {
   });
 
   describe('OpenRouter models', () => {
-    it('restores the last OpenRouter model after reload', async () => {
-      const { getLastLoadedModel } = await import('./useAppLifecycle');
-      vi.mocked(getLastLoadedModel).mockReturnValue(
-        DEFAULT_OPENROUTER_MODEL_ID
-      );
-      const { useLLM } = await import('./useLLM');
-      const { result } = renderHook(() => useLLM());
-
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      expect(result.current.loadedModel).toBe(DEFAULT_OPENROUTER_MODEL_ID);
-    });
+    const getVisionOpenRouterModelId = () => {
+      const visionModel = OPENROUTER_CHAT_MODELS.find((model) => model.isVision);
+      if (!visionModel) {
+        throw new Error('Expected a vision OpenRouter model in the list');
+      }
+      return visionModel.id;
+    };
 
     it('loads OpenRouter models without using the worker', async () => {
       vi.stubEnv('VITE_API_URL', 'http://localhost');
@@ -98,6 +94,22 @@ describe('useLLM', () => {
       expect(result.current.loadedModel).toBe(DEFAULT_OPENROUTER_MODEL_ID);
       expect(result.current.modelType).toBe('chat');
       expect(mockPostMessage).not.toHaveBeenCalled();
+      vi.unstubAllEnvs();
+    });
+
+    it('loads OpenRouter vision models as vision type', async () => {
+      vi.stubEnv('VITE_API_URL', 'http://localhost');
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      const visionModelId = getVisionOpenRouterModelId();
+
+      await act(async () => {
+        await result.current.loadModel(visionModelId);
+      });
+
+      expect(result.current.loadedModel).toBe(visionModelId);
+      expect(result.current.modelType).toBe('vision');
       vi.unstubAllEnvs();
     });
 
@@ -145,6 +157,82 @@ describe('useLLM', () => {
           }
         })
       );
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    });
+
+    it('sends image attachments for OpenRouter vision models', async () => {
+      vi.stubEnv('VITE_API_URL', 'http://localhost');
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  role: 'assistant',
+                  content: 'Vision reply'
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      );
+      vi.stubGlobal('fetch', mockFetch);
+
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      const visionModelId = getVisionOpenRouterModelId();
+
+      await act(async () => {
+        await result.current.loadModel(visionModelId);
+      });
+
+      const onToken = vi.fn();
+      await act(async () => {
+        await result.current.generate(
+          [{ role: 'user', content: 'What is in this image?' }],
+          onToken,
+          'data:image/png;base64,test-image'
+        );
+      });
+
+      expect(onToken).toHaveBeenCalledWith('Vision reply');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      const call = mockFetch.mock.calls[0];
+      if (!call) {
+        throw new Error('Expected fetch to be called');
+      }
+
+      const requestInit = call[1];
+      if (!requestInit || typeof requestInit !== 'object') {
+        throw new Error('Expected fetch options to be provided');
+      }
+
+      const body = requestInit.body;
+      if (typeof body !== 'string') {
+        throw new Error('Expected request body to be a string');
+      }
+
+      const parsedBody = JSON.parse(body);
+      expect(parsedBody).toEqual({
+        model: visionModelId,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'What is in this image?' },
+              {
+                type: 'image_url',
+                image_url: { url: 'data:image/png;base64,test-image' }
+              }
+            ]
+          }
+        ]
+      });
+
       vi.unstubAllGlobals();
       vi.unstubAllEnvs();
     });

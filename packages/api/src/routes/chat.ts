@@ -17,9 +17,15 @@ export const DEFAULT_OPENROUTER_MODEL = DEFAULT_OPENROUTER_MODEL_ID;
 
 type ChatRole = 'assistant' | 'system' | 'tool' | 'user';
 
+type ChatContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
+
+type ChatContent = string | ChatContentPart[];
+
 interface ChatMessage {
   role: ChatRole;
-  content: string;
+  content: ChatContent;
 }
 
 function parseRole(value: unknown): ChatRole | null {
@@ -34,6 +40,59 @@ function parseRole(value: unknown): ChatRole | null {
   return null;
 }
 
+function parseContentPart(value: unknown): ChatContentPart | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const type = value['type'];
+  if (type === 'text') {
+    const text = value['text'];
+    if (typeof text !== 'string' || text.trim().length === 0) {
+      return null;
+    }
+    return { type: 'text', text };
+  }
+
+  if (type === 'image_url') {
+    const imageUrl = value['image_url'];
+    if (!isRecord(imageUrl)) {
+      return null;
+    }
+    const url = imageUrl['url'];
+    if (typeof url !== 'string' || url.trim().length === 0) {
+      return null;
+    }
+    return { type: 'image_url', image_url: { url } };
+  }
+
+  return null;
+}
+
+function parseContent(value: unknown): ChatContent | null {
+  if (typeof value === 'string') {
+    if (value.trim().length === 0) {
+      return null;
+    }
+    return value;
+  }
+
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
+  }
+
+  const parsedParts: ChatContentPart[] = [];
+  for (const entry of value) {
+    const parsedPart = parseContentPart(entry);
+    if (!parsedPart) {
+      return null;
+    }
+    parsedParts.push(parsedPart);
+  }
+
+  return parsedParts;
+}
+
 function parseMessages(value: unknown): ChatMessage[] | null {
   if (!Array.isArray(value) || value.length === 0) {
     return null;
@@ -45,8 +104,8 @@ function parseMessages(value: unknown): ChatMessage[] | null {
       return null;
     }
     const role = parseRole(entry['role']);
-    const content = entry['content'];
-    if (!role || typeof content !== 'string' || content.trim().length === 0) {
+    const content = parseContent(entry['content']);
+    if (!role || !content) {
       return null;
     }
     parsed.push({ role, content });
@@ -81,7 +140,22 @@ function parseMessages(value: unknown): ChatMessage[] | null {
  *                       type: string
  *                       enum: [system, user, assistant, tool]
  *                     content:
- *                       type: string
+ *                       oneOf:
+ *                         - type: string
+ *                         - type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               type:
+ *                                 type: string
+ *                                 enum: [text, image_url]
+ *                               text:
+ *                                 type: string
+ *                               image_url:
+ *                                 type: object
+ *                                 properties:
+ *                                   url:
+ *                                     type: string
  *                 minItems: 1
  *             required:
  *               - messages
