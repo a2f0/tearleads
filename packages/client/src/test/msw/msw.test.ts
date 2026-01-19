@@ -78,7 +78,7 @@ describe('msw handlers', () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: 'messages must be a non-empty array'
+      error: 'messages must be a non-empty array of { role, content }'
     });
   });
 });

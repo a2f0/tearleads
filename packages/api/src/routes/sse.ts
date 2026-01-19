@@ -1,4 +1,4 @@
-import type { BroadcastMessage } from '@rapid/shared';
+import { type BroadcastMessage, isRecord } from '@rapid/shared';
 import {
   type Request,
   type Response,
@@ -10,6 +10,11 @@ import { getRedisSubscriberClient } from '../lib/redisPubSub.js';
 const router: RouterType = Router();
 
 const activeConnections = new Set<Response>();
+
+type SseCleanupClient = {
+  unsubscribe: (channel: string) => Promise<void>;
+  quit: () => Promise<void>;
+};
 
 export function addConnection(res: Response): void {
   activeConnections.add(res);
@@ -35,10 +40,32 @@ export function closeAllSSEConnections(): void {
 
 function parseMessage(message: string): BroadcastMessage | null {
   try {
-    return JSON.parse(message) as BroadcastMessage;
+    const parsed = JSON.parse(message);
+    return isBroadcastMessage(parsed) ? parsed : null;
   } catch {
     return null;
   }
+}
+
+function isBroadcastMessage(value: unknown): value is BroadcastMessage {
+  return (
+    isRecord(value) &&
+    typeof value['type'] === 'string' &&
+    'payload' in value &&
+    typeof value['timestamp'] === 'string'
+  );
+}
+
+export function cleanupSseClient(
+  client: SseCleanupClient | null,
+  channels: string[]
+): Promise<void> {
+  if (!client) {
+    return Promise.resolve();
+  }
+  return Promise.all(channels.map((ch) => client.unsubscribe(ch))).then(() =>
+    client.quit()
+  );
 }
 
 /**
@@ -111,17 +138,12 @@ router.get('/', async (req: Request, res: Response) => {
     req.on('close', () => {
       removeConnection(res);
       clearInterval(keepAlive);
-      /* c8 ignore start */
-      if (client) {
-        const clientToCleanup = client;
-        client = null;
-        Promise.all(channels.map((ch) => clientToCleanup.unsubscribe(ch)))
-          .then(() => clientToCleanup.quit())
-          .catch((err) => {
-            console.error('SSE cleanup error:', err);
-          });
-      }
-      /* c8 ignore stop */
+      const clientToCleanup = client;
+      client = null;
+      cleanupSseClient(clientToCleanup, channels)
+        .catch((err) => {
+          console.error('SSE cleanup error:', err);
+        });
     });
   } catch (err) {
     removeConnection(res);
