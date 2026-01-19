@@ -99,7 +99,7 @@ describe('AudioVisualizer', () => {
       expect(screen.getByTestId('visualizer-style-toggle')).toBeInTheDocument();
     });
 
-    it('uses lcd style by default', () => {
+    it('uses waveform style by default', () => {
       render(<AudioVisualizer />);
 
       const toggle = screen.getByTestId('visualizer-style-toggle');
@@ -113,7 +113,7 @@ describe('AudioVisualizer', () => {
       const toggle = screen.getByTestId('visualizer-style-toggle');
       await user.click(toggle);
 
-      expect(toggle).toHaveAttribute('aria-label', 'Switch to LCD style');
+      expect(toggle).toHaveAttribute('aria-label', 'Switch to waveform style');
     });
 
     it('saves style preference to localStorage', async () => {
@@ -134,7 +134,7 @@ describe('AudioVisualizer', () => {
       render(<AudioVisualizer />);
 
       const toggle = screen.getByTestId('visualizer-style-toggle');
-      expect(toggle).toHaveAttribute('aria-label', 'Switch to LCD style');
+      expect(toggle).toHaveAttribute('aria-label', 'Switch to waveform style');
     });
   });
 
@@ -151,13 +151,13 @@ describe('AudioVisualizer', () => {
       render(<AudioVisualizer style="gradient" />);
 
       const toggle = screen.getByTestId('visualizer-style-toggle');
-      expect(toggle).toHaveAttribute('aria-label', 'Switch to LCD style');
+      expect(toggle).toHaveAttribute('aria-label', 'Switch to waveform style');
     });
 
     it('calls onStyleChange when toggled', async () => {
       const user = userEvent.setup();
       const onStyleChange = vi.fn();
-      render(<AudioVisualizer style="lcd" onStyleChange={onStyleChange} />);
+      render(<AudioVisualizer style="waveform" onStyleChange={onStyleChange} />);
 
       const toggle = screen.getByTestId('visualizer-style-toggle');
       await user.click(toggle);
@@ -204,7 +204,7 @@ describe('AudioVisualizer', () => {
       const toggle = screen.getByTestId('visualizer-style-toggle');
       await user.click(toggle);
 
-      expect(toggle).toHaveAttribute('aria-label', 'Switch to LCD style');
+      expect(toggle).toHaveAttribute('aria-label', 'Switch to waveform style');
     });
   });
 
