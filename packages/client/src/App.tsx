@@ -12,7 +12,6 @@ import { Sidebar } from './components/Sidebar';
 import { Taskbar } from './components/taskbar';
 import { DesktopBackground } from './components/ui/desktop-background';
 import { WindowRenderer } from './components/window-renderer';
-import { useAppVersion } from './hooks/useAppVersion';
 import { useSSEContext } from './sse';
 
 const sseTooltipKeys = {
@@ -23,7 +22,6 @@ const sseTooltipKeys = {
 
 function App() {
   const { t } = useTranslation('tooltips');
-  const version = useAppVersion();
   const sse = useSSEContext();
   const location = useLocation();
   const pathname = location.pathname;
@@ -51,6 +49,7 @@ function App() {
           <header className="w-full px-4 py-4">
             <div className="flex items-center justify-end gap-1">
               <MobileMenu />
+              <HUDTrigger />
               <SettingsButton />
               <AccountSwitcher />
             </div>
@@ -63,7 +62,7 @@ function App() {
         </div>
       </div>
       <Footer
-        version={version}
+        version={undefined}
         connectionIndicator={
           sse && (
             <ConnectionIndicator
@@ -72,15 +71,9 @@ function App() {
             />
           )
         }
-        rightAction={
-          <div className="flex items-center gap-2">
-            <Taskbar />
-            <HUDTrigger />
-          </div>
-        }
-      >
-        <p>&copy; {new Date().getFullYear()} Tearleads. All rights reserved.</p>
-      </Footer>
+        rightAction={<Taskbar />}
+        copyrightText=""
+      />
       <button
         type="button"
         onClick={() => setIsSidebarOpen((prev) => !prev)}
