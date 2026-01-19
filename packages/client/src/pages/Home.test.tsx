@@ -297,6 +297,49 @@ describe('Home', () => {
     expect(screen.queryByText('Auto Arrange')).not.toBeInTheDocument();
   });
 
+  it('auto arrange orders desktop icons alphabetically', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+    expect(canvas).toBeInTheDocument();
+
+    if (canvas) {
+      Object.defineProperty(canvas, 'offsetWidth', {
+        value: 800,
+        configurable: true
+      });
+      Object.defineProperty(canvas, 'offsetHeight', {
+        value: 600,
+        configurable: true
+      });
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    await user.click(screen.getByText('Auto Arrange'));
+
+    const iconButtons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('button')
+    ).filter((button) => button.style.left && button.style.top);
+
+    const orderedLabels = iconButtons
+      .map((button) => ({
+        label: button.textContent?.trim() ?? '',
+        left: Number.parseFloat(button.style.left),
+        top: Number.parseFloat(button.style.top)
+      }))
+      .filter((item) => item.label.length > 0)
+      .sort((a, b) => (a.top - b.top === 0 ? a.left - b.left : a.top - b.top))
+      .map((item) => item.label);
+
+    const expectedOrder = [...orderedLabels].sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' })
+    );
+
+    expect(orderedLabels.length).toBeGreaterThan(0);
+    expect(orderedLabels).toEqual(expectedOrder);
+  });
+
   it('closes canvas context menu on close', async () => {
     const user = userEvent.setup();
     const { container } = renderHome();
