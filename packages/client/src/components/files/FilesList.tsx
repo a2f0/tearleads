@@ -36,6 +36,7 @@ import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files as filesTable } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { useOnInstanceChange } from '@/hooks/useInstanceChange';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
 import { retrieveFileData } from '@/lib/data-retrieval';
@@ -128,6 +129,24 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
         }
       };
     }, []);
+
+    // Clear files immediately when instance changes via direct subscription
+    // This is more reliable than waiting for currentInstanceId to update in React state
+    useOnInstanceChange(
+      useCallback(() => {
+        // Revoke all thumbnail URLs to prevent memory leaks
+        setFiles((prevFiles) => {
+          for (const file of prevFiles) {
+            if (file.thumbnailUrl) {
+              URL.revokeObjectURL(file.thumbnailUrl);
+            }
+          }
+          return [];
+        });
+        setError(null);
+        setHasFetched(false);
+      }, [])
+    );
 
     const filteredFiles = files.filter((f) => showDeleted || !f.deleted);
 

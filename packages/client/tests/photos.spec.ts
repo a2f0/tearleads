@@ -18,6 +18,16 @@ const PAGE_ROUTES = {
   Photos: '/photos'
 } as const;
 
+// Helper to navigate using in-app routing (preserves React state)
+async function navigateInApp(page: Page, path: string) {
+  await page.evaluate((route) => {
+    window.history.pushState({}, '', route);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, path);
+  // Give React time to process the navigation
+  await page.waitForTimeout(500);
+}
+
 // Helper to navigate to a page, handling mobile/desktop differences
 async function navigateToPage(page: Page, pageName: 'SQLite' | 'Photos') {
   const isMobile = isMobileViewport(page);
@@ -30,9 +40,9 @@ async function navigateToPage(page: Page, pageName: 'SQLite' | 'Photos') {
       .getByTestId(`${pageName.toLowerCase()}-link`)
       .click();
   } else {
-    // Use URL navigation for page testing on desktop
+    // Use in-app navigation to preserve React state (including database unlock status)
     const route = PAGE_ROUTES[pageName];
-    await page.goto(route);
+    await navigateInApp(page, route);
   }
 }
 
