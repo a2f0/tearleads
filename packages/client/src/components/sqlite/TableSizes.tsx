@@ -224,7 +224,7 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
                 </div>
               )}
               <div className="space-y-1">
-                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-b pb-1 text-xs font-medium text-muted-foreground">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-b pb-1 font-medium text-muted-foreground text-xs">
                   <span>Table</span>
                   <span className="text-right">Size</span>
                   <span className="text-right">Rows</span>
