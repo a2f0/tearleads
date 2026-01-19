@@ -86,6 +86,9 @@ test.describe('Bottom Sheet (Electron)', () => {
     const startButton = window.getByTestId('start-button');
     await expect(startButton).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
 
+    // Resize to a mobile-like viewport so settings uses the bottom sheet.
+    await window.setViewportSize({ width: 600, height: 900 });
+
     // Open the settings sheet
     await window.getByTestId('settings-button').click();
     // Wait for the bottom sheet to be visible
