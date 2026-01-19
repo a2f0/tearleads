@@ -77,7 +77,7 @@ function App() {
       <button
         type="button"
         onClick={() => setIsSidebarOpen((prev) => !prev)}
-        className="fixed bottom-6 left-4 z-50 hidden items-center gap-2 rounded-full border border-border bg-background/90 px-3 py-2 font-semibold text-foreground text-sm shadow-lg backdrop-blur lg:flex"
+        className="fixed bottom-6 left-4 z-50 hidden lg:block"
         aria-label="Toggle sidebar"
         aria-pressed={isSidebarOpen}
         aria-controls="sidebar"
@@ -87,8 +87,7 @@ function App() {
           left: 'max(1rem, env(safe-area-inset-left, 0px))'
         }}
       >
-        <img src={logo} alt="" className="h-5 w-5" aria-hidden="true" />
-        <span>Start</span>
+        <img src={logo} alt="" className="h-6 w-6" aria-hidden="true" />
       </button>
       <MiniPlayer />
       <WindowRenderer />
