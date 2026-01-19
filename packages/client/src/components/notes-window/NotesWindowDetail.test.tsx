@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useEffect, useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
 import { NotesWindowDetail } from './NotesWindowDetail';
@@ -108,13 +109,24 @@ vi.mock('@/components/ui/editable-title', () => ({
     value: string;
     onSave: (val: string) => void;
     'data-testid'?: string;
-  }) => (
-    <input
-      data-testid={testId || 'editable-title'}
-      value={value}
-      onChange={(e) => onSave(e.target.value)}
-    />
-  )
+  }) => {
+    const [draft, setDraft] = useState(value);
+
+    useEffect(() => {
+      setDraft(value);
+    }, [value]);
+
+    return (
+      <input
+        data-testid={testId || 'editable-title'}
+        value={draft}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          onSave(e.target.value);
+        }}
+      />
+    );
+  }
 }));
 
 describe('NotesWindowDetail', () => {
