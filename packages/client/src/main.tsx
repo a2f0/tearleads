@@ -264,7 +264,10 @@ if (rootElement) {
                                     path="keychain/:id"
                                     element={<KeychainDetail />}
                                   />
-                                  <Route path="admin" element={<Admin />} />
+                                  <Route
+                                    path="admin/redis"
+                                    element={<Admin />}
+                                  />
                                 </Route>
                               </Routes>
                             </Suspense>

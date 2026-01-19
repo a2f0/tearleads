@@ -43,7 +43,7 @@ const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/analytics': 'analytics',
   '/audio': 'audio',
   '/models': 'models',
-  '/admin': 'admin',
+  '/admin/redis': 'admin',
   '/cache-storage': 'cache-storage',
   '/local-storage': 'local-storage'
 };
