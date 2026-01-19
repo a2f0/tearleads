@@ -74,7 +74,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -91,7 +94,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -108,7 +114,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -125,7 +134,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -142,7 +154,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -159,7 +174,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -176,7 +194,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -193,7 +214,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -210,7 +234,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -227,7 +254,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -244,7 +274,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 initialDimensions={window.dimensions}
@@ -259,7 +292,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -276,7 +312,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -293,7 +332,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -310,7 +352,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -327,7 +372,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -344,7 +392,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -361,7 +412,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -378,7 +432,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -395,7 +452,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
@@ -412,7 +472,10 @@ export function WindowRenderer() {
                 onMinimize={(dimensions) =>
                   minimizeWindow(window.id, dimensions)
                 }
-                onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
                 onFocus={() => focusWindow(window.id)}
                 zIndex={window.zIndex}
                 {...(window.dimensions && {
