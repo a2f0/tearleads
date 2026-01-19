@@ -33,7 +33,9 @@ export function Footer({
       {...props}
     >
       <div className="flex items-center px-4">
-        <div className="flex w-64 items-center gap-2 pl-8">{leftAction}</div>
+        <div className="flex min-w-64 items-center gap-2 pl-8">
+          {leftAction}
+        </div>
         <div className="flex items-center gap-2">
           {version && (
             <span className="text-muted-foreground/70 text-xs">{version}</span>
