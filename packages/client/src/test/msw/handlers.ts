@@ -3,6 +3,7 @@ import type {
   RedisKeysResponse,
   RedisKeyValueResponse
 } from '@rapid/shared';
+import { isRecord } from '@rapid/shared';
 import { HttpResponse, http } from 'msw';
 
 const ok = <T extends object>(body: T) => HttpResponse.json(body);
@@ -49,11 +50,8 @@ export const handlers = [
   http.delete(/\/admin\/redis\/keys\/.+$/, () => ok({ deleted: true })),
   http.post(/\/chat\/completions$/, async ({ request }) => {
     const body = await request.json().catch(() => null);
-    if (
-      !body ||
-      !Array.isArray(body['messages']) ||
-      body['messages'].length === 0
-    ) {
+    const messages = isRecord(body) ? body['messages'] : null;
+    if (!Array.isArray(messages) || messages.length === 0) {
       return HttpResponse.json(
         { error: 'messages must be a non-empty array' },
         { status: 400 }
