@@ -1,6 +1,6 @@
+import { DEFAULT_OPENROUTER_MODEL_ID } from '@rapid/shared';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_OPENROUTER_MODEL_ID } from '@rapid/shared';
 import type { ClassificationResult } from './useLLM';
 
 // Mock the worker

@@ -1,9 +1,9 @@
+import { isOpenRouterModelId } from '@rapid/shared';
 import { Bot, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { useLLM } from '@/hooks/useLLM';
-import { isOpenRouterModelId } from '@rapid/shared';
 import { OPENROUTER_MODELS, RECOMMENDED_MODELS } from '@/lib/models';
 import { getWebGPUErrorInfo } from '@/lib/utils';
 import { ModelCard, type ModelStatus } from './ModelCard';

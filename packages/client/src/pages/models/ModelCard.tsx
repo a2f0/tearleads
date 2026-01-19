@@ -1,3 +1,4 @@
+import { isOpenRouterModelId } from '@rapid/shared';
 import {
   Bot,
   Check,
@@ -9,7 +10,6 @@ import {
   Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { isOpenRouterModelId } from '@rapid/shared';
 import type { ModelInfo } from '@/lib/models';
 
 export type ModelStatus =
