@@ -86,6 +86,49 @@ export interface UseLLMReturn extends LLMState {
   previouslyLoadedModel: string | null;
 }
 
+const DEV_ERROR_LOGGING = import.meta.env.DEV;
+
+async function readErrorBody(response: Response): Promise<unknown> {
+  const contentType = response.headers.get('content-type') ?? '';
+  if (contentType.includes('application/json')) {
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    return await response.text();
+  } catch {
+    return null;
+  }
+}
+
+function getErrorDetail(body: unknown): string | null {
+  if (typeof body === 'string') {
+    const trimmed = body.trim();
+    return trimmed ? trimmed : null;
+  }
+
+  if (isRecord(body)) {
+    if (typeof body['message'] === 'string') {
+      return body['message'];
+    }
+    if (typeof body['error'] === 'string') {
+      return body['error'];
+    }
+    if (
+      isRecord(body['error']) &&
+      typeof body['error']['message'] === 'string'
+    ) {
+      return body['error']['message'];
+    }
+  }
+
+  return null;
+}
+
 // Mutable store for LLM state - only modified internally
 const store: LLMState = {
   loadedModel: null,
@@ -486,8 +529,10 @@ async function generateInternal(
     }
 
     const start = performance.now();
+    const requestUrl = `${API_BASE_URL}/chat/completions`;
+    let loggedApiError = false;
     try {
-      const response = await fetch(`${API_BASE_URL}/chat/completions`, {
+      const response = await fetch(requestUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -499,7 +544,19 @@ async function generateInternal(
       });
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        const errorBody = await readErrorBody(response);
+        if (DEV_ERROR_LOGGING) {
+          console.error('OpenRouter chat API error', {
+            status: response.status,
+            statusText: response.statusText,
+            url: requestUrl,
+            body: errorBody
+          });
+        }
+        loggedApiError = true;
+        const detail = getErrorDetail(errorBody);
+        const detailSuffix = detail ? ` ${detail}` : '';
+        throw new Error(`API error: ${response.status}${detailSuffix}`);
       }
 
       const payload = await response.json();
@@ -513,6 +570,9 @@ async function generateInternal(
       return;
     } catch (error) {
       logLLMAnalytics('llm_prompt_text', performance.now() - start, false);
+      if (DEV_ERROR_LOGGING && !loggedApiError) {
+        console.error('OpenRouter chat request failed', error);
+      }
       throw error;
     }
   }

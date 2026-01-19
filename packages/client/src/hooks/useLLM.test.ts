@@ -131,6 +131,61 @@ describe('useLLM', () => {
       vi.unstubAllGlobals();
       vi.unstubAllEnvs();
     });
+
+    it('logs OpenRouter API errors in dev', async () => {
+      vi.stubEnv('VITE_API_URL', 'http://localhost');
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              message: 'Boom'
+            }
+          }),
+          {
+            status: 500,
+            statusText: 'Internal Server Error',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        )
+      );
+      vi.stubGlobal('fetch', mockFetch);
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      await act(async () => {
+        await result.current.loadModel(DEFAULT_OPENROUTER_MODEL_ID);
+      });
+
+      await act(async () => {
+        await expect(
+          result.current.generate([{ role: 'user', content: 'Hello' }], vi.fn())
+        ).rejects.toThrow('API error: 500 Boom');
+      });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'OpenRouter chat API error',
+        expect.objectContaining({
+          status: 500,
+          statusText: 'Internal Server Error',
+          url: 'http://localhost/chat/completions',
+          body: {
+            error: {
+              message: 'Boom'
+            }
+          }
+        })
+      );
+
+      consoleSpy.mockRestore();
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    });
   });
 
   describe('snapshot immutability', () => {
