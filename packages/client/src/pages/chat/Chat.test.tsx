@@ -331,6 +331,10 @@ describe('Chat', () => {
         expectedName: 'SmolVLM 256M Instruct'
       },
       {
+        modelId: 'mistralai/mistral-7b-instruct:free',
+        expectedName: 'Mistral 7B Instruct'
+      },
+      {
         modelId: 'simple-model',
         expectedName: 'Simple Model'
       },
