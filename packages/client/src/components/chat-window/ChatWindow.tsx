@@ -1,9 +1,12 @@
-import { useCallback, useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { Button } from '@/components/ui/button';
 import { useLLM } from '@/hooks/useLLM';
 import { ChatInterface } from '@/pages/chat/ChatInterface';
 import { NoModelLoadedContent } from '@/pages/chat/NoModelLoadedContent';
+import { ModelsContent } from '@/pages/models/ModelsContent';
 import { ChatWindowMenuBar } from './ChatWindowMenuBar';
 
 function getModelDisplayName(modelId: string): string {
@@ -42,10 +45,26 @@ export function ChatWindow({
 }: ChatWindowProps) {
   const { loadedModel, modelType, generate } = useLLM();
   const [chatKey, setChatKey] = useState(0);
+  const [activeView, setActiveView] = useState<'chat' | 'models'>('chat');
 
   const handleNewChat = useCallback(() => {
     setChatKey((prev) => prev + 1);
+    setActiveView('chat');
   }, []);
+
+  const handleOpenModels = useCallback(() => {
+    setActiveView('models');
+  }, []);
+
+  const handleBackToChat = useCallback(() => {
+    setActiveView('chat');
+  }, []);
+
+  useEffect(() => {
+    if (loadedModel && activeView === 'models') {
+      setActiveView('chat');
+    }
+  }, [activeView, loadedModel]);
 
   const modelDisplayName = loadedModel
     ? getModelDisplayName(loadedModel)
@@ -73,14 +92,31 @@ export function ChatWindow({
       <div className="flex h-full flex-col">
         <ChatWindowMenuBar onNewChat={handleNewChat} onClose={onClose} />
         <div className="flex-1 overflow-hidden">
-          {loadedModel ? (
+          {activeView === 'models' ? (
+            <div className="flex h-full flex-col">
+              <div className="border-b bg-muted/30 px-2 py-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleBackToChat}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Chat
+                </Button>
+              </div>
+              <div className="flex-1 overflow-auto p-4">
+                <ModelsContent showBackLink={false} />
+              </div>
+            </div>
+          ) : loadedModel ? (
             <ChatInterface
               key={chatKey}
               generate={generate}
               isVisionModel={isVisionModel}
             />
           ) : (
-            <NoModelLoadedContent />
+            <NoModelLoadedContent onOpenModels={handleOpenModels} />
           )}
         </div>
       </div>

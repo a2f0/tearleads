@@ -179,7 +179,7 @@ describe('ModelSelector', () => {
 
       await waitFor(() => {
         expect(mockLoadModel).toHaveBeenCalledWith(
-          'mistralai/mistral-7b-instruct:free'
+          'mistralai/mistral-7b-instruct'
         );
       });
     });

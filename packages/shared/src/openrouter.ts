@@ -5,14 +5,14 @@ export interface OpenRouterModelOption {
   isFree: boolean;
 }
 
-export const DEFAULT_OPENROUTER_MODEL_ID = 'mistralai/mistral-7b-instruct:free';
+export const DEFAULT_OPENROUTER_MODEL_ID = 'mistralai/mistral-7b-instruct';
 
 export const OPENROUTER_CHAT_MODELS: OpenRouterModelOption[] = [
   {
     id: DEFAULT_OPENROUTER_MODEL_ID,
     name: 'Mistral 7B Instruct',
     description: 'General-purpose chat model hosted on OpenRouter',
-    isFree: true
+    isFree: false
   }
 ];
 
