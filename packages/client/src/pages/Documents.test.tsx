@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
@@ -108,10 +109,12 @@ const mockDocuments = [
   }
 ];
 
-async function renderDocuments() {
+async function renderDocuments(
+  props: Partial<ComponentProps<typeof Documents>> = {}
+) {
   const result = render(
     <MemoryRouter>
-      <Documents />
+      <Documents {...props} />
     </MemoryRouter>
   );
   // Flush the setTimeout(fn, 0) used for instance-aware fetching
@@ -424,6 +427,45 @@ describe('Documents', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/documents/doc-1', {
         state: { from: '/', fromLabel: 'Back to Documents' }
       });
+    });
+
+    it('uses onSelectDocument when provided', async () => {
+      const user = userEvent.setup();
+      const onSelectDocument = vi.fn();
+      await renderDocuments({ onSelectDocument });
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('test-document.pdf'));
+
+      expect(onSelectDocument).toHaveBeenCalledWith('doc-1');
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('context menu selection', () => {
+    it('uses onSelectDocument for Get info when provided', async () => {
+      const user = userEvent.setup();
+      const onSelectDocument = vi.fn();
+      await renderDocuments({ onSelectDocument });
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      const document = screen.getByText('test-document.pdf');
+      await user.pointer({ keys: '[MouseRight]', target: document });
+
+      await waitFor(() => {
+        expect(screen.getByText('Get info')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Get info'));
+
+      expect(onSelectDocument).toHaveBeenCalledWith('doc-1');
+      expect(mockNavigate).not.toHaveBeenCalled();
     });
   });
 
