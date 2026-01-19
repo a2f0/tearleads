@@ -1,3 +1,5 @@
+import { OPENROUTER_CHAT_MODELS } from '@rapid/shared';
+
 export interface ModelInfo {
   id: string;
   name: string;
@@ -5,6 +7,7 @@ export interface ModelInfo {
   description: string;
   isVision?: boolean;
   isClassification?: boolean;
+  source?: 'local' | 'openrouter';
 }
 
 export const DOCUMENT_LABELS = [
@@ -49,6 +52,21 @@ export const RECOMMENDED_MODELS: ModelInfo[] = [
   CLASSIFICATION_MODEL
 ];
 
-export const CHAT_MODELS: ModelInfo[] = RECOMMENDED_MODELS.filter(
+export const OPENROUTER_MODELS: ModelInfo[] = OPENROUTER_CHAT_MODELS.map(
+  (model) => ({
+    id: model.id,
+    name: model.name,
+    size: 'OpenRouter',
+    description: model.description,
+    source: 'openrouter'
+  })
+);
+
+const LOCAL_CHAT_MODELS: ModelInfo[] = RECOMMENDED_MODELS.filter(
   (model) => !model.isClassification
 );
+
+export const CHAT_MODELS: ModelInfo[] = [
+  ...LOCAL_CHAT_MODELS,
+  ...OPENROUTER_MODELS
+];

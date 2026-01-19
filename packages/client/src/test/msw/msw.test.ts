@@ -1,3 +1,4 @@
+import { DEFAULT_OPENROUTER_MODEL_ID } from '@rapid/shared';
 import { describe, expect, it } from 'vitest';
 
 describe('msw handlers', () => {
@@ -50,6 +51,7 @@ describe('msw handlers', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        model: DEFAULT_OPENROUTER_MODEL_ID,
         messages: [{ role: 'user', content: 'Hello' }]
       })
     });
@@ -57,7 +59,7 @@ describe('msw handlers', () => {
     expect(response.ok).toBe(true);
     await expect(response.json()).resolves.toEqual({
       id: 'chatcmpl-test',
-      model: 'mistralai/mistral-7b-instruct:free',
+      model: DEFAULT_OPENROUTER_MODEL_ID,
       choices: [
         {
           message: {
@@ -79,6 +81,22 @@ describe('msw handlers', () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       error: 'messages must be a non-empty array of { role, content }'
+    });
+  });
+
+  it('returns model validation errors for chat completions', async () => {
+    const response = await fetch('http://localhost/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'unknown/model',
+        messages: [{ role: 'user', content: 'Hello' }]
+      })
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'model must be a supported OpenRouter chat model'
     });
   });
 });

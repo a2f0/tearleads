@@ -1,3 +1,4 @@
+import { isOpenRouterModelId } from '@rapid/shared';
 import { Bot, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
@@ -6,6 +7,7 @@ import { useLLM } from '@/hooks/useLLM';
 import { RECOMMENDED_MODELS } from '@/lib/models';
 import { getWebGPUErrorInfo } from '@/lib/utils';
 import { ModelCard, type ModelStatus } from './ModelCard';
+import { OpenRouterModelsSection } from './OpenRouterModelsSection';
 import { type WebGPUInfo, WebGPUInfoPanel } from './WebGPUInfoPanel';
 
 const TRANSFORMERS_CACHE_NAME = 'transformers-cache';
@@ -138,8 +140,10 @@ export function ModelsContent({ showBackLink = true }: ModelsContentProps) {
       setLoadingModelId(modelId);
       try {
         await loadModel(modelId);
-        // Mark the model as cached after successful load
-        setCachedModels((prev) => ({ ...prev, [modelId]: true }));
+        if (!isOpenRouterModelId(modelId)) {
+          // Mark the model as cached after successful load
+          setCachedModels((prev) => ({ ...prev, [modelId]: true }));
+        }
       } finally {
         setLoadingModelId((currentId) =>
           currentId === modelId ? null : currentId
@@ -185,6 +189,12 @@ export function ModelsContent({ showBackLink = true }: ModelsContentProps) {
             {errorInfo.requirement}
           </p>
         </div>
+        <OpenRouterModelsSection
+          loadedModel={loadedModel}
+          loadingModelId={loadingModelId}
+          onLoad={handleLoad}
+          onUnload={handleUnload}
+        />
       </div>
     );
   }
@@ -253,6 +263,13 @@ export function ModelsContent({ showBackLink = true }: ModelsContentProps) {
           />
         ))}
       </div>
+
+      <OpenRouterModelsSection
+        loadedModel={loadedModel}
+        loadingModelId={loadingModelId}
+        onLoad={handleLoad}
+        onUnload={handleUnload}
+      />
 
       {webGPUInfo && <WebGPUInfoPanel info={webGPUInfo} />}
     </div>

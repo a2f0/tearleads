@@ -16,6 +16,9 @@ export interface LicenseInfo {
   repository?: string;
 }
 
+// OpenRouter model options
+export * from './openrouter.js';
+
 // Types
 export interface PingData {
   version: string;
