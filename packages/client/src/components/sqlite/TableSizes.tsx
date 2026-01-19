@@ -15,10 +15,12 @@ interface TableSize {
   name: string;
   size: number;
   isEstimated: boolean;
+  rowCount: number;
 }
 
 /** Estimated average row size in bytes when dbstat is unavailable */
 const AVG_ROW_SIZE_ESTIMATE_BYTES = 100;
+const ROW_COUNT_FORMATTER = new Intl.NumberFormat('en-US');
 
 function getRowNumber(row: unknown, key: string): number | null {
   if (Array.isArray(row)) {
@@ -48,6 +50,10 @@ function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
+}
+
+function formatRowCount(count: number): string {
+  return ROW_COUNT_FORMATTER.format(count);
 }
 
 interface TableSizesProps {
@@ -99,6 +105,17 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
       // This may not be available in all SQLite builds
       const sizes: TableSize[] = await Promise.all(
         tableNames.map(async (name) => {
+          let rowCount = 0;
+          try {
+            const countResult = await adapter.execute(
+              `SELECT COUNT(*) as count FROM "${name}"`,
+              []
+            );
+            const countRow = countResult.rows[0];
+            rowCount = getRowNumber(countRow, 'count') ?? 0;
+          } catch {
+            rowCount = 0;
+          }
           try {
             const sizeResult = await adapter.execute(
               `SELECT SUM(pgsize) as size FROM dbstat WHERE name = ?`,
@@ -106,19 +123,14 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
             );
             const sizeRow = sizeResult.rows[0];
             const size = getRowNumber(sizeRow, 'size') ?? 0;
-            return { name, size, isEstimated: false };
+            return { name, size, isEstimated: false, rowCount };
           } catch {
             // dbstat not available, estimate using row count and average row size
-            const countResult = await adapter.execute(
-              `SELECT COUNT(*) as count FROM "${name}"`,
-              []
-            );
-            const countRow = countResult.rows[0];
-            const count = getRowNumber(countRow, 'count') ?? 0;
             return {
               name,
-              size: count * AVG_ROW_SIZE_ESTIMATE_BYTES,
-              isEstimated: true
+              size: rowCount * AVG_ROW_SIZE_ESTIMATE_BYTES,
+              isEstimated: true,
+              rowCount
             };
           }
         })
@@ -172,7 +184,7 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
   return (
     <div className="space-y-3 rounded-lg border p-4" data-testid="table-sizes">
       <div className="flex items-center justify-between">
-        <h2 className="font-medium">Table Sizes</h2>
+        <h2 className="font-medium">Table summary</h2>
         <RefreshButton
           onClick={fetchSizes}
           loading={loading}
@@ -212,6 +224,11 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
                 </div>
               )}
               <div className="space-y-1">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-b pb-1 font-medium text-muted-foreground text-xs">
+                  <span>Table</span>
+                  <span className="text-right">Size</span>
+                  <span className="text-right">Rows</span>
+                </div>
                 {tableSizes.map((table) => {
                   const tablePath = `/sqlite/tables/${encodeURIComponent(
                     table.name
@@ -220,7 +237,7 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
                   return (
                     <div
                       key={table.name}
-                      className="flex items-center justify-between"
+                      className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3"
                     >
                       {onTableSelect ? (
                         <button
@@ -239,9 +256,12 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
                           {table.name}
                         </LinkWithFrom>
                       )}
-                      <span className="shrink-0 font-mono text-xs">
+                      <span className="shrink-0 text-right font-mono text-xs">
                         {table.isEstimated ? '~' : ''}
                         {formatBytes(table.size)}
+                      </span>
+                      <span className="shrink-0 text-right font-mono text-xs">
+                        {formatRowCount(table.rowCount)}
                       </span>
                     </div>
                   );
