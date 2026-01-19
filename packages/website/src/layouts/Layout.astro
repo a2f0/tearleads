@@ -51,7 +51,7 @@ const hreflangUrls = supportedLanguages.map((hrefLang) => ({
     <title>{title}</title>
     <script is:inline>
       (function () {
-        const theme = localStorage.getItem('theme') || 'system';
+        const theme = localStorage.getItem('theme') || 'monochrome';
         const resolved =
           theme === 'system'
             ? window.matchMedia('(prefers-color-scheme: dark)').matches

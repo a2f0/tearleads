@@ -101,7 +101,7 @@ describe('ThemeProvider', () => {
         </ThemeProvider>
       );
 
-      expect(screen.getByTestId('theme')).toHaveTextContent('system');
+      expect(screen.getByTestId('theme')).toHaveTextContent('monochrome');
     });
 
     it('uses custom default theme', () => {
