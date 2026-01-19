@@ -1,12 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AnalyticsWindowMenuBar } from './AnalyticsWindowMenuBar';
 
 describe('AnalyticsWindowMenuBar', () => {
   const defaultProps = {
     onClose: vi.fn()
   };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('renders File menu trigger', () => {
     render(<AnalyticsWindowMenuBar {...defaultProps} />);
