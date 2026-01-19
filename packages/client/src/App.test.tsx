@@ -7,6 +7,7 @@ import App from './App';
 type FooterProps = {
   children: ReactNode;
   connectionIndicator?: ReactNode;
+  leftAction?: ReactNode;
   rightAction?: ReactNode;
   version?: string;
   className?: string;
@@ -19,8 +20,14 @@ vi.mock('@rapid/ui', () => ({
   ConnectionIndicator: ({ state }: { state: string }) => (
     <div data-testid="connection-indicator">{state}</div>
   ),
-  Footer: ({ children, connectionIndicator, rightAction }: FooterProps) => (
+  Footer: ({
+    children,
+    connectionIndicator,
+    leftAction,
+    rightAction
+  }: FooterProps) => (
     <footer>
+      {leftAction}
       {connectionIndicator}
       {rightAction}
       {children}
