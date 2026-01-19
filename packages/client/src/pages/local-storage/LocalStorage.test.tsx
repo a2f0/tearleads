@@ -265,7 +265,12 @@ describe('LocalStorage', () => {
     beforeEach(() => {
       localStorageData = {
         key1: 'value1',
-        key2: 'value2'
+        key2: 'value2',
+        theme: 'dark',
+        'desktop-icon-positions': '{"x":1,"y":2}',
+        'window-dimensions:local-storage': '{"width":400}',
+        rapid_last_loaded_model: 'model-123',
+        'audio-visualizer-style': 'gradient'
       };
     });
 
@@ -282,14 +287,29 @@ describe('LocalStorage', () => {
       await waitFor(() => {
         expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
         expect(
-          screen.getByText(/Are you sure you want to clear ALL localStorage/)
+          screen.getByText(/Are you sure you want to clear localStorage data/)
         ).toBeInTheDocument();
       });
 
       await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
       await waitFor(() => {
-        expect(localStorage.clear).toHaveBeenCalled();
+        const unprotectedKeys = ['key1', 'key2'];
+        const protectedKeys = [
+          'theme',
+          'desktop-icon-positions',
+          'window-dimensions:local-storage',
+          'rapid_last_loaded_model',
+          'audio-visualizer-style'
+        ];
+
+        for (const key of unprotectedKeys) {
+          expect(localStorage.removeItem).toHaveBeenCalledWith(key);
+        }
+
+        for (const key of protectedKeys) {
+          expect(localStorage.removeItem).not.toHaveBeenCalledWith(key);
+        }
       });
     });
 
@@ -309,7 +329,7 @@ describe('LocalStorage', () => {
 
       await user.click(screen.getByTestId('confirm-dialog-cancel'));
 
-      expect(localStorage.clear).not.toHaveBeenCalled();
+      expect(localStorage.removeItem).not.toHaveBeenCalled();
     });
   });
 
