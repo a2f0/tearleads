@@ -150,19 +150,26 @@ describe('Settings', () => {
     });
 
     it('shows loading state during export', async () => {
+      vi.useFakeTimers();
       // Make export take some time
       mockExportDatabase.mockImplementation(
         () => new Promise((resolve) => setTimeout(resolve, 100))
       );
 
-      const user = userEvent.setup();
+      const user = userEvent.setup({
+        advanceTimers: vi.advanceTimersByTime
+      });
       renderSettings();
 
       await user.click(screen.getByTestId('backup-export-button'));
 
-      await waitFor(() => {
-        expect(screen.getByText('Exporting...')).toBeInTheDocument();
+      expect(screen.getByText('Exporting...')).toBeInTheDocument();
+
+      await act(async () => {
+        vi.advanceTimersByTime(150);
       });
+
+      vi.useRealTimers();
     });
 
     it('shows error message when export fails', async () => {
