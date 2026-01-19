@@ -18,19 +18,14 @@ export type UserSettingKey =
   | 'desktopPattern';
 
 // Per-setting value types
-export type ThemeValue =
-  | 'light'
-  | 'dark'
-  | 'tokyo-night'
-  | 'monochrome'
-  | 'system';
-export const THEME_VALUES: ThemeValue[] = [
+export const THEME_VALUES: readonly [
   'light',
   'dark',
   'tokyo-night',
   'monochrome',
   'system'
-];
+] = ['light', 'dark', 'tokyo-night', 'monochrome', 'system'];
+export type ThemeValue = (typeof THEME_VALUES)[number];
 export type LanguageValue = 'en' | 'es' | 'ua';
 export type TooltipsValue = 'enabled' | 'disabled';
 export type FontValue = 'system' | 'monospace';
