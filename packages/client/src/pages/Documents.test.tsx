@@ -157,6 +157,16 @@ describe('Documents', () => {
       });
     });
 
+    it('hides back link when showBackLink is false', async () => {
+      await renderDocuments({ showBackLink: false });
+
+      await waitFor(() => {
+        expect(screen.getByText('Documents')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
+    });
+
     it('shows loading state when database is loading', async () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
@@ -534,6 +544,30 @@ describe('Documents', () => {
       mockDb.orderBy.mockResolvedValue(mockDocuments);
 
       await user.click(screen.getByRole('button', { name: /refresh/i }));
+
+      await waitFor(() => {
+        expect(mockDb.orderBy).toHaveBeenCalled();
+      });
+    });
+
+    it('refetches documents when refreshToken changes', async () => {
+      const { rerender } = await renderDocuments({ refreshToken: 0 });
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      mockDb.orderBy.mockClear();
+
+      rerender(
+        <MemoryRouter>
+          <Documents refreshToken={1} />
+        </MemoryRouter>
+      );
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
 
       await waitFor(() => {
         expect(mockDb.orderBy).toHaveBeenCalled();
