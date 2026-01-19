@@ -80,6 +80,7 @@ describe('user-settings', () => {
         expect(isThemeValue('light')).toBe(true);
         expect(isThemeValue('dark')).toBe(true);
         expect(isThemeValue('tokyo-night')).toBe(true);
+        expect(isThemeValue('monochrome')).toBe(true);
         expect(isThemeValue('system')).toBe(true);
       });
 
@@ -150,11 +151,11 @@ describe('user-settings', () => {
 
   describe('constants', () => {
     it('has correct default values', () => {
-      expect(SETTING_DEFAULTS.theme).toBe('system');
+      expect(SETTING_DEFAULTS.theme).toBe('monochrome');
       expect(SETTING_DEFAULTS.language).toBe('en');
       expect(SETTING_DEFAULTS.tooltips).toBe('enabled');
       expect(SETTING_DEFAULTS.font).toBe('system');
-      expect(SETTING_DEFAULTS.desktopPattern).toBe('solid');
+      expect(SETTING_DEFAULTS.desktopPattern).toBe('isometric');
     });
 
     it('has correct storage keys', () => {

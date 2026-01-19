@@ -18,7 +18,14 @@ export type UserSettingKey =
   | 'desktopPattern';
 
 // Per-setting value types
-export type ThemeValue = 'light' | 'dark' | 'tokyo-night' | 'system';
+export const THEME_VALUES: readonly [
+  'light',
+  'dark',
+  'tokyo-night',
+  'monochrome',
+  'system'
+] = ['light', 'dark', 'tokyo-night', 'monochrome', 'system'];
+export type ThemeValue = (typeof THEME_VALUES)[number];
 export type LanguageValue = 'en' | 'es' | 'ua';
 export type TooltipsValue = 'enabled' | 'disabled';
 export type FontValue = 'system' | 'monospace';
@@ -40,11 +47,11 @@ export interface SettingValueMap {
 
 // Default values for each setting
 export const SETTING_DEFAULTS: { [K in UserSettingKey]: SettingValueMap[K] } = {
-  theme: 'system',
+  theme: 'monochrome',
   language: 'en',
   tooltips: 'enabled',
   font: 'system',
-  desktopPattern: 'solid'
+  desktopPattern: 'isometric'
 };
 
 // localStorage keys for each setting (maps our keys to existing localStorage keys)
@@ -58,7 +65,7 @@ export const SETTING_STORAGE_KEYS: Record<UserSettingKey, string> = {
 
 // Type guard functions
 export function isThemeValue(value: string): value is ThemeValue {
-  return ['light', 'dark', 'tokyo-night', 'system'].includes(value);
+  return THEME_VALUES.some((theme) => theme === value);
 }
 
 export function isLanguageValue(value: string): value is LanguageValue {

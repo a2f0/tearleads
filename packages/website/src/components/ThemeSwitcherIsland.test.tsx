@@ -50,24 +50,24 @@ describe('ThemeSwitcherIsland', () => {
 
   it('has consistent initial state for SSR hydration', () => {
     // This test verifies the fix for React hydration error #418
-    // The initial render should always use 'light' as the resolved theme
+    // The initial render should always use 'monochrome' as the resolved theme
     // regardless of system preferences, to match server-side rendering
     render(<ThemeSwitcherIsland />);
 
-    // The button should render with the Moon icon (indicating light mode)
+    // The button should render with the Moon icon (indicating non-dark mode)
     // and be accessible - this proves hydration succeeded without mismatch
     const button = screen.getByTestId('theme-switcher');
     expect(button).toBeInTheDocument();
 
-    // Initial resolved theme should be 'light' (consistent with SSR)
+    // Initial resolved theme should be 'monochrome' (consistent with SSR)
     expect(button).toHaveAttribute(
       'aria-label',
-      'Toggle theme (current: light)'
+      'Toggle theme (current: monochrome)'
     );
   });
 
   it('does not cause hydration mismatch with dark system preference', () => {
-    // Even with dark mode preference, initial render should be 'light'
+    // Even with dark mode preference, initial render should be 'monochrome'
     // to match SSR output
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
