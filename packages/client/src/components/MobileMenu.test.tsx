@@ -75,7 +75,7 @@ describe('MobileMenu', () => {
 
     const tablesLink = screen.getByTestId('tables-link');
     expect(tablesLink).toHaveTextContent('Tables');
-    expect(tablesLink).toHaveAttribute('href', '/tables');
+    expect(tablesLink).toHaveAttribute('href', '/sqlite/tables');
 
     const sqliteLink = screen.getByTestId('sqlite-link');
     expect(sqliteLink).toHaveTextContent('SQLite');
