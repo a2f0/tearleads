@@ -6,7 +6,8 @@ import type {
 import {
   DEFAULT_OPENROUTER_MODEL_ID,
   isOpenRouterModelId,
-  isRecord
+  isRecord,
+  validateChatMessages
 } from '@rapid/shared';
 import { HttpResponse, http } from 'msw';
 
@@ -27,36 +28,6 @@ const defaultKeyValue = (key: string): RedisKeyValueResponse => ({
   ttl: -1,
   value: ''
 });
-
-const isChatContentPart = (value: unknown): boolean => {
-  if (!isRecord(value)) {
-    return false;
-  }
-  const type = value['type'];
-  if (type === 'text') {
-    const text = value['text'];
-    return typeof text === 'string' && text.trim().length > 0;
-  }
-  if (type === 'image_url') {
-    const imageUrl = value['image_url'];
-    if (!isRecord(imageUrl)) {
-      return false;
-    }
-    const url = imageUrl['url'];
-    return typeof url === 'string' && url.trim().length > 0;
-  }
-  return false;
-};
-
-const hasValidContent = (value: unknown): boolean => {
-  if (typeof value === 'string') {
-    return value.trim().length > 0;
-  }
-  if (Array.isArray(value) && value.length > 0) {
-    return value.every((entry) => isChatContentPart(entry));
-  }
-  return false;
-};
 
 export const handlers = [
   http.get(/\/ping$/, () => ok<PingData>({ version: 'test', dbVersion: '0' })),
@@ -86,32 +57,10 @@ export const handlers = [
     const body = await request.json().catch(() => null);
     const messages = isRecord(body) ? body['messages'] : null;
     const model = isRecord(body) ? body['model'] : undefined;
-    if (!Array.isArray(messages) || messages.length === 0) {
+    const messageResult = validateChatMessages(messages);
+    if (!messageResult.ok) {
       return HttpResponse.json(
-        { error: 'messages must be a non-empty array of { role, content }' },
-        { status: 400 }
-      );
-    }
-
-    const hasValidMessages = messages.every((message) => {
-      if (!isRecord(message)) {
-        return false;
-      }
-      const role = message['role'];
-      if (
-        role !== 'system' &&
-        role !== 'user' &&
-        role !== 'assistant' &&
-        role !== 'tool'
-      ) {
-        return false;
-      }
-      return hasValidContent(message['content']);
-    });
-
-    if (!hasValidMessages) {
-      return HttpResponse.json(
-        { error: 'messages must be a non-empty array of { role, content }' },
+        { error: messageResult.error },
         { status: 400 }
       );
     }
