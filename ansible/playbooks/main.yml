@@ -143,6 +143,16 @@
         mode: "0775"
         recurse: true
 
+    - name: Create API environment file
+      ansible.builtin.copy:
+        dest: /opt/rapid-api/.env
+        content: "OPENROUTER_API_KEY={{ lookup('env', 'OPENROUTER_API_KEY') | mandatory('OPENROUTER_API_KEY environment variable is required') }}\n"
+        owner: "{{ lookup('env', 'TF_VAR_server_username') }}"
+        group: www-data
+        mode: "0640"
+      no_log: true
+      notify: Restart rapid-api
+
     - name: Deploy rapid-api systemd service
       ansible.builtin.template:
         src: rapid-api.service.j2
@@ -150,7 +160,9 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Reload systemd
+      notify:
+        - Reload systemd
+        - Restart rapid-api
 
     - name: Enable rapid-api service
       ansible.builtin.systemd:
@@ -325,4 +337,9 @@
     - name: Restart postgresql
       ansible.builtin.systemd:
         name: postgresql
+        state: restarted
+
+    - name: Restart rapid-api
+      ansible.builtin.systemd:
+        name: rapid-api
         state: restarted

@@ -67,4 +67,25 @@ describe('OpenAPI Specification', () => {
       });
     });
   });
+
+  describe('with invalid OpenAPI output', () => {
+    beforeEach(() => {
+      vi.resetModules();
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      vi.doUnmock('swagger-jsdoc');
+    });
+
+    it('throws when swagger-jsdoc returns non-v3 spec', async () => {
+      vi.doMock('swagger-jsdoc', () => ({
+        default: () => ({ openapi: '2.0.0' })
+      }));
+
+      await expect(import('./openapi.js')).rejects.toThrow(
+        'Generated OpenAPI specification is not v3'
+      );
+    });
+  });
 });
