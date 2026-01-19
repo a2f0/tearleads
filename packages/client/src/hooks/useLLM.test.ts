@@ -75,7 +75,9 @@ describe('useLLM', () => {
 
   describe('OpenRouter models', () => {
     const getVisionOpenRouterModelId = () => {
-      const visionModel = OPENROUTER_CHAT_MODELS.find((model) => model.isVision);
+      const visionModel = OPENROUTER_CHAT_MODELS.find(
+        (model) => model.isVision
+      );
       if (!visionModel) {
         throw new Error('Expected a vision OpenRouter model in the list');
       }
