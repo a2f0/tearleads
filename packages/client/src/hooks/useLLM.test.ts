@@ -65,6 +65,7 @@ describe('useLLM', () => {
   afterEach(() => {
     // Reset modules to clear module-level state
     vi.resetModules();
+    vi.unstubAllGlobals();
   });
 
   describe('OpenRouter models', () => {
