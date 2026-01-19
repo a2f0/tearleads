@@ -140,6 +140,7 @@
         password: "{{ lookup('env', 'POSTGRES_PASSWORD') | mandatory('POSTGRES_PASSWORD environment variable is required') }}"
         role_attr_flags: "LOGIN"
         state: present
+      become: true
       become_user: postgres
 
     - name: Ensure Postgres database exists
@@ -147,6 +148,7 @@
         name: "{{ lookup('env', 'POSTGRES_DATABASE') | mandatory('POSTGRES_DATABASE environment variable is required') }}"
         owner: "{{ lookup('env', 'POSTGRES_USER') | mandatory('POSTGRES_USER environment variable is required') }}"
         state: present
+      become: true
       become_user: postgres
 
     # API directory and service
