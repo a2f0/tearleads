@@ -1,3 +1,4 @@
+import { ThemeProvider } from '@rapid/ui';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -181,15 +182,21 @@ describe('Home', () => {
       await user.pointer({ keys: '[MouseRight]', target: canvas });
     }
 
-    const autoArrangeItem = screen.getByText('Auto Arrange');
-    const menuContainer = autoArrangeItem.parentElement;
+    const menuContainer = screen.getByRole('button', {
+      name: 'Auto Arrange'
+    }).parentElement;
     expect(menuContainer).not.toBeNull();
 
     if (menuContainer) {
       const labels = within(menuContainer)
         .getAllByRole('button')
         .map((button) => button.textContent?.trim() ?? '');
-      expect(labels).toEqual(['Auto Arrange', 'Cluster', 'Scatter']);
+      expect(labels).toEqual([
+        'Auto Arrange',
+        'Cluster',
+        'Display Properties',
+        'Scatter'
+      ]);
     }
   });
 
