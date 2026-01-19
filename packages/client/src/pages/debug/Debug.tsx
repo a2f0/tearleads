@@ -3,6 +3,7 @@ import { Check, Copy } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { useAppVersion } from '@/hooks/useAppVersion';
 import { API_BASE_URL, api } from '@/lib/api';
 import { detectPlatform } from '@/lib/utils';
 import { InfoRow } from './InfoRow';
@@ -12,6 +13,7 @@ interface DebugProps {
 }
 
 export function Debug({ showTitle = true }: DebugProps) {
+  const appVersion = useAppVersion();
   const [ping, setPing] = useState<PingData | null>(null);
   const [pingLoading, setPingLoading] = useState(false);
   const [pingError, setPingError] = useState<string | null>(null);
@@ -58,6 +60,7 @@ export function Debug({ showTitle = true }: DebugProps) {
 
   const systemInfo = useMemo(
     () => [
+      { label: 'Version', value: appVersion ?? 'Unknown' },
       { label: 'Environment', value: import.meta.env.MODE },
       { label: 'Screen', value: `${screenSize.width} x ${screenSize.height}` },
       {
@@ -80,7 +83,7 @@ export function Debug({ showTitle = true }: DebugProps) {
           : 'No'
       }
     ],
-    [screenSize]
+    [appVersion, screenSize]
   );
 
   const copyDebugInfo = useCallback(() => {
