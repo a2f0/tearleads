@@ -1,11 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearPreserveWindowState } from '@/lib/windowStatePreference';
 import { CacheStorageWindowMenuBar } from './CacheStorageWindowMenuBar';
 
 describe('CacheStorageWindowMenuBar', () => {
   beforeEach(() => {
     localStorage.clear();
+    clearPreserveWindowState();
   });
 
   it('renders File and View menu triggers', () => {
