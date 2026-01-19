@@ -323,7 +323,24 @@ git rebase origin/main      # Can be noisy and waste tokens
 
 ## Keeping PR Description Updated
 
-As you iterate, update the PR body with `gh pr edit --body`. Always remove auto-close language (`Closes/Fixes/Resolves #...`) and track the issue separately - all issues are marked "Needs QA" after merge. Always preserve the `Agent:` line at the bottom; if it is missing or incorrect, recompute and restore it:
+As you iterate, update the PR body with `gh pr edit --body`. Always remove auto-close language (`Closes/Fixes/Resolves #...`) and track the issue separately - all issues are marked "Needs QA" after merge. Always preserve the Claude-style format:
+
+```text
+## Summary
+- <verb-led, concrete change>
+
+## Testing
+- <command run or "not run (reason)">
+
+## Issue
+- #<issue-number>
+
+Agent: <agent-id>
+```
+
+If there is no associated issue, use `## Related` instead of `## Issue`.
+
+When updating the body, recompute the agent id and ensure the PR body ends with the evaluated value:
 
 ```bash
 AGENT_ID=$(basename "$(git rev-parse --show-toplevel)")

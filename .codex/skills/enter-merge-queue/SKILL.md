@@ -172,6 +172,33 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
 6. Report success with PR URL, a short description of the merged changes, and the associated issue status.
 
+## Keeping PR Description Updated
+
+As you iterate, update the PR body with `gh pr edit --body`. Always remove auto-close language (`Closes/Fixes/Resolves #...`) and track the issue separately - all issues are marked "Needs QA" after merge. Always preserve the Claude-style format:
+
+```text
+## Summary
+- <verb-led, concrete change>
+
+## Testing
+- <command run or "not run (reason)">
+
+## Issue
+- #<issue-number>
+
+Agent: <agent-id>
+```
+
+If there is no associated issue, use `## Related` instead of `## Issue`.
+
+When updating the body, recompute the agent id and ensure the PR body ends with the evaluated value:
+
+```bash
+AGENT_ID=$(basename "$(git rev-parse --show-toplevel)")
+```
+
+Then ensure the PR body ends with `Agent: ${AGENT_ID}`. Add bullets for significant changes (CI fixes, Gemini feedback addressed).
+
 ## Token Efficiency
 
 Suppress stdout on git commands:
