@@ -9,6 +9,13 @@ interface NoModelLoadedContentProps {
 export function NoModelLoadedContent({
   onOpenModels
 }: NoModelLoadedContentProps) {
+  const buttonContent = (
+    <>
+      <Bot className="mr-2 h-4 w-4" />
+      Go to Models
+    </>
+  );
+
   return (
     <div className="flex flex-1 items-center justify-center p-8">
       <div className="max-w-md rounded-lg border bg-card p-8 text-center">
@@ -21,15 +28,11 @@ export function NoModelLoadedContent({
         </p>
         {onOpenModels ? (
           <Button type="button" className="mt-6" onClick={onOpenModels}>
-            <Bot className="mr-2 h-4 w-4" />
-            Go to Models
+            {buttonContent}
           </Button>
         ) : (
           <Button asChild className="mt-6">
-            <Link to="/models">
-              <Bot className="mr-2 h-4 w-4" />
-              Go to Models
-            </Link>
+            <Link to="/models">{buttonContent}</Link>
           </Button>
         )}
       </div>
