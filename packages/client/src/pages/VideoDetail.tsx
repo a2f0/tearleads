@@ -13,6 +13,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ActionToolbar, type ActionType } from '@/components/ui/action-toolbar';
 import { BackLink } from '@/components/ui/back-link';
+import { Button } from '@/components/ui/button';
 import { EditableTitle } from '@/components/ui/editable-title';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
@@ -259,15 +260,15 @@ export function VideoDetail({ videoId, onBack }: VideoDetailProps) {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         {onBack ? (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
             onClick={onBack}
-            className="inline-flex items-center text-muted-foreground hover:text-foreground"
+            className="h-auto justify-start p-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
             data-testid="video-back-button"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Videos
-          </button>
+          </Button>
         ) : (
           <BackLink defaultTo="/videos" defaultLabel="Back to Videos" />
         )}
