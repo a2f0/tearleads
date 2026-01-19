@@ -136,6 +136,14 @@ describe('AudioVisualizer', () => {
       const toggle = screen.getByTestId('visualizer-style-toggle');
       expect(toggle).toHaveAttribute('aria-label', 'Switch to waveform style');
     });
+
+    it('maps stored lcd style to waveform', () => {
+      mockLocalStorage.getItem.mockReturnValue('lcd');
+      render(<AudioVisualizer />);
+
+      const toggle = screen.getByTestId('visualizer-style-toggle');
+      expect(toggle).toHaveAttribute('aria-label', 'Switch to gradient style');
+    });
   });
 
   describe('controlled style', () => {
