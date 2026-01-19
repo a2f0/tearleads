@@ -473,6 +473,17 @@ describe('AudioPlayer', () => {
         'gradient'
       );
     });
+
+    it('maps stored lcd style to waveform', () => {
+      mockLocalStorage.setItem('audio-visualizer-style', 'lcd');
+
+      render(<AudioPlayer tracks={TEST_TRACKS} />);
+
+      expect(screen.getByTestId('visualizer-style-toggle')).toHaveAttribute(
+        'aria-label',
+        'Switch to gradient style'
+      );
+    });
   });
 
   describe('layout and alignment', () => {
