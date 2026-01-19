@@ -6,8 +6,16 @@ interface TaskbarProps {
 }
 
 export function Taskbar({ className }: TaskbarProps) {
-  const { windows, focusWindow, minimizeWindow, restoreWindow } =
-    useWindowManager();
+  const {
+    windows,
+    focusWindow,
+    closeWindow,
+    minimizeWindow,
+    restoreWindow,
+    updateWindowDimensions
+  } = useWindowManager();
+
+  const FOOTER_HEIGHT = 80;
 
   if (windows.length === 0) {
     return null;
@@ -27,6 +35,39 @@ export function Taskbar({ className }: TaskbarProps) {
     }
   };
 
+  const handleMinimize = (windowId: string) => {
+    const targetWindow = windows.find((window) => window.id === windowId);
+    minimizeWindow(windowId, targetWindow?.dimensions);
+  };
+
+  const handleMaximize = (windowId: string) => {
+    const targetWindow = windows.find((window) => window.id === windowId);
+    if (!targetWindow) {
+      return;
+    }
+
+    const preMaximizeDimensions =
+      targetWindow.dimensions?.preMaximizeDimensions ??
+      (targetWindow.dimensions && !targetWindow.dimensions.isMaximized
+        ? {
+            width: targetWindow.dimensions.width,
+            height: targetWindow.dimensions.height,
+            x: targetWindow.dimensions.x,
+            y: targetWindow.dimensions.y
+          }
+        : undefined);
+
+    updateWindowDimensions(windowId, {
+      width: window.innerWidth,
+      height: window.innerHeight - FOOTER_HEIGHT,
+      x: 0,
+      y: 0,
+      isMaximized: true,
+      ...(preMaximizeDimensions && { preMaximizeDimensions })
+    });
+    restoreWindow(windowId);
+  };
+
   return (
     <div className={className} data-testid="taskbar">
       <div className="flex items-center gap-1">
@@ -37,6 +78,9 @@ export function Taskbar({ className }: TaskbarProps) {
             isActive={window.id === topWindowId && !window.isMinimized}
             isMinimized={window.isMinimized}
             onClick={() => handleClick(window.id, window.isMinimized)}
+            onMinimize={() => handleMinimize(window.id)}
+            onClose={() => closeWindow(window.id)}
+            onMaximize={() => handleMaximize(window.id)}
           />
         ))}
       </div>
