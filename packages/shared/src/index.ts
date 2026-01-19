@@ -19,6 +19,9 @@ export interface LicenseInfo {
 // OpenRouter model options
 export * from './openrouter.js';
 
+// Chat validation helpers
+export * from './chat.js';
+
 // Types
 export interface PingData {
   version: string;
