@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { useLLM } from '@/hooks/useLLM';
-import { OPENROUTER_MODELS, RECOMMENDED_MODELS } from '@/lib/models';
+import { RECOMMENDED_MODELS } from '@/lib/models';
 import { getWebGPUErrorInfo } from '@/lib/utils';
 import { ModelCard, type ModelStatus } from './ModelCard';
+import { OpenRouterModelsSection } from './OpenRouterModelsSection';
 import { type WebGPUInfo, WebGPUInfoPanel } from './WebGPUInfoPanel';
 
 const TRANSFORMERS_CACHE_NAME = 'transformers-cache';
@@ -188,26 +189,12 @@ export function ModelsContent({ showBackLink = true }: ModelsContentProps) {
             {errorInfo.requirement}
           </p>
         </div>
-        <div className="space-y-4">
-          <h2 className="font-semibold text-lg">OpenRouter Models</h2>
-          <p className="text-muted-foreground">
-            Run chat completions on the server using OpenRouter.
-          </p>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          {OPENROUTER_MODELS.map((model) => (
-            <ModelCard
-              key={model.id}
-              model={model}
-              status={loadedModel === model.id ? 'loaded' : 'not_downloaded'}
-              loadProgress={null}
-              disabled={loadingModelId !== null}
-              onLoad={() => handleLoad(model.id)}
-              onUnload={handleUnload}
-              onDelete={() => {}}
-            />
-          ))}
-        </div>
+        <OpenRouterModelsSection
+          loadedModel={loadedModel}
+          loadingModelId={loadingModelId}
+          onLoad={handleLoad}
+          onUnload={handleUnload}
+        />
       </div>
     );
   }
@@ -277,27 +264,12 @@ export function ModelsContent({ showBackLink = true }: ModelsContentProps) {
         ))}
       </div>
 
-      <div className="space-y-4">
-        <h2 className="font-semibold text-lg">OpenRouter Models</h2>
-        <p className="text-muted-foreground">
-          Run chat completions on the server using OpenRouter.
-        </p>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        {OPENROUTER_MODELS.map((model) => (
-          <ModelCard
-            key={model.id}
-            model={model}
-            status={loadedModel === model.id ? 'loaded' : 'not_downloaded'}
-            loadProgress={null}
-            disabled={loadingModelId !== null}
-            onLoad={() => handleLoad(model.id)}
-            onUnload={handleUnload}
-            onDelete={() => {}}
-          />
-        ))}
-      </div>
+      <OpenRouterModelsSection
+        loadedModel={loadedModel}
+        loadingModelId={loadingModelId}
+        onLoad={handleLoad}
+        onUnload={handleUnload}
+      />
 
       {webGPUInfo && <WebGPUInfoPanel info={webGPUInfo} />}
     </div>
