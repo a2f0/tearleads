@@ -274,6 +274,11 @@ describe('Analytics', () => {
       expect(screen.getByText('Analytics')).toBeInTheDocument();
     });
 
+    it('shows back link by default', async () => {
+      await renderAnalytics();
+      expect(screen.getByTestId('back-link')).toBeInTheDocument();
+    });
+
     it('hides back link when disabled', async () => {
       await renderAnalytics({ showBackLink: false });
 
