@@ -400,9 +400,7 @@ export function Analytics({ showBackLink = true }: AnalyticsProps) {
     <div className="flex h-full min-w-0 flex-col overflow-hidden">
       {/* Fixed header with title and buttons */}
       <div className="flex flex-col gap-2 pb-4">
-        {showBackLink && (
-          <BackLink defaultTo="/" defaultLabel="Back to Home" />
-        )}
+        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
         <div className="flex items-center justify-between">
           <h1 className="font-bold text-xl tracking-tight sm:text-2xl">
             Analytics
