@@ -2,10 +2,7 @@ import { isRecord } from '@rapid/shared';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
-import {
-  DEFAULT_OPENROUTER_MODEL,
-  OPENROUTER_API_URL
-} from './chat.js';
+import { DEFAULT_OPENROUTER_MODEL, OPENROUTER_API_URL } from './chat.js';
 
 const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>();
 
