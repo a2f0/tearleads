@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+import { FOOTER_HEIGHT } from '@/constants/layout';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { TaskbarButton } from './TaskbarButton';
 
@@ -15,8 +17,6 @@ export function Taskbar({ className }: TaskbarProps) {
     updateWindowDimensions
   } = useWindowManager();
 
-  const FOOTER_HEIGHT = 80;
-
   if (windows.length === 0) {
     return null;
   }
@@ -25,48 +25,57 @@ export function Taskbar({ className }: TaskbarProps) {
   const visibleWindows = sortedWindows.filter((w) => !w.isMinimized);
   const topWindowId = visibleWindows[visibleWindows.length - 1]?.id;
 
-  const handleClick = (windowId: string, isMinimized: boolean) => {
-    if (isMinimized) {
+  const handleClick = useCallback(
+    (windowId: string, isMinimized: boolean) => {
+      if (isMinimized) {
+        restoreWindow(windowId);
+      } else if (windowId === topWindowId) {
+        minimizeWindow(windowId);
+      } else {
+        focusWindow(windowId);
+      }
+    },
+    [focusWindow, minimizeWindow, restoreWindow, topWindowId]
+  );
+
+  const handleMinimize = useCallback(
+    (windowId: string) => {
+      const targetWindow = windows.find((window) => window.id === windowId);
+      minimizeWindow(windowId, targetWindow?.dimensions);
+    },
+    [minimizeWindow, windows]
+  );
+
+  const handleMaximize = useCallback(
+    (windowId: string) => {
+      const targetWindow = windows.find((window) => window.id === windowId);
+      if (!targetWindow) {
+        return;
+      }
+
+      const preMaximizeDimensions =
+        targetWindow.dimensions?.preMaximizeDimensions ??
+        (targetWindow.dimensions && !targetWindow.dimensions.isMaximized
+          ? {
+              width: targetWindow.dimensions.width,
+              height: targetWindow.dimensions.height,
+              x: targetWindow.dimensions.x,
+              y: targetWindow.dimensions.y
+            }
+          : undefined);
+
+      updateWindowDimensions(windowId, {
+        width: window.innerWidth,
+        height: window.innerHeight - FOOTER_HEIGHT,
+        x: 0,
+        y: 0,
+        isMaximized: true,
+        ...(preMaximizeDimensions && { preMaximizeDimensions })
+      });
       restoreWindow(windowId);
-    } else if (windowId === topWindowId) {
-      minimizeWindow(windowId);
-    } else {
-      focusWindow(windowId);
-    }
-  };
-
-  const handleMinimize = (windowId: string) => {
-    const targetWindow = windows.find((window) => window.id === windowId);
-    minimizeWindow(windowId, targetWindow?.dimensions);
-  };
-
-  const handleMaximize = (windowId: string) => {
-    const targetWindow = windows.find((window) => window.id === windowId);
-    if (!targetWindow) {
-      return;
-    }
-
-    const preMaximizeDimensions =
-      targetWindow.dimensions?.preMaximizeDimensions ??
-      (targetWindow.dimensions && !targetWindow.dimensions.isMaximized
-        ? {
-            width: targetWindow.dimensions.width,
-            height: targetWindow.dimensions.height,
-            x: targetWindow.dimensions.x,
-            y: targetWindow.dimensions.y
-          }
-        : undefined);
-
-    updateWindowDimensions(windowId, {
-      width: window.innerWidth,
-      height: window.innerHeight - FOOTER_HEIGHT,
-      x: 0,
-      y: 0,
-      isMaximized: true,
-      ...(preMaximizeDimensions && { preMaximizeDimensions })
-    });
-    restoreWindow(windowId);
-  };
+    },
+    [restoreWindow, updateWindowDimensions, windows]
+  );
 
   return (
     <div className={className} data-testid="taskbar">
