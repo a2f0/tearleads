@@ -44,12 +44,17 @@ function getRowString(row: unknown, key: string): string | null {
   return null;
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
+function formatBytesParts(bytes: number): { value: string; unit: string } {
+  if (bytes <= 0) return { value: '0', unit: 'B' };
   const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
+  const i = Math.max(0, Math.floor(Math.log(bytes) / Math.log(k)));
+  const unitIndex = Math.min(i, sizes.length - 1);
+  const unit = sizes[unitIndex] ?? sizes[sizes.length - 1] ?? 'B';
+  return {
+    value: parseFloat((bytes / k ** unitIndex).toFixed(2)).toString(),
+    unit
+  };
 }
 
 function formatRowCount(count: number): string {
@@ -181,6 +186,8 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
     return null;
   }
 
+  const totalSizeParts = formatBytesParts(totalSize);
+
   return (
     <div className="space-y-3 rounded-lg border p-4" data-testid="table-sizes">
       <div className="flex items-center justify-between">
@@ -204,7 +211,7 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
             </div>
             <span className="font-mono">
               {isTotalSizeEstimated ? '~' : ''}
-              {formatBytes(totalSize)}
+              {totalSizeParts.value} {totalSizeParts.unit}
             </span>
           </div>
 
@@ -224,20 +231,21 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
                 </div>
               )}
               <div className="space-y-1">
-                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-b pb-1 font-medium text-muted-foreground text-xs">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,4.5rem)_minmax(0,3rem)_minmax(0,5.5rem)] items-center gap-3 border-b pb-1 font-medium text-muted-foreground text-xs">
                   <span>Table</span>
-                  <span className="text-right">Size</span>
+                  <span className="col-span-2 text-right">Size</span>
                   <span className="text-right">Rows</span>
                 </div>
                 {tableSizes.map((table) => {
                   const tablePath = `/sqlite/tables/${encodeURIComponent(
                     table.name
                   )}`;
+                  const sizeParts = formatBytesParts(table.size);
 
                   return (
                     <div
                       key={table.name}
-                      className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3"
+                      className="grid grid-cols-[minmax(0,1fr)_minmax(0,4.5rem)_minmax(0,3rem)_minmax(0,5.5rem)] items-center gap-3"
                     >
                       {onTableSelect ? (
                         <button
@@ -258,7 +266,10 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
                       )}
                       <span className="shrink-0 text-right font-mono text-xs">
                         {table.isEstimated ? '~' : ''}
-                        {formatBytes(table.size)}
+                        {sizeParts.value}
+                      </span>
+                      <span className="shrink-0 text-left font-mono text-xs">
+                        {sizeParts.unit}
                       </span>
                       <span className="shrink-0 text-right font-mono text-xs">
                         {formatRowCount(table.rowCount)}
