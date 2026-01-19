@@ -24,6 +24,11 @@ import { VideoWindow } from '@/components/video-window';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 
+// AGENT GUARDRAIL: When adding a new window type case here, ensure parity with:
+// - WindowManagerContext.tsx WindowType union
+// - Home.tsx PATH_TO_WINDOW_TYPE mapping
+// - Sidebar.tsx WINDOW_PATHS mapping
+// Each window component should mirror its corresponding route's functionality.
 export function WindowRenderer() {
   const {
     windows,
