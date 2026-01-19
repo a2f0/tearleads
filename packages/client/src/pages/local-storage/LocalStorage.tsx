@@ -96,22 +96,29 @@ export function LocalStorage() {
 
   const handleConfirmDelete = async () => {
     if (!deleteDialog) return;
+    const currentDialog = deleteDialog;
+    const entriesSnapshot = entries;
 
     try {
-      if (deleteDialog.type === 'item') {
-        localStorage.removeItem(deleteDialog.key);
+      if (currentDialog.type === 'item') {
+        localStorage.removeItem(currentDialog.key);
+        setEntries((prev) =>
+          prev.filter((entry) => entry.key !== currentDialog.key)
+        );
       } else {
-        for (const entry of entries) {
+        for (const entry of entriesSnapshot) {
           if (!isProtectedKey(entry.key)) {
             localStorage.removeItem(entry.key);
           }
         }
+        setEntries(entriesSnapshot.filter((entry) => isProtectedKey(entry.key)));
       }
-      fetchStorageContents();
     } catch (err) {
       console.error('Failed to delete:', err);
       setError(err instanceof Error ? err.message : String(err));
       throw err;
+    } finally {
+      setDeleteDialog(null);
     }
   };
 
@@ -214,6 +221,7 @@ export function LocalStorage() {
         confirmLabel="Delete"
         confirmingLabel="Deleting..."
         onConfirm={handleConfirmDelete}
+        closeOnConfirmStart
       />
     </div>
   );
