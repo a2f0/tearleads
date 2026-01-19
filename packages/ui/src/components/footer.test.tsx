@@ -18,6 +18,15 @@ describe('Footer', () => {
     expect(screen.getByText('Custom Copyright')).toBeInTheDocument();
   });
 
+  it('renders no copyright when copyrightText is empty string', () => {
+    render(<Footer version={undefined} copyrightText="" />);
+
+    const currentYear = new Date().getFullYear();
+    expect(
+      screen.queryByText(`© ${currentYear} All rights reserved.`)
+    ).not.toBeInTheDocument();
+  });
+
   it('renders with children', () => {
     render(
       <Footer version={undefined}>
