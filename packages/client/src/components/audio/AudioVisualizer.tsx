@@ -9,71 +9,73 @@ import { useAudio } from '@/audio';
 import { useAudioAnalyser } from '@/audio/useAudioAnalyser';
 import { Button } from '@/components/ui/button';
 
-export type VisualizerStyle = 'waveform' | 'gradient';
+export type VisualizerVisibility = 'visible' | 'hidden';
 
 interface AudioVisualizerProps {
-  style?: VisualizerStyle;
-  onStyleChange?: (style: VisualizerStyle) => void;
+  visibility?: VisualizerVisibility;
+  onVisibilityChange?: (visibility: VisualizerVisibility) => void;
 }
 
-const STORAGE_KEY = 'audio-visualizer-style';
+const STORAGE_KEY = 'audio-visualizer-visible';
 const BAR_COUNT = 12;
 const SEGMENT_COUNT = 15;
 const SEGMENT_TOTAL_HEIGHT = 6; // h-1 (4px) + gap-0.5 (2px)
 const VISUALIZER_HEIGHT = SEGMENT_COUNT * SEGMENT_TOTAL_HEIGHT;
-const GRADIENT_BAR_MIN_HEIGHT = 4;
-const WAVEFORM_BAR_MIN_HEIGHT = 2;
 
-// Pre-generated stable keys for bars (avoids array index key lint errors)
+// Pre-generated stable keys for bars and segments (avoids array index key lint errors)
 const BAR_KEYS = Array.from({ length: BAR_COUNT }, (_, i) => `bar-${i}`);
+const SEGMENT_KEYS = Array.from(
+  { length: SEGMENT_COUNT },
+  (_, i) => `seg-${i}`
+);
 
-function getStoredStyle(): VisualizerStyle {
+function getStoredVisibility(): VisualizerVisibility {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'gradient') {
-      return 'gradient';
+    if (stored === 'visible' || stored === 'hidden') {
+      return stored;
     }
   } catch {
     // localStorage may not be available
   }
-  return 'waveform';
+  return 'visible';
 }
 
-function setStoredStyle(style: VisualizerStyle): void {
+function setStoredVisibility(visibility: VisualizerVisibility): void {
   try {
-    localStorage.setItem(STORAGE_KEY, style);
+    localStorage.setItem(STORAGE_KEY, visibility);
   } catch {
     // localStorage may not be available
   }
 }
 
 export function AudioVisualizer({
-  style: controlledStyle,
-  onStyleChange
+  visibility: controlledVisibility,
+  onVisibilityChange
 }: AudioVisualizerProps) {
   const { audioElementRef, isPlaying, currentTrack } = useAudio();
   const frequencyData = useAudioAnalyser(audioElementRef, isPlaying, BAR_COUNT);
 
-  const [internalStyle, setInternalStyle] =
-    useState<VisualizerStyle>(getStoredStyle);
+  const [internalVisibility, setInternalVisibility] =
+    useState<VisualizerVisibility>(getStoredVisibility);
 
-  const style = controlledStyle ?? internalStyle;
+  const visibility = controlledVisibility ?? internalVisibility;
 
-  const handleToggleStyle = useCallback(() => {
-    const newStyle = style === 'waveform' ? 'gradient' : 'waveform';
-    if (onStyleChange) {
-      onStyleChange(newStyle);
+  const handleToggleVisibility = useCallback(() => {
+    const newVisibility = visibility === 'visible' ? 'hidden' : 'visible';
+    if (onVisibilityChange) {
+      onVisibilityChange(newVisibility);
     } else {
-      setInternalStyle(newStyle);
-      setStoredStyle(newStyle);
+      setInternalVisibility(newVisibility);
+      setStoredVisibility(newVisibility);
     }
-  }, [style, onStyleChange]);
+  }, [visibility, onVisibilityChange]);
 
   useEffect(() => {
-    if (controlledStyle !== undefined) {
-      setStoredStyle(controlledStyle);
+    if (controlledVisibility !== undefined) {
+      setStoredVisibility(controlledVisibility);
     }
-  }, [controlledStyle]);
+  }, [controlledVisibility]);
 
   // Only show when there's a track loaded
   if (!currentTrack) {
@@ -85,34 +87,33 @@ export function AudioVisualizer({
       className="flex items-center gap-2 rounded-lg border bg-card p-3"
       data-testid="audio-visualizer"
     >
-      <div className="flex flex-1 items-end justify-center gap-1">
-        {BAR_KEYS.map((key, barIndex) => {
-          // When not playing, show flatline (0 height)
-          const value = isPlaying ? (frequencyData[barIndex] ?? 0) : 0;
-          const normalizedHeight = value / 255;
+      {visibility === 'visible' && (
+        <div className="flex flex-1 items-end justify-center gap-1">
+          {BAR_KEYS.map((key, barIndex) => {
+            const value = isPlaying ? (frequencyData[barIndex] ?? 0) : 0;
+            const normalizedHeight = value / 255;
 
-          return (
-            <div
-              key={key}
-              className="relative flex w-3 items-end justify-center"
-              style={{ height: `${VISUALIZER_HEIGHT}px` }}
-            >
-              {style === 'waveform' ? (
-                <WaveformBar normalizedHeight={normalizedHeight} />
-              ) : (
-                <GradientBar normalizedHeight={normalizedHeight} />
-              )}
-            </div>
-          );
-        })}
-      </div>
+            return (
+              <div
+                key={key}
+                className="flex w-3 flex-col-reverse gap-0.5"
+                style={{ height: `${VISUALIZER_HEIGHT}px` }}
+              >
+                <LCDBar normalizedHeight={normalizedHeight} />
+              </div>
+            );
+          })}
+        </div>
+      )}
       <Button
         variant="ghost"
         size="icon"
         className="h-8 w-8 shrink-0"
-        onClick={handleToggleStyle}
-        aria-label={`Switch to ${style === 'waveform' ? 'gradient' : 'waveform'} style`}
-        data-testid="visualizer-style-toggle"
+        onClick={handleToggleVisibility}
+        aria-label={
+          visibility === 'visible' ? 'Hide visualizer' : 'Show visualizer'
+        }
+        data-testid="visualizer-toggle"
       >
         <Sliders className="h-4 w-4 text-muted-foreground" />
       </Button>
@@ -124,39 +125,37 @@ interface BarProps {
   normalizedHeight: number;
 }
 
-function WaveformBar({ normalizedHeight }: BarProps) {
-  const height = Math.max(
-    WAVEFORM_BAR_MIN_HEIGHT,
-    normalizedHeight * VISUALIZER_HEIGHT
-  );
+function LCDBar({ normalizedHeight }: BarProps) {
+  const activeSegments = Math.round(normalizedHeight * SEGMENT_COUNT);
 
   return (
-    <div
-      className="absolute right-0 left-0 rounded-full transition-all duration-75"
-      style={{
-        height: `${height}px`,
-        top: '50%',
-        transform: 'translateY(-50%)',
-        background: 'linear-gradient(to top, var(--primary), var(--ring))',
-        boxShadow: '0 0 6px var(--ring)'
-      }}
-    />
-  );
-}
+    <>
+      {SEGMENT_KEYS.map((key, segIndex) => {
+        const isActive = segIndex < activeSegments;
+        const segmentPosition = segIndex / SEGMENT_COUNT;
 
-function GradientBar({ normalizedHeight }: BarProps) {
-  const height = Math.max(
-    GRADIENT_BAR_MIN_HEIGHT,
-    normalizedHeight * VISUALIZER_HEIGHT
-  );
+        let colorClass: string;
+        if (segmentPosition > 0.8) {
+          colorClass = isActive
+            ? 'bg-destructive'
+            : 'bg-destructive/20 dark:bg-destructive/30';
+        } else if (segmentPosition > 0.6) {
+          colorClass = isActive
+            ? 'bg-accent-foreground dark:bg-accent'
+            : 'bg-accent-foreground/20 dark:bg-accent/30';
+        } else {
+          colorClass = isActive
+            ? 'bg-primary'
+            : 'bg-primary/20 dark:bg-primary/30';
+        }
 
-  return (
-    <div
-      className="w-full rounded-sm transition-all duration-75"
-      style={{
-        height: `${height}px`,
-        background: 'linear-gradient(to top, var(--primary), var(--ring))'
-      }}
-    />
+        return (
+          <div
+            key={key}
+            className={`h-1 w-full rounded-sm transition-colors duration-75 ${colorClass}`}
+          />
+        );
+      })}
+    </>
   );
 }

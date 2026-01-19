@@ -93,60 +93,60 @@ describe('AudioVisualizer', () => {
       expect(screen.getByTestId('audio-visualizer')).toBeInTheDocument();
     });
 
-    it('renders style toggle button', () => {
+    it('renders visibility toggle button', () => {
       render(<AudioVisualizer />);
 
-      expect(screen.getByTestId('visualizer-style-toggle')).toBeInTheDocument();
+      expect(screen.getByTestId('visualizer-toggle')).toBeInTheDocument();
     });
 
-    it('uses waveform style by default', () => {
+    it('shows visualizer by default', () => {
       render(<AudioVisualizer />);
 
-      const toggle = screen.getByTestId('visualizer-style-toggle');
-      expect(toggle).toHaveAttribute('aria-label', 'Switch to gradient style');
+      const toggle = screen.getByTestId('visualizer-toggle');
+      expect(toggle).toHaveAttribute('aria-label', 'Hide visualizer');
     });
 
-    it('toggles style when button is clicked', async () => {
+    it('hides visualizer when toggle is clicked', async () => {
       const user = userEvent.setup();
       render(<AudioVisualizer />);
 
-      const toggle = screen.getByTestId('visualizer-style-toggle');
+      const toggle = screen.getByTestId('visualizer-toggle');
       await user.click(toggle);
 
-      expect(toggle).toHaveAttribute('aria-label', 'Switch to waveform style');
+      expect(toggle).toHaveAttribute('aria-label', 'Show visualizer');
     });
 
-    it('saves style preference to localStorage', async () => {
+    it('saves visibility preference to localStorage', async () => {
       const user = userEvent.setup();
       render(<AudioVisualizer />);
 
-      const toggle = screen.getByTestId('visualizer-style-toggle');
+      const toggle = screen.getByTestId('visualizer-toggle');
       await user.click(toggle);
 
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
-        'audio-visualizer-style',
-        'gradient'
+        'audio-visualizer-visible',
+        'hidden'
       );
     });
 
-    it('loads style preference from localStorage', () => {
-      mockLocalStorage.getItem.mockReturnValue('gradient');
+    it('loads hidden visibility from localStorage', () => {
+      mockLocalStorage.getItem.mockReturnValue('hidden');
       render(<AudioVisualizer />);
 
-      const toggle = screen.getByTestId('visualizer-style-toggle');
-      expect(toggle).toHaveAttribute('aria-label', 'Switch to waveform style');
+      const toggle = screen.getByTestId('visualizer-toggle');
+      expect(toggle).toHaveAttribute('aria-label', 'Show visualizer');
     });
 
-    it('maps stored lcd style to waveform', () => {
-      mockLocalStorage.getItem.mockReturnValue('lcd');
+    it('loads visible visibility from localStorage', () => {
+      mockLocalStorage.getItem.mockReturnValue('visible');
       render(<AudioVisualizer />);
 
-      const toggle = screen.getByTestId('visualizer-style-toggle');
-      expect(toggle).toHaveAttribute('aria-label', 'Switch to gradient style');
+      const toggle = screen.getByTestId('visualizer-toggle');
+      expect(toggle).toHaveAttribute('aria-label', 'Hide visualizer');
     });
   });
 
-  describe('controlled style', () => {
+  describe('controlled visibility', () => {
     beforeEach(() => {
       mockUseAudio.mockReturnValue({
         audioElementRef: mockAudioElementRef,
@@ -155,32 +155,35 @@ describe('AudioVisualizer', () => {
       });
     });
 
-    it('uses controlled style prop', () => {
-      render(<AudioVisualizer style="gradient" />);
+    it('uses controlled visibility prop', () => {
+      render(<AudioVisualizer visibility="hidden" />);
 
-      const toggle = screen.getByTestId('visualizer-style-toggle');
-      expect(toggle).toHaveAttribute('aria-label', 'Switch to waveform style');
+      const toggle = screen.getByTestId('visualizer-toggle');
+      expect(toggle).toHaveAttribute('aria-label', 'Show visualizer');
     });
 
-    it('calls onStyleChange when toggled', async () => {
+    it('calls onVisibilityChange when toggled', async () => {
       const user = userEvent.setup();
-      const onStyleChange = vi.fn();
+      const onVisibilityChange = vi.fn();
       render(
-        <AudioVisualizer style="waveform" onStyleChange={onStyleChange} />
+        <AudioVisualizer
+          visibility="visible"
+          onVisibilityChange={onVisibilityChange}
+        />
       );
 
-      const toggle = screen.getByTestId('visualizer-style-toggle');
+      const toggle = screen.getByTestId('visualizer-toggle');
       await user.click(toggle);
 
-      expect(onStyleChange).toHaveBeenCalledWith('gradient');
+      expect(onVisibilityChange).toHaveBeenCalledWith('hidden');
     });
 
-    it('saves controlled style to localStorage', () => {
-      render(<AudioVisualizer style="gradient" />);
+    it('saves controlled visibility to localStorage', () => {
+      render(<AudioVisualizer visibility="hidden" />);
 
       expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
-        'audio-visualizer-style',
-        'gradient'
+        'audio-visualizer-visible',
+        'hidden'
       );
     });
   });
@@ -211,10 +214,10 @@ describe('AudioVisualizer', () => {
       const user = userEvent.setup();
 
       render(<AudioVisualizer />);
-      const toggle = screen.getByTestId('visualizer-style-toggle');
+      const toggle = screen.getByTestId('visualizer-toggle');
       await user.click(toggle);
 
-      expect(toggle).toHaveAttribute('aria-label', 'Switch to waveform style');
+      expect(toggle).toHaveAttribute('aria-label', 'Show visualizer');
     });
   });
 
@@ -239,14 +242,16 @@ describe('AudioVisualizer', () => {
       expect(screen.getByTestId('audio-visualizer')).toBeInTheDocument();
     });
 
-    it('renders gradient style bars', () => {
-      mockLocalStorage.getItem.mockReturnValue('gradient');
+    it('does not render bars when hidden', () => {
+      mockLocalStorage.getItem.mockReturnValue('hidden');
       const frequencyData = new Uint8Array(12).fill(200);
       mockUseAudioAnalyser.mockReturnValue(frequencyData);
 
-      render(<AudioVisualizer />);
+      const { container } = render(<AudioVisualizer />);
 
-      expect(screen.getByTestId('audio-visualizer')).toBeInTheDocument();
+      // Should only have the toggle button, no bars
+      const bars = container.querySelectorAll('.flex-col-reverse');
+      expect(bars.length).toBe(0);
     });
   });
 });
