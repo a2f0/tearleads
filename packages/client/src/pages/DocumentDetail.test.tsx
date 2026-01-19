@@ -429,6 +429,22 @@ describe('DocumentDetail', () => {
     });
   });
 
+  describe('delete handling', () => {
+    it('calls onBack after delete when provided', async () => {
+      const user = userEvent.setup();
+      const onBack = vi.fn();
+      renderDocumentDetailWithProps('doc-123', onBack);
+
+      const deleteButton = await screen.findByTestId('delete-button');
+      await user.click(deleteButton);
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalled();
+      });
+      expect(onBack).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('name editing', () => {
     it('renders edit button for document name', async () => {
       await renderDocumentDetail();
