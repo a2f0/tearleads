@@ -11,11 +11,16 @@ const NEW_PASSWORD = 'newpassword456';
 const DB_OPERATION_TIMEOUT = 15000;
 const APP_LOAD_TIMEOUT = 10000;
 
-async function openSidebar(window: Page) {
-  const startButton = window.getByTestId('start-button');
-  await expect(startButton).toBeVisible({timeout: APP_LOAD_TIMEOUT});
-  await startButton.click();
-  await expect(window.locator('nav')).toBeVisible({timeout: APP_LOAD_TIMEOUT});
+/**
+ * Navigate to a route in the Electron app using client-side routing.
+ * Electron uses a custom protocol that doesn't have a fallback to index.html,
+ * so we use History API to trigger React Router navigation.
+ */
+async function navigateToRoute(page: Page, path: string): Promise<void> {
+  await page.evaluate((route) => {
+    window.history.pushState({}, '', route);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, path);
 }
 
 test.describe('Database (Electron)', () => {
@@ -31,12 +36,8 @@ test.describe('Database (Electron)', () => {
       window.getByTestId('start-button')
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
 
-    // Open sidebar and navigate to SQLite page
-    await openSidebar(window);
-    await window
-      .locator('nav')
-      .getByRole('button', { name: 'SQLite' })
-      .dblclick();
+    // Navigate to SQLite page via URL
+    await navigateToRoute(window, '/sqlite');
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Reset the database to ensure clean state
@@ -244,11 +245,9 @@ test.describe('Database (Electron)', () => {
     await expect(
       window.getByTestId('start-button')
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
-    await openSidebar(window);
-    await window
-      .locator('nav')
-      .getByRole('button', { name: 'SQLite' })
-      .dblclick();
+
+    // Navigate to SQLite page via URL
+    await navigateToRoute(window, '/sqlite');
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Database should be in "Locked" state (set up but not unlocked)
@@ -383,15 +382,13 @@ test.describe('Database (Electron)', () => {
     electronApp = await launchElectronApp({clearStorage: false});
     window = await electronApp.firstWindow();
 
-    // Wait for app to load and navigate to SQLite page
+    // Wait for app to load
     await expect(
       window.getByTestId('start-button')
     ).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
-    await openSidebar(window);
-    await window
-      .locator('nav')
-      .getByRole('button', { name: 'SQLite' })
-      .dblclick();
+
+    // Navigate to SQLite page via URL
+    await navigateToRoute(window, '/sqlite');
     await expect(window.getByTestId('database-test')).toBeVisible();
 
     // Database should be in "Locked" state

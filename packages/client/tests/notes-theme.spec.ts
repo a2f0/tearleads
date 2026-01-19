@@ -2,24 +2,33 @@ import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { clearOriginStorage } from './test-utils';
 
-// Helper to open sidebar via Start button
-async function openSidebar(page: Page) {
-  const startButton = page.getByTestId('start-button');
-  await expect(startButton).toBeVisible({ timeout: 10000 });
-  await startButton.click();
-  await expect(page.locator('aside nav')).toBeVisible({ timeout: 10000 });
+const TEST_PASSWORD = 'testpassword123';
+
+// Map page names to routes
+const PAGE_ROUTES = {
+  SQLite: '/sqlite',
+  Notes: '/notes',
+  Settings: '/settings'
+} as const;
+
+// Helper to unlock via inline unlock component if database is locked after page navigation
+async function unlockIfNeeded(page: Page, password = TEST_PASSWORD): Promise<void> {
+  // Wait for page to stabilize after navigation
+  await page.waitForTimeout(500);
+
+  const inlineUnlock = page.getByTestId('inline-unlock-password');
+  if (await inlineUnlock.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await inlineUnlock.fill(password);
+    await page.getByTestId('inline-unlock-button').click();
+    await expect(inlineUnlock).not.toBeVisible({ timeout: 10000 });
+  }
 }
 
-// Helper to navigate via sidebar
-async function navigateTo(page: Page, linkName: string) {
-  const sidebar = page.locator('aside nav');
-  if (!(await sidebar.isVisible())) {
-    await openSidebar(page);
-  }
-  const button = sidebar.getByRole('button', { name: linkName });
-  // Sidebar auto-closes after launch
-  await button.dblclick();
-  await expect(sidebar).not.toBeVisible({ timeout: 5000 });
+// Helper to navigate via URL (for testing page behavior)
+async function navigateTo(page: Page, pageName: keyof typeof PAGE_ROUTES) {
+  const route = PAGE_ROUTES[pageName];
+  await page.goto(route);
+  await unlockIfNeeded(page);
 }
 
 // Helper to setup and unlock the database
@@ -173,6 +182,7 @@ test.describe('Notes Editor Theme Integration', () => {
 
     // Navigate back to the note
     await page.goBack();
+    await unlockIfNeeded(page);
     await expect(page.getByTestId('markdown-editor')).toBeVisible({ timeout: 10000 });
 
     // Verify the html element has monochrome class
@@ -210,6 +220,7 @@ test.describe('Notes Editor Theme Integration', () => {
 
     // Navigate back to the note
     await page.goBack();
+    await unlockIfNeeded(page);
     await expect(page.getByTestId('markdown-editor')).toBeVisible({ timeout: 10000 });
 
     // Verify the html element has tokyo-night class
@@ -244,6 +255,7 @@ test.describe('Notes Editor Theme Integration', () => {
 
     // Navigate back to the note
     await page.goBack();
+    await unlockIfNeeded(page);
     await expect(page.getByTestId('markdown-editor')).toBeVisible({ timeout: 10000 });
 
     // Verify the html element has light class
@@ -275,6 +287,7 @@ test.describe('Notes Editor Theme Integration', () => {
 
     // Navigate back to the note
     await page.goBack();
+    await unlockIfNeeded(page);
     await expect(page.getByTestId('markdown-editor')).toBeVisible({ timeout: 10000 });
 
     // Verify the html element has dark class
@@ -304,6 +317,7 @@ test.describe('Notes Editor Theme Integration', () => {
     // Get monochrome background
     await switchTheme(page, 'monochrome');
     await page.goBack();
+    await unlockIfNeeded(page);
     await expect(page.getByTestId('markdown-editor')).toBeVisible({ timeout: 10000 });
     const monochromeBg = await getComputedBackgroundColor(page, '.w-md-editor');
     console.log('Monochrome background:', monochromeBg);
@@ -311,6 +325,7 @@ test.describe('Notes Editor Theme Integration', () => {
     // Get tokyo-night background
     await switchTheme(page, 'tokyo-night');
     await page.goBack();
+    await unlockIfNeeded(page);
     await expect(page.getByTestId('markdown-editor')).toBeVisible({ timeout: 10000 });
     const tokyoNightBg = await getComputedBackgroundColor(page, '.w-md-editor');
     console.log('Tokyo Night background:', tokyoNightBg);

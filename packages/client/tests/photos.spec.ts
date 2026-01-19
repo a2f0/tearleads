@@ -8,17 +8,25 @@ function isMobileViewport(page: Page): boolean {
   return (viewport?.width ?? 0) < 1024;
 }
 
-// Helper to open sidebar via Start button (desktop only)
-async function openSidebar(page: Page) {
-  const startButton = page.getByTestId('start-button');
-  await expect(startButton).toBeVisible({ timeout: 10000 });
-  await startButton.click();
-  await expect(page.locator('aside nav')).toBeVisible({ timeout: 10000 });
-}
-
 test.beforeEach(async ({ page }) => {
   await clearOriginStorage(page);
 });
+
+// Map page names to routes
+const PAGE_ROUTES = {
+  SQLite: '/sqlite',
+  Photos: '/photos'
+} as const;
+
+// Helper to navigate using in-app routing (preserves React state)
+async function navigateInApp(page: Page, path: string) {
+  await page.evaluate((route) => {
+    window.history.pushState({}, '', route);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, path);
+  // Give React time to process the navigation
+  await page.waitForTimeout(500);
+}
 
 // Helper to navigate to a page, handling mobile/desktop differences
 async function navigateToPage(page: Page, pageName: 'SQLite' | 'Photos') {
@@ -32,15 +40,9 @@ async function navigateToPage(page: Page, pageName: 'SQLite' | 'Photos') {
       .getByTestId(`${pageName.toLowerCase()}-link`)
       .click();
   } else {
-    // Open sidebar if not visible
-    const sidebar = page.locator('aside nav');
-    if (!(await sidebar.isVisible())) {
-      await openSidebar(page);
-    }
-    const button = sidebar.getByRole('button', { name: pageName });
-    // Sidebar auto-closes after launch
-    await button.dblclick();
-    await expect(sidebar).not.toBeVisible({ timeout: 5000 });
+    // Use in-app navigation to preserve React state (including database unlock status)
+    const route = PAGE_ROUTES[pageName];
+    await navigateInApp(page, route);
   }
 }
 
