@@ -11,7 +11,6 @@ import { SettingsButton } from './components/SettingsButton';
 import { Sidebar } from './components/Sidebar';
 import { Taskbar } from './components/taskbar';
 import { DesktopBackground } from './components/ui/desktop-background';
-import { WindowRenderer } from './components/window-renderer';
 import { useSSEContext } from './sse';
 
 const sseTooltipKeys = {
@@ -121,7 +120,6 @@ function App() {
         </div>
       </div>
       <MiniPlayer />
-      <WindowRenderer />
     </div>
   );
 }
