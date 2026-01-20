@@ -4,7 +4,7 @@ import {
   ElectronApplication,
   Page
 } from '@playwright/test';
-import {launchElectronApp} from './electron-test-helper';
+import {closeElectronApp, launchElectronApp} from './electron-test-helper';
 
 const TEST_PASSWORD = 'testpassword123';
 const NEW_PASSWORD = 'newpassword456';
@@ -53,7 +53,7 @@ test.describe('Database (Electron)', () => {
   });
 
   test.afterEach(async () => {
-    await electronApp.close();
+    await closeElectronApp(electronApp);
   });
 
   test('should setup a new database with password', async () => {
@@ -235,7 +235,7 @@ test.describe('Database (Electron)', () => {
     const writtenValue = await window.getByTestId('db-test-data').textContent();
 
     // Close the app
-    await electronApp.close();
+    await closeElectronApp(electronApp);
 
     // Relaunch the app without clearing storage to test persistence
     electronApp = await launchElectronApp({clearStorage: false});
@@ -376,7 +376,7 @@ test.describe('Database (Electron)', () => {
     );
 
     // Close the app
-    await electronApp.close();
+    await closeElectronApp(electronApp);
 
     // Relaunch the app without clearing storage to test persistence
     electronApp = await launchElectronApp({clearStorage: false});

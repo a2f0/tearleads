@@ -1,5 +1,5 @@
 import { test, expect, ElectronApplication, Page } from '@playwright/test';
-import { launchElectronApp } from './electron-test-helper';
+import { closeElectronApp, launchElectronApp } from './electron-test-helper';
 
 const APP_LOAD_TIMEOUT = 10000;
 
@@ -27,7 +27,7 @@ test.describe('Settings Window (Electron)', () => {
   });
 
   test.afterEach(async () => {
-    await electronApp.close();
+    await closeElectronApp(electronApp);
   });
 
   test('opens settings window from header button', async () => {
