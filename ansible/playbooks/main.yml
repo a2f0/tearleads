@@ -28,6 +28,12 @@
         state: present
         key: "{{ deploy_public_key }}"
 
+    - name: Add server user to systemd-journal group
+      ansible.builtin.user:
+        name: "{{ lookup('env', 'TF_VAR_server_username') | mandatory('TF_VAR_server_username environment variable is required') }}"
+        groups: systemd-journal
+        append: true
+
     - name: Disable root SSH login
       ansible.builtin.lineinfile:
         path: /etc/ssh/sshd_config
