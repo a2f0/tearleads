@@ -1,7 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DocumentsWindow } from './DocumentsWindow';
+
+let lastDocumentsProps: Record<string, unknown> | null = null;
 
 vi.mock('@/components/floating-window', () => ({
   FloatingWindow: ({
@@ -30,7 +32,72 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 vi.mock('@/pages/Documents', () => ({
-  Documents: () => <div data-testid="documents-content">Documents Content</div>
+  Documents: ({
+    onSelectDocument,
+    ...props
+  }: {
+    onSelectDocument?: (documentId: string) => void;
+    [key: string]: unknown;
+  }) => {
+    lastDocumentsProps = props;
+    return (
+      <div data-testid="documents-content">
+        <button
+          type="button"
+          onClick={() => onSelectDocument?.('doc-1')}
+          data-testid="select-document"
+        >
+          Select Document
+        </button>
+      </div>
+    );
+  }
+}));
+
+vi.mock('@/pages/DocumentDetail', () => ({
+  DocumentDetail: ({
+    documentId,
+    onBack
+  }: {
+    documentId?: string;
+    onBack?: () => void;
+  }) => (
+    <div data-testid="document-detail">
+      <span>Document {documentId}</span>
+      <button type="button" onClick={onBack} data-testid="document-back">
+        Back
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('./DocumentsWindowMenuBar', () => ({
+  DocumentsWindowMenuBar: ({
+    onUpload,
+    onRefresh,
+    onClose
+  }: {
+    onUpload: () => void;
+    onRefresh: () => void;
+    onClose: () => void;
+  }) => (
+    <div data-testid="documents-menu">
+      <button type="button" onClick={onUpload} data-testid="menu-upload">
+        Upload
+      </button>
+      <button type="button" onClick={onRefresh} data-testid="menu-refresh">
+        Refresh
+      </button>
+      <button type="button" onClick={onClose} data-testid="menu-close">
+        Close
+      </button>
+    </div>
+  )
+}));
+
+const mockUploadFile = vi.fn();
+vi.mock('@/hooks/useFileUpload', () => ({
+  useFileUpload: () => ({ uploadFile: mockUploadFile })
 }));
 
 describe('DocumentsWindow', () => {
@@ -44,6 +111,7 @@ describe('DocumentsWindow', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    lastDocumentsProps = null;
   });
 
   it('renders in FloatingWindow', () => {
@@ -61,6 +129,17 @@ describe('DocumentsWindow', () => {
     expect(screen.getByTestId('documents-content')).toBeInTheDocument();
   });
 
+  it('renders detail view when a document is selected', async () => {
+    const user = userEvent.setup();
+    render(<DocumentsWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-document'));
+
+    expect(screen.getByTestId('document-detail')).toHaveTextContent(
+      'Document doc-1'
+    );
+  });
+
   it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
@@ -68,6 +147,59 @@ describe('DocumentsWindow', () => {
 
     await user.click(screen.getByTestId('close-window'));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('refreshes documents when menu refresh is clicked', async () => {
+    const user = userEvent.setup();
+    render(<DocumentsWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('menu-refresh'));
+
+    await screen.findByTestId('documents-content');
+    expect(lastDocumentsProps?.['refreshToken']).toBe(1);
+  });
+
+  it('uploads files when file input changes', async () => {
+    const user = userEvent.setup();
+    render(<DocumentsWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('menu-upload'));
+
+    const fileInput = screen.getByTestId('documents-file-input');
+    const file = new File(['hello'], 'test.txt', { type: 'text/plain' });
+
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(mockUploadFile).toHaveBeenCalledWith(file);
+    });
+  });
+
+  it('shows upload errors when files fail to upload', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<DocumentsWindow {...defaultProps} />);
+
+    const fileInput = screen.getByTestId('documents-file-input');
+    const file = new File(['hello'], 'test.txt', { type: 'text/plain' });
+    mockUploadFile.mockRejectedValueOnce(new Error('Upload failed'));
+
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    expect(
+      await screen.findByText('"test.txt": Upload failed')
+    ).toBeInTheDocument();
+    consoleSpy.mockRestore();
+  });
+
+  it('returns to documents list when detail back is clicked', async () => {
+    const user = userEvent.setup();
+    render(<DocumentsWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-document'));
+    expect(screen.getByTestId('document-detail')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('document-back'));
+    expect(screen.getByTestId('documents-content')).toBeInTheDocument();
   });
 
   it('passes initialDimensions to FloatingWindow when provided', () => {

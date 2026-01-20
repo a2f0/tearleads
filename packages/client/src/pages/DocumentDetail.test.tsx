@@ -97,6 +97,21 @@ function renderDocumentDetailRaw(documentId: string = 'doc-123') {
   );
 }
 
+function renderDocumentDetailWithProps(documentId: string, onBack: () => void) {
+  return render(
+    <ThemeProvider>
+      <MemoryRouter initialEntries={[`/documents/${documentId}`]}>
+        <Routes>
+          <Route
+            path="/documents/:id"
+            element={<DocumentDetail documentId={documentId} onBack={onBack} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    </ThemeProvider>
+  );
+}
+
 async function renderDocumentDetail(documentId: string = 'doc-123') {
   const result = renderDocumentDetailRaw(documentId);
   await waitFor(() => {
@@ -399,6 +414,34 @@ describe('DocumentDetail', () => {
       expect(backLink).toBeInTheDocument();
       expect(backLink).toHaveAttribute('href', '/documents');
       expect(backLink).toHaveTextContent('Back to Documents');
+    });
+
+    it('renders back button when onBack is provided', async () => {
+      const user = userEvent.setup();
+      const onBack = vi.fn();
+      renderDocumentDetailWithProps('doc-123', onBack);
+
+      const backButton = await screen.findByTestId('document-detail-back');
+      await user.click(backButton);
+
+      expect(onBack).toHaveBeenCalledTimes(1);
+      expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('delete handling', () => {
+    it('calls onBack after delete when provided', async () => {
+      const user = userEvent.setup();
+      const onBack = vi.fn();
+      renderDocumentDetailWithProps('doc-123', onBack);
+
+      const deleteButton = await screen.findByTestId('delete-button');
+      await user.click(deleteButton);
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalled();
+      });
+      expect(onBack).toHaveBeenCalledTimes(1);
     });
   });
 
