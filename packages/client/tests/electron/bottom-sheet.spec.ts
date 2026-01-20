@@ -5,25 +5,23 @@ const APP_LOAD_TIMEOUT = 10000;
 
 test.describe('Settings Window (Electron)', () => {
   let electronApp: ElectronApplication;
-  let window: Page;
+  let page: Page;
 
   test.beforeEach(async () => {
     electronApp = await launchElectronApp();
-    window = await electronApp.firstWindow();
-    await window.bringToFront();
+    page = await electronApp.firstWindow();
+    await page.bringToFront();
 
     // Wait for app to load - verify Start button is visible
-    const startButton = window.getByTestId('start-button');
+    const startButton = page.getByTestId('start-button');
     await expect(startButton).toBeVisible({ timeout: APP_LOAD_TIMEOUT });
 
     // Resize to a mobile-like viewport so settings uses the bottom sheet.
-    await window.setViewportSize({ width: 600, height: 900 });
+    await page.setViewportSize({ width: 600, height: 900 });
 
-    // Open the settings sheet
-    await window.getByTestId('settings-button').click();
-    await expect(
-      window.locator('[data-testid^="floating-window-settings-"][role="dialog"]')
-    ).toBeVisible();
+    await page.waitForFunction(() => window.innerWidth < 1024);
+    await page.getByTestId('settings-button').click();
+    await expect(page.getByTestId('settings-sheet-content')).toBeVisible();
   });
 
   test.afterEach(async () => {
@@ -31,15 +29,11 @@ test.describe('Settings Window (Electron)', () => {
   });
 
   test('opens settings window from header button', async () => {
-    await expect(
-      window.locator('[data-testid^="floating-window-settings-"][role="dialog"]')
-    ).toBeVisible();
+    await expect(page.getByTestId('settings-sheet-content')).toBeVisible();
   });
 
   test('closes settings window from title bar control', async () => {
-    await window.getByRole('button', { name: 'Close Settings' }).click();
-    await expect(
-      window.locator('[data-testid^="floating-window-settings-"][role="dialog"]')
-    ).toBeHidden();
+    await page.getByTestId('settings-sheet-backdrop').click();
+    await expect(page.getByTestId('settings-sheet-content')).toBeHidden();
   });
 });
