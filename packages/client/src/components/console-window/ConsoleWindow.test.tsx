@@ -347,15 +347,13 @@ describe('ConsoleWindow', () => {
 
     await user.click(screen.getByTestId('split-vertical-button'));
 
-    const terminals = screen.getAllByTestId('terminal');
-    const paneClasses = terminals.map(
-      (terminal) => terminal.parentElement?.parentElement?.className ?? ''
-    );
+    const mainPane = screen.getByTestId('console-main-pane');
+    const splitPane = screen.getByTestId('console-split-pane');
 
-    paneClasses.forEach((classes) => {
-      expect(classes).toContain('min-h-0');
-      expect(classes).toContain('min-w-0');
-    });
+    expect(mainPane).toHaveClass('min-h-0');
+    expect(mainPane).toHaveClass('min-w-0');
+    expect(splitPane).toHaveClass('min-h-0');
+    expect(splitPane).toHaveClass('min-w-0');
   });
 
   it('switches from horizontal to vertical split', async () => {
