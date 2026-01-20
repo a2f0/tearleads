@@ -268,7 +268,7 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
                         {table.isEstimated ? '~' : ''}
                         {sizeParts.value}
                       </span>
-                      <span className="shrink-0 text-left font-mono text-xs">
+                      <span className="shrink-0 text-right font-mono text-xs">
                         {sizeParts.unit}
                       </span>
                       <span className="shrink-0 text-right font-mono text-xs">
