@@ -1,4 +1,4 @@
-import { assertPlainArrayBuffer } from '@rapid/shared';
+import { assertPlainArrayBuffer, isRecord } from '@rapid/shared';
 import { and, eq, like } from 'drizzle-orm';
 import {
   ArrowLeft,
@@ -9,7 +9,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ActionToolbar, type ActionType } from '@/components/ui/action-toolbar';
 import { BackLink } from '@/components/ui/back-link';
@@ -42,12 +42,20 @@ interface VideoInfo {
 interface VideoDetailProps {
   videoId?: string | undefined;
   onBack?: (() => void) | undefined;
+  hideBackLink?: boolean | undefined;
+  autoPlay?: boolean | undefined;
 }
 
-export function VideoDetail({ videoId, onBack }: VideoDetailProps) {
+export function VideoDetail({
+  videoId,
+  onBack,
+  hideBackLink,
+  autoPlay
+}: VideoDetailProps) {
   const { id } = useParams<{ id: string }>();
   const resolvedId = videoId ?? id;
   const navigate = useNavigate();
+  const location = useLocation();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [video, setVideo] = useState<VideoInfo | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
@@ -58,6 +66,8 @@ export function VideoDetail({ videoId, onBack }: VideoDetailProps) {
 
   // Track all created blob URLs to revoke on unmount.
   const urlsToRevoke = useRef<string[]>([]);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Cache raw video data to avoid re-fetching for download/share
   const videoDataRef = useRef<Uint8Array | null>(null);
@@ -256,23 +266,50 @@ export function VideoDetail({ videoId, onBack }: VideoDetailProps) {
     };
   }, []);
 
+  const autoPlayFromState = isRecord(location.state)
+    ? location.state['autoPlay']
+    : undefined;
+  const shouldAutoPlay =
+    typeof autoPlay === 'boolean'
+      ? autoPlay
+      : typeof autoPlayFromState === 'boolean'
+        ? autoPlayFromState
+        : false;
+
+  useEffect(() => {
+    if (!shouldAutoPlay || !objectUrl) return;
+    const player = videoRef.current;
+    if (!player) return;
+    const playPromise = player.play();
+    if (playPromise) {
+      playPromise.catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') {
+          return;
+        }
+        console.warn('Failed to auto-play video:', err);
+      });
+    }
+  }, [objectUrl, shouldAutoPlay]);
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        {onBack ? (
-          <Button
-            variant="ghost"
-            onClick={onBack}
-            className="h-auto justify-start p-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
-            data-testid="video-back-button"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Videos
-          </Button>
-        ) : (
-          <BackLink defaultTo="/videos" defaultLabel="Back to Videos" />
-        )}
-      </div>
+      {!hideBackLink && (
+        <div className="flex items-center gap-4">
+          {onBack ? (
+            <Button
+              variant="ghost"
+              onClick={onBack}
+              className="h-auto justify-start p-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+              data-testid="video-back-button"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Videos
+            </Button>
+          ) : (
+            <BackLink defaultTo="/videos" defaultLabel="Back to Videos" />
+          )}
+        </div>
+      )}
 
       {isLoading && (
         <div className="rounded-lg border p-8 text-center text-muted-foreground">
@@ -308,8 +345,10 @@ export function VideoDetail({ videoId, onBack }: VideoDetailProps) {
           {objectUrl && (
             <div className="overflow-hidden rounded-lg border bg-muted p-4">
               <video
+                ref={videoRef}
                 src={objectUrl}
                 controls
+                autoPlay={shouldAutoPlay}
                 playsInline
                 className="max-h-[60vh] w-full rounded-lg"
                 data-testid="video-player"

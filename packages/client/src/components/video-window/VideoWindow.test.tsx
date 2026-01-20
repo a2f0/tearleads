@@ -36,15 +36,21 @@ vi.mock('@/pages/Video', async () => {
   return {
     VideoPage: ({
       onOpenVideo,
-      hideBackLink
+      hideBackLink,
+      viewMode
     }: {
-      onOpenVideo?: (videoId: string) => void;
+      onOpenVideo?: (
+        videoId: string,
+        options?: { autoPlay?: boolean | undefined }
+      ) => void;
       hideBackLink?: boolean;
+      viewMode?: 'list' | 'table';
     }) => {
       const location = useLocation();
       return (
         <>
           <div data-testid="video-location">{location.pathname}</div>
+          <div data-testid="video-view-mode">{viewMode}</div>
           <button
             type="button"
             onClick={() => onOpenVideo?.('test-video')}
@@ -60,12 +66,20 @@ vi.mock('@/pages/Video', async () => {
 });
 
 vi.mock('@/pages/VideoDetail', () => ({
-  VideoDetail: ({ onBack }: { onBack?: () => void }) => (
+  VideoDetail: ({
+    onBack,
+    hideBackLink
+  }: {
+    onBack?: () => void;
+    hideBackLink?: boolean;
+  }) => (
     <div data-testid="video-detail">
       Video Detail
-      <button type="button" onClick={onBack} data-testid="video-back">
-        Back
-      </button>
+      {!hideBackLink && (
+        <button type="button" onClick={onBack} data-testid="video-back">
+          Back
+        </button>
+      )}
     </div>
   )
 }));
@@ -92,8 +106,11 @@ describe('VideoWindow', () => {
   it('renders the VideoPage content', () => {
     render(<VideoWindow {...defaultProps} />);
     expect(screen.getByTestId('video-location')).toHaveTextContent('/videos');
+    expect(screen.getByTestId('video-view-mode')).toHaveTextContent('list');
     expect(screen.getByTestId('open-video')).toBeInTheDocument();
     expect(screen.getByTestId('back-link-hidden')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', async () => {
@@ -111,6 +128,7 @@ describe('VideoWindow', () => {
 
     await user.click(screen.getByTestId('open-video'));
     expect(screen.getByTestId('video-detail')).toBeInTheDocument();
+    expect(screen.getByTestId('video-back')).toBeInTheDocument();
   });
 
   it('returns to the list when back is clicked', async () => {
@@ -122,6 +140,16 @@ describe('VideoWindow', () => {
 
     await user.click(screen.getByTestId('video-back'));
     expect(screen.getByTestId('open-video')).toBeInTheDocument();
+  });
+
+  it('switches to the table view from the menu', async () => {
+    const user = userEvent.setup();
+    render(<VideoWindow {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Table' }));
+
+    expect(screen.getByTestId('video-view-mode')).toHaveTextContent('table');
   });
 
   it('passes initialDimensions to FloatingWindow when provided', () => {

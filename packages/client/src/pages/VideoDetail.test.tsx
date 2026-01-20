@@ -212,6 +212,26 @@ describe('VideoDetail', () => {
       expect(screen.getByTestId('video-player')).toBeInTheDocument();
     });
 
+    it('enables autoplay when autoPlay prop is true', async () => {
+      render(
+        <ThemeProvider>
+          <MemoryRouter>
+            <VideoDetail videoId="video-123" autoPlay />
+          </MemoryRouter>
+        </ThemeProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText('Loading video...')).not.toBeInTheDocument();
+      });
+
+      const player = screen.getByTestId('video-player');
+      if (!(player instanceof HTMLVideoElement)) {
+        throw new Error('Expected video player to be a video element');
+      }
+      expect(player.autoplay).toBe(true);
+    });
+
     it('renders download button', async () => {
       await renderVideoDetail();
 
@@ -436,6 +456,25 @@ describe('VideoDetail', () => {
       const backLink = screen.getByText('Back to Videos');
       expect(backLink).toBeInTheDocument();
       expect(backLink.closest('a')).toHaveAttribute('href', '/videos');
+    });
+
+    it('hides back controls when hideBackLink is true', async () => {
+      render(
+        <ThemeProvider>
+          <MemoryRouter>
+            <VideoDetail videoId="video-123" hideBackLink />
+          </MemoryRouter>
+        </ThemeProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText('Loading video...')).not.toBeInTheDocument();
+      });
+
+      expect(
+        screen.queryByTestId('video-back-button')
+      ).not.toBeInTheDocument();
+      expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
     });
 
     it('renders back button when onBack prop is provided', async () => {
