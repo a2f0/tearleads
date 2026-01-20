@@ -515,7 +515,7 @@ describe('FloatingWindow', () => {
       // height = min(900 + 28, 712) = 712 (clamped)
       // width = 700 (fits within 1024)
       // x = (1024 - 700) / 2 = 162
-      // y = (688 - 688) / 2 = 0
+      // y = (712 - 712) / 2 = 0
       render(
         <FloatingWindow
           {...defaultProps}

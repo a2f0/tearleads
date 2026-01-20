@@ -77,7 +77,7 @@ export function Taskbar({ className }: TaskbarProps) {
   const hasWindows = windows.length > 0;
 
   return (
-    <div className={cn('min-h-7', className)} data-testid="taskbar">
+    <div className={cn('min-h-6', className)} data-testid="taskbar">
       <div className="flex items-center gap-1">
         {hasWindows &&
           sortedWindows.map((window) => (
