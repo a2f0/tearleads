@@ -55,10 +55,10 @@ vi.mock('@tanstack/react-virtual', () => ({
   )
 }));
 
-function renderAdmin() {
+function renderAdmin(showBackLink = true) {
   return render(
     <MemoryRouter>
-      <Admin />
+      <Admin showBackLink={showBackLink} />
     </MemoryRouter>
   );
 }
@@ -85,6 +85,22 @@ describe('Admin', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Redis Browser')).toBeInTheDocument();
+      });
+    });
+
+    it('shows back link by default', async () => {
+      renderAdmin();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('back-link')).toBeInTheDocument();
+      });
+    });
+
+    it('hides back link when disabled', async () => {
+      renderAdmin(false);
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
       });
     });
 

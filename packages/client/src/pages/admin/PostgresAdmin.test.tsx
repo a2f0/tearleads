@@ -12,17 +12,31 @@ vi.mock('@/components/admin-postgres/PostgresTableSizes', () => ({
 }));
 
 describe('PostgresAdmin', () => {
-  it('renders the heading and admin panels', () => {
-    render(
+  function renderPostgresAdmin(showBackLink = true) {
+    return render(
       <MemoryRouter>
-        <PostgresAdmin />
+        <PostgresAdmin showBackLink={showBackLink} />
       </MemoryRouter>
     );
+  }
+
+  it('renders the heading and admin panels', () => {
+    renderPostgresAdmin();
 
     expect(
       screen.getByRole('heading', { name: 'Postgres Admin' })
     ).toBeInTheDocument();
     expect(screen.getByTestId('postgres-connection-panel')).toBeInTheDocument();
     expect(screen.getByTestId('postgres-table-sizes')).toBeInTheDocument();
+  });
+
+  it('shows back link by default', () => {
+    renderPostgresAdmin();
+    expect(screen.getByTestId('back-link')).toBeInTheDocument();
+  });
+
+  it('hides back link when disabled', () => {
+    renderPostgresAdmin(false);
+    expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
   });
 });

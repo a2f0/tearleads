@@ -49,11 +49,11 @@ function setupMockCaches(
   return mockCaches;
 }
 
-function renderCacheStorage() {
+function renderCacheStorage(showBackLink = true) {
   return render(
     <ThemeProvider>
       <MemoryRouter>
-        <CacheStorage />
+        <CacheStorage showBackLink={showBackLink} />
       </MemoryRouter>
     </ThemeProvider>
   );
@@ -80,6 +80,18 @@ describe('CacheStorage', () => {
           )
         ).toBeInTheDocument();
       });
+    });
+
+    it('shows back link by default', () => {
+      renderCacheStorage();
+
+      expect(screen.getByTestId('back-link')).toBeInTheDocument();
+    });
+
+    it('hides back link when disabled', () => {
+      renderCacheStorage(false);
+
+      expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
     });
   });
 

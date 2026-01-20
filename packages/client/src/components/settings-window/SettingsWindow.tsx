@@ -53,7 +53,7 @@ export function SettingsWindow({
         />
         <div className={cn('flex-1 overflow-auto', compact ? 'p-3' : 'p-6')}>
           <MemoryRouter initialEntries={['/settings']}>
-            <Settings />
+            <Settings showBackLink={false} />
           </MemoryRouter>
         </div>
       </div>

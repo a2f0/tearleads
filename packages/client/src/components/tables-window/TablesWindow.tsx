@@ -42,7 +42,10 @@ export function TablesWindow({
         <div className="flex-1 overflow-auto p-4">
           <MemoryRouter initialEntries={['/sqlite/tables']}>
             <Routes>
-              <Route path="/sqlite/tables" element={<Tables />} />
+              <Route
+                path="/sqlite/tables"
+                element={<Tables showBackLink={false} />}
+              />
               <Route path="/sqlite/tables/:tableName" element={<TableRows />} />
               <Route
                 path="*"

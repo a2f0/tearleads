@@ -34,7 +34,11 @@ function getRowNumber(row: unknown, key: string): number | null {
   return null;
 }
 
-export function Tables() {
+interface TablesProps {
+  showBackLink?: boolean;
+}
+
+export function Tables({ showBackLink = true }: TablesProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -122,7 +126,7 @@ export function Tables() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
         <div className="flex items-center justify-between">
           <h1 className="font-bold text-2xl tracking-tight">Tables</h1>
           {isUnlocked && (
