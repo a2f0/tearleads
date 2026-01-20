@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import type { FilesWindowContentRef } from './FilesWindowContent';
@@ -77,39 +78,41 @@ export function FilesWindow({
       minWidth={400}
       minHeight={300}
     >
-      <div className="flex h-full flex-col">
-        <FilesWindowMenuBar
-          showDeleted={showDeleted}
-          onShowDeletedChange={setShowDeleted}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          onUpload={handleUpload}
-          onClose={onClose}
-        />
-        <div className="flex-1 overflow-hidden">
-          {selectedFileId ? (
-            <FilesWindowDetail
-              fileId={selectedFileId}
-              onBack={handleBack}
-              onDeleted={handleDeleted}
-            />
-          ) : viewMode === 'list' ? (
-            <FilesWindowContent
-              ref={contentRef}
-              showDeleted={showDeleted}
-              onSelectFile={handleSelectFile}
-              refreshToken={refreshToken}
-            />
-          ) : (
-            <FilesWindowTableView
-              showDeleted={showDeleted}
-              onUpload={handleUpload}
-              onSelectFile={handleSelectFile}
-              refreshToken={refreshToken}
-            />
-          )}
+      <MemoryRouter initialEntries={['/files']}>
+        <div className="flex h-full flex-col">
+          <FilesWindowMenuBar
+            showDeleted={showDeleted}
+            onShowDeletedChange={setShowDeleted}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            onUpload={handleUpload}
+            onClose={onClose}
+          />
+          <div className="flex-1 overflow-hidden">
+            {selectedFileId ? (
+              <FilesWindowDetail
+                fileId={selectedFileId}
+                onBack={handleBack}
+                onDeleted={handleDeleted}
+              />
+            ) : viewMode === 'list' ? (
+              <FilesWindowContent
+                ref={contentRef}
+                showDeleted={showDeleted}
+                onSelectFile={handleSelectFile}
+                refreshToken={refreshToken}
+              />
+            ) : (
+              <FilesWindowTableView
+                showDeleted={showDeleted}
+                onUpload={handleUpload}
+                onSelectFile={handleSelectFile}
+                refreshToken={refreshToken}
+              />
+            )}
+          </div>
         </div>
-      </div>
+      </MemoryRouter>
       <input
         ref={fileInputRef}
         type="file"
