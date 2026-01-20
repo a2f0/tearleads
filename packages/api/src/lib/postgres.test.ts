@@ -44,6 +44,30 @@ async function loadPostgresModule() {
   return import('./postgres.js');
 }
 
+const DEV_ENV_KEYS = [
+  'USER',
+  'LOGNAME',
+  'DATABASE_URL',
+  'POSTGRES_URL',
+  'POSTGRES_HOST',
+  'POSTGRES_PORT',
+  'POSTGRES_USER',
+  'POSTGRES_PASSWORD',
+  'POSTGRES_DATABASE',
+  'PGHOST',
+  'PGPORT',
+  'PGUSER',
+  'PGPASSWORD',
+  'PGDATABASE'
+];
+
+function setupDevEnvWithoutVars() {
+  process.env.NODE_ENV = 'development';
+  for (const key of DEV_ENV_KEYS) {
+    delete process.env[key];
+  }
+}
+
 describe('postgres lib', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -122,21 +146,7 @@ describe('postgres lib', () => {
   });
 
   it('uses development defaults when no env vars are set', async () => {
-    process.env.NODE_ENV = 'development';
-    delete process.env.USER;
-    delete process.env.LOGNAME;
-    delete process.env.DATABASE_URL;
-    delete process.env.POSTGRES_URL;
-    delete process.env.POSTGRES_HOST;
-    delete process.env.POSTGRES_PORT;
-    delete process.env.POSTGRES_USER;
-    delete process.env.POSTGRES_PASSWORD;
-    delete process.env.POSTGRES_DATABASE;
-    delete process.env.PGHOST;
-    delete process.env.PGPORT;
-    delete process.env.PGUSER;
-    delete process.env.PGPASSWORD;
-    delete process.env.PGDATABASE;
+    setupDevEnvWithoutVars();
 
     const { getPostgresConnectionInfo } = await loadPostgresModule();
 
@@ -149,21 +159,7 @@ describe('postgres lib', () => {
   });
 
   it('uses dev defaults for pool config when no env vars are set', async () => {
-    process.env.NODE_ENV = 'development';
-    delete process.env.USER;
-    delete process.env.LOGNAME;
-    delete process.env.DATABASE_URL;
-    delete process.env.POSTGRES_URL;
-    delete process.env.POSTGRES_HOST;
-    delete process.env.POSTGRES_PORT;
-    delete process.env.POSTGRES_USER;
-    delete process.env.POSTGRES_PASSWORD;
-    delete process.env.POSTGRES_DATABASE;
-    delete process.env.PGHOST;
-    delete process.env.PGPORT;
-    delete process.env.PGUSER;
-    delete process.env.PGPASSWORD;
-    delete process.env.PGDATABASE;
+    setupDevEnvWithoutVars();
 
     const { getPostgresPool } = await loadPostgresModule();
 

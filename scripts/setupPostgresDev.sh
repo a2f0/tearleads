@@ -40,9 +40,6 @@ fi
 if ! brew services start "${postgres_formula}" >/dev/null; then
   brew_prefix="$(brew --prefix)"
   data_dir="${brew_prefix}/var/${postgres_formula}"
-  if [[ "${postgres_formula}" == "postgresql" ]]; then
-    data_dir="${brew_prefix}/var/postgresql"
-  fi
   postgres_bin="$(brew --prefix "${postgres_formula}")/bin/postgres"
 
   echo "Failed to start Postgres via brew services." >&2
@@ -52,10 +49,7 @@ if ! brew services start "${postgres_formula}" >/dev/null; then
   exit 1
 fi
 
-pg_user="${USER:-}"
-if [[ -z "${pg_user}" ]]; then
-  pg_user="${LOGNAME:-}"
-fi
+pg_user="${USER:-${LOGNAME:-}}"
 
 echo "Postgres service started (${postgres_formula})."
 echo "Suggested environment variables for dev:"

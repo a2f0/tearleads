@@ -48,8 +48,12 @@ function getDevDefaults(): {
   }
   let user = process.env['USER'] ?? process.env['LOGNAME'];
   if (!user) {
-    const osUser = os.userInfo().username;
-    user = osUser && osUser.trim().length > 0 ? osUser : undefined;
+    try {
+      const osUser = os.userInfo().username;
+      user = osUser && osUser.trim().length > 0 ? osUser : undefined;
+    } catch {
+      user = undefined;
+    }
   }
   const baseDefaults = {
     host: 'localhost',
