@@ -207,6 +207,12 @@ describe('AudioPage', () => {
       expect(screen.getByText('Audio')).toBeInTheDocument();
     });
 
+    it('shows back link by default', async () => {
+      await renderAudio();
+
+      expect(screen.getByTestId('back-link')).toBeInTheDocument();
+    });
+
     it('renders Refresh button when unlocked', async () => {
       await renderAudio();
 

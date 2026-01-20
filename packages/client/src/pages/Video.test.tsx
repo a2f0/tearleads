@@ -195,6 +195,12 @@ describe('VideoPage', () => {
       expect(screen.getByText('Videos')).toBeInTheDocument();
     });
 
+    it('shows back link by default', async () => {
+      await renderVideo();
+
+      expect(screen.getByTestId('back-link')).toBeInTheDocument();
+    });
+
     it('hides the back link when requested', () => {
       renderVideoRaw({ hideBackLink: true });
 

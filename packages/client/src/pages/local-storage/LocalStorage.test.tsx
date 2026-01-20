@@ -8,10 +8,10 @@ import { LocalStorage } from './LocalStorage';
 // Store localStorage data for tests
 let localStorageData: Record<string, string> = {};
 
-function renderLocalStorage() {
+function renderLocalStorage(showBackLink = true) {
   return render(
     <MemoryRouter>
-      <LocalStorage />
+      <LocalStorage showBackLink={showBackLink} />
     </MemoryRouter>
   );
 }
@@ -50,6 +50,18 @@ describe('LocalStorage', () => {
       renderLocalStorage();
 
       expect(screen.getByText('Local Storage Browser')).toBeInTheDocument();
+    });
+
+    it('shows back link by default', () => {
+      renderLocalStorage();
+
+      expect(screen.getByTestId('back-link')).toBeInTheDocument();
+    });
+
+    it('hides back link when disabled', () => {
+      renderLocalStorage(false);
+
+      expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
     });
 
     it('renders Refresh button', () => {

@@ -106,6 +106,7 @@ describe('Email', () => {
     renderWithRouter(<Email />);
 
     expect(screen.getByRole('heading', { name: 'Email' })).toBeInTheDocument();
+    expect(screen.getByTestId('back-link')).toBeInTheDocument();
     expect(screen.getByTestId('refresh-button')).toBeInTheDocument();
 
     await waitFor(() => {

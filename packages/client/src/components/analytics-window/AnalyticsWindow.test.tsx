@@ -47,7 +47,14 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 vi.mock('@/pages/analytics', () => ({
-  Analytics: () => <div data-testid="analytics-content">Analytics Content</div>
+  Analytics: ({ showBackLink }: { showBackLink?: boolean }) => (
+    <div
+      data-testid="analytics-content"
+      data-show-back-link={showBackLink ? 'true' : 'false'}
+    >
+      Analytics Content
+    </div>
+  )
 }));
 
 vi.mock('./AnalyticsWindowMenuBar', () => ({
@@ -86,6 +93,10 @@ describe('AnalyticsWindow', () => {
   it('renders Analytics content', () => {
     render(<AnalyticsWindow {...defaultProps} />);
     expect(screen.getByTestId('analytics-content')).toBeInTheDocument();
+    expect(screen.getByTestId('analytics-content')).toHaveAttribute(
+      'data-show-back-link',
+      'false'
+    );
   });
 
   it('renders menu bar', () => {
