@@ -22,7 +22,7 @@
     "clean": "pnpm -r clean",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
-    "lint:scripts": "shellcheck --severity=info scripts/*.sh && pnpm --filter @rapid/client lint:scripts",
+    "lint:scripts": "shellcheck --severity=info scripts/*.sh ansible/playbooks/files/scripts/*.sh && pnpm --filter @rapid/client lint:scripts",
     "lint:rubocop": "pnpm --filter @rapid/client lint:rubocop",
     "lint:ansible": "ansible-lint ansible/",
     "lint:md": "markdownlint-cli2 '**/*.md'",
