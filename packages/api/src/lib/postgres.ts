@@ -33,7 +33,7 @@ function parsePort(value: string | undefined): number | null {
 }
 
 function isDevMode(): boolean {
-  const nodeEnv = process.env.NODE_ENV;
+  const nodeEnv = process.env['NODE_ENV'];
   return nodeEnv === 'development' || !nodeEnv;
 }
 
@@ -46,17 +46,20 @@ function getDevDefaults(): {
   if (!isDevMode()) {
     return {};
   }
-  let user = process.env.USER ?? process.env.LOGNAME;
+  let user = process.env['USER'] ?? process.env['LOGNAME'];
   if (!user) {
     const osUser = os.userInfo().username;
     user = osUser && osUser.trim().length > 0 ? osUser : undefined;
   }
-  return {
+  const baseDefaults = {
     host: 'localhost',
     port: 5432,
-    user: user && user.trim().length > 0 ? user : undefined,
     database: 'postgres'
   };
+  if (user && user.trim().length > 0) {
+    return { ...baseDefaults, user };
+  }
+  return baseDefaults;
 }
 
 function buildConnectionInfo(): PostgresConnectionInfo {
