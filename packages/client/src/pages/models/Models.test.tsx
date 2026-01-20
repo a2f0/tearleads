@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
 import { Models } from './Models';
+import { ModelsContent } from './ModelsContent';
 
 // Mock WebGPU API
 const mockGPUAdapter = {
@@ -53,6 +54,14 @@ function renderModels() {
   return render(
     <MemoryRouter>
       <Models />
+    </MemoryRouter>
+  );
+}
+
+function renderModelsContent(showBackLink = true) {
+  return render(
+    <MemoryRouter>
+      <ModelsContent showBackLink={showBackLink} />
     </MemoryRouter>
   );
 }
@@ -110,6 +119,22 @@ describe('Models', () => {
         expect(
           screen.getByText(/Download and run LLMs locally/)
         ).toBeInTheDocument();
+      });
+    });
+
+    it('shows back link by default', async () => {
+      renderModels();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('back-link')).toBeInTheDocument();
+      });
+    });
+
+    it('hides back link when disabled', async () => {
+      renderModelsContent(false);
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
       });
     });
 

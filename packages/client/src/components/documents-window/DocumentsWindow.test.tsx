@@ -135,6 +135,7 @@ describe('DocumentsWindow', () => {
     expect(screen.getByTestId('documents-location')).toHaveTextContent(
       '/documents'
     );
+    expect(lastDocumentsProps?.['showBackLink']).toBe(false);
   });
 
   it('renders detail view when a document is selected', async () => {
