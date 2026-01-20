@@ -37,12 +37,19 @@ vi.mock('@/components/floating-window', () => ({
 vi.mock('@/pages/local-storage', async () => {
   const { useLocation } = await import('react-router-dom');
   return {
-    LocalStorage: () => {
+    LocalStorage: ({ showBackLink }: { showBackLink?: boolean }) => {
       const location = useLocation();
       useEffect(() => {
         localStorageMount();
       }, []);
-      return <div data-testid="local-storage-content">{location.pathname}</div>;
+      return (
+        <div data-testid="local-storage-content">
+          <span data-testid="local-storage-location">{location.pathname}</span>
+          <span data-testid="local-storage-backlink">
+            {showBackLink ? 'true' : 'false'}
+          </span>
+        </div>
+      );
     }
   };
 });
@@ -74,8 +81,11 @@ describe('LocalStorageWindow', () => {
 
   it('renders the local storage content', () => {
     render(<LocalStorageWindow {...defaultProps} />);
-    expect(screen.getByTestId('local-storage-content')).toHaveTextContent(
+    expect(screen.getByTestId('local-storage-location')).toHaveTextContent(
       '/local-storage'
+    );
+    expect(screen.getByTestId('local-storage-backlink')).toHaveTextContent(
+      'false'
     );
   });
 
