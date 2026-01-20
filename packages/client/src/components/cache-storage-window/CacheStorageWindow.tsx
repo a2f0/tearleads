@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { CacheStorage } from '@/pages/cache-storage';
@@ -50,7 +51,9 @@ export function CacheStorageWindow({
           onClose={onClose}
         />
         <div className="flex-1 overflow-auto p-4" key={refreshKey}>
-          <CacheStorage />
+          <MemoryRouter initialEntries={['/cache-storage']}>
+            <CacheStorage showBackLink={false} />
+          </MemoryRouter>
         </div>
       </div>
     </FloatingWindow>

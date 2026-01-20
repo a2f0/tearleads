@@ -167,6 +167,14 @@ describe('Photos', () => {
       });
     });
 
+    it('shows back link by default', async () => {
+      await renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('back-link')).toBeInTheDocument();
+      });
+    });
+
     it('shows photo count', async () => {
       await renderPhotos();
 

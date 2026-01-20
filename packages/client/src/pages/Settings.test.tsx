@@ -42,11 +42,11 @@ vi.mock('@/lib/file-utils', () => ({
   saveFile: (...args: unknown[]) => mockSaveFile(...args)
 }));
 
-function renderSettings() {
+function renderSettings(showBackLink = true) {
   return render(
     <MemoryRouter>
       <ThemeProvider>
-        <Settings />
+        <Settings showBackLink={showBackLink} />
       </ThemeProvider>
     </MemoryRouter>
   );
@@ -68,6 +68,10 @@ describe('Settings', () => {
 
     it('renders the settings title', () => {
       expect(screen.getByText('Settings')).toBeInTheDocument();
+    });
+
+    it('shows back link by default', () => {
+      expect(screen.getByTestId('back-link')).toBeInTheDocument();
     });
 
     it('renders the theme selector', () => {
@@ -112,6 +116,11 @@ describe('Settings', () => {
       ).toBeInTheDocument();
       expect(screen.getByText('Open Source Licenses')).toBeInTheDocument();
     });
+  });
+
+  it('hides back link when disabled', () => {
+    const { queryByTestId } = renderSettings(false);
+    expect(queryByTestId('back-link')).not.toBeInTheDocument();
   });
 
   describe('backup & restore section', () => {

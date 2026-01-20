@@ -31,6 +31,10 @@ describe('Sqlite', () => {
       expect(screen.getByText('SQLite')).toBeInTheDocument();
     });
 
+    it('shows back link by default', () => {
+      expect(screen.getByTestId('back-link')).toBeInTheDocument();
+    });
+
     it('renders the page description', () => {
       expect(
         screen.getByText(

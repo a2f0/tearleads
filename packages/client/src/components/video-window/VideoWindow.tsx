@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { VideoPage } from '@/pages/Video';
@@ -40,21 +41,23 @@ export function VideoWindow({
       minWidth={400}
       minHeight={300}
     >
-      {activeVideoId ? (
-        <div className="h-full overflow-auto p-3">
-          <VideoDetail
-            videoId={activeVideoId}
-            onBack={() => setActiveVideoId(null)}
-          />
-        </div>
-      ) : (
-        <div className="h-full overflow-hidden p-3">
-          <VideoPage
-            onOpenVideo={(videoId) => setActiveVideoId(videoId)}
-            hideBackLink
-          />
-        </div>
-      )}
+      <MemoryRouter initialEntries={['/videos']}>
+        {activeVideoId ? (
+          <div className="h-full overflow-auto p-3">
+            <VideoDetail
+              videoId={activeVideoId}
+              onBack={() => setActiveVideoId(null)}
+            />
+          </div>
+        ) : (
+          <div className="h-full overflow-hidden p-3">
+            <VideoPage
+              onOpenVideo={(videoId) => setActiveVideoId(videoId)}
+              hideBackLink
+            />
+          </div>
+        )}
+      </MemoryRouter>
     </FloatingWindow>
   );
 }

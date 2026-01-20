@@ -22,7 +22,11 @@ import {
   saveFile
 } from '@/lib/file-utils';
 
-export function Settings() {
+interface SettingsProps {
+  showBackLink?: boolean;
+}
+
+export function Settings({ showBackLink = true }: SettingsProps) {
   const { exportDatabase, importDatabase, lock } = useDatabaseContext();
   const version = useAppVersion();
   useFontEffect();
@@ -102,7 +106,7 @@ export function Settings() {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
         <h1 className="font-bold text-2xl tracking-tight">Settings</h1>
       </div>
 

@@ -31,28 +31,33 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/Documents', () => ({
-  Documents: ({
-    onSelectDocument,
-    ...props
-  }: {
-    onSelectDocument?: (documentId: string) => void;
-    [key: string]: unknown;
-  }) => {
-    lastDocumentsProps = props;
-    return (
-      <div data-testid="documents-content">
-        <button
-          type="button"
-          onClick={() => onSelectDocument?.('doc-1')}
-          data-testid="select-document"
-        >
-          Select Document
-        </button>
-      </div>
-    );
-  }
-}));
+vi.mock('@/pages/Documents', async () => {
+  const { useLocation } = await import('react-router-dom');
+  return {
+    Documents: ({
+      onSelectDocument,
+      ...props
+    }: {
+      onSelectDocument?: (documentId: string) => void;
+      [key: string]: unknown;
+    }) => {
+      lastDocumentsProps = props;
+      const location = useLocation();
+      return (
+        <div data-testid="documents-content">
+          <div data-testid="documents-location">{location.pathname}</div>
+          <button
+            type="button"
+            onClick={() => onSelectDocument?.('doc-1')}
+            data-testid="select-document"
+          >
+            Select Document
+          </button>
+        </div>
+      );
+    }
+  };
+});
 
 vi.mock('@/pages/DocumentDetail', () => ({
   DocumentDetail: ({
@@ -127,6 +132,10 @@ describe('DocumentsWindow', () => {
   it('renders Documents content', () => {
     render(<DocumentsWindow {...defaultProps} />);
     expect(screen.getByTestId('documents-content')).toBeInTheDocument();
+    expect(screen.getByTestId('documents-location')).toHaveTextContent(
+      '/documents'
+    );
+    expect(lastDocumentsProps?.['showBackLink']).toBe(false);
   });
 
   it('renders detail view when a document is selected', async () => {

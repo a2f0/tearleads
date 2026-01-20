@@ -15,7 +15,11 @@ import { RedisKeyRow } from './RedisKeyRow';
 const PAGE_SIZE = 50;
 const ROW_HEIGHT_ESTIMATE = 48;
 
-export function Admin() {
+interface AdminProps {
+  showBackLink?: boolean;
+}
+
+export function Admin({ showBackLink = true }: AdminProps) {
   const { t } = useTypedTranslation('contextMenu');
   const [keys, setKeys] = useState<RedisKeyInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,7 +181,7 @@ export function Admin() {
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
-        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-bold text-2xl tracking-tight">Admin</h1>
