@@ -29,9 +29,15 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/Tables', () => ({
-  Tables: () => <div data-testid="tables-content">Tables Content</div>
-}));
+vi.mock('@/pages/Tables', async () => {
+  const { useLocation } = await import('react-router-dom');
+  return {
+    Tables: () => {
+      const location = useLocation();
+      return <div data-testid="tables-content">{location.pathname}</div>;
+    }
+  };
+});
 
 vi.mock('@/pages/TableRows', () => ({
   TableRows: () => <div data-testid="table-rows-content">Rows Content</div>
@@ -62,7 +68,9 @@ describe('TablesWindow', () => {
 
   it('renders tables content', () => {
     render(<TablesWindow {...defaultProps} />);
-    expect(screen.getByTestId('tables-content')).toBeInTheDocument();
+    expect(screen.getByTestId('tables-content')).toHaveTextContent(
+      '/sqlite/tables'
+    );
   });
 
   it('calls onClose when close button is clicked', async () => {

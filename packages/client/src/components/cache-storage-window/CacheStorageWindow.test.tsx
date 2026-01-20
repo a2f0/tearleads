@@ -29,11 +29,17 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/cache-storage', () => ({
-  CacheStorage: () => (
-    <div data-testid="cache-storage-content">Cache Storage Content</div>
-  )
-}));
+vi.mock('@/pages/cache-storage', async () => {
+  const { useLocation } = await import('react-router-dom');
+  return {
+    CacheStorage: () => {
+      const location = useLocation();
+      return (
+        <div data-testid="cache-storage-content">{location.pathname}</div>
+      );
+    }
+  };
+});
 
 vi.mock('./CacheStorageWindowMenuBar', () => ({
   CacheStorageWindowMenuBar: ({
@@ -81,7 +87,9 @@ describe('CacheStorageWindow', () => {
 
   it('renders cache storage content', () => {
     render(<CacheStorageWindow {...defaultProps} />);
-    expect(screen.getByTestId('cache-storage-content')).toBeInTheDocument();
+    expect(screen.getByTestId('cache-storage-content')).toHaveTextContent(
+      '/cache-storage'
+    );
   });
 
   it('renders menu bar', () => {

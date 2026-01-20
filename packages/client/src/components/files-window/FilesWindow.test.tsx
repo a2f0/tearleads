@@ -97,42 +97,47 @@ vi.mock('./FilesWindowTableView', () => ({
 }));
 
 // Mock FilesWindowContent
-vi.mock('./FilesWindowContent', () => ({
-  FilesWindowContent: vi
-    .fn()
-    .mockImplementation(
-      ({
-        showDeleted,
-        ref,
-        onSelectFile
-      }: {
-        showDeleted: boolean;
-        ref?: React.RefObject<{ uploadFiles: (files: File[]) => void } | null>;
-        onSelectFile?: (fileId: string) => void;
-      }) => {
-        // Simulate forwardRef behavior by exposing uploadFiles
-        if (ref) {
-          ref.current = { uploadFiles: mockUploadFiles };
+vi.mock('./FilesWindowContent', async () => {
+  const { useLocation } = await import('react-router-dom');
+  return {
+    FilesWindowContent: vi
+      .fn()
+      .mockImplementation(
+        ({
+          showDeleted,
+          ref,
+          onSelectFile
+        }: {
+          showDeleted: boolean;
+          ref?: React.RefObject<{ uploadFiles: (files: File[]) => void } | null>;
+          onSelectFile?: (fileId: string) => void;
+        }) => {
+          const location = useLocation();
+          // Simulate forwardRef behavior by exposing uploadFiles
+          if (ref) {
+            ref.current = { uploadFiles: mockUploadFiles };
+          }
+          return (
+            <div data-testid="files-content">
+              <span data-testid="files-location">{location.pathname}</span>
+              <span data-testid="content-show-deleted">
+                {showDeleted ? 'true' : 'false'}
+              </span>
+              {onSelectFile && (
+                <button
+                  type="button"
+                  data-testid="select-file-button"
+                  onClick={() => onSelectFile('test-file-id')}
+                >
+                  Select File
+                </button>
+              )}
+            </div>
+          );
         }
-        return (
-          <div data-testid="files-content">
-            <span data-testid="content-show-deleted">
-              {showDeleted ? 'true' : 'false'}
-            </span>
-            {onSelectFile && (
-              <button
-                type="button"
-                data-testid="select-file-button"
-                onClick={() => onSelectFile('test-file-id')}
-              >
-                Select File
-              </button>
-            )}
-          </div>
-        );
-      }
-    )
-}));
+      )
+  };
+});
 
 // Mock FilesWindowDetail
 vi.mock('./FilesWindowDetail', () => ({
@@ -189,6 +194,7 @@ describe('FilesWindow', () => {
   it('renders files content', () => {
     render(<FilesWindow {...defaultProps} />);
     expect(screen.getByTestId('files-content')).toBeInTheDocument();
+    expect(screen.getByTestId('files-location')).toHaveTextContent('/files');
   });
 
   it('starts with showDeleted as false', () => {

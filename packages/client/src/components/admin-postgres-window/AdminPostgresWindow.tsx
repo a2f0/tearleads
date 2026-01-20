@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { AdminWindowMenuBar } from '@/components/admin-window/AdminWindowMenuBar';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -48,7 +49,9 @@ export function AdminPostgresWindow({
           onClose={onClose}
         />
         <div className={cn('flex-1 overflow-auto', compact ? 'p-3' : 'p-6')}>
-          <PostgresAdmin />
+          <MemoryRouter initialEntries={['/admin/postgres']}>
+            <PostgresAdmin />
+          </MemoryRouter>
         </div>
       </div>
     </FloatingWindow>

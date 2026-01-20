@@ -30,9 +30,15 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/admin/Admin', () => ({
-  Admin: () => <div data-testid="admin-content">Admin Content</div>
-}));
+vi.mock('@/pages/admin/Admin', async () => {
+  const { useLocation } = await import('react-router-dom');
+  return {
+    Admin: () => {
+      const location = useLocation();
+      return <div data-testid="admin-content">{location.pathname}</div>;
+    }
+  };
+});
 
 describe('AdminWindow', () => {
   const defaultProps = {
@@ -55,7 +61,9 @@ describe('AdminWindow', () => {
 
   it('renders the admin content', () => {
     render(<AdminWindow {...defaultProps} />);
-    expect(screen.getByTestId('admin-content')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-content')).toHaveTextContent(
+      '/admin/redis'
+    );
   });
 
   it('calls onClose when close button is clicked', async () => {

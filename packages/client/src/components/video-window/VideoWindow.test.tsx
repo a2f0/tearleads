@@ -32,6 +32,7 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 vi.mock('@/pages/Video', async () => {
+  const { useLocation } = await import('react-router-dom');
   return {
     VideoPage: ({
       onOpenVideo,
@@ -40,8 +41,10 @@ vi.mock('@/pages/Video', async () => {
       onOpenVideo?: (videoId: string) => void;
       hideBackLink?: boolean;
     }) => {
+      const location = useLocation();
       return (
         <>
+          <div data-testid="video-location">{location.pathname}</div>
           <button
             type="button"
             onClick={() => onOpenVideo?.('test-video')}
@@ -88,6 +91,7 @@ describe('VideoWindow', () => {
 
   it('renders the VideoPage content', () => {
     render(<VideoWindow {...defaultProps} />);
+    expect(screen.getByTestId('video-location')).toHaveTextContent('/videos');
     expect(screen.getByTestId('open-video')).toBeInTheDocument();
     expect(screen.getByTestId('back-link-hidden')).toBeInTheDocument();
   });
