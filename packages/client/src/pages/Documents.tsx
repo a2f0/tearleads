@@ -52,7 +52,17 @@ interface DocumentWithUrl extends DocumentInfo {
 
 const ROW_HEIGHT_ESTIMATE = 56;
 
-export function Documents() {
+interface DocumentsProps {
+  showBackLink?: boolean;
+  onSelectDocument?: (documentId: string) => void;
+  refreshToken?: number;
+}
+
+export function Documents({
+  showBackLink = true,
+  onSelectDocument,
+  refreshToken
+}: DocumentsProps) {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { t } = useTypedTranslation('contextMenu');
@@ -313,13 +323,22 @@ export function Documents() {
     };
   }, [documents]);
 
+  useEffect(() => {
+    if (refreshToken === undefined || refreshToken === 0) return;
+    setHasFetched(false);
+  }, [refreshToken]);
+
   const handleDocumentClick = useCallback(
     (document: DocumentWithUrl) => {
+      if (onSelectDocument) {
+        onSelectDocument(document.id);
+        return;
+      }
       navigateWithFrom(`/documents/${document.id}`, {
         fromLabel: 'Back to Documents'
       });
     },
-    [navigateWithFrom]
+    [navigateWithFrom, onSelectDocument]
   );
 
   const handleContextMenu = useCallback(
@@ -332,12 +351,16 @@ export function Documents() {
 
   const handleGetInfo = useCallback(() => {
     if (contextMenu) {
-      navigateWithFrom(`/documents/${contextMenu.document.id}`, {
-        fromLabel: 'Back to Documents'
-      });
+      if (onSelectDocument) {
+        onSelectDocument(contextMenu.document.id);
+      } else {
+        navigateWithFrom(`/documents/${contextMenu.document.id}`, {
+          fromLabel: 'Back to Documents'
+        });
+      }
       setContextMenu(null);
     }
-  }, [contextMenu, navigateWithFrom]);
+  }, [contextMenu, navigateWithFrom, onSelectDocument]);
 
   const handleDelete = useCallback(async () => {
     if (!contextMenu) return;
@@ -365,7 +388,7 @@ export function Documents() {
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
-        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <FileText className="h-8 w-8 text-muted-foreground" />

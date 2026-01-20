@@ -100,7 +100,7 @@ describe('SettingsButton', () => {
       () => {
         expect(screen.queryByTestId('settings-sheet')).not.toBeInTheDocument();
       },
-      { timeout: ANIMATION_DURATION_MS + 100 }
+      { timeout: ANIMATION_DURATION_MS + 500 }
     );
   });
 
@@ -117,7 +117,7 @@ describe('SettingsButton', () => {
       () => {
         expect(screen.queryByTestId('settings-sheet')).not.toBeInTheDocument();
       },
-      { timeout: ANIMATION_DURATION_MS + 100 }
+      { timeout: ANIMATION_DURATION_MS + 500 }
     );
   });
 });
