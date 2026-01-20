@@ -46,6 +46,7 @@ async function triggerSidebarNavigation(
 
 // All paths that open as floating windows on desktop (matches Sidebar WINDOW_PATHS)
 const WINDOW_LAUNCH_PATHS = new Set([
+  '/admin/postgres',
   '/admin/redis',
   '/analytics',
   '/audio',
@@ -71,6 +72,7 @@ const WINDOW_LAUNCH_PATHS = new Set([
 
 // Override paths where the slug doesn't match the actual route
 const PATH_OVERRIDES: Record<string, string> = {
+  '/postgres-admin': '/admin/postgres',
   '/tables': '/sqlite/tables'
 };
 

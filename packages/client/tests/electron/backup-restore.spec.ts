@@ -8,7 +8,7 @@ import {dirname, join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import * as fs from 'node:fs';
-import {launchElectronApp} from './electron-test-helper';
+import {closeElectronApp, launchElectronApp} from './electron-test-helper';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -65,7 +65,7 @@ test.describe('Backup & Restore (Electron)', () => {
   });
 
   test.afterEach(async () => {
-    await electronApp.close();
+    await closeElectronApp(electronApp);
   });
 
   test('should display backup section on settings page', async () => {
@@ -258,7 +258,7 @@ test.describe('Backup & Restore (Electron)', () => {
       });
       await window.getByTestId('backup-restore-confirm').click();
 
-      await electronApp.close();
+      await closeElectronApp(electronApp);
       electronApp = await launchElectronApp();
       window = await electronApp.firstWindow();
 

@@ -30,6 +30,7 @@ export const en = {
     chat: 'Chat',
     models: 'Models',
     admin: 'Admin',
+    postgresAdmin: 'Postgres Admin',
     settings: 'Settings',
     email: 'Email'
   },

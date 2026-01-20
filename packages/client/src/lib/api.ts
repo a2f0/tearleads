@@ -1,5 +1,7 @@
 import type {
   PingData,
+  PostgresAdminInfoResponse,
+  PostgresTablesResponse,
   RedisKeysResponse,
   RedisKeyValueResponse
 } from '@rapid/shared';
@@ -46,6 +48,16 @@ export const api = {
     get: () => request<PingData>('/ping', { eventName: 'api_get_ping' })
   },
   admin: {
+    postgres: {
+      getInfo: () =>
+        request<PostgresAdminInfoResponse>('/admin/postgres/info', {
+          eventName: 'api_get_admin_postgres_info'
+        }),
+      getTables: () =>
+        request<PostgresTablesResponse>('/admin/postgres/tables', {
+          eventName: 'api_get_admin_postgres_tables'
+        })
+    },
     redis: {
       getKeys: (cursor?: string, limit?: number) => {
         const params = new URLSearchParams();

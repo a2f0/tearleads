@@ -38,6 +38,7 @@ export type WindowType =
   | 'audio'
   | 'models'
   | 'admin'
+  | 'admin-postgres'
   | 'cache-storage'
   | 'local-storage';
 
