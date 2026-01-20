@@ -16,6 +16,9 @@ export interface LicenseInfo {
   repository?: string;
 }
 
+// Chat validation helpers
+export * from './chat.js';
+
 // OpenRouter model options
 export * from './openrouter.js';
 

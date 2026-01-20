@@ -94,6 +94,68 @@ describe('Chat Routes', () => {
       });
     });
 
+    it('accepts multimodal messages with image content', async () => {
+      fetchMock.mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            id: 'chatcmpl-vision',
+            choices: [
+              {
+                message: {
+                  role: 'assistant',
+                  content: 'Vision reply'
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      );
+
+      const payload = {
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Describe this image.' },
+              {
+                type: 'image_url',
+                image_url: { url: 'data:image/png;base64,test' }
+              }
+            ]
+          }
+        ]
+      };
+
+      const response = await request(app)
+        .post('/v1/chat/completions')
+        .send(payload);
+
+      expect(response.status).toBe(200);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      const call = fetchMock.mock.calls[0];
+      if (!call) {
+        throw new Error('Expected fetch to be called');
+      }
+
+      const requestInit = call[1];
+      if (!requestInit || typeof requestInit !== 'object') {
+        throw new Error('Expected fetch options to be provided');
+      }
+
+      const body = requestInit.body;
+      if (typeof body !== 'string') {
+        throw new Error('Expected request body to be a string');
+      }
+
+      const parsedBody = JSON.parse(body);
+      expect(parsedBody).toEqual({
+        model: DEFAULT_OPENROUTER_MODEL_ID,
+        messages: payload.messages
+      });
+    });
+
     it('accepts an explicit OpenRouter model ID', async () => {
       fetchMock.mockResolvedValue(
         new Response(
@@ -150,7 +212,7 @@ describe('Chat Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: 'messages must be a non-empty array of { role, content }'
+        error: 'messages must be a non-empty array'
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -184,7 +246,7 @@ describe('Chat Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: 'messages must be a non-empty array of { role, content }'
+        error: 'messages[0].role must be one of: system, user, assistant, tool'
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -198,7 +260,7 @@ describe('Chat Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: 'messages must be a non-empty array of { role, content }'
+        error: 'messages[0] must be an object'
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });
@@ -217,7 +279,26 @@ describe('Chat Routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: 'messages must be a non-empty array of { role, content }'
+        error: 'messages[0].content must be a non-empty string'
+      });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when messages contain invalid multimodal content', async () => {
+      const response = await request(app)
+        .post('/v1/chat/completions')
+        .send({
+          messages: [
+            {
+              role: 'user',
+              content: [{ type: 'image_url', image_url: { url: '' } }]
+            }
+          ]
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: 'messages[0].content[0].image_url.url must be a non-empty string'
       });
       expect(fetchMock).not.toHaveBeenCalled();
     });

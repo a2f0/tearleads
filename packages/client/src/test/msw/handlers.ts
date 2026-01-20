@@ -6,7 +6,8 @@ import type {
 import {
   DEFAULT_OPENROUTER_MODEL_ID,
   isOpenRouterModelId,
-  isRecord
+  isRecord,
+  validateChatMessages
 } from '@rapid/shared';
 import { HttpResponse, http } from 'msw';
 
@@ -56,11 +57,9 @@ export const handlers = [
     const body = await request.json().catch(() => null);
     const messages = isRecord(body) ? body['messages'] : null;
     const model = isRecord(body) ? body['model'] : undefined;
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return HttpResponse.json(
-        { error: 'messages must be a non-empty array of { role, content }' },
-        { status: 400 }
-      );
+    const messageResult = validateChatMessages(messages);
+    if (!messageResult.ok) {
+      return HttpResponse.json({ error: messageResult.error }, { status: 400 });
     }
 
     if (model !== undefined) {
