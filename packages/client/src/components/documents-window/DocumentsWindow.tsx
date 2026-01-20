@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { useFileUpload } from '@/hooks/useFileUpload';
@@ -94,38 +95,40 @@ export function DocumentsWindow({
       minWidth={400}
       minHeight={350}
     >
-      <div className="flex h-full flex-col">
-        {!selectedDocumentId && (
-          <DocumentsWindowMenuBar
-            onUpload={handleUpload}
-            onRefresh={handleRefresh}
-            onClose={onClose}
-          />
-        )}
-        <div className="flex-1 overflow-hidden">
-          {uploadError && (
-            <div className="mx-3 mt-3 whitespace-pre-line rounded-lg border border-destructive bg-destructive/10 p-3 text-destructive text-sm">
-              {uploadError}
-            </div>
+      <MemoryRouter initialEntries={['/documents']}>
+        <div className="flex h-full flex-col">
+          {!selectedDocumentId && (
+            <DocumentsWindowMenuBar
+              onUpload={handleUpload}
+              onRefresh={handleRefresh}
+              onClose={onClose}
+            />
           )}
-          {selectedDocumentId ? (
-            <div className="h-full overflow-auto p-3">
-              <DocumentDetail
-                documentId={selectedDocumentId}
-                onBack={handleBack}
-              />
-            </div>
-          ) : (
-            <div className="h-full p-2">
-              <Documents
-                showBackLink={false}
-                onSelectDocument={setSelectedDocumentId}
-                refreshToken={refreshToken}
-              />
-            </div>
-          )}
+          <div className="flex-1 overflow-hidden">
+            {uploadError && (
+              <div className="mx-3 mt-3 whitespace-pre-line rounded-lg border border-destructive bg-destructive/10 p-3 text-destructive text-sm">
+                {uploadError}
+              </div>
+            )}
+            {selectedDocumentId ? (
+              <div className="h-full overflow-auto p-3">
+                <DocumentDetail
+                  documentId={selectedDocumentId}
+                  onBack={handleBack}
+                />
+              </div>
+            ) : (
+              <div className="h-full p-2">
+                <Documents
+                  showBackLink={false}
+                  onSelectDocument={setSelectedDocumentId}
+                  refreshToken={refreshToken}
+                />
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </MemoryRouter>
       <input
         ref={fileInputRef}
         type="file"
