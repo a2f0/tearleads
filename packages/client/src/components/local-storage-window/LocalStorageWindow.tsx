@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { LocalStorage } from '@/pages/local-storage';
@@ -50,7 +51,9 @@ export function LocalStorageWindow({
           onClose={onClose}
         />
         <div className="flex-1 overflow-auto p-4" key={refreshKey}>
-          <LocalStorage />
+          <MemoryRouter initialEntries={['/local-storage']}>
+            <LocalStorage />
+          </MemoryRouter>
         </div>
       </div>
     </FloatingWindow>

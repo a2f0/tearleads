@@ -12,6 +12,7 @@ import {
   ErrorBoundary,
   errorBoundaryRef
 } from './components/ui/error-boundary';
+import { WindowRenderer } from './components/window-renderer';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { DatabaseProvider, SettingsProvider } from './db/hooks';
 import { i18n } from './i18n';
@@ -275,6 +276,7 @@ if (rootElement) {
                               </Routes>
                             </Suspense>
                           </BrowserRouter>
+                          <WindowRenderer />
                         </WindowManagerProvider>
                       </SSEProvider>
                     </VideoProvider>

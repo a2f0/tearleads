@@ -19,7 +19,7 @@ import { useFileUpload } from '@/hooks/useFileUpload';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
 import { useNavigateWithFrom } from '@/lib/navigation';
-import { detectPlatform, formatFileSize } from '@/lib/utils';
+import { detectPlatform, formatDate, formatFileSize } from '@/lib/utils';
 import {
   createRetrieveLogger,
   getFileStorage,
@@ -53,9 +53,28 @@ interface VideoWithThumbnail extends VideoInfo {
   thumbnailUrl: string | null;
 }
 
+type ViewMode = 'list' | 'table';
+
 const ROW_HEIGHT_ESTIMATE = 56;
 
-export function VideoPage() {
+function getVideoTypeDisplay(mimeType: string): string {
+  if (!mimeType) return 'Video';
+  const [, subtype] = mimeType.split('/');
+  if (subtype) {
+    return subtype.toUpperCase();
+  }
+  return 'Video';
+}
+
+interface VideoPageProps {
+  showBackLink?: boolean;
+  viewMode?: ViewMode;
+}
+
+export function VideoPage({
+  showBackLink = true,
+  viewMode = 'list'
+}: VideoPageProps) {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { t } = useTypedTranslation('contextMenu');
@@ -313,7 +332,7 @@ export function VideoPage() {
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
-        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Film className="h-8 w-8 text-muted-foreground" />
@@ -371,92 +390,156 @@ export function VideoPage() {
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col space-y-2">
-            <VirtualListStatus
-              firstVisible={firstVisible}
-              lastVisible={lastVisible}
-              loadedCount={videos.length}
-              itemLabel="video"
-            />
-            <div className="flex-1 rounded-lg border">
-              <div ref={parentRef} className="h-full overflow-auto">
-                <div
-                  className="relative w-full"
-                  style={{ height: `${virtualizer.getTotalSize()}px` }}
-                >
-                  {virtualItems.map((virtualItem) => {
-                    const video = videos[virtualItem.index];
-                    if (!video) return null;
+            {viewMode === 'list' ? (
+              <>
+                <VirtualListStatus
+                  firstVisible={firstVisible}
+                  lastVisible={lastVisible}
+                  loadedCount={videos.length}
+                  itemLabel="video"
+                />
+                <div className="flex-1 rounded-lg border">
+                  <div ref={parentRef} className="h-full overflow-auto">
+                    <div
+                      className="relative w-full"
+                      style={{ height: `${virtualizer.getTotalSize()}px` }}
+                    >
+                      {virtualItems.map((virtualItem) => {
+                        const video = videos[virtualItem.index];
+                        if (!video) return null;
 
-                    return (
-                      <div
-                        key={video.id}
-                        data-index={virtualItem.index}
-                        ref={virtualizer.measureElement}
-                        className="absolute top-0 left-0 w-full px-1 py-0.5"
-                        style={{
-                          transform: `translateY(${virtualItem.start}px)`
-                        }}
-                      >
-                        <ListRow
-                          data-testid={`video-item-${video.id}`}
-                          onContextMenu={(e) => handleContextMenu(e, video)}
-                        >
-                          <button
-                            type="button"
-                            onClick={
-                              isDesktopPlatform
-                                ? undefined
-                                : () => handleNavigateToDetail(video.id)
-                            }
-                            onDoubleClick={
-                              isDesktopPlatform
-                                ? () => handleNavigateToDetail(video.id)
-                                : undefined
-                            }
-                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
-                            data-testid={`video-open-${video.id}`}
+                        return (
+                          <div
+                            key={video.id}
+                            data-index={virtualItem.index}
+                            ref={virtualizer.measureElement}
+                            className="absolute top-0 left-0 w-full px-1 py-0.5"
+                            style={{
+                              transform: `translateY(${virtualItem.start}px)`
+                            }}
                           >
-                            <div className="relative shrink-0">
-                              {video.thumbnailUrl ? (
-                                <img
-                                  src={video.thumbnailUrl}
-                                  alt=""
-                                  className="h-8 w-8 rounded object-cover"
-                                />
-                              ) : (
-                                <Film className="h-5 w-5 text-muted-foreground" />
-                              )}
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="flex h-4 w-4 items-center justify-center rounded-full bg-black/50">
-                                  <Play className="h-2 w-2 text-white" />
+                            <ListRow
+                              data-testid={`video-item-${video.id}`}
+                              onContextMenu={(e) => handleContextMenu(e, video)}
+                            >
+                              <button
+                                type="button"
+                                onClick={
+                                  isDesktopPlatform
+                                    ? undefined
+                                    : () => handleNavigateToDetail(video.id)
+                                }
+                                onDoubleClick={
+                                  isDesktopPlatform
+                                    ? () => handleNavigateToDetail(video.id)
+                                    : undefined
+                                }
+                                className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
+                                data-testid={`video-open-${video.id}`}
+                              >
+                                <div className="relative shrink-0">
+                                  {video.thumbnailUrl ? (
+                                    <img
+                                      src={video.thumbnailUrl}
+                                      alt=""
+                                      className="h-8 w-8 rounded object-cover"
+                                    />
+                                  ) : (
+                                    <Film className="h-5 w-5 text-muted-foreground" />
+                                  )}
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="flex h-4 w-4 items-center justify-center rounded-full bg-black/50">
+                                      <Play className="h-2 w-2 text-white" />
+                                    </div>
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate font-medium text-sm">
-                                {video.name}
-                              </p>
-                              <p className="text-muted-foreground text-xs">
-                                {formatFileSize(video.size)}
-                              </p>
-                            </div>
-                          </button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 shrink-0"
-                            onClick={() => handleNavigateToDetail(video.id)}
-                            aria-label="View details"
-                          >
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          </Button>
-                        </ListRow>
-                      </div>
-                    );
-                  })}
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate font-medium text-sm">
+                                    {video.name}
+                                  </p>
+                                  <p className="text-muted-foreground text-xs">
+                                    {formatFileSize(video.size)}
+                                  </p>
+                                </div>
+                              </button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 shrink-0"
+                                onClick={() => handleNavigateToDetail(video.id)}
+                                aria-label="View details"
+                              >
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                            </ListRow>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
+              </>
+            ) : (
+              <div className="flex-1 overflow-auto rounded-lg border">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-muted/60 text-muted-foreground text-xs">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium">Name</th>
+                      <th className="px-3 py-2 text-left font-medium">Size</th>
+                      <th className="px-3 py-2 text-left font-medium">Type</th>
+                      <th className="px-3 py-2 text-left font-medium">
+                        Uploaded
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {videos.map((video) => (
+                      <tr
+                        key={video.id}
+                        className="cursor-pointer border-t hover:bg-muted/30"
+                        onContextMenu={(e) => handleContextMenu(e, video)}
+                        onClick={
+                          isDesktopPlatform
+                            ? undefined
+                            : () => handleNavigateToDetail(video.id)
+                        }
+                        onDoubleClick={
+                          isDesktopPlatform
+                            ? () => handleNavigateToDetail(video.id)
+                            : undefined
+                        }
+                      >
+                        <td className="px-3 py-2">
+                          <div className="flex min-w-0 items-center gap-2">
+                            {video.thumbnailUrl ? (
+                              <img
+                                src={video.thumbnailUrl}
+                                alt=""
+                                className="h-6 w-6 rounded object-cover"
+                              />
+                            ) : (
+                              <Film className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <span className="truncate font-medium">
+                              {video.name}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {formatFileSize(video.size)}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {getVideoTypeDisplay(video.mimeType)}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {formatDate(video.uploadDate)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </div>
+            )}
             <Dropzone
               onFilesSelected={handleFilesSelected}
               accept="video/*"
