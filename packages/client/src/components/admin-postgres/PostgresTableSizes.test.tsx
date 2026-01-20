@@ -40,7 +40,7 @@ describe('PostgresTableSizes', () => {
     });
 
     expect(screen.getByText('12')).toBeInTheDocument();
-    expect(screen.getAllByText('2.00 KB')).toHaveLength(2);
+    expect(screen.getAllByText('2.00KB')).toHaveLength(2);
   });
 
   it('shows empty state when no tables exist', async () => {
@@ -54,7 +54,7 @@ describe('PostgresTableSizes', () => {
       expect(screen.getByText('No tables found')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('0 B')).toBeInTheDocument();
+    expect(screen.getByText('0B')).toBeInTheDocument();
   });
 
   it('shows error when table fetch fails', async () => {
