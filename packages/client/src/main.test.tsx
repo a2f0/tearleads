@@ -25,7 +25,9 @@ function analyzeTree(node: React.ReactNode) {
   const visit = (current: React.ReactNode, inRouter: boolean) => {
     if (!current) return;
     if (Array.isArray(current)) {
-      current.forEach((child) => visit(child, inRouter));
+      current.forEach((child) => {
+        visit(child, inRouter);
+      });
       return;
     }
     if (!React.isValidElement(current)) return;

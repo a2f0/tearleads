@@ -40,9 +40,7 @@ vi.mock('@/pages/Settings', async () => {
   return {
     Settings: () => {
       const location = useLocation();
-      return (
-        <div data-testid="settings-content">{location.pathname}</div>
-      );
+      return <div data-testid="settings-content">{location.pathname}</div>;
     }
   };
 });
