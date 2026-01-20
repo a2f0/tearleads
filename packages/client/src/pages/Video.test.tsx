@@ -137,7 +137,10 @@ function createMockUpdateChain() {
 }
 
 function renderVideoRaw(props?: {
-  onOpenVideo?: (videoId: string) => void;
+  onOpenVideo?: (
+    videoId: string,
+    options?: { autoPlay?: boolean | undefined }
+  ) => void;
   hideBackLink?: boolean;
   viewMode?: 'list' | 'table';
 }) {
@@ -149,7 +152,10 @@ function renderVideoRaw(props?: {
 }
 
 async function renderVideo(props?: {
-  onOpenVideo?: (videoId: string) => void;
+  onOpenVideo?: (
+    videoId: string,
+    options?: { autoPlay?: boolean | undefined }
+  ) => void;
   hideBackLink?: boolean;
   viewMode?: 'list' | 'table';
 }) {
@@ -323,7 +329,7 @@ describe('VideoPage', () => {
       await renderVideo({ onOpenVideo });
 
       await user.dblClick(screen.getByTestId('video-open-video-1'));
-      expect(onOpenVideo).toHaveBeenCalledWith('video-1');
+      expect(onOpenVideo).toHaveBeenCalledWith('video-1', undefined);
       expect(mockNavigate).not.toHaveBeenCalled();
     });
 
@@ -705,7 +711,7 @@ describe('VideoPage', () => {
       await user.click(screen.getByText('Play'));
 
       expect(mockNavigate).toHaveBeenCalledWith('/videos/video-1', {
-        state: { from: '/', fromLabel: 'Back to Videos' }
+        state: { from: '/', fromLabel: 'Back to Videos', autoPlay: true }
       });
     });
 
