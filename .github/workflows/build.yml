@@ -6,6 +6,8 @@ on:
       - '**.md'
       - 'docs/**'
       - '.vscode/**'
+      - '.claude/**'
+      - '.codex/**'
       - 'LICENSE'
   workflow_dispatch:
 

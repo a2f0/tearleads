@@ -28,7 +28,7 @@ Commit and push the current changes following these rules:
 4. **Push**: After successful commit, push to the current branch's remote.
    - The pre-push hook runs full builds and all unit tests; it can take several minutes. Use a longer command timeout and do not assume a timeout means failure.
 
-5. **Open PR**: If no PR exists for this branch, create one with `gh pr create`. Do NOT include auto-close keywords (e.g., `Closes`, `Fixes`, `Resolves`) - all issues are marked "Needs QA" after merge via `/enter-merge-queue`. Use the Claude-style PR body format and include the computed agent ID.
+5. **Open PR**: If no PR exists for this branch, create one with `gh pr create`. Do NOT include auto-close keywords (e.g., `Closes`, `Fixes`, `Resolves`) - all issues are marked `needs-qa` after merge via `/enter-merge-queue`. Use the Claude-style PR body format and include the computed agent ID.
 
    **Compute agent id**:
 
