@@ -117,6 +117,14 @@ describe('Notes', () => {
       });
     });
 
+    it('shows back link by default', async () => {
+      await renderNotes();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('back-link')).toBeInTheDocument();
+      });
+    });
+
     it('shows loading state when database is loading', async () => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,

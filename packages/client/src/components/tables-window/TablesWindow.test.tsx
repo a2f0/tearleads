@@ -32,9 +32,13 @@ vi.mock('@/components/floating-window', () => ({
 vi.mock('@/pages/Tables', async () => {
   const { useLocation } = await import('react-router-dom');
   return {
-    Tables: () => {
+    Tables: ({ showBackLink }: { showBackLink?: boolean }) => {
       const location = useLocation();
-      return <div data-testid="tables-content">{location.pathname}</div>;
+      return (
+        <div data-testid="tables-content" data-show-back-link={showBackLink}>
+          {location.pathname}
+        </div>
+      );
     }
   };
 });
@@ -70,6 +74,10 @@ describe('TablesWindow', () => {
     render(<TablesWindow {...defaultProps} />);
     expect(screen.getByTestId('tables-content')).toHaveTextContent(
       '/sqlite/tables'
+    );
+    expect(screen.getByTestId('tables-content')).toHaveAttribute(
+      'data-show-back-link',
+      'false'
     );
   });
 

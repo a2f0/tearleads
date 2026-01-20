@@ -72,6 +72,14 @@ describe('Keychain', () => {
       });
     });
 
+    it('shows back link by default', async () => {
+      renderKeychain();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('back-link')).toBeInTheDocument();
+      });
+    });
+
     it('renders Refresh button', async () => {
       renderKeychain();
 
