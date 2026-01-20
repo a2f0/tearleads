@@ -1,5 +1,6 @@
 import { FloatingWindow } from '@/components/floating-window';
 import { FontSelector } from './FontSelector';
+import { IconDepthToggle } from './IconDepthToggle';
 import { PatternSelector } from './PatternSelector';
 import { ThemeSelector } from './ThemeSelector';
 
@@ -31,6 +32,7 @@ export function DisplayPropertiesWindow({
       <div className="space-y-6 p-5">
         <ThemeSelector />
         <PatternSelector />
+        <IconDepthToggle />
         <FontSelector />
       </div>
     </FloatingWindow>
