@@ -14,7 +14,7 @@ export function HUDTrigger() {
         aria-label="Open HUD"
         title="Head's Up Display"
       >
-        <Activity className="h-4 w-4" />
+        <Activity className="h-4 w-4 translate-y-0.5" />
       </button>
       <HUD isOpen={isOpen} onClose={() => setIsOpen(false)} />
     </>
