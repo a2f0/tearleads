@@ -172,29 +172,21 @@ export function TaskbarButton({
               >
                 Maximize
               </ContextMenuItem>
-              <ContextMenuItem
-                icon={<X className="h-4 w-4" />}
-                onClick={handleClose}
-              >
-                Close
-              </ContextMenuItem>
             </>
           ) : (
-            <>
-              <ContextMenuItem
-                icon={<Minus className="h-4 w-4" />}
-                onClick={handleMinimize}
-              >
-                Minimize
-              </ContextMenuItem>
-              <ContextMenuItem
-                icon={<X className="h-4 w-4" />}
-                onClick={handleClose}
-              >
-                Close
-              </ContextMenuItem>
-            </>
+            <ContextMenuItem
+              icon={<Minus className="h-4 w-4" />}
+              onClick={handleMinimize}
+            >
+              Minimize
+            </ContextMenuItem>
           )}
+          <ContextMenuItem
+            icon={<X className="h-4 w-4" />}
+            onClick={handleClose}
+          >
+            Close
+          </ContextMenuItem>
         </ContextMenu>
       )}
     </>
