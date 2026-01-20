@@ -41,7 +41,11 @@ function analyzeTree(node: React.ReactNode) {
       if (nextInRouter) result.hasWindowRendererInRouter = true;
     }
 
-    visit(current.props.children, nextInRouter);
+    visit(
+      (current as React.ReactElement<{ children?: React.ReactNode }>).props
+        .children,
+      nextInRouter
+    );
   };
 
   visit(node, false);
@@ -56,7 +60,7 @@ describe('main', () => {
     await import('./main');
 
     expect(renderSpy).toHaveBeenCalled();
-    const rootElement = renderSpy.mock.calls[0][0];
+    const rootElement = renderSpy.mock.calls[0]?.[0];
     const result = analyzeTree(rootElement);
 
     expect(result.hasBrowserRouter).toBe(true);
