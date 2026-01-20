@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 set -eu
 
 TEST_DIR=$(cd -- "$(dirname -- "$0")" && pwd -P)
