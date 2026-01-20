@@ -300,6 +300,22 @@
         group: root
         mode: "0755"
 
+    - name: Deploy tail API logs script
+      ansible.builtin.copy:
+        src: files/scripts/tailApi.sh
+        dest: /usr/local/bin/tailApi.sh
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy tail SMTP listener logs script
+      ansible.builtin.copy:
+        src: files/scripts/tailSmtpListener.sh
+        dest: /usr/local/bin/tailSmtpListener.sh
+        owner: root
+        group: root
+        mode: "0755"
+
     # Automatic daily patching
     - name: Deploy auto-patch script
       ansible.builtin.template:
