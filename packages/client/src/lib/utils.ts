@@ -59,6 +59,15 @@ export function detectPlatform(): Platform {
   return 'web';
 }
 
+export function generateUniqueId(prefix?: string): string {
+  const cryptoObj = globalThis.crypto;
+  const randomPart =
+    cryptoObj && typeof cryptoObj.randomUUID === 'function'
+      ? cryptoObj.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return prefix ? `${prefix}-${randomPart}` : randomPart;
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 0) return 'Invalid size';
   if (bytes === 0) return '0 B';
