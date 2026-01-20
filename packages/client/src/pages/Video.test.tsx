@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
@@ -136,16 +137,16 @@ function createMockUpdateChain() {
   };
 }
 
-function renderVideoRaw() {
+function renderVideoRaw(props?: ComponentProps<typeof VideoPage>) {
   return render(
     <MemoryRouter>
-      <VideoPage />
+      <VideoPage {...props} />
     </MemoryRouter>
   );
 }
 
-async function renderVideo() {
-  const result = renderVideoRaw();
+async function renderVideo(props?: ComponentProps<typeof VideoPage>) {
+  const result = renderVideoRaw(props);
   // Flush the setTimeout(fn, 0) used for instance-aware fetching
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -192,6 +193,15 @@ describe('VideoPage', () => {
 
       expect(
         screen.getByRole('button', { name: 'Refresh' })
+      ).toBeInTheDocument();
+    });
+
+    it('renders a table when viewMode is table', async () => {
+      await renderVideo({ viewMode: 'table' });
+
+      expect(screen.getByRole('table')).toBeInTheDocument();
+      expect(
+        screen.getByRole('columnheader', { name: 'Name' })
       ).toBeInTheDocument();
     });
   });
