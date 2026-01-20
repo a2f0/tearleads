@@ -33,9 +33,16 @@ vi.mock('@/components/floating-window', () => ({
 vi.mock('@/pages/admin/Admin', async () => {
   const { useLocation } = await import('react-router-dom');
   return {
-    Admin: () => {
+    Admin: ({ showBackLink }: { showBackLink?: boolean }) => {
       const location = useLocation();
-      return <div data-testid="admin-content">{location.pathname}</div>;
+      return (
+        <div data-testid="admin-content">
+          <span data-testid="admin-location">{location.pathname}</span>
+          <span data-testid="admin-backlink">
+            {showBackLink ? 'true' : 'false'}
+          </span>
+        </div>
+      );
     }
   };
 });
@@ -61,9 +68,10 @@ describe('AdminWindow', () => {
 
   it('renders the admin content', () => {
     render(<AdminWindow {...defaultProps} />);
-    expect(screen.getByTestId('admin-content')).toHaveTextContent(
+    expect(screen.getByTestId('admin-location')).toHaveTextContent(
       '/admin/redis'
     );
+    expect(screen.getByTestId('admin-backlink')).toHaveTextContent('false');
   });
 
   it('calls onClose when close button is clicked', async () => {

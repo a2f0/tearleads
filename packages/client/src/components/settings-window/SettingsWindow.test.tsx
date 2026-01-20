@@ -38,9 +38,16 @@ vi.mock('@/components/floating-window', () => ({
 vi.mock('@/pages/Settings', async () => {
   const { useLocation } = await import('react-router-dom');
   return {
-    Settings: () => {
+    Settings: ({ showBackLink }: { showBackLink?: boolean }) => {
       const location = useLocation();
-      return <div data-testid="settings-content">{location.pathname}</div>;
+      return (
+        <div data-testid="settings-content">
+          <span data-testid="settings-location">{location.pathname}</span>
+          <span data-testid="settings-backlink">
+            {showBackLink ? 'true' : 'false'}
+          </span>
+        </div>
+      );
     }
   };
 });
@@ -66,9 +73,10 @@ describe('SettingsWindow', () => {
 
   it('renders the settings content', () => {
     render(<SettingsWindow {...defaultProps} />);
-    expect(screen.getByTestId('settings-content')).toHaveTextContent(
+    expect(screen.getByTestId('settings-location')).toHaveTextContent(
       '/settings'
     );
+    expect(screen.getByTestId('settings-backlink')).toHaveTextContent('false');
   });
 
   it('calls onClose when close button is clicked', async () => {

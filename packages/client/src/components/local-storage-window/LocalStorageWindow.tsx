@@ -52,7 +52,7 @@ export function LocalStorageWindow({
         />
         <div className="flex-1 overflow-auto p-4" key={refreshKey}>
           <MemoryRouter initialEntries={['/local-storage']}>
-            <LocalStorage />
+            <LocalStorage showBackLink={false} />
           </MemoryRouter>
         </div>
       </div>

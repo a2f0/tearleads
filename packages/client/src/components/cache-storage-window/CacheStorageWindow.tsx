@@ -52,7 +52,7 @@ export function CacheStorageWindow({
         />
         <div className="flex-1 overflow-auto p-4" key={refreshKey}>
           <MemoryRouter initialEntries={['/cache-storage']}>
-            <CacheStorage />
+            <CacheStorage showBackLink={false} />
           </MemoryRouter>
         </div>
       </div>
