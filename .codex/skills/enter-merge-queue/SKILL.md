@@ -22,7 +22,7 @@ Track these state flags:
 - `has_bumped_version`: Boolean, starts `false`. Set to `true` after version bump is applied.
 - `has_waited_for_gemini`: Boolean, starts `false`. Set to `true` after waiting once for Gemini.
 - `gemini_can_review`: Boolean, starts `true`. Set to `false` if PR contains only non-code files.
-- `associated_issue_number`: Number or null. Track the issue to mark "Needs QA" after merge.
+- `associated_issue_number`: Number or null. Track the issue to mark `needs-qa` after merge.
 
 Use polling jitter with ±20% randomization:
 
@@ -50,7 +50,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    - Remove auto-close language from PR body (`Closes #`, `Fixes #`, `Resolves #`).
    - If no issue is referenced, search for an open issue referencing the PR number; create one if missing.
-   - When creating the issue, describe the work from the PR and add the `Needs QA` label immediately.
+   - When creating the issue, describe the work from the PR and add the `needs-qa` label immediately.
    - Store the issue number as `associated_issue_number`.
 
 2. Ensure you are on the PR head branch, not `main`.
@@ -175,14 +175,14 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    Post-merge QA handling for `associated_issue_number`:
    - Reopen the issue if closed.
-   - Ensure the `Needs QA` label is applied.
+   - Ensure the `needs-qa` label is applied.
    - Prefer updating the issue body with merge status.
 
 6. Report success with PR URL, a short description of the merged changes, and the associated issue status.
 
 ## Keeping PR Description Updated
 
-As you iterate, update the PR body with `gh pr edit --body`. Always remove auto-close language (`Closes/Fixes/Resolves #...`) and track the issue separately - all issues are marked "Needs QA" after merge. Always preserve the Claude-style format:
+As you iterate, update the PR body with `gh pr edit --body`. Always remove auto-close language (`Closes/Fixes/Resolves #...`) and track the issue separately - all issues are marked `needs-qa` after merge. Always preserve the Claude-style format:
 
 ```text
 ## Summary

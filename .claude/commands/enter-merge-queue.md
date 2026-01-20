@@ -21,7 +21,7 @@ Track the following state during execution:
 - `has_bumped_version`: Boolean, starts `false`. Set to `true` after version bump is applied. This ensures we only bump once per PR, even if we loop through multiple CI fixes or rebases.
 - `has_waited_for_gemini`: Boolean, starts `false`. Set to `true` after first Gemini review wait. Prevents redundant waits on subsequent loop iterations.
 - `gemini_can_review`: Boolean, starts `true`. Set to `false` if PR contains only non-code files. Allows skipping Gemini wait entirely.
-- `associated_issue_number`: Number or null. The issue number associated with this PR (either extracted from PR body or newly created). All PRs should have an associated issue that gets marked "Needs QA" after merge.
+- `associated_issue_number`: Number or null. The issue number associated with this PR (either extracted from PR body or newly created). All PRs should have an associated issue that gets marked `needs-qa` after merge.
 
 ## Polling with Jitter
 
@@ -45,7 +45,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    This avoids waiting 5 minutes for Gemini to respond with "unsupported file types".
 
-   **Issue tracking (always performed)**: All PRs should have an associated issue that gets marked "Needs QA" after merge. The issue should already exist from when work started (created per CLAUDE.md guidelines). Do NOT create separate "QA: ..." issues.
+   **Issue tracking (always performed)**: All PRs should have an associated issue that gets marked `needs-qa` after merge. The issue should already exist from when work started (created per CLAUDE.md guidelines). Do NOT create separate "QA: ..." issues.
 
    1. **Check for auto-close language**: Scan the PR body for patterns like `Closes #`, `Fixes #`, `Resolves #` (case-insensitive). If found:
       - Extract the issue number(s) from the pattern
@@ -54,7 +54,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    2. **Find associated issue**: If no issue number was extracted from the PR body:
       - Search for an existing issue that references this PR or matches the PR title
-      - If no issue found, set `associated_issue_number = null` and proceed (the "Needs QA" label will just be skipped post-merge)
+      - If no issue found, set `associated_issue_number = null` and proceed (the `needs-qa` label will just be skipped post-merge)
 
 2. **Check current branch**: Ensure you're on the PR's head branch, not `main`.
 
@@ -251,10 +251,10 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    **Post-merge QA handling**: If `associated_issue_number` is set:
 
-   1. Add the "Needs QA" label to the associated issue:
+   1. Add the "needs-qa" label to the associated issue:
 
       ```bash
-      gh issue edit <associated_issue_number> --add-label "Needs QA"
+      gh issue edit <associated_issue_number> --add-label "needs-qa"
       ```
 
    That's it. The issue already describes the work; no need to update descriptions or add comments.
@@ -262,7 +262,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 6. **Report success**: Confirm the PR was merged and provide a summary:
    - Show the PR URL
    - Output a brief description of what was merged (1-3 sentences summarizing the changes based on the PR title and commits)
-   - If an associated issue exists, mention it was labeled "Needs QA"
+   - If an associated issue exists, mention it was labeled `needs-qa`
 
 ## Opening GitHub Issues
 
@@ -321,7 +321,7 @@ git rebase origin/main      # Can be noisy and waste tokens
 
 - Loops until PR is **actually merged**, not just auto-merge enabled
 - Non-high-priority PRs yield to high-priority ones unless all are `DIRTY` (check every 2 min with jitter)
-- Auto-close language is removed from PR bodies; associated issues get "Needs QA" label after merge
+- Auto-close language is removed from PR bodies; associated issues get `needs-qa` label after merge
 - Do NOT create "QA: ..." issues - issues should be created when work starts (per CLAUDE.md)
 - Prioritize staying up-to-date over waiting for CI in congested queues
 - Fixable: lint/type errors, test failures. Non-fixable: merge conflicts, infra failures
@@ -331,7 +331,7 @@ git rebase origin/main      # Can be noisy and waste tokens
 
 ## Keeping PR Description Updated
 
-As you iterate, update the PR body with `gh pr edit --body`. Always remove auto-close language (`Closes/Fixes/Resolves #...`) and track the issue separately - all issues are marked "Needs QA" after merge. Always preserve the Claude-style format:
+As you iterate, update the PR body with `gh pr edit --body`. Always remove auto-close language (`Closes/Fixes/Resolves #...`) and track the issue separately - all issues are marked `needs-qa` after merge. Always preserve the Claude-style format:
 
 ```text
 ## Summary
