@@ -146,6 +146,12 @@ describe('TableRows', () => {
     });
   });
 
+  it('shows back link to tables', async () => {
+    await renderTableRows();
+
+    expect(screen.getByTestId('back-link')).toBeInTheDocument();
+  });
+
   describe('column sorting', () => {
     it('renders sort buttons for visible columns (id hidden by default)', async () => {
       await renderTableRows();

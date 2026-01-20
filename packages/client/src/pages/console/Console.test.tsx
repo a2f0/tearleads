@@ -70,6 +70,12 @@ describe('Console', () => {
     expect(screen.getByText('Console')).toBeInTheDocument();
   });
 
+  it('shows back link by default', () => {
+    renderConsole();
+
+    expect(screen.getByTestId('back-link')).toBeInTheDocument();
+  });
+
   it('renders the terminal component', () => {
     renderConsole();
 
