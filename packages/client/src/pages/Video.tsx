@@ -282,10 +282,14 @@ export function VideoPage({
         onOpenVideo(videoId, options);
         return;
       }
-      navigateWithFrom(`/videos/${videoId}`, {
-        fromLabel: 'Back to Videos',
-        state: options?.autoPlay ? { autoPlay: true } : undefined
-      });
+      const navigationOptions: {
+        fromLabel: string;
+        state?: Record<string, unknown>;
+      } = { fromLabel: 'Back to Videos' };
+      if (options?.autoPlay) {
+        navigationOptions.state = { autoPlay: true };
+      }
+      navigateWithFrom(`/videos/${videoId}`, navigationOptions);
     },
     [navigateWithFrom, onOpenVideo]
   );
