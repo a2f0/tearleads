@@ -17,41 +17,20 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type AudioTrack, useAudio } from '@/audio';
 import { useAudioAnalyser } from '@/audio/useAudioAnalyser';
 import { Button } from '@/components/ui/button';
+import { LCDBar } from './LCDBar';
+import {
+  BAR_COUNT,
+  BAR_KEYS,
+  getStoredVisibility,
+  setStoredVisibility,
+  VISUALIZER_HEIGHT,
+  type VisualizerVisibility
+} from './visualizer.utils';
 
-export type VisualizerStyle = 'waveform' | 'gradient';
+export type { VisualizerVisibility } from './visualizer.utils';
 
 interface AudioPlayerProps {
   tracks: AudioTrack[];
-}
-
-const STORAGE_KEY = 'audio-visualizer-style';
-const BAR_COUNT = 12;
-const SEGMENT_COUNT = 15;
-const SEGMENT_TOTAL_HEIGHT = 6;
-const VISUALIZER_HEIGHT = SEGMENT_COUNT * SEGMENT_TOTAL_HEIGHT;
-const GRADIENT_BAR_MIN_HEIGHT = 4;
-const WAVEFORM_BAR_MIN_HEIGHT = 2;
-
-const BAR_KEYS = Array.from({ length: BAR_COUNT }, (_, i) => `bar-${i}`);
-
-function getStoredStyle(): VisualizerStyle {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'gradient') {
-      return 'gradient';
-    }
-  } catch {
-    // localStorage may not be available
-  }
-  return 'waveform';
-}
-
-function setStoredStyle(style: VisualizerStyle): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, style);
-  } catch {
-    // localStorage may not be available
-  }
 }
 
 function formatTime(seconds: number): string {
@@ -79,8 +58,8 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
   } = useAudio();
 
   const frequencyData = useAudioAnalyser(audioElementRef, isPlaying, BAR_COUNT);
-  const [visualizerStyle, setVisualizerStyle] =
-    useState<VisualizerStyle>(getStoredStyle);
+  const [visualizerVisibility, setVisualizerVisibility] =
+    useState<VisualizerVisibility>(getStoredVisibility);
 
   // Track seeking state to prevent garbled audio during drag
   const [isSeeking, setIsSeeking] = useState(false);
@@ -97,11 +76,12 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
   const hasPrevious = currentIndex > 0;
   const hasNext = currentIndex >= 0 && currentIndex < tracks.length - 1;
 
-  const handleToggleStyle = useCallback(() => {
-    const newStyle = visualizerStyle === 'waveform' ? 'gradient' : 'waveform';
-    setVisualizerStyle(newStyle);
-    setStoredStyle(newStyle);
-  }, [visualizerStyle]);
+  const handleToggleVisibility = useCallback(() => {
+    const newVisibility =
+      visualizerVisibility === 'visible' ? 'hidden' : 'visible';
+    setVisualizerVisibility(newVisibility);
+    setStoredVisibility(newVisibility);
+  }, [visualizerVisibility]);
 
   // Handle seek start - pause updates and track drag value
   const handleSeekStart = useCallback(() => {
@@ -208,26 +188,24 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
       data-testid="audio-player"
     >
       {/* Visualizer - centered */}
-      <div className="flex items-end justify-center gap-1">
-        {BAR_KEYS.map((key, barIndex) => {
-          const value = isPlaying ? (frequencyData[barIndex] ?? 0) : 0;
-          const normalizedHeight = value / 255;
+      {visualizerVisibility === 'visible' && (
+        <div className="flex items-end justify-center gap-1">
+          {BAR_KEYS.map((key, barIndex) => {
+            const value = isPlaying ? (frequencyData[barIndex] ?? 0) : 0;
+            const normalizedHeight = value / 255;
 
-          return (
-            <div
-              key={key}
-              className="relative flex w-3 items-end justify-center"
-              style={{ height: `${VISUALIZER_HEIGHT}px` }}
-            >
-              {visualizerStyle === 'waveform' ? (
-                <WaveformBar normalizedHeight={normalizedHeight} />
-              ) : (
-                <GradientBar normalizedHeight={normalizedHeight} />
-              )}
-            </div>
-          );
-        })}
-      </div>
+            return (
+              <div
+                key={key}
+                className="flex w-3 flex-col-reverse gap-0.5"
+                style={{ height: `${VISUALIZER_HEIGHT}px` }}
+              >
+                <LCDBar normalizedHeight={normalizedHeight} />
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Seek bar */}
       <div className="flex items-center gap-2">
@@ -273,9 +251,13 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          onClick={handleToggleStyle}
-          aria-label={`Switch to ${visualizerStyle === 'waveform' ? 'gradient' : 'waveform'} style`}
-          data-testid="visualizer-style-toggle"
+          onClick={handleToggleVisibility}
+          aria-label={
+            visualizerVisibility === 'visible'
+              ? 'Hide visualizer'
+              : 'Show visualizer'
+          }
+          data-testid="visualizer-toggle"
         >
           <Sliders className="h-4 w-4 text-muted-foreground" />
         </Button>
@@ -353,46 +335,5 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
         />
       </div>
     </div>
-  );
-}
-
-interface BarProps {
-  normalizedHeight: number;
-}
-
-function WaveformBar({ normalizedHeight }: BarProps) {
-  const height = Math.max(
-    WAVEFORM_BAR_MIN_HEIGHT,
-    normalizedHeight * VISUALIZER_HEIGHT
-  );
-
-  return (
-    <div
-      className="absolute right-0 left-0 rounded-full transition-all duration-75"
-      style={{
-        height: `${height}px`,
-        top: '50%',
-        transform: 'translateY(-50%)',
-        background: 'linear-gradient(to top, var(--primary), var(--ring))',
-        boxShadow: '0 0 6px var(--ring)'
-      }}
-    />
-  );
-}
-
-function GradientBar({ normalizedHeight }: BarProps) {
-  const height = Math.max(
-    GRADIENT_BAR_MIN_HEIGHT,
-    normalizedHeight * VISUALIZER_HEIGHT
-  );
-
-  return (
-    <div
-      className="w-full rounded-sm transition-all duration-75"
-      style={{
-        height: `${height}px`,
-        background: 'linear-gradient(to top, var(--primary), var(--ring))'
-      }}
-    />
   );
 }
