@@ -38,10 +38,10 @@ interface WindowComponentProps {
   id: string;
   onClose: () => void;
   onMinimize: (dimensions: WindowDimensions) => void;
-  onDimensionsChange: (dimensions: WindowDimensions) => void;
+  onDimensionsChange?: (dimensions: WindowDimensions) => void;
   onFocus: () => void;
   zIndex: number;
-  initialDimensions?: WindowDimensions | undefined;
+  initialDimensions?: WindowDimensions;
 }
 
 interface WindowComponentConfig {
