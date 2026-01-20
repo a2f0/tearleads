@@ -153,6 +153,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Install bashcov
+        run: gem install bashcov
+
       - name: Test with Coverage
         run: |
           pnpm --filter @rapid/shared test:coverage
@@ -162,6 +165,7 @@ jobs:
           pnpm --filter @rapid/client test:coverage
           pnpm --filter @rapid/chrome-extension test:coverage
           pnpm --filter @rapid/website test:coverage
+          pnpm test:coverage
 
       - name: Upload Coverage Reports
         uses: actions/upload-artifact@v4
@@ -175,6 +179,7 @@ jobs:
             packages/client/coverage/
             packages/chrome-extension/coverage/
             packages/website/coverage/
+            tuxedo/tests/coverage/
           retention-days: 30
 
       - name: Coverage Summary
