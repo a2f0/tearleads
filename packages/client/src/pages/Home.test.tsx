@@ -16,10 +16,11 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+const mockGetSetting = vi.fn();
+
 vi.mock('@/db/SettingsProvider', () => ({
   useSettings: () => ({
-    getSetting: (key: string) =>
-      key === 'desktopPattern' ? 'solid' : 'embossed',
+    getSetting: mockGetSetting,
     setSetting: vi.fn()
   })
 }));
@@ -66,6 +67,9 @@ describe('Home', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    mockGetSetting.mockImplementation((key: string) =>
+      key === 'desktopPattern' ? 'solid' : 'embossed'
+    );
     // Mock setPointerCapture since jsdom doesn't support it
     Element.prototype.setPointerCapture = vi.fn();
     Element.prototype.releasePointerCapture = vi.fn();
@@ -102,6 +106,40 @@ describe('Home', () => {
       const svg = button.querySelector('svg');
       expect(svg).toBeInTheDocument();
     }
+  });
+
+  it('inverts icon colors when debossed is active', () => {
+    mockGetSetting.mockImplementation((key: string) =>
+      key === 'desktopPattern' ? 'solid' : 'debossed'
+    );
+    renderHome();
+
+    const assertIconDebossedColors = (
+      name: string,
+      expectedFromClass: string,
+      expectedIconClass: string
+    ) => {
+      const button = screen.getByRole('button', { name });
+      const wrapper = button.querySelector('div');
+      const icon = button.querySelector('svg');
+      expect(wrapper).toHaveClass(
+        'bg-primary-foreground',
+        expectedFromClass,
+        'to-primary-foreground'
+      );
+      expect(icon).toHaveClass(expectedIconClass);
+    };
+
+    assertIconDebossedColors(
+      'Files',
+      'from-primary-foreground/80',
+      'text-primary'
+    );
+    assertIconDebossedColors(
+      'Settings',
+      'from-primary-foreground/60',
+      'text-muted-foreground'
+    );
   });
 
   it('renders with canvas layout for draggable icons', () => {
