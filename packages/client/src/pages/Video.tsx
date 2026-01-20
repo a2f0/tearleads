@@ -496,7 +496,7 @@ export function VideoPage({
                     {videos.map((video) => (
                       <tr
                         key={video.id}
-                        className="border-t hover:bg-muted/30"
+                        className="cursor-pointer border-t hover:bg-muted/30"
                         onContextMenu={(e) => handleContextMenu(e, video)}
                         onClick={
                           isDesktopPlatform
