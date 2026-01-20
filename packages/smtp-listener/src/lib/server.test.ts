@@ -161,12 +161,20 @@ describe('server', () => {
 
     it('should handle storage close error gracefully', async () => {
       mockStorageClose.mockRejectedValue(new Error('Close failed'));
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
 
       const listener = await createSmtpListener({ port: 2525 });
       await listener.start();
       await listener.stop();
 
       expect(mockServerClose).toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to close Redis storage on SMTP listener stop:',
+        expect.any(Error)
+      );
+      consoleSpy.mockRestore();
     });
 
     it('should stop without storage if not started', async () => {
