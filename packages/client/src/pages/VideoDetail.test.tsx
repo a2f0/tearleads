@@ -437,6 +437,66 @@ describe('VideoDetail', () => {
       expect(backLink).toBeInTheDocument();
       expect(backLink.closest('a')).toHaveAttribute('href', '/videos');
     });
+
+    it('renders back button when onBack prop is provided', async () => {
+      const onBack = vi.fn();
+      render(
+        <ThemeProvider>
+          <MemoryRouter>
+            <VideoDetail videoId="video-123" onBack={onBack} />
+          </MemoryRouter>
+        </ThemeProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText('Loading video...')).not.toBeInTheDocument();
+      });
+
+      const backButton = screen.getByTestId('video-back-button');
+      expect(backButton).toBeInTheDocument();
+      expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
+    });
+
+    it('calls onBack when back button is clicked', async () => {
+      const user = userEvent.setup();
+      const onBack = vi.fn();
+      render(
+        <ThemeProvider>
+          <MemoryRouter>
+            <VideoDetail videoId="video-123" onBack={onBack} />
+          </MemoryRouter>
+        </ThemeProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText('Loading video...')).not.toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('video-back-button'));
+      expect(onBack).toHaveBeenCalled();
+    });
+
+    it('calls onBack after delete when onBack prop is provided', async () => {
+      const user = userEvent.setup();
+      const onBack = vi.fn();
+      render(
+        <ThemeProvider>
+          <MemoryRouter>
+            <VideoDetail videoId="video-123" onBack={onBack} />
+          </MemoryRouter>
+        </ThemeProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText('Loading video...')).not.toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('delete-button'));
+
+      await waitFor(() => {
+        expect(onBack).toHaveBeenCalled();
+      });
+    });
   });
 
   describe('name editing', () => {
