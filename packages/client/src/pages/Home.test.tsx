@@ -770,9 +770,7 @@ describe('Home', () => {
     const storedPositions = localStorage.getItem(STORAGE_KEY);
     expect(storedPositions).not.toBeNull();
 
-    const itemsToArrange = navItems.filter(
-      (item) => item.path !== '/' && item.path !== '/sqlite/tables'
-    );
+    const itemsToArrange = navItems.filter((item) => item.path !== '/');
     const cols = Math.ceil(Math.sqrt(itemsToArrange.length));
     const rows = Math.ceil(itemsToArrange.length / cols);
     const itemWidth = ICON_SIZE + GAP;

@@ -35,9 +35,7 @@ vi.mock('@/db/SettingsProvider', () => ({
   })
 }));
 
-const desktopLaunchers = navItems.filter(
-  (item) => item.path !== '/' && item.path !== '/sqlite/tables'
-);
+const desktopLaunchers = navItems.filter((item) => item.path !== '/');
 
 describe('Home desktop launchers', () => {
   const renderHome = () =>
@@ -60,7 +58,6 @@ describe('Home desktop launchers', () => {
   it('covers every desktop launcher path', () => {
     const launcherPaths = desktopLaunchers.map((item) => item.path).sort();
     const mappedPaths = Object.keys(PATH_TO_WINDOW_TYPE)
-      .filter((path) => path !== '/sqlite/tables')
       .sort();
 
     expect(launcherPaths).toEqual(mappedPaths);

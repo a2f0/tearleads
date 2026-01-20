@@ -73,10 +73,6 @@ describe('MobileMenu', () => {
     expect(contactsLink).toHaveTextContent('Contacts');
     expect(contactsLink).toHaveAttribute('href', '/contacts');
 
-    const tablesLink = screen.getByTestId('tables-link');
-    expect(tablesLink).toHaveTextContent('Tables');
-    expect(tablesLink).toHaveAttribute('href', '/sqlite/tables');
-
     const sqliteLink = screen.getByTestId('sqlite-link');
     expect(sqliteLink).toHaveTextContent('SQLite');
     expect(sqliteLink).toHaveAttribute('href', '/sqlite');
@@ -145,8 +141,8 @@ describe('MobileMenu', () => {
     expect(contactsLink).toHaveClass('font-medium');
 
     // Other links should not have active styling
-    const tablesLink = screen.getByTestId('tables-link');
-    expect(tablesLink).not.toHaveClass('bg-accent/50');
+    const sqliteLink = screen.getByTestId('sqlite-link');
+    expect(sqliteLink).not.toHaveClass('bg-accent/50');
   });
 
   it('toggles dropdown on repeated clicks', async () => {
