@@ -650,9 +650,20 @@ export function Home() {
           {appItems.map((item) => {
             const Icon = item.icon;
             const isSettings = item.path === '/settings';
-            const bgClasses = isSettings
+            const baseBgClasses = isSettings
               ? 'bg-muted-foreground from-muted-foreground/60 to-muted-foreground'
               : 'bg-primary from-primary/80 to-primary';
+            const invertedBgClasses = isSettings
+              ? 'bg-primary-foreground from-primary-foreground/60 to-primary-foreground'
+              : 'bg-primary-foreground from-primary-foreground/80 to-primary-foreground';
+            const iconBgClasses =
+              iconDepth === 'debossed' ? invertedBgClasses : baseBgClasses;
+            const iconFgClass =
+              iconDepth === 'debossed'
+                ? isSettings
+                  ? 'text-muted-foreground'
+                  : 'text-primary'
+                : 'text-primary-foreground';
             const pos = positions[item.path] || { x: 0, y: 0 };
             const isDragging = dragging === item.path;
             const isSelected = selectedIcons.has(item.path);
@@ -699,13 +710,13 @@ export function Home() {
                 <div
                   className={cn(
                     'flex h-14 w-14 items-center justify-center rounded-2xl transition-transform hover:scale-105 active:scale-95 sm:h-16 sm:w-16',
-                    bgClasses,
+                    iconBgClasses,
                     iconDepthClasses,
                     isSelected &&
                       'ring-2 ring-primary ring-offset-2 ring-offset-background'
                   )}
                 >
-                  <Icon className="h-7 w-7 text-primary-foreground sm:h-8 sm:w-8" />
+                  <Icon className={cn('h-7 w-7 sm:h-8 sm:w-8', iconFgClass)} />
                 </div>
                 <span className="max-w-full truncate text-center text-foreground text-xs">
                   {t(item.labelKey)}
