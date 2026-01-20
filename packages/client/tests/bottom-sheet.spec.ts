@@ -76,6 +76,7 @@ test.describe('Bottom Sheet', () => {
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await clearOriginStorage(page);
+    await page.setViewportSize({ width: 900, height: 800 });
     await page.goto('/');
     // Open the settings sheet
     await page.getByTestId('settings-button').click();
