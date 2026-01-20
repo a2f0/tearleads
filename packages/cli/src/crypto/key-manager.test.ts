@@ -252,12 +252,20 @@ describe('key-manager', () => {
       // Make config paths point to a non-writable location
       const originalWriteFile = fs.writeFile;
       vi.spyOn(fs, 'writeFile').mockRejectedValueOnce(new Error('Write error'));
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
 
       const result = await persistSession();
       expect(result).toBe(false);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to persist session:',
+        expect.any(Error)
+      );
 
       // Restore
       vi.mocked(fs.writeFile).mockImplementation(originalWriteFile);
+      consoleSpy.mockRestore();
     });
 
     it('restoreSession clears invalid session data', async () => {
@@ -265,11 +273,19 @@ describe('key-manager', () => {
       const paths = getConfigPaths();
 
       await fs.writeFile(paths.session, '{"invalid": "data"}');
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
 
       const result = await restoreSession();
 
       expect(result).toBeNull();
       expect(await hasPersistedSession()).toBe(false);
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to restore session:',
+        expect.anything()
+      );
+      consoleSpy.mockRestore();
     });
   });
 });
