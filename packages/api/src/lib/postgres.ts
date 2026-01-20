@@ -3,7 +3,7 @@ import { Pool, type PoolConfig } from 'pg';
 
 let pool: Pool | null = null;
 let poolConfigKey: string | null = null;
-let poolPromise: Promise<Pool> | null = null;
+let poolMutex: Promise<void> = Promise.resolve();
 
 function getEnvValue(keys: string[]): string | undefined {
   for (const key of keys) {
@@ -92,27 +92,52 @@ export async function getPostgresPool(): Promise<Pool> {
     return pool;
   }
 
-  if (poolPromise && poolConfigKey === configKey) {
-    return poolPromise;
-  }
+  let resolve: () => void = () => {};
+  const prevMutex = poolMutex;
+  poolMutex = new Promise<void>((r) => {
+    resolve = r;
+  });
 
-  if (pool && poolConfigKey && poolConfigKey !== configKey) {
-    await closePostgresPool();
-  }
+  try {
+    await prevMutex;
 
-  poolConfigKey = configKey;
-  poolPromise = Promise.resolve(new Pool(config));
-  pool = await poolPromise;
-  return pool;
+    if (pool && poolConfigKey === configKey) {
+      return pool;
+    }
+
+    if (pool && poolConfigKey && poolConfigKey !== configKey) {
+      const poolToClose = pool;
+      pool = null;
+      poolConfigKey = null;
+      await poolToClose.end();
+    }
+
+    poolConfigKey = configKey;
+    pool = new Pool(config);
+    return pool;
+  } finally {
+    resolve();
+  }
 }
 
 export async function closePostgresPool(): Promise<void> {
-  if (!pool) {
-    return;
+  let resolve: () => void = () => {};
+  const prevMutex = poolMutex;
+  poolMutex = new Promise<void>((r) => {
+    resolve = r;
+  });
+
+  try {
+    await prevMutex;
+
+    if (!pool) {
+      return;
+    }
+    const poolToClose = pool;
+    pool = null;
+    poolConfigKey = null;
+    await poolToClose.end();
+  } finally {
+    resolve();
   }
-  const poolToClose = pool;
-  pool = null;
-  poolPromise = null;
-  poolConfigKey = null;
-  await poolToClose.end();
 }
