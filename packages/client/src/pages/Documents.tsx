@@ -1,6 +1,8 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, desc, eq, like, or } from 'drizzle-orm';
 import {
+  ChevronDown,
+  ChevronUp,
   Download,
   FileText,
   Info,
@@ -8,7 +10,7 @@ import {
   Share2,
   Trash2
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
@@ -52,16 +54,22 @@ interface DocumentWithUrl extends DocumentInfo {
 
 const ROW_HEIGHT_ESTIMATE = 56;
 
+type ViewMode = 'list' | 'table';
+type SortColumn = 'name' | 'size' | 'mimeType' | 'uploadDate';
+type SortDirection = 'asc' | 'desc';
+
 interface DocumentsProps {
   showBackLink?: boolean;
   onSelectDocument?: (documentId: string) => void;
   refreshToken?: number;
+  viewMode?: ViewMode;
 }
 
 export function Documents({
   showBackLink = true,
   onSelectDocument,
-  refreshToken
+  refreshToken,
+  viewMode = 'list'
 }: DocumentsProps) {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
@@ -78,8 +86,12 @@ export function Documents({
   const [canShare, setCanShare] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [sortColumn, setSortColumn] = useState<SortColumn>('uploadDate');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { uploadFile } = useFileUpload();
   const parentRef = useRef<HTMLDivElement>(null);
+
+  const isTableView = viewMode === 'table';
 
   const virtualizer = useVirtualizer({
     count: documents.length,
@@ -385,6 +397,57 @@ export function Documents({
     setContextMenu(null);
   }, []);
 
+  const handleSortChange = useCallback(
+    (column: SortColumn) => {
+      if (column === sortColumn) {
+        setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+        return;
+      }
+      setSortColumn(column);
+      setSortDirection('asc');
+    },
+    [sortColumn]
+  );
+
+  const sortedDocuments = useMemo(() => {
+    const sorted = [...documents].sort((a, b) => {
+      switch (sortColumn) {
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'size':
+          return a.size - b.size;
+        case 'mimeType':
+          return a.mimeType.localeCompare(b.mimeType);
+        case 'uploadDate':
+          return a.uploadDate.getTime() - b.uploadDate.getTime();
+        default:
+          return 0;
+      }
+    });
+
+    return sortDirection === 'asc' ? sorted : sorted.reverse();
+  }, [documents, sortColumn, sortDirection]);
+
+  const documentTypeLabel = useCallback((mimeType: string): string => {
+    const typeMap: Record<string, string> = {
+      'application/pdf': 'PDF',
+      'text/plain': 'Text',
+      'text/markdown': 'Markdown',
+      'text/csv': 'CSV',
+      'application/json': 'JSON'
+    };
+
+    if (typeMap[mimeType]) {
+      return typeMap[mimeType];
+    }
+
+    const [, subtype] = mimeType.split('/');
+    if (subtype) {
+      return subtype.toUpperCase();
+    }
+    return 'Document';
+  }, []);
+
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
@@ -432,14 +495,164 @@ export function Documents({
             </div>
           </div>
         ) : documents.length === 0 && hasFetched ? (
-          <Dropzone
-            onFilesSelected={handleFilesSelected}
-            accept="application/pdf,text/*"
-            multiple={true}
-            disabled={uploading}
-            label="PDF or text documents"
-            source="files"
-          />
+          isTableView ? (
+            <div className="rounded-lg border p-8 text-center text-muted-foreground">
+              No documents yet. Use Upload to add documents.
+            </div>
+          ) : (
+            <Dropzone
+              onFilesSelected={handleFilesSelected}
+              accept="application/pdf,text/*"
+              multiple={true}
+              disabled={uploading}
+              label="PDF or text documents"
+              source="files"
+            />
+          )
+        ) : isTableView ? (
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex-1 overflow-auto rounded-lg border">
+              <table className="w-full text-sm" data-testid="documents-table">
+                <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 text-left font-medium hover:text-foreground"
+                        onClick={() => handleSortChange('name')}
+                      >
+                        Name
+                        {sortColumn === 'name' && (
+                          <span className="shrink-0">
+                            {sortDirection === 'asc' ? (
+                              <ChevronUp className="h-3 w-3" />
+                            ) : (
+                              <ChevronDown className="h-3 w-3" />
+                            )}
+                          </span>
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 text-left">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 text-left font-medium hover:text-foreground"
+                        onClick={() => handleSortChange('size')}
+                      >
+                        Size
+                        {sortColumn === 'size' && (
+                          <span className="shrink-0">
+                            {sortDirection === 'asc' ? (
+                              <ChevronUp className="h-3 w-3" />
+                            ) : (
+                              <ChevronDown className="h-3 w-3" />
+                            )}
+                          </span>
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 text-left">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 text-left font-medium hover:text-foreground"
+                        onClick={() => handleSortChange('mimeType')}
+                      >
+                        Type
+                        {sortColumn === 'mimeType' && (
+                          <span className="shrink-0">
+                            {sortDirection === 'asc' ? (
+                              <ChevronUp className="h-3 w-3" />
+                            ) : (
+                              <ChevronDown className="h-3 w-3" />
+                            )}
+                          </span>
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 text-left">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 text-left font-medium hover:text-foreground"
+                        onClick={() => handleSortChange('uploadDate')}
+                      >
+                        Date
+                        {sortColumn === 'uploadDate' && (
+                          <span className="shrink-0">
+                            {sortDirection === 'asc' ? (
+                              <ChevronUp className="h-3 w-3" />
+                            ) : (
+                              <ChevronDown className="h-3 w-3" />
+                            )}
+                          </span>
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-3 py-2 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedDocuments.map((document) => (
+                    <tr
+                      key={document.id}
+                      className="cursor-pointer border-border/50 border-b hover:bg-accent/50"
+                      onClick={() => handleDocumentClick(document)}
+                      onContextMenu={(event) =>
+                        handleContextMenu(event, document)
+                      }
+                    >
+                      <td className="px-3 py-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          {document.thumbnailUrl ? (
+                            <img
+                              src={document.thumbnailUrl}
+                              alt={`Thumbnail for ${document.name}`}
+                              className="h-7 w-7 shrink-0 rounded border object-cover"
+                            />
+                          ) : (
+                            <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="truncate">{document.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {formatFileSize(document.size)}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {documentTypeLabel(document.mimeType)}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {document.uploadDate.toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => handleDownload(document, e)}
+                            title="Download"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          {canShare && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => handleShare(document, e)}
+                              title="Share"
+                            >
+                              <Share2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         ) : (
           <div
             className="flex min-h-0 flex-1 flex-col space-y-2"

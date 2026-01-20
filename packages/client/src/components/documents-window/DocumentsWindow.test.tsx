@@ -78,15 +78,34 @@ vi.mock('@/pages/DocumentDetail', () => ({
 
 vi.mock('./DocumentsWindowMenuBar', () => ({
   DocumentsWindowMenuBar: ({
+    viewMode,
+    onViewModeChange,
     onUpload,
     onRefresh,
     onClose
   }: {
+    viewMode: 'list' | 'table';
+    onViewModeChange: (mode: 'list' | 'table') => void;
     onUpload: () => void;
     onRefresh: () => void;
     onClose: () => void;
   }) => (
     <div data-testid="documents-menu">
+      <div data-testid="menu-view-mode">{viewMode}</div>
+      <button
+        type="button"
+        onClick={() => onViewModeChange('list')}
+        data-testid="menu-view-list"
+      >
+        List
+      </button>
+      <button
+        type="button"
+        onClick={() => onViewModeChange('table')}
+        data-testid="menu-view-table"
+      >
+        Table
+      </button>
       <button type="button" onClick={onUpload} data-testid="menu-upload">
         Upload
       </button>
@@ -136,6 +155,7 @@ describe('DocumentsWindow', () => {
       '/documents'
     );
     expect(lastDocumentsProps?.['showBackLink']).toBe(false);
+    expect(lastDocumentsProps?.['viewMode']).toBe('list');
   });
 
   it('renders detail view when a document is selected', async () => {
@@ -166,6 +186,16 @@ describe('DocumentsWindow', () => {
 
     await screen.findByTestId('documents-content');
     expect(lastDocumentsProps?.['refreshToken']).toBe(1);
+  });
+
+  it('updates view mode when menu view is changed', async () => {
+    const user = userEvent.setup();
+    render(<DocumentsWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('menu-view-table'));
+
+    expect(screen.getByTestId('menu-view-mode')).toHaveTextContent('table');
+    expect(lastDocumentsProps?.['viewMode']).toBe('table');
   });
 
   it('uploads files when file input changes', async () => {
