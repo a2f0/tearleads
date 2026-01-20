@@ -4,9 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { navItems } from '@/components/Sidebar';
-import type { WindowType } from '@/contexts/WindowManagerContext';
 import { i18n } from '@/i18n';
-import { Home } from './Home';
+import { Home, PATH_TO_WINDOW_TYPE } from './Home';
 
 const mockOpenWindow = vi.fn();
 const mockNavigate = vi.fn();
@@ -36,29 +35,6 @@ vi.mock('@/db/SettingsProvider', () => ({
   })
 }));
 
-const WINDOW_LAUNCHERS: Record<string, WindowType> = {
-  '/notes': 'notes',
-  '/console': 'console',
-  '/settings': 'settings',
-  '/files': 'files',
-  '/documents': 'documents',
-  '/debug': 'debug',
-  '/email': 'email',
-  '/contacts': 'contacts',
-  '/photos': 'photos',
-  '/videos': 'videos',
-  '/keychain': 'keychain',
-  '/sqlite': 'sqlite',
-  '/opfs': 'opfs',
-  '/chat': 'chat',
-  '/analytics': 'analytics',
-  '/audio': 'audio',
-  '/models': 'models',
-  '/admin/redis': 'admin',
-  '/cache-storage': 'cache-storage',
-  '/local-storage': 'local-storage'
-};
-
 const desktopLaunchers = navItems.filter(
   (item) => item.path !== '/' && item.path !== '/sqlite/tables'
 );
@@ -83,14 +59,14 @@ describe('Home desktop launchers', () => {
 
   it('covers every desktop launcher path', () => {
     const launcherPaths = desktopLaunchers.map((item) => item.path).sort();
-    const mappedPaths = Object.keys(WINDOW_LAUNCHERS).sort();
+    const mappedPaths = Object.keys(PATH_TO_WINDOW_TYPE).sort();
 
     expect(launcherPaths).toEqual(mappedPaths);
   });
 
   for (const item of desktopLaunchers) {
     const label = i18n.t(`menu:${item.labelKey}`);
-    const windowType = WINDOW_LAUNCHERS[item.path];
+    const windowType = PATH_TO_WINDOW_TYPE[item.path];
 
     it(`opens ${label} in a window on double click`, async () => {
       const user = userEvent.setup();
@@ -99,6 +75,9 @@ describe('Home desktop launchers', () => {
       const iconButton = screen.getByRole('button', { name: label });
       await user.dblClick(iconButton);
 
+      if (!windowType) {
+        throw new Error(`Missing window type for ${item.path}`);
+      }
       expect(mockOpenWindow).toHaveBeenCalledWith(windowType);
       expect(mockNavigate).not.toHaveBeenCalled();
     });
