@@ -73,33 +73,57 @@ describe('TaskbarButton', () => {
     expect(button).toHaveAttribute('data-minimized', 'true');
   });
 
-  it('shows restore context menu when minimized', async () => {
-    const user = userEvent.setup();
-    const onClick = vi.fn();
-    const onMaximize = vi.fn();
-    const onClose = vi.fn();
-    renderTaskbarButton({ isMinimized: true, onClick, onMaximize, onClose });
+  describe('when minimized', () => {
+    it('shows correct context menu items', () => {
+      renderTaskbarButton({ isMinimized: true });
 
-    const button = screen.getByTestId('taskbar-button-notes');
-    fireEvent.contextMenu(button);
+      const button = screen.getByTestId('taskbar-button-notes');
+      fireEvent.contextMenu(button);
 
-    const restoreItem = screen.getByRole('button', { name: 'Restore' });
-    const maximizeItem = screen.getByRole('button', { name: 'Maximize' });
-    const closeItem = screen.getByRole('button', { name: 'Close' });
-    expect(restoreItem).toBeInTheDocument();
-    expect(maximizeItem).toBeInTheDocument();
-    expect(closeItem).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Restore' })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Maximize' })
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+    });
 
-    await user.click(restoreItem);
-    expect(onClick).toHaveBeenCalledTimes(1);
+    it('handles restore action', async () => {
+      const user = userEvent.setup();
+      const onClick = vi.fn();
+      renderTaskbarButton({ isMinimized: true, onClick });
 
-    fireEvent.contextMenu(button);
-    await user.click(screen.getByRole('button', { name: 'Maximize' }));
-    expect(onMaximize).toHaveBeenCalledTimes(1);
+      const button = screen.getByTestId('taskbar-button-notes');
+      fireEvent.contextMenu(button);
+      await user.click(screen.getByRole('button', { name: 'Restore' }));
 
-    fireEvent.contextMenu(button);
-    await user.click(screen.getByRole('button', { name: 'Close' }));
-    expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
+
+    it('handles maximize action', async () => {
+      const user = userEvent.setup();
+      const onMaximize = vi.fn();
+      renderTaskbarButton({ isMinimized: true, onMaximize });
+
+      const button = screen.getByTestId('taskbar-button-notes');
+      fireEvent.contextMenu(button);
+      await user.click(screen.getByRole('button', { name: 'Maximize' }));
+
+      expect(onMaximize).toHaveBeenCalledTimes(1);
+    });
+
+    it('handles close action', async () => {
+      const user = userEvent.setup();
+      const onClose = vi.fn();
+      renderTaskbarButton({ isMinimized: true, onClose });
+
+      const button = screen.getByTestId('taskbar-button-notes');
+      fireEvent.contextMenu(button);
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('renders with correct label for settings type', () => {
