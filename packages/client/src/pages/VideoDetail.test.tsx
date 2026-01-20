@@ -471,9 +471,7 @@ describe('VideoDetail', () => {
         expect(screen.queryByText('Loading video...')).not.toBeInTheDocument();
       });
 
-      expect(
-        screen.queryByTestId('video-back-button')
-      ).not.toBeInTheDocument();
+      expect(screen.queryByTestId('video-back-button')).not.toBeInTheDocument();
       expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
     });
 
