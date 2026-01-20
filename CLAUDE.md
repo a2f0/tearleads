@@ -1,6 +1,6 @@
 # Agent Notes (Claude Code + Codex)
 
-This file is shared by Claude Code and Codex. `AGENTS.md` is kept in sync with this file.
+This file is shared by Claude Code and Codex. `AGENTS.md` is symlinked to this file.
 
 ## Repository Identification (CRITICAL)
 
