@@ -70,28 +70,30 @@ TUXEDO_FORCE_SCREEN=1 tuxedo_set_screen_flag
 assert_eq "true" "$USE_SCREEN"
 
 UPDATE_LOG="$TEMP_DIR/update.log"
-update_from_main() {
-    echo "$1" >> "$UPDATE_LOG"
-}
-BASE_DIR="$TEMP_DIR/base"
-NUM_WORKSPACES=3
-update_all_workspaces
-assert_contains "$(cat "$UPDATE_LOG")" "$BASE_DIR/rapid-main"
-assert_contains "$(cat "$UPDATE_LOG")" "$BASE_DIR/rapid2"
-assert_contains "$(cat "$UPDATE_LOG")" "$BASE_DIR/rapid3"
+(
+    update_from_main() {
+        echo "$1" >> "$UPDATE_LOG"
+    }
+    BASE_DIR="$TEMP_DIR/base"
+    NUM_WORKSPACES=3
+    update_all_workspaces
+)
+assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/rapid-main"
+assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/rapid2"
+assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/rapid3"
 
 TITLE_LOG="$TEMP_DIR/title.log"
-sync_vscode_title() {
-    echo "$1:$2" >> "$TITLE_LOG"
-}
-BASE_DIR="$TEMP_DIR/base"
-NUM_WORKSPACES=3
-sync_all_titles
-assert_contains "$(cat "$TITLE_LOG")" "$BASE_DIR/rapid-main:rapid-main"
-assert_contains "$(cat "$TITLE_LOG")" "$BASE_DIR/rapid2:rapid2"
-assert_contains "$(cat "$TITLE_LOG")" "$BASE_DIR/rapid3:rapid3"
-
-. "$TUXEDO_LIB"
+(
+    sync_vscode_title() {
+        echo "$1:$2" >> "$TITLE_LOG"
+    }
+    BASE_DIR="$TEMP_DIR/base"
+    NUM_WORKSPACES=3
+    sync_all_titles
+)
+assert_contains "$(cat "$TITLE_LOG")" "$TEMP_DIR/base/rapid-main:rapid-main"
+assert_contains "$(cat "$TITLE_LOG")" "$TEMP_DIR/base/rapid2:rapid2"
+assert_contains "$(cat "$TITLE_LOG")" "$TEMP_DIR/base/rapid3:rapid3"
 
 BASE_DIR="$TEMP_DIR"
 SHARED_DIR="$BASE_DIR/rapid-shared"
