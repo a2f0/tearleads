@@ -16,7 +16,6 @@ import {
 import { toast } from 'sonner';
 import {
   clearSessionActive,
-  getLastLoadedModel,
   markSessionActive,
   wasSessionActive
 } from '@/hooks/useAppLifecycle';
@@ -146,9 +145,6 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         // Initialize the instance registry (creates default instance if needed)
         let activeInstance = await initializeRegistry();
 
-        // Get instance-scoped previous model (must be after we know the active instance)
-        const previousModel = getLastLoadedModel(activeInstance.id);
-
         // Load all instances and validate for orphans
         let allInstances = await getInstances();
 
@@ -216,19 +212,6 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
             setDb(database);
             markSessionActive();
             await touchInstance(activeInstance.id);
-
-            // If session restored but model was lost, notify user
-            if (
-              previousModel &&
-              hadActiveSession &&
-              !hasShownRecoveryToast.current
-            ) {
-              hasShownRecoveryToast.current = true;
-              toast.info(
-                'App reloaded. Your session was restored, but the model needs to be reloaded.',
-                { duration: 5000 }
-              );
-            }
           } else {
             // Session restore failed, clear the invalid session
             setHasPersisted(false);

@@ -1,6 +1,6 @@
 {
   "name": "@rapid/website",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Marketing website for Rapid",
   "type": "module",
   "scripts": {
