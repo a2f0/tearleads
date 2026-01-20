@@ -211,7 +211,8 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
             </div>
             <span className="font-mono">
               {isTotalSizeEstimated ? '~' : ''}
-              {totalSizeParts.value} {totalSizeParts.unit}
+              {totalSizeParts.value}
+              {totalSizeParts.unit}
             </span>
           </div>
 
