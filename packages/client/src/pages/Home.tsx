@@ -289,10 +289,7 @@ export function Home() {
   // Memoize appItems to prevent new array reference on every render
   // which would cause the position calculation effect to run continuously
   const appItems = useMemo(
-    () =>
-      navItems.filter(
-        (item) => item.path !== '/'
-      ),
+    () => navItems.filter((item) => item.path !== '/'),
     []
   );
 
