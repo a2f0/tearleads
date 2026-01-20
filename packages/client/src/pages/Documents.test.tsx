@@ -157,6 +157,14 @@ describe('Documents', () => {
       });
     });
 
+    it('shows back link by default', async () => {
+      await renderDocuments();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('back-link')).toBeInTheDocument();
+      });
+    });
+
     it('hides back link when showBackLink is false', async () => {
       await renderDocuments({ showBackLink: false });
 
