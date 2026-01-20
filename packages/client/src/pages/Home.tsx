@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils';
 // - Sidebar.tsx WINDOW_PATHS mapping
 // - WindowManagerContext.tsx WindowType union
 // - WindowRenderer.tsx switch cases
-const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
+export const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/notes': 'notes',
   '/console': 'console',
   '/settings': 'settings',
