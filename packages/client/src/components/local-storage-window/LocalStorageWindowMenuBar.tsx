@@ -4,6 +4,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
+import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
 
 interface LocalStorageWindowMenuBarProps {
   onRefresh: () => void;
@@ -25,6 +26,9 @@ export function LocalStorageWindowMenuBar({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
+      </DropdownMenu>
+      <DropdownMenu trigger="View">
+        <PreserveWindowStateMenuItem />
       </DropdownMenu>
     </div>
   );
