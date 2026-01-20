@@ -66,8 +66,14 @@ function getVideoTypeDisplay(mimeType: string): string {
   return 'Video';
 }
 
+interface VideoOpenOptions {
+  autoPlay?: boolean | undefined;
+}
+
 interface VideoPageProps {
-  onOpenVideo?: ((videoId: string) => void) | undefined;
+  onOpenVideo?:
+    | ((videoId: string, options?: VideoOpenOptions) => void)
+    | undefined;
   hideBackLink?: boolean | undefined;
   viewMode?: ViewMode | undefined;
 }
@@ -271,13 +277,14 @@ export function VideoPage({
   }, [videos]);
 
   const handleNavigateToDetail = useCallback(
-    (videoId: string) => {
+    (videoId: string, options?: VideoOpenOptions) => {
       if (onOpenVideo) {
-        onOpenVideo(videoId);
+        onOpenVideo(videoId, options);
         return;
       }
       navigateWithFrom(`/videos/${videoId}`, {
-        fromLabel: 'Back to Videos'
+        fromLabel: 'Back to Videos',
+        state: options?.autoPlay ? { autoPlay: true } : undefined
       });
     },
     [navigateWithFrom, onOpenVideo]
@@ -297,12 +304,18 @@ export function VideoPage({
 
   const handleGetInfo = useCallback(
     (video: VideoWithThumbnail) => {
-      navigateWithFrom(`/videos/${video.id}`, {
-        fromLabel: 'Back to Videos'
-      });
+      handleNavigateToDetail(video.id);
       setContextMenu(null);
     },
-    [navigateWithFrom]
+    [handleNavigateToDetail]
+  );
+
+  const handlePlay = useCallback(
+    (video: VideoWithThumbnail) => {
+      handleNavigateToDetail(video.id, { autoPlay: true });
+      setContextMenu(null);
+    },
+    [handleNavigateToDetail]
   );
 
   const handleDelete = useCallback(
@@ -569,7 +582,7 @@ export function VideoPage({
         >
           <ContextMenuItem
             icon={<Play className="h-4 w-4" />}
-            onClick={() => handleGetInfo(contextMenu.video)}
+            onClick={() => handlePlay(contextMenu.video)}
           >
             {t('play')}
           </ContextMenuItem>
