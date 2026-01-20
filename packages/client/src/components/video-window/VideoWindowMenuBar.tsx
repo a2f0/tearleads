@@ -1,20 +1,30 @@
 import { List, Table2 } from 'lucide-react';
-import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
+import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
 
 export type ViewMode = 'list' | 'table';
 
 interface VideoWindowMenuBarProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  onClose: () => void;
 }
 
 export function VideoWindowMenuBar({
   viewMode,
-  onViewModeChange
+  onViewModeChange,
+  onClose
 }: VideoWindowMenuBarProps) {
   return (
     <div className="flex shrink-0 border-b bg-muted/30 px-1">
       <DropdownMenu trigger="File">
+        <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
+      </DropdownMenu>
+      <DropdownMenu trigger="View">
         <DropdownMenuItem
           onClick={() => onViewModeChange('list')}
           checked={viewMode === 'list'}
@@ -29,6 +39,8 @@ export function VideoWindowMenuBar({
         >
           Table
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <PreserveWindowStateMenuItem />
       </DropdownMenu>
     </div>
   );
