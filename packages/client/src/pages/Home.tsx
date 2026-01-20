@@ -9,7 +9,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { navItems } from '@/components/Sidebar';
-import { DisplayPropertiesSheet } from '@/components/settings/DisplayPropertiesSheet';
+import { DisplayPropertiesWindow } from '@/components/settings/DisplayPropertiesWindow';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
 import { DesktopBackground } from '@/components/ui/desktop-background';
@@ -770,7 +770,7 @@ export function Home() {
           )}
         </ContextMenu>
       )}
-      <DisplayPropertiesSheet
+      <DisplayPropertiesWindow
         open={isDisplayPropertiesOpen}
         onOpenChange={setIsDisplayPropertiesOpen}
       />
