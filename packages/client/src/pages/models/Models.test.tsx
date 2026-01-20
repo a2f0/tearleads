@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -121,6 +121,7 @@ describe('Models', () => {
         expect(screen.getByText('SmolVLM 256M')).toBeInTheDocument();
         expect(screen.getByText('PaliGemma 2 3B')).toBeInTheDocument();
         expect(screen.getByText('Mistral 7B Instruct')).toBeInTheDocument();
+        expect(screen.getByText('Gemma 3 4B (Free)')).toBeInTheDocument();
       });
     });
 
@@ -140,7 +141,7 @@ describe('Models', () => {
       await waitFor(() => {
         // Verify total count of vision badges
         const visionBadges = screen.getAllByText('Vision');
-        expect(visionBadges.length).toBe(2);
+        expect(visionBadges.length).toBe(3);
 
         // Verify vision badges are on the correct model cards
         const smolVLMCard = screen
@@ -152,6 +153,11 @@ describe('Models', () => {
           .getByText('PaliGemma 2 3B')
           .closest('.rounded-lg');
         expect(paligemmaCard).toHaveTextContent('Vision');
+
+        const gemmaCard = screen
+          .getByText('Gemma 3 4B (Free)')
+          .closest('.rounded-lg');
+        expect(gemmaCard).toHaveTextContent('Vision');
 
         // Verify non-vision model doesn't have vision badge
         const phi3Card = screen
@@ -245,7 +251,15 @@ describe('Models', () => {
         expect(screen.getByText('Mistral 7B Instruct')).toBeInTheDocument();
       });
 
-      await user.click(screen.getByRole('button', { name: /use/i }));
+      const mistralCard = screen
+        .getByText('Mistral 7B Instruct')
+        .closest('.rounded-lg');
+      if (!mistralCard || !(mistralCard instanceof HTMLElement)) {
+        throw new Error('Expected Mistral model card to be present');
+      }
+      await user.click(
+        within(mistralCard).getByRole('button', { name: /use/i })
+      );
 
       expect(mockLoadModel).toHaveBeenCalledWith(
         'mistralai/mistral-7b-instruct'

@@ -1,5 +1,9 @@
 /// <reference types="@webgpu/types" />
-import { isOpenRouterModelId, isRecord } from '@rapid/shared';
+import {
+  getOpenRouterModelOption,
+  isOpenRouterModelId,
+  isRecord
+} from '@rapid/shared';
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { getCurrentInstanceId, getDatabase } from '@/db';
@@ -18,6 +22,15 @@ interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
+
+type OpenRouterContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
+
+type OpenRouterMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string | OpenRouterContentPart[];
+};
 
 type WorkerRequest =
   | { type: 'load'; modelId: string }
@@ -462,8 +475,9 @@ async function loadModelInternal(modelId: string): Promise<void> {
 
   if (isOpenRouterModelId(modelId)) {
     const start = performance.now();
+    const openRouterModel = getOpenRouterModelOption(modelId);
     store.loadedModel = modelId;
-    store.modelType = 'chat';
+    store.modelType = openRouterModel?.isVision ? 'vision' : 'chat';
     store.isLoading = false;
     store.error = null;
     store.loadProgress = null;
@@ -511,6 +525,45 @@ async function unloadModelInternal(): Promise<void> {
   sendRequest({ type: 'unload' });
 }
 
+function buildOpenRouterMessages(
+  messages: ChatMessage[],
+  image?: string
+): OpenRouterMessage[] {
+  if (!image) {
+    return messages;
+  }
+
+  let lastUserIndex = -1;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role === 'user') {
+      lastUserIndex = index;
+      break;
+    }
+  }
+
+  if (lastUserIndex < 0) {
+    throw new Error('Image attachments require a user message');
+  }
+
+  return messages.map((message, index) => {
+    if (index !== lastUserIndex) {
+      return message;
+    }
+
+    const contentParts: OpenRouterContentPart[] = [];
+    const trimmedContent = message.content.trim();
+    if (trimmedContent.length > 0) {
+      contentParts.push({ type: 'text', text: trimmedContent });
+    }
+    contentParts.push({ type: 'image_url', image_url: { url: image } });
+
+    return {
+      role: message.role,
+      content: contentParts
+    };
+  });
+}
+
 async function generateInternal(
   messages: ChatMessage[],
   onToken: GenerateCallback,
@@ -520,10 +573,15 @@ async function generateInternal(
     throw new Error('No model loaded');
   }
 
+  if (
+    image &&
+    store.modelType !== 'vision' &&
+    store.modelType !== 'paligemma'
+  ) {
+    throw new Error('Image attachments require a vision-capable model');
+  }
+
   if (isOpenRouterModelId(store.loadedModel)) {
-    if (image) {
-      throw new Error('Image attachments require a local vision model');
-    }
     if (!API_BASE_URL) {
       throw new Error('VITE_API_URL environment variable is not set');
     }
@@ -532,6 +590,7 @@ async function generateInternal(
     const requestUrl = `${API_BASE_URL}/chat/completions`;
     let loggedApiError = false;
     try {
+      const openRouterMessages = buildOpenRouterMessages(messages, image);
       const response = await fetch(requestUrl, {
         method: 'POST',
         headers: {
@@ -539,7 +598,7 @@ async function generateInternal(
         },
         body: JSON.stringify({
           model: store.loadedModel,
-          messages
+          messages: openRouterMessages
         })
       });
 
