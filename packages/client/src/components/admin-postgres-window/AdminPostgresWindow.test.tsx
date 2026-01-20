@@ -33,10 +33,15 @@ vi.mock('@/components/floating-window', () => ({
 vi.mock('@/pages/admin/PostgresAdmin', async () => {
   const { useLocation } = await import('react-router-dom');
   return {
-    PostgresAdmin: () => {
+    PostgresAdmin: ({ showBackLink }: { showBackLink?: boolean }) => {
       const location = useLocation();
       return (
-        <div data-testid="postgres-admin-content">{location.pathname}</div>
+        <div data-testid="postgres-admin-content">
+          <span data-testid="postgres-admin-location">{location.pathname}</span>
+          <span data-testid="postgres-admin-backlink">
+            {showBackLink ? 'true' : 'false'}
+          </span>
+        </div>
       );
     }
   };
@@ -65,8 +70,11 @@ describe('AdminPostgresWindow', () => {
 
   it('renders the Postgres admin content', () => {
     render(<AdminPostgresWindow {...defaultProps} />);
-    expect(screen.getByTestId('postgres-admin-content')).toHaveTextContent(
+    expect(screen.getByTestId('postgres-admin-location')).toHaveTextContent(
       '/admin/postgres'
+    );
+    expect(screen.getByTestId('postgres-admin-backlink')).toHaveTextContent(
+      'false'
     );
   });
 

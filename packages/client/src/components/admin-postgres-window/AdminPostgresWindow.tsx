@@ -50,7 +50,7 @@ export function AdminPostgresWindow({
         />
         <div className={cn('flex-1 overflow-auto', compact ? 'p-3' : 'p-6')}>
           <MemoryRouter initialEntries={['/admin/postgres']}>
-            <PostgresAdmin />
+            <PostgresAdmin showBackLink={false} />
           </MemoryRouter>
         </div>
       </div>
