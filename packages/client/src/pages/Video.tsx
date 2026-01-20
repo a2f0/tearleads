@@ -57,14 +57,25 @@ type ViewMode = 'list' | 'table';
 
 const ROW_HEIGHT_ESTIMATE = 56;
 
+function getVideoTypeDisplay(mimeType: string): string {
+  if (!mimeType) return 'Video';
+  const [, subtype] = mimeType.split('/');
+  if (subtype) {
+    return subtype.toUpperCase();
+  }
+  return 'Video';
+}
+
 interface VideoPageProps {
   onOpenVideo?: ((videoId: string) => void) | undefined;
   hideBackLink?: boolean | undefined;
+  viewMode?: ViewMode | undefined;
 }
 
 export function VideoPage({
   onOpenVideo,
-  hideBackLink = false
+  hideBackLink = false,
+  viewMode = 'list'
 }: VideoPageProps) {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
