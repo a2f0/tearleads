@@ -1,7 +1,7 @@
+import os from 'node:os';
 import type { PostgresConnectionInfo } from '@rapid/shared';
 import type { Pool as PgPool, PoolConfig } from 'pg';
 import pg from 'pg';
-import os from 'node:os';
 
 const { Pool } = pg;
 
