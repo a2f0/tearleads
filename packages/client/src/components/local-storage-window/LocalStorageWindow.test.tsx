@@ -34,14 +34,20 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/local-storage', () => ({
-  LocalStorage: () => {
-    useEffect(() => {
-      localStorageMount();
-    }, []);
-    return <div data-testid="local-storage-content">Local Storage</div>;
-  }
-}));
+vi.mock('@/pages/local-storage', async () => {
+  const { useLocation } = await import('react-router-dom');
+  return {
+    LocalStorage: () => {
+      const location = useLocation();
+      useEffect(() => {
+        localStorageMount();
+      }, []);
+      return (
+        <div data-testid="local-storage-content">{location.pathname}</div>
+      );
+    }
+  };
+});
 
 describe('LocalStorageWindow', () => {
   const defaultProps = {
@@ -70,7 +76,9 @@ describe('LocalStorageWindow', () => {
 
   it('renders the local storage content', () => {
     render(<LocalStorageWindow {...defaultProps} />);
-    expect(screen.getByTestId('local-storage-content')).toBeInTheDocument();
+    expect(screen.getByTestId('local-storage-content')).toHaveTextContent(
+      '/local-storage'
+    );
   });
 
   it('calls onClose when close button is clicked', async () => {

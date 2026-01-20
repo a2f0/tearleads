@@ -35,9 +35,17 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 // Mock Settings component
-vi.mock('@/pages/Settings', () => ({
-  Settings: () => <div data-testid="settings-content">Settings Content</div>
-}));
+vi.mock('@/pages/Settings', async () => {
+  const { useLocation } = await import('react-router-dom');
+  return {
+    Settings: () => {
+      const location = useLocation();
+      return (
+        <div data-testid="settings-content">{location.pathname}</div>
+      );
+    }
+  };
+});
 
 describe('SettingsWindow', () => {
   const defaultProps = {
@@ -60,7 +68,9 @@ describe('SettingsWindow', () => {
 
   it('renders the settings content', () => {
     render(<SettingsWindow {...defaultProps} />);
-    expect(screen.getByTestId('settings-content')).toBeInTheDocument();
+    expect(screen.getByTestId('settings-content')).toHaveTextContent(
+      '/settings'
+    );
   });
 
   it('calls onClose when close button is clicked', async () => {
