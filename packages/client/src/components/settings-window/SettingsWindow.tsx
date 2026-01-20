@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { cn } from '@/lib/utils';
@@ -51,7 +52,9 @@ export function SettingsWindow({
           onClose={onClose}
         />
         <div className={cn('flex-1 overflow-auto', compact ? 'p-3' : 'p-6')}>
-          <Settings />
+          <MemoryRouter initialEntries={['/settings']}>
+            <Settings />
+          </MemoryRouter>
         </div>
       </div>
     </FloatingWindow>
