@@ -153,8 +153,7 @@ describe('TableSizes', () => {
       const usersRow = screen.getByText('users').closest('div');
       expect(usersRow).not.toBeNull();
       if (usersRow) {
-        expect(within(usersRow).getByText('2')).toBeInTheDocument();
-        expect(within(usersRow).getByText('KB')).toBeInTheDocument();
+        expect(within(usersRow).getByText('2KB')).toBeInTheDocument();
       }
     });
   });
@@ -173,8 +172,7 @@ describe('TableSizes', () => {
       const usersRow = screen.getByText('users').closest('div');
       expect(usersRow).not.toBeNull();
       if (usersRow) {
-        expect(within(usersRow).getByText('2')).toBeInTheDocument();
-        expect(within(usersRow).getByText('KB')).toBeInTheDocument();
+        expect(within(usersRow).getByText('2KB')).toBeInTheDocument();
         expect(within(usersRow).getByText('50')).toBeInTheDocument();
       }
     });
@@ -194,7 +192,7 @@ describe('TableSizes', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('right-aligns size units in the size column', async () => {
+    it('right-aligns size values in the size column', async () => {
       setupMockContext({ isUnlocked: true });
       setupMockAdapter({
         tables: { rows: [{ name: 'users' }] },
@@ -206,7 +204,7 @@ describe('TableSizes', () => {
       const usersRow = screen.getByText('users').closest('div');
       expect(usersRow).not.toBeNull();
       if (usersRow) {
-        expect(within(usersRow).getByText('KB')).toHaveClass('text-right');
+        expect(within(usersRow).getByText('2KB')).toHaveClass('text-right');
       }
     });
   });
@@ -227,8 +225,7 @@ describe('TableSizes', () => {
       // 100 rows * 100 bytes = 10000 bytes ≈ 9.77 KB
       if (usersRow) {
         expect(within(usersRow).getByText('100')).toBeInTheDocument();
-        expect(within(usersRow).getByText('~9.77')).toBeInTheDocument();
-        expect(within(usersRow).getByText('KB')).toBeInTheDocument();
+        expect(within(usersRow).getByText('~9.77KB')).toBeInTheDocument();
       }
     });
 
