@@ -69,6 +69,30 @@ assert_eq "false" "$USE_SCREEN"
 TUXEDO_FORCE_SCREEN=1 tuxedo_set_screen_flag
 assert_eq "true" "$USE_SCREEN"
 
+UPDATE_LOG="$TEMP_DIR/update.log"
+update_from_main() {
+    echo "$1" >> "$UPDATE_LOG"
+}
+BASE_DIR="$TEMP_DIR/base"
+NUM_WORKSPACES=3
+update_all_workspaces
+assert_contains "$(cat "$UPDATE_LOG")" "$BASE_DIR/rapid-main"
+assert_contains "$(cat "$UPDATE_LOG")" "$BASE_DIR/rapid2"
+assert_contains "$(cat "$UPDATE_LOG")" "$BASE_DIR/rapid3"
+
+TITLE_LOG="$TEMP_DIR/title.log"
+sync_vscode_title() {
+    echo "$1:$2" >> "$TITLE_LOG"
+}
+BASE_DIR="$TEMP_DIR/base"
+NUM_WORKSPACES=3
+sync_all_titles
+assert_contains "$(cat "$TITLE_LOG")" "$BASE_DIR/rapid-main:rapid-main"
+assert_contains "$(cat "$TITLE_LOG")" "$BASE_DIR/rapid2:rapid2"
+assert_contains "$(cat "$TITLE_LOG")" "$BASE_DIR/rapid3:rapid3"
+
+. "$TUXEDO_LIB"
+
 BASE_DIR="$TEMP_DIR"
 SHARED_DIR="$BASE_DIR/rapid-shared"
 NUM_WORKSPACES=2
@@ -112,6 +136,60 @@ EOF
     expected_title=$(tuxedo_truncate_title "tuxedo test window title that is pretty long" 25)
     assert_contains "$(cat "$TMUX_LOG")" "rename-window -t tuxedo:rapid2 $expected_title"
 fi
+
+GHOSTTY_LOG="$TEMP_DIR/ghostty.log"
+export GHOSTTY_LOG
+mkdir -p "$TEMP_DIR/bin"
+cat <<'EOF' > "$TEMP_DIR/bin/ghostty"
+#!/bin/sh
+echo "$@" > "$GHOSTTY_LOG"
+EOF
+chmod +x "$TEMP_DIR/bin/ghostty"
+
+GHOSTTY_CONF="/tmp/ghostty.conf"
+(
+    PATH="$TEMP_DIR/bin:$PATH_BACKUP"
+    exec 1>"$TEMP_DIR/no-tty.out"
+    tuxedo_maybe_launch_ghostty "/tmp/tuxedo.sh" "arg1" "arg2"
+    echo "after" > "$TEMP_DIR/ghostty-after"
+)
+assert_contains "$(cat "$GHOSTTY_LOG")" "--config-file=$GHOSTTY_CONF -e /tmp/tuxedo.sh arg1 arg2"
+
+(
+    PATH=""
+    exec 1>"$TEMP_DIR/no-tty-no-ghostty.out"
+    tuxedo_maybe_launch_ghostty "/tmp/tuxedo.sh" "arg3"
+    echo "after" > "$TEMP_DIR/no-ghostty-after"
+)
+assert_eq "after" "$(cat "$TEMP_DIR/no-ghostty-after")"
+
+TMUX_CALLS="$TEMP_DIR/tmux.calls"
+export TMUX_CALLS
+cat <<'EOF' > "$TEMP_DIR/bin/tmux"
+#!/bin/sh
+if [ "$1" = "has-session" ]; then
+    exit 1
+fi
+echo "$@" >> "$TMUX_CALLS"
+exit 0
+EOF
+chmod +x "$TEMP_DIR/bin/tmux"
+
+PATH="$TEMP_DIR/bin:$PATH_BACKUP"
+BASE_DIR="$TEMP_DIR/tmux-base"
+SHARED_DIR="$BASE_DIR/rapid-shared"
+NUM_WORKSPACES=2
+SESSION_NAME="tuxedo"
+TMUX_CONF="/tmp/tmux.conf"
+EDITOR="true"
+USE_SCREEN=false
+sync_all_titles() {
+    echo "sync-all" >> "$TMUX_CALLS"
+}
+tuxedo_attach_or_create
+assert_contains "$(cat "$TMUX_CALLS")" "new-session -d -s tuxedo -c $SHARED_DIR -n rapid-shared -e PATH="
+assert_contains "$(cat "$TMUX_CALLS")" "new-window -t tuxedo -c $BASE_DIR/rapid-main -n rapid-main -e PATH="
+assert_contains "$(cat "$TMUX_CALLS")" "attach-session -t tuxedo"
 
 PATH="$PATH_BACKUP"
 
