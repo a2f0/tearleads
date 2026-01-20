@@ -243,9 +243,7 @@ describe('Documents', () => {
       await renderDocuments({ viewMode: 'table' });
 
       await waitFor(() => {
-        expect(
-          screen.getByTestId('documents-table')
-        ).toBeInTheDocument();
+        expect(screen.getByTestId('documents-table')).toBeInTheDocument();
       });
 
       expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
