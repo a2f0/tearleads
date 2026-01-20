@@ -54,7 +54,7 @@ describe('PostgresAdmin integration', () => {
 
     expect(screen.getByText('PostgreSQL 15.1')).toBeInTheDocument();
     expect(screen.getByText('public.users')).toBeInTheDocument();
-    expect(screen.getAllByText('2.00 KB')).toHaveLength(2);
+    expect(screen.getAllByText('2.00KB')).toHaveLength(2);
     expect(screen.getAllByText('rapid')).toHaveLength(2);
   });
 });
