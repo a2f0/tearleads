@@ -117,13 +117,19 @@ describe('Home', () => {
     const filesButton = screen.getByRole('button', { name: 'Files' });
     const filesWrapper = filesButton.querySelector('div');
     const filesIcon = filesButton.querySelector('svg');
-    expect(filesWrapper).toHaveClass('bg-primary-foreground');
+    expect(filesWrapper).toHaveClass(
+      'from-primary-foreground/80',
+      'to-primary-foreground'
+    );
     expect(filesIcon).toHaveClass('text-primary');
 
     const settingsButton = screen.getByRole('button', { name: 'Settings' });
     const settingsWrapper = settingsButton.querySelector('div');
     const settingsIcon = settingsButton.querySelector('svg');
-    expect(settingsWrapper).toHaveClass('bg-primary-foreground');
+    expect(settingsWrapper).toHaveClass(
+      'from-primary-foreground/60',
+      'to-primary-foreground'
+    );
     expect(settingsIcon).toHaveClass('text-muted-foreground');
   });
 
