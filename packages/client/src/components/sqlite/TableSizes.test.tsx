@@ -115,7 +115,7 @@ describe('TableSizes', () => {
 
       await renderTableSizes();
 
-      expect(screen.getByText('1 MB')).toBeInTheDocument();
+      expect(screen.getByText('1MB')).toBeInTheDocument();
     });
 
     it('handles empty PRAGMA results with error', async () => {
@@ -149,7 +149,7 @@ describe('TableSizes', () => {
 
       await renderTableSizes();
 
-      expect(screen.getByText('8 KB')).toBeInTheDocument();
+      expect(screen.getByText('8KB')).toBeInTheDocument();
       const usersRow = screen.getByText('users').closest('div');
       expect(usersRow).not.toBeNull();
       if (usersRow) {
@@ -339,8 +339,8 @@ describe('TableSizes', () => {
 
       await renderTableSizes();
 
-      // Total should be sum of table sizes: 2048 + 1024 = 3072 = 3 KB
-      expect(screen.getByText('3 KB')).toBeInTheDocument();
+      // Total should be sum of table sizes: 2048 + 1024 = 3072 = 3KB
+      expect(screen.getByText('3KB')).toBeInTheDocument();
     });
 
     it('sums table sizes when page_size returns 0', async () => {
@@ -349,8 +349,8 @@ describe('TableSizes', () => {
 
       await renderTableSizes();
 
-      // Total should be sum of table sizes: 2048 + 1024 = 3072 = 3 KB
-      expect(screen.getByText('3 KB')).toBeInTheDocument();
+      // Total should be sum of table sizes: 2048 + 1024 = 3072 = 3KB
+      expect(screen.getByText('3KB')).toBeInTheDocument();
     });
 
     it('does not use fallback when page_count is valid', async () => {
@@ -375,8 +375,8 @@ describe('TableSizes', () => {
 
       await renderTableSizes();
 
-      // Total should be page_size * page_count = 4096 * 256 = 1 MB
-      expect(screen.getByText('1 MB')).toBeInTheDocument();
+      // Total should be page_size * page_count = 4096 * 256 = 1MB
+      expect(screen.getByText('1MB')).toBeInTheDocument();
     });
 
     it('shows 0 B when page_count is 0 and no tables exist', async () => {
@@ -390,7 +390,7 @@ describe('TableSizes', () => {
       await renderTableSizes();
 
       // No tables to sum, so stays at 0
-      expect(screen.getByText('0 B')).toBeInTheDocument();
+      expect(screen.getByText('0B')).toBeInTheDocument();
     });
 
     it('shows tilde prefix on total when fallback uses estimated table sizes', async () => {
@@ -403,8 +403,8 @@ describe('TableSizes', () => {
       await renderTableSizes();
 
       // Total size should have tilde prefix when using estimated table sizes
-      // 50 rows * 100 bytes * 2 tables = 10000 bytes ≈ 9.77 KB
-      expect(screen.getByText(/^~9\.77 KB$/)).toBeInTheDocument();
+      // 50 rows * 100 bytes * 2 tables = 10000 bytes ≈ 9.77KB
+      expect(screen.getByText(/^~9\.77KB$/)).toBeInTheDocument();
     });
 
     it('does not show tilde on total when fallback uses exact table sizes', async () => {
@@ -414,9 +414,9 @@ describe('TableSizes', () => {
       await renderTableSizes();
 
       // Total should not have tilde when using exact dbstat sizes
-      // The total 3 KB should appear without a tilde prefix
-      expect(screen.queryByText(/^~3 KB$/)).not.toBeInTheDocument();
-      expect(screen.getByText('3 KB')).toBeInTheDocument();
+      // The total 3KB should appear without a tilde prefix
+      expect(screen.queryByText(/^~3KB$/)).not.toBeInTheDocument();
+      expect(screen.getByText('3KB')).toBeInTheDocument();
     });
   });
 
