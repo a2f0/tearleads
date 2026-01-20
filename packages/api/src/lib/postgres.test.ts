@@ -28,6 +28,7 @@ class PoolMock {
 }
 
 vi.mock('pg', () => ({
+  default: { Pool: PoolMock },
   Pool: PoolMock
 }));
 

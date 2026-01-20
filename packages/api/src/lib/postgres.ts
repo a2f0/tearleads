@@ -1,7 +1,10 @@
 import type { PostgresConnectionInfo } from '@rapid/shared';
-import { Pool, type PoolConfig } from 'pg';
+import type { Pool as PgPool, PoolConfig } from 'pg';
+import pg from 'pg';
 
-let pool: Pool | null = null;
+const { Pool } = pg;
+
+let pool: PgPool | null = null;
 let poolConfigKey: string | null = null;
 let poolMutex: Promise<void> = Promise.resolve();
 
@@ -85,7 +88,7 @@ export function getPostgresConnectionInfo(): PostgresConnectionInfo {
   return buildConnectionInfo();
 }
 
-export async function getPostgresPool(): Promise<Pool> {
+export async function getPostgresPool(): Promise<PgPool> {
   const { config, configKey } = buildPoolConfig();
 
   if (pool && poolConfigKey === configKey) {
