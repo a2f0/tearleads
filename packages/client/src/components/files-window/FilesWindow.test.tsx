@@ -109,7 +109,9 @@ vi.mock('./FilesWindowContent', async () => {
           onSelectFile
         }: {
           showDeleted: boolean;
-          ref?: React.RefObject<{ uploadFiles: (files: File[]) => void } | null>;
+          ref?: React.RefObject<{
+            uploadFiles: (files: File[]) => void;
+          } | null>;
           onSelectFile?: (fileId: string) => void;
         }) => {
           const location = useLocation();

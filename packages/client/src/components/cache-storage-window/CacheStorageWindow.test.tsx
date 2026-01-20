@@ -34,9 +34,7 @@ vi.mock('@/pages/cache-storage', async () => {
   return {
     CacheStorage: () => {
       const location = useLocation();
-      return (
-        <div data-testid="cache-storage-content">{location.pathname}</div>
-      );
+      return <div data-testid="cache-storage-content">{location.pathname}</div>;
     }
   };
 });
