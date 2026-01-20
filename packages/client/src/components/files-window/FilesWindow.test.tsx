@@ -100,44 +100,42 @@ vi.mock('./FilesWindowTableView', () => ({
 vi.mock('./FilesWindowContent', async () => {
   const { useLocation } = await import('react-router-dom');
   return {
-    FilesWindowContent: vi
-      .fn()
-      .mockImplementation(
-        ({
-          showDeleted,
-          ref,
-          onSelectFile
-        }: {
-          showDeleted: boolean;
-          ref?: React.RefObject<{
-            uploadFiles: (files: File[]) => void;
-          } | null>;
-          onSelectFile?: (fileId: string) => void;
-        }) => {
-          const location = useLocation();
-          // Simulate forwardRef behavior by exposing uploadFiles
-          if (ref) {
-            ref.current = { uploadFiles: mockUploadFiles };
-          }
-          return (
-            <div data-testid="files-content">
-              <span data-testid="files-location">{location.pathname}</span>
-              <span data-testid="content-show-deleted">
-                {showDeleted ? 'true' : 'false'}
-              </span>
-              {onSelectFile && (
-                <button
-                  type="button"
-                  data-testid="select-file-button"
-                  onClick={() => onSelectFile('test-file-id')}
-                >
-                  Select File
-                </button>
-              )}
-            </div>
-          );
+    FilesWindowContent: vi.fn().mockImplementation(
+      ({
+        showDeleted,
+        ref,
+        onSelectFile
+      }: {
+        showDeleted: boolean;
+        ref?: React.RefObject<{
+          uploadFiles: (files: File[]) => void;
+        } | null>;
+        onSelectFile?: (fileId: string) => void;
+      }) => {
+        const location = useLocation();
+        // Simulate forwardRef behavior by exposing uploadFiles
+        if (ref) {
+          ref.current = { uploadFiles: mockUploadFiles };
         }
-      )
+        return (
+          <div data-testid="files-content">
+            <span data-testid="files-location">{location.pathname}</span>
+            <span data-testid="content-show-deleted">
+              {showDeleted ? 'true' : 'false'}
+            </span>
+            {onSelectFile && (
+              <button
+                type="button"
+                data-testid="select-file-button"
+                onClick={() => onSelectFile('test-file-id')}
+              >
+                Select File
+              </button>
+            )}
+          </div>
+        );
+      }
+    )
   };
 });
 
