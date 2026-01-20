@@ -193,6 +193,22 @@ describe('TableSizes', () => {
         screen.queryByText('* Sizes are estimated (dbstat unavailable)')
       ).not.toBeInTheDocument();
     });
+
+    it('right-aligns size units in the size column', async () => {
+      setupMockContext({ isUnlocked: true });
+      setupMockAdapter({
+        tables: { rows: [{ name: 'users' }] },
+        dbstat: { rows: [{ size: 2048 }] }
+      });
+
+      await renderTableSizes();
+
+      const usersRow = screen.getByText('users').closest('div');
+      expect(usersRow).not.toBeNull();
+      if (usersRow) {
+        expect(within(usersRow).getByText('KB')).toHaveClass('text-right');
+      }
+    });
   });
 
   describe('table sizes with fallback estimation', () => {
