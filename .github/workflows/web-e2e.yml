@@ -61,9 +61,18 @@ jobs:
           sudo chmod a+x /home/runner /home/runner/work /home/runner/work/rapid /home/runner/work/rapid/rapid
           sudo chmod -R a+rX $GITHUB_WORKSPACE
 
+      - name: Install and configure PostgreSQL
+        run: |
+          sudo apt-get update && sudo apt-get install -y ansible
+          ansible-galaxy collection install -r ansible/requirements.yml
+          POSTGRES_USER=tearleads \
+            POSTGRES_PASSWORD=tearleads_password \
+            POSTGRES_DATABASE=tearleads \
+            ansible-playbook -i ansible/inventories/ci.yml ansible/playbooks/ci-postgres.yml
+
       - name: Install and configure NGINX
         run: |
-          sudo apt-get update && sudo apt-get install -y nginx ansible
+          sudo apt-get install -y nginx
           ansible-playbook -i ansible/inventories/ci.yml ansible/playbooks/ci-nginx.yml -e nginx_ci_site=client
 
       - name: Start API server
@@ -71,6 +80,12 @@ jobs:
           pnpm --filter @rapid/api dev &
           echo "Waiting for API server to be ready..."
           timeout 30 bash -c 'until curl -f http://localhost:5001/v1/ping; do sleep 1; done'
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: '5432'
+          POSTGRES_USER: tearleads
+          POSTGRES_PASSWORD: tearleads_password
+          POSTGRES_DATABASE: tearleads
 
       - name: Verify NGINX is serving
         run: |

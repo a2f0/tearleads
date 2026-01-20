@@ -46,9 +46,18 @@ jobs:
           mkdir -p $GITHUB_WORKSPACE/.github/ci
           cp /etc/ssl/certs/localhost.crt $GITHUB_WORKSPACE/.github/ci/localhost.crt
 
+      - name: Install and configure PostgreSQL
+        run: |
+          sudo apt-get update && sudo apt-get install -y ansible
+          ansible-galaxy collection install -r ansible/requirements.yml
+          POSTGRES_USER=tearleads \
+            POSTGRES_PASSWORD=tearleads_password \
+            POSTGRES_DATABASE=tearleads \
+            ansible-playbook -i ansible/inventories/ci.yml ansible/playbooks/ci-postgres.yml
+
       - name: Install and configure NGINX for API proxy
         run: |
-          sudo apt-get update && sudo apt-get install -y nginx ansible
+          sudo apt-get install -y nginx
           ansible-playbook -i ansible/inventories/ci.yml ansible/playbooks/ci-nginx.yml -e nginx_ci_site=api
 
       - name: Start API server
@@ -56,6 +65,12 @@ jobs:
           pnpm --filter @rapid/api dev &
           echo "Waiting for API server to be ready..."
           timeout 30 bash -c 'until curl -f http://localhost:5001/v1/ping; do sleep 1; done'
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: '5432'
+          POSTGRES_USER: tearleads
+          POSTGRES_PASSWORD: tearleads_password
+          POSTGRES_DATABASE: tearleads
 
       - name: Verify NGINX is proxying API
         run: curl -k https://localhost:8443/v1/ping

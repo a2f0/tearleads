@@ -1,0 +1,54 @@
+---
+- name: Configure PostgreSQL for CI
+  hosts: all
+  become: true
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    postgresql_version: 16
+
+  tasks:
+    - name: Install PostgreSQL packages
+      ansible.builtin.apt:
+        name:
+          - postgresql
+          - postgresql-contrib
+          - python3-psycopg2
+        state: present
+        update_cache: true
+
+    - name: Configure PostgreSQL to listen on localhost only
+      ansible.builtin.lineinfile:
+        path: /etc/postgresql/{{ postgresql_version }}/main/postgresql.conf
+        regexp: "^#?listen_addresses\\s*="
+        line: "listen_addresses = 'localhost'"
+      notify: Restart postgresql
+
+    - name: Ensure PostgreSQL is running and enabled
+      ansible.builtin.systemd:
+        name: postgresql
+        state: started
+        enabled: true
+
+    - name: Ensure Postgres service account exists
+      community.postgresql.postgresql_user:
+        name: "{{ lookup('env', 'POSTGRES_USER') | mandatory('POSTGRES_USER environment variable is required') }}"
+        password: "{{ lookup('env', 'POSTGRES_PASSWORD') | mandatory('POSTGRES_PASSWORD environment variable is required') }}"
+        role_attr_flags: "LOGIN"
+        state: present
+      become: true
+      become_user: postgres
+
+    - name: Ensure Postgres database exists
+      community.postgresql.postgresql_db:
+        name: "{{ lookup('env', 'POSTGRES_DATABASE') | mandatory('POSTGRES_DATABASE environment variable is required') }}"
+        owner: "{{ lookup('env', 'POSTGRES_USER') | mandatory('POSTGRES_USER environment variable is required') }}"
+        state: present
+      become: true
+      become_user: postgres
+
+  handlers:
+    - name: Restart postgresql
+      ansible.builtin.systemd:
+        name: postgresql
+        state: restarted
