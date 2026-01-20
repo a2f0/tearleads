@@ -46,11 +46,16 @@ describe('admin postgres routes', () => {
 
   it('GET /v1/admin/postgres/info returns 500 on error', async () => {
     mockGetPostgresPool.mockRejectedValue(new Error('connection failed'));
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
 
     const response = await request(app).get('/v1/admin/postgres/info');
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: 'connection failed' });
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 
   it('GET /v1/admin/postgres/tables returns table data', async () => {
@@ -104,10 +109,15 @@ describe('admin postgres routes', () => {
 
   it('GET /v1/admin/postgres/tables returns 500 on error', async () => {
     mockGetPostgresPool.mockRejectedValue(new Error('query failed'));
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
 
     const response = await request(app).get('/v1/admin/postgres/tables');
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: 'query failed' });
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 });
