@@ -1,6 +1,5 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ComponentProps } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
@@ -140,6 +139,7 @@ function createMockUpdateChain() {
 function renderVideoRaw(props?: {
   onOpenVideo?: (videoId: string) => void;
   hideBackLink?: boolean;
+  viewMode?: 'list' | 'table';
 }) {
   return render(
     <MemoryRouter>
@@ -151,6 +151,7 @@ function renderVideoRaw(props?: {
 async function renderVideo(props?: {
   onOpenVideo?: (videoId: string) => void;
   hideBackLink?: boolean;
+  viewMode?: 'list' | 'table';
 }) {
   const result = renderVideoRaw(props);
   // Flush the setTimeout(fn, 0) used for instance-aware fetching
