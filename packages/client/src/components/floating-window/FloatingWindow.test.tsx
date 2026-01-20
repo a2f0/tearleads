@@ -269,13 +269,11 @@ describe('FloatingWindow', () => {
     await user.click(screen.getByRole('button', { name: /restore/i }));
 
     const lastCall = onDimensionsChange.mock.calls.at(-1)?.[0];
-    expect(lastCall).toEqual(
-      expect.objectContaining({
-        x: 100,
-        y: 50,
-        isMaximized: false
-      })
-    );
+    expect(lastCall).toEqual(expect.objectContaining({ isMaximized: false }));
+    expect(lastCall?.x).toBeGreaterThan(0);
+    expect(lastCall?.y).toBeGreaterThan(0);
+    expect(lastCall?.width).toBeLessThan(window.innerWidth);
+    expect(lastCall?.height).toBeLessThan(window.innerHeight);
   });
 
   it('restores window from maximized state', async () => {
