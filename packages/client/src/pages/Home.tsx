@@ -51,14 +51,14 @@ const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/local-storage': 'local-storage'
 };
 
-const ICON_SIZE = 64;
+export const ICON_SIZE = 64;
 const ICON_SIZE_MOBILE = 56;
-const GAP = 40;
+export const GAP = 40;
 const GAP_MOBILE = 28;
-const LABEL_HEIGHT = 24;
-const ICON_LABEL_GAP = 8;
+export const LABEL_HEIGHT = 24;
+export const ICON_LABEL_GAP = 8;
 const MOBILE_COLUMNS = 4;
-const ITEM_HEIGHT = ICON_SIZE + LABEL_HEIGHT + ICON_LABEL_GAP;
+export const ITEM_HEIGHT = ICON_SIZE + LABEL_HEIGHT + ICON_LABEL_GAP;
 const ITEM_HEIGHT_MOBILE = ICON_SIZE_MOBILE + LABEL_HEIGHT + ICON_LABEL_GAP;
 const STORAGE_KEY = 'desktop-icon-positions';
 const MIN_SELECTION_DRAG_DISTANCE = 5;
@@ -554,11 +554,9 @@ export function Home() {
       );
 
       setPositions(newPositions);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newPositions));
       if (hasSelection) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newPositions));
         setSelectedIcons(new Set());
-      } else {
-        localStorage.removeItem(STORAGE_KEY);
       }
       setCanvasContextMenu(null);
     },
