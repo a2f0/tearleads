@@ -81,6 +81,9 @@ describe('postgres lib', () => {
   it('treats invalid ports as null', async () => {
     process.env.POSTGRES_HOST = 'localhost';
     process.env.POSTGRES_PORT = 'not-a-number';
+    delete process.env.POSTGRES_USER;
+    delete process.env.POSTGRES_DATABASE;
+    delete process.env.DATABASE_URL;
 
     const { getPostgresConnectionInfo } = await loadPostgresModule();
 
