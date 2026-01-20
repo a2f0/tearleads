@@ -38,7 +38,7 @@ RESULTSET_FILE="$COVERAGE_DIR/.resultset.json"
 
 rm -rf "$COVERAGE_DIR" "$ROOT_DIR/coverage"
 
-$BASHCOV_CMD --mute --bash-path "$DEFAULT_BASH" --root "$ROOT_DIR" --command-name tuxedo -- "$REPO_ROOT/tuxedo/tests/run.sh"
+TUXEDO_TEST_SHELL="$DEFAULT_BASH" $BASHCOV_CMD --mute --bash-path "$DEFAULT_BASH" --root "$ROOT_DIR" --command-name tuxedo -- "$REPO_ROOT/tuxedo/tests/run.sh"
 
 mv "$ROOT_DIR/coverage" "$COVERAGE_DIR"
 

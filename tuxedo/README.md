@@ -9,6 +9,7 @@ persist each workspace shell via GNU screen.
 - `tuxedo/tuxedo.sh`: main entrypoint
 - `tuxedo/tuxedoKill.sh`: teardown helper
 - `tuxedo/config/`: tmux, screen, neovim, and Ghostty config
+- `tuxedo/lib/`: reusable shell helpers
 - `tuxedo/tests/`: shell tests and coverage scripts
 
 Wrapper scripts remain at `scripts/tuxedo.sh` and `scripts/tuxedoKill.sh` for
