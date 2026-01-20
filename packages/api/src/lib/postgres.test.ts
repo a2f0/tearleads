@@ -130,6 +130,13 @@ describe('postgres lib', () => {
   });
 
   it('builds connection info from PG* env vars', async () => {
+    delete process.env.DATABASE_URL;
+    delete process.env.POSTGRES_URL;
+    delete process.env.POSTGRES_HOST;
+    delete process.env.POSTGRES_PORT;
+    delete process.env.POSTGRES_USER;
+    delete process.env.POSTGRES_PASSWORD;
+    delete process.env.POSTGRES_DATABASE;
     process.env.PGHOST = 'localhost';
     process.env.PGPORT = '5434';
     process.env.PGUSER = 'rapid_pg';
