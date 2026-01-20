@@ -114,23 +114,32 @@ describe('Home', () => {
     );
     renderHome();
 
-    const filesButton = screen.getByRole('button', { name: 'Files' });
-    const filesWrapper = filesButton.querySelector('div');
-    const filesIcon = filesButton.querySelector('svg');
-    expect(filesWrapper).toHaveClass(
-      'from-primary-foreground/80',
-      'to-primary-foreground'
-    );
-    expect(filesIcon).toHaveClass('text-primary');
+    const assertIconDebossedColors = (
+      name: string,
+      expectedFromClass: string,
+      expectedIconClass: string
+    ) => {
+      const button = screen.getByRole('button', { name });
+      const wrapper = button.querySelector('div');
+      const icon = button.querySelector('svg');
+      expect(wrapper).toHaveClass(
+        'bg-primary-foreground',
+        expectedFromClass,
+        'to-primary-foreground'
+      );
+      expect(icon).toHaveClass(expectedIconClass);
+    };
 
-    const settingsButton = screen.getByRole('button', { name: 'Settings' });
-    const settingsWrapper = settingsButton.querySelector('div');
-    const settingsIcon = settingsButton.querySelector('svg');
-    expect(settingsWrapper).toHaveClass(
-      'from-primary-foreground/60',
-      'to-primary-foreground'
+    assertIconDebossedColors(
+      'Files',
+      'from-primary-foreground/80',
+      'text-primary'
     );
-    expect(settingsIcon).toHaveClass('text-muted-foreground');
+    assertIconDebossedColors(
+      'Settings',
+      'from-primary-foreground/60',
+      'text-muted-foreground'
+    );
   });
 
   it('renders with canvas layout for draggable icons', () => {
