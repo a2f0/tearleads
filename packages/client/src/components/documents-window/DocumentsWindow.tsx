@@ -1,6 +1,10 @@
+import { useCallback, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { useFileUpload } from '@/hooks/useFileUpload';
+import { DocumentDetail } from '@/pages/DocumentDetail';
 import { Documents } from '@/pages/Documents';
+import { DocumentsWindowMenuBar } from './DocumentsWindowMenuBar';
 
 interface DocumentsWindowProps {
   id: string;
@@ -21,6 +25,60 @@ export function DocumentsWindow({
   zIndex,
   initialDimensions
 }: DocumentsWindowProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
+    null
+  );
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const { uploadFile } = useFileUpload();
+
+  const handleUpload = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshToken((value) => value + 1);
+  }, []);
+
+  const handleFileInputChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      setUploadError(null);
+      const files = Array.from(e.target.files ?? []);
+      if (files.length > 0) {
+        let uploadedCount = 0;
+        const errors: string[] = [];
+        await Promise.all(
+          files.map(async (file) => {
+            try {
+              await uploadFile(file);
+              uploadedCount++;
+            } catch (err) {
+              console.error(`Failed to upload ${file.name}:`, err);
+              errors.push(
+                `"${file.name}": ${
+                  err instanceof Error ? err.message : String(err)
+                }`
+              );
+            }
+          })
+        );
+        if (uploadedCount > 0) {
+          setRefreshToken((value) => value + 1);
+        }
+        if (errors.length > 0) {
+          setUploadError(errors.join('\n'));
+        }
+      }
+      e.target.value = '';
+    },
+    [uploadFile]
+  );
+
+  const handleBack = useCallback(() => {
+    setSelectedDocumentId(null);
+  }, []);
+
   return (
     <FloatingWindow
       id={id}
@@ -36,9 +94,47 @@ export function DocumentsWindow({
       minWidth={400}
       minHeight={350}
     >
-      <div className="flex h-full flex-col overflow-hidden p-3">
-        <Documents />
+      <div className="flex h-full flex-col">
+        {!selectedDocumentId && (
+          <DocumentsWindowMenuBar
+            onUpload={handleUpload}
+            onRefresh={handleRefresh}
+            onClose={onClose}
+          />
+        )}
+        <div className="flex-1 overflow-hidden">
+          {uploadError && (
+            <div className="mx-3 mt-3 whitespace-pre-line rounded-lg border border-destructive bg-destructive/10 p-3 text-destructive text-sm">
+              {uploadError}
+            </div>
+          )}
+          {selectedDocumentId ? (
+            <div className="h-full overflow-auto p-3">
+              <DocumentDetail
+                documentId={selectedDocumentId}
+                onBack={handleBack}
+              />
+            </div>
+          ) : (
+            <div className="h-full p-2">
+              <Documents
+                showBackLink={false}
+                onSelectDocument={setSelectedDocumentId}
+                refreshToken={refreshToken}
+              />
+            </div>
+          )}
+        </div>
       </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/pdf,text/*"
+        multiple
+        className="hidden"
+        onChange={handleFileInputChange}
+        data-testid="documents-file-input"
+      />
     </FloatingWindow>
   );
 }
