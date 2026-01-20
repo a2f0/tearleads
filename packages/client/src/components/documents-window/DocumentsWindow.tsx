@@ -5,6 +5,7 @@ import { FloatingWindow } from '@/components/floating-window';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { DocumentDetail } from '@/pages/DocumentDetail';
 import { Documents } from '@/pages/Documents';
+import type { ViewMode } from './DocumentsWindowMenuBar';
 import { DocumentsWindowMenuBar } from './DocumentsWindowMenuBar';
 
 interface DocumentsWindowProps {
@@ -30,6 +31,7 @@ export function DocumentsWindow({
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
     null
   );
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [refreshToken, setRefreshToken] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const { uploadFile } = useFileUpload();
@@ -99,6 +101,8 @@ export function DocumentsWindow({
         <div className="flex h-full flex-col">
           {!selectedDocumentId && (
             <DocumentsWindowMenuBar
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
               onUpload={handleUpload}
               onRefresh={handleRefresh}
               onClose={onClose}
@@ -123,6 +127,7 @@ export function DocumentsWindow({
                   showBackLink={false}
                   onSelectDocument={setSelectedDocumentId}
                   refreshToken={refreshToken}
+                  viewMode={viewMode}
                 />
               </div>
             )}

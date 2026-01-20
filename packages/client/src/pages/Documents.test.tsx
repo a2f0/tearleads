@@ -238,6 +238,21 @@ describe('Documents', () => {
     });
   });
 
+  describe('table view', () => {
+    it('renders table view when viewMode is table', async () => {
+      await renderDocuments({ viewMode: 'table' });
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('documents-table')
+        ).toBeInTheDocument();
+      });
+
+      expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      expect(screen.queryByTestId('documents-list')).not.toBeInTheDocument();
+    });
+  });
+
   describe('context menu', () => {
     it('shows context menu on right-click', async () => {
       const user = userEvent.setup();
