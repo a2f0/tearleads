@@ -211,7 +211,8 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
             </div>
             <span className="font-mono">
               {isTotalSizeEstimated ? '~' : ''}
-              {totalSizeParts.value} {totalSizeParts.unit}
+              {totalSizeParts.value}
+              {totalSizeParts.unit}
             </span>
           </div>
 
@@ -231,9 +232,9 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
                 </div>
               )}
               <div className="space-y-1">
-                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,4.5rem)_minmax(0,3rem)_minmax(0,5.5rem)] items-center gap-3 border-b pb-1 font-medium text-muted-foreground text-xs">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,7.5rem)_minmax(0,5.5rem)] items-center gap-3 border-b pb-1 font-medium text-muted-foreground text-xs">
                   <span>Table</span>
-                  <span className="col-span-2 text-right">Size</span>
+                  <span className="text-right">Size</span>
                   <span className="text-right">Rows</span>
                 </div>
                 {tableSizes.map((table) => {
@@ -245,7 +246,7 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
                   return (
                     <div
                       key={table.name}
-                      className="grid grid-cols-[minmax(0,1fr)_minmax(0,4.5rem)_minmax(0,3rem)_minmax(0,5.5rem)] items-center gap-3"
+                      className="grid grid-cols-[minmax(0,1fr)_minmax(0,7.5rem)_minmax(0,5.5rem)] items-center gap-3"
                     >
                       {onTableSelect ? (
                         <button
@@ -267,8 +268,6 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
                       <span className="shrink-0 text-right font-mono text-xs">
                         {table.isEstimated ? '~' : ''}
                         {sizeParts.value}
-                      </span>
-                      <span className="shrink-0 text-right font-mono text-xs">
                         {sizeParts.unit}
                       </span>
                       <span className="shrink-0 text-right font-mono text-xs">
