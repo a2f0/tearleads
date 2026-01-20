@@ -4,7 +4,7 @@ import {
   isOpenRouterModelId,
   isRecord
 } from '@rapid/shared';
-import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { getCurrentInstanceId, getDatabase } from '@/db';
 import type { AnalyticsEventSlug } from '@/db/analytics';
