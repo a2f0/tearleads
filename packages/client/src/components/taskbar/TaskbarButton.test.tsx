@@ -77,15 +77,18 @@ describe('TaskbarButton', () => {
     const user = userEvent.setup();
     const onClick = vi.fn();
     const onMaximize = vi.fn();
-    renderTaskbarButton({ isMinimized: true, onClick, onMaximize });
+    const onClose = vi.fn();
+    renderTaskbarButton({ isMinimized: true, onClick, onMaximize, onClose });
 
     const button = screen.getByTestId('taskbar-button-notes');
     fireEvent.contextMenu(button);
 
     const restoreItem = screen.getByRole('button', { name: 'Restore' });
     const maximizeItem = screen.getByRole('button', { name: 'Maximize' });
+    const closeItem = screen.getByRole('button', { name: 'Close' });
     expect(restoreItem).toBeInTheDocument();
     expect(maximizeItem).toBeInTheDocument();
+    expect(closeItem).toBeInTheDocument();
 
     await user.click(restoreItem);
     expect(onClick).toHaveBeenCalledTimes(1);
@@ -93,6 +96,10 @@ describe('TaskbarButton', () => {
     fireEvent.contextMenu(button);
     await user.click(screen.getByRole('button', { name: 'Maximize' }));
     expect(onMaximize).toHaveBeenCalledTimes(1);
+
+    fireEvent.contextMenu(button);
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it('renders with correct label for settings type', () => {
