@@ -1,6 +1,6 @@
 # Agent Notes (Claude Code + Codex)
 
-This file is shared by Claude Code and Codex. `AGENTS.md` is kept in sync with this file.
+This file is shared by Claude Code. `AGENTS.md` is kept in sync with this file via `pnpm lintAgents`.
 
 ## Repository Identification (CRITICAL)
 
@@ -135,7 +135,9 @@ The `.claude/commands/` folder contains reusable skills (slash commands). Each w
 
 - **Always reply inside the review thread** when addressing Gemini or other reviewer feedback.
 - **Never use top-level PR comments** (e.g., `gh pr comment`) to respond to review feedback.
-- Use the PR review comment reply endpoint (`/pulls/comments/{comment_id}/replies`) to keep responses in-thread.
+- Use the PR review comment reply endpoint with the pull number to keep responses in-thread:
+  - `POST /repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies`
+- Do not create a new PR review when replying (avoid GraphQL review comment mutations).
 - Include the relevant commit message(s) in replies to Gemini.
 
 ### Adding, modifying, or deleting a skill

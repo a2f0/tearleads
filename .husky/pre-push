@@ -3,6 +3,7 @@ set -e
 pnpm lint
 pnpm lint:scripts
 pnpm lint:md
+pnpm lintAgents
 pnpm exec tsc -b
 pnpm build
 
