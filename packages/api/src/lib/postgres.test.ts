@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('node:os', () => ({
+  default: {
+    userInfo: () => ({ username: 'rapid_os_user' })
+  }
+}));
+
 type PoolConfig = {
   connectionString?: string;
   host?: string;
@@ -38,10 +44,37 @@ async function loadPostgresModule() {
   return import('./postgres.js');
 }
 
+const DEV_ENV_KEYS = [
+  'USER',
+  'LOGNAME',
+  'DATABASE_URL',
+  'POSTGRES_URL',
+  'POSTGRES_HOST',
+  'POSTGRES_PORT',
+  'POSTGRES_USER',
+  'POSTGRES_PASSWORD',
+  'POSTGRES_DATABASE',
+  'PGHOST',
+  'PGPORT',
+  'PGUSER',
+  'PGPASSWORD',
+  'PGDATABASE'
+];
+
+function setupDevEnvWithoutVars() {
+  process.env.NODE_ENV = 'development';
+  for (const key of DEV_ENV_KEYS) {
+    delete process.env[key];
+  }
+}
+
 describe('postgres lib', () => {
   beforeEach(() => {
     vi.resetModules();
     process.env = { ...originalEnv };
+    if (!process.env.NODE_ENV) {
+      process.env.NODE_ENV = 'test';
+    }
     poolInstances.length = 0;
   });
 
@@ -93,6 +126,50 @@ describe('postgres lib', () => {
       port: null,
       database: null,
       user: null
+    });
+  });
+
+  it('builds connection info from PG* env vars', async () => {
+    process.env.PGHOST = 'localhost';
+    process.env.PGPORT = '5434';
+    process.env.PGUSER = 'rapid_pg';
+    process.env.PGDATABASE = 'rapid_db';
+
+    const { getPostgresConnectionInfo } = await loadPostgresModule();
+
+    expect(getPostgresConnectionInfo()).toEqual({
+      host: 'localhost',
+      port: 5434,
+      database: 'rapid_db',
+      user: 'rapid_pg'
+    });
+  });
+
+  it('uses development defaults when no env vars are set', async () => {
+    setupDevEnvWithoutVars();
+
+    const { getPostgresConnectionInfo } = await loadPostgresModule();
+
+    expect(getPostgresConnectionInfo()).toEqual({
+      host: 'localhost',
+      port: 5432,
+      database: 'postgres',
+      user: 'rapid_os_user'
+    });
+  });
+
+  it('uses dev defaults for pool config when no env vars are set', async () => {
+    setupDevEnvWithoutVars();
+
+    const { getPostgresPool } = await loadPostgresModule();
+
+    await getPostgresPool();
+
+    expect(poolInstances[0]?.config).toEqual({
+      host: 'localhost',
+      port: 5432,
+      user: 'rapid_os_user',
+      database: 'postgres'
     });
   });
 
