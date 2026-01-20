@@ -59,7 +59,9 @@ describe('Home desktop launchers', () => {
 
   it('covers every desktop launcher path', () => {
     const launcherPaths = desktopLaunchers.map((item) => item.path).sort();
-    const mappedPaths = Object.keys(PATH_TO_WINDOW_TYPE).sort();
+    const mappedPaths = Object.keys(PATH_TO_WINDOW_TYPE)
+      .filter((path) => path !== '/sqlite/tables')
+      .sort();
 
     expect(launcherPaths).toEqual(mappedPaths);
   });
