@@ -3,8 +3,9 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { navItems } from '@/components/Sidebar';
 import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
-import { Home } from './Home';
+import { GAP, Home, ICON_SIZE, ITEM_HEIGHT } from './Home';
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -424,11 +425,8 @@ describe('Home', () => {
     expect(filesButton).toHaveStyle({ left: '300px', top: '300px' });
   });
 
-  it('clears localStorage on auto arrange', async () => {
+  it('persists icon positions on auto arrange', async () => {
     const user = userEvent.setup();
-
-    // Pre-populate localStorage with saved positions
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_SAVED_POSITIONS));
 
     const { container } = renderHome();
     const canvas = container.querySelector('[role="application"]');
@@ -442,8 +440,14 @@ describe('Home', () => {
     const autoArrangeItem = screen.getByText('Auto Arrange');
     await user.click(autoArrangeItem);
 
-    // localStorage should be cleared
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    const storedPositions = localStorage.getItem(STORAGE_KEY);
+    expect(storedPositions).not.toBeNull();
+    expect(JSON.parse(storedPositions ?? '{}')).toMatchObject({
+      '/files': expect.objectContaining({
+        x: expect.any(Number),
+        y: expect.any(Number)
+      })
+    });
   });
 
   it('uses grid positions when localStorage has invalid JSON', () => {
@@ -684,8 +688,14 @@ describe('Home', () => {
     // Context menu should close
     expect(screen.queryByText('Scatter')).not.toBeInTheDocument();
 
-    // localStorage should be cleared
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    const storedPositions = localStorage.getItem(STORAGE_KEY);
+    expect(storedPositions).not.toBeNull();
+    expect(JSON.parse(storedPositions ?? '{}')).toMatchObject({
+      '/files': expect.objectContaining({
+        x: expect.any(Number),
+        y: expect.any(Number)
+      })
+    });
 
     // Position should have changed (scatter assigns random positions)
     const newStyle = filesButton.getAttribute('style');
@@ -718,17 +728,31 @@ describe('Home', () => {
     // Context menu should close
     expect(screen.queryByText('Cluster')).not.toBeInTheDocument();
 
-    // localStorage should be cleared (same as auto-arrange)
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    const storedPositions = localStorage.getItem(STORAGE_KEY);
+    expect(storedPositions).not.toBeNull();
 
-    // With 20 icons in an 800x600 container:
-    // cols = ceil(sqrt(20)) = 5, rows = ceil(20/5) = 4
-    // itemWidth = 64 + 40 = 104, itemHeightWithGap = 96 + 40 = 136
-    // clusterWidth = 5*104 - 40 = 480, clusterHeight = 4*136 - 40 = 504
-    // startX = (800 - 480) / 2 = 160, startY = max(0, (600 - 504) / 2) = 48
-    // First icon (Files) at index 0: col=0, row=0 -> (160, 48)
+    const itemsToArrange = navItems.filter(
+      (item) => item.path !== '/' && item.path !== '/sqlite/tables'
+    );
+    const cols = Math.ceil(Math.sqrt(itemsToArrange.length));
+    const rows = Math.ceil(itemsToArrange.length / cols);
+    const itemWidth = ICON_SIZE + GAP;
+    const itemHeightWithGap = ITEM_HEIGHT + GAP;
+    const clusterWidth = cols * itemWidth - GAP;
+    const clusterHeight = rows * itemHeightWithGap - GAP;
+    const expectedX = Math.max(0, (800 - clusterWidth) / 2);
+    const expectedY = Math.max(0, (600 - clusterHeight) / 2);
+
+    const parsedPositions: Record<string, { x: number; y: number }> =
+      JSON.parse(storedPositions ?? '{}');
+    const filesPosition = parsedPositions['/files'];
+    expect(filesPosition).toBeDefined();
+    expect(filesPosition?.x).toBeCloseTo(expectedX);
+    expect(filesPosition?.y).toBeCloseTo(expectedY);
+
     const filesButton = screen.getByRole('button', { name: 'Files' });
-    expect(filesButton).toHaveStyle({ left: '160px', top: '48px' });
+    expect(parseFloat(filesButton.style.left)).toBeCloseTo(expectedX);
+    expect(parseFloat(filesButton.style.top)).toBeCloseTo(expectedY);
   });
 
   it('shows Open in Window option for Notes icon', async () => {
