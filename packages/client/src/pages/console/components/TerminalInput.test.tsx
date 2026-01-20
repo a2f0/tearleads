@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { TerminalInput } from './TerminalInput';
@@ -22,6 +22,20 @@ describe('TerminalInput', () => {
   it('renders the input with value', () => {
     render(<TerminalInput {...defaultProps} value="status" />);
     expect(screen.getByTestId('terminal-input')).toHaveValue('status');
+  });
+
+  it('auto-focuses the input by default', async () => {
+    render(<TerminalInput {...defaultProps} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-input')).toHaveFocus();
+    });
+  });
+
+  it('does not auto-focus when autoFocus is false', async () => {
+    render(<TerminalInput {...defaultProps} autoFocus={false} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('terminal-input')).not.toHaveFocus();
+    });
   });
 
   it('calls onChange when typing', async () => {
