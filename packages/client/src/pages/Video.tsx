@@ -1,4 +1,10 @@
 import { assertPlainArrayBuffer } from '@rapid/shared';
+import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  useReactTable
+} from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, desc, eq, like } from 'drizzle-orm';
 import { ChevronRight, Film, Info, Loader2, Play, Trash2 } from 'lucide-react';
@@ -56,6 +62,7 @@ interface VideoWithThumbnail extends VideoInfo {
 type ViewMode = 'list' | 'table';
 
 const ROW_HEIGHT_ESTIMATE = 56;
+const TABLE_ROW_HEIGHT_ESTIMATE = 44;
 
 function getVideoTypeDisplay(mimeType: string): string {
   if (!mimeType) return 'Video';
@@ -94,6 +101,7 @@ export function VideoPage({
   const [uploadProgress, setUploadProgress] = useState(0);
   const { uploadFile } = useFileUpload();
   const parentRef = useRef<HTMLDivElement>(null);
+  const tableParentRef = useRef<HTMLDivElement>(null);
   const [contextMenu, setContextMenu] = useState<{
     video: VideoWithThumbnail;
     x: number;
@@ -352,6 +360,72 @@ export function VideoPage({
     []
   );
 
+  const tableColumns = useMemo<ColumnDef<VideoWithThumbnail>[]>(
+    () => [
+      {
+        id: 'name',
+        header: 'Name',
+        cell: ({ row }) => {
+          const video = row.original;
+          return (
+            <div className="flex min-w-0 items-center gap-2">
+              {video.thumbnailUrl ? (
+                <img
+                  src={video.thumbnailUrl}
+                  alt=""
+                  className="h-6 w-6 rounded object-cover"
+                />
+              ) : (
+                <Film className="h-4 w-4 text-muted-foreground" />
+              )}
+              <span className="truncate font-medium">{video.name}</span>
+            </div>
+          );
+        }
+      },
+      {
+        id: 'size',
+        header: 'Size',
+        cell: ({ row }) => formatFileSize(row.original.size)
+      },
+      {
+        id: 'type',
+        header: 'Type',
+        cell: ({ row }) => getVideoTypeDisplay(row.original.mimeType)
+      },
+      {
+        id: 'uploaded',
+        header: 'Uploaded',
+        cell: ({ row }) => formatDate(row.original.uploadDate)
+      }
+    ],
+    []
+  );
+
+  const table = useReactTable({
+    data: videos,
+    columns: tableColumns,
+    getCoreRowModel: getCoreRowModel()
+  });
+
+  const tableVirtualizer = useVirtualizer({
+    count: table.getRowModel().rows.length,
+    getScrollElement: () => tableParentRef.current,
+    estimateSize: () => TABLE_ROW_HEIGHT_ESTIMATE,
+    overscan: 5
+  });
+
+  const tableVirtualItems = tableVirtualizer.getVirtualItems();
+  const { firstVisible: tableFirstVisible, lastVisible: tableLastVisible } =
+    useVirtualVisibleRange(tableVirtualItems);
+
+  const getTableCellClassName = useCallback((columnId: string) => {
+    if (columnId === 'name') {
+      return 'px-3 py-2';
+    }
+    return 'px-3 py-2 text-muted-foreground';
+  }, []);
+
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
@@ -505,65 +579,88 @@ export function VideoPage({
                 </div>
               </>
             ) : (
-              <div className="flex-1 overflow-auto rounded-lg border">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-muted/60 text-muted-foreground text-xs">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium">Name</th>
-                      <th className="px-3 py-2 text-left font-medium">Size</th>
-                      <th className="px-3 py-2 text-left font-medium">Type</th>
-                      <th className="px-3 py-2 text-left font-medium">
-                        Uploaded
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {videos.map((video) => (
-                      <tr
-                        key={video.id}
-                        className="cursor-pointer border-t hover:bg-muted/30"
-                        onContextMenu={(e) => handleContextMenu(e, video)}
-                        onClick={
-                          isDesktopPlatform
-                            ? undefined
-                            : () => handleNavigateToDetail(video.id)
-                        }
-                        onDoubleClick={
-                          isDesktopPlatform
-                            ? () => handleNavigateToDetail(video.id)
-                            : undefined
-                        }
-                      >
-                        <td className="px-3 py-2">
-                          <div className="flex min-w-0 items-center gap-2">
-                            {video.thumbnailUrl ? (
-                              <img
-                                src={video.thumbnailUrl}
-                                alt=""
-                                className="h-6 w-6 rounded object-cover"
-                              />
-                            ) : (
-                              <Film className="h-4 w-4 text-muted-foreground" />
-                            )}
-                            <span className="truncate font-medium">
-                              {video.name}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground">
-                          {formatFileSize(video.size)}
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground">
-                          {getVideoTypeDisplay(video.mimeType)}
-                        </td>
-                        <td className="px-3 py-2 text-muted-foreground">
-                          {formatDate(video.uploadDate)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <VirtualListStatus
+                  firstVisible={tableFirstVisible}
+                  lastVisible={tableLastVisible}
+                  loadedCount={videos.length}
+                  itemLabel="video"
+                />
+                <div
+                  ref={tableParentRef}
+                  className="flex-1 overflow-auto rounded-lg border"
+                >
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-muted/60 text-muted-foreground text-xs">
+                      {table.getHeaderGroups().map((headerGroup) => (
+                        <tr key={headerGroup.id}>
+                          {headerGroup.headers.map((header) => (
+                            <th
+                              key={header.id}
+                              className="px-3 py-2 text-left font-medium"
+                            >
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(
+                                    header.column.columnDef.header,
+                                    header.getContext()
+                                  )}
+                            </th>
+                          ))}
+                        </tr>
+                      ))}
+                    </thead>
+                    <tbody
+                      className="relative"
+                      style={{
+                        height: `${tableVirtualizer.getTotalSize()}px`
+                      }}
+                    >
+                      {tableVirtualItems.map((virtualRow) => {
+                        const row = table.getRowModel().rows[virtualRow.index];
+                        if (!row) return null;
+                        const video = row.original;
+
+                        return (
+                          <tr
+                            key={row.id}
+                            className="absolute right-0 left-0 cursor-pointer border-t hover:bg-muted/30"
+                            style={{
+                              transform: `translateY(${virtualRow.start}px)`,
+                              height: `${virtualRow.size}px`
+                            }}
+                            onContextMenu={(e) => handleContextMenu(e, video)}
+                            onClick={
+                              isDesktopPlatform
+                                ? undefined
+                                : () => handleNavigateToDetail(video.id)
+                            }
+                            onDoubleClick={
+                              isDesktopPlatform
+                                ? () => handleNavigateToDetail(video.id)
+                                : undefined
+                            }
+                          >
+                            {row.getVisibleCells().map((cell) => (
+                              <td
+                                key={cell.id}
+                                className={getTableCellClassName(
+                                  cell.column.id
+                                )}
+                              >
+                                {flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext()
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
             <Dropzone
               onFilesSelected={handleFilesSelected}
