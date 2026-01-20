@@ -3,7 +3,6 @@ import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { VideoPage } from '@/pages/Video';
 import { VideoDetail } from '@/pages/VideoDetail';
-import { VideoWindowMenuBar, type ViewMode } from './VideoWindowMenuBar';
 
 interface VideoWindowProps {
   id: string;
