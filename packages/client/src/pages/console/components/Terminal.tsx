@@ -16,9 +16,10 @@ import { TerminalOutput } from './TerminalOutput';
 
 interface TerminalProps {
   className?: string;
+  autoFocus?: boolean;
 }
 
-export function Terminal({ className }: TerminalProps) {
+export function Terminal({ className, autoFocus = true }: TerminalProps) {
   const db = useDatabaseContext();
   const terminal = useTerminal();
   const history = useCommandHistory();
@@ -195,6 +196,7 @@ export function Terminal({ className }: TerminalProps) {
           prompt={terminal.prompt}
           mode={terminal.mode}
           disabled={terminal.isProcessing}
+          autoFocus={autoFocus}
           onChange={handleInputChange}
           onSubmit={handleSubmit}
           onKeyDown={handleKeyDown}
