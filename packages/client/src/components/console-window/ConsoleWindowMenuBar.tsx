@@ -4,6 +4,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
+import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
 
 interface ConsoleWindowMenuBarProps {
   onNewTab: () => void;
@@ -38,6 +39,8 @@ export function ConsoleWindowMenuBar({
         >
           Split Vertical
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <PreserveWindowStateMenuItem />
       </DropdownMenu>
     </div>
   );

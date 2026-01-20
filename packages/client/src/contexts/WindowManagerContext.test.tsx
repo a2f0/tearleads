@@ -1,6 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import {
+  clearPreserveWindowState,
+  setPreserveWindowState
+} from '@/lib/windowStatePreference';
 import {
   useWindowManager,
   WindowManagerProvider
@@ -10,6 +14,11 @@ describe('WindowManagerContext', () => {
   function wrapper({ children }: { children: ReactNode }) {
     return <WindowManagerProvider>{children}</WindowManagerProvider>;
   }
+
+  beforeEach(() => {
+    localStorage.clear();
+    clearPreserveWindowState();
+  });
 
   describe('useWindowManager', () => {
     it('throws error when used outside WindowManagerProvider', () => {
@@ -134,6 +143,42 @@ describe('WindowManagerContext', () => {
       expect(reopenedId).toBe(audioId);
       expect(result.current.windows).toHaveLength(1);
       expect(result.current.getWindow(audioId)?.isMinimized).toBe(false);
+    });
+
+    it('loads stored dimensions when preservation is enabled', () => {
+      localStorage.setItem(
+        'window-dimensions:notes',
+        JSON.stringify({ width: 480, height: 320, x: 25, y: 30 })
+      );
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'notes-1');
+      });
+
+      const window = result.current.getWindow('notes-1');
+      expect(window?.dimensions).toEqual({
+        width: 480,
+        height: 320,
+        x: 25,
+        y: 30
+      });
+    });
+
+    it('ignores stored dimensions when preservation is disabled', () => {
+      setPreserveWindowState(false);
+      localStorage.setItem(
+        'window-dimensions:notes',
+        JSON.stringify({ width: 480, height: 320, x: 25, y: 30 })
+      );
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'notes-2');
+      });
+
+      const window = result.current.getWindow('notes-2');
+      expect(window?.dimensions).toBeUndefined();
     });
   });
 
@@ -420,6 +465,41 @@ describe('WindowManagerContext', () => {
         x: 200,
         y: 150
       });
+    });
+  });
+
+  describe('saveWindowDimensionsForType', () => {
+    it('stores dimensions in localStorage', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.saveWindowDimensionsForType('notes', {
+          width: 500,
+          height: 400,
+          x: 10,
+          y: 20
+        });
+      });
+
+      const saved = localStorage.getItem('window-dimensions:notes');
+      expect(saved).not.toBeNull();
+    });
+
+    it('does not store dimensions when preservation is disabled', () => {
+      setPreserveWindowState(false);
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.saveWindowDimensionsForType('notes', {
+          width: 500,
+          height: 400,
+          x: 10,
+          y: 20
+        });
+      });
+
+      const saved = localStorage.getItem('window-dimensions:notes');
+      expect(saved).toBeNull();
     });
   });
 });
