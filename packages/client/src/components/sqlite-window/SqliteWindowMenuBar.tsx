@@ -1,5 +1,10 @@
 import { RefreshCw } from 'lucide-react';
-import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
+import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
 
 interface SqliteWindowMenuBarProps {
   onClose: () => void;
@@ -22,6 +27,8 @@ export function SqliteWindowMenuBar({
         >
           Refresh
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <PreserveWindowStateMenuItem />
       </DropdownMenu>
     </div>
   );

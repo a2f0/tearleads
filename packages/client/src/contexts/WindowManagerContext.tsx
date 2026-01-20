@@ -11,6 +11,7 @@ import {
   loadWindowDimensions,
   saveWindowDimensions
 } from '@/lib/windowDimensionsStorage';
+import { getPreserveWindowState } from '@/lib/windowStatePreference';
 
 // AGENT GUARDRAIL: When adding a new WindowType, ensure parity across:
 // - WindowRenderer.tsx (add case to render the window component)
@@ -128,8 +129,10 @@ export function WindowManagerProvider({
         : windows.find((window) => window.type === type);
       let resolvedId = existingWindow?.id ?? id;
 
-      // Load saved dimensions for this window type
-      const savedDimensions = loadWindowDimensions(type);
+      // Load saved dimensions for this window type if preservation is enabled
+      const savedDimensions = getPreserveWindowState()
+        ? loadWindowDimensions(type)
+        : null;
 
       setWindows((prev) => {
         if (!customId) {
@@ -205,6 +208,9 @@ export function WindowManagerProvider({
   const saveWindowDimensionsForType = useCallback(
     (type: WindowType, dimensions: WindowDimensions) => {
       const { width, height, x, y } = dimensions;
+      if (!getPreserveWindowState()) {
+        return;
+      }
       saveWindowDimensions(type, { width, height, x, y });
     },
     []

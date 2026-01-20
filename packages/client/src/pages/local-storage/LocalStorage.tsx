@@ -14,7 +14,8 @@ const PROTECTED_KEYS = new Set([
   ...Object.values(SETTING_STORAGE_KEYS),
   'desktop-icon-positions',
   'audio-visualizer-style',
-  'rapid_last_loaded_model'
+  'rapid_last_loaded_model',
+  'window-state-preserve'
 ]);
 const PROTECTED_PREFIXES = ['window-dimensions:'];
 

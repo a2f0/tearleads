@@ -1,6 +1,11 @@
 import { Minimize2 } from 'lucide-react';
 import { useCallback } from 'react';
-import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
+import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
 
 interface AdminWindowMenuBarProps {
   compact: boolean;
@@ -30,6 +35,8 @@ export function AdminWindowMenuBar({
         >
           Compact
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <PreserveWindowStateMenuItem />
       </DropdownMenu>
     </div>
   );
