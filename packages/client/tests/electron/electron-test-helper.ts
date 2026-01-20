@@ -65,3 +65,23 @@ export async function launchElectronApp(
 
   return app;
 }
+
+const APP_CLOSE_TIMEOUT = 5000;
+
+/**
+ * Close Electron app with timeout fallback.
+ * Attempts graceful close first, then forcefully kills the process if it hangs.
+ */
+export async function closeElectronApp(
+  app: ElectronApplication
+): Promise<void> {
+  const pid = app.process().pid;
+  const closePromise = app.close();
+  const timeoutPromise = new Promise<'timeout'>((resolve) =>
+    setTimeout(() => resolve('timeout'), APP_CLOSE_TIMEOUT)
+  );
+  const result = await Promise.race([closePromise, timeoutPromise]);
+  if (result === 'timeout' && pid) {
+    process.kill(pid, 'SIGKILL');
+  }
+}

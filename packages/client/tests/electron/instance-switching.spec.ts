@@ -9,7 +9,7 @@ import {
   ElectronApplication,
   Page
 } from '@playwright/test';
-import { launchElectronApp } from './electron-test-helper';
+import { closeElectronApp, launchElectronApp } from './electron-test-helper';
 
 const INSTANCE1_PASSWORD = 'password-instance1!';
 const INSTANCE2_PASSWORD = 'different-password2@';
@@ -163,7 +163,7 @@ test.describe('Instance Switching (Electron)', () => {
   });
 
   test.afterEach(async () => {
-    await electronApp.close();
+    await closeElectronApp(electronApp);
   });
 
   test('state resets when creating a new instance', async () => {
@@ -306,7 +306,7 @@ test.describe('Instance Switching (Electron)', () => {
     expect(secondInstanceData).toBeTruthy();
 
     // Close and relaunch the app without clearing storage to test persistence
-    await electronApp.close();
+    await closeElectronApp(electronApp);
     electronApp = await launchElectronApp({clearStorage: false});
     window = await electronApp.firstWindow();
 

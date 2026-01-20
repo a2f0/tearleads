@@ -1,6 +1,6 @@
 import {test, expect, ElectronApplication, Page} from '@playwright/test';
 import {createRequire} from 'node:module';
-import {launchElectronApp} from './electron-test-helper';
+import {closeElectronApp, launchElectronApp} from './electron-test-helper';
 
 const require = createRequire(import.meta.url);
 const packageJson: { version: string } = require('../../package.json');
@@ -32,7 +32,7 @@ test.describe('Electron App', () => {
   });
 
   test.afterEach(async () => {
-    await electronApp.close();
+    await closeElectronApp(electronApp);
   });
 
   test('should launch and display the main window with version in title', async () => {
