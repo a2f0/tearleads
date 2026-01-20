@@ -30,11 +30,17 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/admin/PostgresAdmin', () => ({
-  PostgresAdmin: () => (
-    <div data-testid="postgres-admin-content">Postgres Admin</div>
-  )
-}));
+vi.mock('@/pages/admin/PostgresAdmin', async () => {
+  const { useLocation } = await import('react-router-dom');
+  return {
+    PostgresAdmin: () => {
+      const location = useLocation();
+      return (
+        <div data-testid="postgres-admin-content">{location.pathname}</div>
+      );
+    }
+  };
+});
 
 describe('AdminPostgresWindow', () => {
   const defaultProps = {
@@ -59,7 +65,9 @@ describe('AdminPostgresWindow', () => {
 
   it('renders the Postgres admin content', () => {
     render(<AdminPostgresWindow {...defaultProps} />);
-    expect(screen.getByTestId('postgres-admin-content')).toBeInTheDocument();
+    expect(screen.getByTestId('postgres-admin-content')).toHaveTextContent(
+      '/admin/postgres'
+    );
   });
 
   it('calls onClose when close button is clicked', async () => {
