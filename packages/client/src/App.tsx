@@ -112,6 +112,7 @@ function App() {
         <div className="flex items-center gap-2">
           {sse && (
             <div className="flex h-6 w-6 items-center justify-center">
+              {/* Optical alignment tweak to match the HUD icon's center. */}
               <ConnectionIndicator
                 state={sse.connectionState}
                 tooltip={t(sseTooltipKeys[sse.connectionState])}
