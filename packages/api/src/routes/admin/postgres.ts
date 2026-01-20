@@ -14,6 +14,15 @@ import {
   getPostgresPool
 } from '../../lib/postgres.js';
 
+type PostgresTableRow = {
+  schema: string;
+  name: string;
+  row_count: number | string | null;
+  total_bytes: number | string | null;
+  table_bytes: number | string | null;
+  index_bytes: number | string | null;
+};
+
 const router: RouterType = Router();
 
 function coerceNumber(value: unknown): number {
@@ -131,14 +140,16 @@ router.get('/tables', async (_req: Request, res: Response) => {
       ORDER BY n.nspname, c.relname
     `);
 
-    const tables: PostgresTableInfo[] = result.rows.map((row) => ({
-      schema: row.schema,
-      name: row.name,
-      rowCount: coerceNumber(row.row_count),
-      totalBytes: coerceNumber(row.total_bytes),
-      tableBytes: coerceNumber(row.table_bytes),
-      indexBytes: coerceNumber(row.index_bytes)
-    }));
+    const tables: PostgresTableInfo[] = result.rows.map(
+      (row: PostgresTableRow) => ({
+        schema: row.schema,
+        name: row.name,
+        rowCount: coerceNumber(row.row_count),
+        totalBytes: coerceNumber(row.total_bytes),
+        tableBytes: coerceNumber(row.table_bytes),
+        indexBytes: coerceNumber(row.index_bytes)
+      })
+    );
 
     const response: PostgresTablesResponse = { tables };
     res.json(response);
