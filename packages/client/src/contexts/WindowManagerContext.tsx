@@ -6,6 +6,7 @@ import {
   useMemo,
   useState
 } from 'react';
+import { generateUniqueId } from '@/lib/utils';
 import {
   loadWindowDimensions,
   saveWindowDimensions
@@ -121,22 +122,32 @@ export function WindowManagerProvider({
 
   const openWindow = useCallback(
     (type: WindowType, customId?: string): string => {
-      if (type === 'audio') {
-        const existingAudio = windows.find((window) => window.type === 'audio');
-        if (existingAudio) {
-          focusWindow(existingAudio.id);
-          return existingAudio.id;
-        }
-      }
-
-      const id = customId ?? `${type}-${crypto.randomUUID()}`;
+      const id = customId ?? generateUniqueId(type);
+      const existingWindow = customId
+        ? undefined
+        : windows.find((window) => window.type === type);
+      let resolvedId = existingWindow?.id ?? id;
 
       // Load saved dimensions for this window type
       const savedDimensions = loadWindowDimensions(type);
 
       setWindows((prev) => {
+        if (!customId) {
+          const existingByType = prev.find((w) => w.type === type);
+          if (existingByType) {
+            resolvedId = existingByType.id;
+            const nextZIndex = getNextZIndex(prev);
+            return prev.map((w) =>
+              w.id === existingByType.id
+                ? { ...w, isMinimized: false, zIndex: nextZIndex }
+                : w
+            );
+          }
+        }
+
         const existing = prev.find((w) => w.id === id);
         if (existing) {
+          resolvedId = existing.id;
           return prev;
         }
 
@@ -153,9 +164,9 @@ export function WindowManagerProvider({
         ];
       });
 
-      return id;
+      return resolvedId;
     },
-    [focusWindow, getNextZIndex, windows]
+    [getNextZIndex, windows]
   );
 
   const minimizeWindow = useCallback(
