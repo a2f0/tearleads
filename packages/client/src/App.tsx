@@ -72,7 +72,7 @@ function App() {
               <AccountSwitcher />
             </div>
           </header>
-          <main className="relative flex min-w-0 flex-1 flex-col pb-20">
+          <main className="relative flex min-w-0 flex-1 flex-col pb-14">
             <div className="container relative mx-auto flex max-w-2xl flex-1 flex-col px-4 pb-16 lg:max-w-none lg:px-8">
               <Outlet />
             </div>
@@ -111,10 +111,13 @@ function App() {
       >
         <div className="flex items-center gap-2">
           {sse && (
-            <ConnectionIndicator
-              state={sse.connectionState}
-              tooltip={t(sseTooltipKeys[sse.connectionState])}
-            />
+            <div className="flex h-6 w-6 items-center justify-center">
+              <ConnectionIndicator
+                state={sse.connectionState}
+                tooltip={t(sseTooltipKeys[sse.connectionState])}
+                className="translate-y-1"
+              />
+            </div>
           )}
           <HUDTrigger />
         </div>
