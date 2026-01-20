@@ -42,9 +42,7 @@ vi.mock('@/pages/local-storage', async () => {
       useEffect(() => {
         localStorageMount();
       }, []);
-      return (
-        <div data-testid="local-storage-content">{location.pathname}</div>
-      );
+      return <div data-testid="local-storage-content">{location.pathname}</div>;
     }
   };
 });
