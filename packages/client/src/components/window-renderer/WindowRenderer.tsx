@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { AdminPostgresWindow } from '@/components/admin-postgres-window';
 import { AdminWindow } from '@/components/admin-window';
 import { AnalyticsWindow } from '@/components/analytics-window';
 import { AudioWindow } from '@/components/audio-window';
@@ -386,6 +387,26 @@ export function WindowRenderer() {
           case 'admin':
             return (
               <AdminWindow
+                key={window.id}
+                id={window.id}
+                onClose={() => closeWindow(window.id)}
+                onMinimize={(dimensions) =>
+                  minimizeWindow(window.id, dimensions)
+                }
+                onDimensionsChange={createDimensionsHandler(
+                  window.type,
+                  window.id
+                )}
+                onFocus={() => focusWindow(window.id)}
+                zIndex={window.zIndex}
+                {...(window.dimensions && {
+                  initialDimensions: window.dimensions
+                })}
+              />
+            );
+          case 'admin-postgres':
+            return (
+              <AdminPostgresWindow
                 key={window.id}
                 id={window.id}
                 onClose={() => closeWindow(window.id)}
