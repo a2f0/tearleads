@@ -30,6 +30,7 @@ export const ua = {
     chat: 'Чат',
     models: 'Моделі',
     admin: 'Адмін',
+    postgresAdmin: 'Адмін Postgres',
     settings: 'Налаштування',
     email: 'Пошта'
   },

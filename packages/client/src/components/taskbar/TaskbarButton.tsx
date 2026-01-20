@@ -49,6 +49,7 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   audio: <Music className="h-3 w-3" />,
   models: <Bot className="h-3 w-3" />,
   admin: <Shield className="h-3 w-3" />,
+  'admin-postgres': <Database className="h-3 w-3" />,
   'cache-storage': <Archive className="h-3 w-3" />,
   'local-storage': <HardDrive className="h-3 w-3" />
 };
@@ -73,6 +74,7 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   audio: 'Audio',
   models: 'Models',
   admin: 'Admin',
+  'admin-postgres': 'Postgres Admin',
   'cache-storage': 'Cache Storage',
   'local-storage': 'Local Storage'
 };

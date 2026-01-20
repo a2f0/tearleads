@@ -10,6 +10,10 @@ vi.mock('./lib/redisPubSub.js', () => ({
   closeRedisSubscriberClient: vi.fn().mockResolvedValue(undefined)
 }));
 
+vi.mock('./lib/postgres.js', () => ({
+  closePostgresPool: vi.fn().mockResolvedValue(undefined)
+}));
+
 vi.mock('./routes/sse.js', async () => {
   const { Router } = await import('express');
   return {
@@ -22,6 +26,7 @@ vi.mock('./routes/sse.js', async () => {
 const { gracefulShutdown, resetShutdownState } = await import('./index.js');
 const { closeRedisClient } = await import('./lib/redis.js');
 const { closeRedisSubscriberClient } = await import('./lib/redisPubSub.js');
+const { closePostgresPool } = await import('./lib/postgres.js');
 const { closeAllSSEConnections } = await import('./routes/sse.js');
 
 describe('gracefulShutdown', () => {
@@ -86,6 +91,7 @@ describe('gracefulShutdown', () => {
 
     expect(closeRedisClient).toHaveBeenCalled();
     expect(closeRedisSubscriberClient).toHaveBeenCalled();
+    expect(closePostgresPool).toHaveBeenCalled();
   });
 
   it('exits with code 0 on successful shutdown', async () => {

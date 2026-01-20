@@ -219,6 +219,45 @@ describe('api', () => {
       );
     });
 
+    it('logs the postgres info endpoint event', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({ status: 'ok', info: {}, serverVersion: null }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      const { api } = await import('./api');
+      await api.admin.postgres.getInfo();
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_admin_postgres_info',
+        expect.any(Number),
+        true
+      );
+    });
+
+    it('logs the postgres tables endpoint event', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ tables: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      const { api } = await import('./api');
+      await api.admin.postgres.getTables();
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_admin_postgres_tables',
+        expect.any(Number),
+        true
+      );
+    });
+
     it('handles getKeys without pagination params', async () => {
       vi.mocked(global.fetch).mockResolvedValue(
         new Response(JSON.stringify({ keys: [], nextCursor: null }), {

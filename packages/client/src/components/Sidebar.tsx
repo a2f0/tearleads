@@ -191,6 +191,13 @@ export const navItems: NavItem[] = [
     testId: 'admin-link'
   },
   {
+    path: '/admin/postgres',
+    icon: Database,
+    labelKey: 'postgresAdmin',
+    inMobileMenu: true,
+    testId: 'postgres-admin-link'
+  },
+  {
     path: '/settings',
     icon: Settings,
     labelKey: 'settings',
@@ -224,7 +231,8 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/analytics': 'analytics',
   '/audio': 'audio',
   '/models': 'models',
-  '/admin/redis': 'admin'
+  '/admin/redis': 'admin',
+  '/admin/postgres': 'admin-postgres'
 };
 
 export interface SidebarProps {
