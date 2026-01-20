@@ -53,7 +53,7 @@ function analyzeTree(node: React.ReactNode) {
 }
 
 describe('main', () => {
-  it('keeps WindowRenderer outside BrowserRouter', async () => {
+  it('renders WindowRenderer inside BrowserRouter', async () => {
     document.body.innerHTML = '<div id="root"></div>';
     renderSpy.mockClear();
 
@@ -65,6 +65,6 @@ describe('main', () => {
 
     expect(result.hasBrowserRouter).toBe(true);
     expect(result.hasWindowRenderer).toBe(true);
-    expect(result.hasWindowRendererInRouter).toBe(false);
+    expect(result.hasWindowRendererInRouter).toBe(true);
   });
 });
