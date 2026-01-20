@@ -135,6 +135,17 @@ describe('ContactDetail', () => {
     });
   });
 
+  it('shows back link to contacts', async () => {
+    mockSelect.mockImplementation(
+      createMockSelectChain([[TEST_CONTACT], TEST_EMAILS, TEST_PHONES])
+    );
+    renderContactDetail();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('back-link')).toBeInTheDocument();
+    });
+  });
+
   describe('view mode', () => {
     beforeEach(() => {
       mockSelect.mockImplementation(

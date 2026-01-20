@@ -19,10 +19,10 @@ vi.mock('@/db', () => ({
   })
 }));
 
-function renderTablesRaw() {
+function renderTablesRaw(showBackLink = true) {
   return render(
     <MemoryRouter>
-      <Tables />
+      <Tables showBackLink={showBackLink} />
     </MemoryRouter>
   );
 }
@@ -77,6 +77,18 @@ describe('Tables', () => {
       await renderTables();
 
       expect(screen.getByText('Tables')).toBeInTheDocument();
+    });
+
+    it('shows back link by default', async () => {
+      await renderTables();
+
+      expect(screen.getByTestId('back-link')).toBeInTheDocument();
+    });
+
+    it('hides back link when disabled', async () => {
+      renderTablesRaw(false);
+
+      expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
     });
 
     it('renders Refresh button when unlocked', async () => {

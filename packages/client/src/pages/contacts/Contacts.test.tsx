@@ -136,6 +136,12 @@ describe('Contacts', () => {
       expect(screen.getByText('Contacts')).toBeInTheDocument();
     });
 
+    it('shows back link by default', async () => {
+      await renderContacts();
+
+      expect(screen.getByTestId('back-link')).toBeInTheDocument();
+    });
+
     it('renders search input when contacts exist', async () => {
       mockOrderBy.mockResolvedValue([
         {
