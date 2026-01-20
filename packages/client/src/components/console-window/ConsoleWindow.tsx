@@ -191,7 +191,10 @@ export function ConsoleWindow({
           )}
         >
           {/* Main terminal pane */}
-          <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+          <div
+            className="min-h-0 min-w-0 flex-1 overflow-hidden"
+            data-testid="console-main-pane"
+          >
             {visibleTabs.map((tab) => (
               <div
                 key={tab.id}
@@ -217,7 +220,10 @@ export function ConsoleWindow({
                   splitDirection === 'vertical' && 'w-px'
                 )}
               />
-              <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+              <div
+                className="min-h-0 min-w-0 flex-1 overflow-hidden"
+                data-testid="console-split-pane"
+              >
                 <Terminal
                   className="h-full rounded-none border-0"
                   autoFocus={focusTarget === 'split'}
