@@ -132,7 +132,9 @@ export function WindowRenderer() {
             onDimensionsChange={createDimensionsHandler(window.type, window.id)}
             onFocus={() => focusWindow(window.id)}
             zIndex={window.zIndex}
-            initialDimensions={resolvedInitialDimensions}
+            {...(resolvedInitialDimensions && {
+              initialDimensions: resolvedInitialDimensions
+            })}
           />
         );
       })}
