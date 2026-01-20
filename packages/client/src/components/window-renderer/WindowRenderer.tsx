@@ -1,5 +1,5 @@
-import { useCallback } from 'react';
 import type { ComponentType } from 'react';
+import { useCallback } from 'react';
 import { AdminPostgresWindow } from '@/components/admin-postgres-window';
 import { AdminWindow } from '@/components/admin-window';
 import { AnalyticsWindow } from '@/components/analytics-window';
@@ -23,7 +23,10 @@ import { SettingsWindow } from '@/components/settings-window';
 import { SqliteWindow } from '@/components/sqlite-window';
 import { TablesWindow } from '@/components/tables-window';
 import { VideoWindow } from '@/components/video-window';
-import type { WindowInstance, WindowType } from '@/contexts/WindowManagerContext';
+import type {
+  WindowInstance,
+  WindowType
+} from '@/contexts/WindowManagerContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 
 // AGENT GUARDRAIL: When adding a new window type entry here, ensure parity with:
@@ -43,7 +46,9 @@ interface WindowComponentProps {
 
 interface WindowComponentConfig {
   Component: ComponentType<WindowComponentProps>;
-  getInitialDimensions?: (window: WindowInstance) => WindowDimensions | undefined;
+  getInitialDimensions?: (
+    window: WindowInstance
+  ) => WindowDimensions | undefined;
 }
 
 const defaultInitialDimensions = (window: WindowInstance) => window.dimensions;
