@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('node:os', () => ({
+  default: {
+    userInfo: () => ({ username: 'rapid_os_user' })
+  }
+}));
+
 type PoolConfig = {
   connectionString?: string;
   host?: string;
@@ -42,6 +48,9 @@ describe('postgres lib', () => {
   beforeEach(() => {
     vi.resetModules();
     process.env = { ...originalEnv };
+    if (!process.env.NODE_ENV) {
+      process.env.NODE_ENV = 'test';
+    }
     poolInstances.length = 0;
   });
 
@@ -93,6 +102,78 @@ describe('postgres lib', () => {
       port: null,
       database: null,
       user: null
+    });
+  });
+
+  it('builds connection info from PG* env vars', async () => {
+    process.env.PGHOST = 'localhost';
+    process.env.PGPORT = '5434';
+    process.env.PGUSER = 'rapid_pg';
+    process.env.PGDATABASE = 'rapid_db';
+
+    const { getPostgresConnectionInfo } = await loadPostgresModule();
+
+    expect(getPostgresConnectionInfo()).toEqual({
+      host: 'localhost',
+      port: 5434,
+      database: 'rapid_db',
+      user: 'rapid_pg'
+    });
+  });
+
+  it('uses development defaults when no env vars are set', async () => {
+    process.env.NODE_ENV = 'development';
+    delete process.env.USER;
+    delete process.env.LOGNAME;
+    delete process.env.DATABASE_URL;
+    delete process.env.POSTGRES_URL;
+    delete process.env.POSTGRES_HOST;
+    delete process.env.POSTGRES_PORT;
+    delete process.env.POSTGRES_USER;
+    delete process.env.POSTGRES_PASSWORD;
+    delete process.env.POSTGRES_DATABASE;
+    delete process.env.PGHOST;
+    delete process.env.PGPORT;
+    delete process.env.PGUSER;
+    delete process.env.PGPASSWORD;
+    delete process.env.PGDATABASE;
+
+    const { getPostgresConnectionInfo } = await loadPostgresModule();
+
+    expect(getPostgresConnectionInfo()).toEqual({
+      host: 'localhost',
+      port: 5432,
+      database: 'postgres',
+      user: 'rapid_os_user'
+    });
+  });
+
+  it('uses dev defaults for pool config when no env vars are set', async () => {
+    process.env.NODE_ENV = 'development';
+    delete process.env.USER;
+    delete process.env.LOGNAME;
+    delete process.env.DATABASE_URL;
+    delete process.env.POSTGRES_URL;
+    delete process.env.POSTGRES_HOST;
+    delete process.env.POSTGRES_PORT;
+    delete process.env.POSTGRES_USER;
+    delete process.env.POSTGRES_PASSWORD;
+    delete process.env.POSTGRES_DATABASE;
+    delete process.env.PGHOST;
+    delete process.env.PGPORT;
+    delete process.env.PGUSER;
+    delete process.env.PGPASSWORD;
+    delete process.env.PGDATABASE;
+
+    const { getPostgresPool } = await loadPostgresModule();
+
+    await getPostgresPool();
+
+    expect(poolInstances[0]?.config).toEqual({
+      host: 'localhost',
+      port: 5432,
+      user: 'rapid_os_user',
+      database: 'postgres'
     });
   });
 
