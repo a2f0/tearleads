@@ -217,6 +217,35 @@ describe('ContactsWindowImport', () => {
     });
   });
 
+  it('renders import errors when provided', async () => {
+    const user = userEvent.setup();
+
+    mockParseFile.mockResolvedValue({
+      headers: ['First Name'],
+      rows: [['John']]
+    });
+    mockImportContacts.mockResolvedValue({
+      total: 1,
+      imported: 0,
+      skipped: 1,
+      errors: ['Row 1 missing name']
+    });
+
+    render(
+      <ContactsWindowImport file={file} onDone={vi.fn()} onImported={vi.fn()} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('column-mapper')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('mapper-import'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Row 1 missing name')).toBeInTheDocument();
+    });
+  });
+
   it('skips parsing when database is locked', async () => {
     mockDatabaseContext.isUnlocked = false;
     mockParseFile.mockResolvedValue({
