@@ -158,6 +158,13 @@ describe('DocumentsWindow', () => {
     expect(lastDocumentsProps?.['viewMode']).toBe('list');
   });
 
+  it('wraps list content in a scrollable container', () => {
+    render(<DocumentsWindow {...defaultProps} />);
+    const container = screen.getByTestId('documents-content').parentElement;
+    expect(container).toHaveClass('overflow-auto');
+    expect(container).toHaveClass('h-full');
+  });
+
   it('renders detail view when a document is selected', async () => {
     const user = userEvent.setup();
     render(<DocumentsWindow {...defaultProps} />);
