@@ -64,7 +64,10 @@ function renderModelsContent(
 ) {
   return render(
     <MemoryRouter>
-      <ModelsContent showBackLink={showBackLink} viewMode={viewMode} />
+      <ModelsContent
+        showBackLink={showBackLink}
+        {...(viewMode ? { viewMode } : {})}
+      />
     </MemoryRouter>
   );
 }
