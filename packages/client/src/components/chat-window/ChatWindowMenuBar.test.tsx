@@ -4,10 +4,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { clearPreserveWindowState } from '@/lib/windowStatePreference';
 import { ChatWindowMenuBar } from './ChatWindowMenuBar';
 
+vi.mock('@/components/ModelSelector', () => ({
+  ModelSelector: ({
+    modelDisplayName
+  }: {
+    modelDisplayName?: string | undefined;
+  }) => <div data-testid="model-selector">{modelDisplayName ?? 'none'}</div>
+}));
+
 describe('ChatWindowMenuBar', () => {
   const defaultProps = {
     onNewChat: vi.fn(),
-    onClose: vi.fn()
+    onClose: vi.fn(),
+    modelDisplayName: undefined
   };
 
   beforeEach(() => {
@@ -35,6 +44,16 @@ describe('ChatWindowMenuBar', () => {
   it('renders View menu trigger', () => {
     render(<ChatWindowMenuBar {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+  });
+
+  it('renders the model selector display name', () => {
+    render(
+      <ChatWindowMenuBar {...defaultProps} modelDisplayName="Test Model" />
+    );
+
+    expect(screen.getByTestId('model-selector')).toHaveTextContent(
+      'Test Model'
+    );
   });
 
   it('shows Preserve Window State in View menu', async () => {
