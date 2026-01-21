@@ -56,7 +56,7 @@ export const ICON_SIZE = 64;
 const ICON_SIZE_MOBILE = 56;
 export const GAP = 40;
 const GAP_MOBILE = 28;
-export const LABEL_HEIGHT = 24;
+export const LABEL_HEIGHT = 16;
 export const ICON_LABEL_GAP = 8;
 const MOBILE_COLUMNS = 4;
 export const ITEM_HEIGHT = ICON_SIZE + LABEL_HEIGHT + ICON_LABEL_GAP;
@@ -246,13 +246,19 @@ function calculateClusterPositions(
   containerHeight: number,
   isMobile: boolean,
   selectedPaths?: Set<string>,
-  currentPositions?: Positions
+  currentPositions?: Positions,
+  maxItemWidth?: number,
+  maxItemHeight?: number,
+  itemHeights?: Record<string, number>,
+  itemWidths?: Record<string, number>
 ): Positions {
   const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
   const gap = isMobile ? GAP_MOBILE : GAP;
   const itemHeightCalc = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
-  const itemWidth = iconSize + gap;
-  const itemHeightWithGap = itemHeightCalc + gap;
+  const clusterItemWidth = Math.max(iconSize, maxItemWidth ?? 0);
+  const clusterItemHeight = Math.max(itemHeightCalc, maxItemHeight ?? 0);
+  const itemWidth = clusterItemWidth + gap;
+  const itemHeightWithGap = clusterItemHeight + gap;
 
   const itemsToArrange = getItemsToArrange(items, selectedPaths);
 
@@ -272,12 +278,75 @@ function calculateClusterPositions(
   itemsToArrange.forEach((item, index) => {
     const col = index % cols;
     const row = Math.floor(index / cols);
+    const itemWidthValue = itemWidths?.[item.path] ?? iconSize;
+    const horizontalOffset = Math.max(
+      0,
+      (clusterItemWidth - itemWidthValue) / 2
+    );
+    const itemHeight = itemHeights?.[item.path] ?? itemHeightCalc;
+    const verticalOffset = Math.max(0, (clusterItemHeight - itemHeight) / 2);
     positions[item.path] = {
-      x: startX + col * itemWidth,
-      y: startY + row * itemHeightWithGap
+      x: startX + col * itemWidth + horizontalOffset,
+      y: startY + row * itemHeightWithGap + verticalOffset
     };
   });
   return positions;
+}
+
+function getIconButtonMeasurements(
+  container: HTMLDivElement | null,
+  paths: string[]
+): {
+  maxWidth: number;
+  maxHeight: number;
+  itemHeights: Record<string, number>;
+  itemWidths: Record<string, number>;
+} | null {
+  if (!container || paths.length === 0) {
+    return null;
+  }
+
+  const pathSet = new Set(paths);
+  let maxWidth = 0;
+  let maxHeight = 0;
+  const itemHeights: Record<string, number> = {};
+  const itemWidths: Record<string, number> = {};
+
+  container
+    .querySelectorAll<HTMLButtonElement>('button[data-icon-path]')
+    .forEach((button) => {
+      const path = button.dataset['iconPath'];
+      if (!path || !pathSet.has(path)) {
+        return;
+      }
+      const measuredWidth =
+        button.offsetWidth || button.getBoundingClientRect().width;
+      const measuredHeight =
+        button.offsetHeight || button.getBoundingClientRect().height;
+      if (measuredWidth > maxWidth) {
+        maxWidth = measuredWidth;
+      }
+      if (measuredHeight > maxHeight) {
+        maxHeight = measuredHeight;
+      }
+      if (measuredWidth > 0) {
+        itemWidths[path] = measuredWidth;
+      }
+      if (measuredHeight > 0) {
+        itemHeights[path] = measuredHeight;
+      }
+    });
+
+  if (maxWidth <= 0 && maxHeight <= 0) {
+    return null;
+  }
+
+  return {
+    maxWidth: maxWidth > 0 ? Math.ceil(maxWidth) : 0,
+    maxHeight: maxHeight > 0 ? Math.ceil(maxHeight) : 0,
+    itemHeights,
+    itemWidths
+  };
 }
 
 export function Home() {
@@ -601,8 +670,33 @@ export function Home() {
   }, [applyArrangement]);
 
   const handleCluster = useCallback(() => {
-    applyArrangement(calculateClusterPositions);
-  }, [applyArrangement]);
+    const hasSelection = selectedIcons.size > 0;
+    const itemsToArrange = getItemsToArrange(
+      appItems,
+      hasSelection ? selectedIcons : undefined
+    );
+    const measurements = isMobile
+      ? null
+      : getIconButtonMeasurements(
+          containerRef.current,
+          itemsToArrange.map((item) => item.path)
+        );
+
+    applyArrangement((items, width, height, mobile, selected, current) =>
+      calculateClusterPositions(
+        items,
+        width,
+        height,
+        mobile,
+        selected,
+        current,
+        measurements?.maxWidth || undefined,
+        measurements?.maxHeight || undefined,
+        measurements?.itemHeights,
+        measurements?.itemWidths
+      )
+    );
+  }, [applyArrangement, appItems, isMobile, selectedIcons]);
 
   const handleDisplayPropertiesOpen = useCallback(() => {
     setIsDisplayPropertiesOpen(true);
@@ -690,6 +784,7 @@ export function Home() {
                   'flex select-none flex-col items-center gap-2 border-none bg-transparent p-0',
                   !isMobile && 'absolute'
                 )}
+                data-icon-path={item.path}
                 style={
                   isMobile
                     ? { cursor }

@@ -11,6 +11,7 @@ import { SettingsButton } from './components/SettingsButton';
 import { Sidebar } from './components/Sidebar';
 import { Taskbar } from './components/taskbar';
 import { DesktopBackground } from './components/ui/desktop-background';
+import { FOOTER_HEIGHT } from './constants/layout';
 import { useSSEContext } from './sse';
 
 const sseTooltipKeys = {
@@ -72,7 +73,7 @@ function App() {
               <AccountSwitcher />
             </div>
           </header>
-          <main className="relative flex min-w-0 flex-1 flex-col pb-20">
+          <main className="relative flex min-w-0 flex-1 flex-col pb-14">
             <div className="container relative mx-auto flex max-w-2xl flex-1 flex-col px-4 pb-16 lg:max-w-none lg:px-8">
               <Outlet />
             </div>
@@ -103,18 +104,22 @@ function App() {
         copyrightText=""
       />
       <div
-        className="fixed right-4 bottom-6 z-50"
+        className="fixed right-4 z-50 flex h-6 items-center"
         style={{
-          bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
+          bottom: `calc(${FOOTER_HEIGHT / 2}px - 0.75rem + env(safe-area-inset-bottom, 0px))`,
           right: 'max(1rem, env(safe-area-inset-right, 0px))'
         }}
       >
         <div className="flex items-center gap-2">
           {sse && (
-            <ConnectionIndicator
-              state={sse.connectionState}
-              tooltip={t(sseTooltipKeys[sse.connectionState])}
-            />
+            <div className="flex h-6 w-6 items-center justify-center">
+              {/* Optical alignment tweak to match the HUD icon's center. */}
+              <ConnectionIndicator
+                state={sse.connectionState}
+                tooltip={t(sseTooltipKeys[sse.connectionState])}
+                className="translate-y-1"
+              />
+            </div>
           )}
           <HUDTrigger />
         </div>

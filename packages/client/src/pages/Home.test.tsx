@@ -547,11 +547,11 @@ describe('Home', () => {
       window.dispatchEvent(new Event('resize'));
     });
 
-    // Icon should be constrained to viewport bounds (max x = 400 - 64 = 336, max y = 300 - 96 = 204)
+    // Icon should be constrained to viewport bounds (max x = 400 - 64 = 336, max y = 300 - 88 = 212)
     const filesButton = screen.getByRole('button', { name: 'Files' });
     expect(filesButton).toBeInTheDocument();
     // Verify the position was constrained to the exact calculated bounds
-    expect(filesButton).toHaveStyle({ left: '336px', top: '204px' });
+    expect(filesButton).toHaveStyle({ left: '336px', top: '212px' });
   });
 
   it('uses saved positions as-is when container has no dimensions', () => {
@@ -746,6 +746,22 @@ describe('Home', () => {
     const { container } = renderHome();
 
     const canvas = container.querySelector('[role="application"]');
+    const wideLabelWidth = 140;
+    const baseLabelWidth = 80;
+    const iconButtons = container.querySelectorAll('button[data-icon-path]');
+
+    iconButtons.forEach((button) => {
+      const path = button.getAttribute('data-icon-path');
+      const width = path === '/cache-storage' ? wideLabelWidth : baseLabelWidth;
+      Object.defineProperty(button, 'offsetWidth', {
+        value: width,
+        configurable: true
+      });
+      Object.defineProperty(button, 'offsetHeight', {
+        value: 88,
+        configurable: true
+      });
+    });
 
     // Mock container dimensions for cluster calculation
     if (canvas) {
@@ -773,6 +789,109 @@ describe('Home', () => {
     const itemsToArrange = navItems.filter((item) => item.path !== '/');
     const cols = Math.ceil(Math.sqrt(itemsToArrange.length));
     const rows = Math.ceil(itemsToArrange.length / cols);
+    const maxItemWidth = Math.max(ICON_SIZE, wideLabelWidth);
+    const itemWidth = maxItemWidth + GAP;
+    const itemHeightWithGap = ITEM_HEIGHT + GAP;
+    const clusterWidth = cols * itemWidth - GAP;
+    const clusterHeight = rows * itemHeightWithGap - GAP;
+    const expectedX = Math.max(0, (800 - clusterWidth) / 2);
+    const expectedY = Math.max(0, (600 - clusterHeight) / 2);
+    const horizontalOffset = Math.max(0, (maxItemWidth - baseLabelWidth) / 2);
+
+    const parsedPositions: Record<string, { x: number; y: number }> =
+      JSON.parse(storedPositions ?? '{}');
+    const filesPosition = parsedPositions['/files'];
+    expect(filesPosition).toBeDefined();
+    expect(filesPosition?.x).toBeCloseTo(expectedX + horizontalOffset);
+    expect(filesPosition?.y).toBeCloseTo(expectedY);
+
+    const filesButton = screen.getByRole('button', { name: 'Files' });
+    expect(parseFloat(filesButton.style.left)).toBeCloseTo(
+      expectedX + horizontalOffset
+    );
+    expect(parseFloat(filesButton.style.top)).toBeCloseTo(expectedY);
+  });
+
+  it('clusters icons with horizontal spacing based on the widest label', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+    const wideLabelWidth = 180;
+    const baseLabelWidth = 72;
+    const iconButtons = container.querySelectorAll('button[data-icon-path]');
+
+    iconButtons.forEach((button) => {
+      const path = button.getAttribute('data-icon-path');
+      const width = path === '/cache-storage' ? wideLabelWidth : baseLabelWidth;
+      Object.defineProperty(button, 'offsetWidth', {
+        value: width,
+        configurable: true
+      });
+      Object.defineProperty(button, 'offsetHeight', {
+        value: 88,
+        configurable: true
+      });
+    });
+
+    if (canvas) {
+      Object.defineProperty(canvas, 'offsetWidth', {
+        value: 900,
+        configurable: true
+      });
+      Object.defineProperty(canvas, 'offsetHeight', {
+        value: 700,
+        configurable: true
+      });
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    await user.click(screen.getByText('Cluster'));
+
+    const storedPositions = localStorage.getItem(STORAGE_KEY);
+    expect(storedPositions).not.toBeNull();
+
+    const parsedPositions: Record<string, { x: number; y: number }> =
+      JSON.parse(storedPositions ?? '{}');
+    const filesPosition = parsedPositions['/files'];
+    const contactsPosition = parsedPositions['/contacts'];
+    expect(filesPosition).toBeDefined();
+    expect(contactsPosition).toBeDefined();
+
+    const expectedSpacing = Math.max(ICON_SIZE, wideLabelWidth) + GAP;
+    expect(contactsPosition?.x).toBeCloseTo(
+      (filesPosition?.x ?? 0) + expectedSpacing
+    );
+    expect(contactsPosition?.y).toBeCloseTo(filesPosition?.y ?? 0);
+  });
+
+  it('clusters icons using icon size when labels are unmeasured', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+    if (canvas) {
+      Object.defineProperty(canvas, 'offsetWidth', {
+        value: 800,
+        configurable: true
+      });
+      Object.defineProperty(canvas, 'offsetHeight', {
+        value: 600,
+        configurable: true
+      });
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    await user.click(screen.getByText('Cluster'));
+
+    const storedPositions = localStorage.getItem(STORAGE_KEY);
+    expect(storedPositions).not.toBeNull();
+
+    const itemsToArrange = navItems.filter(
+      (item) => item.path !== '/' && item.path !== '/sqlite/tables'
+    );
+    const cols = Math.ceil(Math.sqrt(itemsToArrange.length));
+    const rows = Math.ceil(itemsToArrange.length / cols);
     const itemWidth = ICON_SIZE + GAP;
     const itemHeightWithGap = ITEM_HEIGHT + GAP;
     const clusterWidth = cols * itemWidth - GAP;
@@ -786,10 +905,121 @@ describe('Home', () => {
     expect(filesPosition).toBeDefined();
     expect(filesPosition?.x).toBeCloseTo(expectedX);
     expect(filesPosition?.y).toBeCloseTo(expectedY);
+  });
 
-    const filesButton = screen.getByRole('button', { name: 'Files' });
-    expect(parseFloat(filesButton.style.left)).toBeCloseTo(expectedX);
-    expect(parseFloat(filesButton.style.top)).toBeCloseTo(expectedY);
+  it('centers icon blocks vertically within cluster rows', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+    const tallLabelHeight = 120;
+    const baseLabelHeight = 88;
+    const iconButtons = container.querySelectorAll('button[data-icon-path]');
+
+    iconButtons.forEach((button) => {
+      const path = button.getAttribute('data-icon-path');
+      const height =
+        path === '/cache-storage' ? tallLabelHeight : baseLabelHeight;
+      Object.defineProperty(button, 'offsetWidth', {
+        value: 90,
+        configurable: true
+      });
+      Object.defineProperty(button, 'offsetHeight', {
+        value: height,
+        configurable: true
+      });
+    });
+
+    if (canvas) {
+      Object.defineProperty(canvas, 'offsetWidth', {
+        value: 900,
+        configurable: true
+      });
+      Object.defineProperty(canvas, 'offsetHeight', {
+        value: 700,
+        configurable: true
+      });
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    await user.click(screen.getByText('Cluster'));
+
+    const storedPositions = localStorage.getItem(STORAGE_KEY);
+    expect(storedPositions).not.toBeNull();
+
+    const parsedPositions: Record<string, { x: number; y: number }> =
+      JSON.parse(storedPositions ?? '{}');
+    const filesPosition = parsedPositions['/files'];
+    expect(filesPosition).toBeDefined();
+
+    const itemsToArrange = navItems.filter(
+      (item) => item.path !== '/' && item.path !== '/sqlite/tables'
+    );
+    const cols = Math.ceil(Math.sqrt(itemsToArrange.length));
+    const rows = Math.ceil(itemsToArrange.length / cols);
+    const itemHeight = Math.max(ITEM_HEIGHT, tallLabelHeight);
+    const itemHeightWithGap = itemHeight + GAP;
+    const clusterHeight = rows * itemHeightWithGap - GAP;
+    const expectedStartY = Math.max(0, (700 - clusterHeight) / 2);
+    const expectedOffset = Math.max(0, (itemHeight - baseLabelHeight) / 2);
+
+    expect(filesPosition?.y).toBeCloseTo(expectedStartY + expectedOffset);
+  });
+
+  it('centers icon blocks horizontally within cluster columns', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+    const wideLabelWidth = 200;
+    const baseLabelWidth = 72;
+    const iconButtons = container.querySelectorAll('button[data-icon-path]');
+
+    iconButtons.forEach((button) => {
+      const path = button.getAttribute('data-icon-path');
+      const width = path === '/cache-storage' ? wideLabelWidth : baseLabelWidth;
+      Object.defineProperty(button, 'offsetWidth', {
+        value: width,
+        configurable: true
+      });
+      Object.defineProperty(button, 'offsetHeight', {
+        value: 88,
+        configurable: true
+      });
+    });
+
+    if (canvas) {
+      Object.defineProperty(canvas, 'offsetWidth', {
+        value: 900,
+        configurable: true
+      });
+      Object.defineProperty(canvas, 'offsetHeight', {
+        value: 700,
+        configurable: true
+      });
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    await user.click(screen.getByText('Cluster'));
+
+    const storedPositions = localStorage.getItem(STORAGE_KEY);
+    expect(storedPositions).not.toBeNull();
+
+    const parsedPositions: Record<string, { x: number; y: number }> =
+      JSON.parse(storedPositions ?? '{}');
+    const filesPosition = parsedPositions['/files'];
+    expect(filesPosition).toBeDefined();
+
+    const itemsToArrange = navItems.filter(
+      (item) => item.path !== '/' && item.path !== '/sqlite/tables'
+    );
+    const cols = Math.ceil(Math.sqrt(itemsToArrange.length));
+    const itemWidth = Math.max(ICON_SIZE, wideLabelWidth) + GAP;
+    const clusterWidth = cols * itemWidth - GAP;
+    const expectedStartX = Math.max(0, (900 - clusterWidth) / 2);
+    const expectedOffset = Math.max(0, (wideLabelWidth - baseLabelWidth) / 2);
+
+    expect(filesPosition?.x).toBeCloseTo(expectedStartX + expectedOffset);
   });
 
   it('shows Open in Window option for Notes icon', async () => {
