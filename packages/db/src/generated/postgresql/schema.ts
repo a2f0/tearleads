@@ -59,7 +59,9 @@ export const users = pgTable(
  * User credentials table for password authentication.
  */
 export const userCredentials = pgTable('user_credentials', {
-  userId: text('user_id').primaryKey(),
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
   passwordHash: text('password_hash').notNull(),
   passwordSalt: text('password_salt').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull(),

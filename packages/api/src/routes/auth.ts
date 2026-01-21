@@ -94,41 +94,38 @@ router.post('/login', async (req: Request, res: Response) => {
 
   const jwtSecret = process.env['JWT_SECRET'];
   if (!jwtSecret) {
-    res.status(500).json({
-      error: 'JWT_SECRET is not configured on the server'
-    });
+    console.error(
+      'Authentication setup error: JWT_SECRET is not configured.'
+    );
+    res.status(500).json({ error: 'Failed to authenticate' });
     return;
   }
 
   try {
     const pool = await getPostgresPool();
-    const userResult = await pool.query<{ id: string; email: string }>(
-      'SELECT id, email FROM users WHERE email = $1 LIMIT 1',
+    const userResult = await pool.query<{
+      id: string;
+      email: string;
+      password_hash: string | null;
+      password_salt: string | null;
+    }>(
+      `SELECT u.id, u.email, uc.password_hash, uc.password_salt
+       FROM users u
+       LEFT JOIN user_credentials uc ON u.id = uc.user_id
+       WHERE u.email = $1
+       LIMIT 1`,
       [payload.email]
     );
     const user = userResult.rows[0];
-    if (!user) {
-      res.status(401).json({ error: 'Invalid email or password' });
-      return;
-    }
-
-    const credentialResult = await pool.query<{
-      password_hash: string;
-      password_salt: string;
-    }>(
-      'SELECT password_hash, password_salt FROM user_credentials WHERE user_id = $1',
-      [user.id]
-    );
-    const credentials = credentialResult.rows[0];
-    if (!credentials) {
+    if (!user || !user.password_hash || !user.password_salt) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
 
     const passwordMatches = await verifyPassword(
       payload.password,
-      credentials.password_salt,
-      credentials.password_hash
+      user.password_salt,
+      user.password_hash
     );
     if (!passwordMatches) {
       res.status(401).json({ error: 'Invalid email or password' });
