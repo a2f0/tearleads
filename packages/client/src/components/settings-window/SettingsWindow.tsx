@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
-import { cn } from '@/lib/utils';
 import { Settings } from '@/pages/Settings';
 import { SettingsWindowMenuBar } from './SettingsWindowMenuBar';
 
@@ -25,8 +23,6 @@ export function SettingsWindow({
   zIndex,
   initialDimensions
 }: SettingsWindowProps) {
-  const [compact, setCompact] = useState(false);
-
   return (
     <FloatingWindow
       id={id}
@@ -46,12 +42,8 @@ export function SettingsWindow({
       maxHeightPercent={1}
     >
       <div className="flex h-full flex-col">
-        <SettingsWindowMenuBar
-          compact={compact}
-          onCompactChange={setCompact}
-          onClose={onClose}
-        />
-        <div className={cn('flex-1 overflow-auto', compact ? 'p-3' : 'p-6')}>
+        <SettingsWindowMenuBar onClose={onClose} />
+        <div className="flex-1 overflow-auto p-3">
           <MemoryRouter initialEntries={['/settings']}>
             <Settings showBackLink={false} />
           </MemoryRouter>
