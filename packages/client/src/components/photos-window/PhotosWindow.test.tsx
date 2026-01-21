@@ -276,9 +276,7 @@ describe('PhotosWindow', () => {
 
     await user.click(screen.getByTestId('thumbnail-view-button'));
 
-    expect(
-      screen.getByTestId('photos-thumbnail-content')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('photos-thumbnail-content')).toBeInTheDocument();
   });
 
   it('keeps menu bar visible in detail view', async () => {
