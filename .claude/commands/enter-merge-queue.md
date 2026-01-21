@@ -101,8 +101,8 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    - If `state` is `MERGED`: Exit loop and proceed to step 5
    - If `mergeStateStatus` is `BEHIND`: Update from base and bump version (step 4c)
-   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Address Gemini feedback (step 4d/4e), then wait for CI (step 4f)
-   - If `mergeStateStatus` is `CLEAN`: Enable auto-merge (step 4g)
+   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Address Gemini feedback while waiting for CI (step 4d/4e)
+   - If `mergeStateStatus` is `CLEAN`: Enable auto-merge (step 4f)
 
    ### 4c. Update from base branch (rebase) and bump version
 
@@ -143,32 +143,33 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    Continue to step 4d.
 
-   ### 4d. Wait for Gemini review (conditional)
+   ### 4d. Address Gemini feedback (parallel with CI)
 
-   **Skip entirely if**:
+   **IMPORTANT**: Do NOT wait for CI to complete before addressing Gemini feedback. Handle Gemini feedback while CI is running to maximize efficiency.
+
+   **Skip Gemini handling entirely if**:
    - `gemini_can_review` is `false` (detected in step 1), OR
-   - `has_waited_for_gemini` is `true` (already waited on a previous iteration)
+   - `has_waited_for_gemini` is `true` AND no unresolved threads remain
 
    Gemini Code Assist is a GitHub App that automatically reviews PRs - do NOT use `gh pr edit --add-reviewer` as it doesn't work with GitHub App bots.
 
-   Poll for Gemini's review:
+   **Initial Gemini check** (if `has_waited_for_gemini` is `false`):
+   Poll for Gemini's review (timeout: 5 minutes, poll every 30 seconds with jitter):
 
    ```bash
    gh pr view <pr-number> --json reviews
    ```
 
-   Check every 30 seconds (with jitter) until a review from `gemini-code-assist` is found (timeout: 5 minutes). Set `has_waited_for_gemini = true` after first successful wait.
+   Set `has_waited_for_gemini = true` after first review is found.
 
    #### Unsupported file types response
 
    If Gemini's review contains:
    > "Gemini is unable to generate a review for this pull request due to the file types involved not being currently supported."
 
-   Set `gemini_can_review = false` and proceed directly to step 4f (wait for CI).
+   Set `gemini_can_review = false` and proceed directly to step 4e (wait for CI).
 
-   ### 4e. Address Gemini feedback
-
-   **Important**: All conversation threads must be resolved before the PR can merge.
+   **Address feedback while CI runs**: All conversation threads must be resolved before the PR can merge.
 
    **CRITICAL - Reply in-thread only**: When replying to Gemini comments, use the review comment endpoint, NOT `gh pr review` and NOT `gh pr comment`:
    - List review comments: `gh api /repos/$REPO/pulls/<pr-number>/comments`
@@ -186,10 +187,10 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - Immediately check for any existing Gemini confirmations before waiting; resolve threads right away if confirmations are already present
    - If no confirmations yet, wait for Gemini's response (polling every 30 seconds, up to 5 minutes)
    - When Gemini confirms a fix is satisfactory, resolve the thread (see "Resolving Conversation Threads" below)
-   - If Gemini requests further changes, repeat step 4e
-   - If the wait times out with unresolved threads, return to step 4b (don't proceed to CI) and try again on the next loop
+   - If Gemini requests further changes, continue addressing feedback
+   - **Do NOT wait for all threads to be resolved before proceeding to CI monitoring** - continue to step 4e and handle remaining Gemini feedback in parallel
 
-   ### 4f. Wait for CI (with adaptive polling and branch freshness checks)
+   ### 4e. Wait for CI (with adaptive polling and branch freshness checks)
 
    **Important**: Check if branch is behind BEFORE waiting for CI, and periodically during CI. This prevents wasting time on CI runs that will be obsolete.
 
@@ -209,7 +210,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - This avoids wasting 15-20 minutes on a CI run that will need to be rerun anyway
 
    **When CI completes**:
-   - If CI **passes**: Continue to step 4g (enable auto-merge)
+   - If CI **passes**: Continue to step 4f (enable auto-merge)
    - If CI is **cancelled**: Rerun CI using the CLI (do NOT push empty commits):
 
      ```bash
@@ -221,9 +222,9 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
      2. If the failure is coverage-related, add tests to raise coverage and re-run the relevant `test:coverage` target locally
      3. Return to monitoring CI status
 
-   ### 4g. Enable auto-merge and wait
+   ### 4f. Enable auto-merge and wait
 
-   **Version bump note**: If `has_bumped_version` is still `false` at this point (a rare edge case, e.g., if the PR started `CLEAN`), perform the version bump now. Run the bump script, stage the version files, amend the last commit, and **force push** the changes. Then, return to step 4f to wait for the new CI run.
+   **Version bump note**: If `has_bumped_version` is still `false` at this point (a rare edge case, e.g., if the PR started `CLEAN`), perform the version bump now. Run the bump script, stage the version files, amend the last commit, and **force push** the changes. Then, return to step 4e to wait for the new CI run.
 
    Enable auto-merge:
 

@@ -77,8 +77,8 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    - `MERGED`: exit loop.
    - `BEHIND`: update from base (4c).
-   - `BLOCKED` or `UNKNOWN`: handle Gemini and CI (4d/4e/4f).
-   - `CLEAN`: enable auto-merge (4g).
+   - `BLOCKED` or `UNKNOWN`: handle Gemini feedback while waiting for CI (4d/4e).
+   - `CLEAN`: enable auto-merge (4f).
 
    4c. Rebase on base and bump version once:
 
@@ -105,20 +105,24 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    git push --force-with-lease >/dev/null
    ```
 
-   4d. Wait for Gemini review once if applicable:
+   4d. Address Gemini feedback (parallel with CI):
+
+   **IMPORTANT**: Do NOT wait for CI to complete before addressing Gemini feedback. Handle Gemini feedback while CI is running to maximize efficiency.
+
+   **Initial Gemini check** (if `has_waited_for_gemini` is `false`):
 
    ```bash
    gh pr view <pr-number> --json reviews -R "$REPO"
    ```
 
-   Poll every 30 seconds (with jitter) for up to 5 minutes for `gemini-code-assist`.
+   Poll every 30 seconds (with jitter) for up to 5 minutes for `gemini-code-assist`. Set `has_waited_for_gemini = true` after first review is found.
 
    If Gemini reports unsupported file types, set `gemini_can_review = false` and continue to CI.
 
-   4e. Address Gemini feedback:
+   **Address feedback while CI runs**:
 
    - Use `/address-gemini-feedback` and `/follow-up-with-gemini`.
-   - **Always reply in-thread immediately** (before proceeding to CI):
+   - Reply in-thread:
      - List review comments: `gh api /repos/$REPO/pulls/<pr-number>/comments`
      - Reply in-thread: `gh api -X POST /repos/$REPO/pulls/<pr-number>/comments -F in_reply_to=<comment_id> -f body="...@gemini-code-assist ..."`
      - List general PR comments (issue comments): `gh api /repos/$REPO/issues/<pr-number>/comments`
@@ -129,9 +133,9 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
      - If Gemini is uncertain or requests more work, keep the thread open and iterate.
    - Never use `gh pr review` or GraphQL review comment mutations to reply (they create pending reviews).
    - Include relevant commit hashes in replies (not just titles).
-   - **Resolve threads in the loop** only after explicit Gemini confirmation; do not leave Gemini threads unresolved before continuing.
+   - **Do NOT wait for all threads to be resolved before proceeding to CI monitoring** - continue to step 4e and handle remaining Gemini feedback in parallel.
 
-   4f. Wait for CI with adaptive polling and branch freshness checks:
+   4e. Wait for CI with adaptive polling and branch freshness checks:
 
    ```bash
    git rev-parse HEAD
@@ -152,13 +156,13 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    If `BEHIND`, return to 4c immediately.
 
    When CI completes:
-   - Pass: continue to 4g.
+   - Pass: continue to 4f.
    - Cancelled: rerun with `gh run rerun <run-id> -R "$REPO"`.
    - Failed: run `/fix-tests`, add tests for coverage failures, and re-run coverage locally.
 
-   4g. Enable auto-merge and wait:
+   4f. Enable auto-merge and wait:
 
-   If `has_bumped_version` is still `false`, perform the bump, amend, force push, and return to 4f.
+   If `has_bumped_version` is still `false`, perform the bump, amend, force push, and return to 4e.
 
    ```bash
    gh pr merge --auto --merge -R "$REPO"
