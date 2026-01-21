@@ -935,8 +935,7 @@ describe('Home', () => {
 
     iconButtons.forEach((button) => {
       const path = button.getAttribute('data-icon-path');
-      const width =
-        path === '/cache-storage' ? wideLabelWidth : baseLabelWidth;
+      const width = path === '/cache-storage' ? wideLabelWidth : baseLabelWidth;
       Object.defineProperty(button, 'offsetWidth', {
         value: width,
         configurable: true
