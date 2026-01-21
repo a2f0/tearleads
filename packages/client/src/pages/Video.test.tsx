@@ -229,6 +229,18 @@ describe('VideoPage', () => {
         screen.getByRole('columnheader', { name: 'Name' })
       ).toBeInTheDocument();
     });
+
+    it('renders table rows without absolute positioning', async () => {
+      await renderVideo({ viewMode: 'table' });
+
+      const row = screen.getByText('test-video.mp4').closest('tr');
+      expect(row).toBeInTheDocument();
+      expect(row).not.toHaveAttribute('style');
+
+      const tbody = row?.closest('tbody');
+      expect(tbody).toBeInTheDocument();
+      expect(tbody).not.toHaveAttribute('style');
+    });
   });
 
   describe('when database is loading', () => {
