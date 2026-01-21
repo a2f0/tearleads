@@ -183,3 +183,7 @@
   background: var(--audio-slider-progress);
   box-shadow: inset 0 0 0 1px var(--background);
 }
+
+.floating-window .dropdown-menu {
+  border-radius: 0;
+}

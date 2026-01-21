@@ -117,7 +117,7 @@ export function DropdownMenu({
           tabIndex={-1}
           onKeyDown={handleMenuKeyDown}
           className={cn(
-            'absolute top-full z-[10000] mt-0.5 min-w-32 rounded border bg-background py-1 shadow-md outline-none',
+            'dropdown-menu absolute top-full z-[10000] mt-0.5 min-w-32 rounded border bg-background py-1 shadow-md outline-none',
             align === 'left' ? 'left-0' : 'right-0'
           )}
           data-align={align}

@@ -610,25 +610,14 @@ export function VideoPage({
                         </tr>
                       ))}
                     </thead>
-                    <tbody
-                      className="relative"
-                      style={{
-                        height: `${tableVirtualizer.getTotalSize()}px`
-                      }}
-                    >
-                      {tableVirtualItems.map((virtualRow) => {
-                        const row = table.getRowModel().rows[virtualRow.index];
-                        if (!row) return null;
+                    <tbody>
+                      {table.getRowModel().rows.map((row) => {
                         const video = row.original;
 
                         return (
                           <tr
                             key={row.id}
-                            className="absolute right-0 left-0 cursor-pointer border-t hover:bg-muted/30"
-                            style={{
-                              transform: `translateY(${virtualRow.start}px)`,
-                              height: `${virtualRow.size}px`
-                            }}
+                            className="cursor-pointer border-t hover:bg-muted/30"
                             onContextMenu={(e) => handleContextMenu(e, video)}
                             onClick={
                               isDesktopPlatform
