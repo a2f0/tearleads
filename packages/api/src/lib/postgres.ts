@@ -58,7 +58,7 @@ function getDevDefaults(): {
   const baseDefaults = {
     host: 'localhost',
     port: 5432,
-    database: 'postgres'
+    database: 'tearleads_development'
   };
   if (user && user.trim().length > 0) {
     return { ...baseDefaults, user };
