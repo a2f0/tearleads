@@ -18,6 +18,11 @@ export function ModelSelector({
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isCompact = variant === 'compact';
+  const iconSizeClass = isCompact ? 'h-3.5 w-3.5' : 'h-4 w-4';
+  const chevronSizeClass = isCompact ? 'h-2.5 w-2.5' : 'h-3 w-3';
+  const sectionHeaderClasses = `px-2 font-medium text-muted-foreground uppercase tracking-wider ${
+    isCompact ? 'text-[10px]' : 'text-[11px]'
+  }`;
   const localModels = CHAT_MODELS.filter(
     (model) => !isOpenRouterModelId(model.id)
   );
@@ -88,19 +93,17 @@ export function ModelSelector({
         }`}
       >
         {isLoading ? (
-          <Loader2
-            className={`animate-spin ${isCompact ? 'h-3.5 w-3.5' : 'h-4 w-4'}`}
-          />
+          <Loader2 className={`animate-spin ${iconSizeClass}`} />
         ) : (
-          <Bot className={isCompact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+          <Bot className={iconSizeClass} />
         )}
         {isLoading && loadProgress
           ? `Loading ${Math.round(loadProgress.progress * 100)}%`
           : (modelDisplayName ?? 'Select Model')}
         <ChevronDown
-          className={`transition-transform ${
-            isCompact ? 'h-2.5 w-2.5' : 'h-3 w-3'
-          } ${isOpen ? 'rotate-180' : ''}`}
+          className={`transition-transform ${chevronSizeClass} ${
+            isOpen ? 'rotate-180' : ''
+          }`}
         />
       </button>
 
@@ -122,13 +125,7 @@ export function ModelSelector({
               Available Models
             </p>
             <div className="space-y-1">
-              <p
-                className={`px-2 font-medium text-muted-foreground uppercase tracking-wider ${
-                  isCompact ? 'text-[10px]' : 'text-[11px]'
-                }`}
-              >
-                Local Models
-              </p>
+              <p className={sectionHeaderClasses}>Local Models</p>
               {localModels.map((model) => (
                 <ModelOption
                   key={model.id}
@@ -140,13 +137,7 @@ export function ModelSelector({
             </div>
             {openRouterModels.length > 0 && (
               <div className="mt-2 space-y-1">
-                <p
-                  className={`px-2 font-medium text-muted-foreground uppercase tracking-wider ${
-                    isCompact ? 'text-[10px]' : 'text-[11px]'
-                  }`}
-                >
-                  OpenRouter Models
-                </p>
+                <p className={sectionHeaderClasses}>OpenRouter Models</p>
                 {openRouterModels.map((model) => (
                   <ModelOption
                     key={model.id}
