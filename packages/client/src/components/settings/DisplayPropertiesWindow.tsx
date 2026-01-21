@@ -1,4 +1,5 @@
 import { FloatingWindow } from '@/components/floating-window';
+import { DisplayPropertiesWindowMenuBar } from './DisplayPropertiesWindowMenuBar';
 import { FontSelector } from './FontSelector';
 import { IconDepthToggle } from './IconDepthToggle';
 import { PatternSelector } from './PatternSelector';
@@ -29,11 +30,14 @@ export function DisplayPropertiesWindow({
       maxHeightPercent={0.9}
       zIndex={1000}
     >
-      <div className="space-y-6 p-5">
-        <ThemeSelector />
-        <PatternSelector />
-        <IconDepthToggle />
-        <FontSelector />
+      <div className="flex h-full flex-col">
+        <DisplayPropertiesWindowMenuBar onClose={() => onOpenChange(false)} />
+        <div className="flex-1 space-y-6 overflow-y-auto p-5">
+          <ThemeSelector />
+          <PatternSelector />
+          <IconDepthToggle />
+          <FontSelector />
+        </div>
       </div>
     </FloatingWindow>
   );
