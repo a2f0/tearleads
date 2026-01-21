@@ -74,6 +74,12 @@ vi.mock('@/components/contacts/column-mapper', () => ({
   )
 }));
 
+vi.mock('@/components/sqlite/InlineUnlock', () => ({
+  InlineUnlock: ({ description }: { description: string }) => (
+    <div data-testid="inline-unlock">{description}</div>
+  )
+}));
+
 describe('ContactsWindowImport', () => {
   const file = new File(['First Name,Last Name\nJohn,Doe'], 'contacts.csv', {
     type: 'text/csv'
