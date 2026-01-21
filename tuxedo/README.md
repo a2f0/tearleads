@@ -15,6 +15,14 @@ persist each workspace shell via GNU screen.
 Wrapper scripts remain at `scripts/tuxedo.sh` and `scripts/tuxedoKill.sh` for
 backwards compatibility.
 
+## Workspace naming
+
+Tuxedo assumes a `rapid-shared` workspace plus one or more numbered workspaces:
+
+- `rapid-shared`: shared `.secrets` and `.test_files` source of truth
+- `rapid-main`: first workspace window
+- `rapid2...rapidN`: additional workspaces based on `TUXEDO_WORKSPACES`
+
 ## Requirements
 
 - `tmux` (required)
@@ -38,6 +46,16 @@ backwards compatibility.
 - `TUXEDO_BASE_DIR`: base directory for workspaces (default: `$HOME/github`)
 - `TUXEDO_EDITOR`: editor command for the right tmux pane
 - `TUXEDO_WORKSPACES`: number of workspaces to create (default: 20)
+- `TUXEDO_FORCE_SCREEN`: force GNU screen on (`1`)
+- `TUXEDO_FORCE_NO_SCREEN`: force GNU screen off (`1`)
+- `TUXEDO_SKIP_MAIN`: skip running the main flow (`1`, used by tests)
+
+## Configuration
+
+- `tuxedo/config/tmux.conf`: tmux layout, key bindings, and status bar
+- `tuxedo/config/screenrc`: GNU screen settings for persistent panes
+- `tuxedo/config/neovim.lua`: default Neovim config for the editor pane
+- `tuxedo/config/ghostty.conf`: Ghostty defaults when no TTY is present
 
 ## Behavior notes
 
@@ -45,6 +63,8 @@ backwards compatibility.
 - Automatically fast-forwards clean `main` workspaces before setting symlinks.
 - When `screen` is available, each workspace runs inside a named screen session
   so long-running processes survive tmux restarts.
+- When a session already exists, Tuxedo attaches to it and syncs VS Code titles
+  instead of recreating tmux windows.
 
 ## Tests
 
