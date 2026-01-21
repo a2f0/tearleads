@@ -7,7 +7,7 @@ export interface FilesWindowContentRef {
 
 interface FilesWindowContentProps {
   showDeleted: boolean;
-  showDropzone?: boolean;
+  showDropzone: boolean;
   onSelectFile?: (fileId: string) => void;
   refreshToken?: number;
 }
@@ -16,7 +16,7 @@ export const FilesWindowContent = forwardRef<
   FilesWindowContentRef,
   FilesWindowContentProps
 >(function FilesWindowContent(
-  { showDeleted, showDropzone = true, onSelectFile, refreshToken },
+  { showDeleted, showDropzone, onSelectFile, refreshToken },
   ref
 ) {
   const filesListRef = useRef<FilesListRef>(null);
