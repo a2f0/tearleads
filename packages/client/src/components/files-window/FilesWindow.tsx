@@ -29,6 +29,7 @@ export function FilesWindow({
   initialDimensions
 }: FilesWindowProps) {
   const [showDeleted, setShowDeleted] = useState(false);
+  const [showDropzone, setShowDropzone] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -83,6 +84,8 @@ export function FilesWindow({
           <FilesWindowMenuBar
             showDeleted={showDeleted}
             onShowDeletedChange={setShowDeleted}
+            showDropzone={showDropzone}
+            onShowDropzoneChange={setShowDropzone}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             onUpload={handleUpload}
@@ -99,6 +102,7 @@ export function FilesWindow({
               <FilesWindowContent
                 ref={contentRef}
                 showDeleted={showDeleted}
+                showDropzone={showDropzone}
                 onSelectFile={handleSelectFile}
                 refreshToken={refreshToken}
               />
