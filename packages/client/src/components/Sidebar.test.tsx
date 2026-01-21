@@ -106,6 +106,10 @@ describe('Sidebar', () => {
   ];
 
   const mobileWindowLabels = ['Console', 'Videos'];
+  const contextMenuWindowCases = [
+    { label: 'Console', windowType: 'console' },
+    { label: 'Notes', windowType: 'notes' }
+  ];
 
   it('renders all navigation items', () => {
     renderSidebar();
@@ -389,10 +393,9 @@ describe('Sidebar', () => {
       expect(mockOnClose).toHaveBeenCalled();
     });
 
-    it.each([
-      { label: 'Console', windowType: 'console' },
-      { label: 'Notes', windowType: 'notes' }
-    ])('opens window when clicking Open in Window for $label', async ({
+    it.each(
+      contextMenuWindowCases
+    )('opens window when clicking Open in Window for $label', async ({
       label,
       windowType
     }) => {
