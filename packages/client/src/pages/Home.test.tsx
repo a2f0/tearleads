@@ -873,7 +873,8 @@ describe('Home', () => {
 
     iconButtons.forEach((button) => {
       const path = button.getAttribute('data-icon-path');
-      const height = path === '/cache-storage' ? tallLabelHeight : baseLabelHeight;
+      const height =
+        path === '/cache-storage' ? tallLabelHeight : baseLabelHeight;
       Object.defineProperty(button, 'offsetWidth', {
         value: 90,
         configurable: true
@@ -914,7 +915,6 @@ describe('Home', () => {
     const itemWidth = Math.max(ICON_SIZE, 90) + GAP;
     const itemHeight = Math.max(ITEM_HEIGHT, tallLabelHeight);
     const itemHeightWithGap = itemHeight + GAP;
-    const clusterWidth = cols * itemWidth - GAP;
     const clusterHeight = rows * itemHeightWithGap - GAP;
     const expectedStartY = Math.max(0, (700 - clusterHeight) / 2);
     const expectedOffset = Math.max(0, (itemHeight - baseLabelHeight) / 2);
