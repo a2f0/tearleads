@@ -80,4 +80,66 @@ describe('ModelsTableView', () => {
 
     expect(screen.getByRole('button', { name: 'Use' })).toBeInTheDocument();
   });
+
+  it('shows Downloaded status and delete action for cached models', () => {
+    render(
+      <ModelsTableView
+        recommendedModels={recommendedModels}
+        openRouterModels={[]}
+        loadedModel={null}
+        loadingModelId={null}
+        loadProgress={null}
+        getModelStatus={() => 'cached'}
+        onLoad={vi.fn()}
+        onUnload={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    );
+
+    expect(screen.getAllByText('Downloaded')).toHaveLength(2);
+    expect(
+      screen.getByRole('button', { name: 'Delete from cache' })
+    ).toBeInTheDocument();
+  });
+
+  it('shows progress details when downloading a local model', () => {
+    render(
+      <ModelsTableView
+        recommendedModels={recommendedModels}
+        openRouterModels={[]}
+        loadedModel={null}
+        loadingModelId="local-model"
+        loadProgress={{ text: 'Fetching', progress: 0.5 }}
+        getModelStatus={() => 'downloading'}
+        onLoad={vi.fn()}
+        onUnload={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Downloading')).toBeInTheDocument();
+    expect(screen.getByText('Fetching')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Loading...' })).toBeDisabled();
+  });
+
+  it('shows Disconnect when an OpenRouter model is loaded', () => {
+    const model = OPENROUTER_MODELS[0];
+    render(
+      <ModelsTableView
+        recommendedModels={[]}
+        openRouterModels={[model]}
+        loadedModel={model.id}
+        loadingModelId={null}
+        loadProgress={null}
+        getModelStatus={() => 'not_downloaded'}
+        onLoad={vi.fn()}
+        onUnload={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Disconnect' })
+    ).toBeInTheDocument();
+  });
 });
