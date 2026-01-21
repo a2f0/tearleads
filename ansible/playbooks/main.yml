@@ -5,6 +5,7 @@
 
   vars:
     ansible_python_interpreter: /usr/bin/python3
+    server_username: "{{ server_username }}"
     domain: "{{ lookup('env', 'TF_VAR_domain') | mandatory('TF_VAR_domain environment variable is required') }}"
     certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') | mandatory('CERTBOT_EMAIL environment variable is required') }}"
     deploy_public_key: "{{ lookup('pipe', 'ssh-keygen -y -f ' ~ playbook_dir ~ '/../../.secrets/deploy.key') }}"
@@ -24,9 +25,15 @@
   tasks:
     - name: Add GitHub Actions deploy key to authorized_keys
       ansible.posix.authorized_key:
-        user: "{{ lookup('env', 'TF_VAR_server_username') | mandatory('TF_VAR_server_username environment variable is required') }}"
+        user: "{{ server_username }}"
         state: present
         key: "{{ deploy_public_key }}"
+
+    - name: Add server user to systemd-journal group
+      ansible.builtin.user:
+        name: "{{ server_username }}"
+        groups: systemd-journal
+        append: true
 
     - name: Disable root SSH login
       ansible.builtin.lineinfile:
@@ -156,7 +163,7 @@
       ansible.builtin.file:
         path: /opt/rapid-api
         state: directory
-        owner: "{{ lookup('env', 'TF_VAR_server_username') }}"
+        owner: "{{ server_username }}"
         group: www-data
         mode: "0775"
         recurse: true
@@ -165,7 +172,7 @@
       ansible.builtin.copy:
         dest: /opt/rapid-api/.env
         content: "OPENROUTER_API_KEY={{ lookup('env', 'OPENROUTER_API_KEY') | mandatory('OPENROUTER_API_KEY environment variable is required') }}\n"
-        owner: "{{ lookup('env', 'TF_VAR_server_username') }}"
+        owner: "{{ server_username }}"
         group: www-data
         mode: "0640"
       no_log: true
@@ -193,7 +200,7 @@
       ansible.builtin.file:
         path: /opt/rapid-smtp-listener
         state: directory
-        owner: "{{ lookup('env', 'TF_VAR_server_username') }}"
+        owner: "{{ server_username }}"
         group: www-data
         mode: "0775"
         recurse: true
@@ -217,7 +224,7 @@
       ansible.builtin.file:
         path: "{{ item }}"
         state: directory
-        owner: "{{ lookup('env', 'TF_VAR_server_username') }}"
+        owner: "{{ server_username }}"
         group: www-data
         mode: "0775"
         recurse: true
@@ -299,6 +306,17 @@
         owner: root
         group: root
         mode: "0755"
+
+    - name: Deploy tail scripts
+      ansible.builtin.copy:
+        src: "files/scripts/{{ item }}.sh"
+        dest: "/usr/local/bin/{{ item }}.sh"
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - tailApi
+        - tailSmtpListener
 
     # Automatic daily patching
     - name: Deploy auto-patch script

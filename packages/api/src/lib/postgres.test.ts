@@ -72,6 +72,9 @@ describe('postgres lib', () => {
   beforeEach(() => {
     vi.resetModules();
     process.env = { ...originalEnv };
+    for (const key of DEV_ENV_KEYS) {
+      delete process.env[key];
+    }
     if (!process.env.NODE_ENV) {
       process.env.NODE_ENV = 'test';
     }
@@ -115,9 +118,6 @@ describe('postgres lib', () => {
   it('treats invalid ports as null', async () => {
     process.env.POSTGRES_HOST = 'localhost';
     process.env.POSTGRES_PORT = 'not-a-number';
-    delete process.env.POSTGRES_USER;
-    delete process.env.POSTGRES_DATABASE;
-    delete process.env.DATABASE_URL;
 
     const { getPostgresConnectionInfo } = await loadPostgresModule();
 
