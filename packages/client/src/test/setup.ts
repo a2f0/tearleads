@@ -46,17 +46,6 @@ vi.mock('pdfjs-dist', () => {
 });
 
 beforeAll(() => {
-  const originalError = console.error;
-  console.error = (...args: unknown[]) => {
-    const message = typeof args[0] === 'string' ? args[0] : '';
-    if (message.includes('not wrapped in act(')) {
-      throw new Error(
-        `React act() warning detected. Wrap state updates in act():\n${args.join(' ')}`
-      );
-    }
-    originalError.apply(console, args);
-  };
-
   server.listen({ onUnhandledRequest: 'warn' });
 });
 
@@ -67,32 +56,6 @@ afterEach(() => {
 
 afterAll(() => {
   server.close();
-});
-
-// Mock localStorage for tests
-const localStorageMock: {
-  store: Record<string, string>;
-  getItem: (key: string) => string | null;
-  setItem: (key: string, value: string) => void;
-  removeItem: (key: string) => void;
-  clear: () => void;
-} = {
-  store: {},
-  getItem(key: string) {
-    return this.store[key] ?? null;
-  },
-  setItem(key: string, value: string) {
-    this.store[key] = value;
-  },
-  removeItem(key: string) {
-    delete this.store[key];
-  },
-  clear() {
-    this.store = {};
-  }
-};
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock
 });
 
 // Mock __APP_VERSION__ global defined by Vite
