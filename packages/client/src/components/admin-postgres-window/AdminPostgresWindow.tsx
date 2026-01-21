@@ -1,9 +1,7 @@
-import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { AdminWindowMenuBar } from '@/components/admin-window/AdminWindowMenuBar';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
-import { cn } from '@/lib/utils';
 import { PostgresAdmin } from '@/pages/admin/PostgresAdmin';
 
 interface AdminPostgresWindowProps {
@@ -25,8 +23,6 @@ export function AdminPostgresWindow({
   zIndex,
   initialDimensions
 }: AdminPostgresWindowProps) {
-  const [compact, setCompact] = useState(false);
-
   return (
     <FloatingWindow
       id={id}
@@ -43,12 +39,8 @@ export function AdminPostgresWindow({
       minHeight={420}
     >
       <div className="flex h-full flex-col">
-        <AdminWindowMenuBar
-          compact={compact}
-          onCompactChange={setCompact}
-          onClose={onClose}
-        />
-        <div className={cn('flex-1 overflow-auto', compact ? 'p-3' : 'p-6')}>
+        <AdminWindowMenuBar onClose={onClose} />
+        <div className="flex-1 overflow-auto p-3">
           <MemoryRouter initialEntries={['/admin/postgres']}>
             <PostgresAdmin showBackLink={false} />
           </MemoryRouter>

@@ -124,18 +124,18 @@ describe('AdminPostgresWindow', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('toggles compact mode from View menu', async () => {
+  it('renders in compact mode without a Compact menu item', async () => {
     const user = userEvent.setup();
     render(<AdminPostgresWindow {...defaultProps} />);
 
     const contentContainer = screen.getByTestId(
       'postgres-admin-content'
     ).parentElement;
-    expect(contentContainer).toHaveClass('p-6');
-
     await user.click(screen.getByRole('button', { name: 'View' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Compact' }));
 
     expect(contentContainer).toHaveClass('p-3');
+    expect(
+      screen.queryByRole('menuitem', { name: 'Compact' })
+    ).not.toBeInTheDocument();
   });
 });
