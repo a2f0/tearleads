@@ -15,11 +15,10 @@ vi.mock('@/hooks/useContactsImport', () => ({
   })
 }));
 
+const mockDatabaseContext = { isUnlocked: true, isLoading: false };
+
 vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: () => ({
-    isUnlocked: true,
-    isLoading: false
-  })
+  useDatabaseContext: () => mockDatabaseContext
 }));
 
 vi.mock('@/components/contacts/column-mapper', () => ({
@@ -82,6 +81,8 @@ describe('ContactsWindowImport', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockDatabaseContext.isUnlocked = true;
+    mockDatabaseContext.isLoading = false;
   });
 
   it('renders the column mapper after parsing a file', async () => {
@@ -113,6 +114,28 @@ describe('ContactsWindowImport', () => {
     });
   });
 
+  it('clears mapping state when cancel is clicked', async () => {
+    const user = userEvent.setup();
+    mockParseFile.mockResolvedValue({
+      headers: ['First Name'],
+      rows: [['John']]
+    });
+
+    render(
+      <ContactsWindowImport file={file} onDone={vi.fn()} onImported={vi.fn()} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('column-mapper')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('mapper-cancel'));
+
+    expect(
+      screen.getByText('Choose File > Import CSV to select a file.')
+    ).toBeInTheDocument();
+  });
+
   it('shows an error when parsing fails', async () => {
     mockParseFile.mockRejectedValue(new Error('Parse failed'));
 
@@ -123,6 +146,41 @@ describe('ContactsWindowImport', () => {
     await waitFor(() => {
       expect(screen.getByText('Parse failed')).toBeInTheDocument();
     });
+  });
+
+  it('does not call onImported when no contacts are imported', async () => {
+    const user = userEvent.setup();
+    const onImported = vi.fn();
+
+    mockParseFile.mockResolvedValue({
+      headers: ['First Name'],
+      rows: [['John']]
+    });
+    mockImportContacts.mockResolvedValue({
+      total: 1,
+      imported: 0,
+      skipped: 1,
+      errors: []
+    });
+
+    render(
+      <ContactsWindowImport
+        file={file}
+        onDone={vi.fn()}
+        onImported={onImported}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('column-mapper')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('mapper-import'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Imported 0 contacts')).toBeInTheDocument();
+    });
+    expect(onImported).not.toHaveBeenCalled();
   });
 
   it('calls onDone when Done is clicked', async () => {
