@@ -29,6 +29,8 @@ vi.mock('./FilesWindowMenuBar', () => ({
   FilesWindowMenuBar: ({
     showDeleted,
     onShowDeletedChange,
+    showDropzone,
+    onShowDropzoneChange,
     viewMode,
     onViewModeChange,
     onUpload,
@@ -36,6 +38,8 @@ vi.mock('./FilesWindowMenuBar', () => ({
   }: {
     showDeleted: boolean;
     onShowDeletedChange: (show: boolean) => void;
+    showDropzone: boolean;
+    onShowDropzoneChange: (show: boolean) => void;
     viewMode: 'list' | 'table';
     onViewModeChange: (mode: 'list' | 'table') => void;
     onUpload: () => void;
@@ -45,6 +49,9 @@ vi.mock('./FilesWindowMenuBar', () => ({
       <span data-testid="show-deleted-state">
         {showDeleted ? 'true' : 'false'}
       </span>
+      <span data-testid="show-dropzone-state">
+        {showDropzone ? 'true' : 'false'}
+      </span>
       <span data-testid="view-mode-state">{viewMode}</span>
       <button
         type="button"
@@ -52,6 +59,13 @@ vi.mock('./FilesWindowMenuBar', () => ({
         data-testid="toggle-show-deleted"
       >
         Toggle Show Deleted
+      </button>
+      <button
+        type="button"
+        onClick={() => onShowDropzoneChange(!showDropzone)}
+        data-testid="toggle-show-dropzone"
+      >
+        Toggle Show Dropzone
       </button>
       <button
         type="button"
@@ -103,10 +117,12 @@ vi.mock('./FilesWindowContent', async () => {
     FilesWindowContent: vi.fn().mockImplementation(
       ({
         showDeleted,
+        showDropzone,
         ref,
         onSelectFile
       }: {
         showDeleted: boolean;
+        showDropzone: boolean;
         ref?: React.RefObject<{
           uploadFiles: (files: File[]) => void;
         } | null>;
@@ -122,6 +138,9 @@ vi.mock('./FilesWindowContent', async () => {
             <span data-testid="files-location">{location.pathname}</span>
             <span data-testid="content-show-deleted">
               {showDeleted ? 'true' : 'false'}
+            </span>
+            <span data-testid="content-show-dropzone">
+              {showDropzone ? 'true' : 'false'}
             </span>
             {onSelectFile && (
               <button
@@ -202,6 +221,34 @@ describe('FilesWindow', () => {
     expect(screen.getByTestId('show-deleted-state')).toHaveTextContent('false');
     expect(screen.getByTestId('content-show-deleted')).toHaveTextContent(
       'false'
+    );
+  });
+
+  it('starts with showDropzone as false', () => {
+    render(<FilesWindow {...defaultProps} />);
+    expect(screen.getByTestId('show-dropzone-state')).toHaveTextContent(
+      'false'
+    );
+    expect(screen.getByTestId('content-show-dropzone')).toHaveTextContent(
+      'false'
+    );
+  });
+
+  it('toggles showDropzone state', async () => {
+    const user = userEvent.setup();
+    render(<FilesWindow {...defaultProps} />);
+
+    expect(screen.getByTestId('show-dropzone-state')).toHaveTextContent(
+      'false'
+    );
+
+    await user.click(screen.getByTestId('toggle-show-dropzone'));
+
+    expect(screen.getByTestId('show-dropzone-state')).toHaveTextContent(
+      'true'
+    );
+    expect(screen.getByTestId('content-show-dropzone')).toHaveTextContent(
+      'true'
     );
   });
 
