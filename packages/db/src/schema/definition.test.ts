@@ -10,6 +10,8 @@ import {
   notesTable,
   secretsTable,
   syncMetadataTable,
+  userCredentialsTable,
+  usersTable,
   userSettingsTable
 } from './definition.js';
 import { isTableDefinition } from './types.js';
@@ -55,6 +57,42 @@ describe('userSettingsTable', () => {
     expect(userSettingsTable.columns.key).toBeDefined();
     expect(userSettingsTable.columns.value).toBeDefined();
     expect(userSettingsTable.columns.updatedAt).toBeDefined();
+  });
+});
+
+describe('usersTable', () => {
+  it('is a valid table definition', () => {
+    expect(isTableDefinition(usersTable)).toBe(true);
+  });
+
+  it('has correct table name and property name', () => {
+    expect(usersTable.name).toBe('users');
+    expect(usersTable.propertyName).toBe('users');
+  });
+
+  it('has required columns', () => {
+    expect(usersTable.columns.id).toBeDefined();
+    expect(usersTable.columns.email).toBeDefined();
+    expect(usersTable.columns.emailConfirmed).toBeDefined();
+  });
+});
+
+describe('userCredentialsTable', () => {
+  it('is a valid table definition', () => {
+    expect(isTableDefinition(userCredentialsTable)).toBe(true);
+  });
+
+  it('has correct table name and property name', () => {
+    expect(userCredentialsTable.name).toBe('user_credentials');
+    expect(userCredentialsTable.propertyName).toBe('userCredentials');
+  });
+
+  it('has required columns', () => {
+    expect(userCredentialsTable.columns.userId).toBeDefined();
+    expect(userCredentialsTable.columns.passwordHash).toBeDefined();
+    expect(userCredentialsTable.columns.passwordSalt).toBeDefined();
+    expect(userCredentialsTable.columns.createdAt).toBeDefined();
+    expect(userCredentialsTable.columns.updatedAt).toBeDefined();
   });
 });
 
@@ -255,13 +293,15 @@ describe('notesTable', () => {
 });
 
 describe('allTables', () => {
-  it('contains all 10 tables', () => {
-    expect(allTables).toHaveLength(10);
+  it('contains all 12 tables', () => {
+    expect(allTables).toHaveLength(12);
   });
 
   it('contains all table definitions', () => {
     expect(allTables).toContain(syncMetadataTable);
     expect(allTables).toContain(userSettingsTable);
+    expect(allTables).toContain(usersTable);
+    expect(allTables).toContain(userCredentialsTable);
     expect(allTables).toContain(migrationsTable);
     expect(allTables).toContain(secretsTable);
     expect(allTables).toContain(filesTable);
