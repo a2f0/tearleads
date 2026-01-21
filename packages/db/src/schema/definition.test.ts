@@ -11,8 +11,8 @@ import {
   secretsTable,
   syncMetadataTable,
   userCredentialsTable,
-  usersTable,
-  userSettingsTable
+  userSettingsTable,
+  usersTable
 } from './definition.js';
 import { isTableDefinition } from './types.js';
 

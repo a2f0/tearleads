@@ -19,7 +19,9 @@ export function createJwt(
   const header = base64UrlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const body = base64UrlEncode(JSON.stringify(fullPayload));
   const data = `${header}.${body}`;
-  const signature = createHmac('sha256', secret).update(data).digest('base64url');
+  const signature = createHmac('sha256', secret)
+    .update(data)
+    .digest('base64url');
 
   return `${data}.${signature}`;
 }
