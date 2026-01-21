@@ -19,7 +19,6 @@ import {
   Settings,
   Shield,
   StickyNote,
-  Table2,
   Terminal,
   Users
 } from 'lucide-react';
@@ -98,13 +97,6 @@ export const navItems: NavItem[] = [
     labelKey: 'videos',
     inMobileMenu: true,
     testId: 'videos-link'
-  },
-  {
-    path: '/sqlite/tables',
-    icon: Table2,
-    labelKey: 'tables',
-    inMobileMenu: true,
-    testId: 'tables-link'
   },
   {
     path: '/analytics',
@@ -220,7 +212,6 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/photos': 'photos',
   '/documents': 'documents',
   '/videos': 'videos',
-  '/tables': 'tables',
   '/keychain': 'keychain',
   '/sqlite': 'sqlite',
   '/opfs': 'opfs',
