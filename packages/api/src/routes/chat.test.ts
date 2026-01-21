@@ -174,7 +174,7 @@ describe('Chat Routes', () => {
         )
       );
 
-      const largeImageData = `data:image/png;base64,${'a'.repeat(200_000)}`;
+      const largeImageData = `data:image/png;base64,${'a'.repeat(5_000_000)}`;
       const payload = {
         messages: [
           {
