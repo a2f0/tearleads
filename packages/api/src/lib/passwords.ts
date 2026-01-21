@@ -8,13 +8,9 @@ function scryptAsync(password: string, salt: string): Promise<Buffer> {
     scrypt(password, salt, KEY_LENGTH, (error, derivedKey) => {
       if (error) {
         reject(error);
-        return;
+      } else {
+        resolve(derivedKey);
       }
-      if (!Buffer.isBuffer(derivedKey)) {
-        reject(new Error('Invalid scrypt output'));
-        return;
-      }
-      resolve(derivedKey);
     });
   });
 }

@@ -52,13 +52,14 @@ function buildDatabaseUrl(): string | null {
   return `postgres://${auth ? `${auth}@` : ''}${hostValue}:${portValue}/${database}`;
 }
 
-const databaseUrl = buildDatabaseUrl();
-
-if (!databaseUrl) {
-  console.error(
-    'Missing Postgres connection info. Set DATABASE_URL or PGDATABASE/POSTGRES_DATABASE (plus PGHOST/PGPORT/PGUSER as needed).',
-  );
-  process.exit(1);
+function getDatabaseUrl(): string {
+  const url = buildDatabaseUrl();
+  if (!url) {
+    throw new Error(
+      'Missing Postgres connection info. Set DATABASE_URL or PGDATABASE/POSTGRES_DATABASE (plus PGHOST/PGPORT/PGUSER as needed).'
+    );
+  }
+  return url;
 }
 
 function getLatestMigrationVersion(): number {
@@ -117,6 +118,7 @@ const tempDir = mkdtempSync(join(tmpdir(), 'rapid-drizzle-'));
 const configPath = join(tempDir, 'drizzle.postgres.config.ts');
 
 async function main(): Promise<void> {
+  const databaseUrl = getDatabaseUrl();
   try {
     writeFileSync(
       configPath,
