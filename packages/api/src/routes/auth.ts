@@ -10,7 +10,8 @@ import { verifyPassword } from '../lib/passwords.js';
 import { getPostgresPool } from '../lib/postgres.js';
 
 const router: RouterType = Router();
-const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
+const ACCESS_TOKEN_TTL_SECONDS =
+  Number(process.env['ACCESS_TOKEN_TTL_SECONDS']) || 60 * 60;
 
 type LoginPayload = {
   email: string;
@@ -110,7 +111,7 @@ router.post('/login', async (req: Request, res: Response) => {
       `SELECT u.id, u.email, uc.password_hash, uc.password_salt
        FROM users u
        LEFT JOIN user_credentials uc ON u.id = uc.user_id
-       WHERE u.email = $1
+       WHERE lower(u.email) = $1
        LIMIT 1`,
       [payload.email]
     );
