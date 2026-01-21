@@ -1,5 +1,5 @@
 import { isOpenRouterModelId } from '@rapid/shared';
-import { Check, Download, Loader2, Play, Square, Trash2 } from 'lucide-react';
+import { Download, Loader2, Play, Square, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ModelInfo } from '@/lib/models';
 import type { ModelStatus } from './ModelCard';
@@ -128,18 +128,6 @@ export function ModelsTableView({
                             {isRemote && (
                               <span className="rounded-full bg-info/10 px-2 py-0.5 font-medium text-[11px] text-info">
                                 Remote
-                              </span>
-                            )}
-                            {isLoaded && (
-                              <span className="flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 font-medium text-[11px] text-success">
-                                <Check className="h-3 w-3" />
-                                Loaded
-                              </span>
-                            )}
-                            {isCached && (
-                              <span className="flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 font-medium text-[11px] text-info">
-                                <Check className="h-3 w-3" />
-                                Downloaded
                               </span>
                             )}
                           </div>
