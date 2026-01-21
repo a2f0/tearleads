@@ -249,7 +249,8 @@ function calculateClusterPositions(
   currentPositions?: Positions,
   maxItemWidth?: number,
   maxItemHeight?: number,
-  itemHeights?: Record<string, number>
+  itemHeights?: Record<string, number>,
+  itemWidths?: Record<string, number>
 ): Positions {
   const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
   const gap = isMobile ? GAP_MOBILE : GAP;
@@ -277,10 +278,12 @@ function calculateClusterPositions(
   itemsToArrange.forEach((item, index) => {
     const col = index % cols;
     const row = Math.floor(index / cols);
+    const itemWidthValue = itemWidths?.[item.path] ?? iconSize;
+    const horizontalOffset = Math.max(0, (clusterItemWidth - itemWidthValue) / 2);
     const itemHeight = itemHeights?.[item.path] ?? itemHeightCalc;
     const verticalOffset = Math.max(0, (clusterItemHeight - itemHeight) / 2);
     positions[item.path] = {
-      x: startX + col * itemWidth,
+      x: startX + col * itemWidth + horizontalOffset,
       y: startY + row * itemHeightWithGap + verticalOffset
     };
   });
@@ -294,6 +297,7 @@ function getIconButtonMeasurements(
   maxWidth: number;
   maxHeight: number;
   itemHeights: Record<string, number>;
+  itemWidths: Record<string, number>;
 } | null {
   if (!container || paths.length === 0) {
     return null;
@@ -303,6 +307,7 @@ function getIconButtonMeasurements(
   let maxWidth = 0;
   let maxHeight = 0;
   const itemHeights: Record<string, number> = {};
+  const itemWidths: Record<string, number> = {};
 
   container
     .querySelectorAll<HTMLButtonElement>('button[data-icon-path]')
@@ -321,6 +326,9 @@ function getIconButtonMeasurements(
       if (measuredHeight > maxHeight) {
         maxHeight = measuredHeight;
       }
+      if (measuredWidth > 0) {
+        itemWidths[path] = measuredWidth;
+      }
       if (measuredHeight > 0) {
         itemHeights[path] = measuredHeight;
       }
@@ -333,7 +341,8 @@ function getIconButtonMeasurements(
   return {
     maxWidth: maxWidth > 0 ? Math.ceil(maxWidth) : 0,
     maxHeight: maxHeight > 0 ? Math.ceil(maxHeight) : 0,
-    itemHeights
+    itemHeights,
+    itemWidths
   };
 }
 
@@ -680,7 +689,8 @@ export function Home() {
         current,
         measurements?.maxWidth || undefined,
         measurements?.maxHeight || undefined,
-        measurements?.itemHeights
+        measurements?.itemHeights,
+        measurements?.itemWidths
       )
     );
   }, [applyArrangement, appItems, isMobile, selectedIcons]);
