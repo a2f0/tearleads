@@ -153,7 +153,7 @@ describe('postgres lib', () => {
     expect(getPostgresConnectionInfo()).toEqual({
       host: 'localhost',
       port: 5432,
-      database: 'postgres',
+      database: 'tearleads_development',
       user: 'rapid_os_user'
     });
   });
@@ -169,7 +169,7 @@ describe('postgres lib', () => {
       host: 'localhost',
       port: 5432,
       user: 'rapid_os_user',
-      database: 'postgres'
+      database: 'tearleads_development'
     });
   });
 
