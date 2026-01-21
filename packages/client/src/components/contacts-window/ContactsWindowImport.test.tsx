@@ -257,14 +257,7 @@ describe('ContactsWindowImport', () => {
       total: 1,
       imported: 0,
       skipped: 1,
-      errors: [
-        'Error 1',
-        'Error 2',
-        'Error 3',
-        'Error 4',
-        'Error 5',
-        'Error 6'
-      ]
+      errors: ['Error 1', 'Error 2', 'Error 3', 'Error 4', 'Error 5', 'Error 6']
     });
 
     render(
