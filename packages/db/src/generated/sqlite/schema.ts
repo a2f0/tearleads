@@ -35,6 +35,32 @@ export const userSettings = sqliteTable('user_settings', {
 });
 
 /**
+ * Users table for core identity records.
+ */
+export const users = sqliteTable(
+  'users',
+  {
+    id: text('id').primaryKey(),
+    email: text('email').notNull(),
+    emailConfirmed: integer('email_confirmed', { mode: 'boolean' })
+      .notNull()
+      .default(false)
+  },
+  (table) => [index('users_email_idx').on(table.email)]
+);
+
+/**
+ * User credentials table for password authentication.
+ */
+export const userCredentials = sqliteTable('user_credentials', {
+  userId: text('user_id').primaryKey(),
+  passwordHash: text('password_hash').notNull(),
+  passwordSalt: text('password_salt').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+});
+
+/**
  * Migrations table to track applied database migrations.
  */
 export const migrations = sqliteTable('schema_migrations', {

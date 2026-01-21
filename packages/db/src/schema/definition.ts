@@ -82,6 +82,70 @@ export const userSettingsTable: TableDefinition = {
 };
 
 /**
+ * Users table for core identity records.
+ */
+export const usersTable: TableDefinition = {
+  name: 'users',
+  propertyName: 'users',
+  comment: 'Users table for core identity records.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    email: {
+      type: 'text',
+      sqlName: 'email',
+      notNull: true
+    },
+    emailConfirmed: {
+      type: 'boolean',
+      sqlName: 'email_confirmed',
+      notNull: true,
+      defaultValue: false
+    }
+  },
+  indexes: [{ name: 'users_email_idx', columns: ['email'] }]
+};
+
+/**
+ * User credentials table for password authentication.
+ */
+export const userCredentialsTable: TableDefinition = {
+  name: 'user_credentials',
+  propertyName: 'userCredentials',
+  comment: 'User credentials table for password authentication.',
+  columns: {
+    userId: {
+      type: 'text',
+      sqlName: 'user_id',
+      primaryKey: true
+    },
+    passwordHash: {
+      type: 'text',
+      sqlName: 'password_hash',
+      notNull: true
+    },
+    passwordSalt: {
+      type: 'text',
+      sqlName: 'password_salt',
+      notNull: true
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    },
+    updatedAt: {
+      type: 'timestamp',
+      sqlName: 'updated_at',
+      notNull: true
+    }
+  }
+};
+
+/**
  * Migrations table to track applied database migrations.
  */
 export const migrationsTable: TableDefinition = {
@@ -412,6 +476,8 @@ export const notesTable: TableDefinition = {
 export const allTables: TableDefinition[] = [
   syncMetadataTable,
   userSettingsTable,
+  usersTable,
+  userCredentialsTable,
   migrationsTable,
   secretsTable,
   filesTable,

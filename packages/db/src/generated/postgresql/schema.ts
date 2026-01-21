@@ -43,6 +43,30 @@ export const userSettings = pgTable('user_settings', {
 });
 
 /**
+ * Users table for core identity records.
+ */
+export const users = pgTable(
+  'users',
+  {
+    id: text('id').primaryKey(),
+    email: text('email').notNull(),
+    emailConfirmed: boolean('email_confirmed').notNull().default(false)
+  },
+  (table) => [index('users_email_idx').on(table.email)]
+);
+
+/**
+ * User credentials table for password authentication.
+ */
+export const userCredentials = pgTable('user_credentials', {
+  userId: text('user_id').primaryKey(),
+  passwordHash: text('password_hash').notNull(),
+  passwordSalt: text('password_salt').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
+});
+
+/**
  * Migrations table to track applied database migrations.
  */
 export const migrations = pgTable('schema_migrations', {
