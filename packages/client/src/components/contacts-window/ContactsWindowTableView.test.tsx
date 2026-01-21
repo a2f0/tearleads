@@ -364,13 +364,14 @@ describe('ContactsWindowTableView', () => {
     await user.click(screen.getByText('Delete'));
 
     await waitFor(() => {
-      expect(screen.getByText('Delete failed')).toBeInTheDocument();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete contact:',
+        expect.any(Error)
+      );
     });
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Failed to delete contact:',
-      expect.any(Error)
-    );
+    // Context menu should close even on error
+    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
   });
 
   it('calls onCreateContact when header create button is clicked', async () => {
