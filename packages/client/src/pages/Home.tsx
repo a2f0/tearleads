@@ -279,7 +279,10 @@ function calculateClusterPositions(
     const col = index % cols;
     const row = Math.floor(index / cols);
     const itemWidthValue = itemWidths?.[item.path] ?? iconSize;
-    const horizontalOffset = Math.max(0, (clusterItemWidth - itemWidthValue) / 2);
+    const horizontalOffset = Math.max(
+      0,
+      (clusterItemWidth - itemWidthValue) / 2
+    );
     const itemHeight = itemHeights?.[item.path] ?? itemHeightCalc;
     const verticalOffset = Math.max(0, (clusterItemHeight - itemHeight) / 2);
     positions[item.path] = {
