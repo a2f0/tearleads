@@ -5,8 +5,9 @@ import type { ViewMode } from './ModelsWindowMenuBar';
 import { ModelsWindowMenuBar } from './ModelsWindowMenuBar';
 
 describe('ModelsWindowMenuBar', () => {
+  const defaultViewMode: ViewMode = 'cards';
   const defaultProps = {
-    viewMode: 'cards' as ViewMode,
+    viewMode: defaultViewMode,
     onViewModeChange: vi.fn(),
     onClose: vi.fn()
   };
