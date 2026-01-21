@@ -73,7 +73,7 @@ else
 
   if [[ ${createdb_status} -eq 0 ]]; then
     echo "Created database ${db_name}."
-  elif echo "${createdb_output}" | rg -q "already exists"; then
+  elif echo "${createdb_output}" | grep -q "already exists"; then
     echo "Database ${db_name} already exists."
   elif [[ ${psql_status} -ne 0 ]]; then
     echo "Failed to check for database ${db_name}; createdb also failed." >&2

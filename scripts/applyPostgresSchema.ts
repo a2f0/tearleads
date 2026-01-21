@@ -1,71 +1,24 @@
 #!/usr/bin/env -S pnpm exec tsx
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import os from 'node:os';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  DATABASE_KEYS,
+  DATABASE_URL_KEYS,
+  HOST_KEYS,
+  PASSWORD_KEYS,
+  PORT_KEYS,
+  USER_KEYS,
+  getDevDefaults,
+  getEnvValue,
+  parsePort
+} from './lib/pg-helpers.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
 const schemaPath = join(rootDir, 'packages/db/src/generated/postgresql/schema.ts');
-
-const DATABASE_URL_KEYS = ['DATABASE_URL', 'POSTGRES_URL'];
-const HOST_KEYS = ['POSTGRES_HOST', 'PGHOST'];
-const PORT_KEYS = ['POSTGRES_PORT', 'PGPORT'];
-const USER_KEYS = ['POSTGRES_USER', 'PGUSER'];
-const PASSWORD_KEYS = ['POSTGRES_PASSWORD', 'PGPASSWORD'];
-const DATABASE_KEYS = ['POSTGRES_DATABASE', 'PGDATABASE'];
-
-function getEnvValue(keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = process.env[key];
-    if (value && value.trim().length > 0) {
-      return value;
-    }
-  }
-  return undefined;
-}
-
-function parsePort(value: string | undefined): number | null {
-  if (!value) return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function isDevMode(): boolean {
-  const nodeEnv = process.env.NODE_ENV;
-  return nodeEnv === 'development' || !nodeEnv;
-}
-
-function getDevDefaults(): {
-  host?: string;
-  port?: number;
-  user?: string;
-  database?: string;
-} {
-  if (!isDevMode()) {
-    return {};
-  }
-  let user = process.env.USER ?? process.env.LOGNAME;
-  if (!user) {
-    try {
-      const osUser = os.userInfo().username;
-      user = osUser && osUser.trim().length > 0 ? osUser : undefined;
-    } catch {
-      user = undefined;
-    }
-  }
-  const baseDefaults = {
-    host: 'localhost',
-    port: 5432,
-    database: 'tearleads_development'
-  };
-  if (user && user.trim().length > 0) {
-    return { ...baseDefaults, user };
-  }
-  return baseDefaults;
-}
 
 function buildDatabaseUrl(): string | null {
   const databaseUrl = getEnvValue(DATABASE_URL_KEYS);
