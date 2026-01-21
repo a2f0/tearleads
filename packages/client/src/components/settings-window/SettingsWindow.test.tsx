@@ -122,20 +122,17 @@ describe('SettingsWindow', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('toggles compact mode from View menu', async () => {
+  it('renders in compact mode without a Compact menu item', async () => {
     const user = userEvent.setup();
     render(<SettingsWindow {...defaultProps} />);
 
-    // Initially should have p-6 padding (not compact)
     const contentContainer =
       screen.getByTestId('settings-content').parentElement;
-    expect(contentContainer).toHaveClass('p-6');
-
-    // Click View menu and toggle compact
     await user.click(screen.getByRole('button', { name: 'View' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Compact' }));
 
-    // Now should have p-3 padding (compact)
     expect(contentContainer).toHaveClass('p-3');
+    expect(
+      screen.queryByRole('menuitem', { name: 'Compact' })
+    ).not.toBeInTheDocument();
   });
 });

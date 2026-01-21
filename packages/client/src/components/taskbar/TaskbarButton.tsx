@@ -142,7 +142,7 @@ export function TaskbarButton({
         onClick={onClick}
         onContextMenu={handleContextMenu}
         className={cn(
-          'flex items-center gap-1.5 border px-2 py-1 text-xs transition-colors',
+          'flex h-6 items-center gap-1.5 border px-2 text-xs leading-none transition-colors',
           isActive
             ? 'border-primary/50 bg-primary/10 text-foreground'
             : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
