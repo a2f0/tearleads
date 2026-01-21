@@ -5,6 +5,14 @@ pnpm install
 pnpm dev
 ```
 
+## Скрипти для розробки Postgres
+
+Скористайтеся цими хелперами для локальної роботи з Postgres:
+
+- `scripts/setupPostgresDev.sh` встановлює та запускає Postgres на macOS і показує стандартні значення PG* (зокрема `PGDATABASE=tearleads_development`).
+- `scripts/applyPostgresSchema.ts` застосовує згенеровану схему (використовує `DATABASE_URL` або змінні PG*).
+- `scripts/dropPostgresDb.ts` видаляє лише `tearleads_development` (потрібен `--yes`).
+
 ## Ключ API App Store Connect
 
 Ключ API App Store Connect потрібен для автоматизації збірки Fastlane.
