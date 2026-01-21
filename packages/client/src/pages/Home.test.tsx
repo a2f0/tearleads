@@ -912,7 +912,6 @@ describe('Home', () => {
     );
     const cols = Math.ceil(Math.sqrt(itemsToArrange.length));
     const rows = Math.ceil(itemsToArrange.length / cols);
-    const itemWidth = Math.max(ICON_SIZE, 90) + GAP;
     const itemHeight = Math.max(ITEM_HEIGHT, tallLabelHeight);
     const itemHeightWithGap = itemHeight + GAP;
     const clusterHeight = rows * itemHeightWithGap - GAP;
