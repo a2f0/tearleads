@@ -107,19 +107,21 @@ const columnWidths = rows.reduce(
 const padRight = (value: string, width: number): string => value.padEnd(width);
 const padLeft = (value: string, width: number): string => value.padStart(width);
 
-const headerLine =
-  `${padRight(headers.language, columnWidths.language)}  ` +
-  `${padLeft(headers.files, columnWidths.files)}  ` +
-  `${padLeft(headers.blank, columnWidths.blank)}  ` +
-  `${padLeft(headers.comment, columnWidths.comment)}  ` +
-  `${padLeft(headers.code, columnWidths.code)}`;
+const headerLine = [
+  padRight(headers.language, columnWidths.language),
+  padLeft(headers.files, columnWidths.files),
+  padLeft(headers.blank, columnWidths.blank),
+  padLeft(headers.comment, columnWidths.comment),
+  padLeft(headers.code, columnWidths.code),
+].join('  ');
 
-const separatorLine =
-  `${'-'.repeat(columnWidths.language)}  ` +
-  `${'-'.repeat(columnWidths.files)}  ` +
-  `${'-'.repeat(columnWidths.blank)}  ` +
-  `${'-'.repeat(columnWidths.comment)}  ` +
-  `${'-'.repeat(columnWidths.code)}`;
+const separatorLine = [
+  '-'.repeat(columnWidths.language),
+  '-'.repeat(columnWidths.files),
+  '-'.repeat(columnWidths.blank),
+  '-'.repeat(columnWidths.comment),
+  '-'.repeat(columnWidths.code),
+].join('  ');
 
 console.log(headerLine);
 console.log(separatorLine);
