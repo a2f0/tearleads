@@ -59,6 +59,7 @@ vi.mock('./ContactsWindowList', () => ({
   }: {
     onSelectContact: (id: string) => void;
     onCreateContact: () => void;
+    refreshToken?: number;
   }) => (
     <div data-testid="contacts-list">
       <button
@@ -127,10 +128,12 @@ vi.mock('./ContactsWindowNew', () => ({
 vi.mock('./ContactsWindowMenuBar', () => ({
   ContactsWindowMenuBar: ({
     onNewContact,
-    onViewModeChange
+    onViewModeChange,
+    onImportCsv
   }: {
     onNewContact: () => void;
     onViewModeChange: (mode: 'list' | 'table') => void;
+    onImportCsv: () => void;
   }) => (
     <div data-testid="menu-bar">
       <button
@@ -139,6 +142,13 @@ vi.mock('./ContactsWindowMenuBar', () => ({
         data-testid="new-contact-button"
       >
         New Contact
+      </button>
+      <button
+        type="button"
+        onClick={onImportCsv}
+        data-testid="import-csv-button"
+      >
+        Import CSV
       </button>
       <button
         type="button"
@@ -152,7 +162,31 @@ vi.mock('./ContactsWindowMenuBar', () => ({
 }));
 
 vi.mock('./ContactsWindowTableView', () => ({
-  ContactsWindowTableView: () => <div data-testid="contacts-table" />
+  ContactsWindowTableView: ({ refreshToken }: { refreshToken?: number }) => (
+    <div data-testid="contacts-table" data-refresh={refreshToken} />
+  )
+}));
+
+vi.mock('./ContactsWindowImport', () => ({
+  ContactsWindowImport: ({
+    file,
+    onDone,
+    onImported
+  }: {
+    file: File | null;
+    onDone: () => void;
+    onImported: () => void;
+  }) => (
+    <div data-testid="contacts-import">
+      <span data-testid="import-file-name">{file?.name ?? 'no file'}</span>
+      <button type="button" onClick={onDone} data-testid="import-done">
+        Done
+      </button>
+      <button type="button" onClick={onImported} data-testid="import-complete">
+        Import Complete
+      </button>
+    </div>
+  )
 }));
 
 describe('ContactsWindow', () => {
@@ -342,5 +376,79 @@ describe('ContactsWindow', () => {
       />
     );
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
+  });
+
+  it('opens file input when import csv is clicked', async () => {
+    const user = userEvent.setup();
+    render(<ContactsWindow {...defaultProps} />);
+
+    const fileInput = screen.getByTestId(
+      'contacts-import-input'
+    ) as HTMLInputElement;
+    const clickSpy = vi.spyOn(fileInput, 'click');
+
+    await user.click(screen.getByTestId('import-csv-button'));
+
+    expect(clickSpy).toHaveBeenCalled();
+    clickSpy.mockRestore();
+  });
+
+  it('shows import view when file is selected', async () => {
+    const user = userEvent.setup();
+    render(<ContactsWindow {...defaultProps} />);
+
+    const file = new File(['name,email'], 'contacts.csv', { type: 'text/csv' });
+    const fileInput = screen.getByTestId('contacts-import-input');
+
+    await user.upload(fileInput, file);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('contacts-import')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Import CSV');
+    expect(screen.getByTestId('import-file-name')).toHaveTextContent(
+      'contacts.csv'
+    );
+  });
+
+  it('returns to list view when import is done', async () => {
+    const user = userEvent.setup();
+    render(<ContactsWindow {...defaultProps} />);
+
+    const file = new File(['name,email'], 'contacts.csv', { type: 'text/csv' });
+    const fileInput = screen.getByTestId('contacts-import-input');
+
+    await user.upload(fileInput, file);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('contacts-import')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('import-done'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('contacts-list')).toBeInTheDocument();
+    });
+  });
+
+  it('updates refresh token when import completes', async () => {
+    const user = userEvent.setup();
+    render(<ContactsWindow {...defaultProps} />);
+
+    const file = new File(['name,email'], 'contacts.csv', { type: 'text/csv' });
+    const fileInput = screen.getByTestId('contacts-import-input');
+
+    await user.upload(fileInput, file);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('contacts-import')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('import-complete'));
+    await user.click(screen.getByTestId('import-done'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('contacts-list')).toBeInTheDocument();
+    });
   });
 });

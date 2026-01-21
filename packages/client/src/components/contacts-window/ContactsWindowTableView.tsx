@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import {
   ChevronDown,
   ChevronUp,
@@ -10,34 +10,26 @@ import {
   Trash2,
   User
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
+import { contacts as contactsTable } from '@/db/schema';
 import {
-  contactEmails,
-  contactPhones,
-  contacts as contactsTable
-} from '@/db/schema';
+  type ContactInfo,
+  type SortColumn,
+  type SortDirection,
+  useContacts
+} from '@/hooks/useContacts';
 import { useTypedTranslation } from '@/i18n';
-
-interface ContactInfo {
-  id: string;
-  firstName: string;
-  lastName: string | null;
-  primaryEmail: string | null;
-  primaryPhone: string | null;
-}
-
-type SortColumn = 'firstName' | 'lastName' | 'primaryEmail';
-type SortDirection = 'asc' | 'desc';
 
 interface ContactsWindowTableViewProps {
   onSelectContact: (contactId: string) => void;
   onCreateContact: () => void;
+  refreshToken?: number;
 }
 
 interface SortHeaderProps {
@@ -79,122 +71,41 @@ function SortHeader({
 
 export function ContactsWindowTableView({
   onSelectContact,
-  onCreateContact
+  onCreateContact,
+  refreshToken
 }: ContactsWindowTableViewProps) {
-  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const { isUnlocked, isLoading } = useDatabaseContext();
   const { t } = useTypedTranslation('contextMenu');
-  const [contactsList, setContactsList] = useState<ContactInfo[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasFetched, setHasFetched] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn>('firstName');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const {
+    contactsList,
+    loading,
+    error,
+    hasFetched,
+    fetchContacts,
+    setHasFetched
+  } = useContacts({ refreshToken, sortColumn, sortDirection });
   const [contextMenu, setContextMenu] = useState<{
     contact: ContactInfo;
     x: number;
     y: number;
   } | null>(null);
 
-  const fetchContacts = useCallback(async () => {
-    if (!isUnlocked) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const db = getDatabase();
-
-      const orderByColumn = {
-        firstName: contactsTable.firstName,
-        lastName: contactsTable.lastName,
-        primaryEmail: contactEmails.email
-      }[sortColumn];
-
-      const orderFn = sortDirection === 'asc' ? asc : desc;
-
-      const result = await db
-        .select({
-          id: contactsTable.id,
-          firstName: contactsTable.firstName,
-          lastName: contactsTable.lastName,
-          primaryEmail: contactEmails.email,
-          primaryPhone: contactPhones.phoneNumber
-        })
-        .from(contactsTable)
-        .leftJoin(
-          contactEmails,
-          and(
-            eq(contactEmails.contactId, contactsTable.id),
-            eq(contactEmails.isPrimary, true)
-          )
-        )
-        .leftJoin(
-          contactPhones,
-          and(
-            eq(contactPhones.contactId, contactsTable.id),
-            eq(contactPhones.isPrimary, true)
-          )
-        )
-        .where(eq(contactsTable.deleted, false))
-        .orderBy(orderFn(orderByColumn));
-
-      setContactsList(
-        result.map((row) => ({
-          id: row.id,
-          firstName: row.firstName,
-          lastName: row.lastName,
-          primaryEmail: row.primaryEmail,
-          primaryPhone: row.primaryPhone
-        }))
-      );
-      setHasFetched(true);
-    } catch (err) {
-      console.error('Failed to fetch contacts:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [isUnlocked, sortColumn, sortDirection]);
-
-  const fetchedForInstanceRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const needsFetch =
-      isUnlocked &&
-      !loading &&
-      (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
-
-    if (needsFetch) {
-      if (
-        fetchedForInstanceRef.current !== currentInstanceId &&
-        fetchedForInstanceRef.current !== null
-      ) {
-        setContactsList([]);
-        setError(null);
-      }
-
-      fetchedForInstanceRef.current = currentInstanceId;
-
-      const timeoutId = setTimeout(() => {
-        fetchContacts();
-      }, 0);
-
-      return () => clearTimeout(timeoutId);
-    }
-    return undefined;
-  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchContacts]);
-
-  const handleSortChange = useCallback((column: SortColumn) => {
-    setSortColumn((prevColumn) => {
-      if (prevColumn === column) {
-        setSortDirection((prevDir) => (prevDir === 'asc' ? 'desc' : 'asc'));
-        return prevColumn;
-      }
-      setSortDirection('asc');
-      return column;
-    });
-    setHasFetched(false);
-  }, []);
+  const handleSortChange = useCallback(
+    (column: SortColumn) => {
+      setSortColumn((prevColumn) => {
+        if (prevColumn === column) {
+          setSortDirection((prevDir) => (prevDir === 'asc' ? 'desc' : 'asc'));
+          return prevColumn;
+        }
+        setSortDirection('asc');
+        return column;
+      });
+      setHasFetched(false);
+    },
+    [setHasFetched]
+  );
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, contact: ContactInfo) => {
@@ -224,11 +135,10 @@ export function ContactsWindowTableView({
       setHasFetched(false);
     } catch (err) {
       console.error('Failed to delete contact:', err);
-      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setContextMenu(null);
     }
-  }, [contextMenu]);
+  }, [contextMenu, setHasFetched]);
 
   const getDisplayName = (contact: ContactInfo) => {
     return `${contact.firstName}${contact.lastName ? ` ${contact.lastName}` : ''}`;

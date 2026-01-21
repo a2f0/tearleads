@@ -1,4 +1,4 @@
-import { List, Table2 } from 'lucide-react';
+import { List, Table2, Upload } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -12,16 +12,20 @@ interface ContactsWindowMenuBarProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onNewContact: () => void;
+  onImportCsv: () => void;
   onClose: () => void;
   isNewContactDisabled?: boolean;
+  isImportDisabled?: boolean;
 }
 
 export function ContactsWindowMenuBar({
   viewMode,
   onViewModeChange,
   onNewContact,
+  onImportCsv,
   onClose,
-  isNewContactDisabled = false
+  isNewContactDisabled = false,
+  isImportDisabled = false
 }: ContactsWindowMenuBarProps) {
   return (
     <div className="flex shrink-0 border-b bg-muted/30 px-1">
@@ -31,6 +35,13 @@ export function ContactsWindowMenuBar({
           disabled={isNewContactDisabled}
         >
           New
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          icon={<Upload className="h-3 w-3" />}
+          onClick={onImportCsv}
+          disabled={isImportDisabled}
+        >
+          Import CSV
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
