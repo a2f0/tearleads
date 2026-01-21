@@ -246,6 +246,42 @@ describe('ContactsWindowImport', () => {
     });
   });
 
+  it('shows a summary when multiple errors occur', async () => {
+    const user = userEvent.setup();
+
+    mockParseFile.mockResolvedValue({
+      headers: ['First Name'],
+      rows: [['John']]
+    });
+    mockImportContacts.mockResolvedValue({
+      total: 1,
+      imported: 0,
+      skipped: 1,
+      errors: [
+        'Error 1',
+        'Error 2',
+        'Error 3',
+        'Error 4',
+        'Error 5',
+        'Error 6'
+      ]
+    });
+
+    render(
+      <ContactsWindowImport file={file} onDone={vi.fn()} onImported={vi.fn()} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('column-mapper')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('mapper-import'));
+
+    await waitFor(() => {
+      expect(screen.getByText('...and 1 more')).toBeInTheDocument();
+    });
+  });
+
   it('skips parsing when database is locked', async () => {
     mockDatabaseContext.isUnlocked = false;
     mockParseFile.mockResolvedValue({
