@@ -40,9 +40,7 @@ export function createCsv(
   ];
 
   for (const row of rows) {
-    const values = row.map((value) =>
-      escapeCsvValue(formatCsvValue(value))
-    );
+    const values = row.map((value) => escapeCsvValue(formatCsvValue(value)));
     lines.push(values.join(','));
   }
 
