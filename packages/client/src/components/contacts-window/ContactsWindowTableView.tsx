@@ -190,13 +190,7 @@ export function ContactsWindowTableView({
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [
-    isUnlocked,
-    loading,
-    hasFetched,
-    currentInstanceId,
-    fetchContacts
-  ]);
+  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchContacts]);
 
   const handleSortChange = useCallback((column: SortColumn) => {
     setSortColumn((prevColumn) => {
