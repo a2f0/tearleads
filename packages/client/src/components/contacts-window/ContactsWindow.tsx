@@ -145,7 +145,10 @@ export function ContactsWindow({
                 onDeleted={handleDeleted}
               />
             ) : currentView === 'create' ? (
-              <ContactsWindowNew onBack={handleBack} onCreated={handleCreated} />
+              <ContactsWindowNew
+                onBack={handleBack}
+                onCreated={handleCreated}
+              />
             ) : viewMode === 'table' ? (
               <ContactsWindowTableView
                 onSelectContact={handleSelectContact}
