@@ -16,16 +16,7 @@ import { server } from './msw/server';
 
 // Guardrail: fail tests on console warnings/errors unless tests explicitly mock or assert them.
 // Agents: do not add allow/skip exceptions here; ask the user first if changes are needed.
-failOnConsole({
-  shouldFail: (message, method) => {
-    if (method === 'error' && message.includes('not wrapped in act(')) {
-      throw new Error(
-        `React act() warning detected. Wrap state updates in act():\n${message}`
-      );
-    }
-    return true;
-  }
-});
+failOnConsole();
 
 // Mock @ionic/core gestures to avoid DOM issues in jsdom
 vi.mock('@ionic/core', () => ({
