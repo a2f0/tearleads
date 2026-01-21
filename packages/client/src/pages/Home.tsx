@@ -296,7 +296,7 @@ function getMaxIconButtonWidth(
   container
     .querySelectorAll<HTMLButtonElement>('button[data-icon-path]')
     .forEach((button) => {
-      const path = button.dataset.iconPath;
+      const path = button.dataset['iconPath'];
       if (!path || !pathSet.has(path)) {
         return;
       }
