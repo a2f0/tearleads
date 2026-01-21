@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ColumnMapping } from '@/hooks/useContactsImport';
 import { ContactsWindowImport } from './ContactsWindowImport';
 
 const mockParseFile = vi.fn();
@@ -26,21 +27,7 @@ vi.mock('@/components/contacts/column-mapper', () => ({
     onImport,
     onCancel
   }: {
-    onImport: (mapping: {
-      firstName: number | null;
-      lastName: number | null;
-      email1Label: number | null;
-      email1Value: number | null;
-      email2Label: number | null;
-      email2Value: number | null;
-      phone1Label: number | null;
-      phone1Value: number | null;
-      phone2Label: number | null;
-      phone2Value: number | null;
-      phone3Label: number | null;
-      phone3Value: number | null;
-      birthday: number | null;
-    }) => void;
+    onImport: (mapping: ColumnMapping) => void;
     onCancel: () => void;
   }) => (
     <div data-testid="column-mapper">
