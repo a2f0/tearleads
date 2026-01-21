@@ -5,8 +5,6 @@ import { SettingsWindowMenuBar } from './SettingsWindowMenuBar';
 
 describe('SettingsWindowMenuBar', () => {
   const defaultProps = {
-    compact: false,
-    onCompactChange: vi.fn(),
     onClose: vi.fn()
   };
 
@@ -40,72 +38,14 @@ describe('SettingsWindowMenuBar', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('shows Compact option in View menu', async () => {
+  it('shows Preserve Window State option in View menu', async () => {
     const user = userEvent.setup();
     render(<SettingsWindowMenuBar {...defaultProps} />);
 
     await user.click(screen.getByRole('button', { name: 'View' }));
 
     expect(
-      screen.getByRole('menuitem', { name: 'Compact' })
+      screen.getByRole('menuitem', { name: 'Preserve Window State' })
     ).toBeInTheDocument();
-  });
-
-  it('calls onCompactChange with true when Compact is clicked while not compact', async () => {
-    const user = userEvent.setup();
-    const onCompactChange = vi.fn();
-    render(
-      <SettingsWindowMenuBar
-        {...defaultProps}
-        compact={false}
-        onCompactChange={onCompactChange}
-      />
-    );
-
-    await user.click(screen.getByRole('button', { name: 'View' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Compact' }));
-
-    expect(onCompactChange).toHaveBeenCalledWith(true);
-  });
-
-  it('calls onCompactChange with false when Compact is clicked while compact', async () => {
-    const user = userEvent.setup();
-    const onCompactChange = vi.fn();
-    render(
-      <SettingsWindowMenuBar
-        {...defaultProps}
-        compact={true}
-        onCompactChange={onCompactChange}
-      />
-    );
-
-    await user.click(screen.getByRole('button', { name: 'View' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Compact' }));
-
-    expect(onCompactChange).toHaveBeenCalledWith(false);
-  });
-
-  it('shows checkmark on Compact when compact is true', async () => {
-    const user = userEvent.setup();
-    render(<SettingsWindowMenuBar {...defaultProps} compact={true} />);
-
-    await user.click(screen.getByRole('button', { name: 'View' }));
-
-    const compactItem = screen.getByRole('menuitem', { name: 'Compact' });
-    const checkSpan = compactItem.querySelector('span.w-3');
-
-    expect(checkSpan?.querySelector('svg')).toBeInTheDocument();
-  });
-
-  it('does not show checkmark on Compact when compact is false', async () => {
-    const user = userEvent.setup();
-    render(<SettingsWindowMenuBar {...defaultProps} compact={false} />);
-
-    await user.click(screen.getByRole('button', { name: 'View' }));
-
-    const compactItem = screen.getByRole('menuitem', { name: 'Compact' });
-    const checkSpan = compactItem.querySelector('span.w-3');
-
-    expect(checkSpan?.querySelector('svg')).not.toBeInTheDocument();
   });
 });
