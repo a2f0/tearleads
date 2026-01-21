@@ -1,4 +1,4 @@
-import { List, RefreshCw, Table2, Upload } from 'lucide-react';
+import { Image, List, RefreshCw, Table2, Upload } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
 
-export type ViewMode = 'list' | 'table';
+export type ViewMode = 'list' | 'table' | 'thumbnail';
 
 interface PhotosWindowMenuBarProps {
   viewMode: ViewMode;
@@ -48,6 +48,13 @@ export function PhotosWindowMenuBar({
           icon={<List className="h-3 w-3" />}
         >
           List
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => onViewModeChange('thumbnail')}
+          checked={viewMode === 'thumbnail'}
+          icon={<Image className="h-3 w-3" />}
+        >
+          Thumbnail
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => onViewModeChange('table')}

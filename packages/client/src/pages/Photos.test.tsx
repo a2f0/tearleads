@@ -480,6 +480,29 @@ describe('Photos', () => {
       });
     });
 
+    it('calls onSelectPhoto on left click when provided', async () => {
+      const user = userEvent.setup();
+      const onSelectPhoto = vi.fn();
+      render(
+        <MemoryRouter>
+          <Photos onSelectPhoto={onSelectPhoto} />
+        </MemoryRouter>
+      );
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByAltText('test-image.jpg'));
+
+      expect(onSelectPhoto).toHaveBeenCalledWith('photo-1');
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
     it.each([
       ['Enter', '{Enter}'],
       ['Space', ' ']
