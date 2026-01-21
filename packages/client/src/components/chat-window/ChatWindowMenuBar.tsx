@@ -1,9 +1,9 @@
+import { ModelSelector } from '@/components/ModelSelector';
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { ModelSelector } from '@/components/ModelSelector';
 import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
 
 interface ChatWindowMenuBarProps {
