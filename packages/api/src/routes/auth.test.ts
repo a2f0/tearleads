@@ -103,4 +103,16 @@ describe('Auth routes', () => {
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: 'Failed to authenticate' });
   });
+
+  it('returns 500 when JWT_SECRET is not configured', async () => {
+    mockConsoleError();
+    vi.unstubAllEnvs();
+
+    const response = await request(app)
+      .post('/v1/auth/login')
+      .send({ email: 'user@example.com', password: 'password' });
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: 'Failed to authenticate' });
+  });
 });
