@@ -70,7 +70,7 @@ else
     echo "Install with: brew install proctools (macOS) or apt install procps (Linux)"
 fi
 
-if [ "$HAS_SCREEN" = true ]; then
+if [ "$HAS_SCREEN" = "true" ]; then
     # Clean up dead screen sessions first
     screen -wipe >/dev/null 2>&1 || true
 
@@ -112,7 +112,7 @@ else
     echo "Note: GNU screen not found. Screen sessions not cleaned up."
 fi
 
-if [ "$HAS_TMUX" = true ]; then
+if [ "$HAS_TMUX" = "true" ]; then
     # Kill tmux session
     if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
         tmux kill-session -t "$SESSION_NAME"
