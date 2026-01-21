@@ -55,6 +55,8 @@ const renderSidebar = () =>
     </I18nextProvider>
   );
 
+const windowedLabels = ['Console', 'Notes'];
+
 describe('Sidebar launch behavior', () => {
   beforeEach(() => {
     mockOpenWindow.mockReset();
@@ -67,16 +69,19 @@ describe('Sidebar launch behavior', () => {
     setMatchMedia({ coarsePointer: false, mobileWidth: false });
   });
 
-  it('opens windowed apps on single click on desktop', async () => {
-    renderSidebar();
+  it.each(windowedLabels)(
+    'opens windowed apps on single click on desktop for %s',
+    async (label) => {
+      renderSidebar();
 
-    await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
+      await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByRole('button', { name: 'Console' }));
+      fireEvent.click(screen.getByRole('button', { name: label }));
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('console');
-    expect(mockNavigate).not.toHaveBeenCalled();
-  });
+      expect(mockOpenWindow).toHaveBeenCalledWith(label.toLowerCase());
+      expect(mockNavigate).not.toHaveBeenCalled();
+    }
+  );
 
   it('navigates on touch devices instead of opening windows', async () => {
     Object.defineProperty(navigator, 'maxTouchPoints', {
@@ -130,17 +135,20 @@ describe('Sidebar launch behavior', () => {
     expect(mockOpenWindow).not.toHaveBeenCalled();
   });
 
-  it('context menu Open in Window opens floating window', async () => {
-    renderSidebar();
+  it.each(windowedLabels)(
+    'context menu Open in Window opens floating window for %s',
+    async (label) => {
+      renderSidebar();
 
-    await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
+      await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
 
-    fireEvent.contextMenu(screen.getByRole('button', { name: 'Notes' }));
-    fireEvent.click(screen.getByText('Open in Window'));
+      fireEvent.contextMenu(screen.getByRole('button', { name: label }));
+      fireEvent.click(screen.getByText('Open in Window'));
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('notes');
-    expect(mockNavigate).not.toHaveBeenCalled();
-  });
+      expect(mockOpenWindow).toHaveBeenCalledWith(label.toLowerCase());
+      expect(mockNavigate).not.toHaveBeenCalled();
+    }
+  );
 
   it('does not show Open in Window for non-windowed apps', async () => {
     renderSidebar();
