@@ -11,6 +11,8 @@ export type ViewMode = 'list' | 'table';
 interface FilesWindowMenuBarProps {
   showDeleted: boolean;
   onShowDeletedChange: (show: boolean) => void;
+  showDropzone: boolean;
+  onShowDropzoneChange: (show: boolean) => void;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   onUpload: () => void;
@@ -20,6 +22,8 @@ interface FilesWindowMenuBarProps {
 export function FilesWindowMenuBar({
   showDeleted,
   onShowDeletedChange,
+  showDropzone,
+  onShowDropzoneChange,
   viewMode,
   onViewModeChange,
   onUpload,
@@ -53,6 +57,13 @@ export function FilesWindowMenuBar({
           Table
         </DropdownMenuItem>
         <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => onShowDropzoneChange(!showDropzone)}
+          checked={showDropzone}
+          icon={<Upload className="h-3 w-3" />}
+        >
+          Show Dropzone
+        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => onShowDeletedChange(!showDeleted)}
           checked={showDeleted}

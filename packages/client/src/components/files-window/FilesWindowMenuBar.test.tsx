@@ -7,6 +7,8 @@ describe('FilesWindowMenuBar', () => {
   const defaultProps = {
     showDeleted: false,
     onShowDeletedChange: vi.fn(),
+    showDropzone: false,
+    onShowDropzoneChange: vi.fn(),
     viewMode: 'list' as const,
     onViewModeChange: vi.fn(),
     onUpload: vi.fn(),
@@ -66,6 +68,79 @@ describe('FilesWindowMenuBar', () => {
     expect(
       screen.getByRole('menuitem', { name: 'Show Deleted' })
     ).toBeInTheDocument();
+  });
+
+  it('shows Show Dropzone option in View menu', async () => {
+    const user = userEvent.setup();
+    render(<FilesWindowMenuBar {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+
+    expect(
+      screen.getByRole('menuitem', { name: 'Show Dropzone' })
+    ).toBeInTheDocument();
+  });
+
+  it('calls onShowDropzoneChange with true when Show Dropzone is clicked and showDropzone is false', async () => {
+    const user = userEvent.setup();
+    const onShowDropzoneChange = vi.fn();
+    render(
+      <FilesWindowMenuBar
+        {...defaultProps}
+        showDropzone={false}
+        onShowDropzoneChange={onShowDropzoneChange}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Show Dropzone' }));
+
+    expect(onShowDropzoneChange).toHaveBeenCalledWith(true);
+  });
+
+  it('calls onShowDropzoneChange with false when Show Dropzone is clicked and showDropzone is true', async () => {
+    const user = userEvent.setup();
+    const onShowDropzoneChange = vi.fn();
+    render(
+      <FilesWindowMenuBar
+        {...defaultProps}
+        showDropzone={true}
+        onShowDropzoneChange={onShowDropzoneChange}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Show Dropzone' }));
+
+    expect(onShowDropzoneChange).toHaveBeenCalledWith(false);
+  });
+
+  it('shows checkmark on Show Dropzone when showDropzone is true', async () => {
+    const user = userEvent.setup();
+    render(<FilesWindowMenuBar {...defaultProps} showDropzone={true} />);
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+
+    const showDropzoneItem = screen.getByRole('menuitem', {
+      name: 'Show Dropzone'
+    });
+    const checkSpan = showDropzoneItem.querySelector('span.w-3');
+
+    expect(checkSpan?.querySelector('svg')).toBeInTheDocument();
+  });
+
+  it('does not show checkmark on Show Dropzone when showDropzone is false', async () => {
+    const user = userEvent.setup();
+    render(<FilesWindowMenuBar {...defaultProps} showDropzone={false} />);
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+
+    const showDropzoneItem = screen.getByRole('menuitem', {
+      name: 'Show Dropzone'
+    });
+    const checkSpan = showDropzoneItem.querySelector('span.w-3');
+
+    expect(checkSpan?.querySelector('svg')).not.toBeInTheDocument();
   });
 
   it('calls onShowDeletedChange with true when Show Deleted is clicked and showDeleted is false', async () => {

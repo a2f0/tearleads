@@ -83,6 +83,7 @@ export interface FilesListProps {
   showDeleted: boolean;
   onShowDeletedChange?: (show: boolean) => void;
   showHeader?: boolean;
+  showDropzone?: boolean;
   onFilesChange?: () => void;
   onSelectFile?: (fileId: string) => void;
   refreshToken?: number;
@@ -94,6 +95,7 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
       showDeleted,
       onShowDeletedChange,
       showHeader = true,
+      showDropzone = true,
       onFilesChange,
       onSelectFile,
       refreshToken
@@ -570,7 +572,7 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
           </div>
         )}
 
-        {isUnlocked && (
+        {isUnlocked && showDropzone && (
           <Dropzone onFilesSelected={handleFilesSelected} disabled={false} />
         )}
 
@@ -775,13 +777,15 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
                     </div>
                   </div>
                 </div>
-                <Dropzone
-                  onFilesSelected={handleFilesSelected}
-                  disabled={false}
-                  compact
-                  variant="row"
-                  className="mt-2"
-                />
+                {showDropzone && (
+                  <Dropzone
+                    onFilesSelected={handleFilesSelected}
+                    disabled={false}
+                    compact
+                    variant="row"
+                    className="mt-2"
+                  />
+                )}
               </>
             )}
           </div>
