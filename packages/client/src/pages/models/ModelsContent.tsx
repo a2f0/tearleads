@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { useLLM } from '@/hooks/useLLM';
-import { RECOMMENDED_MODELS } from '@/lib/models';
+import { OPENROUTER_MODELS, RECOMMENDED_MODELS } from '@/lib/models';
 import { getWebGPUErrorInfo } from '@/lib/utils';
 import { ModelCard, type ModelStatus } from './ModelCard';
+import { ModelsTableView } from './ModelsTableView';
 import { OpenRouterModelsSection } from './OpenRouterModelsSection';
 import { type WebGPUInfo, WebGPUInfoPanel } from './WebGPUInfoPanel';
 
@@ -105,9 +106,13 @@ async function deleteModelFromCache(modelId: string): Promise<boolean> {
 
 interface ModelsContentProps {
   showBackLink?: boolean;
+  viewMode?: 'cards' | 'table';
 }
 
-export function ModelsContent({ showBackLink = true }: ModelsContentProps) {
+export function ModelsContent({
+  showBackLink = true,
+  viewMode = 'cards'
+}: ModelsContentProps) {
   const {
     loadedModel,
     loadProgress,
@@ -171,10 +176,12 @@ export function ModelsContent({ showBackLink = true }: ModelsContentProps) {
     return 'not_downloaded';
   };
 
+  const isTableView = viewMode === 'table';
+
   if (webGPUSupported === false) {
     const errorInfo = getWebGPUErrorInfo();
     return (
-      <div className="space-y-6">
+      <div className={isTableView ? 'space-y-4' : 'space-y-6'}>
         <div className="space-y-2">
           {showBackLink && (
             <BackLink defaultTo="/" defaultLabel="Back to Home" />
@@ -189,18 +196,32 @@ export function ModelsContent({ showBackLink = true }: ModelsContentProps) {
             {errorInfo.requirement}
           </p>
         </div>
-        <OpenRouterModelsSection
-          loadedModel={loadedModel}
-          loadingModelId={loadingModelId}
-          onLoad={handleLoad}
-          onUnload={handleUnload}
-        />
+        {isTableView ? (
+          <ModelsTableView
+            recommendedModels={[]}
+            openRouterModels={OPENROUTER_MODELS}
+            loadedModel={loadedModel}
+            loadingModelId={loadingModelId}
+            loadProgress={loadProgress}
+            getModelStatus={getModelStatus}
+            onLoad={handleLoad}
+            onUnload={handleUnload}
+            onDelete={handleDelete}
+          />
+        ) : (
+          <OpenRouterModelsSection
+            loadedModel={loadedModel}
+            loadingModelId={loadingModelId}
+            onLoad={handleLoad}
+            onUnload={handleUnload}
+          />
+        )}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className={isTableView ? 'space-y-4' : 'space-y-6'}>
       <div className="space-y-2">
         {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
         <div className="flex items-center justify-between">
@@ -241,35 +262,51 @@ export function ModelsContent({ showBackLink = true }: ModelsContentProps) {
         </div>
       )}
 
-      <div className="space-y-4">
-        <h2 className="font-semibold text-lg">Recommended Models</h2>
-        <p className="text-muted-foreground">
-          Download and run LLMs locally in your browser. These models are
-          optimized for WebGPU.
-        </p>
-      </div>
+      {isTableView ? (
+        <ModelsTableView
+          recommendedModels={RECOMMENDED_MODELS}
+          openRouterModels={OPENROUTER_MODELS}
+          loadedModel={loadedModel}
+          loadingModelId={loadingModelId}
+          loadProgress={loadProgress}
+          getModelStatus={getModelStatus}
+          onLoad={handleLoad}
+          onUnload={handleUnload}
+          onDelete={handleDelete}
+        />
+      ) : (
+        <>
+          <div className="space-y-4">
+            <h2 className="font-semibold text-lg">Recommended Models</h2>
+            <p className="text-muted-foreground">
+              Download and run LLMs locally in your browser. These models are
+              optimized for WebGPU.
+            </p>
+          </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {RECOMMENDED_MODELS.map((model) => (
-          <ModelCard
-            key={model.id}
-            model={model}
-            status={getModelStatus(model.id)}
-            loadProgress={loadingModelId === model.id ? loadProgress : null}
-            disabled={loadingModelId !== null}
-            onLoad={() => handleLoad(model.id)}
+          <div className="grid gap-4 lg:grid-cols-2">
+            {RECOMMENDED_MODELS.map((model) => (
+              <ModelCard
+                key={model.id}
+                model={model}
+                status={getModelStatus(model.id)}
+                loadProgress={loadingModelId === model.id ? loadProgress : null}
+                disabled={loadingModelId !== null}
+                onLoad={() => handleLoad(model.id)}
+                onUnload={handleUnload}
+                onDelete={() => handleDelete(model.id)}
+              />
+            ))}
+          </div>
+
+          <OpenRouterModelsSection
+            loadedModel={loadedModel}
+            loadingModelId={loadingModelId}
+            onLoad={handleLoad}
             onUnload={handleUnload}
-            onDelete={() => handleDelete(model.id)}
           />
-        ))}
-      </div>
-
-      <OpenRouterModelsSection
-        loadedModel={loadedModel}
-        loadingModelId={loadingModelId}
-        onLoad={handleLoad}
-        onUnload={handleUnload}
-      />
+        </>
+      )}
 
       {webGPUInfo && <WebGPUInfoPanel info={webGPUInfo} />}
     </div>

@@ -24,10 +24,17 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 vi.mock('@/pages/models/ModelsContent', () => ({
-  ModelsContent: ({ showBackLink }: { showBackLink?: boolean }) => (
+  ModelsContent: ({
+    showBackLink,
+    viewMode
+  }: {
+    showBackLink?: boolean;
+    viewMode?: string;
+  }) => (
     <div
       data-testid="models-content"
       data-show-back-link={showBackLink ? 'true' : 'false'}
+      data-view-mode={viewMode}
     >
       Models Content
     </div>

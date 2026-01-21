@@ -1,6 +1,7 @@
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { Debug } from '@/pages/debug';
+import { DebugWindowMenuBar } from './DebugWindowMenuBar';
 
 interface DebugWindowProps {
   id: string;
@@ -36,8 +37,11 @@ export function DebugWindow({
       minWidth={420}
       minHeight={360}
     >
-      <div className="h-full overflow-y-auto p-4">
-        <Debug showTitle={false} />
+      <div className="flex h-full flex-col">
+        <DebugWindowMenuBar onClose={onClose} />
+        <div className="flex-1 overflow-y-auto p-4">
+          <Debug showTitle={false} />
+        </div>
       </div>
     </FloatingWindow>
   );
