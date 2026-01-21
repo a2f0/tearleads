@@ -22,6 +22,18 @@ else
     HAS_PGREP=false
 fi
 
+if command -v screen >/dev/null 2>&1; then
+    HAS_SCREEN=true
+else
+    HAS_SCREEN=false
+fi
+
+if command -v tmux >/dev/null 2>&1; then
+    HAS_TMUX=true
+else
+    HAS_TMUX=false
+fi
+
 # Parse arguments
 for arg in "$@"; do
     case "$arg" in
@@ -58,48 +70,56 @@ else
     echo "Install with: brew install proctools (macOS) or apt install procps (Linux)"
 fi
 
-# Clean up dead screen sessions first
-screen -wipe >/dev/null 2>&1 || true
+if [ "$HAS_SCREEN" = "true" ]; then
+    # Clean up dead screen sessions first
+    screen -wipe >/dev/null 2>&1 || true
 
-# Determine screen socket directory (check SCREENDIR, common locations, then fallback)
-if [ -n "${SCREENDIR:-}" ] && [ -d "$SCREENDIR" ]; then
-    SCREEN_SOCKET_DIR="$SCREENDIR"
-elif [ -d "/run/screen/S-$USER" ]; then
-    SCREEN_SOCKET_DIR="/run/screen/S-$USER"
-elif [ -d "/var/run/screen/S-$USER" ]; then
-    SCREEN_SOCKET_DIR="/var/run/screen/S-$USER"
-else
-    SCREEN_SOCKET_DIR="$HOME/.screen"
-fi
+    # Determine screen socket directory (check SCREENDIR, common locations, then fallback)
+    if [ -n "${SCREENDIR:-}" ] && [ -d "$SCREENDIR" ]; then
+        SCREEN_SOCKET_DIR="$SCREENDIR"
+    elif [ -d "/run/screen/S-$USER" ]; then
+        SCREEN_SOCKET_DIR="/run/screen/S-$USER"
+    elif [ -d "/var/run/screen/S-$USER" ]; then
+        SCREEN_SOCKET_DIR="/var/run/screen/S-$USER"
+    else
+        SCREEN_SOCKET_DIR="$HOME/.screen"
+    fi
 
-# Find and kill screen sessions
-screen_sessions=$(screen -ls 2>/dev/null | awk '/tux-/ {print $1}')
+    # Find and kill screen sessions
+    screen_sessions=$(screen -ls 2>/dev/null | awk '/tux-/ {print $1}')
 
-if [ -n "$screen_sessions" ]; then
-    killed=0
-    removed=0
-    for session in $screen_sessions; do
-        # Try graceful quit first (works for live sessions)
-        if screen -X -S "$session" quit >/dev/null 2>&1; then
-            killed=$((killed + 1))
-        else
-            # For dead sessions, remove the socket file directly
-            socket_file="$SCREEN_SOCKET_DIR/$session"
-            if [ -e "$socket_file" ]; then
-                rm -f "$socket_file" && removed=$((removed + 1))
+    if [ -n "$screen_sessions" ]; then
+        killed=0
+        removed=0
+        for session in $screen_sessions; do
+            # Try graceful quit first (works for live sessions)
+            if screen -X -S "$session" quit >/dev/null 2>&1; then
+                killed=$((killed + 1))
+            else
+                # For dead sessions, remove the socket file directly
+                socket_file="$SCREEN_SOCKET_DIR/$session"
+                if [ -e "$socket_file" ]; then
+                    rm -f "$socket_file" && removed=$((removed + 1))
+                fi
             fi
-        fi
-    done
-    [ "$killed" -gt 0 ] && echo "Killed $killed screen session(s)"
-    [ "$removed" -gt 0 ] && echo "Removed $removed dead screen session(s)"
+        done
+        [ "$killed" -gt 0 ] && echo "Killed $killed screen session(s)"
+        [ "$removed" -gt 0 ] && echo "Removed $removed dead screen session(s)"
+    else
+        echo "No tux-* screen sessions found"
+    fi
 else
-    echo "No tux-* screen sessions found"
+    echo "Note: GNU screen not found. Screen sessions not cleaned up."
 fi
 
-# Kill tmux session
-if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-    tmux kill-session -t "$SESSION_NAME"
-    echo "Killed tmux session: $SESSION_NAME"
+if [ "$HAS_TMUX" = "true" ]; then
+    # Kill tmux session
+    if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+        tmux kill-session -t "$SESSION_NAME"
+        echo "Killed tmux session: $SESSION_NAME"
+    else
+        echo "No tmux session '$SESSION_NAME' found"
+    fi
 else
-    echo "No tmux session '$SESSION_NAME' found"
+    echo "Note: tmux not found. Tmux session not cleaned up."
 fi
