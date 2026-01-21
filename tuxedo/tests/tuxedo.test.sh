@@ -74,19 +74,23 @@ trap cleanup EXIT
 
 PATH_BACKUP="$PATH"
 
-mkdir -p "$TEMP_DIR/bin"
-cat <<'EOF' > "$TEMP_DIR/bin/screen"
+test_screen_flag_detects_screen() {
+    mkdir -p "$TEMP_DIR/bin"
+    cat <<'EOF' > "$TEMP_DIR/bin/screen"
 #!/bin/sh
 exit 0
 EOF
-chmod +x "$TEMP_DIR/bin/screen"
-PATH="$TEMP_DIR/bin:$PATH_BACKUP"
-USE_SCREEN=false
-unset TUXEDO_FORCE_SCREEN
-unset TUXEDO_FORCE_NO_SCREEN
-tuxedo_set_screen_flag
-assert_eq "true" "$USE_SCREEN"
-PATH="$PATH_BACKUP"
+    chmod +x "$TEMP_DIR/bin/screen"
+    PATH="$TEMP_DIR/bin:$PATH_BACKUP"
+    USE_SCREEN=false
+    unset TUXEDO_FORCE_SCREEN
+    unset TUXEDO_FORCE_NO_SCREEN
+    tuxedo_set_screen_flag
+    assert_eq "true" "$USE_SCREEN"
+    PATH="$PATH_BACKUP"
+}
+
+test_screen_flag_detects_screen
 
 TUXEDO_FORCE_NO_SCREEN=1 tuxedo_set_screen_flag
 assert_eq "false" "$USE_SCREEN"
@@ -217,9 +221,10 @@ assert_contains "$(cat "$TMUX_CALLS")" "new-session -d -s tuxedo -c $SHARED_DIR 
 assert_contains "$(cat "$TMUX_CALLS")" "new-window -t tuxedo -c $BASE_DIR/rapid-main -n rapid-main -e PATH="
 assert_contains "$(cat "$TMUX_CALLS")" "attach-session -t tuxedo"
 
-TMUX_ATTACH_CALLS="$TEMP_DIR/tmux.attach.calls"
-export TMUX_ATTACH_CALLS
-cat <<'EOF' > "$TEMP_DIR/bin/tmux"
+test_tmux_attach_existing_session() {
+    TMUX_ATTACH_CALLS="$TEMP_DIR/tmux.attach.calls"
+    export TMUX_ATTACH_CALLS
+    cat <<'EOF' > "$TEMP_DIR/bin/tmux"
 #!/bin/sh
 if [ "$1" = "has-session" ]; then
     echo "$@" >> "$TMUX_ATTACH_CALLS"
@@ -228,31 +233,33 @@ fi
 echo "$@" >> "$TMUX_ATTACH_CALLS"
 exit 0
 EOF
-chmod +x "$TEMP_DIR/bin/tmux"
+    chmod +x "$TEMP_DIR/bin/tmux"
 
-PATH="$TEMP_DIR/bin:$PATH_BACKUP"
-SESSION_NAME="tuxedo"
-sync_all_titles() {
-    echo "sync-all" >> "$TMUX_ATTACH_CALLS"
+    PATH="$TEMP_DIR/bin:$PATH_BACKUP"
+    SESSION_NAME="tuxedo"
+    sync_all_titles() {
+        echo "sync-all" >> "$TMUX_ATTACH_CALLS"
+    }
+    tuxedo_attach_or_create
+    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "has-session -t tuxedo"
+    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "sync-all"
+    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "attach-session -t tuxedo"
+    assert_not_contains "$(cat "$TMUX_ATTACH_CALLS")" "new-session -d -s tuxedo"
+
+    PATH="$PATH_BACKUP"
 }
-tuxedo_attach_or_create
-assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "has-session -t tuxedo"
-assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "sync-all"
-assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "attach-session -t tuxedo"
-assert_not_contains "$(cat "$TMUX_ATTACH_CALLS")" "new-session -d -s tuxedo"
 
-PATH="$PATH_BACKUP"
-
-KILL_OUT="$TEMP_DIR/kill.out"
-cat <<'EOF' > "$TEMP_DIR/bin/pgrep"
+test_tuxedo_kill_success() {
+    KILL_OUT="$TEMP_DIR/kill.out"
+    cat <<'EOF' > "$TEMP_DIR/bin/pgrep"
 #!/bin/sh
 echo "1234"
 EOF
-cat <<'EOF' > "$TEMP_DIR/bin/pkill"
+    cat <<'EOF' > "$TEMP_DIR/bin/pkill"
 #!/bin/sh
 exit 0
 EOF
-cat <<'EOF' > "$TEMP_DIR/bin/screen"
+    cat <<'EOF' > "$TEMP_DIR/bin/screen"
 #!/bin/sh
 case "$1" in
     -wipe) exit 0 ;;
@@ -261,22 +268,27 @@ case "$1" in
     *) exit 0 ;;
 esac
 EOF
-cat <<'EOF' > "$TEMP_DIR/bin/tmux"
+    cat <<'EOF' > "$TEMP_DIR/bin/tmux"
 #!/bin/sh
 if [ "$1" = "has-session" ]; then
     exit 0
 fi
 exit 0
 EOF
-chmod +x "$TEMP_DIR/bin/pgrep" "$TEMP_DIR/bin/pkill" "$TEMP_DIR/bin/screen" "$TEMP_DIR/bin/tmux"
+    chmod +x "$TEMP_DIR/bin/pgrep" "$TEMP_DIR/bin/pkill" "$TEMP_DIR/bin/screen" "$TEMP_DIR/bin/tmux"
 
-PATH="$TEMP_DIR/bin:$PATH_BACKUP"
-"$REPO_ROOT/tuxedo/tuxedoKill.sh" > "$KILL_OUT"
-assert_contains "$(cat "$KILL_OUT")" "Killed 1 neovim session(s)"
-assert_contains "$(cat "$KILL_OUT")" "Killed 1 screen session(s)"
-assert_contains "$(cat "$KILL_OUT")" "Killed tmux session: tuxedo"
+    PATH="$TEMP_DIR/bin:$PATH_BACKUP"
+    "$REPO_ROOT/tuxedo/tuxedoKill.sh" > "$KILL_OUT"
+    assert_contains "$(cat "$KILL_OUT")" "Killed 1 neovim session(s)"
+    assert_contains "$(cat "$KILL_OUT")" "Killed 1 screen session(s)"
+    assert_contains "$(cat "$KILL_OUT")" "Killed tmux session: tuxedo"
 
-cat <<'EOF' > "$TEMP_DIR/bin/screen"
+    PATH="$PATH_BACKUP"
+}
+
+test_tuxedo_kill_no_sessions() {
+    KILL_OUT="$TEMP_DIR/kill.out"
+    cat <<'EOF' > "$TEMP_DIR/bin/screen"
 #!/bin/sh
 case "$1" in
     -wipe) exit 0 ;;
@@ -285,19 +297,25 @@ case "$1" in
     *) exit 0 ;;
 esac
 EOF
-cat <<'EOF' > "$TEMP_DIR/bin/tmux"
+    cat <<'EOF' > "$TEMP_DIR/bin/tmux"
 #!/bin/sh
 if [ "$1" = "has-session" ]; then
     exit 1
 fi
 exit 0
 EOF
-chmod +x "$TEMP_DIR/bin/screen" "$TEMP_DIR/bin/tmux"
+    chmod +x "$TEMP_DIR/bin/screen" "$TEMP_DIR/bin/tmux"
 
-"$REPO_ROOT/tuxedo/tuxedoKill.sh" > "$KILL_OUT"
-assert_contains "$(cat "$KILL_OUT")" "No tux-* screen sessions found"
-assert_contains "$(cat "$KILL_OUT")" "No tmux session 'tuxedo' found"
+    PATH="$TEMP_DIR/bin:$PATH_BACKUP"
+    "$REPO_ROOT/tuxedo/tuxedoKill.sh" > "$KILL_OUT"
+    assert_contains "$(cat "$KILL_OUT")" "No tux-* screen sessions found"
+    assert_contains "$(cat "$KILL_OUT")" "No tmux session 'tuxedo' found"
 
-PATH="$PATH_BACKUP"
+    PATH="$PATH_BACKUP"
+}
+
+test_tmux_attach_existing_session
+test_tuxedo_kill_success
+test_tuxedo_kill_no_sessions
 
 echo "OK"
