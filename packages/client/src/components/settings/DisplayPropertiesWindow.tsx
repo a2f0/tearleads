@@ -32,7 +32,7 @@ export function DisplayPropertiesWindow({
     >
       <div className="flex h-full flex-col">
         <DisplayPropertiesWindowMenuBar onClose={() => onOpenChange(false)} />
-        <div className="space-y-6 p-5">
+        <div className="flex-1 space-y-6 overflow-y-auto p-5">
           <ThemeSelector />
           <PatternSelector />
           <IconDepthToggle />
