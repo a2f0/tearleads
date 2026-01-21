@@ -15,6 +15,13 @@ const PORT_KEYS = ['POSTGRES_PORT', 'PGPORT'];
 const USER_KEYS = ['POSTGRES_USER', 'PGUSER'];
 const PASSWORD_KEYS = ['POSTGRES_PASSWORD', 'PGPASSWORD'];
 const DATABASE_KEYS = ['POSTGRES_DATABASE', 'PGDATABASE'];
+const RELEASE_ENV_KEYS = {
+  host: 'POSTGRES_HOST',
+  port: 'POSTGRES_PORT',
+  user: 'POSTGRES_USER',
+  password: 'POSTGRES_PASSWORD',
+  database: 'POSTGRES_DATABASE'
+};
 
 function getEnvValue(keys: string[]): string | undefined {
   for (const key of keys) {
@@ -66,7 +73,55 @@ function getDevDefaults(): {
   return baseDefaults;
 }
 
+function requireReleaseConfig(): {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+} {
+  const host = getEnvValue([RELEASE_ENV_KEYS.host]);
+  const portValue = getEnvValue([RELEASE_ENV_KEYS.port]);
+  const user = getEnvValue([RELEASE_ENV_KEYS.user]);
+  const password = getEnvValue([RELEASE_ENV_KEYS.password]);
+  const database = getEnvValue([RELEASE_ENV_KEYS.database]);
+  const missing: string[] = [];
+
+  if (!host) missing.push(RELEASE_ENV_KEYS.host);
+  if (!portValue) missing.push(RELEASE_ENV_KEYS.port);
+  if (!user) missing.push(RELEASE_ENV_KEYS.user);
+  if (!password) missing.push(RELEASE_ENV_KEYS.password);
+  if (!database) missing.push(RELEASE_ENV_KEYS.database);
+
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required Postgres environment variables: ${missing.join(', ')}`
+    );
+  }
+
+  if (!host || !portValue || !user || !password || !database) {
+    throw new Error('Missing required Postgres environment variables.');
+  }
+
+  const port = parsePort(portValue);
+  if (port === null) {
+    throw new Error('POSTGRES_PORT must be a valid number');
+  }
+
+  return { host, port, user, password, database };
+}
+
 function buildConnectionInfo(): PostgresConnectionInfo {
+  if (!isDevMode()) {
+    const config = requireReleaseConfig();
+    return {
+      host: config.host,
+      port: config.port,
+      database: config.database,
+      user: config.user
+    };
+  }
+
   const databaseUrl = getEnvValue(DATABASE_URL_KEYS);
   if (databaseUrl) {
     const parsed = new URL(databaseUrl);
@@ -95,6 +150,25 @@ function buildConnectionInfo(): PostgresConnectionInfo {
 }
 
 function buildPoolConfig(): { config: PoolConfig; configKey: string } {
+  if (!isDevMode()) {
+    const config = requireReleaseConfig();
+    return {
+      config: {
+        host: config.host,
+        port: config.port,
+        user: config.user,
+        password: config.password,
+        database: config.database
+      },
+      configKey: JSON.stringify({
+        host: config.host,
+        port: config.port,
+        user: config.user,
+        database: config.database
+      })
+    };
+  }
+
   const databaseUrl = getEnvValue(DATABASE_URL_KEYS);
   if (databaseUrl) {
     return {
