@@ -112,7 +112,7 @@ export function PhotosWindow({
               onDeleted={handleDeleted}
             />
           ) : (
-            <div className="h-full p-2">
+            <div className="h-full overflow-auto p-2">
               {viewMode === 'list' ? (
                 <PhotosWindowContent
                   onSelectPhoto={handleSelectPhoto}

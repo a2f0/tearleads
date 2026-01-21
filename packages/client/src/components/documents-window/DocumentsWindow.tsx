@@ -122,7 +122,7 @@ export function DocumentsWindow({
                 />
               </div>
             ) : (
-              <div className="h-full p-2">
+              <div className="h-full overflow-auto p-2">
                 <Documents
                   showBackLink={false}
                   onSelectDocument={setSelectedDocumentId}
