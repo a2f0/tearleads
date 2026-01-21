@@ -46,9 +46,7 @@ describe('ModelsWindowMenuBar', () => {
 
     await user.click(screen.getByRole('button', { name: 'View' }));
 
-    expect(
-      screen.getByRole('menuitem', { name: 'Cards' })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Cards' })).toBeInTheDocument();
     expect(
       screen.getByRole('menuitem', { name: 'Compact Table' })
     ).toBeInTheDocument();
