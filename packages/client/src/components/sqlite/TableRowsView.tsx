@@ -419,9 +419,7 @@ export function TableRowsView({
 
       const validColumns = exportColumns.map((col) => col.name);
       const sortColumn =
-        sort.column && validColumns.includes(sort.column)
-          ? sort.column
-          : null;
+        sort.column && validColumns.includes(sort.column) ? sort.column : null;
 
       let query = `SELECT * FROM "${tableName}"`;
       if (sortColumn && sort.direction) {
@@ -437,8 +435,7 @@ export function TableRowsView({
         exportColumns.map((col) => row[col.name])
       );
       const csv = createCsv(headers, csvRows);
-      const safeName =
-        tableName.replace(/[<>:"/\\|?*]/g, '').trim() || 'table';
+      const safeName = tableName.replace(/[<>:"/\\|?*]/g, '').trim() || 'table';
       const data = new TextEncoder().encode(csv);
       downloadFile(data, `${safeName}.csv`);
     } catch (err) {
