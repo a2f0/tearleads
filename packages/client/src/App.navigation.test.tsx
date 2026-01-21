@@ -11,7 +11,6 @@ import { Files } from './pages/Files';
 import { Home } from './pages/Home';
 import { Settings } from './pages/Settings';
 import { Sqlite } from './pages/Sqlite';
-import { Tables } from './pages/Tables';
 
 const mockExecute = vi.fn().mockResolvedValue({ rows: [] });
 
@@ -134,7 +133,6 @@ function renderAppWithRoutes(
               <Route path="sqlite" element={<Sqlite />} />
               <Route path="debug" element={<Debug />} />
               <Route path="settings" element={<Settings />} />
-              <Route path="sqlite/tables" element={<Tables />} />
             </Route>
           </Routes>
         </MemoryRouter>
@@ -231,18 +229,6 @@ describe('App Integration', () => {
 
         await waitFor(() => {
           expect(screen.getByText('Theme')).toBeInTheDocument();
-        });
-      });
-
-      it('navigates to Tables page', async () => {
-        const dropdown = screen.getByTestId('mobile-menu-dropdown');
-        const tablesLink = within(dropdown).getByTestId('tables-link');
-        await user.click(tablesLink);
-
-        await waitFor(() => {
-          expect(
-            screen.getByRole('heading', { name: 'Tables' })
-          ).toBeInTheDocument();
         });
       });
     });

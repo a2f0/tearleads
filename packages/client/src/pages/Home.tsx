@@ -34,7 +34,6 @@ export const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/settings': 'settings',
   '/files': 'files',
   '/documents': 'documents',
-  '/sqlite/tables': 'tables',
   '/debug': 'debug',
   '/email': 'email',
   '/contacts': 'contacts',
@@ -290,10 +289,7 @@ export function Home() {
   // Memoize appItems to prevent new array reference on every render
   // which would cause the position calculation effect to run continuously
   const appItems = useMemo(
-    () =>
-      navItems.filter(
-        (item) => item.path !== '/' && item.path !== '/sqlite/tables'
-      ),
+    () => navItems.filter((item) => item.path !== '/'),
     []
   );
 
