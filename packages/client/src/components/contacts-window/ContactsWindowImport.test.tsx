@@ -187,6 +187,54 @@ describe('ContactsWindowImport', () => {
     expect(onImported).not.toHaveBeenCalled();
   });
 
+  it('shows an error when import fails', async () => {
+    const user = userEvent.setup();
+
+    mockParseFile.mockResolvedValue({
+      headers: ['First Name'],
+      rows: [['John']]
+    });
+    mockImportContacts.mockRejectedValue(new Error('Import failed'));
+
+    render(
+      <ContactsWindowImport
+        file={file}
+        onDone={vi.fn()}
+        onImported={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('column-mapper')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('mapper-import'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Import failed')).toBeInTheDocument();
+    });
+  });
+
+  it('skips parsing when database is locked', async () => {
+    mockDatabaseContext.isUnlocked = false;
+    mockParseFile.mockResolvedValue({
+      headers: ['First Name'],
+      rows: [['John']]
+    });
+
+    render(
+      <ContactsWindowImport
+        file={file}
+        onDone={vi.fn()}
+        onImported={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockParseFile).not.toHaveBeenCalled();
+    });
+  });
+
   it('calls onDone when Done is clicked', async () => {
     const user = userEvent.setup();
     const onDone = vi.fn();
