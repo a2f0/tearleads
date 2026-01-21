@@ -64,6 +64,7 @@ vi.mock('./ChatWindowMenuBar', () => ({
   }: {
     onNewChat: () => void;
     onClose: () => void;
+    modelDisplayName?: string | undefined;
   }) => (
     <div data-testid="menu-bar">
       <button type="button" onClick={onNewChat} data-testid="new-chat-button">
