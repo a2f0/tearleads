@@ -59,6 +59,18 @@ describe('isColumnDefinition', () => {
         enumValues: ['pending', 'active']
       })
     ).toBe(true);
+
+    expect(
+      isColumnDefinition({
+        type: 'text',
+        sqlName: 'user_id',
+        references: {
+          table: 'users',
+          column: 'id',
+          onDelete: 'cascade'
+        }
+      })
+    ).toBe(true);
   });
 
   it('returns false for null or non-object', () => {
@@ -99,6 +111,43 @@ describe('isColumnDefinition', () => {
       isColumnDefinition({
         type: 'text',
         sqlName: 123
+      })
+    ).toBe(false);
+  });
+
+  it('returns false for invalid references', () => {
+    expect(
+      isColumnDefinition({
+        type: 'text',
+        sqlName: 'user_id',
+        references: {
+          table: '',
+          column: 'id'
+        }
+      })
+    ).toBe(false);
+
+    expect(
+      isColumnDefinition({
+        type: 'text',
+        sqlName: 'user_id',
+        references: {
+          table: 'users',
+          column: '',
+          onDelete: 'cascade'
+        }
+      })
+    ).toBe(false);
+
+    expect(
+      isColumnDefinition({
+        type: 'text',
+        sqlName: 'user_id',
+        references: {
+          table: 'users',
+          column: 'id',
+          onDelete: 'drop'
+        }
       })
     ).toBe(false);
   });

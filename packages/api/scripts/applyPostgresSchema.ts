@@ -15,10 +15,10 @@ import {
   getDevDefaults,
   getEnvValue,
   parsePort
-} from './lib/pg-helpers.ts';
+} from '../../../scripts/lib/pg-helpers.ts';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const rootDir = join(__dirname, '..');
+const rootDir = join(__dirname, '..', '..', '..');
 const schemaPath = join(rootDir, 'packages/db/src/generated/postgresql/schema.ts');
 const migrationsDir = join(rootDir, 'packages/client/src/db/migrations');
 
@@ -72,7 +72,10 @@ function getLatestMigrationVersion(): number {
     )
     .map((entry) => {
       const match = entry.name.match(/^v(\d+)\.ts$/);
-      return match ? Number.parseInt(match[1] ?? '', 10) : 0;
+      if (!match) {
+        return 0;
+      }
+      return Number.parseInt(match[1], 10);
     })
     .filter((value) => Number.isFinite(value));
   return versions.length > 0 ? Math.max(...versions) : 0;
