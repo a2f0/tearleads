@@ -38,6 +38,22 @@ import {
 
 const PDF_MIME_TYPE = 'application/pdf';
 
+const DOCUMENT_TYPE_MAP: Record<string, string> = {
+  'application/pdf': 'PDF',
+  'text/plain': 'Text',
+  'text/markdown': 'Markdown',
+  'text/csv': 'CSV',
+  'application/json': 'JSON'
+};
+
+function getDocumentTypeLabel(mimeType: string): string {
+  if (DOCUMENT_TYPE_MAP[mimeType]) {
+    return DOCUMENT_TYPE_MAP[mimeType];
+  }
+  const [, subtype] = mimeType.split('/');
+  return subtype ? subtype.toUpperCase() : 'Document';
+}
+
 interface DocumentInfo {
   id: string;
   name: string;
@@ -428,26 +444,6 @@ export function Documents({
     return sortDirection === 'asc' ? sorted : sorted.reverse();
   }, [documents, sortColumn, sortDirection]);
 
-  const documentTypeLabel = useCallback((mimeType: string): string => {
-    const typeMap: Record<string, string> = {
-      'application/pdf': 'PDF',
-      'text/plain': 'Text',
-      'text/markdown': 'Markdown',
-      'text/csv': 'CSV',
-      'application/json': 'JSON'
-    };
-
-    if (typeMap[mimeType]) {
-      return typeMap[mimeType];
-    }
-
-    const [, subtype] = mimeType.split('/');
-    if (subtype) {
-      return subtype.toUpperCase();
-    }
-    return 'Document';
-  }, []);
-
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
@@ -515,7 +511,7 @@ export function Documents({
               <table className="w-full text-sm" data-testid="documents-table">
                 <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
                   <tr>
-                    <th className="px-3 py-2 text-left">
+                    <th scope="col" className="px-3 py-2 text-left">
                       <button
                         type="button"
                         className="flex items-center gap-1 text-left font-medium hover:text-foreground"
@@ -533,7 +529,7 @@ export function Documents({
                         )}
                       </button>
                     </th>
-                    <th className="px-3 py-2 text-left">
+                    <th scope="col" className="px-3 py-2 text-left">
                       <button
                         type="button"
                         className="flex items-center gap-1 text-left font-medium hover:text-foreground"
@@ -551,7 +547,7 @@ export function Documents({
                         )}
                       </button>
                     </th>
-                    <th className="px-3 py-2 text-left">
+                    <th scope="col" className="px-3 py-2 text-left">
                       <button
                         type="button"
                         className="flex items-center gap-1 text-left font-medium hover:text-foreground"
@@ -569,7 +565,7 @@ export function Documents({
                         )}
                       </button>
                     </th>
-                    <th className="px-3 py-2 text-left">
+                    <th scope="col" className="px-3 py-2 text-left">
                       <button
                         type="button"
                         className="flex items-center gap-1 text-left font-medium hover:text-foreground"
@@ -587,7 +583,9 @@ export function Documents({
                         )}
                       </button>
                     </th>
-                    <th className="px-3 py-2 text-right">Actions</th>
+                    <th scope="col" className="px-3 py-2 text-right">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -618,7 +616,7 @@ export function Documents({
                         {formatFileSize(document.size)}
                       </td>
                       <td className="px-3 py-2 text-muted-foreground">
-                        {documentTypeLabel(document.mimeType)}
+                        {getDocumentTypeLabel(document.mimeType)}
                       </td>
                       <td className="px-3 py-2 text-muted-foreground">
                         {document.uploadDate.toLocaleDateString()}
