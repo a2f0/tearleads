@@ -24,7 +24,7 @@
     "lint:fix": "biome check --write .",
     "lint:scripts": "shellcheck --severity=info scripts/*.sh ansible/playbooks/files/scripts/*.sh && pnpm --filter @rapid/client lint:scripts",
     "lint:rubocop": "pnpm --filter @rapid/client lint:rubocop",
-    "lint:ansible": "ansible-lint ansible/",
+    "lint:ansible": "ANSIBLE_COLLECTIONS_PATHS=\"$HOME/.ansible/collections\" ansible-lint ansible/",
     "lint:md": "markdownlint-cli2 '**/*.md'",
     "format": "biome format --write .",
     "prepare": "husky"
