@@ -163,12 +163,6 @@ jobs:
       - name: Lint Ansible
         run: pnpm lint:ansible
 
-      - name: Build shared artifacts
-        run: |
-          pnpm build:shared
-          pnpm build:db
-          pnpm build:ui
-
       - name: Type check
         run: pnpm exec tsc -b
 
