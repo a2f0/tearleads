@@ -1,0 +1,146 @@
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ContactsWindowImport } from './ContactsWindowImport';
+
+const mockParseFile = vi.fn();
+const mockImportContacts = vi.fn();
+
+vi.mock('@/hooks/useContactsImport', () => ({
+  useContactsImport: () => ({
+    parseFile: mockParseFile,
+    importContacts: mockImportContacts,
+    importing: false,
+    progress: 0
+  })
+}));
+
+vi.mock('@/db/hooks', () => ({
+  useDatabaseContext: () => ({
+    isUnlocked: true,
+    isLoading: false
+  })
+}));
+
+vi.mock('@/components/contacts/column-mapper', () => ({
+  ColumnMapper: ({
+    onImport,
+    onCancel
+  }: {
+    onImport: (mapping: {
+      firstName: number | null;
+      lastName: number | null;
+      email1Label: number | null;
+      email1Value: number | null;
+      email2Label: number | null;
+      email2Value: number | null;
+      phone1Label: number | null;
+      phone1Value: number | null;
+      phone2Label: number | null;
+      phone2Value: number | null;
+      phone3Label: number | null;
+      phone3Value: number | null;
+      birthday: number | null;
+    }) => void;
+    onCancel: () => void;
+  }) => (
+    <div data-testid="column-mapper">
+      <button
+        type="button"
+        onClick={() =>
+          onImport({
+            firstName: 0,
+            lastName: 1,
+            email1Label: null,
+            email1Value: null,
+            email2Label: null,
+            email2Value: null,
+            phone1Label: null,
+            phone1Value: null,
+            phone2Label: null,
+            phone2Value: null,
+            phone3Label: null,
+            phone3Value: null,
+            birthday: null
+          })
+        }
+        data-testid="mapper-import"
+      >
+        Import
+      </button>
+      <button type="button" onClick={onCancel} data-testid="mapper-cancel">
+        Cancel
+      </button>
+    </div>
+  )
+}));
+
+describe('ContactsWindowImport', () => {
+  const file = new File(['First Name,Last Name\nJohn,Doe'], 'contacts.csv', {
+    type: 'text/csv'
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders the column mapper after parsing a file', async () => {
+    mockParseFile.mockResolvedValue({
+      headers: ['First Name', 'Last Name'],
+      rows: [['John', 'Doe']]
+    });
+
+    render(
+      <ContactsWindowImport file={file} onDone={vi.fn()} onImported={vi.fn()} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('column-mapper')).toBeInTheDocument();
+    });
+  });
+
+  it('shows an error when the CSV has no headers', async () => {
+    mockParseFile.mockResolvedValue({ headers: [], rows: [] });
+
+    render(
+      <ContactsWindowImport file={file} onDone={vi.fn()} onImported={vi.fn()} />
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('CSV file is empty or has no headers')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('calls onImported after a successful import', async () => {
+    const user = userEvent.setup();
+    const onImported = vi.fn();
+
+    mockParseFile.mockResolvedValue({
+      headers: ['First Name'],
+      rows: [['John']]
+    });
+    mockImportContacts.mockResolvedValue({
+      total: 1,
+      imported: 1,
+      skipped: 0,
+      errors: []
+    });
+
+    render(
+      <ContactsWindowImport file={file} onDone={vi.fn()} onImported={onImported} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('column-mapper')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('mapper-import'));
+
+    await waitFor(() => {
+      expect(onImported).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByText('Imported 1 contact')).toBeInTheDocument();
+  });
+});
