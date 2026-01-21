@@ -1,3 +1,4 @@
+import type { ComponentType } from 'react';
 import { useCallback } from 'react';
 import { AdminPostgresWindow } from '@/components/admin-postgres-window';
 import { AdminWindow } from '@/components/admin-window';
@@ -22,14 +23,61 @@ import { SettingsWindow } from '@/components/settings-window';
 import { SqliteWindow } from '@/components/sqlite-window';
 import { TablesWindow } from '@/components/tables-window';
 import { VideoWindow } from '@/components/video-window';
-import type { WindowType } from '@/contexts/WindowManagerContext';
+import type {
+  WindowInstance,
+  WindowType
+} from '@/contexts/WindowManagerContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 
-// AGENT GUARDRAIL: When adding a new window type case here, ensure parity with:
+// AGENT GUARDRAIL: When adding a new window type entry here, ensure parity with:
 // - WindowManagerContext.tsx WindowType union
 // - Home.tsx PATH_TO_WINDOW_TYPE mapping
 // - Sidebar.tsx WINDOW_PATHS mapping
 // Each window component should mirror its corresponding route's functionality.
+interface WindowComponentProps {
+  id: string;
+  onClose: () => void;
+  onMinimize: (dimensions: WindowDimensions) => void;
+  onDimensionsChange?: (dimensions: WindowDimensions) => void;
+  onFocus: () => void;
+  zIndex: number;
+  initialDimensions?: WindowDimensions;
+}
+
+interface WindowComponentConfig {
+  Component: ComponentType<WindowComponentProps>;
+  getInitialDimensions?: (
+    window: WindowInstance
+  ) => WindowDimensions | undefined;
+}
+
+const defaultInitialDimensions = (window: WindowInstance) => window.dimensions;
+
+const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
+  notes: { Component: NotesWindow },
+  console: { Component: ConsoleWindow },
+  settings: { Component: SettingsWindow },
+  files: { Component: FilesWindow },
+  videos: { Component: VideoWindow },
+  email: { Component: EmailWindow },
+  contacts: { Component: ContactsWindow },
+  photos: { Component: PhotosWindow },
+  keychain: { Component: KeychainWindow },
+  sqlite: { Component: SqliteWindow },
+  opfs: { Component: OpfsWindow },
+  'cache-storage': { Component: CacheStorageWindow },
+  chat: { Component: ChatWindow },
+  analytics: { Component: AnalyticsWindow },
+  audio: { Component: AudioWindow },
+  models: { Component: ModelsWindow },
+  admin: { Component: AdminWindow },
+  'admin-postgres': { Component: AdminPostgresWindow },
+  tables: { Component: TablesWindow },
+  debug: { Component: DebugWindow },
+  documents: { Component: DocumentsWindow },
+  'local-storage': { Component: LocalStorageWindow }
+};
+
 export function WindowRenderer() {
   const {
     windows,
@@ -65,448 +113,30 @@ export function WindowRenderer() {
     <>
       {/* Render all visible (non-minimized) windows */}
       {visibleWindows.map((window) => {
-        switch (window.type) {
-          case 'notes':
-            return (
-              <NotesWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'console':
-            return (
-              <ConsoleWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'settings':
-            return (
-              <SettingsWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'files':
-            return (
-              <FilesWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'videos':
-            return (
-              <VideoWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'email':
-            return (
-              <EmailWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'contacts':
-            return (
-              <ContactsWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'photos':
-            return (
-              <PhotosWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'keychain':
-            return (
-              <KeychainWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'sqlite':
-            return (
-              <SqliteWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'opfs':
-            return (
-              <OpfsWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                initialDimensions={window.dimensions}
-              />
-            );
-          case 'cache-storage':
-            return (
-              <CacheStorageWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'chat':
-            return (
-              <ChatWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'analytics':
-            return (
-              <AnalyticsWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'audio':
-            return (
-              <AudioWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'models':
-            return (
-              <ModelsWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'admin':
-            return (
-              <AdminWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'admin-postgres':
-            return (
-              <AdminPostgresWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'tables':
-            return (
-              <TablesWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'debug':
-            return (
-              <DebugWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'documents':
-            return (
-              <DocumentsWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          case 'local-storage':
-            return (
-              <LocalStorageWindow
-                key={window.id}
-                id={window.id}
-                onClose={() => closeWindow(window.id)}
-                onMinimize={(dimensions) =>
-                  minimizeWindow(window.id, dimensions)
-                }
-                onDimensionsChange={createDimensionsHandler(
-                  window.type,
-                  window.id
-                )}
-                onFocus={() => focusWindow(window.id)}
-                zIndex={window.zIndex}
-                {...(window.dimensions && {
-                  initialDimensions: window.dimensions
-                })}
-              />
-            );
-          default:
-            return null;
+        const windowConfig = windowComponentMap[window.type];
+        if (!windowConfig) {
+          return null;
         }
+
+        const WindowComponent = windowConfig.Component;
+        const resolvedInitialDimensions =
+          windowConfig.getInitialDimensions?.(window) ??
+          defaultInitialDimensions(window);
+
+        return (
+          <WindowComponent
+            key={window.id}
+            id={window.id}
+            onClose={() => closeWindow(window.id)}
+            onMinimize={(dimensions) => minimizeWindow(window.id, dimensions)}
+            onDimensionsChange={createDimensionsHandler(window.type, window.id)}
+            onFocus={() => focusWindow(window.id)}
+            zIndex={window.zIndex}
+            {...(resolvedInitialDimensions && {
+              initialDimensions: resolvedInitialDimensions
+            })}
+          />
+        );
       })}
     </>
   );
