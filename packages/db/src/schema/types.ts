@@ -114,13 +114,9 @@ export function isColumnReference(value: unknown): value is ColumnReference {
   }
   return (
     typeof onDelete === 'string' &&
-    [
-      'cascade',
-      'restrict',
-      'no action',
-      'set null',
-      'set default'
-    ].includes(onDelete)
+    ['cascade', 'restrict', 'no action', 'set null', 'set default'].includes(
+      onDelete
+    )
   );
 }
 
