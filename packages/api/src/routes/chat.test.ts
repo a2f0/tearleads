@@ -156,6 +156,42 @@ describe('Chat Routes', () => {
       });
     });
 
+    it('accepts larger image payloads for vision requests', async () => {
+      fetchMock.mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            id: 'chatcmpl-vision-large',
+            choices: [
+              {
+                message: {
+                  role: 'assistant',
+                  content: 'Vision reply'
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      );
+
+      const largeImageData = `data:image/png;base64,${'a'.repeat(5_000_000)}`;
+      const payload = {
+        messages: [
+          {
+            role: 'user',
+            content: [{ type: 'image_url', image_url: { url: largeImageData } }]
+          }
+        ]
+      };
+
+      const response = await request(app)
+        .post('/v1/chat/completions')
+        .send(payload);
+
+      expect(response.status).toBe(200);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     it('accepts an explicit OpenRouter model ID', async () => {
       fetchMock.mockResolvedValue(
         new Response(
