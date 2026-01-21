@@ -82,6 +82,35 @@ describe('Sidebar', () => {
     );
   };
 
+  type User = ReturnType<typeof userEvent.setup>;
+  type WindowActionCase = {
+    label: string;
+    windowType: string;
+    actionLabel: string;
+    action: (user: User, button: HTMLElement) => Promise<void>;
+  };
+
+  const desktopWindowCases: WindowActionCase[] = [
+    {
+      label: 'Console',
+      windowType: 'console',
+      actionLabel: 'single click',
+      action: (user, button) => user.click(button)
+    },
+    {
+      label: 'Videos',
+      windowType: 'videos',
+      actionLabel: 'double click',
+      action: (user, button) => user.dblClick(button)
+    }
+  ];
+
+  const mobileWindowLabels = ['Console', 'Videos'];
+  const contextMenuWindowCases = [
+    { label: 'Console', windowType: 'console' },
+    { label: 'Notes', windowType: 'notes' }
+  ];
+
   it('renders all navigation items', () => {
     renderSidebar();
 
@@ -174,44 +203,37 @@ describe('Sidebar', () => {
     expect(mockOnClose).toHaveBeenCalled();
   });
 
-  it('opens floating window on single click for window paths on desktop', async () => {
+  it.each(
+    desktopWindowCases
+  )('opens floating window on $actionLabel for $label on desktop', async ({
+    label,
+    windowType,
+    action
+  }) => {
     const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false }); // Desktop viewport
 
     renderSidebar();
 
-    // Console is a window path
-    const consoleButton = screen.getByRole('button', { name: 'Console' });
-    await user.click(consoleButton);
+    const button = screen.getByRole('button', { name: label });
+    await action(user, button);
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('console');
+    expect(mockOpenWindow).toHaveBeenCalledWith(windowType);
     expect(mockOnClose).toHaveBeenCalled();
   });
 
-  it('opens videos floating window on double click on desktop', async () => {
-    const user = userEvent.setup();
-    mockMatchMedia({ isMobile: false, isTouch: false }); // Desktop viewport
-
-    renderSidebar();
-
-    const videosButton = screen.getByRole('button', { name: 'Videos' });
-    await user.dblClick(videosButton);
-
-    expect(mockOpenWindow).toHaveBeenCalledWith('videos');
-    expect(mockOnClose).toHaveBeenCalled();
-  });
-
-  it('navigates on single click for window paths on mobile', async () => {
+  it.each(
+    mobileWindowLabels
+  )('navigates on single click for %s on mobile', async (label) => {
     const user = userEvent.setup();
     mockMatchMedia({ isMobile: true, isTouch: true }); // Mobile viewport
 
     renderSidebar();
 
-    // Console is a window path, but on mobile it should navigate
-    const consoleButton = screen.getByRole('button', { name: 'Console' });
-    await user.click(consoleButton);
+    const button = screen.getByRole('button', { name: label });
+    await user.click(button);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/console');
+    expect(mockNavigate).toHaveBeenCalledWith(`/${label.toLowerCase()}`);
     expect(mockOpenWindow).not.toHaveBeenCalled();
     expect(mockOnClose).toHaveBeenCalled();
   });
@@ -371,18 +393,23 @@ describe('Sidebar', () => {
       expect(mockOnClose).toHaveBeenCalled();
     });
 
-    it('opens window when clicking Open in Window in context menu', async () => {
+    it.each(
+      contextMenuWindowCases
+    )('opens window when clicking Open in Window for $label', async ({
+      label,
+      windowType
+    }) => {
       const user = userEvent.setup();
       mockMatchMedia({ isMobile: false, isTouch: false });
       renderSidebar();
 
-      const consoleButton = screen.getByRole('button', { name: 'Console' });
-      await user.pointer({ keys: '[MouseRight]', target: consoleButton });
+      const button = screen.getByRole('button', { name: label });
+      await user.pointer({ keys: '[MouseRight]', target: button });
 
       const openInWindowButton = screen.getByText('Open in Window');
       await user.click(openInWindowButton);
 
-      expect(mockOpenWindow).toHaveBeenCalledWith('console');
+      expect(mockOpenWindow).toHaveBeenCalledWith(windowType);
       expect(mockOnClose).toHaveBeenCalled();
     });
 
