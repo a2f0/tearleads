@@ -55,12 +55,12 @@ export function PostgresConnectionPanel() {
         </div>
       ) : (
         <div className="space-y-3 text-sm">
-          <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-3 rounded-md border bg-muted/30 px-3 py-2 sm:flex-nowrap sm:justify-between">
             <div className="flex items-center gap-2">
               <span className={`h-2 w-2 rounded-full ${statusColor}`} />
               <span className="font-medium">{statusLabel}</span>
             </div>
-            <span className="text-muted-foreground">
+            <span className="text-muted-foreground sm:ml-auto">
               {info?.serverVersion ?? FALLBACK_VALUE}
             </span>
           </div>
