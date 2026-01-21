@@ -99,10 +99,6 @@ function requireReleaseConfig(): {
     );
   }
 
-  if (!host || !portValue || !user || !password || !database) {
-    throw new Error('Missing required Postgres environment variables.');
-  }
-
   const port = parsePort(portValue);
   if (port === null) {
     throw new Error('POSTGRES_PORT must be a valid number');
@@ -153,13 +149,7 @@ function buildPoolConfig(): { config: PoolConfig; configKey: string } {
   if (!isDevMode()) {
     const config = requireReleaseConfig();
     return {
-      config: {
-        host: config.host,
-        port: config.port,
-        user: config.user,
-        password: config.password,
-        database: config.database
-      },
+      config,
       configKey: JSON.stringify({
         host: config.host,
         port: config.port,
