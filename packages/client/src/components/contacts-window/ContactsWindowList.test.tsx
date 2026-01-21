@@ -373,13 +373,14 @@ describe('ContactsWindowList', () => {
     await user.click(screen.getByText('Delete'));
 
     await waitFor(() => {
-      expect(screen.getByText('Delete failed')).toBeInTheDocument();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to delete contact:',
+        expect.any(Error)
+      );
     });
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Failed to delete contact:',
-      expect.any(Error)
-    );
+    // Context menu should close even on error
+    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
   });
 
   it('filters contacts by phone number', async () => {

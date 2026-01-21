@@ -1,7 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { and, asc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { Info, Loader2, Mail, Phone, Plus, Trash2, User } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
@@ -11,20 +11,9 @@ import { RefreshButton } from '@/components/ui/refresh-button';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
-import {
-  contactEmails,
-  contactPhones,
-  contacts as contactsTable
-} from '@/db/schema';
+import { contacts as contactsTable } from '@/db/schema';
+import { type ContactInfo, useContacts } from '@/hooks/useContacts';
 import { useTypedTranslation } from '@/i18n';
-
-interface ContactInfo {
-  id: string;
-  firstName: string;
-  lastName: string | null;
-  primaryEmail: string | null;
-  primaryPhone: string | null;
-}
 
 const ROW_HEIGHT_ESTIMATE = 56;
 
@@ -39,12 +28,16 @@ export function ContactsWindowList({
   onCreateContact,
   refreshToken
 }: ContactsWindowListProps) {
-  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const { isUnlocked, isLoading } = useDatabaseContext();
   const { t } = useTypedTranslation('contextMenu');
-  const [contactsList, setContactsList] = useState<ContactInfo[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasFetched, setHasFetched] = useState(false);
+  const {
+    contactsList,
+    loading,
+    error,
+    hasFetched,
+    fetchContacts,
+    setHasFetched
+  } = useContacts({ refreshToken });
   const [searchQuery, setSearchQuery] = useState('');
   const [contextMenu, setContextMenu] = useState<{
     contact: ContactInfo;
@@ -78,93 +71,6 @@ export function ContactsWindowList({
     virtualItems.length > 0
       ? (virtualItems[virtualItems.length - 1]?.index ?? 0)
       : 0;
-
-  const fetchContacts = useCallback(async () => {
-    if (!isUnlocked) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const db = getDatabase();
-
-      const result = await db
-        .select({
-          id: contactsTable.id,
-          firstName: contactsTable.firstName,
-          lastName: contactsTable.lastName,
-          primaryEmail: contactEmails.email,
-          primaryPhone: contactPhones.phoneNumber
-        })
-        .from(contactsTable)
-        .leftJoin(
-          contactEmails,
-          and(
-            eq(contactEmails.contactId, contactsTable.id),
-            eq(contactEmails.isPrimary, true)
-          )
-        )
-        .leftJoin(
-          contactPhones,
-          and(
-            eq(contactPhones.contactId, contactsTable.id),
-            eq(contactPhones.isPrimary, true)
-          )
-        )
-        .where(eq(contactsTable.deleted, false))
-        .orderBy(asc(contactsTable.firstName));
-
-      setContactsList(
-        result.map((row) => ({
-          id: row.id,
-          firstName: row.firstName,
-          lastName: row.lastName,
-          primaryEmail: row.primaryEmail,
-          primaryPhone: row.primaryPhone
-        }))
-      );
-      setHasFetched(true);
-    } catch (err) {
-      console.error('Failed to fetch contacts:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [isUnlocked]);
-
-  const fetchedForInstanceRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (refreshToken === undefined) return;
-    setHasFetched(false);
-    setError(null);
-  }, [refreshToken]);
-
-  useEffect(() => {
-    const needsFetch =
-      isUnlocked &&
-      !loading &&
-      (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
-
-    if (needsFetch) {
-      if (
-        fetchedForInstanceRef.current !== currentInstanceId &&
-        fetchedForInstanceRef.current !== null
-      ) {
-        setContactsList([]);
-        setError(null);
-      }
-
-      fetchedForInstanceRef.current = currentInstanceId;
-
-      const timeoutId = setTimeout(() => {
-        fetchContacts();
-      }, 0);
-
-      return () => clearTimeout(timeoutId);
-    }
-    return undefined;
-  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchContacts]);
 
   const handleContactClick = useCallback(
     (contact: ContactInfo) => {
@@ -201,11 +107,10 @@ export function ContactsWindowList({
       setHasFetched(false);
     } catch (err) {
       console.error('Failed to delete contact:', err);
-      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setContextMenu(null);
     }
-  }, [contextMenu]);
+  }, [contextMenu, setHasFetched]);
 
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);
