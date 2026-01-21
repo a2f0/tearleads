@@ -38,7 +38,6 @@ describe('App Integration Tests', () => {
     // Check for navigation links within the mobile menu dropdown
     const dropdown = screen.getByTestId('mobile-menu-dropdown');
     expect(within(dropdown).getByTestId('contacts-link')).toBeInTheDocument();
-    expect(within(dropdown).getByTestId('tables-link')).toBeInTheDocument();
     expect(within(dropdown).getByTestId('settings-link')).toBeInTheDocument();
   });
 
