@@ -114,20 +114,20 @@ export function PhotosWindow({
             />
           ) : (
             <>
-              {viewMode === 'list' && (
+              {(viewMode === 'list' || viewMode === 'table') && (
                 <div className="h-full overflow-auto p-2">
-                  <PhotosWindowContent
-                    onSelectPhoto={handleSelectPhoto}
-                    refreshToken={refreshToken}
-                  />
-                </div>
-              )}
-              {viewMode === 'table' && (
-                <div className="h-full overflow-auto p-2">
-                  <PhotosWindowTableView
-                    onSelectPhoto={handleSelectPhoto}
-                    refreshToken={refreshToken}
-                  />
+                  {viewMode === 'list' && (
+                    <PhotosWindowContent
+                      onSelectPhoto={handleSelectPhoto}
+                      refreshToken={refreshToken}
+                    />
+                  )}
+                  {viewMode === 'table' && (
+                    <PhotosWindowTableView
+                      onSelectPhoto={handleSelectPhoto}
+                      refreshToken={refreshToken}
+                    />
+                  )}
                 </div>
               )}
               {viewMode === 'thumbnail' && (
