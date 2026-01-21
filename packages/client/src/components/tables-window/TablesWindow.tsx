@@ -3,6 +3,7 @@ import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { TableRows } from '@/pages/TableRows';
 import { Tables } from '@/pages/Tables';
+import { TablesWindowMenuBar } from './TablesWindowMenuBar';
 
 interface TablesWindowProps {
   id: string;
@@ -39,6 +40,7 @@ export function TablesWindow({
       minHeight={400}
     >
       <div className="flex h-full flex-col">
+        <TablesWindowMenuBar onClose={onClose} />
         <div className="flex-1 overflow-auto p-4">
           <MemoryRouter initialEntries={['/sqlite/tables']}>
             <Routes>
