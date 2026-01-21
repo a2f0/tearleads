@@ -140,7 +140,7 @@ describe('postgres lib', () => {
     const { getPostgresConnectionInfo } = await loadPostgresModule();
 
     expect(() => getPostgresConnectionInfo()).toThrow(
-      'Missing required Postgres environment variables'
+      'Missing required Postgres environment variables: POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE'
     );
   });
 
@@ -164,7 +164,7 @@ describe('postgres lib', () => {
     const { getPostgresConnectionInfo } = await loadPostgresModule();
 
     expect(() => getPostgresConnectionInfo()).toThrow(
-      'Missing required Postgres environment variables'
+      'Missing required Postgres environment variables: POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE'
     );
   });
 
@@ -222,7 +222,7 @@ describe('postgres lib', () => {
     const { getPostgresPool } = await loadPostgresModule();
 
     await expect(getPostgresPool()).rejects.toThrow(
-      'Missing required Postgres environment variables'
+      'Missing required Postgres environment variables: POSTGRES_PORT, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DATABASE'
     );
   });
 
