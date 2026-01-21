@@ -1,0 +1,159 @@
+import { isRecord } from '@rapid/shared';
+import {
+  type Request,
+  type Response,
+  Router,
+  type Router as RouterType
+} from 'express';
+import { createJwt } from '../lib/jwt.js';
+import { verifyPassword } from '../lib/passwords.js';
+import { getPostgresPool } from '../lib/postgres.js';
+
+const router: RouterType = Router();
+const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
+
+type LoginPayload = {
+  email: string;
+  password: string;
+};
+
+function parseLoginPayload(body: unknown): LoginPayload | null {
+  if (!isRecord(body)) {
+    return null;
+  }
+  const emailValue = body['email'];
+  const passwordValue = body['password'];
+  if (typeof emailValue !== 'string' || typeof passwordValue !== 'string') {
+    return null;
+  }
+  const email = emailValue.trim().toLowerCase();
+  const password = passwordValue.trim();
+  if (!email || !password) {
+    return null;
+  }
+  return { email, password };
+}
+
+/**
+ * @openapi
+ * /auth/login:
+ *   post:
+ *     summary: Login with email and password
+ *     description: Validates credentials and returns a bearer access token.
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *             required:
+ *               - email
+ *               - password
+ *     responses:
+ *       200:
+ *         description: Authenticated response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 accessToken:
+ *                   type: string
+ *                 tokenType:
+ *                   type: string
+ *                 expiresIn:
+ *                   type: integer
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *       400:
+ *         description: Invalid request payload
+ *       401:
+ *         description: Invalid credentials
+ *       500:
+ *         description: Server error
+ */
+router.post('/login', async (req: Request, res: Response) => {
+  const payload = parseLoginPayload(req.body);
+  if (!payload) {
+    res.status(400).json({ error: 'email and password are required' });
+    return;
+  }
+
+  const jwtSecret = process.env['JWT_SECRET'];
+  if (!jwtSecret) {
+    res.status(500).json({
+      error: 'JWT_SECRET is not configured on the server'
+    });
+    return;
+  }
+
+  try {
+    const pool = await getPostgresPool();
+    const userResult = await pool.query<{ id: string; email: string }>(
+      'SELECT id, email FROM users WHERE email = $1 LIMIT 1',
+      [payload.email]
+    );
+    const user = userResult.rows[0];
+    if (!user) {
+      res.status(401).json({ error: 'Invalid email or password' });
+      return;
+    }
+
+    const credentialResult = await pool.query<{
+      password_hash: string;
+      password_salt: string;
+    }>(
+      'SELECT password_hash, password_salt FROM user_credentials WHERE user_id = $1',
+      [user.id]
+    );
+    const credentials = credentialResult.rows[0];
+    if (!credentials) {
+      res.status(401).json({ error: 'Invalid email or password' });
+      return;
+    }
+
+    const passwordMatches = await verifyPassword(
+      payload.password,
+      credentials.password_salt,
+      credentials.password_hash
+    );
+    if (!passwordMatches) {
+      res.status(401).json({ error: 'Invalid email or password' });
+      return;
+    }
+
+    const accessToken = createJwt(
+      { sub: user.id, email: user.email },
+      jwtSecret,
+      ACCESS_TOKEN_TTL_SECONDS
+    );
+
+    res.json({
+      accessToken,
+      tokenType: 'Bearer',
+      expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+      user: {
+        id: user.id,
+        email: user.email
+      }
+    });
+  } catch (error) {
+    console.error('Login failed:', error);
+    res.status(500).json({ error: 'Failed to authenticate' });
+  }
+});
+
+export { router as authRouter };
