@@ -94,9 +94,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
   const jwtSecret = process.env['JWT_SECRET'];
   if (!jwtSecret) {
-    console.error(
-      'Authentication setup error: JWT_SECRET is not configured.'
-    );
+    console.error('Authentication setup error: JWT_SECRET is not configured.');
     res.status(500).json({ error: 'Failed to authenticate' });
     return;
   }
