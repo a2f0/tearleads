@@ -113,6 +113,40 @@ describe('ContactsWindowImport', () => {
     });
   });
 
+  it('shows an error when parsing fails', async () => {
+    mockParseFile.mockRejectedValue(new Error('Parse failed'));
+
+    render(
+      <ContactsWindowImport file={file} onDone={vi.fn()} onImported={vi.fn()} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Parse failed')).toBeInTheDocument();
+    });
+  });
+
+  it('calls onDone when Done is clicked', async () => {
+    const user = userEvent.setup();
+    const onDone = vi.fn();
+
+    mockParseFile.mockResolvedValue({
+      headers: ['First Name'],
+      rows: [['John']]
+    });
+
+    render(
+      <ContactsWindowImport file={file} onDone={onDone} onImported={vi.fn()} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('column-mapper')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
   it('calls onImported after a successful import', async () => {
     const user = userEvent.setup();
     const onImported = vi.fn();
