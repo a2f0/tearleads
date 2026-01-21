@@ -346,7 +346,7 @@ export function FloatingWindow({
     // biome-ignore lint/a11y/useKeyWithClickEvents: Window focus on click
     <div
       className={cn(
-        'fixed flex flex-col overflow-hidden border bg-background/95 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80',
+        'floating-window fixed flex flex-col overflow-hidden border bg-background/95 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80',
         isDesktop && !isMaximized && 'rounded-lg',
         !isDesktop && 'inset-x-0 bottom-0 rounded-t-lg'
       )}
