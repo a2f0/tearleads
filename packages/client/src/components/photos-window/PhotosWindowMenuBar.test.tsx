@@ -38,13 +38,16 @@ describe('PhotosWindowMenuBar', () => {
     expect(screen.getByRole('menuitem', { name: 'Close' })).toBeInTheDocument();
   });
 
-  it('shows List and Table options in View menu', async () => {
+  it('shows List, Thumbnail, and Table options in View menu', async () => {
     const user = userEvent.setup();
     render(<PhotosWindowMenuBar {...defaultProps} />);
 
     await user.click(screen.getByRole('button', { name: 'View' }));
 
     expect(screen.getByRole('menuitem', { name: 'List' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: 'Thumbnail' })
+    ).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Table' })).toBeInTheDocument();
   });
 
@@ -78,6 +81,22 @@ describe('PhotosWindowMenuBar', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Table' }));
 
     expect(onViewModeChange).toHaveBeenCalledWith('table');
+  });
+
+  it('calls onViewModeChange when Thumbnail is clicked', async () => {
+    const user = userEvent.setup();
+    const onViewModeChange = vi.fn();
+    render(
+      <PhotosWindowMenuBar
+        {...defaultProps}
+        onViewModeChange={onViewModeChange}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Thumbnail' }));
+
+    expect(onViewModeChange).toHaveBeenCalledWith('thumbnail');
   });
 
   it('calls onUpload when Upload is clicked', async () => {

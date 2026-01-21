@@ -86,9 +86,15 @@ function useColumnCount() {
 
 interface PhotosProps {
   onSelectPhoto?: ((photoId: string) => void) | undefined;
+  refreshToken?: number | undefined;
+  showBackLink?: boolean | undefined;
 }
 
-export function Photos({ onSelectPhoto }: PhotosProps = {}) {
+export function Photos({
+  onSelectPhoto,
+  refreshToken,
+  showBackLink = true
+}: PhotosProps = {}) {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { t } = useTypedTranslation('contextMenu');
@@ -381,11 +387,20 @@ export function Photos({ onSelectPhoto }: PhotosProps = {}) {
     };
   }, [photos]);
 
+  useEffect(() => {
+    if (refreshToken === undefined) return;
+    setHasFetched(false);
+  }, [refreshToken]);
+
   const handlePhotoClick = useCallback(
     (photo: PhotoWithUrl) => {
+      if (onSelectPhoto) {
+        onSelectPhoto(photo.id);
+        return;
+      }
       navigateWithFrom(`/photos/${photo.id}`, { fromLabel: 'Back to Photos' });
     },
-    [navigateWithFrom]
+    [navigateWithFrom, onSelectPhoto]
   );
 
   const handleContextMenu = useCallback(
@@ -435,7 +450,9 @@ export function Photos({ onSelectPhoto }: PhotosProps = {}) {
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
-        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        {showBackLink && (
+          <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        )}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <ImageIcon className="h-8 w-8 text-muted-foreground" />
