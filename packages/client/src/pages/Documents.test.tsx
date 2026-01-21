@@ -238,6 +238,92 @@ describe('Documents', () => {
     });
   });
 
+  describe('table view', () => {
+    it('renders table view when viewMode is table', async () => {
+      await renderDocuments({ viewMode: 'table' });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('documents-table')).toBeInTheDocument();
+      });
+
+      expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      expect(screen.queryByTestId('documents-list')).not.toBeInTheDocument();
+    });
+
+    it('shows empty table view message when no documents exist', async () => {
+      mockDb.orderBy.mockResolvedValue([]);
+
+      await renderDocuments({ viewMode: 'table' });
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('No documents yet. Use Upload to add documents.')
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('renders document type labels in table view', async () => {
+      await renderDocuments({ viewMode: 'table' });
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      expect(screen.getAllByText('PDF').length).toBeGreaterThan(0);
+    });
+
+    it('sorts documents when table headers are clicked', async () => {
+      const user = userEvent.setup();
+      await renderDocuments({ viewMode: 'table' });
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      const rowsBefore = screen.getAllByRole('row');
+      expect(rowsBefore[1]).toHaveTextContent('another-document.pdf');
+
+      await user.click(screen.getByRole('button', { name: 'Size' }));
+
+      const rowsAfter = screen.getAllByRole('row');
+      expect(rowsAfter[1]).toHaveTextContent('test-document.pdf');
+
+      await user.click(screen.getByRole('button', { name: 'Size' }));
+
+      const rowsDesc = screen.getAllByRole('row');
+      expect(rowsDesc[1]).toHaveTextContent('another-document.pdf');
+    });
+
+    it('supports downloads and shares in table view', async () => {
+      mockCanShareFiles.mockReturnValue(true);
+      const user = userEvent.setup();
+
+      await renderDocuments({ viewMode: 'table' });
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      const downloadButtons = screen.getAllByTitle('Download');
+      const shareButtons = screen.getAllByTitle('Share');
+
+      await user.click(downloadButtons[0] as HTMLElement);
+      await user.click(shareButtons[0] as HTMLElement);
+
+      await waitFor(() => {
+        expect(mockStorage.measureRetrieve).toHaveBeenCalledWith(
+          '/documents/another-document.pdf',
+          expect.any(Function)
+        );
+        expect(mockShareFile).toHaveBeenCalledWith(
+          expect.any(Uint8Array),
+          'another-document.pdf',
+          'application/pdf'
+        );
+      });
+    });
+  });
+
   describe('context menu', () => {
     it('shows context menu on right-click', async () => {
       const user = userEvent.setup();
