@@ -1,6 +1,17 @@
 #!/usr/bin/env -S pnpm exec tsx
 import { execFileSync } from 'node:child_process';
-import os from 'node:os';
+import {
+  DATABASE_KEYS,
+  DATABASE_URL_KEYS,
+  DEV_DATABASE_NAME,
+  HOST_KEYS,
+  PASSWORD_KEYS,
+  PORT_KEYS,
+  USER_KEYS,
+  getDevDefaults,
+  getEnvValue,
+  parsePort
+} from './lib/pg-helpers.ts';
 
 type ConnectionParts = {
   host: string | null;
@@ -16,13 +27,7 @@ type CliOptions = {
   databaseUrl?: string;
 };
 
-const DATABASE_URL_KEYS = ['DATABASE_URL', 'POSTGRES_URL'];
-const HOST_KEYS = ['POSTGRES_HOST', 'PGHOST'];
-const PORT_KEYS = ['POSTGRES_PORT', 'PGPORT'];
-const USER_KEYS = ['POSTGRES_USER', 'PGUSER'];
-const PASSWORD_KEYS = ['POSTGRES_PASSWORD', 'PGPASSWORD'];
-const DATABASE_KEYS = ['POSTGRES_DATABASE', 'PGDATABASE'];
-const ALLOWED_DATABASE = 'tearleads_development';
+const ALLOWED_DATABASE = DEV_DATABASE_NAME;
 const DENIED_DATABASE = 'tearleads_production';
 
 function parseArgs(args: string[]): CliOptions {
@@ -59,56 +64,6 @@ function parseArgs(args: string[]): CliOptions {
   return options;
 }
 
-function getEnvValue(keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = process.env[key];
-    if (value && value.trim().length > 0) {
-      return value;
-    }
-  }
-  return undefined;
-}
-
-function parsePort(value: string | undefined): number | null {
-  if (!value) return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function isDevMode(): boolean {
-  const nodeEnv = process.env.NODE_ENV;
-  return nodeEnv === 'development' || !nodeEnv;
-}
-
-function getDevDefaults(): {
-  host?: string;
-  port?: number;
-  user?: string;
-  database?: string;
-} {
-  if (!isDevMode()) {
-    return {};
-  }
-  let user = process.env.USER ?? process.env.LOGNAME;
-  if (!user) {
-    try {
-      const osUser = os.userInfo().username;
-      user = osUser && osUser.trim().length > 0 ? osUser : undefined;
-    } catch {
-      user = undefined;
-    }
-  }
-  const baseDefaults = {
-    host: 'localhost',
-    port: 5432,
-    database: 'tearleads_development'
-  };
-  if (user && user.trim().length > 0) {
-    return { ...baseDefaults, user };
-  }
-  return baseDefaults;
-}
-
 function parseDatabaseUrl(databaseUrl: string): ConnectionParts {
   const parsed = new URL(databaseUrl);
   const databaseName = parsed.pathname
@@ -124,7 +79,10 @@ function parseDatabaseUrl(databaseUrl: string): ConnectionParts {
   };
 }
 
-function buildDatabaseUrl(parts: ConnectionParts, database: string): string {
+function buildDatabaseUrl(parts: ConnectionParts): string {
+  if (!parts.database) {
+    throw new Error('Database must be specified in connection parts.');
+  }
   const encodedUser = parts.user ? encodeURIComponent(parts.user) : '';
   const encodedPassword = parts.password
     ? encodeURIComponent(parts.password)
@@ -136,7 +94,7 @@ function buildDatabaseUrl(parts: ConnectionParts, database: string): string {
     : '';
   const host = parts.host ?? 'localhost';
   const port = parts.port ?? 5432;
-  return `postgres://${auth ? `${auth}@` : ''}${host}:${port}/${database}`;
+  return `postgres://${auth ? `${auth}@` : ''}${host}:${port}/${parts.database}`;
 }
 
 const options = parseArgs(process.argv.slice(2));
@@ -184,20 +142,18 @@ if (!options.yes) {
   process.exit(1);
 }
 
-const adminDatabase = targetDatabase === 'postgres' ? 'template1' : 'postgres';
-const adminUrl = buildDatabaseUrl(
-  {
-    ...baseParts,
-    database: adminDatabase
-  },
-  adminDatabase,
-);
+const adminDatabase = 'postgres';
+const adminUrl = buildDatabaseUrl({
+  ...baseParts,
+  database: adminDatabase
+});
 
-const safeDatabase = targetDatabase.replace(/"/g, '""');
+const safeDatabaseLiteral = targetDatabase.replace(/'/g, "''");
+const safeDatabaseIdentifier = targetDatabase.replace(/"/g, '""');
 const sql =
-  `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${safeDatabase}' ` +
+  `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${safeDatabaseLiteral}' ` +
   'AND pid <> pg_backend_pid(); ' +
-  `DROP DATABASE IF EXISTS "${safeDatabase}";`;
+  `DROP DATABASE IF EXISTS "${safeDatabaseIdentifier}";`;
 
 try {
   execFileSync(
