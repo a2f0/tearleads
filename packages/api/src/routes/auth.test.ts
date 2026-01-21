@@ -43,13 +43,17 @@ describe('Auth routes', () => {
   });
 
   it('returns 401 when password does not match', async () => {
-    mockQuery
-      .mockResolvedValueOnce({
-        rows: [{ id: 'user-1', email: 'user@example.com' }]
-      })
-      .mockResolvedValueOnce({
-        rows: [{ password_hash: 'abc', password_salt: 'salt' }]
-      });
+    const credentials = await hashPassword('other-password');
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'user-1',
+          email: 'user@example.com',
+          password_hash: credentials.hash,
+          password_salt: credentials.salt
+        }
+      ]
+    });
 
     const response = await request(app)
       .post('/v1/auth/login')
@@ -63,18 +67,16 @@ describe('Auth routes', () => {
     const password = 'correct-password';
     const credentials = await hashPassword(password);
 
-    mockQuery
-      .mockResolvedValueOnce({
-        rows: [{ id: 'user-1', email: 'user@example.com' }]
-      })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            password_hash: credentials.hash,
-            password_salt: credentials.salt
-          }
-        ]
-      });
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'user-1',
+          email: 'user@example.com',
+          password_hash: credentials.hash,
+          password_salt: credentials.salt
+        }
+      ]
+    });
 
     const response = await request(app)
       .post('/v1/auth/login')
