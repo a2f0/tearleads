@@ -6,7 +6,8 @@ resource "hcloud_server" "main" {
   name        = var.domain
   image       = "ubuntu-24.04"
   server_type = "cx23"
-  location    = "fsn1"
+  # Location slug options include hel1 (Helsinki), fsn1, nbg1, ash, sin.
+  location    = "hel1"
 
   ssh_keys = [data.hcloud_ssh_key.main.id]
 
