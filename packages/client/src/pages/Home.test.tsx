@@ -865,6 +865,48 @@ describe('Home', () => {
     expect(contactsPosition?.y).toBeCloseTo(filesPosition?.y ?? 0);
   });
 
+  it('clusters icons using icon size when labels are unmeasured', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+    if (canvas) {
+      Object.defineProperty(canvas, 'offsetWidth', {
+        value: 800,
+        configurable: true
+      });
+      Object.defineProperty(canvas, 'offsetHeight', {
+        value: 600,
+        configurable: true
+      });
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    await user.click(screen.getByText('Cluster'));
+
+    const storedPositions = localStorage.getItem(STORAGE_KEY);
+    expect(storedPositions).not.toBeNull();
+
+    const itemsToArrange = navItems.filter(
+      (item) => item.path !== '/' && item.path !== '/sqlite/tables'
+    );
+    const cols = Math.ceil(Math.sqrt(itemsToArrange.length));
+    const rows = Math.ceil(itemsToArrange.length / cols);
+    const itemWidth = ICON_SIZE + GAP;
+    const itemHeightWithGap = ITEM_HEIGHT + GAP;
+    const clusterWidth = cols * itemWidth - GAP;
+    const clusterHeight = rows * itemHeightWithGap - GAP;
+    const expectedX = Math.max(0, (800 - clusterWidth) / 2);
+    const expectedY = Math.max(0, (600 - clusterHeight) / 2);
+
+    const parsedPositions: Record<string, { x: number; y: number }> =
+      JSON.parse(storedPositions ?? '{}');
+    const filesPosition = parsedPositions['/files'];
+    expect(filesPosition).toBeDefined();
+    expect(filesPosition?.x).toBeCloseTo(expectedX);
+    expect(filesPosition?.y).toBeCloseTo(expectedY);
+  });
+
   it('centers icon blocks vertically within cluster rows', async () => {
     const user = userEvent.setup();
     const { container } = renderHome();
