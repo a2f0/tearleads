@@ -96,7 +96,7 @@ describe('ModelsTableView', () => {
       />
     );
 
-    expect(screen.getAllByText('Downloaded')).toHaveLength(2);
+    expect(screen.getByText('Downloaded')).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Delete from cache' })
     ).toBeInTheDocument();
