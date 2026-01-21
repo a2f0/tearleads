@@ -123,7 +123,14 @@ describe('ModelsTableView', () => {
   });
 
   it('shows Disconnect when an OpenRouter model is loaded', () => {
-    const model = OPENROUTER_MODELS[0];
+    const model = OPENROUTER_MODELS[0] ?? {
+      id: 'openrouter-test',
+      name: 'OpenRouter Test',
+      size: 'OpenRouter',
+      description: 'Test OpenRouter model',
+      source: 'openrouter',
+      isVision: false
+    };
     render(
       <ModelsTableView
         recommendedModels={[]}
