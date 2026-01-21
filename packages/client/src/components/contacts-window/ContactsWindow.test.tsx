@@ -59,6 +59,7 @@ vi.mock('./ContactsWindowList', () => ({
   }: {
     onSelectContact: (id: string) => void;
     onCreateContact: () => void;
+    refreshToken?: number;
   }) => (
     <div data-testid="contacts-list">
       <button
@@ -127,10 +128,12 @@ vi.mock('./ContactsWindowNew', () => ({
 vi.mock('./ContactsWindowMenuBar', () => ({
   ContactsWindowMenuBar: ({
     onNewContact,
-    onViewModeChange
+    onViewModeChange,
+    onImportCsv
   }: {
     onNewContact: () => void;
     onViewModeChange: (mode: 'list' | 'table') => void;
+    onImportCsv: () => void;
   }) => (
     <div data-testid="menu-bar">
       <button
@@ -139,6 +142,13 @@ vi.mock('./ContactsWindowMenuBar', () => ({
         data-testid="new-contact-button"
       >
         New Contact
+      </button>
+      <button
+        type="button"
+        onClick={onImportCsv}
+        data-testid="import-csv-button"
+      >
+        Import CSV
       </button>
       <button
         type="button"
@@ -152,7 +162,9 @@ vi.mock('./ContactsWindowMenuBar', () => ({
 }));
 
 vi.mock('./ContactsWindowTableView', () => ({
-  ContactsWindowTableView: () => <div data-testid="contacts-table" />
+  ContactsWindowTableView: ({ refreshToken }: { refreshToken?: number }) => (
+    <div data-testid="contacts-table" data-refresh={refreshToken} />
+  )
 }));
 
 describe('ContactsWindow', () => {

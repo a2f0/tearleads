@@ -31,11 +31,13 @@ const ROW_HEIGHT_ESTIMATE = 56;
 interface ContactsWindowListProps {
   onSelectContact: (contactId: string) => void;
   onCreateContact: () => void;
+  refreshToken?: number;
 }
 
 export function ContactsWindowList({
   onSelectContact,
-  onCreateContact
+  onCreateContact,
+  refreshToken
 }: ContactsWindowListProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { t } = useTypedTranslation('contextMenu');
@@ -133,6 +135,12 @@ export function ContactsWindowList({
   const fetchedForInstanceRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (refreshToken === undefined) return;
+    setHasFetched(false);
+    setError(null);
+  }, [refreshToken]);
+
+  useEffect(() => {
     const needsFetch =
       isUnlocked &&
       !loading &&
@@ -156,7 +164,14 @@ export function ContactsWindowList({
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchContacts]);
+  }, [
+    isUnlocked,
+    loading,
+    hasFetched,
+    currentInstanceId,
+    fetchContacts,
+    refreshToken
+  ]);
 
   const handleContactClick = useCallback(
     (contact: ContactInfo) => {
