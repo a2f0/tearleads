@@ -53,7 +53,9 @@ export const users = sqliteTable(
  * User credentials table for password authentication.
  */
 export const userCredentials = sqliteTable('user_credentials', {
-  userId: text('user_id').primaryKey(),
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
   passwordHash: text('password_hash').notNull(),
   passwordSalt: text('password_salt').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),

@@ -1,5 +1,4 @@
 import type { Migration } from './types';
-import { addColumnIfNotExists } from './utils';
 
 /**
  * v004: Add users and user_credentials tables
@@ -28,11 +27,5 @@ export const v004: Migration = {
     ];
 
     await adapter.executeMany(statements);
-    await addColumnIfNotExists(
-      adapter,
-      'users',
-      'email_confirmed',
-      'INTEGER DEFAULT 0 NOT NULL'
-    );
   }
 };

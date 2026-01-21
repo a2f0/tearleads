@@ -34,6 +34,13 @@ function generateColumn(
     result += '.notNull()';
   }
 
+  // References
+  if (column.references) {
+    const { table, column: columnName, onDelete } = column.references;
+    const options = onDelete ? `, { onDelete: '${onDelete}' }` : '';
+    result += `.references(() => ${table}.${columnName}${options})`;
+  }
+
   // Default value
   if (column.defaultValue !== undefined) {
     const formattedValue = formatDefaultValue(column.defaultValue, column.type);

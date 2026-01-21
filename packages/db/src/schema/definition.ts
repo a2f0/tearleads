@@ -120,7 +120,12 @@ export const userCredentialsTable: TableDefinition = {
     userId: {
       type: 'text',
       sqlName: 'user_id',
-      primaryKey: true
+      primaryKey: true,
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'cascade'
+      }
     },
     passwordHash: {
       type: 'text',
