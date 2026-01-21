@@ -90,7 +90,11 @@ export function ChatWindow({
       minHeight={400}
     >
       <div className="flex h-full flex-col">
-        <ChatWindowMenuBar onNewChat={handleNewChat} onClose={onClose} />
+        <ChatWindowMenuBar
+          onNewChat={handleNewChat}
+          onClose={onClose}
+          modelDisplayName={modelDisplayName}
+        />
         <div className="flex-1 overflow-hidden">
           {activeView === 'models' ? (
             <div className="flex h-full flex-col">
