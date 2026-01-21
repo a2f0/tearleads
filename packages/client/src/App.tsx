@@ -11,6 +11,7 @@ import { SettingsButton } from './components/SettingsButton';
 import { Sidebar } from './components/Sidebar';
 import { Taskbar } from './components/taskbar';
 import { DesktopBackground } from './components/ui/desktop-background';
+import { FOOTER_HEIGHT } from './constants/layout';
 import { useSSEContext } from './sse';
 
 const sseTooltipKeys = {
@@ -103,9 +104,9 @@ function App() {
         copyrightText=""
       />
       <div
-        className="fixed right-4 bottom-6 z-50"
+        className="fixed right-4 z-50 flex h-6 items-center"
         style={{
-          bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
+          bottom: `calc(${FOOTER_HEIGHT / 2}px - 0.75rem + env(safe-area-inset-bottom, 0px))`,
           right: 'max(1rem, env(safe-area-inset-right, 0px))'
         }}
       >
