@@ -54,6 +54,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Cache SQLite WASM
+        uses: actions/cache@v4
+        with:
+          path: |
+            packages/client/src/workers/sqlite-wasm
+            packages/client/public/sqlite
+            packages/client/public/assets/sqlite3-opfs-async-proxy.js
+          key: sqlite-wasm-${{ hashFiles('scripts/downloadSqliteWasm.sh') }}
+
       - name: Download SQLite WASM
         run: ./scripts/downloadSqliteWasm.sh
 

@@ -47,9 +47,6 @@ jobs:
       - name: Build API OpenAPI spec
         run: pnpm --filter @rapid/api buildOpenapi
 
-      - name: Install Playwright for mermaid rendering
-        run: pnpm --filter @rapid/website exec playwright install chromium
-
       - name: Build website
         run: pnpm --filter @rapid/website build
 
