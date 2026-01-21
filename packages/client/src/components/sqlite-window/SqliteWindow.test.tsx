@@ -62,19 +62,37 @@ vi.mock('@/components/sqlite/TableSizes', () => ({
   )
 }));
 
+const mockExportCsv = vi.fn();
+
 vi.mock('@/components/sqlite/TableRowsView', () => ({
   TableRowsView: ({
     tableName,
-    backLink
+    backLink,
+    onExportCsvChange
   }: {
     tableName: string | null;
     backLink?: React.ReactNode;
-  }) => (
-    <div data-testid="table-rows-view">
-      <span data-testid="table-rows-name">{tableName}</span>
-      {backLink}
-    </div>
-  )
+    onExportCsvChange?: (
+      handler: (() => Promise<void>) | null,
+      exporting: boolean
+    ) => void;
+  }) => {
+    React.useEffect(() => {
+      if (tableName) {
+        onExportCsvChange?.(mockExportCsv, false);
+      } else {
+        onExportCsvChange?.(null, false);
+      }
+      return () => onExportCsvChange?.(null, false);
+    }, [onExportCsvChange, tableName]);
+
+    return (
+      <div data-testid="table-rows-view">
+        <span data-testid="table-rows-name">{tableName}</span>
+        {backLink}
+      </div>
+    );
+  }
 }));
 
 describe('SqliteWindow', () => {
@@ -88,6 +106,7 @@ describe('SqliteWindow', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockExportCsv.mockClear();
   });
 
   it('renders in FloatingWindow', () => {
@@ -151,6 +170,28 @@ describe('SqliteWindow', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Close' }));
 
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('disables Export as CSV when no table is selected', async () => {
+    const user = userEvent.setup();
+    render(<SqliteWindow {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'File' }));
+    expect(
+      screen.getByRole('menuitem', { name: 'Export as CSV' })
+    ).toBeDisabled();
+  });
+
+  it('calls export handler from File menu when a table is selected', async () => {
+    const user = userEvent.setup();
+    render(<SqliteWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('table-sizes-select'));
+
+    await user.click(screen.getByRole('button', { name: 'File' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Export as CSV' }));
+
+    expect(mockExportCsv).toHaveBeenCalledTimes(1);
   });
 
   it('has Refresh option in View menu', async () => {
