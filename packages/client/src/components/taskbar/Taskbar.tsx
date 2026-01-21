@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { FOOTER_HEIGHT } from '@/constants/layout';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
+import { cn } from '@/lib/utils';
 import { TaskbarButton } from './TaskbarButton';
 
 interface TaskbarProps {
@@ -73,25 +74,24 @@ export function Taskbar({ className }: TaskbarProps) {
     [restoreWindow, updateWindowDimensions, windows]
   );
 
-  if (windows.length === 0) {
-    return null;
-  }
+  const hasWindows = windows.length > 0;
 
   return (
-    <div className={className} data-testid="taskbar">
+    <div className={cn('min-h-6', className)} data-testid="taskbar">
       <div className="flex items-center gap-1">
-        {sortedWindows.map((window) => (
-          <TaskbarButton
-            key={window.id}
-            type={window.type}
-            isActive={window.id === topWindowId && !window.isMinimized}
-            isMinimized={window.isMinimized}
-            onClick={() => handleClick(window.id, window.isMinimized)}
-            onMinimize={() => handleMinimize(window.id)}
-            onClose={() => closeWindow(window.id)}
-            onMaximize={() => handleMaximize(window.id)}
-          />
-        ))}
+        {hasWindows &&
+          sortedWindows.map((window) => (
+            <TaskbarButton
+              key={window.id}
+              type={window.type}
+              isActive={window.id === topWindowId && !window.isMinimized}
+              isMinimized={window.isMinimized}
+              onClick={() => handleClick(window.id, window.isMinimized)}
+              onMinimize={() => handleMinimize(window.id)}
+              onClose={() => closeWindow(window.id)}
+              onMaximize={() => handleMaximize(window.id)}
+            />
+          ))}
       </div>
     </div>
   );
