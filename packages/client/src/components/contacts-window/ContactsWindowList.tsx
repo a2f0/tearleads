@@ -169,8 +169,7 @@ export function ContactsWindowList({
     loading,
     hasFetched,
     currentInstanceId,
-    fetchContacts,
-    refreshToken
+    fetchContacts
   ]);
 
   const handleContactClick = useCallback(
