@@ -33,6 +33,15 @@ function getEnvValue(keys: string[]): string | undefined {
   return undefined;
 }
 
+function getRequiredEnvValue(key: string, missing: string[]): string {
+  const value = getEnvValue([key]);
+  if (!value) {
+    missing.push(key);
+    return '';
+  }
+  return value;
+}
+
 function parsePort(value: string | undefined): number | null {
   if (!value) return null;
   const parsed = Number(value);
@@ -80,18 +89,13 @@ function requireReleaseConfig(): {
   password: string;
   database: string;
 } {
-  const host = getEnvValue([RELEASE_ENV_KEYS.host]);
-  const portValue = getEnvValue([RELEASE_ENV_KEYS.port]);
-  const user = getEnvValue([RELEASE_ENV_KEYS.user]);
-  const password = getEnvValue([RELEASE_ENV_KEYS.password]);
-  const database = getEnvValue([RELEASE_ENV_KEYS.database]);
   const missing: string[] = [];
 
-  if (!host) missing.push(RELEASE_ENV_KEYS.host);
-  if (!portValue) missing.push(RELEASE_ENV_KEYS.port);
-  if (!user) missing.push(RELEASE_ENV_KEYS.user);
-  if (!password) missing.push(RELEASE_ENV_KEYS.password);
-  if (!database) missing.push(RELEASE_ENV_KEYS.database);
+  const host = getRequiredEnvValue(RELEASE_ENV_KEYS.host, missing);
+  const portValue = getRequiredEnvValue(RELEASE_ENV_KEYS.port, missing);
+  const user = getRequiredEnvValue(RELEASE_ENV_KEYS.user, missing);
+  const password = getRequiredEnvValue(RELEASE_ENV_KEYS.password, missing);
+  const database = getRequiredEnvValue(RELEASE_ENV_KEYS.database, missing);
 
   if (missing.length > 0) {
     throw new Error(
