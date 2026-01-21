@@ -7,12 +7,17 @@ import { ModelOption } from './ModelOption';
 
 interface ModelSelectorProps {
   modelDisplayName: string | undefined;
+  variant?: 'default' | 'compact';
 }
 
-export function ModelSelector({ modelDisplayName }: ModelSelectorProps) {
+export function ModelSelector({
+  modelDisplayName,
+  variant = 'default'
+}: ModelSelectorProps) {
   const { loadedModel, isLoading, loadProgress, loadModel } = useLLM();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isCompact = variant === 'compact';
   const localModels = CHAT_MODELS.filter(
     (model) => !isOpenRouterModelId(model.id)
   );
@@ -74,22 +79,28 @@ export function ModelSelector({ modelDisplayName }: ModelSelectorProps) {
         disabled={isLoading}
         aria-haspopup="true"
         aria-expanded={isOpen}
-        className={`flex items-center gap-2 rounded-full px-3 py-1 font-medium text-sm transition-colors ${
+        className={`flex items-center gap-2 rounded-full font-medium transition-colors ${
           modelDisplayName
             ? 'bg-success/10 text-success hover:bg-success/20'
             : 'bg-muted text-muted-foreground hover:bg-accent'
-        } ${isLoading ? 'cursor-wait' : 'cursor-pointer'}`}
+        } ${isLoading ? 'cursor-wait' : 'cursor-pointer'} ${
+          isCompact ? 'px-2.5 py-0.5 text-xs' : 'px-3 py-1 text-sm'
+        }`}
       >
         {isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Loader2
+            className={`animate-spin ${isCompact ? 'h-3.5 w-3.5' : 'h-4 w-4'}`}
+          />
         ) : (
-          <Bot className="h-4 w-4" />
+          <Bot className={isCompact ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
         )}
         {isLoading && loadProgress
           ? `Loading ${Math.round(loadProgress.progress * 100)}%`
           : (modelDisplayName ?? 'Select Model')}
         <ChevronDown
-          className={`h-3 w-3 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+          className={`transition-transform ${
+            isCompact ? 'h-2.5 w-2.5' : 'h-3 w-3'
+          } ${isOpen ? 'rotate-180' : ''}`}
         />
       </button>
 
@@ -98,14 +109,24 @@ export function ModelSelector({ modelDisplayName }: ModelSelectorProps) {
           role="menu"
           aria-orientation="vertical"
           aria-labelledby="model-selector-trigger"
-          className="absolute top-full right-0 z-50 mt-2 min-w-64 rounded-lg border bg-background shadow-lg"
+          className={`absolute top-full right-0 z-50 rounded-lg border bg-background shadow-lg ${
+            isCompact ? 'mt-1.5 min-w-56' : 'mt-2 min-w-64'
+          }`}
         >
-          <div className="p-2">
-            <p className="mb-2 px-2 font-medium text-muted-foreground text-xs uppercase tracking-wider">
+          <div className={isCompact ? 'p-1.5' : 'p-2'}>
+            <p
+              className={`mb-2 px-2 font-medium text-muted-foreground uppercase tracking-wider ${
+                isCompact ? 'text-[10px]' : 'text-xs'
+              }`}
+            >
               Available Models
             </p>
             <div className="space-y-1">
-              <p className="px-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
+              <p
+                className={`px-2 font-medium text-muted-foreground uppercase tracking-wider ${
+                  isCompact ? 'text-[10px]' : 'text-[11px]'
+                }`}
+              >
                 Local Models
               </p>
               {localModels.map((model) => (
@@ -119,7 +140,11 @@ export function ModelSelector({ modelDisplayName }: ModelSelectorProps) {
             </div>
             {openRouterModels.length > 0 && (
               <div className="mt-2 space-y-1">
-                <p className="px-2 font-medium text-[11px] text-muted-foreground uppercase tracking-wider">
+                <p
+                  className={`px-2 font-medium text-muted-foreground uppercase tracking-wider ${
+                    isCompact ? 'text-[10px]' : 'text-[11px]'
+                  }`}
+                >
                   OpenRouter Models
                 </p>
                 {openRouterModels.map((model) => (
