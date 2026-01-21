@@ -38,6 +38,7 @@ type SortDirection = 'asc' | 'desc';
 interface ContactsWindowTableViewProps {
   onSelectContact: (contactId: string) => void;
   onCreateContact: () => void;
+  refreshToken?: number;
 }
 
 interface SortHeaderProps {
@@ -79,7 +80,8 @@ function SortHeader({
 
 export function ContactsWindowTableView({
   onSelectContact,
-  onCreateContact
+  onCreateContact,
+  refreshToken
 }: ContactsWindowTableViewProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { t } = useTypedTranslation('contextMenu');
@@ -159,6 +161,12 @@ export function ContactsWindowTableView({
   const fetchedForInstanceRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (refreshToken === undefined) return;
+    setHasFetched(false);
+    setError(null);
+  }, [refreshToken]);
+
+  useEffect(() => {
     const needsFetch =
       isUnlocked &&
       !loading &&
@@ -182,7 +190,14 @@ export function ContactsWindowTableView({
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchContacts]);
+  }, [
+    isUnlocked,
+    loading,
+    hasFetched,
+    currentInstanceId,
+    fetchContacts,
+    refreshToken
+  ]);
 
   const handleSortChange = useCallback((column: SortColumn) => {
     setSortColumn((prevColumn) => {

@@ -8,6 +8,7 @@ describe('ContactsWindowMenuBar', () => {
     viewMode: 'list' as const,
     onViewModeChange: vi.fn(),
     onNewContact: vi.fn(),
+    onImportCsv: vi.fn(),
     onClose: vi.fn()
   };
 
@@ -28,6 +29,9 @@ describe('ContactsWindowMenuBar', () => {
     await user.click(screen.getByRole('button', { name: 'File' }));
 
     expect(screen.getByRole('menuitem', { name: 'New' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: 'Import CSV' })
+    ).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Close' })).toBeInTheDocument();
   });
 
@@ -62,6 +66,37 @@ describe('ContactsWindowMenuBar', () => {
 
     await user.click(newItem);
     expect(onNewContact).not.toHaveBeenCalled();
+  });
+
+  it('calls onImportCsv when Import CSV is clicked', async () => {
+    const user = userEvent.setup();
+    const onImportCsv = vi.fn();
+    render(<ContactsWindowMenuBar {...defaultProps} onImportCsv={onImportCsv} />);
+
+    await user.click(screen.getByRole('button', { name: 'File' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Import CSV' }));
+
+    expect(onImportCsv).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables Import CSV when requested', async () => {
+    const user = userEvent.setup();
+    const onImportCsv = vi.fn();
+    render(
+      <ContactsWindowMenuBar
+        {...defaultProps}
+        onImportCsv={onImportCsv}
+        isImportDisabled={true}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'File' }));
+
+    const importItem = screen.getByRole('menuitem', { name: 'Import CSV' });
+    expect(importItem).toBeDisabled();
+
+    await user.click(importItem);
+    expect(onImportCsv).not.toHaveBeenCalled();
   });
 
   it('calls onClose when Close is clicked', async () => {
