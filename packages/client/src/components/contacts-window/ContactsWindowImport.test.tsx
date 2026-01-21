@@ -178,7 +178,12 @@ describe('ContactsWindowImport', () => {
     await user.click(screen.getByTestId('mapper-import'));
 
     await waitFor(() => {
-      expect(screen.getByText('Imported 0 contacts')).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          (_content, node) =>
+            node?.textContent === 'Imported 0 contacts, skipped 1'
+        )
+      ).toBeInTheDocument();
     });
     expect(onImported).not.toHaveBeenCalled();
   });
