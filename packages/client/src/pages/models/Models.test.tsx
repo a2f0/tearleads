@@ -58,10 +58,13 @@ function renderModels() {
   );
 }
 
-function renderModelsContent(showBackLink = true) {
+function renderModelsContent(
+  showBackLink = true,
+  viewMode?: 'cards' | 'table'
+) {
   return render(
     <MemoryRouter>
-      <ModelsContent showBackLink={showBackLink} />
+      <ModelsContent showBackLink={showBackLink} viewMode={viewMode} />
     </MemoryRouter>
   );
 }
@@ -118,6 +121,16 @@ describe('Models', () => {
       await waitFor(() => {
         expect(
           screen.getByText(/Download and run LLMs locally/)
+        ).toBeInTheDocument();
+      });
+    });
+
+    it('renders the compact table view when enabled', async () => {
+      renderModelsContent(true, 'table');
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('table', { name: 'Recommended Models table' })
         ).toBeInTheDocument();
       });
     });
