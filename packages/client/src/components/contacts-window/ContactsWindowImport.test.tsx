@@ -197,11 +197,7 @@ describe('ContactsWindowImport', () => {
     mockImportContacts.mockRejectedValue(new Error('Import failed'));
 
     render(
-      <ContactsWindowImport
-        file={file}
-        onDone={vi.fn()}
-        onImported={vi.fn()}
-      />
+      <ContactsWindowImport file={file} onDone={vi.fn()} onImported={vi.fn()} />
     );
 
     await waitFor(() => {
@@ -223,11 +219,7 @@ describe('ContactsWindowImport', () => {
     });
 
     render(
-      <ContactsWindowImport
-        file={file}
-        onDone={vi.fn()}
-        onImported={vi.fn()}
-      />
+      <ContactsWindowImport file={file} onDone={vi.fn()} onImported={vi.fn()} />
     );
 
     await waitFor(() => {
