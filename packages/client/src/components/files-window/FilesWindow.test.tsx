@@ -244,9 +244,7 @@ describe('FilesWindow', () => {
 
     await user.click(screen.getByTestId('toggle-show-dropzone'));
 
-    expect(screen.getByTestId('show-dropzone-state')).toHaveTextContent(
-      'true'
-    );
+    expect(screen.getByTestId('show-dropzone-state')).toHaveTextContent('true');
     expect(screen.getByTestId('content-show-dropzone')).toHaveTextContent(
       'true'
     );
