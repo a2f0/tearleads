@@ -805,6 +805,55 @@ describe('Home', () => {
     expect(parseFloat(filesButton.style.top)).toBeCloseTo(expectedY);
   });
 
+  it('clusters icons with horizontal spacing based on the widest label', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+    const wideLabelWidth = 180;
+    const baseLabelWidth = 72;
+    const iconButtons = container.querySelectorAll('button[data-icon-path]');
+
+    iconButtons.forEach((button) => {
+      const path = button.getAttribute('data-icon-path');
+      const width = path === '/cache-storage' ? wideLabelWidth : baseLabelWidth;
+      Object.defineProperty(button, 'offsetWidth', {
+        value: width,
+        configurable: true
+      });
+    });
+
+    if (canvas) {
+      Object.defineProperty(canvas, 'offsetWidth', {
+        value: 900,
+        configurable: true
+      });
+      Object.defineProperty(canvas, 'offsetHeight', {
+        value: 700,
+        configurable: true
+      });
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    await user.click(screen.getByText('Cluster'));
+
+    const storedPositions = localStorage.getItem(STORAGE_KEY);
+    expect(storedPositions).not.toBeNull();
+
+    const parsedPositions: Record<string, { x: number; y: number }> =
+      JSON.parse(storedPositions ?? '{}');
+    const filesPosition = parsedPositions['/files'];
+    const contactsPosition = parsedPositions['/contacts'];
+    expect(filesPosition).toBeDefined();
+    expect(contactsPosition).toBeDefined();
+
+    const expectedSpacing = Math.max(ICON_SIZE, wideLabelWidth) + GAP;
+    expect(contactsPosition?.x).toBeCloseTo(
+      (filesPosition?.x ?? 0) + expectedSpacing
+    );
+    expect(contactsPosition?.y).toBeCloseTo(filesPosition?.y ?? 0);
+  });
+
   it('shows Open in Window option for Notes icon', async () => {
     const user = userEvent.setup();
     renderHome();
