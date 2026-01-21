@@ -27,17 +27,16 @@ vi.mock('@/components/floating-window', () => ({
 
 vi.mock('./PhotosWindowMenuBar', () => ({
   PhotosWindowMenuBar: ({
-    viewMode,
     onRefresh,
     onUpload,
     onClose,
     onViewModeChange
   }: {
-    viewMode: 'list' | 'table';
+    viewMode: 'list' | 'table' | 'thumbnail';
     onRefresh: () => void;
     onUpload: () => void;
     onClose: () => void;
-    onViewModeChange: (mode: 'list' | 'table') => void;
+    onViewModeChange: (mode: 'list' | 'table' | 'thumbnail') => void;
   }) => (
     <div data-testid="menu-bar">
       <button type="button" onClick={onRefresh} data-testid="refresh-button">
@@ -51,10 +50,24 @@ vi.mock('./PhotosWindowMenuBar', () => ({
       </button>
       <button
         type="button"
-        onClick={() => onViewModeChange(viewMode === 'list' ? 'table' : 'list')}
-        data-testid="toggle-view-button"
+        onClick={() => onViewModeChange('list')}
+        data-testid="list-view-button"
       >
-        Toggle
+        List
+      </button>
+      <button
+        type="button"
+        onClick={() => onViewModeChange('thumbnail')}
+        data-testid="thumbnail-view-button"
+      >
+        Thumbnail
+      </button>
+      <button
+        type="button"
+        onClick={() => onViewModeChange('table')}
+        data-testid="table-view-button"
+      >
+        Table
       </button>
     </div>
   )
@@ -100,6 +113,25 @@ vi.mock('./PhotosWindowDetail', () => ({
 vi.mock('./PhotosWindowTableView', () => ({
   PhotosWindowTableView: () => (
     <div data-testid="photos-table-content">Photos Table Content</div>
+  )
+}));
+
+vi.mock('./PhotosWindowThumbnailView', () => ({
+  PhotosWindowThumbnailView: ({
+    onSelectPhoto
+  }: {
+    onSelectPhoto?: (photoId: string) => void;
+  }) => (
+    <div data-testid="photos-thumbnail-content">
+      <button
+        type="button"
+        onClick={() => onSelectPhoto?.('photo-456')}
+        data-testid="select-thumbnail-photo-button"
+      >
+        Select Thumbnail
+      </button>
+      Photos Thumbnail Content
+    </div>
   )
 }));
 
@@ -229,13 +261,24 @@ describe('PhotosWindow', () => {
     expect(fileInput.value).toBe('');
   });
 
-  it('switches to table view when toggled', async () => {
+  it('switches to table view when requested', async () => {
     const user = userEvent.setup();
     render(<PhotosWindow {...defaultProps} />);
 
-    await user.click(screen.getByTestId('toggle-view-button'));
+    await user.click(screen.getByTestId('table-view-button'));
 
     expect(screen.getByTestId('photos-table-content')).toBeInTheDocument();
+  });
+
+  it('switches to thumbnail view when requested', async () => {
+    const user = userEvent.setup();
+    render(<PhotosWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('thumbnail-view-button'));
+
+    expect(
+      screen.getByTestId('photos-thumbnail-content')
+    ).toBeInTheDocument();
   });
 
   it('keeps menu bar visible in detail view', async () => {

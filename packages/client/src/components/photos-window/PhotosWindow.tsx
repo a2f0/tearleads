@@ -7,6 +7,7 @@ import { PhotosWindowDetail } from './PhotosWindowDetail';
 import type { ViewMode } from './PhotosWindowMenuBar';
 import { PhotosWindowMenuBar } from './PhotosWindowMenuBar';
 import { PhotosWindowTableView } from './PhotosWindowTableView';
+import { PhotosWindowThumbnailView } from './PhotosWindowThumbnailView';
 
 interface PhotosWindowProps {
   id: string;
@@ -112,19 +113,30 @@ export function PhotosWindow({
               onDeleted={handleDeleted}
             />
           ) : (
-            <div className="h-full overflow-auto p-2">
-              {viewMode === 'list' ? (
-                <PhotosWindowContent
-                  onSelectPhoto={handleSelectPhoto}
-                  refreshToken={refreshToken}
-                />
-              ) : (
-                <PhotosWindowTableView
+            <>
+              {viewMode === 'list' && (
+                <div className="h-full overflow-auto p-2">
+                  <PhotosWindowContent
+                    onSelectPhoto={handleSelectPhoto}
+                    refreshToken={refreshToken}
+                  />
+                </div>
+              )}
+              {viewMode === 'table' && (
+                <div className="h-full overflow-auto p-2">
+                  <PhotosWindowTableView
+                    onSelectPhoto={handleSelectPhoto}
+                    refreshToken={refreshToken}
+                  />
+                </div>
+              )}
+              {viewMode === 'thumbnail' && (
+                <PhotosWindowThumbnailView
                   onSelectPhoto={handleSelectPhoto}
                   refreshToken={refreshToken}
                 />
               )}
-            </div>
+            </>
           )}
         </div>
       </div>
