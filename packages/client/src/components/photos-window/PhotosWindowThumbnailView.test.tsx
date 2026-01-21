@@ -33,7 +33,10 @@ describe('PhotosWindowThumbnailView', () => {
     const user = userEvent.setup();
     const onSelectPhoto = vi.fn();
     render(
-      <PhotosWindowThumbnailView refreshToken={0} onSelectPhoto={onSelectPhoto} />
+      <PhotosWindowThumbnailView
+        refreshToken={0}
+        onSelectPhoto={onSelectPhoto}
+      />
     );
 
     await user.click(screen.getByTestId('photos-mock'));

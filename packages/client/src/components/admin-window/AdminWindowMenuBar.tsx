@@ -1,7 +1,4 @@
-import {
-  DropdownMenu,
-  DropdownMenuItem
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
 
 interface AdminWindowMenuBarProps {
