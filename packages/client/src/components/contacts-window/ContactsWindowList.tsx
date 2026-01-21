@@ -164,13 +164,7 @@ export function ContactsWindowList({
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [
-    isUnlocked,
-    loading,
-    hasFetched,
-    currentInstanceId,
-    fetchContacts
-  ]);
+  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchContacts]);
 
   const handleContactClick = useCallback(
     (contact: ContactInfo) => {
