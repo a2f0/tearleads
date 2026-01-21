@@ -547,11 +547,11 @@ describe('Home', () => {
       window.dispatchEvent(new Event('resize'));
     });
 
-    // Icon should be constrained to viewport bounds (max x = 400 - 64 = 336, max y = 300 - 96 = 204)
+    // Icon should be constrained to viewport bounds (max x = 400 - 64 = 336, max y = 300 - 88 = 212)
     const filesButton = screen.getByRole('button', { name: 'Files' });
     expect(filesButton).toBeInTheDocument();
     // Verify the position was constrained to the exact calculated bounds
-    expect(filesButton).toHaveStyle({ left: '336px', top: '204px' });
+    expect(filesButton).toHaveStyle({ left: '336px', top: '212px' });
   });
 
   it('uses saved positions as-is when container has no dimensions', () => {
