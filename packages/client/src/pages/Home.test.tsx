@@ -796,16 +796,19 @@ describe('Home', () => {
     const clusterHeight = rows * itemHeightWithGap - GAP;
     const expectedX = Math.max(0, (800 - clusterWidth) / 2);
     const expectedY = Math.max(0, (600 - clusterHeight) / 2);
+    const horizontalOffset = Math.max(0, (maxItemWidth - baseLabelWidth) / 2);
 
     const parsedPositions: Record<string, { x: number; y: number }> =
       JSON.parse(storedPositions ?? '{}');
     const filesPosition = parsedPositions['/files'];
     expect(filesPosition).toBeDefined();
-    expect(filesPosition?.x).toBeCloseTo(expectedX);
+    expect(filesPosition?.x).toBeCloseTo(expectedX + horizontalOffset);
     expect(filesPosition?.y).toBeCloseTo(expectedY);
 
     const filesButton = screen.getByRole('button', { name: 'Files' });
-    expect(parseFloat(filesButton.style.left)).toBeCloseTo(expectedX);
+    expect(parseFloat(filesButton.style.left)).toBeCloseTo(
+      expectedX + horizontalOffset
+    );
     expect(parseFloat(filesButton.style.top)).toBeCloseTo(expectedY);
   });
 
@@ -919,6 +922,63 @@ describe('Home', () => {
     const expectedOffset = Math.max(0, (itemHeight - baseLabelHeight) / 2);
 
     expect(filesPosition?.y).toBeCloseTo(expectedStartY + expectedOffset);
+  });
+
+  it('centers icon blocks horizontally within cluster columns', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+    const wideLabelWidth = 200;
+    const baseLabelWidth = 72;
+    const iconButtons = container.querySelectorAll('button[data-icon-path]');
+
+    iconButtons.forEach((button) => {
+      const path = button.getAttribute('data-icon-path');
+      const width =
+        path === '/cache-storage' ? wideLabelWidth : baseLabelWidth;
+      Object.defineProperty(button, 'offsetWidth', {
+        value: width,
+        configurable: true
+      });
+      Object.defineProperty(button, 'offsetHeight', {
+        value: 88,
+        configurable: true
+      });
+    });
+
+    if (canvas) {
+      Object.defineProperty(canvas, 'offsetWidth', {
+        value: 900,
+        configurable: true
+      });
+      Object.defineProperty(canvas, 'offsetHeight', {
+        value: 700,
+        configurable: true
+      });
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    await user.click(screen.getByText('Cluster'));
+
+    const storedPositions = localStorage.getItem(STORAGE_KEY);
+    expect(storedPositions).not.toBeNull();
+
+    const parsedPositions: Record<string, { x: number; y: number }> =
+      JSON.parse(storedPositions ?? '{}');
+    const filesPosition = parsedPositions['/files'];
+    expect(filesPosition).toBeDefined();
+
+    const itemsToArrange = navItems.filter(
+      (item) => item.path !== '/' && item.path !== '/sqlite/tables'
+    );
+    const cols = Math.ceil(Math.sqrt(itemsToArrange.length));
+    const itemWidth = Math.max(ICON_SIZE, wideLabelWidth) + GAP;
+    const clusterWidth = cols * itemWidth - GAP;
+    const expectedStartX = Math.max(0, (900 - clusterWidth) / 2);
+    const expectedOffset = Math.max(0, (wideLabelWidth - baseLabelWidth) / 2);
+
+    expect(filesPosition?.x).toBeCloseTo(expectedStartX + expectedOffset);
   });
 
   it('shows Open in Window option for Notes icon', async () => {
