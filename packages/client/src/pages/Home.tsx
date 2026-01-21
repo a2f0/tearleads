@@ -247,14 +247,17 @@ function calculateClusterPositions(
   isMobile: boolean,
   selectedPaths?: Set<string>,
   currentPositions?: Positions,
-  maxItemWidth?: number
+  maxItemWidth?: number,
+  maxItemHeight?: number,
+  itemHeights?: Record<string, number>
 ): Positions {
   const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
   const gap = isMobile ? GAP_MOBILE : GAP;
   const itemHeightCalc = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
   const clusterItemWidth = Math.max(iconSize, maxItemWidth ?? 0);
+  const clusterItemHeight = Math.max(itemHeightCalc, maxItemHeight ?? 0);
   const itemWidth = clusterItemWidth + gap;
-  const itemHeightWithGap = itemHeightCalc + gap;
+  const itemHeightWithGap = clusterItemHeight + gap;
 
   const itemsToArrange = getItemsToArrange(items, selectedPaths);
 
@@ -274,24 +277,32 @@ function calculateClusterPositions(
   itemsToArrange.forEach((item, index) => {
     const col = index % cols;
     const row = Math.floor(index / cols);
+    const itemHeight = itemHeights?.[item.path] ?? itemHeightCalc;
+    const verticalOffset = Math.max(0, (clusterItemHeight - itemHeight) / 2);
     positions[item.path] = {
       x: startX + col * itemWidth,
-      y: startY + row * itemHeightWithGap
+      y: startY + row * itemHeightWithGap + verticalOffset
     };
   });
   return positions;
 }
 
-function getMaxIconButtonWidth(
+function getIconButtonMeasurements(
   container: HTMLDivElement | null,
   paths: string[]
-): number | null {
+): {
+  maxWidth: number;
+  maxHeight: number;
+  itemHeights: Record<string, number>;
+} | null {
   if (!container || paths.length === 0) {
     return null;
   }
 
   const pathSet = new Set(paths);
   let maxWidth = 0;
+  let maxHeight = 0;
+  const itemHeights: Record<string, number> = {};
 
   container
     .querySelectorAll<HTMLButtonElement>('button[data-icon-path]')
@@ -302,12 +313,28 @@ function getMaxIconButtonWidth(
       }
       const measuredWidth =
         button.offsetWidth || button.getBoundingClientRect().width;
+      const measuredHeight =
+        button.offsetHeight || button.getBoundingClientRect().height;
       if (measuredWidth > maxWidth) {
         maxWidth = measuredWidth;
       }
+      if (measuredHeight > maxHeight) {
+        maxHeight = measuredHeight;
+      }
+      if (measuredHeight > 0) {
+        itemHeights[path] = measuredHeight;
+      }
     });
 
-  return maxWidth > 0 ? Math.ceil(maxWidth) : null;
+  if (maxWidth <= 0 && maxHeight <= 0) {
+    return null;
+  }
+
+  return {
+    maxWidth: maxWidth > 0 ? Math.ceil(maxWidth) : 0,
+    maxHeight: maxHeight > 0 ? Math.ceil(maxHeight) : 0,
+    itemHeights
+  };
 }
 
 export function Home() {
@@ -636,9 +663,9 @@ export function Home() {
       appItems,
       hasSelection ? selectedIcons : undefined
     );
-    const maxItemWidth = isMobile
+    const measurements = isMobile
       ? null
-      : getMaxIconButtonWidth(
+      : getIconButtonMeasurements(
           containerRef.current,
           itemsToArrange.map((item) => item.path)
         );
@@ -651,7 +678,9 @@ export function Home() {
         mobile,
         selected,
         current,
-        maxItemWidth ?? undefined
+        measurements?.maxWidth || undefined,
+        measurements?.maxHeight || undefined,
+        measurements?.itemHeights
       )
     );
   }, [applyArrangement, appItems, isMobile, selectedIcons]);

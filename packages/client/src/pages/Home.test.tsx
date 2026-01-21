@@ -757,6 +757,10 @@ describe('Home', () => {
         value: width,
         configurable: true
       });
+      Object.defineProperty(button, 'offsetHeight', {
+        value: 88,
+        configurable: true
+      });
     });
 
     // Mock container dimensions for cluster calculation
@@ -821,6 +825,10 @@ describe('Home', () => {
         value: width,
         configurable: true
       });
+      Object.defineProperty(button, 'offsetHeight', {
+        value: 88,
+        configurable: true
+      });
     });
 
     if (canvas) {
@@ -852,6 +860,66 @@ describe('Home', () => {
       (filesPosition?.x ?? 0) + expectedSpacing
     );
     expect(contactsPosition?.y).toBeCloseTo(filesPosition?.y ?? 0);
+  });
+
+  it('centers icon blocks vertically within cluster rows', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+    const tallLabelHeight = 120;
+    const baseLabelHeight = 88;
+    const iconButtons = container.querySelectorAll('button[data-icon-path]');
+
+    iconButtons.forEach((button) => {
+      const path = button.getAttribute('data-icon-path');
+      const height = path === '/cache-storage' ? tallLabelHeight : baseLabelHeight;
+      Object.defineProperty(button, 'offsetWidth', {
+        value: 90,
+        configurable: true
+      });
+      Object.defineProperty(button, 'offsetHeight', {
+        value: height,
+        configurable: true
+      });
+    });
+
+    if (canvas) {
+      Object.defineProperty(canvas, 'offsetWidth', {
+        value: 900,
+        configurable: true
+      });
+      Object.defineProperty(canvas, 'offsetHeight', {
+        value: 700,
+        configurable: true
+      });
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    await user.click(screen.getByText('Cluster'));
+
+    const storedPositions = localStorage.getItem(STORAGE_KEY);
+    expect(storedPositions).not.toBeNull();
+
+    const parsedPositions: Record<string, { x: number; y: number }> =
+      JSON.parse(storedPositions ?? '{}');
+    const filesPosition = parsedPositions['/files'];
+    expect(filesPosition).toBeDefined();
+
+    const itemsToArrange = navItems.filter(
+      (item) => item.path !== '/' && item.path !== '/sqlite/tables'
+    );
+    const cols = Math.ceil(Math.sqrt(itemsToArrange.length));
+    const rows = Math.ceil(itemsToArrange.length / cols);
+    const itemWidth = Math.max(ICON_SIZE, 90) + GAP;
+    const itemHeight = Math.max(ITEM_HEIGHT, tallLabelHeight);
+    const itemHeightWithGap = itemHeight + GAP;
+    const clusterWidth = cols * itemWidth - GAP;
+    const clusterHeight = rows * itemHeightWithGap - GAP;
+    const expectedStartY = Math.max(0, (700 - clusterHeight) / 2);
+    const expectedOffset = Math.max(0, (itemHeight - baseLabelHeight) / 2);
+
+    expect(filesPosition?.y).toBeCloseTo(expectedStartY + expectedOffset);
   });
 
   it('shows Open in Window option for Notes icon', async () => {
