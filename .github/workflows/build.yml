@@ -115,6 +115,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Cache SQLite WASM
+        uses: actions/cache@v4
+        with:
+          path: |
+            packages/client/src/workers/sqlite-wasm
+            packages/client/public/sqlite
+            packages/client/public/assets/sqlite3-opfs-async-proxy.js
+          key: sqlite-wasm-${{ hashFiles('scripts/downloadSqliteWasm.sh') }}
+
       - name: Download SQLite WASM
         run: ./scripts/downloadSqliteWasm.sh
 
@@ -137,9 +146,16 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version-file: '.python-version'
+          cache: 'pip'
 
       - name: Install ansible-lint
         run: pip install ansible-lint ansible
+
+      - name: Cache Ansible collections
+        uses: actions/cache@v4
+        with:
+          path: ~/.ansible/collections
+          key: ansible-collections-${{ hashFiles('ansible/requirements.yml') }}
 
       - name: Install Ansible collections
         run: ansible-galaxy collection install -r ansible/requirements.yml
