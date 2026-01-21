@@ -71,7 +71,9 @@ describe('ContactsWindowMenuBar', () => {
   it('calls onImportCsv when Import CSV is clicked', async () => {
     const user = userEvent.setup();
     const onImportCsv = vi.fn();
-    render(<ContactsWindowMenuBar {...defaultProps} onImportCsv={onImportCsv} />);
+    render(
+      <ContactsWindowMenuBar {...defaultProps} onImportCsv={onImportCsv} />
+    );
 
     await user.click(screen.getByRole('button', { name: 'File' }));
     await user.click(screen.getByRole('menuitem', { name: 'Import CSV' }));

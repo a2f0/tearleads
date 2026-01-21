@@ -195,8 +195,7 @@ export function ContactsWindowTableView({
     loading,
     hasFetched,
     currentInstanceId,
-    fetchContacts,
-    refreshToken
+    fetchContacts
   ]);
 
   const handleSortChange = useCallback((column: SortColumn) => {

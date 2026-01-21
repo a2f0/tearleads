@@ -129,7 +129,11 @@ describe('ContactsWindowImport', () => {
     });
 
     render(
-      <ContactsWindowImport file={file} onDone={vi.fn()} onImported={onImported} />
+      <ContactsWindowImport
+        file={file}
+        onDone={vi.fn()}
+        onImported={onImported}
+      />
     );
 
     await waitFor(() => {
