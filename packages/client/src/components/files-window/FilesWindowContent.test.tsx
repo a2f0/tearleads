@@ -8,15 +8,18 @@ import { FilesWindowContent } from './FilesWindowContent';
 vi.mock('@/components/files', () => ({
   FilesList: ({
     showDeleted,
-    showHeader
+    showHeader,
+    showDropzone
   }: {
     showDeleted: boolean;
     showHeader: boolean;
+    showDropzone: boolean;
   }) => (
     <div
       data-testid="files-list"
       data-show-deleted={showDeleted}
       data-show-header={showHeader}
+      data-show-dropzone={showDropzone}
     >
       Files List Mock
     </div>
@@ -41,6 +44,14 @@ describe('FilesWindowContent', () => {
     render(<FilesWindowContent showDeleted={false} />);
     expect(screen.getByTestId('files-list')).toHaveAttribute(
       'data-show-header',
+      'false'
+    );
+  });
+
+  it('passes showDropzone to FilesList', () => {
+    render(<FilesWindowContent showDeleted={false} showDropzone={false} />);
+    expect(screen.getByTestId('files-list')).toHaveAttribute(
+      'data-show-dropzone',
       'false'
     );
   });
