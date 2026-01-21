@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { OPENROUTER_MODELS, type ModelInfo } from '@/lib/models';
+import { type ModelInfo, OPENROUTER_MODELS } from '@/lib/models';
 import type { ModelStatus } from './ModelCard';
 import { ModelsTableView } from './ModelsTableView';
 

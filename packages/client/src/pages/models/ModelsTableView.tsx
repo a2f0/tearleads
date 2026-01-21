@@ -1,12 +1,5 @@
 import { isOpenRouterModelId } from '@rapid/shared';
-import {
-  Check,
-  Download,
-  Loader2,
-  Play,
-  Square,
-  Trash2
-} from 'lucide-react';
+import { Check, Download, Loader2, Play, Square, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ModelInfo } from '@/lib/models';
 import type { ModelStatus } from './ModelCard';
