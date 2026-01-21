@@ -14,6 +14,13 @@ variable "domain" {
   type        = string
 }
 
+variable "server_location" {
+  # Location options: hel1 (Helsinki), fsn1, nbg1, ash, sin.
+  description = "Hetzner server location."
+  type        = string
+  default     = "hel1"
+}
+
 variable "server_username" {
   description = "Non-root username for server access"
   type        = string
