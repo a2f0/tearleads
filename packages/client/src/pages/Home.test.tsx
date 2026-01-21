@@ -746,6 +746,18 @@ describe('Home', () => {
     const { container } = renderHome();
 
     const canvas = container.querySelector('[role="application"]');
+    const wideLabelWidth = 140;
+    const baseLabelWidth = 80;
+    const iconButtons = container.querySelectorAll('button[data-icon-path]');
+
+    iconButtons.forEach((button) => {
+      const path = button.getAttribute('data-icon-path');
+      const width = path === '/cache-storage' ? wideLabelWidth : baseLabelWidth;
+      Object.defineProperty(button, 'offsetWidth', {
+        value: width,
+        configurable: true
+      });
+    });
 
     // Mock container dimensions for cluster calculation
     if (canvas) {
@@ -773,7 +785,8 @@ describe('Home', () => {
     const itemsToArrange = navItems.filter((item) => item.path !== '/');
     const cols = Math.ceil(Math.sqrt(itemsToArrange.length));
     const rows = Math.ceil(itemsToArrange.length / cols);
-    const itemWidth = ICON_SIZE + GAP;
+    const maxItemWidth = Math.max(ICON_SIZE, wideLabelWidth);
+    const itemWidth = maxItemWidth + GAP;
     const itemHeightWithGap = ITEM_HEIGHT + GAP;
     const clusterWidth = cols * itemWidth - GAP;
     const clusterHeight = rows * itemHeightWithGap - GAP;

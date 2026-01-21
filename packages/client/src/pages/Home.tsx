@@ -56,7 +56,7 @@ export const ICON_SIZE = 64;
 const ICON_SIZE_MOBILE = 56;
 export const GAP = 40;
 const GAP_MOBILE = 28;
-export const LABEL_HEIGHT = 24;
+export const LABEL_HEIGHT = 16;
 export const ICON_LABEL_GAP = 8;
 const MOBILE_COLUMNS = 4;
 export const ITEM_HEIGHT = ICON_SIZE + LABEL_HEIGHT + ICON_LABEL_GAP;
@@ -246,12 +246,14 @@ function calculateClusterPositions(
   containerHeight: number,
   isMobile: boolean,
   selectedPaths?: Set<string>,
-  currentPositions?: Positions
+  currentPositions?: Positions,
+  maxItemWidth?: number
 ): Positions {
   const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
   const gap = isMobile ? GAP_MOBILE : GAP;
   const itemHeightCalc = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
-  const itemWidth = iconSize + gap;
+  const clusterItemWidth = Math.max(iconSize, maxItemWidth ?? 0);
+  const itemWidth = clusterItemWidth + gap;
   const itemHeightWithGap = itemHeightCalc + gap;
 
   const itemsToArrange = getItemsToArrange(items, selectedPaths);
@@ -278,6 +280,34 @@ function calculateClusterPositions(
     };
   });
   return positions;
+}
+
+function getMaxIconButtonWidth(
+  container: HTMLDivElement | null,
+  paths: string[]
+): number | null {
+  if (!container || paths.length === 0) {
+    return null;
+  }
+
+  const pathSet = new Set(paths);
+  let maxWidth = 0;
+
+  container
+    .querySelectorAll<HTMLButtonElement>('button[data-icon-path]')
+    .forEach((button) => {
+      const path = button.dataset.iconPath;
+      if (!path || !pathSet.has(path)) {
+        return;
+      }
+      const measuredWidth =
+        button.offsetWidth || button.getBoundingClientRect().width;
+      if (measuredWidth > maxWidth) {
+        maxWidth = measuredWidth;
+      }
+    });
+
+  return maxWidth > 0 ? Math.ceil(maxWidth) : null;
 }
 
 export function Home() {
@@ -601,8 +631,30 @@ export function Home() {
   }, [applyArrangement]);
 
   const handleCluster = useCallback(() => {
-    applyArrangement(calculateClusterPositions);
-  }, [applyArrangement]);
+    const hasSelection = selectedIcons.size > 0;
+    const itemsToArrange = getItemsToArrange(
+      appItems,
+      hasSelection ? selectedIcons : undefined
+    );
+    const maxItemWidth = isMobile
+      ? null
+      : getMaxIconButtonWidth(
+          containerRef.current,
+          itemsToArrange.map((item) => item.path)
+        );
+
+    applyArrangement((items, width, height, mobile, selected, current) =>
+      calculateClusterPositions(
+        items,
+        width,
+        height,
+        mobile,
+        selected,
+        current,
+        maxItemWidth ?? undefined
+      )
+    );
+  }, [applyArrangement, appItems, isMobile, selectedIcons]);
 
   const handleDisplayPropertiesOpen = useCallback(() => {
     setIsDisplayPropertiesOpen(true);
@@ -690,6 +742,7 @@ export function Home() {
                   'flex select-none flex-col items-center gap-2 border-none bg-transparent p-0',
                   !isMobile && 'absolute'
                 )}
+                data-icon-path={item.path}
                 style={
                   isMobile
                     ? { cursor }
