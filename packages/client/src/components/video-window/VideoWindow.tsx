@@ -81,7 +81,7 @@ export function VideoWindow({
                 />
               </div>
             ) : (
-              <div className="h-full overflow-hidden p-3">
+              <div className="h-full overflow-auto p-3">
                 <VideoPage
                   onOpenVideo={handleOpenVideo}
                   hideBackLink

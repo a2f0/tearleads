@@ -113,6 +113,13 @@ describe('VideoWindow', () => {
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
   });
 
+  it('wraps list content in a scrollable container', () => {
+    render(<VideoWindow {...defaultProps} />);
+    const container = screen.getByTestId('video-location').parentElement;
+    expect(container).toHaveClass('overflow-auto');
+    expect(container).toHaveClass('h-full');
+  });
+
   it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

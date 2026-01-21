@@ -143,6 +143,13 @@ describe('PhotosWindow', () => {
     expect(screen.getByTestId('photos-content')).toBeInTheDocument();
   });
 
+  it('wraps list content in a scrollable container', () => {
+    render(<PhotosWindow {...defaultProps} />);
+    const container = screen.getByTestId('photos-content').parentElement;
+    expect(container).toHaveClass('overflow-auto');
+    expect(container).toHaveClass('h-full');
+  });
+
   it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
