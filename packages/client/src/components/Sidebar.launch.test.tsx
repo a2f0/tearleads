@@ -69,19 +69,18 @@ describe('Sidebar launch behavior', () => {
     setMatchMedia({ coarsePointer: false, mobileWidth: false });
   });
 
-  it.each(windowedLabels)(
-    'opens windowed apps on single click on desktop for %s',
-    async (label) => {
-      renderSidebar();
+  it.each(
+    windowedLabels
+  )('opens windowed apps on single click on desktop for %s', async (label) => {
+    renderSidebar();
 
-      await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
+    await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
 
-      fireEvent.click(screen.getByRole('button', { name: label }));
+    fireEvent.click(screen.getByRole('button', { name: label }));
 
-      expect(mockOpenWindow).toHaveBeenCalledWith(label.toLowerCase());
-      expect(mockNavigate).not.toHaveBeenCalled();
-    }
-  );
+    expect(mockOpenWindow).toHaveBeenCalledWith(label.toLowerCase());
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
 
   it('navigates on touch devices instead of opening windows', async () => {
     Object.defineProperty(navigator, 'maxTouchPoints', {
@@ -135,20 +134,19 @@ describe('Sidebar launch behavior', () => {
     expect(mockOpenWindow).not.toHaveBeenCalled();
   });
 
-  it.each(windowedLabels)(
-    'context menu Open in Window opens floating window for %s',
-    async (label) => {
-      renderSidebar();
+  it.each(
+    windowedLabels
+  )('context menu Open in Window opens floating window for %s', async (label) => {
+    renderSidebar();
 
-      await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
+    await waitFor(() => expect(window.matchMedia).toHaveBeenCalled());
 
-      fireEvent.contextMenu(screen.getByRole('button', { name: label }));
-      fireEvent.click(screen.getByText('Open in Window'));
+    fireEvent.contextMenu(screen.getByRole('button', { name: label }));
+    fireEvent.click(screen.getByText('Open in Window'));
 
-      expect(mockOpenWindow).toHaveBeenCalledWith(label.toLowerCase());
-      expect(mockNavigate).not.toHaveBeenCalled();
-    }
-  );
+    expect(mockOpenWindow).toHaveBeenCalledWith(label.toLowerCase());
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
 
   it('does not show Open in Window for non-windowed apps', async () => {
     renderSidebar();
