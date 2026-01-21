@@ -52,10 +52,11 @@ describe('Taskbar', () => {
     );
   });
 
-  it('renders nothing when no windows are open', () => {
+  it('renders an empty taskbar when no windows are open', () => {
     mockWindows.length = 0;
-    const { container } = render(<Taskbar />);
-    expect(container.firstChild).toBeNull();
+    render(<Taskbar />);
+    expect(screen.getByTestId('taskbar')).toBeInTheDocument();
+    expect(screen.queryAllByTestId(/taskbar-button/)).toHaveLength(0);
   });
 
   it('renders taskbar when windows are open', () => {
