@@ -56,7 +56,9 @@ describe('ApiDocs', () => {
     render(<ApiDocs spec={mockSpec} />);
 
     expect(screen.getByText('Rapid API')).toBeInTheDocument();
-    expect(screen.getByText('Messaging')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Messaging' })
+    ).toBeInTheDocument();
     expect(screen.getByText('General')).toBeInTheDocument();
   });
 
