@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
 import { createAuthHeader } from '../test/auth.js';
 
-const fetchMock = vi.fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>();
+const fetchMock = vi.fn<typeof fetch>();
 
 describe('Auth middleware', () => {
   let authHeader: string;
