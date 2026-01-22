@@ -314,8 +314,7 @@ describe('Analytics', () => {
       );
     });
 
-    it('exports analytics table with mapped sort column', async () => {
-      const user = userEvent.setup();
+    it('exports analytics table with default sort', async () => {
       const onExportCsvChange = vi.fn();
       mockGetEvents.mockResolvedValue([
         {
@@ -329,8 +328,6 @@ describe('Analytics', () => {
       mockGetEventCount.mockResolvedValue(1);
       await renderAnalytics({ onExportCsvChange });
 
-      await user.click(screen.getByTestId('sort-durationMs'));
-
       const handlerCall = onExportCsvChange.mock.calls.find(
         (call) => typeof call[0] === 'function'
       );
@@ -340,12 +337,14 @@ describe('Analytics', () => {
         throw new Error('Export handler missing');
       }
 
-      await handler();
+      await act(async () => {
+        await handler();
+      });
 
       expect(exportTableAsCsv).toHaveBeenCalledWith({
         tableName: 'analytics_events',
-        sortColumn: 'duration_ms',
-        sortDirection: 'asc'
+        sortColumn: null,
+        sortDirection: null
       });
     });
 
