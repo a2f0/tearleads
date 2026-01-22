@@ -89,16 +89,17 @@ export function LaserScreensaver() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Initialize beams with theme colors
+    const colors = getChartColors();
+
     const resize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
+      // Reinitialize beams on resize to ensure proper distribution
+      beamsRef.current = initializeBeams(canvas.width, canvas.height, colors);
     };
     resize();
     window.addEventListener('resize', resize);
-
-    // Initialize beams with theme colors
-    const colors = getChartColors();
-    beamsRef.current = initializeBeams(canvas.width, canvas.height, colors);
 
     const animate = () => {
       // Semi-transparent black fill for trail fade effect
