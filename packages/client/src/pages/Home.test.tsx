@@ -228,9 +228,7 @@ describe('Home', () => {
     expect(menuContainer).not.toBeNull();
 
     if (menuContainer) {
-      expect(
-        within(menuContainer).getByRole('separator')
-      ).toBeInTheDocument();
+      expect(within(menuContainer).getByRole('separator')).toBeInTheDocument();
 
       const labels = within(menuContainer)
         .getAllByRole('button')
