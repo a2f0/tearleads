@@ -59,7 +59,9 @@ describe('ApiDocs', () => {
     expect(
       screen.getByRole('heading', { name: 'Messaging' })
     ).toBeInTheDocument();
-    expect(screen.getByText('General')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'General' })
+    ).toBeInTheDocument();
   });
 
   it('renders operation summaries', () => {
