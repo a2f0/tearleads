@@ -73,6 +73,7 @@ export function SqliteWindow({
           onRefresh={handleRefresh}
           onExportCsv={handleExportCsv}
           exportCsvDisabled={!exportHandler || exportingCsv}
+          showExportCsv={Boolean(selectedTable)}
         />
         <div className="min-h-0 flex-1 p-4">
           {selectedTable ? (

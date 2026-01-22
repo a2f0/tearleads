@@ -11,13 +11,15 @@ interface SqliteWindowMenuBarProps {
   onRefresh: () => void;
   onExportCsv?: () => void;
   exportCsvDisabled?: boolean;
+  showExportCsv?: boolean;
 }
 
 export function SqliteWindowMenuBar({
   onClose,
   onRefresh,
   onExportCsv,
-  exportCsvDisabled = false
+  exportCsvDisabled = false,
+  showExportCsv = true
 }: SqliteWindowMenuBarProps) {
   const handleExportCsv = () => {
     onExportCsv?.();
@@ -26,14 +28,18 @@ export function SqliteWindowMenuBar({
   return (
     <div className="flex shrink-0 border-b bg-muted/30 px-1">
       <DropdownMenu trigger="File">
-        <DropdownMenuItem
-          onClick={handleExportCsv}
-          icon={<Download className="h-3 w-3" />}
-          disabled={!onExportCsv || exportCsvDisabled}
-        >
-          Export as CSV
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
+        {showExportCsv ? (
+          <>
+            <DropdownMenuItem
+              onClick={handleExportCsv}
+              icon={<Download className="h-3 w-3" />}
+              disabled={!onExportCsv || exportCsvDisabled}
+            >
+              Export as CSV
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
       </DropdownMenu>
       <DropdownMenu trigger="View">
