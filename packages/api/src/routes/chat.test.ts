@@ -2,17 +2,21 @@ import { DEFAULT_OPENROUTER_MODEL_ID, isRecord } from '@rapid/shared';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
+import { createAuthHeader } from '../test/auth.js';
 import { OPENROUTER_API_URL } from './chat.js';
 
 const fetchMock = vi.fn<typeof fetch>();
 let previousApiKey: string | undefined;
+let authHeader: string;
 
 describe('Chat Routes', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetAllMocks();
     previousApiKey = process.env['OPENROUTER_API_KEY'];
     process.env['OPENROUTER_API_KEY'] = 'test-key';
+    vi.stubEnv('JWT_SECRET', 'test-secret');
     vi.stubGlobal('fetch', fetchMock);
+    authHeader = await createAuthHeader();
   });
 
   afterEach(() => {
@@ -22,6 +26,7 @@ describe('Chat Routes', () => {
       process.env['OPENROUTER_API_KEY'] = previousApiKey;
     }
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   describe('POST /v1/chat/completions', () => {
@@ -53,6 +58,7 @@ describe('Chat Routes', () => {
 
       const response = await request(app)
         .post('/v1/chat/completions')
+        .set('Authorization', authHeader)
         .send(payload);
 
       expect(response.status).toBe(200);
@@ -129,6 +135,7 @@ describe('Chat Routes', () => {
 
       const response = await request(app)
         .post('/v1/chat/completions')
+        .set('Authorization', authHeader)
         .send(payload);
 
       expect(response.status).toBe(200);
@@ -186,6 +193,7 @@ describe('Chat Routes', () => {
 
       const response = await request(app)
         .post('/v1/chat/completions')
+        .set('Authorization', authHeader)
         .send(payload);
 
       expect(response.status).toBe(200);
@@ -212,6 +220,7 @@ describe('Chat Routes', () => {
 
       const response = await request(app)
         .post('/v1/chat/completions')
+        .set('Authorization', authHeader)
         .send({
           model: DEFAULT_OPENROUTER_MODEL_ID,
           messages: [{ role: 'user', content: 'Hello' }]
@@ -244,6 +253,7 @@ describe('Chat Routes', () => {
     it('returns 400 for invalid payloads', async () => {
       const response = await request(app)
         .post('/v1/chat/completions')
+        .set('Authorization', authHeader)
         .send({ messages: [] });
 
       expect(response.status).toBe(400);
@@ -256,6 +266,7 @@ describe('Chat Routes', () => {
     it('returns 400 for unsupported OpenRouter models', async () => {
       const response = await request(app)
         .post('/v1/chat/completions')
+        .set('Authorization', authHeader)
         .send({
           model: 'unknown/model',
           messages: [{ role: 'user', content: 'Hello' }]
@@ -271,6 +282,7 @@ describe('Chat Routes', () => {
     it('returns 400 when messages include invalid entries', async () => {
       const response = await request(app)
         .post('/v1/chat/completions')
+        .set('Authorization', authHeader)
         .send({
           messages: [
             {
@@ -290,6 +302,7 @@ describe('Chat Routes', () => {
     it('returns 400 when messages contain non-object items', async () => {
       const response = await request(app)
         .post('/v1/chat/completions')
+        .set('Authorization', authHeader)
         .send({
           messages: ['not-an-object']
         });
@@ -304,6 +317,7 @@ describe('Chat Routes', () => {
     it('returns 400 when messages have empty content', async () => {
       const response = await request(app)
         .post('/v1/chat/completions')
+        .set('Authorization', authHeader)
         .send({
           messages: [
             {
@@ -323,6 +337,7 @@ describe('Chat Routes', () => {
     it('returns 400 when messages contain invalid multimodal content', async () => {
       const response = await request(app)
         .post('/v1/chat/completions')
+        .set('Authorization', authHeader)
         .send({
           messages: [
             {
@@ -346,6 +361,7 @@ describe('Chat Routes', () => {
 
       const response = await request(app)
         .post('/v1/chat/completions')
+        .set('Authorization', authHeader)
         .send({
           messages: [{ role: 'user', content: 'Hello' }]
         });
@@ -359,6 +375,7 @@ describe('Chat Routes', () => {
 
       const response = await request(app)
         .post('/v1/chat/completions')
+        .set('Authorization', authHeader)
         .send({
           messages: [{ role: 'user', content: 'Hello' }]
         });
@@ -376,6 +393,7 @@ describe('Chat Routes', () => {
 
       const response = await request(app)
         .post('/v1/chat/completions')
+        .set('Authorization', authHeader)
         .send({
           messages: [{ role: 'user', content: 'Hello' }]
         });
@@ -394,6 +412,7 @@ describe('Chat Routes', () => {
 
       const response = await request(app)
         .post('/v1/chat/completions')
+        .set('Authorization', authHeader)
         .send({
           messages: [{ role: 'user', content: 'Hello' }]
         });
