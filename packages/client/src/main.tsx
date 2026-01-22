@@ -234,7 +234,10 @@ if (rootElement) {
                                   <Route path="sqlite" element={<Sqlite />} />
                                   <Route path="console" element={<Console />} />
                                   <Route path="debug" element={<Debug />} />
-                                  <Route path="docs" element={<ApiDocsPage />} />
+                                  <Route
+                                    path="docs"
+                                    element={<ApiDocsPage />}
+                                  />
                                   <Route
                                     path="docs/api"
                                     element={<ApiDocsPage />}

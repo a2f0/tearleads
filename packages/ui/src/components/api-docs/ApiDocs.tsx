@@ -54,24 +54,24 @@ export function ApiDocs({
         ) : (
           <header className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
-              <p className="rounded-full border border-border/80 bg-background/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+              <p className="rounded-full border border-border/80 bg-background/80 px-3 py-1 font-semibold text-muted-foreground text-xs uppercase tracking-[0.3em]">
                 API Docs
               </p>
-              <span className="rounded-full border border-info/30 bg-info/10 px-3 py-1 text-xs font-semibold text-info">
+              <span className="rounded-full border border-info/30 bg-info/10 px-3 py-1 font-semibold text-info text-xs">
                 v{version}
               </span>
             </div>
             <div className="space-y-3">
-              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+              <h1 className="font-semibold text-2xl tracking-tight sm:text-3xl">
                 {title}
               </h1>
               {description ? (
-                <p className="max-w-2xl text-sm text-muted-foreground sm:text-base">
+                <p className="max-w-2xl text-muted-foreground text-sm sm:text-base">
                   {description}
                 </p>
               ) : null}
               {intro ? (
-                <div className="text-sm text-muted-foreground">{intro}</div>
+                <div className="text-muted-foreground text-sm">{intro}</div>
               ) : null}
             </div>
           </header>
@@ -99,17 +99,17 @@ export function ApiDocs({
               >
                 <summary className="flex cursor-pointer list-none items-start justify-between gap-3 rounded-xl px-2 py-1 transition hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
                   <div className="space-y-1">
-                    <h2 className="text-lg font-semibold tracking-tight">
+                    <h2 className="font-semibold text-lg tracking-tight">
                       {tagGroup.name}
                     </h2>
                     {tagGroup.description ? (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-muted-foreground text-sm">
                         {tagGroup.description}
                       </p>
                     ) : null}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                    <span className="rounded-full border border-border/70 bg-muted/40 px-3 py-1 font-semibold text-muted-foreground text-xs">
                       {tagGroup.operations.length} endpoints
                     </span>
                     <ChevronDown className="mt-1 h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
