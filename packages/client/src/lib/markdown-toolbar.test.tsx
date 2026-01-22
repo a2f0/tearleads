@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { markdownToolbarCommandsFilter } from './markdown-toolbar';
 
 describe('markdownToolbarCommandsFilter', () => {
@@ -11,6 +11,12 @@ describe('markdownToolbarCommandsFilter', () => {
     const divider = { keyCommand: 'divider' };
     const result = markdownToolbarCommandsFilter(divider, false);
     expect(result).toBe(divider);
+  });
+
+  it('returns commands without button props unchanged', () => {
+    const command = { name: 'plain-command' };
+    const result = markdownToolbarCommandsFilter(command, false);
+    expect(result).toBe(command);
   });
 
   it('strips title attributes and assigns render for button commands', () => {
@@ -29,6 +35,42 @@ describe('markdownToolbarCommandsFilter', () => {
     if (result && result !== false) {
       expect(result.buttonProps?.title).toBeUndefined();
       expect(result.render).toBeTypeOf('function');
+    }
+  });
+
+  it('returns null from render when no tooltip label is available', () => {
+    const command = {
+      name: '',
+      keyCommand: '',
+      buttonProps: {
+        title: 'No label'
+      }
+    };
+
+    const result = markdownToolbarCommandsFilter(command, false);
+    expect(result).not.toBe(false);
+
+    if (result && result !== false && result.render) {
+      const rendered = result.render(result, false, vi.fn(), 0);
+      expect(rendered).toBeNull();
+    }
+  });
+
+  it('renders tooltip content when a label is available', () => {
+    const command = {
+      name: 'format',
+      keyCommand: 'format',
+      buttonProps: {
+        'aria-label': 'Format text'
+      }
+    };
+
+    const result = markdownToolbarCommandsFilter(command, false);
+    expect(result).not.toBe(false);
+
+    if (result && result !== false && result.render) {
+      const rendered = result.render(result, false, vi.fn(), 0);
+      expect(rendered).not.toBeNull();
     }
   });
 });
