@@ -126,4 +126,25 @@ describe('exportTableAsCsv', () => {
       { name: 'id', type: 'integer', pk: 1 }
     ]);
   });
+
+  it('throws when no columns are available', async () => {
+    const execute = vi.fn().mockImplementation((sql: string) => {
+      if (sql.includes('sqlite_master')) {
+        return Promise.resolve({ rows: [{ name: 'analytics_events' }] });
+      }
+      if (sql.includes('PRAGMA table_info')) {
+        return Promise.resolve({ rows: [] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    vi.mocked(getDatabaseAdapter).mockReturnValue({ execute });
+
+    await expect(
+      exportTableAsCsv({
+        tableName: 'analytics_events',
+        columns: []
+      })
+    ).rejects.toThrow('Table "analytics_events" has no columns to export.');
+  });
 });
