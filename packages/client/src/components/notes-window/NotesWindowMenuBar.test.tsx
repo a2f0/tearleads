@@ -77,7 +77,9 @@ describe('NotesWindowMenuBar', () => {
 
   it('hides List and Table options when disabled', async () => {
     const user = userEvent.setup();
-    render(<NotesWindowMenuBar {...defaultProps} showListTableOptions={false} />);
+    render(
+      <NotesWindowMenuBar {...defaultProps} showListTableOptions={false} />
+    );
 
     await user.click(screen.getByRole('button', { name: 'View' }));
 
