@@ -32,7 +32,7 @@ describe('markdownToolbarCommandsFilter', () => {
     const result = markdownToolbarCommandsFilter(command, false);
     expect(result).not.toBe(false);
 
-    if (result && result.render) {
+    if (result?.render) {
       expect(result.buttonProps?.title).toBeUndefined();
       expect(result.render).toBeTypeOf('function');
     }
@@ -50,7 +50,7 @@ describe('markdownToolbarCommandsFilter', () => {
     const result = markdownToolbarCommandsFilter(command, false);
     expect(result).not.toBe(false);
 
-    if (result && result.render) {
+    if (result?.render) {
       const rendered = result.render(result, false, vi.fn(), 0);
       expect(rendered).toBeNull();
     }
@@ -68,7 +68,7 @@ describe('markdownToolbarCommandsFilter', () => {
     const result = markdownToolbarCommandsFilter(command, false);
     expect(result).not.toBe(false);
 
-    if (result && result.render) {
+    if (result?.render) {
       const rendered = result.render(result, false, vi.fn(), 0);
       expect(rendered).not.toBeNull();
     }
