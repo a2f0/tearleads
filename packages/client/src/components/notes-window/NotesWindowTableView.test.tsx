@@ -130,6 +130,28 @@ describe('NotesWindowTableView', () => {
     expect(screen.getByText('Beta Note')).toBeInTheDocument();
   });
 
+  it('renders deleted notes when showDeleted is true', async () => {
+    const deletedNotes = [
+      {
+        ...mockNotes[0],
+        id: 'note-deleted',
+        title: 'Deleted Note',
+        deleted: true
+      }
+    ];
+    mockDb.orderBy.mockResolvedValue(deletedNotes);
+    const onSelectNote = vi.fn();
+    const user = userEvent.setup();
+    render(<NotesWindowTableView onSelectNote={onSelectNote} showDeleted={true} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Deleted Note')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Deleted Note'));
+    expect(onSelectNote).not.toHaveBeenCalled();
+  });
+
   it('renders sortable column headers', async () => {
     mockDb.orderBy.mockResolvedValue(mockNotes);
     render(<NotesWindowTableView {...defaultProps} />);
