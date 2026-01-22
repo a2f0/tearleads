@@ -60,6 +60,9 @@ jobs:
           sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
           sudo apt-get install -y --no-install-recommends imagemagick librsvg2-bin
 
+      - name: Build API (for OpenAPI spec)
+        run: pnpm --filter @rapid/api build
+
       - name: Build web assets
         run: pnpm --filter @rapid/client build
 
