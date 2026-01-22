@@ -77,12 +77,7 @@ describe('NotesWindowMenuBar', () => {
 
   it('hides List and Table options when disabled', async () => {
     const user = userEvent.setup();
-    render(
-      <NotesWindowMenuBar
-        {...defaultProps}
-        showListTableOptions={false}
-      />
-    );
+    render(<NotesWindowMenuBar {...defaultProps} showListTableOptions={false} />);
 
     await user.click(screen.getByRole('button', { name: 'View' }));
 
@@ -191,16 +186,16 @@ describe('NotesWindowMenuBar', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'View' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Markdown Toolbar' }));
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Markdown Toolbar' })
+    );
 
     expect(onToggleMarkdownToolbar).toHaveBeenCalledTimes(1);
   });
 
   it('shows checkmark on Markdown Toolbar when enabled', async () => {
     const user = userEvent.setup();
-    render(
-      <NotesWindowMenuBar {...defaultProps} showMarkdownToolbar={true} />
-    );
+    render(<NotesWindowMenuBar {...defaultProps} showMarkdownToolbar={true} />);
 
     await user.click(screen.getByRole('button', { name: 'View' }));
 
@@ -215,10 +210,7 @@ describe('NotesWindowMenuBar', () => {
   it('hides Markdown Toolbar option when disabled', async () => {
     const user = userEvent.setup();
     render(
-      <NotesWindowMenuBar
-        {...defaultProps}
-        showMarkdownToolbarOption={false}
-      />
+      <NotesWindowMenuBar {...defaultProps} showMarkdownToolbarOption={false} />
     );
 
     await user.click(screen.getByRole('button', { name: 'View' }));

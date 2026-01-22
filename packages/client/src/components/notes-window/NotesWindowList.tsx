@@ -119,12 +119,20 @@ export function NotesWindowList({
   }, [isUnlocked, showDeleted]);
 
   const fetchedForInstanceRef = useRef<string | null>(null);
+  const lastShowDeletedRef = useRef(showDeleted);
 
   useEffect(() => {
+    const showDeletedChanged = lastShowDeletedRef.current !== showDeleted;
+    if (showDeletedChanged) {
+      lastShowDeletedRef.current = showDeleted;
+    }
+
     const needsFetch =
       isUnlocked &&
       !loading &&
-      (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
+      (!hasFetched ||
+        fetchedForInstanceRef.current !== currentInstanceId ||
+        showDeletedChanged);
 
     if (needsFetch) {
       if (
@@ -144,11 +152,14 @@ export function NotesWindowList({
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchNotes]);
-
-  useEffect(() => {
-    setHasFetched(false);
-  }, [showDeleted]);
+  }, [
+    isUnlocked,
+    loading,
+    hasFetched,
+    currentInstanceId,
+    fetchNotes,
+    showDeleted
+  ]);
 
   const handleNoteClick = useCallback(
     (note: NoteInfo) => {

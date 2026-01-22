@@ -152,10 +152,7 @@ describe('NotesWindowTableView', () => {
     const onSelectNote = vi.fn();
     const user = userEvent.setup();
     render(
-      <NotesWindowTableView
-        onSelectNote={onSelectNote}
-        showDeleted={false}
-      />
+      <NotesWindowTableView onSelectNote={onSelectNote} showDeleted={false} />
     );
 
     await waitFor(() => {
@@ -171,10 +168,7 @@ describe('NotesWindowTableView', () => {
     const onSelectNote = vi.fn();
     const user = userEvent.setup();
     render(
-      <NotesWindowTableView
-        onSelectNote={onSelectNote}
-        showDeleted={false}
-      />
+      <NotesWindowTableView onSelectNote={onSelectNote} showDeleted={false} />
     );
 
     await waitFor(() => {
@@ -282,10 +276,7 @@ describe('NotesWindowTableView', () => {
     const onSelectNote = vi.fn();
     const user = userEvent.setup();
     render(
-      <NotesWindowTableView
-        onSelectNote={onSelectNote}
-        showDeleted={false}
-      />
+      <NotesWindowTableView onSelectNote={onSelectNote} showDeleted={false} />
     );
 
     await waitFor(() => {
@@ -333,10 +324,7 @@ describe('NotesWindowTableView', () => {
     const onSelectNote = vi.fn();
     const user = userEvent.setup();
     render(
-      <NotesWindowTableView
-        onSelectNote={onSelectNote}
-        showDeleted={false}
-      />
+      <NotesWindowTableView onSelectNote={onSelectNote} showDeleted={false} />
     );
 
     await waitFor(() => {
