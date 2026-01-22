@@ -314,7 +314,8 @@ describe('Analytics', () => {
       );
     });
 
-    it('exports analytics table with default sort', async () => {
+    it('exports analytics table with mapped sort column', async () => {
+      const user = userEvent.setup();
       const onExportCsvChange = vi.fn();
       mockGetEvents.mockResolvedValue([
         {
@@ -328,11 +329,15 @@ describe('Analytics', () => {
       mockGetEventCount.mockResolvedValue(1);
       await renderAnalytics({ onExportCsvChange });
 
-      const handlerCall = onExportCsvChange.mock.calls.find(
+      await waitFor(() => {
+        expect(screen.getByTestId('sort-durationMs')).toBeInTheDocument();
+      });
+      await user.click(screen.getByTestId('sort-durationMs'));
+
+      const handlerCalls = onExportCsvChange.mock.calls.filter(
         (call) => typeof call[0] === 'function'
       );
-      expect(handlerCall).toBeTruthy();
-      const handler = handlerCall?.[0];
+      const handler = handlerCalls[handlerCalls.length - 1]?.[0];
       if (typeof handler !== 'function') {
         throw new Error('Export handler missing');
       }
@@ -343,8 +348,8 @@ describe('Analytics', () => {
 
       expect(exportTableAsCsv).toHaveBeenCalledWith({
         tableName: 'analytics_events',
-        sortColumn: null,
-        sortDirection: null
+        sortColumn: 'duration_ms',
+        sortDirection: 'asc'
       });
     });
 
