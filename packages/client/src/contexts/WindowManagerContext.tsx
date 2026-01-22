@@ -40,7 +40,8 @@ export type WindowType =
   | 'admin'
   | 'admin-postgres'
   | 'cache-storage'
-  | 'local-storage';
+  | 'local-storage'
+  | 'sync';
 
 export interface WindowDimensions {
   width: number;

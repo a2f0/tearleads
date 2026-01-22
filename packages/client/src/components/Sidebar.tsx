@@ -16,6 +16,7 @@ import {
   Mail,
   MessageSquare,
   Music,
+  RefreshCw,
   Settings,
   Shield,
   StickyNote,
@@ -190,6 +191,13 @@ export const navItems: NavItem[] = [
     testId: 'postgres-admin-link'
   },
   {
+    path: '/sync',
+    icon: RefreshCw,
+    labelKey: 'sync',
+    inMobileMenu: true,
+    testId: 'sync-link'
+  },
+  {
     path: '/settings',
     icon: Settings,
     labelKey: 'settings',
@@ -223,7 +231,8 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/audio': 'audio',
   '/models': 'models',
   '/admin/redis': 'admin',
-  '/admin/postgres': 'admin-postgres'
+  '/admin/postgres': 'admin-postgres',
+  '/sync': 'sync'
 };
 
 export interface SidebarProps {
