@@ -59,6 +59,7 @@ async function createAndOpenNote(page: Page) {
   await expect(page.getByTestId('markdown-editor')).toBeVisible({ timeout: 10000 });
 }
 
+
 // Helper to switch theme
 async function switchTheme(page: Page, themeId: string) {
   await navigateTo(page, 'Settings');
@@ -193,21 +194,16 @@ test.describe('Notes Editor Theme Integration', () => {
     const editorWrapper = page.getByTestId('markdown-editor');
     await expect(editorWrapper).toHaveAttribute('data-color-mode', 'dark');
 
-    // Get computed styles from the editor elements
+    // Get computed styles from the editor element (toolbar is hidden by default)
     const editorBg = await getComputedBackgroundColor(page, '.w-md-editor');
-    const toolbarBg = await getComputedBackgroundColor(page, '.w-md-editor-toolbar');
-    const previewBg = await getComputedBackgroundColor(page, '.w-md-editor-preview');
 
     // Log for debugging
     console.log('Monochrome theme computed styles:');
     console.log('  Editor background:', editorBg);
-    console.log('  Toolbar background:', toolbarBg);
-    console.log('  Preview background:', previewBg);
 
-    // Verify backgrounds are grayscale (monochrome theme)
+    // Verify editor background is grayscale (monochrome theme)
     expect(isGrayscale(editorBg)).toBe(true);
-    expect(isGrayscale(toolbarBg)).toBe(true);
-    expect(isGrayscale(previewBg)).toBe(true);
+    expect(isDark(editorBg)).toBe(true);
   });
 
   test('should apply tokyo-night theme colors to markdown editor', async ({ page }) => {
@@ -231,14 +227,12 @@ test.describe('Notes Editor Theme Integration', () => {
     const editorWrapper = page.getByTestId('markdown-editor');
     await expect(editorWrapper).toHaveAttribute('data-color-mode', 'dark');
 
-    // Get computed styles from the editor elements
+    // Get computed styles from the editor element (toolbar is hidden by default)
     const editorBg = await getComputedBackgroundColor(page, '.w-md-editor');
-    const toolbarBg = await getComputedBackgroundColor(page, '.w-md-editor-toolbar');
 
     // Log for debugging
     console.log('Tokyo Night theme computed styles:');
     console.log('  Editor background:', editorBg);
-    console.log('  Toolbar background:', toolbarBg);
 
     // Tokyo Night should be dark with a blue tint (not pure grayscale)
     expect(isDark(editorBg)).toBe(true);

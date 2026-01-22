@@ -42,14 +42,16 @@ const mockNotes = [
     title: 'First Note',
     content: '# Hello World\nThis is content',
     createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-02')
+    updatedAt: new Date('2024-01-02'),
+    deleted: false
   },
   {
     id: 'note-2',
     title: 'Second Note',
     content: 'Short content',
     createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-03')
+    updatedAt: new Date('2024-01-03'),
+    deleted: false
   }
 ];
 
@@ -94,7 +96,8 @@ vi.mock('@tanstack/react-virtual', () => ({
 
 describe('NotesWindowList', () => {
   const defaultProps = {
-    onSelectNote: vi.fn()
+    onSelectNote: vi.fn(),
+    showDeleted: false
   };
 
   beforeEach(() => {
@@ -192,7 +195,7 @@ describe('NotesWindowList', () => {
     mockDb.orderBy.mockResolvedValue(mockNotes);
     const onSelectNote = vi.fn();
     const user = userEvent.setup();
-    render(<NotesWindowList onSelectNote={onSelectNote} />);
+    render(<NotesWindowList onSelectNote={onSelectNote} showDeleted={false} />);
 
     await waitFor(() => {
       expect(screen.getByText('First Note')).toBeInTheDocument();
@@ -200,6 +203,31 @@ describe('NotesWindowList', () => {
 
     await user.click(screen.getByText('First Note'));
     expect(onSelectNote).toHaveBeenCalledWith('note-1');
+  });
+
+  it('renders deleted notes when showDeleted is true', async () => {
+    const deletedNotes = [
+      {
+        ...mockNotes[0],
+        id: 'note-deleted',
+        title: 'Deleted Note',
+        deleted: true
+      }
+    ];
+    mockDb.orderBy.mockResolvedValue(deletedNotes);
+    const onSelectNote = vi.fn();
+    const user = userEvent.setup();
+    render(<NotesWindowList onSelectNote={onSelectNote} showDeleted={true} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Deleted Note')).toBeInTheDocument();
+    });
+
+    const deletedTitle = screen.getByText('Deleted Note');
+    expect(deletedTitle.closest('button')).toBeNull();
+
+    await user.click(deletedTitle);
+    expect(onSelectNote).not.toHaveBeenCalled();
   });
 
   it('renders note list items with expected structure', async () => {
@@ -219,7 +247,7 @@ describe('NotesWindowList', () => {
     mockDb.orderBy.mockResolvedValue([]);
     const onSelectNote = vi.fn();
     const user = userEvent.setup();
-    render(<NotesWindowList onSelectNote={onSelectNote} />);
+    render(<NotesWindowList onSelectNote={onSelectNote} showDeleted={false} />);
 
     await waitFor(() => {
       expect(
@@ -426,7 +454,7 @@ describe('NotesWindowList', () => {
     mockDb.orderBy.mockResolvedValue(mockNotes);
     const onSelectNote = vi.fn();
     const user = userEvent.setup();
-    render(<NotesWindowList onSelectNote={onSelectNote} />);
+    render(<NotesWindowList onSelectNote={onSelectNote} showDeleted={false} />);
 
     await waitFor(() => {
       expect(screen.getByText('First Note')).toBeInTheDocument();
@@ -474,7 +502,7 @@ describe('NotesWindowList', () => {
     mockDb.orderBy.mockResolvedValue(mockNotes);
     const onSelectNote = vi.fn();
     const user = userEvent.setup();
-    render(<NotesWindowList onSelectNote={onSelectNote} />);
+    render(<NotesWindowList onSelectNote={onSelectNote} showDeleted={false} />);
 
     await waitFor(() => {
       expect(screen.getByText('First Note')).toBeInTheDocument();

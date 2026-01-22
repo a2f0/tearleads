@@ -21,6 +21,7 @@ interface NoteInfo {
   content: string;
   createdAt: Date;
   updatedAt: Date;
+  deleted: boolean;
 }
 
 type MenuPosition = { x: number; y: number };
@@ -29,9 +30,13 @@ const ROW_HEIGHT_ESTIMATE = 56;
 
 interface NotesWindowListProps {
   onSelectNote: (noteId: string) => void;
+  showDeleted: boolean;
 }
 
-export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
+export function NotesWindowList({
+  onSelectNote,
+  showDeleted
+}: NotesWindowListProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { t } = useTypedTranslation('contextMenu');
   const [notesList, setNotesList] = useState<NoteInfo[]>([]);
@@ -83,10 +88,11 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
           title: notes.title,
           content: notes.content,
           createdAt: notes.createdAt,
-          updatedAt: notes.updatedAt
+          updatedAt: notes.updatedAt,
+          deleted: notes.deleted
         })
         .from(notes)
-        .where(eq(notes.deleted, false))
+        .where(showDeleted ? undefined : eq(notes.deleted, false))
         .orderBy(desc(notes.updatedAt));
 
       const noteList: NoteInfo[] = result.map((row) => ({
@@ -94,7 +100,8 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
         title: row.title,
         content: row.content,
         createdAt: row.createdAt,
-        updatedAt: row.updatedAt
+        updatedAt: row.updatedAt,
+        deleted: row.deleted
       }));
 
       setNotesList(noteList);
@@ -105,15 +112,23 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked]);
+  }, [isUnlocked, showDeleted]);
 
   const fetchedForInstanceRef = useRef<string | null>(null);
+  const lastShowDeletedRef = useRef(showDeleted);
 
   useEffect(() => {
+    const showDeletedChanged = lastShowDeletedRef.current !== showDeleted;
+    if (showDeletedChanged) {
+      lastShowDeletedRef.current = showDeleted;
+    }
+
     const needsFetch =
       isUnlocked &&
       !loading &&
-      (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
+      (!hasFetched ||
+        fetchedForInstanceRef.current !== currentInstanceId ||
+        showDeletedChanged);
 
     if (needsFetch) {
       if (
@@ -133,10 +148,18 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchNotes]);
+  }, [
+    isUnlocked,
+    loading,
+    hasFetched,
+    currentInstanceId,
+    fetchNotes,
+    showDeleted
+  ]);
 
   const handleNoteClick = useCallback(
     (note: NoteInfo) => {
+      if (note.deleted) return;
       onSelectNote(note.id);
     },
     [onSelectNote]
@@ -144,6 +167,7 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, note: NoteInfo) => {
+      if (note.deleted) return;
       e.preventDefault();
       e.stopPropagation();
       setContextMenu({ note, x: e.clientX, y: e.clientY });
@@ -223,6 +247,23 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
     }
     return plainText || 'No content';
   };
+
+  const NoteItemContent = ({ note }: { note: NoteInfo }) => (
+    <>
+      <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1">
+        <p
+          className={`truncate font-medium text-xs ${note.deleted ? 'line-through' : ''}`}
+        >
+          {note.title}
+        </p>
+        <p className="truncate text-muted-foreground text-xs">
+          {getContentPreview(note.content)} · {formatDate(note.updatedAt)}
+          {note.deleted && ' · Deleted'}
+        </p>
+      </div>
+    </>
+  );
 
   return (
     <div className="flex h-full flex-col space-y-3 p-3">
@@ -328,24 +369,26 @@ export function NotesWindowList({ onSelectNote }: NotesWindowListProps) {
                         }}
                       >
                         <ListRow
-                          onContextMenu={(e) => handleContextMenu(e, note)}
+                          className={note.deleted ? 'opacity-60' : ''}
+                          onContextMenu={
+                            note.deleted
+                              ? undefined
+                              : (e) => handleContextMenu(e, note)
+                          }
                         >
-                          <button
-                            type="button"
-                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 overflow-hidden text-left"
-                            onClick={() => handleNoteClick(note)}
-                          >
-                            <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground" />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate font-medium text-xs">
-                                {note.title}
-                              </p>
-                              <p className="truncate text-muted-foreground text-xs">
-                                {getContentPreview(note.content)} ·{' '}
-                                {formatDate(note.updatedAt)}
-                              </p>
+                          {note.deleted ? (
+                            <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-left">
+                              <NoteItemContent note={note} />
                             </div>
-                          </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 overflow-hidden text-left"
+                              onClick={() => handleNoteClick(note)}
+                            >
+                              <NoteItemContent note={note} />
+                            </button>
+                          )}
                         </ListRow>
                       </div>
                     );

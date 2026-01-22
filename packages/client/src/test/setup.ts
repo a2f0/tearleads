@@ -1,5 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { createElement, Fragment } from 'react';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import failOnConsole from 'vitest-fail-on-console';
 
@@ -17,6 +19,20 @@ import { server } from './msw/server';
 // Guardrail: fail tests on console warnings/errors unless tests explicitly mock or assert them.
 // Agents: do not add allow/skip exceptions here; ask the user first if changes are needed.
 failOnConsole();
+
+vi.mock('@rapid/ui', async () => {
+  const actual = await vi.importActual<typeof import('@rapid/ui')>('@rapid/ui');
+
+  return {
+    ...actual,
+    Tooltip: ({ children }: { children: ReactNode }) =>
+      createElement(Fragment, null, children),
+    TooltipTrigger: ({ children }: { children: ReactNode }) =>
+      createElement(Fragment, null, children),
+    TooltipContent: ({ children, ...props }: { children: ReactNode }) =>
+      createElement('span', props, children)
+  };
+});
 
 // Mock @ionic/core gestures to avoid DOM issues in jsdom
 vi.mock('@ionic/core', () => ({
