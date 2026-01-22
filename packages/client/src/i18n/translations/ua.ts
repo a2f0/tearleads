@@ -32,7 +32,8 @@ export const ua = {
     admin: 'Адмін',
     postgresAdmin: 'Адмін Postgres',
     settings: 'Налаштування',
-    email: 'Пошта'
+    email: 'Пошта',
+    sync: 'Синхронізація'
   },
   audio: {
     play: 'Відтворити',

@@ -31,6 +31,7 @@ export interface MenuTranslations {
   postgresAdmin: string;
   settings: string;
   email: string;
+  sync: string;
 }
 
 export interface AudioTranslations {
