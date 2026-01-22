@@ -59,8 +59,8 @@ export function ApiDocsSidebar({
         <nav className="space-y-1">
           {tagGroups.map((tag) => (
             <a
-              key={tag.name}
-              href={`#tag-${tag.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+              key={tag.id}
+              href={`#${tag.id}`}
               className="group flex items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2 font-medium text-muted-foreground text-sm transition hover:border-border hover:bg-muted/40 hover:text-foreground"
             >
               <span className="truncate">{tag.name}</span>

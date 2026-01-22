@@ -5,6 +5,7 @@ import type { ApiTagGroup } from './apiDocsData.js';
 
 const tagGroups: ApiTagGroup[] = [
   {
+    id: 'tag-auth',
     name: 'Auth',
     description: 'Authentication endpoints',
     operations: [
@@ -20,6 +21,7 @@ const tagGroups: ApiTagGroup[] = [
     ]
   },
   {
+    id: 'tag-general',
     name: 'General',
     operations: [
       {

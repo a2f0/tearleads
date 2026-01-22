@@ -90,10 +90,8 @@ export function ApiDocs({
           <div className="space-y-8">
             {tagGroups.map((tagGroup) => (
               <details
-                key={tagGroup.name}
-                id={`tag-${tagGroup.name
-                  .toLowerCase()
-                  .replace(/[^a-z0-9]+/g, '-')}`}
+                key={tagGroup.id}
+                id={tagGroup.id}
                 className="group rounded-2xl border bg-background/70 p-4 shadow-[0_1px_0_rgba(0,0,0,0.04)]"
                 open
               >
