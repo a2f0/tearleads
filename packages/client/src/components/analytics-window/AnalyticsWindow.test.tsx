@@ -47,21 +47,47 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 vi.mock('@/pages/analytics', () => ({
-  Analytics: ({ showBackLink }: { showBackLink?: boolean }) => (
-    <div
-      data-testid="analytics-content"
-      data-show-back-link={showBackLink ? 'true' : 'false'}
-    >
-      Analytics Content
-    </div>
-  )
+  Analytics: ({
+    showBackLink,
+    onExportCsvChange
+  }: {
+    showBackLink?: boolean;
+    onExportCsvChange?: (
+      handler: (() => Promise<void>) | null,
+      exporting: boolean
+    ) => void;
+  }) => {
+    void onExportCsvChange;
+    return (
+      <div
+        data-testid="analytics-content"
+        data-show-back-link={showBackLink ? 'true' : 'false'}
+      >
+        Analytics Content
+      </div>
+    );
+  }
 }));
 
 vi.mock('./AnalyticsWindowMenuBar', () => ({
-  AnalyticsWindowMenuBar: ({ onClose }: { onClose: () => void }) => (
+  AnalyticsWindowMenuBar: ({
+    onClose,
+    onExportCsv
+  }: {
+    onClose: () => void;
+    onExportCsv?: () => void;
+    exportCsvDisabled?: boolean;
+  }) => (
     <div data-testid="menu-bar">
       <button type="button" onClick={onClose} data-testid="menu-close-button">
         Close
+      </button>
+      <button
+        type="button"
+        onClick={onExportCsv}
+        data-testid="menu-export-button"
+      >
+        Export
       </button>
     </div>
   )

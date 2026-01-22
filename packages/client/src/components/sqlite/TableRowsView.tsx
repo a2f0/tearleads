@@ -16,13 +16,18 @@ import type {
 } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import {
+  type ColumnInfo,
+  exportTableAsCsv,
+  getNumberField,
+  getStringField,
+  parseColumnInfo
+} from '@/components/sqlite/exportTableCsv';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
-import { createCsv } from '@/lib/csv';
-import { downloadFile } from '@/lib/file-utils';
 import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 50;
@@ -36,12 +41,6 @@ const DEFAULT_CONTAINER_CLASSNAME =
 
 function isMobileViewport(): boolean {
   return typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT;
-}
-
-interface ColumnInfo {
-  name: string;
-  type: string;
-  pk: number;
 }
 
 type SortDirection = 'asc' | 'desc' | null;
@@ -61,43 +60,12 @@ interface TableRowsViewProps {
   ) => void;
 }
 
-function getStringField(
-  record: Record<string, unknown>,
-  key: string
-): string | null {
-  const value = record[key];
-  return typeof value === 'string' ? value : null;
-}
-
-function getNumberField(
-  record: Record<string, unknown>,
-  key: string
-): number | null {
-  const value = record[key];
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
 function formatCellValue(value: unknown): string {
   if (value === null) return 'NULL';
   if (value === undefined) return '';
   if (typeof value === 'boolean') return value ? 'true' : 'false';
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
-}
-
-function parseColumnInfo(schemaRows: unknown[]): ColumnInfo[] {
-  return schemaRows
-    .filter(isRecord)
-    .map((row) => {
-      const name = getStringField(row, 'name');
-      const type = getStringField(row, 'type');
-      const pk = getNumberField(row, 'pk');
-      if (!name || !type || pk === null) {
-        return null;
-      }
-      return { name, type, pk };
-    })
-    .filter((col): col is ColumnInfo => col !== null);
 }
 
 function getRowKey(
@@ -371,66 +339,13 @@ export function TableRowsView({
     setError(null);
 
     try {
-      const adapter = getDatabaseAdapter();
-
-      // Validate tableName against actual tables to prevent SQL injection
-      const tablesResult = await adapter.execute(
-        `SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'`,
-        []
-      );
-      const tableRows = Array.isArray(tablesResult.rows)
-        ? tablesResult.rows
-        : [];
-      const validTables = tableRows
-        .filter(isRecord)
-        .map((row) => getStringField(row, 'name'))
-        .filter((name): name is string => Boolean(name));
-
-      if (!validTables.includes(tableName)) {
-        throw new Error(`Table "${tableName}" does not exist.`);
-      }
-
-      let exportColumns = columns;
-      if (exportColumns.length === 0) {
-        const schemaResult = await adapter.execute(
-          `PRAGMA table_info("${tableName}")`,
-          []
-        );
-        const schemaRows = Array.isArray(schemaResult.rows)
-          ? schemaResult.rows
-          : [];
-        const columnInfo = parseColumnInfo(schemaRows);
-        exportColumns = columnInfo;
-        if (columnInfo.length > 0) {
-          setColumns(columnInfo);
-        }
-      }
-
-      if (exportColumns.length === 0) {
-        throw new Error(`Table "${tableName}" has no columns to export.`);
-      }
-
-      const validColumns = exportColumns.map((col) => col.name);
-      const sortColumn =
-        sort.column && validColumns.includes(sort.column) ? sort.column : null;
-
-      let query = `SELECT * FROM "${tableName}"`;
-      if (sortColumn && sort.direction) {
-        const direction = sort.direction === 'desc' ? 'DESC' : 'ASC';
-        query += ` ORDER BY "${sortColumn}" ${direction}`;
-      }
-
-      const rowsResult = await adapter.execute(query, []);
-      const rawRows = Array.isArray(rowsResult.rows) ? rowsResult.rows : [];
-      const rowRecords = rawRows.filter(isRecord);
-      const headers = exportColumns.map((col) => col.name);
-      const csvRows = rowRecords.map((row) =>
-        exportColumns.map((col) => row[col.name])
-      );
-      const csv = createCsv(headers, csvRows);
-      const safeName = tableName.replace(/[<>:"/\\|?*]/g, '').trim() || 'table';
-      const data = new TextEncoder().encode(csv);
-      downloadFile(data, `${safeName}.csv`);
+      await exportTableAsCsv({
+        tableName,
+        columns,
+        sortColumn: sort.column,
+        sortDirection: sort.direction,
+        onColumnsResolved: (resolved) => setColumns(resolved)
+      });
     } catch (err) {
       console.error('Failed to export table as CSV:', err);
       setError(err instanceof Error ? err.message : String(err));

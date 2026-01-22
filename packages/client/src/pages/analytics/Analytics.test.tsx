@@ -220,6 +220,15 @@ describe('Analytics', () => {
       expect(mockGetEvents).not.toHaveBeenCalled();
       expect(mockGetEventStats).not.toHaveBeenCalled();
     });
+
+    it('clears export handler when locked', async () => {
+      const onExportCsvChange = vi.fn();
+      renderAnalyticsRaw({ onExportCsvChange });
+
+      await waitFor(() => {
+        expect(onExportCsvChange).toHaveBeenCalledWith(null, false);
+      });
+    });
   });
 
   describe('when database is locked', () => {
@@ -283,6 +292,17 @@ describe('Analytics', () => {
       await renderAnalytics({ showBackLink: false });
 
       expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
+    });
+
+    it('registers export handler when unlocked', async () => {
+      const onExportCsvChange = vi.fn();
+      await renderAnalytics({ onExportCsvChange });
+
+      const handlerCall = onExportCsvChange.mock.calls.find(
+        (call) => typeof call[0] === 'function'
+      );
+      expect(handlerCall).toBeTruthy();
+      expect(onExportCsvChange).toHaveBeenCalledWith(expect.any(Function), false);
     });
 
     it('fetches analytics data on mount', async () => {
