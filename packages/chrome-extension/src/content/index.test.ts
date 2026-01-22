@@ -35,8 +35,10 @@ describe('content script', () => {
   it('should respond to PING message with ok status', async () => {
     await import('./index');
 
-    const onMessageCallback =
-      mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+    const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
+    if (!firstCall)
+      throw new Error('Expected onMessage.addListener to be called');
+    const onMessageCallback = firstCall[0];
     onMessageCallback({ type: MessageType.PING }, {}, mockSendResponse);
 
     expect(mockSendResponse).toHaveBeenCalledWith({ status: 'ok' });
@@ -45,8 +47,10 @@ describe('content script', () => {
   it('should not respond to unknown message types', async () => {
     await import('./index');
 
-    const onMessageCallback =
-      mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+    const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
+    if (!firstCall)
+      throw new Error('Expected onMessage.addListener to be called');
+    const onMessageCallback = firstCall[0];
     onMessageCallback({ type: 'UNKNOWN_TYPE' }, {}, mockSendResponse);
 
     expect(mockSendResponse).not.toHaveBeenCalled();
