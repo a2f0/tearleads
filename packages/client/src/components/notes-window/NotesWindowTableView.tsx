@@ -1,4 +1,4 @@
-import { asc, desc, eq, or } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 import {
   ChevronDown,
   ChevronUp,
@@ -123,11 +123,7 @@ export function NotesWindowTableView({
           deleted: notes.deleted
         })
         .from(notes)
-        .where(
-          showDeleted
-            ? or(eq(notes.deleted, false), eq(notes.deleted, true))
-            : eq(notes.deleted, false)
-        )
+        .where(showDeleted ? undefined : eq(notes.deleted, false))
         .orderBy(orderFn(orderByColumn));
 
       setNotesList(

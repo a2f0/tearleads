@@ -184,15 +184,16 @@ export function NoteDetail() {
     [id]
   );
 
+  const handleToggleToolbar = useCallback(() => {
+    setShowToolbar((prev) => !prev);
+  }, []);
+
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="flex items-center justify-between gap-4">
         <BackLink defaultTo="/notes" defaultLabel="Back to Notes" />
         <DropdownMenu trigger="View" align="right">
-          <DropdownMenuItem
-            onClick={() => setShowToolbar((prev) => !prev)}
-            checked={showToolbar}
-          >
+          <DropdownMenuItem onClick={handleToggleToolbar} checked={showToolbar}>
             Markdown Toolbar
           </DropdownMenuItem>
         </DropdownMenu>
