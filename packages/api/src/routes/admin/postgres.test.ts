@@ -1,6 +1,7 @@
 import request from 'supertest';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
+import { createAuthHeader } from '../../test/auth.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
@@ -12,8 +13,16 @@ vi.mock('../../lib/postgres.js', () => ({
 }));
 
 describe('admin postgres routes', () => {
-  beforeEach(() => {
+  let authHeader: string;
+
+  beforeEach(async () => {
     vi.clearAllMocks();
+    vi.stubEnv('JWT_SECRET', 'test-secret');
+    authHeader = await createAuthHeader();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('GET /v1/admin/postgres/info returns connection info and version', async () => {
@@ -29,7 +38,9 @@ describe('admin postgres routes', () => {
       user: 'rapid'
     });
 
-    const response = await request(app).get('/v1/admin/postgres/info');
+    const response = await request(app)
+      .get('/v1/admin/postgres/info')
+      .set('Authorization', authHeader);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -50,7 +61,9 @@ describe('admin postgres routes', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => {});
 
-    const response = await request(app).get('/v1/admin/postgres/info');
+    const response = await request(app)
+      .get('/v1/admin/postgres/info')
+      .set('Authorization', authHeader);
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: 'connection failed' });
@@ -82,7 +95,9 @@ describe('admin postgres routes', () => {
       })
     });
 
-    const response = await request(app).get('/v1/admin/postgres/tables');
+    const response = await request(app)
+      .get('/v1/admin/postgres/tables')
+      .set('Authorization', authHeader);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -113,7 +128,9 @@ describe('admin postgres routes', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => {});
 
-    const response = await request(app).get('/v1/admin/postgres/tables');
+    const response = await request(app)
+      .get('/v1/admin/postgres/tables')
+      .set('Authorization', authHeader);
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: 'query failed' });

@@ -1,7 +1,9 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
+import { verifyJwt } from '../lib/jwt.js';
 import { hashPassword } from '../lib/passwords.js';
+import { getSession } from '../lib/sessions.js';
 import { mockConsoleError } from '../test/console-mocks.js';
 
 const mockQuery = vi.fn();
@@ -88,6 +90,17 @@ describe('Auth routes', () => {
     expect(response.body.expiresIn).toBe(3600);
     expect(response.body.user).toEqual({
       id: 'user-1',
+      email: 'user@example.com'
+    });
+
+    const claims = verifyJwt(response.body.accessToken, 'test-secret');
+    expect(claims).not.toBeNull();
+    if (!claims) {
+      throw new Error('Expected JWT claims');
+    }
+    const session = await getSession(claims.jti);
+    expect(session).toEqual({
+      userId: 'user-1',
       email: 'user@example.com'
     });
   });
