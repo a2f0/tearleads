@@ -172,14 +172,14 @@ describe('SqliteWindow', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('disables Export as CSV when no table is selected', async () => {
+  it('hides Export as CSV when no table is selected', async () => {
     const user = userEvent.setup();
     render(<SqliteWindow {...defaultProps} />);
 
     await user.click(screen.getByRole('button', { name: 'File' }));
     expect(
-      screen.getByRole('menuitem', { name: 'Export as CSV' })
-    ).toBeDisabled();
+      screen.queryByRole('menuitem', { name: 'Export as CSV' })
+    ).not.toBeInTheDocument();
   });
 
   it('calls export handler from File menu when a table is selected', async () => {
@@ -189,6 +189,9 @@ describe('SqliteWindow', () => {
     await user.click(screen.getByTestId('table-sizes-select'));
 
     await user.click(screen.getByRole('button', { name: 'File' }));
+    expect(
+      screen.getByRole('menuitem', { name: 'Export as CSV' })
+    ).toBeEnabled();
     await user.click(screen.getByRole('menuitem', { name: 'Export as CSV' }));
 
     expect(mockExportCsv).toHaveBeenCalledTimes(1);
