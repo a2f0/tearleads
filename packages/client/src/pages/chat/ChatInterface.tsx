@@ -49,7 +49,10 @@ export function ChatInterface({ generate, isVisionModel }: ChatInterfaceProps) {
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div
+        data-testid="chat-interface-container"
+        className="flex h-full flex-col overflow-hidden"
+      >
         <Thread
           isVisionModel={isVisionModel}
           attachedImage={attachedImage}
