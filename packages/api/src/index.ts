@@ -8,6 +8,7 @@ import packageJson from '../package.json' with { type: 'json' };
 import { closePostgresPool } from './lib/postgres.js';
 import { closeRedisClient } from './lib/redis.js';
 import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
+import { authMiddleware } from './middleware/auth.js';
 import { postgresRouter } from './routes/admin/postgres.js';
 import { redisRouter } from './routes/admin/redis.js';
 import { authRouter } from './routes/auth.js';
@@ -80,6 +81,8 @@ app.get('/v1/ping', (_req: Request, res: Response) => {
   };
   res.status(200).json(pingData);
 });
+
+app.use('/v1', authMiddleware);
 
 // Admin routes
 app.use('/v1/admin/redis', redisRouter);
