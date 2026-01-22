@@ -27,13 +27,13 @@ describe('syncMetadataTable', () => {
   });
 
   it('has required columns', () => {
-    expect(syncMetadataTable.columns.id).toBeDefined();
-    expect(syncMetadataTable.columns.entityType).toBeDefined();
-    expect(syncMetadataTable.columns.entityId).toBeDefined();
-    expect(syncMetadataTable.columns.version).toBeDefined();
-    expect(syncMetadataTable.columns.lastModified).toBeDefined();
-    expect(syncMetadataTable.columns.syncStatus).toBeDefined();
-    expect(syncMetadataTable.columns.deleted).toBeDefined();
+    expect(syncMetadataTable.columns['id']).toBeDefined();
+    expect(syncMetadataTable.columns['entityType']).toBeDefined();
+    expect(syncMetadataTable.columns['entityId']).toBeDefined();
+    expect(syncMetadataTable.columns['version']).toBeDefined();
+    expect(syncMetadataTable.columns['lastModified']).toBeDefined();
+    expect(syncMetadataTable.columns['syncStatus']).toBeDefined();
+    expect(syncMetadataTable.columns['deleted']).toBeDefined();
   });
 
   it('has indexes', () => {
@@ -54,9 +54,9 @@ describe('userSettingsTable', () => {
   });
 
   it('has required columns', () => {
-    expect(userSettingsTable.columns.key).toBeDefined();
-    expect(userSettingsTable.columns.value).toBeDefined();
-    expect(userSettingsTable.columns.updatedAt).toBeDefined();
+    expect(userSettingsTable.columns['key']).toBeDefined();
+    expect(userSettingsTable.columns['value']).toBeDefined();
+    expect(userSettingsTable.columns['updatedAt']).toBeDefined();
   });
 });
 
@@ -71,9 +71,9 @@ describe('usersTable', () => {
   });
 
   it('has required columns', () => {
-    expect(usersTable.columns.id).toBeDefined();
-    expect(usersTable.columns.email).toBeDefined();
-    expect(usersTable.columns.emailConfirmed).toBeDefined();
+    expect(usersTable.columns['id']).toBeDefined();
+    expect(usersTable.columns['email']).toBeDefined();
+    expect(usersTable.columns['emailConfirmed']).toBeDefined();
   });
 });
 
@@ -88,11 +88,11 @@ describe('userCredentialsTable', () => {
   });
 
   it('has required columns', () => {
-    expect(userCredentialsTable.columns.userId).toBeDefined();
-    expect(userCredentialsTable.columns.passwordHash).toBeDefined();
-    expect(userCredentialsTable.columns.passwordSalt).toBeDefined();
-    expect(userCredentialsTable.columns.createdAt).toBeDefined();
-    expect(userCredentialsTable.columns.updatedAt).toBeDefined();
+    expect(userCredentialsTable.columns['userId']).toBeDefined();
+    expect(userCredentialsTable.columns['passwordHash']).toBeDefined();
+    expect(userCredentialsTable.columns['passwordSalt']).toBeDefined();
+    expect(userCredentialsTable.columns['createdAt']).toBeDefined();
+    expect(userCredentialsTable.columns['updatedAt']).toBeDefined();
   });
 });
 
@@ -107,8 +107,8 @@ describe('migrationsTable', () => {
   });
 
   it('has required columns', () => {
-    expect(migrationsTable.columns.version).toBeDefined();
-    expect(migrationsTable.columns.appliedAt).toBeDefined();
+    expect(migrationsTable.columns['version']).toBeDefined();
+    expect(migrationsTable.columns['appliedAt']).toBeDefined();
   });
 });
 
@@ -123,10 +123,10 @@ describe('secretsTable', () => {
   });
 
   it('has required columns', () => {
-    expect(secretsTable.columns.key).toBeDefined();
-    expect(secretsTable.columns.encryptedValue).toBeDefined();
-    expect(secretsTable.columns.createdAt).toBeDefined();
-    expect(secretsTable.columns.updatedAt).toBeDefined();
+    expect(secretsTable.columns['key']).toBeDefined();
+    expect(secretsTable.columns['encryptedValue']).toBeDefined();
+    expect(secretsTable.columns['createdAt']).toBeDefined();
+    expect(secretsTable.columns['updatedAt']).toBeDefined();
   });
 });
 
@@ -141,15 +141,15 @@ describe('filesTable', () => {
   });
 
   it('has required columns', () => {
-    expect(filesTable.columns.id).toBeDefined();
-    expect(filesTable.columns.name).toBeDefined();
-    expect(filesTable.columns.size).toBeDefined();
-    expect(filesTable.columns.mimeType).toBeDefined();
-    expect(filesTable.columns.uploadDate).toBeDefined();
-    expect(filesTable.columns.contentHash).toBeDefined();
-    expect(filesTable.columns.storagePath).toBeDefined();
-    expect(filesTable.columns.thumbnailPath).toBeDefined();
-    expect(filesTable.columns.deleted).toBeDefined();
+    expect(filesTable.columns['id']).toBeDefined();
+    expect(filesTable.columns['name']).toBeDefined();
+    expect(filesTable.columns['size']).toBeDefined();
+    expect(filesTable.columns['mimeType']).toBeDefined();
+    expect(filesTable.columns['uploadDate']).toBeDefined();
+    expect(filesTable.columns['contentHash']).toBeDefined();
+    expect(filesTable.columns['storagePath']).toBeDefined();
+    expect(filesTable.columns['thumbnailPath']).toBeDefined();
+    expect(filesTable.columns['deleted']).toBeDefined();
   });
 
   it('has indexes', () => {
@@ -170,13 +170,13 @@ describe('contactsTable', () => {
   });
 
   it('has required columns', () => {
-    expect(contactsTable.columns.id).toBeDefined();
-    expect(contactsTable.columns.firstName).toBeDefined();
-    expect(contactsTable.columns.lastName).toBeDefined();
-    expect(contactsTable.columns.birthday).toBeDefined();
-    expect(contactsTable.columns.createdAt).toBeDefined();
-    expect(contactsTable.columns.updatedAt).toBeDefined();
-    expect(contactsTable.columns.deleted).toBeDefined();
+    expect(contactsTable.columns['id']).toBeDefined();
+    expect(contactsTable.columns['firstName']).toBeDefined();
+    expect(contactsTable.columns['lastName']).toBeDefined();
+    expect(contactsTable.columns['birthday']).toBeDefined();
+    expect(contactsTable.columns['createdAt']).toBeDefined();
+    expect(contactsTable.columns['updatedAt']).toBeDefined();
+    expect(contactsTable.columns['deleted']).toBeDefined();
   });
 
   it('has indexes', () => {
@@ -196,11 +196,11 @@ describe('contactPhonesTable', () => {
   });
 
   it('has required columns', () => {
-    expect(contactPhonesTable.columns.id).toBeDefined();
-    expect(contactPhonesTable.columns.contactId).toBeDefined();
-    expect(contactPhonesTable.columns.phoneNumber).toBeDefined();
-    expect(contactPhonesTable.columns.label).toBeDefined();
-    expect(contactPhonesTable.columns.isPrimary).toBeDefined();
+    expect(contactPhonesTable.columns['id']).toBeDefined();
+    expect(contactPhonesTable.columns['contactId']).toBeDefined();
+    expect(contactPhonesTable.columns['phoneNumber']).toBeDefined();
+    expect(contactPhonesTable.columns['label']).toBeDefined();
+    expect(contactPhonesTable.columns['isPrimary']).toBeDefined();
   });
 
   it('has indexes', () => {
@@ -222,11 +222,11 @@ describe('contactEmailsTable', () => {
   });
 
   it('has required columns', () => {
-    expect(contactEmailsTable.columns.id).toBeDefined();
-    expect(contactEmailsTable.columns.contactId).toBeDefined();
-    expect(contactEmailsTable.columns.email).toBeDefined();
-    expect(contactEmailsTable.columns.label).toBeDefined();
-    expect(contactEmailsTable.columns.isPrimary).toBeDefined();
+    expect(contactEmailsTable.columns['id']).toBeDefined();
+    expect(contactEmailsTable.columns['contactId']).toBeDefined();
+    expect(contactEmailsTable.columns['email']).toBeDefined();
+    expect(contactEmailsTable.columns['label']).toBeDefined();
+    expect(contactEmailsTable.columns['isPrimary']).toBeDefined();
   });
 
   it('has indexes', () => {
@@ -251,11 +251,11 @@ describe('analyticsEventsTable', () => {
   });
 
   it('has required columns', () => {
-    expect(analyticsEventsTable.columns.id).toBeDefined();
-    expect(analyticsEventsTable.columns.eventName).toBeDefined();
-    expect(analyticsEventsTable.columns.durationMs).toBeDefined();
-    expect(analyticsEventsTable.columns.success).toBeDefined();
-    expect(analyticsEventsTable.columns.timestamp).toBeDefined();
+    expect(analyticsEventsTable.columns['id']).toBeDefined();
+    expect(analyticsEventsTable.columns['eventName']).toBeDefined();
+    expect(analyticsEventsTable.columns['durationMs']).toBeDefined();
+    expect(analyticsEventsTable.columns['success']).toBeDefined();
+    expect(analyticsEventsTable.columns['timestamp']).toBeDefined();
   });
 
   it('has indexes', () => {
@@ -277,12 +277,12 @@ describe('notesTable', () => {
   });
 
   it('has required columns', () => {
-    expect(notesTable.columns.id).toBeDefined();
-    expect(notesTable.columns.title).toBeDefined();
-    expect(notesTable.columns.content).toBeDefined();
-    expect(notesTable.columns.createdAt).toBeDefined();
-    expect(notesTable.columns.updatedAt).toBeDefined();
-    expect(notesTable.columns.deleted).toBeDefined();
+    expect(notesTable.columns['id']).toBeDefined();
+    expect(notesTable.columns['title']).toBeDefined();
+    expect(notesTable.columns['content']).toBeDefined();
+    expect(notesTable.columns['createdAt']).toBeDefined();
+    expect(notesTable.columns['updatedAt']).toBeDefined();
+    expect(notesTable.columns['deleted']).toBeDefined();
   });
 
   it('has indexes', () => {
