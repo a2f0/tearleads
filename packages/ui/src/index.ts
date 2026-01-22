@@ -1,4 +1,5 @@
 // Components
+export { ApiDocs } from './components/api-docs/ApiDocs.js';
 export {
   ConnectionIndicator,
   type ConnectionIndicatorProps,
@@ -22,7 +23,6 @@ export {
   TooltipProvider,
   TooltipTrigger
 } from './components/tooltip.js';
-export { ApiDocs } from './components/api-docs/ApiDocs.js';
 
 // Context
 export {

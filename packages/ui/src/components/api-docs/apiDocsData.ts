@@ -98,7 +98,9 @@ const slugify = (value: string): string => {
     .replace(/(^-|-$)/g, '');
 };
 
-const getSchemaType = (schema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject | undefined): string | undefined => {
+const getSchemaType = (
+  schema: OpenAPIV3.SchemaObject | OpenAPIV3.ReferenceObject | undefined
+): string | undefined => {
   if (!schema) {
     return undefined;
   }
@@ -118,7 +120,10 @@ const buildParameters = (
     | Array<OpenAPIV3.ParameterObject | OpenAPIV3.ReferenceObject>
     | undefined
 ): ApiParameter[] => {
-  const parameters = [...(pathParameters ?? []), ...(operationParameters ?? [])];
+  const parameters = [
+    ...(pathParameters ?? []),
+    ...(operationParameters ?? [])
+  ];
 
   return parameters.map((param) => {
     if (isReferenceObject(param)) {
@@ -156,7 +161,9 @@ const buildRequestBody = (
 
   return {
     contentTypes,
-    ...(requestBody.description ? { description: requestBody.description } : {}),
+    ...(requestBody.description
+      ? { description: requestBody.description }
+      : {}),
     ...(requestBody.required ? { required: true } : {})
   };
 };
@@ -254,7 +261,9 @@ export const buildApiDocsData = (
         method,
         path,
         summary: buildSummary(operation, method, path),
-        ...(operation.description ? { description: operation.description } : {}),
+        ...(operation.description
+          ? { description: operation.description }
+          : {}),
         tags,
         parameters: buildParameters(pathItem.parameters, operation.parameters),
         ...(operation.requestBody
