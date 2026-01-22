@@ -280,6 +280,14 @@ describe('Chat', () => {
 
       expect(screen.getByTestId('composer-input')).toBeInTheDocument();
     });
+
+    it('stretches the chat interface to fill the window', () => {
+      renderChat();
+
+      const container = screen.getByTestId('chat-interface-container');
+
+      expect(container).toHaveClass('h-full flex flex-col');
+    });
   });
 
   describe('when a vision model is loaded', () => {
