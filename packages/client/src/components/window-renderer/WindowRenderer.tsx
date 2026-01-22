@@ -21,6 +21,7 @@ import { OpfsWindow } from '@/components/opfs-window';
 import { PhotosWindow } from '@/components/photos-window';
 import { SettingsWindow } from '@/components/settings-window';
 import { SqliteWindow } from '@/components/sqlite-window';
+import { SyncWindow } from '@/components/sync-window';
 import { TablesWindow } from '@/components/tables-window';
 import { VideoWindow } from '@/components/video-window';
 import type {
@@ -75,7 +76,8 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   tables: { Component: TablesWindow },
   debug: { Component: DebugWindow },
   documents: { Component: DocumentsWindow },
-  'local-storage': { Component: LocalStorageWindow }
+  'local-storage': { Component: LocalStorageWindow },
+  sync: { Component: SyncWindow }
 };
 
 export function WindowRenderer() {

@@ -1,4 +1,5 @@
 import type {
+  AuthResponse,
   PingData,
   PostgresAdminInfoResponse,
   PostgresTablesResponse,
@@ -44,6 +45,17 @@ async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
 }
 
 export const api = {
+  auth: {
+    login: (email: string, password: string) =>
+      request<AuthResponse>('/auth/login', {
+        fetchOptions: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        },
+        eventName: 'api_post_auth_login'
+      })
+  },
   ping: {
     get: () => request<PingData>('/ping', { eventName: 'api_get_ping' })
   },
