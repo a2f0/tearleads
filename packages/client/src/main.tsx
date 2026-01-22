@@ -293,6 +293,14 @@ if (rootElement) {
                                       path="admin/postgres"
                                       element={<PostgresAdmin />}
                                     />
+                                    <Route
+                                      path="docs"
+                                      element={<ApiDocsPage />}
+                                    />
+                                    <Route
+                                      path="docs/api"
+                                      element={<ApiDocsPage />}
+                                    />
                                   </Route>
                                 </Routes>
                               </Suspense>
