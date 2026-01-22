@@ -1,6 +1,7 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@rapid/ui';
 import type { ICommand } from '@uiw/react-md-editor';
 import type { ButtonHTMLAttributes, ReactElement } from 'react';
+import { zIndex } from '@/constants/zIndex';
 
 type CommandFilter = (command: ICommand, isExtra: boolean) => false | ICommand;
 
@@ -70,7 +71,9 @@ const renderToolbarButton = (
           {command.icon}
         </button>
       </TooltipTrigger>
-      <TooltipContent className="z-[10050]">{tooltipLabel}</TooltipContent>
+      <TooltipContent style={{ zIndex: zIndex.tooltip }}>
+        {tooltipLabel}
+      </TooltipContent>
     </Tooltip>
   );
 };
