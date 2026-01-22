@@ -47,6 +47,9 @@ jobs:
       - name: Download SQLite WASM
         run: ./scripts/downloadSqliteWasm.sh
 
+      - name: Build API (for OpenAPI spec)
+        run: pnpm --filter @rapid/api build
+
       - name: Build web assets
         run: pnpm --filter @rapid/client build
         env:

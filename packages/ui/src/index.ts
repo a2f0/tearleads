@@ -1,4 +1,5 @@
 // Components
+export { ApiDocs } from './components/api-docs/ApiDocs.js';
 export {
   ConnectionIndicator,
   type ConnectionIndicatorProps,

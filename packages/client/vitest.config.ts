@@ -110,7 +110,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
+      '@': path.resolve(__dirname, './src'),
+      '@rapid/api/dist/openapi.json': path.resolve(
+        __dirname,
+        '../api/dist/openapi.json'
+      )
     }
   }
 });
