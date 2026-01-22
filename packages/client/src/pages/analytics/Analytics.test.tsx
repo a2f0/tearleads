@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AnalyticsEvent } from '@/db/analytics';
 import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
+import { exportTableAsCsv } from '@/components/sqlite/exportTableCsv';
 import { Analytics } from './Analytics';
 
 declare global {
@@ -71,6 +72,10 @@ vi.mock('@/db/analytics', async (importOriginal) => {
     getEventCount: (...args: unknown[]) => mockGetEventCount(...args)
   };
 });
+
+vi.mock('@/components/sqlite/exportTableCsv', () => ({
+  exportTableAsCsv: vi.fn()
+}));
 
 function renderAnalyticsRaw(props: ComponentProps<typeof Analytics> = {}) {
   return render(
@@ -151,6 +156,7 @@ describe('Analytics', () => {
     mockClearEvents.mockResolvedValue(undefined);
     mockGetDistinctEventTypes.mockResolvedValue([]);
     mockGetEventCount.mockResolvedValue(0);
+    vi.mocked(exportTableAsCsv).mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -306,6 +312,31 @@ describe('Analytics', () => {
         expect.any(Function),
         false
       );
+    });
+
+    it('exports analytics table with mapped sort column', async () => {
+      const user = userEvent.setup();
+      const onExportCsvChange = vi.fn();
+      await renderAnalytics({ onExportCsvChange });
+
+      await user.click(screen.getByTestId('sort-durationMs'));
+
+      const handlerCall = onExportCsvChange.mock.calls.find(
+        (call) => typeof call[0] === 'function'
+      );
+      expect(handlerCall).toBeTruthy();
+      const handler = handlerCall?.[0];
+      if (typeof handler !== 'function') {
+        throw new Error('Export handler missing');
+      }
+
+      await handler();
+
+      expect(exportTableAsCsv).toHaveBeenCalledWith({
+        tableName: 'analytics_events',
+        sortColumn: 'duration_ms',
+        sortDirection: 'asc'
+      });
     });
 
     it('fetches analytics data on mount', async () => {
