@@ -1,18 +1,20 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import { ApiDocs } from '@rapid/ui';
-import openapiSpec from '@rapid/api/openapi.json';
-import { defaultLanguage } from '../../../i18n/config';
+import openapiSpec from '@rapid/api/dist/openapi.json';
+import { defaultLanguage, isSupportedLanguage } from '../../../i18n/config';
 import type { SupportedLanguage } from '../../../i18n/config';
+import { getStaticPathsForLocales } from '../../../i18n/utils';
 
-interface Props {
-  lang: SupportedLanguage;
-}
+export const getStaticPaths = getStaticPathsForLocales;
 
-const { lang = defaultLanguage } = Astro.props;
+const { lang } = Astro.params;
+const currentLang: SupportedLanguage = isSupportedLanguage(lang)
+  ? lang
+  : defaultLanguage;
 ---
 
-<Layout title="API Documentation - Rapid" lang={lang}>
+<Layout title="API Documentation - Rapid" lang={currentLang}>
   <section class="container mx-auto px-4 py-8">
     <ApiDocs client:load spec={openapiSpec} />
   </section>
