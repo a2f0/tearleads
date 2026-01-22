@@ -1,8 +1,4 @@
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from '@rapid/ui';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@rapid/ui';
 import {
   Download,
   Loader2,
