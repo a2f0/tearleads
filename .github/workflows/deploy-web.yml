@@ -68,8 +68,8 @@ jobs:
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
             "chgrp -R www-data /var/www/app && chmod -R u=rwX,g=rX,o= /var/www/app"
 
-      - name: Build API bundle
-        run: pnpm --filter @rapid/api build:bundle
+      - name: Build API bundle and CLI
+        run: pnpm --filter @rapid/api build:all
 
       - name: Deploy API
         run: |
