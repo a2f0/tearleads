@@ -284,13 +284,9 @@ describe('Chat', () => {
     it('stretches the chat interface to fill the window', () => {
       renderChat();
 
-      const provider = screen.getByTestId('assistant-runtime-provider');
-      const container = provider.firstElementChild;
+      const container = screen.getByTestId('chat-interface-container');
 
-      expect(container).not.toBeNull();
-      expect(container).toHaveClass('h-full');
-      expect(container).toHaveClass('flex');
-      expect(container).toHaveClass('flex-col');
+      expect(container).toHaveClass('h-full flex flex-col');
     });
   });
 
