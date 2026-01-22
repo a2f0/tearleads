@@ -11,6 +11,7 @@
     "dev": "tsx watch --clear-screen=false src/index.ts",
     "build": "tsc && pnpm buildOpenapi",
     "buildOpenapi": "tsx scripts/generate-openapi.ts",
+    "createAccount": "tsx scripts/createAccount.ts",
     "build:bundle": "rm -rf dist && esbuild src/index.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/server.cjs --minify --sourcemap",
     "build:cli": "esbuild src/apiCli.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/apiCli.cjs --minify --sourcemap",
     "build:all": "rm -rf dist && pnpm build:bundle && pnpm build:cli",
