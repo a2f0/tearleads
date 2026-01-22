@@ -249,9 +249,7 @@ describe('buildApiDocsData', () => {
     }
 
     expect(statusResponse.ref).toBe('#/components/responses/StatusOk');
-    expect(statusParameter.ref).toBe(
-      '#/components/parameters/CorrelationId'
-    );
+    expect(statusParameter.ref).toBe('#/components/parameters/CorrelationId');
 
     const fallback = result.tagGroups
       .flatMap((group) => group.operations)
