@@ -46,6 +46,11 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
+let analyticsExportState: {
+  handler: (() => Promise<void>) | null;
+  exporting: boolean;
+};
+
 vi.mock('@/pages/analytics', () => ({
   Analytics: ({
     showBackLink,
@@ -57,7 +62,15 @@ vi.mock('@/pages/analytics', () => ({
       exporting: boolean
     ) => void;
   }) => {
-    void onExportCsvChange;
+    const { useEffect } = require('react');
+
+    useEffect(() => {
+      onExportCsvChange?.(
+        analyticsExportState?.handler ?? null,
+        analyticsExportState?.exporting ?? false
+      );
+    }, [onExportCsvChange]);
+
     return (
       <div
         data-testid="analytics-content"
@@ -72,7 +85,8 @@ vi.mock('@/pages/analytics', () => ({
 vi.mock('./AnalyticsWindowMenuBar', () => ({
   AnalyticsWindowMenuBar: ({
     onClose,
-    onExportCsv
+    onExportCsv,
+    exportCsvDisabled
   }: {
     onClose: () => void;
     onExportCsv?: () => void;
@@ -86,6 +100,7 @@ vi.mock('./AnalyticsWindowMenuBar', () => ({
         type="button"
         onClick={onExportCsv}
         data-testid="menu-export-button"
+        disabled={exportCsvDisabled}
       >
         Export
       </button>
@@ -104,6 +119,7 @@ describe('AnalyticsWindow', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    analyticsExportState = { handler: null, exporting: false };
   });
 
   it('renders in FloatingWindow', () => {
@@ -159,5 +175,26 @@ describe('AnalyticsWindow', () => {
     const window = screen.getByTestId('floating-window');
     const props = JSON.parse(window.dataset['props'] || '{}');
     expect(props.initialDimensions).toEqual(initialDimensions);
+  });
+
+  it('invokes export handler when export is clicked', async () => {
+    const user = userEvent.setup();
+    const exportHandler = vi.fn().mockResolvedValue(undefined);
+    analyticsExportState = { handler: exportHandler, exporting: false };
+
+    render(<AnalyticsWindow {...defaultProps} />);
+    await user.click(screen.getByTestId('menu-export-button'));
+
+    expect(exportHandler).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables export button while exporting', () => {
+    analyticsExportState = {
+      handler: vi.fn().mockResolvedValue(undefined),
+      exporting: true
+    };
+
+    render(<AnalyticsWindow {...defaultProps} />);
+    expect(screen.getByTestId('menu-export-button')).toBeDisabled();
   });
 });
