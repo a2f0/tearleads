@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { Fragment, createElement } from 'react';
 import type { ReactNode } from 'react';
+import { createElement, Fragment } from 'react';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import failOnConsole from 'vitest-fail-on-console';
 
@@ -21,9 +21,8 @@ import { server } from './msw/server';
 failOnConsole();
 
 vi.mock('@rapid/ui', async () => {
-  const actual = await vi.importActual<typeof import('@rapid/ui')>(
-    '@rapid/ui'
-  );
+  const actual =
+    await vi.importActual<typeof import('@rapid/ui')>('@rapid/ui');
 
   return {
     ...actual,
@@ -31,12 +30,8 @@ vi.mock('@rapid/ui', async () => {
       createElement(Fragment, null, children),
     TooltipTrigger: ({ children }: { children: ReactNode }) =>
       createElement(Fragment, null, children),
-    TooltipContent: ({
-      children,
-      ...props
-    }: {
-      children: ReactNode;
-    }) => createElement('span', props, children)
+    TooltipContent: ({ children, ...props }: { children: ReactNode }) =>
+      createElement('span', props, children)
   };
 });
 
