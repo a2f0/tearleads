@@ -5,7 +5,7 @@ const locators = {
   docsLink: 'main a[href="/docs/api"]',
   homeLink: 'header a[href="/"]',
   architectureContent: '[data-testid="architecture-content"]',
-  swaggerContainer: '.swagger-ui-container',
+  apiDocsContent: 'text=API Docs',
   settingsButton: '[data-testid="settings-button"]',
   productsDropdown: '.nav-dropdown:has(button:text("Products"))',
   docsDropdown: '.nav-dropdown:has(button:text("Docs"))',
@@ -44,7 +44,7 @@ test.describe('Website Navigation', () => {
 
     await expect(page).toHaveURL(/\/docs\/api\/?$/);
     await expect(page).toHaveTitle('API Documentation - Rapid');
-    await expect(page.locator(locators.swaggerContainer)).toBeVisible();
+    await expect(page.locator(locators.apiDocsContent)).toBeVisible();
   });
 
   test('back link on architecture page returns to home', async ({ page }) => {
@@ -96,7 +96,7 @@ test.describe('Website Navigation', () => {
   test('direct URL navigation works for docs page', async ({ page }) => {
     await page.goto('/docs/api');
     await expect(page).toHaveTitle('API Documentation - Rapid');
-    await expect(page.locator(locators.swaggerContainer)).toBeVisible();
+    await expect(page.locator(locators.apiDocsContent)).toBeVisible();
   });
 
   test('navigation preserves theme setting', async ({ page }) => {

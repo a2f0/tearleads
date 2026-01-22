@@ -21,7 +21,7 @@ export default defineConfig({
           import.meta.dirname,
           '../ui/src/images/logo.svg'
         ),
-        '@rapid/api/openapi.json': path.resolve(
+        '@rapid/api/dist/openapi.json': path.resolve(
           import.meta.dirname,
           '../api/dist/openapi.json'
         ),
