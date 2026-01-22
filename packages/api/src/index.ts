@@ -10,6 +10,7 @@ import { closeRedisClient } from './lib/redis.js';
 import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
 import { postgresRouter } from './routes/admin/postgres.js';
 import { redisRouter } from './routes/admin/redis.js';
+import { authRouter } from './routes/auth.js';
 import { chatRouter } from './routes/chat.js';
 import { emailsRouter } from './routes/emails.js';
 import { closeAllSSEConnections, sseRouter } from './routes/sse.js';
@@ -83,6 +84,9 @@ app.get('/v1/ping', (_req: Request, res: Response) => {
 // Admin routes
 app.use('/v1/admin/redis', redisRouter);
 app.use('/v1/admin/postgres', postgresRouter);
+
+// Auth routes
+app.use('/v1/auth', authRouter);
 
 // Chat completion route
 app.use('/v1/chat', chatRouter);

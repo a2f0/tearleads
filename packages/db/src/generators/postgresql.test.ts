@@ -84,6 +84,38 @@ describe('generatePostgresSchema', () => {
     );
   });
 
+  it('generates foreign key references', () => {
+    const tables: TableDefinition[] = [
+      {
+        name: 'users',
+        propertyName: 'users',
+        columns: {
+          id: { type: 'text', sqlName: 'id', primaryKey: true }
+        }
+      },
+      {
+        name: 'user_credentials',
+        propertyName: 'userCredentials',
+        columns: {
+          userId: {
+            type: 'text',
+            sqlName: 'user_id',
+            primaryKey: true,
+            references: {
+              table: 'users',
+              column: 'id',
+              onDelete: 'cascade'
+            }
+          }
+        }
+      }
+    ];
+    const result = generatePostgresSchema(tables);
+    expect(result).toContain(
+      "userId: text('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' })"
+    );
+  });
+
   it('generates boolean columns as native boolean', () => {
     const tables: TableDefinition[] = [
       {

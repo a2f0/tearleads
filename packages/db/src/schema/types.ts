@@ -28,7 +28,18 @@ export interface ColumnDefinition {
   defaultValue?: string | number | boolean;
   /** Enum values for text columns with restricted values */
   enumValues?: readonly string[];
+  /** Optional foreign key reference */
+  references?: ColumnReference;
 }
+
+export type ColumnReference = {
+  /** Table property name for the reference (camelCase export name). */
+  table: string;
+  /** Column property name for the reference (camelCase property). */
+  column: string;
+  /** Delete behavior for the foreign key. */
+  onDelete?: 'cascade' | 'restrict' | 'no action' | 'set null' | 'set default';
+};
 
 /**
  * Index definition for a table.
@@ -76,10 +87,36 @@ export function isColumnDefinition(value: unknown): value is ColumnDefinition {
     return false;
   }
   const sqlName = value['sqlName'];
+  const references = value['references'];
   return (
     isColumnType(value['type']) &&
     typeof sqlName === 'string' &&
-    sqlName.length > 0
+    sqlName.length > 0 &&
+    (references === undefined || isColumnReference(references))
+  );
+}
+
+export function isColumnReference(value: unknown): value is ColumnReference {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const table = value['table'];
+  const column = value['column'];
+  const onDelete = value['onDelete'];
+  if (typeof table !== 'string' || table.length === 0) {
+    return false;
+  }
+  if (typeof column !== 'string' || column.length === 0) {
+    return false;
+  }
+  if (onDelete === undefined) {
+    return true;
+  }
+  return (
+    typeof onDelete === 'string' &&
+    ['cascade', 'restrict', 'no action', 'set null', 'set default'].includes(
+      onDelete
+    )
   );
 }
 
