@@ -22,6 +22,12 @@ vi.mock('./ThemeSelector', () => ({
   ThemeSelector: () => <div data-testid="theme-selector">ThemeSelector</div>
 }));
 
+vi.mock('@/components/screensaver', () => ({
+  ScreensaverButton: () => (
+    <div data-testid="screensaver-button">ScreensaverButton</div>
+  )
+}));
+
 describe('DisplayPropertiesWindow', () => {
   const defaultProps = {
     open: true,

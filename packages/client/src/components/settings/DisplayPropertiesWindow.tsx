@@ -1,4 +1,5 @@
 import { FloatingWindow } from '@/components/floating-window';
+import { ScreensaverButton } from '@/components/screensaver';
 import { DisplayPropertiesWindowMenuBar } from './DisplayPropertiesWindowMenuBar';
 import { FontSelector } from './FontSelector';
 import { IconDepthToggle } from './IconDepthToggle';
@@ -37,6 +38,7 @@ export function DisplayPropertiesWindow({
           <PatternSelector />
           <IconDepthToggle />
           <FontSelector />
+          <ScreensaverButton />
         </div>
       </div>
     </FloatingWindow>
