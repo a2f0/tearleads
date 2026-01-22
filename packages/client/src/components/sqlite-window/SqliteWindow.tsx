@@ -28,10 +28,28 @@ export function SqliteWindow({
 }: SqliteWindowProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
+  const [exportHandler, setExportHandler] = useState<
+    (() => Promise<void>) | null
+  >(null);
+  const [exportingCsv, setExportingCsv] = useState(false);
 
   const handleRefresh = useCallback(() => {
     setRefreshKey((prev) => prev + 1);
   }, []);
+
+  const handleExportCsv = useCallback(() => {
+    if (exportHandler) {
+      void exportHandler();
+    }
+  }, [exportHandler]);
+
+  const handleExportCsvChange = useCallback(
+    (handler: (() => Promise<void>) | null, exporting: boolean) => {
+      setExportHandler(() => handler);
+      setExportingCsv(exporting);
+    },
+    []
+  );
 
   return (
     <FloatingWindow
@@ -49,13 +67,19 @@ export function SqliteWindow({
       minHeight={350}
     >
       <div className="flex h-full flex-col">
-        <SqliteWindowMenuBar onClose={onClose} onRefresh={handleRefresh} />
+        <SqliteWindowMenuBar
+          onClose={onClose}
+          onRefresh={handleRefresh}
+          onExportCsv={handleExportCsv}
+          exportCsvDisabled={!exportHandler || exportingCsv}
+        />
         <div className="min-h-0 flex-1 p-4">
           {selectedTable ? (
             <TableRowsView
               key={`${refreshKey}-${selectedTable}`}
               tableName={selectedTable}
               containerClassName="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden"
+              onExportCsvChange={handleExportCsvChange}
               backLink={
                 <Button
                   type="button"
