@@ -1,3 +1,4 @@
+import { ArrowLeft } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -85,9 +86,12 @@ export function SqliteWindow({
                   type="button"
                   variant="ghost"
                   size="sm"
+                  className="h-7 px-2"
                   onClick={() => setSelectedTable(null)}
+                  aria-label="Back to SQLite"
                 >
-                  Back to SQLite
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="sr-only">Back to SQLite</span>
                 </Button>
               }
             />

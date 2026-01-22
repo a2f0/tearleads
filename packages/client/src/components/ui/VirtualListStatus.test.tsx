@@ -62,7 +62,7 @@ describe('VirtualListStatus', () => {
       );
 
       expect(
-        screen.getByText('Viewing 1-50 of 50 loaded (1000 total)')
+        screen.getByText('Viewing 1-50 of 50 loaded (1,000 total)')
       ).toBeInTheDocument();
     });
 
@@ -78,7 +78,7 @@ describe('VirtualListStatus', () => {
         />
       );
 
-      expect(screen.getByText('50 loaded+ of 1000 total')).toBeInTheDocument();
+      expect(screen.getByText('50 loaded+ of 1,000 total')).toBeInTheDocument();
     });
 
     it('renders hasMore indicator in viewing range format', () => {
