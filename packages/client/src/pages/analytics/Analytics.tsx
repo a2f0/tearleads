@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DurationChart } from '@/components/duration-chart';
+import { exportTableAsCsv } from '@/components/sqlite/exportTableCsv';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
@@ -31,7 +32,6 @@ import {
   type StatsSortColumn
 } from '@/db/analytics';
 import { useDatabaseContext } from '@/db/hooks';
-import { exportTableAsCsv } from '@/components/sqlite/exportTableCsv';
 import { SortIcon, type SortState } from './SortIcon';
 
 interface AnalyticsProps {

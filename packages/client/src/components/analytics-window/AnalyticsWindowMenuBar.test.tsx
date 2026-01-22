@@ -28,12 +28,7 @@ describe('AnalyticsWindowMenuBar', () => {
 
   it('shows Export as CSV option in File menu', async () => {
     const user = userEvent.setup();
-    render(
-      <AnalyticsWindowMenuBar
-        {...defaultProps}
-        onExportCsv={vi.fn()}
-      />
-    );
+    render(<AnalyticsWindowMenuBar {...defaultProps} onExportCsv={vi.fn()} />);
 
     await user.click(screen.getByRole('button', { name: 'File' }));
 
@@ -56,12 +51,7 @@ describe('AnalyticsWindowMenuBar', () => {
   it('calls onExportCsv when Export as CSV is clicked', async () => {
     const user = userEvent.setup();
     const onExportCsv = vi.fn();
-    render(
-      <AnalyticsWindowMenuBar
-        {...defaultProps}
-        onExportCsv={onExportCsv}
-      />
-    );
+    render(<AnalyticsWindowMenuBar {...defaultProps} onExportCsv={onExportCsv} />);
 
     await user.click(screen.getByRole('button', { name: 'File' }));
     await user.click(screen.getByRole('menuitem', { name: 'Export as CSV' }));

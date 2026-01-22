@@ -302,7 +302,10 @@ describe('Analytics', () => {
         (call) => typeof call[0] === 'function'
       );
       expect(handlerCall).toBeTruthy();
-      expect(onExportCsvChange).toHaveBeenCalledWith(expect.any(Function), false);
+      expect(onExportCsvChange).toHaveBeenCalledWith(
+        expect.any(Function),
+        false
+      );
     });
 
     it('fetches analytics data on mount', async () => {

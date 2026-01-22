@@ -15,7 +15,6 @@ import type {
   ReactNode
 } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import {
   type ColumnInfo,
   exportTableAsCsv,
@@ -23,6 +22,7 @@ import {
   getStringField,
   parseColumnInfo
 } from '@/components/sqlite/exportTableCsv';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
