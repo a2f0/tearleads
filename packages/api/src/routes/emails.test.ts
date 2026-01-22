@@ -1,7 +1,13 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
+import type { RedisClient } from '../lib/redis.js';
 import { mockConsoleError } from '../test/console-mocks.js';
+
+// Type guard for test mocks
+function isRedisClient(obj: unknown): obj is RedisClient {
+  return obj !== null && typeof obj === 'object';
+}
 
 const mockLRange = vi.fn();
 const mockLLen = vi.fn();
@@ -15,13 +21,17 @@ const createMockMulti = () => ({
   exec: mockExec
 });
 
-const createMockClient = () => ({
-  lRange: mockLRange,
-  lLen: mockLLen,
-  get: mockGet,
-  mGet: mockMGet,
-  multi: createMockMulti
-});
+function createMockClient(): RedisClient {
+  const mock = {
+    lRange: mockLRange,
+    lLen: mockLLen,
+    get: mockGet,
+    mGet: mockMGet,
+    multi: createMockMulti
+  };
+  if (!isRedisClient(mock)) throw new Error('Invalid mock');
+  return mock;
+}
 
 vi.mock('../lib/redis.js', () => ({
   getRedisClient: vi.fn(() => Promise.resolve(createMockClient()))
