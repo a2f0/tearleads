@@ -132,11 +132,9 @@ vi.mock('./NotesWindowMenuBar', () => ({
 
 // Mock NotesWindowTableView
 vi.mock('./NotesWindowTableView', () => ({
-  NotesWindowTableView: ({
-    showDeleted
-  }: {
-    showDeleted: boolean;
-  }) => <div data-testid="notes-table" data-show-deleted={showDeleted} />
+  NotesWindowTableView: ({ showDeleted }: { showDeleted: boolean }) => (
+    <div data-testid="notes-table" data-show-deleted={showDeleted} />
+  )
 }));
 
 describe('NotesWindow', () => {
