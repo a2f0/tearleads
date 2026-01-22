@@ -46,6 +46,7 @@ export type ApiOperation = {
 };
 
 export type ApiTagGroup = {
+  id: string;
   name: string;
   description?: string;
   operations: ApiOperation[];
@@ -72,8 +73,6 @@ const HTTP_METHODS: ApiHttpMethod[] = [
   'head',
   'trace'
 ];
-
-const METHOD_FALLBACK_TITLE = 'Untitled endpoint';
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null;
@@ -203,7 +202,7 @@ const buildSummary = (
     return operation.operationId;
   }
 
-  return `${method.toUpperCase()} ${path}` || METHOD_FALLBACK_TITLE;
+  return `${method.toUpperCase()} ${path}`;
 };
 
 const ensureUniqueId = (value: string, used: Set<string>): string => {
@@ -314,6 +313,7 @@ export const buildApiDocsData = (
     const description = tagDescriptions.get(tag);
 
     return {
+      id: `tag-${slugify(tag)}`,
       name: tag,
       ...(description ? { description } : {}),
       operations: operations.filter((operation) => operation.tags.includes(tag))
