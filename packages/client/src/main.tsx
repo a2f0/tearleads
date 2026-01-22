@@ -17,6 +17,7 @@ import {
   errorBoundaryRef
 } from './components/ui/error-boundary';
 import { WindowRenderer } from './components/window-renderer';
+import { AuthProvider } from './contexts/AuthContext';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { DatabaseProvider, SettingsProvider } from './db/hooks';
 import { i18n } from './i18n';
@@ -127,6 +128,9 @@ const Photos = lazy(() =>
 const Settings = lazy(() =>
   import('./pages/Settings').then((m) => ({ default: m.Settings }))
 );
+const Sync = lazy(() =>
+  import('./pages/Sync').then((m) => ({ default: m.Sync }))
+);
 const Sqlite = lazy(() =>
   import('./pages/Sqlite').then((m) => ({ default: m.Sqlite }))
 );
@@ -180,133 +184,145 @@ if (rootElement) {
                     <AudioProvider>
                       <VideoProvider>
                         <SSEProvider>
-                          <WindowManagerProvider>
-                            <BrowserRouter>
-                              <Suspense
-                                fallback={
-                                  <div className="p-8 text-center text-muted-foreground">
-                                    Loading...
-                                  </div>
-                                }
-                              >
-                                <Routes>
-                                  <Route path="/" element={<App />}>
-                                    <Route index element={<Home />} />
-                                    <Route path="files" element={<Files />} />
-                                    <Route
-                                      path="contacts"
-                                      element={<Contacts />}
-                                    />
-                                    <Route
-                                      path="contacts/new"
-                                      element={<ContactNew />}
-                                    />
-                                    <Route
-                                      path="contacts/:id"
-                                      element={<ContactDetail />}
-                                    />
-                                    <Route
-                                      path="documents"
-                                      element={<Documents />}
-                                    />
-                                    <Route
-                                      path="documents/:id"
-                                      element={<DocumentDetail />}
-                                    />
-                                    <Route path="notes" element={<Notes />} />
-                                    <Route
-                                      path="notes/:id"
-                                      element={<NoteDetail />}
-                                    />
-                                    <Route path="photos" element={<Photos />} />
-                                    <Route
-                                      path="photos/:id"
-                                      element={<PhotoDetail />}
-                                    />
-                                    <Route
-                                      path="audio"
-                                      element={<AudioPage />}
-                                    />
-                                    <Route
-                                      path="audio/:id"
-                                      element={<AudioDetail />}
-                                    />
-                                    <Route
-                                      path="videos"
-                                      element={<VideoPage />}
-                                    />
-                                    <Route
-                                      path="videos/:id"
-                                      element={<VideoDetail />}
-                                    />
-                                    <Route path="sqlite" element={<Sqlite />} />
-                                    <Route
-                                      path="console"
-                                      element={<Console />}
-                                    />
-                                    <Route path="debug" element={<Debug />} />
-                                    <Route path="chat" element={<Chat />} />
-                                    <Route path="email" element={<Email />} />
-                                    <Route path="models" element={<Models />} />
-                                    <Route
-                                      path="settings"
-                                      element={<Settings />}
-                                    />
-                                    <Route
-                                      path="licenses"
-                                      element={<Licenses />}
-                                    />
-                                    <Route
-                                      path="sqlite/tables"
-                                      element={<Tables />}
-                                    />
-                                    <Route
-                                      path="sqlite/tables/:tableName"
-                                      element={<TableRows />}
-                                    />
-                                    <Route
-                                      path="analytics"
-                                      element={<Analytics />}
-                                    />
-                                    <Route path="opfs" element={<Opfs />} />
-                                    <Route
-                                      path="cache-storage"
-                                      element={<CacheStorage />}
-                                    />
-                                    <Route
-                                      path="local-storage"
-                                      element={<LocalStorage />}
-                                    />
-                                    <Route
-                                      path="keychain"
-                                      element={<Keychain />}
-                                    />
-                                    <Route
-                                      path="keychain/:id"
-                                      element={<KeychainDetail />}
-                                    />
-                                    <Route
-                                      path="admin/redis"
-                                      element={<Admin />}
-                                    />
-                                    <Route
-                                      path="admin/postgres"
-                                      element={<PostgresAdmin />}
-                                    />
-                                    <Route
-                                      path="docs"
-                                      element={<ApiDocsPage />}
-                                    />
-                                    <Route
-                                      path="docs/api"
-                                      element={<ApiDocsPage />}
-                                    />
-                                  </Route>
-                                </Routes>
-                              </Suspense>
-                            </BrowserRouter>
-                            <WindowRenderer />
-                          </WindowManagerProvider>
+                          <AuthProvider>
+                            <WindowManagerProvider>
+                              <BrowserRouter>
+                                <Suspense
+                                  fallback={
+                                    <div className="p-8 text-center text-muted-foreground">
+                                      Loading...
+                                    </div>
+                                  }
+                                >
+                                  <Routes>
+                                    <Route path="/" element={<App />}>
+                                      <Route index element={<Home />} />
+                                      <Route path="files" element={<Files />} />
+                                      <Route
+                                        path="contacts"
+                                        element={<Contacts />}
+                                      />
+                                      <Route
+                                        path="contacts/new"
+                                        element={<ContactNew />}
+                                      />
+                                      <Route
+                                        path="contacts/:id"
+                                        element={<ContactDetail />}
+                                      />
+                                      <Route
+                                        path="documents"
+                                        element={<Documents />}
+                                      />
+                                      <Route
+                                        path="documents/:id"
+                                        element={<DocumentDetail />}
+                                      />
+                                      <Route path="notes" element={<Notes />} />
+                                      <Route
+                                        path="notes/:id"
+                                        element={<NoteDetail />}
+                                      />
+                                      <Route
+                                        path="photos"
+                                        element={<Photos />}
+                                      />
+                                      <Route
+                                        path="photos/:id"
+                                        element={<PhotoDetail />}
+                                      />
+                                      <Route
+                                        path="audio"
+                                        element={<AudioPage />}
+                                      />
+                                      <Route
+                                        path="audio/:id"
+                                        element={<AudioDetail />}
+                                      />
+                                      <Route
+                                        path="videos"
+                                        element={<VideoPage />}
+                                      />
+                                      <Route
+                                        path="videos/:id"
+                                        element={<VideoDetail />}
+                                      />
+                                      <Route
+                                        path="sqlite"
+                                        element={<Sqlite />}
+                                      />
+                                      <Route
+                                        path="console"
+                                        element={<Console />}
+                                      />
+                                      <Route path="debug" element={<Debug />} />
+                                      <Route
+                                        path="docs"
+                                        element={<ApiDocsPage />}
+                                      />
+                                      <Route
+                                        path="docs/api"
+                                        element={<ApiDocsPage />}
+                                      />
+                                      <Route path="chat" element={<Chat />} />
+                                      <Route path="email" element={<Email />} />
+                                      <Route
+                                        path="models"
+                                        element={<Models />}
+                                      />
+                                      <Route
+                                        path="settings"
+                                        element={<Settings />}
+                                      />
+                                      <Route
+                                        path="licenses"
+                                        element={<Licenses />}
+                                      />
+                                      <Route
+                                        path="sqlite/tables"
+                                        element={<Tables />}
+                                      />
+                                      <Route
+                                        path="sqlite/tables/:tableName"
+                                        element={<TableRows />}
+                                      />
+                                      <Route
+                                        path="analytics"
+                                        element={<Analytics />}
+                                      />
+                                      <Route path="opfs" element={<Opfs />} />
+                                      <Route
+                                        path="cache-storage"
+                                        element={<CacheStorage />}
+                                      />
+                                      <Route
+                                        path="local-storage"
+                                        element={<LocalStorage />}
+                                      />
+                                      <Route
+                                        path="keychain"
+                                        element={<Keychain />}
+                                      />
+                                      <Route
+                                        path="keychain/:id"
+                                        element={<KeychainDetail />}
+                                      />
+                                      <Route
+                                        path="admin/redis"
+                                        element={<Admin />}
+                                      />
+                                      <Route
+                                        path="admin/postgres"
+                                        element={<PostgresAdmin />}
+                                      />
+                                      <Route path="sync" element={<Sync />} />
+                                    </Route>
+                                  </Routes>
+                                </Suspense>
+                              </BrowserRouter>
+                              <WindowRenderer />
+                            </WindowManagerProvider>
+                          </AuthProvider>
                         </SSEProvider>
                       </VideoProvider>
                     </AudioProvider>

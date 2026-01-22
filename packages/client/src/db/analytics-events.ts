@@ -24,6 +24,7 @@ export type AnalyticsEventSlug =
   | 'api_get_admin_redis_dbsize'
   | 'api_get_admin_postgres_info'
   | 'api_get_admin_postgres_tables'
+  | 'api_post_auth_login'
   // LLM operations
   | 'llm_model_load'
   | 'llm_prompt_text'
@@ -49,6 +50,7 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_get_admin_redis_dbsize: 'API Redis DB Size',
   api_get_admin_postgres_info: 'API Postgres Info',
   api_get_admin_postgres_tables: 'API Postgres Tables',
+  api_post_auth_login: 'API Auth Login',
   // LLM
   llm_model_load: 'LLM Model Load',
   llm_prompt_text: 'LLM Text Prompt',
@@ -114,6 +116,9 @@ export interface ApiGetAdminPostgresInfoDetail {
 export interface ApiGetAdminPostgresTablesDetail {
   tableCount?: number;
 }
+export interface ApiPostAuthLoginDetail {
+  email?: string;
+}
 
 // LLM events
 export interface LlmModelLoadDetail {
@@ -148,6 +153,7 @@ export interface EventDetailMap {
   api_get_admin_redis_dbsize: ApiGetAdminRedisDbsizeDetail;
   api_get_admin_postgres_info: ApiGetAdminPostgresInfoDetail;
   api_get_admin_postgres_tables: ApiGetAdminPostgresTablesDetail;
+  api_post_auth_login: ApiPostAuthLoginDetail;
   llm_model_load: LlmModelLoadDetail;
   llm_prompt_text: LlmPromptTextDetail;
   llm_prompt_multimodal: LlmPromptMultimodalDetail;

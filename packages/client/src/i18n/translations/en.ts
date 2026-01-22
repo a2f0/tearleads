@@ -32,7 +32,8 @@ export const en = {
     admin: 'Admin',
     postgresAdmin: 'Postgres Admin',
     settings: 'Settings',
-    email: 'Email'
+    email: 'Email',
+    sync: 'Sync'
   },
   audio: {
     play: 'Play',
