@@ -4,9 +4,9 @@ import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { exportTableAsCsv } from '@/components/sqlite/exportTableCsv';
 import type { AnalyticsEvent } from '@/db/analytics';
 import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
-import { exportTableAsCsv } from '@/components/sqlite/exportTableCsv';
 import { Analytics } from './Analytics';
 
 declare global {
