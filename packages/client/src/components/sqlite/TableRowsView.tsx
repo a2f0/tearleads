@@ -85,6 +85,21 @@ function formatCellValue(value: unknown): string {
   return String(value);
 }
 
+function parseColumnInfo(schemaRows: unknown[]): ColumnInfo[] {
+  return schemaRows
+    .filter(isRecord)
+    .map((row) => {
+      const name = getStringField(row, 'name');
+      const type = getStringField(row, 'type');
+      const pk = getNumberField(row, 'pk');
+      if (!name || !type || pk === null) {
+        return null;
+      }
+      return { name, type, pk };
+    })
+    .filter((col): col is ColumnInfo => col !== null);
+}
+
 function getRowKey(
   row: Record<string, unknown>,
   columns: ColumnInfo[],
@@ -202,18 +217,7 @@ export function TableRowsView({
           const schemaRows = Array.isArray(schemaResult.rows)
             ? schemaResult.rows
             : [];
-          const columnInfo = schemaRows
-            .filter(isRecord)
-            .map((row) => {
-              const name = getStringField(row, 'name');
-              const type = getStringField(row, 'type');
-              const pk = getNumberField(row, 'pk');
-              if (!name || !type || pk === null) {
-                return null;
-              }
-              return { name, type, pk };
-            })
-            .filter((col): col is ColumnInfo => col !== null);
+          const columnInfo = parseColumnInfo(schemaRows);
 
           setColumns(columnInfo);
           currentColumns = columnInfo;
@@ -395,18 +399,7 @@ export function TableRowsView({
         const schemaRows = Array.isArray(schemaResult.rows)
           ? schemaResult.rows
           : [];
-        const columnInfo = schemaRows
-          .filter(isRecord)
-          .map((row) => {
-            const name = getStringField(row, 'name');
-            const type = getStringField(row, 'type');
-            const pk = getNumberField(row, 'pk');
-            if (!name || !type || pk === null) {
-              return null;
-            }
-            return { name, type, pk };
-          })
-          .filter((col): col is ColumnInfo => col !== null);
+        const columnInfo = parseColumnInfo(schemaRows);
         exportColumns = columnInfo;
         if (columnInfo.length > 0) {
           setColumns(columnInfo);
