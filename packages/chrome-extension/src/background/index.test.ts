@@ -43,8 +43,10 @@ describe('background script', () => {
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await import('./index');
 
-    const onInstalledCallback =
-      mockChrome.runtime.onInstalled.addListener.mock.calls[0][0];
+    const firstCall = mockChrome.runtime.onInstalled.addListener.mock.calls[0];
+    if (!firstCall)
+      throw new Error('Expected onInstalled.addListener to be called');
+    const onInstalledCallback = firstCall[0];
     onInstalledCallback();
 
     expect(consoleSpy).toHaveBeenCalledWith('Rapid extension installed');
@@ -68,8 +70,10 @@ describe('background script', () => {
 
     await import('./index');
 
-    const onMessageCallback =
-      mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+    const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
+    if (!firstCall)
+      throw new Error('Expected onMessage.addListener to be called');
+    const onMessageCallback = firstCall[0];
     const result = onMessageCallback(
       { type: MessageType.GET_TAB_INFO },
       {},
@@ -94,8 +98,10 @@ describe('background script', () => {
 
     await import('./index');
 
-    const onMessageCallback =
-      mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+    const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
+    if (!firstCall)
+      throw new Error('Expected onMessage.addListener to be called');
+    const onMessageCallback = firstCall[0];
     onMessageCallback({ type: MessageType.GET_TAB_INFO }, {}, mockSendResponse);
 
     expect(mockSendResponse).toHaveBeenCalledWith({
@@ -107,8 +113,10 @@ describe('background script', () => {
   it('should return false for unknown message types', async () => {
     await import('./index');
 
-    const onMessageCallback =
-      mockChrome.runtime.onMessage.addListener.mock.calls[0][0];
+    const firstCall = mockChrome.runtime.onMessage.addListener.mock.calls[0];
+    if (!firstCall)
+      throw new Error('Expected onMessage.addListener to be called');
+    const onMessageCallback = firstCall[0];
     const result = onMessageCallback(
       { type: 'UNKNOWN_TYPE' },
       {},

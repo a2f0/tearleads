@@ -1,4 +1,4 @@
-import type { IncomingMessage } from 'node:http';
+import type { Response } from 'supertest';
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
@@ -10,10 +10,18 @@ const mockSubscribe = vi.fn();
 const mockUnsubscribe = vi.fn();
 const mockDuplicate = vi.fn();
 
-type ParserCallback = (error: Error | null, data: string) => void;
+type ParserCallback = (error: Error | null, body: unknown) => void;
 
-function createSseParser(onData: (data: string, res: IncomingMessage) => void) {
-  return (res: IncomingMessage, callback: ParserCallback) => {
+interface DestroyableResponse extends Response {
+  destroy(): void;
+}
+
+function isDestroyable(res: Response): res is DestroyableResponse {
+  return 'destroy' in res && typeof res.destroy === 'function';
+}
+
+function createSseParser(onData: (data: string, res: Response) => void) {
+  return (res: Response, callback: ParserCallback) => {
     let data = '';
     let doneCalled = false;
     const done = (error: Error | null) => {
@@ -62,7 +70,7 @@ describe('SSE Routes', () => {
         .parse(
           createSseParser((data, res) => {
             if (data.includes('event: connected')) {
-              res.destroy();
+              if (isDestroyable(res)) res.destroy();
             }
           })
         );
@@ -79,7 +87,7 @@ describe('SSE Routes', () => {
         .parse(
           createSseParser((data, res) => {
             if (data.includes('event: connected')) {
-              res.destroy();
+              if (isDestroyable(res)) res.destroy();
             }
           })
         );
@@ -95,7 +103,7 @@ describe('SSE Routes', () => {
         .parse(
           createSseParser((data, res) => {
             if (data.includes('event: connected')) {
-              res.destroy();
+              if (isDestroyable(res)) res.destroy();
             }
           })
         );
@@ -128,7 +136,7 @@ describe('SSE Routes', () => {
         .parse(
           createSseParser((data, res) => {
             if (data.includes(': keepalive')) {
-              res.destroy();
+              if (isDestroyable(res)) res.destroy();
             }
           })
         );
@@ -151,7 +159,7 @@ describe('SSE Routes', () => {
         .parse(
           createSseParser((data, res) => {
             if (data.includes('event: connected')) {
-              res.destroy();
+              if (isDestroyable(res)) res.destroy();
             }
           })
         );
@@ -172,7 +180,7 @@ describe('SSE Routes', () => {
         .parse(
           createSseParser((data, res) => {
             if (data.includes('event: connected')) {
-              res.destroy();
+              if (isDestroyable(res)) res.destroy();
             }
           })
         );
@@ -191,7 +199,7 @@ describe('SSE Routes', () => {
         .parse(
           createSseParser((data, res) => {
             if (data.includes('event: connected')) {
-              res.destroy();
+              if (isDestroyable(res)) res.destroy();
             }
           })
         );
@@ -213,7 +221,7 @@ describe('SSE Routes', () => {
         .parse(
           createSseParser((data, res) => {
             if (data.includes('event: error')) {
-              res.destroy();
+              if (isDestroyable(res)) res.destroy();
             }
           })
         );
@@ -234,7 +242,7 @@ describe('SSE Routes', () => {
         .parse(
           createSseParser((data, res) => {
             if (data.includes('event: connected')) {
-              res.destroy();
+              if (isDestroyable(res)) res.destroy();
             }
           })
         );
@@ -263,7 +271,7 @@ describe('SSE Routes', () => {
               }
             }
             if (data.includes('event: message')) {
-              res.destroy();
+              if (isDestroyable(res)) res.destroy();
             }
           })
         );
@@ -288,7 +296,9 @@ describe('SSE Routes', () => {
                 messageHandler('not valid json', 'broadcast');
               }
               // Give a small delay then close
-              setTimeout(() => res.destroy(), 50);
+              setTimeout(() => {
+                if (isDestroyable(res)) res.destroy();
+              }, 50);
             }
           })
         );
@@ -311,7 +321,9 @@ describe('SSE Routes', () => {
               if (typeof messageHandler === 'function') {
                 messageHandler(JSON.stringify({ foo: 'bar' }), 'broadcast');
               }
-              setTimeout(() => res.destroy(), 50);
+              setTimeout(() => {
+                if (isDestroyable(res)) res.destroy();
+              }, 50);
             }
           })
         );
