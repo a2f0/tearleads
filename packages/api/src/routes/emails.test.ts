@@ -1,19 +1,17 @@
 import request from 'supertest';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
-import type { RedisClient } from '../lib/redis.js';
+import { createAuthHeader } from '../test/auth.js';
 import { mockConsoleError } from '../test/console-mocks.js';
 
-// Type guard for test mocks
-function isRedisClient(obj: unknown): obj is RedisClient {
-  return obj !== null && typeof obj === 'object';
-}
-
+const sessionStore = new Map<string, string>();
 const mockLRange = vi.fn();
 const mockLLen = vi.fn();
 const mockGet = vi.fn();
 const mockMGet = vi.fn();
 const mockExec = vi.fn();
+const mockSet = vi.fn();
+const mockExpire = vi.fn();
 
 const createMockMulti = () => ({
   del: vi.fn().mockReturnThis(),
@@ -21,17 +19,27 @@ const createMockMulti = () => ({
   exec: mockExec
 });
 
-function createMockClient(): RedisClient {
-  const mock = {
-    lRange: mockLRange,
-    lLen: mockLLen,
-    get: mockGet,
-    mGet: mockMGet,
-    multi: createMockMulti
-  };
-  if (!isRedisClient(mock)) throw new Error('Invalid mock');
-  return mock;
-}
+const createMockClient = () => ({
+  lRange: mockLRange,
+  lLen: mockLLen,
+  get: (key: string) => {
+    if (key.startsWith('session:')) {
+      return Promise.resolve(sessionStore.get(key) ?? null);
+    }
+    return mockGet(key);
+  },
+  mGet: mockMGet,
+  set: (key: string, value: string) => {
+    sessionStore.set(key, value);
+    mockSet(key, value);
+    return Promise.resolve('OK');
+  },
+  expire: (key: string, seconds: number) => {
+    mockExpire(key, seconds);
+    return Promise.resolve(1);
+  },
+  multi: createMockMulti
+});
 
 vi.mock('../lib/redis.js', () => ({
   getRedisClient: vi.fn(() => Promise.resolve(createMockClient()))
@@ -71,16 +79,27 @@ const mockEmailNoName = {
 };
 
 describe('Emails Routes', () => {
-  beforeEach(() => {
+  let authHeader: string;
+
+  beforeEach(async () => {
     vi.clearAllMocks();
+    sessionStore.clear();
+    vi.stubEnv('JWT_SECRET', 'test-secret');
     mockLRange.mockResolvedValue([]);
     mockLLen.mockResolvedValue(0);
     mockMGet.mockResolvedValue([]);
+    authHeader = await createAuthHeader();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   describe('GET /v1/emails', () => {
     it('returns empty array when no emails exist', async () => {
-      const response = await request(app).get('/v1/emails');
+      const response = await request(app)
+        .get('/v1/emails')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -96,7 +115,9 @@ describe('Emails Routes', () => {
       mockLRange.mockResolvedValue(['test-email-1']);
       mockMGet.mockResolvedValue([JSON.stringify(mockStoredEmail)]);
 
-      const response = await request(app).get('/v1/emails');
+      const response = await request(app)
+        .get('/v1/emails')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body.emails).toHaveLength(1);
@@ -115,7 +136,9 @@ describe('Emails Routes', () => {
       mockConsoleError();
       mockLLen.mockRejectedValue(new Error('Redis error'));
 
-      const response = await request(app).get('/v1/emails');
+      const response = await request(app)
+        .get('/v1/emails')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to list emails' });
@@ -126,7 +149,9 @@ describe('Emails Routes', () => {
       mockLRange.mockResolvedValue(['test-email-2']);
       mockMGet.mockResolvedValue([JSON.stringify(mockEmailNoSubject)]);
 
-      const response = await request(app).get('/v1/emails');
+      const response = await request(app)
+        .get('/v1/emails')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body.emails[0]).toEqual({
@@ -144,7 +169,9 @@ describe('Emails Routes', () => {
       mockLRange.mockResolvedValue(['test-email-3']);
       mockMGet.mockResolvedValue([JSON.stringify(mockEmailNoName)]);
 
-      const response = await request(app).get('/v1/emails');
+      const response = await request(app)
+        .get('/v1/emails')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body.emails[0]).toEqual({
@@ -163,7 +190,9 @@ describe('Emails Routes', () => {
       mockLRange.mockResolvedValue(['bad-email']);
       mockMGet.mockResolvedValue(['{not-json']);
 
-      const response = await request(app).get('/v1/emails');
+      const response = await request(app)
+        .get('/v1/emails')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body.emails).toEqual([]);
@@ -178,7 +207,9 @@ describe('Emails Routes', () => {
       mockLRange.mockResolvedValue(['test-email-1', 'missing-email']);
       mockMGet.mockResolvedValue([JSON.stringify(mockStoredEmail), null]);
 
-      const response = await request(app).get('/v1/emails');
+      const response = await request(app)
+        .get('/v1/emails')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body.emails).toHaveLength(1);
@@ -189,7 +220,9 @@ describe('Emails Routes', () => {
       mockLRange.mockResolvedValue(['test-email-1']);
       mockMGet.mockResolvedValue([JSON.stringify(mockStoredEmail)]);
 
-      const response = await request(app).get('/v1/emails?offset=10&limit=20');
+      const response = await request(app)
+        .get('/v1/emails?offset=10&limit=20')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(mockLRange).toHaveBeenCalledWith('smtp:emails', 10, 29);
@@ -202,7 +235,9 @@ describe('Emails Routes', () => {
       mockLLen.mockResolvedValue(200);
       mockLRange.mockResolvedValue([]);
 
-      const response = await request(app).get('/v1/emails?limit=500');
+      const response = await request(app)
+        .get('/v1/emails?limit=500')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(mockLRange).toHaveBeenCalledWith('smtp:emails', 0, 99);
@@ -213,7 +248,9 @@ describe('Emails Routes', () => {
       mockLLen.mockResolvedValue(10);
       mockLRange.mockResolvedValue([]);
 
-      const response = await request(app).get('/v1/emails?offset=-5');
+      const response = await request(app)
+        .get('/v1/emails?offset=-5')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(mockLRange).toHaveBeenCalledWith('smtp:emails', 0, 49);
@@ -225,7 +262,9 @@ describe('Emails Routes', () => {
     it('returns email by ID', async () => {
       mockGet.mockResolvedValue(JSON.stringify(mockStoredEmail));
 
-      const response = await request(app).get('/v1/emails/test-email-1');
+      const response = await request(app)
+        .get('/v1/emails/test-email-1')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -242,7 +281,9 @@ describe('Emails Routes', () => {
     it('returns 404 when email not found', async () => {
       mockGet.mockResolvedValue(null);
 
-      const response = await request(app).get('/v1/emails/nonexistent');
+      const response = await request(app)
+        .get('/v1/emails/nonexistent')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(404);
       expect(response.body).toEqual({ error: 'Email not found' });
@@ -252,7 +293,9 @@ describe('Emails Routes', () => {
       mockConsoleError();
       mockGet.mockRejectedValue(new Error('Redis error'));
 
-      const response = await request(app).get('/v1/emails/test-email-1');
+      const response = await request(app)
+        .get('/v1/emails/test-email-1')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to get email' });
@@ -267,7 +310,9 @@ describe('Emails Routes', () => {
         [null, 1]
       ]);
 
-      const response = await request(app).delete('/v1/emails/test-email-1');
+      const response = await request(app)
+        .delete('/v1/emails/test-email-1')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ success: true });
@@ -280,7 +325,9 @@ describe('Emails Routes', () => {
         [null, 0]
       ]);
 
-      const response = await request(app).delete('/v1/emails/nonexistent');
+      const response = await request(app)
+        .delete('/v1/emails/nonexistent')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(404);
       expect(response.body).toEqual({ error: 'Email not found' });
@@ -290,7 +337,9 @@ describe('Emails Routes', () => {
       mockConsoleError();
       mockExec.mockRejectedValue(new Error('Redis error'));
 
-      const response = await request(app).delete('/v1/emails/test-email-1');
+      const response = await request(app)
+        .delete('/v1/emails/test-email-1')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to delete email' });
