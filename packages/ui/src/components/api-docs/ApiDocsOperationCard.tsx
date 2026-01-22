@@ -18,9 +18,7 @@ const METHOD_STYLES: Record<string, string> = {
 };
 
 export function ApiDocsOperationCard({ operation }: ApiDocsOperationCardProps) {
-  const methodStyle =
-    METHOD_STYLES[operation.method] ??
-    'bg-muted/40 text-muted-foreground border-muted';
+  const methodStyle = METHOD_STYLES[operation.method];
 
   return (
     <details className="group rounded-xl border bg-background/80 shadow-[0_1px_0_rgba(0,0,0,0.04)]">

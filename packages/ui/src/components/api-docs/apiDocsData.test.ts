@@ -40,11 +40,38 @@ const spec: OpenAPIV3.Document = {
             schema: {
               type: 'string'
             }
+          },
+          {
+            name: 'schemaRef',
+            in: 'query',
+            required: false,
+            schema: {
+              $ref: '#/components/schemas/SchemaRef'
+            }
+          },
+          {
+            name: 'flag',
+            in: 'query',
+            required: false
           }
         ],
         responses: {
           '200': {
             description: 'OK'
+          }
+        }
+      }
+    },
+    '/auth/register': {
+      post: {
+        operationId: 'registerUser',
+        tags: ['Auth'],
+        requestBody: {
+          $ref: '#/components/requestBodies/Register'
+        },
+        responses: {
+          '201': {
+            description: 'Created'
           }
         }
       }
@@ -73,6 +100,34 @@ const spec: OpenAPIV3.Document = {
           }
         }
       }
+    },
+    '/duplicate': {
+      post: {
+        operationId: 'loginUser',
+        tags: ['Auth'],
+        responses: {
+          '202': {
+            description: 'Accepted'
+          }
+        }
+      }
+    },
+    '/duplicate-2': {
+      post: {
+        operationId: 'loginUser',
+        tags: ['Auth'],
+        responses: {
+          '203': {
+            description: 'Accepted later'
+          }
+        }
+      }
+    },
+    '/no-responses': {
+      get: {}
+    },
+    '/ref': {
+      $ref: '#/components/pathItems/Ref'
     }
   }
 };
@@ -85,11 +140,11 @@ describe('buildApiDocsData', () => {
     });
 
     expect(result.baseUrl).toBe('https://api.rapid.local');
-    expect(result.totalOperations).toBe(3);
+    expect(result.totalOperations).toBe(7);
     expect(result.tagGroups[0].name).toBe('Auth');
-    expect(result.tagGroups[0].operations).toHaveLength(1);
+    expect(result.tagGroups[0].operations).toHaveLength(4);
     expect(result.tagGroups[1].name).toBe('General');
-    expect(result.tagGroups[1].operations).toHaveLength(2);
+    expect(result.tagGroups[1].operations).toHaveLength(3);
   });
 
   it('exposes operation metadata', () => {
@@ -112,5 +167,53 @@ describe('buildApiDocsData', () => {
 
     expect(health?.deprecated).toBe(true);
     expect(health?.summary).toBe('Health check');
+  });
+
+  it('handles references and fallback summaries', () => {
+    const result = buildApiDocsData(
+      {
+        ...spec,
+        info: {
+          title: 'No servers',
+          version: '0.0.0'
+        },
+        servers: undefined,
+        tags: undefined,
+        paths: {
+          ...spec.paths,
+          '/fallback': {
+            get: {
+              responses: {}
+            }
+          }
+        }
+      },
+      {
+        fallbackTag: 'General'
+      }
+    );
+
+    const register = result.tagGroups
+      .flatMap((group) => group.operations)
+      .find((operation) => operation.path === '/auth/register');
+
+    expect(register?.requestBody?.ref).toBe(
+      '#/components/requestBodies/Register'
+    );
+
+    const status = result.tagGroups
+      .flatMap((group) => group.operations)
+      .find((operation) => operation.path === '/status');
+
+    expect(status?.responses[0].ref).toBe('#/components/responses/StatusOk');
+    expect(status?.parameters[0].ref).toBe(
+      '#/components/parameters/CorrelationId'
+    );
+
+    const fallback = result.tagGroups
+      .flatMap((group) => group.operations)
+      .find((operation) => operation.path === '/fallback');
+
+    expect(fallback?.summary).toBe('GET /fallback');
   });
 });
