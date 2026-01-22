@@ -1,5 +1,12 @@
+import type { ICommand } from '@uiw/react-md-editor';
 import { describe, expect, it, vi } from 'vitest';
 import { markdownToolbarCommandsFilter } from './markdown-toolbar';
+
+function assertCommand(value: false | ICommand): asserts value is ICommand {
+  if (value === false) {
+    throw new Error('Expected command');
+  }
+}
 
 describe('markdownToolbarCommandsFilter', () => {
   it('filters out the help command', () => {
@@ -32,7 +39,8 @@ describe('markdownToolbarCommandsFilter', () => {
     const result = markdownToolbarCommandsFilter(command, false);
     expect(result).not.toBe(false);
 
-    if (result?.render) {
+    assertCommand(result);
+    if (result.render) {
       expect(result.buttonProps?.title).toBeUndefined();
       expect(result.render).toBeTypeOf('function');
     }
@@ -50,7 +58,8 @@ describe('markdownToolbarCommandsFilter', () => {
     const result = markdownToolbarCommandsFilter(command, false);
     expect(result).not.toBe(false);
 
-    if (result?.render) {
+    assertCommand(result);
+    if (result.render) {
       const rendered = result.render(result, false, vi.fn(), 0);
       expect(rendered).toBeNull();
     }
@@ -68,7 +77,8 @@ describe('markdownToolbarCommandsFilter', () => {
     const result = markdownToolbarCommandsFilter(command, false);
     expect(result).not.toBe(false);
 
-    if (result?.render) {
+    assertCommand(result);
+    if (result.render) {
       const rendered = result.render(result, false, vi.fn(), 0);
       expect(rendered).not.toBeNull();
     }
