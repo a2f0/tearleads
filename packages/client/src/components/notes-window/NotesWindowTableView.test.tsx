@@ -142,7 +142,9 @@ describe('NotesWindowTableView', () => {
     mockDb.orderBy.mockResolvedValue(deletedNotes);
     const onSelectNote = vi.fn();
     const user = userEvent.setup();
-    render(<NotesWindowTableView onSelectNote={onSelectNote} showDeleted={true} />);
+    render(
+      <NotesWindowTableView onSelectNote={onSelectNote} showDeleted={true} />
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Deleted Note')).toBeInTheDocument();
