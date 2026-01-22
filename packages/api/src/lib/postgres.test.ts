@@ -62,7 +62,7 @@ const DEV_ENV_KEYS = [
 ];
 
 function setupDevEnvWithoutVars() {
-  process.env.NODE_ENV = 'development';
+  process.env['NODE_ENV'] = 'development';
   for (const key of DEV_ENV_KEYS) {
     delete process.env[key];
   }
@@ -75,8 +75,8 @@ describe('postgres lib', () => {
     for (const key of DEV_ENV_KEYS) {
       delete process.env[key];
     }
-    if (!process.env.NODE_ENV) {
-      process.env.NODE_ENV = 'test';
+    if (!process.env['NODE_ENV']) {
+      process.env['NODE_ENV'] = 'test';
     }
     poolInstances.length = 0;
   });
@@ -86,8 +86,8 @@ describe('postgres lib', () => {
   });
 
   it('builds connection info from database url', async () => {
-    process.env.NODE_ENV = 'development';
-    process.env.DATABASE_URL =
+    process.env['NODE_ENV'] = 'development';
+    process.env['DATABASE_URL'] =
       'postgres://user%20name:pass@db.example.com:5432/my%20db';
 
     const { getPostgresConnectionInfo } = await loadPostgresModule();
@@ -101,11 +101,11 @@ describe('postgres lib', () => {
   });
 
   it('builds connection info from discrete env vars', async () => {
-    process.env.POSTGRES_HOST = 'localhost';
-    process.env.POSTGRES_PORT = '5433';
-    process.env.POSTGRES_USER = 'rapid';
-    process.env.POSTGRES_PASSWORD = 'secret';
-    process.env.POSTGRES_DATABASE = 'rapid_db';
+    process.env['POSTGRES_HOST'] = 'localhost';
+    process.env['POSTGRES_PORT'] = '5433';
+    process.env['POSTGRES_USER'] = 'rapid';
+    process.env['POSTGRES_PASSWORD'] = 'secret';
+    process.env['POSTGRES_DATABASE'] = 'rapid_db';
 
     const { getPostgresConnectionInfo } = await loadPostgresModule();
 
@@ -118,11 +118,11 @@ describe('postgres lib', () => {
   });
 
   it('builds connection info from PG* env vars', async () => {
-    process.env.NODE_ENV = 'development';
-    process.env.PGHOST = 'localhost';
-    process.env.PGPORT = '5434';
-    process.env.PGUSER = 'rapid_pg';
-    process.env.PGDATABASE = 'rapid_db';
+    process.env['NODE_ENV'] = 'development';
+    process.env['PGHOST'] = 'localhost';
+    process.env['PGPORT'] = '5434';
+    process.env['PGUSER'] = 'rapid_pg';
+    process.env['PGDATABASE'] = 'rapid_db';
 
     const { getPostgresConnectionInfo } = await loadPostgresModule();
 
@@ -135,7 +135,7 @@ describe('postgres lib', () => {
   });
 
   it('throws when required release env vars are missing', async () => {
-    process.env.POSTGRES_HOST = 'localhost';
+    process.env['POSTGRES_HOST'] = 'localhost';
 
     const { getPostgresConnectionInfo } = await loadPostgresModule();
 
@@ -145,11 +145,11 @@ describe('postgres lib', () => {
   });
 
   it('throws when POSTGRES_PORT is invalid in release mode', async () => {
-    process.env.POSTGRES_HOST = 'localhost';
-    process.env.POSTGRES_PORT = 'not-a-number';
-    process.env.POSTGRES_USER = 'rapid';
-    process.env.POSTGRES_PASSWORD = 'secret';
-    process.env.POSTGRES_DATABASE = 'rapid_db';
+    process.env['POSTGRES_HOST'] = 'localhost';
+    process.env['POSTGRES_PORT'] = 'not-a-number';
+    process.env['POSTGRES_USER'] = 'rapid';
+    process.env['POSTGRES_PASSWORD'] = 'secret';
+    process.env['POSTGRES_DATABASE'] = 'rapid_db';
 
     const { getPostgresConnectionInfo } = await loadPostgresModule();
 
@@ -159,7 +159,7 @@ describe('postgres lib', () => {
   });
 
   it('ignores database url in release mode when required vars are missing', async () => {
-    process.env.DATABASE_URL = 'postgres://user@localhost:5432/db1';
+    process.env['DATABASE_URL'] = 'postgres://user@localhost:5432/db1';
 
     const { getPostgresConnectionInfo } = await loadPostgresModule();
 
@@ -197,11 +197,11 @@ describe('postgres lib', () => {
   });
 
   it('builds pool config from required release env vars', async () => {
-    process.env.POSTGRES_HOST = 'db.example.com';
-    process.env.POSTGRES_PORT = '5432';
-    process.env.POSTGRES_USER = 'rapid';
-    process.env.POSTGRES_PASSWORD = 'secret';
-    process.env.POSTGRES_DATABASE = 'rapid_db';
+    process.env['POSTGRES_HOST'] = 'db.example.com';
+    process.env['POSTGRES_PORT'] = '5432';
+    process.env['POSTGRES_USER'] = 'rapid';
+    process.env['POSTGRES_PASSWORD'] = 'secret';
+    process.env['POSTGRES_DATABASE'] = 'rapid_db';
 
     const { getPostgresPool } = await loadPostgresModule();
 
@@ -217,7 +217,7 @@ describe('postgres lib', () => {
   });
 
   it('throws when required release env vars are missing for pool config', async () => {
-    process.env.POSTGRES_HOST = 'db.example.com';
+    process.env['POSTGRES_HOST'] = 'db.example.com';
 
     const { getPostgresPool } = await loadPostgresModule();
 
@@ -227,8 +227,8 @@ describe('postgres lib', () => {
   });
 
   it('reuses pool instances for the same config', async () => {
-    process.env.NODE_ENV = 'development';
-    process.env.DATABASE_URL = 'postgres://user@localhost:5432/db1';
+    process.env['NODE_ENV'] = 'development';
+    process.env['DATABASE_URL'] = 'postgres://user@localhost:5432/db1';
 
     const { getPostgresPool } = await loadPostgresModule();
 
@@ -243,13 +243,13 @@ describe('postgres lib', () => {
   });
 
   it('recreates pool when config changes', async () => {
-    process.env.NODE_ENV = 'development';
-    process.env.DATABASE_URL = 'postgres://user@localhost:5432/db1';
+    process.env['NODE_ENV'] = 'development';
+    process.env['DATABASE_URL'] = 'postgres://user@localhost:5432/db1';
 
     const { getPostgresPool } = await loadPostgresModule();
 
     const firstPool = await getPostgresPool();
-    process.env.DATABASE_URL = 'postgres://user@localhost:5432/db2';
+    process.env['DATABASE_URL'] = 'postgres://user@localhost:5432/db2';
     const secondPool = await getPostgresPool();
 
     expect(firstPool).not.toBe(secondPool);
@@ -266,8 +266,8 @@ describe('postgres lib', () => {
   });
 
   it('closes the active pool', async () => {
-    process.env.NODE_ENV = 'development';
-    process.env.DATABASE_URL = 'postgres://user@localhost:5432/db1';
+    process.env['NODE_ENV'] = 'development';
+    process.env['DATABASE_URL'] = 'postgres://user@localhost:5432/db1';
 
     const { closePostgresPool, getPostgresPool } = await loadPostgresModule();
 

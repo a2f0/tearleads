@@ -7,10 +7,18 @@
   },
   "references": [
     { "path": "./packages/shared" },
+    { "path": "./packages/shared/tsconfig.test.json" },
     { "path": "./packages/ui" },
     { "path": "./packages/ui/tsconfig.test.json" },
     { "path": "./packages/api" },
+    { "path": "./packages/api/tsconfig.test.json" },
     { "path": "./packages/cli" },
+    { "path": "./packages/db" },
+    { "path": "./packages/db/tsconfig.test.json" },
+    { "path": "./packages/smtp-listener" },
+    { "path": "./packages/smtp-listener/tsconfig.test.json" },
+    { "path": "./packages/chrome-extension" },
+    { "path": "./packages/chrome-extension/tsconfig.test.json" },
     { "path": "./packages/client" },
     { "path": "./packages/client/tsconfig.test.json" },
     { "path": "./packages/website" }

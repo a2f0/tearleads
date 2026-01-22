@@ -29,7 +29,9 @@ const {
   mockServerClose: vi.fn(),
   mockServerOn: vi.fn(),
   capturedOnDataRef: { current: null as OnDataHandler | null },
-  mockServerAddress: vi.fn(() => ({ port: 2525 }))
+  mockServerAddress: vi.fn<() => { port: number } | string | null>(() => ({
+    port: 2525
+  }))
 }));
 
 vi.mock('./storage.js', () => ({
