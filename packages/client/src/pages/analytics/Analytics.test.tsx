@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { exportTableAsCsv } from '@/components/sqlite/exportTableCsv';
 import type { AnalyticsEvent } from '@/db/analytics';
 import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
 import { Analytics } from './Analytics';
@@ -71,6 +72,10 @@ vi.mock('@/db/analytics', async (importOriginal) => {
     getEventCount: (...args: unknown[]) => mockGetEventCount(...args)
   };
 });
+
+vi.mock('@/components/sqlite/exportTableCsv', () => ({
+  exportTableAsCsv: vi.fn()
+}));
 
 function renderAnalyticsRaw(props: ComponentProps<typeof Analytics> = {}) {
   return render(
@@ -151,6 +156,7 @@ describe('Analytics', () => {
     mockClearEvents.mockResolvedValue(undefined);
     mockGetDistinctEventTypes.mockResolvedValue([]);
     mockGetEventCount.mockResolvedValue(0);
+    vi.mocked(exportTableAsCsv).mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -220,6 +226,15 @@ describe('Analytics', () => {
       expect(mockGetEvents).not.toHaveBeenCalled();
       expect(mockGetEventStats).not.toHaveBeenCalled();
     });
+
+    it('clears export handler when locked', async () => {
+      const onExportCsvChange = vi.fn();
+      renderAnalyticsRaw({ onExportCsvChange });
+
+      await waitFor(() => {
+        expect(onExportCsvChange).toHaveBeenCalledWith(null, false);
+      });
+    });
   });
 
   describe('when database is locked', () => {
@@ -283,6 +298,59 @@ describe('Analytics', () => {
       await renderAnalytics({ showBackLink: false });
 
       expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
+    });
+
+    it('registers export handler when unlocked', async () => {
+      const onExportCsvChange = vi.fn();
+      await renderAnalytics({ onExportCsvChange });
+
+      const handlerCall = onExportCsvChange.mock.calls.find(
+        (call) => typeof call[0] === 'function'
+      );
+      expect(handlerCall).toBeTruthy();
+      expect(onExportCsvChange).toHaveBeenCalledWith(
+        expect.any(Function),
+        false
+      );
+    });
+
+    it('exports analytics table with mapped sort column', async () => {
+      const user = userEvent.setup();
+      const onExportCsvChange = vi.fn();
+      mockGetEvents.mockResolvedValue([
+        {
+          id: 'export-event',
+          eventName: 'db_setup',
+          durationMs: 150,
+          success: true,
+          timestamp: new Date('2025-01-01T12:00:00Z')
+        }
+      ]);
+      mockGetEventCount.mockResolvedValue(1);
+      await renderAnalytics({ onExportCsvChange });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('sort-durationMs')).toBeInTheDocument();
+      });
+      await user.click(screen.getByTestId('sort-durationMs'));
+
+      const handlerCalls = onExportCsvChange.mock.calls.filter(
+        (call) => typeof call[0] === 'function'
+      );
+      const handler = handlerCalls[handlerCalls.length - 1]?.[0];
+      if (typeof handler !== 'function') {
+        throw new Error('Export handler missing');
+      }
+
+      await act(async () => {
+        await handler();
+      });
+
+      expect(exportTableAsCsv).toHaveBeenCalledWith({
+        tableName: 'analytics_events',
+        sortColumn: 'duration_ms',
+        sortDirection: 'asc'
+      });
     });
 
     it('fetches analytics data on mount', async () => {
