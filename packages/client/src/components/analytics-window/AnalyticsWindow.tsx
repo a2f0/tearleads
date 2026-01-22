@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { Analytics } from '@/pages/analytics';
@@ -22,6 +23,25 @@ export function AnalyticsWindow({
   zIndex,
   initialDimensions
 }: AnalyticsWindowProps) {
+  const [exportHandler, setExportHandler] = useState<
+    (() => Promise<void>) | null
+  >(null);
+  const [exportingCsv, setExportingCsv] = useState(false);
+
+  const handleExportCsv = useCallback(() => {
+    if (exportHandler) {
+      void exportHandler();
+    }
+  }, [exportHandler]);
+
+  const handleExportCsvChange = useCallback(
+    (handler: (() => Promise<void>) | null, exporting: boolean) => {
+      setExportHandler(() => handler);
+      setExportingCsv(exporting);
+    },
+    []
+  );
+
   return (
     <FloatingWindow
       id={id}
@@ -38,9 +58,16 @@ export function AnalyticsWindow({
       minHeight={350}
     >
       <div className="flex h-full flex-col overflow-hidden">
-        <AnalyticsWindowMenuBar onClose={onClose} />
+        <AnalyticsWindowMenuBar
+          onClose={onClose}
+          onExportCsv={handleExportCsv}
+          exportCsvDisabled={!exportHandler || exportingCsv}
+        />
         <div className="flex-1 overflow-hidden p-4">
-          <Analytics showBackLink={false} />
+          <Analytics
+            showBackLink={false}
+            onExportCsvChange={handleExportCsvChange}
+          />
         </div>
       </div>
     </FloatingWindow>

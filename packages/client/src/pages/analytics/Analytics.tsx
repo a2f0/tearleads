@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DurationChart } from '@/components/duration-chart';
+import { exportTableAsCsv } from '@/components/sqlite/exportTableCsv';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,10 @@ import { SortIcon, type SortState } from './SortIcon';
 
 interface AnalyticsProps {
   showBackLink?: boolean;
+  onExportCsvChange?: (
+    handler: (() => Promise<void>) | null,
+    exporting: boolean
+  ) => void;
 }
 
 interface SummarySortState {
@@ -82,6 +87,13 @@ const ONE_WEEK_MS = 7 * ONE_DAY_MS;
 const ROW_HEIGHT_ESTIMATE = 44;
 const PAGE_SIZE = 50;
 
+const ANALYTICS_SORT_COLUMN_MAP: Record<SortColumn, string> = {
+  eventName: 'event_name',
+  durationMs: 'duration_ms',
+  success: 'success',
+  timestamp: 'timestamp'
+};
+
 function getTimeRange(filter: TimeFilter): Date | undefined {
   const now = new Date();
   switch (filter) {
@@ -96,13 +108,17 @@ function getTimeRange(filter: TimeFilter): Date | undefined {
   }
 }
 
-export function Analytics({ showBackLink = true }: AnalyticsProps) {
+export function Analytics({
+  showBackLink = true,
+  onExportCsvChange
+}: AnalyticsProps) {
   const { isUnlocked, isLoading } = useDatabaseContext();
   const [events, setEvents] = useState<AnalyticsEvent[]>([]);
   const [stats, setStats] = useState<EventStats[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exportingCsv, setExportingCsv] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('day');
@@ -276,6 +292,42 @@ export function Analytics({ showBackLink = true }: AnalyticsProps) {
       setError(err instanceof Error ? err.message : String(err));
     }
   }, [isUnlocked]);
+
+  const exportCsv = useCallback(async () => {
+    if (exportingCsv || !isUnlocked) return;
+
+    setExportingCsv(true);
+    setError(null);
+
+    try {
+      const sortColumn = sort.column
+        ? ANALYTICS_SORT_COLUMN_MAP[sort.column]
+        : null;
+      await exportTableAsCsv({
+        tableName: 'analytics_events',
+        sortColumn,
+        sortDirection: sort.direction
+      });
+    } catch (err) {
+      console.error('Failed to export analytics as CSV:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setExportingCsv(false);
+    }
+  }, [exportingCsv, isUnlocked, sort]);
+
+  useEffect(() => {
+    if (!onExportCsvChange) return;
+    if (!isUnlocked) {
+      onExportCsvChange(null, false);
+      return;
+    }
+
+    onExportCsvChange(exportCsv, exportingCsv);
+    return () => {
+      onExportCsvChange(null, false);
+    };
+  }, [exportCsv, exportingCsv, isUnlocked, onExportCsvChange]);
 
   const handleSort = useCallback((column: SortColumn) => {
     setSort((prev) => {
