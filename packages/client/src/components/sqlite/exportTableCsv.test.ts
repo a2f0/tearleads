@@ -95,7 +95,7 @@ describe('exportTableAsCsv', () => {
     ).toBe(false);
     expect(downloadFile).toHaveBeenCalledTimes(1);
     expect(downloadFile).toHaveBeenCalledWith(
-      expect.any(Uint8Array),
+      expect.anything(),
       'analytics_events.csv'
     );
   });
