@@ -171,7 +171,7 @@ const buildRequestBody = (
 const buildResponses = (
   responses: OpenAPIV3.ResponsesObject | undefined
 ): ApiResponse[] => {
-  if (!responses) {
+  if (!responses || Object.keys(responses).length === 0) {
     return [];
   }
 

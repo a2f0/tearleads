@@ -124,7 +124,9 @@ const spec: OpenAPIV3.Document = {
       }
     },
     '/no-responses': {
-      get: {}
+      get: {
+        responses: {}
+      }
     },
     '/ref': {
       $ref: '#/components/pathItems/Ref'
@@ -141,10 +143,17 @@ describe('buildApiDocsData', () => {
 
     expect(result.baseUrl).toBe('https://api.rapid.local');
     expect(result.totalOperations).toBe(7);
-    expect(result.tagGroups[0].name).toBe('Auth');
-    expect(result.tagGroups[0].operations).toHaveLength(4);
-    expect(result.tagGroups[1].name).toBe('General');
-    expect(result.tagGroups[1].operations).toHaveLength(3);
+    const [authGroup, generalGroup] = result.tagGroups;
+    expect(authGroup).toBeDefined();
+    expect(generalGroup).toBeDefined();
+    if (!authGroup || !generalGroup) {
+      throw new Error('Expected tag groups for Auth and General');
+    }
+
+    expect(authGroup.name).toBe('Auth');
+    expect(authGroup.operations).toHaveLength(4);
+    expect(generalGroup.name).toBe('General');
+    expect(generalGroup.operations).toHaveLength(3);
   });
 
   it('exposes operation metadata', () => {
@@ -156,29 +165,45 @@ describe('buildApiDocsData', () => {
       .flatMap((group) => group.operations)
       .find((operation) => operation.path === '/auth/login');
 
-    expect(login?.summary).toBe('loginUser');
-    expect(login?.requestBody?.contentTypes).toContain('application/json');
-    expect(login?.parameters[0].schemaType).toBe('string');
-    expect(login?.responses[0].status).toBe('200');
+    expect(login).toBeDefined();
+    if (!login) {
+      throw new Error('Expected /auth/login operation');
+    }
+
+    expect(login.summary).toBe('loginUser');
+    expect(login.requestBody?.contentTypes).toContain('application/json');
+    const [loginParameter] = login.parameters;
+    const [loginResponse] = login.responses;
+    expect(loginParameter).toBeDefined();
+    expect(loginResponse).toBeDefined();
+    if (!loginParameter || !loginResponse) {
+      throw new Error('Expected login parameters and responses');
+    }
+
+    expect(loginParameter.schemaType).toBe('string');
+    expect(loginResponse.status).toBe('200');
 
     const health = result.tagGroups
       .flatMap((group) => group.operations)
       .find((operation) => operation.path === '/health');
 
-    expect(health?.deprecated).toBe(true);
-    expect(health?.summary).toBe('Health check');
+    expect(health).toBeDefined();
+    if (!health) {
+      throw new Error('Expected /health operation');
+    }
+
+    expect(health.deprecated).toBe(true);
+    expect(health.summary).toBe('Health check');
   });
 
   it('handles references and fallback summaries', () => {
     const result = buildApiDocsData(
       {
-        ...spec,
+        openapi: '3.0.0',
         info: {
           title: 'No servers',
           version: '0.0.0'
         },
-        servers: undefined,
-        tags: undefined,
         paths: {
           ...spec.paths,
           '/fallback': {
@@ -197,7 +222,12 @@ describe('buildApiDocsData', () => {
       .flatMap((group) => group.operations)
       .find((operation) => operation.path === '/auth/register');
 
-    expect(register?.requestBody?.ref).toBe(
+    expect(register).toBeDefined();
+    if (!register) {
+      throw new Error('Expected /auth/register operation');
+    }
+
+    expect(register.requestBody?.ref).toBe(
       '#/components/requestBodies/Register'
     );
 
@@ -205,8 +235,21 @@ describe('buildApiDocsData', () => {
       .flatMap((group) => group.operations)
       .find((operation) => operation.path === '/status');
 
-    expect(status?.responses[0].ref).toBe('#/components/responses/StatusOk');
-    expect(status?.parameters[0].ref).toBe(
+    expect(status).toBeDefined();
+    if (!status) {
+      throw new Error('Expected /status operation');
+    }
+
+    const [statusResponse] = status.responses;
+    const [statusParameter] = status.parameters;
+    expect(statusResponse).toBeDefined();
+    expect(statusParameter).toBeDefined();
+    if (!statusResponse || !statusParameter) {
+      throw new Error('Expected /status responses and parameters');
+    }
+
+    expect(statusResponse.ref).toBe('#/components/responses/StatusOk');
+    expect(statusParameter.ref).toBe(
       '#/components/parameters/CorrelationId'
     );
 
@@ -214,6 +257,11 @@ describe('buildApiDocsData', () => {
       .flatMap((group) => group.operations)
       .find((operation) => operation.path === '/fallback');
 
-    expect(fallback?.summary).toBe('GET /fallback');
+    expect(fallback).toBeDefined();
+    if (!fallback) {
+      throw new Error('Expected /fallback operation');
+    }
+
+    expect(fallback.summary).toBe('GET /fallback');
   });
 });
