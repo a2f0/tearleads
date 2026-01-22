@@ -211,7 +211,7 @@ describe('Home', () => {
     expect(screen.getByText('Auto Arrange')).toBeInTheDocument();
   });
 
-  it('orders desktop context menu items alphabetically', async () => {
+  it('puts display properties above arrangement options', async () => {
     const user = userEvent.setup();
     const { container } = renderHome();
 
@@ -228,13 +228,15 @@ describe('Home', () => {
     expect(menuContainer).not.toBeNull();
 
     if (menuContainer) {
+      expect(within(menuContainer).getByRole('separator')).toBeInTheDocument();
+
       const labels = within(menuContainer)
         .getAllByRole('button')
         .map((button) => button.textContent?.trim() ?? '');
       expect(labels).toEqual([
+        'Display Properties',
         'Auto Arrange',
         'Cluster',
-        'Display Properties',
         'Scatter'
       ]);
     }
