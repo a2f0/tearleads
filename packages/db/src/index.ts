@@ -7,6 +7,7 @@ export {
 } from './generators/index.js';
 export type {
   ColumnDefinition,
+  ColumnReference,
   ColumnType,
   IndexDefinition,
   TableDefinition
@@ -19,6 +20,7 @@ export {
   contactsTable,
   filesTable,
   isColumnDefinition,
+  isColumnReference,
   isColumnType,
   isIndexDefinition,
   isTableDefinition,

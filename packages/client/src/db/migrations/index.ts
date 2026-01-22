@@ -4,6 +4,7 @@ import type { Migration } from './types';
 import { v001 } from './v001';
 import { v002 } from './v002';
 import { v003 } from './v003';
+import { v004 } from './v004';
 
 export type { Migration, MigrationFn } from './types';
 export { addColumnIfNotExists } from './utils';
@@ -12,7 +13,7 @@ export { addColumnIfNotExists } from './utils';
  * All migrations in order. Add new migrations to this array.
  * Migrations must have sequential version numbers starting from 1.
  */
-export const migrations: Migration[] = [v001, v002, v003];
+export const migrations: Migration[] = [v001, v002, v003, v004];
 
 /**
  * Get the current schema version from the database.
