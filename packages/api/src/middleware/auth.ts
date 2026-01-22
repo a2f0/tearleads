@@ -1,6 +1,6 @@
+import type { NextFunction, Request, Response } from 'express';
 import { verifyJwt } from '../lib/jwt.js';
 import { getSession } from '../lib/sessions.js';
-import type { NextFunction, Request, Response } from 'express';
 
 const AUTH_HEADER_PREFIX = 'Bearer ';
 
