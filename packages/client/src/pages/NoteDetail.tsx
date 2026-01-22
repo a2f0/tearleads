@@ -7,10 +7,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ActionToolbar, type ActionType } from '@/components/ui/action-toolbar';
 import { BackLink } from '@/components/ui/back-link';
+import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { EditableTitle } from '@/components/ui/editable-title';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { notes } from '@/db/schema';
+import { markdownToolbarCommandsFilter } from '@/lib/markdown-toolbar';
 import { formatDate } from '@/lib/utils';
 
 interface NoteInfo {
@@ -32,6 +34,7 @@ export function NoteDetail() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<ActionType | null>(null);
   const [content, setContent] = useState<string>('');
+  const [showToolbar, setShowToolbar] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedContentRef = useRef<string>('');
 
@@ -181,10 +184,19 @@ export function NoteDetail() {
     [id]
   );
 
+  const handleToggleToolbar = useCallback(() => {
+    setShowToolbar((prev) => !prev);
+  }, []);
+
   return (
     <div className="flex h-full flex-col space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-4">
         <BackLink defaultTo="/notes" defaultLabel="Back to Notes" />
+        <DropdownMenu trigger="View" align="right">
+          <DropdownMenuItem onClick={handleToggleToolbar} checked={showToolbar}>
+            Markdown Toolbar
+          </DropdownMenuItem>
+        </DropdownMenu>
       </div>
 
       {isLoading && (
@@ -225,12 +237,12 @@ export function NoteDetail() {
               value={content}
               onChange={handleContentChange}
               height="100%"
-              preview="live"
-              hideToolbar={false}
+              preview="edit"
+              hideToolbar={!showToolbar}
               visibleDragbar={false}
+              commandsFilter={markdownToolbarCommandsFilter}
               extraCommands={[
                 commands.codeEdit,
-                commands.codeLive,
                 commands.codePreview,
                 commands.divider,
                 commands.fullscreen

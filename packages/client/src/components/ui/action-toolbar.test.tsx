@@ -1,4 +1,4 @@
-import { ThemeProvider } from '@rapid/ui';
+import { ThemeProvider, TooltipProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -7,7 +7,9 @@ import { ActionToolbar } from './action-toolbar';
 function renderToolbar(props: Parameters<typeof ActionToolbar>[0] = {}) {
   return render(
     <ThemeProvider>
-      <ActionToolbar {...props} />
+      <TooltipProvider delayDuration={0}>
+        <ActionToolbar {...props} />
+      </TooltipProvider>
     </ThemeProvider>
   );
 }
@@ -127,7 +129,8 @@ describe('ActionToolbar', () => {
       );
     });
 
-    it('has title attributes for tooltips', () => {
+    it('shows custom tooltips on hover', async () => {
+      const user = userEvent.setup();
       renderToolbar({
         onDownload: vi.fn(),
         onShare: vi.fn(),
@@ -135,18 +138,16 @@ describe('ActionToolbar', () => {
         canShare: true
       });
 
-      expect(screen.getByTestId('download-button')).toHaveAttribute(
-        'title',
-        'Download'
-      );
-      expect(screen.getByTestId('share-button')).toHaveAttribute(
-        'title',
-        'Share'
-      );
-      expect(screen.getByTestId('delete-button')).toHaveAttribute(
-        'title',
-        'Delete'
-      );
+      await user.hover(screen.getByTestId('download-button'));
+      expect(await screen.findByText('Download')).toBeInTheDocument();
+      await user.unhover(screen.getByTestId('download-button'));
+
+      await user.hover(screen.getByTestId('share-button'));
+      expect(await screen.findByText('Share')).toBeInTheDocument();
+      await user.unhover(screen.getByTestId('share-button'));
+
+      await user.hover(screen.getByTestId('delete-button'));
+      expect(await screen.findByText('Delete')).toBeInTheDocument();
     });
   });
 });
