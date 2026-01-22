@@ -40,11 +40,16 @@ export function verifyJwt(token: string, secret: string): JwtClaims | null {
       return null;
     }
 
-    return {
+    const claims: JwtClaims = {
       sub,
-      jti,
-      email: typeof email === 'string' ? email : undefined
+      jti
     };
+
+    if (typeof email === 'string') {
+      claims.email = email;
+    }
+
+    return claims;
   } catch {
     return null;
   }
