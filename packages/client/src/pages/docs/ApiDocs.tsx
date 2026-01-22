@@ -1,5 +1,5 @@
-import { ApiDocs } from '@rapid/ui';
 import openapiSpec from '@rapid/api/openapi.json';
+import { ApiDocs } from '@rapid/ui';
 
 export function ApiDocsPage() {
   return (

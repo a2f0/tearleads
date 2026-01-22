@@ -18,7 +18,8 @@ const METHOD_STYLES: Record<string, string> = {
 };
 
 export function ApiDocsOperationCard({ operation }: ApiDocsOperationCardProps) {
-  const methodStyle = METHOD_STYLES[operation.method] ??
+  const methodStyle =
+    METHOD_STYLES[operation.method] ??
     'bg-muted/40 text-muted-foreground border-muted';
 
   return (
@@ -84,7 +85,7 @@ export function ApiDocsOperationCard({ operation }: ApiDocsOperationCardProps) {
                     ) : null}
                   </div>
                   {param.description ? (
-                    <p className="mt-2 text-xs text-muted-foreground">
+                    <p className="mt-2 text-muted-foreground text-xs">
                       {param.description}
                     </p>
                   ) : null}
@@ -101,10 +102,10 @@ export function ApiDocsOperationCard({ operation }: ApiDocsOperationCardProps) {
 
         {operation.requestBody ? (
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            <p className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.2em]">
               Request body
             </p>
-            <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <div className="rounded-lg border bg-muted/30 px-3 py-2 text-muted-foreground text-xs">
               {operation.requestBody.description ? (
                 <p className="mb-2">{operation.requestBody.description}</p>
               ) : null}
@@ -131,7 +132,7 @@ export function ApiDocsOperationCard({ operation }: ApiDocsOperationCardProps) {
 
         {operation.responses.length > 0 ? (
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            <p className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.2em]">
               Responses
             </p>
             <div className="space-y-2">
@@ -140,7 +141,7 @@ export function ApiDocsOperationCard({ operation }: ApiDocsOperationCardProps) {
                   key={`${operation.id}-${response.status}`}
                   className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 text-xs"
                 >
-                  <span className="rounded-full border px-2 py-0.5 font-mono text-[11px] font-semibold">
+                  <span className="rounded-full border px-2 py-0.5 font-mono font-semibold text-[11px]">
                     {response.status}
                   </span>
                   {response.description ? (

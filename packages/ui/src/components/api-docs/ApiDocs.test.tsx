@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
 import type { OpenAPIV3 } from 'openapi-types';
+import { describe, expect, it } from 'vitest';
 import { ApiDocs } from './ApiDocs.js';
 
 const mockSpec: OpenAPIV3.Document = {
