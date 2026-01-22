@@ -48,7 +48,8 @@ const MOCK_SAVED_POSITIONS = {
   '/models': { x: 100, y: 600 },
   '/admin/redis': { x: 200, y: 600 },
   '/settings': { x: 300, y: 600 },
-  '/admin/postgres': { x: 400, y: 600 }
+  '/admin/postgres': { x: 400, y: 600 },
+  '/sync': { x: 100, y: 700 }
 };
 
 describe('Home', () => {
