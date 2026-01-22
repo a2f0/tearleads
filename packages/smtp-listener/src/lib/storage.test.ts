@@ -1,5 +1,11 @@
+import type { RedisClient } from '@rapid/shared/redis';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StoredEmail } from '../types/email.js';
+
+// Type guard for test mocks
+function isRedisClient(obj: unknown): obj is RedisClient {
+  return obj !== null && typeof obj === 'object';
+}
 
 const mockSet = vi.fn();
 const mockGet = vi.fn();
@@ -9,17 +15,21 @@ const mockLRange = vi.fn();
 const mockLRem = vi.fn();
 const mockCloseRedisClient = vi.fn();
 
+function createMockClient(): RedisClient {
+  const mock = {
+    set: mockSet,
+    get: mockGet,
+    del: mockDel,
+    lPush: mockLPush,
+    lRange: mockLRange,
+    lRem: mockLRem
+  };
+  if (!isRedisClient(mock)) throw new Error('Invalid mock');
+  return mock;
+}
+
 vi.mock('@rapid/shared/redis', () => ({
-  getRedisClient: vi.fn(() =>
-    Promise.resolve({
-      set: mockSet,
-      get: mockGet,
-      del: mockDel,
-      lPush: mockLPush,
-      lRange: mockLRange,
-      lRem: mockLRem
-    })
-  ),
+  getRedisClient: vi.fn(() => Promise.resolve(createMockClient())),
   closeRedisClient: vi.fn(() => mockCloseRedisClient())
 }));
 

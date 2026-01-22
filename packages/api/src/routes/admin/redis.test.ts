@@ -1,19 +1,12 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
+import type { RedisClient } from '../../lib/redis.js';
 import { mockConsoleError } from '../../test/console-mocks.js';
 
-// Define a minimal interface for the Redis client methods we use in tests
-interface MockRedisClient {
-  scan: typeof mockScan;
-  multi: typeof mockMulti;
-  type: typeof mockType;
-  ttl: typeof mockTtl;
-  get: typeof mockGet;
-  sMembers: typeof mockSMembers;
-  hGetAll: typeof mockHGetAll;
-  del: typeof mockDel;
-  dbSize: typeof mockDbSize;
+// Type guard for test mocks
+function isRedisClient(obj: unknown): obj is RedisClient {
+  return obj !== null && typeof obj === 'object';
 }
 
 const mockExec = vi.fn();
@@ -32,17 +25,21 @@ const mockHGetAll = vi.fn();
 const mockDel = vi.fn();
 const mockDbSize = vi.fn();
 
-const createMockClient = (): MockRedisClient => ({
-  scan: mockScan,
-  multi: mockMulti,
-  type: mockType,
-  ttl: mockTtl,
-  get: mockGet,
-  sMembers: mockSMembers,
-  hGetAll: mockHGetAll,
-  del: mockDel,
-  dbSize: mockDbSize
-});
+function createMockClient(): RedisClient {
+  const mock = {
+    scan: mockScan,
+    multi: mockMulti,
+    type: mockType,
+    ttl: mockTtl,
+    get: mockGet,
+    sMembers: mockSMembers,
+    hGetAll: mockHGetAll,
+    del: mockDel,
+    dbSize: mockDbSize
+  };
+  if (!isRedisClient(mock)) throw new Error('Invalid mock');
+  return mock;
+}
 
 vi.mock('../../lib/redis.js', () => ({
   getRedisClient: vi.fn(() => Promise.resolve(createMockClient()))

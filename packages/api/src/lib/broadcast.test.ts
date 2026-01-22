@@ -1,14 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BroadcastMessage } from './broadcast.js';
+import type { RedisClient } from './redis.js';
+
+// Type guard for test mocks
+function isRedisClient(obj: unknown): obj is RedisClient {
+  return obj !== null && typeof obj === 'object';
+}
 
 const mockPublish = vi.fn();
 
+function createMockClient(): RedisClient {
+  const mock = { publish: mockPublish };
+  if (!isRedisClient(mock)) throw new Error('Invalid mock');
+  return mock;
+}
+
 vi.mock('./redis.js', () => ({
-  getRedisClient: vi.fn(() =>
-    Promise.resolve({
-      publish: mockPublish
-    })
-  )
+  getRedisClient: vi.fn(() => Promise.resolve(createMockClient()))
 }));
 
 describe('broadcast', () => {
