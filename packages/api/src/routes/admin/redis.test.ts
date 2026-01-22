@@ -1,14 +1,25 @@
 import request from 'supertest';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
-import type { RedisClient } from '../../lib/redis.js';
+import { createAuthHeader } from '../../test/auth.js';
 import { mockConsoleError } from '../../test/console-mocks.js';
 
-// Type guard for test mocks
-function isRedisClient(obj: unknown): obj is RedisClient {
-  return obj !== null && typeof obj === 'object';
+// Define a minimal interface for the Redis client methods we use in tests
+interface MockRedisClient {
+  scan: typeof mockScan;
+  multi: typeof mockMulti;
+  type: typeof mockType;
+  ttl: typeof mockTtl;
+  get: typeof mockGet;
+  set: typeof mockSet;
+  expire: typeof mockExpire;
+  sMembers: typeof mockSMembers;
+  hGetAll: typeof mockHGetAll;
+  del: typeof mockDel;
+  dbSize: typeof mockDbSize;
 }
 
+const sessionStore = new Map<string, string>();
 const mockExec = vi.fn();
 const mockMulti = vi.fn(() => ({
   type: vi.fn().mockReturnThis(),
@@ -20,35 +31,56 @@ const mockScan = vi.fn();
 const mockType = vi.fn();
 const mockTtl = vi.fn();
 const mockGet = vi.fn();
+const mockSet = vi.fn();
+const mockExpire = vi.fn();
 const mockSMembers = vi.fn();
 const mockHGetAll = vi.fn();
 const mockDel = vi.fn();
 const mockDbSize = vi.fn();
 
-function createMockClient(): RedisClient {
-  const mock = {
-    scan: mockScan,
-    multi: mockMulti,
-    type: mockType,
-    ttl: mockTtl,
-    get: mockGet,
-    sMembers: mockSMembers,
-    hGetAll: mockHGetAll,
-    del: mockDel,
-    dbSize: mockDbSize
-  };
-  if (!isRedisClient(mock)) throw new Error('Invalid mock');
-  return mock;
-}
+const createMockClient = (): MockRedisClient => ({
+  scan: mockScan,
+  multi: mockMulti,
+  type: mockType,
+  ttl: mockTtl,
+  get: (key: string) => {
+    if (key.startsWith('session:')) {
+      return Promise.resolve(sessionStore.get(key) ?? null);
+    }
+    return mockGet(key);
+  },
+  set: (key: string, value: string) => {
+    sessionStore.set(key, value);
+    mockSet(key, value);
+    return Promise.resolve('OK');
+  },
+  expire: (key: string, seconds: number) => {
+    mockExpire(key, seconds);
+    return Promise.resolve(1);
+  },
+  sMembers: mockSMembers,
+  hGetAll: mockHGetAll,
+  del: mockDel,
+  dbSize: mockDbSize
+});
 
 vi.mock('../../lib/redis.js', () => ({
   getRedisClient: vi.fn(() => Promise.resolve(createMockClient()))
 }));
 
 describe('Admin Redis Routes', () => {
-  beforeEach(() => {
+  let authHeader: string;
+
+  beforeEach(async () => {
     vi.clearAllMocks();
+    sessionStore.clear();
+    vi.stubEnv('JWT_SECRET', 'test-secret');
     mockScan.mockResolvedValue({ cursor: 0, keys: [] });
+    authHeader = await createAuthHeader();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   describe('GET /v1/admin/redis/keys', () => {
@@ -56,7 +88,9 @@ describe('Admin Redis Routes', () => {
       const { getRedisClient } = await import('../../lib/redis.js');
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).get('/v1/admin/redis/keys');
+      const response = await request(app)
+        .get('/v1/admin/redis/keys')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -77,7 +111,9 @@ describe('Admin Redis Routes', () => {
 
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).get('/v1/admin/redis/keys');
+      const response = await request(app)
+        .get('/v1/admin/redis/keys')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -101,7 +137,9 @@ describe('Admin Redis Routes', () => {
 
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).get('/v1/admin/redis/keys');
+      const response = await request(app)
+        .get('/v1/admin/redis/keys')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -122,7 +160,9 @@ describe('Admin Redis Routes', () => {
 
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).get('/v1/admin/redis/keys');
+      const response = await request(app)
+        .get('/v1/admin/redis/keys')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -139,7 +179,9 @@ describe('Admin Redis Routes', () => {
 
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      await request(app).get('/v1/admin/redis/keys?cursor=100&limit=25');
+      await request(app)
+        .get('/v1/admin/redis/keys?cursor=100&limit=25')
+        .set('Authorization', authHeader);
 
       expect(mockScan).toHaveBeenCalledWith('100', { MATCH: '*', COUNT: 25 });
     });
@@ -151,7 +193,9 @@ describe('Admin Redis Routes', () => {
 
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      await request(app).get('/v1/admin/redis/keys?limit=500');
+      await request(app)
+        .get('/v1/admin/redis/keys?limit=500')
+        .set('Authorization', authHeader);
 
       expect(mockScan).toHaveBeenCalledWith('0', { MATCH: '*', COUNT: 100 });
     });
@@ -159,11 +203,13 @@ describe('Admin Redis Routes', () => {
     it('handles Redis connection errors', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
       const consoleSpy = mockConsoleError();
-      vi.mocked(getRedisClient).mockRejectedValue(
-        new Error('Connection refused')
-      );
+      vi.mocked(getRedisClient)
+        .mockResolvedValueOnce(createMockClient())
+        .mockRejectedValueOnce(new Error('Connection refused'));
 
-      const response = await request(app).get('/v1/admin/redis/keys');
+      const response = await request(app)
+        .get('/v1/admin/redis/keys')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Connection refused' });
@@ -177,9 +223,13 @@ describe('Admin Redis Routes', () => {
     it('handles non-Error exceptions', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
       const consoleSpy = mockConsoleError();
-      vi.mocked(getRedisClient).mockRejectedValue('string error');
+      vi.mocked(getRedisClient)
+        .mockResolvedValueOnce(createMockClient())
+        .mockRejectedValueOnce('string error');
 
-      const response = await request(app).get('/v1/admin/redis/keys');
+      const response = await request(app)
+        .get('/v1/admin/redis/keys')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to connect to Redis' });
@@ -198,7 +248,9 @@ describe('Admin Redis Routes', () => {
 
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).get('/v1/admin/redis/keys');
+      const response = await request(app)
+        .get('/v1/admin/redis/keys')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -215,7 +267,9 @@ describe('Admin Redis Routes', () => {
       mockDbSize.mockResolvedValue(42);
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).get('/v1/admin/redis/dbsize');
+      const response = await request(app)
+        .get('/v1/admin/redis/dbsize')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ count: 42 });
@@ -226,7 +280,9 @@ describe('Admin Redis Routes', () => {
       mockDbSize.mockResolvedValue(0);
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).get('/v1/admin/redis/dbsize');
+      const response = await request(app)
+        .get('/v1/admin/redis/dbsize')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ count: 0 });
@@ -235,11 +291,13 @@ describe('Admin Redis Routes', () => {
     it('handles Redis connection errors', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
       const consoleSpy = mockConsoleError();
-      vi.mocked(getRedisClient).mockRejectedValue(
-        new Error('Connection refused')
-      );
+      vi.mocked(getRedisClient)
+        .mockResolvedValueOnce(createMockClient())
+        .mockRejectedValueOnce(new Error('Connection refused'));
 
-      const response = await request(app).get('/v1/admin/redis/dbsize');
+      const response = await request(app)
+        .get('/v1/admin/redis/dbsize')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Connection refused' });
@@ -256,7 +314,9 @@ describe('Admin Redis Routes', () => {
       mockDbSize.mockRejectedValue('string error');
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).get('/v1/admin/redis/dbsize');
+      const response = await request(app)
+        .get('/v1/admin/redis/dbsize')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to connect to Redis' });
@@ -283,7 +343,9 @@ describe('Admin Redis Routes', () => {
 
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).get('/v1/admin/redis/keys/mykey');
+      const response = await request(app)
+        .get('/v1/admin/redis/keys/mykey')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -303,7 +365,9 @@ describe('Admin Redis Routes', () => {
 
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).get('/v1/admin/redis/keys/myset');
+      const response = await request(app)
+        .get('/v1/admin/redis/keys/myset')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -323,7 +387,9 @@ describe('Admin Redis Routes', () => {
 
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).get('/v1/admin/redis/keys/myhash');
+      const response = await request(app)
+        .get('/v1/admin/redis/keys/myhash')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -342,7 +408,9 @@ describe('Admin Redis Routes', () => {
 
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).get('/v1/admin/redis/keys/mylist');
+      const response = await request(app)
+        .get('/v1/admin/redis/keys/mylist')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -360,9 +428,9 @@ describe('Admin Redis Routes', () => {
 
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).get(
-        '/v1/admin/redis/keys/nonexistent'
-      );
+      const response = await request(app)
+        .get('/v1/admin/redis/keys/nonexistent')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(404);
       expect(response.body).toEqual({ error: 'Key not found' });
@@ -371,11 +439,13 @@ describe('Admin Redis Routes', () => {
     it('handles Redis connection errors', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
       const consoleSpy = mockConsoleError();
-      vi.mocked(getRedisClient).mockRejectedValue(
-        new Error('Connection refused')
-      );
+      vi.mocked(getRedisClient)
+        .mockResolvedValueOnce(createMockClient())
+        .mockRejectedValueOnce(new Error('Connection refused'));
 
-      const response = await request(app).get('/v1/admin/redis/keys/anykey');
+      const response = await request(app)
+        .get('/v1/admin/redis/keys/anykey')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Connection refused' });
@@ -392,7 +462,9 @@ describe('Admin Redis Routes', () => {
       mockType.mockRejectedValue('string error');
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).get('/v1/admin/redis/keys/anykey');
+      const response = await request(app)
+        .get('/v1/admin/redis/keys/anykey')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to connect to Redis' });
@@ -424,7 +496,9 @@ describe('Admin Redis Routes', () => {
       mockDel.mockResolvedValue(1);
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).delete('/v1/admin/redis/keys/user:1');
+      const response = await request(app)
+        .delete('/v1/admin/redis/keys/user:1')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ deleted: true });
@@ -436,9 +510,9 @@ describe('Admin Redis Routes', () => {
       mockDel.mockResolvedValue(0);
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).delete(
-        '/v1/admin/redis/keys/nonexistent'
-      );
+      const response = await request(app)
+        .delete('/v1/admin/redis/keys/nonexistent')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ deleted: false });
@@ -449,9 +523,9 @@ describe('Admin Redis Routes', () => {
       mockDel.mockResolvedValue(1);
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).delete(
-        '/v1/admin/redis/keys/user%3A123%3Asession'
-      );
+      const response = await request(app)
+        .delete('/v1/admin/redis/keys/user%3A123%3Asession')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(mockDel).toHaveBeenCalledWith('user:123:session');
@@ -460,11 +534,13 @@ describe('Admin Redis Routes', () => {
     it('handles Redis connection errors', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
       const consoleSpy = mockConsoleError();
-      vi.mocked(getRedisClient).mockRejectedValue(
-        new Error('Connection refused')
-      );
+      vi.mocked(getRedisClient)
+        .mockResolvedValueOnce(createMockClient())
+        .mockRejectedValueOnce(new Error('Connection refused'));
 
-      const response = await request(app).delete('/v1/admin/redis/keys/test');
+      const response = await request(app)
+        .delete('/v1/admin/redis/keys/test')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Connection refused' });
@@ -478,9 +554,13 @@ describe('Admin Redis Routes', () => {
     it('handles non-Error exceptions', async () => {
       const { getRedisClient } = await import('../../lib/redis.js');
       const consoleSpy = mockConsoleError();
-      vi.mocked(getRedisClient).mockRejectedValue('string error');
+      vi.mocked(getRedisClient)
+        .mockResolvedValueOnce(createMockClient())
+        .mockRejectedValueOnce('string error');
 
-      const response = await request(app).delete('/v1/admin/redis/keys/test');
+      const response = await request(app)
+        .delete('/v1/admin/redis/keys/test')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to connect to Redis' });

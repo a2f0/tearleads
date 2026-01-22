@@ -5,13 +5,15 @@ import {
   Router,
   type Router as RouterType
 } from 'express';
+import { randomUUID } from 'node:crypto';
+import { getAccessTokenTtlSeconds } from '../lib/authConfig.js';
 import { createJwt } from '../lib/jwt.js';
 import { verifyPassword } from '../lib/passwords.js';
 import { getPostgresPool } from '../lib/postgres.js';
+import { createSession } from '../lib/sessions.js';
 
 const router: RouterType = Router();
-const ACCESS_TOKEN_TTL_SECONDS =
-  Number(process.env['ACCESS_TOKEN_TTL_SECONDS']) || 60 * 60;
+const ACCESS_TOKEN_TTL_SECONDS = getAccessTokenTtlSeconds();
 
 type LoginPayload = {
   email: string;
@@ -131,8 +133,15 @@ router.post('/login', async (req: Request, res: Response) => {
       return;
     }
 
+    const sessionId = randomUUID();
+    await createSession(
+      sessionId,
+      { userId: user.id, email: user.email },
+      ACCESS_TOKEN_TTL_SECONDS
+    );
+
     const accessToken = createJwt(
-      { sub: user.id, email: user.email },
+      { sub: user.id, email: user.email, jti: sessionId },
       jwtSecret,
       ACCESS_TOKEN_TTL_SECONDS
     );
