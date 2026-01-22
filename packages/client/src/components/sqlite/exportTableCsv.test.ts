@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getDatabaseAdapter } from '@/db';
+import type { DatabaseAdapter } from '@/db/adapters/types';
 import { downloadFile } from '@/lib/file-utils';
 import {
   exportTableAsCsv,
@@ -15,6 +16,23 @@ vi.mock('@/db', () => ({
 vi.mock('@/lib/file-utils', () => ({
   downloadFile: vi.fn()
 }));
+
+const createAdapter = (
+  execute: DatabaseAdapter['execute']
+): DatabaseAdapter => ({
+  initialize: vi.fn().mockResolvedValue(undefined),
+  close: vi.fn().mockResolvedValue(undefined),
+  isOpen: vi.fn().mockReturnValue(true),
+  execute,
+  executeMany: vi.fn().mockResolvedValue(undefined),
+  beginTransaction: vi.fn().mockResolvedValue(undefined),
+  commitTransaction: vi.fn().mockResolvedValue(undefined),
+  rollbackTransaction: vi.fn().mockResolvedValue(undefined),
+  rekeyDatabase: vi.fn().mockResolvedValue(undefined),
+  getConnection: vi.fn().mockReturnValue({}),
+  exportDatabase: vi.fn().mockResolvedValue(new Uint8Array()),
+  importDatabase: vi.fn().mockResolvedValue(undefined)
+});
 
 describe('exportTableCsv helpers', () => {
   it('returns string fields when present', () => {
@@ -44,7 +62,7 @@ describe('exportTableCsv helpers', () => {
 describe('exportTableAsCsv', () => {
   it('throws when table does not exist', async () => {
     const execute = vi.fn().mockResolvedValue({ rows: [] });
-    vi.mocked(getDatabaseAdapter).mockReturnValue({ execute });
+    vi.mocked(getDatabaseAdapter).mockReturnValue(createAdapter(execute));
 
     await expect(
       exportTableAsCsv({
@@ -75,7 +93,7 @@ describe('exportTableAsCsv', () => {
       });
     });
 
-    vi.mocked(getDatabaseAdapter).mockReturnValue({ execute });
+    vi.mocked(getDatabaseAdapter).mockReturnValue(createAdapter(execute));
 
     await exportTableAsCsv({
       tableName: 'analytics_events',
@@ -114,7 +132,7 @@ describe('exportTableAsCsv', () => {
     });
 
     const onColumnsResolved = vi.fn();
-    vi.mocked(getDatabaseAdapter).mockReturnValue({ execute });
+    vi.mocked(getDatabaseAdapter).mockReturnValue(createAdapter(execute));
 
     await exportTableAsCsv({
       tableName: 'analytics_events',
@@ -138,7 +156,7 @@ describe('exportTableAsCsv', () => {
       return Promise.resolve({ rows: [] });
     });
 
-    vi.mocked(getDatabaseAdapter).mockReturnValue({ execute });
+    vi.mocked(getDatabaseAdapter).mockReturnValue(createAdapter(execute));
 
     await expect(
       exportTableAsCsv({
