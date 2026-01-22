@@ -317,6 +317,16 @@ describe('Analytics', () => {
     it('exports analytics table with mapped sort column', async () => {
       const user = userEvent.setup();
       const onExportCsvChange = vi.fn();
+      mockGetEvents.mockResolvedValue([
+        {
+          id: 'export-event',
+          eventName: 'db_setup',
+          durationMs: 150,
+          success: true,
+          timestamp: new Date('2025-01-01T12:00:00Z')
+        }
+      ]);
+      mockGetEventCount.mockResolvedValue(1);
       await renderAnalytics({ onExportCsvChange });
 
       await user.click(screen.getByTestId('sort-durationMs'));
