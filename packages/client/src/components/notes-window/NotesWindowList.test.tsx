@@ -42,14 +42,16 @@ const mockNotes = [
     title: 'First Note',
     content: '# Hello World\nThis is content',
     createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-02')
+    updatedAt: new Date('2024-01-02'),
+    deleted: false
   },
   {
     id: 'note-2',
     title: 'Second Note',
     content: 'Short content',
     createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-03')
+    updatedAt: new Date('2024-01-03'),
+    deleted: false
   }
 ];
 
@@ -94,7 +96,8 @@ vi.mock('@tanstack/react-virtual', () => ({
 
 describe('NotesWindowList', () => {
   const defaultProps = {
-    onSelectNote: vi.fn()
+    onSelectNote: vi.fn(),
+    showDeleted: false
   };
 
   beforeEach(() => {
@@ -192,7 +195,7 @@ describe('NotesWindowList', () => {
     mockDb.orderBy.mockResolvedValue(mockNotes);
     const onSelectNote = vi.fn();
     const user = userEvent.setup();
-    render(<NotesWindowList onSelectNote={onSelectNote} />);
+    render(<NotesWindowList onSelectNote={onSelectNote} showDeleted={false} />);
 
     await waitFor(() => {
       expect(screen.getByText('First Note')).toBeInTheDocument();
@@ -219,7 +222,7 @@ describe('NotesWindowList', () => {
     mockDb.orderBy.mockResolvedValue([]);
     const onSelectNote = vi.fn();
     const user = userEvent.setup();
-    render(<NotesWindowList onSelectNote={onSelectNote} />);
+    render(<NotesWindowList onSelectNote={onSelectNote} showDeleted={false} />);
 
     await waitFor(() => {
       expect(
@@ -426,7 +429,7 @@ describe('NotesWindowList', () => {
     mockDb.orderBy.mockResolvedValue(mockNotes);
     const onSelectNote = vi.fn();
     const user = userEvent.setup();
-    render(<NotesWindowList onSelectNote={onSelectNote} />);
+    render(<NotesWindowList onSelectNote={onSelectNote} showDeleted={false} />);
 
     await waitFor(() => {
       expect(screen.getByText('First Note')).toBeInTheDocument();
@@ -474,7 +477,7 @@ describe('NotesWindowList', () => {
     mockDb.orderBy.mockResolvedValue(mockNotes);
     const onSelectNote = vi.fn();
     const user = userEvent.setup();
-    render(<NotesWindowList onSelectNote={onSelectNote} />);
+    render(<NotesWindowList onSelectNote={onSelectNote} showDeleted={false} />);
 
     await waitFor(() => {
       expect(screen.getByText('First Note')).toBeInTheDocument();

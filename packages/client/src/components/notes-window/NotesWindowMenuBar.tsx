@@ -1,4 +1,4 @@
-import { List, Table2 } from 'lucide-react';
+import { Eye, EyeOff, List, Table2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -11,6 +11,12 @@ export type ViewMode = 'list' | 'table';
 interface NotesWindowMenuBarProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  showListTableOptions: boolean;
+  showDeleted: boolean;
+  onShowDeletedChange: (show: boolean) => void;
+  showMarkdownToolbarOption: boolean;
+  showMarkdownToolbar: boolean;
+  onToggleMarkdownToolbar: () => void;
   onNewNote: () => void;
   onClose: () => void;
 }
@@ -18,6 +24,12 @@ interface NotesWindowMenuBarProps {
 export function NotesWindowMenuBar({
   viewMode,
   onViewModeChange,
+  showListTableOptions,
+  showDeleted,
+  onShowDeletedChange,
+  showMarkdownToolbarOption,
+  showMarkdownToolbar,
+  onToggleMarkdownToolbar,
   onNewNote,
   onClose
 }: NotesWindowMenuBarProps) {
@@ -29,20 +41,49 @@ export function NotesWindowMenuBar({
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
       </DropdownMenu>
       <DropdownMenu trigger="View">
-        <DropdownMenuItem
-          onClick={() => onViewModeChange('list')}
-          checked={viewMode === 'list'}
-          icon={<List className="h-3 w-3" />}
-        >
-          List
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => onViewModeChange('table')}
-          checked={viewMode === 'table'}
-          icon={<Table2 className="h-3 w-3" />}
-        >
-          Table
-        </DropdownMenuItem>
+        {showListTableOptions && (
+          <>
+            <DropdownMenuItem
+              onClick={() => onViewModeChange('list')}
+              checked={viewMode === 'list'}
+              icon={<List className="h-3 w-3" />}
+            >
+              List
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onViewModeChange('table')}
+              checked={viewMode === 'table'}
+              icon={<Table2 className="h-3 w-3" />}
+            >
+              Table
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onShowDeletedChange(!showDeleted)}
+              checked={showDeleted}
+              icon={
+                showDeleted ? (
+                  <Eye className="h-3 w-3" />
+                ) : (
+                  <EyeOff className="h-3 w-3" />
+                )
+              }
+            >
+              Show Deleted
+            </DropdownMenuItem>
+          </>
+        )}
+        {showMarkdownToolbarOption && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={onToggleMarkdownToolbar}
+              checked={showMarkdownToolbar}
+            >
+              Markdown Toolbar
+            </DropdownMenuItem>
+          </>
+        )}
         <DropdownMenuSeparator />
         <PreserveWindowStateMenuItem />
       </DropdownMenu>

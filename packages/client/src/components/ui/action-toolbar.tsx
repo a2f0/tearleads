@@ -1,4 +1,9 @@
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@rapid/ui';
+import {
   Download,
   Loader2,
   type LucideIcon,
@@ -69,22 +74,25 @@ export function ActionToolbar({
       {buttons
         .filter((button) => button.shouldRender)
         .map(({ type, onAction, Icon, label, testId }) => (
-          <Button
-            key={type}
-            variant="outline"
-            size="icon"
-            onClick={onAction}
-            disabled={isDisabled}
-            aria-label={label}
-            title={label}
-            data-testid={testId}
-          >
-            {loadingAction === type ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <Icon />
-            )}
-          </Button>
+          <Tooltip key={type}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onAction}
+                disabled={isDisabled}
+                aria-label={label}
+                data-testid={testId}
+              >
+                {loadingAction === type ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <Icon />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{label}</TooltipContent>
+          </Tooltip>
         ))}
     </div>
   );
