@@ -74,6 +74,19 @@ export interface PostgresTablesResponse {
   tables: PostgresTableInfo[];
 }
 
+// Auth types
+export interface AuthUser {
+  id: string;
+  email: string;
+}
+
+export interface AuthResponse {
+  accessToken: string;
+  tokenType: string;
+  expiresIn: number;
+  user: AuthUser;
+}
+
 // SSE types
 export type SSEConnectionState = 'connected' | 'connecting' | 'disconnected';
 
