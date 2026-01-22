@@ -25,6 +25,7 @@ interface NoteInfo {
   content: string;
   createdAt: Date;
   updatedAt: Date;
+  deleted: boolean;
 }
 
 type MenuPosition = { x: number; y: number };
@@ -34,6 +35,7 @@ type SortDirection = 'asc' | 'desc';
 
 interface NotesWindowTableViewProps {
   onSelectNote: (noteId: string) => void;
+  showDeleted: boolean;
 }
 
 interface SortHeaderProps {
@@ -74,7 +76,8 @@ function SortHeader({
 }
 
 export function NotesWindowTableView({
-  onSelectNote
+  onSelectNote,
+  showDeleted
 }: NotesWindowTableViewProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { t } = useTypedTranslation('contextMenu');
@@ -116,10 +119,11 @@ export function NotesWindowTableView({
           title: notes.title,
           content: notes.content,
           createdAt: notes.createdAt,
-          updatedAt: notes.updatedAt
+          updatedAt: notes.updatedAt,
+          deleted: notes.deleted
         })
         .from(notes)
-        .where(eq(notes.deleted, false))
+        .where(showDeleted ? undefined : eq(notes.deleted, false))
         .orderBy(orderFn(orderByColumn));
 
       setNotesList(
@@ -128,7 +132,8 @@ export function NotesWindowTableView({
           title: row.title,
           content: row.content,
           createdAt: row.createdAt,
-          updatedAt: row.updatedAt
+          updatedAt: row.updatedAt,
+          deleted: row.deleted
         }))
       );
       setHasFetched(true);
@@ -138,15 +143,23 @@ export function NotesWindowTableView({
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, sortColumn, sortDirection]);
+  }, [isUnlocked, sortColumn, sortDirection, showDeleted]);
 
   const fetchedForInstanceRef = useRef<string | null>(null);
+  const lastShowDeletedRef = useRef(showDeleted);
 
   useEffect(() => {
+    const showDeletedChanged = lastShowDeletedRef.current !== showDeleted;
+    if (showDeletedChanged) {
+      lastShowDeletedRef.current = showDeleted;
+    }
+
     const needsFetch =
       isUnlocked &&
       !loading &&
-      (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
+      (!hasFetched ||
+        fetchedForInstanceRef.current !== currentInstanceId ||
+        showDeletedChanged);
 
     if (needsFetch) {
       if (
@@ -166,7 +179,14 @@ export function NotesWindowTableView({
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchNotes]);
+  }, [
+    isUnlocked,
+    loading,
+    hasFetched,
+    currentInstanceId,
+    fetchNotes,
+    showDeleted
+  ]);
 
   const handleSortChange = useCallback((column: SortColumn) => {
     setSortColumn((prevColumn) => {
@@ -182,6 +202,7 @@ export function NotesWindowTableView({
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, note: NoteInfo) => {
+      if (note.deleted) return;
       e.preventDefault();
       e.stopPropagation();
       setContextMenu({ note, x: e.clientX, y: e.clientY });
@@ -351,14 +372,32 @@ export function NotesWindowTableView({
                 {notesList.map((note) => (
                   <tr
                     key={note.id}
-                    className="cursor-pointer border-border/50 border-b hover:bg-accent/50"
-                    onClick={() => onSelectNote(note.id)}
-                    onContextMenu={(e) => handleContextMenu(e, note)}
+                    className={`border-border/50 border-b ${
+                      note.deleted
+                        ? 'opacity-60'
+                        : 'cursor-pointer hover:bg-accent/50'
+                    }`}
+                    onClick={() => {
+                      if (!note.deleted) {
+                        onSelectNote(note.id);
+                      }
+                    }}
+                    onContextMenu={
+                      note.deleted
+                        ? undefined
+                        : (e) => handleContextMenu(e, note)
+                    }
                   >
                     <td className="px-2 py-1.5">
                       <div className="flex items-center gap-1.5">
                         <StickyNote className="h-3 w-3 shrink-0 text-muted-foreground" />
-                        <span className="truncate">{note.title}</span>
+                        <span
+                          className={`truncate ${
+                            note.deleted ? 'line-through' : ''
+                          }`}
+                        >
+                          {note.title}
+                        </span>
                       </div>
                     </td>
                     <td className="px-2 py-1.5 text-muted-foreground">
@@ -366,6 +405,7 @@ export function NotesWindowTableView({
                     </td>
                     <td className="px-2 py-1.5 text-muted-foreground">
                       {formatDate(note.updatedAt)}
+                      {note.deleted && ' · Deleted'}
                     </td>
                   </tr>
                 ))}
