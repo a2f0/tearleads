@@ -12,6 +12,7 @@ import { navItems } from '@/components/Sidebar';
 import { DisplayPropertiesWindow } from '@/components/settings/DisplayPropertiesWindow';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
+import { ContextMenuSeparator } from '@/components/ui/context-menu/ContextMenuSeparator';
 import { DesktopBackground } from '@/components/ui/desktop-background';
 import { MOBILE_BREAKPOINT } from '@/constants/breakpoints';
 import {
@@ -836,6 +837,13 @@ export function Home() {
           onClose={() => setCanvasContextMenu(null)}
         >
           <ContextMenuItem
+            icon={<Monitor className="h-4 w-4" />}
+            onClick={handleDisplayPropertiesOpen}
+          >
+            Display Properties
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
             icon={<LayoutGrid className="h-4 w-4" />}
             onClick={handleAutoArrange}
           >
@@ -846,12 +854,6 @@ export function Home() {
             onClick={handleCluster}
           >
             {selectedIcons.size > 0 ? 'Cluster Selected' : 'Cluster'}
-          </ContextMenuItem>
-          <ContextMenuItem
-            icon={<Monitor className="h-4 w-4" />}
-            onClick={handleDisplayPropertiesOpen}
-          >
-            Display Properties
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Maximize2 className="h-4 w-4" />}
