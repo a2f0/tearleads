@@ -9,6 +9,7 @@ import { EditableTitle } from '@/components/ui/editable-title';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { notes } from '@/db/schema';
+import { markdownToolbarCommandsFilter } from '@/lib/markdown-toolbar';
 import { formatDate } from '@/lib/utils';
 
 interface NoteInfo {
@@ -23,12 +24,14 @@ interface NotesWindowDetailProps {
   noteId: string;
   onBack: () => void;
   onDeleted: () => void;
+  showToolbar?: boolean;
 }
 
 export function NotesWindowDetail({
   noteId,
   onBack,
-  onDeleted
+  onDeleted,
+  showToolbar = true
 }: NotesWindowDetailProps) {
   const { isUnlocked, isLoading } = useDatabaseContext();
   const { resolvedTheme } = useTheme();
@@ -251,9 +254,10 @@ export function NotesWindowDetail({
               value={content}
               onChange={handleContentChange}
               height="100%"
-              preview="live"
-              hideToolbar={false}
+              preview="edit"
+              hideToolbar={!showToolbar}
               visibleDragbar={false}
+              commandsFilter={markdownToolbarCommandsFilter}
             />
           </div>
 

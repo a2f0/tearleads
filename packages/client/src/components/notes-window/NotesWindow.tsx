@@ -32,6 +32,8 @@ export function NotesWindow({
   const { isUnlocked } = useDatabaseContext();
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
+  const [showDeleted, setShowDeleted] = useState(false);
 
   const handleSelectNote = useCallback((noteId: string) => {
     setSelectedNoteId(noteId);
@@ -87,6 +89,14 @@ export function NotesWindow({
         <NotesWindowMenuBar
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          showListTableOptions={!selectedNoteId}
+          showDeleted={showDeleted}
+          onShowDeletedChange={setShowDeleted}
+          showMarkdownToolbarOption={Boolean(selectedNoteId)}
+          showMarkdownToolbar={showMarkdownToolbar}
+          onToggleMarkdownToolbar={() =>
+            setShowMarkdownToolbar((prev) => !prev)
+          }
           onNewNote={handleNewNote}
           onClose={onClose}
         />
@@ -96,11 +106,18 @@ export function NotesWindow({
               noteId={selectedNoteId}
               onBack={handleBack}
               onDeleted={handleDeleted}
+              showToolbar={showMarkdownToolbar}
             />
           ) : viewMode === 'table' ? (
-            <NotesWindowTableView onSelectNote={handleSelectNote} />
+            <NotesWindowTableView
+              onSelectNote={handleSelectNote}
+              showDeleted={showDeleted}
+            />
           ) : (
-            <NotesWindowList onSelectNote={handleSelectNote} />
+            <NotesWindowList
+              onSelectNote={handleSelectNote}
+              showDeleted={showDeleted}
+            />
           )}
         </div>
       </div>
