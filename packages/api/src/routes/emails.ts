@@ -261,9 +261,11 @@ router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
 
     const delResult = results?.[0];
     const deletedCount =
-      Array.isArray(delResult) && typeof delResult[1] === 'number'
-        ? delResult[1]
-        : 0;
+      typeof delResult === 'number'
+        ? delResult
+        : Array.isArray(delResult) && typeof delResult[1] === 'number'
+          ? delResult[1]
+          : 0;
 
     if (deletedCount > 0) {
       res.json({ success: true });
