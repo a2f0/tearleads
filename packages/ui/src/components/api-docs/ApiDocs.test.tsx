@@ -70,4 +70,56 @@ describe('ApiDocs', () => {
     expect(screen.getByText('Ping service')).toBeInTheDocument();
     expect(screen.getByText('Create message')).toBeInTheDocument();
   });
+
+  it('renders base URL when provided', () => {
+    render(
+      <ApiDocs
+        spec={{
+          ...mockSpec,
+          servers: [{ url: 'https://api.example.com' }]
+        }}
+      />
+    );
+
+    expect(screen.getByText('https://api.example.com')).toBeInTheDocument();
+  });
+
+  it('omits description when missing', () => {
+    render(
+      <ApiDocs
+        spec={{
+          ...mockSpec,
+          info: {
+            title: 'No description API',
+            version: '0.0.2'
+          }
+        }}
+        intro="Intro copy"
+      />
+    );
+
+    expect(
+      screen.queryByText('Custom API surface for Rapid.')
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('Intro copy')).toBeInTheDocument();
+  });
+
+  it('supports custom headers and tag ordering', () => {
+    render(
+      <ApiDocs
+        spec={{
+          ...mockSpec,
+          info: {
+            title: 'Minimal API',
+            version: '0.0.1'
+          }
+        }}
+        header={<div>Custom header</div>}
+        tagOrder={['General', 'Messaging']}
+      />
+    );
+
+    expect(screen.getByText('Custom header')).toBeInTheDocument();
+    expect(screen.queryByText('API Docs')).not.toBeInTheDocument();
+  });
 });
