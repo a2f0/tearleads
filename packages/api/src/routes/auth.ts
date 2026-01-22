@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { isRecord } from '@rapid/shared';
 import {
   type Request,
@@ -5,7 +6,6 @@ import {
   Router,
   type Router as RouterType
 } from 'express';
-import { randomUUID } from 'node:crypto';
 import { getAccessTokenTtlSeconds } from '../lib/authConfig.js';
 import { createJwt } from '../lib/jwt.js';
 import { verifyPassword } from '../lib/passwords.js';
