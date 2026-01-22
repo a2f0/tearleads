@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { desc, eq, or } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { Info, Loader2, Plus, StickyNote, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -92,11 +92,7 @@ export function NotesWindowList({
           deleted: notes.deleted
         })
         .from(notes)
-        .where(
-          showDeleted
-            ? or(eq(notes.deleted, false), eq(notes.deleted, true))
-            : eq(notes.deleted, false)
-        )
+        .where(showDeleted ? undefined : eq(notes.deleted, false))
         .orderBy(desc(notes.updatedAt));
 
       const noteList: NoteInfo[] = result.map((row) => ({
@@ -252,6 +248,23 @@ export function NotesWindowList({
     return plainText || 'No content';
   };
 
+  const NoteItemContent = ({ note }: { note: NoteInfo }) => (
+    <>
+      <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0 flex-1">
+        <p
+          className={`truncate font-medium text-xs ${note.deleted ? 'line-through' : ''}`}
+        >
+          {note.title}
+        </p>
+        <p className="truncate text-muted-foreground text-xs">
+          {getContentPreview(note.content)} · {formatDate(note.updatedAt)}
+          {note.deleted && ' · Deleted'}
+        </p>
+      </div>
+    </>
+  );
+
   return (
     <div className="flex h-full flex-col space-y-3 p-3">
       <div className="flex items-center justify-between">
@@ -365,16 +378,7 @@ export function NotesWindowList({
                         >
                           {note.deleted ? (
                             <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-left">
-                              <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground" />
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium text-xs line-through">
-                                  {note.title}
-                                </p>
-                                <p className="truncate text-muted-foreground text-xs">
-                                  {getContentPreview(note.content)} ·{' '}
-                                  {formatDate(note.updatedAt)} · Deleted
-                                </p>
-                              </div>
+                              <NoteItemContent note={note} />
                             </div>
                           ) : (
                             <button
@@ -382,16 +386,7 @@ export function NotesWindowList({
                               className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 overflow-hidden text-left"
                               onClick={() => handleNoteClick(note)}
                             >
-                              <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground" />
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate font-medium text-xs">
-                                  {note.title}
-                                </p>
-                                <p className="truncate text-muted-foreground text-xs">
-                                  {getContentPreview(note.content)} ·{' '}
-                                  {formatDate(note.updatedAt)}
-                                </p>
-                              </div>
+                              <NoteItemContent note={note} />
                             </button>
                           )}
                         </ListRow>

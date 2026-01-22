@@ -47,6 +47,10 @@ export function NotesWindow({
     setSelectedNoteId(null);
   }, []);
 
+  const handleToggleMarkdownToolbar = useCallback(() => {
+    setShowMarkdownToolbar((prev) => !prev);
+  }, []);
+
   const handleNewNote = useCallback(async () => {
     if (!isUnlocked) return;
 
@@ -94,9 +98,7 @@ export function NotesWindow({
           onShowDeletedChange={setShowDeleted}
           showMarkdownToolbarOption={Boolean(selectedNoteId)}
           showMarkdownToolbar={showMarkdownToolbar}
-          onToggleMarkdownToolbar={() =>
-            setShowMarkdownToolbar((prev) => !prev)
-          }
+          onToggleMarkdownToolbar={handleToggleMarkdownToolbar}
           onNewNote={handleNewNote}
           onClose={onClose}
         />
