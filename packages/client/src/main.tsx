@@ -72,6 +72,9 @@ const Contacts = lazy(() =>
 const Debug = lazy(() =>
   import('./pages/debug').then((m) => ({ default: m.Debug }))
 );
+const ApiDocsPage = lazy(() =>
+  import('./pages/docs/ApiDocs').then((m) => ({ default: m.ApiDocsPage }))
+);
 const DocumentDetail = lazy(() =>
   import('./pages/DocumentDetail').then((m) => ({ default: m.DocumentDetail }))
 );
@@ -231,6 +234,11 @@ if (rootElement) {
                                   <Route path="sqlite" element={<Sqlite />} />
                                   <Route path="console" element={<Console />} />
                                   <Route path="debug" element={<Debug />} />
+                                  <Route path="docs" element={<ApiDocsPage />} />
+                                  <Route
+                                    path="docs/api"
+                                    element={<ApiDocsPage />}
+                                  />
                                   <Route path="chat" element={<Chat />} />
                                   <Route path="email" element={<Email />} />
                                   <Route path="models" element={<Models />} />
