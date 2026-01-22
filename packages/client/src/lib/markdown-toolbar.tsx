@@ -23,9 +23,9 @@ const getTooltipLabel = (command: ICommand): string | undefined => {
 
 const stripTitle = (
   buttonProps: ButtonHTMLAttributes<HTMLButtonElement> | null | undefined
-): ButtonHTMLAttributes<HTMLButtonElement> | null | undefined => {
+): ButtonHTMLAttributes<HTMLButtonElement> | null => {
   if (!buttonProps) {
-    return buttonProps;
+    return null;
   }
 
   const { title, ...rest } = buttonProps;
@@ -88,9 +88,7 @@ export const markdownToolbarCommandsFilter: CommandFilter = (command) => {
     return command;
   }
 
-  return {
-    ...command,
-    buttonProps: stripTitle(command.buttonProps),
-    render: renderToolbarButton
-  };
+  command.buttonProps = stripTitle(command.buttonProps);
+  command.render = renderToolbarButton;
+  return command;
 };
