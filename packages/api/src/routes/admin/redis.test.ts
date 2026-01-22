@@ -481,9 +481,9 @@ describe('Admin Redis Routes', () => {
 
       vi.mocked(getRedisClient).mockResolvedValue(createMockClient());
 
-      const response = await request(app).get(
-        '/v1/admin/redis/keys/user%3A123'
-      );
+      const response = await request(app)
+        .get('/v1/admin/redis/keys/user%3A123')
+        .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
       expect(mockType).toHaveBeenCalledWith('user:123');
