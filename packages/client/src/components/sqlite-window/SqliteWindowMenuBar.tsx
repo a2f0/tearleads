@@ -28,7 +28,7 @@ export function SqliteWindowMenuBar({
   return (
     <div className="flex shrink-0 border-b bg-muted/30 px-1">
       <DropdownMenu trigger="File">
-        {showExportCsv ? (
+        {showExportCsv && (
           <>
             <DropdownMenuItem
               onClick={handleExportCsv}
@@ -39,7 +39,7 @@ export function SqliteWindowMenuBar({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
           </>
-        ) : null}
+        )}
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
       </DropdownMenu>
       <DropdownMenu trigger="View">
