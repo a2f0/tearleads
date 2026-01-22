@@ -171,12 +171,13 @@
       ansible.builtin.copy:
         dest: /opt/rapid-api/.env
         content: |
+          JWT_SECRET={{ lookup('env', 'JWT_SECRET') | mandatory('JWT_SECRET environment variable is required') }}
           OPENROUTER_API_KEY={{ lookup('env', 'OPENROUTER_API_KEY') | mandatory('OPENROUTER_API_KEY environment variable is required') }}
+          POSTGRES_DATABASE={{ lookup('env', 'POSTGRES_DATABASE') | mandatory('POSTGRES_DATABASE environment variable is required') }}
           POSTGRES_HOST={{ lookup('env', 'POSTGRES_HOST') | mandatory('POSTGRES_HOST environment variable is required') }}
+          POSTGRES_PASSWORD={{ lookup('env', 'POSTGRES_PASSWORD') | mandatory('POSTGRES_PASSWORD environment variable is required') }}
           POSTGRES_PORT={{ lookup('env', 'POSTGRES_PORT') | mandatory('POSTGRES_PORT environment variable is required') }}
           POSTGRES_USER={{ lookup('env', 'POSTGRES_USER') | mandatory('POSTGRES_USER environment variable is required') }}
-          POSTGRES_PASSWORD={{ lookup('env', 'POSTGRES_PASSWORD') | mandatory('POSTGRES_PASSWORD environment variable is required') }}
-          POSTGRES_DATABASE={{ lookup('env', 'POSTGRES_DATABASE') | mandatory('POSTGRES_DATABASE environment variable is required') }}
         owner: "{{ ansible_user }}"
         group: www-data
         mode: "0640"
