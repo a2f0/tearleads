@@ -26,37 +26,37 @@ export function ApiDocsOperationCard({ operation }: ApiDocsOperationCardProps) {
       <summary className="flex cursor-pointer list-none items-center gap-3 rounded-xl px-4 py-3 transition hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
         <span
           className={cn(
-            'inline-flex min-w-[64px] items-center justify-center rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide',
+            'inline-flex min-w-[64px] items-center justify-center rounded-full border px-2.5 py-1 font-semibold text-xs uppercase tracking-wide',
             methodStyle
           )}
         >
           {operation.method}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-foreground">
+          <p className="truncate font-semibold text-foreground text-sm">
             {operation.summary}
           </p>
-          <p className="truncate font-mono text-xs text-muted-foreground">
+          <p className="truncate font-mono text-muted-foreground text-xs">
             {operation.path}
           </p>
         </div>
         {operation.deprecated ? (
-          <span className="rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold text-destructive">
+          <span className="rounded-full border border-destructive/30 bg-destructive/10 px-2 py-0.5 font-semibold text-[11px] text-destructive">
             Deprecated
           </span>
         ) : null}
         <ChevronDown className="h-4 w-4 text-muted-foreground transition group-open:rotate-180" />
       </summary>
-      <div className="space-y-4 border-t px-4 pb-4 pt-3">
+      <div className="space-y-4 border-t px-4 pt-3 pb-4">
         {operation.description ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             {operation.description}
           </p>
         ) : null}
 
         {operation.parameters.length > 0 ? (
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            <p className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.2em]">
               Parameters
             </p>
             <div className="space-y-2">
@@ -66,19 +66,19 @@ export function ApiDocsOperationCard({ operation }: ApiDocsOperationCardProps) {
                   className="rounded-lg border bg-muted/30 px-3 py-2"
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs font-semibold text-foreground">
+                    <span className="font-mono font-semibold text-foreground text-xs">
                       {param.name}
                     </span>
-                    <span className="rounded-full border px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                    <span className="rounded-full border px-2 py-0.5 font-semibold text-[11px] text-muted-foreground">
                       {param.location}
                     </span>
                     {param.required ? (
-                      <span className="rounded-full border border-warning/40 bg-warning/20 px-2 py-0.5 text-[11px] font-semibold text-warning">
+                      <span className="rounded-full border border-warning/40 bg-warning/20 px-2 py-0.5 font-semibold text-[11px] text-warning">
                         Required
                       </span>
                     ) : null}
                     {param.schemaType ? (
-                      <span className="rounded-full border border-info/30 bg-info/10 px-2 py-0.5 text-[11px] font-semibold text-info">
+                      <span className="rounded-full border border-info/30 bg-info/10 px-2 py-0.5 font-semibold text-[11px] text-info">
                         {param.schemaType}
                       </span>
                     ) : null}

@@ -28,14 +28,14 @@ export function ApiDocsSidebar({
       )}
     >
       <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+        <p className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.2em]">
           Overview
         </p>
         <div className="flex flex-wrap gap-2">
-          <span className="inline-flex items-center rounded-full border bg-muted/40 px-3 py-1 text-xs font-semibold">
+          <span className="inline-flex items-center rounded-full border bg-muted/40 px-3 py-1 font-semibold text-xs">
             {totalOperations} endpoints
           </span>
-          <span className="inline-flex items-center rounded-full border bg-muted/40 px-3 py-1 text-xs font-semibold">
+          <span className="inline-flex items-center rounded-full border bg-muted/40 px-3 py-1 font-semibold text-xs">
             {tagGroups.length} groups
           </span>
         </div>
@@ -43,7 +43,7 @@ export function ApiDocsSidebar({
 
       {showBaseUrl && baseUrl ? (
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          <p className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.2em]">
             {baseUrlLabel}
           </p>
           <p className="break-all rounded-lg border bg-muted/40 px-3 py-2 font-mono text-xs">
@@ -53,7 +53,7 @@ export function ApiDocsSidebar({
       ) : null}
 
       <div className="space-y-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+        <p className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.2em]">
           Sections
         </p>
         <nav className="space-y-1">
@@ -61,10 +61,10 @@ export function ApiDocsSidebar({
             <a
               key={tag.name}
               href={`#tag-${tag.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
-              className="group flex items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-muted-foreground transition hover:border-border hover:bg-muted/40 hover:text-foreground"
+              className="group flex items-center justify-between gap-3 rounded-lg border border-transparent px-3 py-2 font-medium text-muted-foreground text-sm transition hover:border-border hover:bg-muted/40 hover:text-foreground"
             >
               <span className="truncate">{tag.name}</span>
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
+              <span className="inline-flex items-center gap-1 font-semibold text-muted-foreground text-xs">
                 {tag.operations.length}
                 <ChevronRight className="h-3 w-3 text-muted-foreground transition group-hover:translate-x-0.5" />
               </span>
