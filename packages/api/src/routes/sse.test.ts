@@ -1,7 +1,8 @@
 import type { Response } from 'supertest';
 import request from 'supertest';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
+import { createAuthHeader } from '../test/auth.js';
 import { cleanupSseClient, closeAllSSEConnections } from './sse.js';
 
 const mockConnect = vi.fn();
@@ -48,8 +49,11 @@ vi.mock('../lib/redisPubSub.js', () => ({
 }));
 
 describe('SSE Routes', () => {
-  beforeEach(() => {
+  let authHeader: string;
+
+  beforeEach(async () => {
     vi.clearAllMocks();
+    vi.stubEnv('JWT_SECRET', 'test-secret');
     mockConnect.mockResolvedValue(undefined);
     mockQuit.mockResolvedValue(undefined);
     mockSubscribe.mockResolvedValue(undefined);
@@ -60,12 +64,18 @@ describe('SSE Routes', () => {
       subscribe: mockSubscribe,
       unsubscribe: mockUnsubscribe
     });
+    authHeader = await createAuthHeader();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   describe('GET /v1/sse', () => {
     it('returns SSE headers', async () => {
       const response = await request(app)
         .get('/v1/sse')
+        .set('Authorization', authHeader)
         .buffer(true)
         .parse(
           createSseParser((data, res) => {
@@ -83,6 +93,7 @@ describe('SSE Routes', () => {
     it('sends connected event with default channel', async () => {
       const response = await request(app)
         .get('/v1/sse')
+        .set('Authorization', authHeader)
         .buffer(true)
         .parse(
           createSseParser((data, res) => {
@@ -99,6 +110,7 @@ describe('SSE Routes', () => {
     it('subscribes to custom channels', async () => {
       const response = await request(app)
         .get('/v1/sse?channels=channel1,channel2')
+        .set('Authorization', authHeader)
         .buffer(true)
         .parse(
           createSseParser((data, res) => {
@@ -132,6 +144,7 @@ describe('SSE Routes', () => {
 
       const response = await request(app)
         .get('/v1/sse')
+        .set('Authorization', authHeader)
         .buffer(true)
         .parse(
           createSseParser((data, res) => {
@@ -155,6 +168,7 @@ describe('SSE Routes', () => {
 
       await request(app)
         .get('/v1/sse?channels=channel1')
+        .set('Authorization', authHeader)
         .buffer(true)
         .parse(
           createSseParser((data, res) => {
@@ -176,6 +190,7 @@ describe('SSE Routes', () => {
     it('cleans up subscriptions on close', async () => {
       await request(app)
         .get('/v1/sse?channels=channel1,channel2')
+        .set('Authorization', authHeader)
         .buffer(true)
         .parse(
           createSseParser((data, res) => {
@@ -195,6 +210,7 @@ describe('SSE Routes', () => {
     it('creates a duplicate client for each connection', async () => {
       await request(app)
         .get('/v1/sse')
+        .set('Authorization', authHeader)
         .buffer(true)
         .parse(
           createSseParser((data, res) => {
@@ -217,6 +233,7 @@ describe('SSE Routes', () => {
 
       const response = await request(app)
         .get('/v1/sse')
+        .set('Authorization', authHeader)
         .buffer(true)
         .parse(
           createSseParser((data, res) => {
@@ -238,6 +255,7 @@ describe('SSE Routes', () => {
     it('trims and filters empty channel names', async () => {
       const response = await request(app)
         .get('/v1/sse?channels=channel1, , channel2 ,')
+        .set('Authorization', authHeader)
         .buffer(true)
         .parse(
           createSseParser((data, res) => {
@@ -260,6 +278,7 @@ describe('SSE Routes', () => {
 
       const response = await request(app)
         .get('/v1/sse')
+        .set('Authorization', authHeader)
         .buffer(true)
         .parse(
           createSseParser((data, res) => {
@@ -285,6 +304,7 @@ describe('SSE Routes', () => {
       let messageHandlerInvoked = false;
       const response = await request(app)
         .get('/v1/sse')
+        .set('Authorization', authHeader)
         .buffer(true)
         .parse(
           createSseParser((data, res) => {
@@ -312,6 +332,7 @@ describe('SSE Routes', () => {
       let messageHandlerInvoked = false;
       const response = await request(app)
         .get('/v1/sse')
+        .set('Authorization', authHeader)
         .buffer(true)
         .parse(
           createSseParser((data, res) => {
