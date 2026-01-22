@@ -19,8 +19,7 @@ export async function createSession(
 ): Promise<void> {
   const client = await getRedisClient();
   const key = getSessionKey(sessionId);
-  await client.set(key, JSON.stringify(data));
-  await client.expire(key, ttlSeconds);
+  await client.set(key, JSON.stringify(data), { EX: ttlSeconds });
 }
 
 export async function getSession(
