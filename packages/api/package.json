@@ -1,6 +1,6 @@
 {
   "name": "@rapid/api",
-  "version": "0.0.231",
+  "version": "0.0.232",
   "description": "Express API for Rapid",
   "main": "dist/index.js",
   "type": "module",
@@ -12,6 +12,9 @@
     "build": "tsc && pnpm buildOpenapi",
     "buildOpenapi": "tsx scripts/generate-openapi.ts",
     "build:bundle": "rm -rf dist && esbuild src/index.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/server.cjs --minify --sourcemap",
+    "build:cli": "esbuild src/apiCli.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/apiCli.cjs --minify --sourcemap",
+    "build:all": "rm -rf dist && pnpm build:bundle && pnpm build:cli",
+    "cli": "tsx src/apiCli.ts",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
     "test": "vitest run",
@@ -26,6 +29,7 @@
   "dependencies": {
     "@rapid/db": "workspace:*",
     "@rapid/shared": "workspace:*",
+    "commander": "13.1.0",
     "cors": "2.8.5",
     "dotenv": "17.2.3",
     "express": "5.2.1",
