@@ -21,8 +21,7 @@ export function VirtualListStatus({
   searchQuery,
   className
 }: VirtualListStatusProps) {
-  const formatNumber = (value: number) =>
-    new Intl.NumberFormat('en-US').format(value);
+  const formatNumber = new Intl.NumberFormat('en-US').format;
   const pluralLabel = loadedCount !== 1 ? `${itemLabel}s` : itemLabel;
 
   const getStatusText = () => {
