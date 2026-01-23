@@ -8,7 +8,8 @@ import type { Migration } from './types.js';
  */
 export const v002: Migration = {
   version: 2,
-  description: 'Add detail column to analytics_events',
+  description:
+    'Aligns API migration version with client v002; column created in v001',
   up: async (pool: Pool) => {
     await pool.query(
       'ALTER TABLE "analytics_events" ADD COLUMN IF NOT EXISTS "detail" JSONB'

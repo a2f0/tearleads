@@ -8,7 +8,8 @@ import type { Migration } from './types.js';
  */
 export const v004: Migration = {
   version: 4,
-  description: 'Add users and user_credentials tables',
+  description:
+    'Aligns API migration version with client v004; tables created in v001',
   up: async (pool: Pool) => {
     const statements = [
       `CREATE TABLE IF NOT EXISTS "users" (
