@@ -10,7 +10,22 @@ import { getAccessTokenTtlSeconds } from '../lib/authConfig.js';
 import { createJwt } from '../lib/jwt.js';
 import { verifyPassword } from '../lib/passwords.js';
 import { getPostgresPool } from '../lib/postgres.js';
-import { createSession } from '../lib/sessions.js';
+import {
+  createSession,
+  deleteSession,
+  getSessionsByUserId
+} from '../lib/sessions.js';
+
+function getClientIp(req: Request): string {
+  const forwarded = req.get('x-forwarded-for');
+  if (forwarded) {
+    const first = forwarded.split(',')[0];
+    if (first) {
+      return first.trim();
+    }
+  }
+  return req.ip ?? 'unknown';
+}
 
 const router: RouterType = Router();
 const ACCESS_TOKEN_TTL_SECONDS = getAccessTokenTtlSeconds();
@@ -134,9 +149,10 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     const sessionId = randomUUID();
+    const ipAddress = getClientIp(req);
     await createSession(
       sessionId,
-      { userId: user.id, email: user.email },
+      { userId: user.id, email: user.email, ipAddress },
       ACCESS_TOKEN_TTL_SECONDS
     );
 
@@ -158,6 +174,137 @@ router.post('/login', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Login failed:', error);
     res.status(500).json({ error: 'Failed to authenticate' });
+  }
+});
+
+/**
+ * @openapi
+ * /auth/sessions:
+ *   get:
+ *     summary: List all active sessions for the current user
+ *     description: Returns all sessions with metadata. Requires authentication.
+ *     tags:
+ *       - Auth
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of sessions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 sessions:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       createdAt:
+ *                         type: string
+ *                         format: date-time
+ *                       lastActiveAt:
+ *                         type: string
+ *                         format: date-time
+ *                       ipAddress:
+ *                         type: string
+ *                       isCurrent:
+ *                         type: boolean
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get('/sessions', async (req: Request, res: Response) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const sessions = await getSessionsByUserId(claims.sub);
+    const response = sessions.map((session) => ({
+      id: session.id,
+      createdAt: session.createdAt,
+      lastActiveAt: session.lastActiveAt,
+      ipAddress: session.ipAddress,
+      isCurrent: session.id === claims.jti
+    }));
+
+    res.json({ sessions: response });
+  } catch (error) {
+    console.error('Failed to list sessions:', error);
+    res.status(500).json({ error: 'Failed to list sessions' });
+  }
+});
+
+/**
+ * @openapi
+ * /auth/sessions/{sessionId}:
+ *   delete:
+ *     summary: Delete a session
+ *     description: Revokes a session. Cannot delete the current session.
+ *     tags:
+ *       - Auth
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: sessionId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Session deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 deleted:
+ *                   type: boolean
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Cannot delete current session
+ *       404:
+ *         description: Session not found
+ *       500:
+ *         description: Server error
+ */
+router.delete('/sessions/:sessionId', async (req: Request, res: Response) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  const { sessionId } = req.params;
+  if (!sessionId) {
+    res.status(400).json({ error: 'Session ID is required' });
+    return;
+  }
+
+  if (sessionId === claims.jti) {
+    res.status(403).json({ error: 'Cannot delete current session' });
+    return;
+  }
+
+  try {
+    const deleted = await deleteSession(sessionId, claims.sub);
+    if (!deleted) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    res.json({ deleted: true });
+  } catch (error) {
+    console.error('Failed to delete session:', error);
+    res.status(500).json({ error: 'Failed to delete session' });
   }
 });
 

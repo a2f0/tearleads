@@ -1,5 +1,6 @@
 import { LogOut } from 'lucide-react';
 import { useCallback, useState } from 'react';
+import { SessionList } from '@/components/sessions';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -81,6 +82,19 @@ export function Sync({ showBackLink = true }: SyncProps) {
               <LogOut className="mr-2 h-4 w-4" />
               Logout
             </Button>
+          </div>
+        </div>
+
+        <div className="rounded-lg border p-4">
+          <div className="space-y-4">
+            <div>
+              <p className="font-medium">Active Sessions</p>
+              <p className="text-muted-foreground text-sm">
+                Manage your active sessions across devices
+              </p>
+            </div>
+
+            <SessionList />
           </div>
         </div>
       </div>
