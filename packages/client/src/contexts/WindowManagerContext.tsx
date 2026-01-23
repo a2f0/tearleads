@@ -25,6 +25,7 @@ export type WindowType =
   | 'files'
   | 'tables'
   | 'debug'
+  | 'docs'
   | 'documents'
   | 'email'
   | 'contacts'

@@ -38,6 +38,7 @@ const MOCK_SAVED_POSITIONS = {
   '/contacts': { x: 400, y: 100 },
   '/photos': { x: 100, y: 200 },
   '/documents': { x: 200, y: 200 },
+  '/docs': { x: 150, y: 200 },
   '/notes': { x: 300, y: 200 },
   '/audio': { x: 400, y: 200 },
   '/videos': { x: 100, y: 300 },

@@ -13,6 +13,7 @@ export interface MenuTranslations {
   contacts: string;
   photos: string;
   documents: string;
+  docs: string;
   notes: string;
   audio: string;
   videos: string;
