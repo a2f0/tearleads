@@ -108,7 +108,8 @@ describe('Auth middleware', () => {
     await createSession(sessionId, {
       userId: 'different-user',
       email: 'different@example.com',
-      ipAddress: '127.0.0.1'
+      ipAddress: '127.0.0.1',
+      admin: false
     });
 
     const token = createJwt(
@@ -141,7 +142,8 @@ describe('Auth middleware', () => {
     await createSession(sessionId, {
       userId: 'user-1',
       email: 'user@example.com',
-      ipAddress: '127.0.0.1'
+      ipAddress: '127.0.0.1',
+      admin: false
     });
 
     const token = createJwt(

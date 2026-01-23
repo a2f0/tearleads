@@ -129,7 +129,8 @@ describe('sessions', () => {
       await createSession('valid-session', {
         userId: 'user-cleanup',
         email: 'test@example.com',
-        ipAddress: '127.0.0.1'
+        ipAddress: '127.0.0.1',
+        admin: false
       });
 
       userSessionsStore.get('user_sessions:user-cleanup')?.add('stale-session');
