@@ -1,14 +1,6 @@
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-
-const mockNavigate = vi.fn();
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  };
-});
 
 vi.mock('@rapid/api/dist/openapi.json', () => ({
   default: {
@@ -37,10 +29,14 @@ import { ApiDocsPage } from './ApiDocs.js';
 
 describe('ApiDocsPage', () => {
   it('renders the shared API docs UI', () => {
-    render(<ApiDocsPage />);
+    render(
+      <MemoryRouter>
+        <ApiDocsPage />
+      </MemoryRouter>
+    );
 
     expect(
-      screen.getByRole('dialog', { name: 'API Docs' })
+      screen.getByRole('heading', { name: 'API Docs' })
     ).toBeInTheDocument();
     expect(screen.getByText('Client Docs')).toBeInTheDocument();
     expect(screen.getByText('Ping')).toBeInTheDocument();

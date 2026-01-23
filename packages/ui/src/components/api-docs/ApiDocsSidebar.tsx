@@ -22,7 +22,7 @@ export function ApiDocsSidebar({
   return (
     <aside
       className={cn(
-        'space-y-6 rounded-2xl border bg-background/80 p-4 backdrop-blur',
+        'space-y-6 rounded-lg border bg-background/80 p-4 backdrop-blur',
         'shadow-[0_1px_0_rgba(0,0,0,0.04)]',
         className
       )}
