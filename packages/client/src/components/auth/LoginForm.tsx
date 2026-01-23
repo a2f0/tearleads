@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +14,7 @@ export function LoginForm({
   title = 'Login',
   description = 'Sign in to continue'
 }: LoginFormProps) {
+  const id = useId();
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -60,11 +61,11 @@ export function LoginForm({
         )}
 
         <div className="space-y-2">
-          <label htmlFor="login-email" className="font-medium text-sm">
+          <label htmlFor={`${id}-email`} className="font-medium text-sm">
             Email
           </label>
           <Input
-            id="login-email"
+            id={`${id}-email`}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -76,11 +77,11 @@ export function LoginForm({
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="login-password" className="font-medium text-sm">
+          <label htmlFor={`${id}-password`} className="font-medium text-sm">
             Password
           </label>
           <Input
-            id="login-password"
+            id={`${id}-password`}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
