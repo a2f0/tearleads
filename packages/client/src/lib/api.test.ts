@@ -73,6 +73,27 @@ describe('api', () => {
       await expect(api.ping.get()).rejects.toThrow('API error: 404');
     });
 
+    it('clears stored auth and reports session expiry when response is 401', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(null, { status: 401 })
+      );
+
+      localStorage.setItem('auth_token', 'stale-token');
+      localStorage.setItem(
+        'auth_user',
+        JSON.stringify({ id: '123', email: 'user@example.com' })
+      );
+
+      const { api } = await import('./api');
+      const { getAuthError } = await import('./auth-storage');
+
+      await expect(api.ping.get()).rejects.toThrow('API error: 401');
+
+      expect(localStorage.getItem('auth_token')).toBeNull();
+      expect(localStorage.getItem('auth_user')).toBeNull();
+      expect(getAuthError()).toBe('Session expired. Please sign in again.');
+    });
+
     it('handles network errors', async () => {
       vi.mocked(global.fetch).mockRejectedValue(new Error('Network error'));
 
