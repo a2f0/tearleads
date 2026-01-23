@@ -165,7 +165,7 @@ describe('SSEContext', () => {
 
         expect(MockEventSource.instances).toHaveLength(1);
         expect(MockEventSource.getInstance(0).url).toBe(
-          'http://localhost:5001/v1/sse?channels=broadcast'
+          'http://localhost:5001/v1/sse?channels=broadcast&token=test-token'
         );
       });
 
@@ -189,7 +189,7 @@ describe('SSEContext', () => {
         });
 
         expect(MockEventSource.getInstance(0).url).toBe(
-          'http://localhost:5001/v1/sse?channels=channel1%2Cchannel2'
+          'http://localhost:5001/v1/sse?channels=channel1%2Cchannel2&token=test-token'
         );
       });
     });
