@@ -9,9 +9,7 @@ import {
   useState
 } from 'react';
 import { api } from '@/lib/api';
-
-const AUTH_TOKEN_KEY = 'auth_token';
-const AUTH_USER_KEY = 'auth_user';
+import { clearStoredAuth, readStoredAuth, storeAuth } from '@/lib/auth-storage';
 
 interface AuthContextValue {
   isAuthenticated: boolean;
@@ -35,23 +33,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Load session from localStorage on mount
   useEffect(() => {
-    try {
-      const savedToken = localStorage.getItem(AUTH_TOKEN_KEY);
-      const savedUser = localStorage.getItem(AUTH_USER_KEY);
-
-      if (savedToken && savedUser) {
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser) as AuthUser);
-      }
-    } catch {
-      // Invalid stored data, clear it
+    const { token: savedToken, user: savedUser } = readStoredAuth();
+    if (savedToken && savedUser) {
+      setToken(savedToken);
+      setUser(savedUser);
+    } else {
       setToken(null);
       setUser(null);
-      localStorage.removeItem(AUTH_TOKEN_KEY);
-      localStorage.removeItem(AUTH_USER_KEY);
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   }, []);
 
   // Errors propagate to caller for handling (e.g., Sync component catches and displays)
@@ -63,15 +53,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(response.user);
 
     // Persist to localStorage
-    localStorage.setItem(AUTH_TOKEN_KEY, response.accessToken);
-    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(response.user));
+    storeAuth(response.accessToken, response.user);
   }, []);
 
   const logout = useCallback(() => {
     setToken(null);
     setUser(null);
-    localStorage.removeItem(AUTH_TOKEN_KEY);
-    localStorage.removeItem(AUTH_USER_KEY);
+    clearStoredAuth();
   }, []);
 
   const value = useMemo(

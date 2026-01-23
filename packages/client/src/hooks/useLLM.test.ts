@@ -57,6 +57,7 @@ describe('useLLM', () => {
     vi.clearAllMocks();
     mockOnMessage = null;
     vi.stubGlobal('Worker', MockWorker);
+    localStorage.removeItem('auth_token');
     // Mock WebGPU
     vi.stubGlobal('navigator', {
       gpu: {
@@ -159,6 +160,57 @@ describe('useLLM', () => {
           }
         })
       );
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    });
+
+    it('includes the auth header when available for OpenRouter requests', async () => {
+      vi.stubEnv('VITE_API_URL', 'http://localhost');
+      localStorage.setItem('auth_token', 'test-token');
+      const mockFetch = vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  role: 'assistant',
+                  content: 'Remote reply'
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+      );
+      vi.stubGlobal('fetch', mockFetch);
+
+      const { useLLM } = await import('./useLLM');
+      const { result } = renderHook(() => useLLM());
+
+      await act(async () => {
+        await result.current.loadModel(DEFAULT_OPENROUTER_MODEL_ID);
+      });
+
+      const onToken = vi.fn();
+      await act(async () => {
+        await result.current.generate(
+          [{ role: 'user', content: 'Hello' }],
+          onToken
+        );
+      });
+
+      expect(onToken).toHaveBeenCalledWith('Remote reply');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost/chat/completions',
+        expect.objectContaining({
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer test-token'
+          }
+        })
+      );
+      localStorage.removeItem('auth_token');
       vi.unstubAllGlobals();
       vi.unstubAllEnvs();
     });

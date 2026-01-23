@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { API_BASE_URL } from '@/lib/api';
+import { getAuthHeaderValue } from '@/lib/auth-storage';
 import { type EmailItem, formatEmailDate, formatEmailSize } from '@/lib/email';
 import type { ViewMode } from './EmailWindowMenuBar';
 import { EmailWindowMenuBar } from './EmailWindowMenuBar';
@@ -37,7 +38,9 @@ export function EmailWindow({
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/emails`);
+      const authHeader = getAuthHeaderValue();
+      const headers = authHeader ? { Authorization: authHeader } : undefined;
+      const response = await fetch(`${API_BASE_URL}/emails`, { headers });
       if (!response.ok) {
         throw new Error(`Failed to fetch emails: ${response.statusText}`);
       }
