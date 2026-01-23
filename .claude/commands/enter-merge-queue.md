@@ -10,7 +10,7 @@ description: Guarantee PR merge by cycling until merged
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 ```
 
-Use `-R "$REPO"` with all `gh` commands in this skill.
+Use `-R "$REPO"` with `gh` commands that require explicit repo context (e.g., `gh issue`, `gh api`). However, do NOT use `-R` with `gh pr view` when inferring from the current branch - it requires an explicit PR number when `-R` is used. Instead, run `gh pr view` without `-R` to use the current branch context, or specify the PR number explicitly: `gh pr view <number> -R "$REPO"`.
 
 This skill guarantees a PR gets merged by continuously updating from base, fixing CI, addressing reviews, and waiting until the PR is actually merged.
 
