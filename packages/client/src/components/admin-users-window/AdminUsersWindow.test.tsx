@@ -93,7 +93,10 @@ describe('AdminUsersWindow', () => {
       y: 100
     };
     render(
-      <AdminUsersWindow {...defaultProps} initialDimensions={initialDimensions} />
+      <AdminUsersWindow
+        {...defaultProps}
+        initialDimensions={initialDimensions}
+      />
     );
     const floatingWindow = screen.getByTestId('floating-window');
     expect(floatingWindow).toHaveAttribute(

@@ -1,6 +1,6 @@
 import type {
-  AdminUserUpdateResponse,
   AdminUsersResponse,
+  AdminUserUpdateResponse,
   PingData,
   PostgresAdminInfoResponse,
   PostgresTablesResponse,
@@ -81,7 +81,9 @@ export const handlers = [
     ok<PostgresTablesResponse>(defaultPostgresTables)
   ),
   http.get(/\/admin\/redis\/dbsize$/, () => ok({ count: defaultKeys.length })),
-  http.get(/\/admin\/users$/, () => ok<AdminUsersResponse>({ users: adminUsers })),
+  http.get(/\/admin\/users$/, () =>
+    ok<AdminUsersResponse>({ users: adminUsers })
+  ),
   http.patch(/\/admin\/users\/.+$/, async ({ request }) => {
     const url = new URL(request.url);
     const id = decodeURIComponent(url.pathname.split('/').pop() ?? '');

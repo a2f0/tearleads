@@ -1,7 +1,7 @@
 import type {
+  AdminUsersResponse,
   AdminUserUpdatePayload,
   AdminUserUpdateResponse,
-  AdminUsersResponse,
   AuthResponse,
   PingData,
   PostgresAdminInfoResponse,
@@ -163,13 +163,13 @@ export const api = {
         request<AdminUserUpdateResponse>(
           `/admin/users/${encodeURIComponent(id)}`,
           {
-          fetchOptions: {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          },
-          eventName: 'api_patch_admin_user'
-        }
+            fetchOptions: {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            },
+            eventName: 'api_patch_admin_user'
+          }
         )
     }
   }

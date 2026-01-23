@@ -31,9 +31,7 @@ function mapUserRow(row: UserRow): AdminUser {
   };
 }
 
-function parseUserUpdatePayload(
-  body: unknown
-): AdminUserUpdatePayload | null {
+function parseUserUpdatePayload(body: unknown): AdminUserUpdatePayload | null {
   if (!isRecord(body)) {
     return null;
   }
