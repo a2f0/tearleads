@@ -1,6 +1,6 @@
 #!/usr/bin/env -S pnpm exec tsx
 import { pathToFileURL } from 'node:url';
-import { runCreateAccountFromArgv } from '../src/cli/createAccount.ts';
+import { runCreateAccountFromArgv } from '../packages/api/src/cli/createAccount.ts';
 
 async function main(): Promise<void> {
   await runCreateAccountFromArgv(process.argv.slice(2));
