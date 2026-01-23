@@ -21,8 +21,8 @@ export function ApiDocsOperationCard({ operation }: ApiDocsOperationCardProps) {
   const methodStyle = METHOD_STYLES[operation.method];
 
   return (
-    <details className="group rounded-xl border bg-background/80 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
-      <summary className="flex cursor-pointer list-none items-center gap-3 rounded-xl px-4 py-3 transition hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
+    <details className="group rounded-lg border bg-background/80 shadow-[0_1px_0_rgba(0,0,0,0.04)]">
+      <summary className="flex cursor-pointer list-none items-center gap-3 rounded-lg px-4 py-3 transition hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
         <span
           className={cn(
             'inline-flex min-w-[64px] items-center justify-center rounded-full border px-2.5 py-1 font-semibold text-xs uppercase tracking-wide',

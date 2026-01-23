@@ -9,11 +9,11 @@ import { ChatWindow } from '@/components/chat-window';
 import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
 import { DebugWindow } from '@/components/debug-window';
-import { DocsWindow } from '@/components/docs-window';
 import { DocumentsWindow } from '@/components/documents-window';
 import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
 import type { WindowDimensions } from '@/components/floating-window';
+import { HelpWindow } from '@/components/help-window';
 import { KeychainWindow } from '@/components/keychain-window';
 import { LocalStorageWindow } from '@/components/local-storage-window';
 import { ModelsWindow } from '@/components/models-window';
@@ -77,7 +77,7 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   tables: { Component: TablesWindow },
   debug: { Component: DebugWindow },
   documents: { Component: DocumentsWindow },
-  docs: { Component: DocsWindow },
+  help: { Component: HelpWindow },
   'local-storage': { Component: LocalStorageWindow },
   sync: { Component: SyncWindow }
 };

@@ -1,1 +1,0 @@
-export { DocsWindow } from './DocsWindow';
