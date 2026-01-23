@@ -74,6 +74,7 @@ describe('usersTable', () => {
     expect(usersTable.columns['id']).toBeDefined();
     expect(usersTable.columns['email']).toBeDefined();
     expect(usersTable.columns['emailConfirmed']).toBeDefined();
+    expect(usersTable.columns['admin']).toBeDefined();
   });
 });
 

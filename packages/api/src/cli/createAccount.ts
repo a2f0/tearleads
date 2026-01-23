@@ -13,6 +13,7 @@ type ParsedArgs = {
   email: string | null;
   password: string | null;
   passwordFromStdin: boolean;
+  admin: boolean;
   help: boolean;
 };
 
@@ -20,6 +21,7 @@ type CreateAccountOptions = {
   email?: string;
   password?: string;
   passwordStdin?: boolean;
+  admin?: boolean;
 };
 
 function printUsage(): void {
@@ -37,6 +39,7 @@ function printUsage(): void {
       '  --email, -e           Account email address (required).',
       '  --password, -p        Account password (required unless --password-stdin).',
       '  --password-stdin      Read password from stdin.',
+      '  --admin               Create user with admin privileges.',
       '  --help, -h            Show this help message.',
       '',
       'Environment:',
@@ -51,6 +54,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   let email: string | null = null;
   let password: string | null = null;
   let passwordFromStdin = false;
+  let admin = false;
   let help = false;
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -66,6 +70,11 @@ function parseArgs(argv: string[]): ParsedArgs {
 
     if (arg === '--password-stdin') {
       passwordFromStdin = true;
+      continue;
+    }
+
+    if (arg === '--admin') {
+      admin = true;
       continue;
     }
 
@@ -102,7 +111,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     throw new Error(`Unknown argument: ${arg}`);
   }
 
-  return { email, password, passwordFromStdin, help };
+  return { email, password, passwordFromStdin, admin, help };
 }
 
 function buildConnectionLabel(): string {
@@ -124,7 +133,11 @@ function buildConnectionLabel(): string {
   return labelParts.join(', ');
 }
 
-async function createAccount(email: string, password: string): Promise<void> {
+async function createAccount(
+  email: string,
+  password: string,
+  admin: boolean
+): Promise<void> {
   const label = buildConnectionLabel();
   const pool = await getPostgresPool();
   const client = await pool.connect();
@@ -145,8 +158,8 @@ async function createAccount(email: string, password: string): Promise<void> {
     const { salt, hash } = await hashPassword(password);
 
     await client.query(
-      'INSERT INTO users (id, email, email_confirmed) VALUES ($1, $2, $3)',
-      [userId, email, false]
+      'INSERT INTO users (id, email, email_confirmed, admin) VALUES ($1, $2, $3, $4)',
+      [userId, email, false, admin]
     );
 
     await client.query(
@@ -175,6 +188,7 @@ export async function runCreateAccount(
   const emailValue = options.email ?? null;
   const passwordValue = options.password ?? null;
   const passwordFromStdin = options.passwordStdin ?? false;
+  const admin = options.admin ?? false;
 
   if (!emailValue) {
     throw new Error('Email is required. Use --email or -e.');
@@ -198,7 +212,7 @@ export async function runCreateAccount(
     passwordInput
   );
 
-  await createAccount(email, password);
+  await createAccount(email, password, admin);
 }
 
 export async function runCreateAccountFromArgv(argv: string[]): Promise<void> {
@@ -219,6 +233,9 @@ export async function runCreateAccountFromArgv(argv: string[]): Promise<void> {
     if (parsed.passwordFromStdin) {
       options.passwordStdin = true;
     }
+    if (parsed.admin) {
+      options.admin = true;
+    }
 
     await runCreateAccount(options);
   } finally {
@@ -233,6 +250,7 @@ export function createAccountCommand(program: Command): void {
     .requiredOption('-e, --email <email>', 'Account email address')
     .option('-p, --password <password>', 'Account password')
     .option('--password-stdin', 'Read password from stdin')
+    .option('--admin', 'Create user with admin privileges')
     .action(async (options: CreateAccountOptions) => {
       let exitCode = 0;
       try {

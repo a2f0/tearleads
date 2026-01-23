@@ -32,6 +32,7 @@ export const en = {
     models: 'Models',
     admin: 'Admin',
     postgresAdmin: 'Postgres Admin',
+    adminUsers: 'Users Admin',
     settings: 'Settings',
     email: 'Email',
     sync: 'Sync'

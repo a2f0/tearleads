@@ -1,4 +1,4 @@
 export { Admin } from './Admin';
 export { AdminLauncher } from './AdminLauncher';
 export { PostgresAdmin } from './PostgresAdmin';
-export { PostgresTableRows } from './PostgresTableRows';
+export { UsersAdmin } from './UsersAdmin';

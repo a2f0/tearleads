@@ -93,6 +93,27 @@ export interface PostgresRowsResponse {
   offset: number;
 }
 
+export interface AdminUser {
+  id: string;
+  email: string;
+  emailConfirmed: boolean;
+  admin: boolean;
+}
+
+export interface AdminUsersResponse {
+  users: AdminUser[];
+}
+
+export interface AdminUserUpdatePayload {
+  email?: string;
+  emailConfirmed?: boolean;
+  admin?: boolean;
+}
+
+export interface AdminUserUpdateResponse {
+  user: AdminUser;
+}
+
 // Auth types
 export interface AuthUser {
   id: string;

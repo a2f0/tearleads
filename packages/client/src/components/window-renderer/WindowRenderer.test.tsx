@@ -758,6 +758,41 @@ vi.mock('@/components/admin-postgres-window', () => ({
   )
 }));
 
+vi.mock('@/components/admin-users-window', () => ({
+  AdminUsersWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`admin-users-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 840, height: 620 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/chat-window', () => ({
   ChatWindow: ({
     id,
@@ -1743,6 +1778,46 @@ describe('WindowRenderer', () => {
       y: 0,
       width: 720,
       height: 600
+    });
+  });
+
+  it('renders admin users window for admin-users type', () => {
+    mockWindows = [{ id: 'admin-users-1', type: 'admin-users', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(
+      screen.getByTestId('admin-users-window-admin-users-1')
+    ).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when admin users close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'admin-users-1', type: 'admin-users', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-admin-users-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('admin-users-1');
+  });
+
+  it('calls focusWindow when admin users window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'admin-users-1', type: 'admin-users', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('admin-users-window-admin-users-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('admin-users-1');
+  });
+
+  it('calls minimizeWindow when admin users minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'admin-users-1', type: 'admin-users', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-admin-users-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('admin-users-1', {
+      x: 0,
+      y: 0,
+      width: 840,
+      height: 620
     });
   });
 

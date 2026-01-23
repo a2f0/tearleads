@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 4 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 5 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(4);
+      expect(result.currentVersion).toBe(5);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 4 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 5 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -157,8 +157,8 @@ describe('migrations', () => {
 
       const result = await runMigrations(pool);
 
-      expect(result.applied).toEqual([2, 3, 4]);
-      expect(result.currentVersion).toBe(4);
+      expect(result.applied).toEqual([2, 3, 4, 5]);
+      expect(result.currentVersion).toBe(5);
     });
   });
 

@@ -52,7 +52,8 @@ describe('Auth routes', () => {
           id: 'user-1',
           email: 'user@example.com',
           password_hash: credentials.hash,
-          password_salt: credentials.salt
+          password_salt: credentials.salt,
+          admin: false
         }
       ]
     });
@@ -75,7 +76,8 @@ describe('Auth routes', () => {
           id: 'user-1',
           email: 'user@example.com',
           password_hash: credentials.hash,
-          password_salt: credentials.salt
+          password_salt: credentials.salt,
+          admin: false
         }
       ]
     });
@@ -102,6 +104,7 @@ describe('Auth routes', () => {
     expect(session).toMatchObject({
       userId: 'user-1',
       email: 'user@example.com',
+      admin: false,
       ipAddress: expect.any(String)
     });
     expect(session?.createdAt).toEqual(expect.any(String));
@@ -147,6 +150,7 @@ describe('Auth routes', () => {
       await createSession(sessionId, {
         userId,
         email: 'sessions-test@example.com',
+        admin: false,
         ipAddress: '127.0.0.1'
       });
 
@@ -179,11 +183,13 @@ describe('Auth routes', () => {
       await createSession(currentSessionId, {
         userId,
         email: 'user@example.com',
+        admin: false,
         ipAddress: '127.0.0.1'
       });
       await createSession(otherSessionId, {
         userId,
         email: 'user@example.com',
+        admin: false,
         ipAddress: '192.168.1.1'
       });
 
@@ -232,6 +238,7 @@ describe('Auth routes', () => {
       await createSession(sessionId, {
         userId,
         email: 'user@example.com',
+        admin: false,
         ipAddress: '127.0.0.1'
       });
 
@@ -261,6 +268,7 @@ describe('Auth routes', () => {
       await createSession(currentSessionId, {
         userId,
         email: 'user@example.com',
+        admin: false,
         ipAddress: '127.0.0.1'
       });
 
@@ -288,11 +296,13 @@ describe('Auth routes', () => {
       await createSession(currentSessionId, {
         userId,
         email: 'user@example.com',
+        admin: false,
         ipAddress: '127.0.0.1'
       });
       await createSession(otherSessionId, {
         userId,
         email: 'user@example.com',
+        admin: false,
         ipAddress: '192.168.1.1'
       });
 
@@ -327,11 +337,13 @@ describe('Auth routes', () => {
       await createSession(currentSessionId, {
         userId,
         email: 'user@example.com',
+        admin: false,
         ipAddress: '127.0.0.1'
       });
       await createSession(otherUserSessionId, {
         userId: otherUserId,
         email: 'other@example.com',
+        admin: false,
         ipAddress: '192.168.1.1'
       });
 
@@ -364,6 +376,7 @@ describe('Auth routes', () => {
       await createSession(currentSessionId, {
         userId,
         email: 'user@example.com',
+        admin: false,
         ipAddress: '127.0.0.1'
       });
 

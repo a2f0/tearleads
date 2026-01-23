@@ -51,8 +51,8 @@ const AdminLauncher = lazy(() =>
 const PostgresAdmin = lazy(() =>
   import('./pages/admin').then((m) => ({ default: m.PostgresAdmin }))
 );
-const PostgresTableRows = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.PostgresTableRows }))
+const UsersAdmin = lazy(() =>
+  import('./pages/admin').then((m) => ({ default: m.UsersAdmin }))
 );
 const Analytics = lazy(() =>
   import('./pages/analytics').then((m) => ({ default: m.Analytics }))
@@ -347,8 +347,8 @@ if (rootElement) {
                                         element={<PostgresAdmin />}
                                       />
                                       <Route
-                                        path="admin/postgres/tables/:schema/:tableName"
-                                        element={<PostgresTableRows />}
+                                        path="admin/users"
+                                        element={<UsersAdmin />}
                                       />
                                       <Route path="sync" element={<Sync />} />
                                     </Route>

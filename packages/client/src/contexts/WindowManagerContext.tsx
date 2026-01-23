@@ -40,6 +40,7 @@ export type WindowType =
   | 'models'
   | 'admin'
   | 'admin-postgres'
+  | 'admin-users'
   | 'cache-storage'
   | 'local-storage'
   | 'sync';
