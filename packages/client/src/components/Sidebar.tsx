@@ -3,6 +3,7 @@ import {
   Archive,
   BarChart3,
   Bot,
+  BookOpen,
   Bug,
   Database,
   ExternalLink,
@@ -77,6 +78,13 @@ export const navItems: NavItem[] = [
     labelKey: 'documents',
     inMobileMenu: true,
     testId: 'documents-link'
+  },
+  {
+    path: '/docs',
+    icon: BookOpen,
+    labelKey: 'docs',
+    inMobileMenu: true,
+    testId: 'docs-link'
   },
   {
     path: '/notes',
@@ -215,6 +223,7 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/console': 'console',
   '/settings': 'settings',
   '/files': 'files',
+  '/docs': 'docs',
   '/email': 'email',
   '/contacts': 'contacts',
   '/photos': 'photos',

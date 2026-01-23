@@ -3,37 +3,22 @@ import { ApiDocs } from '@rapid/ui';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FloatingWindow } from '@/components/floating-window';
-
-const DEFAULT_WINDOW_WIDTH = 960;
-const DEFAULT_WINDOW_HEIGHT = 720;
-const WINDOW_GUTTER = 120;
-const WINDOW_VERTICAL_GUTTER = 180;
-const MIN_WINDOW_WIDTH = 360;
-const MIN_WINDOW_HEIGHT = 320;
+import {
+  DOCS_WINDOW_MAX_HEIGHT_PERCENT,
+  DOCS_WINDOW_MAX_WIDTH_PERCENT,
+  DOCS_WINDOW_MIN_HEIGHT,
+  DOCS_WINDOW_MIN_WIDTH,
+  getDocsWindowDefaults
+} from '@/lib/docsWindowSizing';
 
 export function ApiDocsPage() {
   const navigate = useNavigate();
   const { defaultWidth, defaultHeight } = useMemo(() => {
     if (typeof window === 'undefined') {
-      return {
-        defaultWidth: DEFAULT_WINDOW_WIDTH,
-        defaultHeight: DEFAULT_WINDOW_HEIGHT
-      };
+      return getDocsWindowDefaults();
     }
 
-    const width = Math.max(
-      MIN_WINDOW_WIDTH,
-      Math.min(DEFAULT_WINDOW_WIDTH, window.innerWidth - WINDOW_GUTTER)
-    );
-    const height = Math.max(
-      MIN_WINDOW_HEIGHT,
-      Math.min(
-        DEFAULT_WINDOW_HEIGHT,
-        window.innerHeight - WINDOW_VERTICAL_GUTTER
-      )
-    );
-
-    return { defaultWidth: width, defaultHeight: height };
+    return getDocsWindowDefaults(window.innerWidth, window.innerHeight);
   }, []);
 
   return (
@@ -44,10 +29,10 @@ export function ApiDocsPage() {
         onClose={() => navigate(-1)}
         defaultWidth={defaultWidth}
         defaultHeight={defaultHeight}
-        minWidth={MIN_WINDOW_WIDTH}
-        minHeight={MIN_WINDOW_HEIGHT}
-        maxWidthPercent={0.9}
-        maxHeightPercent={0.85}
+        minWidth={DOCS_WINDOW_MIN_WIDTH}
+        minHeight={DOCS_WINDOW_MIN_HEIGHT}
+        maxWidthPercent={DOCS_WINDOW_MAX_WIDTH_PERCENT}
+        maxHeightPercent={DOCS_WINDOW_MAX_HEIGHT_PERCENT}
         zIndex={30}
       >
         <div className="h-full p-6">
