@@ -141,6 +141,17 @@ assert_eq "../rapid-shared/.test_files" "$(readlink "$WORKSPACE_DIR/.test_files"
 tuxedo_prepare_shared_dirs
 [ -L "$BASE_DIR/rapid-main/.secrets" ] || fail "expected rapid-main .secrets symlink"
 [ -L "$BASE_DIR/rapid2/.test_files" ] || fail "expected rapid2 .test_files symlink"
+[ -d "$SHARED_DIR/packages/api" ] || fail "expected shared packages/api directory"
+
+# Test .env symlink for packages/api
+# tuxedo_prepare_shared_dirs creates packages/api dir and touches .env, so just add content
+echo "PORT=5001" > "$SHARED_DIR/packages/api/.env"
+mkdir -p "$WORKSPACE_DIR/packages/api"
+
+ensure_symlinks "$WORKSPACE_DIR"
+
+[ -L "$WORKSPACE_DIR/packages/api/.env" ] || fail "expected packages/api/.env symlink"
+assert_eq "../../../rapid-shared/packages/api/.env" "$(readlink "$WORKSPACE_DIR/packages/api/.env")"
 
 update_from_main "$BASE_DIR/not-a-repo"
 
