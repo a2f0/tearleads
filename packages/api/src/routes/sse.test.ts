@@ -90,6 +90,25 @@ describe('SSE Routes', () => {
       expect(response.headers['connection']).toBe('keep-alive');
     });
 
+    it('accepts token from query for SSE', async () => {
+      const token = authHeader.startsWith('Bearer ')
+        ? authHeader.slice('Bearer '.length)
+        : authHeader;
+      const response = await request(app)
+        .get(`/v1/sse?token=${encodeURIComponent(token)}`)
+        .buffer(true)
+        .parse(
+          createSseParser((data, res) => {
+            if (data.includes('event: connected')) {
+              if (isDestroyable(res)) res.destroy();
+            }
+          })
+        );
+
+      expect(response.status).toBe(200);
+      expect(response.body).toContain('event: connected');
+    });
+
     it('sends connected event with default channel', async () => {
       const response = await request(app)
         .get('/v1/sse')
