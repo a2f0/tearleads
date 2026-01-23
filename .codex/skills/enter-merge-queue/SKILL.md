@@ -79,6 +79,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - `BEHIND`: update from base (4c).
    - `BLOCKED` or `UNKNOWN`: handle Gemini feedback while waiting for CI (4d/4e).
    - `CLEAN`: enable auto-merge (4f).
+   - **Note**: You can merge your own PRs once the branch is up to date, all required checks pass, and Gemini feedback is fully addressed. If blocked, confirm those three conditions before waiting longer.
 
    4c. Rebase on base and bump version once:
 
@@ -127,7 +128,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
      - Reply in-thread: `gh api -X POST /repos/$REPO/pulls/<pr-number>/comments -F in_reply_to=<comment_id> -f body="...@gemini-code-assist ..."`
      - List general PR comments (issue comments): `gh api /repos/$REPO/issues/<pr-number>/comments`
      - Reply to general PR comments: `gh api -X POST /repos/$REPO/issues/<pr-number>/comments -f body="...@gemini-code-assist ..."`
-   - When replying that a fix is complete, **include the commit hash and explicitly ask if the change addresses the issue** (e.g., "Commit <hash> ... does this address the issue?").
+   - When replying that a fix is complete, **include the commit hash (not just the message) and explicitly ask if the change addresses the issue** (e.g., "Commit <hash> ... does this address the issue?").
    - Analyze Gemini's sentiment in follow-up replies:
      - If Gemini confirms/approves and does not request more changes, resolve the thread.
      - If Gemini is uncertain or requests more work, keep the thread open and iterate.
@@ -168,6 +169,12 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    gh pr merge --auto --merge -R "$REPO"
    gh pr view --json state,mergeStateStatus -R "$REPO"
    ```
+
+   - Only enable auto-merge after:
+     - All required status checks pass
+     - Branch is up to date with `main` (not `BEHIND`)
+     - Gemini feedback is fully addressed (per sentiment analysis)
+   - If auto-merge is unavailable, try a direct merge (same conditions) and continue polling.
 
    Poll until `MERGED`. If `BEHIND`, return to 4c.
 

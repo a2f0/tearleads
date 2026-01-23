@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { setupScreensaverMock } from '@/test/screensaver-mock';
 import App from './App';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { Contacts } from './pages/contacts';
@@ -75,6 +76,8 @@ vi.mock('@/db/SettingsProvider', () => ({
     setSetting: vi.fn()
   })
 }));
+
+setupScreensaverMock();
 
 // Mock API
 vi.mock('@/lib/api', () => ({
