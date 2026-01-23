@@ -125,14 +125,40 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 1 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 4 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(1);
+      expect(result.currentVersion).toBe(4);
+    });
+
+    it('applies pending migrations when behind', async () => {
+      let versionCallCount = 0;
+      const pool = createMockPool(new Map());
+      vi.mocked(pool.query).mockImplementation((sql: string) => {
+        pool.queries.push(sql);
+
+        if (sql.includes('MAX(version)')) {
+          versionCallCount++;
+          if (versionCallCount === 1) {
+            return Promise.resolve({
+              rows: [{ version: 1 }],
+              rowCount: 1
+            });
+          }
+          return Promise.resolve({ rows: [{ version: 4 }], rowCount: 1 });
+        }
+
+        return Promise.resolve({ rows: [], rowCount: 0 });
+      });
+
+      const result = await runMigrations(pool);
+
+      expect(result.applied).toEqual([2, 3, 4]);
+      expect(result.currentVersion).toBe(4);
     });
   });
 
@@ -207,6 +233,63 @@ describe('migrations', () => {
       expect(queries).toContain('TIMESTAMPTZ');
       expect(queries).toContain('BOOLEAN');
       expect(queries).toContain('JSONB');
+    });
+  });
+
+  describe('v002 migration', () => {
+    it('adds the analytics_events detail column', async () => {
+      const pool = createMockPool(new Map());
+
+      const v002 = migrations.find((m: Migration) => m.version === 2);
+      if (!v002) {
+        throw new Error('v002 migration not found');
+      }
+
+      await v002.up(pool);
+
+      expect(pool.queries.join('\n')).toContain(
+        'ALTER TABLE "analytics_events" ADD COLUMN IF NOT EXISTS "detail" JSONB'
+      );
+    });
+  });
+
+  describe('v003 migration', () => {
+    it('creates notes table and indexes', async () => {
+      const pool = createMockPool(new Map());
+
+      const v003 = migrations.find((m: Migration) => m.version === 3);
+      if (!v003) {
+        throw new Error('v003 migration not found');
+      }
+
+      await v003.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "notes"');
+      expect(queries).toContain(
+        'CREATE INDEX IF NOT EXISTS "notes_updated_at_idx"'
+      );
+      expect(queries).toContain('CREATE INDEX IF NOT EXISTS "notes_title_idx"');
+    });
+  });
+
+  describe('v004 migration', () => {
+    it('creates users and user_credentials tables', async () => {
+      const pool = createMockPool(new Map());
+
+      const v004 = migrations.find((m: Migration) => m.version === 4);
+      if (!v004) {
+        throw new Error('v004 migration not found');
+      }
+
+      await v004.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "users"');
+      expect(queries).toContain('CREATE INDEX IF NOT EXISTS "users_email_idx"');
+      expect(queries).toContain(
+        'CREATE TABLE IF NOT EXISTS "user_credentials"'
+      );
     });
   });
 });
