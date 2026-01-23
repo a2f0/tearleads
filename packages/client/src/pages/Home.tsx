@@ -4,10 +4,12 @@ import {
   LayoutGrid,
   Maximize2,
   Monitor,
+  Sparkles,
   Square
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useScreensaver } from '@/components/screensaver';
 import { navItems } from '@/components/Sidebar';
 import { DisplayPropertiesWindow } from '@/components/settings/DisplayPropertiesWindow';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
@@ -356,6 +358,7 @@ export function Home() {
   const navigate = useNavigate();
   const { openWindow } = useWindowManager();
   const { getSetting } = useSettings();
+  const { activate: activateScreensaver } = useScreensaver();
 
   // Memoize appItems to prevent new array reference on every render
   // which would cause the position calculation effect to run continuously
@@ -705,6 +708,11 @@ export function Home() {
     setCanvasContextMenu(null);
   }, []);
 
+  const handleStartScreensaver = useCallback(() => {
+    activateScreensaver();
+    setCanvasContextMenu(null);
+  }, [activateScreensaver]);
+
   const handleOpenFromContextMenu = useCallback(() => {
     if (iconContextMenu) {
       navigate(iconContextMenu.path);
@@ -842,6 +850,12 @@ export function Home() {
             onClick={handleDisplayPropertiesOpen}
           >
             Display Properties
+          </ContextMenuItem>
+          <ContextMenuItem
+            icon={<Sparkles className="h-4 w-4" />}
+            onClick={handleStartScreensaver}
+          >
+            Start Screensaver
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem
