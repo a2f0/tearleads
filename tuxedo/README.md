@@ -60,13 +60,18 @@ Tuxedo assumes a `rapid-shared` workspace plus one or more numbered workspaces:
 ### Shell PATH setup
 
 Tuxedo sets `TUXEDO_WORKSPACE` to the workspace root for each pane. Add this to
-your shell profile (`.zshrc` or `.bashrc`) to include workspace scripts in PATH:
+your shell config to include workspace scripts in PATH:
 
 ```sh
+# For zsh: add to ~/.zshenv (sourced for ALL shells, including non-interactive)
+# For bash: add to ~/.bashrc
 if [ -n "$TUXEDO_WORKSPACE" ]; then
   export PATH="$TUXEDO_WORKSPACE/scripts:$TUXEDO_WORKSPACE/scripts/agents:$PATH"
 fi
 ```
+
+Using `.zshenv` ensures scripts are available in non-interactive shells (e.g.,
+when Codex or other agents run commands).
 
 This enables running scripts like `refresh.sh`, `bumpVersion.sh`, and agent
 scripts directly without specifying the full path.
