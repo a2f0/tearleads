@@ -38,9 +38,7 @@ async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
         return merged;
       })()
     : undefined;
-  const requestInit = headers
-    ? { ...fetchOptions, headers }
-    : fetchOptions;
+  const requestInit = headers ? { ...fetchOptions, headers } : fetchOptions;
 
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, requestInit);
