@@ -41,8 +41,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [authError, setAuthErrorState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load session from localStorage on mount
-  useEffect(() => {
+  const syncFromStorage = useCallback(() => {
     const { token: savedToken, user: savedUser } = readStoredAuth();
     if (savedToken && savedUser) {
       setToken(savedToken);
@@ -52,24 +51,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null);
     }
     setAuthErrorState(getAuthError());
-    setIsLoading(false);
   }, []);
+
+  // Load session from localStorage on mount
+  useEffect(() => {
+    syncFromStorage();
+    setIsLoading(false);
+  }, [syncFromStorage]);
 
   useEffect(() => {
-    const unsubscribe = onAuthChange(() => {
-      const { token: savedToken, user: savedUser } = readStoredAuth();
-      if (savedToken && savedUser) {
-        setToken(savedToken);
-        setUser(savedUser);
-      } else {
-        setToken(null);
-        setUser(null);
-      }
-      setAuthErrorState(getAuthError());
-    });
-
+    const unsubscribe = onAuthChange(syncFromStorage);
     return unsubscribe;
-  }, []);
+  }, [syncFromStorage]);
 
   // Errors propagate to caller for handling (e.g., Sync component catches and displays)
   const login = useCallback(async (email: string, password: string) => {
