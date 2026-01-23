@@ -1,20 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { Command } from 'commander';
-import pg from 'pg';
-import {
-  DATABASE_KEYS,
-  DATABASE_URL_KEYS,
-  getDevDefaults,
-  getEnvValue,
-  HOST_KEYS,
-  PASSWORD_KEYS,
-  PORT_KEYS,
-  parsePort,
-  USER_KEYS
-} from '../../../../scripts/lib/pg-helpers.ts';
 import { buildCreateAccountInput } from '../lib/create-account.js';
 import { hashPassword } from '../lib/passwords.js';
+import {
+  closePostgresPool,
+  getPostgresConnectionInfo,
+  getPostgresPool
+} from '../lib/postgres.js';
 
 type ParsedArgs = {
   email: string | null;
@@ -27,11 +20,6 @@ type CreateAccountOptions = {
   email?: string;
   password?: string;
   passwordStdin?: boolean;
-};
-
-type ConnectionConfig = {
-  config: pg.ClientConfig;
-  label: string;
 };
 
 function printUsage(): void {
@@ -67,6 +55,9 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (!arg) {
+      continue;
+    }
 
     if (arg === '--help' || arg === '-h') {
       help = true;
@@ -114,50 +105,29 @@ function parseArgs(argv: string[]): ParsedArgs {
   return { email, password, passwordFromStdin, help };
 }
 
-function buildConnectionConfig(): ConnectionConfig {
-  const databaseUrl = getEnvValue(DATABASE_URL_KEYS);
-  if (databaseUrl) {
-    return {
-      config: { connectionString: databaseUrl },
-      label: 'DATABASE_URL'
-    };
-  }
-
-  const defaults = getDevDefaults();
-  const host = getEnvValue(HOST_KEYS) ?? defaults.host ?? null;
-  const port = parsePort(getEnvValue(PORT_KEYS)) ?? defaults.port ?? null;
-  const user = getEnvValue(USER_KEYS) ?? defaults.user ?? null;
-  const password = getEnvValue(PASSWORD_KEYS);
-  const database = getEnvValue(DATABASE_KEYS) ?? defaults.database ?? null;
-
+function buildConnectionLabel(): string {
+  const info = getPostgresConnectionInfo();
+  const database = info.database ?? null;
   if (!database) {
     throw new Error(
       'Missing Postgres connection info. Set DATABASE_URL or PGDATABASE/POSTGRES_DATABASE (plus PGHOST/PGPORT/PGUSER as needed).'
     );
   }
 
-  const config: pg.ClientConfig = {
-    ...(host ? { host } : {}),
-    ...(port ? { port } : {}),
-    ...(user ? { user } : {}),
-    ...(password ? { password } : {}),
-    ...(database ? { database } : {})
-  };
-
   const labelParts = [
-    host ? `host=${host}` : null,
-    port ? `port=${port}` : null,
-    user ? `user=${user}` : null,
+    info.host ? `host=${info.host}` : null,
+    info.port ? `port=${info.port}` : null,
+    info.user ? `user=${info.user}` : null,
     `database=${database}`
   ].filter((value): value is string => Boolean(value));
 
-  return { config, label: labelParts.join(', ') };
+  return labelParts.join(', ');
 }
 
 async function createAccount(email: string, password: string): Promise<void> {
-  const { config, label } = buildConnectionConfig();
-  const client = new pg.Client(config);
-  await client.connect();
+  const label = buildConnectionLabel();
+  const pool = await getPostgresPool();
+  const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
@@ -195,7 +165,7 @@ async function createAccount(email: string, password: string): Promise<void> {
     }
     throw error;
   } finally {
-    await client.end();
+    client.release();
   }
 }
 
@@ -232,17 +202,28 @@ export async function runCreateAccount(
 }
 
 export async function runCreateAccountFromArgv(argv: string[]): Promise<void> {
-  const parsed = parseArgs(argv);
-  if (parsed.help) {
-    printUsage();
-    return;
-  }
+  try {
+    const parsed = parseArgs(argv);
+    if (parsed.help) {
+      printUsage();
+      return;
+    }
 
-  await runCreateAccount({
-    email: parsed.email ?? undefined,
-    password: parsed.password ?? undefined,
-    passwordStdin: parsed.passwordFromStdin
-  });
+    const options: CreateAccountOptions = {};
+    if (parsed.email) {
+      options.email = parsed.email;
+    }
+    if (parsed.password) {
+      options.password = parsed.password;
+    }
+    if (parsed.passwordFromStdin) {
+      options.passwordStdin = true;
+    }
+
+    await runCreateAccount(options);
+  } finally {
+    await closePostgresPool();
+  }
 }
 
 export function createAccountCommand(program: Command): void {
@@ -254,16 +235,25 @@ export function createAccountCommand(program: Command): void {
     .option('--password-stdin', 'Read password from stdin')
     .action(async (options: CreateAccountOptions) => {
       try {
-        await runCreateAccount({
-          email: options.email,
-          password: options.password,
-          passwordStdin: options.passwordStdin
-        });
+        const args: CreateAccountOptions = {};
+        if (options.email) {
+          args.email = options.email;
+        }
+        if (options.password) {
+          args.password = options.password;
+        }
+        if (options.passwordStdin) {
+          args.passwordStdin = true;
+        }
+
+        await runCreateAccount(args);
         process.exit(0);
       } catch (error) {
         console.error('\nCreate account failed:');
         console.error(error instanceof Error ? error.message : String(error));
         process.exit(1);
+      } finally {
+        await closePostgresPool();
       }
     });
 }
