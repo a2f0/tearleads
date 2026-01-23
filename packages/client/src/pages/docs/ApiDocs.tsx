@@ -8,6 +8,8 @@ const DEFAULT_WINDOW_WIDTH = 960;
 const DEFAULT_WINDOW_HEIGHT = 720;
 const WINDOW_GUTTER = 120;
 const WINDOW_VERTICAL_GUTTER = 180;
+const MIN_WINDOW_WIDTH = 360;
+const MIN_WINDOW_HEIGHT = 320;
 
 export function ApiDocsPage() {
   const navigate = useNavigate();
@@ -20,11 +22,11 @@ export function ApiDocsPage() {
     }
 
     const width = Math.max(
-      360,
+      MIN_WINDOW_WIDTH,
       Math.min(DEFAULT_WINDOW_WIDTH, window.innerWidth - WINDOW_GUTTER)
     );
     const height = Math.max(
-      320,
+      MIN_WINDOW_HEIGHT,
       Math.min(
         DEFAULT_WINDOW_HEIGHT,
         window.innerHeight - WINDOW_VERTICAL_GUTTER
@@ -42,8 +44,8 @@ export function ApiDocsPage() {
         onClose={() => navigate(-1)}
         defaultWidth={defaultWidth}
         defaultHeight={defaultHeight}
-        minWidth={360}
-        minHeight={320}
+        minWidth={MIN_WINDOW_WIDTH}
+        minHeight={MIN_WINDOW_HEIGHT}
         maxWidthPercent={0.9}
         maxHeightPercent={0.85}
         zIndex={30}
