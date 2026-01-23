@@ -53,6 +53,7 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   models: <Bot className="h-3 w-3" />,
   admin: <Shield className="h-3 w-3" />,
   'admin-postgres': <Database className="h-3 w-3" />,
+  'admin-users': <User className="h-3 w-3" />,
   'cache-storage': <Archive className="h-3 w-3" />,
   'local-storage': <HardDrive className="h-3 w-3" />,
   sync: <RefreshCw className="h-3 w-3" />
@@ -80,6 +81,7 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   models: 'Models',
   admin: 'Admin',
   'admin-postgres': 'Postgres Admin',
+  'admin-users': 'Users Admin',
   'cache-storage': 'Cache Storage',
   'local-storage': 'Local Storage',
   sync: 'Sync'

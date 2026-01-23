@@ -32,6 +32,7 @@ export const es = {
     models: 'Modelos',
     admin: 'Admin',
     postgresAdmin: 'Admin de Postgres',
+    adminUsers: 'Admin de usuarios',
     settings: 'Configuración',
     email: 'Correo',
     sync: 'Sincronizar'
