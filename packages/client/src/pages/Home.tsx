@@ -9,8 +9,8 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useScreensaver } from '@/components/screensaver';
 import { navItems } from '@/components/Sidebar';
+import { useScreensaver } from '@/components/screensaver';
 import { DisplayPropertiesWindow } from '@/components/settings/DisplayPropertiesWindow';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
