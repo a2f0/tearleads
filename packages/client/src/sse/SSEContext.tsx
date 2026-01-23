@@ -9,8 +9,8 @@ import {
   useRef,
   useState
 } from 'react';
-import { API_BASE_URL } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { API_BASE_URL } from '@/lib/api';
 
 interface SSEContextValue {
   connectionState: SSEConnectionState;
