@@ -17,7 +17,11 @@ export async function createAuthHeader(
   user: AuthUser = DEFAULT_USER
 ): Promise<string> {
   const sessionId = randomUUID();
-  await createSession(sessionId, { userId: user.id, email: user.email });
+  await createSession(sessionId, {
+    userId: user.id,
+    email: user.email,
+    ipAddress: '127.0.0.1'
+  });
   const token = createJwt(
     { sub: user.id, email: user.email, jti: sessionId },
     process.env['JWT_SECRET'] ?? 'test-secret',

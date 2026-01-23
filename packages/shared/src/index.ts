@@ -87,6 +87,18 @@ export interface AuthResponse {
   user: AuthUser;
 }
 
+export interface Session {
+  id: string;
+  createdAt: string;
+  lastActiveAt: string;
+  ipAddress: string;
+  isCurrent: boolean;
+}
+
+export interface SessionsResponse {
+  sessions: Session[];
+}
+
 // SSE types
 export type SSEConnectionState = 'connected' | 'connecting' | 'disconnected';
 

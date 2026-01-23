@@ -18,8 +18,14 @@ interface MockRedisClient {
   type: (key: string) => Promise<string>;
   ttl: (key: string) => Promise<number>;
   get: (key: string) => Promise<string | null>;
-  set: (key: string, value: string) => Promise<string>;
+  set: (
+    key: string,
+    value: string,
+    options?: { EX?: number }
+  ) => Promise<string>;
   expire: (key: string, seconds: number) => Promise<number>;
+  sAdd: (key: string, member: string) => Promise<number>;
+  sRem: (key: string, member: string) => Promise<number>;
   sMembers: (key: string) => Promise<string[]>;
   hGetAll: (key: string) => Promise<Record<string, string>>;
   del: (key: string) => Promise<number>;
@@ -27,6 +33,8 @@ interface MockRedisClient {
 }
 
 const sessionStore = new Map<string, string>();
+const userSessionsStore = new Map<string, Set<string>>();
+const sessionTtl = new Map<string, number>();
 const mockExec = vi.fn();
 const mockMulti = vi.fn(() => ({
   type: vi.fn().mockReturnThis(),
@@ -49,21 +57,44 @@ const createMockClient = (): MockRedisClient => ({
   scan: mockScan,
   multi: mockMulti,
   type: mockType,
-  ttl: mockTtl,
+  ttl: (key: string) => {
+    if (key.startsWith('session:') || key.startsWith('user_sessions:')) {
+      return Promise.resolve(sessionTtl.get(key) ?? -1);
+    }
+    return mockTtl(key);
+  },
   get: (key: string) => {
     if (key.startsWith('session:')) {
       return Promise.resolve(sessionStore.get(key) ?? null);
     }
     return mockGet(key);
   },
-  set: (key: string, value: string) => {
+  set: (key: string, value: string, options?: { EX?: number }) => {
     sessionStore.set(key, value);
     mockSet(key, value);
+    if (options?.EX) {
+      sessionTtl.set(key, options.EX);
+    }
     return Promise.resolve('OK');
   },
   expire: (key: string, seconds: number) => {
     mockExpire(key, seconds);
+    sessionTtl.set(key, seconds);
     return Promise.resolve(1);
+  },
+  sAdd: (key: string, member: string) => {
+    if (!userSessionsStore.has(key)) {
+      userSessionsStore.set(key, new Set());
+    }
+    userSessionsStore.get(key)?.add(member);
+    return Promise.resolve(1);
+  },
+  sRem: (key: string, member: string) => {
+    const set = userSessionsStore.get(key);
+    if (set?.delete(member)) {
+      return Promise.resolve(1);
+    }
+    return Promise.resolve(0);
   },
   sMembers: mockSMembers,
   hGetAll: mockHGetAll,
@@ -87,6 +118,8 @@ describe('Admin Redis Routes', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     sessionStore.clear();
+    userSessionsStore.clear();
+    sessionTtl.clear();
     vi.stubEnv('JWT_SECRET', 'test-secret');
     mockScan.mockResolvedValue({ cursor: 0, keys: [] });
     authHeader = await createAuthHeader();
@@ -217,7 +250,8 @@ describe('Admin Redis Routes', () => {
       const { getRedisClient } = await import('../../lib/redis.js');
       const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient)
-        .mockResolvedValueOnce(mockClientAsRedis())
+        .mockResolvedValueOnce(mockClientAsRedis()) // getSession
+        .mockResolvedValueOnce(mockClientAsRedis()) // updateSessionActivity
         .mockRejectedValueOnce(new Error('Connection refused'));
 
       const response = await request(app)
@@ -237,7 +271,8 @@ describe('Admin Redis Routes', () => {
       const { getRedisClient } = await import('../../lib/redis.js');
       const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient)
-        .mockResolvedValueOnce(mockClientAsRedis())
+        .mockResolvedValueOnce(mockClientAsRedis()) // getSession
+        .mockResolvedValueOnce(mockClientAsRedis()) // updateSessionActivity
         .mockRejectedValueOnce('string error');
 
       const response = await request(app)
@@ -305,7 +340,8 @@ describe('Admin Redis Routes', () => {
       const { getRedisClient } = await import('../../lib/redis.js');
       const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient)
-        .mockResolvedValueOnce(mockClientAsRedis())
+        .mockResolvedValueOnce(mockClientAsRedis()) // getSession
+        .mockResolvedValueOnce(mockClientAsRedis()) // updateSessionActivity
         .mockRejectedValueOnce(new Error('Connection refused'));
 
       const response = await request(app)
@@ -453,7 +489,8 @@ describe('Admin Redis Routes', () => {
       const { getRedisClient } = await import('../../lib/redis.js');
       const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient)
-        .mockResolvedValueOnce(mockClientAsRedis())
+        .mockResolvedValueOnce(mockClientAsRedis()) // getSession
+        .mockResolvedValueOnce(mockClientAsRedis()) // updateSessionActivity
         .mockRejectedValueOnce(new Error('Connection refused'));
 
       const response = await request(app)
@@ -548,7 +585,8 @@ describe('Admin Redis Routes', () => {
       const { getRedisClient } = await import('../../lib/redis.js');
       const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient)
-        .mockResolvedValueOnce(mockClientAsRedis())
+        .mockResolvedValueOnce(mockClientAsRedis()) // getSession
+        .mockResolvedValueOnce(mockClientAsRedis()) // updateSessionActivity
         .mockRejectedValueOnce(new Error('Connection refused'));
 
       const response = await request(app)
@@ -568,7 +606,8 @@ describe('Admin Redis Routes', () => {
       const { getRedisClient } = await import('../../lib/redis.js');
       const consoleSpy = mockConsoleError();
       vi.mocked(getRedisClient)
-        .mockResolvedValueOnce(mockClientAsRedis())
+        .mockResolvedValueOnce(mockClientAsRedis()) // getSession
+        .mockResolvedValueOnce(mockClientAsRedis()) // updateSessionActivity
         .mockRejectedValueOnce('string error');
 
       const response = await request(app)
