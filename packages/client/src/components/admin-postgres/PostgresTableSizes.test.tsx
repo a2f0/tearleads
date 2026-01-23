@@ -1,6 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PostgresTableSizes } from './PostgresTableSizes';
+
+function renderWithRouter(ui: React.ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
 
 const mockGetTables = vi.fn();
 
@@ -33,7 +38,7 @@ describe('PostgresTableSizes', () => {
       ]
     });
 
-    render(<PostgresTableSizes />);
+    renderWithRouter(<PostgresTableSizes />);
 
     await waitFor(() => {
       expect(screen.getByText('public.users')).toBeInTheDocument();
@@ -48,7 +53,7 @@ describe('PostgresTableSizes', () => {
       tables: []
     });
 
-    render(<PostgresTableSizes />);
+    renderWithRouter(<PostgresTableSizes />);
 
     await waitFor(() => {
       expect(screen.getByText('No tables found')).toBeInTheDocument();
@@ -61,7 +66,7 @@ describe('PostgresTableSizes', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockGetTables.mockRejectedValueOnce(new Error('No access'));
 
-    render(<PostgresTableSizes />);
+    renderWithRouter(<PostgresTableSizes />);
 
     await waitFor(() => {
       expect(screen.getByText('No access')).toBeInTheDocument();

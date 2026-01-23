@@ -1,8 +1,14 @@
-import { MemoryRouter } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
+import { useState } from 'react';
+import { PostgresTableRowsView } from '@/components/admin-postgres/PostgresTableRowsView';
 import { AdminWindowMenuBar } from '@/components/admin-window/AdminWindowMenuBar';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { PostgresAdmin } from '@/pages/admin/PostgresAdmin';
+
+type PostgresWindowView =
+  | { type: 'index' }
+  | { type: 'table'; schema: string; tableName: string };
 
 interface AdminPostgresWindowProps {
   id: string;
@@ -23,10 +29,25 @@ export function AdminPostgresWindow({
   zIndex,
   initialDimensions
 }: AdminPostgresWindowProps) {
+  const [view, setView] = useState<PostgresWindowView>({ type: 'index' });
+
+  const title =
+    view.type === 'index'
+      ? 'Postgres Admin'
+      : `${view.schema}.${view.tableName}`;
+
+  const handleTableSelect = (schema: string, tableName: string) => {
+    setView({ type: 'table', schema, tableName });
+  };
+
+  const handleBack = () => {
+    setView({ type: 'index' });
+  };
+
   return (
     <FloatingWindow
       id={id}
-      title="Postgres Admin"
+      title={title}
       onClose={onClose}
       onMinimize={onMinimize}
       onDimensionsChange={onDimensionsChange}
@@ -41,9 +62,27 @@ export function AdminPostgresWindow({
       <div className="flex h-full flex-col">
         <AdminWindowMenuBar onClose={onClose} />
         <div className="flex-1 overflow-auto p-3">
-          <MemoryRouter initialEntries={['/admin/postgres']}>
-            <PostgresAdmin showBackLink={false} />
-          </MemoryRouter>
+          {view.type === 'index' ? (
+            <PostgresAdmin
+              showBackLink={false}
+              onTableSelect={handleTableSelect}
+            />
+          ) : (
+            <PostgresTableRowsView
+              schema={view.schema}
+              tableName={view.tableName}
+              backLink={
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="inline-flex items-center text-muted-foreground hover:text-foreground"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Postgres
+                </button>
+              }
+            />
+          )}
         </div>
       </div>
     </FloatingWindow>
