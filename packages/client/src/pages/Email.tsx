@@ -20,8 +20,11 @@ export function Email() {
 
     try {
       const authHeader = getAuthHeaderValue();
-      const headers = authHeader ? { Authorization: authHeader } : undefined;
-      const response = await fetch(`${API_BASE_URL}/emails`, { headers });
+      const response = authHeader
+        ? await fetch(`${API_BASE_URL}/emails`, {
+            headers: { Authorization: authHeader }
+          })
+        : await fetch(`${API_BASE_URL}/emails`);
       if (!response.ok) {
         throw new Error(`Failed to fetch emails: ${response.statusText}`);
       }
