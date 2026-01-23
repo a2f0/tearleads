@@ -55,6 +55,7 @@ const WINDOW_LAUNCH_PATHS = new Set([
   '/console',
   '/contacts',
   '/debug',
+  '/docs',
   '/documents',
   '/email',
   '/files',
