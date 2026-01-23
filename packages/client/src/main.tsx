@@ -7,6 +7,7 @@ import { Toaster } from 'sonner';
 import App from './App';
 import { AudioProvider } from './audio';
 import { AppTooltipProvider } from './components/AppTooltipProvider';
+import { RequireAuth } from './components/auth';
 import { InstanceChangeHandler } from './components/InstanceChangeHandler';
 import {
   LaserScreensaver,
@@ -267,8 +268,28 @@ if (rootElement) {
                                         path="help/api"
                                         element={<ApiDocsPage />}
                                       />
-                                      <Route path="chat" element={<Chat />} />
-                                      <Route path="email" element={<Email />} />
+                                      <Route
+                                        path="chat"
+                                        element={
+                                          <RequireAuth
+                                            loginTitle="Chat Requires Login"
+                                            loginDescription="Sign in to access AI chat features"
+                                          >
+                                            <Chat />
+                                          </RequireAuth>
+                                        }
+                                      />
+                                      <Route
+                                        path="email"
+                                        element={
+                                          <RequireAuth
+                                            loginTitle="Email Requires Login"
+                                            loginDescription="Sign in to access your email"
+                                          >
+                                            <Email />
+                                          </RequireAuth>
+                                        }
+                                      />
                                       <Route
                                         path="models"
                                         element={<Models />}
