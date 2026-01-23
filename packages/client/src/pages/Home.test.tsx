@@ -27,10 +27,9 @@ vi.mock('@/db/SettingsProvider', () => ({
 }));
 
 vi.mock('@/components/screensaver', async () => {
-  const actual =
-    await vi.importActual<typeof import('@/components/screensaver')>(
-      '@/components/screensaver'
-    );
+  const actual = await vi.importActual<
+    typeof import('@/components/screensaver')
+  >('@/components/screensaver');
   return {
     ...actual,
     useScreensaver: () => ({
@@ -274,9 +273,7 @@ describe('Home', () => {
     await user.click(screen.getByText('Start Screensaver'));
 
     expect(mockActivateScreensaver).toHaveBeenCalledTimes(1);
-    expect(
-      screen.queryByText('Start Screensaver')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Start Screensaver')).not.toBeInTheDocument();
   });
 
   it('shows icon context menu on right-click', async () => {
