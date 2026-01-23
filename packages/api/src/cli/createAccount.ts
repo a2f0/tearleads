@@ -234,26 +234,16 @@ export function createAccountCommand(program: Command): void {
     .option('-p, --password <password>', 'Account password')
     .option('--password-stdin', 'Read password from stdin')
     .action(async (options: CreateAccountOptions) => {
+      let exitCode = 0;
       try {
-        const args: CreateAccountOptions = {};
-        if (options.email) {
-          args.email = options.email;
-        }
-        if (options.password) {
-          args.password = options.password;
-        }
-        if (options.passwordStdin) {
-          args.passwordStdin = true;
-        }
-
-        await runCreateAccount(args);
-        process.exit(0);
+        await runCreateAccount(options);
       } catch (error) {
+        exitCode = 1;
         console.error('\nCreate account failed:');
         console.error(error instanceof Error ? error.message : String(error));
-        process.exit(1);
       } finally {
         await closePostgresPool();
+        process.exit(exitCode);
       }
     });
 }
