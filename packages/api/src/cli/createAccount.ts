@@ -5,13 +5,13 @@ import pg from 'pg';
 import {
   DATABASE_KEYS,
   DATABASE_URL_KEYS,
+  getDevDefaults,
+  getEnvValue,
   HOST_KEYS,
   PASSWORD_KEYS,
   PORT_KEYS,
-  USER_KEYS,
-  getDevDefaults,
-  getEnvValue,
-  parsePort
+  parsePort,
+  USER_KEYS
 } from '../../../../scripts/lib/pg-helpers.ts';
 import { buildCreateAccountInput } from '../lib/create-account.js';
 import { hashPassword } from '../lib/passwords.js';
@@ -214,12 +214,14 @@ export async function runCreateAccount(
     throw new Error('Use either --password or --password-stdin, not both.');
   }
   if (!passwordValue && !passwordFromStdin) {
-    throw new Error('Password is required. Use --password or --password-stdin.');
+    throw new Error(
+      'Password is required. Use --password or --password-stdin.'
+    );
   }
 
   const passwordInput = passwordFromStdin
     ? readFileSync(0, 'utf8')
-    : passwordValue ?? '';
+    : (passwordValue ?? '');
 
   const { email, password } = buildCreateAccountInput(
     emailValue,
@@ -229,9 +231,7 @@ export async function runCreateAccount(
   await createAccount(email, password);
 }
 
-export async function runCreateAccountFromArgv(
-  argv: string[]
-): Promise<void> {
+export async function runCreateAccountFromArgv(argv: string[]): Promise<void> {
   const parsed = parseArgs(argv);
   if (parsed.help) {
     printUsage();
