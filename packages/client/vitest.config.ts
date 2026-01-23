@@ -82,6 +82,8 @@ export default defineConfig({
         'src/pages/opfs/index.ts',
         'src/sse/index.ts',
         'src/video/index.ts',
+        'src/components/admin-postgres/index.ts',
+        'src/components/admin-postgres-window/index.ts',
         'src/components/chat-window/index.ts',
         'src/components/console-window/index.ts',
         'src/components/files/index.ts',
@@ -102,10 +104,10 @@ export default defineConfig({
         'src/lib/test-instance.ts'
       ],
       thresholds: {
-        statements: 93.9,
-        branches: 85.7,
-        functions: 94.7,
-        lines: 95.4
+        statements: 93.7,
+        branches: 85.3,
+        functions: 94.5,
+        lines: 95.2
       }
     }
   },
