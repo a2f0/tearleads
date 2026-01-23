@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { setupScreensaverMock } from '@/test/screensaver-mock';
 import App from './App';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { Contacts } from './pages/contacts';
@@ -13,7 +14,6 @@ import { Settings } from './pages/Settings';
 import { Sqlite } from './pages/Sqlite';
 
 const mockExecute = vi.fn().mockResolvedValue({ rows: [] });
-const mockActivateScreensaver = vi.fn();
 
 // Mock database context - shared mock factory
 const createDatabaseContextMock = () => ({
@@ -77,19 +77,7 @@ vi.mock('@/db/SettingsProvider', () => ({
   })
 }));
 
-vi.mock('@/components/screensaver', async () => {
-  const actual = await vi.importActual<
-    typeof import('@/components/screensaver')
-  >('@/components/screensaver');
-  return {
-    ...actual,
-    useScreensaver: () => ({
-      isActive: false,
-      activate: mockActivateScreensaver,
-      deactivate: vi.fn()
-    })
-  };
-});
+setupScreensaverMock();
 
 // Mock API
 vi.mock('@/lib/api', () => ({

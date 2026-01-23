@@ -5,11 +5,11 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { navItems } from '@/components/Sidebar';
 import { i18n } from '@/i18n';
+import { setupScreensaverMock } from '@/test/screensaver-mock';
 import { Home, PATH_TO_WINDOW_TYPE } from './Home';
 
 const mockOpenWindow = vi.fn();
 const mockNavigate = vi.fn();
-const mockActivateScreensaver = vi.fn();
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManager: () => ({
@@ -36,19 +36,7 @@ vi.mock('@/db/SettingsProvider', () => ({
   })
 }));
 
-vi.mock('@/components/screensaver', async () => {
-  const actual = await vi.importActual<
-    typeof import('@/components/screensaver')
-  >('@/components/screensaver');
-  return {
-    ...actual,
-    useScreensaver: () => ({
-      isActive: false,
-      activate: mockActivateScreensaver,
-      deactivate: vi.fn()
-    })
-  };
-});
+setupScreensaverMock();
 
 const desktopLaunchers = navItems.filter((item) => item.path !== '/');
 

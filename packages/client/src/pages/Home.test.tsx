@@ -5,6 +5,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { navItems } from '@/components/Sidebar';
 import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
+import {
+  mockActivateScreensaver,
+  setupScreensaverMock
+} from '@/test/screensaver-mock';
 import { GAP, Home, ICON_SIZE, ITEM_HEIGHT } from './Home';
 
 const mockNavigate = vi.fn();
@@ -17,7 +21,6 @@ vi.mock('react-router-dom', async () => {
 });
 
 const mockGetSetting = vi.fn();
-const mockActivateScreensaver = vi.fn();
 
 vi.mock('@/db/SettingsProvider', () => ({
   useSettings: () => ({
@@ -26,19 +29,7 @@ vi.mock('@/db/SettingsProvider', () => ({
   })
 }));
 
-vi.mock('@/components/screensaver', async () => {
-  const actual = await vi.importActual<
-    typeof import('@/components/screensaver')
-  >('@/components/screensaver');
-  return {
-    ...actual,
-    useScreensaver: () => ({
-      isActive: false,
-      activate: mockActivateScreensaver,
-      deactivate: vi.fn()
-    })
-  };
-});
+setupScreensaverMock();
 
 const STORAGE_KEY = 'desktop-icon-positions';
 
