@@ -30,22 +30,25 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/admin/Admin', async () => {
-  const { useLocation } = await import('react-router-dom');
-  return {
-    Admin: ({ showBackLink }: { showBackLink?: boolean }) => {
-      const location = useLocation();
-      return (
-        <div data-testid="admin-content">
-          <span data-testid="admin-location">{location.pathname}</span>
-          <span data-testid="admin-backlink">
-            {showBackLink ? 'true' : 'false'}
-          </span>
-        </div>
-      );
-    }
-  };
-});
+vi.mock('@/pages/admin/Admin', () => ({
+  Admin: ({ showBackLink }: { showBackLink?: boolean }) => (
+    <div data-testid="admin-redis-content">
+      <span data-testid="admin-backlink">
+        {showBackLink ? 'true' : 'false'}
+      </span>
+    </div>
+  )
+}));
+
+vi.mock('@/pages/admin/PostgresAdmin', () => ({
+  PostgresAdmin: ({ showBackLink }: { showBackLink?: boolean }) => (
+    <div data-testid="admin-postgres-content">
+      <span data-testid="postgres-backlink">
+        {showBackLink ? 'true' : 'false'}
+      </span>
+    </div>
+  )
+}));
 
 describe('AdminWindow', () => {
   const defaultProps = {
@@ -61,17 +64,53 @@ describe('AdminWindow', () => {
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
   });
 
-  it('shows Admin as title', () => {
+  it('shows Admin as title initially', () => {
     render(<AdminWindow {...defaultProps} />);
     expect(screen.getByTestId('window-title')).toHaveTextContent('Admin');
   });
 
-  it('renders the admin content', () => {
+  it('renders the admin launcher with Redis and Postgres options', () => {
     render(<AdminWindow {...defaultProps} />);
-    expect(screen.getByTestId('admin-location')).toHaveTextContent(
-      '/admin/redis'
-    );
+    expect(screen.getByRole('heading', { name: 'Admin' })).toBeInTheDocument();
+    expect(screen.getByText('Redis')).toBeInTheDocument();
+    expect(screen.getByText('Postgres')).toBeInTheDocument();
+  });
+
+  it('navigates to Redis view when Redis is clicked', async () => {
+    const user = userEvent.setup();
+    render(<AdminWindow {...defaultProps} />);
+
+    await user.click(screen.getByText('Redis'));
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Redis');
+    expect(screen.getByTestId('admin-redis-content')).toBeInTheDocument();
     expect(screen.getByTestId('admin-backlink')).toHaveTextContent('false');
+    expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+  });
+
+  it('navigates to Postgres view when Postgres is clicked', async () => {
+    const user = userEvent.setup();
+    render(<AdminWindow {...defaultProps} />);
+
+    await user.click(screen.getByText('Postgres'));
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Postgres');
+    expect(screen.getByTestId('admin-postgres-content')).toBeInTheDocument();
+    expect(screen.getByTestId('postgres-backlink')).toHaveTextContent('false');
+    expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+  });
+
+  it('returns to index view when Back to Admin is clicked', async () => {
+    const user = userEvent.setup();
+    render(<AdminWindow {...defaultProps} />);
+
+    await user.click(screen.getByText('Redis'));
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Redis');
+
+    await user.click(screen.getByText('Back to Admin'));
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Admin');
+    expect(screen.getByText('Redis')).toBeInTheDocument();
+    expect(screen.getByText('Postgres')).toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', async () => {
@@ -115,18 +154,5 @@ describe('AdminWindow', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Close' }));
 
     expect(onClose).toHaveBeenCalled();
-  });
-
-  it('renders in compact mode without a Compact menu item', async () => {
-    const user = userEvent.setup();
-    render(<AdminWindow {...defaultProps} />);
-
-    const contentContainer = screen.getByTestId('admin-content').parentElement;
-    await user.click(screen.getByRole('button', { name: 'View' }));
-
-    expect(contentContainer).toHaveClass('p-3');
-    expect(
-      screen.queryByRole('menuitem', { name: 'Compact' })
-    ).not.toBeInTheDocument();
   });
 });
