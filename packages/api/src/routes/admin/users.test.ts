@@ -127,6 +127,46 @@ describe('admin users routes', () => {
     expect(response.body).toEqual({ error: 'Invalid user update payload' });
   });
 
+  it('PATCH /v1/admin/users/:id returns 400 for non-string email', async () => {
+    const response = await request(app)
+      .patch('/v1/admin/users/user-1')
+      .set('Authorization', authHeader)
+      .send({ email: 123 });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid user update payload' });
+  });
+
+  it('PATCH /v1/admin/users/:id returns 400 for empty email', async () => {
+    const response = await request(app)
+      .patch('/v1/admin/users/user-1')
+      .set('Authorization', authHeader)
+      .send({ email: '   ' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid user update payload' });
+  });
+
+  it('PATCH /v1/admin/users/:id returns 400 for non-boolean admin', async () => {
+    const response = await request(app)
+      .patch('/v1/admin/users/user-1')
+      .set('Authorization', authHeader)
+      .send({ admin: 'yes' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid user update payload' });
+  });
+
+  it('PATCH /v1/admin/users/:id returns 400 for empty update object', async () => {
+    const response = await request(app)
+      .patch('/v1/admin/users/user-1')
+      .set('Authorization', authHeader)
+      .send({});
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid user update payload' });
+  });
+
   it('PATCH /v1/admin/users/:id returns 404 when user is missing', async () => {
     mockGetPostgresPool.mockResolvedValue({
       query: mockQuery.mockResolvedValue({
@@ -156,5 +196,54 @@ describe('admin users routes', () => {
 
     expect(response.status).toBe(403);
     expect(response.body).toEqual({ error: 'Forbidden' });
+  });
+
+  it('PATCH /v1/admin/users/:id updates emailConfirmed field', async () => {
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockResolvedValue({
+        rows: [
+          {
+            id: 'user-1',
+            email: 'user@example.com',
+            email_confirmed: true,
+            admin: false
+          }
+        ]
+      })
+    });
+
+    const response = await request(app)
+      .patch('/v1/admin/users/user-1')
+      .set('Authorization', authHeader)
+      .send({ emailConfirmed: true });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      user: {
+        id: 'user-1',
+        email: 'user@example.com',
+        emailConfirmed: true,
+        admin: false
+      }
+    });
+  });
+
+  it('PATCH /v1/admin/users/:id returns 500 on database error', async () => {
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockRejectedValue(new Error('database error'))
+    });
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    const response = await request(app)
+      .patch('/v1/admin/users/user-1')
+      .set('Authorization', authHeader)
+      .send({ admin: true });
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: 'database error' });
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 });

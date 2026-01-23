@@ -190,11 +190,6 @@ router.patch('/:id', async (req: Request, res: Response) => {
     index += 1;
   }
 
-  if (setClauses.length === 0) {
-    res.status(400).json({ error: 'No valid fields to update' });
-    return;
-  }
-
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<UserRow>(
