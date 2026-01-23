@@ -57,6 +57,20 @@ Tuxedo assumes a `rapid-shared` workspace plus one or more numbered workspaces:
 - `tuxedo/config/neovim.lua`: default Neovim config for the editor pane
 - `tuxedo/config/ghostty.conf`: Ghostty defaults when no TTY is present
 
+### Shell PATH setup
+
+Tuxedo sets `TUXEDO_WORKSPACE` to the workspace root for each pane. Add this to
+your shell profile (`.zshrc` or `.bashrc`) to include workspace scripts in PATH:
+
+```sh
+if [ -n "$TUXEDO_WORKSPACE" ]; then
+  export PATH="$TUXEDO_WORKSPACE/scripts:$TUXEDO_WORKSPACE/scripts/agents:$PATH"
+fi
+```
+
+This enables running scripts like `refresh.sh`, `bumpVersion.sh`, and agent
+scripts directly without specifying the full path.
+
 ## Behavior notes
 
 - Uses `rapid-shared/` as the source of truth for `.secrets`, `.test_files`, and `packages/api/.env`.
