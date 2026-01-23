@@ -5,6 +5,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { navItems } from '@/components/Sidebar';
 import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
+import {
+  mockActivateScreensaver,
+  setupScreensaverMock
+} from '@/test/screensaver-mock';
 import { GAP, Home, ICON_SIZE, ITEM_HEIGHT } from './Home';
 
 const mockNavigate = vi.fn();
@@ -24,6 +28,8 @@ vi.mock('@/db/SettingsProvider', () => ({
     setSetting: vi.fn()
   })
 }));
+
+setupScreensaverMock();
 
 const STORAGE_KEY = 'desktop-icon-positions';
 
@@ -236,11 +242,29 @@ describe('Home', () => {
         .map((button) => button.textContent?.trim() ?? '');
       expect(labels).toEqual([
         'Display Properties',
+        'Start Screensaver',
         'Auto Arrange',
         'Cluster',
         'Scatter'
       ]);
     }
+  });
+
+  it('starts screensaver from canvas context menu', async () => {
+    const user = userEvent.setup();
+    const { container } = renderHome();
+
+    const canvas = container.querySelector('[role="application"]');
+    expect(canvas).toBeInTheDocument();
+
+    if (canvas) {
+      await user.pointer({ keys: '[MouseRight]', target: canvas });
+    }
+
+    await user.click(screen.getByText('Start Screensaver'));
+
+    expect(mockActivateScreensaver).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Start Screensaver')).not.toBeInTheDocument();
   });
 
   it('shows icon context menu on right-click', async () => {
