@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { API_BASE_URL } from '@/lib/api';
+import { getAuthHeaderValue } from '@/lib/auth-storage';
 import { type EmailItem, formatEmailDate, formatEmailSize } from '@/lib/email';
 
 export function Email() {
@@ -18,7 +19,9 @@ export function Email() {
     setHasFetched(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/emails`);
+      const authHeader = getAuthHeaderValue();
+      const headers = authHeader ? { Authorization: authHeader } : undefined;
+      const response = await fetch(`${API_BASE_URL}/emails`, { headers });
       if (!response.ok) {
         throw new Error(`Failed to fetch emails: ${response.statusText}`);
       }
