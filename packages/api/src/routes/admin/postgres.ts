@@ -1,5 +1,8 @@
 import type {
   PostgresAdminInfoResponse,
+  PostgresColumnInfo,
+  PostgresColumnsResponse,
+  PostgresRowsResponse,
   PostgresTableInfo,
   PostgresTablesResponse
 } from '@rapid/shared';
@@ -160,5 +163,220 @@ router.get('/tables', async (_req: Request, res: Response) => {
     });
   }
 });
+
+/**
+ * @openapi
+ * /admin/postgres/tables/{schema}/{table}/columns:
+ *   get:
+ *     summary: Get column metadata for a Postgres table
+ *     description: Returns column information from information_schema
+ *     tags:
+ *       - Admin
+ *     parameters:
+ *       - name: schema
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: table
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Column metadata
+ *       404:
+ *         description: Table not found
+ *       500:
+ *         description: Postgres connection error
+ */
+router.get(
+  '/tables/:schema/:table/columns',
+  async (req: Request, res: Response) => {
+    const { schema, table } = req.params;
+
+    try {
+      const pool = await getPostgresPool();
+
+      // Validate table exists
+      const tableCheck = await pool.query<{ exists: boolean }>(
+        `SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = $1 AND table_name = $2
+      ) AS exists`,
+        [schema, table]
+      );
+
+      if (!tableCheck.rows[0]?.exists) {
+        res.status(404).json({ error: 'Table not found' });
+        return;
+      }
+
+      const result = await pool.query<{
+        column_name: string;
+        data_type: string;
+        is_nullable: string;
+        column_default: string | null;
+        ordinal_position: number;
+      }>(
+        `SELECT column_name, data_type, is_nullable, column_default, ordinal_position
+       FROM information_schema.columns
+       WHERE table_schema = $1 AND table_name = $2
+       ORDER BY ordinal_position`,
+        [schema, table]
+      );
+
+      const columns: PostgresColumnInfo[] = result.rows.map((row) => ({
+        name: row.column_name,
+        type: row.data_type,
+        nullable: row.is_nullable === 'YES',
+        defaultValue: row.column_default,
+        ordinalPosition: row.ordinal_position
+      }));
+
+      const response: PostgresColumnsResponse = { columns };
+      res.json(response);
+    } catch (err) {
+      console.error('Postgres error:', err);
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Failed to query Postgres'
+      });
+    }
+  }
+);
+
+/**
+ * @openapi
+ * /admin/postgres/tables/{schema}/{table}/rows:
+ *   get:
+ *     summary: Get paginated rows from a Postgres table
+ *     description: Returns rows with pagination and optional sorting
+ *     tags:
+ *       - Admin
+ *     parameters:
+ *       - name: schema
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: table
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: limit
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *       - name: offset
+ *         in: query
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *       - name: sortColumn
+ *         in: query
+ *         schema:
+ *           type: string
+ *       - name: sortDirection
+ *         in: query
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *     responses:
+ *       200:
+ *         description: Paginated rows
+ *       404:
+ *         description: Table not found
+ *       500:
+ *         description: Postgres connection error
+ */
+router.get(
+  '/tables/:schema/:table/rows',
+  async (req: Request, res: Response) => {
+    const schema = req.params['schema'];
+    const table = req.params['table'];
+
+    if (!schema || !table) {
+      res.status(400).json({ error: 'Schema and table are required' });
+      return;
+    }
+
+    const limit = Math.min(
+      Math.max(parseInt(req.query['limit'] as string, 10) || 50, 1),
+      1000
+    );
+    const offset = Math.max(
+      parseInt(req.query['offset'] as string, 10) || 0,
+      0
+    );
+    const sortColumn = req.query['sortColumn'] as string | undefined;
+    const sortDirection = req.query['sortDirection'] as
+      | 'asc'
+      | 'desc'
+      | undefined;
+
+    try {
+      const pool = await getPostgresPool();
+
+      // Validate table exists and get columns to validate sortColumn
+      const columnsResult = await pool.query<{
+        column_name: string;
+      }>(
+        `SELECT column_name FROM information_schema.columns
+       WHERE table_schema = $1 AND table_name = $2`,
+        [schema, table]
+      );
+
+      if (columnsResult.rows.length === 0) {
+        res.status(404).json({ error: 'Table not found' });
+        return;
+      }
+
+      const validColumns = new Set(
+        columnsResult.rows.map((r) => r.column_name)
+      );
+
+      // Build query with safe identifier quoting
+      const quotedSchema = `"${schema.replace(/"/g, '""')}"`;
+      const quotedTable = `"${table.replace(/"/g, '""')}"`;
+      const fullTableName = `${quotedSchema}.${quotedTable}`;
+
+      // Get total count
+      const countResult = await pool.query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM ${fullTableName}`
+      );
+      const totalCount = parseInt(countResult.rows[0]?.count ?? '0', 10);
+
+      // Build SELECT query
+      let query = `SELECT * FROM ${fullTableName}`;
+
+      // Add ORDER BY if valid column provided
+      if (sortColumn && validColumns.has(sortColumn)) {
+        const quotedColumn = `"${sortColumn.replace(/"/g, '""')}"`;
+        const direction = sortDirection === 'desc' ? 'DESC' : 'ASC';
+        query += ` ORDER BY ${quotedColumn} ${direction}`;
+      }
+
+      query += ` LIMIT $1 OFFSET $2`;
+
+      const rowsResult = await pool.query(query, [limit, offset]);
+
+      const response: PostgresRowsResponse = {
+        rows: rowsResult.rows,
+        totalCount,
+        limit,
+        offset
+      };
+      res.json(response);
+    } catch (err) {
+      console.error('Postgres error:', err);
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Failed to query Postgres'
+      });
+    }
+  }
+);
 
 export { router as postgresRouter };
