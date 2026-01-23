@@ -10,22 +10,12 @@ import { getAccessTokenTtlSeconds } from '../lib/authConfig.js';
 import { createJwt } from '../lib/jwt.js';
 import { verifyPassword } from '../lib/passwords.js';
 import { getPostgresPool } from '../lib/postgres.js';
+import { getClientIp } from '../lib/request-utils.js';
 import {
   createSession,
   deleteSession,
   getSessionsByUserId
 } from '../lib/sessions.js';
-
-function getClientIp(req: Request): string {
-  const forwarded = req.get('x-forwarded-for');
-  if (forwarded) {
-    const first = forwarded.split(',')[0];
-    if (first) {
-      return first.trim();
-    }
-  }
-  return req.ip ?? 'unknown';
-}
 
 const router: RouterType = Router();
 const ACCESS_TOKEN_TTL_SECONDS = getAccessTokenTtlSeconds();
