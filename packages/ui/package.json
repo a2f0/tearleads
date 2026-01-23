@@ -1,6 +1,6 @@
 {
   "name": "@rapid/ui",
-  "version": "0.0.46",
+  "version": "0.0.47",
   "description": "Shared UI components and design system for Rapid",
   "type": "module",
   "main": "dist/index.js",
