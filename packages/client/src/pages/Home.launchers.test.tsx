@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { navItems } from '@/components/Sidebar';
 import { i18n } from '@/i18n';
+import { setupScreensaverMock } from '@/test/screensaver-mock';
 import { Home, PATH_TO_WINDOW_TYPE } from './Home';
 
 const mockOpenWindow = vi.fn();
@@ -34,6 +35,8 @@ vi.mock('@/db/SettingsProvider', () => ({
     setSetting: vi.fn()
   })
 }));
+
+setupScreensaverMock();
 
 const desktopLaunchers = navItems.filter((item) => item.path !== '/');
 
