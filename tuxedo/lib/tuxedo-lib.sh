@@ -70,6 +70,46 @@ ensure_symlinks() {
         ln -s "$relative_path" "$link"
         echo "Symlinked $link -> $relative_path"
     done
+
+    # Symlink package-specific files (mirrored path structure)
+    for item in packages/api/.env; do
+        target="$SHARED_DIR/$item"
+        link="$workspace/$item"
+        # Dynamically calculate relative path depth based on item path
+        depth=$(echo "$item" | tr -cd '/' | wc -c | tr -d ' ')
+        # Add 1 for the workspace directory itself (e.g., rapid-main -> github)
+        depth=$((depth + 1))
+        relative_prefix=$(printf '../%.0s' $(seq 1 $depth))
+        relative_path="${relative_prefix}rapid-shared/$item"
+
+        # Skip if shared file doesn't exist
+        [ -f "$target" ] || continue
+
+        # Ensure parent directory exists
+        link_dir=$(dirname "$link")
+        [ -d "$link_dir" ] || continue
+
+        # If it's already a correct symlink, skip
+        if [ -L "$link" ]; then
+            current_target=$(readlink "$link")
+            if [ "$current_target" = "$target" ] || [ "$current_target" = "$relative_path" ]; then
+                continue
+            fi
+            # Wrong symlink, remove it
+            rm "$link"
+        elif [ -f "$link" ]; then
+            # It's a real file - remove it (symlink to shared will replace it)
+            echo "Removing file '$link' (will be symlinked to shared)"
+            rm "$link"
+        elif [ -e "$link" ]; then
+            # Some other type exists, remove it
+            rm "$link"
+        fi
+
+        # Create the symlink (relative path for portability)
+        ln -s "$relative_path" "$link"
+        echo "Symlinked $link -> $relative_path"
+    done
 }
 
 tuxedo_set_screen_flag() {
@@ -97,14 +137,24 @@ tuxedo_set_screen_flag() {
 # Returns the command to run in a tmux pane
 screen_cmd() {
     screen_name="$1"
+    workspace="${2:-}"
     if [ "$USE_SCREEN" = true ]; then
         # -d -RR: detach from elsewhere if attached, reattach or create new
         # -c $CONFIG_DIR/screenrc: use our config for scrollback and mouse support
         # -T tmux-256color: enable true color support for proper terminal colors
-        echo "screen -T tmux-256color -d -RR $screen_name -c \"$CONFIG_DIR/screenrc\""
+        # TUXEDO_WORKSPACE: set so shell init can add scripts to PATH
+        if [ -n "$workspace" ]; then
+            echo "TUXEDO_WORKSPACE='$workspace' screen -T tmux-256color -d -RR $screen_name -c \"$CONFIG_DIR/screenrc\""
+        else
+            echo "screen -T tmux-256color -d -RR $screen_name -c \"$CONFIG_DIR/screenrc\""
+        fi
     else
-        # Fallback: just run the shell
-        echo ""
+        # Fallback: export TUXEDO_WORKSPACE for non-screen shells too
+        if [ -n "$workspace" ]; then
+            echo "export TUXEDO_WORKSPACE='$workspace'; exec \$SHELL"
+        else
+            echo ""
+        fi
     fi
 }
 
@@ -203,7 +253,10 @@ workspace_path() {
 
 tuxedo_prepare_shared_dirs() {
     if [ -d "$SHARED_DIR" ]; then
-        mkdir -p "$SHARED_DIR/.test_files" "$SHARED_DIR/.secrets"
+        mkdir -p "$SHARED_DIR/.test_files" "$SHARED_DIR/.secrets" "$SHARED_DIR/packages/api"
+
+        # Touch package-specific env files if they don't exist
+        [ -f "$SHARED_DIR/packages/api/.env" ] || touch "$SHARED_DIR/packages/api/.env"
 
         ensure_symlinks "$BASE_DIR/rapid-main"
         i=2
@@ -224,7 +277,7 @@ tuxedo_attach_or_create() {
 
     # Create session starting with rapid-shared (source of truth)
     # Terminal pane runs in a persistent screen session
-    screen_shared=$(screen_cmd tux-shared)
+    screen_shared=$(screen_cmd tux-shared "$SHARED_DIR")
     shared_path=$(workspace_path "$SHARED_DIR")
     if [ -n "$screen_shared" ]; then
         tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n rapid-shared -e "PATH=$shared_path" "$screen_shared"
@@ -234,7 +287,7 @@ tuxedo_attach_or_create() {
     tmux split-window -h -t "$SESSION_NAME:rapid-shared" -c "$SHARED_DIR" -e "PATH=$shared_path" "$EDITOR"
 
     # Add rapid-main as second window
-    screen_main=$(screen_cmd tux-main)
+    screen_main=$(screen_cmd tux-main "$BASE_DIR/rapid-main")
     main_path=$(workspace_path "$BASE_DIR/rapid-main")
     if [ -n "$screen_main" ]; then
         tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main -e "PATH=$main_path" "$screen_main"
@@ -247,7 +300,9 @@ tuxedo_attach_or_create() {
     while [ "$i" -le "$NUM_WORKSPACES" ]; do
         workspace_dir="$BASE_DIR/rapid${i}"
         ws_path=$(workspace_path "$workspace_dir")
-        screen_i=$(screen_cmd "tux-${i}")
+        # Zero-pad screen session names to avoid prefix collisions (tux-2 vs tux-20)
+        screen_name=$(printf "tux-%02d" "$i")
+        screen_i=$(screen_cmd "$screen_name" "$workspace_dir")
         if [ -n "$screen_i" ]; then
             tmux new-window -t "$SESSION_NAME" -c "$workspace_dir" -n "rapid${i}" -e "PATH=$ws_path" "$screen_i"
         else
