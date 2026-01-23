@@ -1,7 +1,7 @@
 import { isRecord } from '@rapid/shared';
 import jwt from 'jsonwebtoken';
 
-type JwtClaims = {
+export type JwtClaims = {
   sub: string;
   email?: string;
   jti: string;
