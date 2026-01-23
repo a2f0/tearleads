@@ -1,6 +1,9 @@
 import type { Pool } from 'pg';
 import type { Migration } from './types.js';
 import { v001 } from './v001.js';
+import { v002 } from './v002.js';
+import { v003 } from './v003.js';
+import { v004 } from './v004.js';
 
 export type { Migration, MigrationFn } from './types.js';
 
@@ -8,7 +11,7 @@ export type { Migration, MigrationFn } from './types.js';
  * All migrations in order. Add new migrations to this array.
  * Migrations must have sequential version numbers starting from 1.
  */
-export const migrations: Migration[] = [v001];
+export const migrations: Migration[] = [v001, v002, v003, v004];
 
 /**
  * Get the current schema version from the database.
