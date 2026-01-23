@@ -19,7 +19,7 @@ backwards compatibility.
 
 Tuxedo assumes a `rapid-shared` workspace plus one or more numbered workspaces:
 
-- `rapid-shared`: shared `.secrets` and `.test_files` source of truth
+- `rapid-shared`: shared `.secrets`, `.test_files`, and `packages/api/.env` source of truth
 - `rapid-main`: first workspace window
 - `rapid2...rapidN`: additional workspaces based on `TUXEDO_WORKSPACES`
 
@@ -57,9 +57,28 @@ Tuxedo assumes a `rapid-shared` workspace plus one or more numbered workspaces:
 - `tuxedo/config/neovim.lua`: default Neovim config for the editor pane
 - `tuxedo/config/ghostty.conf`: Ghostty defaults when no TTY is present
 
+### Shell PATH setup
+
+Tuxedo sets `TUXEDO_WORKSPACE` to the workspace root for each pane. Add this to
+your shell config to include workspace scripts in PATH:
+
+```sh
+# For zsh: add to ~/.zshenv (sourced for ALL shells, including non-interactive)
+# For bash: add to ~/.bashrc
+if [ -n "$TUXEDO_WORKSPACE" ]; then
+  export PATH="$TUXEDO_WORKSPACE/scripts:$TUXEDO_WORKSPACE/scripts/agents:$PATH"
+fi
+```
+
+Using `.zshenv` ensures scripts are available in non-interactive shells (e.g.,
+when Codex or other agents run commands).
+
+This enables running scripts like `refresh.sh`, `bumpVersion.sh`, and agent
+scripts directly without specifying the full path.
+
 ## Behavior notes
 
-- Uses `rapid-shared/` as the source of truth for `.secrets` and `.test_files`.
+- Uses `rapid-shared/` as the source of truth for `.secrets`, `.test_files`, and `packages/api/.env`.
 - Automatically fast-forwards clean `main` workspaces before setting symlinks.
 - When `screen` is available, each workspace runs inside a named screen session
   so long-running processes survive tmux restarts.

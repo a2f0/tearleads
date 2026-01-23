@@ -1,13 +1,9 @@
 #!/bin/sh
 set -eu
-SCRIPT_PATH=$0
-case $SCRIPT_PATH in
-  */*) ;;
-  *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
-esac
-SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Find repo root from current working directory (not script location)
+# This ensures the script operates on the repo where it's invoked, not where it's located
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 BASE_BRANCH="${BASE_BRANCH:-main}"
 DRY_RUN=false
 
