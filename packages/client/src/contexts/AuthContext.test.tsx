@@ -1,6 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearStoredAuth, setSessionExpiredError } from '@/lib/auth-storage';
 import { AuthProvider, useAuth } from './AuthContext';
 
 const mockLogin = vi.fn();
@@ -14,7 +15,8 @@ vi.mock('@/lib/api', () => ({
 }));
 
 function TestComponent() {
-  const { isAuthenticated, user, isLoading, login, logout } = useAuth();
+  const { authError, isAuthenticated, user, isLoading, login, logout } =
+    useAuth();
 
   const handleLogin = async () => {
     await login('test@example.com', 'password123');
@@ -30,6 +32,7 @@ function TestComponent() {
         {isAuthenticated ? 'authenticated' : 'not authenticated'}
       </div>
       {user && <div data-testid="user-email">{user.email}</div>}
+      {authError && <div data-testid="auth-error">{authError}</div>}
       <button type="button" onClick={handleLogin}>
         Login
       </button>
@@ -178,6 +181,60 @@ describe('AuthContext', () => {
 
     expect(localStorage.getItem('auth_token')).toBeNull();
     expect(localStorage.getItem('auth_user')).toBeNull();
+  });
+
+  it('updates when auth storage is cleared externally', async () => {
+    localStorage.setItem('auth_token', 'saved-token');
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({ id: '123', email: 'saved@example.com' })
+    );
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'authenticated'
+      );
+    });
+
+    act(() => {
+      clearStoredAuth();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'not authenticated'
+      );
+    });
+  });
+
+  it('updates when session expiration is reported', async () => {
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'not authenticated'
+      );
+    });
+
+    act(() => {
+      setSessionExpiredError();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-error')).toHaveTextContent(
+        'Session expired. Please sign in again.'
+      );
+    });
   });
 
   it('throws error when useAuth is used outside provider', () => {

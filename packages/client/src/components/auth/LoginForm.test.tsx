@@ -4,9 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoginForm } from './LoginForm';
 
 const mockLogin = vi.fn();
+const mockClearAuthError = vi.fn();
+let mockAuthError: string | null = null;
 
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({
+    authError: mockAuthError,
+    clearAuthError: mockClearAuthError,
     login: mockLogin
   })
 }));
@@ -14,6 +18,7 @@ vi.mock('@/contexts/AuthContext', () => ({
 describe('LoginForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockAuthError = null;
   });
 
   it('renders email and password fields', () => {
@@ -216,5 +221,14 @@ describe('LoginForm', () => {
       'autocomplete',
       'current-password'
     );
+  });
+
+  it('shows auth error message when provided', () => {
+    mockAuthError = 'Session expired. Please sign in again.';
+    render(<LoginForm />);
+
+    expect(
+      screen.getByText('Session expired. Please sign in again.')
+    ).toBeInTheDocument();
   });
 });
