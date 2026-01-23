@@ -300,7 +300,9 @@ tuxedo_attach_or_create() {
     while [ "$i" -le "$NUM_WORKSPACES" ]; do
         workspace_dir="$BASE_DIR/rapid${i}"
         ws_path=$(workspace_path "$workspace_dir")
-        screen_i=$(screen_cmd "tux-${i}" "$workspace_dir")
+        # Zero-pad screen session names to avoid prefix collisions (tux-2 vs tux-20)
+        screen_name=$(printf "tux-%02d" "$i")
+        screen_i=$(screen_cmd "$screen_name" "$workspace_dir")
         if [ -n "$screen_i" ]; then
             tmux new-window -t "$SESSION_NAME" -c "$workspace_dir" -n "rapid${i}" -e "PATH=$ws_path" "$screen_i"
         else
