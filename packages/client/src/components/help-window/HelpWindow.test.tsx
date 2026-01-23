@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { DocsWindow } from './DocsWindow';
+import { HelpWindow } from './HelpWindow';
 
 vi.mock('@rapid/api/dist/openapi.json', () => ({
   default: {
@@ -46,17 +47,49 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-describe('DocsWindow', () => {
-  it('renders the API docs inside a floating window', () => {
+vi.mock('@/components/ui/grid-square', () => ({
+  GridSquare: ({
+    children,
+    onClick
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+  }) => (
+    <button type="button" onClick={onClick} data-testid="grid-square">
+      {children}
+    </button>
+  )
+}));
+
+describe('HelpWindow', () => {
+  it('renders the help index view initially', () => {
     render(
-      <DocsWindow
-        id="docs-1"
+      <HelpWindow
+        id="help-1"
         onClose={vi.fn()}
         onMinimize={vi.fn()}
         onFocus={vi.fn()}
         zIndex={1}
       />
     );
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
+    expect(screen.getByText('API Docs')).toBeInTheDocument();
+  });
+
+  it('navigates to API docs when clicking the grid square', async () => {
+    const user = userEvent.setup();
+    render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+      />
+    );
+
+    await user.click(screen.getByTestId('grid-square'));
 
     expect(screen.getByTestId('window-title')).toHaveTextContent('API Docs');
     expect(screen.getByTestId('api-docs')).toHaveTextContent('Client Docs');

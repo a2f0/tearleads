@@ -16,7 +16,7 @@ const { title, links } = Astro.props;
   <button type="button" class="font-bold text-xl text-muted-foreground transition-colors hover:text-foreground">
     {title}
   </button>
-  <div class="nav-dropdown-menu invisible absolute right-0 top-full z-50 mt-2 min-w-[180px] rounded-md border bg-popover py-1 opacity-0 shadow-md">
+  <div class="nav-dropdown-menu invisible absolute right-0 top-full z-50 mt-2 min-w-[180px] border bg-popover py-1 opacity-0 shadow-md">
     {links.map((link) => (
       <a href={link.href} class="block px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
         {link.text}
