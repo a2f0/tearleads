@@ -266,7 +266,9 @@ describe('migrations', () => {
 
       const queries = pool.queries.join('\n');
       expect(queries).toContain('CREATE TABLE IF NOT EXISTS "notes"');
-      expect(queries).toContain('CREATE INDEX IF NOT EXISTS "notes_updated_at_idx"');
+      expect(queries).toContain(
+        'CREATE INDEX IF NOT EXISTS "notes_updated_at_idx"'
+      );
       expect(queries).toContain('CREATE INDEX IF NOT EXISTS "notes_title_idx"');
     });
   });
