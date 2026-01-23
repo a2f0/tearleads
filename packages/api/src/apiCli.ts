@@ -8,7 +8,8 @@
  *   node apiCli.cjs <command> [options]
  *
  * Commands:
- *   migrate    Run database migrations
+ *   migrate         Run database migrations
+ *   create-account  Create an account in the database
  *
  * Environment variables:
  *   NODE_ENV - Set to 'production' for production mode
@@ -18,6 +19,7 @@
  */
 
 import { program } from 'commander';
+import { createAccountCommand } from './cli/createAccount.js';
 import { migrateCommand } from './cli/migrate.js';
 
 const version = '0.0.1';
@@ -29,5 +31,6 @@ program
 
 // Register commands
 migrateCommand(program);
+createAccountCommand(program);
 
 program.parse();
