@@ -22,6 +22,8 @@ describe('api', () => {
     vi.resetModules();
     global.fetch = vi.fn();
     mockLogApiEvent.mockResolvedValue(undefined);
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
   });
 
   afterEach(() => {
@@ -46,7 +48,7 @@ describe('api', () => {
 
       expect(global.fetch).toHaveBeenCalledWith(
         'http://localhost:3000/ping',
-        undefined
+        {}
       );
       expect(result).toEqual({ version: '1.0.0' });
     });
@@ -77,6 +79,29 @@ describe('api', () => {
       const { api } = await import('./api');
 
       await expect(api.ping.get()).rejects.toThrow('Network error');
+    });
+
+    it('adds Authorization header when auth token is stored', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ version: '1.0.0' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+      localStorage.setItem('auth_token', 'test-token');
+
+      const { api } = await import('./api');
+      await api.ping.get();
+
+      const call = vi.mocked(global.fetch).mock.calls[0];
+      if (!call) {
+        throw new Error('Expected fetch to be called');
+      }
+
+      const options = call[1];
+      const headers = new Headers(options?.headers);
+      expect(headers.get('Authorization')).toBe('Bearer test-token');
+      localStorage.removeItem('auth_token');
     });
   });
 
@@ -271,7 +296,7 @@ describe('api', () => {
 
       expect(global.fetch).toHaveBeenCalledWith(
         'http://localhost:3000/admin/redis/keys',
-        undefined
+        {}
       );
     });
   });
