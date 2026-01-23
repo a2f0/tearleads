@@ -8,7 +8,8 @@ import type { Migration } from './types.js';
  */
 export const v003: Migration = {
   version: 3,
-  description: 'Create notes table',
+  description:
+    'Aligns API migration version with client v003; table created in v001',
   up: async (pool: Pool) => {
     const statements = [
       `CREATE TABLE IF NOT EXISTS "notes" (
