@@ -8,6 +8,12 @@ shell -$SHELL
 truecolor on
 setenv COLORTERM truecolor
 
+# Pass TUXEDO_WORKSPACE through to the shell
+# Users should add this to their shell profile (.zshrc/.bashrc):
+#   if [ -n "$TUXEDO_WORKSPACE" ]; then
+#     export PATH="$TUXEDO_WORKSPACE/scripts:$TUXEDO_WORKSPACE/scripts/agents:$PATH"
+#   fi
+
 # Large scrollback buffer (10k lines)
 defscrollback 10000
 
