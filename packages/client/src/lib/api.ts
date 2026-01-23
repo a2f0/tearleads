@@ -14,7 +14,11 @@ import type {
 } from '@rapid/shared';
 import type { AnalyticsEventSlug } from '@/db/analytics';
 import { logApiEvent } from '@/db/analytics';
-import { getAuthHeaderValue } from '@/lib/auth-storage';
+import {
+  clearStoredAuth,
+  getAuthHeaderValue,
+  setSessionExpiredError
+} from '@/lib/auth-storage';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
@@ -48,6 +52,10 @@ async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, requestInit);
 
     if (!response.ok) {
+      if (response.status === 401) {
+        setSessionExpiredError();
+        clearStoredAuth();
+      }
       throw new Error(`API error: ${response.status}`);
     }
 

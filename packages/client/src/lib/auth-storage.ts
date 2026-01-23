@@ -2,10 +2,51 @@ import type { AuthUser } from '@rapid/shared';
 
 const AUTH_TOKEN_KEY = 'auth_token';
 const AUTH_USER_KEY = 'auth_user';
+const AUTH_CHANGE_EVENT = 'rapid_auth_change';
+const SESSION_EXPIRED_MESSAGE = 'Session expired. Please sign in again.';
+
+let authError: string | null = null;
 
 interface StoredAuth {
   token: string | null;
   user: AuthUser | null;
+}
+
+function notifyAuthChange(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.dispatchEvent(new Event(AUTH_CHANGE_EVENT));
+}
+
+export function onAuthChange(listener: () => void): () => void {
+  if (typeof window === 'undefined') {
+    return () => undefined;
+  }
+
+  window.addEventListener(AUTH_CHANGE_EVENT, listener);
+  return () => {
+    window.removeEventListener(AUTH_CHANGE_EVENT, listener);
+  };
+}
+
+export function getAuthError(): string | null {
+  return authError;
+}
+
+export function setAuthError(message: string): void {
+  authError = message;
+  notifyAuthChange();
+}
+
+export function clearAuthError(): void {
+  authError = null;
+  notifyAuthChange();
+}
+
+export function setSessionExpiredError(): void {
+  setAuthError(SESSION_EXPIRED_MESSAGE);
 }
 
 export function readStoredAuth(): StoredAuth {
@@ -28,6 +69,7 @@ export function storeAuth(token: string, user: AuthUser): void {
   try {
     localStorage.setItem(AUTH_TOKEN_KEY, token);
     localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    notifyAuthChange();
   } catch {
     // Ignore storage errors (e.g. private mode, quota exceeded).
   }
@@ -37,6 +79,7 @@ export function clearStoredAuth(): void {
   try {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
+    notifyAuthChange();
   } catch {
     // Ignore storage errors.
   }
