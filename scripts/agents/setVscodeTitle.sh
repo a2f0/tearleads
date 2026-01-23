@@ -7,8 +7,7 @@ case $SCRIPT_PATH in
 esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
-. "$SCRIPT_DIR/repoRoot.sh"
-
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 VSCODE_DIR="$REPO_ROOT/.vscode"
 SETTINGS_FILE="$VSCODE_DIR/settings.json"
 
