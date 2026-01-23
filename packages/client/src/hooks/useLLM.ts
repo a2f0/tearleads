@@ -597,7 +597,7 @@ async function generateInternal(
         'Content-Type': 'application/json'
       };
       if (authHeader) {
-        headers.Authorization = authHeader;
+        headers['Authorization'] = authHeader;
       }
       const response = await fetch(requestUrl, {
         method: 'POST',
