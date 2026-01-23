@@ -1,8 +1,8 @@
 import {
   Archive,
   BarChart2,
-  Bot,
   BookOpen,
+  Bot,
   Bug,
   Copy,
   Database,
