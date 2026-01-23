@@ -75,8 +75,12 @@ ensure_symlinks() {
     for item in packages/api/.env; do
         target="$SHARED_DIR/$item"
         link="$workspace/$item"
-        # Count path depth for relative path (packages/api/.env = 2 directories deep + 1 for workspace)
-        relative_path="../../../rapid-shared/$item"
+        # Dynamically calculate relative path depth based on item path
+        depth=$(echo "$item" | tr -cd '/' | wc -c | tr -d ' ')
+        # Add 1 for the workspace directory itself (e.g., rapid-main -> github)
+        depth=$((depth + 1))
+        relative_prefix=$(printf '../%.0s' $(seq 1 $depth))
+        relative_path="${relative_prefix}rapid-shared/$item"
 
         # Skip if shared file doesn't exist
         [ -f "$target" ] || continue
