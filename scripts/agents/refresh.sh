@@ -9,7 +9,7 @@ case $SCRIPT_PATH in
 esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
-. "$SCRIPT_DIR/repoRoot.sh"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 CLIENT_DIR="$REPO_ROOT/packages/client"
 
 cd "$REPO_ROOT"
