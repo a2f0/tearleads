@@ -15,7 +15,7 @@ export const es = {
     contacts: 'Contactos',
     photos: 'Fotos',
     documents: 'Documentos',
-    docs: 'Documentación API',
+    help: 'Ayuda',
     notes: 'Notas',
     audio: 'Audio',
     videos: 'Vídeos',

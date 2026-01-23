@@ -78,7 +78,10 @@ const Debug = lazy(() =>
   import('./pages/debug').then((m) => ({ default: m.Debug }))
 );
 const ApiDocsPage = lazy(() =>
-  import('./pages/docs/ApiDocs').then((m) => ({ default: m.ApiDocsPage }))
+  import('./pages/help/ApiDocs').then((m) => ({ default: m.ApiDocsPage }))
+);
+const Help = lazy(() =>
+  import('./pages/help/Help').then((m) => ({ default: m.Help }))
 );
 const DocumentDetail = lazy(() =>
   import('./pages/DocumentDetail').then((m) => ({ default: m.DocumentDetail }))
@@ -256,12 +259,9 @@ if (rootElement) {
                                         element={<Console />}
                                       />
                                       <Route path="debug" element={<Debug />} />
+                                      <Route path="help" element={<Help />} />
                                       <Route
-                                        path="docs"
-                                        element={<ApiDocsPage />}
-                                      />
-                                      <Route
-                                        path="docs/api"
+                                        path="help/api"
                                         element={<ApiDocsPage />}
                                       />
                                       <Route path="chat" element={<Chat />} />
