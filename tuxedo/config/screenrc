@@ -9,7 +9,7 @@ truecolor on
 setenv COLORTERM truecolor
 
 # Pass TUXEDO_WORKSPACE through to the shell
-# Users should add this to their shell profile (.zshrc/.bashrc):
+# Users should add this to ~/.zshenv (or ~/.bashrc for bash):
 #   if [ -n "$TUXEDO_WORKSPACE" ]; then
 #     export PATH="$TUXEDO_WORKSPACE/scripts:$TUXEDO_WORKSPACE/scripts/agents:$PATH"
 #   fi
