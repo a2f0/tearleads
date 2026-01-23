@@ -128,6 +128,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
      - Reply in-thread: `gh api -X POST /repos/$REPO/pulls/<pr-number>/comments -F in_reply_to=<comment_id> -f body="...@gemini-code-assist ..."`
      - List general PR comments (issue comments): `gh api /repos/$REPO/issues/<pr-number>/comments`
      - Reply to general PR comments: `gh api -X POST /repos/$REPO/issues/<pr-number>/comments -f body="...@gemini-code-assist ..."`
+   - **Push commits before tagging Gemini with a hash** so the hash links on GitHub and is reviewable.
    - When replying that a fix is complete, **include the commit hash (not just the message) and explicitly ask if the change addresses the issue** (e.g., "Commit <hash> ... does this address the issue?").
    - Analyze Gemini's sentiment in follow-up replies:
      - If Gemini confirms/approves and does not request more changes, resolve the thread.
