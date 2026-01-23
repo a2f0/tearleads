@@ -4,7 +4,8 @@ import type {
   PostgresAdminInfoResponse,
   PostgresTablesResponse,
   RedisKeysResponse,
-  RedisKeyValueResponse
+  RedisKeyValueResponse,
+  SessionsResponse
 } from '@rapid/shared';
 import type { AnalyticsEventSlug } from '@/db/analytics';
 import { logApiEvent } from '@/db/analytics';
@@ -64,7 +65,19 @@ export const api = {
           body: JSON.stringify({ email, password })
         },
         eventName: 'api_post_auth_login'
-      })
+      }),
+    getSessions: () =>
+      request<SessionsResponse>('/auth/sessions', {
+        eventName: 'api_get_auth_sessions'
+      }),
+    deleteSession: (sessionId: string) =>
+      request<{ deleted: boolean }>(
+        `/auth/sessions/${encodeURIComponent(sessionId)}`,
+        {
+          fetchOptions: { method: 'DELETE' },
+          eventName: 'api_delete_auth_session'
+        }
+      )
   },
   ping: {
     get: () => request<PingData>('/ping', { eventName: 'api_get_ping' })

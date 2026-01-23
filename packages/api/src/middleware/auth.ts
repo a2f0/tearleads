@@ -1,11 +1,23 @@
 import type { NextFunction, Request, Response } from 'express';
+import type { JwtClaims } from '../lib/jwt.js';
 import { verifyJwt } from '../lib/jwt.js';
-import { getSession } from '../lib/sessions.js';
+import { getSession, updateSessionActivity } from '../lib/sessions.js';
+
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      authClaims?: JwtClaims;
+    }
+  }
+}
 
 const AUTH_HEADER_PREFIX = 'Bearer ';
 
 const isAuthExemptPath = (path: string): boolean => {
-  return path === '/ping' || path.startsWith('/auth');
+  if (path === '/ping') return true;
+  if (path === '/auth/login') return true;
+  return false;
 };
 
 export async function authMiddleware(
@@ -49,6 +61,10 @@ export async function authMiddleware(
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
+
+    req.authClaims = claims;
+
+    void updateSessionActivity(claims.jti);
 
     next();
   } catch (error) {

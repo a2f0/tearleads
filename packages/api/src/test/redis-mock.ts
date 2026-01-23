@@ -28,8 +28,9 @@ interface RedisMockClient {
     options?: ScanOptions
   ) => Promise<{ cursor: number; keys: string[] }>;
   multi: () => RedisMultiMock;
-  set: (key: string, value: string) => Promise<'OK'>;
-  sAdd: (key: string, members: string[]) => Promise<number>;
+  set: (key: string, value: string, options?: { EX?: number }) => Promise<'OK'>;
+  sAdd: (key: string, members: string | string[]) => Promise<number>;
+  sRem: (key: string, member: string) => Promise<number>;
   hSet: (key: string, entries: Record<string, string>) => Promise<number>;
   rPush: (key: string, values: string[]) => Promise<number>;
   expire: (key: string, seconds: number) => Promise<number>;
@@ -172,19 +173,31 @@ const createClientWithState = (
 
       return chain;
     },
-    set: async (key, value) => {
+    set: async (key, value, options) => {
       store.values.set(key, value);
+      if (options?.EX) {
+        store.ttl.set(key, options.EX);
+      }
       return 'OK';
     },
     sAdd: async (key, members) => {
       const existing = store.values.get(key);
       const set = existing instanceof Set ? existing : new Set<string>();
       const sizeBefore = set.size;
-      for (const member of members) {
+      const memberArray = Array.isArray(members) ? members : [members];
+      for (const member of memberArray) {
         set.add(member);
       }
       store.values.set(key, set);
       return set.size - sizeBefore;
+    },
+    sRem: async (key, member) => {
+      const existing = store.values.get(key);
+      if (!(existing instanceof Set)) {
+        return 0;
+      }
+      const existed = existing.delete(member);
+      return existed ? 1 : 0;
     },
     hSet: async (key, entries) => {
       const existing = store.values.get(key);
