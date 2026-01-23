@@ -8,6 +8,7 @@ import type {
 } from '@rapid/shared';
 import type { AnalyticsEventSlug } from '@/db/analytics';
 import { logApiEvent } from '@/db/analytics';
+import { getAuthHeaderValue } from '@/lib/auth-storage';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
@@ -27,9 +28,22 @@ async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
   const { fetchOptions, eventName } = params;
   const startTime = performance.now();
   let success = false;
+  const authHeader = getAuthHeaderValue();
+  const headers = authHeader
+    ? (() => {
+        const merged = new Headers(fetchOptions?.headers ?? {});
+        if (!merged.has('Authorization')) {
+          merged.set('Authorization', authHeader);
+        }
+        return merged;
+      })()
+    : undefined;
+  const requestInit = headers
+    ? { ...fetchOptions, headers }
+    : fetchOptions;
 
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, fetchOptions);
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, requestInit);
 
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);

@@ -10,6 +10,7 @@ import { getCurrentInstanceId, getDatabase } from '@/db';
 import type { AnalyticsEventSlug } from '@/db/analytics';
 import { logEvent as logAnalyticsEvent } from '@/db/analytics';
 import { API_BASE_URL } from '@/lib/api';
+import { getAuthHeaderValue } from '@/lib/auth-storage';
 import { getWebGPUErrorInfo } from '@/lib/utils';
 import {
   clearLastLoadedModel,
@@ -591,11 +592,16 @@ async function generateInternal(
     let loggedApiError = false;
     try {
       const openRouterMessages = buildOpenRouterMessages(messages, image);
+      const authHeader = getAuthHeaderValue();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (authHeader) {
+        headers.Authorization = authHeader;
+      }
       const response = await fetch(requestUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({
           model: store.loadedModel,
           messages: openRouterMessages
