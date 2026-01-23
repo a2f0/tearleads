@@ -5,6 +5,7 @@ import { getRedisClient } from './redis.js';
 export type SessionData = {
   userId: string;
   email: string;
+  admin: boolean;
   createdAt: string;
   lastActiveAt: string;
   ipAddress: string;
@@ -66,6 +67,7 @@ export async function getSession(
   const createdAt = parsed['createdAt'];
   const lastActiveAt = parsed['lastActiveAt'];
   const ipAddress = parsed['ipAddress'];
+  const admin = parsed['admin'];
 
   if (
     typeof userId !== 'string' ||
@@ -77,7 +79,18 @@ export async function getSession(
     return null;
   }
 
-  return { userId, email, createdAt, lastActiveAt, ipAddress };
+  if (admin !== undefined && typeof admin !== 'boolean') {
+    return null;
+  }
+
+  return {
+    userId,
+    email,
+    admin: typeof admin === 'boolean' ? admin : false,
+    createdAt,
+    lastActiveAt,
+    ipAddress
+  };
 }
 
 export async function updateSessionActivity(sessionId: string): Promise<void> {

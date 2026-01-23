@@ -44,7 +44,8 @@ export const users = sqliteTable(
     email: text('email').notNull(),
     emailConfirmed: integer('email_confirmed', { mode: 'boolean' })
       .notNull()
-      .default(false)
+      .default(false),
+    admin: integer('admin', { mode: 'boolean' }).notNull().default(false)
   },
   (table) => [index('users_email_idx').on(table.email)]
 );
