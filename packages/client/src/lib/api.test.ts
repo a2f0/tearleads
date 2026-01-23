@@ -48,7 +48,7 @@ describe('api', () => {
 
       expect(global.fetch).toHaveBeenCalledWith(
         'http://localhost:3000/ping',
-        undefined
+        {}
       );
       expect(result).toEqual({ version: '1.0.0' });
     });
@@ -296,7 +296,7 @@ describe('api', () => {
 
       expect(global.fetch).toHaveBeenCalledWith(
         'http://localhost:3000/admin/redis/keys',
-        undefined
+        {}
       );
     });
   });
