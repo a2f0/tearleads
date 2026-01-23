@@ -160,7 +160,7 @@ export function UsersAdmin({ showBackLink = true }: UsersAdminProps) {
 
       <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
         <div className="min-w-[720px]">
-          <div className="grid grid-cols-[minmax(140px,1fr)_minmax(200px,2fr)_minmax(120px,0.6fr)_minmax(120px,0.6fr)_minmax(200px,0.8fr)] items-center gap-3 border-b bg-muted/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="grid grid-cols-[minmax(140px,1fr)_minmax(200px,2fr)_minmax(120px,0.6fr)_minmax(120px,0.6fr)_minmax(200px,0.8fr)] items-center gap-3 border-b bg-muted/40 px-4 py-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
             <span>User ID</span>
             <span>Email</span>
             <span>Email Confirmed</span>
@@ -169,12 +169,12 @@ export function UsersAdmin({ showBackLink = true }: UsersAdminProps) {
           </div>
 
           {loading && users.length === 0 ? (
-            <div className="flex items-center justify-center gap-2 px-4 py-10 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 px-4 py-10 text-muted-foreground text-sm">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading users...
             </div>
           ) : users.length === 0 ? (
-            <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+            <div className="px-4 py-10 text-center text-muted-foreground text-sm">
               No users found.
             </div>
           ) : (
@@ -189,7 +189,7 @@ export function UsersAdmin({ showBackLink = true }: UsersAdminProps) {
                   key={user.id}
                   className="grid grid-cols-[minmax(140px,1fr)_minmax(200px,2fr)_minmax(120px,0.6fr)_minmax(120px,0.6fr)_minmax(200px,0.8fr)] items-center gap-3 border-b px-4 py-3 text-sm last:border-b-0"
                 >
-                  <div className="truncate font-mono text-xs text-muted-foreground">
+                  <div className="truncate font-mono text-muted-foreground text-xs">
                     {user.id}
                   </div>
                   <Input
@@ -197,12 +197,9 @@ export function UsersAdmin({ showBackLink = true }: UsersAdminProps) {
                     onChange={(event) =>
                       updateDraftUser(user, { email: event.target.value })
                     }
-                    className={cn(
-                      'h-8',
-                      !emailIsValid && 'border-destructive'
-                    )}
+                    className={cn('h-8', !emailIsValid && 'border-destructive')}
                   />
-                  <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <label className="flex items-center gap-2 font-medium text-muted-foreground text-xs">
                     <input
                       type="checkbox"
                       className="h-4 w-4 rounded border-muted-foreground/40"
@@ -215,7 +212,7 @@ export function UsersAdmin({ showBackLink = true }: UsersAdminProps) {
                     />
                     {draft.emailConfirmed ? 'Yes' : 'No'}
                   </label>
-                  <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                  <label className="flex items-center gap-2 font-medium text-muted-foreground text-xs">
                     <input
                       type="checkbox"
                       className="h-4 w-4 rounded border-muted-foreground/40"
@@ -228,7 +225,7 @@ export function UsersAdmin({ showBackLink = true }: UsersAdminProps) {
                   </label>
                   <div className="flex items-center justify-end gap-2">
                     {rowErrors[user.id] && (
-                      <span className="text-xs text-destructive">
+                      <span className="text-destructive text-xs">
                         {rowErrors[user.id]}
                       </span>
                     )}
