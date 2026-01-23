@@ -2,9 +2,9 @@ import {
   AppWindow,
   Archive,
   BarChart3,
-  BookOpen,
   Bot,
   Bug,
+  CircleHelp,
   Database,
   ExternalLink,
   FileIcon,
@@ -80,11 +80,11 @@ export const navItems: NavItem[] = [
     testId: 'documents-link'
   },
   {
-    path: '/docs',
-    icon: BookOpen,
-    labelKey: 'docs',
+    path: '/help',
+    icon: CircleHelp,
+    labelKey: 'help',
     inMobileMenu: true,
-    testId: 'docs-link'
+    testId: 'help-link'
   },
   {
     path: '/notes',
@@ -223,7 +223,7 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/console': 'console',
   '/settings': 'settings',
   '/files': 'files',
-  '/docs': 'docs',
+  '/help': 'help',
   '/email': 'email',
   '/contacts': 'contacts',
   '/photos': 'photos',

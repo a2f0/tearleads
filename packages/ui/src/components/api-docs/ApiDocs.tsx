@@ -38,17 +38,11 @@ export function ApiDocs({
   return (
     <section
       className={cn(
-        'relative overflow-hidden rounded-3xl border bg-card shadow-sm',
+        'relative overflow-hidden rounded-lg border bg-card shadow-sm',
         className
       )}
     >
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_15%,rgba(56,189,248,0.18),transparent_45%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_0%,rgba(34,197,94,0.18),transparent_40%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.06)_0%,rgba(255,255,255,0)_55%)]" />
-      </div>
-
-      <div className="relative space-y-8 px-6 py-8 sm:px-8 lg:px-10">
+      <div className="space-y-8 px-6 py-8 sm:px-8 lg:px-10">
         {header ? (
           header
         ) : (
@@ -92,10 +86,10 @@ export function ApiDocs({
               <details
                 key={tagGroup.id}
                 id={tagGroup.id}
-                className="group rounded-2xl border bg-background/70 p-4 shadow-[0_1px_0_rgba(0,0,0,0.04)]"
+                className="group rounded-lg border bg-background/70 p-4 shadow-[0_1px_0_rgba(0,0,0,0.04)]"
                 open
               >
-                <summary className="flex cursor-pointer list-none items-start justify-between gap-3 rounded-xl px-2 py-1 transition hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer list-none items-start justify-between gap-3 rounded-lg px-2 py-1 transition hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
                   <div className="space-y-1">
                     <h2 className="font-semibold text-lg tracking-tight">
                       {tagGroup.name}

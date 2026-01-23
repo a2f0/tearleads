@@ -34,7 +34,7 @@ import { cn } from '@/lib/utils';
 export const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/notes': 'notes',
   '/console': 'console',
-  '/docs': 'docs',
+  '/help': 'help',
   '/settings': 'settings',
   '/files': 'files',
   '/documents': 'documents',
