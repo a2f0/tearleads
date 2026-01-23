@@ -9,15 +9,24 @@ import {
   useState
 } from 'react';
 import { api } from '@/lib/api';
-import { clearStoredAuth, readStoredAuth, storeAuth } from '@/lib/auth-storage';
+import {
+  clearAuthError,
+  clearStoredAuth,
+  getAuthError,
+  onAuthChange,
+  readStoredAuth,
+  storeAuth
+} from '@/lib/auth-storage';
 
 interface AuthContextValue {
   isAuthenticated: boolean;
   user: AuthUser | null;
   token: string | null;
+  authError: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  clearAuthError: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -29,6 +38,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [authError, setAuthErrorState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Load session from localStorage on mount
@@ -41,16 +51,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setToken(null);
       setUser(null);
     }
+    setAuthErrorState(getAuthError());
     setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onAuthChange(() => {
+      const { token: savedToken, user: savedUser } = readStoredAuth();
+      if (savedToken && savedUser) {
+        setToken(savedToken);
+        setUser(savedUser);
+      } else {
+        setToken(null);
+        setUser(null);
+      }
+      setAuthErrorState(getAuthError());
+    });
+
+    return unsubscribe;
   }, []);
 
   // Errors propagate to caller for handling (e.g., Sync component catches and displays)
   const login = useCallback(async (email: string, password: string) => {
+    clearAuthError();
     const response = await api.auth.login(email, password);
 
     // Store in state
     setToken(response.accessToken);
     setUser(response.user);
+    setAuthErrorState(null);
 
     // Persist to localStorage
     storeAuth(response.accessToken, response.user);
@@ -59,7 +88,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const logout = useCallback(() => {
     setToken(null);
     setUser(null);
+    setAuthErrorState(null);
     clearStoredAuth();
+    clearAuthError();
   }, []);
 
   const value = useMemo(
@@ -67,11 +98,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       isAuthenticated: token !== null,
       user,
       token,
+      authError,
       isLoading,
       login,
-      logout
+      logout,
+      clearAuthError: () => {
+        setAuthErrorState(null);
+        clearAuthError();
+      }
     }),
-    [user, token, isLoading, login, logout]
+    [user, token, authError, isLoading, login, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
