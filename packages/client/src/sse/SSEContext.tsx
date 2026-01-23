@@ -131,13 +131,10 @@ export function SSEProvider({
       return;
     }
 
-    if (!isAuthenticated) {
-      disconnect();
-      return;
-    }
-
-    if (autoConnect) {
+    if (autoConnect && isAuthenticated) {
       connect();
+    } else {
+      disconnect();
     }
   }, [autoConnect, connect, disconnect, isAuthenticated, isLoading]);
 
