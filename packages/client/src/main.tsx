@@ -44,6 +44,9 @@ if ('serviceWorker' in navigator) {
 const Admin = lazy(() =>
   import('./pages/admin').then((m) => ({ default: m.Admin }))
 );
+const AdminLauncher = lazy(() =>
+  import('./pages/admin').then((m) => ({ default: m.AdminLauncher }))
+);
 const PostgresAdmin = lazy(() =>
   import('./pages/admin').then((m) => ({ default: m.PostgresAdmin }))
 );
@@ -306,6 +309,10 @@ if (rootElement) {
                                       <Route
                                         path="keychain/:id"
                                         element={<KeychainDetail />}
+                                      />
+                                      <Route
+                                        path="admin"
+                                        element={<AdminLauncher />}
                                       />
                                       <Route
                                         path="admin/redis"
