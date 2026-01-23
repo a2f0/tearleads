@@ -183,8 +183,8 @@ if (rootElement) {
                     <InstanceChangeHandler />
                     <AudioProvider>
                       <VideoProvider>
-                        <SSEProvider>
-                          <AuthProvider>
+                        <AuthProvider>
+                          <SSEProvider>
                             <WindowManagerProvider>
                               <BrowserRouter>
                                 <Suspense
@@ -322,8 +322,8 @@ if (rootElement) {
                               </BrowserRouter>
                               <WindowRenderer />
                             </WindowManagerProvider>
-                          </AuthProvider>
-                        </SSEProvider>
+                          </SSEProvider>
+                        </AuthProvider>
                       </VideoProvider>
                     </AudioProvider>
                   </AppTooltipProvider>
