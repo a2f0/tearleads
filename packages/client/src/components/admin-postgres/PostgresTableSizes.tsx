@@ -1,6 +1,7 @@
 import type { PostgresTableInfo } from '@rapid/shared';
 import { HardDrive } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { LinkWithFrom } from '@/components/ui/back-link/LinkWithFrom';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { api } from '@/lib/api';
 
@@ -19,7 +20,11 @@ function formatRowCount(count: number): string {
   return ROW_COUNT_FORMATTER.format(count);
 }
 
-export function PostgresTableSizes() {
+interface PostgresTableSizesProps {
+  onTableSelect?: ((schema: string, tableName: string) => void) | undefined;
+}
+
+export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
   const [tables, setTables] = useState<PostgresTableInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,14 +100,29 @@ export function PostgresTableSizes() {
               </div>
               {tables.map((table) => {
                 const label = `${table.schema}.${table.name}`;
+                const tablePath = `/admin/postgres/tables/${encodeURIComponent(table.schema)}/${encodeURIComponent(table.name)}`;
                 return (
                   <div
                     key={label}
                     className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3"
                   >
-                    <span className="truncate font-mono text-muted-foreground">
-                      {label}
-                    </span>
+                    {onTableSelect ? (
+                      <button
+                        type="button"
+                        onClick={() => onTableSelect(table.schema, table.name)}
+                        className="truncate text-left font-mono text-muted-foreground hover:text-foreground hover:underline"
+                      >
+                        {label}
+                      </button>
+                    ) : (
+                      <LinkWithFrom
+                        to={tablePath}
+                        fromLabel="Back to Postgres"
+                        className="truncate font-mono text-muted-foreground hover:text-foreground hover:underline"
+                      >
+                        {label}
+                      </LinkWithFrom>
+                    )}
                     <span className="shrink-0 text-right font-mono text-xs">
                       {formatBytes(table.totalBytes)}
                     </span>
