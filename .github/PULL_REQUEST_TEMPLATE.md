@@ -6,9 +6,9 @@
 <!-- Commands run to verify the changes, or "not run (reason)" -->
 -
 
-## Issue
-<!-- Reference the issue this PR addresses. Use "## Related" if no issue exists. -->
-- #
+## Issue / Related
+<!-- Reference the issue this PR addresses, or other related items. -->
+-
 
 <!--
 Agent: <workspace-name>
