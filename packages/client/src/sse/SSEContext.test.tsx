@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AuthProvider } from '@/contexts/AuthContext';
 import { SSEProvider, useSSE, useSSEContext } from './SSEContext';
 
 const mockApiModule = vi.hoisted(() => ({
@@ -69,18 +70,38 @@ describe('SSEContext', () => {
     vi.useFakeTimers();
     MockEventSource.instances = [];
     vi.stubGlobal('EventSource', MockEventSource);
+    localStorage.setItem('auth_token', 'test-token');
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({ id: '123', email: 'test@example.com' })
+    );
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    localStorage.clear();
   });
 
+  async function flushAuthLoad() {
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+
   function wrapper({ children }: { children: React.ReactNode }) {
-    return <SSEProvider autoConnect={false}>{children}</SSEProvider>;
+    return (
+      <AuthProvider>
+        <SSEProvider autoConnect={false}>{children}</SSEProvider>
+      </AuthProvider>
+    );
   }
 
   function autoConnectWrapper({ children }: { children: React.ReactNode }) {
-    return <SSEProvider>{children}</SSEProvider>;
+    return (
+      <AuthProvider>
+        <SSEProvider>{children}</SSEProvider>
+      </AuthProvider>
+    );
   }
 
   describe('SSEProvider', () => {
@@ -90,25 +111,39 @@ describe('SSEContext', () => {
       expect(result.current.connectionState).toBe('disconnected');
     });
 
-    it('auto-connects when autoConnect is true', () => {
+    it('auto-connects when autoConnect is true', async () => {
       const { result } = renderHook(() => useSSE(), {
         wrapper: autoConnectWrapper
       });
 
+      await flushAuthLoad();
       expect(result.current.connectionState).toBe('connecting');
       expect(MockEventSource.instances).toHaveLength(1);
     });
 
-    it('transitions to connected on connected event', () => {
+    it('transitions to connected on connected event', async () => {
       const { result } = renderHook(() => useSSE(), {
         wrapper: autoConnectWrapper
       });
 
+      await flushAuthLoad();
       act(() => {
         MockEventSource.getInstance(0).emit('connected');
       });
 
       expect(result.current.connectionState).toBe('connected');
+    });
+
+    it('does not auto-connect when not authenticated', async () => {
+      localStorage.clear();
+
+      const { result } = renderHook(() => useSSE(), {
+        wrapper: autoConnectWrapper
+      });
+
+      await flushAuthLoad();
+      expect(result.current.connectionState).toBe('disconnected');
+      expect(MockEventSource.instances).toHaveLength(0);
     });
   });
 
@@ -120,9 +155,10 @@ describe('SSEContext', () => {
     });
 
     describe('connect', () => {
-      it('creates EventSource with correct URL', () => {
+      it('creates EventSource with correct URL', async () => {
         const { result } = renderHook(() => useSSE(), { wrapper });
 
+        await flushAuthLoad();
         act(() => {
           result.current.connect();
         });
@@ -133,9 +169,10 @@ describe('SSEContext', () => {
         );
       });
 
-      it('sets state to connecting', () => {
+      it('sets state to connecting', async () => {
         const { result } = renderHook(() => useSSE(), { wrapper });
 
+        await flushAuthLoad();
         act(() => {
           result.current.connect();
         });
@@ -143,9 +180,10 @@ describe('SSEContext', () => {
         expect(result.current.connectionState).toBe('connecting');
       });
 
-      it('connects with custom channels', () => {
+      it('connects with custom channels', async () => {
         const { result } = renderHook(() => useSSE(), { wrapper });
 
+        await flushAuthLoad();
         act(() => {
           result.current.connect(['channel1', 'channel2']);
         });
@@ -157,9 +195,10 @@ describe('SSEContext', () => {
     });
 
     describe('disconnect', () => {
-      it('sets state to disconnected', () => {
+      it('sets state to disconnected', async () => {
         const { result } = renderHook(() => useSSE(), { wrapper });
 
+        await flushAuthLoad();
         act(() => {
           result.current.connect();
         });
@@ -177,9 +216,10 @@ describe('SSEContext', () => {
     });
 
     describe('messages', () => {
-      it('updates lastMessage on message event', () => {
+      it('updates lastMessage on message event', async () => {
         const { result } = renderHook(() => useSSE(), { wrapper });
 
+        await flushAuthLoad();
         act(() => {
           result.current.connect();
         });
@@ -207,12 +247,13 @@ describe('SSEContext', () => {
         });
       });
 
-      it('handles invalid JSON gracefully', () => {
+      it('handles invalid JSON gracefully', async () => {
         const consoleSpy = vi
           .spyOn(console, 'error')
           .mockImplementation(() => {});
         const { result } = renderHook(() => useSSE(), { wrapper });
 
+        await flushAuthLoad();
         act(() => {
           result.current.connect();
         });
@@ -231,9 +272,10 @@ describe('SSEContext', () => {
     });
 
     describe('auto-reconnect', () => {
-      it('reconnects with exponential backoff on error', () => {
+      it('reconnects with exponential backoff on error', async () => {
         const { result } = renderHook(() => useSSE(), { wrapper });
 
+        await flushAuthLoad();
         act(() => {
           result.current.connect();
         });
@@ -258,9 +300,10 @@ describe('SSEContext', () => {
         expect(result.current.connectionState).toBe('connecting');
       });
 
-      it('uses exponential backoff for reconnect delays', () => {
+      it('uses exponential backoff for reconnect delays', async () => {
         const { result } = renderHook(() => useSSE(), { wrapper });
 
+        await flushAuthLoad();
         act(() => {
           result.current.connect();
         });
@@ -295,9 +338,10 @@ describe('SSEContext', () => {
         );
       });
 
-      it('resets reconnect attempt count on successful connection', () => {
+      it('resets reconnect attempt count on successful connection', async () => {
         const { result } = renderHook(() => useSSE(), { wrapper });
 
+        await flushAuthLoad();
         act(() => {
           result.current.connect();
         });
@@ -332,15 +376,17 @@ describe('SSEContext', () => {
     });
 
     describe('initial state', () => {
-      it('has disconnected connection state', () => {
+      it('has disconnected connection state', async () => {
         const { result } = renderHook(() => useSSE(), { wrapper });
 
+        await flushAuthLoad();
         expect(result.current.connectionState).toBe('disconnected');
       });
 
-      it('has null lastMessage', () => {
+      it('has null lastMessage', async () => {
         const { result } = renderHook(() => useSSE(), { wrapper });
 
+        await flushAuthLoad();
         expect(result.current.lastMessage).toBeNull();
       });
     });
@@ -353,16 +399,17 @@ describe('SSEContext', () => {
       expect(result.current).toBeNull();
     });
 
-    it('returns context when used inside SSEProvider', () => {
+    it('returns context when used inside SSEProvider', async () => {
       const { result } = renderHook(() => useSSEContext(), { wrapper });
 
+      await flushAuthLoad();
       expect(result.current).not.toBeNull();
       expect(result.current?.connectionState).toBe('disconnected');
     });
   });
 
   describe('API_BASE_URL not configured', () => {
-    it('does nothing when API_BASE_URL is empty', () => {
+    it('does nothing when API_BASE_URL is empty', async () => {
       const consoleSpy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => {});
@@ -373,6 +420,7 @@ describe('SSEContext', () => {
 
       const { result } = renderHook(() => useSSE(), { wrapper });
 
+      await flushAuthLoad();
       act(() => {
         result.current.connect();
       });
@@ -388,12 +436,14 @@ describe('SSEContext', () => {
   });
 
   describe('channel changes', () => {
-    it('reconnects when channels change while connected', () => {
+    it('reconnects when channels change while connected', async () => {
       let channels = ['channel1'];
       const ChannelWrapper = ({ children }: { children: React.ReactNode }) => (
-        <SSEProvider autoConnect={false} channels={channels}>
-          {children}
-        </SSEProvider>
+        <AuthProvider>
+          <SSEProvider autoConnect={false} channels={channels}>
+            {children}
+          </SSEProvider>
+        </AuthProvider>
       );
 
       const { result, rerender } = renderHook(() => useSSE(), {
@@ -401,6 +451,7 @@ describe('SSEContext', () => {
       });
 
       // Connect
+      await flushAuthLoad();
       act(() => {
         result.current.connect();
       });
@@ -421,11 +472,13 @@ describe('SSEContext', () => {
       );
     });
 
-    it('does not reconnect when channels stay the same', () => {
+    it('does not reconnect when channels stay the same', async () => {
       const ChannelWrapper = ({ children }: { children: React.ReactNode }) => (
-        <SSEProvider autoConnect={false} channels={['channel1']}>
-          {children}
-        </SSEProvider>
+        <AuthProvider>
+          <SSEProvider autoConnect={false} channels={['channel1']}>
+            {children}
+          </SSEProvider>
+        </AuthProvider>
       );
 
       const { result, rerender } = renderHook(() => useSSE(), {
@@ -433,6 +486,7 @@ describe('SSEContext', () => {
       });
 
       // Connect
+      await flushAuthLoad();
       act(() => {
         result.current.connect();
       });
