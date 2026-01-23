@@ -312,6 +312,12 @@ export function PostgresTableRowsView({
         );
 
         allRows.push(...response.rows);
+
+        // Prevent infinite loop if API returns empty array despite hasMore being true
+        if (response.rows.length === 0) {
+          break;
+        }
+
         offset += response.rows.length;
         hasMoreData = offset < response.totalCount;
       }
