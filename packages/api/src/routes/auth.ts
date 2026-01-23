@@ -114,8 +114,9 @@ router.post('/login', async (req: Request, res: Response) => {
       email: string;
       password_hash: string | null;
       password_salt: string | null;
+      admin: boolean;
     }>(
-      `SELECT u.id, u.email, uc.password_hash, uc.password_salt
+      `SELECT u.id, u.email, u.admin, uc.password_hash, uc.password_salt
        FROM users u
        LEFT JOIN user_credentials uc ON u.id = uc.user_id
        WHERE lower(u.email) = $1
@@ -142,7 +143,12 @@ router.post('/login', async (req: Request, res: Response) => {
     const ipAddress = getClientIp(req);
     await createSession(
       sessionId,
-      { userId: user.id, email: user.email, ipAddress },
+      {
+        userId: user.id,
+        email: user.email,
+        admin: user.admin ?? false,
+        ipAddress
+      },
       ACCESS_TOKEN_TTL_SECONDS
     );
 

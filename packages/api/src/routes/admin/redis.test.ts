@@ -122,7 +122,11 @@ describe('Admin Redis Routes', () => {
     sessionTtl.clear();
     vi.stubEnv('JWT_SECRET', 'test-secret');
     mockScan.mockResolvedValue({ cursor: 0, keys: [] });
-    authHeader = await createAuthHeader();
+    authHeader = await createAuthHeader({
+      id: 'admin-1',
+      email: 'admin@example.com',
+      admin: true
+    });
   });
 
   afterEach(() => {

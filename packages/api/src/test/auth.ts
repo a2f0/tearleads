@@ -6,6 +6,7 @@ import { createSession } from '../lib/sessions.js';
 type AuthUser = {
   id: string;
   email: string;
+  admin?: boolean;
 };
 
 const DEFAULT_USER: AuthUser = {
@@ -20,6 +21,7 @@ export async function createAuthHeader(
   await createSession(sessionId, {
     userId: user.id,
     email: user.email,
+    admin: user.admin ?? false,
     ipAddress: '127.0.0.1'
   });
   const token = createJwt(

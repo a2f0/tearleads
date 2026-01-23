@@ -30,6 +30,7 @@ export interface MenuTranslations {
   models: string;
   admin: string;
   postgresAdmin: string;
+  adminUsers: string;
   settings: string;
   email: string;
   sync: string;

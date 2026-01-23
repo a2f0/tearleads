@@ -50,7 +50,8 @@ export const users = pgTable(
   {
     id: text('id').primaryKey(),
     email: text('email').notNull(),
-    emailConfirmed: boolean('email_confirmed').notNull().default(false)
+    emailConfirmed: boolean('email_confirmed').notNull().default(false),
+    admin: boolean('admin').notNull().default(false)
   },
   (table) => [index('users_email_idx').on(table.email)]
 );
