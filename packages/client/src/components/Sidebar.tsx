@@ -22,6 +22,7 @@ import {
   Shield,
   StickyNote,
   Terminal,
+  User,
   Users
 } from 'lucide-react';
 import { forwardRef, useCallback, useEffect, useState } from 'react';
@@ -192,6 +193,13 @@ export const navItems: NavItem[] = [
     testId: 'admin-link'
   },
   {
+    path: '/admin/users',
+    icon: User,
+    labelKey: 'adminUsers',
+    inMobileMenu: true,
+    testId: 'admin-users-link'
+  },
+  {
     path: '/admin/postgres',
     icon: Database,
     labelKey: 'postgresAdmin',
@@ -241,6 +249,7 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/models': 'models',
   '/admin/redis': 'admin',
   '/admin/postgres': 'admin-postgres',
+  '/admin/users': 'admin-users',
   '/sync': 'sync'
 };
 

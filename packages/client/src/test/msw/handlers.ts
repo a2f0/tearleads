@@ -1,4 +1,6 @@
 import type {
+  AdminUserUpdateResponse,
+  AdminUsersResponse,
   PingData,
   PostgresAdminInfoResponse,
   PostgresTablesResponse,
@@ -55,6 +57,21 @@ const defaultPostgresTables: PostgresTablesResponse = {
   ]
 };
 
+let adminUsers: AdminUsersResponse['users'] = [
+  {
+    id: 'user-1',
+    email: 'admin@example.com',
+    emailConfirmed: true,
+    admin: true
+  },
+  {
+    id: 'user-2',
+    email: 'user@example.com',
+    emailConfirmed: false,
+    admin: false
+  }
+];
+
 export const handlers = [
   http.get(/\/ping$/, () => ok<PingData>({ version: 'test', dbVersion: '0' })),
   http.get(/\/admin\/postgres\/info$/, () =>
@@ -64,6 +81,38 @@ export const handlers = [
     ok<PostgresTablesResponse>(defaultPostgresTables)
   ),
   http.get(/\/admin\/redis\/dbsize$/, () => ok({ count: defaultKeys.length })),
+  http.get(/\/admin\/users$/, () => ok<AdminUsersResponse>({ users: adminUsers })),
+  http.patch(/\/admin\/users\/.+$/, async ({ request }) => {
+    const url = new URL(request.url);
+    const id = decodeURIComponent(url.pathname.split('/').pop() ?? '');
+    const body = await request.json().catch(() => null);
+    const existingUser = adminUsers.find((user) => user.id === id);
+    if (!existingUser) {
+      return HttpResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    const email =
+      isRecord(body) && typeof body['email'] === 'string'
+        ? body['email']
+        : existingUser.email;
+    const emailConfirmed =
+      isRecord(body) && typeof body['emailConfirmed'] === 'boolean'
+        ? body['emailConfirmed']
+        : existingUser.emailConfirmed;
+    const admin =
+      isRecord(body) && typeof body['admin'] === 'boolean'
+        ? body['admin']
+        : existingUser.admin;
+    const updatedUser = {
+      ...existingUser,
+      email,
+      emailConfirmed,
+      admin
+    };
+    adminUsers = adminUsers.map((user) =>
+      user.id === id ? updatedUser : user
+    );
+    return ok<AdminUserUpdateResponse>({ user: updatedUser });
+  }),
   http.get(/\/admin\/redis\/keys$/, ({ request }) => {
     const url = new URL(request.url);
     const cursor = url.searchParams.get('cursor') ?? '0';

@@ -10,6 +10,7 @@
  * Commands:
  *   migrate         Run database migrations
  *   create-account  Create an account in the database
+ *   delete-account  Delete an account from the database
  *
  * Environment variables:
  *   NODE_ENV - Set to 'production' for production mode
@@ -20,6 +21,7 @@
 
 import { program } from 'commander';
 import { createAccountCommand } from './cli/createAccount.js';
+import { deleteAccountCommand } from './cli/deleteAccount.js';
 import { migrateCommand } from './cli/migrate.js';
 
 const version = '0.0.1';
@@ -32,5 +34,6 @@ program
 // Register commands
 migrateCommand(program);
 createAccountCommand(program);
+deleteAccountCommand(program);
 
 program.parse();

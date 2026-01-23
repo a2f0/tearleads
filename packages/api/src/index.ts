@@ -8,9 +8,11 @@ import packageJson from '../package.json' with { type: 'json' };
 import { closePostgresPool } from './lib/postgres.js';
 import { closeRedisClient } from './lib/redis.js';
 import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
+import { adminSessionMiddleware } from './middleware/admin-session.js';
 import { authMiddleware } from './middleware/auth.js';
 import { postgresRouter } from './routes/admin/postgres.js';
 import { redisRouter } from './routes/admin/redis.js';
+import { usersRouter } from './routes/admin/users.js';
 import { authRouter } from './routes/auth.js';
 import { chatRouter } from './routes/chat.js';
 import { emailsRouter } from './routes/emails.js';
@@ -85,8 +87,9 @@ app.get('/v1/ping', (_req: Request, res: Response) => {
 app.use('/v1', authMiddleware);
 
 // Admin routes
-app.use('/v1/admin/redis', redisRouter);
-app.use('/v1/admin/postgres', postgresRouter);
+app.use('/v1/admin/redis', adminSessionMiddleware, redisRouter);
+app.use('/v1/admin/postgres', adminSessionMiddleware, postgresRouter);
+app.use('/v1/admin/users', adminSessionMiddleware, usersRouter);
 
 // Auth routes
 app.use('/v1/auth', authRouter);

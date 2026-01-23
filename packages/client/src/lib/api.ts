@@ -1,4 +1,7 @@
 import type {
+  AdminUserUpdatePayload,
+  AdminUserUpdateResponse,
+  AdminUsersResponse,
   AuthResponse,
   PingData,
   PostgresAdminInfoResponse,
@@ -150,6 +153,24 @@ export const api = {
         request<{ count: number }>('/admin/redis/dbsize', {
           eventName: 'api_get_admin_redis_dbsize'
         })
+    },
+    users: {
+      list: () =>
+        request<AdminUsersResponse>('/admin/users', {
+          eventName: 'api_get_admin_users'
+        }),
+      update: (id: string, payload: AdminUserUpdatePayload) =>
+        request<AdminUserUpdateResponse>(
+          `/admin/users/${encodeURIComponent(id)}`,
+          {
+          fetchOptions: {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          },
+          eventName: 'api_patch_admin_user'
+        }
+        )
     }
   }
 };

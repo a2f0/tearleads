@@ -16,6 +16,7 @@
     "build:cli": "esbuild src/apiCli.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/apiCli.cjs --minify --sourcemap",
     "build:all": "rm -rf dist && pnpm build:bundle && pnpm build:cli",
     "cli": "tsx src/apiCli.ts",
+    "deleteAccount": "tsx scripts/deleteAccount.ts",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
     "test": "vitest run",
