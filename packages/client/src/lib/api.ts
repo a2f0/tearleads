@@ -29,16 +29,14 @@ async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
   const startTime = performance.now();
   let success = false;
   const authHeader = getAuthHeaderValue();
-  const headers = authHeader
-    ? (() => {
-        const merged = new Headers(fetchOptions?.headers ?? {});
-        if (!merged.has('Authorization')) {
-          merged.set('Authorization', authHeader);
-        }
-        return merged;
-      })()
-    : undefined;
-  const requestInit = headers ? { ...fetchOptions, headers } : fetchOptions;
+  const requestInit: RequestInit = { ...fetchOptions };
+  if (authHeader) {
+    const headers = new Headers(requestInit.headers);
+    if (!headers.has('Authorization')) {
+      headers.set('Authorization', authHeader);
+      requestInit.headers = headers;
+    }
+  }
 
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, requestInit);
