@@ -9,6 +9,7 @@ import { ChatWindow } from '@/components/chat-window';
 import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
 import { DebugWindow } from '@/components/debug-window';
+import { DocsWindow } from '@/components/docs-window';
 import { DocumentsWindow } from '@/components/documents-window';
 import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
@@ -76,6 +77,7 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   tables: { Component: TablesWindow },
   debug: { Component: DebugWindow },
   documents: { Component: DocumentsWindow },
+  docs: { Component: DocsWindow },
   'local-storage': { Component: LocalStorageWindow },
   sync: { Component: SyncWindow }
 };

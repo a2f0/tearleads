@@ -15,6 +15,7 @@ export const en = {
     contacts: 'Contacts',
     photos: 'Photos',
     documents: 'Documents',
+    docs: 'API Docs',
     notes: 'Notes',
     audio: 'Audio',
     videos: 'Videos',
