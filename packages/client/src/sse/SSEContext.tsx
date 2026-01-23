@@ -87,7 +87,7 @@ export function SSEProvider({
 
   const connect = useCallback(
     (channelsToUse: string[] = channelsRef.current) => {
-      if (!isAuthenticated || !token) {
+      if (!token) {
         return;
       }
       if (!API_BASE_URL) {
@@ -118,7 +118,7 @@ export function SSEProvider({
           if (isSseMessage(data)) {
             setLastMessage(data);
           } else {
-            console.error('Failed to parse SSE message:', new Error('Invalid'));
+            console.error('Failed to parse SSE message: invalid shape', data);
           }
         } catch (err) {
           console.error('Failed to parse SSE message:', err);
@@ -139,7 +139,7 @@ export function SSEProvider({
         }, delay);
       };
     },
-    [disconnect, isAuthenticated, token]
+    [disconnect, token]
   );
 
   // Reconnect when channels change (if already connected)
