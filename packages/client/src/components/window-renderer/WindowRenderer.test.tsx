@@ -338,8 +338,8 @@ vi.mock('@/components/documents-window', () => ({
   )
 }));
 
-vi.mock('@/components/docs-window', () => ({
-  DocsWindow: ({
+vi.mock('@/components/help-window', () => ({
+  HelpWindow: ({
     id,
     onClose,
     onMinimize,
@@ -354,7 +354,7 @@ vi.mock('@/components/docs-window', () => ({
   }) => (
     <div
       role="dialog"
-      data-testid={`docs-window-${id}`}
+      data-testid={`help-window-${id}`}
       data-zindex={zIndex}
       onClick={onFocus}
       onKeyDown={(e) => e.key === 'Enter' && onFocus()}
@@ -1896,37 +1896,37 @@ describe('WindowRenderer', () => {
     });
   });
 
-  it('renders docs window for docs type', () => {
-    mockWindows = [{ id: 'docs-1', type: 'docs', zIndex: 100 }];
+  it('renders help window for help type', () => {
+    mockWindows = [{ id: 'help-1', type: 'help', zIndex: 100 }];
     render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('docs-window-docs-1')).toBeInTheDocument();
+    expect(screen.getByTestId('help-window-help-1')).toBeInTheDocument();
   });
 
-  it('calls closeWindow when docs close button is clicked', async () => {
+  it('calls closeWindow when help close button is clicked', async () => {
     const user = userEvent.setup();
-    mockWindows = [{ id: 'docs-1', type: 'docs', zIndex: 100 }];
+    mockWindows = [{ id: 'help-1', type: 'help', zIndex: 100 }];
     render(<WindowRenderer />, { wrapper });
 
-    await user.click(screen.getByTestId('close-docs-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('docs-1');
+    await user.click(screen.getByTestId('close-help-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('help-1');
   });
 
-  it('calls focusWindow when docs window is clicked', async () => {
+  it('calls focusWindow when help window is clicked', async () => {
     const user = userEvent.setup();
-    mockWindows = [{ id: 'docs-1', type: 'docs', zIndex: 100 }];
+    mockWindows = [{ id: 'help-1', type: 'help', zIndex: 100 }];
     render(<WindowRenderer />, { wrapper });
 
-    await user.click(screen.getByTestId('docs-window-docs-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('docs-1');
+    await user.click(screen.getByTestId('help-window-help-1'));
+    expect(mockFocusWindow).toHaveBeenCalledWith('help-1');
   });
 
-  it('calls minimizeWindow when docs minimize button is clicked', async () => {
+  it('calls minimizeWindow when help minimize button is clicked', async () => {
     const user = userEvent.setup();
-    mockWindows = [{ id: 'docs-1', type: 'docs', zIndex: 100 }];
+    mockWindows = [{ id: 'help-1', type: 'help', zIndex: 100 }];
     render(<WindowRenderer />, { wrapper });
 
-    await user.click(screen.getByTestId('minimize-docs-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('docs-1', {
+    await user.click(screen.getByTestId('minimize-help-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('help-1', {
       x: 0,
       y: 0,
       width: 900,
@@ -1955,7 +1955,7 @@ describe('WindowRenderer', () => {
       { id: 'tables-1', type: 'tables', zIndex: 116 },
       { id: 'debug-1', type: 'debug', zIndex: 117 },
       { id: 'documents-1', type: 'documents', zIndex: 118 },
-      { id: 'docs-1', type: 'docs', zIndex: 119 },
+      { id: 'help-1', type: 'help', zIndex: 119 },
       { id: 'local-storage-1', type: 'local-storage', zIndex: 120 },
       { id: 'opfs-1', type: 'opfs', zIndex: 121 }
     ];
@@ -1995,7 +1995,7 @@ describe('WindowRenderer', () => {
     expect(
       screen.getByTestId('documents-window-documents-1')
     ).toBeInTheDocument();
-    expect(screen.getByTestId('docs-window-docs-1')).toBeInTheDocument();
+    expect(screen.getByTestId('help-window-help-1')).toBeInTheDocument();
     expect(
       screen.getByTestId('local-storage-window-local-storage-1')
     ).toBeInTheDocument();
