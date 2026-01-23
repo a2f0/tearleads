@@ -103,12 +103,13 @@ async function deleteAccount(email: string): Promise<void> {
       [email]
     );
 
-    if (result.rows.length === 0) {
+    const deletedUser = result.rows[0];
+    if (!deletedUser) {
       throw new Error(`No account found for ${email}.`);
     }
 
     await client.query('COMMIT');
-    console.log(`Deleted account ${email} (id ${result.rows[0].id}).`);
+    console.log(`Deleted account ${email} (id ${deletedUser.id}).`);
     console.log(`Postgres connection: ${label}`);
   } catch (error) {
     try {

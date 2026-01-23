@@ -102,4 +102,139 @@ describe('UsersAdmin', () => {
       });
     });
   });
+
+  it('shows error when update fails', async () => {
+    const user = userEvent.setup();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockList.mockResolvedValueOnce(usersResponse);
+    mockUpdate.mockRejectedValueOnce(new Error('Update failed'));
+
+    render(
+      <MemoryRouter>
+        <UsersAdmin />
+      </MemoryRouter>
+    );
+
+    const emailInput = await screen.findByDisplayValue('admin@example.com');
+    await user.clear(emailInput);
+    await user.type(emailInput, 'new@example.com');
+
+    const saveButton = screen.getByRole('button', { name: 'Save' });
+    await user.click(saveButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Update failed')).toBeInTheDocument();
+    });
+    consoleSpy.mockRestore();
+  });
+
+  it('toggles emailConfirmed checkbox', async () => {
+    const user = userEvent.setup();
+    mockList.mockResolvedValueOnce({
+      users: [
+        {
+          id: 'user-1',
+          email: 'test@example.com',
+          emailConfirmed: false,
+          admin: false
+        }
+      ]
+    });
+    mockUpdate.mockResolvedValueOnce({
+      user: {
+        id: 'user-1',
+        email: 'test@example.com',
+        emailConfirmed: true,
+        admin: false
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <UsersAdmin />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('test@example.com');
+    const checkboxes = screen.getAllByRole('checkbox');
+    const emailConfirmedCheckbox = checkboxes[0];
+    if (emailConfirmedCheckbox) {
+      await user.click(emailConfirmedCheckbox);
+    }
+
+    const saveButton = screen.getByRole('button', { name: 'Save' });
+    await user.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith('user-1', {
+        emailConfirmed: true
+      });
+    });
+  });
+
+  it('toggles admin checkbox', async () => {
+    const user = userEvent.setup();
+    mockList.mockResolvedValueOnce({
+      users: [
+        {
+          id: 'user-1',
+          email: 'test@example.com',
+          emailConfirmed: true,
+          admin: false
+        }
+      ]
+    });
+    mockUpdate.mockResolvedValueOnce({
+      user: {
+        id: 'user-1',
+        email: 'test@example.com',
+        emailConfirmed: true,
+        admin: true
+      }
+    });
+
+    render(
+      <MemoryRouter>
+        <UsersAdmin />
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('test@example.com');
+    const checkboxes = screen.getAllByRole('checkbox');
+    const adminCheckbox = checkboxes[1];
+    if (adminCheckbox) {
+      await user.click(adminCheckbox);
+    }
+
+    const saveButton = screen.getByRole('button', { name: 'Save' });
+    await user.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith('user-1', {
+        admin: true
+      });
+    });
+  });
+
+  it('resets draft when Reset button is clicked', async () => {
+    const user = userEvent.setup();
+    mockList.mockResolvedValueOnce(usersResponse);
+
+    render(
+      <MemoryRouter>
+        <UsersAdmin />
+      </MemoryRouter>
+    );
+
+    const emailInput = await screen.findByDisplayValue('admin@example.com');
+    await user.clear(emailInput);
+    await user.type(emailInput, 'changed@example.com');
+
+    expect(screen.getByDisplayValue('changed@example.com')).toBeInTheDocument();
+
+    const resetButton = screen.getByRole('button', { name: 'Reset' });
+    await user.click(resetButton);
+
+    expect(screen.getByDisplayValue('admin@example.com')).toBeInTheDocument();
+  });
 });
