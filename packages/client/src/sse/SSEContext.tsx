@@ -9,6 +9,7 @@ import {
   useRef,
   useState
 } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { API_BASE_URL } from '@/lib/api';
 
 interface SSEContextValue {
@@ -31,6 +32,7 @@ export function SSEProvider({
   autoConnect = true,
   channels = ['broadcast']
 }: SSEProviderProps) {
+  const { isAuthenticated, isLoading } = useAuth();
   const [connectionState, setConnectionState] =
     useState<SSEConnectionState>('disconnected');
   const [lastMessage, setLastMessage] = useState<SSEMessage | null>(null);
@@ -61,6 +63,9 @@ export function SSEProvider({
 
   const connect = useCallback(
     (channelsToUse: string[] = channelsRef.current) => {
+      if (!isAuthenticated) {
+        return;
+      }
       if (!API_BASE_URL) {
         console.error('API_BASE_URL not configured');
         return;
@@ -103,7 +108,7 @@ export function SSEProvider({
         }, delay);
       };
     },
-    [disconnect]
+    [disconnect, isAuthenticated]
   );
 
   // Reconnect when channels change (if already connected)
@@ -122,13 +127,22 @@ export function SSEProvider({
   }, [channels, connectionState, connect]);
 
   useEffect(() => {
-    if (autoConnect) {
-      connect();
+    if (isLoading) {
+      return;
     }
+
+    if (autoConnect && isAuthenticated) {
+      connect();
+    } else {
+      disconnect();
+    }
+  }, [autoConnect, connect, disconnect, isAuthenticated, isLoading]);
+
+  useEffect(() => {
     return () => {
       disconnect();
     };
-  }, [autoConnect, connect, disconnect]);
+  }, [disconnect]);
 
   const value = useMemo<SSEContextValue>(
     () => ({
