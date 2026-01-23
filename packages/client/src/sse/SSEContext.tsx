@@ -1,4 +1,8 @@
-import type { SSEConnectionState, SSEMessage } from '@rapid/shared';
+import {
+  isRecord,
+  type SSEConnectionState,
+  type SSEMessage
+} from '@rapid/shared';
 import type { ReactNode } from 'react';
 import {
   createContext,
@@ -27,12 +31,32 @@ interface SSEProviderProps {
   channels?: string[];
 }
 
+function isSseMessage(value: unknown): value is SSEMessage {
+  if (!isRecord(value)) {
+    return false;
+  }
+  if (typeof value['channel'] !== 'string') {
+    return false;
+  }
+  const message = value['message'];
+  if (!isRecord(message)) {
+    return false;
+  }
+  if (typeof message['type'] !== 'string') {
+    return false;
+  }
+  if (!('payload' in message)) {
+    return false;
+  }
+  return typeof message['timestamp'] === 'string';
+}
+
 export function SSEProvider({
   children,
   autoConnect = true,
   channels = ['broadcast']
 }: SSEProviderProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, token } = useAuth();
   const [connectionState, setConnectionState] =
     useState<SSEConnectionState>('disconnected');
   const [lastMessage, setLastMessage] = useState<SSEMessage | null>(null);
@@ -63,7 +87,7 @@ export function SSEProvider({
 
   const connect = useCallback(
     (channelsToUse: string[] = channelsRef.current) => {
-      if (!isAuthenticated) {
+      if (!token) {
         return;
       }
       if (!API_BASE_URL) {
@@ -76,6 +100,7 @@ export function SSEProvider({
 
       const url = new URL(`${API_BASE_URL}/sse`);
       url.searchParams.set('channels', channelsToUse.join(','));
+      url.searchParams.set('token', token);
 
       const eventSource = new EventSource(url.toString());
       eventSourceRef.current = eventSource;
@@ -85,10 +110,16 @@ export function SSEProvider({
         reconnectAttemptRef.current = 0;
       });
 
-      eventSource.addEventListener('message', (event) => {
+      eventSource.addEventListener('message', (event: MessageEvent) => {
+        const dataText =
+          typeof event.data === 'string' ? event.data : String(event.data);
         try {
-          const data = JSON.parse(event.data as string) as SSEMessage;
-          setLastMessage(data);
+          const data = JSON.parse(dataText);
+          if (isSseMessage(data)) {
+            setLastMessage(data);
+          } else {
+            console.error('Failed to parse SSE message: invalid shape', data);
+          }
         } catch (err) {
           console.error('Failed to parse SSE message:', err);
         }
@@ -108,7 +139,7 @@ export function SSEProvider({
         }, delay);
       };
     },
-    [disconnect, isAuthenticated]
+    [disconnect, token]
   );
 
   // Reconnect when channels change (if already connected)

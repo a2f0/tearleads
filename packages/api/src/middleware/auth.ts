@@ -20,6 +20,24 @@ const isAuthExemptPath = (path: string): boolean => {
   return false;
 };
 
+const isSsePath = (path: string): boolean => path === '/sse';
+
+const extractBearerToken = (authHeader: string | undefined): string | null => {
+  if (!authHeader || !authHeader.startsWith(AUTH_HEADER_PREFIX)) {
+    return null;
+  }
+  const token = authHeader.slice(AUTH_HEADER_PREFIX.length).trim();
+  return token ? token : null;
+};
+
+const extractQueryToken = (queryValue: unknown): string | null => {
+  if (typeof queryValue !== 'string') {
+    return null;
+  }
+  const token = queryValue.trim();
+  return token ? token : null;
+};
+
 export async function authMiddleware(
   req: Request,
   res: Response,
@@ -31,12 +49,10 @@ export async function authMiddleware(
   }
 
   const authHeader = req.get('authorization');
-  if (!authHeader || !authHeader.startsWith(AUTH_HEADER_PREFIX)) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
+  let token = extractBearerToken(authHeader);
+  if (!token && isSsePath(req.path)) {
+    token = extractQueryToken(req.query['token']);
   }
-
-  const token = authHeader.slice(AUTH_HEADER_PREFIX.length).trim();
   if (!token) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
