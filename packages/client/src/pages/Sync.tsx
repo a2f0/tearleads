@@ -1,9 +1,9 @@
 import { LogOut } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
+import { LoginForm } from '@/components/auth';
 import { SessionList } from '@/components/sessions';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface SyncProps {
@@ -11,37 +11,7 @@ interface SyncProps {
 }
 
 export function Sync({ showBackLink = true }: SyncProps) {
-  const { isAuthenticated, user, isLoading, login, logout } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-      setError(null);
-      setIsSubmitting(true);
-
-      try {
-        await login(email, password);
-        // Clear form on success
-        setEmail('');
-        setPassword('');
-      } catch (err) {
-        setError(
-          typeof err === 'string'
-            ? err
-            : err instanceof Error
-              ? err.message
-              : 'Login failed. Please try again.'
-        );
-      } finally {
-        setIsSubmitting(false);
-      }
-    },
-    [email, password, login]
-  );
+  const { isAuthenticated, user, isLoading, logout } = useAuth();
 
   const handleLogout = useCallback(() => {
     logout();
@@ -108,62 +78,10 @@ export function Sync({ showBackLink = true }: SyncProps) {
         <h1 className="font-bold text-2xl tracking-tight">Sync</h1>
       </div>
 
-      <div className="rounded-lg border p-4">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <p className="font-medium">Login</p>
-            <p className="text-muted-foreground text-sm">
-              Sign in to sync your data across devices
-            </p>
-          </div>
-
-          {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-destructive text-sm">
-              {error}
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <label htmlFor="email" className="font-medium text-sm">
-              Email
-            </label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-              disabled={isSubmitting}
-              autoComplete="email"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label htmlFor="password" className="font-medium text-sm">
-              Password
-            </label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              required
-              disabled={isSubmitting}
-              autoComplete="current-password"
-            />
-          </div>
-
-          <Button
-            type="submit"
-            disabled={isSubmitting || !email || !password}
-            className="w-full"
-          >
-            {isSubmitting ? 'Signing in...' : 'Sign In'}
-          </Button>
-        </form>
-      </div>
+      <LoginForm
+        title="Login"
+        description="Sign in to sync your data across devices"
+      />
     </div>
   );
 }
