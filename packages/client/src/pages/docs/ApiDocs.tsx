@@ -25,7 +25,10 @@ export function ApiDocsPage() {
     );
     const height = Math.max(
       320,
-      Math.min(DEFAULT_WINDOW_HEIGHT, window.innerHeight - WINDOW_VERTICAL_GUTTER)
+      Math.min(
+        DEFAULT_WINDOW_HEIGHT,
+        window.innerHeight - WINDOW_VERTICAL_GUTTER
+      )
     );
 
     return { defaultWidth: width, defaultHeight: height };
