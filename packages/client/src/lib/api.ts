@@ -2,6 +2,8 @@ import type {
   AuthResponse,
   PingData,
   PostgresAdminInfoResponse,
+  PostgresColumnsResponse,
+  PostgresRowsResponse,
   PostgresTablesResponse,
   RedisKeysResponse,
   RedisKeyValueResponse,
@@ -91,7 +93,34 @@ export const api = {
       getTables: () =>
         request<PostgresTablesResponse>('/admin/postgres/tables', {
           eventName: 'api_get_admin_postgres_tables'
-        })
+        }),
+      getColumns: (schema: string, table: string) =>
+        request<PostgresColumnsResponse>(
+          `/admin/postgres/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/columns`,
+          { eventName: 'api_get_admin_postgres_columns' }
+        ),
+      getRows: (
+        schema: string,
+        table: string,
+        options?: {
+          limit?: number;
+          offset?: number;
+          sortColumn?: string;
+          sortDirection?: 'asc' | 'desc';
+        }
+      ) => {
+        const params = new URLSearchParams();
+        if (options?.limit) params.set('limit', String(options.limit));
+        if (options?.offset) params.set('offset', String(options.offset));
+        if (options?.sortColumn) params.set('sortColumn', options.sortColumn);
+        if (options?.sortDirection)
+          params.set('sortDirection', options.sortDirection);
+        const query = params.toString();
+        return request<PostgresRowsResponse>(
+          `/admin/postgres/tables/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/rows${query ? `?${query}` : ''}`,
+          { eventName: 'api_get_admin_postgres_rows' }
+        );
+      }
     },
     redis: {
       getKeys: (cursor?: string, limit?: number) => {

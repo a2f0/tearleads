@@ -4,9 +4,13 @@ import { BackLink } from '@/components/ui/back-link';
 
 interface PostgresAdminProps {
   showBackLink?: boolean;
+  onTableSelect?: (schema: string, tableName: string) => void;
 }
 
-export function PostgresAdmin({ showBackLink = true }: PostgresAdminProps) {
+export function PostgresAdmin({
+  showBackLink = true,
+  onTableSelect
+}: PostgresAdminProps) {
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
@@ -17,7 +21,7 @@ export function PostgresAdmin({ showBackLink = true }: PostgresAdminProps) {
         </div>
       </div>
       <PostgresConnectionPanel />
-      <PostgresTableSizes />
+      <PostgresTableSizes onTableSelect={onTableSelect} />
     </div>
   );
 }
