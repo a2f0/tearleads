@@ -15,7 +15,7 @@ export function LoginForm({
   description = 'Sign in to continue'
 }: LoginFormProps) {
   const id = useId();
-  const { login } = useAuth();
+  const { authError, clearAuthError, login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +25,7 @@ export function LoginForm({
     async (e: React.FormEvent) => {
       e.preventDefault();
       setError(null);
+      clearAuthError();
       setIsSubmitting(true);
 
       try {
@@ -43,7 +44,7 @@ export function LoginForm({
         setIsSubmitting(false);
       }
     },
-    [email, password, login]
+    [email, password, login, clearAuthError]
   );
 
   return (
@@ -53,6 +54,12 @@ export function LoginForm({
           <p className="font-medium">{title}</p>
           <p className="text-muted-foreground text-sm">{description}</p>
         </div>
+
+        {authError && (
+          <div className="rounded-md bg-destructive/10 p-3 text-destructive text-sm">
+            {authError}
+          </div>
+        )}
 
         {error && (
           <div className="rounded-md bg-destructive/10 p-3 text-destructive text-sm">
