@@ -104,6 +104,12 @@ export const usersTable: TableDefinition = {
       sqlName: 'email_confirmed',
       notNull: true,
       defaultValue: false
+    },
+    admin: {
+      type: 'boolean',
+      sqlName: 'admin',
+      notNull: true,
+      defaultValue: false
     }
   },
   indexes: [{ name: 'users_email_idx', columns: ['email'] }]

@@ -32,6 +32,7 @@ export const ua = {
     models: 'Моделі',
     admin: 'Адмін',
     postgresAdmin: 'Адмін Postgres',
+    adminUsers: 'Адмін користувачів',
     settings: 'Налаштування',
     email: 'Пошта',
     sync: 'Синхронізація'

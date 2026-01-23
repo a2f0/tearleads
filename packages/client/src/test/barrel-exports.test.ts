@@ -58,6 +58,9 @@ vi.mock('@/components/ui/bottom-sheet/BottomSheet', () => ({
 vi.mock('@/pages/admin/Admin', () => ({
   Admin: () => null
 }));
+vi.mock('@/pages/admin/UsersAdmin', () => ({
+  UsersAdmin: () => null
+}));
 vi.mock('@/pages/analytics/Analytics', () => ({
   Analytics: () => null
 }));
@@ -158,6 +161,7 @@ describe('barrel exports', () => {
 
     expect(pagesAdmin.Admin).toBeDefined();
     expect(pagesAdmin.PostgresAdmin).toBeDefined();
+    expect(pagesAdmin.UsersAdmin).toBeDefined();
 
     expect(pagesAnalytics.Analytics).toBeDefined();
     expect(pagesAnalytics.SortIcon).toBeDefined();

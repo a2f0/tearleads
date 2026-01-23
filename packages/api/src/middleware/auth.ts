@@ -1,13 +1,18 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { JwtClaims } from '../lib/jwt.js';
 import { verifyJwt } from '../lib/jwt.js';
-import { getSession, updateSessionActivity } from '../lib/sessions.js';
+import {
+  getSession,
+  type SessionData,
+  updateSessionActivity
+} from '../lib/sessions.js';
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       authClaims?: JwtClaims;
+      session?: SessionData;
     }
   }
 }
@@ -79,6 +84,7 @@ export async function authMiddleware(
     }
 
     req.authClaims = claims;
+    req.session = session;
 
     void updateSessionActivity(claims.jti);
 
