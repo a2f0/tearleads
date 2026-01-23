@@ -9,6 +9,7 @@ import { Home, PATH_TO_WINDOW_TYPE } from './Home';
 
 const mockOpenWindow = vi.fn();
 const mockNavigate = vi.fn();
+const mockActivateScreensaver = vi.fn();
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManager: () => ({
@@ -34,6 +35,20 @@ vi.mock('@/db/SettingsProvider', () => ({
     setSetting: vi.fn()
   })
 }));
+
+vi.mock('@/components/screensaver', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/components/screensaver')
+  >('@/components/screensaver');
+  return {
+    ...actual,
+    useScreensaver: () => ({
+      isActive: false,
+      activate: mockActivateScreensaver,
+      deactivate: vi.fn()
+    })
+  };
+});
 
 const desktopLaunchers = navItems.filter((item) => item.path !== '/');
 
