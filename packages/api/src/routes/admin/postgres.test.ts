@@ -137,4 +137,203 @@ describe('admin postgres routes', () => {
     expect(consoleError).toHaveBeenCalled();
     consoleError.mockRestore();
   });
+
+  describe('GET /v1/admin/postgres/tables/:schema/:table/columns', () => {
+    it('returns column metadata for a table', async () => {
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery
+          .mockResolvedValueOnce({ rows: [{ exists: true }] })
+          .mockResolvedValueOnce({
+            rows: [
+              {
+                column_name: 'id',
+                data_type: 'integer',
+                is_nullable: 'NO',
+                column_default: null,
+                ordinal_position: 1
+              },
+              {
+                column_name: 'name',
+                data_type: 'text',
+                is_nullable: 'YES',
+                column_default: "'default'",
+                ordinal_position: 2
+              }
+            ]
+          })
+      });
+
+      const response = await request(app)
+        .get('/v1/admin/postgres/tables/public/users/columns')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        columns: [
+          {
+            name: 'id',
+            type: 'integer',
+            nullable: false,
+            defaultValue: null,
+            ordinalPosition: 1
+          },
+          {
+            name: 'name',
+            type: 'text',
+            nullable: true,
+            defaultValue: "'default'",
+            ordinalPosition: 2
+          }
+        ]
+      });
+    });
+
+    it('returns 404 when table not found', async () => {
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery.mockResolvedValue({ rows: [{ exists: false }] })
+      });
+
+      const response = await request(app)
+        .get('/v1/admin/postgres/tables/public/nonexistent/columns')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: 'Table not found' });
+    });
+
+    it('returns 500 on error', async () => {
+      mockGetPostgresPool.mockRejectedValue(new Error('query failed'));
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      const response = await request(app)
+        .get('/v1/admin/postgres/tables/public/users/columns')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'query failed' });
+      consoleError.mockRestore();
+    });
+  });
+
+  describe('GET /v1/admin/postgres/tables/:schema/:table/rows', () => {
+    it('returns paginated rows', async () => {
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery
+          .mockResolvedValueOnce({
+            rows: [{ column_name: 'id' }, { column_name: 'name' }]
+          })
+          .mockResolvedValueOnce({ rows: [{ count: '100' }] })
+          .mockResolvedValueOnce({
+            rows: [
+              { id: 1, name: 'Alice' },
+              { id: 2, name: 'Bob' }
+            ]
+          })
+      });
+
+      const response = await request(app)
+        .get('/v1/admin/postgres/tables/public/users/rows?limit=2&offset=0')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        rows: [
+          { id: 1, name: 'Alice' },
+          { id: 2, name: 'Bob' }
+        ],
+        totalCount: 100,
+        limit: 2,
+        offset: 0
+      });
+    });
+
+    it('returns rows with sorting', async () => {
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery
+          .mockResolvedValueOnce({
+            rows: [{ column_name: 'id' }, { column_name: 'name' }]
+          })
+          .mockResolvedValueOnce({ rows: [{ count: '10' }] })
+          .mockResolvedValueOnce({
+            rows: [{ id: 2, name: 'Bob' }]
+          })
+      });
+
+      const response = await request(app)
+        .get(
+          '/v1/admin/postgres/tables/public/users/rows?sortColumn=name&sortDirection=desc'
+        )
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body.rows).toEqual([{ id: 2, name: 'Bob' }]);
+    });
+
+    it('ignores invalid sort column', async () => {
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery
+          .mockResolvedValueOnce({
+            rows: [{ column_name: 'id' }]
+          })
+          .mockResolvedValueOnce({ rows: [{ count: '5' }] })
+          .mockResolvedValueOnce({
+            rows: [{ id: 1 }]
+          })
+      });
+
+      const response = await request(app)
+        .get(
+          '/v1/admin/postgres/tables/public/users/rows?sortColumn=invalid_col'
+        )
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(200);
+    });
+
+    it('returns 404 when table not found', async () => {
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery.mockResolvedValue({ rows: [] })
+      });
+
+      const response = await request(app)
+        .get('/v1/admin/postgres/tables/public/nonexistent/rows')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: 'Table not found' });
+    });
+
+    it('returns 500 on error', async () => {
+      mockGetPostgresPool.mockRejectedValue(new Error('query failed'));
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      const response = await request(app)
+        .get('/v1/admin/postgres/tables/public/users/rows')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'query failed' });
+      consoleError.mockRestore();
+    });
+
+    it('clamps limit to valid range', async () => {
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery
+          .mockResolvedValueOnce({ rows: [{ column_name: 'id' }] })
+          .mockResolvedValueOnce({ rows: [{ count: '0' }] })
+          .mockResolvedValueOnce({ rows: [] })
+      });
+
+      const response = await request(app)
+        .get('/v1/admin/postgres/tables/public/users/rows?limit=9999')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body.limit).toBe(1000);
+    });
+  });
 });

@@ -30,22 +30,48 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/admin/PostgresAdmin', async () => {
-  const { useLocation } = await import('react-router-dom');
-  return {
-    PostgresAdmin: ({ showBackLink }: { showBackLink?: boolean }) => {
-      const location = useLocation();
-      return (
-        <div data-testid="postgres-admin-content">
-          <span data-testid="postgres-admin-location">{location.pathname}</span>
-          <span data-testid="postgres-admin-backlink">
-            {showBackLink ? 'true' : 'false'}
-          </span>
-        </div>
-      );
-    }
-  };
-});
+vi.mock('@/pages/admin/PostgresAdmin', () => ({
+  PostgresAdmin: ({
+    showBackLink,
+    onTableSelect
+  }: {
+    showBackLink?: boolean;
+    onTableSelect?: (schema: string, tableName: string) => void;
+  }) => (
+    <div data-testid="postgres-admin-content">
+      <span data-testid="postgres-admin-backlink">
+        {showBackLink ? 'true' : 'false'}
+      </span>
+      {onTableSelect && (
+        <button
+          type="button"
+          data-testid="select-table"
+          onClick={() => onTableSelect('public', 'users')}
+        >
+          Select table
+        </button>
+      )}
+    </div>
+  )
+}));
+
+vi.mock('@/components/admin-postgres/PostgresTableRowsView', () => ({
+  PostgresTableRowsView: ({
+    schema,
+    tableName,
+    backLink
+  }: {
+    schema: string;
+    tableName: string;
+    backLink?: React.ReactNode;
+  }) => (
+    <div data-testid="postgres-table-rows-view">
+      <span data-testid="table-schema">{schema}</span>
+      <span data-testid="table-name">{tableName}</span>
+      {backLink}
+    </div>
+  )
+}));
 
 describe('AdminPostgresWindow', () => {
   const defaultProps = {
@@ -70,11 +96,31 @@ describe('AdminPostgresWindow', () => {
 
   it('renders the Postgres admin content', () => {
     render(<AdminPostgresWindow {...defaultProps} />);
-    expect(screen.getByTestId('postgres-admin-location')).toHaveTextContent(
-      '/admin/postgres'
-    );
+    expect(screen.getByTestId('postgres-admin-content')).toBeInTheDocument();
     expect(screen.getByTestId('postgres-admin-backlink')).toHaveTextContent(
       'false'
+    );
+  });
+
+  it('navigates to table view when table is selected', async () => {
+    const user = userEvent.setup();
+    render(<AdminPostgresWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-table'));
+
+    expect(screen.getByTestId('postgres-table-rows-view')).toBeInTheDocument();
+    expect(screen.getByTestId('table-schema')).toHaveTextContent('public');
+    expect(screen.getByTestId('table-name')).toHaveTextContent('users');
+  });
+
+  it('updates window title when viewing a table', async () => {
+    const user = userEvent.setup();
+    render(<AdminPostgresWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-table'));
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent(
+      'public.users'
     );
   });
 
