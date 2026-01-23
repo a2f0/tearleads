@@ -19,6 +19,9 @@ const createMockMulti = () => ({
   exec: mockExec
 });
 
+const userSessionsStore = new Map<string, Set<string>>();
+const mockTtl = new Map<string, number>();
+
 const createMockClient = () => ({
   lRange: mockLRange,
   lLen: mockLLen,
@@ -29,14 +32,39 @@ const createMockClient = () => ({
     return mockGet(key);
   },
   mGet: mockMGet,
-  set: (key: string, value: string) => {
+  set: (key: string, value: string, options?: { EX?: number }) => {
     sessionStore.set(key, value);
     mockSet(key, value);
+    if (options?.EX) {
+      mockTtl.set(key, options.EX);
+    }
     return Promise.resolve('OK');
   },
   expire: (key: string, seconds: number) => {
     mockExpire(key, seconds);
+    mockTtl.set(key, seconds);
     return Promise.resolve(1);
+  },
+  ttl: (key: string) => {
+    return Promise.resolve(mockTtl.get(key) ?? -1);
+  },
+  sAdd: (key: string, member: string) => {
+    if (!userSessionsStore.has(key)) {
+      userSessionsStore.set(key, new Set());
+    }
+    userSessionsStore.get(key)?.add(member);
+    return Promise.resolve(1);
+  },
+  sRem: (key: string, member: string) => {
+    const set = userSessionsStore.get(key);
+    if (set?.delete(member)) {
+      return Promise.resolve(1);
+    }
+    return Promise.resolve(0);
+  },
+  sMembers: (key: string) => {
+    const set = userSessionsStore.get(key);
+    return Promise.resolve(set ? Array.from(set) : []);
   },
   multi: createMockMulti
 });
@@ -84,6 +112,8 @@ describe('Emails Routes', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     sessionStore.clear();
+    userSessionsStore.clear();
+    mockTtl.clear();
     vi.stubEnv('JWT_SECRET', 'test-secret');
     mockLRange.mockResolvedValue([]);
     mockLLen.mockResolvedValue(0);
