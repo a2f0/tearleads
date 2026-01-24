@@ -320,5 +320,33 @@ describe('api', () => {
         {}
       );
     });
+
+    it('logs the admin user get endpoint event', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            user: {
+              id: 'user-1',
+              email: 'test@example.com',
+              emailConfirmed: true,
+              admin: false
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      const { api } = await import('./api');
+      await api.admin.users.get('user-1');
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_admin_user',
+        expect.any(Number),
+        true
+      );
+    });
   });
 });

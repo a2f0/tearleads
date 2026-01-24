@@ -1,4 +1,5 @@
 import type {
+  AdminUserResponse,
   AdminUsersResponse,
   AdminUserUpdatePayload,
   AdminUserUpdateResponse,
@@ -166,6 +167,10 @@ export const api = {
       list: () =>
         request<AdminUsersResponse>('/admin/users', {
           eventName: 'api_get_admin_users'
+        }),
+      get: (id: string) =>
+        request<AdminUserResponse>(`/admin/users/${encodeURIComponent(id)}`, {
+          eventName: 'api_get_admin_user'
         }),
       update: (id: string, payload: AdminUserUpdatePayload) =>
         request<AdminUserUpdateResponse>(
