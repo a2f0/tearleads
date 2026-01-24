@@ -24,10 +24,46 @@ import { logApiEvent } from '@/db/analytics';
 import {
   clearStoredAuth,
   getAuthHeaderValue,
-  setSessionExpiredError
+  getStoredRefreshToken,
+  setSessionExpiredError,
+  updateStoredTokens
 } from '@/lib/auth-storage';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
+
+let refreshPromise: Promise<boolean> | null = null;
+
+async function attemptTokenRefresh(): Promise<boolean> {
+  const refreshToken = getStoredRefreshToken();
+  if (!refreshToken || !API_BASE_URL) {
+    return false;
+  }
+
+  const startTime = performance.now();
+  let success = false;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken })
+    });
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const data = (await response.json()) as AuthResponse;
+    updateStoredTokens(data.accessToken, data.refreshToken);
+    success = true;
+    return true;
+  } catch {
+    return false;
+  } finally {
+    const durationMs = performance.now() - startTime;
+    void logApiEvent('api_post_auth_refresh', durationMs, success);
+  }
+}
 
 // API event slugs - subset of AnalyticsEventSlug for API calls
 type ApiEventSlug = Extract<AnalyticsEventSlug, `api_${string}`>;
@@ -58,11 +94,38 @@ async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, requestInit);
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        setSessionExpiredError();
-        clearStoredAuth();
+    if (response.status === 401) {
+      if (!refreshPromise) {
+        refreshPromise = attemptTokenRefresh().finally(() => {
+          refreshPromise = null;
+        });
       }
+
+      const refreshed = await refreshPromise;
+      if (refreshed) {
+        const newAuthHeader = getAuthHeaderValue();
+        if (newAuthHeader) {
+          const retryHeaders = new Headers(requestInit.headers);
+          retryHeaders.set('Authorization', newAuthHeader);
+          const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
+            ...requestInit,
+            headers: retryHeaders
+          });
+
+          if (retryResponse.ok) {
+            const data = await retryResponse.json();
+            success = true;
+            return data;
+          }
+        }
+      }
+
+      setSessionExpiredError();
+      clearStoredAuth();
+      throw new Error('API error: 401');
+    }
+
+    if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
     }
 

@@ -169,3 +169,71 @@ export async function deleteSession(
 
   return true;
 }
+
+// Refresh token storage
+const REFRESH_TOKEN_PREFIX = 'refresh_token';
+
+const getRefreshTokenKey = (tokenId: string): string =>
+  `${REFRESH_TOKEN_PREFIX}:${tokenId}`;
+
+export type RefreshTokenData = {
+  sessionId: string;
+  userId: string;
+  createdAt: string;
+};
+
+export async function storeRefreshToken(
+  tokenId: string,
+  data: Omit<RefreshTokenData, 'createdAt'>,
+  ttlSeconds: number
+): Promise<void> {
+  const client = await getRedisClient();
+  const key = getRefreshTokenKey(tokenId);
+  const tokenData: RefreshTokenData = {
+    ...data,
+    createdAt: new Date().toISOString()
+  };
+  await client.set(key, JSON.stringify(tokenData), { EX: ttlSeconds });
+}
+
+export async function getRefreshToken(
+  tokenId: string
+): Promise<RefreshTokenData | null> {
+  const client = await getRedisClient();
+  const key = getRefreshTokenKey(tokenId);
+  const raw = await client.get(key);
+  if (!raw) {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  if (!isRecord(parsed)) {
+    return null;
+  }
+
+  const sessionId = parsed['sessionId'];
+  const userId = parsed['userId'];
+  const createdAt = parsed['createdAt'];
+
+  if (
+    typeof sessionId !== 'string' ||
+    typeof userId !== 'string' ||
+    typeof createdAt !== 'string'
+  ) {
+    return null;
+  }
+
+  return { sessionId, userId, createdAt };
+}
+
+export async function deleteRefreshToken(tokenId: string): Promise<void> {
+  const client = await getRedisClient();
+  const key = getRefreshTokenKey(tokenId);
+  await client.del(key);
+}
