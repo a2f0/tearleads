@@ -4,14 +4,14 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UsersAdminDetail } from './UsersAdminDetail';
 
-const mockList = vi.fn();
+const mockGet = vi.fn();
 const mockUpdate = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
     admin: {
       users: {
-        list: () => mockList(),
+        get: (id: string) => mockGet(id),
         update: (id: string, payload: unknown) => mockUpdate(id, payload)
       }
     }
@@ -23,21 +23,22 @@ describe('UsersAdminDetail', () => {
     vi.clearAllMocks();
   });
 
-  const usersResponse = {
-    users: [
-      {
-        id: 'user-1',
-        email: 'admin@example.com',
-        emailConfirmed: true,
-        admin: true
-      },
-      {
-        id: 'user-2',
-        email: 'regular@example.com',
-        emailConfirmed: false,
-        admin: false
-      }
-    ]
+  const user1Response = {
+    user: {
+      id: 'user-1',
+      email: 'admin@example.com',
+      emailConfirmed: true,
+      admin: true
+    }
+  };
+
+  const user2Response = {
+    user: {
+      id: 'user-2',
+      email: 'regular@example.com',
+      emailConfirmed: false,
+      admin: false
+    }
   };
 
   const renderWithRouter = (userId: string) => {
@@ -51,9 +52,9 @@ describe('UsersAdminDetail', () => {
   };
 
   it('renders loading state initially', async () => {
-    mockList.mockImplementation(
+    mockGet.mockImplementation(
       () =>
-        new Promise((resolve) => setTimeout(() => resolve(usersResponse), 100))
+        new Promise((resolve) => setTimeout(() => resolve(user1Response), 100))
     );
 
     renderWithRouter('user-1');
@@ -62,7 +63,7 @@ describe('UsersAdminDetail', () => {
   });
 
   it('renders user details when loaded', async () => {
-    mockList.mockResolvedValueOnce(usersResponse);
+    mockGet.mockResolvedValueOnce(user1Response);
 
     renderWithRouter('user-1');
 
@@ -74,18 +75,20 @@ describe('UsersAdminDetail', () => {
   });
 
   it('shows error when user not found', async () => {
-    mockList.mockResolvedValueOnce(usersResponse);
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockGet.mockRejectedValueOnce(new Error('API error: 404'));
 
     renderWithRouter('nonexistent');
 
     await waitFor(() => {
       expect(screen.getByText('User not found')).toBeInTheDocument();
     });
+    consoleSpy.mockRestore();
   });
 
   it('shows error when fetch fails', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mockList.mockRejectedValueOnce(new Error('Network error'));
+    mockGet.mockRejectedValueOnce(new Error('Network error'));
 
     renderWithRouter('user-1');
 
@@ -97,7 +100,7 @@ describe('UsersAdminDetail', () => {
 
   it('updates email and saves', async () => {
     const user = userEvent.setup();
-    mockList.mockResolvedValueOnce(usersResponse);
+    mockGet.mockResolvedValueOnce(user1Response);
     mockUpdate.mockResolvedValueOnce({
       user: {
         id: 'user-1',
@@ -125,16 +128,7 @@ describe('UsersAdminDetail', () => {
 
   it('toggles emailConfirmed checkbox and saves', async () => {
     const user = userEvent.setup();
-    mockList.mockResolvedValueOnce({
-      users: [
-        {
-          id: 'user-2',
-          email: 'regular@example.com',
-          emailConfirmed: false,
-          admin: false
-        }
-      ]
-    });
+    mockGet.mockResolvedValueOnce(user2Response);
     mockUpdate.mockResolvedValueOnce({
       user: {
         id: 'user-2',
@@ -164,16 +158,7 @@ describe('UsersAdminDetail', () => {
 
   it('toggles admin checkbox and saves', async () => {
     const user = userEvent.setup();
-    mockList.mockResolvedValueOnce({
-      users: [
-        {
-          id: 'user-2',
-          email: 'regular@example.com',
-          emailConfirmed: false,
-          admin: false
-        }
-      ]
-    });
+    mockGet.mockResolvedValueOnce(user2Response);
     mockUpdate.mockResolvedValueOnce({
       user: {
         id: 'user-2',
@@ -202,7 +187,7 @@ describe('UsersAdminDetail', () => {
   it('shows error when save fails', async () => {
     const user = userEvent.setup();
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mockList.mockResolvedValueOnce(usersResponse);
+    mockGet.mockResolvedValueOnce(user1Response);
     mockUpdate.mockRejectedValueOnce(new Error('Update failed'));
 
     renderWithRouter('user-1');
@@ -222,7 +207,7 @@ describe('UsersAdminDetail', () => {
 
   it('resets draft when Reset button is clicked', async () => {
     const user = userEvent.setup();
-    mockList.mockResolvedValueOnce(usersResponse);
+    mockGet.mockResolvedValueOnce(user1Response);
 
     renderWithRouter('user-1');
 
@@ -240,7 +225,7 @@ describe('UsersAdminDetail', () => {
 
   it('disables save button when email is empty', async () => {
     const user = userEvent.setup();
-    mockList.mockResolvedValueOnce(usersResponse);
+    mockGet.mockResolvedValueOnce(user1Response);
 
     renderWithRouter('user-1');
 
@@ -253,7 +238,7 @@ describe('UsersAdminDetail', () => {
   });
 
   it('disables save button when no changes', async () => {
-    mockList.mockResolvedValueOnce(usersResponse);
+    mockGet.mockResolvedValueOnce(user1Response);
 
     renderWithRouter('user-1');
 
@@ -264,7 +249,7 @@ describe('UsersAdminDetail', () => {
   });
 
   it('renders with custom backLink', async () => {
-    mockList.mockResolvedValueOnce(usersResponse);
+    mockGet.mockResolvedValueOnce(user1Response);
 
     render(
       <MemoryRouter>
@@ -282,7 +267,7 @@ describe('UsersAdminDetail', () => {
   });
 
   it('uses userId prop when provided', async () => {
-    mockList.mockResolvedValueOnce(usersResponse);
+    mockGet.mockResolvedValueOnce(user2Response);
 
     render(
       <MemoryRouter>

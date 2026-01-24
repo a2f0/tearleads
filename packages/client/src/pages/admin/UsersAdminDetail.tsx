@@ -38,19 +38,19 @@ export function UsersAdminDetail({
     setLoading(true);
     setError(null);
     try {
-      const response = await api.admin.users.list();
-      const foundUser = response.users.find((u) => u.id === userId);
-      if (!foundUser) {
+      const response = await api.admin.users.get(userId);
+      setUser(response.user);
+      setDraft(response.user);
+    } catch (err) {
+      console.error('Failed to fetch user:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('404')) {
         setError('User not found');
         setUser(null);
         setDraft(null);
       } else {
-        setUser(foundUser);
-        setDraft(foundUser);
+        setError(message);
       }
-    } catch (err) {
-      console.error('Failed to fetch user:', err);
-      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
