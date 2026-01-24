@@ -545,7 +545,9 @@ describe('PostgresTableRowsView', () => {
     // Virtual lists may not render content in JSDOM, but we can verify data was loaded
     expect(mockGetRows).toHaveBeenCalled();
     // The table element should exist even if virtualizer doesn't render rows
-    expect(screen.getByRole('table')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('table')).toBeInTheDocument();
+    });
   });
 
   it('switches to document view with data', async () => {

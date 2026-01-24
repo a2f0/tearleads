@@ -104,6 +104,10 @@ export interface AdminUsersResponse {
   users: AdminUser[];
 }
 
+export interface AdminUserResponse {
+  user: AdminUser;
+}
+
 export interface AdminUserUpdatePayload {
   email?: string;
   emailConfirmed?: boolean;
@@ -114,8 +118,50 @@ export interface AdminUserUpdateResponse {
   user: AdminUser;
 }
 
-export interface AdminUserResponse {
-  user: AdminUser;
+// Groups Admin types
+export interface Group {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupWithMemberCount extends Group {
+  memberCount: number;
+}
+
+export interface GroupMember {
+  userId: string;
+  email: string;
+  joinedAt: string;
+}
+
+export interface GroupsListResponse {
+  groups: GroupWithMemberCount[];
+}
+
+export interface GroupDetailResponse {
+  group: Group;
+  members: GroupMember[];
+}
+
+export interface CreateGroupRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateGroupRequest {
+  name?: string;
+  description?: string;
+}
+
+export interface AddMemberRequest {
+  userId: string;
+}
+
+export interface GroupMembersResponse {
+  members: GroupMember[];
 }
 
 // Auth types

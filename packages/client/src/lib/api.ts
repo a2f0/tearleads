@@ -4,6 +4,11 @@ import type {
   AdminUserUpdatePayload,
   AdminUserUpdateResponse,
   AuthResponse,
+  CreateGroupRequest,
+  Group,
+  GroupDetailResponse,
+  GroupMembersResponse,
+  GroupsListResponse,
   PingData,
   PostgresAdminInfoResponse,
   PostgresColumnsResponse,
@@ -11,7 +16,8 @@ import type {
   PostgresTablesResponse,
   RedisKeysResponse,
   RedisKeyValueResponse,
-  SessionsResponse
+  SessionsResponse,
+  UpdateGroupRequest
 } from '@rapid/shared';
 import type { AnalyticsEventSlug } from '@/db/analytics';
 import { logApiEvent } from '@/db/analytics';
@@ -163,6 +169,68 @@ export const api = {
           eventName: 'api_get_admin_redis_dbsize'
         })
     },
+    groups: {
+      list: () =>
+        request<GroupsListResponse>('/admin/groups', {
+          eventName: 'api_get_admin_groups'
+        }),
+      get: (id: string) =>
+        request<GroupDetailResponse>(
+          `/admin/groups/${encodeURIComponent(id)}`,
+          { eventName: 'api_get_admin_group' }
+        ),
+      create: (data: CreateGroupRequest) =>
+        request<{ group: Group }>('/admin/groups', {
+          fetchOptions: {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          },
+          eventName: 'api_post_admin_group'
+        }),
+      update: (id: string, data: UpdateGroupRequest) =>
+        request<{ group: Group }>(`/admin/groups/${encodeURIComponent(id)}`, {
+          fetchOptions: {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          },
+          eventName: 'api_put_admin_group'
+        }),
+      delete: (id: string) =>
+        request<{ deleted: boolean }>(
+          `/admin/groups/${encodeURIComponent(id)}`,
+          {
+            fetchOptions: { method: 'DELETE' },
+            eventName: 'api_delete_admin_group'
+          }
+        ),
+      getMembers: (id: string) =>
+        request<GroupMembersResponse>(
+          `/admin/groups/${encodeURIComponent(id)}/members`,
+          { eventName: 'api_get_admin_group_members' }
+        ),
+      addMember: (groupId: string, userId: string) =>
+        request<{ added: boolean }>(
+          `/admin/groups/${encodeURIComponent(groupId)}/members`,
+          {
+            fetchOptions: {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId })
+            },
+            eventName: 'api_post_admin_group_member'
+          }
+        ),
+      removeMember: (groupId: string, userId: string) =>
+        request<{ removed: boolean }>(
+          `/admin/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(userId)}`,
+          {
+            fetchOptions: { method: 'DELETE' },
+            eventName: 'api_delete_admin_group_member'
+          }
+        )
+    },
     users: {
       list: () =>
         request<AdminUsersResponse>('/admin/users', {
@@ -172,14 +240,14 @@ export const api = {
         request<AdminUserResponse>(`/admin/users/${encodeURIComponent(id)}`, {
           eventName: 'api_get_admin_user'
         }),
-      update: (id: string, payload: AdminUserUpdatePayload) =>
+      update: (id: string, data: AdminUserUpdatePayload) =>
         request<AdminUserUpdateResponse>(
           `/admin/users/${encodeURIComponent(id)}`,
           {
             fetchOptions: {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
+              body: JSON.stringify(data)
             },
             eventName: 'api_patch_admin_user'
           }

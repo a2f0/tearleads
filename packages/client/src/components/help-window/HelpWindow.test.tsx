@@ -94,4 +94,27 @@ describe('HelpWindow', () => {
     expect(screen.getByTestId('window-title')).toHaveTextContent('API Docs');
     expect(screen.getByTestId('api-docs')).toHaveTextContent('Client Docs');
   });
+
+  it('navigates back to index from API docs view', async () => {
+    const user = userEvent.setup();
+    render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+      />
+    );
+
+    // Navigate to API docs
+    await user.click(screen.getByTestId('grid-square'));
+    expect(screen.getByTestId('window-title')).toHaveTextContent('API Docs');
+
+    // Navigate back to index
+    await user.click(screen.getByText('Back to Help'));
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
+    expect(screen.queryByTestId('api-docs')).not.toBeInTheDocument();
+  });
 });

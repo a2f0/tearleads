@@ -5,6 +5,7 @@ import { AdminOptionsGrid } from '@/components/admin';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { Admin } from '@/pages/admin/Admin';
+import { GroupsAdmin } from '@/pages/admin/GroupsAdmin';
 import { PostgresAdmin } from '@/pages/admin/PostgresAdmin';
 import { AdminWindowMenuBar } from './AdminWindowMenuBar';
 
@@ -23,12 +24,14 @@ interface AdminWindowProps {
 const VIEW_TITLES: Record<AdminView, string> = {
   index: 'Admin',
   redis: 'Redis',
-  postgres: 'Postgres'
+  postgres: 'Postgres',
+  groups: 'Groups'
 };
 
 const VIEW_COMPONENTS: Record<AdminOptionId, React.ReactNode> = {
   redis: <Admin showBackLink={false} />,
-  postgres: <PostgresAdmin showBackLink={false} />
+  postgres: <PostgresAdmin showBackLink={false} />,
+  groups: <GroupsAdmin showBackLink={false} />
 };
 
 export function AdminWindow({

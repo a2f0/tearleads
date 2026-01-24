@@ -81,15 +81,20 @@ vi.mock('./AudioWindowMenuBar', () => ({
 vi.mock('./AudioWindowDetail', () => ({
   AudioWindowDetail: ({
     audioId,
-    onBack
+    onBack,
+    onDeleted
   }: {
     audioId: string;
     onBack: () => void;
+    onDeleted?: () => void;
   }) => (
     <div data-testid="audio-detail">
       <span>{audioId}</span>
       <button type="button" onClick={onBack} data-testid="detail-back">
         Back
+      </button>
+      <button type="button" onClick={onDeleted} data-testid="detail-delete">
+        Delete
       </button>
     </div>
   )
@@ -188,5 +193,50 @@ describe('AudioWindow', () => {
     expect(clickSpy).toHaveBeenCalled();
 
     clickSpy.mockRestore();
+  });
+
+  it('calls handleDeleted when delete button is clicked in detail view', async () => {
+    const user = userEvent.setup();
+    render(<AudioWindow {...defaultProps} />);
+
+    // Select a track to show detail view
+    await user.click(screen.getByTestId('select-track'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('audio-detail')).toBeInTheDocument();
+    });
+
+    // Click delete button
+    await user.click(screen.getByTestId('detail-delete'));
+
+    // Should return to list view after delete
+    await waitFor(() => {
+      expect(screen.queryByTestId('audio-detail')).not.toBeInTheDocument();
+      expect(screen.getByTestId('audio-list')).toBeInTheDocument();
+    });
+  });
+
+  it('logs error when file upload fails', async () => {
+    const user = userEvent.setup();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockUploadFile.mockRejectedValueOnce(new Error('Upload failed'));
+
+    render(<AudioWindow {...defaultProps} />);
+
+    const fileInput = screen.getByTestId(
+      'audio-file-input'
+    ) as HTMLInputElement;
+    const file = new File(['audio'], 'track.mp3', { type: 'audio/mpeg' });
+
+    await user.upload(fileInput, file);
+
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to upload track.mp3:',
+        expect.any(Error)
+      );
+    });
+
+    consoleSpy.mockRestore();
   });
 });
