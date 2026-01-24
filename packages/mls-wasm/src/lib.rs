@@ -358,11 +358,16 @@ impl MlsClient {
                 Err(JsValue::from_str("Received proposal, not application message"))
             }
             ProcessedMessageContent::StagedCommitMessage(staged_commit) => {
-                // Process the commit
+                // Process the commit - this updates group state but has no content
                 group.merge_staged_commit(&self.crypto, *staged_commit)
                     .map_err(|e| JsValue::from_str(&format!("Failed to merge commit: {}", e)))?;
 
-                let result: JsResult<DecryptedMessage> = JsResult::err("Received commit message, no content".to_string());
+                // Return success with no value to indicate commit was processed
+                let result: JsResult<DecryptedMessage> = JsResult {
+                    ok: true,
+                    value: None,
+                    error: None,
+                };
                 serde_wasm_bindgen::to_value(&result)
                     .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
             }
@@ -381,6 +386,9 @@ impl MlsClient {
     }
 
     /// Export client state for persistence
+    /// Note: This exports the ratchet tree for group state. Full MlsGroup serialization
+    /// requires the OpenMLS serde feature which has compatibility considerations.
+    /// For production, consider using OpenMLS's built-in persistence mechanisms.
     #[wasm_bindgen(js_name = exportState)]
     pub fn export_state(&self) -> Result<JsValue, JsValue> {
         let credential_bytes = self.credential_with_key.credential.serialized_content();

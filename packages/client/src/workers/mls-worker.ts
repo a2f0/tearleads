@@ -33,8 +33,8 @@ interface WasmResult<T> {
   error?: string;
 }
 
-// Worker request types
-export type MlsWorkerRequest =
+// Worker request payload types (without requestId)
+export type MlsWorkerRequestPayload =
   | { type: 'init'; userId: string }
   | { type: 'generateKeyPackages'; count: number }
   | { type: 'createGroup'; groupName: string }
@@ -45,22 +45,35 @@ export type MlsWorkerRequest =
   | { type: 'getEpoch'; groupId: string }
   | { type: 'exportState' };
 
+// Worker request types (with requestId for concurrent request handling)
+export type MlsWorkerRequest = MlsWorkerRequestPayload & {
+  requestId: string;
+};
+
+// Base response with requestId for matching with requests
+interface BaseResponse {
+  requestId: string;
+}
+
 // Worker response types
-export type MlsWorkerResponse =
-  | { type: 'initialized'; success: true }
-  | { type: 'keyPackages'; packages: Array<{ id: string; data: string }> }
-  | { type: 'groupCreated'; groupId: string; mlsGroupId: string }
-  | { type: 'groupJoined'; groupId: string; mlsGroupId: string }
-  | {
-      type: 'membersAdded';
-      commit: string;
-      welcomes: Array<{ keyPackageRef: string; welcome: string }>;
-    }
-  | { type: 'encrypted'; ciphertext: string; epoch: number }
-  | { type: 'decrypted'; plaintext: string; senderIndex: number }
-  | { type: 'epoch'; epoch: number }
-  | { type: 'stateExported'; state: unknown }
-  | { type: 'error'; message: string };
+export type MlsWorkerResponse = BaseResponse &
+  (
+    | { type: 'initialized'; success: true }
+    | { type: 'keyPackages'; packages: Array<{ id: string; data: string }> }
+    | { type: 'groupCreated'; groupId: string; mlsGroupId: string }
+    | { type: 'groupJoined'; groupId: string; mlsGroupId: string }
+    | {
+        type: 'membersAdded';
+        commit: string;
+        welcomes: Array<{ keyPackageRef: string; welcome: string }>;
+      }
+    | { type: 'encrypted'; ciphertext: string; epoch: number }
+    | { type: 'decrypted'; plaintext: string; senderIndex: number }
+    | { type: 'commitProcessed' }
+    | { type: 'epoch'; epoch: number }
+    | { type: 'stateExported'; state: unknown }
+    | { type: 'error'; message: string }
+  );
 
 // Global state
 let mlsModule: MlsWasmModule | null = null;
@@ -90,33 +103,44 @@ async function loadWasmModule(): Promise<MlsWasmModule> {
 async function handleMessage(
   request: MlsWorkerRequest
 ): Promise<MlsWorkerResponse> {
+  const { requestId } = request;
+
   try {
     switch (request.type) {
       case 'init': {
         const module = await loadWasmModule();
         mlsClient = new module.MlsClient(request.userId);
-        return { type: 'initialized', success: true };
+        return { requestId, type: 'initialized', success: true };
       }
 
       case 'generateKeyPackages': {
         if (!mlsClient) {
-          return { type: 'error', message: 'MLS client not initialized' };
+          return {
+            requestId,
+            type: 'error',
+            message: 'MLS client not initialized'
+          };
         }
         const result = mlsClient.generateKeyPackages(
           request.count
         ) as WasmResult<Array<{ id: string; data: string }>>;
         if (!result.ok || !result.value) {
           return {
+            requestId,
             type: 'error',
             message: result.error ?? 'Failed to generate KeyPackages'
           };
         }
-        return { type: 'keyPackages', packages: result.value };
+        return { requestId, type: 'keyPackages', packages: result.value };
       }
 
       case 'createGroup': {
         if (!mlsClient) {
-          return { type: 'error', message: 'MLS client not initialized' };
+          return {
+            requestId,
+            type: 'error',
+            message: 'MLS client not initialized'
+          };
         }
         const result = mlsClient.createGroup(request.groupName) as WasmResult<{
           group_id: string;
@@ -124,11 +148,13 @@ async function handleMessage(
         }>;
         if (!result.ok || !result.value) {
           return {
+            requestId,
             type: 'error',
             message: result.error ?? 'Failed to create group'
           };
         }
         return {
+          requestId,
           type: 'groupCreated',
           groupId: result.value.group_id,
           mlsGroupId: result.value.mls_group_id
@@ -137,7 +163,11 @@ async function handleMessage(
 
       case 'joinGroup': {
         if (!mlsClient) {
-          return { type: 'error', message: 'MLS client not initialized' };
+          return {
+            requestId,
+            type: 'error',
+            message: 'MLS client not initialized'
+          };
         }
         const result = mlsClient.joinGroup(request.welcomeData) as WasmResult<{
           group_id: string;
@@ -145,11 +175,13 @@ async function handleMessage(
         }>;
         if (!result.ok || !result.value) {
           return {
+            requestId,
             type: 'error',
             message: result.error ?? 'Failed to join group'
           };
         }
         return {
+          requestId,
           type: 'groupJoined',
           groupId: result.value.group_id,
           mlsGroupId: result.value.mls_group_id
@@ -158,7 +190,11 @@ async function handleMessage(
 
       case 'addMembers': {
         if (!mlsClient) {
-          return { type: 'error', message: 'MLS client not initialized' };
+          return {
+            requestId,
+            type: 'error',
+            message: 'MLS client not initialized'
+          };
         }
         const result = mlsClient.addMembers(
           request.groupId,
@@ -169,11 +205,13 @@ async function handleMessage(
         }>;
         if (!result.ok || !result.value) {
           return {
+            requestId,
             type: 'error',
             message: result.error ?? 'Failed to add members'
           };
         }
         return {
+          requestId,
           type: 'membersAdded',
           commit: result.value.commit,
           welcomes: result.value.welcomes.map((w) => ({
@@ -185,7 +223,11 @@ async function handleMessage(
 
       case 'encrypt': {
         if (!mlsClient) {
-          return { type: 'error', message: 'MLS client not initialized' };
+          return {
+            requestId,
+            type: 'error',
+            message: 'MLS client not initialized'
+          };
         }
         const result = mlsClient.encrypt(
           request.groupId,
@@ -193,11 +235,13 @@ async function handleMessage(
         ) as WasmResult<{ ciphertext: string; epoch: number }>;
         if (!result.ok || !result.value) {
           return {
+            requestId,
             type: 'error',
             message: result.error ?? 'Failed to encrypt message'
           };
         }
         return {
+          requestId,
           type: 'encrypted',
           ciphertext: result.value.ciphertext,
           epoch: result.value.epoch
@@ -206,19 +250,29 @@ async function handleMessage(
 
       case 'decrypt': {
         if (!mlsClient) {
-          return { type: 'error', message: 'MLS client not initialized' };
+          return {
+            requestId,
+            type: 'error',
+            message: 'MLS client not initialized'
+          };
         }
         const result = mlsClient.decrypt(
           request.groupId,
           request.ciphertext
         ) as WasmResult<{ plaintext: string; sender_index: number }>;
-        if (!result.ok || !result.value) {
+        if (!result.ok) {
           return {
+            requestId,
             type: 'error',
             message: result.error ?? 'Failed to decrypt message'
           };
         }
+        // Handle commit messages gracefully - they update state but have no content
+        if (!result.value) {
+          return { requestId, type: 'commitProcessed' };
+        }
         return {
+          requestId,
           type: 'decrypted',
           plaintext: result.value.plaintext,
           senderIndex: result.value.sender_index
@@ -227,35 +281,45 @@ async function handleMessage(
 
       case 'getEpoch': {
         if (!mlsClient) {
-          return { type: 'error', message: 'MLS client not initialized' };
+          return {
+            requestId,
+            type: 'error',
+            message: 'MLS client not initialized'
+          };
         }
         const epoch = mlsClient.getEpoch(request.groupId);
-        return { type: 'epoch', epoch };
+        return { requestId, type: 'epoch', epoch };
       }
 
       case 'exportState': {
         if (!mlsClient) {
-          return { type: 'error', message: 'MLS client not initialized' };
+          return {
+            requestId,
+            type: 'error',
+            message: 'MLS client not initialized'
+          };
         }
         const result = mlsClient.exportState() as WasmResult<unknown>;
         if (!result.ok || !result.value) {
           return {
+            requestId,
             type: 'error',
             message: result.error ?? 'Failed to export state'
           };
         }
-        return { type: 'stateExported', state: result.value };
+        return { requestId, type: 'stateExported', state: result.value };
       }
 
       default:
         return {
+          requestId,
           type: 'error',
           message: `Unknown request type: ${(request as { type: string }).type}`
         };
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return { type: 'error', message };
+    return { requestId, type: 'error', message };
   }
 }
 

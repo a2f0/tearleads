@@ -232,10 +232,13 @@ describe('useMLS', () => {
       return result.current.decrypt('group-1', 'encrypted-data');
     });
 
-    expect((decryptResult as { plaintext: string }).plaintext).toBe(
-      'Hello world'
-    );
-    expect((decryptResult as { senderIndex: number }).senderIndex).toBe(0);
+    expect(decryptResult).not.toBeNull();
+    expect(
+      (decryptResult as { plaintext: string; senderIndex: number }).plaintext
+    ).toBe('Hello world');
+    expect(
+      (decryptResult as { plaintext: string; senderIndex: number }).senderIndex
+    ).toBe(0);
   });
 
   it('throws error when not initialized - generateKeyPackages', async () => {

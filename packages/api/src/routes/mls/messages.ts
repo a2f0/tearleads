@@ -119,18 +119,31 @@ router.post('/:groupId/messages', async (req: Request, res: Response) => {
     const now = new Date();
     const messageId = randomUUID();
 
-    // Insert message
-    await pool.query(
-      `INSERT INTO chat_messages (id, group_id, sender_id, ciphertext, epoch, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [messageId, groupId, claims.sub, payload.ciphertext, payload.epoch, now]
-    );
+    // Use transaction for atomicity
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    // Update group updated_at
-    await pool.query(`UPDATE chat_groups SET updated_at = $1 WHERE id = $2`, [
-      now,
-      groupId
-    ]);
+      // Insert message
+      await client.query(
+        `INSERT INTO chat_messages (id, group_id, sender_id, ciphertext, epoch, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [messageId, groupId, claims.sub, payload.ciphertext, payload.epoch, now]
+      );
+
+      // Update group updated_at
+      await client.query(
+        `UPDATE chat_groups SET updated_at = $1 WHERE id = $2`,
+        [now, groupId]
+      );
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
 
     const message: MlsMessage = {
       id: messageId,

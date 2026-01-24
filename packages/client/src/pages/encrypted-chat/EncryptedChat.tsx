@@ -91,12 +91,14 @@ export function EncryptedChat() {
         const decryptedMessages: Message[] = [];
         for (const msg of data.messages) {
           try {
-            const { plaintext } = await mls.decrypt(groupId, msg.ciphertext);
+            const result = await mls.decrypt(groupId, msg.ciphertext);
+            // Skip commit messages (they update state but have no content)
+            if (result === null) continue;
             decryptedMessages.push({
               id: msg.id,
               senderId: msg.senderId,
               senderName: msg.senderEmail?.split('@')[0] ?? 'Unknown',
-              content: plaintext,
+              content: result.plaintext,
               timestamp: new Date(msg.createdAt),
               isOwn: msg.senderId === user?.id
             });

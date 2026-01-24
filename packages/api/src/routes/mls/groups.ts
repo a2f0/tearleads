@@ -134,19 +134,32 @@ router.post('/', async (req: Request, res: Response) => {
     const groupId = randomUUID();
     const memberId = randomUUID();
 
-    // Create the group
-    await pool.query(
-      `INSERT INTO chat_groups (id, name, created_by, mls_group_id, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [groupId, payload.name, claims.sub, payload.mlsGroupId, now, now]
-    );
+    // Use transaction for atomicity
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    // Add the creator as admin member
-    await pool.query(
-      `INSERT INTO chat_group_members (id, group_id, user_id, role, joined_at)
-       VALUES ($1, $2, $3, 'admin', $4)`,
-      [memberId, groupId, claims.sub, now]
-    );
+      // Create the group
+      await client.query(
+        `INSERT INTO chat_groups (id, name, created_by, mls_group_id, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [groupId, payload.name, claims.sub, payload.mlsGroupId, now, now]
+      );
+
+      // Add the creator as admin member
+      await client.query(
+        `INSERT INTO chat_group_members (id, group_id, user_id, role, joined_at)
+         VALUES ($1, $2, $3, 'admin', $4)`,
+        [memberId, groupId, claims.sub, now]
+      );
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
 
     const group: ChatGroup = {
       id: groupId,
@@ -390,6 +403,11 @@ router.post('/:groupId/members', async (req: Request, res: Response) => {
   }
 
   const { groupId } = req.params;
+  if (!groupId) {
+    res.status(400).json({ error: 'groupId is required' });
+    return;
+  }
+
   const payload = parseAddMembersRequest(req.body);
   if (!payload) {
     res.status(400).json({
@@ -425,75 +443,124 @@ router.post('/:groupId/members', async (req: Request, res: Response) => {
     const now = new Date();
     const addedMembers: ChatGroupMember[] = [];
 
-    for (const userId of payload.memberUserIds) {
-      // Check if already a member
-      const existingMember = await pool.query(
-        `SELECT 1 FROM chat_group_members WHERE group_id = $1 AND user_id = $2`,
-        [groupId, userId]
-      );
-      if (existingMember.rows.length > 0) {
-        continue;
-      }
+    // Batch query: Get existing members and user emails in single queries
+    const existingMembersResult = await pool.query<{ user_id: string }>(
+      `SELECT user_id FROM chat_group_members WHERE group_id = $1 AND user_id = ANY($2)`,
+      [groupId, payload.memberUserIds]
+    );
+    const existingMemberIds = new Set(
+      existingMembersResult.rows.map((r) => r.user_id)
+    );
 
-      // Get user email
-      const userResult = await pool.query<{ email: string }>(
-        `SELECT email FROM users WHERE id = $1`,
-        [userId]
-      );
-      const email = userResult.rows[0]?.email;
-      if (!email) {
-        continue;
-      }
+    const usersResult = await pool.query<{ id: string; email: string }>(
+      `SELECT id, email FROM users WHERE id = ANY($1)`,
+      [payload.memberUserIds]
+    );
+    const userEmailMap = new Map(usersResult.rows.map((r) => [r.id, r.email]));
 
-      // Add member
-      const memberId = randomUUID();
-      await pool.query(
-        `INSERT INTO chat_group_members (id, group_id, user_id, role, joined_at)
-         VALUES ($1, $2, $3, 'member', $4)`,
-        [memberId, groupId, userId, now]
-      );
+    // Filter to only new members with valid emails
+    const newMembers = payload.memberUserIds.filter(
+      (userId) => !existingMemberIds.has(userId) && userEmailMap.has(userId)
+    );
 
-      addedMembers.push({
-        userId,
-        email,
-        role: 'member',
-        joinedAt: now.toISOString()
-      });
+    if (newMembers.length > 0) {
+      // Use transaction for all database modifications
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
 
-      // Store Welcome message
-      const welcomeMsg = payload.welcomeMessages.find(
-        (w) => w.userId === userId
-      );
-      if (welcomeMsg) {
-        const welcomeId = randomUUID();
-        await pool.query(
-          `INSERT INTO mls_welcomes (id, group_id, recipient_user_id, welcome_data, created_at, fetched)
-           VALUES ($1, $2, $3, $4, $5, FALSE)`,
-          [welcomeId, groupId, userId, welcomeMsg.welcomeData, now]
+        // Bulk insert members
+        const memberValues: (string | Date)[] = [];
+        const memberPlaceholders: string[] = [];
+        let i = 1;
+        for (const userId of newMembers) {
+          const memberId = randomUUID();
+          memberValues.push(memberId, groupId, userId, now);
+          memberPlaceholders.push(
+            `($${i++}, $${i++}, $${i++}, 'member', $${i++})`
+          );
+
+          addedMembers.push({
+            userId,
+            email: userEmailMap.get(userId) ?? '',
+            role: 'member',
+            joinedAt: now.toISOString()
+          });
+        }
+
+        await client.query(
+          `INSERT INTO chat_group_members (id, group_id, user_id, role, joined_at)
+           VALUES ${memberPlaceholders.join(', ')}`,
+          memberValues
         );
 
-        // Notify user via SSE
-        await broadcast(`mls:user:${userId}`, {
-          type: 'mls_welcome',
-          payload: { groupId, groupName },
+        // Bulk insert Welcome messages
+        const welcomeValues: (string | Date)[] = [];
+        const welcomePlaceholders: string[] = [];
+        let j = 1;
+        for (const userId of newMembers) {
+          const welcomeMsg = payload.welcomeMessages.find(
+            (w) => w.userId === userId
+          );
+          if (welcomeMsg) {
+            const welcomeId = randomUUID();
+            welcomeValues.push(
+              welcomeId,
+              groupId,
+              userId,
+              welcomeMsg.welcomeData,
+              now
+            );
+            welcomePlaceholders.push(
+              `($${j++}, $${j++}, $${j++}, $${j++}, $${j++}, FALSE)`
+            );
+          }
+        }
+
+        if (welcomePlaceholders.length > 0) {
+          await client.query(
+            `INSERT INTO mls_welcomes (id, group_id, recipient_user_id, welcome_data, created_at, fetched)
+             VALUES ${welcomePlaceholders.join(', ')}`,
+            welcomeValues
+          );
+        }
+
+        // Update group updated_at
+        await client.query(
+          `UPDATE chat_groups SET updated_at = $1 WHERE id = $2`,
+          [now, groupId]
+        );
+
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      } finally {
+        client.release();
+      }
+
+      // Send SSE notifications outside transaction
+      for (const userId of newMembers) {
+        const welcomeMsg = payload.welcomeMessages.find(
+          (w) => w.userId === userId
+        );
+        if (welcomeMsg) {
+          await broadcast(`mls:user:${userId}`, {
+            type: 'mls_welcome',
+            payload: { groupId, groupName },
+            timestamp: now.toISOString()
+          });
+        }
+      }
+
+      // Broadcast member added to group channel
+      for (const member of addedMembers) {
+        await broadcast(`mls:group:${groupId}`, {
+          type: 'mls_member_added',
+          payload: { groupId, member },
           timestamp: now.toISOString()
         });
       }
-    }
-
-    // Update group updated_at
-    await pool.query(`UPDATE chat_groups SET updated_at = $1 WHERE id = $2`, [
-      now,
-      groupId
-    ]);
-
-    // Broadcast member added to group channel
-    for (const member of addedMembers) {
-      await broadcast(`mls:group:${groupId}`, {
-        type: 'mls_member_added',
-        payload: { groupId, member },
-        timestamp: now.toISOString()
-      });
     }
 
     const response: AddMembersResponse = { addedMembers };

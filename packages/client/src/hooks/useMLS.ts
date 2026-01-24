@@ -12,7 +12,10 @@
  */
 
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
-import type { MlsWorkerRequest, MlsWorkerResponse } from '@/workers/mls-worker';
+import type {
+  MlsWorkerRequestPayload,
+  MlsWorkerResponse
+} from '@/workers/mls-worker';
 
 // Types for MLS state
 
@@ -57,7 +60,7 @@ export interface UseMlsReturn extends MlsState {
   decrypt: (
     groupId: string,
     ciphertext: string
-  ) => Promise<{ plaintext: string; senderIndex: number }>;
+  ) => Promise<{ plaintext: string; senderIndex: number } | null>;
   getEpoch: (groupId: string) => Promise<number>;
   exportState: () => Promise<unknown>;
 }
@@ -95,9 +98,19 @@ function getSnapshot(): MlsState {
 // Singleton worker
 let worker: Worker | null = null;
 
-// Promise resolvers for async operations
-let pendingResolve: ((value: MlsWorkerResponse) => void) | null = null;
-let pendingReject: ((error: Error) => void) | null = null;
+// Pending requests map keyed by requestId for concurrent request handling
+interface PendingRequest {
+  resolve: (value: MlsWorkerResponse) => void;
+  reject: (error: Error) => void;
+}
+const pendingRequests = new Map<string, PendingRequest>();
+
+// Counter for generating unique request IDs
+let requestCounter = 0;
+
+function generateRequestId(): string {
+  return `req-${++requestCounter}-${Date.now()}`;
+}
 
 function getWorker(): Worker {
   if (!worker) {
@@ -107,17 +120,20 @@ function getWorker(): Worker {
 
     worker.onmessage = (event: MessageEvent<MlsWorkerResponse>) => {
       const response = event.data;
+      const pending = pendingRequests.get(response.requestId);
+
+      if (!pending) {
+        console.warn('Received response for unknown request:', response);
+        return;
+      }
+
+      pendingRequests.delete(response.requestId);
 
       if (response.type === 'error') {
         store.error = response.message;
         store.isLoading = false;
         emitChange();
-
-        if (pendingReject) {
-          pendingReject(new Error(response.message));
-          pendingResolve = null;
-          pendingReject = null;
-        }
+        pending.reject(new Error(response.message));
         return;
       }
 
@@ -128,11 +144,7 @@ function getWorker(): Worker {
         emitChange();
       }
 
-      if (pendingResolve) {
-        pendingResolve(response);
-        pendingResolve = null;
-        pendingReject = null;
-      }
+      pending.resolve(response);
     };
 
     worker.onerror = (error) => {
@@ -141,11 +153,11 @@ function getWorker(): Worker {
       store.isLoading = false;
       emitChange();
 
-      if (pendingReject) {
-        pendingReject(new Error(error.message));
-        pendingResolve = null;
-        pendingReject = null;
+      // Reject all pending requests on worker error
+      for (const [, pending] of pendingRequests) {
+        pending.reject(new Error(error.message));
       }
+      pendingRequests.clear();
     };
   }
 
@@ -154,16 +166,17 @@ function getWorker(): Worker {
 
 /**
  * Send a request to the worker and wait for response
+ * Each request gets a unique ID to handle concurrent operations safely
  */
 async function sendRequest(
-  request: MlsWorkerRequest
+  request: MlsWorkerRequestPayload
 ): Promise<MlsWorkerResponse> {
   const w = getWorker();
+  const requestId = generateRequestId();
 
   return new Promise((resolve, reject) => {
-    pendingResolve = resolve;
-    pendingReject = reject;
-    w.postMessage(request);
+    pendingRequests.set(requestId, { resolve, reject });
+    w.postMessage({ ...request, requestId });
   });
 }
 
@@ -176,11 +189,11 @@ export function resetMlsState(): void {
   store.error = null;
   store.userId = null;
 
-  if (pendingReject) {
-    pendingReject(new Error('Instance switched'));
+  // Reject all pending requests
+  for (const [, pending] of pendingRequests) {
+    pending.reject(new Error('Instance switched'));
   }
-  pendingResolve = null;
-  pendingReject = null;
+  pendingRequests.clear();
 
   // Terminate and clear the worker
   if (worker) {
@@ -339,7 +352,7 @@ export function useMLS(): UseMlsReturn {
     async (
       groupId: string,
       ciphertext: string
-    ): Promise<{ plaintext: string; senderIndex: number }> => {
+    ): Promise<{ plaintext: string; senderIndex: number } | null> => {
       if (!store.isInitialized) {
         throw new Error('MLS client not initialized');
       }
@@ -349,6 +362,11 @@ export function useMLS(): UseMlsReturn {
         groupId,
         ciphertext
       });
+
+      // Commit messages update state but have no content - return null to indicate this
+      if (response.type === 'commitProcessed') {
+        return null;
+      }
 
       if (response.type !== 'decrypted') {
         throw new Error('Unexpected response type');

@@ -87,14 +87,21 @@ router.post('/', async (req: Request, res: Response) => {
     const pool = await getPostgresPool();
     const now = new Date();
 
+    // Batch insert all key packages in a single query
+    const values: (string | Date)[] = [];
+    const placeholders: string[] = [];
+    let i = 1;
     for (const pkg of keyPackages) {
       const id = randomUUID();
-      await pool.query(
-        `INSERT INTO mls_key_packages (id, user_id, key_package_data, created_at, consumed)
-         VALUES ($1, $2, $3, $4, FALSE)`,
-        [id, claims.sub, pkg.keyPackageData, now]
-      );
+      values.push(id, claims.sub, pkg.keyPackageData, now);
+      placeholders.push(`($${i++}, $${i++}, $${i++}, $${i++}, FALSE)`);
     }
+
+    await pool.query(
+      `INSERT INTO mls_key_packages (id, user_id, key_package_data, created_at, consumed)
+       VALUES ${placeholders.join(', ')}`,
+      values
+    );
 
     res.status(201).json({ uploaded: keyPackages.length });
   } catch (error) {
