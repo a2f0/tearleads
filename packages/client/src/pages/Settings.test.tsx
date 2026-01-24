@@ -23,9 +23,24 @@ vi.mock('@/db/hooks', () => ({
 // Mock useSettings for TooltipsToggle
 vi.mock('@/db/SettingsProvider', () => ({
   useSettings: () => ({
-    getSetting: vi.fn((key: string) =>
-      key === 'desktopIconDepth' ? 'debossed' : 'enabled'
-    ),
+    getSetting: vi.fn((key: string) => {
+      switch (key) {
+        case 'desktopIconDepth':
+          return 'debossed';
+        case 'desktopPattern':
+          return 'isometric';
+        case 'font':
+          return 'system';
+        case 'language':
+          return 'en';
+        case 'theme':
+          return 'monochrome';
+        case 'tooltips':
+          return 'enabled';
+        default:
+          return 'enabled';
+      }
+    }),
     setSetting: vi.fn()
   })
 }));
