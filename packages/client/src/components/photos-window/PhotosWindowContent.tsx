@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
+import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
@@ -17,11 +18,15 @@ const ROW_HEIGHT_ESTIMATE = 72;
 interface PhotosWindowContentProps {
   onSelectPhoto?: (photoId: string) => void;
   refreshToken: number;
+  showDropzone?: boolean;
+  onUploadFiles?: (files: File[]) => void | Promise<void>;
 }
 
 export function PhotosWindowContent({
   onSelectPhoto,
-  refreshToken
+  refreshToken,
+  showDropzone = false,
+  onUploadFiles
 }: PhotosWindowContentProps) {
   const { t } = useTypedTranslation('contextMenu');
   const {
@@ -153,8 +158,20 @@ export function PhotosWindowContent({
               Loading photos...
             </div>
           ) : photos.length === 0 && hasFetched ? (
-            <div className="rounded-lg border p-6 text-center text-muted-foreground text-xs">
-              No photos yet. Use Upload to add images.
+            <div className="rounded-lg border p-6 text-center">
+              {showDropzone && onUploadFiles ? (
+                <Dropzone
+                  onFilesSelected={onUploadFiles}
+                  accept="image/*"
+                  multiple={true}
+                  label="photos"
+                  source="photos"
+                />
+              ) : (
+                <p className="text-muted-foreground text-xs">
+                  No photos yet. Use Upload to add images.
+                </p>
+              )}
             </div>
           ) : (
             <>
@@ -240,6 +257,17 @@ export function PhotosWindowContent({
                 </div>
               </div>
             </>
+          )}
+          {showDropzone && onUploadFiles && photos.length > 0 && (
+            <Dropzone
+              onFilesSelected={onUploadFiles}
+              accept="image/*"
+              multiple={true}
+              label="photos"
+              source="photos"
+              compact
+              variant="row"
+            />
           )}
         </div>
       )}
