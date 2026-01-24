@@ -227,29 +227,22 @@ describe('Sidebar', () => {
     expect(mockOnClose).toHaveBeenCalled();
   });
 
-  it('opens redis admin from submenu on desktop', async () => {
+  it.each([
+    { name: 'Redis', windowType: 'admin-redis' },
+    { name: 'Postgres', windowType: 'admin-postgres' }
+  ])('opens $name admin from submenu on desktop', async ({
+    name,
+    windowType
+  }) => {
     const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false });
 
     renderSidebar();
 
-    const redisButton = screen.getByRole('menuitem', { name: 'Redis' });
-    await user.click(redisButton);
+    const button = screen.getByRole('menuitem', { name });
+    await user.click(button);
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('admin-redis');
-    expect(mockOnClose).toHaveBeenCalled();
-  });
-
-  it('opens postgres admin from submenu on desktop', async () => {
-    const user = userEvent.setup();
-    mockMatchMedia({ isMobile: false, isTouch: false });
-
-    renderSidebar();
-
-    const postgresButton = screen.getByRole('menuitem', { name: 'Postgres' });
-    await user.click(postgresButton);
-
-    expect(mockOpenWindow).toHaveBeenCalledWith('admin-postgres');
+    expect(mockOpenWindow).toHaveBeenCalledWith(windowType);
     expect(mockOnClose).toHaveBeenCalled();
   });
 

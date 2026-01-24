@@ -301,8 +301,8 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
 
   const isDesktop = !isMobile && !isTouchDevice;
   const adminFlyoutItems = [
-    { path: '/admin/redis', label: 'Redis' },
-    { path: '/admin/postgres', label: 'Postgres' }
+    { path: '/admin/redis', labelKey: 'redis' as const },
+    { path: '/admin/postgres', labelKey: 'postgres' as const }
   ];
   const sidebarItems = isDesktop
     ? navItems.filter((item) => item.path !== '/admin/postgres')
@@ -439,7 +439,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
                           role="menuitem"
                         >
                           <Database className="h-4 w-4" />
-                          {subItem.label}
+                          {t(subItem.labelKey)}
                         </button>
                       );
                     })}
