@@ -522,13 +522,7 @@ router.post('/:groupId/members', async (req: Request, res: Response) => {
             continue;
           }
           const welcomeId = randomUUID();
-          welcomeValues.push(
-            welcomeId,
-            groupId,
-            userId,
-            welcomeData,
-            now
-          );
+          welcomeValues.push(welcomeId, groupId, userId, welcomeData, now);
           welcomePlaceholders.push(
             `($${j++}, $${j++}, $${j++}, $${j++}, $${j++}, FALSE)`
           );
