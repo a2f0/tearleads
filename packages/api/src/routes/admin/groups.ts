@@ -178,7 +178,7 @@ router.post(
         `INSERT INTO groups (id, name, description, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING id, name, description, created_at, updated_at`,
-        [id, name.trim(), description?.trim() ?? null, now, now]
+        [id, name.trim(), description?.trim() || null, now, now]
       );
 
       const row = result.rows[0];
