@@ -1,5 +1,7 @@
 set -e
 
+./scripts/checkBinaryFiles.sh --from-upstream
+
 pnpm lint
 pnpm lint:scripts
 pnpm lint:md
