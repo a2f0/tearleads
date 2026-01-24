@@ -32,6 +32,7 @@ export interface MenuTranslations {
   redis: string;
   postgres: string;
   postgresAdmin: string;
+  groups: string;
   adminUsers: string;
   settings: string;
   email: string;

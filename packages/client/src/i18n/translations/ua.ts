@@ -34,6 +34,7 @@ export const ua = {
     redis: 'Redis',
     postgres: 'Postgres',
     postgresAdmin: 'Адмін Postgres',
+    groups: 'Групи',
     adminUsers: 'Адмін користувачів',
     settings: 'Налаштування',
     email: 'Пошта',

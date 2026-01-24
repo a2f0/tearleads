@@ -51,11 +51,17 @@ const AdminLauncher = lazy(() =>
 const PostgresAdmin = lazy(() =>
   import('./pages/admin').then((m) => ({ default: m.PostgresAdmin }))
 );
-const GroupsAdmin = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.GroupsAdmin }))
+const GroupsAdminPage = lazy(() =>
+  import('./pages/admin').then((m) => ({ default: m.GroupsAdminPage }))
 );
-const GroupDetailPage = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.GroupDetailPage }))
+const GroupDetailPageRoute = lazy(() =>
+  import('./pages/admin').then((m) => ({ default: m.GroupDetailPageRoute }))
+);
+const UsersAdminPage = lazy(() =>
+  import('./pages/admin').then((m) => ({ default: m.UsersAdminPage }))
+);
+const UsersAdminDetail = lazy(() =>
+  import('./pages/admin').then((m) => ({ default: m.UsersAdminDetail }))
 );
 const Analytics = lazy(() =>
   import('./pages/analytics').then((m) => ({ default: m.Analytics }))
@@ -351,11 +357,19 @@ if (rootElement) {
                                       />
                                       <Route
                                         path="admin/groups"
-                                        element={<GroupsAdmin />}
+                                        element={<GroupsAdminPage />}
                                       />
                                       <Route
                                         path="admin/groups/:id"
-                                        element={<GroupDetailPage />}
+                                        element={<GroupDetailPageRoute />}
+                                      />
+                                      <Route
+                                        path="admin/users"
+                                        element={<UsersAdminPage />}
+                                      />
+                                      <Route
+                                        path="admin/users/:id"
+                                        element={<UsersAdminDetail />}
                                       />
                                       <Route path="sync" element={<Sync />} />
                                     </Route>

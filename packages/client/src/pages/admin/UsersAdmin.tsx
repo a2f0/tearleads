@@ -1,21 +1,19 @@
 import type { AdminUser } from '@rapid/shared';
 import { Check, Loader2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { api } from '@/lib/api';
 
 interface UsersAdminProps {
   showBackLink?: boolean;
-  onUserSelect?: (userId: string) => void;
+  onUserSelect: (userId: string) => void;
 }
 
 export function UsersAdmin({
   showBackLink = true,
   onUserSelect
 }: UsersAdminProps) {
-  const navigate = useNavigate();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,13 +38,9 @@ export function UsersAdmin({
 
   const handleUserClick = useCallback(
     (userId: string) => {
-      if (onUserSelect) {
-        onUserSelect(userId);
-      } else {
-        navigate(`/admin/users/${userId}`);
-      }
+      onUserSelect(userId);
     },
-    [navigate, onUserSelect]
+    [onUserSelect]
   );
 
   return (

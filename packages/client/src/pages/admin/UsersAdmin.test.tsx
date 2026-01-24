@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UsersAdmin } from './UsersAdmin';
 
 const mockList = vi.fn();
-const mockNavigate = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -16,14 +15,6 @@ vi.mock('@/lib/api', () => ({
     }
   }
 }));
-
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  };
-});
 
 describe('UsersAdmin', () => {
   beforeEach(() => {
@@ -47,11 +38,15 @@ describe('UsersAdmin', () => {
     ]
   };
 
+  const defaultProps = {
+    onUserSelect: vi.fn()
+  };
+
   it('renders heading and user rows', async () => {
     mockList.mockResolvedValueOnce(usersResponse);
     render(
       <MemoryRouter>
-        <UsersAdmin />
+        <UsersAdmin {...defaultProps} />
       </MemoryRouter>
     );
 
@@ -66,7 +61,7 @@ describe('UsersAdmin', () => {
     mockList.mockResolvedValueOnce(usersResponse);
     render(
       <MemoryRouter>
-        <UsersAdmin />
+        <UsersAdmin {...defaultProps} />
       </MemoryRouter>
     );
 
@@ -77,7 +72,7 @@ describe('UsersAdmin', () => {
     mockList.mockResolvedValueOnce(usersResponse);
     render(
       <MemoryRouter>
-        <UsersAdmin showBackLink={false} />
+        <UsersAdmin {...defaultProps} showBackLink={false} />
       </MemoryRouter>
     );
 
@@ -85,23 +80,7 @@ describe('UsersAdmin', () => {
     expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
   });
 
-  it('navigates to detail page when user row is clicked', async () => {
-    const user = userEvent.setup();
-    mockList.mockResolvedValueOnce(usersResponse);
-
-    render(
-      <MemoryRouter>
-        <UsersAdmin />
-      </MemoryRouter>
-    );
-
-    const userRow = await screen.findByText('admin@example.com');
-    await user.click(userRow);
-
-    expect(mockNavigate).toHaveBeenCalledWith('/admin/users/user-1');
-  });
-
-  it('calls onUserSelect callback when provided instead of navigating', async () => {
+  it('calls onUserSelect callback when user row is clicked', async () => {
     const user = userEvent.setup();
     const onUserSelect = vi.fn();
     mockList.mockResolvedValueOnce(usersResponse);
@@ -116,7 +95,6 @@ describe('UsersAdmin', () => {
     await user.click(userRow);
 
     expect(onUserSelect).toHaveBeenCalledWith('user-1');
-    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('shows loading state initially', async () => {
@@ -127,7 +105,7 @@ describe('UsersAdmin', () => {
 
     render(
       <MemoryRouter>
-        <UsersAdmin />
+        <UsersAdmin {...defaultProps} />
       </MemoryRouter>
     );
 
@@ -140,7 +118,7 @@ describe('UsersAdmin', () => {
 
     render(
       <MemoryRouter>
-        <UsersAdmin />
+        <UsersAdmin {...defaultProps} />
       </MemoryRouter>
     );
 
@@ -155,7 +133,7 @@ describe('UsersAdmin', () => {
 
     render(
       <MemoryRouter>
-        <UsersAdmin />
+        <UsersAdmin {...defaultProps} />
       </MemoryRouter>
     );
 
@@ -169,7 +147,7 @@ describe('UsersAdmin', () => {
 
     render(
       <MemoryRouter>
-        <UsersAdmin />
+        <UsersAdmin {...defaultProps} />
       </MemoryRouter>
     );
 
@@ -198,7 +176,7 @@ describe('UsersAdmin', () => {
 
     render(
       <MemoryRouter>
-        <UsersAdmin />
+        <UsersAdmin {...defaultProps} />
       </MemoryRouter>
     );
 
