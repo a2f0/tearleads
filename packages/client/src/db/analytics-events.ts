@@ -24,11 +24,14 @@ export type AnalyticsEventSlug =
   | 'api_get_admin_redis_dbsize'
   | 'api_get_admin_postgres_info'
   | 'api_get_admin_postgres_tables'
-  | 'api_get_admin_postgres_columns'
-  | 'api_get_admin_postgres_rows'
-  | 'api_get_admin_users'
-  | 'api_get_admin_user'
-  | 'api_patch_admin_user'
+  | 'api_get_admin_groups'
+  | 'api_get_admin_group'
+  | 'api_post_admin_group'
+  | 'api_put_admin_group'
+  | 'api_delete_admin_group'
+  | 'api_get_admin_group_members'
+  | 'api_post_admin_group_member'
+  | 'api_delete_admin_group_member'
   | 'api_post_auth_login'
   | 'api_get_auth_sessions'
   | 'api_delete_auth_session'
@@ -57,11 +60,14 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_get_admin_redis_dbsize: 'API Redis DB Size',
   api_get_admin_postgres_info: 'API Postgres Info',
   api_get_admin_postgres_tables: 'API Postgres Tables',
-  api_get_admin_postgres_columns: 'API Postgres Columns',
-  api_get_admin_postgres_rows: 'API Postgres Rows',
-  api_get_admin_users: 'API Admin Users',
-  api_get_admin_user: 'API Get Admin User',
-  api_patch_admin_user: 'API Update Admin User',
+  api_get_admin_groups: 'API List Groups',
+  api_get_admin_group: 'API Get Group',
+  api_post_admin_group: 'API Create Group',
+  api_put_admin_group: 'API Update Group',
+  api_delete_admin_group: 'API Delete Group',
+  api_get_admin_group_members: 'API Get Group Members',
+  api_post_admin_group_member: 'API Add Group Member',
+  api_delete_admin_group_member: 'API Remove Group Member',
   api_post_auth_login: 'API Auth Login',
   api_get_auth_sessions: 'API Get Sessions',
   api_delete_auth_session: 'API Delete Session',
@@ -130,20 +136,29 @@ export interface ApiGetAdminPostgresInfoDetail {
 export interface ApiGetAdminPostgresTablesDetail {
   tableCount?: number;
 }
-export interface ApiGetAdminPostgresColumnsDetail {
-  columnCount?: number;
+export interface ApiGetAdminGroupsDetail {
+  groupCount?: number;
 }
-export interface ApiGetAdminPostgresRowsDetail {
-  rowCount?: number;
+export interface ApiGetAdminGroupDetail {
+  memberCount?: number;
 }
-export interface ApiGetAdminUsersDetail {
-  userCount?: number;
+export interface ApiPostAdminGroupDetail {
+  groupName?: string;
 }
-export interface ApiGetAdminUserDetail {
+export interface ApiPutAdminGroupDetail {
+  groupId?: string;
+}
+export interface ApiDeleteAdminGroupDetail {
+  deleted?: boolean;
+}
+export interface ApiGetAdminGroupMembersDetail {
+  memberCount?: number;
+}
+export interface ApiPostAdminGroupMemberDetail {
   userId?: string;
 }
-export interface ApiPatchAdminUserDetail {
-  userId?: string;
+export interface ApiDeleteAdminGroupMemberDetail {
+  removed?: boolean;
 }
 export interface ApiPostAuthLoginDetail {
   email?: string;
@@ -188,11 +203,14 @@ export interface EventDetailMap {
   api_get_admin_redis_dbsize: ApiGetAdminRedisDbsizeDetail;
   api_get_admin_postgres_info: ApiGetAdminPostgresInfoDetail;
   api_get_admin_postgres_tables: ApiGetAdminPostgresTablesDetail;
-  api_get_admin_postgres_columns: ApiGetAdminPostgresColumnsDetail;
-  api_get_admin_postgres_rows: ApiGetAdminPostgresRowsDetail;
-  api_get_admin_users: ApiGetAdminUsersDetail;
-  api_get_admin_user: ApiGetAdminUserDetail;
-  api_patch_admin_user: ApiPatchAdminUserDetail;
+  api_get_admin_groups: ApiGetAdminGroupsDetail;
+  api_get_admin_group: ApiGetAdminGroupDetail;
+  api_post_admin_group: ApiPostAdminGroupDetail;
+  api_put_admin_group: ApiPutAdminGroupDetail;
+  api_delete_admin_group: ApiDeleteAdminGroupDetail;
+  api_get_admin_group_members: ApiGetAdminGroupMembersDetail;
+  api_post_admin_group_member: ApiPostAdminGroupMemberDetail;
+  api_delete_admin_group_member: ApiDeleteAdminGroupMemberDetail;
   api_post_auth_login: ApiPostAuthLoginDetail;
   api_get_auth_sessions: ApiGetAuthSessionsDetail;
   api_delete_auth_session: ApiDeleteAuthSessionDetail;

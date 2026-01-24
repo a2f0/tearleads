@@ -192,3 +192,35 @@ export const notes = sqliteTable(
     index('notes_title_idx').on(table.title)
   ]
 );
+
+/**
+ * Groups table for organizing users into named groups.
+ */
+export const groups = sqliteTable(
+  'groups',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    description: text('description'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [index('groups_name_idx').on(table.name)]
+);
+
+/**
+ * Junction table for many-to-many relationship between users and groups.
+ */
+export const userGroups = sqliteTable(
+  'user_groups',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    groupId: text('group_id')
+      .primaryKey()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+    joinedAt: integer('joined_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [index('user_groups_group_idx').on(table.groupId)]
+);
