@@ -38,6 +38,7 @@ export type AnalyticsEventSlug =
   | 'api_post_admin_group_member'
   | 'api_delete_admin_group_member'
   | 'api_post_auth_login'
+  | 'api_post_auth_refresh'
   | 'api_get_auth_sessions'
   | 'api_delete_auth_session'
   // LLM operations
@@ -79,6 +80,7 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_post_admin_group_member: 'API Add Group Member',
   api_delete_admin_group_member: 'API Remove Group Member',
   api_post_auth_login: 'API Auth Login',
+  api_post_auth_refresh: 'API Auth Refresh',
   api_get_auth_sessions: 'API Get Sessions',
   api_delete_auth_session: 'API Delete Session',
   // LLM
@@ -188,6 +190,9 @@ export interface ApiDeleteAdminGroupMemberDetail {
 export interface ApiPostAuthLoginDetail {
   email?: string;
 }
+export interface ApiPostAuthRefreshDetail {
+  refreshed?: boolean;
+}
 export interface ApiGetAuthSessionsDetail {
   sessionCount?: number;
 }
@@ -242,6 +247,7 @@ export interface EventDetailMap {
   api_post_admin_group_member: ApiPostAdminGroupMemberDetail;
   api_delete_admin_group_member: ApiDeleteAdminGroupMemberDetail;
   api_post_auth_login: ApiPostAuthLoginDetail;
+  api_post_auth_refresh: ApiPostAuthRefreshDetail;
   api_get_auth_sessions: ApiGetAuthSessionsDetail;
   api_delete_auth_session: ApiDeleteAuthSessionDetail;
   llm_model_load: LlmModelLoadDetail;

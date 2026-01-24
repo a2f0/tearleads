@@ -1,5 +1,8 @@
 import { isRecord } from '@rapid/shared';
-import { getAccessTokenTtlSeconds } from './authConfig.js';
+import {
+  getAccessTokenTtlSeconds,
+  getRefreshTokenTtlSeconds
+} from './authConfig.js';
 import { getRedisClient } from './redis.js';
 
 export type SessionData = {
@@ -38,7 +41,7 @@ export async function createSession(
 
   await client.set(key, JSON.stringify(sessionData), { EX: ttlSeconds });
   await client.sAdd(userSessionsKey, sessionId);
-  await client.expire(userSessionsKey, ttlSeconds);
+  await client.expire(userSessionsKey, getRefreshTokenTtlSeconds());
 }
 
 export async function getSession(
@@ -168,4 +171,122 @@ export async function deleteSession(
   await client.sRem(userSessionsKey, sessionId);
 
   return true;
+}
+
+// Refresh token storage
+const REFRESH_TOKEN_PREFIX = 'refresh_token';
+
+const getRefreshTokenKey = (tokenId: string): string =>
+  `${REFRESH_TOKEN_PREFIX}:${tokenId}`;
+
+export type RefreshTokenData = {
+  sessionId: string;
+  userId: string;
+  createdAt: string;
+};
+
+export async function storeRefreshToken(
+  tokenId: string,
+  data: Omit<RefreshTokenData, 'createdAt'>,
+  ttlSeconds: number
+): Promise<void> {
+  const client = await getRedisClient();
+  const key = getRefreshTokenKey(tokenId);
+  const tokenData: RefreshTokenData = {
+    ...data,
+    createdAt: new Date().toISOString()
+  };
+  await client.set(key, JSON.stringify(tokenData), { EX: ttlSeconds });
+}
+
+export async function getRefreshToken(
+  tokenId: string
+): Promise<RefreshTokenData | null> {
+  const client = await getRedisClient();
+  const key = getRefreshTokenKey(tokenId);
+  const raw = await client.get(key);
+  if (!raw) {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  if (!isRecord(parsed)) {
+    return null;
+  }
+
+  const sessionId = parsed['sessionId'];
+  const userId = parsed['userId'];
+  const createdAt = parsed['createdAt'];
+
+  if (
+    typeof sessionId !== 'string' ||
+    typeof userId !== 'string' ||
+    typeof createdAt !== 'string'
+  ) {
+    return null;
+  }
+
+  return { sessionId, userId, createdAt };
+}
+
+export async function deleteRefreshToken(tokenId: string): Promise<void> {
+  const client = await getRedisClient();
+  const key = getRefreshTokenKey(tokenId);
+  await client.del(key);
+}
+
+export type TokenRotationParams = {
+  oldRefreshTokenId: string;
+  oldSessionId: string;
+  newSessionId: string;
+  newRefreshTokenId: string;
+  sessionData: Omit<SessionData, 'createdAt' | 'lastActiveAt'>;
+  sessionTtlSeconds: number;
+  refreshTokenTtlSeconds: number;
+};
+
+export async function rotateTokensAtomically(
+  params: TokenRotationParams
+): Promise<void> {
+  const client = await getRedisClient();
+  const now = new Date().toISOString();
+
+  const oldRefreshTokenKey = getRefreshTokenKey(params.oldRefreshTokenId);
+  const oldSessionKey = getSessionKey(params.oldSessionId);
+  const newSessionKey = getSessionKey(params.newSessionId);
+  const newRefreshTokenKey = getRefreshTokenKey(params.newRefreshTokenId);
+  const userSessionsKey = getUserSessionsKey(params.sessionData.userId);
+
+  const newSessionData: SessionData = {
+    ...params.sessionData,
+    createdAt: now,
+    lastActiveAt: now
+  };
+
+  const newRefreshTokenData: RefreshTokenData = {
+    sessionId: params.newSessionId,
+    userId: params.sessionData.userId,
+    createdAt: now
+  };
+
+  const multi = client.multi();
+  multi.del(oldRefreshTokenKey);
+  multi.del(oldSessionKey);
+  multi.sRem(userSessionsKey, params.oldSessionId);
+  multi.set(newSessionKey, JSON.stringify(newSessionData), {
+    EX: params.sessionTtlSeconds
+  });
+  multi.set(newRefreshTokenKey, JSON.stringify(newRefreshTokenData), {
+    EX: params.refreshTokenTtlSeconds
+  });
+  multi.sAdd(userSessionsKey, params.newSessionId);
+  multi.expire(userSessionsKey, params.refreshTokenTtlSeconds);
+
+  await multi.exec();
 }
