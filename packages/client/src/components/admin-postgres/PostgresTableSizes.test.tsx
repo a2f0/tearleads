@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PostgresTableSizes } from './PostgresTableSizes';
@@ -74,5 +75,65 @@ describe('PostgresTableSizes', () => {
 
     expect(screen.queryByText('Total Database')).not.toBeInTheDocument();
     consoleSpy.mockRestore();
+  });
+
+  it('sorts tables by total bytes descending', async () => {
+    mockGetTables.mockResolvedValue({
+      tables: [
+        {
+          schema: 'public',
+          name: 'small_table',
+          rowCount: 5,
+          totalBytes: 1024,
+          tableBytes: 512,
+          indexBytes: 512
+        },
+        {
+          schema: 'public',
+          name: 'large_table',
+          rowCount: 100,
+          totalBytes: 10240,
+          tableBytes: 8192,
+          indexBytes: 2048
+        }
+      ]
+    });
+
+    renderWithRouter(<PostgresTableSizes />);
+
+    await waitFor(() => {
+      expect(screen.getByText('public.large_table')).toBeInTheDocument();
+    });
+
+    const tableLabels = screen.getAllByText(/public\./);
+    expect(tableLabels[0]).toHaveTextContent('public.large_table');
+    expect(tableLabels[1]).toHaveTextContent('public.small_table');
+  });
+
+  it('calls onTableSelect when table button is clicked', async () => {
+    const user = userEvent.setup();
+    const onTableSelect = vi.fn();
+    mockGetTables.mockResolvedValue({
+      tables: [
+        {
+          schema: 'public',
+          name: 'users',
+          rowCount: 12,
+          totalBytes: 2048,
+          tableBytes: 1024,
+          indexBytes: 1024
+        }
+      ]
+    });
+
+    renderWithRouter(<PostgresTableSizes onTableSelect={onTableSelect} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('public.users')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('public.users'));
+
+    expect(onTableSelect).toHaveBeenCalledWith('public', 'users');
   });
 });
