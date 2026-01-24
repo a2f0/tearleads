@@ -4,6 +4,7 @@ import {
   BarChart3,
   Bot,
   Bug,
+  ChevronRight,
   CircleHelp,
   Database,
   ExternalLink,
@@ -247,7 +248,7 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/analytics': 'analytics',
   '/audio': 'audio',
   '/models': 'models',
-  '/admin/redis': 'admin',
+  '/admin/redis': 'admin-redis',
   '/admin/postgres': 'admin-postgres',
   '/admin/users': 'admin-users',
   '/sync': 'sync'
@@ -299,6 +300,13 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   }, []);
 
   const isDesktop = !isMobile && !isTouchDevice;
+  const adminFlyoutItems = [
+    { path: '/admin/redis', label: 'Redis' },
+    { path: '/admin/postgres', label: 'Postgres' }
+  ];
+  const sidebarItems = isDesktop
+    ? navItems.filter((item) => item.path !== '/admin/postgres')
+    : navItems;
 
   const handleClick = useCallback(
     (path: string) => {
@@ -367,14 +375,24 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
     >
       <nav className="max-h-full overflow-y-auto p-4">
         <ul className="space-y-1">
-          {navItems.map((item) => {
+          {sidebarItems.map((item) => {
             const Icon = item.icon;
+            const isAdminFlyout = isDesktop && item.path === '/admin/redis';
+            const isAdminActive =
+              isAdminFlyout &&
+              adminFlyoutItems.some((subItem) =>
+                location.pathname.startsWith(subItem.path)
+              );
             const isActive =
-              item.path === '/'
+              isAdminActive ||
+              (item.path === '/'
                 ? location.pathname === '/'
-                : location.pathname.startsWith(item.path);
+                : location.pathname.startsWith(item.path));
             return (
-              <li key={item.path}>
+              <li
+                key={item.path}
+                className={cn(isAdminFlyout && 'relative group')}
+              >
                 <button
                   type="button"
                   data-testid={item.testId}
@@ -386,10 +404,47 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
                       ? 'bg-accent text-accent-foreground'
                       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   )}
+                  {...(isAdminFlyout && { 'aria-haspopup': 'menu' })}
                 >
                   <Icon className="h-5 w-5" />
                   {t(item.labelKey)}
+                  {isAdminFlyout && (
+                    <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />
+                  )}
                 </button>
+                {isAdminFlyout && (
+                  <div
+                    className="absolute left-full top-0 z-20 ml-2 hidden min-w-44 rounded-md border bg-background py-1 shadow-lg group-hover:block group-focus-within:block"
+                    role="menu"
+                    aria-label="Admin submenu"
+                  >
+                    {adminFlyoutItems.map((subItem) => {
+                      const isSubActive = location.pathname.startsWith(
+                        subItem.path
+                      );
+                      return (
+                        <button
+                          key={subItem.path}
+                          type="button"
+                          onClick={() => handleClick(subItem.path)}
+                          onContextMenu={(e) =>
+                            handleContextMenu(e, subItem.path)
+                          }
+                          className={cn(
+                            'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors',
+                            isSubActive
+                              ? 'bg-accent text-accent-foreground'
+                              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                          )}
+                          role="menuitem"
+                        >
+                          <Database className="h-4 w-4" />
+                          {subItem.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </li>
             );
           })}
