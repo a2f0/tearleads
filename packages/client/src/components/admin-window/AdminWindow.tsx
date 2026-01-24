@@ -40,20 +40,6 @@ function getViewTitle(view: AdminView): string {
   return 'Admin';
 }
 
-function getBackView(view: AdminView): AdminView {
-  if (typeof view === 'object' && view.type === 'group-detail') return 'groups';
-  if (typeof view === 'object' && view.type === 'user-detail') return 'users';
-  return 'index';
-}
-
-function getBackLabel(view: AdminView): string {
-  if (typeof view === 'object' && view.type === 'group-detail')
-    return 'Back to Groups';
-  if (typeof view === 'object' && view.type === 'user-detail')
-    return 'Back to Users';
-  return 'Back to Admin';
-}
-
 export function AdminWindow({
   id,
   onClose,
@@ -86,6 +72,43 @@ export function AdminWindow({
       );
     }
 
+    // Detail views handle their own back button
+    if (typeof view === 'object' && view.type === 'group-detail') {
+      return (
+        <GroupDetailPage
+          groupId={view.groupId}
+          onDelete={() => setView('groups')}
+          backLink={
+            <button
+              type="button"
+              onClick={() => setView('groups')}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          }
+        />
+      );
+    }
+
+    if (typeof view === 'object' && view.type === 'user-detail') {
+      return (
+        <UsersAdminDetail
+          userId={view.userId}
+          backLink={
+            <button
+              type="button"
+              onClick={() => setView('users')}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          }
+        />
+      );
+    }
+
+    // List views get a back button wrapper
     let content: React.ReactNode;
     if (view === 'redis') {
       content = <Admin showBackLink={false} />;
@@ -99,50 +122,17 @@ export function AdminWindow({
       content = (
         <UsersAdmin showBackLink={false} onUserSelect={handleUserSelect} />
       );
-    } else if (typeof view === 'object' && view.type === 'group-detail') {
-      content = (
-        <GroupDetailPage
-          groupId={view.groupId}
-          onDelete={() => setView('groups')}
-          backLink={
-            <button
-              type="button"
-              onClick={() => setView('groups')}
-              className="inline-flex items-center text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Groups
-            </button>
-          }
-        />
-      );
-    } else if (typeof view === 'object' && view.type === 'user-detail') {
-      content = (
-        <UsersAdminDetail
-          userId={view.userId}
-          backLink={
-            <button
-              type="button"
-              onClick={() => setView('users')}
-              className="inline-flex items-center text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Users
-            </button>
-          }
-        />
-      );
     }
 
     return (
       <div className="space-y-4">
         <button
           type="button"
-          onClick={() => setView(getBackView(view))}
+          onClick={() => setView('index')}
           className="inline-flex items-center text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          {getBackLabel(view)}
+          Back to Admin
         </button>
         {content}
       </div>
