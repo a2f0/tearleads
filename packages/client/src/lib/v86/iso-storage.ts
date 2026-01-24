@@ -7,6 +7,28 @@ interface IsoMetadata {
   isos: StoredIso[];
 }
 
+function isIsoFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  const looksLikeIso = name.endsWith('.iso');
+  const typeMatches =
+    file.type === 'application/x-iso9660-image' ||
+    file.type === 'application/octet-stream';
+  return looksLikeIso || typeMatches;
+}
+
+function createUploadId(file: File): string {
+  const baseName = file.name.replace(/\.[^/.]+$/, '').trim();
+  const slug = baseName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  const nonce =
+    typeof globalThis.crypto?.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `uploaded-${slug || 'iso'}-${nonce}`;
+}
+
 async function getIsoDirectory(): Promise<FileSystemDirectoryHandle> {
   const root = await navigator.storage.getDirectory();
   return root.getDirectoryHandle(ISO_DIRECTORY, { create: true });
@@ -103,6 +125,33 @@ export async function downloadIso(
   await writeMetadata(metadata);
 }
 
+export async function uploadIso(file: File): Promise<StoredIso> {
+  if (!isIsoFile(file)) {
+    throw new Error('Only .iso files are supported');
+  }
+
+  const dir = await getIsoDirectory();
+  const id = createUploadId(file);
+  const filename = `${id}.iso`;
+  const fileHandle = await dir.getFileHandle(filename, { create: true });
+  const writable = await fileHandle.createWritable();
+  await writable.write(file);
+  await writable.close();
+
+  const metadata = await readMetadata();
+  const storedIso: StoredIso = {
+    id,
+    name: file.name,
+    sizeBytes: file.size,
+    downloadedAt: new Date().toISOString()
+  };
+
+  metadata.isos.push(storedIso);
+  await writeMetadata(metadata);
+
+  return storedIso;
+}
+
 export async function getIsoUrl(id: string): Promise<string> {
   const dir = await getIsoDirectory();
   const filename = `${id}.iso`;
@@ -145,10 +194,17 @@ export async function getStorageUsage(): Promise<{
   const metadata = await readMetadata();
 
   const used = metadata.isos.reduce((sum, iso) => sum + iso.sizeBytes, 0);
+  const quota =
+    typeof estimate.quota === 'number' ? estimate.quota : undefined;
+  const usage =
+    typeof estimate.usage === 'number' ? estimate.usage : undefined;
 
   return {
     used,
-    available: (estimate.quota ?? 0) - (estimate.usage ?? 0)
+    available:
+      quota !== undefined && usage !== undefined
+        ? Math.max(0, quota - usage)
+        : 0
   };
 }
 

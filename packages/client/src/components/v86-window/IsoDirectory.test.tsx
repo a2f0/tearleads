@@ -33,6 +33,12 @@ vi.mock('@/lib/v86/iso-catalog', () => ({
   ]
 }));
 
+vi.mock('@/components/ui/dropzone', () => ({
+  Dropzone: ({ label }: { label?: string }) => (
+    <div data-testid="dropzone">Dropzone {label}</div>
+  )
+}));
+
 vi.mock('./IsoDirectoryItem', () => ({
   IsoDirectoryItem: ({
     entry,
@@ -54,6 +60,13 @@ vi.mock('./IsoDirectoryItem', () => ({
 }));
 
 describe('IsoDirectory', () => {
+  const defaultProps = {
+    onSelectIso: vi.fn(),
+    showDropzone: false,
+    onUploadFiles: vi.fn(),
+    refreshToken: 0
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -65,14 +78,14 @@ describe('IsoDirectory', () => {
     );
     (isoStorage.getStorageUsage as Mock).mockReturnValue(new Promise(() => {}));
 
-    render(<IsoDirectory onSelectIso={vi.fn()} />);
+    render(<IsoDirectory {...defaultProps} />);
     expect(screen.getByText('Loading...')).toBeInTheDocument();
   });
 
   it('shows error when OPFS is not supported', () => {
     (isoStorage.isOpfsSupported as Mock).mockReturnValue(false);
 
-    render(<IsoDirectory onSelectIso={vi.fn()} />);
+    render(<IsoDirectory {...defaultProps} />);
     expect(screen.getByText('Browser Not Supported')).toBeInTheDocument();
     expect(screen.getByText(/Origin Private File System/)).toBeInTheDocument();
   });
@@ -85,7 +98,7 @@ describe('IsoDirectory', () => {
       available: 1073741824
     });
 
-    render(<IsoDirectory onSelectIso={vi.fn()} />);
+    render(<IsoDirectory {...defaultProps} />);
 
     await waitFor(() => {
       expect(screen.getByTestId('iso-item-test-iso-1')).toBeInTheDocument();
@@ -103,7 +116,7 @@ describe('IsoDirectory', () => {
       available: 1073741824
     });
 
-    render(<IsoDirectory onSelectIso={vi.fn()} />);
+    render(<IsoDirectory {...defaultProps} />);
 
     await waitFor(() => {
       const item1 = screen.getByTestId('iso-item-test-iso-1');
@@ -125,7 +138,7 @@ describe('IsoDirectory', () => {
       available: 1073741824
     });
 
-    render(<IsoDirectory onSelectIso={vi.fn()} />);
+    render(<IsoDirectory {...defaultProps} />);
 
     await waitFor(() => {
       expect(screen.getByText(/1.0 MB used/)).toBeInTheDocument();
@@ -143,7 +156,7 @@ describe('IsoDirectory', () => {
       available: 1073741824
     });
 
-    render(<IsoDirectory onSelectIso={onSelectIso} />);
+    render(<IsoDirectory {...defaultProps} onSelectIso={onSelectIso} />);
 
     await waitFor(() => {
       expect(screen.getByTestId('iso-item-test-iso-1')).toBeInTheDocument();
@@ -166,10 +179,25 @@ describe('IsoDirectory', () => {
       available: 1073741824
     });
 
-    render(<IsoDirectory onSelectIso={vi.fn()} />);
+    render(<IsoDirectory {...defaultProps} />);
 
     await waitFor(() => {
       expect(screen.getByText('ISO Directory')).toBeInTheDocument();
+    });
+  });
+
+  it('renders dropzone when enabled', async () => {
+    (isoStorage.isOpfsSupported as Mock).mockReturnValue(true);
+    (isoStorage.listDownloadedIsos as Mock).mockResolvedValue([]);
+    (isoStorage.getStorageUsage as Mock).mockResolvedValue({
+      used: 0,
+      available: 1073741824
+    });
+
+    render(<IsoDirectory {...defaultProps} showDropzone={true} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('dropzone')).toBeInTheDocument();
     });
   });
 });
