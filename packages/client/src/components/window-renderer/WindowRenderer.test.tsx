@@ -1788,9 +1788,7 @@ describe('WindowRenderer', () => {
     mockWindows = [{ id: 'admin-redis-1', type: 'admin-redis', zIndex: 100 }];
     render(<WindowRenderer />, { wrapper });
 
-    await user.click(
-      screen.getByTestId('admin-redis-window-admin-redis-1')
-    );
+    await user.click(screen.getByTestId('admin-redis-window-admin-redis-1'));
     expect(mockFocusWindow).toHaveBeenCalledWith('admin-redis-1');
   });
 
