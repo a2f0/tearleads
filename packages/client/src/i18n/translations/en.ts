@@ -31,6 +31,8 @@ export const en = {
     chat: 'Chat',
     models: 'Models',
     admin: 'Admin',
+    redis: 'Redis',
+    postgres: 'Postgres',
     postgresAdmin: 'Postgres Admin',
     adminUsers: 'Users Admin',
     settings: 'Settings',
