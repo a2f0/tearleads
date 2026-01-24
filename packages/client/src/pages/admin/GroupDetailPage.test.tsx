@@ -9,15 +9,6 @@ const mockUpdate = vi.fn();
 const mockDelete = vi.fn();
 const mockAddMember = vi.fn();
 const mockRemoveMember = vi.fn();
-const mockNavigate = vi.fn();
-
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  };
-});
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -237,6 +228,7 @@ describe('GroupDetailPage', () => {
 
   it('deletes group when delete button is clicked', async () => {
     const user = userEvent.setup();
+    const onDelete = vi.fn();
     mockGet.mockResolvedValue({
       group: {
         id: 'group-1',
@@ -249,7 +241,16 @@ describe('GroupDetailPage', () => {
     });
     mockDelete.mockResolvedValue({ deleted: true });
 
-    renderGroupDetailPage();
+    render(
+      <MemoryRouter initialEntries={['/admin/groups/group-1']}>
+        <Routes>
+          <Route
+            path="/admin/groups/:id"
+            element={<GroupDetailPage onDelete={onDelete} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(
@@ -274,7 +275,7 @@ describe('GroupDetailPage', () => {
       expect(mockDelete).toHaveBeenCalledWith('group-1');
     });
 
-    expect(mockNavigate).toHaveBeenCalledWith('/admin/groups');
+    expect(onDelete).toHaveBeenCalled();
   });
 
   it('removes member when remove button is clicked', async () => {
