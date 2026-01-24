@@ -11,6 +11,15 @@ type ScanOptions = {
 interface RedisMultiMock {
   type: (key: string) => RedisMultiMock;
   ttl: (key: string) => RedisMultiMock;
+  del: (key: string) => RedisMultiMock;
+  set: (
+    key: string,
+    value: string,
+    options?: { EX?: number }
+  ) => RedisMultiMock;
+  sAdd: (key: string, members: string | string[]) => RedisMultiMock;
+  sRem: (key: string, member: string) => RedisMultiMock;
+  expire: (key: string, seconds: number) => RedisMultiMock;
   exec: () => Promise<Array<string | number | null | undefined>>;
 }
 
@@ -160,6 +169,26 @@ const createClientWithState = (
         },
         ttl: (key) => {
           commands.push(async () => client.ttl(key));
+          return chain;
+        },
+        del: (key) => {
+          commands.push(async () => client.del(key));
+          return chain;
+        },
+        set: (key, value, options) => {
+          commands.push(async () => client.set(key, value, options));
+          return chain;
+        },
+        sAdd: (key, members) => {
+          commands.push(async () => client.sAdd(key, members));
+          return chain;
+        },
+        sRem: (key, member) => {
+          commands.push(async () => client.sRem(key, member));
+          return chain;
+        },
+        expire: (key, seconds) => {
+          commands.push(async () => client.expire(key, seconds));
           return chain;
         },
         exec: async () => {
