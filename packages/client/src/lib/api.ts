@@ -230,6 +230,28 @@ export const api = {
             eventName: 'api_delete_admin_group_member'
           }
         )
+    },
+    users: {
+      list: () =>
+        request<AdminUsersResponse>('/admin/users', {
+          eventName: 'api_get_admin_users'
+        }),
+      get: (id: string) =>
+        request<AdminUserResponse>(`/admin/users/${encodeURIComponent(id)}`, {
+          eventName: 'api_get_admin_user'
+        }),
+      update: (id: string, data: AdminUserUpdatePayload) =>
+        request<AdminUserUpdateResponse>(
+          `/admin/users/${encodeURIComponent(id)}`,
+          {
+            fetchOptions: {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data)
+            },
+            eventName: 'api_patch_admin_user'
+          }
+        )
     }
   }
 };

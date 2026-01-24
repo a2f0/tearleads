@@ -24,6 +24,11 @@ export type AnalyticsEventSlug =
   | 'api_get_admin_redis_dbsize'
   | 'api_get_admin_postgres_info'
   | 'api_get_admin_postgres_tables'
+  | 'api_get_admin_postgres_columns'
+  | 'api_get_admin_postgres_rows'
+  | 'api_get_admin_users'
+  | 'api_get_admin_user'
+  | 'api_patch_admin_user'
   | 'api_get_admin_groups'
   | 'api_get_admin_group'
   | 'api_post_admin_group'
@@ -60,6 +65,11 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_get_admin_redis_dbsize: 'API Redis DB Size',
   api_get_admin_postgres_info: 'API Postgres Info',
   api_get_admin_postgres_tables: 'API Postgres Tables',
+  api_get_admin_postgres_columns: 'API Postgres Columns',
+  api_get_admin_postgres_rows: 'API Postgres Rows',
+  api_get_admin_users: 'API List Users',
+  api_get_admin_user: 'API Get User',
+  api_patch_admin_user: 'API Update User',
   api_get_admin_groups: 'API List Groups',
   api_get_admin_group: 'API Get Group',
   api_post_admin_group: 'API Create Group',
@@ -136,6 +146,21 @@ export interface ApiGetAdminPostgresInfoDetail {
 export interface ApiGetAdminPostgresTablesDetail {
   tableCount?: number;
 }
+export interface ApiGetAdminPostgresColumnsDetail {
+  columnCount?: number;
+}
+export interface ApiGetAdminPostgresRowsDetail {
+  rowCount?: number;
+}
+export interface ApiGetAdminUsersDetail {
+  userCount?: number;
+}
+export interface ApiGetAdminUserDetail {
+  userId?: string;
+}
+export interface ApiPatchAdminUserDetail {
+  userId?: string;
+}
 export interface ApiGetAdminGroupsDetail {
   groupCount?: number;
 }
@@ -203,6 +228,11 @@ export interface EventDetailMap {
   api_get_admin_redis_dbsize: ApiGetAdminRedisDbsizeDetail;
   api_get_admin_postgres_info: ApiGetAdminPostgresInfoDetail;
   api_get_admin_postgres_tables: ApiGetAdminPostgresTablesDetail;
+  api_get_admin_postgres_columns: ApiGetAdminPostgresColumnsDetail;
+  api_get_admin_postgres_rows: ApiGetAdminPostgresRowsDetail;
+  api_get_admin_users: ApiGetAdminUsersDetail;
+  api_get_admin_user: ApiGetAdminUserDetail;
+  api_patch_admin_user: ApiPatchAdminUserDetail;
   api_get_admin_groups: ApiGetAdminGroupsDetail;
   api_get_admin_group: ApiGetAdminGroupDetail;
   api_post_admin_group: ApiPostAdminGroupDetail;
