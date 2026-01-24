@@ -4,11 +4,13 @@ import { Photos } from '@/pages/Photos';
 interface PhotosWindowThumbnailViewProps {
   refreshToken: number;
   onSelectPhoto?: (photoId: string) => void;
+  showDropzone?: boolean;
 }
 
 export function PhotosWindowThumbnailView({
   refreshToken,
-  onSelectPhoto
+  onSelectPhoto,
+  showDropzone
 }: PhotosWindowThumbnailViewProps) {
   return (
     <MemoryRouter>
@@ -17,6 +19,7 @@ export function PhotosWindowThumbnailView({
           onSelectPhoto={onSelectPhoto}
           refreshToken={refreshToken}
           showBackLink={false}
+          showDropzone={showDropzone}
         />
       </div>
     </MemoryRouter>

@@ -215,9 +215,20 @@ describe('AudioWindowList', () => {
     await waitFor(() => {
       expect(screen.getByText('No audio files')).toBeInTheDocument();
     });
-    expect(
-      screen.getByText('Upload audio from the main Audio page')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Use Upload to add audio')).toBeInTheDocument();
+  });
+
+  it('renders dropzone when showDropzone is enabled and empty', async () => {
+    const onUploadFiles = vi.fn();
+    mockDb.orderBy.mockResolvedValue([]);
+
+    render(
+      <AudioWindowList showDropzone={true} onUploadFiles={onUploadFiles} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
+    });
   });
 
   it('renders tracks list when tracks exist', async () => {
@@ -228,6 +239,21 @@ describe('AudioWindowList', () => {
       expect(screen.getByText('Song One.mp3')).toBeInTheDocument();
     });
     expect(screen.getByText('Song Two.mp3')).toBeInTheDocument();
+  });
+
+  it('shows compact dropzone when showDropzone is enabled and tracks exist', async () => {
+    const onUploadFiles = vi.fn();
+    mockDb.orderBy.mockResolvedValue(mockTracks);
+
+    render(
+      <AudioWindowList showDropzone={true} onUploadFiles={onUploadFiles} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Song One.mp3')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('dropzone')).toBeInTheDocument();
   });
 
   it('renders search input when tracks exist', async () => {

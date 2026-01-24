@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { AudioWindow } from './AudioWindow';
 
+const mockUploadFile = vi.fn();
+
 vi.mock('@/components/floating-window', () => ({
   FloatingWindow: (props: {
     children: React.ReactNode;
@@ -27,11 +29,18 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
+vi.mock('@/hooks/useFileUpload', () => ({
+  useFileUpload: () => ({ uploadFile: mockUploadFile })
+}));
+
 vi.mock('./AudioWindowList', () => ({
   AudioWindowList: ({
     onSelectTrack
   }: {
     onSelectTrack?: (trackId: string) => void;
+    refreshToken?: number;
+    showDropzone?: boolean;
+    onUploadFiles?: (files: File[]) => void | Promise<void>;
   }) => (
     <div data-testid="audio-list">
       <button
@@ -47,10 +56,23 @@ vi.mock('./AudioWindowList', () => ({
 }));
 
 vi.mock('./AudioWindowMenuBar', () => ({
-  AudioWindowMenuBar: ({ onClose }: { onClose: () => void }) => (
+  AudioWindowMenuBar: ({
+    onClose,
+    onUpload
+  }: {
+    onClose: () => void;
+    onUpload: () => void;
+    showDropzone: boolean;
+    onShowDropzoneChange: (show: boolean) => void;
+    view: 'list' | 'table';
+    onViewChange: (view: 'list' | 'table') => void;
+  }) => (
     <div data-testid="menu-bar">
       <button type="button" onClick={onClose} data-testid="menu-close">
         Close
+      </button>
+      <button type="button" onClick={onUpload} data-testid="menu-upload">
+        Upload
       </button>
     </div>
   )
@@ -137,5 +159,34 @@ describe('AudioWindow', () => {
       'data-initial-dimensions',
       JSON.stringify(initialDimensions)
     );
+  });
+
+  it('uploads selected files from the file input', async () => {
+    const user = userEvent.setup();
+    render(<AudioWindow {...defaultProps} />);
+
+    const fileInput = screen.getByTestId(
+      'audio-file-input'
+    ) as HTMLInputElement;
+    const file = new File(['audio'], 'track.mp3', { type: 'audio/mpeg' });
+
+    await user.upload(fileInput, file);
+
+    await waitFor(() => {
+      expect(mockUploadFile).toHaveBeenCalledWith(file);
+    });
+  });
+
+  it('opens the file picker from the menu upload action', async () => {
+    const user = userEvent.setup();
+    const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click');
+
+    render(<AudioWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('menu-upload'));
+
+    expect(clickSpy).toHaveBeenCalled();
+
+    clickSpy.mockRestore();
   });
 });

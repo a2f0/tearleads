@@ -11,6 +11,8 @@ export type ViewMode = 'list' | 'table';
 interface DocumentsWindowMenuBarProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  showDropzone: boolean;
+  onShowDropzoneChange: (show: boolean) => void;
   onUpload: () => void;
   onRefresh: () => void;
   onClose: () => void;
@@ -19,6 +21,8 @@ interface DocumentsWindowMenuBarProps {
 export function DocumentsWindowMenuBar({
   viewMode,
   onViewModeChange,
+  showDropzone,
+  onShowDropzoneChange,
   onUpload,
   onRefresh,
   onClose
@@ -55,6 +59,14 @@ export function DocumentsWindowMenuBar({
           icon={<Table2 className="h-3 w-3" />}
         >
           Table
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => onShowDropzoneChange(!showDropzone)}
+          checked={showDropzone}
+          icon={<Upload className="h-3 w-3" />}
+        >
+          Show Dropzone
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <PreserveWindowStateMenuItem />
