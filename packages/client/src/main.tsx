@@ -54,6 +54,9 @@ const PostgresAdmin = lazy(() =>
 const UsersAdmin = lazy(() =>
   import('./pages/admin').then((m) => ({ default: m.UsersAdmin }))
 );
+const UsersAdminDetail = lazy(() =>
+  import('./pages/admin').then((m) => ({ default: m.UsersAdminDetail }))
+);
 const Analytics = lazy(() =>
   import('./pages/analytics').then((m) => ({ default: m.Analytics }))
 );
@@ -349,6 +352,10 @@ if (rootElement) {
                                       <Route
                                         path="admin/users"
                                         element={<UsersAdmin />}
+                                      />
+                                      <Route
+                                        path="admin/users/:id"
+                                        element={<UsersAdminDetail />}
                                       />
                                       <Route path="sync" element={<Sync />} />
                                     </Route>
