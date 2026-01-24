@@ -17,7 +17,11 @@ describe('admin groups routes', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.stubEnv('JWT_SECRET', 'test-secret');
-    authHeader = await createAuthHeader();
+    authHeader = await createAuthHeader({
+      id: 'admin-1',
+      email: 'admin@example.com',
+      admin: true
+    });
   });
 
   afterEach(() => {
