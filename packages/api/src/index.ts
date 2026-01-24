@@ -17,6 +17,7 @@ import { usersRouter } from './routes/admin/users.js';
 import { authRouter } from './routes/auth.js';
 import { chatRouter } from './routes/chat.js';
 import { emailsRouter } from './routes/emails.js';
+import { mlsRouter } from './routes/mls/index.js';
 import { closeAllSSEConnections, sseRouter } from './routes/sse.js';
 
 dotenv.config();
@@ -104,6 +105,9 @@ app.use('/v1/emails', emailsRouter);
 
 // SSE route
 app.use('/v1/sse', sseRouter);
+
+// MLS encrypted chat routes
+app.use('/v1/mls', mlsRouter);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {

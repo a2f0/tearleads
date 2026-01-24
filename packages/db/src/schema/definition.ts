@@ -435,6 +435,270 @@ export const analyticsEventsTable: TableDefinition = {
 };
 
 /**
+ * MLS KeyPackages for user key material distribution.
+ * KeyPackages are public keys that allow other users to add this user to MLS groups.
+ */
+export const mlsKeyPackagesTable: TableDefinition = {
+  name: 'mls_key_packages',
+  propertyName: 'mlsKeyPackages',
+  comment:
+    'MLS KeyPackages for user key material distribution.\nKeyPackages are public keys that allow other users to add this user to MLS groups.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    userId: {
+      type: 'text',
+      sqlName: 'user_id',
+      notNull: true,
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    keyPackageData: {
+      type: 'text',
+      sqlName: 'key_package_data',
+      notNull: true
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    },
+    consumed: {
+      type: 'boolean',
+      sqlName: 'consumed',
+      notNull: true,
+      defaultValue: false
+    }
+  },
+  indexes: [
+    { name: 'mls_key_packages_user_idx', columns: ['userId'] },
+    { name: 'mls_key_packages_consumed_idx', columns: ['consumed'] }
+  ]
+};
+
+/**
+ * Chat groups with MLS encryption.
+ */
+export const chatGroupsTable: TableDefinition = {
+  name: 'chat_groups',
+  propertyName: 'chatGroups',
+  comment: 'Chat groups with MLS encryption.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    name: {
+      type: 'text',
+      sqlName: 'name',
+      notNull: true
+    },
+    createdBy: {
+      type: 'text',
+      sqlName: 'created_by',
+      notNull: true,
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'restrict'
+      }
+    },
+    mlsGroupId: {
+      type: 'text',
+      sqlName: 'mls_group_id',
+      notNull: true
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    },
+    updatedAt: {
+      type: 'timestamp',
+      sqlName: 'updated_at',
+      notNull: true
+    }
+  },
+  indexes: [
+    { name: 'chat_groups_created_by_idx', columns: ['createdBy'] },
+    { name: 'chat_groups_mls_group_id_idx', columns: ['mlsGroupId'], unique: true }
+  ]
+};
+
+/**
+ * Chat group membership tracking.
+ */
+export const chatGroupMembersTable: TableDefinition = {
+  name: 'chat_group_members',
+  propertyName: 'chatGroupMembers',
+  comment: 'Chat group membership tracking.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    groupId: {
+      type: 'text',
+      sqlName: 'group_id',
+      notNull: true,
+      references: {
+        table: 'chat_groups',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    userId: {
+      type: 'text',
+      sqlName: 'user_id',
+      notNull: true,
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    role: {
+      type: 'text',
+      sqlName: 'role',
+      notNull: true,
+      defaultValue: 'member',
+      enumValues: ['admin', 'member'] as const
+    },
+    joinedAt: {
+      type: 'timestamp',
+      sqlName: 'joined_at',
+      notNull: true
+    }
+  },
+  indexes: [
+    { name: 'chat_group_members_group_idx', columns: ['groupId'] },
+    { name: 'chat_group_members_user_idx', columns: ['userId'] }
+  ]
+};
+
+/**
+ * Encrypted chat messages stored for delivery.
+ */
+export const chatMessagesTable: TableDefinition = {
+  name: 'chat_messages',
+  propertyName: 'chatMessages',
+  comment: 'Encrypted chat messages stored for delivery.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    groupId: {
+      type: 'text',
+      sqlName: 'group_id',
+      notNull: true,
+      references: {
+        table: 'chat_groups',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    senderId: {
+      type: 'text',
+      sqlName: 'sender_id',
+      notNull: true,
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'restrict'
+      }
+    },
+    ciphertext: {
+      type: 'text',
+      sqlName: 'ciphertext',
+      notNull: true
+    },
+    epoch: {
+      type: 'integer',
+      sqlName: 'epoch',
+      notNull: true
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    }
+  },
+  indexes: [
+    { name: 'chat_messages_group_idx', columns: ['groupId'] },
+    { name: 'chat_messages_sender_idx', columns: ['senderId'] },
+    { name: 'chat_messages_group_created_idx', columns: ['groupId', 'createdAt'] }
+  ]
+};
+
+/**
+ * MLS Welcome messages for new group members.
+ * Stored until the new member fetches them.
+ */
+export const mlsWelcomesTable: TableDefinition = {
+  name: 'mls_welcomes',
+  propertyName: 'mlsWelcomes',
+  comment:
+    'MLS Welcome messages for new group members.\nStored until the new member fetches them.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    groupId: {
+      type: 'text',
+      sqlName: 'group_id',
+      notNull: true,
+      references: {
+        table: 'chat_groups',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    recipientUserId: {
+      type: 'text',
+      sqlName: 'recipient_user_id',
+      notNull: true,
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    welcomeData: {
+      type: 'text',
+      sqlName: 'welcome_data',
+      notNull: true
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    },
+    fetched: {
+      type: 'boolean',
+      sqlName: 'fetched',
+      notNull: true,
+      defaultValue: false
+    }
+  },
+  indexes: [
+    { name: 'mls_welcomes_recipient_idx', columns: ['recipientUserId'] },
+    { name: 'mls_welcomes_group_idx', columns: ['groupId'] }
+  ]
+};
+
+/**
  * Notes table for storing user notes with markdown content.
  */
 export const notesTable: TableDefinition = {
@@ -571,6 +835,9 @@ export const allTables: TableDefinition[] = [
   contactEmailsTable,
   analyticsEventsTable,
   notesTable,
-  groupsTable,
-  userGroupsTable
+  mlsKeyPackagesTable,
+  chatGroupsTable,
+  chatGroupMembersTable,
+  chatMessagesTable,
+  mlsWelcomesTable
 ];

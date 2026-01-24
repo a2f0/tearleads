@@ -9,7 +9,8 @@ import {
  */
 function generateColumn(
   propertyName: string,
-  column: ColumnDefinition
+  column: ColumnDefinition,
+  tableNameToPropertyName: Map<string, string>
 ): string {
   const typeInfo = getPostgresTypeInfo(column.type);
 
@@ -37,8 +38,9 @@ function generateColumn(
   // References
   if (column.references) {
     const { table, column: columnName, onDelete } = column.references;
+    const refPropertyName = tableNameToPropertyName.get(table) ?? table;
     const options = onDelete ? `, { onDelete: '${onDelete}' }` : '';
-    result += `.references(() => ${table}.${columnName}${options})`;
+    result += `.references(() => ${refPropertyName}.${columnName}${options})`;
   }
 
   // Default value
@@ -53,7 +55,10 @@ function generateColumn(
 /**
  * Generate a PostgreSQL table definition.
  */
-function generateTable(table: TableDefinition): string {
+function generateTable(
+  table: TableDefinition,
+  tableNameToPropertyName: Map<string, string>
+): string {
   const lines: string[] = [];
 
   // JSDoc comment
@@ -81,7 +86,7 @@ function generateTable(table: TableDefinition): string {
   // Columns
   const columnEntries = Object.entries(table.columns);
   columnEntries.forEach(([propertyName, column], i) => {
-    const columnStr = generateColumn(propertyName, column);
+    const columnStr = generateColumn(propertyName, column, tableNameToPropertyName);
     const indent = hasIndexes ? '    ' : '  ';
     const comma = i < columnEntries.length - 1 ? ',' : '';
     lines.push(`${indent}${columnStr}${comma}`);
@@ -138,6 +143,12 @@ function collectDrizzleTypes(tables: TableDefinition[]): string[] {
 export function generatePostgresSchema(tables: TableDefinition[]): string {
   const lines: string[] = [];
 
+  // Build table name to property name mapping for references
+  const tableNameToPropertyName = new Map<string, string>();
+  for (const table of tables) {
+    tableNameToPropertyName.set(table.name, table.propertyName);
+  }
+
   // Imports
   const drizzleTypes = collectDrizzleTypes(tables);
   lines.push(
@@ -147,7 +158,7 @@ export function generatePostgresSchema(tables: TableDefinition[]): string {
 
   // Tables
   tables.forEach((table, i) => {
-    lines.push(generateTable(table));
+    lines.push(generateTable(table, tableNameToPropertyName));
     if (i < tables.length - 1) {
       lines.push('');
     }

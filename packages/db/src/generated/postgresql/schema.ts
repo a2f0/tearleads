@@ -197,33 +197,117 @@ export const notes = pgTable(
 );
 
 /**
- * Groups table for organizing users into named groups.
+ * MLS KeyPackages for user key material distribution.
+ * KeyPackages are public keys that allow other users to add this user to MLS groups.
  */
-export const groups = pgTable(
-  'groups',
+export const mlsKeyPackages = pgTable(
+  'mls_key_packages',
   {
     id: text('id').primaryKey(),
-    name: text('name').notNull(),
-    description: text('description'),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    keyPackageData: text('key_package_data').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
+    consumed: boolean('consumed').notNull().default(false)
   },
-  (table) => [uniqueIndex('groups_name_idx').on(table.name)]
+  (table) => [
+    index('mls_key_packages_user_idx').on(table.userId),
+    index('mls_key_packages_consumed_idx').on(table.consumed)
+  ]
 );
 
 /**
- * Junction table for many-to-many relationship between users and groups.
+ * Chat groups with MLS encryption.
  */
-export const userGroups = pgTable(
-  'user_groups',
+export const chatGroups = pgTable(
+  'chat_groups',
   {
-    userId: text('user_id')
-      .primaryKey()
-      .references(() => users.id, { onDelete: 'cascade' }),
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    mlsGroupId: text('mls_group_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    index('chat_groups_created_by_idx').on(table.createdBy),
+    index('chat_groups_mls_group_id_idx').on(table.mlsGroupId)
+  ]
+);
+
+/**
+ * Chat group membership tracking.
+ */
+export const chatGroupMembers = pgTable(
+  'chat_group_members',
+  {
+    id: text('id').primaryKey(),
     groupId: text('group_id')
-      .primaryKey()
-      .references(() => groups.id, { onDelete: 'cascade' }),
+      .notNull()
+      .references(() => chatGroups.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: text('role', {
+      enum: ['admin', 'member']
+    })
+      .notNull()
+      .default('member'),
     joinedAt: timestamp('joined_at', { withTimezone: true }).notNull()
   },
-  (table) => [index('user_groups_group_idx').on(table.groupId)]
+  (table) => [
+    index('chat_group_members_group_idx').on(table.groupId),
+    index('chat_group_members_user_idx').on(table.userId)
+  ]
+);
+
+/**
+ * Encrypted chat messages stored for delivery.
+ */
+export const chatMessages = pgTable(
+  'chat_messages',
+  {
+    id: text('id').primaryKey(),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => chatGroups.id, { onDelete: 'cascade' }),
+    senderId: text('sender_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    ciphertext: text('ciphertext').notNull(),
+    epoch: integer('epoch').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    index('chat_messages_group_idx').on(table.groupId),
+    index('chat_messages_sender_idx').on(table.senderId),
+    index('chat_messages_group_created_idx').on(table.groupId, table.createdAt)
+  ]
+);
+
+/**
+ * MLS Welcome messages for new group members.
+ * Stored until the new member fetches them.
+ */
+export const mlsWelcomes = pgTable(
+  'mls_welcomes',
+  {
+    id: text('id').primaryKey(),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => chatGroups.id, { onDelete: 'cascade' }),
+    recipientUserId: text('recipient_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    welcomeData: text('welcome_data').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    fetched: boolean('fetched').notNull().default(false)
+  },
+  (table) => [
+    index('mls_welcomes_recipient_idx').on(table.recipientUserId),
+    index('mls_welcomes_group_idx').on(table.groupId)
+  ]
 );

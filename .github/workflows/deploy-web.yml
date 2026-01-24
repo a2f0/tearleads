@@ -33,6 +33,17 @@ jobs:
       - name: Download SQLite WASM
         run: ./scripts/downloadSqliteWasm.sh
 
+      - name: Setup Rust
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Build MLS WASM
+        run: ./scripts/buildMlsWasm.sh
+
       - name: Generate web image assets
         run: ./packages/client/scripts/buildWebImageAssets.sh
 
