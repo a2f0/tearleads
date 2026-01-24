@@ -244,7 +244,7 @@ router.get('/:groupId/messages', async (req: Request, res: Response) => {
 
     // Build query with optional cursor
     let query: string;
-    let params: (string | number)[];
+    let params: (string | number | Date)[];
 
     if (typeof cursor === 'string' && cursor) {
       const cursorResult = await pool.query<{ created_at: Date; id: string }>(

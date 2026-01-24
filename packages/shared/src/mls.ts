@@ -190,7 +190,7 @@ export function isMlsBroadcast(value: unknown): value is MlsBroadcast {
   if (!isRecordLike(value) || !('type' in value)) {
     return false;
   }
-  const type = value.type;
+  const type = value['type'];
   return (
     type === 'mls_message' ||
     type === 'mls_welcome' ||
