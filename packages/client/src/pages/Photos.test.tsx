@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
@@ -112,10 +113,12 @@ const mockPhotos = [
   }
 ];
 
-async function renderPhotos() {
+async function renderPhotos(
+  props: Partial<ComponentProps<typeof Photos>> = {}
+) {
   const result = render(
     <MemoryRouter>
-      <Photos />
+      <Photos {...props} />
     </MemoryRouter>
   );
   // Flush the setTimeout(fn, 0) used for instance-aware fetching
@@ -572,6 +575,20 @@ describe('Photos', () => {
 
       // Should show the dropzone input
       expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
+    });
+
+    it('shows empty message without dropzone when disabled', async () => {
+      mockDb.orderBy.mockResolvedValue([]);
+
+      await renderPhotos({ showDropzone: false });
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/No photos yet\. Use Upload to add images\./)
+        ).toBeInTheDocument();
+      });
+
+      expect(screen.queryByTestId('dropzone-input')).not.toBeInTheDocument();
     });
   });
 

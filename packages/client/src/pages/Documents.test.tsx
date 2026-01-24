@@ -587,6 +587,20 @@ describe('Documents', () => {
 
       expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
     });
+
+    it('shows empty message without dropzone when disabled', async () => {
+      mockDb.orderBy.mockResolvedValue([]);
+
+      await renderDocuments({ showDropzone: false });
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(/No documents yet\. Use Upload to add documents\./)
+        ).toBeInTheDocument();
+      });
+
+      expect(screen.queryByTestId('dropzone-input')).not.toBeInTheDocument();
+    });
   });
 
   describe('dropzone with existing documents', () => {
