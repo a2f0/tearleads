@@ -8,7 +8,10 @@ interface PostgresAdminProps {
   onTableSelect?: (schema: string, tableName: string) => void;
 }
 
-export function PostgresAdmin({ showBackLink = true }: PostgresAdminProps) {
+export function PostgresAdmin({
+  showBackLink = true,
+  onTableSelect
+}: PostgresAdminProps) {
   const inRouterContext = useInRouterContext();
 
   const content = (
@@ -30,8 +33,6 @@ export function PostgresAdmin({ showBackLink = true }: PostgresAdminProps) {
   }
 
   return (
-    <MemoryRouter initialEntries={['/admin/postgres']}>
-      {content}
-    </MemoryRouter>
+    <MemoryRouter initialEntries={['/admin/postgres']}>{content}</MemoryRouter>
   );
 }
