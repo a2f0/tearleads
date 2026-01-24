@@ -9,15 +9,6 @@ const mockUpdate = vi.fn();
 const mockDelete = vi.fn();
 const mockAddMember = vi.fn();
 const mockRemoveMember = vi.fn();
-const mockNavigate = vi.fn();
-
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  };
-});
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -237,6 +228,7 @@ describe('GroupDetailPage', () => {
 
   it('deletes group when delete button is clicked', async () => {
     const user = userEvent.setup();
+    const onDelete = vi.fn();
     mockGet.mockResolvedValue({
       group: {
         id: 'group-1',
@@ -249,7 +241,16 @@ describe('GroupDetailPage', () => {
     });
     mockDelete.mockResolvedValue({ deleted: true });
 
-    renderGroupDetailPage();
+    render(
+      <MemoryRouter initialEntries={['/admin/groups/group-1']}>
+        <Routes>
+          <Route
+            path="/admin/groups/:id"
+            element={<GroupDetailPage onDelete={onDelete} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
       expect(
@@ -257,7 +258,7 @@ describe('GroupDetailPage', () => {
       ).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: /delete/i }));
+    await user.click(screen.getByTestId('group-delete-button'));
 
     expect(
       screen.getByText(
@@ -265,16 +266,13 @@ describe('GroupDetailPage', () => {
       )
     ).toBeInTheDocument();
 
-    const deleteButtons = screen.getAllByRole('button', { name: 'Delete' });
-    const confirmButton = deleteButtons[1];
-    if (!confirmButton) throw new Error('Confirm button not found');
-    await user.click(confirmButton);
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {
       expect(mockDelete).toHaveBeenCalledWith('group-1');
     });
 
-    expect(mockNavigate).toHaveBeenCalledWith('/admin/groups');
+    expect(onDelete).toHaveBeenCalled();
   });
 
   it('removes member when remove button is clicked', async () => {
@@ -303,8 +301,7 @@ describe('GroupDetailPage', () => {
       expect(screen.getByText('user1@test.com')).toBeInTheDocument();
     });
 
-    const removeButton = screen.getByRole('button', { name: '' });
-    await user.click(removeButton);
+    await user.click(screen.getByTestId('remove-member-user-1'));
 
     expect(screen.getByText('Remove Member')).toBeInTheDocument();
     expect(

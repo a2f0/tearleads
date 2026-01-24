@@ -6,9 +6,13 @@ import { Button } from '@/components/ui/button';
 
 interface GroupsAdminProps {
   showBackLink?: boolean;
+  onGroupSelect: (groupId: string) => void;
 }
 
-export function GroupsAdmin({ showBackLink = true }: GroupsAdminProps) {
+export function GroupsAdmin({
+  showBackLink = true,
+  onGroupSelect
+}: GroupsAdminProps) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -34,6 +38,7 @@ export function GroupsAdmin({ showBackLink = true }: GroupsAdminProps) {
       <GroupsList
         key={refreshKey}
         onCreateClick={() => setCreateDialogOpen(true)}
+        onGroupSelect={onGroupSelect}
       />
       <CreateGroupDialog
         open={createDialogOpen}

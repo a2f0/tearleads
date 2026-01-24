@@ -114,8 +114,8 @@ export function UsersAdminDetail({
 
   if (loading) {
     return (
-      <div className="flex h-full flex-col space-y-6">
-        <div className="space-y-2">
+      <div className="flex h-full flex-col space-y-4">
+        <div className="flex items-center gap-2">
           {backLink ?? (
             <BackLink defaultTo="/admin/users" defaultLabel="Back to Users" />
           )}
@@ -130,8 +130,8 @@ export function UsersAdminDetail({
 
   if (error || !user || !draft) {
     return (
-      <div className="flex h-full flex-col space-y-6">
-        <div className="space-y-2">
+      <div className="flex h-full flex-col space-y-4">
+        <div className="flex items-center gap-2">
           {backLink ?? (
             <BackLink defaultTo="/admin/users" defaultLabel="Back to Users" />
           )}
@@ -144,15 +144,15 @@ export function UsersAdminDetail({
   }
 
   return (
-    <div className="flex h-full flex-col space-y-6">
-      <div className="space-y-2">
+    <div className="flex h-full flex-col space-y-4">
+      <div className="flex items-center gap-2">
         {backLink ?? (
           <BackLink defaultTo="/admin/users" defaultLabel="Back to Users" />
         )}
-        <div>
-          <h1 className="font-bold text-2xl tracking-tight">Edit User</h1>
-          <p className="font-mono text-muted-foreground text-sm">{user.id}</p>
-        </div>
+      </div>
+      <div>
+        <h1 className="font-bold text-lg">Edit User</h1>
+        <p className="font-mono text-muted-foreground text-sm">{user.id}</p>
       </div>
 
       {saveError && (

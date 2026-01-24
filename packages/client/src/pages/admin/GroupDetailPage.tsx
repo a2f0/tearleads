@@ -1,7 +1,8 @@
 import type { Group, GroupMember } from '@rapid/shared';
 import { Loader2, Save, Trash2, UserMinus, UserPlus } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -9,9 +10,19 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 
-export function GroupDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+interface GroupDetailPageProps {
+  groupId?: string;
+  backLink?: ReactNode;
+  onDelete?: () => void;
+}
+
+export function GroupDetailPage({
+  groupId: propGroupId,
+  backLink,
+  onDelete
+}: GroupDetailPageProps) {
+  const { id: paramId } = useParams<{ id: string }>();
+  const id = propGroupId ?? paramId;
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +86,7 @@ export function GroupDetailPage() {
   const handleDelete = async () => {
     if (!id) return;
     await api.admin.groups.delete(id);
-    navigate('/admin/groups');
+    onDelete?.();
   };
 
   const handleAddMember = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -119,8 +130,12 @@ export function GroupDetailPage() {
 
   if (!group) {
     return (
-      <div className="flex h-full flex-col space-y-6">
-        <BackLink defaultTo="/admin/groups" defaultLabel="Back to Groups" />
+      <div className="flex h-full flex-col space-y-4">
+        <div className="flex items-center gap-2">
+          {backLink ?? (
+            <BackLink defaultTo="/admin/groups" defaultLabel="Back to Groups" />
+          )}
+        </div>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
           <p className="text-destructive">Group not found</p>
         </div>
@@ -129,21 +144,22 @@ export function GroupDetailPage() {
   }
 
   return (
-    <div className="flex h-full flex-col space-y-6">
-      <div className="space-y-2">
-        <BackLink defaultTo="/admin/groups" defaultLabel="Back to Groups" />
-        <div className="flex items-center justify-between">
-          <h1 className="font-bold text-2xl tracking-tight">Edit Group</h1>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setDeleteDialogOpen(true)}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
-          </Button>
-        </div>
+    <div className="flex h-full flex-col space-y-4">
+      <div className="flex items-center gap-2">
+        {backLink ?? (
+          <BackLink defaultTo="/admin/groups" defaultLabel="Back to Groups" />
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-auto h-7 px-2 text-destructive hover:text-destructive"
+          onClick={() => setDeleteDialogOpen(true)}
+          data-testid="group-delete-button"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
       </div>
+      <h1 className="font-bold text-lg">Edit Group</h1>
 
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -231,6 +247,7 @@ export function GroupDetailPage() {
                   size="sm"
                   className="text-destructive hover:text-destructive"
                   onClick={() => setRemoveMemberDialog(member)}
+                  data-testid={`remove-member-${member.userId}`}
                 >
                   <UserMinus className="h-4 w-4" />
                 </Button>

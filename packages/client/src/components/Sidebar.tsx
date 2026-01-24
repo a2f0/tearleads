@@ -25,9 +25,9 @@ import {
   StickyNote,
   Terminal,
   User,
-  Users
+  Users as UsersIcon
 } from 'lucide-react';
-import { forwardRef, useCallback, useEffect, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
@@ -63,7 +63,7 @@ export const navItems: NavItem[] = [
   },
   {
     path: '/contacts',
-    icon: Users,
+    icon: UsersIcon,
     labelKey: 'contacts',
     inMobileMenu: true,
     testId: 'contacts-link'
@@ -188,7 +188,7 @@ export const navItems: NavItem[] = [
     testId: 'models-link'
   },
   {
-    path: '/admin/redis',
+    path: '/admin',
     icon: Shield,
     labelKey: 'admin',
     inMobileMenu: true,
@@ -200,13 +200,6 @@ export const navItems: NavItem[] = [
     labelKey: 'adminUsers',
     inMobileMenu: true,
     testId: 'admin-users-link'
-  },
-  {
-    path: '/admin/postgres',
-    icon: Database,
-    labelKey: 'postgresAdmin',
-    inMobileMenu: true,
-    testId: 'postgres-admin-link'
   },
   {
     path: '/sync',
@@ -256,8 +249,7 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/analytics': 'analytics',
   '/audio': 'audio',
   '/models': 'models',
-  '/admin/redis': 'admin-redis',
-  '/admin/postgres': 'admin-postgres',
+  '/admin': 'admin',
   '/admin/users': 'admin-users',
   '/sync': 'sync',
   '/v86': 'v86'
@@ -283,6 +275,9 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
     y: number;
     path: string;
   } | null>(null);
+  const [adminFlyoutOpen, setAdminFlyoutOpen] = useState(false);
+  const [adminButtonRect, setAdminButtonRect] = useState<DOMRect | null>(null);
+  const adminButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     // Corresponds to Tailwind's `lg` breakpoint (min-width: 1024px).
@@ -309,12 +304,17 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   }, []);
 
   const isDesktop = !isMobile && !isTouchDevice;
+
   const adminFlyoutItems = [
-    { path: '/admin/redis', labelKey: 'redis' as const },
-    { path: '/admin/postgres', labelKey: 'postgres' as const }
+    { path: '/admin', labelKey: 'redis' as const, icon: Database },
+    { path: '/admin/postgres', labelKey: 'postgres' as const, icon: Database },
+    { path: '/admin/groups', labelKey: 'groups' as const, icon: UsersIcon },
+    { path: '/admin/users', labelKey: 'adminUsers' as const, icon: User }
   ];
+
+  // On desktop, filter out /admin/users from main nav since it's in the flyout
   const sidebarItems = isDesktop
-    ? navItems.filter((item) => item.path !== '/admin/postgres')
+    ? navItems.filter((item) => item.path !== '/admin/users')
     : navItems;
 
   const handleClick = useCallback(
@@ -386,7 +386,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
         <ul className="space-y-1">
           {sidebarItems.map((item) => {
             const Icon = item.icon;
-            const isAdminFlyout = isDesktop && item.path === '/admin/redis';
+            const isAdminFlyout = isDesktop && item.path === '/admin';
             const isAdminActive =
               isAdminFlyout &&
               adminFlyoutItems.some((subItem) =>
@@ -397,11 +397,44 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
               (item.path === '/'
                 ? location.pathname === '/'
                 : location.pathname.startsWith(item.path));
+            if (isAdminFlyout) {
+              return (
+                <li
+                  key={item.path}
+                  onMouseEnter={() => {
+                    setAdminFlyoutOpen(true);
+                    if (adminButtonRef.current) {
+                      setAdminButtonRect(
+                        adminButtonRef.current.getBoundingClientRect()
+                      );
+                    }
+                  }}
+                  onMouseLeave={() => setAdminFlyoutOpen(false)}
+                >
+                  <button
+                    ref={adminButtonRef}
+                    type="button"
+                    data-testid={item.testId}
+                    onClick={() => handleClick(item.path)}
+                    onContextMenu={(e) => handleContextMenu(e, item.path)}
+                    className={cn(
+                      'flex w-full items-center gap-3 rounded-md px-3 py-2 text-left font-medium text-sm transition-colors',
+                      isActive
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    )}
+                    aria-haspopup="menu"
+                  >
+                    <Icon className="h-5 w-5" />
+                    {t(item.labelKey)}
+                    <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />
+                  </button>
+                </li>
+              );
+            }
+
             return (
-              <li
-                key={item.path}
-                className={cn(isAdminFlyout && 'group relative')}
-              >
+              <li key={item.path}>
                 <button
                   type="button"
                   data-testid={item.testId}
@@ -413,52 +446,56 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
                       ? 'bg-accent text-accent-foreground'
                       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   )}
-                  {...(isAdminFlyout && { 'aria-haspopup': 'menu' })}
                 >
                   <Icon className="h-5 w-5" />
                   {t(item.labelKey)}
-                  {isAdminFlyout && (
-                    <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />
-                  )}
                 </button>
-                {isAdminFlyout && (
-                  <div
-                    className="absolute top-0 left-full z-20 ml-2 hidden min-w-44 rounded-md border bg-background py-1 shadow-lg group-focus-within:block group-hover:block"
-                    role="menu"
-                    aria-label="Admin submenu"
-                  >
-                    {adminFlyoutItems.map((subItem) => {
-                      const isSubActive = location.pathname.startsWith(
-                        subItem.path
-                      );
-                      return (
-                        <button
-                          key={subItem.path}
-                          type="button"
-                          onClick={() => handleClick(subItem.path)}
-                          onContextMenu={(e) =>
-                            handleContextMenu(e, subItem.path)
-                          }
-                          className={cn(
-                            'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors',
-                            isSubActive
-                              ? 'bg-accent text-accent-foreground'
-                              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                          )}
-                          role="menuitem"
-                        >
-                          <Database className="h-4 w-4" />
-                          {t(subItem.labelKey)}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
               </li>
             );
           })}
         </ul>
       </nav>
+
+      {adminFlyoutOpen && adminButtonRect && (
+        <div
+          className="fixed z-[70] min-w-44 pl-2"
+          style={{
+            left: adminButtonRect.right,
+            top: adminButtonRect.top
+          }}
+          role="menu"
+          aria-label="Admin submenu"
+          data-testid="admin-flyout-menu"
+          onMouseEnter={() => setAdminFlyoutOpen(true)}
+          onMouseLeave={() => setAdminFlyoutOpen(false)}
+        >
+          <div className="rounded-md border bg-background py-1 shadow-lg">
+            {adminFlyoutItems.map((subItem) => {
+              const SubIcon = subItem.icon;
+              const isSubActive = location.pathname.startsWith(subItem.path);
+              return (
+                <button
+                  key={subItem.path}
+                  type="button"
+                  data-testid={`admin-flyout-${subItem.labelKey}`}
+                  onClick={() => handleClick(subItem.path)}
+                  onContextMenu={(e) => handleContextMenu(e, subItem.path)}
+                  className={cn(
+                    'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors',
+                    isSubActive
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
+                  role="menuitem"
+                >
+                  <SubIcon className="h-4 w-4" />
+                  {t(subItem.labelKey)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {contextMenu && (
         <ContextMenu

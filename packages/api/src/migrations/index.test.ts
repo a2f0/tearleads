@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 5 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 6 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(5);
+      expect(result.currentVersion).toBe(6);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 5 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 6 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -157,8 +157,8 @@ describe('migrations', () => {
 
       const result = await runMigrations(pool);
 
-      expect(result.applied).toEqual([2, 3, 4, 5]);
-      expect(result.currentVersion).toBe(5);
+      expect(result.applied).toEqual([2, 3, 4, 5, 6]);
+      expect(result.currentVersion).toBe(6);
     });
   });
 
@@ -289,6 +289,29 @@ describe('migrations', () => {
       expect(queries).toContain('CREATE INDEX IF NOT EXISTS "users_email_idx"');
       expect(queries).toContain(
         'CREATE TABLE IF NOT EXISTS "user_credentials"'
+      );
+    });
+  });
+
+  describe('v006 migration', () => {
+    it('creates groups and user_groups tables', async () => {
+      const pool = createMockPool(new Map());
+
+      const v006 = migrations.find((m: Migration) => m.version === 6);
+      if (!v006) {
+        throw new Error('v006 migration not found');
+      }
+
+      await v006.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "groups"');
+      expect(queries).toContain(
+        'CREATE UNIQUE INDEX IF NOT EXISTS "groups_name_idx"'
+      );
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "user_groups"');
+      expect(queries).toContain(
+        'CREATE INDEX IF NOT EXISTS "user_groups_group_idx"'
       );
     });
   });
