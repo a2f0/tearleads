@@ -11,7 +11,14 @@ vi.mock('@/components/window-menu/PreserveWindowStateMenuItem', () => ({
 
 describe('V86WindowMenuBar', () => {
   it('renders File, View, and Help menus', () => {
-    render(<V86WindowMenuBar onClose={vi.fn()} />);
+    render(
+      <V86WindowMenuBar
+        showDropzone={false}
+        onShowDropzoneChange={vi.fn()}
+        onUpload={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
     expect(screen.getByText('File')).toBeInTheDocument();
     expect(screen.getByText('View')).toBeInTheDocument();
     expect(screen.getByText('Help')).toBeInTheDocument();
@@ -20,7 +27,14 @@ describe('V86WindowMenuBar', () => {
   it('calls onClose when Close menu item is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<V86WindowMenuBar onClose={onClose} />);
+    render(
+      <V86WindowMenuBar
+        showDropzone={false}
+        onShowDropzoneChange={vi.fn()}
+        onUpload={vi.fn()}
+        onClose={onClose}
+      />
+    );
 
     await user.click(screen.getByText('File'));
     await user.click(screen.getByText('Close'));
@@ -28,9 +42,52 @@ describe('V86WindowMenuBar', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('calls onUpload when Upload menu item is clicked', async () => {
+    const user = userEvent.setup();
+    const onUpload = vi.fn();
+    render(
+      <V86WindowMenuBar
+        showDropzone={false}
+        onShowDropzoneChange={vi.fn()}
+        onUpload={onUpload}
+        onClose={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByText('File'));
+    await user.click(screen.getByText('Upload'));
+
+    expect(onUpload).toHaveBeenCalledTimes(1);
+  });
+
+  it('toggles dropzone from View menu', async () => {
+    const user = userEvent.setup();
+    const onShowDropzoneChange = vi.fn();
+    render(
+      <V86WindowMenuBar
+        showDropzone={false}
+        onShowDropzoneChange={onShowDropzoneChange}
+        onUpload={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByText('View'));
+    await user.click(screen.getByText('Show Dropzone'));
+
+    expect(onShowDropzoneChange).toHaveBeenCalledWith(true);
+  });
+
   it('renders PreserveWindowStateMenuItem in View menu', async () => {
     const user = userEvent.setup();
-    render(<V86WindowMenuBar onClose={vi.fn()} />);
+    render(
+      <V86WindowMenuBar
+        showDropzone={false}
+        onShowDropzoneChange={vi.fn()}
+        onUpload={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
 
     await user.click(screen.getByText('View'));
     expect(screen.getByTestId('preserve-state-item')).toBeInTheDocument();
@@ -39,7 +96,14 @@ describe('V86WindowMenuBar', () => {
   it('opens GitHub link in new tab', async () => {
     const user = userEvent.setup();
     const windowOpen = vi.spyOn(window, 'open').mockImplementation(() => null);
-    render(<V86WindowMenuBar onClose={vi.fn()} />);
+    render(
+      <V86WindowMenuBar
+        showDropzone={false}
+        onShowDropzoneChange={vi.fn()}
+        onUpload={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
 
     await user.click(screen.getByText('Help'));
     await user.click(screen.getByText('v86 on GitHub'));
@@ -55,7 +119,14 @@ describe('V86WindowMenuBar', () => {
   it('opens v86 demo link in new tab', async () => {
     const user = userEvent.setup();
     const windowOpen = vi.spyOn(window, 'open').mockImplementation(() => null);
-    render(<V86WindowMenuBar onClose={vi.fn()} />);
+    render(
+      <V86WindowMenuBar
+        showDropzone={false}
+        onShowDropzoneChange={vi.fn()}
+        onUpload={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
 
     await user.click(screen.getByText('Help'));
     await user.click(screen.getByText('v86 Demo'));
