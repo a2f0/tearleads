@@ -25,16 +25,24 @@ export function createJwt(
   });
 }
 
-export function verifyJwt(token: string, secret: string): JwtClaims | null {
+function verifyAndValidate<T>(
+  token: string,
+  secret: string,
+  validator: (decoded: Record<string, unknown>) => T | null
+): T | null {
   try {
-    const decoded = jwt.verify(token, secret, {
-      algorithms: ['HS256']
-    });
-
+    const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] });
     if (!isRecord(decoded)) {
       return null;
     }
+    return validator(decoded);
+  } catch {
+    return null;
+  }
+}
 
+export function verifyJwt(token: string, secret: string): JwtClaims | null {
+  return verifyAndValidate(token, secret, (decoded) => {
     const sub = decoded['sub'];
     const email = decoded['email'];
     const jti = decoded['jti'];
@@ -47,34 +55,19 @@ export function verifyJwt(token: string, secret: string): JwtClaims | null {
       return null;
     }
 
-    const claims: JwtClaims = {
-      sub,
-      jti
-    };
-
+    const claims: JwtClaims = { sub, jti };
     if (typeof email === 'string') {
       claims.email = email;
     }
-
     return claims;
-  } catch {
-    return null;
-  }
+  });
 }
 
 export function verifyRefreshJwt(
   token: string,
   secret: string
 ): RefreshTokenClaims | null {
-  try {
-    const decoded = jwt.verify(token, secret, {
-      algorithms: ['HS256']
-    });
-
-    if (!isRecord(decoded)) {
-      return null;
-    }
-
+  return verifyAndValidate(token, secret, (decoded) => {
     const sub = decoded['sub'];
     const jti = decoded['jti'];
     const sid = decoded['sid'];
@@ -90,7 +83,5 @@ export function verifyRefreshJwt(
     }
 
     return { sub, jti, sid, type };
-  } catch {
-    return null;
-  }
+  });
 }

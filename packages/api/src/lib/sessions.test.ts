@@ -47,6 +47,41 @@ const mockSMembers = vi.fn((key: string) => {
   return Promise.resolve(set ? Array.from(set) : []);
 });
 
+const createMockMulti = () => {
+  type MultiCommand = () => Promise<unknown>;
+  const commands: MultiCommand[] = [];
+  const chain = {
+    del: (key: string) => {
+      commands.push(() => Promise.resolve(mockDel(key)));
+      return chain;
+    },
+    set: (key: string, value: string, options?: { EX?: number }) => {
+      commands.push(() => Promise.resolve(mockSet(key, value, options)));
+      return chain;
+    },
+    sAdd: (key: string, member: string) => {
+      commands.push(() => Promise.resolve(mockSAdd(key, member)));
+      return chain;
+    },
+    sRem: (key: string, member: string) => {
+      commands.push(() => Promise.resolve(mockSRem(key, member)));
+      return chain;
+    },
+    expire: (key: string, seconds: number) => {
+      commands.push(() => Promise.resolve(mockExpire(key, seconds)));
+      return chain;
+    },
+    exec: async () => {
+      const results = [];
+      for (const cmd of commands) {
+        results.push(await cmd());
+      }
+      return results;
+    }
+  };
+  return chain;
+};
+
 vi.mock('./redis.js', () => ({
   getRedisClient: vi.fn(() =>
     Promise.resolve({
@@ -57,7 +92,8 @@ vi.mock('./redis.js', () => ({
       ttl: mockTtl,
       sAdd: mockSAdd,
       sRem: mockSRem,
-      sMembers: mockSMembers
+      sMembers: mockSMembers,
+      multi: createMockMulti
     })
   )
 }));
@@ -264,6 +300,66 @@ describe('sessions', () => {
       const result = await getRefreshToken('wrong-types');
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('rotateTokensAtomically', () => {
+    it('atomically rotates session and refresh tokens', async () => {
+      const {
+        createSession,
+        storeRefreshToken,
+        getSession,
+        getRefreshToken,
+        rotateTokensAtomically
+      } = await import('./sessions.js');
+
+      await createSession('old-session', {
+        userId: 'user-atomic',
+        email: 'atomic@test.com',
+        admin: false,
+        ipAddress: '127.0.0.1'
+      });
+
+      await storeRefreshToken(
+        'old-refresh-token',
+        { sessionId: 'old-session', userId: 'user-atomic' },
+        3600
+      );
+
+      await rotateTokensAtomically({
+        oldRefreshTokenId: 'old-refresh-token',
+        oldSessionId: 'old-session',
+        newSessionId: 'new-session',
+        newRefreshTokenId: 'new-refresh-token',
+        sessionData: {
+          userId: 'user-atomic',
+          email: 'atomic@test.com',
+          admin: false,
+          ipAddress: '192.168.1.1'
+        },
+        sessionTtlSeconds: 3600,
+        refreshTokenTtlSeconds: 604800
+      });
+
+      const oldSession = await getSession('old-session');
+      expect(oldSession).toBeNull();
+
+      const oldRefreshToken = await getRefreshToken('old-refresh-token');
+      expect(oldRefreshToken).toBeNull();
+
+      const newSession = await getSession('new-session');
+      expect(newSession).toMatchObject({
+        userId: 'user-atomic',
+        email: 'atomic@test.com',
+        admin: false,
+        ipAddress: '192.168.1.1'
+      });
+
+      const newRefreshToken = await getRefreshToken('new-refresh-token');
+      expect(newRefreshToken).toMatchObject({
+        sessionId: 'new-session',
+        userId: 'user-atomic'
+      });
     });
   });
 });

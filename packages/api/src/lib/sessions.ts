@@ -237,3 +237,53 @@ export async function deleteRefreshToken(tokenId: string): Promise<void> {
   const key = getRefreshTokenKey(tokenId);
   await client.del(key);
 }
+
+export type TokenRotationParams = {
+  oldRefreshTokenId: string;
+  oldSessionId: string;
+  newSessionId: string;
+  newRefreshTokenId: string;
+  sessionData: Omit<SessionData, 'createdAt' | 'lastActiveAt'>;
+  sessionTtlSeconds: number;
+  refreshTokenTtlSeconds: number;
+};
+
+export async function rotateTokensAtomically(
+  params: TokenRotationParams
+): Promise<void> {
+  const client = await getRedisClient();
+  const now = new Date().toISOString();
+
+  const oldRefreshTokenKey = getRefreshTokenKey(params.oldRefreshTokenId);
+  const oldSessionKey = getSessionKey(params.oldSessionId);
+  const newSessionKey = getSessionKey(params.newSessionId);
+  const newRefreshTokenKey = getRefreshTokenKey(params.newRefreshTokenId);
+  const userSessionsKey = getUserSessionsKey(params.sessionData.userId);
+
+  const newSessionData: SessionData = {
+    ...params.sessionData,
+    createdAt: now,
+    lastActiveAt: now
+  };
+
+  const newRefreshTokenData: RefreshTokenData = {
+    sessionId: params.newSessionId,
+    userId: params.sessionData.userId,
+    createdAt: now
+  };
+
+  const multi = client.multi();
+  multi.del(oldRefreshTokenKey);
+  multi.del(oldSessionKey);
+  multi.sRem(userSessionsKey, params.oldSessionId);
+  multi.set(newSessionKey, JSON.stringify(newSessionData), {
+    EX: params.sessionTtlSeconds
+  });
+  multi.set(newRefreshTokenKey, JSON.stringify(newRefreshTokenData), {
+    EX: params.refreshTokenTtlSeconds
+  });
+  multi.sAdd(userSessionsKey, params.newSessionId);
+  multi.expire(userSessionsKey, params.sessionTtlSeconds);
+
+  await multi.exec();
+}

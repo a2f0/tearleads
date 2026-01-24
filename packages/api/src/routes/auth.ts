@@ -21,6 +21,7 @@ import {
   getRefreshToken,
   getSession,
   getSessionsByUserId,
+  rotateTokensAtomically,
   storeRefreshToken
 } from '../lib/sessions.js';
 
@@ -300,35 +301,29 @@ router.post('/refresh', async (req: Request, res: Response) => {
       return;
     }
 
-    await deleteRefreshToken(claims.jti);
-
     const newSessionId = randomUUID();
+    const newRefreshTokenId = randomUUID();
     const ipAddress = getClientIp(req);
 
-    await createSession(
+    await rotateTokensAtomically({
+      oldRefreshTokenId: claims.jti,
+      oldSessionId: claims.sid,
       newSessionId,
-      {
+      newRefreshTokenId,
+      sessionData: {
         userId: session.userId,
         email: session.email,
         admin: session.admin,
         ipAddress
       },
-      ACCESS_TOKEN_TTL_SECONDS
-    );
-
-    await deleteSession(claims.sid, session.userId);
+      sessionTtlSeconds: ACCESS_TOKEN_TTL_SECONDS,
+      refreshTokenTtlSeconds: REFRESH_TOKEN_TTL_SECONDS
+    });
 
     const accessToken = createJwt(
       { sub: session.userId, email: session.email, jti: newSessionId },
       jwtSecret,
       ACCESS_TOKEN_TTL_SECONDS
-    );
-
-    const newRefreshTokenId = randomUUID();
-    await storeRefreshToken(
-      newRefreshTokenId,
-      { sessionId: newSessionId, userId: session.userId },
-      REFRESH_TOKEN_TTL_SECONDS
     );
 
     const refreshToken = createJwt(
