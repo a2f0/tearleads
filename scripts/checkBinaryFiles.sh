@@ -18,11 +18,8 @@ if ! command -v file >/dev/null 2>&1; then
 fi
 
 is_allowed() {
-  case "$1" in
-    packages/client/public/v86/seabios.bin|packages/client/public/v86/v86.wasm|packages/client/public/v86/vgabios.bin)
-      return 0
-      ;;
-  esac
+  # No binaries are currently allowed.
+  # To add an exception, add a case pattern here and document why in the PR.
   return 1
 }
 
