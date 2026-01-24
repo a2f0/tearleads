@@ -391,7 +391,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
             return (
               <li
                 key={item.path}
-                className={cn(isAdminFlyout && 'relative group')}
+                className={cn(isAdminFlyout && 'group relative')}
               >
                 <button
                   type="button"
@@ -414,7 +414,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
                 </button>
                 {isAdminFlyout && (
                   <div
-                    className="absolute left-full top-0 z-20 ml-2 hidden min-w-44 rounded-md border bg-background py-1 shadow-lg group-hover:block group-focus-within:block"
+                    className="absolute top-0 left-full z-20 ml-2 hidden min-w-44 rounded-md border bg-background py-1 shadow-lg group-focus-within:block group-hover:block"
                     role="menu"
                     aria-label="Admin submenu"
                   >
