@@ -75,7 +75,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setAuthErrorState(null);
 
     // Persist to localStorage
-    storeAuth(response.accessToken, response.user);
+    storeAuth(response.accessToken, response.refreshToken, response.user);
   }, []);
 
   const logout = useCallback(() => {
