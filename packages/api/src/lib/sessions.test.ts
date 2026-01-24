@@ -202,4 +202,68 @@ describe('sessions', () => {
       expect(mockSet).not.toHaveBeenCalled();
     });
   });
+
+  describe('getSession admin validation', () => {
+    it('returns null when admin field is defined but not a boolean', async () => {
+      const { getSession } = await import('./sessions.js');
+
+      sessionStore.set(
+        'session:invalid-admin',
+        JSON.stringify({
+          userId: 'user-1',
+          email: 'test@example.com',
+          createdAt: new Date().toISOString(),
+          lastActiveAt: new Date().toISOString(),
+          ipAddress: '127.0.0.1',
+          admin: 'yes'
+        })
+      );
+
+      const result = await getSession('invalid-admin');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getRefreshToken edge cases', () => {
+    it('returns null for invalid JSON', async () => {
+      const { getRefreshToken } = await import('./sessions.js');
+
+      sessionStore.set('refresh_token:invalid-json', 'not valid json {{{');
+
+      const result = await getRefreshToken('invalid-json');
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null for non-object data', async () => {
+      const { getRefreshToken } = await import('./sessions.js');
+
+      sessionStore.set(
+        'refresh_token:non-object',
+        JSON.stringify('just a string')
+      );
+
+      const result = await getRefreshToken('non-object');
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null when required fields have wrong types', async () => {
+      const { getRefreshToken } = await import('./sessions.js');
+
+      sessionStore.set(
+        'refresh_token:wrong-types',
+        JSON.stringify({
+          sessionId: 123,
+          userId: 'user-1',
+          createdAt: new Date().toISOString()
+        })
+      );
+
+      const result = await getRefreshToken('wrong-types');
+
+      expect(result).toBeNull();
+    });
+  });
 });
