@@ -1,7 +1,6 @@
 import type { GroupWithMemberCount } from '@rapid/shared';
 import { Loader2, Plus, Trash2, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
@@ -9,10 +8,10 @@ import { api } from '@/lib/api';
 
 interface GroupsListProps {
   onCreateClick?: () => void;
+  onGroupSelect: (groupId: string) => void;
 }
 
-export function GroupsList({ onCreateClick }: GroupsListProps) {
-  const navigate = useNavigate();
+export function GroupsList({ onCreateClick, onGroupSelect }: GroupsListProps) {
   const [groups, setGroups] = useState<GroupWithMemberCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +105,7 @@ export function GroupsList({ onCreateClick }: GroupsListProps) {
           <button
             key={group.id}
             type="button"
-            onClick={() => navigate(`/admin/groups/${group.id}`)}
+            onClick={() => onGroupSelect(group.id)}
             onContextMenu={(e) => handleContextMenu(e, group)}
             className="flex w-full items-center justify-between rounded-lg border bg-card p-4 text-left transition-colors hover:bg-accent"
           >
