@@ -398,6 +398,18 @@ describe('Sidebar', () => {
       expect(screen.getByText('Open in Window')).toBeInTheDocument();
     });
 
+    it('shows context menu on right-click for admin submenu items', async () => {
+      const user = userEvent.setup();
+      mockMatchMedia({ isMobile: false, isTouch: false });
+      renderSidebar();
+
+      const redisButton = screen.getByRole('menuitem', { name: 'Redis' });
+      await user.pointer({ keys: '[MouseRight]', target: redisButton });
+
+      expect(screen.getByText('Open')).toBeInTheDocument();
+      expect(screen.getByText('Open in Window')).toBeInTheDocument();
+    });
+
     it('does not show context menu on right-click on mobile', async () => {
       const user = userEvent.setup();
       mockMatchMedia({ isMobile: true, isTouch: true });
