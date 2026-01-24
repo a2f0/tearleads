@@ -33,7 +33,7 @@ export function IsoDirectory({
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (_refreshToken?: number) => {
     if (!isOpfsSupported()) return;
 
     try {
@@ -51,7 +51,7 @@ export function IsoDirectory({
   }, []);
 
   useEffect(() => {
-    void refresh();
+    void refresh(refreshToken);
   }, [refresh, refreshToken]);
 
   if (!isOpfsSupported()) {

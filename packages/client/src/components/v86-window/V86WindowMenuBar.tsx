@@ -1,10 +1,10 @@
+import { Upload } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
-import { Upload } from 'lucide-react';
 
 interface V86WindowMenuBarProps {
   showDropzone: boolean;

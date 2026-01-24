@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   deleteIso,
   downloadIso,
-  uploadIso,
   getIsoFile,
   getIsoUrl,
   getStorageUsage,
   isIsoDownloaded,
   isOpfsSupported,
-  listDownloadedIsos
+  listDownloadedIsos,
+  uploadIso
 } from './iso-storage';
 import type { IsoCatalogEntry } from './types';
 
@@ -174,18 +174,16 @@ describe('iso-storage', () => {
         value: {
           storage: {
             getDirectory: vi.fn().mockResolvedValue({
-              getDirectoryHandle: vi
-                .fn()
-                .mockResolvedValue({
-                  getFileHandle: vi.fn().mockResolvedValue({
-                    getFile: vi.fn().mockResolvedValue({
-                      text: () => Promise.resolve(mockMetadataContent),
-                      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
-                    }),
-                    createWritable: vi.fn().mockResolvedValue(mockWritable)
+              getDirectoryHandle: vi.fn().mockResolvedValue({
+                getFileHandle: vi.fn().mockResolvedValue({
+                  getFile: vi.fn().mockResolvedValue({
+                    text: () => Promise.resolve(mockMetadataContent),
+                    arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
                   }),
-                  removeEntry: vi.fn().mockResolvedValue(undefined)
-                })
+                  createWritable: vi.fn().mockResolvedValue(mockWritable)
+                }),
+                removeEntry: vi.fn().mockResolvedValue(undefined)
+              })
             }),
             estimate: vi.fn().mockResolvedValue({
               usage: 512
@@ -204,18 +202,16 @@ describe('iso-storage', () => {
         value: {
           storage: {
             getDirectory: vi.fn().mockResolvedValue({
-              getDirectoryHandle: vi
-                .fn()
-                .mockResolvedValue({
-                  getFileHandle: vi.fn().mockResolvedValue({
-                    getFile: vi.fn().mockResolvedValue({
-                      text: () => Promise.resolve(mockMetadataContent),
-                      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
-                    }),
-                    createWritable: vi.fn().mockResolvedValue(mockWritable)
+              getDirectoryHandle: vi.fn().mockResolvedValue({
+                getFileHandle: vi.fn().mockResolvedValue({
+                  getFile: vi.fn().mockResolvedValue({
+                    text: () => Promise.resolve(mockMetadataContent),
+                    arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
                   }),
-                  removeEntry: vi.fn().mockResolvedValue(undefined)
-                })
+                  createWritable: vi.fn().mockResolvedValue(mockWritable)
+                }),
+                removeEntry: vi.fn().mockResolvedValue(undefined)
+              })
             }),
             estimate: vi.fn().mockResolvedValue({
               quota: 256,
