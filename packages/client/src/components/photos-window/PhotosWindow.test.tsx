@@ -30,15 +30,22 @@ vi.mock('./PhotosWindowMenuBar', () => ({
     onRefresh,
     onUpload,
     onClose,
-    onViewModeChange
+    onViewModeChange,
+    showDropzone,
+    onShowDropzoneChange
   }: {
     viewMode: 'list' | 'table' | 'thumbnail';
+    showDropzone: boolean;
+    onShowDropzoneChange: (show: boolean) => void;
     onRefresh: () => void;
     onUpload: () => void;
     onClose: () => void;
     onViewModeChange: (mode: 'list' | 'table' | 'thumbnail') => void;
   }) => (
     <div data-testid="menu-bar">
+      <div data-testid="menu-show-dropzone">
+        {showDropzone ? 'true' : 'false'}
+      </div>
       <button type="button" onClick={onRefresh} data-testid="refresh-button">
         Refresh
       </button>
@@ -69,6 +76,13 @@ vi.mock('./PhotosWindowMenuBar', () => ({
       >
         Table
       </button>
+      <button
+        type="button"
+        onClick={() => onShowDropzoneChange(!showDropzone)}
+        data-testid="toggle-dropzone-button"
+      >
+        Toggle Dropzone
+      </button>
     </div>
   )
 }));
@@ -78,6 +92,9 @@ vi.mock('./PhotosWindowContent', () => ({
     onSelectPhoto
   }: {
     onSelectPhoto?: (photoId: string) => void;
+    refreshToken: number;
+    showDropzone?: boolean;
+    onUploadFiles?: (files: File[]) => void | Promise<void>;
   }) => (
     <div data-testid="photos-content">
       <button
@@ -121,6 +138,8 @@ vi.mock('./PhotosWindowThumbnailView', () => ({
     onSelectPhoto
   }: {
     onSelectPhoto?: (photoId: string) => void;
+    refreshToken: number;
+    showDropzone?: boolean;
   }) => (
     <div data-testid="photos-thumbnail-content">
       <button

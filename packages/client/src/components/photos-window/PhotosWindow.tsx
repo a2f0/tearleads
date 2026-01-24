@@ -32,6 +32,7 @@ export function PhotosWindow({
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [refreshToken, setRefreshToken] = useState(0);
+  const [showDropzone, setShowDropzone] = useState(false);
   const { uploadFile } = useFileUpload();
 
   const handleUpload = useCallback(() => {
@@ -104,6 +105,8 @@ export function PhotosWindow({
           onClose={onClose}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          showDropzone={showDropzone}
+          onShowDropzoneChange={setShowDropzone}
         />
         <div className="flex-1 overflow-hidden">
           {selectedPhotoId ? (
@@ -120,6 +123,8 @@ export function PhotosWindow({
                     <PhotosWindowContent
                       onSelectPhoto={handleSelectPhoto}
                       refreshToken={refreshToken}
+                      showDropzone={showDropzone}
+                      onUploadFiles={handleUploadFiles}
                     />
                   )}
                   {viewMode === 'table' && (
@@ -134,6 +139,7 @@ export function PhotosWindow({
                 <PhotosWindowThumbnailView
                   onSelectPhoto={handleSelectPhoto}
                   refreshToken={refreshToken}
+                  showDropzone={showDropzone}
                 />
               )}
             </>
