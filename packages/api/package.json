@@ -1,6 +1,6 @@
 {
   "name": "@rapid/api",
-  "version": "0.0.242",
+  "version": "0.0.243",
   "description": "Express API for Rapid",
   "main": "dist/index.js",
   "type": "module",
@@ -12,6 +12,7 @@
     "build": "tsc && pnpm buildOpenapi",
     "buildOpenapi": "tsx scripts/generate-openapi.ts",
     "createAccount": "tsx scripts/createAccount.ts",
+    "makeAdmin": "tsx scripts/makeAdmin.ts",
     "build:bundle": "rm -rf dist && esbuild src/index.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/server.cjs --minify --sourcemap",
     "build:cli": "esbuild src/apiCli.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/apiCli.cjs --minify --sourcemap",
     "build:all": "rm -rf dist && pnpm build:bundle && pnpm build:cli",

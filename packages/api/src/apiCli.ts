@@ -1,16 +1,17 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S pnpm tsx
 /**
  * Rapid API CLI
  *
  * A suite of command-line tools for the Rapid API.
  *
  * Usage:
- *   node apiCli.cjs <command> [options]
+ *   apiCli.ts <command> [options]
  *
  * Commands:
  *   migrate         Run database migrations
  *   create-account  Create an account in the database
  *   delete-account  Delete an account from the database
+ *   make-admin      Grant admin privileges to an existing account
  *
  * Environment variables:
  *   NODE_ENV - Set to 'production' for production mode
@@ -22,6 +23,7 @@
 import { program } from 'commander';
 import { createAccountCommand } from './cli/createAccount.js';
 import { deleteAccountCommand } from './cli/deleteAccount.js';
+import { makeAdminCommand } from './cli/makeAdmin.js';
 import { migrateCommand } from './cli/migrate.js';
 
 const version = '0.0.1';
@@ -35,5 +37,6 @@ program
 migrateCommand(program);
 createAccountCommand(program);
 deleteAccountCommand(program);
+makeAdminCommand(program);
 
 program.parse();
