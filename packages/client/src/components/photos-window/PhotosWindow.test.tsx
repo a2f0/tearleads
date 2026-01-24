@@ -189,6 +189,17 @@ describe('PhotosWindow', () => {
     expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
   });
 
+  it('toggles showDropzone from the menu', async () => {
+    const user = userEvent.setup();
+    render(<PhotosWindow {...defaultProps} />);
+
+    expect(screen.getByTestId('menu-show-dropzone')).toHaveTextContent('false');
+
+    await user.click(screen.getByTestId('toggle-dropzone-button'));
+
+    expect(screen.getByTestId('menu-show-dropzone')).toHaveTextContent('true');
+  });
+
   it('renders photos content', () => {
     render(<PhotosWindow {...defaultProps} />);
     expect(screen.getByTestId('photos-content')).toBeInTheDocument();

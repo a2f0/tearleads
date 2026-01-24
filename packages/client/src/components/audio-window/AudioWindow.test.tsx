@@ -156,4 +156,20 @@ describe('AudioWindow', () => {
       JSON.stringify(initialDimensions)
     );
   });
+
+  it('uploads selected files from the file input', async () => {
+    const user = userEvent.setup();
+    render(<AudioWindow {...defaultProps} />);
+
+    const fileInput = screen.getByTestId(
+      'audio-file-input'
+    ) as HTMLInputElement;
+    const file = new File(['audio'], 'track.mp3', { type: 'audio/mpeg' });
+
+    await user.upload(fileInput, file);
+
+    await waitFor(() => {
+      expect(mockUploadFile).toHaveBeenCalledWith(file);
+    });
+  });
 });
