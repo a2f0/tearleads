@@ -1,5 +1,6 @@
 import { AlertCircle, Database } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { Dropzone } from '@/components/ui/dropzone';
 import { formatBytes } from '@/lib/v86/format-bytes';
 import { ISO_CATALOG } from '@/lib/v86/iso-catalog';
 import {
@@ -12,9 +13,19 @@ import { IsoDirectoryItem } from './IsoDirectoryItem';
 
 interface IsoDirectoryProps {
   onSelectIso: (entry: IsoCatalogEntry) => void;
+  showDropzone: boolean;
+  onUploadFiles: (files: File[]) => void;
+  refreshToken: number;
 }
 
-export function IsoDirectory({ onSelectIso }: IsoDirectoryProps) {
+const DEFAULT_UPLOAD_MEMORY_MB = 256;
+
+export function IsoDirectory({
+  onSelectIso,
+  showDropzone,
+  onUploadFiles,
+  refreshToken
+}: IsoDirectoryProps) {
   const [downloadedIsos, setDownloadedIsos] = useState<StoredIso[]>([]);
   const [storageUsage, setStorageUsage] = useState<{
     used: number;
@@ -41,7 +52,7 @@ export function IsoDirectory({ onSelectIso }: IsoDirectoryProps) {
 
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+  }, [refresh, refreshToken]);
 
   if (!isOpfsSupported()) {
     return (
@@ -66,7 +77,18 @@ export function IsoDirectory({ onSelectIso }: IsoDirectoryProps) {
     );
   }
 
+  const catalogIds = new Set(ISO_CATALOG.map((entry) => entry.id));
   const downloadedIds = new Set(downloadedIsos.map((iso) => iso.id));
+  const uploadedIsos = downloadedIsos.filter((iso) => !catalogIds.has(iso.id));
+  const uploadedEntries: IsoCatalogEntry[] = uploadedIsos.map((iso) => ({
+    id: iso.id,
+    name: iso.name,
+    description: 'Uploaded ISO',
+    downloadUrl: '',
+    sizeBytes: iso.sizeBytes,
+    bootType: 'cdrom',
+    memoryMb: DEFAULT_UPLOAD_MEMORY_MB
+  }));
 
   return (
     <div className="flex h-full flex-col">
@@ -84,7 +106,36 @@ export function IsoDirectory({ onSelectIso }: IsoDirectoryProps) {
       </div>
 
       <div className="flex-1 overflow-auto p-4">
-        <div className="grid gap-3">
+        {showDropzone && (
+          <div className="mb-4">
+            <Dropzone
+              onFilesSelected={onUploadFiles}
+              accept=".iso,application/x-iso9660-image"
+              label="ISO images"
+            />
+          </div>
+        )}
+
+        {uploadedEntries.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-muted-foreground text-xs uppercase tracking-wide">
+              Uploaded ISOs
+            </p>
+            <div className="grid gap-3">
+              {uploadedEntries.map((entry) => (
+                <IsoDirectoryItem
+                  key={entry.id}
+                  entry={entry}
+                  isDownloaded={true}
+                  onBoot={onSelectIso}
+                  onRefresh={refresh}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mt-4 grid gap-3">
           {ISO_CATALOG.map((entry) => (
             <IsoDirectoryItem
               key={entry.id}

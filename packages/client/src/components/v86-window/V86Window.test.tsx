@@ -5,11 +5,27 @@ import { V86Window } from './V86Window';
 
 vi.mock('./IsoDirectory', () => ({
   IsoDirectory: ({
-    onSelectIso
+    onSelectIso,
+    showDropzone,
+    onUploadFiles,
+    refreshToken
   }: {
     onSelectIso: (entry: unknown) => void;
+    showDropzone: boolean;
+    onUploadFiles: (files: File[]) => void;
+    refreshToken: number;
   }) => (
     <div data-testid="iso-directory">
+      <div data-testid="iso-show-dropzone">
+        {showDropzone ? 'true' : 'false'}
+      </div>
+      <button
+        type="button"
+        onClick={() => onUploadFiles([new File(['test'], 'custom.iso')])}
+      >
+        Upload ISO
+      </button>
+      <div data-testid="iso-refresh-token">{refreshToken}</div>
       <button
         type="button"
         onClick={() =>
