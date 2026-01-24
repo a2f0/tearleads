@@ -170,7 +170,7 @@ describe('user-settings', () => {
       expect(SETTING_DEFAULTS.tooltips).toBe('enabled');
       expect(SETTING_DEFAULTS.font).toBe('system');
       expect(SETTING_DEFAULTS.desktopPattern).toBe('isometric');
-      expect(SETTING_DEFAULTS.desktopIconDepth).toBe('embossed');
+      expect(SETTING_DEFAULTS.desktopIconDepth).toBe('debossed');
     });
 
     it('has correct storage keys', () => {
