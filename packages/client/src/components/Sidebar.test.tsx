@@ -121,6 +121,8 @@ describe('Sidebar', () => {
   });
 
   it('renders navigation buttons with correct test ids', () => {
+    // On desktop, /admin/users is in the flyout, not in main nav
+    mockMatchMedia({ isMobile: true, isTouch: true });
     renderSidebar();
 
     for (const item of navItems) {
@@ -184,6 +186,8 @@ describe('Sidebar', () => {
   });
 
   it('renders an unordered list of navigation items', () => {
+    // On mobile, all navItems are shown (no flyout filtering)
+    mockMatchMedia({ isMobile: true, isTouch: true });
     renderSidebar();
 
     expect(screen.getByRole('list')).toBeInTheDocument();
@@ -504,5 +508,236 @@ describe('navItems', () => {
     const uniqueLabelKeys = new Set(labelKeys);
 
     expect(uniqueLabelKeys.size).toBe(labelKeys.length);
+  });
+});
+
+describe('Admin flyout menu', () => {
+  const mockOnClose = vi.fn();
+
+  beforeEach(() => {
+    mockNavigate.mockClear();
+    mockOpenWindow.mockClear();
+    mockOnClose.mockClear();
+    Object.defineProperty(navigator, 'maxTouchPoints', {
+      value: 0,
+      configurable: true
+    });
+  });
+
+  function mockMatchMedia({
+    isMobile,
+    isTouch = false
+  }: {
+    isMobile: boolean;
+    isTouch?: boolean;
+  }) {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: query === '(max-width: 1023px)' ? isMobile : isTouch,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn()
+      }))
+    });
+  }
+
+  const renderSidebar = (initialRoute = '/', isOpen = true) => {
+    return render(
+      <I18nextProvider i18n={i18n}>
+        <MemoryRouter initialEntries={[initialRoute]}>
+          <WindowManagerProvider>
+            <Sidebar isOpen={isOpen} onClose={mockOnClose} />
+          </WindowManagerProvider>
+        </MemoryRouter>
+      </I18nextProvider>
+    );
+  };
+
+  it('shows flyout menu on desktop when hovering Admin', async () => {
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    // The flyout menu should exist but be hidden by default
+    const flyoutMenu = screen.getByTestId('admin-flyout-menu');
+    expect(flyoutMenu).toHaveClass('hidden');
+  });
+
+  it('shows chevron icon on Admin button on desktop', () => {
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    const adminButton = screen.getByTestId('admin-link');
+    const chevron = adminButton.querySelector('svg.ml-auto');
+    expect(chevron).toBeInTheDocument();
+  });
+
+  it('does not show chevron icon on Admin button on mobile', () => {
+    mockMatchMedia({ isMobile: true, isTouch: true });
+    renderSidebar();
+
+    const adminButton = screen.getByTestId('admin-link');
+    const chevron = adminButton.querySelector('svg.ml-auto');
+    expect(chevron).not.toBeInTheDocument();
+  });
+
+  it('does not show flyout menu on mobile', () => {
+    mockMatchMedia({ isMobile: true, isTouch: true });
+    renderSidebar();
+
+    expect(screen.queryByTestId('admin-flyout-menu')).not.toBeInTheDocument();
+  });
+
+  it('renders all four admin options in flyout on desktop', () => {
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    expect(screen.getByTestId('admin-flyout-redis')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-flyout-postgres')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-flyout-groups')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-flyout-adminUsers')).toBeInTheDocument();
+  });
+
+  it('flyout options have correct labels', () => {
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    expect(screen.getByTestId('admin-flyout-redis')).toHaveTextContent('Redis');
+    expect(screen.getByTestId('admin-flyout-postgres')).toHaveTextContent(
+      'Postgres'
+    );
+    expect(screen.getByTestId('admin-flyout-groups')).toHaveTextContent(
+      'Groups'
+    );
+    expect(screen.getByTestId('admin-flyout-adminUsers')).toHaveTextContent(
+      'Users Admin'
+    );
+  });
+
+  it('clicking flyout Redis option opens admin window', async () => {
+    const user = userEvent.setup();
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    const redisButton = screen.getByTestId('admin-flyout-redis');
+    await user.click(redisButton);
+
+    expect(mockOpenWindow).toHaveBeenCalledWith('admin');
+    expect(mockOnClose).toHaveBeenCalled();
+  });
+
+  it('clicking flyout Postgres option navigates to postgres route', async () => {
+    const user = userEvent.setup();
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    const postgresButton = screen.getByTestId('admin-flyout-postgres');
+    await user.click(postgresButton);
+
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/postgres');
+    expect(mockOnClose).toHaveBeenCalled();
+  });
+
+  it('clicking flyout Groups option navigates to groups route', async () => {
+    const user = userEvent.setup();
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    const groupsButton = screen.getByTestId('admin-flyout-groups');
+    await user.click(groupsButton);
+
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/groups');
+    expect(mockOnClose).toHaveBeenCalled();
+  });
+
+  it('clicking flyout Users option opens admin-users window', async () => {
+    const user = userEvent.setup();
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    const usersButton = screen.getByTestId('admin-flyout-adminUsers');
+    await user.click(usersButton);
+
+    expect(mockOpenWindow).toHaveBeenCalledWith('admin-users');
+    expect(mockOnClose).toHaveBeenCalled();
+  });
+
+  it('Admin button has aria-haspopup on desktop', () => {
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    const adminButton = screen.getByTestId('admin-link');
+    expect(adminButton).toHaveAttribute('aria-haspopup', 'menu');
+  });
+
+  it('Admin button does not have aria-haspopup on mobile', () => {
+    mockMatchMedia({ isMobile: true, isTouch: true });
+    renderSidebar();
+
+    const adminButton = screen.getByTestId('admin-link');
+    expect(adminButton).not.toHaveAttribute('aria-haspopup');
+  });
+
+  it('flyout menu has correct aria-label', () => {
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    const flyoutMenu = screen.getByTestId('admin-flyout-menu');
+    expect(flyoutMenu).toHaveAttribute('aria-label', 'Admin submenu');
+  });
+
+  it('flyout items have menuitem role', () => {
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    const redisButton = screen.getByTestId('admin-flyout-redis');
+    expect(redisButton).toHaveAttribute('role', 'menuitem');
+  });
+
+  it('highlights active flyout item when on admin/postgres route', () => {
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar('/admin/postgres');
+
+    const postgresButton = screen.getByTestId('admin-flyout-postgres');
+    expect(postgresButton).toHaveClass('bg-accent');
+  });
+
+  it('highlights Admin button when any admin sub-route is active', () => {
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar('/admin/groups');
+
+    const adminButton = screen.getByTestId('admin-link');
+    expect(adminButton).toHaveClass('bg-accent');
+  });
+
+  it('filters out /admin/users from main nav on desktop', () => {
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    // The admin-users-link should not be in main nav on desktop
+    // It should only appear in the flyout
+    const mainNavButtons = screen
+      .getAllByRole('listitem')
+      .map((li) => li.querySelector('button[data-testid]'))
+      .filter(Boolean);
+
+    const adminUsersInMainNav = mainNavButtons.find(
+      (btn) => btn?.getAttribute('data-testid') === 'admin-users-link'
+    );
+    expect(adminUsersInMainNav).toBeUndefined();
+
+    // But it should be in the flyout
+    expect(screen.getByTestId('admin-flyout-adminUsers')).toBeInTheDocument();
+  });
+
+  it('shows /admin/users in main nav on mobile', () => {
+    mockMatchMedia({ isMobile: true, isTouch: true });
+    renderSidebar();
+
+    expect(screen.getByTestId('admin-users-link')).toBeInTheDocument();
   });
 });

@@ -34,6 +34,7 @@ export const es = {
     redis: 'Redis',
     postgres: 'Postgres',
     postgresAdmin: 'Admin de Postgres',
+    groups: 'Grupos',
     adminUsers: 'Admin de usuarios',
     settings: 'Configuración',
     email: 'Correo',
