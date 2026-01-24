@@ -482,6 +482,80 @@ export const notesTable: TableDefinition = {
 };
 
 /**
+ * Groups table for organizing users into named groups.
+ */
+export const groupsTable: TableDefinition = {
+  name: 'groups',
+  propertyName: 'groups',
+  comment: 'Groups table for organizing users into named groups.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    name: {
+      type: 'text',
+      sqlName: 'name',
+      notNull: true
+    },
+    description: {
+      type: 'text',
+      sqlName: 'description'
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    },
+    updatedAt: {
+      type: 'timestamp',
+      sqlName: 'updated_at',
+      notNull: true
+    }
+  },
+  indexes: [{ name: 'groups_name_idx', columns: ['name'], unique: true }]
+};
+
+/**
+ * Junction table for many-to-many relationship between users and groups.
+ */
+export const userGroupsTable: TableDefinition = {
+  name: 'user_groups',
+  propertyName: 'userGroups',
+  comment:
+    'Junction table for many-to-many relationship between users and groups.',
+  columns: {
+    userId: {
+      type: 'text',
+      sqlName: 'user_id',
+      primaryKey: true,
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    groupId: {
+      type: 'text',
+      sqlName: 'group_id',
+      primaryKey: true,
+      references: {
+        table: 'groups',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    joinedAt: {
+      type: 'timestamp',
+      sqlName: 'joined_at',
+      notNull: true
+    }
+  },
+  indexes: [{ name: 'user_groups_group_idx', columns: ['groupId'] }]
+};
+
+/**
  * All table definitions in the schema.
  */
 export const allTables: TableDefinition[] = [
@@ -496,5 +570,7 @@ export const allTables: TableDefinition[] = [
   contactPhonesTable,
   contactEmailsTable,
   analyticsEventsTable,
-  notesTable
+  notesTable,
+  groupsTable,
+  userGroupsTable
 ];
