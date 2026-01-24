@@ -137,6 +137,7 @@ export interface Session {
   lastActiveAt: string;
   ipAddress: string;
   isCurrent: boolean;
+  isAdmin: boolean;
 }
 
 export interface SessionsResponse {
