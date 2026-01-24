@@ -341,5 +341,23 @@ describe('Debug', () => {
 
       expect(screen.getByText(/800 x 600/)).toBeInTheDocument();
     });
+
+    it('removes resize listener on unmount', async () => {
+      const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
+
+      const { unmount } = renderDebugRaw();
+
+      await waitFor(() => {
+        expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+      });
+
+      unmount();
+
+      expect(removeEventListenerSpy).toHaveBeenCalledWith(
+        'resize',
+        expect.any(Function)
+      );
+      removeEventListenerSpy.mockRestore();
+    });
   });
 });
