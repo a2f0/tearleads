@@ -21,6 +21,11 @@ getrandom = { version = "0.2", features = ["js"] }
 base64 = "0.22"
 console_error_panic_hook = "0.1"
 uuid = { version = "1.0", features = ["v4", "js"] }
+fluvio-wasm-timer = "0.2"
+
+[patch.crates-io]
+# Patch wasm-timer with fluvio's fork that supports WASM properly
+wasm-timer = { git = "https://github.com/nicktomika/fluvio-wasm-timer", branch = "add-wasm-timer-alias" }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
