@@ -99,6 +99,11 @@ export function SessionList() {
                   Current
                 </span>
               )}
+              {session.isAdmin && (
+                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 font-medium text-amber-600 text-xs dark:text-amber-400">
+                  Admin
+                </span>
+              )}
             </div>
             <div className="text-muted-foreground text-xs">
               Created {formatRelativeTime(session.createdAt)}
