@@ -38,9 +38,20 @@ collect_files() {
       return
     fi
 
-    empty_tree=$(git hash-object -t tree /dev/null)
-    git diff --name-only --diff-filter=AM "$empty_tree" HEAD
-    return
+    # Fallback for new branches without upstream: compare against origin/main
+    if git rev-parse --verify origin/main >/dev/null 2>&1; then
+      git diff --name-only --diff-filter=AM "origin/main..HEAD"
+      return
+    fi
+
+    # Last resort: compare against local main
+    if git rev-parse --verify main >/dev/null 2>&1; then
+      git diff --name-only --diff-filter=AM "main..HEAD"
+      return
+    fi
+
+    echo "Error: cannot determine base branch for comparison" >&2
+    exit 1
   fi
 
   usage
