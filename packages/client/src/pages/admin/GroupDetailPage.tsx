@@ -130,10 +130,12 @@ export function GroupDetailPage({
 
   if (!group) {
     return (
-      <div className="flex h-full flex-col space-y-6">
-        {backLink ?? (
-          <BackLink defaultTo="/admin/groups" defaultLabel="Back to Groups" />
-        )}
+      <div className="flex h-full flex-col space-y-4">
+        <div className="flex items-center gap-2">
+          {backLink ?? (
+            <BackLink defaultTo="/admin/groups" defaultLabel="Back to Groups" />
+          )}
+        </div>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
           <p className="text-destructive">Group not found</p>
         </div>
@@ -142,23 +144,22 @@ export function GroupDetailPage({
   }
 
   return (
-    <div className="flex h-full flex-col space-y-6">
-      <div className="space-y-2">
+    <div className="flex h-full flex-col space-y-4">
+      <div className="flex items-center gap-2">
         {backLink ?? (
           <BackLink defaultTo="/admin/groups" defaultLabel="Back to Groups" />
         )}
-        <div className="flex items-center justify-between">
-          <h1 className="font-bold text-2xl tracking-tight">Edit Group</h1>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setDeleteDialogOpen(true)}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-auto h-7 px-2 text-destructive hover:text-destructive"
+          onClick={() => setDeleteDialogOpen(true)}
+          data-testid="group-delete-button"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
       </div>
+      <h1 className="font-bold text-lg">Edit Group</h1>
 
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -246,6 +247,7 @@ export function GroupDetailPage({
                   size="sm"
                   className="text-destructive hover:text-destructive"
                   onClick={() => setRemoveMemberDialog(member)}
+                  data-testid={`remove-member-${member.userId}`}
                 >
                   <UserMinus className="h-4 w-4" />
                 </Button>

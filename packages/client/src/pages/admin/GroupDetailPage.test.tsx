@@ -258,7 +258,7 @@ describe('GroupDetailPage', () => {
       ).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: /delete/i }));
+    await user.click(screen.getByTestId('group-delete-button'));
 
     expect(
       screen.getByText(
@@ -266,10 +266,7 @@ describe('GroupDetailPage', () => {
       )
     ).toBeInTheDocument();
 
-    const deleteButtons = screen.getAllByRole('button', { name: 'Delete' });
-    const confirmButton = deleteButtons[1];
-    if (!confirmButton) throw new Error('Confirm button not found');
-    await user.click(confirmButton);
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {
       expect(mockDelete).toHaveBeenCalledWith('group-1');
@@ -304,8 +301,7 @@ describe('GroupDetailPage', () => {
       expect(screen.getByText('user1@test.com')).toBeInTheDocument();
     });
 
-    const removeButton = screen.getByRole('button', { name: '' });
-    await user.click(removeButton);
+    await user.click(screen.getByTestId('remove-member-user-1'));
 
     expect(screen.getByText('Remove Member')).toBeInTheDocument();
     expect(
