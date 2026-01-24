@@ -90,6 +90,12 @@ Skip issue creation for:
 
 - If CI or local runs fail coverage thresholds, add tests to raise coverage and re-run the relevant `test:coverage` target locally before proceeding.
 
+## Binary Files Policy
+
+- Do not add binary files to the repo. Prefer SVG or external URLs.
+- Binary guardrails run in `pre-commit` (staged files) and `pre-push` (unpushed commits).
+- Allowed binaries must be explicitly listed in `scripts/checkBinaryFiles.sh` with documented rationale in the issue or PR.
+
 ## PR Guidelines
 
 - Do NOT add "Generated with Claude Code" footers to PR descriptions
