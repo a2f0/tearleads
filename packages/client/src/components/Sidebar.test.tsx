@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
@@ -112,6 +112,8 @@ describe('Sidebar', () => {
   ];
 
   it('renders all navigation items', () => {
+    // On mobile all navItems are shown (no flyout filtering)
+    mockMatchMedia({ isMobile: true, isTouch: true });
     renderSidebar();
 
     for (const item of navItems) {
@@ -559,12 +561,19 @@ describe('Admin flyout menu', () => {
   };
 
   it('shows flyout menu on desktop when hovering Admin', async () => {
+    const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
 
-    // The flyout menu should exist but be hidden by default
-    const flyoutMenu = screen.getByTestId('admin-flyout-menu');
-    expect(flyoutMenu).toHaveClass('hidden');
+    // Flyout should not be visible initially
+    expect(screen.queryByTestId('admin-flyout-menu')).not.toBeInTheDocument();
+
+    // Hover over admin button to show flyout
+    const adminButton = screen.getByTestId('admin-link');
+    await user.hover(adminButton);
+
+    // Flyout should now be visible
+    expect(screen.getByTestId('admin-flyout-menu')).toBeInTheDocument();
   });
 
   it('shows chevron icon on Admin button on desktop', () => {
@@ -592,9 +601,12 @@ describe('Admin flyout menu', () => {
     expect(screen.queryByTestId('admin-flyout-menu')).not.toBeInTheDocument();
   });
 
-  it('renders all four admin options in flyout on desktop', () => {
+  it('renders all four admin options in flyout on desktop', async () => {
+    const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
+
+    await user.hover(screen.getByTestId('admin-link'));
 
     expect(screen.getByTestId('admin-flyout-redis')).toBeInTheDocument();
     expect(screen.getByTestId('admin-flyout-postgres')).toBeInTheDocument();
@@ -602,9 +614,12 @@ describe('Admin flyout menu', () => {
     expect(screen.getByTestId('admin-flyout-adminUsers')).toBeInTheDocument();
   });
 
-  it('flyout options have correct labels', () => {
+  it('flyout options have correct labels', async () => {
+    const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
+
+    await user.hover(screen.getByTestId('admin-link'));
 
     expect(screen.getByTestId('admin-flyout-redis')).toHaveTextContent('Redis');
     expect(screen.getByTestId('admin-flyout-postgres')).toHaveTextContent(
@@ -623,6 +638,11 @@ describe('Admin flyout menu', () => {
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
 
+    // Use fireEvent for mouseEnter since userEvent.hover may not trigger onMouseEnter properly
+    const adminLi = screen.getByTestId('admin-link').closest('li');
+    if (!adminLi) throw new Error('Admin li not found');
+    fireEvent.mouseEnter(adminLi);
+
     const redisButton = screen.getByTestId('admin-flyout-redis');
     await user.click(redisButton);
 
@@ -634,6 +654,11 @@ describe('Admin flyout menu', () => {
     const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
+
+    // Use fireEvent for mouseEnter since userEvent.hover may not trigger onMouseEnter properly
+    const adminLi = screen.getByTestId('admin-link').closest('li');
+    if (!adminLi) throw new Error('Admin li not found');
+    fireEvent.mouseEnter(adminLi);
 
     const postgresButton = screen.getByTestId('admin-flyout-postgres');
     await user.click(postgresButton);
@@ -647,6 +672,11 @@ describe('Admin flyout menu', () => {
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
 
+    // Use fireEvent for mouseEnter since userEvent.hover may not trigger onMouseEnter properly
+    const adminLi = screen.getByTestId('admin-link').closest('li');
+    if (!adminLi) throw new Error('Admin li not found');
+    fireEvent.mouseEnter(adminLi);
+
     const groupsButton = screen.getByTestId('admin-flyout-groups');
     await user.click(groupsButton);
 
@@ -658,6 +688,11 @@ describe('Admin flyout menu', () => {
     const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
+
+    // Use fireEvent for mouseEnter since userEvent.hover may not trigger onMouseEnter properly
+    const adminLi = screen.getByTestId('admin-link').closest('li');
+    if (!adminLi) throw new Error('Admin li not found');
+    fireEvent.mouseEnter(adminLi);
 
     const usersButton = screen.getByTestId('admin-flyout-adminUsers');
     await user.click(usersButton);
@@ -682,25 +717,34 @@ describe('Admin flyout menu', () => {
     expect(adminButton).not.toHaveAttribute('aria-haspopup');
   });
 
-  it('flyout menu has correct aria-label', () => {
+  it('flyout menu has correct aria-label', async () => {
+    const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
+
+    await user.hover(screen.getByTestId('admin-link'));
 
     const flyoutMenu = screen.getByTestId('admin-flyout-menu');
     expect(flyoutMenu).toHaveAttribute('aria-label', 'Admin submenu');
   });
 
-  it('flyout items have menuitem role', () => {
+  it('flyout items have menuitem role', async () => {
+    const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
+
+    await user.hover(screen.getByTestId('admin-link'));
 
     const redisButton = screen.getByTestId('admin-flyout-redis');
     expect(redisButton).toHaveAttribute('role', 'menuitem');
   });
 
-  it('highlights active flyout item when on admin/postgres route', () => {
+  it('highlights active flyout item when on admin/postgres route', async () => {
+    const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar('/admin/postgres');
+
+    await user.hover(screen.getByTestId('admin-link'));
 
     const postgresButton = screen.getByTestId('admin-flyout-postgres');
     expect(postgresButton).toHaveClass('bg-accent');
@@ -714,7 +758,8 @@ describe('Admin flyout menu', () => {
     expect(adminButton).toHaveClass('bg-accent');
   });
 
-  it('filters out /admin/users from main nav on desktop', () => {
+  it('filters out /admin/users from main nav on desktop', async () => {
+    const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
 
@@ -730,7 +775,8 @@ describe('Admin flyout menu', () => {
     );
     expect(adminUsersInMainNav).toBeUndefined();
 
-    // But it should be in the flyout
+    // But it should be in the flyout when hovered
+    await user.hover(screen.getByTestId('admin-link'));
     expect(screen.getByTestId('admin-flyout-adminUsers')).toBeInTheDocument();
   });
 
