@@ -420,38 +420,40 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
                 </button>
                 {isAdminFlyout && (
                   <div
-                    className="absolute top-0 left-full z-20 ml-2 hidden min-w-44 rounded-md border bg-background py-1 shadow-lg group-focus-within:block group-hover:block"
+                    className="absolute top-0 left-full z-20 hidden min-w-44 pl-2 group-focus-within:block group-hover:block"
                     role="menu"
                     aria-label="Admin submenu"
                     data-testid="admin-flyout-menu"
                   >
-                    {adminFlyoutItems.map((subItem) => {
-                      const SubIcon = subItem.icon;
-                      const isSubActive = location.pathname.startsWith(
-                        subItem.path
-                      );
-                      return (
-                        <button
-                          key={subItem.path}
-                          type="button"
-                          data-testid={`admin-flyout-${subItem.labelKey}`}
-                          onClick={() => handleClick(subItem.path)}
-                          onContextMenu={(e) =>
-                            handleContextMenu(e, subItem.path)
-                          }
-                          className={cn(
-                            'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors',
-                            isSubActive
-                              ? 'bg-accent text-accent-foreground'
-                              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                          )}
-                          role="menuitem"
-                        >
-                          <SubIcon className="h-4 w-4" />
-                          {t(subItem.labelKey)}
-                        </button>
-                      );
-                    })}
+                    <div className="rounded-md border bg-background py-1 shadow-lg">
+                      {adminFlyoutItems.map((subItem) => {
+                        const SubIcon = subItem.icon;
+                        const isSubActive = location.pathname.startsWith(
+                          subItem.path
+                        );
+                        return (
+                          <button
+                            key={subItem.path}
+                            type="button"
+                            data-testid={`admin-flyout-${subItem.labelKey}`}
+                            onClick={() => handleClick(subItem.path)}
+                            onContextMenu={(e) =>
+                              handleContextMenu(e, subItem.path)
+                            }
+                            className={cn(
+                              'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors',
+                              isSubActive
+                                ? 'bg-accent text-accent-foreground'
+                                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                            )}
+                            role="menuitem"
+                          >
+                            <SubIcon className="h-4 w-4" />
+                            {t(subItem.labelKey)}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </li>
