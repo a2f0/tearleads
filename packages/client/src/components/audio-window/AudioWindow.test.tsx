@@ -57,7 +57,8 @@ vi.mock('./AudioWindowList', () => ({
 
 vi.mock('./AudioWindowMenuBar', () => ({
   AudioWindowMenuBar: ({
-    onClose
+    onClose,
+    onUpload
   }: {
     onClose: () => void;
     onUpload: () => void;
@@ -69,6 +70,9 @@ vi.mock('./AudioWindowMenuBar', () => ({
     <div data-testid="menu-bar">
       <button type="button" onClick={onClose} data-testid="menu-close">
         Close
+      </button>
+      <button type="button" onClick={onUpload} data-testid="menu-upload">
+        Upload
       </button>
     </div>
   )
@@ -171,5 +175,18 @@ describe('AudioWindow', () => {
     await waitFor(() => {
       expect(mockUploadFile).toHaveBeenCalledWith(file);
     });
+  });
+
+  it('opens the file picker from the menu upload action', async () => {
+    const user = userEvent.setup();
+    const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click');
+
+    render(<AudioWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('menu-upload'));
+
+    expect(clickSpy).toHaveBeenCalled();
+
+    clickSpy.mockRestore();
   });
 });
