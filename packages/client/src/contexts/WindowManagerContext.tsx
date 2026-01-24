@@ -44,7 +44,8 @@ export type WindowType =
   | 'admin-users'
   | 'cache-storage'
   | 'local-storage'
-  | 'sync';
+  | 'sync'
+  | 'v86';
 
 export interface WindowDimensions {
   width: number;
