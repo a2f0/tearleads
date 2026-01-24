@@ -47,6 +47,41 @@ const mockSMembers = vi.fn((key: string) => {
   return Promise.resolve(set ? Array.from(set) : []);
 });
 
+const createMockMulti = () => {
+  type MultiCommand = () => Promise<unknown>;
+  const commands: MultiCommand[] = [];
+  const chain = {
+    del: (key: string) => {
+      commands.push(() => Promise.resolve(mockDel(key)));
+      return chain;
+    },
+    set: (key: string, value: string, options?: { EX?: number }) => {
+      commands.push(() => Promise.resolve(mockSet(key, value, options)));
+      return chain;
+    },
+    sAdd: (key: string, member: string) => {
+      commands.push(() => Promise.resolve(mockSAdd(key, member)));
+      return chain;
+    },
+    sRem: (key: string, member: string) => {
+      commands.push(() => Promise.resolve(mockSRem(key, member)));
+      return chain;
+    },
+    expire: (key: string, seconds: number) => {
+      commands.push(() => Promise.resolve(mockExpire(key, seconds)));
+      return chain;
+    },
+    exec: async () => {
+      const results = [];
+      for (const cmd of commands) {
+        results.push(await cmd());
+      }
+      return results;
+    }
+  };
+  return chain;
+};
+
 vi.mock('./redis.js', () => ({
   getRedisClient: vi.fn(() =>
     Promise.resolve({
@@ -57,7 +92,8 @@ vi.mock('./redis.js', () => ({
       ttl: mockTtl,
       sAdd: mockSAdd,
       sRem: mockSRem,
-      sMembers: mockSMembers
+      sMembers: mockSMembers,
+      multi: createMockMulti
     })
   )
 }));
@@ -200,6 +236,130 @@ describe('sessions', () => {
       await updateSessionActivity('nonexistent-session-update');
 
       expect(mockSet).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getSession admin validation', () => {
+    it('returns null when admin field is defined but not a boolean', async () => {
+      const { getSession } = await import('./sessions.js');
+
+      sessionStore.set(
+        'session:invalid-admin',
+        JSON.stringify({
+          userId: 'user-1',
+          email: 'test@example.com',
+          createdAt: new Date().toISOString(),
+          lastActiveAt: new Date().toISOString(),
+          ipAddress: '127.0.0.1',
+          admin: 'yes'
+        })
+      );
+
+      const result = await getSession('invalid-admin');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getRefreshToken edge cases', () => {
+    it('returns null for invalid JSON', async () => {
+      const { getRefreshToken } = await import('./sessions.js');
+
+      sessionStore.set('refresh_token:invalid-json', 'not valid json {{{');
+
+      const result = await getRefreshToken('invalid-json');
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null for non-object data', async () => {
+      const { getRefreshToken } = await import('./sessions.js');
+
+      sessionStore.set(
+        'refresh_token:non-object',
+        JSON.stringify('just a string')
+      );
+
+      const result = await getRefreshToken('non-object');
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null when required fields have wrong types', async () => {
+      const { getRefreshToken } = await import('./sessions.js');
+
+      sessionStore.set(
+        'refresh_token:wrong-types',
+        JSON.stringify({
+          sessionId: 123,
+          userId: 'user-1',
+          createdAt: new Date().toISOString()
+        })
+      );
+
+      const result = await getRefreshToken('wrong-types');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('rotateTokensAtomically', () => {
+    it('atomically rotates session and refresh tokens', async () => {
+      const {
+        createSession,
+        storeRefreshToken,
+        getSession,
+        getRefreshToken,
+        rotateTokensAtomically
+      } = await import('./sessions.js');
+
+      await createSession('old-session', {
+        userId: 'user-atomic',
+        email: 'atomic@test.com',
+        admin: false,
+        ipAddress: '127.0.0.1'
+      });
+
+      await storeRefreshToken(
+        'old-refresh-token',
+        { sessionId: 'old-session', userId: 'user-atomic' },
+        3600
+      );
+
+      await rotateTokensAtomically({
+        oldRefreshTokenId: 'old-refresh-token',
+        oldSessionId: 'old-session',
+        newSessionId: 'new-session',
+        newRefreshTokenId: 'new-refresh-token',
+        sessionData: {
+          userId: 'user-atomic',
+          email: 'atomic@test.com',
+          admin: false,
+          ipAddress: '192.168.1.1'
+        },
+        sessionTtlSeconds: 3600,
+        refreshTokenTtlSeconds: 604800
+      });
+
+      const oldSession = await getSession('old-session');
+      expect(oldSession).toBeNull();
+
+      const oldRefreshToken = await getRefreshToken('old-refresh-token');
+      expect(oldRefreshToken).toBeNull();
+
+      const newSession = await getSession('new-session');
+      expect(newSession).toMatchObject({
+        userId: 'user-atomic',
+        email: 'atomic@test.com',
+        admin: false,
+        ipAddress: '192.168.1.1'
+      });
+
+      const newRefreshToken = await getRefreshToken('new-refresh-token');
+      expect(newRefreshToken).toMatchObject({
+        sessionId: 'new-session',
+        userId: 'user-atomic'
+      });
     });
   });
 });

@@ -1,9 +1,16 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
-import { createJwt, verifyJwt } from '../lib/jwt.js';
+import { createJwt, verifyJwt, verifyRefreshJwt } from '../lib/jwt.js';
 import { hashPassword } from '../lib/passwords.js';
-import { createSession, deleteSession, getSession } from '../lib/sessions.js';
+import {
+  createSession,
+  deleteRefreshToken,
+  deleteSession,
+  getRefreshToken,
+  getSession,
+  storeRefreshToken
+} from '../lib/sessions.js';
 import { mockConsoleError } from '../test/console-mocks.js';
 
 const mockQuery = vi.fn();
@@ -66,7 +73,7 @@ describe('Auth routes', () => {
     expect(response.body).toEqual({ error: 'Invalid email or password' });
   });
 
-  it('returns 200 with access token on success', async () => {
+  it('returns 200 with access and refresh tokens on success', async () => {
     const password = 'correct-password';
     const credentials = await hashPassword(password);
 
@@ -88,8 +95,10 @@ describe('Auth routes', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.accessToken).toEqual(expect.any(String));
+    expect(response.body.refreshToken).toEqual(expect.any(String));
     expect(response.body.tokenType).toBe('Bearer');
     expect(response.body.expiresIn).toBe(3600);
+    expect(response.body.refreshExpiresIn).toBe(604800);
     expect(response.body.user).toEqual({
       id: 'user-1',
       email: 'user@example.com'
@@ -109,6 +118,25 @@ describe('Auth routes', () => {
     });
     expect(session?.createdAt).toEqual(expect.any(String));
     expect(session?.lastActiveAt).toEqual(expect.any(String));
+
+    const refreshClaims = verifyRefreshJwt(
+      response.body.refreshToken,
+      'test-secret'
+    );
+    expect(refreshClaims).not.toBeNull();
+    expect(refreshClaims?.sub).toBe('user-1');
+    expect(refreshClaims?.sid).toBe(claims.jti);
+    expect(refreshClaims?.type).toBe('refresh');
+
+    if (refreshClaims) {
+      const refreshTokenData = await getRefreshToken(refreshClaims.jti);
+      expect(refreshTokenData).toMatchObject({
+        sessionId: claims.jti,
+        userId: 'user-1'
+      });
+      await deleteRefreshToken(refreshClaims.jti);
+    }
+    await deleteSession(claims.jti, 'user-1');
   });
 
   it('returns 500 when login query fails', async () => {
@@ -133,6 +161,171 @@ describe('Auth routes', () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: 'Failed to authenticate' });
+  });
+
+  describe('POST /auth/refresh', () => {
+    it('returns 400 when refreshToken is missing', async () => {
+      const response = await request(app).post('/v1/auth/refresh').send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'refreshToken is required' });
+    });
+
+    it('returns 401 when refresh token JWT is invalid', async () => {
+      const response = await request(app)
+        .post('/v1/auth/refresh')
+        .send({ refreshToken: 'invalid-token' });
+
+      expect(response.status).toBe(401);
+      expect(response.body).toEqual({ error: 'Invalid refresh token' });
+    });
+
+    it('returns 401 when refresh token has been revoked', async () => {
+      const sessionId = 'refresh-test-session-1';
+      const userId = 'refresh-test-user-1';
+
+      await createSession(sessionId, {
+        userId,
+        email: 'refresh@example.com',
+        admin: false,
+        ipAddress: '127.0.0.1'
+      });
+
+      const refreshToken = createJwt(
+        {
+          sub: userId,
+          jti: 'revoked-refresh-token-id',
+          sid: sessionId,
+          type: 'refresh'
+        },
+        'test-secret',
+        604800
+      );
+
+      const response = await request(app)
+        .post('/v1/auth/refresh')
+        .send({ refreshToken });
+
+      expect(response.status).toBe(401);
+      expect(response.body).toEqual({
+        error: 'Refresh token has been revoked'
+      });
+
+      await deleteSession(sessionId, userId);
+    });
+
+    it('returns 401 when session no longer exists', async () => {
+      const refreshTokenId = 'orphaned-refresh-token';
+      const userId = 'refresh-test-user-2';
+
+      await storeRefreshToken(
+        refreshTokenId,
+        { sessionId: 'nonexistent-session', userId },
+        604800
+      );
+
+      const refreshToken = createJwt(
+        {
+          sub: userId,
+          jti: refreshTokenId,
+          sid: 'nonexistent-session',
+          type: 'refresh'
+        },
+        'test-secret',
+        604800
+      );
+
+      const response = await request(app)
+        .post('/v1/auth/refresh')
+        .send({ refreshToken });
+
+      expect(response.status).toBe(401);
+      expect(response.body).toEqual({ error: 'Session no longer valid' });
+
+      const tokenAfter = await getRefreshToken(refreshTokenId);
+      expect(tokenAfter).toBeNull();
+    });
+
+    it('returns 200 with new tokens on successful refresh', async () => {
+      const sessionId = 'refresh-test-session-3';
+      const refreshTokenId = 'valid-refresh-token-id';
+      const userId = 'refresh-test-user-3';
+
+      await createSession(sessionId, {
+        userId,
+        email: 'refresh@example.com',
+        admin: true,
+        ipAddress: '127.0.0.1'
+      });
+
+      await storeRefreshToken(refreshTokenId, { sessionId, userId }, 604800);
+
+      const refreshToken = createJwt(
+        {
+          sub: userId,
+          jti: refreshTokenId,
+          sid: sessionId,
+          type: 'refresh'
+        },
+        'test-secret',
+        604800
+      );
+
+      const response = await request(app)
+        .post('/v1/auth/refresh')
+        .send({ refreshToken });
+
+      expect(response.status).toBe(200);
+      expect(response.body.accessToken).toEqual(expect.any(String));
+      expect(response.body.refreshToken).toEqual(expect.any(String));
+      expect(response.body.tokenType).toBe('Bearer');
+      expect(response.body.expiresIn).toBe(3600);
+      expect(response.body.refreshExpiresIn).toBe(604800);
+      expect(response.body.user).toEqual({
+        id: userId,
+        email: 'refresh@example.com'
+      });
+
+      const oldSession = await getSession(sessionId);
+      expect(oldSession).toBeNull();
+
+      const oldRefreshToken = await getRefreshToken(refreshTokenId);
+      expect(oldRefreshToken).toBeNull();
+
+      const newClaims = verifyJwt(response.body.accessToken, 'test-secret');
+      expect(newClaims).not.toBeNull();
+      if (newClaims) {
+        const newSession = await getSession(newClaims.jti);
+        expect(newSession).toMatchObject({
+          userId,
+          email: 'refresh@example.com',
+          admin: true
+        });
+        await deleteSession(newClaims.jti, userId);
+      }
+
+      const newRefreshClaims = verifyRefreshJwt(
+        response.body.refreshToken,
+        'test-secret'
+      );
+      if (newRefreshClaims) {
+        await deleteRefreshToken(newRefreshClaims.jti);
+      }
+    });
+
+    it('returns 500 when JWT_SECRET is not configured', async () => {
+      mockConsoleError();
+      delete process.env['JWT_SECRET'];
+
+      const response = await request(app)
+        .post('/v1/auth/refresh')
+        .send({ refreshToken: 'some-token' });
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Failed to refresh token' });
+
+      vi.stubEnv('JWT_SECRET', 'test-secret');
+    });
   });
 
   describe('GET /auth/sessions', () => {

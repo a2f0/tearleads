@@ -22,6 +22,7 @@ const AUTH_HEADER_PREFIX = 'Bearer ';
 const isAuthExemptPath = (path: string): boolean => {
   if (path === '/ping') return true;
   if (path === '/auth/login') return true;
+  if (path === '/auth/refresh') return true;
   return false;
 };
 
