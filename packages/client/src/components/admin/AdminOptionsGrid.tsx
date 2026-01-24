@@ -5,7 +5,8 @@ import { cn } from '@/lib/utils';
 const ADMIN_OPTIONS = [
   { id: 'redis', label: 'Redis' },
   { id: 'postgres', label: 'Postgres' },
-  { id: 'groups', label: 'Groups' }
+  { id: 'groups', label: 'Groups' },
+  { id: 'users', label: 'Users' }
 ] as const;
 
 export type AdminOptionId = (typeof ADMIN_OPTIONS)[number]['id'];

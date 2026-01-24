@@ -1,7 +1,9 @@
 export { Admin } from './Admin';
 export { AdminLauncher } from './AdminLauncher';
 export { GroupDetailPage } from './GroupDetailPage';
+export { GroupDetailPageRoute } from './GroupDetailPageRoute';
 export { GroupsAdmin } from './GroupsAdmin';
+export { GroupsAdminPage } from './GroupsAdminPage';
 export { PostgresAdmin } from './PostgresAdmin';
 export { UsersAdmin } from './UsersAdmin';
 export { UsersAdminDetail } from './UsersAdminDetail';

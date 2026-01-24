@@ -5,10 +5,19 @@ import { describe, expect, it, vi } from 'vitest';
 import { GroupsAdmin } from './GroupsAdmin';
 
 vi.mock('@/components/admin-groups', () => ({
-  GroupsList: ({ onCreateClick }: { onCreateClick?: () => void }) => (
+  GroupsList: ({
+    onCreateClick,
+    onGroupSelect
+  }: {
+    onCreateClick?: () => void;
+    onGroupSelect: (groupId: string) => void;
+  }) => (
     <div data-testid="groups-list">
       <button type="button" onClick={onCreateClick}>
         Create from list
+      </button>
+      <button type="button" onClick={() => onGroupSelect('group-1')}>
+        Select group
       </button>
     </div>
   ),
@@ -41,10 +50,14 @@ vi.mock('@/components/admin-groups', () => ({
 }));
 
 describe('GroupsAdmin', () => {
+  const defaultProps = {
+    onGroupSelect: vi.fn()
+  };
+
   function renderGroupsAdmin(showBackLink = true) {
     return render(
       <MemoryRouter>
-        <GroupsAdmin showBackLink={showBackLink} />
+        <GroupsAdmin {...defaultProps} showBackLink={showBackLink} />
       </MemoryRouter>
     );
   }
@@ -99,5 +112,19 @@ describe('GroupsAdmin', () => {
     await user.click(screen.getByTestId('trigger-created'));
 
     expect(screen.queryByTestId('create-group-dialog')).not.toBeInTheDocument();
+  });
+
+  it('calls onGroupSelect when group is selected', async () => {
+    const user = userEvent.setup();
+    const onGroupSelect = vi.fn();
+    render(
+      <MemoryRouter>
+        <GroupsAdmin onGroupSelect={onGroupSelect} />
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByText('Select group'));
+
+    expect(onGroupSelect).toHaveBeenCalledWith('group-1');
   });
 });

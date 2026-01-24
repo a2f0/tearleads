@@ -6,15 +6,6 @@ import { GroupsList } from './GroupsList';
 
 const mockList = vi.fn();
 const mockDelete = vi.fn();
-const mockNavigate = vi.fn();
-
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  };
-});
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -32,14 +23,18 @@ describe('GroupsList', () => {
     vi.clearAllMocks();
   });
 
-  function renderGroupsList(onCreateClick?: () => void) {
+  const defaultProps = {
+    onGroupSelect: vi.fn()
+  };
+
+  function renderGroupsList(props?: {
+    onCreateClick?: () => void;
+    onGroupSelect?: (groupId: string) => void;
+  }) {
+    const mergedProps = { ...defaultProps, ...props };
     return render(
       <MemoryRouter>
-        {onCreateClick ? (
-          <GroupsList onCreateClick={onCreateClick} />
-        ) : (
-          <GroupsList />
-        )}
+        <GroupsList {...mergedProps} />
       </MemoryRouter>
     );
   }
@@ -124,7 +119,7 @@ describe('GroupsList', () => {
     const onCreateClick = vi.fn();
     mockList.mockResolvedValue({ groups: [] });
 
-    renderGroupsList(onCreateClick);
+    renderGroupsList({ onCreateClick });
 
     await waitFor(() => {
       expect(screen.getByText('No groups yet')).toBeInTheDocument();
@@ -172,8 +167,9 @@ describe('GroupsList', () => {
     consoleSpy.mockRestore();
   });
 
-  it('navigates to group detail on click', async () => {
+  it('calls onGroupSelect when group is clicked', async () => {
     const user = userEvent.setup();
+    const onGroupSelect = vi.fn();
     mockList.mockResolvedValue({
       groups: [
         {
@@ -187,7 +183,7 @@ describe('GroupsList', () => {
       ]
     });
 
-    renderGroupsList();
+    renderGroupsList({ onGroupSelect });
 
     await waitFor(() => {
       expect(screen.getByText('Test Group')).toBeInTheDocument();
@@ -195,7 +191,7 @@ describe('GroupsList', () => {
 
     await user.click(screen.getByText('Test Group'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('/admin/groups/group-1');
+    expect(onGroupSelect).toHaveBeenCalledWith('group-1');
   });
 
   it('opens context menu on right click', async () => {
