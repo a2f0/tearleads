@@ -7,6 +7,13 @@ export type JwtClaims = {
   jti: string;
 };
 
+export type RefreshTokenClaims = {
+  sub: string;
+  jti: string;
+  sid: string;
+  type: 'refresh';
+};
+
 export function createJwt(
   payload: Record<string, unknown>,
   secret: string,
@@ -50,6 +57,39 @@ export function verifyJwt(token: string, secret: string): JwtClaims | null {
     }
 
     return claims;
+  } catch {
+    return null;
+  }
+}
+
+export function verifyRefreshJwt(
+  token: string,
+  secret: string
+): RefreshTokenClaims | null {
+  try {
+    const decoded = jwt.verify(token, secret, {
+      algorithms: ['HS256']
+    });
+
+    if (!isRecord(decoded)) {
+      return null;
+    }
+
+    const sub = decoded['sub'];
+    const jti = decoded['jti'];
+    const sid = decoded['sid'];
+    const type = decoded['type'];
+
+    if (
+      typeof sub !== 'string' ||
+      typeof jti !== 'string' ||
+      typeof sid !== 'string' ||
+      type !== 'refresh'
+    ) {
+      return null;
+    }
+
+    return { sub, jti, sid, type };
   } catch {
     return null;
   }
