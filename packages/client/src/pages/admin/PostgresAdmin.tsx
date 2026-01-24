@@ -28,11 +28,9 @@ export function PostgresAdmin({
     </div>
   );
 
-  if (inRouterContext) {
-    return content;
-  }
-
-  return (
+  return inRouterContext ? (
+    content
+  ) : (
     <MemoryRouter initialEntries={['/admin/postgres']}>{content}</MemoryRouter>
   );
 }
