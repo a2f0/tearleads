@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { AudioWindow } from './AudioWindow';
 
+const mockUploadFile = vi.fn();
+
 vi.mock('@/components/floating-window', () => ({
   FloatingWindow: (props: {
     children: React.ReactNode;
@@ -27,11 +29,18 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
+vi.mock('@/hooks/useFileUpload', () => ({
+  useFileUpload: () => ({ uploadFile: mockUploadFile })
+}));
+
 vi.mock('./AudioWindowList', () => ({
   AudioWindowList: ({
     onSelectTrack
   }: {
     onSelectTrack?: (trackId: string) => void;
+    refreshToken?: number;
+    showDropzone?: boolean;
+    onUploadFiles?: (files: File[]) => void | Promise<void>;
   }) => (
     <div data-testid="audio-list">
       <button
@@ -47,7 +56,16 @@ vi.mock('./AudioWindowList', () => ({
 }));
 
 vi.mock('./AudioWindowMenuBar', () => ({
-  AudioWindowMenuBar: ({ onClose }: { onClose: () => void }) => (
+  AudioWindowMenuBar: ({
+    onClose
+  }: {
+    onClose: () => void;
+    onUpload: () => void;
+    showDropzone: boolean;
+    onShowDropzoneChange: (show: boolean) => void;
+    view: 'list' | 'table';
+    onViewChange: (view: 'list' | 'table') => void;
+  }) => (
     <div data-testid="menu-bar">
       <button type="button" onClick={onClose} data-testid="menu-close">
         Close
