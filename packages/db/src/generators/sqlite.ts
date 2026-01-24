@@ -96,7 +96,8 @@ function generateTable(table: TableDefinition): string {
     indexes.forEach((idx, i) => {
       const columnRefs = idx.columns.map((col) => `table.${col}`).join(', ');
       const comma = i < indexes.length - 1 ? ',' : '';
-      lines.push(`    index('${idx.name}').on(${columnRefs})${comma}`);
+      const indexFn = idx.unique ? 'uniqueIndex' : 'index';
+      lines.push(`    ${indexFn}('${idx.name}').on(${columnRefs})${comma}`);
     });
 
     lines.push('  ]');
@@ -117,7 +118,9 @@ function collectDrizzleTypes(tables: TableDefinition[]): string[] {
 
   for (const table of tables) {
     if (table.indexes && table.indexes.length > 0) {
-      types.add('index');
+      for (const idx of table.indexes) {
+        types.add(idx.unique ? 'uniqueIndex' : 'index');
+      }
     }
     for (const column of Object.values(table.columns)) {
       const typeInfo = getSqliteTypeInfo(column.type);
