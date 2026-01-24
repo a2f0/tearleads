@@ -5,7 +5,8 @@ import {
   jsonb,
   pgTable,
   text,
-  timestamp
+  timestamp,
+  uniqueIndex
 } from 'drizzle-orm/pg-core';
 
 /**
@@ -233,7 +234,7 @@ export const chatGroups = pgTable(
   },
   (table) => [
     index('chat_groups_created_by_idx').on(table.createdBy),
-    index('chat_groups_mls_group_id_idx').on(table.mlsGroupId)
+    uniqueIndex('chat_groups_mls_group_id_idx').on(table.mlsGroupId)
   ]
 );
 

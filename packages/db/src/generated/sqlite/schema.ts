@@ -1,4 +1,10 @@
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import {
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex
+} from 'drizzle-orm/sqlite-core';
 
 /**
  * Sync metadata table for tracking entity sync status.
@@ -231,7 +237,7 @@ export const chatGroups = sqliteTable(
   },
   (table) => [
     index('chat_groups_created_by_idx').on(table.createdBy),
-    index('chat_groups_mls_group_id_idx').on(table.mlsGroupId)
+    uniqueIndex('chat_groups_mls_group_id_idx').on(table.mlsGroupId)
   ]
 );
 

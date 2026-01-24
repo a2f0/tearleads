@@ -51,87 +51,17 @@ vi.mock('../../lib/redis.js', () => ({
   getRedisClient: vi.fn(() => Promise.resolve(createMockClient()))
 }));
 
-interface MockGroup {
-  id: string;
-  name: string;
-  mlsGroupId: string;
-  createdBy: string;
-  createdAt: Date;
-}
+const mockQuery = vi.fn();
+const mockGetPostgresPool = vi.fn();
 
-interface MockMember {
-  id: string;
-  groupId: string;
-  userId: string;
-  role: string;
-  joinedAt: Date;
-}
-
-const mockGroups: MockGroup[] = [];
-const mockMembers: MockMember[] = [];
-
-vi.mock('../../lib/db.js', () => ({
-  getDb: vi.fn(() => ({
-    insert: vi.fn(() => ({
-      values: vi.fn(() => ({
-        returning: vi.fn(() =>
-          Promise.resolve([
-            {
-              id: 'group-new',
-              name: 'Test Group',
-              mlsGroupId: 'mls-id',
-              createdBy: 'user-1',
-              createdAt: new Date()
-            }
-          ])
-        )
-      }))
-    })),
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => Promise.resolve(mockGroups)),
-        innerJoin: vi.fn(() => ({
-          where: vi.fn(() => Promise.resolve(mockGroups))
-        })),
-        leftJoin: vi.fn(() => ({
-          where: vi.fn(() => ({
-            groupBy: vi.fn(() => Promise.resolve(mockGroups))
-          }))
-        }))
-      }))
-    })),
-    update: vi.fn(() => ({
-      set: vi.fn(() => ({
-        where: vi.fn(() => Promise.resolve([]))
-      }))
-    })),
-    delete: vi.fn(() => ({
-      where: vi.fn(() => Promise.resolve([]))
-    })),
-    transaction: vi.fn((callback: (tx: unknown) => Promise<unknown>) =>
-      callback({
-        insert: vi.fn(() => ({
-          values: vi.fn(() => ({
-            returning: vi.fn(() =>
-              Promise.resolve([
-                {
-                  id: 'group-new',
-                  name: 'Test Group',
-                  mlsGroupId: 'mls-id',
-                  createdBy: 'user-1',
-                  createdAt: new Date()
-                }
-              ])
-            )
-          }))
-        }))
-      })
-    )
-  }))
+vi.mock('../../lib/postgres.js', () => ({
+  getPostgresPool: () => mockGetPostgresPool(),
+  getPostgresConnectionInfo: vi.fn()
 }));
 
 describe('MLS Groups Routes', () => {
   let authHeader: string;
+  const now = new Date();
 
   beforeEach(async () => {
     vi.resetAllMocks();
@@ -139,9 +69,12 @@ describe('MLS Groups Routes', () => {
     sessionStore.clear();
     userSessionsStore.clear();
     mockTtl.clear();
-    mockGroups.length = 0;
-    mockMembers.length = 0;
     authHeader = await createAuthHeader();
+
+    // Default postgres mock - tests can override as needed
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockResolvedValue({ rows: [], rowCount: 0 })
+    });
   });
 
   afterEach(() => {
@@ -150,6 +83,19 @@ describe('MLS Groups Routes', () => {
 
   describe('POST /v1/mls/groups', () => {
     it('creates a new group successfully', async () => {
+      const groupRow = {
+        id: 'group-new',
+        name: 'Test Group',
+        mls_group_id: 'mls-group-id-123',
+        created_by: 'user-1',
+        created_at: now,
+        updated_at: now
+      };
+
+      mockQuery
+        .mockResolvedValueOnce({ rows: [groupRow], rowCount: 1 }) // INSERT group
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }); // INSERT member
+
       const response = await request(app)
         .post('/v1/mls/groups')
         .set('Authorization', authHeader)
@@ -188,12 +134,19 @@ describe('MLS Groups Routes', () => {
 
   describe('GET /v1/mls/groups', () => {
     it('returns list of user groups', async () => {
-      mockGroups.push({
-        id: 'group-1',
-        name: 'Work Chat',
-        mlsGroupId: 'mls-1',
-        createdBy: 'user-1',
-        createdAt: new Date()
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            id: 'group-1',
+            name: 'Work Chat',
+            mls_group_id: 'mls-1',
+            created_by: 'user-1',
+            created_at: now,
+            updated_at: now,
+            member_count: '1'
+          }
+        ],
+        rowCount: 1
       });
 
       const response = await request(app)
@@ -208,21 +161,35 @@ describe('MLS Groups Routes', () => {
 
   describe('GET /v1/mls/groups/:id', () => {
     it('returns group details', async () => {
-      mockGroups.push({
-        id: 'group-1',
-        name: 'Work Chat',
-        mlsGroupId: 'mls-1',
-        createdBy: 'user-1',
-        createdAt: new Date()
-      });
-
-      mockMembers.push({
-        id: 'member-1',
-        groupId: 'group-1',
-        userId: 'user-1',
-        role: 'admin',
-        joinedAt: new Date()
-      });
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ exists: 1 }],
+          rowCount: 1
+        }) // 1. Membership check
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'group-1',
+              name: 'Work Chat',
+              mls_group_id: 'mls-1',
+              created_by: 'user-1',
+              created_at: now,
+              updated_at: now
+            }
+          ],
+          rowCount: 1
+        }) // 2. SELECT group
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              user_id: 'user-1',
+              email: 'test@example.com',
+              role: 'admin',
+              joined_at: now
+            }
+          ],
+          rowCount: 1
+        }); // 3. SELECT members
 
       const response = await request(app)
         .get('/v1/mls/groups/group-1')
@@ -233,32 +200,37 @@ describe('MLS Groups Routes', () => {
       expect(response.body).toHaveProperty('members');
     });
 
-    it('returns 404 for non-existent group', async () => {
+    it('returns 403 when not a member of the group', async () => {
+      // When group doesn't exist or user isn't a member, membership check fails first
+      mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 }); // membership check
+
       const response = await request(app)
         .get('/v1/mls/groups/non-existent')
         .set('Authorization', authHeader);
 
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(403);
     });
   });
 
   describe('POST /v1/mls/groups/:id/members', () => {
     it('adds members to a group', async () => {
-      mockGroups.push({
-        id: 'group-1',
-        name: 'Work Chat',
-        mlsGroupId: 'mls-1',
-        createdBy: 'user-1',
-        createdAt: new Date()
-      });
-
-      mockMembers.push({
-        id: 'member-1',
-        groupId: 'group-1',
-        userId: 'user-1',
-        role: 'admin',
-        joinedAt: new Date()
-      });
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ role: 'admin' }],
+          rowCount: 1
+        }) // 1. Admin check
+        .mockResolvedValueOnce({
+          rows: [{ name: 'Test Group' }],
+          rowCount: 1
+        }) // 2. Get group name
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // 3. Check existing member (not found)
+        .mockResolvedValueOnce({
+          rows: [{ email: 'user2@example.com' }],
+          rowCount: 1
+        }) // 4. Get user email
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // 5. INSERT member
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // 6. INSERT welcome
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }); // 7. UPDATE group
 
       const response = await request(app)
         .post('/v1/mls/groups/group-1/members')
@@ -286,21 +258,13 @@ describe('MLS Groups Routes', () => {
 
   describe('DELETE /v1/mls/groups/:id/members/:userId', () => {
     it('removes a member from a group', async () => {
-      mockGroups.push({
-        id: 'group-1',
-        name: 'Work Chat',
-        mlsGroupId: 'mls-1',
-        createdBy: 'user-1',
-        createdAt: new Date()
-      });
-
-      mockMembers.push({
-        id: 'member-1',
-        groupId: 'group-1',
-        userId: 'user-1',
-        role: 'admin',
-        joinedAt: new Date()
-      });
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ role: 'admin' }],
+          rowCount: 1
+        }) // SELECT admin check
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // DELETE member
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }); // UPDATE group updated_at
 
       const response = await request(app)
         .delete('/v1/mls/groups/group-1/members/user-2')

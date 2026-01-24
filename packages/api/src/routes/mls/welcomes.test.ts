@@ -50,52 +50,17 @@ vi.mock('../../lib/redis.js', () => ({
   getRedisClient: vi.fn(() => Promise.resolve(createMockClient()))
 }));
 
-interface MockWelcome {
-  id: string;
-  userId: string;
-  groupId: string;
-  welcomeData: string;
-  acknowledged: boolean;
-  createdAt: Date;
-}
+const mockQuery = vi.fn();
+const mockGetPostgresPool = vi.fn();
 
-interface MockGroup {
-  id: string;
-  name: string;
-  mlsGroupId: string;
-  createdBy: string;
-  createdAt: Date;
-}
-
-const mockWelcomes: MockWelcome[] = [];
-const mockGroups: MockGroup[] = [];
-
-vi.mock('../../lib/db.js', () => ({
-  getDb: vi.fn(() => ({
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => Promise.resolve(mockWelcomes)),
-        innerJoin: vi.fn(() => ({
-          where: vi.fn(() => Promise.resolve(mockWelcomes))
-        })),
-        leftJoin: vi.fn(() => ({
-          where: vi.fn(() => Promise.resolve(mockWelcomes))
-        }))
-      }))
-    })),
-    update: vi.fn(() => ({
-      set: vi.fn(() => ({
-        where: vi.fn(() => Promise.resolve([{ id: 'welcome-1' }]))
-      }))
-    })),
-    delete: vi.fn(() => ({
-      where: vi.fn(() => Promise.resolve([]))
-    }))
-  }))
+vi.mock('../../lib/postgres.js', () => ({
+  getPostgresPool: () => mockGetPostgresPool(),
+  getPostgresConnectionInfo: vi.fn()
 }));
 
 describe('MLS Welcomes Routes', () => {
   let authHeader: string;
+  const now = new Date();
 
   beforeEach(async () => {
     vi.resetAllMocks();
@@ -103,9 +68,12 @@ describe('MLS Welcomes Routes', () => {
     sessionStore.clear();
     userSessionsStore.clear();
     mockTtl.clear();
-    mockWelcomes.length = 0;
-    mockGroups.length = 0;
     authHeader = await createAuthHeader();
+
+    // Default postgres mock
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockResolvedValue({ rows: [], rowCount: 0 })
+    });
   });
 
   afterEach(() => {
@@ -114,21 +82,18 @@ describe('MLS Welcomes Routes', () => {
 
   describe('GET /v1/mls/welcomes', () => {
     it('returns pending welcome messages', async () => {
-      mockWelcomes.push({
-        id: 'welcome-1',
-        userId: 'user-1',
-        groupId: 'group-1',
-        welcomeData: 'welcome-data-base64',
-        acknowledged: false,
-        createdAt: new Date()
-      });
-
-      mockGroups.push({
-        id: 'group-1',
-        name: 'Test Group',
-        mlsGroupId: 'mls-1',
-        createdBy: 'user-2',
-        createdAt: new Date()
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            id: 'welcome-1',
+            group_id: 'group-1',
+            welcome_data: 'welcome-data-base64',
+            fetched: false,
+            created_at: now,
+            group_name: 'Test Group'
+          }
+        ],
+        rowCount: 1
       });
 
       const response = await request(app)
@@ -141,6 +106,8 @@ describe('MLS Welcomes Routes', () => {
     });
 
     it('returns empty array when no welcomes', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
       const response = await request(app)
         .get('/v1/mls/welcomes')
         .set('Authorization', authHeader);
@@ -152,24 +119,19 @@ describe('MLS Welcomes Routes', () => {
 
   describe('POST /v1/mls/welcomes/:welcomeId/ack', () => {
     it('acknowledges a welcome message', async () => {
-      mockWelcomes.push({
-        id: 'welcome-1',
-        userId: 'user-1',
-        groupId: 'group-1',
-        welcomeData: 'welcome-data',
-        acknowledged: false,
-        createdAt: new Date()
-      });
+      mockQuery.mockResolvedValueOnce({ rowCount: 1 });
 
       const response = await request(app)
         .post('/v1/mls/welcomes/welcome-1/ack')
         .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('success', true);
+      expect(response.body).toHaveProperty('acknowledged', true);
     });
 
     it('returns 404 for non-existent welcome', async () => {
+      mockQuery.mockResolvedValueOnce({ rowCount: 0 });
+
       const response = await request(app)
         .post('/v1/mls/welcomes/non-existent/ack')
         .set('Authorization', authHeader);

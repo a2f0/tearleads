@@ -51,81 +51,17 @@ vi.mock('../../lib/redis.js', () => ({
   getRedisClient: vi.fn(() => Promise.resolve(createMockClient()))
 }));
 
-interface MockMessage {
-  id: string;
-  groupId: string;
-  senderId: string;
-  ciphertext: string;
-  epoch: number;
-  createdAt: Date;
-}
+const mockQuery = vi.fn();
+const mockGetPostgresPool = vi.fn();
 
-interface MockMember {
-  id: string;
-  groupId: string;
-  userId: string;
-  role: string;
-  joinedAt: Date;
-}
-
-const mockMessages: MockMessage[] = [];
-const mockMembers: MockMember[] = [];
-
-vi.mock('../../lib/db.js', () => ({
-  getDb: vi.fn(() => ({
-    insert: vi.fn(() => ({
-      values: vi.fn(() => ({
-        returning: vi.fn(() =>
-          Promise.resolve([
-            {
-              id: 'msg-new',
-              groupId: 'group-1',
-              senderId: 'user-1',
-              ciphertext: 'encrypted-data',
-              epoch: 1,
-              createdAt: new Date()
-            }
-          ])
-        )
-      }))
-    })),
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => {
-          if (mockMembers.length > 0) {
-            return Promise.resolve(mockMembers);
-          }
-          return Promise.resolve(mockMessages);
-        }),
-        innerJoin: vi.fn(() => ({
-          where: vi.fn(() => ({
-            orderBy: vi.fn(() => ({
-              limit: vi.fn(() => Promise.resolve(mockMessages))
-            }))
-          }))
-        })),
-        leftJoin: vi.fn(() => ({
-          where: vi.fn(() => ({
-            orderBy: vi.fn(() => ({
-              limit: vi.fn(() => Promise.resolve(mockMessages))
-            }))
-          }))
-        }))
-      }))
-    })),
-    update: vi.fn(() => ({
-      set: vi.fn(() => ({
-        where: vi.fn(() => Promise.resolve([]))
-      }))
-    })),
-    delete: vi.fn(() => ({
-      where: vi.fn(() => Promise.resolve([]))
-    }))
-  }))
+vi.mock('../../lib/postgres.js', () => ({
+  getPostgresPool: () => mockGetPostgresPool(),
+  getPostgresConnectionInfo: vi.fn()
 }));
 
 describe('MLS Messages Routes', () => {
   let authHeader: string;
+  const now = new Date();
 
   beforeEach(async () => {
     vi.resetAllMocks();
@@ -133,9 +69,12 @@ describe('MLS Messages Routes', () => {
     sessionStore.clear();
     userSessionsStore.clear();
     mockTtl.clear();
-    mockMessages.length = 0;
-    mockMembers.length = 0;
     authHeader = await createAuthHeader();
+
+    // Default postgres mock
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockResolvedValue({ rows: [], rowCount: 0 })
+    });
   });
 
   afterEach(() => {
@@ -144,13 +83,21 @@ describe('MLS Messages Routes', () => {
 
   describe('POST /v1/mls/groups/:groupId/messages', () => {
     it('posts a new encrypted message', async () => {
-      mockMembers.push({
-        id: 'member-1',
-        groupId: 'group-1',
-        userId: 'user-1',
-        role: 'member',
-        joinedAt: new Date()
-      });
+      const messageRow = {
+        id: 'msg-new',
+        group_id: 'group-1',
+        sender_id: 'user-1',
+        ciphertext: 'encrypted-message-data',
+        epoch: 1,
+        created_at: now
+      };
+
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ user_id: 'user-1' }],
+          rowCount: 1
+        }) // SELECT member check
+        .mockResolvedValueOnce({ rows: [messageRow], rowCount: 1 }); // INSERT message
 
       const response = await request(app)
         .post('/v1/mls/groups/group-1/messages')
@@ -188,6 +135,8 @@ describe('MLS Messages Routes', () => {
     });
 
     it('returns 403 for non-member', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 }); // member not found
+
       const response = await request(app)
         .post('/v1/mls/groups/group-1/messages')
         .set('Authorization', authHeader)
@@ -202,32 +151,30 @@ describe('MLS Messages Routes', () => {
 
   describe('GET /v1/mls/groups/:groupId/messages', () => {
     it('returns paginated message history', async () => {
-      mockMembers.push({
-        id: 'member-1',
-        groupId: 'group-1',
-        userId: 'user-1',
-        role: 'member',
-        joinedAt: new Date()
-      });
-
-      mockMessages.push(
-        {
-          id: 'msg-1',
-          groupId: 'group-1',
-          senderId: 'user-1',
-          ciphertext: 'encrypted-1',
-          epoch: 1,
-          createdAt: new Date()
-        },
-        {
-          id: 'msg-2',
-          groupId: 'group-1',
-          senderId: 'user-2',
-          ciphertext: 'encrypted-2',
-          epoch: 1,
-          createdAt: new Date()
-        }
-      );
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ user_id: 'user-1' }],
+          rowCount: 1
+        }) // SELECT member check
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'msg-1',
+              sender_id: 'user-1',
+              ciphertext: 'encrypted-1',
+              epoch: 1,
+              created_at: now
+            },
+            {
+              id: 'msg-2',
+              sender_id: 'user-2',
+              ciphertext: 'encrypted-2',
+              epoch: 1,
+              created_at: now
+            }
+          ],
+          rowCount: 2
+        }); // SELECT messages
 
       const response = await request(app)
         .get('/v1/mls/groups/group-1/messages')
@@ -239,13 +186,12 @@ describe('MLS Messages Routes', () => {
     });
 
     it('supports cursor pagination', async () => {
-      mockMembers.push({
-        id: 'member-1',
-        groupId: 'group-1',
-        userId: 'user-1',
-        role: 'member',
-        joinedAt: new Date()
-      });
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ user_id: 'user-1' }],
+          rowCount: 1
+        }) // SELECT member check
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // SELECT messages (empty after cursor)
 
       const response = await request(app)
         .get('/v1/mls/groups/group-1/messages?cursor=msg-5&limit=10')
@@ -256,6 +202,8 @@ describe('MLS Messages Routes', () => {
     });
 
     it('returns 403 for non-member', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 }); // member not found
+
       const response = await request(app)
         .get('/v1/mls/groups/group-1/messages')
         .set('Authorization', authHeader);

@@ -50,35 +50,12 @@ vi.mock('../../lib/redis.js', () => ({
   getRedisClient: vi.fn(() => Promise.resolve(createMockClient()))
 }));
 
-const mockKeyPackages: Array<{
-  id: string;
-  userId: string;
-  keyPackageData: string;
-  consumed: boolean;
-  createdAt: Date;
-}> = [];
+const mockQuery = vi.fn();
+const mockGetPostgresPool = vi.fn();
 
-vi.mock('../../lib/db.js', () => ({
-  getDb: vi.fn(() => ({
-    insert: vi.fn(() => ({
-      values: vi.fn(() => ({
-        returning: vi.fn(() => Promise.resolve([{ id: 'kp-new' }]))
-      }))
-    })),
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => Promise.resolve(mockKeyPackages))
-      }))
-    })),
-    update: vi.fn(() => ({
-      set: vi.fn(() => ({
-        where: vi.fn(() => Promise.resolve([{ id: 'kp-1' }]))
-      }))
-    })),
-    delete: vi.fn(() => ({
-      where: vi.fn(() => Promise.resolve([]))
-    }))
-  }))
+vi.mock('../../lib/postgres.js', () => ({
+  getPostgresPool: () => mockGetPostgresPool(),
+  getPostgresConnectionInfo: vi.fn()
 }));
 
 describe('MLS Key Packages Routes', () => {
@@ -90,8 +67,12 @@ describe('MLS Key Packages Routes', () => {
     sessionStore.clear();
     userSessionsStore.clear();
     mockTtl.clear();
-    mockKeyPackages.length = 0;
     authHeader = await createAuthHeader();
+
+    // Default postgres mock
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockResolvedValue({ rows: [], rowCount: 0 })
+    });
   });
 
   afterEach(() => {
@@ -100,18 +81,22 @@ describe('MLS Key Packages Routes', () => {
 
   describe('POST /v1/mls/key-packages', () => {
     it('uploads key packages successfully', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT first
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }); // INSERT second
+
       const response = await request(app)
         .post('/v1/mls/key-packages')
         .set('Authorization', authHeader)
         .send({
           keyPackages: [
-            { id: 'kp-1', data: 'package-data-1' },
-            { id: 'kp-2', data: 'package-data-2' }
+            { keyPackageData: 'package-data-1' },
+            { keyPackageData: 'package-data-2' }
           ]
         });
 
       expect(response.status).toBe(201);
-      expect(response.body).toHaveProperty('count', 2);
+      expect(response.body).toHaveProperty('uploaded', 2);
     });
 
     it('returns 400 for invalid payload', async () => {
@@ -134,22 +119,10 @@ describe('MLS Key Packages Routes', () => {
 
   describe('GET /v1/mls/key-packages/count', () => {
     it('returns count of available key packages', async () => {
-      mockKeyPackages.push(
-        {
-          id: 'kp-1',
-          userId: 'user-1',
-          keyPackageData: 'data',
-          consumed: false,
-          createdAt: new Date()
-        },
-        {
-          id: 'kp-2',
-          userId: 'user-1',
-          keyPackageData: 'data',
-          consumed: false,
-          createdAt: new Date()
-        }
-      );
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ count: '5' }],
+        rowCount: 1
+      });
 
       const response = await request(app)
         .get('/v1/mls/key-packages/count')
@@ -162,12 +135,15 @@ describe('MLS Key Packages Routes', () => {
 
   describe('GET /v1/mls/key-packages/:userId', () => {
     it('fetches and consumes a key package', async () => {
-      mockKeyPackages.push({
-        id: 'kp-1',
-        userId: 'user-2',
-        keyPackageData: 'package-data-1',
-        consumed: false,
-        createdAt: new Date()
+      // The route uses UPDATE...RETURNING in a single query
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            id: 'kp-1',
+            key_package_data: 'package-data-1'
+          }
+        ],
+        rowCount: 1
       });
 
       const response = await request(app)
@@ -175,10 +151,13 @@ describe('MLS Key Packages Routes', () => {
         .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('keyPackage');
+      expect(response.body).toHaveProperty('id', 'kp-1');
+      expect(response.body).toHaveProperty('keyPackageData', 'package-data-1');
     });
 
     it('returns 404 when no key packages available', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
       const response = await request(app)
         .get('/v1/mls/key-packages/user-2')
         .set('Authorization', authHeader);
