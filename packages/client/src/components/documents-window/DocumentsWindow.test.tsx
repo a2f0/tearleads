@@ -173,6 +173,22 @@ describe('DocumentsWindow', () => {
     expect(lastDocumentsProps?.['showDropzone']).toBe(false);
   });
 
+  it('toggles showDropzone from the menu', async () => {
+    const user = userEvent.setup();
+    render(<DocumentsWindow {...defaultProps} />);
+
+    expect(screen.getByTestId('menu-show-dropzone')).toHaveTextContent('false');
+
+    await user.click(screen.getByTestId('menu-dropzone-toggle'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('menu-show-dropzone')).toHaveTextContent(
+        'true'
+      );
+    });
+    expect(lastDocumentsProps?.['showDropzone']).toBe(true);
+  });
+
   it('wraps list content in a scrollable container', () => {
     render(<DocumentsWindow {...defaultProps} />);
     const container = screen.getByTestId('documents-content').parentElement;
