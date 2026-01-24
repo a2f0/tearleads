@@ -1,5 +1,8 @@
 import { isRecord } from '@rapid/shared';
-import { getAccessTokenTtlSeconds } from './authConfig.js';
+import {
+  getAccessTokenTtlSeconds,
+  getRefreshTokenTtlSeconds
+} from './authConfig.js';
 import { getRedisClient } from './redis.js';
 
 export type SessionData = {
@@ -38,7 +41,7 @@ export async function createSession(
 
   await client.set(key, JSON.stringify(sessionData), { EX: ttlSeconds });
   await client.sAdd(userSessionsKey, sessionId);
-  await client.expire(userSessionsKey, ttlSeconds);
+  await client.expire(userSessionsKey, getRefreshTokenTtlSeconds());
 }
 
 export async function getSession(
@@ -283,7 +286,7 @@ export async function rotateTokensAtomically(
     EX: params.refreshTokenTtlSeconds
   });
   multi.sAdd(userSessionsKey, params.newSessionId);
-  multi.expire(userSessionsKey, params.sessionTtlSeconds);
+  multi.expire(userSessionsKey, params.refreshTokenTtlSeconds);
 
   await multi.exec();
 }
