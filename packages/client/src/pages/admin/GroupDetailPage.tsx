@@ -21,9 +21,8 @@ export function GroupDetailPage() {
   const [addUserId, setAddUserId] = useState('');
   const [addingMember, setAddingMember] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [removeMemberDialog, setRemoveMemberDialog] = useState<GroupMember | null>(
-    null
-  );
+  const [removeMemberDialog, setRemoveMemberDialog] =
+    useState<GroupMember | null>(null);
 
   const fetchGroup = useCallback(async () => {
     if (!id) return;
@@ -192,10 +191,7 @@ export function GroupDetailPage() {
       <div className="space-y-4 rounded-lg border bg-card p-4">
         <h2 className="font-medium text-lg">Members ({members.length})</h2>
 
-        <form
-          onSubmit={(e) => void handleAddMember(e)}
-          className="flex gap-2"
-        >
+        <form onSubmit={(e) => void handleAddMember(e)} className="flex gap-2">
           <Input
             value={addUserId}
             onChange={(e) => setAddUserId(e.target.value)}

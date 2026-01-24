@@ -189,17 +189,14 @@ export const api = {
           eventName: 'api_post_admin_group'
         }),
       update: (id: string, data: UpdateGroupRequest) =>
-        request<{ group: Group }>(
-          `/admin/groups/${encodeURIComponent(id)}`,
-          {
-            fetchOptions: {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(data)
-            },
-            eventName: 'api_put_admin_group'
-          }
-        ),
+        request<{ group: Group }>(`/admin/groups/${encodeURIComponent(id)}`, {
+          fetchOptions: {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          },
+          eventName: 'api_put_admin_group'
+        }),
       delete: (id: string) =>
         request<{ deleted: boolean }>(
           `/admin/groups/${encodeURIComponent(id)}`,
