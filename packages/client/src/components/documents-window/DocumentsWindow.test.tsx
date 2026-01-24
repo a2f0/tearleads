@@ -80,18 +80,25 @@ vi.mock('./DocumentsWindowMenuBar', () => ({
   DocumentsWindowMenuBar: ({
     viewMode,
     onViewModeChange,
+    showDropzone,
+    onShowDropzoneChange,
     onUpload,
     onRefresh,
     onClose
   }: {
     viewMode: 'list' | 'table';
     onViewModeChange: (mode: 'list' | 'table') => void;
+    showDropzone: boolean;
+    onShowDropzoneChange: (show: boolean) => void;
     onUpload: () => void;
     onRefresh: () => void;
     onClose: () => void;
   }) => (
     <div data-testid="documents-menu">
       <div data-testid="menu-view-mode">{viewMode}</div>
+      <div data-testid="menu-show-dropzone">
+        {showDropzone ? 'true' : 'false'}
+      </div>
       <button
         type="button"
         onClick={() => onViewModeChange('list')}
@@ -111,6 +118,13 @@ vi.mock('./DocumentsWindowMenuBar', () => ({
       </button>
       <button type="button" onClick={onRefresh} data-testid="menu-refresh">
         Refresh
+      </button>
+      <button
+        type="button"
+        onClick={() => onShowDropzoneChange(!showDropzone)}
+        data-testid="menu-dropzone-toggle"
+      >
+        Toggle Dropzone
       </button>
       <button type="button" onClick={onClose} data-testid="menu-close">
         Close
@@ -156,6 +170,7 @@ describe('DocumentsWindow', () => {
     );
     expect(lastDocumentsProps?.['showBackLink']).toBe(false);
     expect(lastDocumentsProps?.['viewMode']).toBe('list');
+    expect(lastDocumentsProps?.['showDropzone']).toBe(false);
   });
 
   it('wraps list content in a scrollable container', () => {

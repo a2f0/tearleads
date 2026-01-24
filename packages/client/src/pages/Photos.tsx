@@ -88,12 +88,14 @@ interface PhotosProps {
   onSelectPhoto?: ((photoId: string) => void) | undefined;
   refreshToken?: number | undefined;
   showBackLink?: boolean | undefined;
+  showDropzone?: boolean | undefined;
 }
 
 export function Photos({
   onSelectPhoto,
   refreshToken,
-  showBackLink = true
+  showBackLink = true,
+  showDropzone = true
 }: PhotosProps = {}) {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
@@ -116,13 +118,14 @@ export function Photos({
 
   const photoRows = useMemo(() => {
     const rows: GridItem[][] = [];
-    // Include the dropzone as the last item in the grid
-    const allItems: GridItem[] = [...photos, 'dropzone'];
+    const allItems: GridItem[] = showDropzone
+      ? [...photos, 'dropzone']
+      : photos;
     for (let i = 0; i < allItems.length; i += columns) {
       rows.push(allItems.slice(i, i + columns));
     }
     return rows;
-  }, [photos, columns]);
+  }, [photos, columns, showDropzone]);
 
   const virtualizer = useVirtualizer({
     count: photoRows.length,
@@ -494,14 +497,20 @@ export function Photos({
             </div>
           </div>
         ) : photos.length === 0 && hasFetched ? (
-          <Dropzone
-            onFilesSelected={handleFilesSelected}
-            accept="image/*"
-            multiple={true}
-            disabled={uploading}
-            label="photos"
-            source="photos"
-          />
+          showDropzone ? (
+            <Dropzone
+              onFilesSelected={handleFilesSelected}
+              accept="image/*"
+              multiple={true}
+              disabled={uploading}
+              label="photos"
+              source="photos"
+            />
+          ) : (
+            <div className="rounded-lg border p-8 text-center text-muted-foreground">
+              No photos yet. Use Upload to add images.
+            </div>
+          )
         ) : (
           <div className="flex min-h-0 flex-1 flex-col space-y-2">
             <VirtualListStatus

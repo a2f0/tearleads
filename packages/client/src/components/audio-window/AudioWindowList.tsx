@@ -7,6 +7,7 @@ import { useAudio } from '@/audio';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
+import { Dropzone } from '@/components/ui/dropzone';
 import { Input } from '@/components/ui/input';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
@@ -46,11 +47,15 @@ const ROW_HEIGHT_ESTIMATE = 56;
 interface AudioWindowListProps {
   onSelectTrack?: (trackId: string) => void;
   refreshToken?: number;
+  showDropzone?: boolean;
+  onUploadFiles?: (files: File[]) => void | Promise<void>;
 }
 
 export function AudioWindowList({
   onSelectTrack,
-  refreshToken = 0
+  refreshToken = 0,
+  showDropzone = false,
+  onUploadFiles
 }: AudioWindowListProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
@@ -353,14 +358,33 @@ export function AudioWindowList({
             Loading audio...
           </div>
         ) : tracks.length === 0 && hasFetched ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border p-6 text-center">
-            <Music className="h-8 w-8 text-muted-foreground" />
-            <div>
-              <p className="font-medium text-sm">No audio files</p>
-              <p className="text-muted-foreground text-xs">
-                Upload audio from the main Audio page
-              </p>
-            </div>
+          <div className="rounded-lg border p-6 text-center">
+            {showDropzone && onUploadFiles ? (
+              <div className="space-y-3">
+                <Dropzone
+                  onFilesSelected={onUploadFiles}
+                  accept="audio/*"
+                  multiple={false}
+                  label="audio files"
+                  source="media"
+                />
+                {isDesktopPlatform && (
+                  <p className="text-muted-foreground text-xs">
+                    Drop an audio file here to add it to your library
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <Music className="h-8 w-8 text-muted-foreground" />
+                <div>
+                  <p className="font-medium text-sm">No audio files</p>
+                  <p className="text-muted-foreground text-xs">
+                    Use Upload to add audio
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col space-y-2">
@@ -456,6 +480,17 @@ export function AudioWindowList({
                 </div>
               </div>
             </div>
+            {showDropzone && onUploadFiles && (
+              <Dropzone
+                onFilesSelected={onUploadFiles}
+                accept="audio/*"
+                multiple={false}
+                label="audio files"
+                source="media"
+                compact
+                variant="row"
+              />
+            )}
           </div>
         ))}
 
