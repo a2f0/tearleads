@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type {
   AddMemberRequest,
   CreateGroupRequest,
@@ -9,7 +10,6 @@ import type {
   GroupWithMemberCount,
   UpdateGroupRequest
 } from '@rapid/shared';
-import { randomUUID } from 'node:crypto';
 import {
   type Request,
   type Response,
@@ -263,7 +263,10 @@ router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
       description: string | null;
       created_at: Date;
       updated_at: Date;
-    }>('SELECT id, name, description, created_at, updated_at FROM groups WHERE id = $1', [id]);
+    }>(
+      'SELECT id, name, description, created_at, updated_at FROM groups WHERE id = $1',
+      [id]
+    );
 
     const groupRow = groupResult.rows[0];
     if (!groupRow) {
@@ -685,7 +688,9 @@ router.post(
         err instanceof Error &&
         err.message.includes('duplicate key value violates unique constraint')
       ) {
-        res.status(409).json({ error: 'User is already a member of this group' });
+        res
+          .status(409)
+          .json({ error: 'User is already a member of this group' });
         return;
       }
       res.status(500).json({
