@@ -109,6 +109,13 @@ describe('iso-storage', () => {
               quota: 1073741824,
               usage: 0
             })
+          },
+          locks: {
+            request: vi
+              .fn()
+              .mockImplementation(
+                (_name: string, callback: () => Promise<void>) => callback()
+              )
           }
         },
         writable: true
@@ -322,6 +329,43 @@ describe('iso-storage', () => {
       await expect(downloadIso(mockEntry)).rejects.toThrow(
         'Failed to get response reader'
       );
+    });
+
+    it('downloadIso updates existing ISO metadata', async () => {
+      mockMetadataContent = JSON.stringify({
+        isos: [
+          {
+            id: 'test-iso',
+            name: 'Test ISO',
+            sizeBytes: 512,
+            downloadedAt: '2024-01-01'
+          }
+        ]
+      });
+
+      const mockReader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new Uint8Array([1, 2, 3, 4])
+          })
+          .mockResolvedValueOnce({ done: true, value: undefined })
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        headers: {
+          get: vi.fn().mockReturnValue('4')
+        },
+        body: {
+          getReader: () => mockReader
+        }
+      });
+
+      await downloadIso(mockEntry);
+
+      expect(mockWritable.write).toHaveBeenCalled();
     });
 
     it('uploadIso stores a local ISO file', async () => {

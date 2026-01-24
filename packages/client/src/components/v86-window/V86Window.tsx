@@ -46,19 +46,17 @@ export function V86Window({
     let uploadedCount = 0;
     const errors: string[] = [];
 
-    await Promise.all(
-      files.map(async (file) => {
-        try {
-          await uploadIso(file);
-          uploadedCount++;
-        } catch (err) {
-          console.error(`Failed to upload ${file.name}:`, err);
-          errors.push(
-            `"${file.name}": ${err instanceof Error ? err.message : String(err)}`
-          );
-        }
-      })
-    );
+    for (const file of files) {
+      try {
+        await uploadIso(file);
+        uploadedCount++;
+      } catch (err) {
+        console.error(`Failed to upload ${file.name}:`, err);
+        errors.push(
+          `"${file.name}": ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    }
 
     if (uploadedCount > 0) {
       setRefreshToken((value) => value + 1);
