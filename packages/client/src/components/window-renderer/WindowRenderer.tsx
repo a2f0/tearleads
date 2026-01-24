@@ -26,6 +26,7 @@ import { SettingsWindow } from '@/components/settings-window';
 import { SqliteWindow } from '@/components/sqlite-window';
 import { SyncWindow } from '@/components/sync-window';
 import { TablesWindow } from '@/components/tables-window';
+import { V86Window } from '@/components/v86-window';
 import { VideoWindow } from '@/components/video-window';
 import type {
   WindowInstance,
@@ -83,7 +84,8 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   documents: { Component: DocumentsWindow },
   help: { Component: HelpWindow },
   'local-storage': { Component: LocalStorageWindow },
-  sync: { Component: SyncWindow }
+  sync: { Component: SyncWindow },
+  v86: { Component: V86Window }
 };
 
 export function WindowRenderer() {

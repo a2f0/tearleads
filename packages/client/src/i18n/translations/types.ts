@@ -36,6 +36,7 @@ export interface MenuTranslations {
   settings: string;
   email: string;
   sync: string;
+  v86: string;
 }
 
 export interface AudioTranslations {

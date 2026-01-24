@@ -6,6 +6,7 @@ import {
   Bug,
   ChevronRight,
   CircleHelp,
+  Cpu,
   Database,
   ExternalLink,
   FileIcon,
@@ -215,6 +216,13 @@ export const navItems: NavItem[] = [
     testId: 'sync-link'
   },
   {
+    path: '/v86',
+    icon: Cpu,
+    labelKey: 'v86',
+    inMobileMenu: true,
+    testId: 'v86-link'
+  },
+  {
     path: '/settings',
     icon: Settings,
     labelKey: 'settings',
@@ -251,7 +259,8 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/admin/redis': 'admin-redis',
   '/admin/postgres': 'admin-postgres',
   '/admin/users': 'admin-users',
-  '/sync': 'sync'
+  '/sync': 'sync',
+  '/v86': 'v86'
 };
 
 export interface SidebarProps {

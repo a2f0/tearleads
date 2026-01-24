@@ -37,7 +37,8 @@ export const ua = {
     adminUsers: 'Адмін користувачів',
     settings: 'Налаштування',
     email: 'Пошта',
-    sync: 'Синхронізація'
+    sync: 'Синхронізація',
+    v86: 'v86'
   },
   audio: {
     play: 'Відтворити',
