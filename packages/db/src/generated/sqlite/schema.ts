@@ -1,4 +1,10 @@
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import {
+  index,
+  integer,
+  sqliteTable,
+  text,
+  uniqueIndex
+} from 'drizzle-orm/sqlite-core';
 
 /**
  * Sync metadata table for tracking entity sync status.
@@ -205,7 +211,7 @@ export const groups = sqliteTable(
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
   },
-  (table) => [index('groups_name_idx').on(table.name)]
+  (table) => [uniqueIndex('groups_name_idx').on(table.name)]
 );
 
 /**

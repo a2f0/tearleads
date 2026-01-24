@@ -2,6 +2,7 @@ import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 
 interface CreateGroupDialogProps {
@@ -113,14 +114,13 @@ export function CreateGroupDialog({
             <label htmlFor="group-description" className="font-medium text-sm">
               Description (optional)
             </label>
-            <textarea
+            <Textarea
               id="group-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Enter group description"
               disabled={loading}
               rows={3}
-              className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
           {error && <p className="text-destructive text-sm">{error}</p>}

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { GroupsAdmin } from './GroupsAdmin';
 
 vi.mock('@/components/admin-groups', () => ({
@@ -29,7 +29,10 @@ vi.mock('@/components/admin-groups', () => ({
         <button
           type="button"
           data-testid="trigger-created"
-          onClick={() => onCreated?.()}
+          onClick={() => {
+            onOpenChange(false);
+            onCreated?.();
+          }}
         >
           Trigger Created
         </button>
@@ -38,15 +41,6 @@ vi.mock('@/components/admin-groups', () => ({
 }));
 
 describe('GroupsAdmin', () => {
-  const originalLocation = window.location;
-
-  beforeEach(() => {
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: { ...originalLocation, reload: vi.fn() }
-    });
-  });
-
   function renderGroupsAdmin(showBackLink = true) {
     return render(
       <MemoryRouter>
@@ -95,13 +89,15 @@ describe('GroupsAdmin', () => {
     expect(screen.getByTestId('create-group-dialog')).toBeInTheDocument();
   });
 
-  it('reloads page when group is created', async () => {
+  it('closes dialog when group is created', async () => {
     const user = userEvent.setup();
     renderGroupsAdmin();
 
     await user.click(screen.getByRole('button', { name: 'Create Group' }));
+    expect(screen.getByTestId('create-group-dialog')).toBeInTheDocument();
+
     await user.click(screen.getByTestId('trigger-created'));
 
-    expect(window.location.reload).toHaveBeenCalled();
+    expect(screen.queryByTestId('create-group-dialog')).not.toBeInTheDocument();
   });
 });
