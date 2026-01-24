@@ -221,7 +221,7 @@ export function EncryptedChat() {
         });
         if (!response.ok) throw new Error(`Failed to get key package for user`);
         const data = await response.json();
-        keyPackages.push(data.keyPackage.data);
+        keyPackages.push(data.keyPackageData);
       }
 
       // Add members via MLS
@@ -229,6 +229,27 @@ export function EncryptedChat() {
         selectedGroupId,
         keyPackages
       );
+
+      if (welcomes.length === 0) {
+        throw new Error('MLS add members returned no welcome messages');
+      }
+
+      const welcomeMessages =
+        welcomes.length === 1
+          ? userIds.map((userId) => ({
+              userId,
+              welcomeData: welcomes[0]?.welcome ?? ''
+            }))
+          : welcomes.length === userIds.length
+          ? welcomes.map((welcome, index) => ({
+              userId: userIds[index] ?? '',
+              welcomeData: welcome.welcome
+            }))
+          : null;
+
+      if (!welcomeMessages || welcomeMessages.some((w) => !w.userId)) {
+        throw new Error('MLS welcome messages do not match selected members');
+      }
 
       // Send to server
       const response = await fetch(
@@ -242,15 +263,29 @@ export function EncryptedChat() {
           body: JSON.stringify({
             memberUserIds: userIds,
             commitData: commit,
-            welcomeMessages: welcomes.map((w, i) => ({
-              userId: userIds[i],
-              welcomeData: w.welcome
-            }))
+            welcomeMessages
           })
         }
       );
 
       if (!response.ok) throw new Error('Failed to add members');
+
+      const commitEpoch = await mls.getEpoch(selectedGroupId);
+      const commitResponse = await fetch(
+        `/api/v1/mls/groups/${selectedGroupId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ ciphertext: commit, epoch: commitEpoch })
+        }
+      );
+
+      if (!commitResponse.ok) {
+        throw new Error('Failed to broadcast group commit');
+      }
 
       toast.success(`Added ${userIds.length} member(s)`);
       loadGroups();
