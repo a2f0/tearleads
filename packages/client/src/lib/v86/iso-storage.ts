@@ -194,10 +194,8 @@ export async function getStorageUsage(): Promise<{
   const metadata = await readMetadata();
 
   const used = metadata.isos.reduce((sum, iso) => sum + iso.sizeBytes, 0);
-  const quota =
-    typeof estimate.quota === 'number' ? estimate.quota : undefined;
-  const usage =
-    typeof estimate.usage === 'number' ? estimate.usage : undefined;
+  const quota = typeof estimate.quota === 'number' ? estimate.quota : undefined;
+  const usage = typeof estimate.usage === 'number' ? estimate.usage : undefined;
 
   return {
     used,
