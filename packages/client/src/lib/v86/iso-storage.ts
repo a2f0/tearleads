@@ -7,6 +7,26 @@ interface IsoMetadata {
   isos: StoredIso[];
 }
 
+function isIsoFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  const looksLikeIso = name.endsWith('.iso');
+  const typeMatches = file.type === 'application/x-iso9660-image';
+  return looksLikeIso || typeMatches;
+}
+
+function createUploadId(file: File): string {
+  const baseName = file.name.replace(/\.[^/.]+$/, '').trim();
+  const slug = baseName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  const nonce =
+    typeof globalThis.crypto?.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `uploaded-${slug || 'iso'}-${nonce}`;
+}
+
 async function getIsoDirectory(): Promise<FileSystemDirectoryHandle> {
   const root = await navigator.storage.getDirectory();
   return root.getDirectoryHandle(ISO_DIRECTORY, { create: true });
@@ -84,9 +104,6 @@ export async function downloadIso(
   }
   await writable.close();
 
-  const metadata = await readMetadata();
-  const existingIndex = metadata.isos.findIndex((iso) => iso.id === entry.id);
-
   const storedIso: StoredIso = {
     id: entry.id,
     name: entry.name,
@@ -94,13 +111,47 @@ export async function downloadIso(
     downloadedAt: new Date().toISOString()
   };
 
-  if (existingIndex >= 0) {
-    metadata.isos[existingIndex] = storedIso;
-  } else {
-    metadata.isos.push(storedIso);
+  await navigator.locks.request('v86-iso-metadata', async () => {
+    const metadata = await readMetadata();
+    const existingIndex = metadata.isos.findIndex((iso) => iso.id === entry.id);
+
+    if (existingIndex >= 0) {
+      metadata.isos[existingIndex] = storedIso;
+    } else {
+      metadata.isos.push(storedIso);
+    }
+
+    await writeMetadata(metadata);
+  });
+}
+
+export async function uploadIso(file: File): Promise<StoredIso> {
+  if (!isIsoFile(file)) {
+    throw new Error('Only .iso files are supported');
   }
 
-  await writeMetadata(metadata);
+  const dir = await getIsoDirectory();
+  const id = createUploadId(file);
+  const filename = `${id}.iso`;
+  const fileHandle = await dir.getFileHandle(filename, { create: true });
+  const writable = await fileHandle.createWritable();
+  await writable.write(file);
+  await writable.close();
+
+  const storedIso: StoredIso = {
+    id,
+    name: file.name,
+    sizeBytes: file.size,
+    downloadedAt: new Date().toISOString()
+  };
+
+  await navigator.locks.request('v86-iso-metadata', async () => {
+    const metadata = await readMetadata();
+    metadata.isos.push(storedIso);
+    await writeMetadata(metadata);
+  });
+
+  return storedIso;
 }
 
 export async function getIsoUrl(id: string): Promise<string> {
@@ -132,9 +183,11 @@ export async function deleteIso(id: string): Promise<void> {
     // File might not exist
   }
 
-  const metadata = await readMetadata();
-  metadata.isos = metadata.isos.filter((iso) => iso.id !== id);
-  await writeMetadata(metadata);
+  await navigator.locks.request('v86-iso-metadata', async () => {
+    const metadata = await readMetadata();
+    metadata.isos = metadata.isos.filter((iso) => iso.id !== id);
+    await writeMetadata(metadata);
+  });
 }
 
 export async function getStorageUsage(): Promise<{
@@ -145,10 +198,15 @@ export async function getStorageUsage(): Promise<{
   const metadata = await readMetadata();
 
   const used = metadata.isos.reduce((sum, iso) => sum + iso.sizeBytes, 0);
+  const quota = typeof estimate.quota === 'number' ? estimate.quota : undefined;
+  const usage = typeof estimate.usage === 'number' ? estimate.usage : undefined;
 
   return {
     used,
-    available: (estimate.quota ?? 0) - (estimate.usage ?? 0)
+    available:
+      quota !== undefined && usage !== undefined
+        ? Math.max(0, quota - usage)
+        : 0
   };
 }
 
