@@ -3,13 +3,39 @@ import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { V86Window } from './V86Window';
 
+vi.mock('@/lib/v86/iso-storage', () => ({
+  isOpfsSupported: vi.fn().mockReturnValue(true),
+  uploadIso: vi.fn().mockResolvedValue({
+    id: 'uploaded-iso',
+    name: 'custom.iso',
+    sizeBytes: 4,
+    downloadedAt: '2024-01-01'
+  })
+}));
+
 vi.mock('./IsoDirectory', () => ({
   IsoDirectory: ({
-    onSelectIso
+    onSelectIso,
+    showDropzone,
+    onUploadFiles,
+    refreshToken
   }: {
     onSelectIso: (entry: unknown) => void;
+    showDropzone: boolean;
+    onUploadFiles: (files: File[]) => void;
+    refreshToken: number;
   }) => (
     <div data-testid="iso-directory">
+      <div data-testid="iso-show-dropzone">
+        {showDropzone ? 'true' : 'false'}
+      </div>
+      <button
+        type="button"
+        onClick={() => onUploadFiles([new File(['test'], 'custom.iso')])}
+      >
+        Upload ISO
+      </button>
+      <div data-testid="iso-refresh-token">{refreshToken}</div>
       <button
         type="button"
         onClick={() =>
@@ -105,5 +131,15 @@ describe('V86Window', () => {
   it('renders the menu bar', () => {
     render(<V86Window {...defaultProps} />);
     expect(screen.getByText('File')).toBeInTheDocument();
+  });
+
+  it('uploads ISO files and refreshes directory', async () => {
+    const user = userEvent.setup();
+    render(<V86Window {...defaultProps} />);
+
+    expect(screen.getByTestId('iso-refresh-token')).toHaveTextContent('0');
+    await user.click(screen.getByText('Upload ISO'));
+
+    expect(screen.getByTestId('iso-refresh-token')).toHaveTextContent('1');
   });
 });
