@@ -39,4 +39,9 @@ describe('PostgresAdmin', () => {
     renderPostgresAdmin(false);
     expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
   });
+
+  it('renders with fallback router when none is provided', () => {
+    render(<PostgresAdmin />);
+    expect(screen.getByTestId('back-link')).toBeInTheDocument();
+  });
 });
