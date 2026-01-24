@@ -57,6 +57,12 @@ const GroupsAdmin = lazy(() =>
 const GroupDetailPage = lazy(() =>
   import('./pages/admin').then((m) => ({ default: m.GroupDetailPage }))
 );
+const UsersAdminPage = lazy(() =>
+  import('./pages/admin').then((m) => ({ default: m.UsersAdminPage }))
+);
+const UsersAdminDetail = lazy(() =>
+  import('./pages/admin').then((m) => ({ default: m.UsersAdminDetail }))
+);
 const Analytics = lazy(() =>
   import('./pages/analytics').then((m) => ({ default: m.Analytics }))
 );
@@ -356,6 +362,14 @@ if (rootElement) {
                                       <Route
                                         path="admin/groups/:id"
                                         element={<GroupDetailPage />}
+                                      />
+                                      <Route
+                                        path="admin/users"
+                                        element={<UsersAdminPage />}
+                                      />
+                                      <Route
+                                        path="admin/users/:id"
+                                        element={<UsersAdminDetail />}
                                       />
                                       <Route path="sync" element={<Sync />} />
                                     </Route>
