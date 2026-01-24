@@ -110,20 +110,25 @@ describe('Sidebar', () => {
     { label: 'Console', windowType: 'console' },
     { label: 'Notes', windowType: 'notes' }
   ];
+  const desktopNavItems = navItems.filter(
+    (item) => item.path !== '/admin/postgres'
+  );
 
   it('renders all navigation items', () => {
     renderSidebar();
 
-    for (const item of navItems) {
+    for (const item of desktopNavItems) {
       const label = en.menu[item.labelKey];
       expect(screen.getByText(label)).toBeInTheDocument();
     }
+    expect(screen.getByText('Redis')).toBeInTheDocument();
+    expect(screen.getByText('Postgres')).toBeInTheDocument();
   });
 
   it('renders navigation buttons with correct test ids', () => {
     renderSidebar();
 
-    for (const item of navItems) {
+    for (const item of desktopNavItems) {
       const label = en.menu[item.labelKey];
       const button = screen.getByRole('button', { name: label });
       expect(button).toHaveAttribute('data-testid', item.testId);
@@ -188,7 +193,7 @@ describe('Sidebar', () => {
 
     expect(screen.getByRole('list')).toBeInTheDocument();
     const listItems = screen.getAllByRole('listitem');
-    expect(listItems).toHaveLength(navItems.length);
+    expect(listItems).toHaveLength(desktopNavItems.length);
   });
 
   it('navigates on single click for non-window paths on desktop', async () => {
