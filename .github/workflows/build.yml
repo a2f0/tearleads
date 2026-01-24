@@ -96,6 +96,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check for binary files
+        run: ./scripts/checkBinaryFiles.sh --from-upstream
+
+      - name: Verify binary guardrails
+        run: ./scripts/verifyBinaryGuardrails.sh
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
