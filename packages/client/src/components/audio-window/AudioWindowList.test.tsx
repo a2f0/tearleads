@@ -216,7 +216,7 @@ describe('AudioWindowList', () => {
       expect(screen.getByText('No audio files')).toBeInTheDocument();
     });
     expect(
-      screen.getByText('Upload audio from the main Audio page')
+      screen.getByText('Use Upload to add audio')
     ).toBeInTheDocument();
   });
 
