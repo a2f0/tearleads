@@ -54,8 +54,9 @@ describe('make admin cli', () => {
 
     await runMakeAdmin({ email: 'User@Example.com' });
 
-    const updateCall = mockClient.query.mock.calls.find(([sql]) =>
-      typeof sql === 'string' && sql.startsWith('UPDATE users SET admin')
+    const updateCall = mockClient.query.mock.calls.find(
+      ([sql]) =>
+        typeof sql === 'string' && sql.startsWith('UPDATE users SET admin')
     );
 
     expect(updateCall).toBeDefined();
