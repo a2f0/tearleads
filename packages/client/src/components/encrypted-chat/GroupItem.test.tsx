@@ -140,4 +140,62 @@ describe('GroupItem', () => {
 
     expect(screen.getByText('now')).toBeInTheDocument();
   });
+
+  it('shows hours for messages within a day', () => {
+    const now = new Date();
+    const groupWithHours: ChatGroupInfo = {
+      ...baseGroup,
+      lastMessageTime: new Date(now.getTime() - 3 * 60 * 60 * 1000)
+    };
+    render(
+      <GroupItem
+        group={groupWithHours}
+        isSelected={false}
+        onClick={mockOnClick}
+      />
+    );
+
+    expect(screen.getByText('3h')).toBeInTheDocument();
+  });
+
+  it('shows days for messages within a week', () => {
+    const now = new Date();
+    const groupWithDays: ChatGroupInfo = {
+      ...baseGroup,
+      lastMessageTime: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
+    };
+    render(
+      <GroupItem
+        group={groupWithDays}
+        isSelected={false}
+        onClick={mockOnClick}
+      />
+    );
+
+    expect(screen.getByText('3d')).toBeInTheDocument();
+  });
+
+  it('shows date for older messages', () => {
+    // Use a date that's definitely more than a week ago
+    const now = new Date();
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const groupWithOldDate: ChatGroupInfo = {
+      ...baseGroup,
+      lastMessageTime: twoWeeksAgo
+    };
+    render(
+      <GroupItem
+        group={groupWithOldDate}
+        isSelected={false}
+        onClick={mockOnClick}
+      />
+    );
+
+    // The format should contain month abbreviation and day number (e.g., "Jan 10")
+    const expectedText = twoWeeksAgo.toLocaleDateString([], {
+      month: 'short',
+      day: 'numeric'
+    });
+    expect(screen.getByText(expectedText)).toBeInTheDocument();
+  });
 });

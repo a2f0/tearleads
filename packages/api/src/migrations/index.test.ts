@@ -294,7 +294,7 @@ describe('migrations', () => {
   });
 
   describe('v006 migration', () => {
-    it('creates groups and user_groups tables', async () => {
+    it('creates MLS encrypted chat tables', async () => {
       const pool = createMockPool(new Map());
 
       const v006 = migrations.find((m: Migration) => m.version === 6);
@@ -305,13 +305,34 @@ describe('migrations', () => {
       await v006.up(pool);
 
       const queries = pool.queries.join('\n');
-      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "groups"');
+      // KeyPackages table
       expect(queries).toContain(
-        'CREATE UNIQUE INDEX IF NOT EXISTS "groups_name_idx"'
+        'CREATE TABLE IF NOT EXISTS "mls_key_packages"'
       );
-      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "user_groups"');
       expect(queries).toContain(
-        'CREATE INDEX IF NOT EXISTS "user_groups_group_idx"'
+        'CREATE INDEX IF NOT EXISTS "mls_key_packages_user_idx"'
+      );
+      // Chat groups table
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "chat_groups"');
+      expect(queries).toContain(
+        'CREATE INDEX IF NOT EXISTS "chat_groups_created_by_idx"'
+      );
+      // Chat group members table
+      expect(queries).toContain(
+        'CREATE TABLE IF NOT EXISTS "chat_group_members"'
+      );
+      expect(queries).toContain(
+        'CREATE INDEX IF NOT EXISTS "chat_group_members_group_idx"'
+      );
+      // Chat messages table
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "chat_messages"');
+      expect(queries).toContain(
+        'CREATE INDEX IF NOT EXISTS "chat_messages_group_idx"'
+      );
+      // MLS welcomes table
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "mls_welcomes"');
+      expect(queries).toContain(
+        'CREATE INDEX IF NOT EXISTS "mls_welcomes_recipient_idx"'
       );
     });
   });

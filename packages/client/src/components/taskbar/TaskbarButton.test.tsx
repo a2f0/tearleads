@@ -150,4 +150,25 @@ describe('TaskbarButton', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
   });
+
+  it('closes context menu when clicking overlay', async () => {
+    const user = userEvent.setup();
+    renderTaskbarButton({ isActive: true });
+
+    const button = screen.getByTestId('taskbar-button-notes');
+    fireEvent.contextMenu(button);
+
+    expect(
+      screen.getByRole('button', { name: 'Minimize' })
+    ).toBeInTheDocument();
+
+    // Click the overlay to close the menu
+    await user.click(
+      screen.getByRole('button', { name: 'Close context menu' })
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Minimize' })
+    ).not.toBeInTheDocument();
+  });
 });

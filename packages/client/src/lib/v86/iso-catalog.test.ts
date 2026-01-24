@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ISO_CATALOG } from './iso-catalog';
+import { getIsoCatalogEntry, ISO_CATALOG } from './iso-catalog';
 
 describe('iso-catalog', () => {
   it('exports ISO_CATALOG array', () => {
@@ -40,5 +40,17 @@ describe('iso-catalog', () => {
     for (const entry of ISO_CATALOG) {
       expect(entry.sizeBytes).toBeGreaterThan(0);
     }
+  });
+
+  describe('getIsoCatalogEntry', () => {
+    it('returns entry by ID', () => {
+      const entry = getIsoCatalogEntry('openbsd-7.6-amd64');
+      expect(entry?.name).toBe('OpenBSD 7.6');
+    });
+
+    it('returns undefined for unknown ID', () => {
+      const entry = getIsoCatalogEntry('unknown-id');
+      expect(entry).toBeUndefined();
+    });
   });
 });

@@ -494,4 +494,317 @@ describe('useMLS', () => {
 
     expect(exportedState).toEqual({ groups: [], identity: 'test' });
   });
+
+  it('returns null for commit messages in decrypt', async () => {
+    const { result } = renderHook(() => useMLS());
+
+    setGlobalMessageHandler((data) => {
+      const msg = data as { type: string };
+      if (msg.type === 'init') {
+        return { type: 'initialized', success: true };
+      }
+      if (msg.type === 'decrypt') {
+        return { type: 'commitProcessed' };
+      }
+      return null;
+    });
+
+    await act(async () => {
+      await result.current.initialize('user-123');
+    });
+
+    const decryptResult = await act(async () => {
+      return result.current.decrypt('group-1', 'commit-ciphertext');
+    });
+
+    expect(decryptResult).toBeNull();
+  });
+
+  it('throws on unexpected response type - createGroup', async () => {
+    const { result } = renderHook(() => useMLS());
+
+    setGlobalMessageHandler((data) => {
+      const msg = data as { type: string };
+      if (msg.type === 'init') {
+        return { type: 'initialized', success: true };
+      }
+      if (msg.type === 'createGroup') {
+        return { type: 'unexpectedType' };
+      }
+      return null;
+    });
+
+    await act(async () => {
+      await result.current.initialize('user-123');
+    });
+
+    await expect(result.current.createGroup('Test')).rejects.toThrow(
+      'Unexpected response type'
+    );
+  });
+
+  it('throws on unexpected response type - decrypt', async () => {
+    const { result } = renderHook(() => useMLS());
+
+    setGlobalMessageHandler((data) => {
+      const msg = data as { type: string };
+      if (msg.type === 'init') {
+        return { type: 'initialized', success: true };
+      }
+      if (msg.type === 'decrypt') {
+        return { type: 'unexpectedType' };
+      }
+      return null;
+    });
+
+    await act(async () => {
+      await result.current.initialize('user-123');
+    });
+
+    await expect(result.current.decrypt('group-1', 'cipher')).rejects.toThrow(
+      'Unexpected response type'
+    );
+  });
+
+  it('throws on unexpected response type - getEpoch', async () => {
+    const { result } = renderHook(() => useMLS());
+
+    setGlobalMessageHandler((data) => {
+      const msg = data as { type: string };
+      if (msg.type === 'init') {
+        return { type: 'initialized', success: true };
+      }
+      if (msg.type === 'getEpoch') {
+        return { type: 'unexpectedType' };
+      }
+      return null;
+    });
+
+    await act(async () => {
+      await result.current.initialize('user-123');
+    });
+
+    await expect(result.current.getEpoch('group-1')).rejects.toThrow(
+      'Unexpected response type'
+    );
+  });
+
+  it('throws on unexpected response type - exportState', async () => {
+    const { result } = renderHook(() => useMLS());
+
+    setGlobalMessageHandler((data) => {
+      const msg = data as { type: string };
+      if (msg.type === 'init') {
+        return { type: 'initialized', success: true };
+      }
+      if (msg.type === 'exportState') {
+        return { type: 'unexpectedType' };
+      }
+      return null;
+    });
+
+    await act(async () => {
+      await result.current.initialize('user-123');
+    });
+
+    await expect(result.current.exportState()).rejects.toThrow(
+      'Unexpected response type'
+    );
+  });
+
+  it('throws on unexpected response type - generateKeyPackages', async () => {
+    const { result } = renderHook(() => useMLS());
+
+    setGlobalMessageHandler((data) => {
+      const msg = data as { type: string };
+      if (msg.type === 'init') {
+        return { type: 'initialized', success: true };
+      }
+      if (msg.type === 'generateKeyPackages') {
+        return { type: 'unexpectedType' };
+      }
+      return null;
+    });
+
+    await act(async () => {
+      await result.current.initialize('user-123');
+    });
+
+    await expect(result.current.generateKeyPackages(5)).rejects.toThrow(
+      'Unexpected response type'
+    );
+  });
+
+  it('throws on unexpected response type - joinGroup', async () => {
+    const { result } = renderHook(() => useMLS());
+
+    setGlobalMessageHandler((data) => {
+      const msg = data as { type: string };
+      if (msg.type === 'init') {
+        return { type: 'initialized', success: true };
+      }
+      if (msg.type === 'joinGroup') {
+        return { type: 'unexpectedType' };
+      }
+      return null;
+    });
+
+    await act(async () => {
+      await result.current.initialize('user-123');
+    });
+
+    await expect(result.current.joinGroup('welcome')).rejects.toThrow(
+      'Unexpected response type'
+    );
+  });
+
+  it('throws on unexpected response type - addMembers', async () => {
+    const { result } = renderHook(() => useMLS());
+
+    setGlobalMessageHandler((data) => {
+      const msg = data as { type: string };
+      if (msg.type === 'init') {
+        return { type: 'initialized', success: true };
+      }
+      if (msg.type === 'addMembers') {
+        return { type: 'unexpectedType' };
+      }
+      return null;
+    });
+
+    await act(async () => {
+      await result.current.initialize('user-123');
+    });
+
+    await expect(result.current.addMembers('group', ['kp'])).rejects.toThrow(
+      'Unexpected response type'
+    );
+  });
+
+  it('throws on unexpected response type - encrypt', async () => {
+    const { result } = renderHook(() => useMLS());
+
+    setGlobalMessageHandler((data) => {
+      const msg = data as { type: string };
+      if (msg.type === 'init') {
+        return { type: 'initialized', success: true };
+      }
+      if (msg.type === 'encrypt') {
+        return { type: 'unexpectedType' };
+      }
+      return null;
+    });
+
+    await act(async () => {
+      await result.current.initialize('user-123');
+    });
+
+    await expect(result.current.encrypt('group', 'msg')).rejects.toThrow(
+      'Unexpected response type'
+    );
+  });
+
+  it('handles worker error and rejects pending requests', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    const { result, rerender } = renderHook(() => useMLS());
+
+    // Handler that doesn't respond, so request stays pending
+    setGlobalMessageHandler(() => null);
+
+    // Start an operation that won't complete
+    const initPromise = act(async () => {
+      return result.current.initialize('user-123').catch((e) => e);
+    });
+
+    // Give time for the request to be sent
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Simulate worker error
+    const worker = MockWorker.instance;
+    if (worker?.onerror) {
+      act(() => {
+        worker.onerror?.(
+          new ErrorEvent('error', { message: 'Worker crashed' })
+        );
+      });
+    }
+
+    // The pending request should be rejected
+    const error = await initPromise;
+    expect(error).toBeInstanceOf(Error);
+
+    rerender();
+    expect(result.current.error).toBe('Worker crashed');
+
+    consoleError.mockRestore();
+  });
+
+  it('warns when receiving response for unknown request', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const { result } = renderHook(() => useMLS());
+
+    // Configure handler to respond normally to init (to create worker and set up onmessage)
+    setGlobalMessageHandler((data) => {
+      if ((data as { type: string }).type === 'init') {
+        return { type: 'initialized', success: true };
+      }
+      return null;
+    });
+
+    // Initialize to create the worker
+    await act(async () => {
+      await result.current.initialize('user-123');
+    });
+
+    // Now manually send a response with unknown requestId
+    const worker = MockWorker.instance;
+    if (worker?.onmessage) {
+      worker.onmessage(
+        new MessageEvent('message', {
+          data: { type: 'initialized', requestId: 'unknown-request-id' }
+        })
+      );
+    }
+
+    expect(consoleWarn).toHaveBeenCalledWith(
+      'Received response for unknown request:',
+      expect.objectContaining({ requestId: 'unknown-request-id' })
+    );
+
+    consoleWarn.mockRestore();
+  });
+
+  it('rejects pending requests when resetMlsState is called', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    const { result } = renderHook(() => useMLS());
+
+    // Handler that doesn't respond, so request stays pending
+    setGlobalMessageHandler(() => null);
+
+    let initPromise: Promise<void> = Promise.resolve();
+
+    // Start an operation that won't complete
+    await act(async () => {
+      initPromise = result.current.initialize('user-123');
+      // Give time for the request to be sent
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    // Reset state while request is pending
+    act(() => {
+      resetMlsState();
+    });
+
+    // The pending request should be rejected with 'Instance switched'
+    await expect(initPromise).rejects.toThrow('Instance switched');
+
+    consoleError.mockRestore();
+  });
 });
