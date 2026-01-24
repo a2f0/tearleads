@@ -57,7 +57,8 @@ async function attemptTokenRefresh(): Promise<boolean> {
     updateStoredTokens(data.accessToken, data.refreshToken);
     success = true;
     return true;
-  } catch {
+  } catch (error) {
+    console.error('Token refresh attempt failed:', error);
     return false;
   } finally {
     const durationMs = performance.now() - startTime;
