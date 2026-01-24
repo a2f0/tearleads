@@ -194,3 +194,35 @@ export const notes = pgTable(
     index('notes_title_idx').on(table.title)
   ]
 );
+
+/**
+ * Groups table for organizing users into named groups.
+ */
+export const groups = pgTable(
+  'groups',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    description: text('description'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
+  },
+  (table) => [index('groups_name_idx').on(table.name)]
+);
+
+/**
+ * Junction table for many-to-many relationship between users and groups.
+ */
+export const userGroups = pgTable(
+  'user_groups',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    groupId: text('group_id')
+      .primaryKey()
+      .references(() => groups.id, { onDelete: 'cascade' }),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull()
+  },
+  (table) => [index('user_groups_group_idx').on(table.groupId)]
+);

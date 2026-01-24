@@ -74,48 +74,50 @@ export interface PostgresTablesResponse {
   tables: PostgresTableInfo[];
 }
 
-export interface PostgresColumnInfo {
-  name: string;
-  type: string;
-  nullable: boolean;
-  defaultValue: string | null;
-  ordinalPosition: number;
-}
-
-export interface PostgresColumnsResponse {
-  columns: PostgresColumnInfo[];
-}
-
-export interface PostgresRowsResponse {
-  rows: Record<string, unknown>[];
-  totalCount: number;
-  limit: number;
-  offset: number;
-}
-
-export interface AdminUser {
+// Groups Admin types
+export interface Group {
   id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupWithMemberCount extends Group {
+  memberCount: number;
+}
+
+export interface GroupMember {
+  userId: string;
   email: string;
-  emailConfirmed: boolean;
-  admin: boolean;
+  joinedAt: string;
 }
 
-export interface AdminUsersResponse {
-  users: AdminUser[];
+export interface GroupsListResponse {
+  groups: GroupWithMemberCount[];
 }
 
-export interface AdminUserUpdatePayload {
-  email?: string;
-  emailConfirmed?: boolean;
-  admin?: boolean;
+export interface GroupDetailResponse {
+  group: Group;
+  members: GroupMember[];
 }
 
-export interface AdminUserUpdateResponse {
-  user: AdminUser;
+export interface CreateGroupRequest {
+  name: string;
+  description?: string;
 }
 
-export interface AdminUserResponse {
-  user: AdminUser;
+export interface UpdateGroupRequest {
+  name?: string;
+  description?: string;
+}
+
+export interface AddMemberRequest {
+  userId: string;
+}
+
+export interface GroupMembersResponse {
+  members: GroupMember[];
 }
 
 // Auth types
