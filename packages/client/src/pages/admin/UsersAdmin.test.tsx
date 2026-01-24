@@ -5,18 +5,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UsersAdmin } from './UsersAdmin';
 
 const mockList = vi.fn();
-const mockUpdate = vi.fn();
+const mockNavigate = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
     admin: {
       users: {
-        list: () => mockList(),
-        update: (id: string, payload: unknown) => mockUpdate(id, payload)
+        list: () => mockList()
       }
     }
   }
 }));
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate
+  };
+});
 
 describe('UsersAdmin', () => {
   beforeEach(() => {
@@ -30,6 +37,12 @@ describe('UsersAdmin', () => {
         email: 'admin@example.com',
         emailConfirmed: true,
         admin: true
+      },
+      {
+        id: 'user-2',
+        email: 'regular@example.com',
+        emailConfirmed: false,
+        admin: false
       }
     ]
   };
@@ -45,7 +58,8 @@ describe('UsersAdmin', () => {
     expect(
       screen.getByRole('heading', { name: 'Users Admin' })
     ).toBeInTheDocument();
-    expect(await screen.findByDisplayValue('admin@example.com')).toBeVisible();
+    expect(await screen.findByText('admin@example.com')).toBeVisible();
+    expect(screen.getByText('regular@example.com')).toBeVisible();
   });
 
   it('shows back link by default', async () => {
@@ -67,21 +81,13 @@ describe('UsersAdmin', () => {
       </MemoryRouter>
     );
 
-    await screen.findByDisplayValue('admin@example.com');
+    await screen.findByText('admin@example.com');
     expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
   });
 
-  it('updates a user when save is clicked', async () => {
+  it('navigates to detail page when user row is clicked', async () => {
     const user = userEvent.setup();
     mockList.mockResolvedValueOnce(usersResponse);
-    mockUpdate.mockResolvedValueOnce({
-      user: {
-        id: 'user-1',
-        email: 'new@example.com',
-        emailConfirmed: true,
-        admin: true
-      }
-    });
 
     render(
       <MemoryRouter>
@@ -89,25 +95,35 @@ describe('UsersAdmin', () => {
       </MemoryRouter>
     );
 
-    const emailInput = await screen.findByDisplayValue('admin@example.com');
-    await user.clear(emailInput);
-    await user.type(emailInput, 'new@example.com');
+    const userRow = await screen.findByText('admin@example.com');
+    await user.click(userRow);
 
-    const saveButton = screen.getByRole('button', { name: 'Save' });
-    await user.click(saveButton);
-
-    await waitFor(() => {
-      expect(mockUpdate).toHaveBeenCalledWith('user-1', {
-        email: 'new@example.com'
-      });
-    });
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/users/user-1');
   });
 
-  it('shows error when update fails', async () => {
+  it('calls onUserSelect callback when provided instead of navigating', async () => {
     const user = userEvent.setup();
-    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const onUserSelect = vi.fn();
     mockList.mockResolvedValueOnce(usersResponse);
-    mockUpdate.mockRejectedValueOnce(new Error('Update failed'));
+
+    render(
+      <MemoryRouter>
+        <UsersAdmin onUserSelect={onUserSelect} />
+      </MemoryRouter>
+    );
+
+    const userRow = await screen.findByText('admin@example.com');
+    await user.click(userRow);
+
+    expect(onUserSelect).toHaveBeenCalledWith('user-1');
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('shows loading state initially', async () => {
+    mockList.mockImplementation(
+      () =>
+        new Promise((resolve) => setTimeout(() => resolve(usersResponse), 100))
+    );
 
     render(
       <MemoryRouter>
@@ -115,39 +131,27 @@ describe('UsersAdmin', () => {
       </MemoryRouter>
     );
 
-    const emailInput = await screen.findByDisplayValue('admin@example.com');
-    await user.clear(emailInput);
-    await user.type(emailInput, 'new@example.com');
+    expect(screen.getByText('Loading users...')).toBeInTheDocument();
+  });
 
-    const saveButton = screen.getByRole('button', { name: 'Save' });
-    await user.click(saveButton);
+  it('shows error when fetch fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockList.mockRejectedValueOnce(new Error('Failed to load'));
+
+    render(
+      <MemoryRouter>
+        <UsersAdmin />
+      </MemoryRouter>
+    );
 
     await waitFor(() => {
-      expect(screen.getByText('Update failed')).toBeInTheDocument();
+      expect(screen.getByText('Failed to load')).toBeInTheDocument();
     });
     consoleSpy.mockRestore();
   });
 
-  it('toggles emailConfirmed checkbox', async () => {
-    const user = userEvent.setup();
-    mockList.mockResolvedValueOnce({
-      users: [
-        {
-          id: 'user-1',
-          email: 'test@example.com',
-          emailConfirmed: false,
-          admin: false
-        }
-      ]
-    });
-    mockUpdate.mockResolvedValueOnce({
-      user: {
-        id: 'user-1',
-        email: 'test@example.com',
-        emailConfirmed: true,
-        admin: false
-      }
-    });
+  it('shows empty state when no users', async () => {
+    mockList.mockResolvedValueOnce({ users: [] });
 
     render(
       <MemoryRouter>
@@ -155,43 +159,42 @@ describe('UsersAdmin', () => {
       </MemoryRouter>
     );
 
-    await screen.findByDisplayValue('test@example.com');
-    const checkboxes = screen.getAllByRole('checkbox');
-    const emailConfirmedCheckbox = checkboxes[0];
-    if (emailConfirmedCheckbox) {
-      await user.click(emailConfirmedCheckbox);
-    }
-
-    const saveButton = screen.getByRole('button', { name: 'Save' });
-    await user.click(saveButton);
-
     await waitFor(() => {
-      expect(mockUpdate).toHaveBeenCalledWith('user-1', {
-        emailConfirmed: true
-      });
+      expect(screen.getByText('No users found.')).toBeInTheDocument();
     });
   });
 
-  it('toggles admin checkbox', async () => {
+  it('displays user status icons correctly', async () => {
+    mockList.mockResolvedValueOnce(usersResponse);
+
+    render(
+      <MemoryRouter>
+        <UsersAdmin />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('admin@example.com');
+
+    const yesLabels = screen.getAllByText('Yes');
+    const noLabels = screen.getAllByText('No');
+
+    expect(yesLabels.length).toBe(2);
+    expect(noLabels.length).toBe(2);
+  });
+
+  it('refreshes users when refresh button is clicked', async () => {
     const user = userEvent.setup();
+    mockList.mockResolvedValueOnce(usersResponse);
     mockList.mockResolvedValueOnce({
       users: [
         {
-          id: 'user-1',
-          email: 'test@example.com',
+          id: 'user-3',
+          email: 'new@example.com',
           emailConfirmed: true,
           admin: false
         }
       ]
     });
-    mockUpdate.mockResolvedValueOnce({
-      user: {
-        id: 'user-1',
-        email: 'test@example.com',
-        emailConfirmed: true,
-        admin: true
-      }
-    });
 
     render(
       <MemoryRouter>
@@ -199,42 +202,14 @@ describe('UsersAdmin', () => {
       </MemoryRouter>
     );
 
-    await screen.findByDisplayValue('test@example.com');
-    const checkboxes = screen.getAllByRole('checkbox');
-    const adminCheckbox = checkboxes[1];
-    if (adminCheckbox) {
-      await user.click(adminCheckbox);
-    }
+    await screen.findByText('admin@example.com');
 
-    const saveButton = screen.getByRole('button', { name: 'Save' });
-    await user.click(saveButton);
+    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
+    await user.click(refreshButton);
 
     await waitFor(() => {
-      expect(mockUpdate).toHaveBeenCalledWith('user-1', {
-        admin: true
-      });
+      expect(screen.getByText('new@example.com')).toBeInTheDocument();
     });
-  });
-
-  it('resets draft when Reset button is clicked', async () => {
-    const user = userEvent.setup();
-    mockList.mockResolvedValueOnce(usersResponse);
-
-    render(
-      <MemoryRouter>
-        <UsersAdmin />
-      </MemoryRouter>
-    );
-
-    const emailInput = await screen.findByDisplayValue('admin@example.com');
-    await user.clear(emailInput);
-    await user.type(emailInput, 'changed@example.com');
-
-    expect(screen.getByDisplayValue('changed@example.com')).toBeInTheDocument();
-
-    const resetButton = screen.getByRole('button', { name: 'Reset' });
-    await user.click(resetButton);
-
-    expect(screen.getByDisplayValue('admin@example.com')).toBeInTheDocument();
+    expect(screen.queryByText('admin@example.com')).not.toBeInTheDocument();
   });
 });

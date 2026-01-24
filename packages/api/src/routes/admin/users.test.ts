@@ -86,6 +86,66 @@ describe('admin users routes', () => {
     consoleError.mockRestore();
   });
 
+  it('GET /v1/admin/users/:id returns a single user', async () => {
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockResolvedValue({
+        rows: [
+          {
+            id: 'user-1',
+            email: 'alpha@example.com',
+            email_confirmed: true,
+            admin: false
+          }
+        ]
+      })
+    });
+
+    const response = await request(app)
+      .get('/v1/admin/users/user-1')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      user: {
+        id: 'user-1',
+        email: 'alpha@example.com',
+        emailConfirmed: true,
+        admin: false
+      }
+    });
+  });
+
+  it('GET /v1/admin/users/:id returns 404 when user not found', async () => {
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockResolvedValue({
+        rows: []
+      })
+    });
+
+    const response = await request(app)
+      .get('/v1/admin/users/nonexistent')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'User not found' });
+  });
+
+  it('GET /v1/admin/users/:id returns 500 on error', async () => {
+    mockGetPostgresPool.mockRejectedValue(new Error('query failed'));
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    const response = await request(app)
+      .get('/v1/admin/users/user-1')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: 'query failed' });
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
   it('PATCH /v1/admin/users/:id updates a user', async () => {
     mockGetPostgresPool.mockResolvedValue({
       query: mockQuery.mockResolvedValue({

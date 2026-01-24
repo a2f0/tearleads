@@ -114,6 +114,10 @@ export interface AdminUserUpdateResponse {
   user: AdminUser;
 }
 
+export interface AdminUserResponse {
+  user: AdminUser;
+}
+
 // Auth types
 export interface AuthUser {
   id: string;
