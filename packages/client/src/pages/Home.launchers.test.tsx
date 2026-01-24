@@ -31,7 +31,7 @@ vi.mock('react-router-dom', async () => {
 vi.mock('@/db/SettingsProvider', () => ({
   useSettings: () => ({
     getSetting: (key: string) =>
-      key === 'desktopPattern' ? 'solid' : 'embossed',
+      key === 'desktopPattern' ? 'solid' : 'debossed',
     setSetting: vi.fn()
   })
 }));

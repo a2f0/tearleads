@@ -78,7 +78,7 @@ describe('Home', () => {
     vi.clearAllMocks();
     localStorage.clear();
     mockGetSetting.mockImplementation((key: string) =>
-      key === 'desktopPattern' ? 'solid' : 'embossed'
+      key === 'desktopPattern' ? 'solid' : 'debossed'
     );
     // Mock setPointerCapture since jsdom doesn't support it
     Element.prototype.setPointerCapture = vi.fn();
