@@ -7,6 +7,7 @@ import { AudioWindow } from '@/components/audio-window';
 import { CacheStorageWindow } from '@/components/cache-storage-window';
 import { ChatWindow } from '@/components/chat-window';
 import { ConsoleWindow } from '@/components/console-window';
+import { EncryptedChatWindow } from '@/components/encrypted-chat-window';
 import { ContactsWindow } from '@/components/contacts-window';
 import { DebugWindow } from '@/components/debug-window';
 import { DocumentsWindow } from '@/components/documents-window';
@@ -70,6 +71,7 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   opfs: { Component: OpfsWindow },
   'cache-storage': { Component: CacheStorageWindow },
   chat: { Component: ChatWindow },
+  'encrypted-chat': { Component: EncryptedChatWindow },
   analytics: { Component: AnalyticsWindow },
   audio: { Component: AudioWindow },
   models: { Component: ModelsWindow },

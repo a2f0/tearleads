@@ -18,6 +18,7 @@ import {
   Key,
   Mail,
   MessageSquare,
+  MessageSquareLock,
   Music,
   RefreshCw,
   Settings,
@@ -172,6 +173,13 @@ export const navItems: NavItem[] = [
     labelKey: 'chat',
     inMobileMenu: true,
     testId: 'chat-link'
+  },
+  {
+    path: '/encrypted-chat',
+    icon: MessageSquareLock,
+    labelKey: 'encryptedChat',
+    inMobileMenu: true,
+    testId: 'encrypted-chat-link'
   },
   {
     path: '/email',

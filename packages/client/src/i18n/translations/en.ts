@@ -29,6 +29,7 @@ export const en = {
     localStorage: 'Local Storage',
     keychain: 'Keychain',
     chat: 'Chat',
+    encryptedChat: 'Encrypted Chat',
     models: 'Models',
     admin: 'Admin',
     redis: 'Redis',

@@ -76,7 +76,9 @@ async function loadWasmModule(): Promise<MlsWasmModule> {
 
   // Dynamic import of the WASM module
   // The module is served from /mls/ in production
-  const module = (await import('/mls/mls_wasm.js')) as MlsWasmModule;
+  // Use indirect eval to bypass TypeScript module resolution
+  const importModule = new Function('url', 'return import(url)');
+  const module = (await importModule('/mls/mls_wasm.js')) as MlsWasmModule;
   await module.default();
   mlsModule = module;
   return module;

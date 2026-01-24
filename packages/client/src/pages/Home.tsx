@@ -47,6 +47,7 @@ export const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/sqlite': 'sqlite',
   '/opfs': 'opfs',
   '/chat': 'chat',
+  '/encrypted-chat': 'encrypted-chat',
   '/analytics': 'analytics',
   '/audio': 'audio',
   '/models': 'models',

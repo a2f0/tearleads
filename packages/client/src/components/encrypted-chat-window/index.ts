@@ -1,0 +1,1 @@
+export { EncryptedChatWindow } from './EncryptedChatWindow';

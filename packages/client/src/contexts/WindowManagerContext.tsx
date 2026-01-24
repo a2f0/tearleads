@@ -35,6 +35,7 @@ export type WindowType =
   | 'sqlite'
   | 'opfs'
   | 'chat'
+  | 'encrypted-chat'
   | 'analytics'
   | 'audio'
   | 'models'
