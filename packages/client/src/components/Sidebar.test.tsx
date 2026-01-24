@@ -838,4 +838,16 @@ describe('Admin flyout menu', () => {
 
     expect(screen.getByText('Open')).toBeInTheDocument();
   });
+
+  it('shows context menu on right-click on Admin button', async () => {
+    const user = userEvent.setup();
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    const adminButton = screen.getByTestId('admin-link');
+    await user.pointer({ keys: '[MouseRight]', target: adminButton });
+
+    expect(screen.getByText('Open')).toBeInTheDocument();
+    expect(screen.getByText('Open in Window')).toBeInTheDocument();
+  });
 });
