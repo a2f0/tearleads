@@ -234,18 +234,20 @@ export function EncryptedChat() {
         throw new Error('MLS add members returned no welcome messages');
       }
 
-      const welcomeMessages =
-        welcomes.length === 1
-          ? userIds.map((userId) => ({
-              userId,
-              welcomeData: welcomes[0]?.welcome ?? ''
-            }))
-          : welcomes.length === userIds.length
-          ? welcomes.map((welcome, index) => ({
-              userId: userIds[index] ?? '',
-              welcomeData: welcome.welcome
-            }))
-          : null;
+      let welcomeMessages: Array<{ userId: string; welcomeData: string }> | null =
+        null;
+
+      if (welcomes.length === 1) {
+        welcomeMessages = userIds.map((userId) => ({
+          userId,
+          welcomeData: welcomes[0]?.welcome ?? ''
+        }));
+      } else if (welcomes.length === userIds.length) {
+        welcomeMessages = welcomes.map((welcome, index) => ({
+          userId: userIds[index] ?? '',
+          welcomeData: welcome.welcome
+        }));
+      }
 
       if (!welcomeMessages || welcomeMessages.some((w) => !w.userId)) {
         throw new Error('MLS welcome messages do not match selected members');
