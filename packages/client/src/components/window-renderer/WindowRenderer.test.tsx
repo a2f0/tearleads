@@ -723,6 +723,41 @@ vi.mock('@/components/admin-window', () => ({
   )
 }));
 
+vi.mock('@/components/admin-redis-window', () => ({
+  AdminRedisWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`admin-redis-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 720, height: 600 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/admin-postgres-window', () => ({
   AdminPostgresWindow: ({
     id,
@@ -1731,6 +1766,48 @@ describe('WindowRenderer', () => {
     });
   });
 
+  it('renders admin redis window for admin-redis type', () => {
+    mockWindows = [{ id: 'admin-redis-1', type: 'admin-redis', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+    expect(
+      screen.getByTestId('admin-redis-window-admin-redis-1')
+    ).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when admin redis close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'admin-redis-1', type: 'admin-redis', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-admin-redis-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('admin-redis-1');
+  });
+
+  it('calls focusWindow when admin redis window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'admin-redis-1', type: 'admin-redis', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(
+      screen.getByTestId('admin-redis-window-admin-redis-1')
+    );
+    expect(mockFocusWindow).toHaveBeenCalledWith('admin-redis-1');
+  });
+
+  it('calls minimizeWindow when admin redis minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'admin-redis-1', type: 'admin-redis', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-admin-redis-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('admin-redis-1', {
+      x: 0,
+      y: 0,
+      width: 720,
+      height: 600
+    });
+  });
+
   it('renders admin postgres window for admin-postgres type', () => {
     mockWindows = [
       { id: 'admin-postgres-1', type: 'admin-postgres', zIndex: 100 }
@@ -2009,7 +2086,7 @@ describe('WindowRenderer', () => {
     });
   });
 
-  it('renders all twenty-two window types together', () => {
+  it('renders all twenty-three window types together', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'console-1', type: 'console', zIndex: 101 },
@@ -2026,13 +2103,14 @@ describe('WindowRenderer', () => {
       { id: 'analytics-1', type: 'analytics', zIndex: 112 },
       { id: 'audio-1', type: 'audio', zIndex: 113 },
       { id: 'admin-1', type: 'admin', zIndex: 114 },
-      { id: 'admin-postgres-1', type: 'admin-postgres', zIndex: 115 },
-      { id: 'tables-1', type: 'tables', zIndex: 116 },
-      { id: 'debug-1', type: 'debug', zIndex: 117 },
-      { id: 'documents-1', type: 'documents', zIndex: 118 },
-      { id: 'help-1', type: 'help', zIndex: 119 },
-      { id: 'local-storage-1', type: 'local-storage', zIndex: 120 },
-      { id: 'opfs-1', type: 'opfs', zIndex: 121 }
+      { id: 'admin-redis-1', type: 'admin-redis', zIndex: 115 },
+      { id: 'admin-postgres-1', type: 'admin-postgres', zIndex: 116 },
+      { id: 'tables-1', type: 'tables', zIndex: 117 },
+      { id: 'debug-1', type: 'debug', zIndex: 118 },
+      { id: 'documents-1', type: 'documents', zIndex: 119 },
+      { id: 'help-1', type: 'help', zIndex: 120 },
+      { id: 'local-storage-1', type: 'local-storage', zIndex: 121 },
+      { id: 'opfs-1', type: 'opfs', zIndex: 122 }
     ];
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
@@ -2062,6 +2140,9 @@ describe('WindowRenderer', () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId('audio-window-audio-1')).toBeInTheDocument();
     expect(screen.getByTestId('admin-window-admin-1')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('admin-redis-window-admin-redis-1')
+    ).toBeInTheDocument();
     expect(
       screen.getByTestId('admin-postgres-window-admin-postgres-1')
     ).toBeInTheDocument();
