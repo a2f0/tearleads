@@ -1766,43 +1766,47 @@ describe('WindowRenderer', () => {
     });
   });
 
-  it('renders admin redis window for admin-redis type', () => {
-    mockWindows = [{ id: 'admin-redis-1', type: 'admin-redis', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(
-      screen.getByTestId('admin-redis-window-admin-redis-1')
-    ).toBeInTheDocument();
-  });
+  describe('admin-redis window', () => {
+    const windowId = 'admin-redis-1';
 
-  it('calls closeWindow when admin redis close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'admin-redis-1', type: 'admin-redis', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
+    beforeEach(() => {
+      mockWindows = [{ id: windowId, type: 'admin-redis', zIndex: 100 }];
+    });
 
-    await user.click(screen.getByTestId('close-admin-redis-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('admin-redis-1');
-  });
+    it('renders the window', () => {
+      render(<WindowRenderer />, { wrapper });
+      expect(
+        screen.getByTestId(`admin-redis-window-${windowId}`)
+      ).toBeInTheDocument();
+    });
 
-  it('calls focusWindow when admin redis window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'admin-redis-1', type: 'admin-redis', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
+    it('calls closeWindow when close button is clicked', async () => {
+      const user = userEvent.setup();
+      render(<WindowRenderer />, { wrapper });
 
-    await user.click(screen.getByTestId('admin-redis-window-admin-redis-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('admin-redis-1');
-  });
+      await user.click(screen.getByTestId(`close-${windowId}`));
+      expect(mockCloseWindow).toHaveBeenCalledWith(windowId);
+    });
 
-  it('calls minimizeWindow when admin redis minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'admin-redis-1', type: 'admin-redis', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
+    it('calls focusWindow when window is clicked', async () => {
+      const user = userEvent.setup();
+      render(<WindowRenderer />, { wrapper });
 
-    await user.click(screen.getByTestId('minimize-admin-redis-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('admin-redis-1', {
-      x: 0,
-      y: 0,
-      width: 720,
-      height: 600
+      await user.click(screen.getByTestId(`admin-redis-window-${windowId}`));
+      expect(mockFocusWindow).toHaveBeenCalledWith(windowId);
+    });
+
+    it('calls minimizeWindow when minimize button is clicked', async () => {
+      const user = userEvent.setup();
+      render(<WindowRenderer />, { wrapper });
+
+      await user.click(screen.getByTestId(`minimize-${windowId}`));
+      expect(mockMinimizeWindow).toHaveBeenCalledWith(windowId, {
+        x: 0,
+        y: 0,
+        width: 720,
+        height: 600
+      });
     });
   });
 

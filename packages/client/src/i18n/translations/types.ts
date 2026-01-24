@@ -29,6 +29,8 @@ export interface MenuTranslations {
   chat: string;
   models: string;
   admin: string;
+  redis: string;
+  postgres: string;
   postgresAdmin: string;
   adminUsers: string;
   settings: string;
