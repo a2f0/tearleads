@@ -1,8 +1,12 @@
-import { MemoryRouter } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
+import { useState } from 'react';
 import { AdminWindowMenuBar } from '@/components/admin-window/AdminWindowMenuBar';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { UsersAdmin } from '@/pages/admin/UsersAdmin';
+import { UsersAdminDetail } from '@/pages/admin/UsersAdminDetail';
+
+type UsersWindowView = { type: 'index' } | { type: 'user'; userId: string };
 
 interface AdminUsersWindowProps {
   id: string;
@@ -23,27 +27,53 @@ export function AdminUsersWindow({
   zIndex,
   initialDimensions
 }: AdminUsersWindowProps) {
+  const [view, setView] = useState<UsersWindowView>({ type: 'index' });
+
+  const title = view.type === 'index' ? 'Users Admin' : 'Edit User';
+
+  const handleUserSelect = (userId: string) => {
+    setView({ type: 'user', userId });
+  };
+
+  const handleBack = () => {
+    setView({ type: 'index' });
+  };
+
   return (
     <FloatingWindow
       id={id}
-      title="Users Admin"
+      title={title}
       onClose={onClose}
       onMinimize={onMinimize}
       onDimensionsChange={onDimensionsChange}
       onFocus={onFocus}
       zIndex={zIndex}
       {...(initialDimensions && { initialDimensions })}
-      defaultWidth={840}
-      defaultHeight={620}
-      minWidth={600}
+      defaultWidth={720}
+      defaultHeight={600}
+      minWidth={520}
       minHeight={420}
     >
       <div className="flex h-full flex-col">
         <AdminWindowMenuBar onClose={onClose} />
         <div className="flex-1 overflow-auto p-3">
-          <MemoryRouter initialEntries={['/admin/users']}>
-            <UsersAdmin showBackLink={false} />
-          </MemoryRouter>
+          {view.type === 'index' ? (
+            <UsersAdmin showBackLink={false} onUserSelect={handleUserSelect} />
+          ) : (
+            <UsersAdminDetail
+              userId={view.userId}
+              backLink={
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="inline-flex items-center text-muted-foreground hover:text-foreground"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back to Users
+                </button>
+              }
+            />
+          )}
         </div>
       </div>
     </FloatingWindow>

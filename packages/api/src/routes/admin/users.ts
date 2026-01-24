@@ -1,5 +1,6 @@
 import type {
   AdminUser,
+  AdminUserResponse,
   AdminUsersResponse,
   AdminUserUpdatePayload,
   AdminUserUpdateResponse
@@ -116,6 +117,67 @@ router.get('/', async (_req: Request, res: Response) => {
     console.error('Users admin error:', err);
     res.status(500).json({
       error: err instanceof Error ? err.message : 'Failed to query users'
+    });
+  }
+});
+
+/**
+ * @openapi
+ * /admin/users/{id}:
+ *   get:
+ *     summary: Get a user by ID
+ *     description: Returns a single user for admin management.
+ *     tags:
+ *       - Admin
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 user:
+ *                   type: object
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Postgres connection error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const pool = await getPostgresPool();
+    const result = await pool.query<UserRow>(
+      `SELECT id, email, email_confirmed, admin
+       FROM users
+       WHERE id = $1`,
+      [req.params['id']]
+    );
+
+    const user = result.rows[0];
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const response: AdminUserResponse = {
+      user: mapUserRow(user)
+    };
+    res.json(response);
+  } catch (err) {
+    console.error('Users admin error:', err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : 'Failed to query user'
     });
   }
 });

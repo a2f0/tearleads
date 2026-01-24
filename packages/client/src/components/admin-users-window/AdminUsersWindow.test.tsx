@@ -30,22 +30,43 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/admin/UsersAdmin', async () => {
-  const { useLocation } = await import('react-router-dom');
-  return {
-    UsersAdmin: ({ showBackLink }: { showBackLink?: boolean }) => {
-      const location = useLocation();
-      return (
-        <div data-testid="admin-users-content">
-          <span data-testid="admin-users-location">{location.pathname}</span>
-          <span data-testid="admin-users-backlink">
-            {showBackLink ? 'true' : 'false'}
-          </span>
-        </div>
-      );
-    }
-  };
-});
+vi.mock('@/pages/admin/UsersAdmin', () => ({
+  UsersAdmin: ({
+    showBackLink,
+    onUserSelect
+  }: {
+    showBackLink?: boolean;
+    onUserSelect?: (userId: string) => void;
+  }) => (
+    <div data-testid="users-admin-list">
+      <span data-testid="admin-users-backlink">
+        {showBackLink ? 'true' : 'false'}
+      </span>
+      <button
+        type="button"
+        data-testid="select-user-btn"
+        onClick={() => onUserSelect?.('user-123')}
+      >
+        Select User
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/pages/admin/UsersAdminDetail', () => ({
+  UsersAdminDetail: ({
+    userId,
+    backLink
+  }: {
+    userId?: string | null;
+    backLink?: React.ReactNode;
+  }) => (
+    <div data-testid="users-admin-detail">
+      <span data-testid="detail-user-id">{userId}</span>
+      {backLink}
+    </div>
+  )
+}));
 
 describe('AdminUsersWindow', () => {
   const defaultProps = {
@@ -61,19 +82,41 @@ describe('AdminUsersWindow', () => {
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
   });
 
-  it('shows Users Admin as title', () => {
+  it('shows Users Admin as title initially', () => {
     render(<AdminUsersWindow {...defaultProps} />);
     expect(screen.getByTestId('window-title')).toHaveTextContent('Users Admin');
   });
 
-  it('renders the users admin content', () => {
+  it('renders the users list initially', () => {
     render(<AdminUsersWindow {...defaultProps} />);
-    expect(screen.getByTestId('admin-users-location')).toHaveTextContent(
-      '/admin/users'
-    );
+    expect(screen.getByTestId('users-admin-list')).toBeInTheDocument();
     expect(screen.getByTestId('admin-users-backlink')).toHaveTextContent(
       'false'
     );
+  });
+
+  it('navigates to detail view when user is selected', async () => {
+    const user = userEvent.setup();
+    render(<AdminUsersWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-user-btn'));
+
+    expect(screen.getByTestId('users-admin-detail')).toBeInTheDocument();
+    expect(screen.getByTestId('detail-user-id')).toHaveTextContent('user-123');
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Edit User');
+  });
+
+  it('navigates back to list when back button is clicked', async () => {
+    const user = userEvent.setup();
+    render(<AdminUsersWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-user-btn'));
+    expect(screen.getByTestId('users-admin-detail')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Back to Users' }));
+
+    expect(screen.getByTestId('users-admin-list')).toBeInTheDocument();
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Users Admin');
   });
 
   it('calls onClose when close button is clicked', async () => {
