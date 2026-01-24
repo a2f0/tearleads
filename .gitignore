@@ -8,6 +8,7 @@ build/
 out/
 dist-electron/
 *.tsbuildinfo
+packages/mls-wasm/target/
 
 # Generated image assets (web)
 **/public/generated/
