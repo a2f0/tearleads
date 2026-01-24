@@ -88,9 +88,10 @@ app.get('/v1/ping', (_req: Request, res: Response) => {
 app.use('/v1', authMiddleware);
 
 // Admin routes
-app.use('/v1/admin/groups', groupsRouter);
-app.use('/v1/admin/redis', redisRouter);
-app.use('/v1/admin/postgres', postgresRouter);
+app.use('/v1/admin/groups', adminSessionMiddleware, groupsRouter);
+app.use('/v1/admin/redis', adminSessionMiddleware, redisRouter);
+app.use('/v1/admin/postgres', adminSessionMiddleware, postgresRouter);
+app.use('/v1/admin/users', adminSessionMiddleware, usersRouter);
 
 // Auth routes
 app.use('/v1/auth', authRouter);
