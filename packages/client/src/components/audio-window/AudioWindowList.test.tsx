@@ -215,9 +215,7 @@ describe('AudioWindowList', () => {
     await waitFor(() => {
       expect(screen.getByText('No audio files')).toBeInTheDocument();
     });
-    expect(
-      screen.getByText('Use Upload to add audio')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Use Upload to add audio')).toBeInTheDocument();
   });
 
   it('renders tracks list when tracks exist', async () => {
