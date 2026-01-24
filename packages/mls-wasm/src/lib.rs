@@ -5,6 +5,7 @@
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use openmls::prelude::*;
+use openmls::prelude::tls_codec::{Deserialize as TlsDeserialize, Serialize as TlsSerialize};
 use openmls_basic_credential::SignatureKeyPair;
 use openmls_rust_crypto::OpenMlsRustCrypto;
 use serde::{Deserialize, Serialize};
@@ -133,7 +134,7 @@ impl MlsClient {
         };
 
         // Store the signature keys in the crypto provider
-        signature_keys.store(crypto.key_store())
+        signature_keys.store(crypto.storage())
             .map_err(|e| JsValue::from_str(&format!("Failed to store signature keys: {}", e)))?;
 
         Ok(MlsClient {
@@ -150,7 +151,7 @@ impl MlsClient {
         let mut packages = Vec::new();
 
         for _ in 0..count {
-            let key_package = KeyPackage::builder()
+            let key_package_bundle = KeyPackage::builder()
                 .build(
                     CIPHERSUITE,
                     &self.crypto,
@@ -158,6 +159,8 @@ impl MlsClient {
                     self.credential_with_key.clone(),
                 )
                 .map_err(|e| JsValue::from_str(&format!("Failed to create KeyPackage: {}", e)))?;
+
+            let key_package = key_package_bundle.key_package();
 
             let serialized = key_package
                 .tls_serialize_detached()
@@ -179,7 +182,7 @@ impl MlsClient {
 
     /// Create a new MLS group
     #[wasm_bindgen(js_name = createGroup)]
-    pub fn create_group(&mut self, group_name: &str) -> Result<JsValue, JsValue> {
+    pub fn create_group(&mut self, _group_name: &str) -> Result<JsValue, JsValue> {
         let group_id = uuid::Uuid::new_v4().to_string();
         let mls_group_id = GroupId::from_slice(group_id.as_bytes());
 
@@ -212,11 +215,13 @@ impl MlsClient {
         let welcome_bytes = BASE64.decode(welcome_b64)
             .map_err(|e| JsValue::from_str(&format!("Invalid base64 welcome: {}", e)))?;
 
-        let welcome = MlsMessageIn::tls_deserialize_exact(&welcome_bytes)
+        let mls_message = MlsMessageIn::tls_deserialize(&mut welcome_bytes.as_slice())
             .map_err(|e| JsValue::from_str(&format!("Failed to deserialize welcome: {}", e)))?;
 
-        let welcome = welcome.into_welcome()
-            .ok_or_else(|| JsValue::from_str("Message is not a Welcome"))?;
+        let welcome = match mls_message.extract() {
+            MlsMessageBodyIn::Welcome(w) => w,
+            _ => return Err(JsValue::from_str("Message is not a Welcome")),
+        };
 
         let mls_group_config = MlsGroupJoinConfig::builder()
             .build();
@@ -254,8 +259,10 @@ impl MlsClient {
         for kp_b64 in key_packages_b64 {
             let kp_bytes = BASE64.decode(&kp_b64)
                 .map_err(|e| JsValue::from_str(&format!("Invalid base64 KeyPackage: {}", e)))?;
-            let kp = KeyPackageIn::tls_deserialize_exact(&kp_bytes)
+            let kp_in = KeyPackageIn::tls_deserialize(&mut kp_bytes.as_slice())
                 .map_err(|e| JsValue::from_str(&format!("Failed to deserialize KeyPackage: {}", e)))?;
+            let kp = kp_in.validate(self.crypto.crypto(), ProtocolVersion::Mls10)
+                .map_err(|e| JsValue::from_str(&format!("Invalid KeyPackage: {:?}", e)))?;
             key_packages.push(kp);
         }
 
@@ -273,7 +280,6 @@ impl MlsClient {
         let commit_bytes = commit.tls_serialize_detached()
             .map_err(|e| JsValue::from_str(&format!("Failed to serialize commit: {}", e)))?;
 
-        let welcome = welcome.ok_or_else(|| JsValue::from_str("No welcome message generated"))?;
         let welcome_bytes = welcome.tls_serialize_detached()
             .map_err(|e| JsValue::from_str(&format!("Failed to serialize welcome: {}", e)))?;
 
@@ -327,7 +333,7 @@ impl MlsClient {
         let ciphertext_bytes = BASE64.decode(ciphertext_b64)
             .map_err(|e| JsValue::from_str(&format!("Invalid base64 ciphertext: {}", e)))?;
 
-        let mls_message = MlsMessageIn::tls_deserialize_exact(&ciphertext_bytes)
+        let mls_message = MlsMessageIn::tls_deserialize(&mut ciphertext_bytes.as_slice())
             .map_err(|e| JsValue::from_str(&format!("Failed to deserialize message: {}", e)))?;
 
         let protocol_message = mls_message.try_into_protocol_message()
