@@ -6,9 +6,9 @@ import {
   type ChatGroupMember,
   type ChatGroupResponse,
   type ChatGroupsResponse,
-  type CreateGroupRequest,
-  type CreateGroupResponse,
   isRecord,
+  type MlsChatCreateGroupRequest,
+  type MlsChatCreateGroupResponse,
   type RemoveMemberResponse
 } from '@rapid/shared';
 import {
@@ -22,7 +22,9 @@ import { getPostgresPool } from '../../lib/postgres.js';
 
 const router: RouterType = Router();
 
-function parseCreateGroupRequest(body: unknown): CreateGroupRequest | null {
+function parseCreateGroupRequest(
+  body: unknown
+): MlsChatCreateGroupRequest | null {
   if (!isRecord(body)) {
     return null;
   }
@@ -156,7 +158,7 @@ router.post('/', async (req: Request, res: Response) => {
       memberCount: 1
     };
 
-    const response: CreateGroupResponse = { group };
+    const response: MlsChatCreateGroupResponse = { group };
     res.status(201).json(response);
   } catch (error) {
     console.error('Failed to create group:', error);

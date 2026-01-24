@@ -162,13 +162,14 @@ describe('useMLS', () => {
       await result.current.initialize('user-123');
     });
 
-    let groupResult: { groupId: string; mlsGroupId: string } | null = null;
-    await act(async () => {
-      groupResult = await result.current.createGroup('Test Group');
+    const groupResult = await act(async () => {
+      return result.current.createGroup('Test Group');
     });
 
-    expect(groupResult?.groupId).toBe('local-group-id');
-    expect(groupResult?.mlsGroupId).toBe('mls-group-id');
+    expect((groupResult as { groupId: string }).groupId).toBe('local-group-id');
+    expect((groupResult as { mlsGroupId: string }).mlsGroupId).toBe(
+      'mls-group-id'
+    );
   });
 
   it('encrypts a message', async () => {
@@ -194,13 +195,14 @@ describe('useMLS', () => {
       await result.current.initialize('user-123');
     });
 
-    let encryptResult: { ciphertext: string; epoch: number } | null = null;
-    await act(async () => {
-      encryptResult = await result.current.encrypt('group-1', 'Hello world');
+    const encryptResult = await act(async () => {
+      return result.current.encrypt('group-1', 'Hello world');
     });
 
-    expect(encryptResult?.ciphertext).toBe('encrypted-data');
-    expect(encryptResult?.epoch).toBe(1);
+    expect((encryptResult as { ciphertext: string }).ciphertext).toBe(
+      'encrypted-data'
+    );
+    expect((encryptResult as { epoch: number }).epoch).toBe(1);
   });
 
   it('decrypts a message', async () => {
@@ -226,13 +228,14 @@ describe('useMLS', () => {
       await result.current.initialize('user-123');
     });
 
-    let decryptResult: { plaintext: string; senderIndex: number } | null = null;
-    await act(async () => {
-      decryptResult = await result.current.decrypt('group-1', 'encrypted-data');
+    const decryptResult = await act(async () => {
+      return result.current.decrypt('group-1', 'encrypted-data');
     });
 
-    expect(decryptResult?.plaintext).toBe('Hello world');
-    expect(decryptResult?.senderIndex).toBe(0);
+    expect((decryptResult as { plaintext: string }).plaintext).toBe(
+      'Hello world'
+    );
+    expect((decryptResult as { senderIndex: number }).senderIndex).toBe(0);
   });
 
   it('throws error when not initialized - generateKeyPackages', async () => {
@@ -373,13 +376,14 @@ describe('useMLS', () => {
       await result.current.initialize('user-123');
     });
 
-    let joinResult: { groupId: string; mlsGroupId: string } | null = null;
-    await act(async () => {
-      joinResult = await result.current.joinGroup('welcome-data');
+    const joinResult = await act(async () => {
+      return result.current.joinGroup('welcome-data');
     });
 
-    expect(joinResult?.groupId).toBe('joined-group-id');
-    expect(joinResult?.mlsGroupId).toBe('joined-mls-group-id');
+    expect((joinResult as { groupId: string }).groupId).toBe('joined-group-id');
+    expect((joinResult as { mlsGroupId: string }).mlsGroupId).toBe(
+      'joined-mls-group-id'
+    );
   });
 
   it('adds members to a group', async () => {
@@ -407,16 +411,12 @@ describe('useMLS', () => {
       await result.current.initialize('user-123');
     });
 
-    let addResult: {
-      commit: string;
-      welcomes: Array<{ keyPackageRef: string; welcome: string }>;
-    } | null = null;
-    await act(async () => {
-      addResult = await result.current.addMembers('group-1', ['kp-1', 'kp-2']);
+    const addResult = await act(async () => {
+      return result.current.addMembers('group-1', ['kp-1', 'kp-2']);
     });
 
-    expect(addResult?.commit).toBe('commit-data');
-    expect(addResult?.welcomes).toHaveLength(2);
+    expect((addResult as { commit: string }).commit).toBe('commit-data');
+    expect((addResult as { welcomes: unknown[] }).welcomes).toHaveLength(2);
   });
 
   it('gets epoch for a group', async () => {

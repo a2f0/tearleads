@@ -39,12 +39,12 @@ export interface ChatGroupMember {
   joinedAt: string;
 }
 
-export interface CreateGroupRequest {
+export interface MlsChatCreateGroupRequest {
   name: string;
   mlsGroupId: string; // Base64-encoded, client generates MLS group
 }
 
-export interface CreateGroupResponse {
+export interface MlsChatCreateGroupResponse {
   group: ChatGroup;
 }
 
