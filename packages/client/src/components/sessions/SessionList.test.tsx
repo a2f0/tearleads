@@ -57,14 +57,16 @@ describe('SessionList', () => {
         createdAt: new Date(Date.now() - 60000).toISOString(),
         lastActiveAt: new Date().toISOString(),
         ipAddress: '127.0.0.1',
-        isCurrent: true
+        isCurrent: true,
+        isAdmin: false
       },
       {
         id: 'session-2',
         createdAt: new Date(Date.now() - 3600000).toISOString(),
         lastActiveAt: new Date(Date.now() - 1800000).toISOString(),
         ipAddress: '192.168.1.1',
-        isCurrent: false
+        isCurrent: false,
+        isAdmin: false
       }
     ];
 
@@ -80,6 +82,33 @@ describe('SessionList', () => {
     expect(screen.getByText('Current')).toBeInTheDocument();
   });
 
+  it('shows admin badge for admin sessions', async () => {
+    const sessions = [
+      {
+        id: 'session-1',
+        createdAt: new Date().toISOString(),
+        lastActiveAt: new Date().toISOString(),
+        ipAddress: '127.0.0.1',
+        isCurrent: true,
+        isAdmin: true
+      },
+      {
+        id: 'session-2',
+        createdAt: new Date().toISOString(),
+        lastActiveAt: new Date().toISOString(),
+        ipAddress: '192.168.1.1',
+        isCurrent: false,
+        isAdmin: false
+      }
+    ];
+
+    mockGetSessions.mockResolvedValue({ sessions });
+
+    render(<SessionList />);
+
+    await screen.findByText('Admin');
+  });
+
   it('shows delete button only for non-current sessions', async () => {
     const sessions = [
       {
@@ -87,14 +116,16 @@ describe('SessionList', () => {
         createdAt: new Date().toISOString(),
         lastActiveAt: new Date().toISOString(),
         ipAddress: '127.0.0.1',
-        isCurrent: true
+        isCurrent: true,
+        isAdmin: false
       },
       {
         id: 'session-2',
         createdAt: new Date().toISOString(),
         lastActiveAt: new Date().toISOString(),
         ipAddress: '192.168.1.1',
-        isCurrent: false
+        isCurrent: false,
+        isAdmin: false
       }
     ];
 
@@ -120,14 +151,16 @@ describe('SessionList', () => {
         createdAt: new Date().toISOString(),
         lastActiveAt: new Date().toISOString(),
         ipAddress: '127.0.0.1',
-        isCurrent: true
+        isCurrent: true,
+        isAdmin: false
       },
       {
         id: 'session-2',
         createdAt: new Date().toISOString(),
         lastActiveAt: new Date().toISOString(),
         ipAddress: '192.168.1.1',
-        isCurrent: false
+        isCurrent: false,
+        isAdmin: false
       }
     ];
 
@@ -158,14 +191,16 @@ describe('SessionList', () => {
         createdAt: new Date().toISOString(),
         lastActiveAt: new Date().toISOString(),
         ipAddress: '127.0.0.1',
-        isCurrent: true
+        isCurrent: true,
+        isAdmin: false
       },
       {
         id: 'session-2',
         createdAt: new Date().toISOString(),
         lastActiveAt: new Date().toISOString(),
         ipAddress: '192.168.1.1',
-        isCurrent: false
+        isCurrent: false,
+        isAdmin: false
       }
     ];
 
@@ -198,7 +233,8 @@ describe('SessionList', () => {
           createdAt: new Date().toISOString(),
           lastActiveAt: new Date().toISOString(),
           ipAddress: '127.0.0.1',
-          isCurrent: true
+          isCurrent: true,
+          isAdmin: false
         }
       ]
     });
