@@ -24,7 +24,7 @@ vi.mock('@/db/hooks', () => ({
 vi.mock('@/db/SettingsProvider', () => ({
   useSettings: () => ({
     getSetting: vi.fn((key: string) =>
-      key === 'desktopIconDepth' ? 'embossed' : 'enabled'
+      key === 'desktopIconDepth' ? 'debossed' : 'enabled'
     ),
     setSetting: vi.fn()
   })

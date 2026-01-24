@@ -56,7 +56,7 @@ export const SETTING_DEFAULTS: { [K in UserSettingKey]: SettingValueMap[K] } = {
   tooltips: 'enabled',
   font: 'system',
   desktopPattern: 'isometric',
-  desktopIconDepth: 'embossed'
+  desktopIconDepth: 'debossed'
 };
 
 // localStorage keys for each setting (maps our keys to existing localStorage keys)
