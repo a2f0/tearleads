@@ -79,13 +79,15 @@ interface DocumentsProps {
   onSelectDocument?: (documentId: string) => void;
   refreshToken?: number;
   viewMode?: ViewMode;
+  showDropzone?: boolean;
 }
 
 export function Documents({
   showBackLink = true,
   onSelectDocument,
   refreshToken,
-  viewMode = 'list'
+  viewMode = 'list',
+  showDropzone = true
 }: DocumentsProps) {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
@@ -491,11 +493,7 @@ export function Documents({
             </div>
           </div>
         ) : documents.length === 0 && hasFetched ? (
-          isTableView ? (
-            <div className="rounded-lg border p-8 text-center text-muted-foreground">
-              No documents yet. Use Upload to add documents.
-            </div>
-          ) : (
+          !isTableView && showDropzone ? (
             <Dropzone
               onFilesSelected={handleFilesSelected}
               accept="application/pdf,text/*"
@@ -504,6 +502,10 @@ export function Documents({
               label="PDF or text documents"
               source="files"
             />
+          ) : (
+            <div className="rounded-lg border p-8 text-center text-muted-foreground">
+              No documents yet. Use Upload to add documents.
+            </div>
           )
         ) : isTableView ? (
           <div className="flex min-h-0 flex-1 flex-col">
@@ -738,16 +740,18 @@ export function Documents({
                 </div>
               </div>
             </div>
-            <Dropzone
-              onFilesSelected={handleFilesSelected}
-              accept="application/pdf,text/*"
-              multiple={true}
-              disabled={uploading}
-              label="PDF or text documents"
-              source="files"
-              compact
-              variant="row"
-            />
+            {showDropzone && (
+              <Dropzone
+                onFilesSelected={handleFilesSelected}
+                accept="application/pdf,text/*"
+                multiple={true}
+                disabled={uploading}
+                label="PDF or text documents"
+                source="files"
+                compact
+                variant="row"
+              />
+            )}
           </div>
         ))}
 

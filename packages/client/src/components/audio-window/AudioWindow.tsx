@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { useFileUpload } from '@/hooks/useFileUpload';
 import { AudioWindowDetail } from './AudioWindowDetail';
 import { AudioWindowList } from './AudioWindowList';
 import type { AudioViewMode } from './AudioWindowMenuBar';
@@ -29,6 +30,40 @@ export function AudioWindow({
   const [view, setView] = useState<AudioViewMode>('list');
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [showDropzone, setShowDropzone] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadFile } = useFileUpload();
+
+  const handleUpload = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleUploadFiles = useCallback(
+    async (files: File[]) => {
+      await Promise.all(
+        files.map(async (file) => {
+          try {
+            await uploadFile(file);
+          } catch (err) {
+            console.error(`Failed to upload ${file.name}:`, err);
+          }
+        })
+      );
+      setRefreshToken((value) => value + 1);
+    },
+    [uploadFile]
+  );
+
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? []);
+      if (files.length > 0) {
+        void handleUploadFiles(files);
+      }
+      e.target.value = '';
+    },
+    [handleUploadFiles]
+  );
 
   const handleSelectTrack = useCallback((trackId: string) => {
     setSelectedTrackId(trackId);
@@ -61,8 +96,11 @@ export function AudioWindow({
       <div className="flex h-full flex-col">
         <AudioWindowMenuBar
           onClose={onClose}
+          onUpload={handleUpload}
           view={view}
           onViewChange={setView}
+          showDropzone={showDropzone}
+          onShowDropzoneChange={setShowDropzone}
         />
         <div className="flex-1 overflow-hidden">
           {selectedTrackId ? (
@@ -75,6 +113,8 @@ export function AudioWindow({
             <AudioWindowList
               onSelectTrack={handleSelectTrack}
               refreshToken={refreshToken}
+              showDropzone={showDropzone}
+              onUploadFiles={handleUploadFiles}
             />
           ) : (
             <AudioWindowTableView
@@ -84,6 +124,15 @@ export function AudioWindow({
           )}
         </div>
       </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="audio/*"
+        multiple={false}
+        className="hidden"
+        onChange={handleFileInputChange}
+        data-testid="audio-file-input"
+      />
     </FloatingWindow>
   );
 }

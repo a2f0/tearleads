@@ -91,6 +91,30 @@ describe('PhotosWindowContent', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders dropzone when showDropzone is enabled and empty', () => {
+    const onUploadFiles = vi.fn();
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    render(
+      <PhotosWindowContent
+        refreshToken={0}
+        showDropzone={true}
+        onUploadFiles={onUploadFiles}
+      />
+    );
+
+    expect(screen.getByTestId('dropzone-input')).toBeInTheDocument();
+  });
+
   it('calls onSelectPhoto when a row is clicked', async () => {
     const onSelectPhoto = vi.fn();
     mockUsePhotosWindowData.mockReturnValue({
@@ -335,6 +359,30 @@ describe('PhotosWindowContent', () => {
     await user.click(screen.getByRole('button', { name: 'Get Info' }));
 
     expect(onSelectPhoto).toHaveBeenCalledWith('photo-1');
+  });
+
+  it('renders compact dropzone when showDropzone is enabled with photos', () => {
+    const onUploadFiles = vi.fn();
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    render(
+      <PhotosWindowContent
+        refreshToken={0}
+        showDropzone={true}
+        onUploadFiles={onUploadFiles}
+      />
+    );
+
+    expect(screen.getByTestId('dropzone')).toBeInTheDocument();
   });
 
   it('deletes photo from context menu', async () => {

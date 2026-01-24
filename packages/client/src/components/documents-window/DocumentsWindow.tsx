@@ -34,6 +34,7 @@ export function DocumentsWindow({
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [refreshToken, setRefreshToken] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [showDropzone, setShowDropzone] = useState(false);
   const { uploadFile } = useFileUpload();
 
   const handleUpload = useCallback(() => {
@@ -103,6 +104,8 @@ export function DocumentsWindow({
             <DocumentsWindowMenuBar
               viewMode={viewMode}
               onViewModeChange={setViewMode}
+              showDropzone={showDropzone}
+              onShowDropzoneChange={setShowDropzone}
               onUpload={handleUpload}
               onRefresh={handleRefresh}
               onClose={onClose}
@@ -128,6 +131,7 @@ export function DocumentsWindow({
                   onSelectDocument={setSelectedDocumentId}
                   refreshToken={refreshToken}
                   viewMode={viewMode}
+                  showDropzone={showDropzone}
                 />
               </div>
             )}

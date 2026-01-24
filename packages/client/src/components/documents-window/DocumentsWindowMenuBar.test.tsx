@@ -8,6 +8,8 @@ describe('DocumentsWindowMenuBar', () => {
   const defaultProps = {
     viewMode: 'list',
     onViewModeChange: vi.fn(),
+    showDropzone: false,
+    onShowDropzoneChange: vi.fn(),
     onUpload: vi.fn(),
     onRefresh: vi.fn(),
     onClose: vi.fn()
@@ -38,7 +40,7 @@ describe('DocumentsWindowMenuBar', () => {
     expect(screen.getByRole('menuitem', { name: 'Close' })).toBeInTheDocument();
   });
 
-  it('shows List and Table options in View menu', async () => {
+  it('shows List, Table, and Show Dropzone options in View menu', async () => {
     const user = userEvent.setup();
     render(<DocumentsWindowMenuBar {...defaultProps} />);
 
@@ -46,6 +48,9 @@ describe('DocumentsWindowMenuBar', () => {
 
     expect(screen.getByRole('menuitem', { name: 'List' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Table' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: 'Show Dropzone' })
+    ).toBeInTheDocument();
   });
 
   it('calls onUpload when Upload is clicked', async () => {
@@ -111,5 +116,22 @@ describe('DocumentsWindowMenuBar', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Table' }));
 
     expect(onViewModeChange).toHaveBeenCalledWith('table');
+  });
+
+  it('calls onShowDropzoneChange when Show Dropzone is clicked', async () => {
+    const user = userEvent.setup();
+    const onShowDropzoneChange = vi.fn();
+    render(
+      <DocumentsWindowMenuBar
+        {...defaultProps}
+        showDropzone={false}
+        onShowDropzoneChange={onShowDropzoneChange}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Show Dropzone' }));
+
+    expect(onShowDropzoneChange).toHaveBeenCalledWith(true);
   });
 });
