@@ -786,4 +786,56 @@ describe('Admin flyout menu', () => {
 
     expect(screen.getByTestId('admin-users-link')).toBeInTheDocument();
   });
+
+  it('closes flyout when mouse leaves admin button', () => {
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    const adminLi = screen.getByTestId('admin-link').closest('li');
+    if (!adminLi) throw new Error('Admin li not found');
+
+    // Show flyout
+    fireEvent.mouseEnter(adminLi);
+    expect(screen.getByTestId('admin-flyout-menu')).toBeInTheDocument();
+
+    // Hide flyout by mouse leave
+    fireEvent.mouseLeave(adminLi);
+    expect(screen.queryByTestId('admin-flyout-menu')).not.toBeInTheDocument();
+  });
+
+  it('keeps flyout open when mouse moves to flyout menu', () => {
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    const adminLi = screen.getByTestId('admin-link').closest('li');
+    if (!adminLi) throw new Error('Admin li not found');
+
+    // Show flyout
+    fireEvent.mouseEnter(adminLi);
+    const flyout = screen.getByTestId('admin-flyout-menu');
+    expect(flyout).toBeInTheDocument();
+
+    // Move mouse to flyout - should keep it open
+    fireEvent.mouseEnter(flyout);
+    expect(screen.getByTestId('admin-flyout-menu')).toBeInTheDocument();
+
+    // Mouse leave from flyout - should close
+    fireEvent.mouseLeave(flyout);
+    expect(screen.queryByTestId('admin-flyout-menu')).not.toBeInTheDocument();
+  });
+
+  it('shows context menu on right-click on flyout item', async () => {
+    const user = userEvent.setup();
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    const adminLi = screen.getByTestId('admin-link').closest('li');
+    if (!adminLi) throw new Error('Admin li not found');
+    fireEvent.mouseEnter(adminLi);
+
+    const postgresButton = screen.getByTestId('admin-flyout-postgres');
+    await user.pointer({ keys: '[MouseRight]', target: postgresButton });
+
+    expect(screen.getByText('Open')).toBeInTheDocument();
+  });
 });
