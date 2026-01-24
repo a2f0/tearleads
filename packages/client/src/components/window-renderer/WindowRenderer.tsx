@@ -1,7 +1,5 @@
 import type { ComponentType } from 'react';
 import { useCallback } from 'react';
-import { AdminPostgresWindow } from '@/components/admin-postgres-window';
-import { AdminRedisWindow } from '@/components/admin-redis-window';
 import { AdminUsersWindow } from '@/components/admin-users-window';
 import { AdminWindow } from '@/components/admin-window';
 import { AnalyticsWindow } from '@/components/analytics-window';
@@ -76,8 +74,6 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   audio: { Component: AudioWindow },
   models: { Component: ModelsWindow },
   admin: { Component: AdminWindow },
-  'admin-redis': { Component: AdminRedisWindow },
-  'admin-postgres': { Component: AdminPostgresWindow },
   'admin-users': { Component: AdminUsersWindow },
   tables: { Component: TablesWindow },
   debug: { Component: DebugWindow },

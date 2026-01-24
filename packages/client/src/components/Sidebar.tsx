@@ -4,7 +4,6 @@ import {
   BarChart3,
   Bot,
   Bug,
-  ChevronRight,
   CircleHelp,
   Cpu,
   Database,
@@ -188,7 +187,7 @@ export const navItems: NavItem[] = [
     testId: 'models-link'
   },
   {
-    path: '/admin/redis',
+    path: '/admin',
     icon: Shield,
     labelKey: 'admin',
     inMobileMenu: true,
@@ -200,13 +199,6 @@ export const navItems: NavItem[] = [
     labelKey: 'adminUsers',
     inMobileMenu: true,
     testId: 'admin-users-link'
-  },
-  {
-    path: '/admin/postgres',
-    icon: Database,
-    labelKey: 'postgresAdmin',
-    inMobileMenu: true,
-    testId: 'postgres-admin-link'
   },
   {
     path: '/sync',
@@ -256,8 +248,7 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/analytics': 'analytics',
   '/audio': 'audio',
   '/models': 'models',
-  '/admin/redis': 'admin-redis',
-  '/admin/postgres': 'admin-postgres',
+  '/admin': 'admin',
   '/admin/users': 'admin-users',
   '/sync': 'sync',
   '/v86': 'v86'
@@ -309,13 +300,6 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   }, []);
 
   const isDesktop = !isMobile && !isTouchDevice;
-  const adminFlyoutItems = [
-    { path: '/admin/redis', labelKey: 'redis' as const },
-    { path: '/admin/postgres', labelKey: 'postgres' as const }
-  ];
-  const sidebarItems = isDesktop
-    ? navItems.filter((item) => item.path !== '/admin/postgres')
-    : navItems;
 
   const handleClick = useCallback(
     (path: string) => {
@@ -384,24 +368,14 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
     >
       <nav className="max-h-full overflow-y-auto p-4">
         <ul className="space-y-1">
-          {sidebarItems.map((item) => {
+          {navItems.map((item) => {
             const Icon = item.icon;
-            const isAdminFlyout = isDesktop && item.path === '/admin/redis';
-            const isAdminActive =
-              isAdminFlyout &&
-              adminFlyoutItems.some((subItem) =>
-                location.pathname.startsWith(subItem.path)
-              );
             const isActive =
-              isAdminActive ||
-              (item.path === '/'
+              item.path === '/'
                 ? location.pathname === '/'
-                : location.pathname.startsWith(item.path));
+                : location.pathname.startsWith(item.path);
             return (
-              <li
-                key={item.path}
-                className={cn(isAdminFlyout && 'group relative')}
-              >
+              <li key={item.path}>
                 <button
                   type="button"
                   data-testid={item.testId}
@@ -413,47 +387,10 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
                       ? 'bg-accent text-accent-foreground'
                       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   )}
-                  {...(isAdminFlyout && { 'aria-haspopup': 'menu' })}
                 >
                   <Icon className="h-5 w-5" />
                   {t(item.labelKey)}
-                  {isAdminFlyout && (
-                    <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />
-                  )}
                 </button>
-                {isAdminFlyout && (
-                  <div
-                    className="absolute top-0 left-full z-20 ml-2 hidden min-w-44 rounded-md border bg-background py-1 shadow-lg group-focus-within:block group-hover:block"
-                    role="menu"
-                    aria-label="Admin submenu"
-                  >
-                    {adminFlyoutItems.map((subItem) => {
-                      const isSubActive = location.pathname.startsWith(
-                        subItem.path
-                      );
-                      return (
-                        <button
-                          key={subItem.path}
-                          type="button"
-                          onClick={() => handleClick(subItem.path)}
-                          onContextMenu={(e) =>
-                            handleContextMenu(e, subItem.path)
-                          }
-                          className={cn(
-                            'flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors',
-                            isSubActive
-                              ? 'bg-accent text-accent-foreground'
-                              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                          )}
-                          role="menuitem"
-                        >
-                          <Database className="h-4 w-4" />
-                          {t(subItem.labelKey)}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
               </li>
             );
           })}

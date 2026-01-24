@@ -110,25 +110,20 @@ describe('Sidebar', () => {
     { label: 'Console', windowType: 'console' },
     { label: 'Notes', windowType: 'notes' }
   ];
-  const desktopNavItems = navItems.filter(
-    (item) => item.path !== '/admin/postgres'
-  );
 
   it('renders all navigation items', () => {
     renderSidebar();
 
-    for (const item of desktopNavItems) {
+    for (const item of navItems) {
       const label = en.menu[item.labelKey];
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    expect(screen.getByText('Redis')).toBeInTheDocument();
-    expect(screen.getByText('Postgres')).toBeInTheDocument();
   });
 
   it('renders navigation buttons with correct test ids', () => {
     renderSidebar();
 
-    for (const item of desktopNavItems) {
+    for (const item of navItems) {
       const label = en.menu[item.labelKey];
       const button = screen.getByRole('button', { name: label });
       expect(button).toHaveAttribute('data-testid', item.testId);
@@ -193,7 +188,7 @@ describe('Sidebar', () => {
 
     expect(screen.getByRole('list')).toBeInTheDocument();
     const listItems = screen.getAllByRole('listitem');
-    expect(listItems).toHaveLength(desktopNavItems.length);
+    expect(listItems).toHaveLength(navItems.length);
   });
 
   it('navigates on single click for non-window paths on desktop', async () => {
@@ -222,25 +217,6 @@ describe('Sidebar', () => {
 
     const button = screen.getByRole('button', { name: label });
     await action(user, button);
-
-    expect(mockOpenWindow).toHaveBeenCalledWith(windowType);
-    expect(mockOnClose).toHaveBeenCalled();
-  });
-
-  it.each([
-    { name: 'Redis', windowType: 'admin-redis' },
-    { name: 'Postgres', windowType: 'admin-postgres' }
-  ])('opens $name admin from submenu on desktop', async ({
-    name,
-    windowType
-  }) => {
-    const user = userEvent.setup();
-    mockMatchMedia({ isMobile: false, isTouch: false });
-
-    renderSidebar();
-
-    const button = screen.getByRole('menuitem', { name });
-    await user.click(button);
 
     expect(mockOpenWindow).toHaveBeenCalledWith(windowType);
     expect(mockOnClose).toHaveBeenCalled();
@@ -386,18 +362,6 @@ describe('Sidebar', () => {
 
       const consoleButton = screen.getByRole('button', { name: 'Console' });
       await user.pointer({ keys: '[MouseRight]', target: consoleButton });
-
-      expect(screen.getByText('Open')).toBeInTheDocument();
-      expect(screen.getByText('Open in Window')).toBeInTheDocument();
-    });
-
-    it('shows context menu on right-click for admin submenu items', async () => {
-      const user = userEvent.setup();
-      mockMatchMedia({ isMobile: false, isTouch: false });
-      renderSidebar();
-
-      const redisButton = screen.getByRole('menuitem', { name: 'Redis' });
-      await user.pointer({ keys: '[MouseRight]', target: redisButton });
 
       expect(screen.getByText('Open')).toBeInTheDocument();
       expect(screen.getByText('Open in Window')).toBeInTheDocument();
