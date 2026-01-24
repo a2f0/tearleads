@@ -106,11 +106,7 @@ describe('SessionList', () => {
 
     render(<SessionList />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Admin')).toBeInTheDocument();
-    });
-
-    expect(screen.getAllByText('Admin')).toHaveLength(1);
+    await screen.findByText('Admin');
   });
 
   it('shows delete button only for non-current sessions', async () => {
