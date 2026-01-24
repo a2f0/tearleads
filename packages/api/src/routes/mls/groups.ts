@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import {
-  isRecord,
   type AddMembersRequest,
   type AddMembersResponse,
   type ChatGroup,
@@ -9,6 +8,7 @@ import {
   type ChatGroupsResponse,
   type CreateGroupRequest,
   type CreateGroupResponse,
+  isRecord,
   type RemoveMemberResponse
 } from '@rapid/shared';
 import {
@@ -390,11 +390,9 @@ router.post('/:groupId/members', async (req: Request, res: Response) => {
   const { groupId } = req.params;
   const payload = parseAddMembersRequest(req.body);
   if (!payload) {
-    res
-      .status(400)
-      .json({
-        error: 'memberUserIds, welcomeMessages, and commitData are required'
-      });
+    res.status(400).json({
+      error: 'memberUserIds, welcomeMessages, and commitData are required'
+    });
     return;
   }
 
@@ -461,7 +459,9 @@ router.post('/:groupId/members', async (req: Request, res: Response) => {
       });
 
       // Store Welcome message
-      const welcomeMsg = payload.welcomeMessages.find((w) => w.userId === userId);
+      const welcomeMsg = payload.welcomeMessages.find(
+        (w) => w.userId === userId
+      );
       if (welcomeMsg) {
         const welcomeId = randomUUID();
         await pool.query(
@@ -480,10 +480,10 @@ router.post('/:groupId/members', async (req: Request, res: Response) => {
     }
 
     // Update group updated_at
-    await pool.query(
-      `UPDATE chat_groups SET updated_at = $1 WHERE id = $2`,
-      [now, groupId]
-    );
+    await pool.query(`UPDATE chat_groups SET updated_at = $1 WHERE id = $2`, [
+      now,
+      groupId
+    ]);
 
     // Broadcast member added to group channel
     for (const member of addedMembers) {
@@ -533,63 +533,66 @@ router.post('/:groupId/members', async (req: Request, res: Response) => {
  *       404:
  *         description: Member not found
  */
-router.delete('/:groupId/members/:userId', async (req: Request, res: Response) => {
-  const claims = req.authClaims;
-  if (!claims) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
+router.delete(
+  '/:groupId/members/:userId',
+  async (req: Request, res: Response) => {
+    const claims = req.authClaims;
+    if (!claims) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { groupId, userId } = req.params;
+
+    try {
+      const pool = await getPostgresPool();
+
+      // Check if requester is admin (or removing themselves)
+      const adminCheck = await pool.query<{ role: string }>(
+        `SELECT role FROM chat_group_members WHERE group_id = $1 AND user_id = $2`,
+        [groupId, claims.sub]
+      );
+      if (adminCheck.rows.length === 0) {
+        res.status(403).json({ error: 'Not a member of this group' });
+        return;
+      }
+      if (adminCheck.rows[0]?.role !== 'admin' && claims.sub !== userId) {
+        res.status(403).json({ error: 'Only admins can remove other members' });
+        return;
+      }
+
+      // Remove the member
+      const result = await pool.query(
+        `DELETE FROM chat_group_members WHERE group_id = $1 AND user_id = $2`,
+        [groupId, userId]
+      );
+
+      if (result.rowCount === 0) {
+        res.status(404).json({ error: 'Member not found' });
+        return;
+      }
+
+      // Update group updated_at
+      const now = new Date();
+      await pool.query(`UPDATE chat_groups SET updated_at = $1 WHERE id = $2`, [
+        now,
+        groupId
+      ]);
+
+      // Broadcast member removed
+      await broadcast(`mls:group:${groupId}`, {
+        type: 'mls_member_removed',
+        payload: { groupId, userId },
+        timestamp: now.toISOString()
+      });
+
+      const response: RemoveMemberResponse = { removed: true };
+      res.json(response);
+    } catch (error) {
+      console.error('Failed to remove member:', error);
+      res.status(500).json({ error: 'Failed to remove member' });
+    }
   }
-
-  const { groupId, userId } = req.params;
-
-  try {
-    const pool = await getPostgresPool();
-
-    // Check if requester is admin (or removing themselves)
-    const adminCheck = await pool.query<{ role: string }>(
-      `SELECT role FROM chat_group_members WHERE group_id = $1 AND user_id = $2`,
-      [groupId, claims.sub]
-    );
-    if (adminCheck.rows.length === 0) {
-      res.status(403).json({ error: 'Not a member of this group' });
-      return;
-    }
-    if (adminCheck.rows[0]?.role !== 'admin' && claims.sub !== userId) {
-      res.status(403).json({ error: 'Only admins can remove other members' });
-      return;
-    }
-
-    // Remove the member
-    const result = await pool.query(
-      `DELETE FROM chat_group_members WHERE group_id = $1 AND user_id = $2`,
-      [groupId, userId]
-    );
-
-    if (result.rowCount === 0) {
-      res.status(404).json({ error: 'Member not found' });
-      return;
-    }
-
-    // Update group updated_at
-    const now = new Date();
-    await pool.query(
-      `UPDATE chat_groups SET updated_at = $1 WHERE id = $2`,
-      [now, groupId]
-    );
-
-    // Broadcast member removed
-    await broadcast(`mls:group:${groupId}`, {
-      type: 'mls_member_removed',
-      payload: { groupId, userId },
-      timestamp: now.toISOString()
-    });
-
-    const response: RemoveMemberResponse = { removed: true };
-    res.json(response);
-  } catch (error) {
-    console.error('Failed to remove member:', error);
-    res.status(500).json({ error: 'Failed to remove member' });
-  }
-});
+);
 
 export { router as groupsRouter };

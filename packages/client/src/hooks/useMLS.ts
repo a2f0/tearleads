@@ -12,10 +12,7 @@
  */
 
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
-import type {
-  MlsWorkerRequest,
-  MlsWorkerResponse
-} from '@/workers/mls-worker';
+import type { MlsWorkerRequest, MlsWorkerResponse } from '@/workers/mls-worker';
 
 // Types for MLS state
 
@@ -40,8 +37,12 @@ export interface MlsState {
 export interface UseMlsReturn extends MlsState {
   initialize: (userId: string) => Promise<void>;
   generateKeyPackages: (count: number) => Promise<MlsKeyPackage[]>;
-  createGroup: (groupName: string) => Promise<{ groupId: string; mlsGroupId: string }>;
-  joinGroup: (welcomeData: string) => Promise<{ groupId: string; mlsGroupId: string }>;
+  createGroup: (
+    groupName: string
+  ) => Promise<{ groupId: string; mlsGroupId: string }>;
+  joinGroup: (
+    welcomeData: string
+  ) => Promise<{ groupId: string; mlsGroupId: string }>;
   addMembers: (
     groupId: string,
     keyPackages: string[]
@@ -181,6 +182,12 @@ export function resetMlsState(): void {
   pendingResolve = null;
   pendingReject = null;
 
+  // Terminate and clear the worker
+  if (worker) {
+    worker.terminate();
+    worker = null;
+  }
+
   emitChange();
 }
 
@@ -213,7 +220,10 @@ export function useMLS(): UseMlsReturn {
         throw new Error('MLS client not initialized');
       }
 
-      const response = await sendRequest({ type: 'generateKeyPackages', count });
+      const response = await sendRequest({
+        type: 'generateKeyPackages',
+        count
+      });
 
       if (response.type !== 'keyPackages') {
         throw new Error('Unexpected response type');

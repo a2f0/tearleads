@@ -127,10 +127,10 @@ router.post('/:groupId/messages', async (req: Request, res: Response) => {
     );
 
     // Update group updated_at
-    await pool.query(
-      `UPDATE chat_groups SET updated_at = $1 WHERE id = $2`,
-      [now, groupId]
-    );
+    await pool.query(`UPDATE chat_groups SET updated_at = $1 WHERE id = $2`, [
+      now,
+      groupId
+    ]);
 
     const message: MlsMessage = {
       id: messageId,
@@ -211,7 +211,7 @@ router.get('/:groupId/messages', async (req: Request, res: Response) => {
   let limit = DEFAULT_MESSAGE_LIMIT;
   if (typeof limitParam === 'string') {
     const parsed = parseInt(limitParam, 10);
-    if (!isNaN(parsed) && parsed > 0) {
+    if (!Number.isNaN(parsed) && parsed > 0) {
       limit = Math.min(parsed, MAX_MESSAGE_LIMIT);
     }
   }
@@ -305,9 +305,10 @@ router.get('/:groupId/messages', async (req: Request, res: Response) => {
     messages.reverse();
 
     const lastRow = rows[rows.length - 1];
-    const response: MlsMessagesResponse = hasMore && lastRow
-      ? { messages, hasMore, nextCursor: lastRow.id }
-      : { messages, hasMore };
+    const response: MlsMessagesResponse =
+      hasMore && lastRow
+        ? { messages, hasMore, nextCursor: lastRow.id }
+        : { messages, hasMore };
     res.json(response);
   } catch (error) {
     console.error('Failed to get messages:', error);

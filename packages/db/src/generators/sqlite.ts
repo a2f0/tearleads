@@ -86,7 +86,11 @@ function generateTable(
   // Columns
   const columnEntries = Object.entries(table.columns);
   columnEntries.forEach(([propertyName, column], i) => {
-    const columnStr = generateColumn(propertyName, column, tableNameToPropertyName);
+    const columnStr = generateColumn(
+      propertyName,
+      column,
+      tableNameToPropertyName
+    );
     const indent = hasIndexes ? '    ' : '  ';
     const comma = i < columnEntries.length - 1 ? ',' : '';
     lines.push(`${indent}${columnStr}${comma}`);

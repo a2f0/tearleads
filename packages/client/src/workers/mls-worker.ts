@@ -139,9 +139,10 @@ async function handleMessage(
         if (!mlsClient) {
           return { type: 'error', message: 'MLS client not initialized' };
         }
-        const result = mlsClient.joinGroup(
-          request.welcomeData
-        ) as WasmResult<{ group_id: string; mls_group_id: string }>;
+        const result = mlsClient.joinGroup(request.welcomeData) as WasmResult<{
+          group_id: string;
+          mls_group_id: string;
+        }>;
         if (!result.ok || !result.value) {
           return {
             type: 'error',

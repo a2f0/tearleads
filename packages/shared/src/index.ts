@@ -18,12 +18,10 @@ export interface LicenseInfo {
 
 // Chat validation helpers
 export * from './chat.js';
-
-// OpenRouter model options
-export * from './openrouter.js';
-
 // MLS encrypted chat types
 export * from './mls.js';
+// OpenRouter model options
+export * from './openrouter.js';
 
 // Types
 export interface PingData {

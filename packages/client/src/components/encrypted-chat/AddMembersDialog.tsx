@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { UserPlus, X, Check } from 'lucide-react';
+import { Check, UserPlus, X } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -84,7 +84,7 @@ export function AddMembersDialog({
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
-            <h2 id="add-members-title" className="text-lg font-semibold">
+            <h2 id="add-members-title" className="font-semibold text-lg">
               Add Members
             </h2>
           </div>
@@ -102,7 +102,7 @@ export function AddMembersDialog({
           <div className="space-y-2">
             <label
               htmlFor="user-search"
-              className="text-sm font-medium leading-none"
+              className="font-medium text-sm leading-none"
             >
               Search Users
             </label>
@@ -119,7 +119,7 @@ export function AddMembersDialog({
 
           <div className="max-h-64 overflow-y-auto rounded-lg border">
             {filteredUsers.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              <div className="px-4 py-8 text-center text-muted-foreground text-sm">
                 {eligibleUsers.length === 0
                   ? 'No more users available to add'
                   : 'No users match your search'}
@@ -133,14 +133,14 @@ export function AddMembersDialog({
                   className="flex w-full items-center gap-3 px-4 py-3 hover:bg-accent/50"
                   disabled={isAdding}
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted font-medium text-sm">
                     {(user.displayName ?? user.email).charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1 text-left">
                     <div className="truncate font-medium">
                       {user.displayName ?? user.email.split('@')[0]}
                     </div>
-                    <div className="truncate text-sm text-muted-foreground">
+                    <div className="truncate text-muted-foreground text-sm">
                       {user.email}
                     </div>
                   </div>
@@ -158,7 +158,7 @@ export function AddMembersDialog({
             )}
           </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-destructive text-sm">{error}</p>}
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose} disabled={isAdding}>

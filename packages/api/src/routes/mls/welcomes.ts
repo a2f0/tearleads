@@ -1,7 +1,4 @@
-import {
-  type PendingWelcome,
-  type PendingWelcomesResponse
-} from '@rapid/shared';
+import type { PendingWelcome, PendingWelcomesResponse } from '@rapid/shared';
 import {
   type Request,
   type Response,

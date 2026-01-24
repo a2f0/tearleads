@@ -1,19 +1,19 @@
-import { useState, useCallback, useEffect } from 'react';
+import { Loader2, MessageSquareLock, Shield } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
-import { useMLS } from '@/hooks/useMLS';
 import {
-  MessageList,
-  ChatInput,
-  GroupList,
-  ChatHeader,
-  CreateGroupDialog,
   AddMembersDialog,
-  type Message,
   type ChatGroupInfo,
+  ChatHeader,
+  ChatInput,
+  CreateGroupDialog,
+  GroupList,
+  type Message,
+  MessageList,
   type UserInfo
 } from '@/components/encrypted-chat';
-import { MessageSquareLock, Shield, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useMLS } from '@/hooks/useMLS';
 
 export function EncryptedChat() {
   const { user, token } = useAuth();
@@ -30,23 +30,6 @@ export function EncryptedChat() {
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId);
-
-  // Initialize MLS when component mounts
-  useEffect(() => {
-    if (user && !mls.isInitialized && !mls.isLoading) {
-      mls.initialize(user.id).catch((err) => {
-        console.error('Failed to initialize MLS:', err);
-        toast.error('Failed to initialize encryption');
-      });
-    }
-  }, [user, mls]);
-
-  // Load groups after MLS is initialized
-  useEffect(() => {
-    if (mls.isInitialized && token) {
-      loadGroups();
-    }
-  }, [mls.isInitialized, token]);
 
   const loadGroups = useCallback(async () => {
     if (!token) return;
@@ -74,6 +57,23 @@ export function EncryptedChat() {
       setIsLoadingGroups(false);
     }
   }, [token]);
+
+  // Initialize MLS when component mounts
+  useEffect(() => {
+    if (user && !mls.isInitialized && !mls.isLoading) {
+      mls.initialize(user.id).catch((err) => {
+        console.error('Failed to initialize MLS:', err);
+        toast.error('Failed to initialize encryption');
+      });
+    }
+  }, [user, mls]);
+
+  // Load groups after MLS is initialized
+  useEffect(() => {
+    if (mls.isInitialized && token) {
+      loadGroups();
+    }
+  }, [mls.isInitialized, token, loadGroups]);
 
   const loadMessages = useCallback(
     async (groupId: string) => {
@@ -269,7 +269,9 @@ export function EncryptedChat() {
       );
       if (!groupResponse.ok) throw new Error('Failed to fetch group');
       const groupData = await groupResponse.json();
-      setGroupMembers(groupData.members.map((m: { userId: string }) => m.userId));
+      setGroupMembers(
+        groupData.members.map((m: { userId: string }) => m.userId)
+      );
 
       // Fetch available users (contacts)
       const usersResponse = await fetch('/api/v1/contacts', {
@@ -299,7 +301,9 @@ export function EncryptedChat() {
   if (!user) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-muted-foreground">Please sign in to use encrypted chat</p>
+        <p className="text-muted-foreground">
+          Please sign in to use encrypted chat
+        </p>
       </div>
     );
   }
@@ -310,7 +314,7 @@ export function EncryptedChat() {
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <div className="text-center">
           <p className="font-medium">Initializing End-to-End Encryption</p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-muted-foreground text-sm">
             Setting up your secure identity...
           </p>
         </div>
@@ -324,7 +328,7 @@ export function EncryptedChat() {
         <Shield className="h-12 w-12 text-destructive" />
         <div>
           <p className="font-medium">Encryption Error</p>
-          <p className="mt-1 text-sm text-muted-foreground">{mls.error}</p>
+          <p className="mt-1 text-muted-foreground text-sm">{mls.error}</p>
         </div>
       </div>
     );
@@ -361,8 +365,8 @@ export function EncryptedChat() {
               <MessageSquareLock className="h-8 w-8 text-muted-foreground" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold">Select a Group</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <h3 className="font-semibold text-lg">Select a Group</h3>
+              <p className="mt-1 text-muted-foreground text-sm">
                 Choose a group from the sidebar or create a new one to start
                 chatting.
               </p>

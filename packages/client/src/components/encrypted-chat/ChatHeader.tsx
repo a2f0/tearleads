@@ -1,4 +1,4 @@
-import { Users, UserPlus, Lock } from 'lucide-react';
+import { Lock, UserPlus, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface ChatHeaderProps {
@@ -20,7 +20,7 @@ export function ChatHeader({
         </div>
         <div className="min-w-0">
           <h2 className="truncate font-semibold">{groupName}</h2>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+          <div className="flex items-center gap-1 text-muted-foreground text-sm">
             <Lock className="h-3 w-3" />
             <span>
               {memberCount} member{memberCount !== 1 ? 's' : ''} - End-to-end

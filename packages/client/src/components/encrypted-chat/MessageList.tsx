@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
 import { MessageSquare } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { MessageBubble } from './MessageBubble';
 
 export interface Message {
@@ -22,7 +22,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+  }, []);
 
   if (messages.length === 0 && !isLoading) {
     return (
@@ -30,8 +30,8 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
         <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
           <MessageSquare className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h3 className="mt-4 text-lg font-semibold">No messages yet</h3>
-        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+        <h3 className="mt-4 font-semibold text-lg">No messages yet</h3>
+        <p className="mt-2 max-w-sm text-muted-foreground text-sm">
           Send a message to start the conversation. All messages are end-to-end
           encrypted.
         </p>

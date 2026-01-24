@@ -35,17 +35,17 @@ export function GroupItem({ group, isSelected, onClick }: GroupItemProps) {
         <div className="flex items-center justify-between gap-2">
           <span className="truncate font-medium">{group.name}</span>
           {group.lastMessageTime && (
-            <span className="shrink-0 text-xs text-muted-foreground">
+            <span className="shrink-0 text-muted-foreground text-xs">
               {formatRelativeTime(group.lastMessageTime)}
             </span>
           )}
         </div>
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm text-muted-foreground">
+          <span className="truncate text-muted-foreground text-sm">
             {group.lastMessage ?? `${group.memberCount} members`}
           </span>
           {group.unreadCount !== undefined && group.unreadCount > 0 && (
-            <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
+            <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 font-medium text-primary-foreground text-xs">
               {group.unreadCount > 99 ? '99+' : group.unreadCount}
             </span>
           )}

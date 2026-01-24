@@ -43,6 +43,8 @@ export default defineConfig({
         // that cannot be tested in jsdom
         'src/workers/sqlite.worker.interface.ts',
         'src/workers/sqlite.worker.ts',
+        // MLS worker requires WASM runtime (openmls) that cannot be tested in jsdom
+        'src/workers/mls-worker.ts',
         // Platform-specific adapters require their native runtime environments
         // (Capacitor for mobile, Electron for desktop, Web for browser OPFS)
         'src/db/adapters/capacitor.adapter.ts',
@@ -87,6 +89,8 @@ export default defineConfig({
         'src/components/admin-postgres-window/index.ts',
         'src/components/chat-window/index.ts',
         'src/components/console-window/index.ts',
+        'src/components/encrypted-chat/index.ts',
+        'src/components/encrypted-chat-window/index.ts',
         'src/components/files/index.ts',
         'src/components/files-window/index.ts',
         'src/components/floating-window/index.ts',
@@ -94,6 +98,9 @@ export default defineConfig({
         'src/components/v86-window/index.ts',
         'src/components/window-renderer/index.ts',
         'src/pages/console/index.ts',
+        'src/pages/encrypted-chat/index.ts',
+        // EncryptedChat requires complex integration with MLS WASM worker and API calls
+        'src/pages/encrypted-chat/EncryptedChat.tsx',
         'src/pages/console/components/index.ts',
         'src/pages/console/hooks/index.ts',
         'src/pages/console/lib/index.ts',

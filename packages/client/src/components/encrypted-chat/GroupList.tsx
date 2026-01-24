@@ -1,6 +1,6 @@
-import { Plus, Lock } from 'lucide-react';
+import { Lock, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { GroupItem, type ChatGroupInfo } from './GroupItem';
+import { type ChatGroupInfo, GroupItem } from './GroupItem';
 
 interface GroupListProps {
   groups: ChatGroupInfo[];
@@ -41,7 +41,7 @@ export function GroupList({
           </div>
         ) : groups.length === 0 ? (
           <div className="px-2 py-8 text-center">
-            <p className="text-sm text-muted-foreground">No groups yet</p>
+            <p className="text-muted-foreground text-sm">No groups yet</p>
             <Button
               variant="link"
               size="sm"

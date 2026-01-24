@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
 import { Users, X } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -63,7 +63,7 @@ export function CreateGroupDialog({
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            <h2 id="create-group-title" className="text-lg font-semibold">
+            <h2 id="create-group-title" className="font-semibold text-lg">
               Create Encrypted Group
             </h2>
           </div>
@@ -81,7 +81,7 @@ export function CreateGroupDialog({
           <div className="space-y-2">
             <label
               htmlFor="group-name"
-              className="text-sm font-medium leading-none"
+              className="font-medium text-sm leading-none"
             >
               Group Name
             </label>
@@ -95,23 +95,22 @@ export function CreateGroupDialog({
               disabled={isCreating}
               autoFocus
             />
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-destructive text-sm">{error}</p>}
           </div>
 
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             All messages in this group will be end-to-end encrypted using MLS
             (RFC 9420).
           </p>
 
           <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={onClose}
-              disabled={isCreating}
-            >
+            <Button variant="outline" onClick={onClose} disabled={isCreating}>
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={isCreating || !name.trim()}>
+            <Button
+              onClick={handleCreate}
+              disabled={isCreating || !name.trim()}
+            >
               {isCreating ? 'Creating...' : 'Create Group'}
             </Button>
           </div>

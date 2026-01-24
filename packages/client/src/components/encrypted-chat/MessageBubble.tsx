@@ -25,7 +25,7 @@ export function MessageBubble({
             <div className="whitespace-pre-line break-words">{children}</div>
           </div>
           {timestamp && (
-            <div className="mt-1 text-right text-xs text-muted-foreground">
+            <div className="mt-1 text-right text-muted-foreground text-xs">
               {formatTime(timestamp)}
             </div>
           )}
@@ -37,12 +37,12 @@ export function MessageBubble({
   return (
     <div className={cn('flex w-full py-2', className)}>
       <div className="flex max-w-[80%] gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted font-medium text-sm">
           {senderInitial ?? '?'}
         </div>
         <div>
           {senderName && (
-            <div className="mb-1 text-xs font-medium text-muted-foreground">
+            <div className="mb-1 font-medium text-muted-foreground text-xs">
               {senderName}
             </div>
           )}
@@ -50,7 +50,7 @@ export function MessageBubble({
             <div className="whitespace-pre-line break-words">{children}</div>
           </div>
           {timestamp && (
-            <div className="mt-1 text-xs text-muted-foreground">
+            <div className="mt-1 text-muted-foreground text-xs">
               {formatTime(timestamp)}
             </div>
           )}

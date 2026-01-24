@@ -528,7 +528,11 @@ export const chatGroupsTable: TableDefinition = {
   },
   indexes: [
     { name: 'chat_groups_created_by_idx', columns: ['createdBy'] },
-    { name: 'chat_groups_mls_group_id_idx', columns: ['mlsGroupId'], unique: true }
+    {
+      name: 'chat_groups_mls_group_id_idx',
+      columns: ['mlsGroupId'],
+      unique: true
+    }
   ]
 };
 
@@ -636,7 +640,10 @@ export const chatMessagesTable: TableDefinition = {
   indexes: [
     { name: 'chat_messages_group_idx', columns: ['groupId'] },
     { name: 'chat_messages_sender_idx', columns: ['senderId'] },
-    { name: 'chat_messages_group_created_idx', columns: ['groupId', 'createdAt'] }
+    {
+      name: 'chat_messages_group_created_idx',
+      columns: ['groupId', 'createdAt']
+    }
   ]
 };
 
