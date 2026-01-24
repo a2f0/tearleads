@@ -37,7 +37,8 @@ export const es = {
     adminUsers: 'Admin de usuarios',
     settings: 'Configuración',
     email: 'Correo',
-    sync: 'Sincronizar'
+    sync: 'Sincronizar',
+    v86: 'v86'
   },
   audio: {
     play: 'Reproducir',
