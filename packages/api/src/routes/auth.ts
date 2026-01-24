@@ -227,7 +227,8 @@ router.get('/sessions', async (req: Request, res: Response) => {
       createdAt: session.createdAt,
       lastActiveAt: session.lastActiveAt,
       ipAddress: session.ipAddress,
-      isCurrent: session.id === claims.jti
+      isCurrent: session.id === claims.jti,
+      isAdmin: session.admin
     }));
 
     res.json({ sessions: response });
