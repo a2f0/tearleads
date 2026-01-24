@@ -234,8 +234,10 @@ export function EncryptedChat() {
         throw new Error('MLS add members returned no welcome messages');
       }
 
-      let welcomeMessages: Array<{ userId: string; welcomeData: string }> | null =
-        null;
+      let welcomeMessages: Array<{
+        userId: string;
+        welcomeData: string;
+      }> | null = null;
 
       if (welcomes.length === 1) {
         welcomeMessages = userIds.map((userId) => ({
