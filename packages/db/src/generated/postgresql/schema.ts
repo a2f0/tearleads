@@ -5,8 +5,7 @@ import {
   jsonb,
   pgTable,
   text,
-  timestamp,
-  uniqueIndex
+  timestamp
 } from 'drizzle-orm/pg-core';
 
 /**

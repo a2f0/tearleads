@@ -1,10 +1,4 @@
-import {
-  index,
-  integer,
-  sqliteTable,
-  text,
-  uniqueIndex
-} from 'drizzle-orm/sqlite-core';
+import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 /**
  * Sync metadata table for tracking entity sync status.
