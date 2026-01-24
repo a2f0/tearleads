@@ -227,6 +227,32 @@ describe('Sidebar', () => {
     expect(mockOnClose).toHaveBeenCalled();
   });
 
+  it('opens redis admin from submenu on desktop', async () => {
+    const user = userEvent.setup();
+    mockMatchMedia({ isMobile: false, isTouch: false });
+
+    renderSidebar();
+
+    const redisButton = screen.getByRole('menuitem', { name: 'Redis' });
+    await user.click(redisButton);
+
+    expect(mockOpenWindow).toHaveBeenCalledWith('admin-redis');
+    expect(mockOnClose).toHaveBeenCalled();
+  });
+
+  it('opens postgres admin from submenu on desktop', async () => {
+    const user = userEvent.setup();
+    mockMatchMedia({ isMobile: false, isTouch: false });
+
+    renderSidebar();
+
+    const postgresButton = screen.getByRole('menuitem', { name: 'Postgres' });
+    await user.click(postgresButton);
+
+    expect(mockOpenWindow).toHaveBeenCalledWith('admin-postgres');
+    expect(mockOnClose).toHaveBeenCalled();
+  });
+
   it.each(
     mobileWindowLabels
   )('navigates on single click for %s on mobile', async (label) => {
