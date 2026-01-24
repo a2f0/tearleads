@@ -207,7 +207,9 @@ describe('Auth routes', () => {
         .send({ refreshToken });
 
       expect(response.status).toBe(401);
-      expect(response.body).toEqual({ error: 'Refresh token has been revoked' });
+      expect(response.body).toEqual({
+        error: 'Refresh token has been revoked'
+      });
 
       await deleteSession(sessionId, userId);
     });
@@ -256,11 +258,7 @@ describe('Auth routes', () => {
         ipAddress: '127.0.0.1'
       });
 
-      await storeRefreshToken(
-        refreshTokenId,
-        { sessionId, userId },
-        604800
-      );
+      await storeRefreshToken(refreshTokenId, { sessionId, userId }, 604800);
 
       const refreshToken = createJwt(
         {
