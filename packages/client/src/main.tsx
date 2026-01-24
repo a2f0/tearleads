@@ -51,11 +51,11 @@ const AdminLauncher = lazy(() =>
 const PostgresAdmin = lazy(() =>
   import('./pages/admin').then((m) => ({ default: m.PostgresAdmin }))
 );
-const UsersAdmin = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.UsersAdmin }))
+const GroupsAdmin = lazy(() =>
+  import('./pages/admin').then((m) => ({ default: m.GroupsAdmin }))
 );
-const UsersAdminDetail = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.UsersAdminDetail }))
+const GroupDetailPage = lazy(() =>
+  import('./pages/admin').then((m) => ({ default: m.GroupDetailPage }))
 );
 const Analytics = lazy(() =>
   import('./pages/analytics').then((m) => ({ default: m.Analytics }))
@@ -350,12 +350,12 @@ if (rootElement) {
                                         element={<PostgresAdmin />}
                                       />
                                       <Route
-                                        path="admin/users"
-                                        element={<UsersAdmin />}
+                                        path="admin/groups"
+                                        element={<GroupsAdmin />}
                                       />
                                       <Route
-                                        path="admin/users/:id"
-                                        element={<UsersAdminDetail />}
+                                        path="admin/groups/:id"
+                                        element={<GroupDetailPage />}
                                       />
                                       <Route path="sync" element={<Sync />} />
                                     </Route>
