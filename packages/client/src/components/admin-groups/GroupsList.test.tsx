@@ -370,4 +370,39 @@ describe('GroupsList', () => {
       expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     });
   });
+
+  it('closes context menu when Escape key is pressed', async () => {
+    const user = userEvent.setup();
+    mockList.mockResolvedValue({
+      groups: [
+        {
+          id: 'group-1',
+          name: 'Test Group',
+          description: null,
+          memberCount: 0,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }
+      ]
+    });
+
+    renderGroupsList();
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Group')).toBeInTheDocument();
+    });
+
+    const groupButton = screen
+      .getByText('Test Group')
+      .closest('button') as HTMLButtonElement;
+    await user.pointer({ keys: '[MouseRight]', target: groupButton });
+
+    expect(screen.getByText('Delete')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => {
+      expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+    });
+  });
 });

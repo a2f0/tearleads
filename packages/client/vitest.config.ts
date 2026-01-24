@@ -82,6 +82,7 @@ export default defineConfig({
         'src/pages/opfs/index.ts',
         'src/sse/index.ts',
         'src/video/index.ts',
+        'src/components/admin-groups/index.ts',
         'src/components/admin-postgres/index.ts',
         'src/components/admin-postgres-window/index.ts',
         'src/components/chat-window/index.ts',
