@@ -39,6 +39,7 @@ export type WindowType =
   | 'audio'
   | 'models'
   | 'admin'
+  | 'admin-redis'
   | 'admin-postgres'
   | 'admin-users'
   | 'cache-storage'
