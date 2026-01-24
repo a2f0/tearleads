@@ -74,6 +74,50 @@ export interface PostgresTablesResponse {
   tables: PostgresTableInfo[];
 }
 
+export interface PostgresColumnInfo {
+  name: string;
+  type: string;
+  nullable: boolean;
+  defaultValue: string | null;
+  ordinalPosition: number;
+}
+
+export interface PostgresColumnsResponse {
+  columns: PostgresColumnInfo[];
+}
+
+export interface PostgresRowsResponse {
+  rows: Record<string, unknown>[];
+  totalCount: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  emailConfirmed: boolean;
+  admin: boolean;
+}
+
+export interface AdminUsersResponse {
+  users: AdminUser[];
+}
+
+export interface AdminUserResponse {
+  user: AdminUser;
+}
+
+export interface AdminUserUpdatePayload {
+  email?: string;
+  emailConfirmed?: boolean;
+  admin?: boolean;
+}
+
+export interface AdminUserUpdateResponse {
+  user: AdminUser;
+}
+
 // Groups Admin types
 export interface Group {
   id: string;
