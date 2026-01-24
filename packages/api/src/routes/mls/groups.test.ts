@@ -499,6 +499,38 @@ describe('MLS Groups Routes', () => {
       );
     });
 
+    it('returns 400 when welcome is missing for a new member', async () => {
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ role: 'admin' }],
+          rowCount: 1
+        }) // admin check
+        .mockResolvedValueOnce({
+          rows: [{ name: 'Test Group' }],
+          rowCount: 1
+        }) // get group name
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // existing members
+        .mockResolvedValueOnce({
+          rows: [{ id: 'user-2', email: 'user2@example.com' }],
+          rowCount: 1
+        }); // user emails
+
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .set('Authorization', authHeader)
+        .send({
+          memberUserIds: ['user-2'],
+          commitData: 'commit-data',
+          welcomeMessages: []
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty(
+        'error',
+        'welcomeMessages must include all new members'
+      );
+    });
+
     it('returns 500 on database error', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       mockQuery.mockRejectedValueOnce(new Error('Database error'));

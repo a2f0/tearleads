@@ -416,6 +416,14 @@ router.post('/:groupId/members', async (req: Request, res: Response) => {
     return;
   }
 
+  const uniqueMemberUserIds = Array.from(new Set(payload.memberUserIds));
+  const welcomeMap = new Map<string, string>();
+  for (const welcome of payload.welcomeMessages) {
+    if (!welcomeMap.has(welcome.userId)) {
+      welcomeMap.set(welcome.userId, welcome.welcomeData);
+    }
+  }
+
   try {
     const pool = await getPostgresPool();
 
@@ -446,7 +454,7 @@ router.post('/:groupId/members', async (req: Request, res: Response) => {
     // Batch query: Get existing members and user emails in single queries
     const existingMembersResult = await pool.query<{ user_id: string }>(
       `SELECT user_id FROM chat_group_members WHERE group_id = $1 AND user_id = ANY($2)`,
-      [groupId, payload.memberUserIds]
+      [groupId, uniqueMemberUserIds]
     );
     const existingMemberIds = new Set(
       existingMembersResult.rows.map((r) => r.user_id)
@@ -454,16 +462,26 @@ router.post('/:groupId/members', async (req: Request, res: Response) => {
 
     const usersResult = await pool.query<{ id: string; email: string }>(
       `SELECT id, email FROM users WHERE id = ANY($1)`,
-      [payload.memberUserIds]
+      [uniqueMemberUserIds]
     );
     const userEmailMap = new Map(usersResult.rows.map((r) => [r.id, r.email]));
 
     // Filter to only new members with valid emails
-    const newMembers = payload.memberUserIds.filter(
+    const newMembers = uniqueMemberUserIds.filter(
       (userId) => !existingMemberIds.has(userId) && userEmailMap.has(userId)
     );
 
     if (newMembers.length > 0) {
+      const missingWelcomes = newMembers.filter(
+        (userId) => !welcomeMap.has(userId)
+      );
+      if (missingWelcomes.length > 0) {
+        res.status(400).json({
+          error: 'welcomeMessages must include all new members'
+        });
+        return;
+      }
+
       // Use transaction for all database modifications
       const client = await pool.connect();
       try {
@@ -499,22 +517,21 @@ router.post('/:groupId/members', async (req: Request, res: Response) => {
         const welcomePlaceholders: string[] = [];
         let j = 1;
         for (const userId of newMembers) {
-          const welcomeMsg = payload.welcomeMessages.find(
-            (w) => w.userId === userId
-          );
-          if (welcomeMsg) {
-            const welcomeId = randomUUID();
-            welcomeValues.push(
-              welcomeId,
-              groupId,
-              userId,
-              welcomeMsg.welcomeData,
-              now
-            );
-            welcomePlaceholders.push(
-              `($${j++}, $${j++}, $${j++}, $${j++}, $${j++}, FALSE)`
-            );
+          const welcomeData = welcomeMap.get(userId);
+          if (!welcomeData) {
+            continue;
           }
+          const welcomeId = randomUUID();
+          welcomeValues.push(
+            welcomeId,
+            groupId,
+            userId,
+            welcomeData,
+            now
+          );
+          welcomePlaceholders.push(
+            `($${j++}, $${j++}, $${j++}, $${j++}, $${j++}, FALSE)`
+          );
         }
 
         if (welcomePlaceholders.length > 0) {

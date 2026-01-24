@@ -182,11 +182,15 @@ export function isMlsWelcomeBroadcast(
   );
 }
 
+function isRecordLike(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 export function isMlsBroadcast(value: unknown): value is MlsBroadcast {
-  if (typeof value !== 'object' || value === null || !('type' in value)) {
+  if (!isRecordLike(value) || !('type' in value)) {
     return false;
   }
-  const type = (value as { type: unknown }).type;
+  const type = value.type;
   return (
     type === 'mls_message' ||
     type === 'mls_welcome' ||

@@ -247,33 +247,31 @@ router.get('/:groupId/messages', async (req: Request, res: Response) => {
     let params: (string | number)[];
 
     if (typeof cursor === 'string' && cursor) {
-      // Get the created_at of the cursor message
-      const cursorResult = await pool.query<{ created_at: Date }>(
-        `SELECT created_at FROM chat_messages WHERE id = $1`,
-        [cursor]
+      const cursorResult = await pool.query<{ created_at: Date; id: string }>(
+        `SELECT id, created_at FROM chat_messages WHERE id = $1 AND group_id = $2`,
+        [cursor, groupId]
       );
-      const cursorDate = cursorResult.rows[0]?.created_at;
+      const cursorRow = cursorResult.rows[0];
 
-      if (cursorDate) {
+      if (cursorRow) {
         query = `
           SELECT m.id, m.group_id, m.sender_id, u.email as sender_email,
                  m.ciphertext, m.epoch, m.created_at
           FROM chat_messages m
           JOIN users u ON m.sender_id = u.id
-          WHERE m.group_id = $1 AND m.created_at < $2
-          ORDER BY m.created_at DESC
-          LIMIT $3
+          WHERE m.group_id = $1 AND (m.created_at, m.id) < ($2, $3)
+          ORDER BY m.created_at DESC, m.id DESC
+          LIMIT $4
         `;
-        params = [groupId, cursorDate.toISOString(), limit + 1];
+        params = [groupId, cursorRow.created_at, cursorRow.id, limit + 1];
       } else {
-        // Invalid cursor, start from beginning
         query = `
           SELECT m.id, m.group_id, m.sender_id, u.email as sender_email,
                  m.ciphertext, m.epoch, m.created_at
           FROM chat_messages m
           JOIN users u ON m.sender_id = u.id
           WHERE m.group_id = $1
-          ORDER BY m.created_at DESC
+          ORDER BY m.created_at DESC, m.id DESC
           LIMIT $2
         `;
         params = [groupId, limit + 1];
@@ -285,7 +283,7 @@ router.get('/:groupId/messages', async (req: Request, res: Response) => {
         FROM chat_messages m
         JOIN users u ON m.sender_id = u.id
         WHERE m.group_id = $1
-        ORDER BY m.created_at DESC
+        ORDER BY m.created_at DESC, m.id DESC
         LIMIT $2
       `;
       params = [groupId, limit + 1];
