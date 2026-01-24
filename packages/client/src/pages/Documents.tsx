@@ -493,11 +493,7 @@ export function Documents({
             </div>
           </div>
         ) : documents.length === 0 && hasFetched ? (
-          isTableView ? (
-            <div className="rounded-lg border p-8 text-center text-muted-foreground">
-              No documents yet. Use Upload to add documents.
-            </div>
-          ) : showDropzone ? (
+          !isTableView && showDropzone ? (
             <Dropzone
               onFilesSelected={handleFilesSelected}
               accept="application/pdf,text/*"
