@@ -5,7 +5,8 @@ import {
   jsonb,
   pgTable,
   text,
-  timestamp
+  timestamp,
+  uniqueIndex
 } from 'drizzle-orm/pg-core';
 
 /**
@@ -207,7 +208,7 @@ export const groups = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
   },
-  (table) => [index('groups_name_idx').on(table.name)]
+  (table) => [uniqueIndex('groups_name_idx').on(table.name)]
 );
 
 /**

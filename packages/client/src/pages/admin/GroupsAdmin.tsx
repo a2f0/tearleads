@@ -10,9 +10,10 @@ interface GroupsAdminProps {
 
 export function GroupsAdmin({ showBackLink = true }: GroupsAdminProps) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleCreated = () => {
-    window.location.reload();
+    setRefreshKey((k) => k + 1);
   };
 
   return (
@@ -30,7 +31,10 @@ export function GroupsAdmin({ showBackLink = true }: GroupsAdminProps) {
           </Button>
         </div>
       </div>
-      <GroupsList onCreateClick={() => setCreateDialogOpen(true)} />
+      <GroupsList
+        key={refreshKey}
+        onCreateClick={() => setCreateDialogOpen(true)}
+      />
       <CreateGroupDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
