@@ -147,6 +147,62 @@ describe('MLS Messages Routes', () => {
 
       expect(response.status).toBe(403);
     });
+
+    it('returns 401 without auth', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/messages')
+        .send({ ciphertext: 'data', epoch: 1 });
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 400 for non-object body', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/messages')
+        .set('Authorization', authHeader)
+        .send('not-an-object');
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 for empty ciphertext', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/messages')
+        .set('Authorization', authHeader)
+        .send({ ciphertext: '   ', epoch: 1 });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 for negative epoch', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/messages')
+        .set('Authorization', authHeader)
+        .send({ ciphertext: 'data', epoch: -1 });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 for non-integer epoch', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/messages')
+        .set('Authorization', authHeader)
+        .send({ ciphertext: 'data', epoch: 1.5 });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 500 on database error', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockQuery.mockRejectedValueOnce(new Error('Database error'));
+
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/messages')
+        .set('Authorization', authHeader)
+        .send({ ciphertext: 'data', epoch: 1 });
+
+      expect(response.status).toBe(500);
+    });
   });
 
   describe('GET /v1/mls/groups/:groupId/messages', () => {
@@ -209,6 +265,120 @@ describe('MLS Messages Routes', () => {
         .set('Authorization', authHeader);
 
       expect(response.status).toBe(403);
+    });
+
+    it('returns 401 without auth', async () => {
+      const response = await request(app).get(
+        '/v1/mls/groups/group-1/messages'
+      );
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 500 on database error', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockQuery.mockRejectedValueOnce(new Error('Database error'));
+
+      const response = await request(app)
+        .get('/v1/mls/groups/group-1/messages')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
+    });
+
+    it('handles invalid cursor gracefully', async () => {
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ user_id: 'user-1' }],
+          rowCount: 1
+        }) // member check
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // cursor not found
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // messages query
+
+      const response = await request(app)
+        .get('/v1/mls/groups/group-1/messages?cursor=invalid-cursor')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('messages');
+    });
+
+    it('handles valid cursor pagination', async () => {
+      const cursorDate = new Date();
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ user_id: 'user-1' }],
+          rowCount: 1
+        }) // member check
+        .mockResolvedValueOnce({
+          rows: [{ created_at: cursorDate }],
+          rowCount: 1
+        }) // cursor found
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'msg-2',
+              group_id: 'group-1',
+              sender_id: 'user-1',
+              sender_email: 'test@example.com',
+              ciphertext: 'encrypted-2',
+              epoch: 1,
+              created_at: new Date()
+            }
+          ],
+          rowCount: 1
+        }); // messages after cursor
+
+      const response = await request(app)
+        .get('/v1/mls/groups/group-1/messages?cursor=msg-1')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('messages');
+      expect(response.body.messages).toHaveLength(1);
+    });
+
+    it('respects limit parameter', async () => {
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ user_id: 'user-1' }],
+          rowCount: 1
+        }) // member check
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // messages
+
+      const response = await request(app)
+        .get('/v1/mls/groups/group-1/messages?limit=10')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(200);
+    });
+
+    it('handles hasMore pagination', async () => {
+      const now = new Date();
+      const messages = Array.from({ length: 51 }, (_, i) => ({
+        id: `msg-${i}`,
+        group_id: 'group-1',
+        sender_id: 'user-1',
+        sender_email: 'test@example.com',
+        ciphertext: `encrypted-${i}`,
+        epoch: 1,
+        created_at: now
+      }));
+
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ user_id: 'user-1' }],
+          rowCount: 1
+        }) // member check
+        .mockResolvedValueOnce({ rows: messages, rowCount: 51 }); // messages
+
+      const response = await request(app)
+        .get('/v1/mls/groups/group-1/messages')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('hasMore', true);
+      expect(response.body).toHaveProperty('nextCursor');
     });
   });
 });

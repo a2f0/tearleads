@@ -115,6 +115,23 @@ describe('MLS Welcomes Routes', () => {
       expect(response.status).toBe(200);
       expect(response.body.welcomes).toEqual([]);
     });
+
+    it('returns 401 without auth', async () => {
+      const response = await request(app).get('/v1/mls/welcomes');
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 500 on database error', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockQuery.mockRejectedValueOnce(new Error('Database error'));
+
+      const response = await request(app)
+        .get('/v1/mls/welcomes')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
+    });
   });
 
   describe('POST /v1/mls/welcomes/:welcomeId/ack', () => {
@@ -137,6 +154,25 @@ describe('MLS Welcomes Routes', () => {
         .set('Authorization', authHeader);
 
       expect(response.status).toBe(404);
+    });
+
+    it('returns 401 without auth', async () => {
+      const response = await request(app).post(
+        '/v1/mls/welcomes/welcome-1/ack'
+      );
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 500 on database error', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockQuery.mockRejectedValueOnce(new Error('Database error'));
+
+      const response = await request(app)
+        .post('/v1/mls/welcomes/welcome-1/ack')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
     });
   });
 });

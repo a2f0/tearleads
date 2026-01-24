@@ -108,12 +108,69 @@ describe('MLS Key Packages Routes', () => {
       expect(response.status).toBe(400);
     });
 
+    it('returns 400 for non-object body', async () => {
+      const response = await request(app)
+        .post('/v1/mls/key-packages')
+        .set('Authorization', authHeader)
+        .send('not-an-object');
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 for non-object items in array', async () => {
+      const response = await request(app)
+        .post('/v1/mls/key-packages')
+        .set('Authorization', authHeader)
+        .send({ keyPackages: ['not-an-object'] });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 for empty keyPackageData', async () => {
+      const response = await request(app)
+        .post('/v1/mls/key-packages')
+        .set('Authorization', authHeader)
+        .send({ keyPackages: [{ keyPackageData: '   ' }] });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 for non-string keyPackageData', async () => {
+      const response = await request(app)
+        .post('/v1/mls/key-packages')
+        .set('Authorization', authHeader)
+        .send({ keyPackages: [{ keyPackageData: 123 }] });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 for empty keyPackages array', async () => {
+      const response = await request(app)
+        .post('/v1/mls/key-packages')
+        .set('Authorization', authHeader)
+        .send({ keyPackages: [] });
+
+      expect(response.status).toBe(400);
+    });
+
     it('returns 401 without auth header', async () => {
       const response = await request(app)
         .post('/v1/mls/key-packages')
         .send({ keyPackages: [] });
 
       expect(response.status).toBe(401);
+    });
+
+    it('returns 500 on database error', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockQuery.mockRejectedValueOnce(new Error('Database error'));
+
+      const response = await request(app)
+        .post('/v1/mls/key-packages')
+        .set('Authorization', authHeader)
+        .send({ keyPackages: [{ keyPackageData: 'data' }] });
+
+      expect(response.status).toBe(500);
     });
   });
 
@@ -129,7 +186,35 @@ describe('MLS Key Packages Routes', () => {
         .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('count');
+      expect(response.body).toHaveProperty('count', 5);
+    });
+
+    it('returns 0 when no count row exists', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+      const response = await request(app)
+        .get('/v1/mls/key-packages/count')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('count', 0);
+    });
+
+    it('returns 401 without auth', async () => {
+      const response = await request(app).get('/v1/mls/key-packages/count');
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 500 on database error', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockQuery.mockRejectedValueOnce(new Error('Database error'));
+
+      const response = await request(app)
+        .get('/v1/mls/key-packages/count')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
     });
   });
 
@@ -163,6 +248,23 @@ describe('MLS Key Packages Routes', () => {
         .set('Authorization', authHeader);
 
       expect(response.status).toBe(404);
+    });
+
+    it('returns 401 without auth', async () => {
+      const response = await request(app).get('/v1/mls/key-packages/user-2');
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 500 on database error', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockQuery.mockRejectedValueOnce(new Error('Database error'));
+
+      const response = await request(app)
+        .get('/v1/mls/key-packages/user-2')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
     });
   });
 });

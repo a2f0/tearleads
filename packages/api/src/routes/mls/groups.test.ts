@@ -130,6 +130,53 @@ describe('MLS Groups Routes', () => {
 
       expect(response.status).toBe(400);
     });
+
+    it('returns 400 for non-object body', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups')
+        .set('Authorization', authHeader)
+        .send('not-an-object');
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 for empty name', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups')
+        .set('Authorization', authHeader)
+        .send({ name: '   ', mlsGroupId: 'mls-id' });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 for empty mlsGroupId', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups')
+        .set('Authorization', authHeader)
+        .send({ name: 'Group', mlsGroupId: '   ' });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 401 without auth', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups')
+        .send({ name: 'Group', mlsGroupId: 'mls-id' });
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 500 on database error', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockQuery.mockRejectedValueOnce(new Error('Database error'));
+
+      const response = await request(app)
+        .post('/v1/mls/groups')
+        .set('Authorization', authHeader)
+        .send({ name: 'Group', mlsGroupId: 'mls-id' });
+
+      expect(response.status).toBe(500);
+    });
   });
 
   describe('GET /v1/mls/groups', () => {
@@ -156,6 +203,23 @@ describe('MLS Groups Routes', () => {
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('groups');
       expect(Array.isArray(response.body.groups)).toBe(true);
+    });
+
+    it('returns 401 without auth', async () => {
+      const response = await request(app).get('/v1/mls/groups');
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 500 on database error', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockQuery.mockRejectedValueOnce(new Error('Database error'));
+
+      const response = await request(app)
+        .get('/v1/mls/groups')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
     });
   });
 
@@ -210,6 +274,38 @@ describe('MLS Groups Routes', () => {
 
       expect(response.status).toBe(403);
     });
+
+    it('returns 401 without auth', async () => {
+      const response = await request(app).get('/v1/mls/groups/group-1');
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 500 on database error', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockQuery.mockRejectedValueOnce(new Error('Database error'));
+
+      const response = await request(app)
+        .get('/v1/mls/groups/group-1')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
+    });
+
+    it('returns 404 when group not found after membership check passes', async () => {
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ exists: 1 }],
+          rowCount: 1
+        }) // membership check passes
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // group not found
+
+      const response = await request(app)
+        .get('/v1/mls/groups/group-1')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(404);
+    });
   });
 
   describe('POST /v1/mls/groups/:id/members', () => {
@@ -254,6 +350,166 @@ describe('MLS Groups Routes', () => {
 
       expect(response.status).toBe(400);
     });
+
+    it('returns 400 for empty memberUserIds', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .set('Authorization', authHeader)
+        .send({
+          memberUserIds: [],
+          commitData: 'commit-data',
+          welcomeMessages: []
+        });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 for non-string memberUserIds', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .set('Authorization', authHeader)
+        .send({
+          memberUserIds: [123],
+          commitData: 'commit-data',
+          welcomeMessages: []
+        });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 for invalid welcomeMessages', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .set('Authorization', authHeader)
+        .send({
+          memberUserIds: ['user-2'],
+          commitData: 'commit-data',
+          welcomeMessages: 'not-array'
+        });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 for non-object body', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .set('Authorization', authHeader)
+        .send('not-an-object');
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 for empty commitData', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .set('Authorization', authHeader)
+        .send({
+          memberUserIds: ['user-2'],
+          commitData: '   ',
+          welcomeMessages: [{ userId: 'user-2', welcomeData: 'data' }]
+        });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 for non-object welcomeMessage items', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .set('Authorization', authHeader)
+        .send({
+          memberUserIds: ['user-2'],
+          commitData: 'data',
+          welcomeMessages: ['not-object']
+        });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 400 for invalid welcomeMessage userId/welcomeData', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .set('Authorization', authHeader)
+        .send({
+          memberUserIds: ['user-2'],
+          commitData: 'data',
+          welcomeMessages: [{ userId: 123, welcomeData: 456 }]
+        });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('returns 401 without auth', async () => {
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .send({
+          memberUserIds: ['user-2'],
+          commitData: 'data',
+          welcomeMessages: []
+        });
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 403 when not admin', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 }); // admin check fails
+
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .set('Authorization', authHeader)
+        .send({
+          memberUserIds: ['user-2'],
+          commitData: 'commit-data',
+          welcomeMessages: [{ userId: 'user-2', welcomeData: 'welcome' }]
+        });
+
+      expect(response.status).toBe(403);
+    });
+
+    it('returns 500 on database error', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockQuery.mockRejectedValueOnce(new Error('Database error'));
+
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .set('Authorization', authHeader)
+        .send({
+          memberUserIds: ['user-2'],
+          commitData: 'data',
+          welcomeMessages: [{ userId: 'user-2', welcomeData: 'welcome' }]
+        });
+
+      expect(response.status).toBe(500);
+    });
+
+    it('skips already existing members', async () => {
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ role: 'admin' }],
+          rowCount: 1
+        }) // admin check
+        .mockResolvedValueOnce({
+          rows: [{ name: 'Test Group' }],
+          rowCount: 1
+        }) // get group name
+        .mockResolvedValueOnce({
+          rows: [{ user_id: 'user-2' }],
+          rowCount: 1
+        }) // member already exists
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }); // update group
+
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .set('Authorization', authHeader)
+        .send({
+          memberUserIds: ['user-2'],
+          commitData: 'commit-data',
+          welcomeMessages: [{ userId: 'user-2', welcomeData: 'welcome' }]
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('addedMembers');
+      expect(response.body.addedMembers).toEqual([]);
+    });
   });
 
   describe('DELETE /v1/mls/groups/:id/members/:userId', () => {
@@ -271,6 +527,67 @@ describe('MLS Groups Routes', () => {
         .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
+    });
+
+    it('returns 401 without auth', async () => {
+      const response = await request(app).delete(
+        '/v1/mls/groups/group-1/members/user-2'
+      );
+
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 403 when not admin', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 }); // admin check fails
+
+      const response = await request(app)
+        .delete('/v1/mls/groups/group-1/members/user-2')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(403);
+    });
+
+    it('returns 403 when non-admin tries to remove other member', async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ role: 'member' }],
+        rowCount: 1
+      }); // user is member but not admin
+
+      const response = await request(app)
+        .delete('/v1/mls/groups/group-1/members/user-2')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty(
+        'error',
+        'Only admins can remove other members'
+      );
+    });
+
+    it('returns 404 when member not found', async () => {
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ role: 'admin' }],
+          rowCount: 1
+        }) // admin check
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // delete returns 0
+
+      const response = await request(app)
+        .delete('/v1/mls/groups/group-1/members/user-not-exist')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(404);
+    });
+
+    it('returns 500 on database error', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockQuery.mockRejectedValueOnce(new Error('Database error'));
+
+      const response = await request(app)
+        .delete('/v1/mls/groups/group-1/members/user-2')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
     });
   });
 });
