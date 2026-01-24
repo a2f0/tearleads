@@ -52,6 +52,8 @@ vi.mock('../../lib/redis.js', () => ({
 }));
 
 const mockQuery = vi.fn();
+const mockClientQuery = vi.fn();
+const mockClientRelease = vi.fn();
 const mockGetPostgresPool = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
@@ -71,9 +73,13 @@ describe('MLS Messages Routes', () => {
     mockTtl.clear();
     authHeader = await createAuthHeader();
 
-    // Default postgres mock
+    // Default postgres mock - supports both pool.query and pool.connect() for transactions
     mockGetPostgresPool.mockResolvedValue({
-      query: mockQuery.mockResolvedValue({ rows: [], rowCount: 0 })
+      query: mockQuery.mockResolvedValue({ rows: [], rowCount: 0 }),
+      connect: vi.fn().mockResolvedValue({
+        query: mockClientQuery.mockResolvedValue({ rows: [], rowCount: 0 }),
+        release: mockClientRelease
+      })
     });
   });
 
@@ -83,21 +89,23 @@ describe('MLS Messages Routes', () => {
 
   describe('POST /v1/mls/groups/:groupId/messages', () => {
     it('posts a new encrypted message', async () => {
-      const messageRow = {
-        id: 'msg-new',
-        group_id: 'group-1',
-        sender_id: 'user-1',
-        ciphertext: 'encrypted-message-data',
-        epoch: 1,
-        created_at: now
-      };
-
+      // pool.query is used for membership check and getting email
       mockQuery
         .mockResolvedValueOnce({
           rows: [{ user_id: 'user-1' }],
           rowCount: 1
         }) // SELECT member check
-        .mockResolvedValueOnce({ rows: [messageRow], rowCount: 1 }); // INSERT message
+        .mockResolvedValueOnce({
+          rows: [{ email: 'test@example.com' }],
+          rowCount: 1
+        }); // SELECT user email
+
+      // Transaction uses client.query
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // BEGIN
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT message
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // UPDATE group
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // COMMIT
 
       const response = await request(app)
         .post('/v1/mls/groups/group-1/messages')
@@ -194,6 +202,7 @@ describe('MLS Messages Routes', () => {
 
     it('returns 500 on database error', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
+      // Error happens during membership check (pool.query)
       mockQuery.mockRejectedValueOnce(new Error('Database error'));
 
       const response = await request(app)

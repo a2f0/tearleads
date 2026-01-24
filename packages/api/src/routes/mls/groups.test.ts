@@ -52,6 +52,8 @@ vi.mock('../../lib/redis.js', () => ({
 }));
 
 const mockQuery = vi.fn();
+const mockClientQuery = vi.fn();
+const mockClientRelease = vi.fn();
 const mockGetPostgresPool = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
@@ -72,8 +74,13 @@ describe('MLS Groups Routes', () => {
     authHeader = await createAuthHeader();
 
     // Default postgres mock - tests can override as needed
+    // Supports both pool.query and pool.connect() for transactions
     mockGetPostgresPool.mockResolvedValue({
-      query: mockQuery.mockResolvedValue({ rows: [], rowCount: 0 })
+      query: mockQuery.mockResolvedValue({ rows: [], rowCount: 0 }),
+      connect: vi.fn().mockResolvedValue({
+        query: mockClientQuery.mockResolvedValue({ rows: [], rowCount: 0 }),
+        release: mockClientRelease
+      })
     });
   });
 
@@ -83,18 +90,12 @@ describe('MLS Groups Routes', () => {
 
   describe('POST /v1/mls/groups', () => {
     it('creates a new group successfully', async () => {
-      const groupRow = {
-        id: 'group-new',
-        name: 'Test Group',
-        mls_group_id: 'mls-group-id-123',
-        created_by: 'user-1',
-        created_at: now,
-        updated_at: now
-      };
-
-      mockQuery
-        .mockResolvedValueOnce({ rows: [groupRow], rowCount: 1 }) // INSERT group
-        .mockResolvedValueOnce({ rows: [], rowCount: 1 }); // INSERT member
+      // Transaction uses client.query, not pool.query
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // BEGIN
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT group
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT member
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // COMMIT
 
       const response = await request(app)
         .post('/v1/mls/groups')
@@ -168,7 +169,8 @@ describe('MLS Groups Routes', () => {
 
     it('returns 500 on database error', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
-      mockQuery.mockRejectedValueOnce(new Error('Database error'));
+      // Transaction uses client.query which fails on BEGIN
+      mockClientQuery.mockRejectedValueOnce(new Error('Database error'));
 
       const response = await request(app)
         .post('/v1/mls/groups')
@@ -310,6 +312,7 @@ describe('MLS Groups Routes', () => {
 
   describe('POST /v1/mls/groups/:id/members', () => {
     it('adds members to a group', async () => {
+      // pool.query is used for admin check, group name, existing members, user emails
       mockQuery
         .mockResolvedValueOnce({
           rows: [{ role: 'admin' }],
@@ -319,14 +322,19 @@ describe('MLS Groups Routes', () => {
           rows: [{ name: 'Test Group' }],
           rowCount: 1
         }) // 2. Get group name
-        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // 3. Check existing member (not found)
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // 3. Check existing members (batch)
         .mockResolvedValueOnce({
-          rows: [{ email: 'user2@example.com' }],
+          rows: [{ id: 'user-2', email: 'user2@example.com' }],
           rowCount: 1
-        }) // 4. Get user email
-        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // 5. INSERT member
-        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // 6. INSERT welcome
-        .mockResolvedValueOnce({ rows: [], rowCount: 1 }); // 7. UPDATE group
+        }); // 4. Get user emails (batch)
+
+      // Transaction uses client.query for INSERT operations
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // BEGIN
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT member
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // INSERT welcome
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 }) // UPDATE group
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }); // COMMIT
 
       const response = await request(app)
         .post('/v1/mls/groups/group-1/members')
@@ -450,8 +458,8 @@ describe('MLS Groups Routes', () => {
       expect(response.status).toBe(401);
     });
 
-    it('returns 403 when not admin', async () => {
-      mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 }); // admin check fails
+    it('returns 403 when not a member of the group', async () => {
+      mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 }); // admin check fails - not a member
 
       const response = await request(app)
         .post('/v1/mls/groups/group-1/members')
@@ -463,11 +471,73 @@ describe('MLS Groups Routes', () => {
         });
 
       expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty(
+        'error',
+        'Not a member of this group'
+      );
+    });
+
+    it('returns 403 when member but not admin', async () => {
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ role: 'member' }],
+        rowCount: 1
+      }); // user is member but not admin
+
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .set('Authorization', authHeader)
+        .send({
+          memberUserIds: ['user-2'],
+          commitData: 'commit-data',
+          welcomeMessages: [{ userId: 'user-2', welcomeData: 'welcome' }]
+        });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty(
+        'error',
+        'Only admins can add members'
+      );
     });
 
     it('returns 500 on database error', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
       mockQuery.mockRejectedValueOnce(new Error('Database error'));
+
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .set('Authorization', authHeader)
+        .send({
+          memberUserIds: ['user-2'],
+          commitData: 'data',
+          welcomeMessages: [{ userId: 'user-2', welcomeData: 'welcome' }]
+        });
+
+      expect(response.status).toBe(500);
+    });
+
+    it('returns 500 on transaction error and rolls back', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      // pool.query succeeds for initial checks
+      mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ role: 'admin' }],
+          rowCount: 1
+        }) // admin check
+        .mockResolvedValueOnce({
+          rows: [{ name: 'Test Group' }],
+          rowCount: 1
+        }) // get group name
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // no existing members
+        .mockResolvedValueOnce({
+          rows: [{ id: 'user-2', email: 'user2@example.com' }],
+          rowCount: 1
+        }); // user email
+
+      // Transaction fails during INSERT
+      mockClientQuery
+        .mockResolvedValueOnce({ rows: [], rowCount: 0 }) // BEGIN
+        .mockRejectedValueOnce(new Error('Transaction error')); // INSERT fails
 
       const response = await request(app)
         .post('/v1/mls/groups/group-1/members')
@@ -494,8 +564,13 @@ describe('MLS Groups Routes', () => {
         .mockResolvedValueOnce({
           rows: [{ user_id: 'user-2' }],
           rowCount: 1
-        }) // member already exists
-        .mockResolvedValueOnce({ rows: [], rowCount: 1 }); // update group
+        }) // batch: existing members includes user-2
+        .mockResolvedValueOnce({
+          rows: [{ id: 'user-2', email: 'user2@example.com' }],
+          rowCount: 1
+        }); // batch: user emails
+
+      // No transaction since all members already exist (newMembers.length === 0)
 
       const response = await request(app)
         .post('/v1/mls/groups/group-1/members')

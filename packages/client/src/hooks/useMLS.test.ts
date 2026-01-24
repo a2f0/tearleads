@@ -3,12 +3,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetMlsState, useMLS } from './useMLS';
 
 // Default message handler for tests - can be overridden per test
-let globalMessageHandler: ((data: unknown) => unknown) | null = null;
+// Handler receives data and returns response payload (without requestId)
+let globalMessageHandler:
+  | ((data: unknown) => Record<string, unknown> | null)
+  | null = null;
+
+interface MockWorkerRequest {
+  type: string;
+  requestId: string;
+  [key: string]: unknown;
+}
 
 class MockWorker {
   onmessage: ((event: MessageEvent) => void) | null = null;
   onerror: ((error: ErrorEvent) => void) | null = null;
-  private messageHandler: ((data: unknown) => unknown) | null = null;
+  private messageHandler:
+    | ((data: unknown) => Record<string, unknown> | null)
+    | null = null;
 
   constructor(_url: URL, _options?: WorkerOptions) {
     MockWorker.instance = this;
@@ -20,14 +31,19 @@ class MockWorker {
 
   postMessage(data: unknown) {
     if (this.messageHandler) {
-      const response = this.messageHandler(data);
-      if (this.onmessage && response) {
+      const request = data as MockWorkerRequest;
+      const responsePayload = this.messageHandler(data);
+      if (this.onmessage && responsePayload) {
+        // Include the requestId from the request in the response
+        const response = { ...responsePayload, requestId: request.requestId };
         this.onmessage(new MessageEvent('message', { data: response }));
       }
     }
   }
 
-  setMessageHandler(handler: (data: unknown) => unknown) {
+  setMessageHandler(
+    handler: (data: unknown) => Record<string, unknown> | null
+  ) {
     this.messageHandler = handler;
   }
 
@@ -39,7 +55,9 @@ class MockWorker {
 vi.stubGlobal('Worker', MockWorker);
 
 // Helper to set up message handler before worker is created
-function setGlobalMessageHandler(handler: (data: unknown) => unknown) {
+function setGlobalMessageHandler(
+  handler: (data: unknown) => Record<string, unknown> | null
+) {
   globalMessageHandler = handler;
 }
 
