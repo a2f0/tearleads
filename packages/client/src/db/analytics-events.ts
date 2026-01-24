@@ -27,6 +27,7 @@ export type AnalyticsEventSlug =
   | 'api_get_admin_postgres_columns'
   | 'api_get_admin_postgres_rows'
   | 'api_get_admin_users'
+  | 'api_get_admin_user'
   | 'api_patch_admin_user'
   | 'api_post_auth_login'
   | 'api_get_auth_sessions'
@@ -59,6 +60,7 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_get_admin_postgres_columns: 'API Postgres Columns',
   api_get_admin_postgres_rows: 'API Postgres Rows',
   api_get_admin_users: 'API Admin Users',
+  api_get_admin_user: 'API Get Admin User',
   api_patch_admin_user: 'API Update Admin User',
   api_post_auth_login: 'API Auth Login',
   api_get_auth_sessions: 'API Get Sessions',
@@ -137,6 +139,9 @@ export interface ApiGetAdminPostgresRowsDetail {
 export interface ApiGetAdminUsersDetail {
   userCount?: number;
 }
+export interface ApiGetAdminUserDetail {
+  userId?: string;
+}
 export interface ApiPatchAdminUserDetail {
   userId?: string;
 }
@@ -186,6 +191,7 @@ export interface EventDetailMap {
   api_get_admin_postgres_columns: ApiGetAdminPostgresColumnsDetail;
   api_get_admin_postgres_rows: ApiGetAdminPostgresRowsDetail;
   api_get_admin_users: ApiGetAdminUsersDetail;
+  api_get_admin_user: ApiGetAdminUserDetail;
   api_patch_admin_user: ApiPatchAdminUserDetail;
   api_post_auth_login: ApiPostAuthLoginDetail;
   api_get_auth_sessions: ApiGetAuthSessionsDetail;
