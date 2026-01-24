@@ -37,7 +37,8 @@ export const en = {
     adminUsers: 'Users Admin',
     settings: 'Settings',
     email: 'Email',
-    sync: 'Sync'
+    sync: 'Sync',
+    v86: 'v86'
   },
   audio: {
     play: 'Play',

@@ -5,6 +5,7 @@ import {
   Bug,
   CircleHelp,
   Copy,
+  Cpu,
   Database,
   FileIcon,
   FileText,
@@ -57,7 +58,8 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   'admin-users': <User className="h-3 w-3" />,
   'cache-storage': <Archive className="h-3 w-3" />,
   'local-storage': <HardDrive className="h-3 w-3" />,
-  sync: <RefreshCw className="h-3 w-3" />
+  sync: <RefreshCw className="h-3 w-3" />,
+  v86: <Cpu className="h-3 w-3" />
 };
 
 const WINDOW_LABELS: Record<WindowType, string> = {
@@ -86,7 +88,8 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   'admin-users': 'Users Admin',
   'cache-storage': 'Cache Storage',
   'local-storage': 'Local Storage',
-  sync: 'Sync'
+  sync: 'Sync',
+  v86: 'v86'
 };
 
 interface TaskbarButtonProps {
