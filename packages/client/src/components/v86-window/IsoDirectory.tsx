@@ -33,7 +33,7 @@ export function IsoDirectory({
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async (_refreshToken?: number) => {
+  const refresh = useCallback(async () => {
     if (!isOpfsSupported()) return;
 
     try {
@@ -50,8 +50,9 @@ export function IsoDirectory({
     }
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshToken intentionally triggers refresh on change
   useEffect(() => {
-    void refresh(refreshToken);
+    void refresh();
   }, [refresh, refreshToken]);
 
   if (!isOpfsSupported()) {
@@ -135,7 +136,9 @@ export function IsoDirectory({
           </div>
         )}
 
-        <div className="mt-4 grid gap-3">
+        <div
+          className={`grid gap-3 ${uploadedEntries.length > 0 || showDropzone ? 'mt-4' : ''}`}
+        >
           {ISO_CATALOG.map((entry) => (
             <IsoDirectoryItem
               key={entry.id}
