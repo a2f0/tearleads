@@ -1,3 +1,4 @@
+import { Upload } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -6,16 +7,39 @@ import {
 import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
 
 interface V86WindowMenuBarProps {
+  showDropzone: boolean;
+  onShowDropzoneChange: (show: boolean) => void;
+  onUpload: () => void;
   onClose: () => void;
 }
 
-export function V86WindowMenuBar({ onClose }: V86WindowMenuBarProps) {
+export function V86WindowMenuBar({
+  showDropzone,
+  onShowDropzoneChange,
+  onUpload,
+  onClose
+}: V86WindowMenuBarProps) {
   return (
     <div className="flex shrink-0 border-b bg-muted/30 px-1">
       <DropdownMenu trigger="File">
+        <DropdownMenuItem
+          icon={<Upload className="h-3 w-3" />}
+          onClick={onUpload}
+        >
+          Upload
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
       </DropdownMenu>
       <DropdownMenu trigger="View">
+        <DropdownMenuItem
+          onClick={() => onShowDropzoneChange(!showDropzone)}
+          checked={showDropzone}
+          icon={<Upload className="h-3 w-3" />}
+        >
+          Show Dropzone
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <PreserveWindowStateMenuItem />
       </DropdownMenu>
       <DropdownMenu trigger="Help">

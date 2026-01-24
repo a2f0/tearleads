@@ -7,7 +7,8 @@ import {
   getStorageUsage,
   isIsoDownloaded,
   isOpfsSupported,
-  listDownloadedIsos
+  listDownloadedIsos,
+  uploadIso
 } from './iso-storage';
 import type { IsoCatalogEntry } from './types';
 
@@ -108,6 +109,13 @@ describe('iso-storage', () => {
               quota: 1073741824,
               usage: 0
             })
+          },
+          locks: {
+            request: vi
+              .fn()
+              .mockImplementation(
+                (_name: string, callback: () => Promise<void>) => callback()
+              )
           }
         },
         writable: true
@@ -166,6 +174,63 @@ describe('iso-storage', () => {
       const result = await getStorageUsage();
       expect(result.used).toBe(1024);
       expect(result.available).toBe(1073741824);
+    });
+
+    it('getStorageUsage clamps available when quota is missing', async () => {
+      Object.defineProperty(global, 'navigator', {
+        value: {
+          storage: {
+            getDirectory: vi.fn().mockResolvedValue({
+              getDirectoryHandle: vi.fn().mockResolvedValue({
+                getFileHandle: vi.fn().mockResolvedValue({
+                  getFile: vi.fn().mockResolvedValue({
+                    text: () => Promise.resolve(mockMetadataContent),
+                    arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
+                  }),
+                  createWritable: vi.fn().mockResolvedValue(mockWritable)
+                }),
+                removeEntry: vi.fn().mockResolvedValue(undefined)
+              })
+            }),
+            estimate: vi.fn().mockResolvedValue({
+              usage: 512
+            })
+          }
+        },
+        writable: true
+      });
+
+      const result = await getStorageUsage();
+      expect(result.available).toBe(0);
+    });
+
+    it('getStorageUsage clamps available when quota is lower than usage', async () => {
+      Object.defineProperty(global, 'navigator', {
+        value: {
+          storage: {
+            getDirectory: vi.fn().mockResolvedValue({
+              getDirectoryHandle: vi.fn().mockResolvedValue({
+                getFileHandle: vi.fn().mockResolvedValue({
+                  getFile: vi.fn().mockResolvedValue({
+                    text: () => Promise.resolve(mockMetadataContent),
+                    arrayBuffer: () => Promise.resolve(new ArrayBuffer(0))
+                  }),
+                  createWritable: vi.fn().mockResolvedValue(mockWritable)
+                }),
+                removeEntry: vi.fn().mockResolvedValue(undefined)
+              })
+            }),
+            estimate: vi.fn().mockResolvedValue({
+              quota: 256,
+              usage: 512
+            })
+          }
+        },
+        writable: true
+      });
+
+      const result = await getStorageUsage();
+      expect(result.available).toBe(0);
     });
 
     it('getIsoUrl creates object URL', async () => {
@@ -263,6 +328,63 @@ describe('iso-storage', () => {
 
       await expect(downloadIso(mockEntry)).rejects.toThrow(
         'Failed to get response reader'
+      );
+    });
+
+    it('downloadIso updates existing ISO metadata', async () => {
+      mockMetadataContent = JSON.stringify({
+        isos: [
+          {
+            id: 'test-iso',
+            name: 'Test ISO',
+            sizeBytes: 512,
+            downloadedAt: '2024-01-01'
+          }
+        ]
+      });
+
+      const mockReader = {
+        read: vi
+          .fn()
+          .mockResolvedValueOnce({
+            done: false,
+            value: new Uint8Array([1, 2, 3, 4])
+          })
+          .mockResolvedValueOnce({ done: true, value: undefined })
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        headers: {
+          get: vi.fn().mockReturnValue('4')
+        },
+        body: {
+          getReader: () => mockReader
+        }
+      });
+
+      await downloadIso(mockEntry);
+
+      expect(mockWritable.write).toHaveBeenCalled();
+    });
+
+    it('uploadIso stores a local ISO file', async () => {
+      const file = new File(['test'], 'custom.iso', {
+        type: 'application/x-iso9660-image'
+      });
+
+      const result = await uploadIso(file);
+
+      expect(result.name).toBe('custom.iso');
+      expect(result.sizeBytes).toBe(file.size);
+      expect(mockWritable.write).toHaveBeenCalledWith(file);
+    });
+
+    it('uploadIso rejects non-ISO files', async () => {
+      const file = new File(['test'], 'notes.txt', { type: 'text/plain' });
+
+      await expect(uploadIso(file)).rejects.toThrow(
+        'Only .iso files are supported'
       );
     });
   });
