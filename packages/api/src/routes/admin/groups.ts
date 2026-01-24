@@ -378,7 +378,7 @@ router.put(
       const pool = await getPostgresPool();
 
       const updates: string[] = [];
-      const values: (string | Date)[] = [];
+      const values: (string | Date | null)[] = [];
       let paramIndex = 1;
 
       if (name !== undefined) {
@@ -392,7 +392,7 @@ router.put(
 
       if (description !== undefined) {
         updates.push(`description = $${paramIndex++}`);
-        values.push(description?.trim() ?? '');
+        values.push(description?.trim() || null);
       }
 
       if (updates.length === 0) {
