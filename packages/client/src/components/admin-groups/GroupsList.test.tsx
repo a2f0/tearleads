@@ -51,6 +51,7 @@ describe('GroupsList', () => {
       groups: [
         {
           id: 'group-1',
+          organizationId: 'org-1',
           name: 'Admins',
           description: 'Admin users',
           memberCount: 3,
@@ -59,6 +60,7 @@ describe('GroupsList', () => {
         },
         {
           id: 'group-2',
+          organizationId: 'org-1',
           name: 'Users',
           description: null,
           memberCount: 10,
@@ -85,6 +87,7 @@ describe('GroupsList', () => {
       groups: [
         {
           id: 'group-1',
+          organizationId: 'org-1',
           name: 'Solo Group',
           description: null,
           memberCount: 1,
@@ -174,6 +177,7 @@ describe('GroupsList', () => {
       groups: [
         {
           id: 'group-1',
+          organizationId: 'org-1',
           name: 'Test Group',
           description: null,
           memberCount: 0,
@@ -200,6 +204,7 @@ describe('GroupsList', () => {
       groups: [
         {
           id: 'group-1',
+          organizationId: 'org-1',
           name: 'Test Group',
           description: null,
           memberCount: 0,
@@ -229,6 +234,7 @@ describe('GroupsList', () => {
       groups: [
         {
           id: 'group-1',
+          organizationId: 'org-1',
           name: 'Test Group',
           description: null,
           memberCount: 0,
@@ -263,6 +269,7 @@ describe('GroupsList', () => {
       groups: [
         {
           id: 'group-1',
+          organizationId: 'org-1',
           name: 'Test Group',
           description: null,
           memberCount: 0,
@@ -299,6 +306,7 @@ describe('GroupsList', () => {
       groups: [
         {
           id: 'group-1',
+          organizationId: 'org-1',
           name: 'Test Group',
           description: null,
           memberCount: 0,
@@ -338,6 +346,7 @@ describe('GroupsList', () => {
       groups: [
         {
           id: 'group-1',
+          organizationId: 'org-1',
           name: 'Test Group',
           description: null,
           memberCount: 0,
@@ -373,6 +382,7 @@ describe('GroupsList', () => {
       groups: [
         {
           id: 'group-1',
+          organizationId: 'org-1',
           name: 'Test Group',
           description: null,
           memberCount: 0,

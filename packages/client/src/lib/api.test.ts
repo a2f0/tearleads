@@ -329,7 +329,8 @@ describe('api', () => {
               id: 'user-1',
               email: 'test@example.com',
               emailConfirmed: true,
-              admin: false
+              admin: false,
+              organizationIds: []
             }
           }),
           {
