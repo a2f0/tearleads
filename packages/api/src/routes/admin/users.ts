@@ -38,9 +38,7 @@ function normalizeDate(value: Date | string | null | undefined): string | null {
   return null;
 }
 
-async function getLatestLastActiveAt(
-  userId: string
-): Promise<string | null> {
+async function getLatestLastActiveAt(userId: string): Promise<string | null> {
   try {
     const sessions = await getSessionsByUserId(userId);
     let latest: { timestamp: number; value: string } | null = null;
@@ -59,7 +57,10 @@ async function getLatestLastActiveAt(
   }
 }
 
-function mapUserRow(row: UserRow, overrides: AdminUserOverrides = {}): AdminUser {
+function mapUserRow(
+  row: UserRow,
+  overrides: AdminUserOverrides = {}
+): AdminUser {
   return {
     id: row.id,
     email: row.email,
@@ -165,7 +166,7 @@ function parseUserUpdatePayload(body: unknown): AdminUserUpdatePayload | null {
 router.get('/', async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
-      const result = await pool.query<UserRow>(
+    const result = await pool.query<UserRow>(
       `SELECT
          u.id,
          u.email,
@@ -426,11 +427,14 @@ router.patch('/:id', async (req: Request, res: Response) => {
 
     const lastActiveAt = await getLatestLastActiveAt(updatedUser.id);
     const response: AdminUserUpdateResponse = {
-      user: mapUserRow({
-        ...updatedUser,
-        organization_ids: orgResult.rows.map((row) => row.organization_id),
-        created_at: createdAt
-      }, { lastActiveAt })
+      user: mapUserRow(
+        {
+          ...updatedUser,
+          organization_ids: orgResult.rows.map((row) => row.organization_id),
+          created_at: createdAt
+        },
+        { lastActiveAt }
+      )
     };
     res.json(response);
   } catch (err) {
