@@ -24,7 +24,10 @@ export function IconBackgroundToggle() {
           {t('iconBackgroundDescription')}
         </p>
       </div>
-      <div className="flex gap-2" data-testid="icon-background-toggle-container">
+      <div
+        className="flex gap-2"
+        data-testid="icon-background-toggle-container"
+      >
         <Button
           variant={colored ? 'default' : 'outline'}
           onClick={() => handleToggle('colored')}

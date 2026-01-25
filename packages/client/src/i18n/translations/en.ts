@@ -89,7 +89,8 @@ export const en = {
     iconDepthEmbossed: 'Embossed',
     iconDepthDebossed: 'Debossed',
     iconBackground: 'Icon backgrounds',
-    iconBackgroundDescription: 'Choose whether icon tiles are colored or transparent',
+    iconBackgroundDescription:
+      'Choose whether icon tiles are colored or transparent',
     iconBackgroundColored: 'Colored',
     iconBackgroundTransparent: 'Transparent',
     tooltips: 'Tooltips',

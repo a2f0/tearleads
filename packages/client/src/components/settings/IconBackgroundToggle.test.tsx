@@ -95,9 +95,7 @@ describe('IconBackgroundToggle', () => {
     const user = userEvent.setup();
     renderIconBackgroundToggle();
 
-    await user.click(
-      screen.getByTestId('icon-background-transparent-button')
-    );
+    await user.click(screen.getByTestId('icon-background-transparent-button'));
 
     expect(mockSetSetting).toHaveBeenCalledWith(
       'desktopIconBackground',

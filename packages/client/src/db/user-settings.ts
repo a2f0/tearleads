@@ -150,7 +150,10 @@ export function getSettingFromStorage<K extends UserSettingKey>(
     if (key === 'desktopIconDepth' && isDesktopIconDepthValue(value)) {
       return value as SettingValueMap[K];
     }
-    if (key === 'desktopIconBackground' && isDesktopIconBackgroundValue(value)) {
+    if (
+      key === 'desktopIconBackground' &&
+      isDesktopIconBackgroundValue(value)
+    ) {
       return value as SettingValueMap[K];
     }
 

@@ -244,7 +244,9 @@ describe('user-settings', () => {
 
     it('returns desktopIconBackground value from localStorage', () => {
       localStorageData['desktopIconBackground'] = 'transparent';
-      expect(getSettingFromStorage('desktopIconBackground')).toBe('transparent');
+      expect(getSettingFromStorage('desktopIconBackground')).toBe(
+        'transparent'
+      );
     });
 
     it('returns null for invalid theme value', () => {
