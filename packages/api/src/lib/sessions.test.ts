@@ -235,6 +235,30 @@ describe('sessions', () => {
       });
       vi.useRealTimers();
     });
+
+    it('returns null when session data is invalid', async () => {
+      const { getLatestLastActiveByUserIds } = await import('./sessions.js');
+
+      userSessionsStore.set('user_sessions:user-1', new Set(['bad-session']));
+      sessionStore.set('session:bad-session', 'not valid json {{{');
+
+      const result = await getLatestLastActiveByUserIds(['user-1']);
+
+      expect(result).toEqual({ 'user-1': null });
+    });
+
+    it('returns nulls when redis client fails', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const { getRedisClient } = await import('./redis.js');
+      vi.mocked(getRedisClient).mockRejectedValueOnce(new Error('redis down'));
+
+      const { getLatestLastActiveByUserIds } = await import('./sessions.js');
+      const result = await getLatestLastActiveByUserIds(['user-1']);
+
+      expect(result).toEqual({ 'user-1': null });
+      expect(consoleSpy).toHaveBeenCalled();
+      consoleSpy.mockRestore();
+    });
   });
 
   describe('getSession (parseSessionData)', () => {
