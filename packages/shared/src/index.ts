@@ -99,6 +99,8 @@ export interface AdminUser {
   emailConfirmed: boolean;
   admin: boolean;
   organizationIds: string[];
+  createdAt: string | null;
+  lastActiveAt: string | null;
 }
 
 export interface AdminUsersResponse {

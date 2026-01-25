@@ -5,9 +5,14 @@ import { createAuthHeader } from '../../test/auth.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
+const mockGetSessionsByUserId = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: () => mockGetPostgresPool()
+}));
+
+vi.mock('../../lib/sessions.js', () => ({
+  getSessionsByUserId: (userId: string) => mockGetSessionsByUserId(userId)
 }));
 
 describe('admin users routes', () => {
@@ -15,6 +20,7 @@ describe('admin users routes', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockGetSessionsByUserId.mockResolvedValue([]);
     vi.stubEnv('JWT_SECRET', 'test-secret');
     authHeader = await createAuthHeader({
       id: 'user-1',
@@ -61,14 +67,18 @@ describe('admin users routes', () => {
           email: 'alpha@example.com',
           emailConfirmed: true,
           admin: false,
-          organizationIds: []
+          organizationIds: [],
+          createdAt: null,
+          lastActiveAt: null
         },
         {
           id: 'user-2',
           email: 'beta@example.com',
           emailConfirmed: false,
           admin: true,
-          organizationIds: ['org-1']
+          organizationIds: ['org-1'],
+          createdAt: null,
+          lastActiveAt: null
         }
       ]
     });
@@ -116,7 +126,9 @@ describe('admin users routes', () => {
         email: 'alpha@example.com',
         emailConfirmed: true,
         admin: false,
-        organizationIds: ['org-1', 'org-2']
+        organizationIds: ['org-1', 'org-2'],
+        createdAt: null,
+        lastActiveAt: null
       }
     });
   });
@@ -189,7 +201,9 @@ describe('admin users routes', () => {
         email: 'updated@example.com',
         emailConfirmed: true,
         admin: true,
-        organizationIds: []
+        organizationIds: [],
+        createdAt: null,
+        lastActiveAt: null
       }
     });
     expect(mockQuery).toHaveBeenCalled();
@@ -319,7 +333,9 @@ describe('admin users routes', () => {
         email: 'user@example.com',
         emailConfirmed: true,
         admin: false,
-        organizationIds: []
+        organizationIds: [],
+        createdAt: null,
+        lastActiveAt: null
       }
     });
   });
@@ -371,7 +387,9 @@ describe('admin users routes', () => {
         email: 'user@example.com',
         emailConfirmed: true,
         admin: false,
-        organizationIds: ['org-1', 'org-2']
+        organizationIds: ['org-1', 'org-2'],
+        createdAt: null,
+        lastActiveAt: null
       }
     });
   });
@@ -415,7 +433,9 @@ describe('admin users routes', () => {
         email: 'user@example.com',
         emailConfirmed: true,
         admin: false,
-        organizationIds: []
+        organizationIds: [],
+        createdAt: null,
+        lastActiveAt: null
       }
     });
   });
