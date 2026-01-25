@@ -601,7 +601,7 @@ describe('Admin flyout menu', () => {
     expect(screen.queryByTestId('admin-flyout-menu')).not.toBeInTheDocument();
   });
 
-  it('renders all four admin options in flyout on desktop', async () => {
+  it('renders all five admin options in flyout on desktop', async () => {
     const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
@@ -611,6 +611,7 @@ describe('Admin flyout menu', () => {
     expect(screen.getByTestId('admin-flyout-redis')).toBeInTheDocument();
     expect(screen.getByTestId('admin-flyout-postgres')).toBeInTheDocument();
     expect(screen.getByTestId('admin-flyout-groups')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-flyout-organizations')).toBeInTheDocument();
     expect(screen.getByTestId('admin-flyout-adminUsers')).toBeInTheDocument();
   });
 
@@ -627,6 +628,9 @@ describe('Admin flyout menu', () => {
     );
     expect(screen.getByTestId('admin-flyout-groups')).toHaveTextContent(
       'Groups'
+    );
+    expect(screen.getByTestId('admin-flyout-organizations')).toHaveTextContent(
+      'Organizations'
     );
     expect(screen.getByTestId('admin-flyout-adminUsers')).toHaveTextContent(
       'Users Admin'
@@ -701,6 +705,24 @@ describe('Admin flyout menu', () => {
     expect(mockOnClose).toHaveBeenCalled();
   });
 
+  it('clicking flyout Organizations option opens admin-organizations window', async () => {
+    const user = userEvent.setup();
+    mockMatchMedia({ isMobile: false, isTouch: false });
+    renderSidebar();
+
+    const adminLi = screen.getByTestId('admin-link').closest('li');
+    if (!adminLi) throw new Error('Admin li not found');
+    fireEvent.mouseEnter(adminLi);
+
+    const organizationsButton = screen.getByTestId(
+      'admin-flyout-organizations'
+    );
+    await user.click(organizationsButton);
+
+    expect(mockOpenWindow).toHaveBeenCalledWith('admin-organizations');
+    expect(mockOnClose).toHaveBeenCalled();
+  });
+
   it('Admin button has aria-haspopup on desktop', () => {
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
@@ -758,7 +780,7 @@ describe('Admin flyout menu', () => {
     expect(adminButton).toHaveClass('bg-accent');
   });
 
-  it('filters out /admin/users from main nav on desktop', async () => {
+  it('filters out /admin/users and /admin/organizations from main nav on desktop', async () => {
     const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
@@ -774,17 +796,27 @@ describe('Admin flyout menu', () => {
       (btn) => btn?.getAttribute('data-testid') === 'admin-users-link'
     );
     expect(adminUsersInMainNav).toBeUndefined();
+    const adminOrgsInMainNav = mainNavButtons.find(
+      (btn) => btn?.getAttribute('data-testid') === 'admin-organizations-link'
+    );
+    expect(adminOrgsInMainNav).toBeUndefined();
 
     // But it should be in the flyout when hovered
     await user.hover(screen.getByTestId('admin-link'));
     expect(screen.getByTestId('admin-flyout-adminUsers')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('admin-flyout-organizations')
+    ).toBeInTheDocument();
   });
 
-  it('shows /admin/users in main nav on mobile', () => {
+  it('shows /admin/users and /admin/organizations in main nav on mobile', () => {
     mockMatchMedia({ isMobile: true, isTouch: true });
     renderSidebar();
 
     expect(screen.getByTestId('admin-users-link')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('admin-organizations-link')
+    ).toBeInTheDocument();
   });
 
   it('closes flyout when mouse leaves admin button', () => {

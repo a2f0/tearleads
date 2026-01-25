@@ -4,11 +4,15 @@ import type {
   AdminUserUpdatePayload,
   AdminUserUpdateResponse,
   AuthResponse,
+  CreateOrganizationRequest,
   CreateGroupRequest,
   Group,
   GroupDetailResponse,
   GroupMembersResponse,
   GroupsListResponse,
+  Organization,
+  OrganizationResponse,
+  OrganizationsListResponse,
   PingData,
   PostgresAdminInfoResponse,
   PostgresColumnsResponse,
@@ -17,6 +21,7 @@ import type {
   RedisKeysResponse,
   RedisKeyValueResponse,
   SessionsResponse,
+  UpdateOrganizationRequest,
   UpdateGroupRequest
 } from '@rapid/shared';
 import type { AnalyticsEventSlug } from '@/db/analytics';
@@ -297,6 +302,46 @@ export const api = {
           {
             fetchOptions: { method: 'DELETE' },
             eventName: 'api_delete_admin_group_member'
+          }
+        )
+    },
+    organizations: {
+      list: () =>
+        request<OrganizationsListResponse>('/admin/organizations', {
+          eventName: 'api_get_admin_organizations'
+        }),
+      get: (id: string) =>
+        request<OrganizationResponse>(
+          `/admin/organizations/${encodeURIComponent(id)}`,
+          { eventName: 'api_get_admin_organization' }
+        ),
+      create: (data: CreateOrganizationRequest) =>
+        request<{ organization: Organization }>('/admin/organizations', {
+          fetchOptions: {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          },
+          eventName: 'api_post_admin_organization'
+        }),
+      update: (id: string, data: UpdateOrganizationRequest) =>
+        request<{ organization: Organization }>(
+          `/admin/organizations/${encodeURIComponent(id)}`,
+          {
+            fetchOptions: {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data)
+            },
+            eventName: 'api_put_admin_organization'
+          }
+        ),
+      delete: (id: string) =>
+        request<{ deleted: boolean }>(
+          `/admin/organizations/${encodeURIComponent(id)}`,
+          {
+            fetchOptions: { method: 'DELETE' },
+            eventName: 'api_delete_admin_organization'
           }
         )
     },

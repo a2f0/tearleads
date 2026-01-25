@@ -65,6 +65,7 @@ router.get('/', async (_req: Request, res: Response) => {
     const pool = await getPostgresPool();
     const result = await pool.query<{
       id: string;
+      organization_id: string;
       name: string;
       description: string | null;
       created_at: Date;
@@ -73,6 +74,7 @@ router.get('/', async (_req: Request, res: Response) => {
     }>(`
       SELECT
         g.id,
+        g.organization_id,
         g.name,
         g.description,
         g.created_at,
@@ -86,6 +88,7 @@ router.get('/', async (_req: Request, res: Response) => {
 
     const groups: GroupWithMemberCount[] = result.rows.map((row) => ({
       id: row.id,
+      organizationId: row.organization_id,
       name: row.name,
       description: row.description,
       createdAt: row.created_at.toISOString(),
@@ -119,10 +122,13 @@ router.get('/', async (_req: Request, res: Response) => {
  *             type: object
  *             required:
  *               - name
+ *               - organizationId
  *             properties:
  *               name:
  *                 type: string
  *               description:
+ *                 type: string
+ *               organizationId:
  *                 type: string
  *     responses:
  *       201:
@@ -157,28 +163,55 @@ router.post(
   '/',
   async (req: Request<unknown, unknown, CreateGroupRequest>, res: Response) => {
     try {
-      const { name, description } = req.body;
+      const { name, description, organizationId } = req.body;
 
       if (!name || typeof name !== 'string' || name.trim() === '') {
         res.status(400).json({ error: 'Name is required' });
         return;
       }
 
+      if (!organizationId || typeof organizationId !== 'string') {
+        res.status(400).json({ error: 'Organization ID is required' });
+        return;
+      }
+
+      const trimmedOrganizationId = organizationId.trim();
+      if (trimmedOrganizationId === '') {
+        res.status(400).json({ error: 'Organization ID is required' });
+        return;
+      }
+
       const pool = await getPostgresPool();
+      const orgResult = await pool.query<{ id: string }>(
+        'SELECT id FROM organizations WHERE id = $1',
+        [trimmedOrganizationId]
+      );
+      if (!orgResult.rows[0]) {
+        res.status(404).json({ error: 'Organization not found' });
+        return;
+      }
       const id = randomUUID();
       const now = new Date();
 
       const result = await pool.query<{
         id: string;
+        organization_id: string;
         name: string;
         description: string | null;
         created_at: Date;
         updated_at: Date;
       }>(
-        `INSERT INTO groups (id, name, description, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING id, name, description, created_at, updated_at`,
-        [id, name.trim(), description?.trim() || null, now, now]
+        `INSERT INTO groups (id, organization_id, name, description, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id, organization_id, name, description, created_at, updated_at`,
+        [
+          id,
+          trimmedOrganizationId,
+          name.trim(),
+          description?.trim() || null,
+          now,
+          now
+        ]
       );
 
       const row = result.rows[0];
@@ -189,6 +222,7 @@ router.post(
 
       const group: Group = {
         id: row.id,
+        organizationId: row.organization_id,
         name: row.name,
         description: row.description,
         createdAt: row.created_at.toISOString(),
@@ -259,12 +293,13 @@ router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
 
     const groupResult = await pool.query<{
       id: string;
+      organization_id: string;
       name: string;
       description: string | null;
       created_at: Date;
       updated_at: Date;
     }>(
-      'SELECT id, name, description, created_at, updated_at FROM groups WHERE id = $1',
+      'SELECT id, organization_id, name, description, created_at, updated_at FROM groups WHERE id = $1',
       [id]
     );
 
@@ -289,6 +324,7 @@ router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
 
     const group: Group = {
       id: groupRow.id,
+      organizationId: groupRow.organization_id,
       name: groupRow.name,
       description: groupRow.description,
       createdAt: groupRow.created_at.toISOString(),
@@ -374,7 +410,7 @@ router.put(
   ) => {
     try {
       const { id } = req.params;
-      const { name, description } = req.body;
+      const { name, description, organizationId } = req.body;
       const pool = await getPostgresPool();
 
       const updates: string[] = [];
@@ -395,6 +431,23 @@ router.put(
         values.push(description?.trim() || null);
       }
 
+      if (organizationId !== undefined) {
+        if (typeof organizationId !== 'string' || organizationId.trim() === '') {
+          res.status(400).json({ error: 'Organization ID cannot be empty' });
+          return;
+        }
+        const orgExists = await pool.query<{ id: string }>(
+          'SELECT id FROM organizations WHERE id = $1',
+          [organizationId]
+        );
+        if (!orgExists.rows[0]) {
+          res.status(404).json({ error: 'Organization not found' });
+          return;
+        }
+        updates.push(`organization_id = $${paramIndex++}`);
+        values.push(organizationId);
+      }
+
       if (updates.length === 0) {
         res.status(400).json({ error: 'No fields to update' });
         return;
@@ -406,6 +459,7 @@ router.put(
 
       const result = await pool.query<{
         id: string;
+        organization_id: string;
         name: string;
         description: string | null;
         created_at: Date;
@@ -414,7 +468,7 @@ router.put(
         `UPDATE groups
          SET ${updates.join(', ')}
          WHERE id = $${paramIndex}
-         RETURNING id, name, description, created_at, updated_at`,
+         RETURNING id, organization_id, name, description, created_at, updated_at`,
         values
       );
 
@@ -426,6 +480,7 @@ router.put(
 
       const group: Group = {
         id: row.id,
+        organizationId: row.organization_id,
         name: row.name,
         description: row.description,
         createdAt: row.created_at.toISOString(),
@@ -541,11 +596,12 @@ router.get(
       const { id } = req.params;
       const pool = await getPostgresPool();
 
-      const groupExists = await pool.query(
-        'SELECT 1 FROM groups WHERE id = $1',
+      const groupResult = await pool.query<{ organization_id: string }>(
+        'SELECT organization_id FROM groups WHERE id = $1',
         [id]
       );
-      if (groupExists.rowCount === 0) {
+      const groupRow = groupResult.rows[0];
+      if (!groupRow) {
         res.status(404).json({ error: 'Group not found' });
         return;
       }
@@ -674,6 +730,13 @@ router.post(
         res.status(404).json({ error: 'User not found' });
         return;
       }
+
+      await pool.query(
+        `INSERT INTO user_organizations (user_id, organization_id, joined_at)
+         VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING`,
+        [userId, groupRow.organization_id, new Date()]
+      );
 
       await pool.query(
         `INSERT INTO user_groups (user_id, group_id, joined_at)

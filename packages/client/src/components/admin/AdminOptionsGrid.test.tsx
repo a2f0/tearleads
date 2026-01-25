@@ -4,11 +4,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { AdminOptionsGrid } from './AdminOptionsGrid';
 
 describe('AdminOptionsGrid', () => {
-  it('renders Redis and Postgres options', () => {
+  it('renders Redis, Postgres, and Organizations options', () => {
     render(<AdminOptionsGrid onSelect={vi.fn()} />);
 
     expect(screen.getByText('Redis')).toBeInTheDocument();
     expect(screen.getByText('Postgres')).toBeInTheDocument();
+    expect(screen.getByText('Organizations')).toBeInTheDocument();
   });
 
   it('calls onSelect with "redis" when Redis is clicked', async () => {
@@ -29,6 +30,16 @@ describe('AdminOptionsGrid', () => {
     await user.click(screen.getByText('Postgres'));
 
     expect(onSelect).toHaveBeenCalledWith('postgres');
+  });
+
+  it('calls onSelect with "organizations" when Organizations is clicked', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(<AdminOptionsGrid onSelect={onSelect} />);
+
+    await user.click(screen.getByText('Organizations'));
+
+    expect(onSelect).toHaveBeenCalledWith('organizations');
   });
 
   it('applies custom gridClassName', () => {

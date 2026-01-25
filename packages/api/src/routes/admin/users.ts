@@ -19,6 +19,7 @@ type UserRow = {
   email: string;
   email_confirmed: boolean;
   admin: boolean;
+  organization_ids: string[] | null;
 };
 
 const router: RouterType = Router();
@@ -28,7 +29,10 @@ function mapUserRow(row: UserRow): AdminUser {
     id: row.id,
     email: row.email,
     emailConfirmed: row.email_confirmed,
-    admin: row.admin
+    admin: row.admin,
+    organizationIds: Array.isArray(row.organization_ids)
+      ? row.organization_ids
+      : []
   };
 }
 
@@ -65,6 +69,26 @@ function parseUserUpdatePayload(body: unknown): AdminUserUpdatePayload | null {
       return null;
     }
     updates.admin = adminValue;
+  }
+
+  if ('organizationIds' in body) {
+    const orgsValue = body['organizationIds'];
+    if (!Array.isArray(orgsValue)) {
+      return null;
+    }
+
+    const trimmed: string[] = [];
+    for (const entry of orgsValue) {
+      if (typeof entry !== 'string') {
+        return null;
+      }
+      const cleaned = entry.trim();
+      if (cleaned) {
+        trimmed.push(cleaned);
+      }
+    }
+
+    updates.organizationIds = Array.from(new Set(trimmed));
   }
 
   if (Object.keys(updates).length === 0) {
@@ -105,9 +129,19 @@ router.get('/', async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<UserRow>(
-      `SELECT id, email, email_confirmed, admin
-       FROM users
-       ORDER BY email`
+      `SELECT
+         u.id,
+         u.email,
+         u.email_confirmed,
+         u.admin,
+         COALESCE(
+           ARRAY_AGG(uo.organization_id) FILTER (WHERE uo.organization_id IS NOT NULL),
+           '{}'
+         ) AS organization_ids
+       FROM users u
+       LEFT JOIN user_organizations uo ON uo.user_id = u.id
+       GROUP BY u.id
+       ORDER BY u.email`
     );
     const response: AdminUsersResponse = {
       users: result.rows.map(mapUserRow)
@@ -158,9 +192,19 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<UserRow>(
-      `SELECT id, email, email_confirmed, admin
-       FROM users
-       WHERE id = $1`,
+      `SELECT
+         u.id,
+         u.email,
+         u.email_confirmed,
+         u.admin,
+         COALESCE(
+           ARRAY_AGG(uo.organization_id) FILTER (WHERE uo.organization_id IS NOT NULL),
+           '{}'
+         ) AS organization_ids
+       FROM users u
+       LEFT JOIN user_organizations uo ON uo.user_id = u.id
+       WHERE u.id = $1
+       GROUP BY u.id`,
       [req.params['id']]
     );
 
@@ -202,6 +246,17 @@ router.get('/:id', async (req: Request, res: Response) => {
  *         application/json:
  *           schema:
  *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *               emailConfirmed:
+ *                 type: boolean
+ *               admin:
+ *                 type: boolean
+ *               organizationIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
  *     responses:
  *       200:
  *         description: Updated user
@@ -252,28 +307,87 @@ router.patch('/:id', async (req: Request, res: Response) => {
     index += 1;
   }
 
+  let pool: Awaited<ReturnType<typeof getPostgresPool>> | null = null;
   try {
-    const pool = await getPostgresPool();
-    const result = await pool.query<UserRow>(
-      `UPDATE users
-       SET ${setClauses.join(', ')}
-       WHERE id = $${index}
-       RETURNING id, email, email_confirmed, admin`,
-      [...values, req.params['id']]
-    );
+    pool = await getPostgresPool();
+    const userId = req.params['id'];
+    await pool.query('BEGIN');
 
-    const updatedUser = result.rows[0];
+    let updatedUser: UserRow | undefined;
+
+    if (setClauses.length > 0) {
+      const result = await pool.query<UserRow>(
+        `UPDATE users
+         SET ${setClauses.join(', ')}
+         WHERE id = $${index}
+         RETURNING id, email, email_confirmed, admin`,
+        [...values, userId]
+      );
+      updatedUser = result.rows[0];
+    } else {
+      const result = await pool.query<UserRow>(
+        'SELECT id, email, email_confirmed, admin FROM users WHERE id = $1',
+        [userId]
+      );
+      updatedUser = result.rows[0];
+    }
+
     if (!updatedUser) {
+      await pool.query('ROLLBACK');
       res.status(404).json({ error: 'User not found' });
       return;
     }
 
+    if (updates.organizationIds !== undefined) {
+      const organizationIds = updates.organizationIds;
+      if (organizationIds.length > 0) {
+        const orgResult = await pool.query<{ id: string }>(
+          'SELECT id FROM organizations WHERE id = ANY($1::text[])',
+          [organizationIds]
+        );
+        if (orgResult.rows.length !== organizationIds.length) {
+          await pool.query('ROLLBACK');
+          res.status(404).json({ error: 'Organization not found' });
+          return;
+        }
+      }
+
+      await pool.query('DELETE FROM user_organizations WHERE user_id = $1', [
+        userId
+      ]);
+
+      if (organizationIds.length > 0) {
+        await pool.query(
+          `INSERT INTO user_organizations (user_id, organization_id)
+           SELECT $1, unnest($2::text[])`,
+          [userId, organizationIds]
+        );
+      }
+    }
+
+    const orgResult = await pool.query<{ organization_id: string }>(
+      'SELECT organization_id FROM user_organizations WHERE user_id = $1 ORDER BY organization_id',
+      [updatedUser.id]
+    );
+
+    await pool.query('COMMIT');
+
     const response: AdminUserUpdateResponse = {
-      user: mapUserRow(updatedUser)
+      user: mapUserRow({
+        ...updatedUser,
+        organization_ids: orgResult.rows.map((row) => row.organization_id)
+      })
     };
     res.json(response);
   } catch (err) {
     console.error('Users admin error:', err);
+    if (pool) {
+      try {
+        await pool.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Failed to rollback user update:', rollbackError);
+      }
+    }
     res.status(500).json({
       error: err instanceof Error ? err.message : 'Failed to update user'
     });

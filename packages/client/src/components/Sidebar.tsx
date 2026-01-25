@@ -2,6 +2,7 @@ import {
   AppWindow,
   Archive,
   BarChart3,
+  Building2,
   Bot,
   Bug,
   ChevronRight,
@@ -202,6 +203,13 @@ export const navItems: NavItem[] = [
     testId: 'admin-users-link'
   },
   {
+    path: '/admin/organizations',
+    icon: Building2,
+    labelKey: 'organizations',
+    inMobileMenu: true,
+    testId: 'admin-organizations-link'
+  },
+  {
     path: '/sync',
     icon: RefreshCw,
     labelKey: 'sync',
@@ -254,6 +262,7 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/admin/postgres': 'admin-postgres',
   '/admin/groups': 'admin-groups',
   '/admin/users': 'admin-users',
+  '/admin/organizations': 'admin-organizations',
   '/sync': 'sync',
   '/v86': 'v86'
 };
@@ -312,12 +321,21 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
     { path: '/admin/redis', labelKey: 'redis' as const, icon: Database },
     { path: '/admin/postgres', labelKey: 'postgres' as const, icon: Database },
     { path: '/admin/groups', labelKey: 'groups' as const, icon: UsersIcon },
+    {
+      path: '/admin/organizations',
+      labelKey: 'organizations' as const,
+      icon: Building2
+    },
     { path: '/admin/users', labelKey: 'adminUsers' as const, icon: User }
   ];
 
   // On desktop, filter out /admin/users from main nav since it's in the flyout
   const sidebarItems = isDesktop
-    ? navItems.filter((item) => item.path !== '/admin/users')
+    ? navItems.filter(
+        (item) =>
+          item.path !== '/admin/users' &&
+          item.path !== '/admin/organizations'
+      )
     : navItems;
 
   const handleClick = useCallback(

@@ -27,6 +27,7 @@ export function UsersAdminDetail({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [organizationIdsInput, setOrganizationIdsInput] = useState('');
 
   const fetchUser = useCallback(async () => {
     if (!userId) {
@@ -41,6 +42,7 @@ export function UsersAdminDetail({
       const response = await api.admin.users.get(userId);
       setUser(response.user);
       setDraft(response.user);
+      setOrganizationIdsInput(response.user.organizationIds.join(', '));
     } catch (err) {
       console.error('Failed to fetch user:', err);
       const message = err instanceof Error ? err.message : String(err);
@@ -60,6 +62,14 @@ export function UsersAdminDetail({
     fetchUser();
   }, [fetchUser]);
 
+  const parseOrganizationIds = useCallback((input: string) => {
+    const parts = input
+      .split(/[\n,]/)
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+    return Array.from(new Set(parts));
+  }, []);
+
   const buildUpdatePayload = useCallback(
     (current: AdminUser, edited: AdminUser) => {
       const payload: AdminUserUpdatePayload = {};
@@ -72,9 +82,19 @@ export function UsersAdminDetail({
       if (edited.admin !== current.admin) {
         payload.admin = edited.admin;
       }
+      const nextOrganizationIds = parseOrganizationIds(organizationIdsInput);
+      const currentOrganizationIds = current.organizationIds;
+      const orgsChanged =
+        nextOrganizationIds.length !== currentOrganizationIds.length ||
+        nextOrganizationIds.some(
+          (orgId, index) => orgId !== currentOrganizationIds[index]
+        );
+      if (orgsChanged) {
+        payload.organizationIds = nextOrganizationIds;
+      }
       return payload;
     },
-    []
+    [organizationIdsInput, parseOrganizationIds]
   );
 
   const handleSave = useCallback(async () => {
@@ -91,6 +111,7 @@ export function UsersAdminDetail({
       const response = await api.admin.users.update(user.id, payload);
       setUser(response.user);
       setDraft(response.user);
+      setOrganizationIdsInput(response.user.organizationIds.join(', '));
     } catch (err) {
       console.error('Failed to update user:', err);
       setSaveError(err instanceof Error ? err.message : String(err));
@@ -103,6 +124,7 @@ export function UsersAdminDetail({
     if (user) {
       setDraft(user);
       setSaveError(null);
+      setOrganizationIdsInput(user.organizationIds.join(', '));
     }
   }, [user]);
 
@@ -208,6 +230,26 @@ export function UsersAdminDetail({
             />
             Admin
           </label>
+        </div>
+
+        <div className="space-y-2">
+          <label
+            htmlFor="user-organizations"
+            className="font-medium text-muted-foreground text-sm"
+          >
+            Organization IDs
+          </label>
+          <Input
+            id="user-organizations"
+            value={organizationIdsInput}
+            onChange={(event) =>
+              setOrganizationIdsInput(event.target.value)
+            }
+            placeholder="org-1, org-2"
+          />
+          <p className="text-muted-foreground text-xs">
+            Separate multiple organization IDs with commas.
+          </p>
         </div>
 
         <div className="flex items-center gap-2 pt-2">

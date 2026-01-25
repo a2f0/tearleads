@@ -116,6 +116,82 @@ export const usersTable: TableDefinition = {
 };
 
 /**
+ * Organizations table for grouping users and groups.
+ */
+export const organizationsTable: TableDefinition = {
+  name: 'organizations',
+  propertyName: 'organizations',
+  comment: 'Organizations table for grouping users and groups.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    name: {
+      type: 'text',
+      sqlName: 'name',
+      notNull: true
+    },
+    description: {
+      type: 'text',
+      sqlName: 'description'
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    },
+    updatedAt: {
+      type: 'timestamp',
+      sqlName: 'updated_at',
+      notNull: true
+    }
+  },
+  indexes: [{ name: 'organizations_name_idx', columns: ['name'], unique: true }]
+};
+
+/**
+ * Junction table for many-to-many relationship between users and organizations.
+ */
+export const userOrganizationsTable: TableDefinition = {
+  name: 'user_organizations',
+  propertyName: 'userOrganizations',
+  comment:
+    'Junction table for many-to-many relationship between users and organizations.',
+  columns: {
+    userId: {
+      type: 'text',
+      sqlName: 'user_id',
+      primaryKey: true,
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    organizationId: {
+      type: 'text',
+      sqlName: 'organization_id',
+      primaryKey: true,
+      references: {
+        table: 'organizations',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    joinedAt: {
+      type: 'timestamp',
+      sqlName: 'joined_at',
+      notNull: true
+    }
+  },
+  indexes: [
+    { name: 'user_organizations_org_idx', columns: ['organizationId'] }
+  ]
+};
+
+/**
  * User credentials table for password authentication.
  */
 export const userCredentialsTable: TableDefinition = {
@@ -494,6 +570,16 @@ export const groupsTable: TableDefinition = {
       sqlName: 'id',
       primaryKey: true
     },
+    organizationId: {
+      type: 'text',
+      sqlName: 'organization_id',
+      notNull: true,
+      references: {
+        table: 'organizations',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
     name: {
       type: 'text',
       sqlName: 'name',
@@ -514,7 +600,14 @@ export const groupsTable: TableDefinition = {
       notNull: true
     }
   },
-  indexes: [{ name: 'groups_name_idx', columns: ['name'], unique: true }]
+  indexes: [
+    {
+      name: 'groups_org_name_idx',
+      columns: ['organizationId', 'name'],
+      unique: true
+    },
+    { name: 'groups_org_idx', columns: ['organizationId'] }
+  ]
 };
 
 /**
@@ -562,6 +655,8 @@ export const allTables: TableDefinition[] = [
   syncMetadataTable,
   userSettingsTable,
   usersTable,
+  organizationsTable,
+  userOrganizationsTable,
   userCredentialsTable,
   migrationsTable,
   secretsTable,

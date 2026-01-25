@@ -43,6 +43,7 @@ export type WindowType =
   | 'admin-postgres'
   | 'admin-groups'
   | 'admin-users'
+  | 'admin-organizations'
   | 'cache-storage'
   | 'local-storage'
   | 'sync'

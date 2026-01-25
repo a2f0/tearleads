@@ -5,19 +5,18 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 
-interface CreateGroupDialogProps {
+interface CreateOrganizationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: () => void;
 }
 
-export function CreateGroupDialog({
+export function CreateOrganizationDialog({
   open,
   onOpenChange,
   onCreated
-}: CreateGroupDialogProps) {
+}: CreateOrganizationDialogProps) {
   const [name, setName] = useState('');
-  const [organizationId, setOrganizationId] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +26,6 @@ export function CreateGroupDialog({
   useEffect(() => {
     if (open) {
       setName('');
-      setOrganizationId('');
       setDescription('');
       setError(null);
       setTimeout(() => nameInputRef.current?.focus(), 0);
@@ -51,32 +49,24 @@ export function CreateGroupDialog({
       return;
     }
 
-    if (!organizationId.trim()) {
-      setError('Organization ID is required');
-      return;
-    }
-
     try {
       setLoading(true);
       setError(null);
       const trimmedDescription = description.trim();
-      const trimmedOrganizationId = organizationId.trim();
-      await api.admin.groups.create(
+      await api.admin.organizations.create(
         trimmedDescription
-          ? {
-              name: name.trim(),
-              description: trimmedDescription,
-              organizationId: trimmedOrganizationId
-            }
-          : { name: name.trim(), organizationId: trimmedOrganizationId }
+          ? { name: name.trim(), description: trimmedDescription }
+          : { name: name.trim() }
       );
       onOpenChange(false);
       onCreated?.();
     } catch (err) {
       if (err instanceof Error && err.message.includes('409')) {
-        setError('A group with this name already exists');
+        setError('An organization with this name already exists');
       } else {
-        setError(err instanceof Error ? err.message : 'Failed to create group');
+        setError(
+          err instanceof Error ? err.message : 'Failed to create organization'
+        );
       }
     } finally {
       setLoading(false);
@@ -97,54 +87,42 @@ export function CreateGroupDialog({
         className="relative z-10 w-full max-w-md rounded-lg border bg-background p-6 shadow-lg"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="create-group-title"
+        aria-labelledby="create-organization-title"
         tabIndex={-1}
         onKeyDown={handleKeyDown}
       >
-        <h2 id="create-group-title" className="font-semibold text-lg">
-          Create Group
+        <h2 id="create-organization-title" className="font-semibold text-lg">
+          Create Organization
         </h2>
         <p className="mt-1 text-muted-foreground text-sm">
-          Create a new group to organize users.
+          Create a new organization to group users and teams.
         </p>
 
         <form onSubmit={(e) => void handleSubmit(e)} className="mt-4 space-y-4">
           <div className="space-y-2">
-            <label htmlFor="group-name" className="font-medium text-sm">
+            <label htmlFor="org-name" className="font-medium text-sm">
               Name
             </label>
             <Input
               ref={nameInputRef}
-              id="group-name"
+              id="org-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter group name"
+              placeholder="Enter organization name"
               disabled={loading}
             />
           </div>
           <div className="space-y-2">
-            <label htmlFor="group-description" className="font-medium text-sm">
+            <label htmlFor="org-description" className="font-medium text-sm">
               Description (optional)
             </label>
             <Textarea
-              id="group-description"
+              id="org-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter group description"
+              placeholder="Enter organization description"
               disabled={loading}
               rows={3}
-            />
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="group-org" className="font-medium text-sm">
-              Organization ID
-            </label>
-            <Input
-              id="group-org"
-              value={organizationId}
-              onChange={(e) => setOrganizationId(e.target.value)}
-              placeholder="Enter organization ID"
-              disabled={loading}
             />
           </div>
           {error && <p className="text-destructive text-sm">{error}</p>}

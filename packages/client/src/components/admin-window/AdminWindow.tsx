@@ -7,6 +7,8 @@ import { FloatingWindow } from '@/components/floating-window';
 import { Admin } from '@/pages/admin/Admin';
 import { GroupDetailPage } from '@/pages/admin/GroupDetailPage';
 import { GroupsAdmin } from '@/pages/admin/GroupsAdmin';
+import { OrganizationDetailPage } from '@/pages/admin/OrganizationDetailPage';
+import { OrganizationsAdmin } from '@/pages/admin/OrganizationsAdmin';
 import { PostgresAdmin } from '@/pages/admin/PostgresAdmin';
 import { UsersAdmin } from '@/pages/admin/UsersAdmin';
 import { UsersAdminDetail } from '@/pages/admin/UsersAdminDetail';
@@ -16,6 +18,7 @@ type AdminView =
   | 'index'
   | AdminOptionId
   | { type: 'group-detail'; groupId: string }
+  | { type: 'organization-detail'; organizationId: string }
   | { type: 'user-detail'; userId: string };
 
 interface AdminWindowProps {
@@ -34,9 +37,12 @@ function getViewTitle(view: AdminView): string {
   if (view === 'redis') return 'Redis';
   if (view === 'postgres') return 'Postgres';
   if (view === 'groups') return 'Groups';
+  if (view === 'organizations') return 'Organizations';
   if (view === 'users') return 'Users';
   if (typeof view === 'object' && view.type === 'group-detail')
     return 'Group Detail';
+  if (typeof view === 'object' && view.type === 'organization-detail')
+    return 'Organization Detail';
   if (typeof view === 'object' && view.type === 'user-detail') return 'User';
   return 'Admin';
 }
@@ -59,6 +65,10 @@ export function AdminWindow({
 
   const handleUserSelect = (userId: string) => {
     setView({ type: 'user-detail', userId });
+  };
+
+  const handleOrganizationSelect = (organizationId: string) => {
+    setView({ type: 'organization-detail', organizationId });
   };
 
   const renderContent = () => {
@@ -84,6 +94,24 @@ export function AdminWindow({
             <button
               type="button"
               onClick={() => setView('groups')}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          }
+        />
+      );
+    }
+
+    if (typeof view === 'object' && view.type === 'organization-detail') {
+      return (
+        <OrganizationDetailPage
+          organizationId={view.organizationId}
+          onDelete={() => setView('organizations')}
+          backLink={
+            <button
+              type="button"
+              onClick={() => setView('organizations')}
               className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -119,6 +147,13 @@ export function AdminWindow({
     } else if (view === 'groups') {
       content = (
         <GroupsAdmin showBackLink={false} onGroupSelect={handleGroupSelect} />
+      );
+    } else if (view === 'organizations') {
+      content = (
+        <OrganizationsAdmin
+          showBackLink={false}
+          onOrganizationSelect={handleOrganizationSelect}
+        />
       );
     } else if (view === 'users') {
       content = (

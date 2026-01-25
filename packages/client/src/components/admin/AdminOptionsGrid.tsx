@@ -6,6 +6,7 @@ const ADMIN_OPTIONS = [
   { id: 'redis', label: 'Redis' },
   { id: 'postgres', label: 'Postgres' },
   { id: 'groups', label: 'Groups' },
+  { id: 'organizations', label: 'Organizations' },
   { id: 'users', label: 'Users' }
 ] as const;
 

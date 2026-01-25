@@ -178,6 +178,8 @@ describe('barrel exports', () => {
     expect(pagesAdmin.UsersAdminPage).toBeDefined();
     expect(pagesAdmin.GroupsAdminPage).toBeDefined();
     expect(pagesAdmin.GroupDetailPageRoute).toBeDefined();
+    expect(pagesAdmin.OrganizationsAdminPage).toBeDefined();
+    expect(pagesAdmin.OrganizationDetailPageRoute).toBeDefined();
 
     expect(pagesAnalytics.Analytics).toBeDefined();
     expect(pagesAnalytics.SortIcon).toBeDefined();

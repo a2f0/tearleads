@@ -854,6 +854,41 @@ vi.mock('@/components/admin-users-window', () => ({
   )
 }));
 
+vi.mock('@/components/admin-organizations-window', () => ({
+  AdminOrganizationsWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`admin-organizations-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 840, height: 620 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/chat-window', () => ({
   ChatWindow: ({
     id,
@@ -1830,6 +1865,59 @@ describe('WindowRenderer', () => {
       width: 840,
       height: 620
     });
+  });
+
+  it('renders admin organizations window for admin-organizations type', () => {
+    mockWindows = [
+      { id: 'admin-organizations-1', type: 'admin-organizations', zIndex: 100 }
+    ];
+    render(<WindowRenderer />, { wrapper });
+    expect(
+      screen.getByTestId('admin-organizations-window-admin-organizations-1')
+    ).toBeInTheDocument();
+  });
+
+  it('calls closeWindow when admin organizations close button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [
+      { id: 'admin-organizations-1', type: 'admin-organizations', zIndex: 100 }
+    ];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('close-admin-organizations-1'));
+    expect(mockCloseWindow).toHaveBeenCalledWith('admin-organizations-1');
+  });
+
+  it('calls focusWindow when admin organizations window is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [
+      { id: 'admin-organizations-1', type: 'admin-organizations', zIndex: 100 }
+    ];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(
+      screen.getByTestId('admin-organizations-window-admin-organizations-1')
+    );
+    expect(mockFocusWindow).toHaveBeenCalledWith('admin-organizations-1');
+  });
+
+  it('calls minimizeWindow when admin organizations minimize button is clicked', async () => {
+    const user = userEvent.setup();
+    mockWindows = [
+      { id: 'admin-organizations-1', type: 'admin-organizations', zIndex: 100 }
+    ];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('minimize-admin-organizations-1'));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith(
+      'admin-organizations-1',
+      {
+        x: 0,
+        y: 0,
+        width: 840,
+        height: 620
+      }
+    );
   });
 
   it('renders chat window for chat type', () => {

@@ -33,6 +33,7 @@ export interface MenuTranslations {
   postgres: string;
   postgresAdmin: string;
   groups: string;
+  organizations: string;
   adminUsers: string;
   settings: string;
   email: string;

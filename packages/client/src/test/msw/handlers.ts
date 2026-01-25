@@ -62,13 +62,15 @@ let adminUsers: AdminUsersResponse['users'] = [
     id: 'user-1',
     email: 'admin@example.com',
     emailConfirmed: true,
-    admin: true
+    admin: true,
+    organizationIds: ['org-1']
   },
   {
     id: 'user-2',
     email: 'user@example.com',
     emailConfirmed: false,
-    admin: false
+    admin: false,
+    organizationIds: []
   }
 ];
 
