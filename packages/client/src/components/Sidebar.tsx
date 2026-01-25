@@ -250,6 +250,9 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/audio': 'audio',
   '/models': 'models',
   '/admin': 'admin',
+  '/admin/redis': 'admin-redis',
+  '/admin/postgres': 'admin-postgres',
+  '/admin/groups': 'admin-groups',
   '/admin/users': 'admin-users',
   '/sync': 'sync',
   '/v86': 'v86'
@@ -306,7 +309,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   const isDesktop = !isMobile && !isTouchDevice;
 
   const adminFlyoutItems = [
-    { path: '/admin', labelKey: 'redis' as const, icon: Database },
+    { path: '/admin/redis', labelKey: 'redis' as const, icon: Database },
     { path: '/admin/postgres', labelKey: 'postgres' as const, icon: Database },
     { path: '/admin/groups', labelKey: 'groups' as const, icon: UsersIcon },
     { path: '/admin/users', labelKey: 'adminUsers' as const, icon: User }
