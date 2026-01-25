@@ -69,6 +69,25 @@ vi.mock('@/pages/admin/GroupsAdmin', () => ({
   )
 }));
 
+vi.mock('@/pages/admin/OrganizationsAdmin', () => ({
+  OrganizationsAdmin: ({
+    showBackLink,
+    onOrganizationSelect
+  }: {
+    showBackLink?: boolean;
+    onOrganizationSelect: (organizationId: string) => void;
+  }) => (
+    <div data-testid="admin-organizations-content">
+      <span data-testid="organizations-backlink">
+        {showBackLink ? 'true' : 'false'}
+      </span>
+      <button type="button" onClick={() => onOrganizationSelect('org-1')}>
+        Select Org 1
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/pages/admin/UsersAdmin', () => ({
   UsersAdmin: ({
     showBackLink,
@@ -83,6 +102,26 @@ vi.mock('@/pages/admin/UsersAdmin', () => ({
       </span>
       <button type="button" onClick={() => onUserSelect('user-1')}>
         Select User 1
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/pages/admin/OrganizationDetailPage', () => ({
+  OrganizationDetailPage: ({
+    organizationId,
+    backLink,
+    onDelete
+  }: {
+    organizationId: string;
+    backLink: React.ReactNode;
+    onDelete?: () => void;
+  }) => (
+    <div data-testid="organization-detail-content">
+      <span data-testid="organization-id">{organizationId}</span>
+      <div data-testid="organization-back-link">{backLink}</div>
+      <button type="button" onClick={onDelete}>
+        Delete Organization
       </button>
     </div>
   )
@@ -148,6 +187,7 @@ describe('AdminWindow', () => {
     expect(screen.getByText('Redis')).toBeInTheDocument();
     expect(screen.getByText('Postgres')).toBeInTheDocument();
     expect(screen.getByText('Groups')).toBeInTheDocument();
+    expect(screen.getByText('Organizations')).toBeInTheDocument();
     expect(screen.getByText('Users')).toBeInTheDocument();
   });
 
@@ -197,6 +237,43 @@ describe('AdminWindow', () => {
     expect(screen.getByTestId('admin-users-content')).toBeInTheDocument();
     expect(screen.getByTestId('users-backlink')).toHaveTextContent('false');
     expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+  });
+
+  it('navigates to Organizations view when Organizations is clicked', async () => {
+    const user = userEvent.setup();
+    render(<AdminWindow {...defaultProps} />);
+
+    await user.click(screen.getByText('Organizations'));
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent(
+      'Organizations'
+    );
+    expect(
+      screen.getByTestId('admin-organizations-content')
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('organizations-backlink')).toHaveTextContent(
+      'false'
+    );
+    expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+  });
+
+  it('navigates to Organization Detail view when an organization is selected', async () => {
+    const user = userEvent.setup();
+    render(<AdminWindow {...defaultProps} />);
+
+    await user.click(screen.getByText('Organizations'));
+    await user.click(screen.getByText('Select Org 1'));
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent(
+      'Organization Detail'
+    );
+    expect(
+      screen.getByTestId('organization-detail-content')
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('organization-id')).toHaveTextContent('org-1');
+    expect(
+      screen.getByTestId('organization-back-link').querySelector('button')
+    ).toBeInTheDocument();
   });
 
   it('navigates to Group Detail view when a group is selected', async () => {
@@ -249,6 +326,30 @@ describe('AdminWindow', () => {
 
     expect(screen.getByTestId('window-title')).toHaveTextContent('Groups');
     expect(screen.getByTestId('admin-groups-content')).toBeInTheDocument();
+  });
+
+  it('returns to Organizations view from Organization Detail when back is clicked', async () => {
+    const user = userEvent.setup();
+    render(<AdminWindow {...defaultProps} />);
+
+    await user.click(screen.getByText('Organizations'));
+    await user.click(screen.getByText('Select Org 1'));
+    expect(
+      screen.getByTestId('organization-detail-content')
+    ).toBeInTheDocument();
+
+    const backButton = screen
+      .getByTestId('organization-back-link')
+      .querySelector('button');
+    if (!backButton) throw new Error('Back button not found');
+    await user.click(backButton);
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent(
+      'Organizations'
+    );
+    expect(
+      screen.getByTestId('admin-organizations-content')
+    ).toBeInTheDocument();
   });
 
   it('returns to Users view from User Detail when back is clicked', async () => {

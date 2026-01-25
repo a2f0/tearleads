@@ -98,6 +98,7 @@ export interface AdminUser {
   email: string;
   emailConfirmed: boolean;
   admin: boolean;
+  organizationIds: string[];
 }
 
 export interface AdminUsersResponse {
@@ -112,6 +113,7 @@ export interface AdminUserUpdatePayload {
   email?: string;
   emailConfirmed?: boolean;
   admin?: boolean;
+  organizationIds?: string[];
 }
 
 export interface AdminUserUpdateResponse {
@@ -121,6 +123,7 @@ export interface AdminUserUpdateResponse {
 // Groups Admin types
 export interface Group {
   id: string;
+  organizationId: string;
   name: string;
   description: string | null;
   createdAt: string;
@@ -149,11 +152,13 @@ export interface GroupDetailResponse {
 export interface CreateGroupRequest {
   name: string;
   description?: string;
+  organizationId: string;
 }
 
 export interface UpdateGroupRequest {
   name?: string;
   description?: string;
+  organizationId?: string;
 }
 
 export interface AddMemberRequest {
@@ -162,6 +167,33 @@ export interface AddMemberRequest {
 
 export interface GroupMembersResponse {
   members: GroupMember[];
+}
+
+// Organizations Admin types
+export interface Organization {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrganizationsListResponse {
+  organizations: Organization[];
+}
+
+export interface OrganizationResponse {
+  organization: Organization;
+}
+
+export interface CreateOrganizationRequest {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateOrganizationRequest {
+  name?: string;
+  description?: string;
 }
 
 // Auth types

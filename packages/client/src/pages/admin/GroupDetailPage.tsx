@@ -1,4 +1,4 @@
-import type { Group, GroupMember } from '@rapid/shared';
+import type { Group, GroupMember, UpdateGroupRequest } from '@rapid/shared';
 import { Loader2, Save, Trash2, UserMinus, UserPlus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -29,6 +29,7 @@ export function GroupDetailPage({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState('');
+  const [organizationId, setOrganizationId] = useState('');
   const [description, setDescription] = useState('');
   const [addUserId, setAddUserId] = useState('');
   const [addingMember, setAddingMember] = useState(false);
@@ -46,6 +47,7 @@ export function GroupDetailPage({
       setGroup(response.group);
       setMembers(response.members);
       setName(response.group.name);
+      setOrganizationId(response.group.organizationId);
       setDescription(response.group.description ?? '');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch group');
@@ -60,18 +62,25 @@ export function GroupDetailPage({
 
   const handleSave = async () => {
     if (!id || !name.trim()) return;
+    const trimmedOrganizationId = organizationId.trim();
+    if (!trimmedOrganizationId) {
+      setError('Organization ID is required');
+      return;
+    }
 
     try {
       setSaving(true);
       setError(null);
       const trimmedDescription = description.trim();
-      const response = await api.admin.groups.update(
-        id,
-        trimmedDescription
-          ? { name: name.trim(), description: trimmedDescription }
-          : { name: name.trim() }
-      );
+      const payload: UpdateGroupRequest = trimmedDescription
+        ? { name: name.trim(), description: trimmedDescription }
+        : { name: name.trim() };
+      if (group && trimmedOrganizationId !== group.organizationId) {
+        payload.organizationId = trimmedOrganizationId;
+      }
+      const response = await api.admin.groups.update(id, payload);
       setGroup(response.group);
+      setOrganizationId(response.group.organizationId);
     } catch (err) {
       if (err instanceof Error && err.message.includes('409')) {
         setError('A group with this name already exists');
@@ -182,6 +191,17 @@ export function GroupDetailPage({
             />
           </div>
           <div className="space-y-2">
+            <label htmlFor="organization-id" className="font-medium text-sm">
+              Organization ID
+            </label>
+            <Input
+              id="organization-id"
+              value={organizationId}
+              onChange={(e) => setOrganizationId(e.target.value)}
+              disabled={saving}
+            />
+          </div>
+          <div className="space-y-2">
             <label htmlFor="description" className="font-medium text-sm">
               Description
             </label>
@@ -195,7 +215,7 @@ export function GroupDetailPage({
           </div>
           <Button
             onClick={() => void handleSave()}
-            disabled={saving || !name.trim()}
+            disabled={saving || !name.trim() || !organizationId.trim()}
           >
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             <Save className="mr-2 h-4 w-4" />

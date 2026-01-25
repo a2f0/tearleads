@@ -36,7 +36,8 @@ describe('UsersAdminPage', () => {
         id: 'user-1',
         email: 'admin@example.com',
         emailConfirmed: true,
-        admin: true
+        admin: true,
+        organizationIds: ['org-1']
       }
     ]
   };

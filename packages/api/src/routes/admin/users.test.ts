@@ -35,13 +35,15 @@ describe('admin users routes', () => {
             id: 'user-1',
             email: 'alpha@example.com',
             email_confirmed: true,
-            admin: false
+            admin: false,
+            organization_ids: []
           },
           {
             id: 'user-2',
             email: 'beta@example.com',
             email_confirmed: false,
-            admin: true
+            admin: true,
+            organization_ids: ['org-1']
           }
         ]
       })
@@ -58,13 +60,15 @@ describe('admin users routes', () => {
           id: 'user-1',
           email: 'alpha@example.com',
           emailConfirmed: true,
-          admin: false
+          admin: false,
+          organizationIds: []
         },
         {
           id: 'user-2',
           email: 'beta@example.com',
           emailConfirmed: false,
-          admin: true
+          admin: true,
+          organizationIds: ['org-1']
         }
       ]
     });
@@ -94,7 +98,8 @@ describe('admin users routes', () => {
             id: 'user-1',
             email: 'alpha@example.com',
             email_confirmed: true,
-            admin: false
+            admin: false,
+            organization_ids: ['org-1', 'org-2']
           }
         ]
       })
@@ -110,7 +115,8 @@ describe('admin users routes', () => {
         id: 'user-1',
         email: 'alpha@example.com',
         emailConfirmed: true,
-        admin: false
+        admin: false,
+        organizationIds: ['org-1', 'org-2']
       }
     });
   });
@@ -147,17 +153,28 @@ describe('admin users routes', () => {
   });
 
   it('PATCH /v1/admin/users/:id updates a user', async () => {
-    mockGetPostgresPool.mockResolvedValue({
-      query: mockQuery.mockResolvedValue({
-        rows: [
-          {
-            id: 'user-1',
-            email: 'updated@example.com',
-            email_confirmed: true,
-            admin: true
-          }
-        ]
-      })
+    mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
+    mockQuery.mockImplementation((query: string) => {
+      const trimmedQuery = query.trimStart();
+      if (query === 'BEGIN' || query === 'COMMIT') {
+        return Promise.resolve({ rows: [] });
+      }
+      if (trimmedQuery.startsWith('UPDATE users')) {
+        return Promise.resolve({
+          rows: [
+            {
+              id: 'user-1',
+              email: 'updated@example.com',
+              email_confirmed: true,
+              admin: true
+            }
+          ]
+        });
+      }
+      if (query.startsWith('SELECT organization_id FROM user_organizations')) {
+        return Promise.resolve({ rows: [] });
+      }
+      return Promise.resolve({ rows: [] });
     });
 
     const response = await request(app)
@@ -171,7 +188,8 @@ describe('admin users routes', () => {
         id: 'user-1',
         email: 'updated@example.com',
         emailConfirmed: true,
-        admin: true
+        admin: true,
+        organizationIds: []
       }
     });
     expect(mockQuery).toHaveBeenCalled();
@@ -228,10 +246,16 @@ describe('admin users routes', () => {
   });
 
   it('PATCH /v1/admin/users/:id returns 404 when user is missing', async () => {
-    mockGetPostgresPool.mockResolvedValue({
-      query: mockQuery.mockResolvedValue({
-        rows: []
-      })
+    mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
+    mockQuery.mockImplementation((query: string) => {
+      const trimmedQuery = query.trimStart();
+      if (query === 'BEGIN' || query === 'ROLLBACK') {
+        return Promise.resolve({ rows: [] });
+      }
+      if (trimmedQuery.startsWith('UPDATE users')) {
+        return Promise.resolve({ rows: [] });
+      }
+      return Promise.resolve({ rows: [] });
     });
 
     const response = await request(app)
@@ -259,17 +283,28 @@ describe('admin users routes', () => {
   });
 
   it('PATCH /v1/admin/users/:id updates emailConfirmed field', async () => {
-    mockGetPostgresPool.mockResolvedValue({
-      query: mockQuery.mockResolvedValue({
-        rows: [
-          {
-            id: 'user-1',
-            email: 'user@example.com',
-            email_confirmed: true,
-            admin: false
-          }
-        ]
-      })
+    mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
+    mockQuery.mockImplementation((query: string) => {
+      const trimmedQuery = query.trimStart();
+      if (query === 'BEGIN' || query === 'COMMIT') {
+        return Promise.resolve({ rows: [] });
+      }
+      if (trimmedQuery.startsWith('UPDATE users')) {
+        return Promise.resolve({
+          rows: [
+            {
+              id: 'user-1',
+              email: 'user@example.com',
+              email_confirmed: true,
+              admin: false
+            }
+          ]
+        });
+      }
+      if (query.startsWith('SELECT organization_id FROM user_organizations')) {
+        return Promise.resolve({ rows: [] });
+      }
+      return Promise.resolve({ rows: [] });
     });
 
     const response = await request(app)
@@ -283,14 +318,165 @@ describe('admin users routes', () => {
         id: 'user-1',
         email: 'user@example.com',
         emailConfirmed: true,
-        admin: false
+        admin: false,
+        organizationIds: []
       }
     });
   });
 
+  it('PATCH /v1/admin/users/:id updates organization IDs', async () => {
+    mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
+    mockQuery.mockImplementation((query: string) => {
+      if (query === 'BEGIN' || query === 'COMMIT') {
+        return Promise.resolve({ rows: [] });
+      }
+      if (query.startsWith('SELECT id, email, email_confirmed, admin')) {
+        return Promise.resolve({
+          rows: [
+            {
+              id: 'user-1',
+              email: 'user@example.com',
+              email_confirmed: true,
+              admin: false
+            }
+          ]
+        });
+      }
+      if (query.startsWith('SELECT id FROM organizations')) {
+        return Promise.resolve({ rows: [{ id: 'org-1' }, { id: 'org-2' }] });
+      }
+      if (query.startsWith('DELETE FROM user_organizations')) {
+        return Promise.resolve({ rows: [] });
+      }
+      if (query.startsWith('INSERT INTO user_organizations')) {
+        return Promise.resolve({ rows: [] });
+      }
+      if (query.startsWith('SELECT organization_id FROM user_organizations')) {
+        return Promise.resolve({
+          rows: [{ organization_id: 'org-1' }, { organization_id: 'org-2' }]
+        });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    const response = await request(app)
+      .patch('/v1/admin/users/user-1')
+      .set('Authorization', authHeader)
+      .send({ organizationIds: ['org-1', 'org-2'] });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      user: {
+        id: 'user-1',
+        email: 'user@example.com',
+        emailConfirmed: true,
+        admin: false,
+        organizationIds: ['org-1', 'org-2']
+      }
+    });
+  });
+
+  it('PATCH /v1/admin/users/:id clears organization IDs', async () => {
+    mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
+    mockQuery.mockImplementation((query: string) => {
+      if (query === 'BEGIN' || query === 'COMMIT') {
+        return Promise.resolve({ rows: [] });
+      }
+      if (query.startsWith('SELECT id, email, email_confirmed, admin')) {
+        return Promise.resolve({
+          rows: [
+            {
+              id: 'user-1',
+              email: 'user@example.com',
+              email_confirmed: true,
+              admin: false
+            }
+          ]
+        });
+      }
+      if (query.startsWith('DELETE FROM user_organizations')) {
+        return Promise.resolve({ rows: [] });
+      }
+      if (query.startsWith('SELECT organization_id FROM user_organizations')) {
+        return Promise.resolve({ rows: [] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    const response = await request(app)
+      .patch('/v1/admin/users/user-1')
+      .set('Authorization', authHeader)
+      .send({ organizationIds: [] });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      user: {
+        id: 'user-1',
+        email: 'user@example.com',
+        emailConfirmed: true,
+        admin: false,
+        organizationIds: []
+      }
+    });
+  });
+
+  it('PATCH /v1/admin/users/:id returns 404 when organization is missing', async () => {
+    mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
+    mockQuery.mockImplementation((query: string) => {
+      if (query === 'BEGIN' || query === 'ROLLBACK') {
+        return Promise.resolve({ rows: [] });
+      }
+      if (query.startsWith('SELECT id, email, email_confirmed, admin')) {
+        return Promise.resolve({
+          rows: [
+            {
+              id: 'user-1',
+              email: 'user@example.com',
+              email_confirmed: true,
+              admin: false
+            }
+          ]
+        });
+      }
+      if (query.startsWith('SELECT id FROM organizations')) {
+        return Promise.resolve({ rows: [] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    const response = await request(app)
+      .patch('/v1/admin/users/user-1')
+      .set('Authorization', authHeader)
+      .send({ organizationIds: ['missing-org'] });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'Organization not found' });
+  });
+
+  it('PATCH /v1/admin/users/:id returns 400 for invalid organizationIds', async () => {
+    const response = await request(app)
+      .patch('/v1/admin/users/user-1')
+      .set('Authorization', authHeader)
+      .send({ organizationIds: [123] });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid user update payload' });
+  });
+
   it('PATCH /v1/admin/users/:id returns 500 on database error', async () => {
-    mockGetPostgresPool.mockResolvedValue({
-      query: mockQuery.mockRejectedValue(new Error('database error'))
+    mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
+    mockQuery.mockImplementation((query: string) => {
+      const trimmedQuery = query.trimStart();
+      if (query === 'BEGIN') {
+        return Promise.resolve({ rows: [] });
+      }
+      if (trimmedQuery.startsWith('UPDATE users')) {
+        return Promise.reject(new Error('database error'));
+      }
+      if (query === 'ROLLBACK') {
+        return Promise.resolve({ rows: [] });
+      }
+      return Promise.resolve({ rows: [] });
     });
     const consoleError = vi
       .spyOn(console, 'error')

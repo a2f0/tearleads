@@ -6,11 +6,15 @@ import {
   contactPhonesTable,
   contactsTable,
   filesTable,
+  groupsTable,
   migrationsTable,
   notesTable,
+  organizationsTable,
   secretsTable,
   syncMetadataTable,
   userCredentialsTable,
+  userGroupsTable,
+  userOrganizationsTable,
   userSettingsTable,
   usersTable
 } from './definition.js';
@@ -75,6 +79,42 @@ describe('usersTable', () => {
     expect(usersTable.columns['email']).toBeDefined();
     expect(usersTable.columns['emailConfirmed']).toBeDefined();
     expect(usersTable.columns['admin']).toBeDefined();
+  });
+});
+
+describe('organizationsTable', () => {
+  it('is a valid table definition', () => {
+    expect(isTableDefinition(organizationsTable)).toBe(true);
+  });
+
+  it('has correct table name and property name', () => {
+    expect(organizationsTable.name).toBe('organizations');
+    expect(organizationsTable.propertyName).toBe('organizations');
+  });
+
+  it('has required columns', () => {
+    expect(organizationsTable.columns['id']).toBeDefined();
+    expect(organizationsTable.columns['name']).toBeDefined();
+    expect(organizationsTable.columns['description']).toBeDefined();
+    expect(organizationsTable.columns['createdAt']).toBeDefined();
+    expect(organizationsTable.columns['updatedAt']).toBeDefined();
+  });
+});
+
+describe('userOrganizationsTable', () => {
+  it('is a valid table definition', () => {
+    expect(isTableDefinition(userOrganizationsTable)).toBe(true);
+  });
+
+  it('has correct table name and property name', () => {
+    expect(userOrganizationsTable.name).toBe('user_organizations');
+    expect(userOrganizationsTable.propertyName).toBe('userOrganizations');
+  });
+
+  it('has required columns', () => {
+    expect(userOrganizationsTable.columns['userId']).toBeDefined();
+    expect(userOrganizationsTable.columns['organizationId']).toBeDefined();
+    expect(userOrganizationsTable.columns['joinedAt']).toBeDefined();
   });
 });
 
@@ -294,14 +334,16 @@ describe('notesTable', () => {
 });
 
 describe('allTables', () => {
-  it('contains all 12 tables', () => {
-    expect(allTables).toHaveLength(12);
+  it('contains all 16 tables', () => {
+    expect(allTables).toHaveLength(16);
   });
 
   it('contains all table definitions', () => {
     expect(allTables).toContain(syncMetadataTable);
     expect(allTables).toContain(userSettingsTable);
     expect(allTables).toContain(usersTable);
+    expect(allTables).toContain(organizationsTable);
+    expect(allTables).toContain(userOrganizationsTable);
     expect(allTables).toContain(userCredentialsTable);
     expect(allTables).toContain(migrationsTable);
     expect(allTables).toContain(secretsTable);
@@ -311,6 +353,8 @@ describe('allTables', () => {
     expect(allTables).toContain(contactEmailsTable);
     expect(allTables).toContain(analyticsEventsTable);
     expect(allTables).toContain(notesTable);
+    expect(allTables).toContain(groupsTable);
+    expect(allTables).toContain(userGroupsTable);
   });
 
   it('all tables are valid definitions', () => {

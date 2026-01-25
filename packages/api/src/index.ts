@@ -11,6 +11,7 @@ import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
 import { adminSessionMiddleware } from './middleware/admin-session.js';
 import { authMiddleware } from './middleware/auth.js';
 import { groupsRouter } from './routes/admin/groups.js';
+import { organizationsRouter } from './routes/admin/organizations.js';
 import { postgresRouter } from './routes/admin/postgres.js';
 import { redisRouter } from './routes/admin/redis.js';
 import { usersRouter } from './routes/admin/users.js';
@@ -89,6 +90,7 @@ app.use('/v1', authMiddleware);
 
 // Admin routes
 app.use('/v1/admin/groups', adminSessionMiddleware, groupsRouter);
+app.use('/v1/admin/organizations', adminSessionMiddleware, organizationsRouter);
 app.use('/v1/admin/redis', adminSessionMiddleware, redisRouter);
 app.use('/v1/admin/postgres', adminSessionMiddleware, postgresRouter);
 app.use('/v1/admin/users', adminSessionMiddleware, usersRouter);

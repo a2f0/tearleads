@@ -58,6 +58,38 @@ export const users = pgTable(
 );
 
 /**
+ * Organizations table for grouping users and groups.
+ */
+export const organizations = pgTable(
+  'organizations',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    description: text('description'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
+  },
+  (table) => [uniqueIndex('organizations_name_idx').on(table.name)]
+);
+
+/**
+ * Junction table for many-to-many relationship between users and organizations.
+ */
+export const userOrganizations = pgTable(
+  'user_organizations',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    organizationId: text('organization_id')
+      .primaryKey()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull()
+  },
+  (table) => [index('user_organizations_org_idx').on(table.organizationId)]
+);
+
+/**
  * User credentials table for password authentication.
  */
 export const userCredentials = pgTable('user_credentials', {
@@ -203,12 +235,18 @@ export const groups = pgTable(
   'groups',
   {
     id: text('id').primaryKey(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     description: text('description'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
   },
-  (table) => [uniqueIndex('groups_name_idx').on(table.name)]
+  (table) => [
+    uniqueIndex('groups_org_name_idx').on(table.organizationId, table.name),
+    index('groups_org_idx').on(table.organizationId)
+  ]
 );
 
 /**

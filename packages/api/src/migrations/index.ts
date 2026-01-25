@@ -6,6 +6,7 @@ import { v003 } from './v003.js';
 import { v004 } from './v004.js';
 import { v005 } from './v005.js';
 import { v006 } from './v006.js';
+import { v007 } from './v007.js';
 
 export type { Migration, MigrationFn } from './types.js';
 
@@ -13,7 +14,15 @@ export type { Migration, MigrationFn } from './types.js';
  * All migrations in order. Add new migrations to this array.
  * Migrations must have sequential version numbers starting from 1.
  */
-export const migrations: Migration[] = [v001, v002, v003, v004, v005, v006];
+export const migrations: Migration[] = [
+  v001,
+  v002,
+  v003,
+  v004,
+  v005,
+  v006,
+  v007
+];
 
 /**
  * Get the current schema version from the database.

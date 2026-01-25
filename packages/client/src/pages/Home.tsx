@@ -55,6 +55,7 @@ export const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/models': 'models',
   '/admin': 'admin',
   '/admin/users': 'admin-users',
+  '/admin/organizations': 'admin-organizations',
   '/cache-storage': 'cache-storage',
   '/local-storage': 'local-storage',
   '/sync': 'sync',

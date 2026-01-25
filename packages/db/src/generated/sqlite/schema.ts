@@ -57,6 +57,38 @@ export const users = sqliteTable(
 );
 
 /**
+ * Organizations table for grouping users and groups.
+ */
+export const organizations = sqliteTable(
+  'organizations',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    description: text('description'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [uniqueIndex('organizations_name_idx').on(table.name)]
+);
+
+/**
+ * Junction table for many-to-many relationship between users and organizations.
+ */
+export const userOrganizations = sqliteTable(
+  'user_organizations',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    organizationId: text('organization_id')
+      .primaryKey()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    joinedAt: integer('joined_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [index('user_organizations_org_idx').on(table.organizationId)]
+);
+
+/**
  * User credentials table for password authentication.
  */
 export const userCredentials = sqliteTable('user_credentials', {
@@ -206,12 +238,18 @@ export const groups = sqliteTable(
   'groups',
   {
     id: text('id').primaryKey(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
     description: text('description'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
   },
-  (table) => [uniqueIndex('groups_name_idx').on(table.name)]
+  (table) => [
+    uniqueIndex('groups_org_name_idx').on(table.organizationId, table.name),
+    index('groups_org_idx').on(table.organizationId)
+  ]
 );
 
 /**

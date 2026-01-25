@@ -28,7 +28,8 @@ describe('UsersAdminDetail', () => {
       id: 'user-1',
       email: 'admin@example.com',
       emailConfirmed: true,
-      admin: true
+      admin: true,
+      organizationIds: ['org-1']
     }
   };
 
@@ -37,7 +38,8 @@ describe('UsersAdminDetail', () => {
       id: 'user-2',
       email: 'regular@example.com',
       emailConfirmed: false,
-      admin: false
+      admin: false,
+      organizationIds: []
     }
   };
 
@@ -72,6 +74,7 @@ describe('UsersAdminDetail', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('user-1')).toBeInTheDocument();
     expect(screen.getByDisplayValue('admin@example.com')).toBeInTheDocument();
+    expect(screen.getByLabelText('Organization IDs')).toHaveValue('org-1');
   });
 
   it('shows error when user not found', async () => {
@@ -106,7 +109,8 @@ describe('UsersAdminDetail', () => {
         id: 'user-1',
         email: 'new@example.com',
         emailConfirmed: true,
-        admin: true
+        admin: true,
+        organizationIds: ['org-1']
       }
     });
 
@@ -126,6 +130,35 @@ describe('UsersAdminDetail', () => {
     });
   });
 
+  it('updates organization IDs and saves', async () => {
+    const user = userEvent.setup();
+    mockGet.mockResolvedValueOnce(user2Response);
+    mockUpdate.mockResolvedValueOnce({
+      user: {
+        id: 'user-2',
+        email: 'regular@example.com',
+        emailConfirmed: false,
+        admin: false,
+        organizationIds: ['org-1', 'org-2']
+      }
+    });
+
+    renderWithRouter('user-2');
+
+    const orgInput = await screen.findByLabelText('Organization IDs');
+    await user.clear(orgInput);
+    await user.type(orgInput, 'org-1, org-2');
+
+    const saveButton = screen.getByRole('button', { name: 'Save' });
+    await user.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith('user-2', {
+        organizationIds: ['org-1', 'org-2']
+      });
+    });
+  });
+
   it('toggles emailConfirmed checkbox and saves', async () => {
     const user = userEvent.setup();
     mockGet.mockResolvedValueOnce(user2Response);
@@ -134,7 +167,8 @@ describe('UsersAdminDetail', () => {
         id: 'user-2',
         email: 'regular@example.com',
         emailConfirmed: true,
-        admin: false
+        admin: false,
+        organizationIds: []
       }
     });
 
@@ -164,7 +198,8 @@ describe('UsersAdminDetail', () => {
         id: 'user-2',
         email: 'regular@example.com',
         emailConfirmed: false,
-        admin: true
+        admin: true,
+        organizationIds: []
       }
     });
 

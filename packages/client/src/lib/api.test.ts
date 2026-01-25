@@ -329,7 +329,8 @@ describe('api', () => {
               id: 'user-1',
               email: 'test@example.com',
               emailConfirmed: true,
-              admin: false
+              admin: false,
+              organizationIds: []
             }
           }),
           {
@@ -347,6 +348,139 @@ describe('api', () => {
         expect.any(Number),
         true
       );
+    });
+  });
+
+  describe('admin organizations endpoints', () => {
+    beforeEach(() => {
+      vi.stubEnv('VITE_API_URL', 'http://localhost:3000');
+    });
+
+    it('calls list organizations endpoint', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ organizations: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      const { api } = await import('./api');
+      await api.admin.organizations.list();
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/admin/organizations',
+        {}
+      );
+    });
+
+    it('calls get organization endpoint', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            organization: {
+              id: 'org-1',
+              name: 'Acme',
+              description: null,
+              createdAt: '2024-01-01T00:00:00Z',
+              updatedAt: '2024-01-01T00:00:00Z'
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      const { api } = await import('./api');
+      await api.admin.organizations.get('org-1');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/admin/organizations/org-1',
+        {}
+      );
+    });
+
+    it('calls create organization endpoint', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            organization: {
+              id: 'org-1',
+              name: 'Acme',
+              description: null,
+              createdAt: '2024-01-01T00:00:00Z',
+              updatedAt: '2024-01-01T00:00:00Z'
+            }
+          }),
+          {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      const { api } = await import('./api');
+      await api.admin.organizations.create({ name: 'Acme' });
+
+      const call = vi.mocked(global.fetch).mock.calls[0];
+      if (!call) {
+        throw new Error('Expected fetch to be called');
+      }
+      expect(call[0]).toBe('http://localhost:3000/admin/organizations');
+      const options = call[1];
+      expect(options?.method).toBe('POST');
+    });
+
+    it('calls update organization endpoint', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            organization: {
+              id: 'org-1',
+              name: 'Acme',
+              description: 'Updated',
+              createdAt: '2024-01-01T00:00:00Z',
+              updatedAt: '2024-01-01T00:00:00Z'
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      const { api } = await import('./api');
+      await api.admin.organizations.update('org-1', { description: 'Updated' });
+
+      const call = vi.mocked(global.fetch).mock.calls[0];
+      if (!call) {
+        throw new Error('Expected fetch to be called');
+      }
+      expect(call[0]).toBe('http://localhost:3000/admin/organizations/org-1');
+      const options = call[1];
+      expect(options?.method).toBe('PUT');
+    });
+
+    it('calls delete organization endpoint', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ deleted: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      const { api } = await import('./api');
+      await api.admin.organizations.delete('org-1');
+
+      const call = vi.mocked(global.fetch).mock.calls[0];
+      if (!call) {
+        throw new Error('Expected fetch to be called');
+      }
+      expect(call[0]).toBe('http://localhost:3000/admin/organizations/org-1');
+      const options = call[1];
+      expect(options?.method).toBe('DELETE');
     });
   });
 });

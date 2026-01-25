@@ -17,6 +17,7 @@ export function CreateGroupDialog({
   onCreated
 }: CreateGroupDialogProps) {
   const [name, setName] = useState('');
+  const [organizationId, setOrganizationId] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +27,7 @@ export function CreateGroupDialog({
   useEffect(() => {
     if (open) {
       setName('');
+      setOrganizationId('');
       setDescription('');
       setError(null);
       setTimeout(() => nameInputRef.current?.focus(), 0);
@@ -49,14 +51,24 @@ export function CreateGroupDialog({
       return;
     }
 
+    if (!organizationId.trim()) {
+      setError('Organization ID is required');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       const trimmedDescription = description.trim();
+      const trimmedOrganizationId = organizationId.trim();
       await api.admin.groups.create(
         trimmedDescription
-          ? { name: name.trim(), description: trimmedDescription }
-          : { name: name.trim() }
+          ? {
+              name: name.trim(),
+              description: trimmedDescription,
+              organizationId: trimmedOrganizationId
+            }
+          : { name: name.trim(), organizationId: trimmedOrganizationId }
       );
       onOpenChange(false);
       onCreated?.();
@@ -121,6 +133,18 @@ export function CreateGroupDialog({
               placeholder="Enter group description"
               disabled={loading}
               rows={3}
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="group-org" className="font-medium text-sm">
+              Organization ID
+            </label>
+            <Input
+              id="group-org"
+              value={organizationId}
+              onChange={(e) => setOrganizationId(e.target.value)}
+              placeholder="Enter organization ID"
+              disabled={loading}
             />
           </div>
           {error && <p className="text-destructive text-sm">{error}</p>}

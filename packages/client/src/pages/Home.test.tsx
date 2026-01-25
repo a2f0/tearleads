@@ -56,6 +56,7 @@ const MOCK_SAVED_POSITIONS = {
   '/admin': { x: 200, y: 600 },
   '/settings': { x: 300, y: 600 },
   '/admin/users': { x: 400, y: 600 },
+  '/admin/organizations': { x: 500, y: 600 },
   '/sync': { x: 100, y: 700 },
   '/v86': { x: 200, y: 700 }
 };

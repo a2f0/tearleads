@@ -35,6 +35,7 @@ export const es = {
     postgres: 'Postgres',
     postgresAdmin: 'Admin de Postgres',
     groups: 'Grupos',
+    organizations: 'Organizaciones',
     adminUsers: 'Admin de usuarios',
     settings: 'Configuración',
     email: 'Correo',

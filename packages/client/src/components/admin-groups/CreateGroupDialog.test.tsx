@@ -50,6 +50,7 @@ describe('CreateGroupDialog', () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Name')).toBeInTheDocument();
     expect(screen.getByLabelText('Description (optional)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Organization ID')).toBeInTheDocument();
   });
 
   it('focuses name input when opened', async () => {
@@ -60,7 +61,7 @@ describe('CreateGroupDialog', () => {
     });
   });
 
-  it('creates group with name only', async () => {
+  it('creates group with name and organization', async () => {
     const user = userEvent.setup();
     const { onOpenChange, onCreated } = renderDialog();
     mockCreate.mockResolvedValue({
@@ -74,16 +75,20 @@ describe('CreateGroupDialog', () => {
     });
 
     await user.type(screen.getByLabelText('Name'), 'Test Group');
+    await user.type(screen.getByLabelText('Organization ID'), 'org-1');
     await user.click(screen.getByRole('button', { name: 'Create' }));
 
     await waitFor(() => {
-      expect(mockCreate).toHaveBeenCalledWith({ name: 'Test Group' });
+      expect(mockCreate).toHaveBeenCalledWith({
+        name: 'Test Group',
+        organizationId: 'org-1'
+      });
     });
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onCreated).toHaveBeenCalled();
   });
 
-  it('creates group with name and description', async () => {
+  it('creates group with name, description, and organization', async () => {
     const user = userEvent.setup();
     const { onOpenChange } = renderDialog();
     mockCreate.mockResolvedValue({
@@ -97,6 +102,7 @@ describe('CreateGroupDialog', () => {
     });
 
     await user.type(screen.getByLabelText('Name'), 'Test Group');
+    await user.type(screen.getByLabelText('Organization ID'), 'org-1');
     await user.type(
       screen.getByLabelText('Description (optional)'),
       'A test group'
@@ -106,7 +112,8 @@ describe('CreateGroupDialog', () => {
     await waitFor(() => {
       expect(mockCreate).toHaveBeenCalledWith({
         name: 'Test Group',
-        description: 'A test group'
+        description: 'A test group',
+        organizationId: 'org-1'
       });
     });
     expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -122,12 +129,24 @@ describe('CreateGroupDialog', () => {
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
+  it('shows error when organization ID is empty', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(screen.getByLabelText('Name'), 'Test Group');
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(screen.getByText('Organization ID is required')).toBeInTheDocument();
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
   it('shows error when name already exists', async () => {
     const user = userEvent.setup();
     renderDialog();
     mockCreate.mockRejectedValue(new Error('409'));
 
     await user.type(screen.getByLabelText('Name'), 'Existing Group');
+    await user.type(screen.getByLabelText('Organization ID'), 'org-1');
     await user.click(screen.getByRole('button', { name: 'Create' }));
 
     await waitFor(() => {

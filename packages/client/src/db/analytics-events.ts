@@ -37,6 +37,11 @@ export type AnalyticsEventSlug =
   | 'api_get_admin_group_members'
   | 'api_post_admin_group_member'
   | 'api_delete_admin_group_member'
+  | 'api_get_admin_organizations'
+  | 'api_get_admin_organization'
+  | 'api_post_admin_organization'
+  | 'api_put_admin_organization'
+  | 'api_delete_admin_organization'
   | 'api_post_auth_login'
   | 'api_post_auth_logout'
   | 'api_post_auth_refresh'
@@ -80,6 +85,11 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_get_admin_group_members: 'API Get Group Members',
   api_post_admin_group_member: 'API Add Group Member',
   api_delete_admin_group_member: 'API Remove Group Member',
+  api_get_admin_organizations: 'API List Organizations',
+  api_get_admin_organization: 'API Get Organization',
+  api_post_admin_organization: 'API Create Organization',
+  api_put_admin_organization: 'API Update Organization',
+  api_delete_admin_organization: 'API Delete Organization',
   api_post_auth_login: 'API Auth Login',
   api_post_auth_logout: 'API Auth Logout',
   api_post_auth_refresh: 'API Auth Refresh',
@@ -189,6 +199,21 @@ export interface ApiPostAdminGroupMemberDetail {
 export interface ApiDeleteAdminGroupMemberDetail {
   removed?: boolean;
 }
+export interface ApiGetAdminOrganizationsDetail {
+  organizationCount?: number;
+}
+export interface ApiGetAdminOrganizationDetail {
+  organizationId?: string;
+}
+export interface ApiPostAdminOrganizationDetail {
+  organizationName?: string;
+}
+export interface ApiPutAdminOrganizationDetail {
+  organizationId?: string;
+}
+export interface ApiDeleteAdminOrganizationDetail {
+  deleted?: boolean;
+}
 export interface ApiPostAuthLoginDetail {
   email?: string;
 }
@@ -251,6 +276,11 @@ export interface EventDetailMap {
   api_get_admin_group_members: ApiGetAdminGroupMembersDetail;
   api_post_admin_group_member: ApiPostAdminGroupMemberDetail;
   api_delete_admin_group_member: ApiDeleteAdminGroupMemberDetail;
+  api_get_admin_organizations: ApiGetAdminOrganizationsDetail;
+  api_get_admin_organization: ApiGetAdminOrganizationDetail;
+  api_post_admin_organization: ApiPostAdminOrganizationDetail;
+  api_put_admin_organization: ApiPutAdminOrganizationDetail;
+  api_delete_admin_organization: ApiDeleteAdminOrganizationDetail;
   api_post_auth_login: ApiPostAuthLoginDetail;
   api_post_auth_logout: ApiPostAuthLogoutDetail;
   api_post_auth_refresh: ApiPostAuthRefreshDetail;

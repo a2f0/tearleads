@@ -27,13 +27,15 @@ describe('UsersAdmin', () => {
         id: 'user-1',
         email: 'admin@example.com',
         emailConfirmed: true,
-        admin: true
+        admin: true,
+        organizationIds: ['org-1']
       },
       {
         id: 'user-2',
         email: 'regular@example.com',
         emailConfirmed: false,
-        admin: false
+        admin: false,
+        organizationIds: []
       }
     ]
   };
@@ -169,7 +171,8 @@ describe('UsersAdmin', () => {
           id: 'user-3',
           email: 'new@example.com',
           emailConfirmed: true,
-          admin: false
+          admin: false,
+          organizationIds: ['org-2']
         }
       ]
     });
