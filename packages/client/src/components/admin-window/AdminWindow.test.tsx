@@ -41,11 +41,40 @@ vi.mock('@/pages/admin/Admin', () => ({
 }));
 
 vi.mock('@/pages/admin/PostgresAdmin', () => ({
-  PostgresAdmin: ({ showBackLink }: { showBackLink?: boolean }) => (
+  PostgresAdmin: ({
+    showBackLink,
+    onTableSelect
+  }: {
+    showBackLink?: boolean;
+    onTableSelect?: (schema: string, tableName: string) => void;
+  }) => (
     <div data-testid="admin-postgres-content">
       <span data-testid="postgres-backlink">
         {showBackLink ? 'true' : 'false'}
       </span>
+      {onTableSelect && (
+        <button type="button" onClick={() => onTableSelect('public', 'users')}>
+          Select Table
+        </button>
+      )}
+    </div>
+  )
+}));
+
+vi.mock('@/components/admin-postgres/PostgresTableRowsView', () => ({
+  PostgresTableRowsView: ({
+    schema,
+    tableName,
+    backLink
+  }: {
+    schema: string;
+    tableName: string;
+    backLink: React.ReactNode;
+  }) => (
+    <div data-testid="postgres-table-rows-content">
+      <span data-testid="postgres-table-schema">{schema}</span>
+      <span data-testid="postgres-table-name">{tableName}</span>
+      <div data-testid="postgres-table-back-link">{backLink}</div>
     </div>
   )
 }));
@@ -471,6 +500,49 @@ describe('AdminWindow', () => {
       expect(screen.getByTestId('window-title')).toHaveTextContent('Users');
       expect(screen.getByTestId('admin-users-content')).toBeInTheDocument();
       expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+    });
+  });
+
+  describe('postgres table drill-down', () => {
+    it('navigates to postgres table view when a table is selected', async () => {
+      const user = userEvent.setup();
+      render(<AdminWindow {...defaultProps} />);
+
+      await user.click(screen.getByText('Postgres'));
+      await user.click(screen.getByText('Select Table'));
+
+      expect(screen.getByTestId('window-title')).toHaveTextContent(
+        'public.users'
+      );
+      expect(
+        screen.getByTestId('postgres-table-rows-content')
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('postgres-table-schema')).toHaveTextContent(
+        'public'
+      );
+      expect(screen.getByTestId('postgres-table-name')).toHaveTextContent(
+        'users'
+      );
+    });
+
+    it('returns to Postgres view from table view when back is clicked', async () => {
+      const user = userEvent.setup();
+      render(<AdminWindow {...defaultProps} />);
+
+      await user.click(screen.getByText('Postgres'));
+      await user.click(screen.getByText('Select Table'));
+      expect(
+        screen.getByTestId('postgres-table-rows-content')
+      ).toBeInTheDocument();
+
+      const backButton = screen
+        .getByTestId('postgres-table-back-link')
+        .querySelector('button');
+      if (!backButton) throw new Error('Back button not found');
+      await user.click(backButton);
+
+      expect(screen.getByTestId('window-title')).toHaveTextContent('Postgres');
+      expect(screen.getByTestId('admin-postgres-content')).toBeInTheDocument();
     });
   });
 });

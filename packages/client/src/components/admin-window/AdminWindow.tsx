@@ -2,6 +2,7 @@ import { ArrowLeft, Shield } from 'lucide-react';
 import { useState } from 'react';
 import type { AdminOptionId } from '@/components/admin';
 import { AdminOptionsGrid } from '@/components/admin';
+import { PostgresTableRowsView } from '@/components/admin-postgres/PostgresTableRowsView';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { Admin } from '@/pages/admin/Admin';
@@ -19,7 +20,8 @@ type AdminView =
   | AdminOptionId
   | { type: 'group-detail'; groupId: string }
   | { type: 'organization-detail'; organizationId: string }
-  | { type: 'user-detail'; userId: string };
+  | { type: 'user-detail'; userId: string }
+  | { type: 'postgres-table'; schema: string; tableName: string };
 
 interface AdminWindowProps {
   id: string;
@@ -44,6 +46,8 @@ function getViewTitle(view: AdminView): string {
   if (typeof view === 'object' && view.type === 'organization-detail')
     return 'Organization Detail';
   if (typeof view === 'object' && view.type === 'user-detail') return 'User';
+  if (typeof view === 'object' && view.type === 'postgres-table')
+    return `${view.schema}.${view.tableName}`;
   return 'Admin';
 }
 
@@ -69,6 +73,10 @@ export function AdminWindow({
 
   const handleOrganizationSelect = (organizationId: string) => {
     setView({ type: 'organization-detail', organizationId });
+  };
+
+  const handleTableSelect = (schema: string, tableName: string) => {
+    setView({ type: 'postgres-table', schema, tableName });
   };
 
   const renderContent = () => {
@@ -138,12 +146,32 @@ export function AdminWindow({
       );
     }
 
+    if (typeof view === 'object' && view.type === 'postgres-table') {
+      return (
+        <PostgresTableRowsView
+          schema={view.schema}
+          tableName={view.tableName}
+          backLink={
+            <button
+              type="button"
+              onClick={() => setView('postgres')}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          }
+        />
+      );
+    }
+
     // List views get a back button wrapper
     let content: React.ReactNode;
     if (view === 'redis') {
       content = <Admin showBackLink={false} />;
     } else if (view === 'postgres') {
-      content = <PostgresAdmin showBackLink={false} />;
+      content = (
+        <PostgresAdmin showBackLink={false} onTableSelect={handleTableSelect} />
+      );
     } else if (view === 'groups') {
       content = (
         <GroupsAdmin showBackLink={false} onGroupSelect={handleGroupSelect} />
