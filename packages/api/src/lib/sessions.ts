@@ -227,7 +227,12 @@ export async function getLatestLastActiveByUserIds(
         continue;
       }
 
-      const expectedUserId = sessionIdToUser.get(sessionIds[index]);
+      const sessionId = sessionIds[index];
+      if (!sessionId) {
+        continue;
+      }
+
+      const expectedUserId = sessionIdToUser.get(sessionId);
       if (!expectedUserId || expectedUserId !== userId) {
         continue;
       }
