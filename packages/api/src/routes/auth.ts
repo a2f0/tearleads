@@ -486,4 +486,46 @@ router.delete('/sessions/:sessionId', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @openapi
+ * /auth/logout:
+ *   post:
+ *     summary: Logout and invalidate current session
+ *     description: Deletes the current session and refresh token.
+ *     tags:
+ *       - Auth
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 loggedOut:
+ *                   type: boolean
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.post('/logout', async (req: Request, res: Response) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    await deleteSession(claims.jti, claims.sub);
+
+    res.json({ loggedOut: true });
+  } catch (error) {
+    console.error('Failed to logout:', error);
+    res.status(500).json({ error: 'Failed to logout' });
+  }
+});
+
 export { router as authRouter };

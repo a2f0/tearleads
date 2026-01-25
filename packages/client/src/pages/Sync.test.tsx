@@ -6,11 +6,13 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { Sync } from './Sync';
 
 const mockLogin = vi.fn();
+const mockLogout = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
     auth: {
-      login: (...args: unknown[]) => mockLogin(...args)
+      login: (...args: unknown[]) => mockLogin(...args),
+      logout: () => mockLogout()
     }
   }
 }));
@@ -197,6 +199,7 @@ describe('Sync', () => {
   });
 
   it('handles logout', async () => {
+    mockLogout.mockResolvedValueOnce({ loggedOut: true });
     localStorage.setItem('auth_token', 'saved-token');
     localStorage.setItem(
       'auth_user',

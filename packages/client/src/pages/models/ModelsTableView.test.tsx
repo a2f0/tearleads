@@ -102,6 +102,52 @@ describe('ModelsTableView', () => {
     ).toBeInTheDocument();
   });
 
+  it('calls onLoad when Load is clicked for cached models', async () => {
+    const user = userEvent.setup();
+    const onLoad = vi.fn();
+
+    render(
+      <ModelsTableView
+        recommendedModels={recommendedModels}
+        openRouterModels={[]}
+        loadedModel={null}
+        loadingModelId={null}
+        loadProgress={null}
+        getModelStatus={() => 'cached'}
+        onLoad={onLoad}
+        onUnload={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Load' }));
+
+    expect(onLoad).toHaveBeenCalledWith('local-model');
+  });
+
+  it('calls onDelete when delete button is clicked for cached models', async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+
+    render(
+      <ModelsTableView
+        recommendedModels={recommendedModels}
+        openRouterModels={[]}
+        loadedModel={null}
+        loadingModelId={null}
+        loadProgress={null}
+        getModelStatus={() => 'cached'}
+        onLoad={vi.fn()}
+        onUnload={vi.fn()}
+        onDelete={onDelete}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Delete from cache' }));
+
+    expect(onDelete).toHaveBeenCalledWith('local-model');
+  });
+
   it('shows progress details when downloading a local model', () => {
     render(
       <ModelsTableView

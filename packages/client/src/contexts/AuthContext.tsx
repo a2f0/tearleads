@@ -25,7 +25,7 @@ interface AuthContextValue {
   authError: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   clearAuthError: () => void;
 }
 
@@ -78,7 +78,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     storeAuth(response.accessToken, response.refreshToken, response.user);
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    // Invalidate session on server (best effort)
+    try {
+      await api.auth.logout();
+    } catch (error) {
+      // Ignore errors - we still want to clear local state, but log for debugging.
+      console.warn('Server-side logout failed:', error);
+    }
+
     setToken(null);
     setUser(null);
     setAuthErrorState(null);
