@@ -43,23 +43,6 @@ export const v007: Migration = {
         'ALTER TABLE "groups" ADD COLUMN IF NOT EXISTS "organization_id" TEXT'
       );
 
-      const defaultOrgId = 'org-default';
-      await pool.query(
-        `INSERT INTO "organizations" (id, name, description, created_at, updated_at)
-         VALUES ($1, $2, $3, NOW(), NOW())
-         ON CONFLICT (id) DO NOTHING`,
-        [
-          defaultOrgId,
-          'Default Organization',
-          'Auto-created organization for existing groups.'
-        ]
-      );
-
-      await pool.query(
-        'UPDATE "groups" SET "organization_id" = $1 WHERE "organization_id" IS NULL',
-        [defaultOrgId]
-      );
-
       await pool.query(
         'ALTER TABLE "groups" ALTER COLUMN "organization_id" SET NOT NULL'
       );
