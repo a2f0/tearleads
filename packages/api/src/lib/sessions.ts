@@ -200,7 +200,10 @@ export async function getLatestLastActiveByUserIds(
 
     const sessionKeys = sessionIds.map(getSessionKey);
     const rawSessions = await client.mGet(sessionKeys);
-    const latestByUser = new Map<string, { timestamp: number; value: string }>();
+    const latestByUser = new Map<
+      string,
+      { timestamp: number; value: string }
+    >();
 
     for (const [index, raw] of rawSessions.entries()) {
       if (!raw) {
