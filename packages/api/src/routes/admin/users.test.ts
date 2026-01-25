@@ -39,6 +39,10 @@ describe('admin users routes', () => {
   });
 
   it('GET /v1/admin/users returns users', async () => {
+    mockGetLatestLastActiveByUserIds.mockResolvedValue({
+      'user-1': '2024-01-05T00:00:00.000Z',
+      'user-2': null
+    });
     mockGetPostgresPool.mockResolvedValue({
       query: mockQuery.mockResolvedValue({
         rows: [
@@ -47,14 +51,16 @@ describe('admin users routes', () => {
             email: 'alpha@example.com',
             email_confirmed: true,
             admin: false,
-            organization_ids: []
+            organization_ids: [],
+            created_at: new Date('2024-01-01T00:00:00.000Z')
           },
           {
             id: 'user-2',
             email: 'beta@example.com',
             email_confirmed: false,
             admin: true,
-            organization_ids: ['org-1']
+            organization_ids: ['org-1'],
+            created_at: '2024-02-01T00:00:00.000Z'
           }
         ]
       })
@@ -73,8 +79,8 @@ describe('admin users routes', () => {
           emailConfirmed: true,
           admin: false,
           organizationIds: [],
-          createdAt: null,
-          lastActiveAt: null
+          createdAt: '2024-01-01T00:00:00.000Z',
+          lastActiveAt: '2024-01-05T00:00:00.000Z'
         },
         {
           id: 'user-2',
@@ -82,7 +88,7 @@ describe('admin users routes', () => {
           emailConfirmed: false,
           admin: true,
           organizationIds: ['org-1'],
-          createdAt: null,
+          createdAt: '2024-02-01T00:00:00.000Z',
           lastActiveAt: null
         }
       ]
@@ -488,6 +494,16 @@ describe('admin users routes', () => {
     expect(response.body).toEqual({ error: 'Invalid user update payload' });
   });
 
+  it('PATCH /v1/admin/users/:id returns 400 for non-array organizationIds', async () => {
+    const response = await request(app)
+      .patch('/v1/admin/users/user-1')
+      .set('Authorization', authHeader)
+      .send({ organizationIds: 'org-1' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid user update payload' });
+  });
+
   it('PATCH /v1/admin/users/:id returns 500 on database error', async () => {
     mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
     mockQuery.mockImplementation((query: string) => {
@@ -499,7 +515,7 @@ describe('admin users routes', () => {
         return Promise.reject(new Error('database error'));
       }
       if (query === 'ROLLBACK') {
-        return Promise.resolve({ rows: [] });
+        return Promise.reject(new Error('rollback failed'));
       }
       return Promise.resolve({ rows: [] });
     });

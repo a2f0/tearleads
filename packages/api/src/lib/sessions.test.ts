@@ -119,6 +119,31 @@ describe('sessions', () => {
   });
 
   describe('updateSessionActivity', () => {
+    it('updates lastActiveAt when session is valid', async () => {
+      vi.useFakeTimers();
+      const { updateSessionActivity } = await import('./sessions.js');
+
+      vi.setSystemTime(new Date('2024-01-01T00:00:00.000Z'));
+      sessionStore.set(
+        'session:valid-session',
+        JSON.stringify({
+          userId: 'user-1',
+          email: 'test@example.com',
+          createdAt: new Date().toISOString(),
+          lastActiveAt: new Date('2023-12-31T00:00:00.000Z').toISOString(),
+          ipAddress: '127.0.0.1'
+        })
+      );
+      sessionTtl.set('session:valid-session', 3600);
+
+      vi.setSystemTime(new Date('2024-01-02T00:00:00.000Z'));
+      await updateSessionActivity('valid-session');
+
+      const stored = sessionStore.get('session:valid-session');
+      expect(stored).toContain('2024-01-02T00:00:00.000Z');
+      vi.useRealTimers();
+    });
+
     it('handles invalid JSON in session data', async () => {
       const { updateSessionActivity } = await import('./sessions.js');
 
@@ -241,6 +266,51 @@ describe('sessions', () => {
 
       userSessionsStore.set('user_sessions:user-1', new Set(['bad-session']));
       sessionStore.set('session:bad-session', 'not valid json {{{');
+
+      const result = await getLatestLastActiveByUserIds(['user-1']);
+
+      expect(result).toEqual({ 'user-1': null });
+    });
+
+    it('skips mismatched user IDs and invalid timestamps', async () => {
+      const { getLatestLastActiveByUserIds } = await import('./sessions.js');
+
+      userSessionsStore.set(
+        'user_sessions:user-1',
+        new Set(['session-mismatch', 'session-bad-timestamp'])
+      );
+
+      sessionStore.set(
+        'session:session-mismatch',
+        JSON.stringify({
+          userId: 'user-2',
+          email: 'user2@example.com',
+          createdAt: '2024-01-01T00:00:00.000Z',
+          lastActiveAt: '2024-01-04T00:00:00.000Z',
+          ipAddress: '127.0.0.1'
+        })
+      );
+
+      sessionStore.set(
+        'session:session-bad-timestamp',
+        JSON.stringify({
+          userId: 'user-1',
+          email: 'user1@example.com',
+          createdAt: '2024-01-01T00:00:00.000Z',
+          lastActiveAt: 'not-a-date',
+          ipAddress: '127.0.0.1'
+        })
+      );
+
+      const result = await getLatestLastActiveByUserIds(['user-1']);
+
+      expect(result).toEqual({ 'user-1': null });
+    });
+
+    it('skips empty session identifiers', async () => {
+      const { getLatestLastActiveByUserIds } = await import('./sessions.js');
+
+      userSessionsStore.set('user_sessions:user-1', new Set(['']));
 
       const result = await getLatestLastActiveByUserIds(['user-1']);
 
