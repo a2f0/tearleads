@@ -519,10 +519,7 @@ router.post('/logout', async (req: Request, res: Response) => {
   }
 
   try {
-    const session = await getSession(claims.jti);
-    if (session) {
-      await deleteSession(claims.jti, claims.sub);
-    }
+    await deleteSession(claims.jti, claims.sub);
 
     res.json({ loggedOut: true });
   } catch (error) {

@@ -82,8 +82,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Invalidate session on server (best effort)
     try {
       await api.auth.logout();
-    } catch {
-      // Ignore errors - we still want to clear local state
+    } catch (error) {
+      // Ignore errors - we still want to clear local state, but log for debugging.
+      console.warn('Server-side logout failed:', error);
     }
 
     setToken(null);

@@ -178,6 +178,7 @@ describe('AuthContext', () => {
   });
 
   it('clears local state even when logout API fails (offline support)', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mockLogout.mockRejectedValueOnce(new Error('Network error'));
     localStorage.setItem('auth_token', 'saved-token');
     localStorage.setItem(
@@ -210,6 +211,12 @@ describe('AuthContext', () => {
     expect(mockLogout).toHaveBeenCalledTimes(1);
     expect(localStorage.getItem('auth_token')).toBeNull();
     expect(localStorage.getItem('auth_user')).toBeNull();
+    expect(consoleWarn).toHaveBeenCalledWith(
+      'Server-side logout failed:',
+      expect.any(Error)
+    );
+
+    consoleWarn.mockRestore();
   });
 
   it('clears invalid localStorage data', async () => {
