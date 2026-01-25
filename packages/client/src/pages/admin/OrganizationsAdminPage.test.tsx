@@ -7,7 +7,11 @@ import { OrganizationsAdminPage } from './OrganizationsAdminPage';
 const mockNavigate = vi.fn();
 
 vi.mock('./OrganizationsAdmin', () => ({
-  OrganizationsAdmin: ({ onOrganizationSelect }: { onOrganizationSelect: (id: string) => void }) => (
+  OrganizationsAdmin: ({
+    onOrganizationSelect
+  }: {
+    onOrganizationSelect: (id: string) => void;
+  }) => (
     <button type="button" onClick={() => onOrganizationSelect('org-123')}>
       Select Org
     </button>

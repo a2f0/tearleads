@@ -5,7 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrganizationsAdmin } from './OrganizationsAdmin';
 
 vi.mock('@/components/admin-organizations', () => ({
-  OrganizationsList: ({ onOrganizationSelect }: { onOrganizationSelect: (id: string) => void }) => (
+  OrganizationsList: ({
+    onOrganizationSelect
+  }: {
+    onOrganizationSelect: (id: string) => void;
+  }) => (
     <div>
       <button type="button" onClick={() => onOrganizationSelect('org-1')}>
         Select Org 1

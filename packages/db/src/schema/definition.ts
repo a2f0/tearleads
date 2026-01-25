@@ -186,9 +186,7 @@ export const userOrganizationsTable: TableDefinition = {
       notNull: true
     }
   },
-  indexes: [
-    { name: 'user_organizations_org_idx', columns: ['organizationId'] }
-  ]
+  indexes: [{ name: 'user_organizations_org_idx', columns: ['organizationId'] }]
 };
 
 /**

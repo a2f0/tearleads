@@ -242,9 +242,7 @@ export function UsersAdminDetail({
           <Input
             id="user-organizations"
             value={organizationIdsInput}
-            onChange={(event) =>
-              setOrganizationIdsInput(event.target.value)
-            }
+            onChange={(event) => setOrganizationIdsInput(event.target.value)}
             placeholder="org-1, org-2"
           />
           <p className="text-muted-foreground text-xs">

@@ -2,9 +2,9 @@ import {
   AppWindow,
   Archive,
   BarChart3,
-  Building2,
   Bot,
   Bug,
+  Building2,
   ChevronRight,
   CircleHelp,
   Cpu,
@@ -333,8 +333,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   const sidebarItems = isDesktop
     ? navItems.filter(
         (item) =>
-          item.path !== '/admin/users' &&
-          item.path !== '/admin/organizations'
+          item.path !== '/admin/users' && item.path !== '/admin/organizations'
       )
     : navItems;
 

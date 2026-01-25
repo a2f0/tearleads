@@ -23,7 +23,10 @@ describe('OrganizationDetailPageRoute', () => {
             path="/admin/organizations/:id"
             element={<OrganizationDetailPageRoute />}
           />
-          <Route path="/admin/organizations" element={<div>Organizations</div>} />
+          <Route
+            path="/admin/organizations"
+            element={<div>Organizations</div>}
+          />
         </Routes>
       </MemoryRouter>
     );

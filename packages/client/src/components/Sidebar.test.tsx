@@ -611,7 +611,9 @@ describe('Admin flyout menu', () => {
     expect(screen.getByTestId('admin-flyout-redis')).toBeInTheDocument();
     expect(screen.getByTestId('admin-flyout-postgres')).toBeInTheDocument();
     expect(screen.getByTestId('admin-flyout-groups')).toBeInTheDocument();
-    expect(screen.getByTestId('admin-flyout-organizations')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('admin-flyout-organizations')
+    ).toBeInTheDocument();
     expect(screen.getByTestId('admin-flyout-adminUsers')).toBeInTheDocument();
   });
 
@@ -814,9 +816,7 @@ describe('Admin flyout menu', () => {
     renderSidebar();
 
     expect(screen.getByTestId('admin-users-link')).toBeInTheDocument();
-    expect(
-      screen.getByTestId('admin-organizations-link')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('admin-organizations-link')).toBeInTheDocument();
   });
 
   it('closes flyout when mouse leaves admin button', () => {

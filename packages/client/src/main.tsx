@@ -377,7 +377,9 @@ if (rootElement) {
                                       />
                                       <Route
                                         path="admin/organizations/:id"
-                                        element={<OrganizationDetailPageRoute />}
+                                        element={
+                                          <OrganizationDetailPageRoute />
+                                        }
                                       />
                                       <Route
                                         path="admin/users"

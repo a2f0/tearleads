@@ -58,7 +58,8 @@ router.get('/', async (_req: Request, res: Response) => {
   } catch (err) {
     console.error('Organizations error:', err);
     res.status(500).json({
-      error: err instanceof Error ? err.message : 'Failed to fetch organizations'
+      error:
+        err instanceof Error ? err.message : 'Failed to fetch organizations'
     });
   }
 });
@@ -325,15 +326,15 @@ router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
     const pool = await getPostgresPool();
 
-    const result = await pool.query(
-      'DELETE FROM organizations WHERE id = $1',
-      [id]
-    );
+    const result = await pool.query('DELETE FROM organizations WHERE id = $1', [
+      id
+    ]);
     res.json({ deleted: result.rowCount !== null && result.rowCount > 0 });
   } catch (err) {
     console.error('Organizations error:', err);
     res.status(500).json({
-      error: err instanceof Error ? err.message : 'Failed to delete organization'
+      error:
+        err instanceof Error ? err.message : 'Failed to delete organization'
     });
   }
 });

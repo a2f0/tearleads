@@ -344,14 +344,14 @@ describe('admin groups routes', () => {
       mockGetPostgresPool.mockResolvedValue({
         query: mockQuery.mockResolvedValue({
           rows: [
-          {
-            id: 'group-1',
-            organization_id: 'org-1',
-            name: 'Updated Name',
-            description: 'Updated description',
-            created_at: now,
-            updated_at: now
-          }
+            {
+              id: 'group-1',
+              organization_id: 'org-1',
+              name: 'Updated Name',
+              description: 'Updated description',
+              created_at: now,
+              updated_at: now
+            }
           ]
         })
       });
@@ -372,14 +372,14 @@ describe('admin groups routes', () => {
       mockGetPostgresPool.mockResolvedValue({
         query: mockQuery.mockResolvedValue({
           rows: [
-          {
-            id: 'group-1',
-            organization_id: 'org-1',
-            name: 'New Name',
-            description: 'Old description',
-            created_at: now,
-            updated_at: now
-          }
+            {
+              id: 'group-1',
+              organization_id: 'org-1',
+              name: 'New Name',
+              description: 'Old description',
+              created_at: now,
+              updated_at: now
+            }
           ]
         })
       });

@@ -136,9 +136,7 @@ describe('CreateGroupDialog', () => {
     await user.type(screen.getByLabelText('Name'), 'Test Group');
     await user.click(screen.getByRole('button', { name: 'Create' }));
 
-    expect(
-      screen.getByText('Organization ID is required')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Organization ID is required')).toBeInTheDocument();
     expect(mockCreate).not.toHaveBeenCalled();
   });
 

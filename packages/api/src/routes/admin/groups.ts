@@ -432,7 +432,10 @@ router.put(
       }
 
       if (organizationId !== undefined) {
-        if (typeof organizationId !== 'string' || organizationId.trim() === '') {
+        if (
+          typeof organizationId !== 'string' ||
+          organizationId.trim() === ''
+        ) {
           res.status(400).json({ error: 'Organization ID cannot be empty' });
           return;
         }

@@ -1909,15 +1909,12 @@ describe('WindowRenderer', () => {
     render(<WindowRenderer />, { wrapper });
 
     await user.click(screen.getByTestId('minimize-admin-organizations-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith(
-      'admin-organizations-1',
-      {
-        x: 0,
-        y: 0,
-        width: 840,
-        height: 620
-      }
-    );
+    expect(mockMinimizeWindow).toHaveBeenCalledWith('admin-organizations-1', {
+      x: 0,
+      y: 0,
+      width: 840,
+      height: 620
+    });
   });
 
   it('renders chat window for chat type', () => {

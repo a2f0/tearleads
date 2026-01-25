@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react';
 import { useCallback } from 'react';
-import { AdminUsersWindow } from '@/components/admin-users-window';
 import { AdminOrganizationsWindow } from '@/components/admin-organizations-window';
+import { AdminUsersWindow } from '@/components/admin-users-window';
 import { AdminWindow } from '@/components/admin-window';
 import { AnalyticsWindow } from '@/components/analytics-window';
 import { AudioWindow } from '@/components/audio-window';

@@ -4,8 +4,8 @@ import type {
   AdminUserUpdatePayload,
   AdminUserUpdateResponse,
   AuthResponse,
-  CreateOrganizationRequest,
   CreateGroupRequest,
+  CreateOrganizationRequest,
   Group,
   GroupDetailResponse,
   GroupMembersResponse,
@@ -21,8 +21,8 @@ import type {
   RedisKeysResponse,
   RedisKeyValueResponse,
   SessionsResponse,
-  UpdateOrganizationRequest,
-  UpdateGroupRequest
+  UpdateGroupRequest,
+  UpdateOrganizationRequest
 } from '@rapid/shared';
 import type { AnalyticsEventSlug } from '@/db/analytics';
 import { logApiEvent } from '@/db/analytics';
