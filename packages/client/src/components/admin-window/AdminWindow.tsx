@@ -26,6 +26,7 @@ interface AdminWindowProps {
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions;
+  initialView?: AdminOptionId;
 }
 
 function getViewTitle(view: AdminView): string {
@@ -47,9 +48,10 @@ export function AdminWindow({
   onDimensionsChange,
   onFocus,
   zIndex,
-  initialDimensions
+  initialDimensions,
+  initialView
 }: AdminWindowProps) {
-  const [view, setView] = useState<AdminView>('index');
+  const [view, setView] = useState<AdminView>(initialView ?? 'index');
 
   const handleGroupSelect = (groupId: string) => {
     setView({ type: 'group-detail', groupId });

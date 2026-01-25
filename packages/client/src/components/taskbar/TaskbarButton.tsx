@@ -25,6 +25,7 @@ import {
   Table2,
   Terminal,
   User,
+  Users,
   X
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
@@ -53,6 +54,9 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   audio: <Music className="h-3 w-3" />,
   models: <Bot className="h-3 w-3" />,
   admin: <Shield className="h-3 w-3" />,
+  'admin-redis': <Database className="h-3 w-3" />,
+  'admin-postgres': <Database className="h-3 w-3" />,
+  'admin-groups': <Users className="h-3 w-3" />,
   'admin-users': <User className="h-3 w-3" />,
   'cache-storage': <Archive className="h-3 w-3" />,
   'local-storage': <HardDrive className="h-3 w-3" />,
@@ -81,6 +85,9 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   audio: 'Audio',
   models: 'Models',
   admin: 'Admin',
+  'admin-redis': 'Redis',
+  'admin-postgres': 'Postgres',
+  'admin-groups': 'Groups',
   'admin-users': 'Users Admin',
   'cache-storage': 'Cache Storage',
   'local-storage': 'Local Storage',

@@ -633,7 +633,7 @@ describe('Admin flyout menu', () => {
     );
   });
 
-  it('clicking flyout Redis option opens admin window', async () => {
+  it('clicking flyout Redis option opens admin-redis window', async () => {
     const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
@@ -646,11 +646,11 @@ describe('Admin flyout menu', () => {
     const redisButton = screen.getByTestId('admin-flyout-redis');
     await user.click(redisButton);
 
-    expect(mockOpenWindow).toHaveBeenCalledWith('admin');
+    expect(mockOpenWindow).toHaveBeenCalledWith('admin-redis');
     expect(mockOnClose).toHaveBeenCalled();
   });
 
-  it('clicking flyout Postgres option navigates to postgres route', async () => {
+  it('clicking flyout Postgres option opens admin-postgres window', async () => {
     const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
@@ -663,11 +663,11 @@ describe('Admin flyout menu', () => {
     const postgresButton = screen.getByTestId('admin-flyout-postgres');
     await user.click(postgresButton);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/admin/postgres');
+    expect(mockOpenWindow).toHaveBeenCalledWith('admin-postgres');
     expect(mockOnClose).toHaveBeenCalled();
   });
 
-  it('clicking flyout Groups option navigates to groups route', async () => {
+  it('clicking flyout Groups option opens admin-groups window', async () => {
     const user = userEvent.setup();
     mockMatchMedia({ isMobile: false, isTouch: false });
     renderSidebar();
@@ -680,7 +680,7 @@ describe('Admin flyout menu', () => {
     const groupsButton = screen.getByTestId('admin-flyout-groups');
     await user.click(groupsButton);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/admin/groups');
+    expect(mockOpenWindow).toHaveBeenCalledWith('admin-groups');
     expect(mockOnClose).toHaveBeenCalled();
   });
 

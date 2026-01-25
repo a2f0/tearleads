@@ -338,4 +338,38 @@ describe('AdminWindow', () => {
 
     expect(onClose).toHaveBeenCalled();
   });
+
+  describe('initialView prop', () => {
+    it('starts at Redis view when initialView is redis', () => {
+      render(<AdminWindow {...defaultProps} initialView="redis" />);
+
+      expect(screen.getByTestId('window-title')).toHaveTextContent('Redis');
+      expect(screen.getByTestId('admin-redis-content')).toBeInTheDocument();
+      expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+    });
+
+    it('starts at Postgres view when initialView is postgres', () => {
+      render(<AdminWindow {...defaultProps} initialView="postgres" />);
+
+      expect(screen.getByTestId('window-title')).toHaveTextContent('Postgres');
+      expect(screen.getByTestId('admin-postgres-content')).toBeInTheDocument();
+      expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+    });
+
+    it('starts at Groups view when initialView is groups', () => {
+      render(<AdminWindow {...defaultProps} initialView="groups" />);
+
+      expect(screen.getByTestId('window-title')).toHaveTextContent('Groups');
+      expect(screen.getByTestId('admin-groups-content')).toBeInTheDocument();
+      expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+    });
+
+    it('starts at Users view when initialView is users', () => {
+      render(<AdminWindow {...defaultProps} initialView="users" />);
+
+      expect(screen.getByTestId('window-title')).toHaveTextContent('Users');
+      expect(screen.getByTestId('admin-users-content')).toBeInTheDocument();
+      expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+    });
+  });
 });
