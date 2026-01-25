@@ -17,16 +17,19 @@ import {
   readStoredAuth,
   storeAuth
 } from '@/lib/auth-storage';
+import { getJwtExpiration, getJwtTimeRemaining } from '@/lib/jwt';
 
 interface AuthContextValue {
   isAuthenticated: boolean;
   user: AuthUser | null;
   token: string | null;
+  tokenExpiresAt: Date | null;
   authError: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   clearAuthError: () => void;
+  getTokenTimeRemaining: () => number | null;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -94,11 +97,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     clearAuthError();
   }, []);
 
+  const tokenExpiresAt = useMemo(() => {
+    if (!token) return null;
+    const exp = getJwtExpiration(token);
+    return exp ? new Date(exp * 1000) : null;
+  }, [token]);
+
+  const getTokenTimeRemaining = useCallback(() => {
+    if (!token) return null;
+    return getJwtTimeRemaining(token);
+  }, [token]);
+
   const value = useMemo(
     () => ({
       isAuthenticated: token !== null,
       user,
       token,
+      tokenExpiresAt,
       authError,
       isLoading,
       login,
@@ -106,9 +121,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
       clearAuthError: () => {
         setAuthErrorState(null);
         clearAuthError();
-      }
+      },
+      getTokenTimeRemaining
     }),
-    [user, token, authError, isLoading, login, logout]
+    [
+      user,
+      token,
+      tokenExpiresAt,
+      authError,
+      isLoading,
+      login,
+      logout,
+      getTokenTimeRemaining
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

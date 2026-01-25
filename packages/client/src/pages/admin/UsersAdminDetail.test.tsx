@@ -6,10 +6,22 @@ import { UsersAdminDetail } from './UsersAdminDetail';
 
 const mockGet = vi.fn();
 const mockUpdate = vi.fn();
+const mockGroupsList = vi.fn();
+const mockGetMembers = vi.fn();
+const mockAddMember = vi.fn();
+const mockRemoveMember = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
     admin: {
+      groups: {
+        list: () => mockGroupsList(),
+        getMembers: (id: string) => mockGetMembers(id),
+        addMember: (groupId: string, userId: string) =>
+          mockAddMember(groupId, userId),
+        removeMember: (groupId: string, userId: string) =>
+          mockRemoveMember(groupId, userId)
+      },
       users: {
         get: (id: string) => mockGet(id),
         update: (id: string, payload: unknown) => mockUpdate(id, payload)
@@ -21,6 +33,7 @@ vi.mock('@/lib/api', () => ({
 describe('UsersAdminDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGroupsList.mockResolvedValue({ groups: [] });
   });
 
   const user1Response = {
@@ -326,6 +339,259 @@ describe('UsersAdminDetail', () => {
 
     await waitFor(() => {
       expect(screen.getByText('No user ID provided')).toBeInTheDocument();
+    });
+  });
+
+  it('copies user id to clipboard', async () => {
+    const user = userEvent.setup();
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(
+      writeTextMock
+    );
+    mockGet.mockResolvedValueOnce(user1Response);
+
+    renderWithRouter('user-1');
+
+    await screen.findByText('user-1');
+    await user.click(screen.getByTestId('copy-user-id'));
+
+    expect(writeTextMock).toHaveBeenCalledWith('user-1');
+  });
+
+  it('renders group membership status and allows adding to a group', async () => {
+    const user = userEvent.setup();
+    mockGet.mockResolvedValueOnce(user1Response);
+    mockGroupsList.mockResolvedValueOnce({
+      groups: [
+        {
+          id: 'group-1',
+          name: 'Alpha',
+          description: 'Primary',
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: '2024-01-01T00:00:00.000Z',
+          memberCount: 1
+        }
+      ]
+    });
+    mockGetMembers.mockResolvedValueOnce({ members: [] });
+    mockAddMember.mockResolvedValueOnce({ added: true });
+
+    renderWithRouter('user-1');
+
+    expect(await screen.findByText('Alpha')).toBeInTheDocument();
+    expect(screen.getByText('Not a member')).toBeInTheDocument();
+
+    const addButton = screen.getByRole('button', { name: 'Add' });
+    await user.click(addButton);
+
+    await waitFor(() => {
+      expect(mockAddMember).toHaveBeenCalledWith('group-1', 'user-1');
+    });
+  });
+
+  it('removes a user from a group via confirmation dialog', async () => {
+    const user = userEvent.setup();
+    mockGet.mockResolvedValueOnce(user1Response);
+    mockGroupsList.mockResolvedValueOnce({
+      groups: [
+        {
+          id: 'group-2',
+          name: 'Beta',
+          description: null,
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: '2024-01-01T00:00:00.000Z',
+          memberCount: 2
+        }
+      ]
+    });
+    mockGetMembers.mockResolvedValueOnce({
+      members: [
+        {
+          userId: 'user-1',
+          email: 'admin@example.com',
+          joinedAt: '2024-01-02T00:00:00.000Z'
+        }
+      ]
+    });
+    mockRemoveMember.mockResolvedValueOnce({ removed: true });
+
+    renderWithRouter('user-1');
+
+    expect(await screen.findByText('Beta')).toBeInTheDocument();
+    expect(screen.getByText(/^Member/)).toBeInTheDocument();
+
+    const removeButton = screen.getByRole('button', { name: 'Remove' });
+    await user.click(removeButton);
+
+    await user.click(screen.getByTestId('confirm-dialog-confirm'));
+
+    await waitFor(() => {
+      expect(mockRemoveMember).toHaveBeenCalledWith('group-2', 'user-1');
+    });
+  });
+
+  it('shows 409 conflict error when adding user already in group', async () => {
+    const user = userEvent.setup();
+    mockGet.mockResolvedValueOnce(user1Response);
+    mockGroupsList.mockResolvedValueOnce({
+      groups: [
+        {
+          id: 'group-1',
+          name: 'Alpha',
+          description: 'Primary',
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: '2024-01-01T00:00:00.000Z',
+          memberCount: 1
+        }
+      ]
+    });
+    mockGetMembers.mockResolvedValueOnce({ members: [] });
+    mockAddMember.mockRejectedValueOnce(new Error('409 conflict'));
+
+    renderWithRouter('user-1');
+
+    expect(await screen.findByText('Alpha')).toBeInTheDocument();
+
+    const addButton = screen.getByRole('button', { name: 'Add' });
+    await user.click(addButton);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('User is already a member of this group')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('shows 404 error when group or user not found', async () => {
+    const user = userEvent.setup();
+    mockGet.mockResolvedValueOnce(user1Response);
+    mockGroupsList.mockResolvedValueOnce({
+      groups: [
+        {
+          id: 'group-1',
+          name: 'Alpha',
+          description: 'Primary',
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: '2024-01-01T00:00:00.000Z',
+          memberCount: 1
+        }
+      ]
+    });
+    mockGetMembers.mockResolvedValueOnce({ members: [] });
+    mockAddMember.mockRejectedValueOnce(new Error('404 not found'));
+
+    renderWithRouter('user-1');
+
+    expect(await screen.findByText('Alpha')).toBeInTheDocument();
+
+    const addButton = screen.getByRole('button', { name: 'Add' });
+    await user.click(addButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Group or user not found')).toBeInTheDocument();
+    });
+  });
+
+  it('shows generic error message for other add member errors', async () => {
+    const user = userEvent.setup();
+    mockGet.mockResolvedValueOnce(user1Response);
+    mockGroupsList.mockResolvedValueOnce({
+      groups: [
+        {
+          id: 'group-1',
+          name: 'Alpha',
+          description: 'Primary',
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: '2024-01-01T00:00:00.000Z',
+          memberCount: 1
+        }
+      ]
+    });
+    mockGetMembers.mockResolvedValueOnce({ members: [] });
+    mockAddMember.mockRejectedValueOnce(new Error('Server error'));
+
+    renderWithRouter('user-1');
+
+    expect(await screen.findByText('Alpha')).toBeInTheDocument();
+
+    const addButton = screen.getByRole('button', { name: 'Add' });
+    await user.click(addButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Server error')).toBeInTheDocument();
+    });
+  });
+
+  it('shows error when remove member fails', async () => {
+    const user = userEvent.setup();
+    mockGet.mockResolvedValueOnce(user1Response);
+    mockGroupsList.mockResolvedValueOnce({
+      groups: [
+        {
+          id: 'group-2',
+          name: 'Beta',
+          description: null,
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: '2024-01-01T00:00:00.000Z',
+          memberCount: 2
+        }
+      ]
+    });
+    mockGetMembers.mockResolvedValueOnce({
+      members: [
+        {
+          userId: 'user-1',
+          email: 'admin@example.com',
+          joinedAt: '2024-01-02T00:00:00.000Z'
+        }
+      ]
+    });
+    mockRemoveMember.mockRejectedValueOnce(new Error('Remove failed'));
+
+    renderWithRouter('user-1');
+
+    expect(await screen.findByText('Beta')).toBeInTheDocument();
+
+    const removeButton = screen.getByRole('button', { name: 'Remove' });
+    await user.click(removeButton);
+
+    await user.click(screen.getByTestId('confirm-dialog-confirm'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Remove failed')).toBeInTheDocument();
+    });
+  });
+
+  it('refreshes groups when refresh button is clicked', async () => {
+    const user = userEvent.setup();
+    mockGet.mockResolvedValueOnce(user1Response);
+    mockGroupsList.mockResolvedValue({
+      groups: [
+        {
+          id: 'group-1',
+          name: 'Alpha',
+          description: 'Primary',
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: '2024-01-01T00:00:00.000Z',
+          memberCount: 1
+        }
+      ]
+    });
+    mockGetMembers.mockResolvedValue({ members: [] });
+
+    renderWithRouter('user-1');
+
+    expect(await screen.findByText('Alpha')).toBeInTheDocument();
+
+    // Clear mock call counts
+    mockGroupsList.mockClear();
+    mockGetMembers.mockClear();
+
+    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
+    await user.click(refreshButton);
+
+    await waitFor(() => {
+      expect(mockGroupsList).toHaveBeenCalled();
     });
   });
 });
