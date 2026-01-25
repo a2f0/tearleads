@@ -66,6 +66,21 @@ describe('admin organizations routes', () => {
       });
       expect(response.body.organizations[1].description).toBeNull();
     });
+
+    it('returns 500 on error', async () => {
+      mockGetPostgresPool.mockRejectedValue(new Error('database error'));
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      const response = await request(app)
+        .get('/v1/admin/organizations')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'database error' });
+      consoleError.mockRestore();
+    });
   });
 
   describe('POST /v1/admin/organizations', () => {
@@ -108,6 +123,68 @@ describe('admin organizations routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({ error: 'Name is required' });
+    });
+
+    it('returns 400 when name is empty', async () => {
+      const response = await request(app)
+        .post('/v1/admin/organizations')
+        .set('Authorization', authHeader)
+        .send({ name: '   ' });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'Name is required' });
+    });
+
+    it('returns 500 when insert returns no rows', async () => {
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery.mockResolvedValue({ rows: [] })
+      });
+
+      const response = await request(app)
+        .post('/v1/admin/organizations')
+        .set('Authorization', authHeader)
+        .send({ name: 'Alpha' });
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Failed to create organization' });
+    });
+
+    it('returns 409 when name already exists', async () => {
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery.mockRejectedValue(
+          new Error('duplicate key value violates unique constraint')
+        )
+      });
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      const response = await request(app)
+        .post('/v1/admin/organizations')
+        .set('Authorization', authHeader)
+        .send({ name: 'Alpha' });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({
+        error: 'Organization name already exists'
+      });
+      consoleError.mockRestore();
+    });
+
+    it('returns 500 on database error', async () => {
+      mockGetPostgresPool.mockRejectedValue(new Error('database error'));
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      const response = await request(app)
+        .post('/v1/admin/organizations')
+        .set('Authorization', authHeader)
+        .send({ name: 'Alpha' });
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'database error' });
+      consoleError.mockRestore();
     });
   });
 
@@ -156,6 +233,21 @@ describe('admin organizations routes', () => {
       expect(response.status).toBe(404);
       expect(response.body).toEqual({ error: 'Organization not found' });
     });
+
+    it('returns 500 on error', async () => {
+      mockGetPostgresPool.mockRejectedValue(new Error('database error'));
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      const response = await request(app)
+        .get('/v1/admin/organizations/org-1')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'database error' });
+      consoleError.mockRestore();
+    });
   });
 
   describe('PUT /v1/admin/organizations/:id', () => {
@@ -183,6 +275,103 @@ describe('admin organizations routes', () => {
       expect(response.status).toBe(200);
       expect(response.body.organization.name).toBe('Alpha Updated');
     });
+
+    it('updates description only', async () => {
+      const now = new Date();
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery.mockResolvedValue({
+          rows: [
+            {
+              id: 'org-1',
+              name: 'Alpha',
+              description: 'Updated',
+              created_at: now,
+              updated_at: now
+            }
+          ]
+        })
+      });
+
+      const response = await request(app)
+        .put('/v1/admin/organizations/org-1')
+        .set('Authorization', authHeader)
+        .send({ description: 'Updated' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.organization.description).toBe('Updated');
+    });
+
+    it('returns 400 when name is empty', async () => {
+      const response = await request(app)
+        .put('/v1/admin/organizations/org-1')
+        .set('Authorization', authHeader)
+        .send({ name: '   ' });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'Name cannot be empty' });
+    });
+
+    it('returns 400 when no fields to update', async () => {
+      const response = await request(app)
+        .put('/v1/admin/organizations/org-1')
+        .set('Authorization', authHeader)
+        .send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'No fields to update' });
+    });
+
+    it('returns 404 when organization not found', async () => {
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery.mockResolvedValue({ rows: [] })
+      });
+
+      const response = await request(app)
+        .put('/v1/admin/organizations/missing')
+        .set('Authorization', authHeader)
+        .send({ name: 'Updated' });
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: 'Organization not found' });
+    });
+
+    it('returns 409 when name already exists', async () => {
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery.mockRejectedValue(
+          new Error('duplicate key value violates unique constraint')
+        )
+      });
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      const response = await request(app)
+        .put('/v1/admin/organizations/org-1')
+        .set('Authorization', authHeader)
+        .send({ name: 'Alpha Updated' });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({
+        error: 'Organization name already exists'
+      });
+      consoleError.mockRestore();
+    });
+
+    it('returns 500 on database error', async () => {
+      mockGetPostgresPool.mockRejectedValue(new Error('database error'));
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      const response = await request(app)
+        .put('/v1/admin/organizations/org-1')
+        .set('Authorization', authHeader)
+        .send({ name: 'Alpha Updated' });
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'database error' });
+      consoleError.mockRestore();
+    });
   });
 
   describe('DELETE /v1/admin/organizations/:id', () => {
@@ -197,6 +386,34 @@ describe('admin organizations routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ deleted: true });
+    });
+
+    it('returns deleted: false when organization not found', async () => {
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery.mockResolvedValue({ rowCount: 0 })
+      });
+
+      const response = await request(app)
+        .delete('/v1/admin/organizations/missing')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ deleted: false });
+    });
+
+    it('returns 500 on error', async () => {
+      mockGetPostgresPool.mockRejectedValue(new Error('database error'));
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      const response = await request(app)
+        .delete('/v1/admin/organizations/org-1')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'database error' });
+      consoleError.mockRestore();
     });
   });
 });

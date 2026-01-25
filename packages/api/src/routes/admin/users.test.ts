@@ -376,6 +376,83 @@ describe('admin users routes', () => {
     });
   });
 
+  it('PATCH /v1/admin/users/:id clears organization IDs', async () => {
+    mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
+    mockQuery.mockImplementation((query: string) => {
+      if (query === 'BEGIN' || query === 'COMMIT') {
+        return Promise.resolve({ rows: [] });
+      }
+      if (query.startsWith('SELECT id, email, email_confirmed, admin')) {
+        return Promise.resolve({
+          rows: [
+            {
+              id: 'user-1',
+              email: 'user@example.com',
+              email_confirmed: true,
+              admin: false
+            }
+          ]
+        });
+      }
+      if (query.startsWith('DELETE FROM user_organizations')) {
+        return Promise.resolve({ rows: [] });
+      }
+      if (query.startsWith('SELECT organization_id FROM user_organizations')) {
+        return Promise.resolve({ rows: [] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    const response = await request(app)
+      .patch('/v1/admin/users/user-1')
+      .set('Authorization', authHeader)
+      .send({ organizationIds: [] });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      user: {
+        id: 'user-1',
+        email: 'user@example.com',
+        emailConfirmed: true,
+        admin: false,
+        organizationIds: []
+      }
+    });
+  });
+
+  it('PATCH /v1/admin/users/:id returns 404 when organization is missing', async () => {
+    mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
+    mockQuery.mockImplementation((query: string) => {
+      if (query === 'BEGIN' || query === 'ROLLBACK') {
+        return Promise.resolve({ rows: [] });
+      }
+      if (query.startsWith('SELECT id, email, email_confirmed, admin')) {
+        return Promise.resolve({
+          rows: [
+            {
+              id: 'user-1',
+              email: 'user@example.com',
+              email_confirmed: true,
+              admin: false
+            }
+          ]
+        });
+      }
+      if (query.startsWith('SELECT id FROM organizations')) {
+        return Promise.resolve({ rows: [] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    const response = await request(app)
+      .patch('/v1/admin/users/user-1')
+      .set('Authorization', authHeader)
+      .send({ organizationIds: ['missing-org'] });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'Organization not found' });
+  });
+
   it('PATCH /v1/admin/users/:id returns 400 for invalid organizationIds', async () => {
     const response = await request(app)
       .patch('/v1/admin/users/user-1')

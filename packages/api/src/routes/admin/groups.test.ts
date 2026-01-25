@@ -394,6 +394,34 @@ describe('admin groups routes', () => {
       expect(response.body.group.organizationId).toBe('org-1');
     });
 
+    it('updates organization ID', async () => {
+      const now = new Date();
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery
+          .mockResolvedValueOnce({ rows: [{ id: 'org-2' }] })
+          .mockResolvedValueOnce({
+            rows: [
+              {
+                id: 'group-1',
+                organization_id: 'org-2',
+                name: 'Group Name',
+                description: 'Desc',
+                created_at: now,
+                updated_at: now
+              }
+            ]
+          })
+      });
+
+      const response = await request(app)
+        .put('/v1/admin/groups/group-1')
+        .set('Authorization', authHeader)
+        .send({ organizationId: 'org-2' });
+
+      expect(response.status).toBe(200);
+      expect(response.body.group.organizationId).toBe('org-2');
+    });
+
     it('returns 400 when name is empty string', async () => {
       const response = await request(app)
         .put('/v1/admin/groups/group-1')
@@ -402,6 +430,18 @@ describe('admin groups routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({ error: 'Name cannot be empty' });
+    });
+
+    it('returns 400 when organization ID is empty', async () => {
+      const response = await request(app)
+        .put('/v1/admin/groups/group-1')
+        .set('Authorization', authHeader)
+        .send({ organizationId: '   ' });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: 'Organization ID cannot be empty'
+      });
     });
 
     it('returns 400 when no fields to update', async () => {
@@ -426,6 +466,20 @@ describe('admin groups routes', () => {
 
       expect(response.status).toBe(404);
       expect(response.body).toEqual({ error: 'Group not found' });
+    });
+
+    it('returns 404 when organization not found', async () => {
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery.mockResolvedValueOnce({ rows: [] })
+      });
+
+      const response = await request(app)
+        .put('/v1/admin/groups/group-1')
+        .set('Authorization', authHeader)
+        .send({ organizationId: 'missing-org' });
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: 'Organization not found' });
     });
 
     it('returns 409 when name already exists', async () => {
