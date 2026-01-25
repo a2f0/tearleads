@@ -4,7 +4,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
+import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 
 interface V86WindowMenuBarProps {
   showDropzone: boolean;
@@ -40,7 +40,7 @@ export function V86WindowMenuBar({
           Show Dropzone
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <PreserveWindowStateMenuItem />
+        <WindowOptionsMenuItem />
       </DropdownMenu>
       <DropdownMenu trigger="Help">
         <DropdownMenuItem

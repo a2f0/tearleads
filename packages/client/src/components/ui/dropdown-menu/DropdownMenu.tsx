@@ -17,6 +17,7 @@ interface DropdownMenuProps {
 
 interface ChildProps {
   onClick?: () => void;
+  preventClose?: boolean;
 }
 
 export function DropdownMenu({
@@ -127,7 +128,9 @@ export function DropdownMenu({
               return cloneElement(child, {
                 onClick: () => {
                   child.props.onClick?.();
-                  close();
+                  if (!child.props.preventClose) {
+                    close();
+                  }
                 }
               });
             }

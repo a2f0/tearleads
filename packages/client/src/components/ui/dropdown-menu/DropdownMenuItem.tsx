@@ -6,6 +6,7 @@ interface DropdownMenuItemProps {
   icon?: React.ReactNode;
   checked?: boolean;
   disabled?: boolean;
+  preventClose?: boolean;
 }
 
 export function DropdownMenuItem({
@@ -13,7 +14,8 @@ export function DropdownMenuItem({
   onClick,
   icon,
   checked,
-  disabled = false
+  disabled = false,
+  preventClose: _preventClose
 }: DropdownMenuItemProps) {
   const handleClick = () => {
     if (!disabled) {

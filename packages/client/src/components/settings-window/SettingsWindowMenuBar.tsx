@@ -1,5 +1,5 @@
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
+import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 
 interface SettingsWindowMenuBarProps {
   onClose: () => void;
@@ -12,7 +12,7 @@ export function SettingsWindowMenuBar({ onClose }: SettingsWindowMenuBarProps) {
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
       </DropdownMenu>
       <DropdownMenu trigger="View">
-        <PreserveWindowStateMenuItem />
+        <WindowOptionsMenuItem />
       </DropdownMenu>
     </div>
   );

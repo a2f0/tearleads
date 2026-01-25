@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
+import { zIndex } from '@/constants/zIndex';
 
-export interface WindowStateSettingsDialogProps {
+export interface WindowOptionsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   preserveWindowState: boolean;
   onSave: (preserveWindowState: boolean) => void;
 }
 
-export function WindowStateSettingsDialog({
+export function WindowOptionsDialog({
   open,
   onOpenChange,
   preserveWindowState,
   onSave
-}: WindowStateSettingsDialogProps) {
+}: WindowOptionsDialogProps) {
   const [selectedOption, setSelectedOption] = useState(preserveWindowState);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -79,26 +81,32 @@ export function WindowStateSettingsDialog({
 
   if (!open) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+  return createPortal(
+    // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation prevents dropdown close
+    <div
+      className="fixed inset-0 flex items-center justify-center"
+      style={{ zIndex: zIndex.modalBackdrop }}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/50"
         onClick={handleCancel}
         aria-hidden="true"
-        data-testid="window-state-settings-backdrop"
+        data-testid="window-options-backdrop"
       />
       <div
         ref={dialogRef}
-        className="relative z-10 w-full max-w-sm rounded-lg border bg-background p-6 shadow-lg"
+        className="relative w-full max-w-sm rounded-lg border bg-background p-6 shadow-lg"
+        style={{ zIndex: zIndex.modal }}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="window-state-settings-title"
-        data-testid="window-state-settings-dialog"
+        aria-labelledby="window-options-title"
+        data-testid="window-options-dialog"
         tabIndex={-1}
         onKeyDown={handleKeyDown}
       >
-        <h2 id="window-state-settings-title" className="font-semibold text-lg">
-          Window State Settings
+        <h2 id="window-options-title" className="font-semibold text-lg">
+          Window Options
         </h2>
         <div className="mt-4 space-y-3">
           <label className="flex cursor-pointer items-center gap-3">
@@ -128,15 +136,16 @@ export function WindowStateSettingsDialog({
           <Button
             variant="outline"
             onClick={handleCancel}
-            data-testid="window-state-settings-cancel"
+            data-testid="window-options-cancel"
           >
             Cancel
           </Button>
-          <Button onClick={handleOk} data-testid="window-state-settings-ok">
+          <Button onClick={handleOk} data-testid="window-options-ok">
             OK
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
