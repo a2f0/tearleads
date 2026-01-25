@@ -155,10 +155,9 @@ export function AdminWindow({
             <button
               type="button"
               onClick={() => setView('postgres')}
-              className="inline-flex items-center text-muted-foreground hover:text-foreground"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
             >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Postgres
+              <ArrowLeft className="h-4 w-4" />
             </button>
           }
         />
