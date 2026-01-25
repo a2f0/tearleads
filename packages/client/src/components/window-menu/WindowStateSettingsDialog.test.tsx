@@ -235,4 +235,29 @@ describe('WindowStateSettingsDialog', () => {
     await user.tab({ shift: true });
     expect(document.activeElement).toBe(okButton);
   });
+
+  it('preserves user selection if props change while open', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderDialog({ preserveWindowState: true });
+
+    // User selects the 'default' option
+    await user.click(screen.getByTestId('window-state-default-radio'));
+    expect(screen.getByTestId('window-state-default-radio')).toBeChecked();
+
+    // Rerender with the same props, simulating a parent component update.
+    // With the original code, this would cause the selection to reset.
+    rerender(
+      <ThemeProvider>
+        <WindowStateSettingsDialog
+          open={true}
+          onOpenChange={vi.fn()}
+          preserveWindowState={true}
+          onSave={vi.fn()}
+        />
+      </ThemeProvider>
+    );
+
+    // The user's selection should be preserved
+    expect(screen.getByTestId('window-state-default-radio')).toBeChecked();
+  });
 });

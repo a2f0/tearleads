@@ -16,17 +16,26 @@ export function WindowStateSettingsDialog({
 }: WindowStateSettingsDialogProps) {
   const [selectedOption, setSelectedOption] = useState(preserveWindowState);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Only sync prop to state when dialog opens, not on prop changes while open
   useEffect(() => {
     if (open) {
       setSelectedOption(preserveWindowState);
-      previousActiveElement.current = document.activeElement as HTMLElement;
-      dialogRef.current?.focus();
-    } else {
-      previousActiveElement.current?.focus();
     }
-  }, [open, preserveWindowState]);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const previouslyFocused = document.activeElement as HTMLElement;
+    dialogRef.current?.focus();
+
+    return () => {
+      previouslyFocused?.focus();
+    };
+  }, [open]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
