@@ -248,7 +248,9 @@ describe('sessions', () => {
     });
 
     it('returns nulls when redis client fails', async () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
       const { getRedisClient } = await import('./redis.js');
       vi.mocked(getRedisClient).mockRejectedValueOnce(new Error('redis down'));
 
