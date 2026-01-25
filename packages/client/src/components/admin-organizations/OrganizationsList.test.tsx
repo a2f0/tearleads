@@ -119,6 +119,63 @@ describe('OrganizationsList', () => {
     });
   });
 
+  it('renders fallback error message for non-error failures', async () => {
+    mockList.mockRejectedValue('boom');
+
+    renderOrganizationsList();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Failed to fetch organizations')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('retries fetch when retry button clicked', async () => {
+    const user = userEvent.setup();
+    mockList
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValueOnce({ organizations: [] });
+
+    renderOrganizationsList();
+
+    await waitFor(() => {
+      expect(screen.getByText('Network error')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /retry/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('No organizations yet')).toBeInTheDocument();
+    });
+  });
+
+  it('calls onOrganizationSelect when organization is clicked', async () => {
+    const user = userEvent.setup();
+    const onOrganizationSelect = vi.fn();
+    mockList.mockResolvedValue({
+      organizations: [
+        {
+          id: 'org-1',
+          name: 'Acme',
+          description: null,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }
+      ]
+    });
+
+    renderOrganizationsList({ onOrganizationSelect });
+
+    await waitFor(() => {
+      expect(screen.getByText('Acme')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Acme'));
+
+    expect(onOrganizationSelect).toHaveBeenCalledWith('org-1');
+  });
+
   it('deletes an organization from context menu', async () => {
     const user = userEvent.setup();
     mockList.mockResolvedValue({

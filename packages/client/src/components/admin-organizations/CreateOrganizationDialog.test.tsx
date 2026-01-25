@@ -117,4 +117,97 @@ describe('CreateOrganizationDialog', () => {
 
     expect(screen.getByText('Name is required')).toBeInTheDocument();
   });
+
+  it('shows error when name already exists', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    mockCreate.mockRejectedValue(new Error('409'));
+
+    await user.type(screen.getByLabelText('Name'), 'Acme');
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('An organization with this name already exists')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('shows fallback error when create fails', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    mockCreate.mockRejectedValue('boom');
+
+    await user.type(screen.getByLabelText('Name'), 'Acme');
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Failed to create organization')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('closes on cancel', async () => {
+    const user = userEvent.setup();
+    const { onOpenChange } = renderDialog();
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('closes on escape key', async () => {
+    const user = userEvent.setup();
+    const { onOpenChange } = renderDialog();
+
+    await user.keyboard('{Escape}');
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('closes on backdrop click', async () => {
+    const user = userEvent.setup();
+    const { onOpenChange } = renderDialog();
+
+    const backdrop = document.querySelector('[aria-hidden="true"]');
+    if (backdrop) {
+      await user.click(backdrop);
+    }
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('resets form when reopened', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <CreateOrganizationDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        onCreated={vi.fn()}
+      />
+    );
+
+    await user.type(screen.getByLabelText('Name'), 'Acme');
+    await user.type(screen.getByLabelText('Description (optional)'), 'Team');
+
+    rerender(
+      <CreateOrganizationDialog
+        open={false}
+        onOpenChange={vi.fn()}
+        onCreated={vi.fn()}
+      />
+    );
+
+    rerender(
+      <CreateOrganizationDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        onCreated={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText('Name')).toHaveValue('');
+    expect(screen.getByLabelText('Description (optional)')).toHaveValue('');
+  });
 });
