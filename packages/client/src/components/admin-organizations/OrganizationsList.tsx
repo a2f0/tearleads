@@ -120,6 +120,13 @@ export function OrganizationsList({
                 className="cursor-pointer border-border/50 border-b hover:bg-accent/50"
                 onClick={() => onOrganizationSelect(organization.id)}
                 onContextMenu={(e) => handleContextMenu(e, organization)}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onOrganizationSelect(organization.id);
+                  }
+                }}
               >
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
@@ -131,7 +138,9 @@ export function OrganizationsList({
                 </td>
                 <td className="px-3 py-2 text-muted-foreground">
                   {organization.description ? (
-                    <span className="truncate">{organization.description}</span>
+                    <span className="block truncate">
+                      {organization.description}
+                    </span>
                   ) : (
                     <span className="text-muted-foreground/70">—</span>
                   )}

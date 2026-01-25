@@ -81,6 +81,7 @@ describe('OrganizationsList', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Team')).toBeInTheDocument();
     expect(screen.getByText('Beta')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
   });
 
   it('renders empty state when no organizations exist', async () => {
