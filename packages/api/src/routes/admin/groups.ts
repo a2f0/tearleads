@@ -170,16 +170,12 @@ router.post(
         return;
       }
 
-      if (!organizationId || typeof organizationId !== 'string') {
+      if (typeof organizationId !== 'string' || organizationId.trim() === '') {
         res.status(400).json({ error: 'Organization ID is required' });
         return;
       }
 
       const trimmedOrganizationId = organizationId.trim();
-      if (trimmedOrganizationId === '') {
-        res.status(400).json({ error: 'Organization ID is required' });
-        return;
-      }
 
       const pool = await getPostgresPool();
       const orgResult = await pool.query<{ id: string }>(
