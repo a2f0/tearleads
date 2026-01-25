@@ -89,6 +89,11 @@ export const ua = {
       'Оберіть, чи виглядають значки опуклими або втиснутими',
     iconDepthEmbossed: 'Опуклі',
     iconDepthDebossed: 'Втиснуті',
+    iconBackground: 'Фони значків',
+    iconBackgroundDescription:
+      'Оберіть, чи мають значки кольоровий фон або є прозорими',
+    iconBackgroundColored: 'Кольорові',
+    iconBackgroundTransparent: 'Прозорі',
     tooltips: 'Підказки',
     tooltipsDescription:
       'Показувати корисні підказки при наведенні на елементи',

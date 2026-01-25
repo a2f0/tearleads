@@ -86,6 +86,10 @@ export interface SettingsTranslations {
   iconDepthDescription: string;
   iconDepthEmbossed: string;
   iconDepthDebossed: string;
+  iconBackground: string;
+  iconBackgroundDescription: string;
+  iconBackgroundColored: string;
+  iconBackgroundTransparent: string;
   tooltips: string;
   tooltipsDescription: string;
   tooltipsEnabled: string;

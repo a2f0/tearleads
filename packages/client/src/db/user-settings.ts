@@ -16,7 +16,8 @@ export type UserSettingKey =
   | 'tooltips'
   | 'font'
   | 'desktopPattern'
-  | 'desktopIconDepth';
+  | 'desktopIconDepth'
+  | 'desktopIconBackground';
 
 // Per-setting value types
 export const THEME_VALUES: readonly [
@@ -38,6 +39,12 @@ export type DesktopPatternValue =
   | 'diamonds';
 export const DESKTOP_ICON_DEPTH_VALUES = ['embossed', 'debossed'] as const;
 export type DesktopIconDepthValue = (typeof DESKTOP_ICON_DEPTH_VALUES)[number];
+export const DESKTOP_ICON_BACKGROUND_VALUES = [
+  'colored',
+  'transparent'
+] as const;
+export type DesktopIconBackgroundValue =
+  (typeof DESKTOP_ICON_BACKGROUND_VALUES)[number];
 
 // Map settings keys to their value types
 export interface SettingValueMap {
@@ -47,6 +54,7 @@ export interface SettingValueMap {
   font: FontValue;
   desktopPattern: DesktopPatternValue;
   desktopIconDepth: DesktopIconDepthValue;
+  desktopIconBackground: DesktopIconBackgroundValue;
 }
 
 // Default values for each setting
@@ -56,7 +64,8 @@ export const SETTING_DEFAULTS: { [K in UserSettingKey]: SettingValueMap[K] } = {
   tooltips: 'enabled',
   font: 'system',
   desktopPattern: 'isometric',
-  desktopIconDepth: 'debossed'
+  desktopIconDepth: 'debossed',
+  desktopIconBackground: 'colored'
 };
 
 // localStorage keys for each setting (maps our keys to existing localStorage keys)
@@ -66,7 +75,8 @@ export const SETTING_STORAGE_KEYS: Record<UserSettingKey, string> = {
   tooltips: 'tooltips',
   font: 'font',
   desktopPattern: 'desktopPattern',
-  desktopIconDepth: 'desktopIconDepth'
+  desktopIconDepth: 'desktopIconDepth',
+  desktopIconBackground: 'desktopIconBackground'
 };
 
 // Type guard functions
@@ -100,6 +110,25 @@ export function isDesktopIconDepthValue(
   return DESKTOP_ICON_DEPTH_VALUES.some((item) => item === value);
 }
 
+export function isDesktopIconBackgroundValue(
+  value: string
+): value is DesktopIconBackgroundValue {
+  return DESKTOP_ICON_BACKGROUND_VALUES.some((item) => item === value);
+}
+
+// Map of setting keys to their type guard validators
+const SETTING_VALIDATORS: {
+  [K in UserSettingKey]: (value: string) => value is SettingValueMap[K];
+} = {
+  theme: isThemeValue,
+  language: isLanguageValue,
+  tooltips: isTooltipsValue,
+  font: isFontValue,
+  desktopPattern: isDesktopPatternValue,
+  desktopIconDepth: isDesktopIconDepthValue,
+  desktopIconBackground: isDesktopIconBackgroundValue
+};
+
 // Settings sync event detail type
 export interface SettingsSyncedDetail {
   settings: Partial<{ [K in UserSettingKey]: SettingValueMap[K] }>;
@@ -115,23 +144,8 @@ export function getSettingFromStorage<K extends UserSettingKey>(
     const value = localStorage.getItem(SETTING_STORAGE_KEYS[key]);
     if (value === null) return null;
 
-    // Validate the value matches expected type
-    if (key === 'theme' && isThemeValue(value)) {
-      return value as SettingValueMap[K];
-    }
-    if (key === 'language' && isLanguageValue(value)) {
-      return value as SettingValueMap[K];
-    }
-    if (key === 'tooltips' && isTooltipsValue(value)) {
-      return value as SettingValueMap[K];
-    }
-    if (key === 'font' && isFontValue(value)) {
-      return value as SettingValueMap[K];
-    }
-    if (key === 'desktopPattern' && isDesktopPatternValue(value)) {
-      return value as SettingValueMap[K];
-    }
-    if (key === 'desktopIconDepth' && isDesktopIconDepthValue(value)) {
+    const validator = SETTING_VALIDATORS[key];
+    if (validator(value)) {
       return value as SettingValueMap[K];
     }
 
@@ -174,21 +188,12 @@ export async function getSettingsFromDb(
   const settings: Partial<{ [K in UserSettingKey]: SettingValueMap[K] }> = {};
 
   for (const row of allRows) {
-    const { key, value } = row;
+    const { key, value } = row as { key: UserSettingKey; value: string | null };
     if (value === null) continue;
 
-    if (key === 'theme' && isThemeValue(value)) {
-      settings.theme = value;
-    } else if (key === 'language' && isLanguageValue(value)) {
-      settings.language = value;
-    } else if (key === 'tooltips' && isTooltipsValue(value)) {
-      settings.tooltips = value;
-    } else if (key === 'font' && isFontValue(value)) {
-      settings.font = value;
-    } else if (key === 'desktopPattern' && isDesktopPatternValue(value)) {
-      settings.desktopPattern = value;
-    } else if (key === 'desktopIconDepth' && isDesktopIconDepthValue(value)) {
-      settings.desktopIconDepth = value;
+    const validator = SETTING_VALIDATORS[key];
+    if (validator(value)) {
+      (settings as Record<UserSettingKey, string>)[key] = value;
     }
   }
 

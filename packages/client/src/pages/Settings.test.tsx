@@ -27,6 +27,8 @@ vi.mock('@/db/SettingsProvider', () => ({
       switch (key) {
         case 'desktopIconDepth':
           return 'debossed';
+        case 'desktopIconBackground':
+          return 'colored';
         case 'desktopPattern':
           return 'isometric';
         case 'font':
@@ -110,6 +112,12 @@ describe('Settings', () => {
     it('renders the icon depth toggle', () => {
       expect(
         screen.getByTestId('icon-depth-toggle-container')
+      ).toBeInTheDocument();
+    });
+
+    it('renders the icon background toggle', () => {
+      expect(
+        screen.getByTestId('icon-background-toggle-container')
       ).toBeInTheDocument();
     });
 

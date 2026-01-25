@@ -82,6 +82,8 @@ describe('Home', () => {
           return 'solid';
         case 'desktopIconDepth':
           return 'debossed';
+        case 'desktopIconBackground':
+          return 'colored';
         default:
           return 'enabled';
       }
@@ -125,9 +127,11 @@ describe('Home', () => {
   });
 
   it('inverts icon colors when debossed is active', () => {
-    mockGetSetting.mockImplementation((key: string) =>
-      key === 'desktopPattern' ? 'solid' : 'debossed'
-    );
+    mockGetSetting.mockImplementation((key: string) => {
+      if (key === 'desktopPattern') return 'solid';
+      if (key === 'desktopIconBackground') return 'colored';
+      return 'debossed';
+    });
     renderHome();
 
     const assertIconDebossedColors = (
@@ -156,6 +160,26 @@ describe('Home', () => {
       'from-primary-foreground/60',
       'text-muted-foreground'
     );
+  });
+
+  it('renders transparent icon backgrounds when enabled', () => {
+    mockGetSetting.mockImplementation((key: string) => {
+      if (key === 'desktopPattern') return 'solid';
+      if (key === 'desktopIconDepth') return 'debossed';
+      if (key === 'desktopIconBackground') return 'transparent';
+      return 'enabled';
+    });
+    renderHome();
+
+    const button = screen.getByRole('button', { name: 'Files' });
+    const wrapper = button.querySelector('div');
+    const icon = button.querySelector('svg');
+
+    expect(wrapper).toHaveClass('bg-transparent');
+    expect(wrapper).not.toHaveClass('bg-primary');
+    expect(wrapper).not.toHaveClass('bg-primary-foreground');
+    expect(wrapper).not.toHaveClass('bg-muted-foreground');
+    expect(icon).toHaveClass('text-foreground');
   });
 
   it('renders with canvas layout for draggable icons', () => {
