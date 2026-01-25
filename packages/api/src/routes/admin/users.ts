@@ -13,6 +13,7 @@ import {
   type Router as RouterType
 } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
+import { getLatestLastActiveByUserIds } from '../../lib/sessions.js';
 
 type UserRow = {
   id: string;
@@ -20,11 +21,27 @@ type UserRow = {
   email_confirmed: boolean;
   admin: boolean;
   organization_ids: string[] | null;
+  created_at?: Date | string | null;
 };
 
 const router: RouterType = Router();
 
-function mapUserRow(row: UserRow): AdminUser {
+type AdminUserOverrides = {
+  createdAt?: string | null;
+  lastActiveAt?: string | null;
+};
+
+function normalizeDate(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string') return value;
+  return null;
+}
+
+function mapUserRow(
+  row: UserRow,
+  overrides: AdminUserOverrides = {}
+): AdminUser {
   return {
     id: row.id,
     email: row.email,
@@ -32,7 +49,9 @@ function mapUserRow(row: UserRow): AdminUser {
     admin: row.admin,
     organizationIds: Array.isArray(row.organization_ids)
       ? row.organization_ids
-      : []
+      : [],
+    createdAt: overrides.createdAt ?? normalizeDate(row.created_at),
+    lastActiveAt: overrides.lastActiveAt ?? null
   };
 }
 
@@ -134,18 +153,24 @@ router.get('/', async (_req: Request, res: Response) => {
          u.email,
          u.email_confirmed,
          u.admin,
+         MIN(uc.created_at) AS created_at,
          COALESCE(
            ARRAY_AGG(uo.organization_id) FILTER (WHERE uo.organization_id IS NOT NULL),
            '{}'
          ) AS organization_ids
        FROM users u
        LEFT JOIN user_organizations uo ON uo.user_id = u.id
+       LEFT JOIN user_credentials uc ON uc.user_id = u.id
        GROUP BY u.id
        ORDER BY u.email`
     );
-    const response: AdminUsersResponse = {
-      users: result.rows.map(mapUserRow)
-    };
+    const lastActiveByUserId = await getLatestLastActiveByUserIds(
+      result.rows.map((row) => row.id)
+    );
+    const users = result.rows.map((row) =>
+      mapUserRow(row, { lastActiveAt: lastActiveByUserId[row.id] ?? null })
+    );
+    const response: AdminUsersResponse = { users };
     res.json(response);
   } catch (err) {
     console.error('Users admin error:', err);
@@ -197,12 +222,14 @@ router.get('/:id', async (req: Request, res: Response) => {
          u.email,
          u.email_confirmed,
          u.admin,
+         MIN(uc.created_at) AS created_at,
          COALESCE(
            ARRAY_AGG(uo.organization_id) FILTER (WHERE uo.organization_id IS NOT NULL),
            '{}'
          ) AS organization_ids
        FROM users u
        LEFT JOIN user_organizations uo ON uo.user_id = u.id
+       LEFT JOIN user_credentials uc ON uc.user_id = u.id
        WHERE u.id = $1
        GROUP BY u.id`,
       [req.params['id']]
@@ -214,8 +241,10 @@ router.get('/:id', async (req: Request, res: Response) => {
       return;
     }
 
+    const lastActiveAt =
+      (await getLatestLastActiveByUserIds([user.id]))[user.id] ?? null;
     const response: AdminUserResponse = {
-      user: mapUserRow(user)
+      user: mapUserRow(user, { lastActiveAt })
     };
     res.json(response);
   } catch (err) {
@@ -370,13 +399,26 @@ router.patch('/:id', async (req: Request, res: Response) => {
       [updatedUser.id]
     );
 
+    const createdAtResult = await pool.query<{ created_at: Date | null }>(
+      'SELECT MIN(created_at) AS created_at FROM user_credentials WHERE user_id = $1',
+      [updatedUser.id]
+    );
+    const createdAt = createdAtResult.rows[0]?.created_at ?? null;
+
     await pool.query('COMMIT');
 
+    const lastActiveAt =
+      (await getLatestLastActiveByUserIds([updatedUser.id]))[updatedUser.id] ??
+      null;
     const response: AdminUserUpdateResponse = {
-      user: mapUserRow({
-        ...updatedUser,
-        organization_ids: orgResult.rows.map((row) => row.organization_id)
-      })
+      user: mapUserRow(
+        {
+          ...updatedUser,
+          organization_ids: orgResult.rows.map((row) => row.organization_id),
+          created_at: createdAt
+        },
+        { lastActiveAt }
+      )
     };
     res.json(response);
   } catch (err) {

@@ -42,7 +42,9 @@ describe('UsersAdminDetail', () => {
       email: 'admin@example.com',
       emailConfirmed: true,
       admin: true,
-      organizationIds: ['org-1']
+      organizationIds: ['org-1'],
+      createdAt: '2024-01-01T12:00:00.000Z',
+      lastActiveAt: '2024-01-10T18:30:00.000Z'
     }
   };
 
@@ -52,7 +54,9 @@ describe('UsersAdminDetail', () => {
       email: 'regular@example.com',
       emailConfirmed: false,
       admin: false,
-      organizationIds: []
+      organizationIds: [],
+      createdAt: '2024-02-14T08:15:00.000Z',
+      lastActiveAt: null
     }
   };
 
@@ -123,7 +127,9 @@ describe('UsersAdminDetail', () => {
         email: 'new@example.com',
         emailConfirmed: true,
         admin: true,
-        organizationIds: ['org-1']
+        organizationIds: ['org-1'],
+        createdAt: '2024-01-01T12:00:00.000Z',
+        lastActiveAt: '2024-01-10T18:30:00.000Z'
       }
     });
 
@@ -152,7 +158,9 @@ describe('UsersAdminDetail', () => {
         email: 'regular@example.com',
         emailConfirmed: false,
         admin: false,
-        organizationIds: ['org-1', 'org-2']
+        organizationIds: ['org-1', 'org-2'],
+        createdAt: '2024-02-14T08:15:00.000Z',
+        lastActiveAt: null
       }
     });
 
@@ -181,7 +189,9 @@ describe('UsersAdminDetail', () => {
         email: 'regular@example.com',
         emailConfirmed: true,
         admin: false,
-        organizationIds: []
+        organizationIds: [],
+        createdAt: '2024-02-14T08:15:00.000Z',
+        lastActiveAt: null
       }
     });
 
@@ -212,7 +222,9 @@ describe('UsersAdminDetail', () => {
         email: 'regular@example.com',
         emailConfirmed: false,
         admin: true,
-        organizationIds: []
+        organizationIds: [],
+        createdAt: '2024-02-14T08:15:00.000Z',
+        lastActiveAt: null
       }
     });
 

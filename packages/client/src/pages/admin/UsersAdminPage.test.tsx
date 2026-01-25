@@ -37,7 +37,9 @@ describe('UsersAdminPage', () => {
         email: 'admin@example.com',
         emailConfirmed: true,
         admin: true,
-        organizationIds: ['org-1']
+        organizationIds: ['org-1'],
+        createdAt: '2024-01-01T12:00:00.000Z',
+        lastActiveAt: '2024-01-10T18:30:00.000Z'
       }
     ]
   };

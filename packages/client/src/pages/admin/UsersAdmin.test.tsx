@@ -28,14 +28,18 @@ describe('UsersAdmin', () => {
         email: 'admin@example.com',
         emailConfirmed: true,
         admin: true,
-        organizationIds: ['org-1']
+        organizationIds: ['org-1'],
+        createdAt: '2024-01-01T12:00:00.000Z',
+        lastActiveAt: '2024-01-10T18:30:00.000Z'
       },
       {
         id: 'user-2',
         email: 'regular@example.com',
         emailConfirmed: false,
         admin: false,
-        organizationIds: []
+        organizationIds: [],
+        createdAt: '2024-02-14T08:15:00.000Z',
+        lastActiveAt: null
       }
     ]
   };
@@ -57,6 +61,9 @@ describe('UsersAdmin', () => {
     ).toBeInTheDocument();
     expect(await screen.findByText('admin@example.com')).toBeVisible();
     expect(screen.getByText('regular@example.com')).toBeVisible();
+    expect(screen.getByText('Account Created')).toBeInTheDocument();
+    expect(screen.getByText('Last Active')).toBeInTheDocument();
+    expect(screen.getByText('—')).toBeInTheDocument();
   });
 
   it('shows back link by default', async () => {
@@ -172,7 +179,9 @@ describe('UsersAdmin', () => {
           email: 'new@example.com',
           emailConfirmed: true,
           admin: false,
-          organizationIds: ['org-2']
+          organizationIds: ['org-2'],
+          createdAt: '2024-03-01T09:00:00.000Z',
+          lastActiveAt: '2024-03-05T12:30:00.000Z'
         }
       ]
     });

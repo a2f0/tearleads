@@ -330,7 +330,9 @@ describe('api', () => {
               email: 'test@example.com',
               emailConfirmed: true,
               admin: false,
-              organizationIds: []
+              organizationIds: [],
+              createdAt: '2024-01-01T12:00:00.000Z',
+              lastActiveAt: null
             }
           }),
           {

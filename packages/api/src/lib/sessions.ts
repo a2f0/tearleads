@@ -154,6 +154,111 @@ export async function getSessionsByUserId(
   return sessions;
 }
 
+export async function getLatestLastActiveByUserIds(
+  userIds: string[]
+): Promise<Record<string, string | null>> {
+  const results: Record<string, string | null> = {};
+  for (const userId of userIds) {
+    results[userId] = null;
+  }
+  if (userIds.length === 0) {
+    return results;
+  }
+
+  try {
+    const client = await getRedisClient();
+    const multi = client.multi();
+    for (const userId of userIds) {
+      multi.sMembers(getUserSessionsKey(userId));
+    }
+
+    const sessionSets = await multi.exec();
+    if (!sessionSets) {
+      return results;
+    }
+
+    const sessionIdToUser = new Map<string, string>();
+    for (const [index, rawSessions] of sessionSets.entries()) {
+      const userId = userIds[index];
+      if (!userId) {
+        continue;
+      }
+      if (!Array.isArray(rawSessions)) {
+        continue;
+      }
+      for (const sessionId of rawSessions) {
+        if (typeof sessionId === 'string') {
+          sessionIdToUser.set(sessionId, userId);
+        }
+      }
+    }
+
+    const sessionIds = Array.from(sessionIdToUser.keys());
+    if (sessionIds.length === 0) {
+      return results;
+    }
+
+    const sessionKeys = sessionIds.map(getSessionKey);
+    const rawSessions = await client.mGet(sessionKeys);
+    const latestByUser = new Map<
+      string,
+      { timestamp: number; value: string }
+    >();
+
+    for (const [index, raw] of rawSessions.entries()) {
+      if (!raw) {
+        continue;
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        continue;
+      }
+
+      if (!isRecord(parsed)) {
+        continue;
+      }
+
+      const userId = parsed['userId'];
+      const lastActiveAt = parsed['lastActiveAt'];
+      if (typeof userId !== 'string' || typeof lastActiveAt !== 'string') {
+        continue;
+      }
+
+      const sessionId = sessionIds[index];
+      if (!sessionId) {
+        continue;
+      }
+
+      const expectedUserId = sessionIdToUser.get(sessionId);
+      if (!expectedUserId || expectedUserId !== userId) {
+        continue;
+      }
+
+      const timestamp = Date.parse(lastActiveAt);
+      if (Number.isNaN(timestamp)) {
+        continue;
+      }
+
+      const current = latestByUser.get(userId);
+      if (!current || timestamp > current.timestamp) {
+        latestByUser.set(userId, { timestamp, value: lastActiveAt });
+      }
+    }
+
+    for (const userId of userIds) {
+      results[userId] = latestByUser.get(userId)?.value ?? null;
+    }
+
+    return results;
+  } catch (err) {
+    console.error('Failed to get latest session activity:', err);
+    return results;
+  }
+}
+
 export async function deleteSession(
   sessionId: string,
   userId: string
