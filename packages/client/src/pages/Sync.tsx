@@ -1,17 +1,62 @@
 import { LogOut } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { LoginForm } from '@/components/auth';
 import { SessionList } from '@/components/sessions';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
+function formatTimeRemaining(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+
+  if (hours > 0) {
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes > 0
+      ? `${hours}h ${remainingMinutes}m`
+      : `${hours}h`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m`;
+  }
+  return `${seconds}s`;
+}
+
 interface SyncProps {
   showBackLink?: boolean;
 }
 
 export function Sync({ showBackLink = true }: SyncProps) {
-  const { isAuthenticated, user, isLoading, logout } = useAuth();
+  const {
+    isAuthenticated,
+    user,
+    isLoading,
+    logout,
+    tokenExpiresAt,
+    getTokenTimeRemaining
+  } = useAuth();
+  const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setTimeRemaining(null);
+      return;
+    }
+
+    const updateTimeRemaining = () => {
+      const remaining = getTokenTimeRemaining();
+      if (remaining !== null && remaining > 0) {
+        setTimeRemaining(formatTimeRemaining(remaining));
+      } else {
+        setTimeRemaining('Expired');
+      }
+    };
+
+    updateTimeRemaining();
+    const interval = setInterval(updateTimeRemaining, 1000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, getTokenTimeRemaining]);
 
   const handleLogout = useCallback(async () => {
     await logout();
@@ -48,11 +93,25 @@ export function Sync({ showBackLink = true }: SyncProps) {
               <p className="text-muted-foreground text-sm">{user.email}</p>
             </div>
 
-            <Button
-              onClick={() => void handleLogout()}
-              variant="outline"
-              className="w-full"
-            >
+            <div>
+              <p className="font-medium">Token expires</p>
+              <p className="text-muted-foreground text-sm">
+                {timeRemaining === 'Expired' ? (
+                  <span className="text-destructive">{timeRemaining}</span>
+                ) : (
+                  <>
+                    in {timeRemaining}
+                    {tokenExpiresAt && (
+                      <span className="ml-1">
+                        ({tokenExpiresAt.toLocaleTimeString()})
+                      </span>
+                    )}
+                  </>
+                )}
+              </p>
+            </div>
+
+            <Button onClick={handleLogout} variant="outline" className="w-full">
               <LogOut className="mr-2 h-4 w-4" />
               Logout
             </Button>

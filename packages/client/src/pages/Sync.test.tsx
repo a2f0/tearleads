@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { createTestJwtExpiresIn } from '@/test/jwt-test-utils';
 import { Sync } from './Sync';
 
 const mockLogin = vi.fn();
@@ -273,5 +274,90 @@ describe('Sync', () => {
     });
 
     expect(screen.queryByText('Back to Home')).not.toBeInTheDocument();
+  });
+
+  it('displays token expiration time in hours and minutes', async () => {
+    const token = createTestJwtExpiresIn(7200); // 2 hours
+    localStorage.setItem('auth_token', token);
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({ id: '123', email: 'saved@example.com' })
+    );
+
+    renderSync();
+
+    await waitFor(() => {
+      expect(screen.getByText('Token expires')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/in 1h 59m/)).toBeInTheDocument();
+  });
+
+  it('displays token expiration time in minutes only', async () => {
+    const token = createTestJwtExpiresIn(1800); // 30 minutes
+    localStorage.setItem('auth_token', token);
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({ id: '123', email: 'saved@example.com' })
+    );
+
+    renderSync();
+
+    await waitFor(() => {
+      expect(screen.getByText('Token expires')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/in 29m/)).toBeInTheDocument();
+  });
+
+  it('displays token expiration time in seconds for short times', async () => {
+    const token = createTestJwtExpiresIn(45); // 45 seconds
+    localStorage.setItem('auth_token', token);
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({ id: '123', email: 'saved@example.com' })
+    );
+
+    renderSync();
+
+    await waitFor(() => {
+      expect(screen.getByText('Token expires')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/in 4\ds/)).toBeInTheDocument();
+  });
+
+  it('displays hours without minutes when exactly on the hour', async () => {
+    const token = createTestJwtExpiresIn(3600); // 1 hour exactly
+    localStorage.setItem('auth_token', token);
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({ id: '123', email: 'saved@example.com' })
+    );
+
+    renderSync();
+
+    await waitFor(() => {
+      expect(screen.getByText('Token expires')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/in 59m/)).toBeInTheDocument();
+  });
+
+  it('displays expired state when token has expired', async () => {
+    const token = createTestJwtExpiresIn(-60); // expired 1 minute ago
+    localStorage.setItem('auth_token', token);
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({ id: '123', email: 'saved@example.com' })
+    );
+
+    renderSync();
+
+    await waitFor(() => {
+      expect(screen.getByText('Token expires')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Expired')).toBeInTheDocument();
   });
 });
