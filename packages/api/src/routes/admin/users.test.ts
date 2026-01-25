@@ -5,7 +5,7 @@ import { createAuthHeader } from '../../test/auth.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
-const mockGetSessionsByUserId = vi.fn();
+const mockGetLatestLastActiveByUserIds = vi.fn();
 
 vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: () => mockGetPostgresPool()
@@ -15,7 +15,8 @@ vi.mock('../../lib/sessions.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/sessions.js')>();
   return {
     ...actual,
-    getSessionsByUserId: (userId: string) => mockGetSessionsByUserId(userId)
+    getLatestLastActiveByUserIds: (userIds: string[]) =>
+      mockGetLatestLastActiveByUserIds(userIds)
   };
 });
 
@@ -24,7 +25,7 @@ describe('admin users routes', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    mockGetSessionsByUserId.mockResolvedValue([]);
+    mockGetLatestLastActiveByUserIds.mockResolvedValue({});
     vi.stubEnv('JWT_SECRET', 'test-secret');
     authHeader = await createAuthHeader({
       id: 'user-1',

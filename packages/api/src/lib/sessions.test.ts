@@ -46,6 +46,9 @@ const mockSMembers = vi.fn((key: string) => {
   const set = userSessionsStore.get(key);
   return Promise.resolve(set ? Array.from(set) : []);
 });
+const mockMGet = vi.fn((keys: string[]) => {
+  return Promise.resolve(keys.map((key) => sessionStore.get(key) ?? null));
+});
 
 const createMockMulti = () => {
   type MultiCommand = () => Promise<unknown>;
@@ -65,6 +68,10 @@ const createMockMulti = () => {
     },
     sRem: (key: string, member: string) => {
       commands.push(() => Promise.resolve(mockSRem(key, member)));
+      return chain;
+    },
+    sMembers: (key: string) => {
+      commands.push(() => Promise.resolve(mockSMembers(key)));
       return chain;
     },
     expire: (key: string, seconds: number) => {
@@ -93,6 +100,7 @@ vi.mock('./redis.js', () => ({
       sAdd: mockSAdd,
       sRem: mockSRem,
       sMembers: mockSMembers,
+      mGet: mockMGet,
       multi: createMockMulti
     })
   )
@@ -180,6 +188,52 @@ describe('sessions', () => {
         'user_sessions:user-cleanup',
         'stale-session'
       );
+    });
+  });
+
+  describe('getLatestLastActiveByUserIds', () => {
+    it('returns the latest activity per user', async () => {
+      vi.useFakeTimers();
+      const { createSession, getLatestLastActiveByUserIds } = await import(
+        './sessions.js'
+      );
+
+      vi.setSystemTime(new Date('2024-01-01T00:00:00.000Z'));
+      await createSession('session-1', {
+        userId: 'user-1',
+        email: 'user1@example.com',
+        ipAddress: '127.0.0.1',
+        admin: false
+      });
+
+      vi.setSystemTime(new Date('2024-01-03T00:00:00.000Z'));
+      await createSession('session-2', {
+        userId: 'user-1',
+        email: 'user1@example.com',
+        ipAddress: '127.0.0.1',
+        admin: false
+      });
+
+      vi.setSystemTime(new Date('2024-01-02T00:00:00.000Z'));
+      await createSession('session-3', {
+        userId: 'user-2',
+        email: 'user2@example.com',
+        ipAddress: '127.0.0.1',
+        admin: false
+      });
+
+      const result = await getLatestLastActiveByUserIds([
+        'user-1',
+        'user-2',
+        'user-3'
+      ]);
+
+      expect(result).toEqual({
+        'user-1': '2024-01-03T00:00:00.000Z',
+        'user-2': '2024-01-02T00:00:00.000Z',
+        'user-3': null
+      });
+      vi.useRealTimers();
     });
   });
 
