@@ -74,11 +74,16 @@ describe('OrganizationsList', () => {
 
     expect(screen.getByRole('table')).toBeInTheDocument();
     expect(
+      screen.getByRole('columnheader', { name: 'ID' })
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole('columnheader', { name: 'Name' })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('columnheader', { name: 'Description' })
     ).toBeInTheDocument();
+    expect(screen.getByText('org-1')).toBeInTheDocument();
+    expect(screen.getByText('org-2')).toBeInTheDocument();
     expect(screen.getByText('Team')).toBeInTheDocument();
     expect(screen.getByText('Beta')).toBeInTheDocument();
     expect(screen.getByText('—')).toBeInTheDocument();
@@ -184,6 +189,62 @@ describe('OrganizationsList', () => {
     expect(onOrganizationSelect).toHaveBeenCalledWith('org-1');
   });
 
+  it('calls onOrganizationSelect when Enter key pressed on row', async () => {
+    const user = userEvent.setup();
+    const onOrganizationSelect = vi.fn();
+    mockList.mockResolvedValue({
+      organizations: [
+        {
+          id: 'org-1',
+          name: 'Acme',
+          description: null,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }
+      ]
+    });
+
+    renderOrganizationsList({ onOrganizationSelect });
+
+    await waitFor(() => {
+      expect(screen.getByText('Acme')).toBeInTheDocument();
+    });
+
+    const row = screen.getByRole('row', { name: /org-1.*acme/i });
+    row.focus();
+    await user.keyboard('{Enter}');
+
+    expect(onOrganizationSelect).toHaveBeenCalledWith('org-1');
+  });
+
+  it('calls onOrganizationSelect when Space key pressed on row', async () => {
+    const user = userEvent.setup();
+    const onOrganizationSelect = vi.fn();
+    mockList.mockResolvedValue({
+      organizations: [
+        {
+          id: 'org-1',
+          name: 'Acme',
+          description: null,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }
+      ]
+    });
+
+    renderOrganizationsList({ onOrganizationSelect });
+
+    await waitFor(() => {
+      expect(screen.getByText('Acme')).toBeInTheDocument();
+    });
+
+    const row = screen.getByRole('row', { name: /org-1.*acme/i });
+    row.focus();
+    await user.keyboard(' ');
+
+    expect(onOrganizationSelect).toHaveBeenCalledWith('org-1');
+  });
+
   it('deletes an organization from context menu', async () => {
     const user = userEvent.setup();
     mockList.mockResolvedValue({
@@ -212,6 +273,39 @@ describe('OrganizationsList', () => {
 
     await waitFor(() => {
       expect(mockDelete).toHaveBeenCalledWith('org-1');
+    });
+  });
+
+  it('closes context menu when clicking backdrop', async () => {
+    const user = userEvent.setup();
+    mockList.mockResolvedValue({
+      organizations: [
+        {
+          id: 'org-1',
+          name: 'Acme',
+          description: null,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }
+      ]
+    });
+
+    renderOrganizationsList();
+
+    await waitFor(() => {
+      expect(screen.getByText('Acme')).toBeInTheDocument();
+    });
+
+    fireEvent.contextMenu(screen.getByText('Acme'));
+
+    expect(screen.getByText('Delete')).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: /close context menu/i })
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText('Delete')).not.toBeInTheDocument();
     });
   });
 });

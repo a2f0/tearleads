@@ -2,8 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type {
   CreateOrganizationRequest,
   Organization,
+  OrganizationGroupsResponse,
   OrganizationResponse,
   OrganizationsListResponse,
+  OrganizationUsersResponse,
   UpdateOrganizationRequest
 } from '@rapid/shared';
 import {
@@ -15,6 +17,22 @@ import {
 import { getPostgresPool } from '../../lib/postgres.js';
 
 const router: RouterType = Router();
+
+async function checkOrganizationExists(
+  id: string,
+  res: Response
+): Promise<boolean> {
+  const pool = await getPostgresPool();
+  const result = await pool.query(
+    'SELECT id FROM organizations WHERE id = $1',
+    [id]
+  );
+  if (result.rows.length === 0) {
+    res.status(404).json({ error: 'Organization not found' });
+    return false;
+  }
+  return true;
+}
 
 /**
  * @openapi
@@ -200,6 +218,137 @@ router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
     });
   }
 });
+
+/**
+ * @openapi
+ * /admin/organizations/{id}/users:
+ *   get:
+ *     summary: Get users belonging to an organization
+ *     description: Returns all users that are members of the specified organization.
+ *     tags:
+ *       - Admin
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Organization ID
+ *     responses:
+ *       200:
+ *         description: List of organization users
+ *       404:
+ *         description: Organization not found
+ *       500:
+ *         description: Database error
+ */
+router.get(
+  '/:id/users',
+  async (req: Request<{ id: string }>, res: Response) => {
+    try {
+      const { id } = req.params;
+      if (!(await checkOrganizationExists(id, res))) return;
+
+      const pool = await getPostgresPool();
+      const result = await pool.query<{
+        id: string;
+        email: string;
+        joined_at: Date;
+      }>(
+        `SELECT u.id, u.email, uo.joined_at
+         FROM users u
+         INNER JOIN user_organizations uo ON uo.user_id = u.id
+         WHERE uo.organization_id = $1
+         ORDER BY u.email`,
+        [id]
+      );
+
+      const response: OrganizationUsersResponse = {
+        users: result.rows.map((row) => ({
+          id: row.id,
+          email: row.email,
+          joinedAt: row.joined_at.toISOString()
+        }))
+      };
+      res.json(response);
+    } catch (err) {
+      console.error('Organizations error:', err);
+      res.status(500).json({
+        error:
+          err instanceof Error
+            ? err.message
+            : 'Failed to fetch organization users'
+      });
+    }
+  }
+);
+
+/**
+ * @openapi
+ * /admin/organizations/{id}/groups:
+ *   get:
+ *     summary: Get groups belonging to an organization
+ *     description: Returns all groups that belong to the specified organization.
+ *     tags:
+ *       - Admin
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Organization ID
+ *     responses:
+ *       200:
+ *         description: List of organization groups
+ *       404:
+ *         description: Organization not found
+ *       500:
+ *         description: Database error
+ */
+router.get(
+  '/:id/groups',
+  async (req: Request<{ id: string }>, res: Response) => {
+    try {
+      const { id } = req.params;
+      if (!(await checkOrganizationExists(id, res))) return;
+
+      const pool = await getPostgresPool();
+      const result = await pool.query<{
+        id: string;
+        name: string;
+        description: string | null;
+        member_count: number;
+      }>(
+        `SELECT g.id, g.name, g.description, COUNT(ug.user_id)::integer AS member_count
+         FROM groups g
+         LEFT JOIN user_groups ug ON ug.group_id = g.id
+         WHERE g.organization_id = $1
+         GROUP BY g.id
+         ORDER BY g.name`,
+        [id]
+      );
+
+      const response: OrganizationGroupsResponse = {
+        groups: result.rows.map((row) => ({
+          id: row.id,
+          name: row.name,
+          description: row.description,
+          memberCount: row.member_count
+        }))
+      };
+      res.json(response);
+    } catch (err) {
+      console.error('Organizations error:', err);
+      res.status(500).json({
+        error:
+          err instanceof Error
+            ? err.message
+            : 'Failed to fetch organization groups'
+      });
+    }
+  }
+);
 
 /**
  * @openapi

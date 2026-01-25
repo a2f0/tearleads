@@ -198,6 +198,27 @@ export interface UpdateOrganizationRequest {
   description?: string;
 }
 
+export interface OrganizationUser {
+  id: string;
+  email: string;
+  joinedAt: string;
+}
+
+export interface OrganizationGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  memberCount: number;
+}
+
+export interface OrganizationUsersResponse {
+  users: OrganizationUser[];
+}
+
+export interface OrganizationGroupsResponse {
+  groups: OrganizationGroup[];
+}
+
 // Auth types
 export interface AuthUser {
   id: string;
