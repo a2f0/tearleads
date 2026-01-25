@@ -11,9 +11,13 @@ vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: () => mockGetPostgresPool()
 }));
 
-vi.mock('../../lib/sessions.js', () => ({
-  getSessionsByUserId: (userId: string) => mockGetSessionsByUserId(userId)
-}));
+vi.mock('../../lib/sessions.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/sessions.js')>();
+  return {
+    ...actual,
+    getSessionsByUserId: (userId: string) => mockGetSessionsByUserId(userId)
+  };
+});
 
 describe('admin users routes', () => {
   let authHeader: string;
