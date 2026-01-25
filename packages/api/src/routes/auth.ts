@@ -162,7 +162,7 @@ router.post('/login', async (req: Request, res: Response) => {
         admin: user.admin ?? false,
         ipAddress
       },
-      ACCESS_TOKEN_TTL_SECONDS
+      REFRESH_TOKEN_TTL_SECONDS
     );
 
     const accessToken = createJwt(
@@ -316,7 +316,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
         admin: session.admin,
         ipAddress
       },
-      sessionTtlSeconds: ACCESS_TOKEN_TTL_SECONDS,
+      sessionTtlSeconds: REFRESH_TOKEN_TTL_SECONDS,
       refreshTokenTtlSeconds: REFRESH_TOKEN_TTL_SECONDS
     });
 

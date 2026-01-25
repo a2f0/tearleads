@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';
 import { createJwt, verifyJwt, verifyRefreshJwt } from '../lib/jwt.js';
 import { hashPassword } from '../lib/passwords.js';
+import { getRedisClient } from '../lib/redis.js';
 import {
   createSession,
   deleteRefreshToken,
@@ -137,6 +138,55 @@ describe('Auth routes', () => {
       await deleteRefreshToken(refreshClaims.jti);
     }
     await deleteSession(claims.jti, 'user-1');
+  });
+
+  it('stores session with refresh token TTL (not access token TTL)', async () => {
+    const password = 'correct-password';
+    const credentials = await hashPassword(password);
+
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'ttl-test-user',
+          email: 'ttl@example.com',
+          password_hash: credentials.hash,
+          password_salt: credentials.salt,
+          admin: false
+        }
+      ]
+    });
+
+    const response = await request(app)
+      .post('/v1/auth/login')
+      .send({ email: 'ttl@example.com', password });
+
+    expect(response.status).toBe(200);
+
+    const claims = verifyJwt(response.body.accessToken, 'test-secret');
+    expect(claims).not.toBeNull();
+    if (!claims) {
+      throw new Error('Expected JWT claims');
+    }
+
+    // Verify session TTL matches refresh token TTL (604800s = 7 days)
+    // rather than access token TTL (3600s = 1 hour)
+    const client = await getRedisClient();
+    const sessionTtl = await client.ttl(`session:${claims.jti}`);
+
+    // TTL should be close to REFRESH_TOKEN_TTL_SECONDS (604800)
+    // Allow some margin for test execution time
+    expect(sessionTtl).toBeGreaterThan(604700);
+    expect(sessionTtl).toBeLessThanOrEqual(604800);
+
+    // Clean up
+    await deleteSession(claims.jti, 'ttl-test-user');
+    const refreshClaims = verifyRefreshJwt(
+      response.body.refreshToken,
+      'test-secret'
+    );
+    if (refreshClaims) {
+      await deleteRefreshToken(refreshClaims.jti);
+    }
   });
 
   it('returns 500 when login query fails', async () => {
@@ -304,6 +354,67 @@ describe('Auth routes', () => {
         await deleteSession(newClaims.jti, userId);
       }
 
+      const newRefreshClaims = verifyRefreshJwt(
+        response.body.refreshToken,
+        'test-secret'
+      );
+      if (newRefreshClaims) {
+        await deleteRefreshToken(newRefreshClaims.jti);
+      }
+    });
+
+    it('stores rotated session with refresh token TTL (not access token TTL)', async () => {
+      const sessionId = 'refresh-ttl-session';
+      const refreshTokenId = 'refresh-ttl-token-id';
+      const userId = 'refresh-ttl-user';
+
+      await createSession(
+        sessionId,
+        {
+          userId,
+          email: 'refresh-ttl@example.com',
+          admin: false,
+          ipAddress: '127.0.0.1'
+        },
+        604800
+      );
+
+      await storeRefreshToken(refreshTokenId, { sessionId, userId }, 604800);
+
+      const refreshToken = createJwt(
+        {
+          sub: userId,
+          jti: refreshTokenId,
+          sid: sessionId,
+          type: 'refresh'
+        },
+        'test-secret',
+        604800
+      );
+
+      const response = await request(app)
+        .post('/v1/auth/refresh')
+        .send({ refreshToken });
+
+      expect(response.status).toBe(200);
+
+      const newClaims = verifyJwt(response.body.accessToken, 'test-secret');
+      expect(newClaims).not.toBeNull();
+      if (!newClaims) {
+        throw new Error('Expected JWT claims');
+      }
+
+      // Verify rotated session TTL matches refresh token TTL (604800s = 7 days)
+      // This ensures the fix also applies to token refresh flow
+      const client = await getRedisClient();
+      const newSessionTtl = await client.ttl(`session:${newClaims.jti}`);
+
+      // TTL should be close to REFRESH_TOKEN_TTL_SECONDS (604800)
+      expect(newSessionTtl).toBeGreaterThan(604700);
+      expect(newSessionTtl).toBeLessThanOrEqual(604800);
+
+      // Clean up
+      await deleteSession(newClaims.jti, userId);
       const newRefreshClaims = verifyRefreshJwt(
         response.body.refreshToken,
         'test-secret'
