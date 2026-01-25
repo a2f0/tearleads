@@ -1,8 +1,17 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminOrganizationsWindow } from './AdminOrganizationsWindow';
+
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate
+  };
+});
 
 vi.mock('@/components/floating-window', () => ({
   FloatingWindow: ({
@@ -57,14 +66,32 @@ vi.mock('@/pages/admin/OrganizationsAdmin', () => ({
 vi.mock('@/pages/admin/OrganizationDetailPage', () => ({
   OrganizationDetailPage: ({
     organizationId,
-    backLink
+    backLink,
+    onUserSelect,
+    onGroupSelect
   }: {
     organizationId?: string | null;
     backLink?: React.ReactNode;
+    onUserSelect?: (userId: string) => void;
+    onGroupSelect?: (groupId: string) => void;
   }) => (
     <div data-testid="orgs-admin-detail">
       <span data-testid="detail-org-id">{organizationId}</span>
       {backLink}
+      <button
+        type="button"
+        data-testid="select-user-btn"
+        onClick={() => onUserSelect?.('user-456')}
+      >
+        Select User
+      </button>
+      <button
+        type="button"
+        data-testid="select-group-btn"
+        onClick={() => onGroupSelect?.('group-789')}
+      >
+        Select Group
+      </button>
     </div>
   )
 }));
@@ -77,6 +104,10 @@ describe('AdminOrganizationsWindow', () => {
     onFocus: vi.fn(),
     zIndex: 100
   };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('renders in FloatingWindow', () => {
     render(
@@ -206,5 +237,33 @@ describe('AdminOrganizationsWindow', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Close' }));
 
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('navigates to user detail when user is selected', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <AdminOrganizationsWindow {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByTestId('select-org-btn'));
+    await user.click(screen.getByTestId('select-user-btn'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/users/user-456');
+  });
+
+  it('navigates to group detail when group is selected', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <AdminOrganizationsWindow {...defaultProps} />
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByTestId('select-org-btn'));
+    await user.click(screen.getByTestId('select-group-btn'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/groups/group-789');
   });
 });
