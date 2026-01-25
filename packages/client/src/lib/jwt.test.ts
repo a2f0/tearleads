@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTestJwt } from '@/test/jwt-test-utils';
 import {
   decodeJwt,
   getJwtExpiration,
@@ -6,18 +7,21 @@ import {
   isJwtExpired
 } from './jwt';
 
-// Create a test JWT with a specific expiration
-function createTestJwt(exp: number): string {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const payload = btoa(JSON.stringify({ sub: 'user123', exp }));
-  const signature = 'test-signature';
-  return `${header}.${payload}.${signature}`;
-}
-
 describe('jwt utilities', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   describe('decodeJwt', () => {
     it('decodes a valid JWT', () => {
-      const exp = Math.floor(Date.now() / 1000) + 3600;
+      const now = Date.now();
+      vi.setSystemTime(now);
+
+      const exp = Math.floor(now / 1000) + 3600;
       const token = createTestJwt(exp);
       const claims = decodeJwt(token);
       expect(claims).toEqual({ sub: 'user123', exp });
@@ -36,7 +40,10 @@ describe('jwt utilities', () => {
 
   describe('getJwtExpiration', () => {
     it('returns expiration timestamp', () => {
-      const exp = Math.floor(Date.now() / 1000) + 3600;
+      const now = Date.now();
+      vi.setSystemTime(now);
+
+      const exp = Math.floor(now / 1000) + 3600;
       const token = createTestJwt(exp);
       expect(getJwtExpiration(token)).toBe(exp);
     });
@@ -55,13 +62,19 @@ describe('jwt utilities', () => {
 
   describe('isJwtExpired', () => {
     it('returns false for non-expired token', () => {
-      const exp = Math.floor(Date.now() / 1000) + 3600;
+      const now = Date.now();
+      vi.setSystemTime(now);
+
+      const exp = Math.floor(now / 1000) + 3600;
       const token = createTestJwt(exp);
       expect(isJwtExpired(token)).toBe(false);
     });
 
     it('returns true for expired token', () => {
-      const exp = Math.floor(Date.now() / 1000) - 3600;
+      const now = Date.now();
+      vi.setSystemTime(now);
+
+      const exp = Math.floor(now / 1000) - 3600;
       const token = createTestJwt(exp);
       expect(isJwtExpired(token)).toBe(true);
     });
@@ -73,15 +86,26 @@ describe('jwt utilities', () => {
 
   describe('getJwtTimeRemaining', () => {
     it('returns milliseconds remaining for non-expired token', () => {
-      const exp = Math.floor(Date.now() / 1000) + 3600;
+      // Set a fixed time first
+      const baseTime = new Date('2024-01-01T12:00:00.000Z').getTime();
+      vi.setSystemTime(baseTime);
+
+      // Create token that expires 1 hour from the fixed time
+      const exp = Math.floor(baseTime / 1000) + 3600;
       const token = createTestJwt(exp);
+
+      // Advance time by 1 second
+      vi.advanceTimersByTime(1000);
+
       const remaining = getJwtTimeRemaining(token);
-      expect(remaining).toBeGreaterThan(3500000);
-      expect(remaining).toBeLessThanOrEqual(3600000);
+      expect(remaining).toBe(3600 * 1000 - 1000); // Exactly 3599000ms
     });
 
     it('returns null for expired token', () => {
-      const exp = Math.floor(Date.now() / 1000) - 3600;
+      const now = Date.now();
+      vi.setSystemTime(now);
+
+      const exp = Math.floor(now / 1000) - 3600;
       const token = createTestJwt(exp);
       expect(getJwtTimeRemaining(token)).toBeNull();
     });

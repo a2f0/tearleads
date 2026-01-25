@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { createTestJwtExpiresIn } from '@/test/jwt-test-utils';
 import { Sync } from './Sync';
 
 const mockLogin = vi.fn();
@@ -16,14 +17,6 @@ vi.mock('@/lib/api', () => ({
     }
   }
 }));
-
-function createTestJwt(expInSeconds: number): string {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const exp = Math.floor(Date.now() / 1000) + expInSeconds;
-  const payload = btoa(JSON.stringify({ sub: 'user123', exp }));
-  const signature = 'test-signature';
-  return `${header}.${payload}.${signature}`;
-}
 
 function renderSync(showBackLink = true) {
   return render(
@@ -284,7 +277,7 @@ describe('Sync', () => {
   });
 
   it('displays token expiration time in hours and minutes', async () => {
-    const token = createTestJwt(7200); // 2 hours
+    const token = createTestJwtExpiresIn(7200); // 2 hours
     localStorage.setItem('auth_token', token);
     localStorage.setItem(
       'auth_user',
@@ -301,7 +294,7 @@ describe('Sync', () => {
   });
 
   it('displays token expiration time in minutes only', async () => {
-    const token = createTestJwt(1800); // 30 minutes
+    const token = createTestJwtExpiresIn(1800); // 30 minutes
     localStorage.setItem('auth_token', token);
     localStorage.setItem(
       'auth_user',
@@ -318,7 +311,7 @@ describe('Sync', () => {
   });
 
   it('displays token expiration time in seconds for short times', async () => {
-    const token = createTestJwt(45); // 45 seconds
+    const token = createTestJwtExpiresIn(45); // 45 seconds
     localStorage.setItem('auth_token', token);
     localStorage.setItem(
       'auth_user',
@@ -335,7 +328,7 @@ describe('Sync', () => {
   });
 
   it('displays hours without minutes when exactly on the hour', async () => {
-    const token = createTestJwt(3600); // 1 hour exactly
+    const token = createTestJwtExpiresIn(3600); // 1 hour exactly
     localStorage.setItem('auth_token', token);
     localStorage.setItem(
       'auth_user',
@@ -352,7 +345,7 @@ describe('Sync', () => {
   });
 
   it('displays expired state when token has expired', async () => {
-    const token = createTestJwt(-60); // expired 1 minute ago
+    const token = createTestJwtExpiresIn(-60); // expired 1 minute ago
     localStorage.setItem('auth_token', token);
     localStorage.setItem(
       'auth_user',

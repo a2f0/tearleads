@@ -32,6 +32,7 @@ export function UsersAdminDetail({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [organizationIdsInput, setOrganizationIdsInput] = useState('');
   const [isIdCopied, setIsIdCopied] = useState(false);
   const [groups, setGroups] = useState<GroupWithMemberCount[]>([]);
   const [groupMemberships, setGroupMemberships] = useState<
@@ -76,6 +77,14 @@ export function UsersAdminDetail({
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
+
+  const parseOrganizationIds = useCallback((input: string) => {
+    const parts = input
+      .split(/[\n,]/)
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+    return Array.from(new Set(parts));
+  }, []);
 
   const fetchGroups = useCallback(async () => {
     if (!userId) return;
