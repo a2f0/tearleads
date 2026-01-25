@@ -64,14 +64,29 @@ export function OrganizationDetailPage({
     try {
       setLoading(true);
       setError(null);
-      const [orgResponse, usersResponse, groupsResponse] = await Promise.all([
+      const [orgResult, usersResult, groupsResult] = await Promise.allSettled([
         api.admin.organizations.get(id),
         api.admin.organizations.getUsers(id),
         api.admin.organizations.getGroups(id)
       ]);
-      setOrganization(orgResponse.organization);
-      setUsers(usersResponse.users);
-      setGroups(groupsResponse.groups);
+
+      if (orgResult.status === 'fulfilled') {
+        setOrganization(orgResult.value.organization);
+      } else {
+        setError(
+          orgResult.reason instanceof Error
+            ? orgResult.reason.message
+            : 'Failed to fetch organization'
+        );
+      }
+
+      if (usersResult.status === 'fulfilled') {
+        setUsers(usersResult.value.users);
+      }
+
+      if (groupsResult.status === 'fulfilled') {
+        setGroups(groupsResult.value.groups);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to fetch organization'
@@ -290,8 +305,17 @@ export function OrganizationDetailPage({
             </div>
           ) : (
             <div className="divide-y">
-              {users.map((user) =>
-                onUserSelect ? (
+              {users.map((user) => {
+                const content = (
+                  <>
+                    <span className="flex-1 truncate">{user.email}</span>
+                    <span className="text-muted-foreground text-xs">
+                      Joined {formatDate(new Date(user.joinedAt))}
+                    </span>
+                  </>
+                );
+
+                return onUserSelect ? (
                   <button
                     key={user.id}
                     type="button"
@@ -299,10 +323,7 @@ export function OrganizationDetailPage({
                     onClick={() => onUserSelect(user.id)}
                     data-testid={`organization-user-${user.id}`}
                   >
-                    <span className="flex-1 truncate">{user.email}</span>
-                    <span className="text-muted-foreground text-xs">
-                      Joined {new Date(user.joinedAt).toLocaleDateString()}
-                    </span>
+                    {content}
                   </button>
                 ) : (
                   <div
@@ -310,13 +331,10 @@ export function OrganizationDetailPage({
                     className="flex items-center gap-2 px-3 py-2"
                     data-testid={`organization-user-${user.id}`}
                   >
-                    <span className="flex-1 truncate">{user.email}</span>
-                    <span className="text-muted-foreground text-xs">
-                      Joined {new Date(user.joinedAt).toLocaleDateString()}
-                    </span>
+                    {content}
                   </div>
-                )
-              )}
+                );
+              })}
             </div>
           )}
         </div>
@@ -335,8 +353,18 @@ export function OrganizationDetailPage({
             </div>
           ) : (
             <div className="divide-y">
-              {groups.map((group) =>
-                onGroupSelect ? (
+              {groups.map((group) => {
+                const content = (
+                  <>
+                    <span className="flex-1 truncate">{group.name}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {group.memberCount}{' '}
+                      {group.memberCount === 1 ? 'member' : 'members'}
+                    </span>
+                  </>
+                );
+
+                return onGroupSelect ? (
                   <button
                     key={group.id}
                     type="button"
@@ -344,11 +372,7 @@ export function OrganizationDetailPage({
                     onClick={() => onGroupSelect(group.id)}
                     data-testid={`organization-group-${group.id}`}
                   >
-                    <span className="flex-1 truncate">{group.name}</span>
-                    <span className="text-muted-foreground text-xs">
-                      {group.memberCount}{' '}
-                      {group.memberCount === 1 ? 'member' : 'members'}
-                    </span>
+                    {content}
                   </button>
                 ) : (
                   <div
@@ -356,14 +380,10 @@ export function OrganizationDetailPage({
                     className="flex items-center gap-2 px-3 py-2"
                     data-testid={`organization-group-${group.id}`}
                   >
-                    <span className="flex-1 truncate">{group.name}</span>
-                    <span className="text-muted-foreground text-xs">
-                      {group.memberCount}{' '}
-                      {group.memberCount === 1 ? 'member' : 'members'}
-                    </span>
+                    {content}
                   </div>
-                )
-              )}
+                );
+              })}
             </div>
           )}
         </div>

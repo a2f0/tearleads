@@ -328,4 +328,22 @@ describe('OrganizationDetailPage', () => {
       });
     });
   });
+
+  it('shows organization even when users/groups fetch fails', async () => {
+    mockGet.mockResolvedValue(organizationResponse);
+    mockGetUsers.mockRejectedValue(new Error('Users fetch failed'));
+    mockGetGroups.mockRejectedValue(new Error('Groups fetch failed'));
+
+    renderWithRouter('org-1');
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Acme' })).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText('No users in this organization')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('No groups in this organization')
+    ).toBeInTheDocument();
+  });
 });

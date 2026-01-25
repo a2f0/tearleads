@@ -332,13 +332,13 @@ describe('admin organizations routes', () => {
                 id: 'group-1',
                 name: 'Admins',
                 description: 'Admin group',
-                member_count: '3'
+                member_count: 3
               },
               {
                 id: 'group-2',
                 name: 'Users',
                 description: null,
-                member_count: '10'
+                member_count: 10
               }
             ]
           })
