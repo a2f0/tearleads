@@ -3,7 +3,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
+import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 
 interface OpfsWindowMenuBarProps {
   onRefresh: () => void;
@@ -31,7 +31,7 @@ export function OpfsWindowMenuBar({
           Collapse All
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <PreserveWindowStateMenuItem />
+        <WindowOptionsMenuItem />
       </DropdownMenu>
     </div>
   );

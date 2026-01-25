@@ -17,14 +17,14 @@ describe('CacheStorageWindowMenuBar', () => {
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
   });
 
-  it('shows Preserve Window State in the View menu', async () => {
+  it('shows Options in the View menu', async () => {
     const user = userEvent.setup();
     render(<CacheStorageWindowMenuBar onRefresh={vi.fn()} onClose={vi.fn()} />);
 
     await user.click(screen.getByRole('button', { name: 'View' }));
 
     expect(
-      screen.getByRole('menuitem', { name: 'Preserve Window State' })
+      screen.getByRole('menuitem', { name: 'Options' })
     ).toBeInTheDocument();
   });
 });

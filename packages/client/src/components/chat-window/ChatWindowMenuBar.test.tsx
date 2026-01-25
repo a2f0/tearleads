@@ -56,14 +56,14 @@ describe('ChatWindowMenuBar', () => {
     );
   });
 
-  it('shows Preserve Window State in View menu', async () => {
+  it('shows Options in View menu', async () => {
     const user = userEvent.setup();
     render(<ChatWindowMenuBar {...defaultProps} />);
 
     await user.click(screen.getByRole('button', { name: 'View' }));
 
     expect(
-      screen.getByRole('menuitem', { name: 'Preserve Window State' })
+      screen.getByRole('menuitem', { name: 'Options' })
     ).toBeInTheDocument();
   });
 

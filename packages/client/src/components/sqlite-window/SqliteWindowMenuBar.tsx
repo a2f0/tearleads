@@ -4,7 +4,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
+import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 
 interface SqliteWindowMenuBarProps {
   onClose: () => void;
@@ -50,7 +50,7 @@ export function SqliteWindowMenuBar({
           Refresh
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <PreserveWindowStateMenuItem />
+        <WindowOptionsMenuItem />
       </DropdownMenu>
     </div>
   );

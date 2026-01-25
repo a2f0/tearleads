@@ -3,8 +3,8 @@ import { userEvent } from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { V86WindowMenuBar } from './V86WindowMenuBar';
 
-vi.mock('@/components/window-menu/PreserveWindowStateMenuItem', () => ({
-  PreserveWindowStateMenuItem: () => (
+vi.mock('@/components/window-menu/WindowOptionsMenuItem', () => ({
+  WindowOptionsMenuItem: () => (
     <div data-testid="preserve-state-item">Preserve State</div>
   )
 }));
@@ -78,7 +78,7 @@ describe('V86WindowMenuBar', () => {
     expect(onShowDropzoneChange).toHaveBeenCalledWith(true);
   });
 
-  it('renders PreserveWindowStateMenuItem in View menu', async () => {
+  it('renders WindowOptionsMenuItem in View menu', async () => {
     const user = userEvent.setup();
     render(
       <V86WindowMenuBar

@@ -2,7 +2,7 @@ import { ThemeProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WindowStateSettingsDialog } from './WindowStateSettingsDialog';
+import { WindowOptionsDialog } from './WindowOptionsDialog';
 
 function renderDialog(props: {
   open?: boolean;
@@ -19,12 +19,12 @@ function renderDialog(props: {
 
   return render(
     <ThemeProvider>
-      <WindowStateSettingsDialog {...defaultProps} {...props} />
+      <WindowOptionsDialog {...defaultProps} {...props} />
     </ThemeProvider>
   );
 }
 
-describe('WindowStateSettingsDialog', () => {
+describe('WindowOptionsDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -32,20 +32,18 @@ describe('WindowStateSettingsDialog', () => {
   it('renders nothing when closed', () => {
     renderDialog({ open: false });
     expect(
-      screen.queryByTestId('window-state-settings-dialog')
+      screen.queryByTestId('window-options-dialog')
     ).not.toBeInTheDocument();
   });
 
   it('renders dialog when open', () => {
     renderDialog({ open: true });
-    expect(
-      screen.getByTestId('window-state-settings-dialog')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('window-options-dialog')).toBeInTheDocument();
   });
 
   it('displays title and radio options', () => {
     renderDialog({});
-    expect(screen.getByText('Window State Settings')).toBeInTheDocument();
+    expect(screen.getByText('Window Options')).toBeInTheDocument();
     expect(screen.getByText('Preserve window state')).toBeInTheDocument();
     expect(screen.getByText('Use default window state')).toBeInTheDocument();
   });
@@ -94,7 +92,7 @@ describe('WindowStateSettingsDialog', () => {
     const user = userEvent.setup();
     renderDialog({ preserveWindowState: true, onSave, onOpenChange });
 
-    await user.click(screen.getByTestId('window-state-settings-ok'));
+    await user.click(screen.getByTestId('window-options-ok'));
 
     expect(onSave).toHaveBeenCalledWith(true);
     expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -108,7 +106,7 @@ describe('WindowStateSettingsDialog', () => {
 
     // Change to default option
     await user.click(screen.getByTestId('window-state-default-radio'));
-    await user.click(screen.getByTestId('window-state-settings-ok'));
+    await user.click(screen.getByTestId('window-options-ok'));
 
     expect(onSave).toHaveBeenCalledWith(false);
     expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -122,7 +120,7 @@ describe('WindowStateSettingsDialog', () => {
 
     // Change selection but then cancel
     await user.click(screen.getByTestId('window-state-default-radio'));
-    await user.click(screen.getByTestId('window-state-settings-cancel'));
+    await user.click(screen.getByTestId('window-options-cancel'));
 
     expect(onSave).not.toHaveBeenCalled();
     expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -134,7 +132,7 @@ describe('WindowStateSettingsDialog', () => {
     const user = userEvent.setup();
     renderDialog({ onSave, onOpenChange });
 
-    await user.click(screen.getByTestId('window-state-settings-backdrop'));
+    await user.click(screen.getByTestId('window-options-backdrop'));
 
     expect(onSave).not.toHaveBeenCalled();
     expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -155,7 +153,7 @@ describe('WindowStateSettingsDialog', () => {
   it('resets selection when reopened', () => {
     const { rerender } = render(
       <ThemeProvider>
-        <WindowStateSettingsDialog
+        <WindowOptionsDialog
           open={true}
           onOpenChange={vi.fn()}
           preserveWindowState={true}
@@ -170,7 +168,7 @@ describe('WindowStateSettingsDialog', () => {
     // Close the dialog
     rerender(
       <ThemeProvider>
-        <WindowStateSettingsDialog
+        <WindowOptionsDialog
           open={false}
           onOpenChange={vi.fn()}
           preserveWindowState={false}
@@ -182,7 +180,7 @@ describe('WindowStateSettingsDialog', () => {
     // Reopen with different preserveWindowState
     rerender(
       <ThemeProvider>
-        <WindowStateSettingsDialog
+        <WindowOptionsDialog
           open={true}
           onOpenChange={vi.fn()}
           preserveWindowState={false}
@@ -201,8 +199,8 @@ describe('WindowStateSettingsDialog', () => {
     renderDialog({});
 
     const preserveRadio = screen.getByTestId('window-state-preserve-radio');
-    const cancelButton = screen.getByTestId('window-state-settings-cancel');
-    const okButton = screen.getByTestId('window-state-settings-ok');
+    const cancelButton = screen.getByTestId('window-options-cancel');
+    const okButton = screen.getByTestId('window-options-ok');
 
     // Focus the first radio
     preserveRadio.focus();
@@ -225,7 +223,7 @@ describe('WindowStateSettingsDialog', () => {
     renderDialog({});
 
     const preserveRadio = screen.getByTestId('window-state-preserve-radio');
-    const okButton = screen.getByTestId('window-state-settings-ok');
+    const okButton = screen.getByTestId('window-options-ok');
 
     // Focus the first radio
     preserveRadio.focus();
@@ -248,7 +246,7 @@ describe('WindowStateSettingsDialog', () => {
     // With the original code, this would cause the selection to reset.
     rerender(
       <ThemeProvider>
-        <WindowStateSettingsDialog
+        <WindowOptionsDialog
           open={true}
           onOpenChange={vi.fn()}
           preserveWindowState={true}

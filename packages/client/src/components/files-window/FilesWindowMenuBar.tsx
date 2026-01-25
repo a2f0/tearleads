@@ -4,7 +4,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { PreserveWindowStateMenuItem } from '@/components/window-menu/PreserveWindowStateMenuItem';
+import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 
 export type ViewMode = 'list' | 'table';
 
@@ -78,7 +78,7 @@ export function FilesWindowMenuBar({
           Show Deleted
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <PreserveWindowStateMenuItem />
+        <WindowOptionsMenuItem />
       </DropdownMenu>
     </div>
   );
