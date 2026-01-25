@@ -25,6 +25,7 @@ import {
   Table2,
   Terminal,
   User,
+  Users,
   X
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
@@ -55,7 +56,7 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   admin: <Shield className="h-3 w-3" />,
   'admin-redis': <Database className="h-3 w-3" />,
   'admin-postgres': <Database className="h-3 w-3" />,
-  'admin-groups': <User className="h-3 w-3" />,
+  'admin-groups': <Users className="h-3 w-3" />,
   'admin-users': <User className="h-3 w-3" />,
   'cache-storage': <Archive className="h-3 w-3" />,
   'local-storage': <HardDrive className="h-3 w-3" />,
