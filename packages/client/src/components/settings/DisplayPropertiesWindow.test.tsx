@@ -8,6 +8,12 @@ vi.mock('./FontSelector', () => ({
   FontSelector: () => <div data-testid="font-selector">FontSelector</div>
 }));
 
+vi.mock('./IconBackgroundToggle', () => ({
+  IconBackgroundToggle: () => (
+    <div data-testid="icon-background">IconBackgroundToggle</div>
+  )
+}));
+
 vi.mock('./IconDepthToggle', () => ({
   IconDepthToggle: () => <div data-testid="icon-depth">IconDepthToggle</div>
 }));
@@ -72,6 +78,7 @@ describe('DisplayPropertiesWindow', () => {
     expect(screen.getByTestId('theme-selector')).toBeInTheDocument();
     expect(screen.getByTestId('pattern-selector')).toBeInTheDocument();
     expect(screen.getByTestId('icon-depth')).toBeInTheDocument();
+    expect(screen.getByTestId('icon-background')).toBeInTheDocument();
     expect(screen.getByTestId('font-selector')).toBeInTheDocument();
   });
 

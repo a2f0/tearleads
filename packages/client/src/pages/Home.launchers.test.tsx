@@ -36,6 +36,8 @@ vi.mock('@/db/SettingsProvider', () => ({
           return 'solid';
         case 'desktopIconDepth':
           return 'debossed';
+        case 'desktopIconBackground':
+          return 'colored';
         default:
           return 'enabled';
       }

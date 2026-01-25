@@ -88,6 +88,11 @@ export const es = {
     iconDepthDescription: 'Elige si los iconos se ven en relieve o hundidos',
     iconDepthEmbossed: 'En relieve',
     iconDepthDebossed: 'Hundidos',
+    iconBackground: 'Fondos de iconos',
+    iconBackgroundDescription:
+      'Elige si los iconos tienen fondo de color o son transparentes',
+    iconBackgroundColored: 'De color',
+    iconBackgroundTransparent: 'Transparente',
     tooltips: 'Información emergente',
     tooltipsDescription:
       'Mostrar sugerencias útiles al pasar el cursor sobre los elementos',

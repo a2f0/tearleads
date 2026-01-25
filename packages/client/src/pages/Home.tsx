@@ -22,7 +22,10 @@ import {
   type WindowType
 } from '@/contexts/WindowManagerContext';
 import { useSettings } from '@/db/SettingsProvider';
-import type { DesktopIconDepthValue } from '@/db/user-settings';
+import type {
+  DesktopIconBackgroundValue,
+  DesktopIconDepthValue
+} from '@/db/user-settings';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTypedTranslation } from '@/i18n';
 import { cn } from '@/lib/utils';
@@ -75,8 +78,16 @@ type Positions = Record<string, Position>;
 
 function getIconStyleClasses(
   isSettings: boolean,
-  iconDepth?: DesktopIconDepthValue
+  iconDepth?: DesktopIconDepthValue,
+  iconBackground?: DesktopIconBackgroundValue
 ) {
+  if (iconBackground === 'transparent') {
+    return {
+      iconBgClasses: 'bg-transparent',
+      iconFgClass: isSettings ? 'text-muted-foreground' : 'text-foreground'
+    };
+  }
+
   const isDebossed = iconDepth === 'debossed';
   if (isDebossed) {
     return {
@@ -398,10 +409,13 @@ export function Home() {
   const itemHeight = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
   const gridTemplateColumns = `repeat(${MOBILE_COLUMNS}, minmax(0, 1fr))`;
   const iconDepth = getSetting('desktopIconDepth');
+  const iconBackground = getSetting('desktopIconBackground');
   const iconDepthClasses =
-    iconDepth === 'debossed'
-      ? 'bg-gradient-to-tl shadow-inner'
-      : 'bg-gradient-to-br shadow-lg';
+    iconBackground === 'transparent'
+      ? ''
+      : iconDepth === 'debossed'
+        ? 'bg-gradient-to-tl shadow-inner'
+        : 'bg-gradient-to-br shadow-lg';
 
   useEffect(() => {
     const handleResize = () => {
@@ -777,7 +791,8 @@ export function Home() {
             const isSettings = item.path === '/settings';
             const { iconBgClasses, iconFgClass } = getIconStyleClasses(
               isSettings,
-              iconDepth
+              iconDepth,
+              iconBackground
             );
             const pos = positions[item.path] || { x: 0, y: 0 };
             const isDragging = dragging === item.path;

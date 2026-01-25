@@ -57,6 +57,7 @@ import {
   dispatchSettingsSyncedEvent,
   getSettingFromStorage,
   getSettingsFromDb,
+  isDesktopIconBackgroundValue,
   isDesktopIconDepthValue,
   isDesktopPatternValue,
   isFontValue,
@@ -161,6 +162,19 @@ describe('user-settings', () => {
         expect(isDesktopIconDepthValue('EMBOSSED')).toBe(false);
       });
     });
+
+    describe('isDesktopIconBackgroundValue', () => {
+      it('returns true for valid desktop icon background values', () => {
+        expect(isDesktopIconBackgroundValue('colored')).toBe(true);
+        expect(isDesktopIconBackgroundValue('transparent')).toBe(true);
+      });
+
+      it('returns false for invalid desktop icon background values', () => {
+        expect(isDesktopIconBackgroundValue('opaque')).toBe(false);
+        expect(isDesktopIconBackgroundValue('')).toBe(false);
+        expect(isDesktopIconBackgroundValue('COLORED')).toBe(false);
+      });
+    });
   });
 
   describe('constants', () => {
@@ -171,6 +185,7 @@ describe('user-settings', () => {
       expect(SETTING_DEFAULTS.font).toBe('system');
       expect(SETTING_DEFAULTS.desktopPattern).toBe('isometric');
       expect(SETTING_DEFAULTS.desktopIconDepth).toBe('debossed');
+      expect(SETTING_DEFAULTS.desktopIconBackground).toBe('colored');
     });
 
     it('has correct storage keys', () => {
@@ -180,6 +195,9 @@ describe('user-settings', () => {
       expect(SETTING_STORAGE_KEYS.font).toBe('font');
       expect(SETTING_STORAGE_KEYS.desktopPattern).toBe('desktopPattern');
       expect(SETTING_STORAGE_KEYS.desktopIconDepth).toBe('desktopIconDepth');
+      expect(SETTING_STORAGE_KEYS.desktopIconBackground).toBe(
+        'desktopIconBackground'
+      );
     });
   });
 
@@ -191,6 +209,7 @@ describe('user-settings', () => {
       expect(getSettingFromStorage('font')).toBeNull();
       expect(getSettingFromStorage('desktopPattern')).toBeNull();
       expect(getSettingFromStorage('desktopIconDepth')).toBeNull();
+      expect(getSettingFromStorage('desktopIconBackground')).toBeNull();
     });
 
     it('returns theme value from localStorage', () => {
@@ -223,6 +242,11 @@ describe('user-settings', () => {
       expect(getSettingFromStorage('desktopIconDepth')).toBe('debossed');
     });
 
+    it('returns desktopIconBackground value from localStorage', () => {
+      localStorageData['desktopIconBackground'] = 'transparent';
+      expect(getSettingFromStorage('desktopIconBackground')).toBe('transparent');
+    });
+
     it('returns null for invalid theme value', () => {
       localStorageData['theme'] = 'invalid-theme';
       expect(getSettingFromStorage('theme')).toBeNull();
@@ -251,6 +275,11 @@ describe('user-settings', () => {
     it('returns null for invalid desktopIconDepth value', () => {
       localStorageData['desktopIconDepth'] = 'raised';
       expect(getSettingFromStorage('desktopIconDepth')).toBeNull();
+    });
+
+    it('returns null for invalid desktopIconBackground value', () => {
+      localStorageData['desktopIconBackground'] = 'opaque';
+      expect(getSettingFromStorage('desktopIconBackground')).toBeNull();
     });
 
     it('handles localStorage errors gracefully', () => {
@@ -303,6 +332,14 @@ describe('user-settings', () => {
       expect(localStorage.setItem).toHaveBeenCalledWith(
         'desktopIconDepth',
         'debossed'
+      );
+    });
+
+    it('sets desktopIconBackground in localStorage', () => {
+      setSettingInStorage('desktopIconBackground', 'transparent');
+      expect(localStorage.setItem).toHaveBeenCalledWith(
+        'desktopIconBackground',
+        'transparent'
       );
     });
 
@@ -386,6 +423,16 @@ describe('user-settings', () => {
       expect(result.desktopIconDepth).toBe('debossed');
     });
 
+    it('returns desktopIconBackground from database', async () => {
+      mockWhere.mockResolvedValueOnce([
+        { key: 'desktopIconBackground', value: 'transparent' }
+      ]);
+
+      const result = await getSettingsFromDb(mockDb);
+
+      expect(result.desktopIconBackground).toBe('transparent');
+    });
+
     it('returns both theme and language from database', async () => {
       mockWhere.mockResolvedValueOnce([
         { key: 'theme', value: 'tokyo-night' },
@@ -453,6 +500,16 @@ describe('user-settings', () => {
       const result = await getSettingsFromDb(mockDb);
 
       expect(result.desktopIconDepth).toBeUndefined();
+    });
+
+    it('ignores invalid desktopIconBackground values', async () => {
+      mockWhere.mockResolvedValueOnce([
+        { key: 'desktopIconBackground', value: 'opaque' }
+      ]);
+
+      const result = await getSettingsFromDb(mockDb);
+
+      expect(result.desktopIconBackground).toBeUndefined();
     });
 
     it('ignores invalid font values', async () => {

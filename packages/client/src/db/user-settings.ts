@@ -16,7 +16,8 @@ export type UserSettingKey =
   | 'tooltips'
   | 'font'
   | 'desktopPattern'
-  | 'desktopIconDepth';
+  | 'desktopIconDepth'
+  | 'desktopIconBackground';
 
 // Per-setting value types
 export const THEME_VALUES: readonly [
@@ -38,6 +39,12 @@ export type DesktopPatternValue =
   | 'diamonds';
 export const DESKTOP_ICON_DEPTH_VALUES = ['embossed', 'debossed'] as const;
 export type DesktopIconDepthValue = (typeof DESKTOP_ICON_DEPTH_VALUES)[number];
+export const DESKTOP_ICON_BACKGROUND_VALUES = [
+  'colored',
+  'transparent'
+] as const;
+export type DesktopIconBackgroundValue =
+  (typeof DESKTOP_ICON_BACKGROUND_VALUES)[number];
 
 // Map settings keys to their value types
 export interface SettingValueMap {
@@ -47,6 +54,7 @@ export interface SettingValueMap {
   font: FontValue;
   desktopPattern: DesktopPatternValue;
   desktopIconDepth: DesktopIconDepthValue;
+  desktopIconBackground: DesktopIconBackgroundValue;
 }
 
 // Default values for each setting
@@ -56,7 +64,8 @@ export const SETTING_DEFAULTS: { [K in UserSettingKey]: SettingValueMap[K] } = {
   tooltips: 'enabled',
   font: 'system',
   desktopPattern: 'isometric',
-  desktopIconDepth: 'debossed'
+  desktopIconDepth: 'debossed',
+  desktopIconBackground: 'colored'
 };
 
 // localStorage keys for each setting (maps our keys to existing localStorage keys)
@@ -66,7 +75,8 @@ export const SETTING_STORAGE_KEYS: Record<UserSettingKey, string> = {
   tooltips: 'tooltips',
   font: 'font',
   desktopPattern: 'desktopPattern',
-  desktopIconDepth: 'desktopIconDepth'
+  desktopIconDepth: 'desktopIconDepth',
+  desktopIconBackground: 'desktopIconBackground'
 };
 
 // Type guard functions
@@ -98,6 +108,12 @@ export function isDesktopIconDepthValue(
   value: string
 ): value is DesktopIconDepthValue {
   return DESKTOP_ICON_DEPTH_VALUES.some((item) => item === value);
+}
+
+export function isDesktopIconBackgroundValue(
+  value: string
+): value is DesktopIconBackgroundValue {
+  return DESKTOP_ICON_BACKGROUND_VALUES.some((item) => item === value);
 }
 
 // Settings sync event detail type
@@ -132,6 +148,9 @@ export function getSettingFromStorage<K extends UserSettingKey>(
       return value as SettingValueMap[K];
     }
     if (key === 'desktopIconDepth' && isDesktopIconDepthValue(value)) {
+      return value as SettingValueMap[K];
+    }
+    if (key === 'desktopIconBackground' && isDesktopIconBackgroundValue(value)) {
       return value as SettingValueMap[K];
     }
 
@@ -189,6 +208,11 @@ export async function getSettingsFromDb(
       settings.desktopPattern = value;
     } else if (key === 'desktopIconDepth' && isDesktopIconDepthValue(value)) {
       settings.desktopIconDepth = value;
+    } else if (
+      key === 'desktopIconBackground' &&
+      isDesktopIconBackgroundValue(value)
+    ) {
+      settings.desktopIconBackground = value;
     }
   }
 

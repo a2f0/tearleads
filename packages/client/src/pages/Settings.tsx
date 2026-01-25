@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FontSelector,
+  IconBackgroundToggle,
   IconDepthToggle,
   PatternSelector,
   SettingsSection,
@@ -120,6 +121,10 @@ export function Settings({ showBackLink = true }: SettingsProps) {
 
       <SettingsSection>
         <IconDepthToggle />
+      </SettingsSection>
+
+      <SettingsSection>
+        <IconBackgroundToggle />
       </SettingsSection>
 
       <SettingsSection>
