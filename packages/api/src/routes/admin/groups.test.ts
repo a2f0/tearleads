@@ -513,7 +513,7 @@ describe('admin groups routes', () => {
       const joinedAt = new Date('2024-01-01');
       mockGetPostgresPool.mockResolvedValue({
         query: mockQuery
-          .mockResolvedValueOnce({ rowCount: 1 })
+          .mockResolvedValueOnce({ rows: [{ organization_id: 'org-1' }] })
           .mockResolvedValueOnce({
             rows: [
               {
@@ -540,7 +540,7 @@ describe('admin groups routes', () => {
 
     it('returns 404 when group not found', async () => {
       mockGetPostgresPool.mockResolvedValue({
-        query: mockQuery.mockResolvedValue({ rowCount: 0 })
+        query: mockQuery.mockResolvedValue({ rows: [] })
       });
 
       const response = await request(app)
