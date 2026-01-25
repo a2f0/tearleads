@@ -1,5 +1,19 @@
-import type { Organization, UpdateOrganizationRequest } from '@rapid/shared';
-import { Loader2, Save, Trash2 } from 'lucide-react';
+import type {
+  Organization,
+  OrganizationGroup,
+  OrganizationUser,
+  UpdateOrganizationRequest
+} from '@rapid/shared';
+import {
+  Building2,
+  Calendar,
+  Loader2,
+  Pencil,
+  Save,
+  Trash2,
+  Users,
+  X
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
@@ -9,27 +23,40 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
+
+interface OrganizationFormData {
+  name: string;
+  description: string;
+}
 
 interface OrganizationDetailPageProps {
   organizationId?: string;
   backLink?: ReactNode;
   onDelete?: () => void;
+  onUserSelect?: (userId: string) => void;
+  onGroupSelect?: (groupId: string) => void;
 }
 
 export function OrganizationDetailPage({
   organizationId: organizationIdProp,
   backLink,
-  onDelete
+  onDelete,
+  onUserSelect,
+  onGroupSelect
 }: OrganizationDetailPageProps) {
   const { id: paramId } = useParams<{ id: string }>();
   const id = organizationIdProp ?? paramId;
   const [organization, setOrganization] = useState<Organization | null>(null);
+  const [users, setUsers] = useState<OrganizationUser[]>([]);
+  const [groups, setGroups] = useState<OrganizationGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<OrganizationFormData | null>(null);
 
   const fetchOrganization = useCallback(async () => {
     if (!id) return;
@@ -37,10 +64,14 @@ export function OrganizationDetailPage({
     try {
       setLoading(true);
       setError(null);
-      const response = await api.admin.organizations.get(id);
-      setOrganization(response.organization);
-      setName(response.organization.name);
-      setDescription(response.organization.description ?? '');
+      const [orgResponse, usersResponse, groupsResponse] = await Promise.all([
+        api.admin.organizations.get(id),
+        api.admin.organizations.getUsers(id),
+        api.admin.organizations.getGroups(id)
+      ]);
+      setOrganization(orgResponse.organization);
+      setUsers(usersResponse.users);
+      setGroups(groupsResponse.groups);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to fetch organization'
@@ -54,19 +85,44 @@ export function OrganizationDetailPage({
     void fetchOrganization();
   }, [fetchOrganization]);
 
-  const handleSave = async () => {
-    if (!id || !name.trim()) return;
+  const handleEditClick = useCallback(() => {
+    if (!organization) return;
+    setFormData({
+      name: organization.name,
+      description: organization.description ?? ''
+    });
+    setIsEditing(true);
+    setError(null);
+  }, [organization]);
+
+  const handleCancel = useCallback(() => {
+    setFormData(null);
+    setIsEditing(false);
+    setError(null);
+  }, []);
+
+  const handleFormChange = useCallback(
+    (field: keyof OrganizationFormData, value: string) => {
+      setFormData((prev) => (prev ? { ...prev, [field]: value } : null));
+    },
+    []
+  );
+
+  const handleSave = useCallback(async () => {
+    if (!id || !formData || !formData.name.trim()) return;
 
     try {
       setSaving(true);
       setError(null);
-      const trimmedDescription = description.trim();
-      const payload: UpdateOrganizationRequest = { name: name.trim() };
+      const trimmedDescription = formData.description.trim();
+      const payload: UpdateOrganizationRequest = { name: formData.name.trim() };
       if (trimmedDescription) {
         payload.description = trimmedDescription;
       }
       const response = await api.admin.organizations.update(id, payload);
       setOrganization(response.organization);
+      setIsEditing(false);
+      setFormData(null);
     } catch (err) {
       if (err instanceof Error && err.message.includes('409')) {
         setError('An organization with this name already exists');
@@ -78,7 +134,7 @@ export function OrganizationDetailPage({
     } finally {
       setSaving(false);
     }
-  };
+  }, [id, formData]);
 
   const handleDelete = async () => {
     if (!id) return;
@@ -114,6 +170,7 @@ export function OrganizationDetailPage({
 
   return (
     <div className="flex h-full flex-col space-y-4">
+      {/* Header */}
       <div className="flex items-center gap-2">
         {backLink ?? (
           <BackLink
@@ -121,17 +178,56 @@ export function OrganizationDetailPage({
             defaultLabel="Back to Organizations"
           />
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="ml-auto h-7 px-2 text-destructive hover:text-destructive"
-          onClick={() => setDeleteDialogOpen(true)}
-          data-testid="organization-delete-button"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        {!isEditing && (
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleEditClick}
+              className="h-7 px-2"
+              data-testid="organization-edit-button"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-destructive hover:text-destructive"
+              onClick={() => setDeleteDialogOpen(true)}
+              data-testid="organization-delete-button"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+        {isEditing && (
+          <div className="ml-auto flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+              disabled={saving}
+              className="h-7 px-2"
+              data-testid="organization-cancel-button"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => void handleSave()}
+              disabled={saving || !formData?.name.trim()}
+              className="h-7 px-2"
+              data-testid="organization-save-button"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        )}
       </div>
-      <h1 className="font-bold text-lg">Edit Organization</h1>
 
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -139,42 +235,164 @@ export function OrganizationDetailPage({
         </div>
       )}
 
-      <div className="space-y-4 rounded-lg border bg-card p-4">
-        <h2 className="font-medium text-lg">Details</h2>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <label htmlFor="org-name" className="font-medium text-sm">
-              Name
-            </label>
-            <Input
-              id="org-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={saving}
-            />
+      {/* Organization Info */}
+      <div className="space-y-3">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
+            <Building2 className="h-5 w-5 text-muted-foreground" />
           </div>
-          <div className="space-y-2">
-            <label htmlFor="org-description" className="font-medium text-sm">
-              Description
-            </label>
-            <Textarea
-              id="org-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={saving}
-              rows={3}
-            />
+          <div className="min-w-0 flex-1">
+            {isEditing && formData ? (
+              <div className="space-y-2">
+                <Input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => handleFormChange('name', e.target.value)}
+                  placeholder="Organization name *"
+                  className="h-8 text-sm"
+                  data-testid="organization-edit-name"
+                />
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) =>
+                    handleFormChange('description', e.target.value)
+                  }
+                  placeholder="Description"
+                  className="text-sm"
+                  rows={2}
+                  data-testid="organization-edit-description"
+                />
+              </div>
+            ) : (
+              <>
+                <h1 className="font-bold text-lg">{organization.name}</h1>
+                {organization.description && (
+                  <p className="text-muted-foreground text-sm">
+                    {organization.description}
+                  </p>
+                )}
+              </>
+            )}
           </div>
-          <Button
-            onClick={() => void handleSave()}
-            disabled={saving || !name.trim()}
-          >
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            <Save className="mr-2 h-4 w-4" />
-            Save
-          </Button>
         </div>
       </div>
+
+      {/* Users Section */}
+      {!isEditing && (
+        <div className="rounded-lg border text-sm">
+          <div className="flex items-center gap-2 border-b px-3 py-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <h2 className="font-medium">Users ({users.length})</h2>
+          </div>
+          {users.length === 0 ? (
+            <div className="px-3 py-4 text-center text-muted-foreground text-sm">
+              No users in this organization
+            </div>
+          ) : (
+            <div className="divide-y">
+              {users.map((user) =>
+                onUserSelect ? (
+                  <button
+                    key={user.id}
+                    type="button"
+                    className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left hover:bg-muted/50"
+                    onClick={() => onUserSelect(user.id)}
+                    data-testid={`organization-user-${user.id}`}
+                  >
+                    <span className="flex-1 truncate">{user.email}</span>
+                    <span className="text-muted-foreground text-xs">
+                      Joined {new Date(user.joinedAt).toLocaleDateString()}
+                    </span>
+                  </button>
+                ) : (
+                  <div
+                    key={user.id}
+                    className="flex items-center gap-2 px-3 py-2"
+                    data-testid={`organization-user-${user.id}`}
+                  >
+                    <span className="flex-1 truncate">{user.email}</span>
+                    <span className="text-muted-foreground text-xs">
+                      Joined {new Date(user.joinedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Groups Section */}
+      {!isEditing && (
+        <div className="rounded-lg border text-sm">
+          <div className="flex items-center gap-2 border-b px-3 py-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <h2 className="font-medium">Groups ({groups.length})</h2>
+          </div>
+          {groups.length === 0 ? (
+            <div className="px-3 py-4 text-center text-muted-foreground text-sm">
+              No groups in this organization
+            </div>
+          ) : (
+            <div className="divide-y">
+              {groups.map((group) =>
+                onGroupSelect ? (
+                  <button
+                    key={group.id}
+                    type="button"
+                    className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left hover:bg-muted/50"
+                    onClick={() => onGroupSelect(group.id)}
+                    data-testid={`organization-group-${group.id}`}
+                  >
+                    <span className="flex-1 truncate">{group.name}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {group.memberCount}{' '}
+                      {group.memberCount === 1 ? 'member' : 'members'}
+                    </span>
+                  </button>
+                ) : (
+                  <div
+                    key={group.id}
+                    className="flex items-center gap-2 px-3 py-2"
+                    data-testid={`organization-group-${group.id}`}
+                  >
+                    <span className="flex-1 truncate">{group.name}</span>
+                    <span className="text-muted-foreground text-xs">
+                      {group.memberCount}{' '}
+                      {group.memberCount === 1 ? 'member' : 'members'}
+                    </span>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Details Section */}
+      {!isEditing && (
+        <div className="rounded-lg border text-sm">
+          <div className="border-b px-3 py-2">
+            <h2 className="font-medium">Details</h2>
+          </div>
+          <div className="divide-y">
+            <div className="flex items-center gap-2 px-3 py-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Created</span>
+              <span className="ml-auto">
+                {formatDate(new Date(organization.createdAt))}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Updated</span>
+              <span className="ml-auto">
+                {formatDate(new Date(organization.updatedAt))}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={deleteDialogOpen}

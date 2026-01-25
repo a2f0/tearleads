@@ -9,5 +9,25 @@ export function OrganizationDetailPageRoute() {
     navigate('/admin/organizations');
   }, [navigate]);
 
-  return <OrganizationDetailPage onDelete={handleDelete} />;
+  const handleUserSelect = useCallback(
+    (userId: string) => {
+      navigate(`/admin/users/${userId}`);
+    },
+    [navigate]
+  );
+
+  const handleGroupSelect = useCallback(
+    (groupId: string) => {
+      navigate(`/admin/groups/${groupId}`);
+    },
+    [navigate]
+  );
+
+  return (
+    <OrganizationDetailPage
+      onDelete={handleDelete}
+      onUserSelect={handleUserSelect}
+      onGroupSelect={handleGroupSelect}
+    />
+  );
 }

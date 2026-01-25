@@ -39,6 +39,8 @@ export type AnalyticsEventSlug =
   | 'api_delete_admin_group_member'
   | 'api_get_admin_organizations'
   | 'api_get_admin_organization'
+  | 'api_get_admin_organization_users'
+  | 'api_get_admin_organization_groups'
   | 'api_post_admin_organization'
   | 'api_put_admin_organization'
   | 'api_delete_admin_organization'
@@ -87,6 +89,8 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_delete_admin_group_member: 'API Remove Group Member',
   api_get_admin_organizations: 'API List Organizations',
   api_get_admin_organization: 'API Get Organization',
+  api_get_admin_organization_users: 'API Get Organization Users',
+  api_get_admin_organization_groups: 'API Get Organization Groups',
   api_post_admin_organization: 'API Create Organization',
   api_put_admin_organization: 'API Update Organization',
   api_delete_admin_organization: 'API Delete Organization',
@@ -205,6 +209,12 @@ export interface ApiGetAdminOrganizationsDetail {
 export interface ApiGetAdminOrganizationDetail {
   organizationId?: string;
 }
+export interface ApiGetAdminOrganizationUsersDetail {
+  userCount?: number;
+}
+export interface ApiGetAdminOrganizationGroupsDetail {
+  groupCount?: number;
+}
 export interface ApiPostAdminOrganizationDetail {
   organizationName?: string;
 }
@@ -278,6 +288,8 @@ export interface EventDetailMap {
   api_delete_admin_group_member: ApiDeleteAdminGroupMemberDetail;
   api_get_admin_organizations: ApiGetAdminOrganizationsDetail;
   api_get_admin_organization: ApiGetAdminOrganizationDetail;
+  api_get_admin_organization_users: ApiGetAdminOrganizationUsersDetail;
+  api_get_admin_organization_groups: ApiGetAdminOrganizationGroupsDetail;
   api_post_admin_organization: ApiPostAdminOrganizationDetail;
   api_put_admin_organization: ApiPutAdminOrganizationDetail;
   api_delete_admin_organization: ApiDeleteAdminOrganizationDetail;

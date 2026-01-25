@@ -1,5 +1,6 @@
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AdminWindowMenuBar } from '@/components/admin-window/AdminWindowMenuBar';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -29,10 +30,10 @@ export function AdminOrganizationsWindow({
   zIndex,
   initialDimensions
 }: AdminOrganizationsWindowProps) {
+  const navigate = useNavigate();
   const [view, setView] = useState<OrganizationsWindowView>({ type: 'index' });
 
-  const title =
-    view.type === 'index' ? 'Organizations Admin' : 'Edit Organization';
+  const title = view.type === 'index' ? 'Organizations Admin' : 'Organization';
 
   const handleOrganizationSelect = (organizationId: string) => {
     setView({ type: 'organization', organizationId });
@@ -40,6 +41,14 @@ export function AdminOrganizationsWindow({
 
   const handleBack = () => {
     setView({ type: 'index' });
+  };
+
+  const handleUserSelect = (userId: string) => {
+    navigate(`/admin/users/${userId}`);
+  };
+
+  const handleGroupSelect = (groupId: string) => {
+    navigate(`/admin/groups/${groupId}`);
   };
 
   return (
@@ -69,6 +78,8 @@ export function AdminOrganizationsWindow({
             <OrganizationDetailPage
               organizationId={view.organizationId}
               onDelete={handleBack}
+              onUserSelect={handleUserSelect}
+              onGroupSelect={handleGroupSelect}
               backLink={
                 <button
                   type="button"

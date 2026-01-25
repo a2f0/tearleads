@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrganizationDetailPage } from './OrganizationDetailPage';
 
 const mockGet = vi.fn();
+const mockGetUsers = vi.fn();
+const mockGetGroups = vi.fn();
 const mockUpdate = vi.fn();
 const mockDelete = vi.fn();
 
@@ -13,6 +15,8 @@ vi.mock('@/lib/api', () => ({
     admin: {
       organizations: {
         get: (id: string) => mockGet(id),
+        getUsers: (id: string) => mockGetUsers(id),
+        getGroups: (id: string) => mockGetGroups(id),
         update: (id: string, payload: unknown) => mockUpdate(id, payload),
         delete: (id: string) => mockDelete(id)
       }
@@ -35,6 +39,33 @@ describe('OrganizationDetailPage', () => {
     }
   };
 
+  const usersResponse = {
+    users: [
+      {
+        id: 'user-1',
+        email: 'alice@example.com',
+        joinedAt: '2024-01-01T00:00:00Z'
+      }
+    ]
+  };
+
+  const groupsResponse = {
+    groups: [
+      {
+        id: 'group-1',
+        name: 'Admins',
+        description: 'Admin group',
+        memberCount: 3
+      }
+    ]
+  };
+
+  const setupMocks = () => {
+    mockGet.mockResolvedValue(organizationResponse);
+    mockGetUsers.mockResolvedValue(usersResponse);
+    mockGetGroups.mockResolvedValue(groupsResponse);
+  };
+
   const renderWithRouter = (orgId: string) => {
     return render(
       <MemoryRouter initialEntries={[`/admin/organizations/${orgId}`]}>
@@ -55,27 +86,67 @@ describe('OrganizationDetailPage', () => {
           setTimeout(() => resolve(organizationResponse), 100)
         )
     );
+    mockGetUsers.mockImplementation(() => new Promise(() => {}));
+    mockGetGroups.mockImplementation(() => new Promise(() => {}));
 
     renderWithRouter('org-1');
 
     expect(document.querySelector('.animate-spin')).toBeInTheDocument();
   });
 
-  it('renders organization details when loaded', async () => {
-    mockGet.mockResolvedValueOnce(organizationResponse);
+  it('renders organization details in view mode', async () => {
+    setupMocks();
 
     renderWithRouter('org-1');
 
     expect(
-      await screen.findByRole('heading', { name: 'Edit Organization' })
+      await screen.findByRole('heading', { name: 'Acme' })
     ).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Acme')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Team')).toBeInTheDocument();
+    expect(screen.getByText('Team')).toBeInTheDocument();
+    expect(screen.getByText('Users (1)')).toBeInTheDocument();
+    expect(screen.getByText('Groups (1)')).toBeInTheDocument();
+    expect(screen.getByText('alice@example.com')).toBeInTheDocument();
+    expect(screen.getByText('Admins')).toBeInTheDocument();
+  });
+
+  it('enters edit mode when edit button is clicked', async () => {
+    const user = userEvent.setup();
+    setupMocks();
+
+    renderWithRouter('org-1');
+
+    await screen.findByRole('heading', { name: 'Acme' });
+
+    await user.click(screen.getByTestId('organization-edit-button'));
+
+    expect(screen.getByTestId('organization-edit-name')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('organization-edit-description')
+    ).toBeInTheDocument();
+  });
+
+  it('cancels edit mode when cancel button is clicked', async () => {
+    const user = userEvent.setup();
+    setupMocks();
+
+    renderWithRouter('org-1');
+
+    await screen.findByRole('heading', { name: 'Acme' });
+    await user.click(screen.getByTestId('organization-edit-button'));
+
+    expect(screen.getByTestId('organization-edit-name')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('organization-cancel-button'));
+
+    expect(
+      screen.queryByTestId('organization-edit-name')
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Acme' })).toBeInTheDocument();
   });
 
   it('updates organization and saves', async () => {
     const user = userEvent.setup();
-    mockGet.mockResolvedValueOnce(organizationResponse);
+    setupMocks();
     mockUpdate.mockResolvedValueOnce({
       organization: {
         id: 'org-1',
@@ -88,11 +159,14 @@ describe('OrganizationDetailPage', () => {
 
     renderWithRouter('org-1');
 
-    const nameInput = await screen.findByDisplayValue('Acme');
+    await screen.findByRole('heading', { name: 'Acme' });
+    await user.click(screen.getByTestId('organization-edit-button'));
+
+    const nameInput = screen.getByTestId('organization-edit-name');
     await user.clear(nameInput);
     await user.type(nameInput, 'Acme Updated');
 
-    await user.click(screen.getByRole('button', { name: /save/i }));
+    await user.click(screen.getByTestId('organization-save-button'));
 
     await waitFor(() => {
       expect(mockUpdate).toHaveBeenCalledWith('org-1', {
@@ -104,18 +178,154 @@ describe('OrganizationDetailPage', () => {
 
   it('deletes organization when confirmed', async () => {
     const user = userEvent.setup();
-    mockGet.mockResolvedValueOnce(organizationResponse);
+    setupMocks();
     mockDelete.mockResolvedValueOnce({ deleted: true });
 
     renderWithRouter('org-1');
 
-    await screen.findByDisplayValue('Acme');
+    await screen.findByRole('heading', { name: 'Acme' });
 
     await user.click(screen.getByTestId('organization-delete-button'));
     await user.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {
       expect(mockDelete).toHaveBeenCalledWith('org-1');
+    });
+  });
+
+  it('calls onUserSelect when user is clicked', async () => {
+    const user = userEvent.setup();
+    const onUserSelect = vi.fn();
+    setupMocks();
+
+    render(
+      <MemoryRouter>
+        <OrganizationDetailPage
+          organizationId="org-1"
+          onUserSelect={onUserSelect}
+        />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('alice@example.com');
+    await user.click(screen.getByTestId('organization-user-user-1'));
+
+    expect(onUserSelect).toHaveBeenCalledWith('user-1');
+  });
+
+  it('calls onGroupSelect when group is clicked', async () => {
+    const user = userEvent.setup();
+    const onGroupSelect = vi.fn();
+    setupMocks();
+
+    render(
+      <MemoryRouter>
+        <OrganizationDetailPage
+          organizationId="org-1"
+          onGroupSelect={onGroupSelect}
+        />
+      </MemoryRouter>
+    );
+
+    await screen.findByText('Admins');
+    await user.click(screen.getByTestId('organization-group-group-1'));
+
+    expect(onGroupSelect).toHaveBeenCalledWith('group-1');
+  });
+
+  it('shows organization not found when fetch fails', async () => {
+    mockGet.mockRejectedValue(new Error('Network error'));
+    mockGetUsers.mockResolvedValue({ users: [] });
+    mockGetGroups.mockResolvedValue({ groups: [] });
+
+    renderWithRouter('org-1');
+
+    await waitFor(() => {
+      expect(screen.getByText('Organization not found')).toBeInTheDocument();
+    });
+  });
+
+  it('shows organization not found when organization is null', async () => {
+    mockGet.mockResolvedValue({ organization: null });
+    mockGetUsers.mockResolvedValue({ users: [] });
+    mockGetGroups.mockResolvedValue({ groups: [] });
+
+    renderWithRouter('org-1');
+
+    await waitFor(() => {
+      expect(screen.getByText('Organization not found')).toBeInTheDocument();
+    });
+  });
+
+  it('displays empty users and groups lists', async () => {
+    mockGet.mockResolvedValue(organizationResponse);
+    mockGetUsers.mockResolvedValue({ users: [] });
+    mockGetGroups.mockResolvedValue({ groups: [] });
+
+    renderWithRouter('org-1');
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('No users in this organization')
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText('No groups in this organization')
+    ).toBeInTheDocument();
+  });
+
+  it('shows conflict error when updating with duplicate name', async () => {
+    const user = userEvent.setup();
+    setupMocks();
+    mockUpdate.mockRejectedValueOnce(new Error('409 Conflict'));
+
+    renderWithRouter('org-1');
+
+    await screen.findByRole('heading', { name: 'Acme' });
+    await user.click(screen.getByTestId('organization-edit-button'));
+
+    const nameInput = screen.getByTestId('organization-edit-name');
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Existing Org');
+
+    await user.click(screen.getByTestId('organization-save-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('An organization with this name already exists')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('updates description in edit mode', async () => {
+    const user = userEvent.setup();
+    setupMocks();
+    mockUpdate.mockResolvedValueOnce({
+      organization: {
+        id: 'org-1',
+        name: 'Acme',
+        description: 'New description',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z'
+      }
+    });
+
+    renderWithRouter('org-1');
+
+    await screen.findByRole('heading', { name: 'Acme' });
+    await user.click(screen.getByTestId('organization-edit-button'));
+
+    const descInput = screen.getByTestId('organization-edit-description');
+    await user.clear(descInput);
+    await user.type(descInput, 'New description');
+
+    await user.click(screen.getByTestId('organization-save-button'));
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledWith('org-1', {
+        name: 'Acme',
+        description: 'New description'
+      });
     });
   });
 });

@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AdminOrganizationsWindow } from './AdminOrganizationsWindow';
 
@@ -78,19 +79,31 @@ describe('AdminOrganizationsWindow', () => {
   };
 
   it('renders in FloatingWindow', () => {
-    render(<AdminOrganizationsWindow {...defaultProps} />);
+    render(
+      <MemoryRouter>
+        <AdminOrganizationsWindow {...defaultProps} />
+      </MemoryRouter>
+    );
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
   });
 
   it('shows Organizations Admin as title initially', () => {
-    render(<AdminOrganizationsWindow {...defaultProps} />);
+    render(
+      <MemoryRouter>
+        <AdminOrganizationsWindow {...defaultProps} />
+      </MemoryRouter>
+    );
     expect(screen.getByTestId('window-title')).toHaveTextContent(
       'Organizations Admin'
     );
   });
 
   it('renders the organizations list initially', () => {
-    render(<AdminOrganizationsWindow {...defaultProps} />);
+    render(
+      <MemoryRouter>
+        <AdminOrganizationsWindow {...defaultProps} />
+      </MemoryRouter>
+    );
     expect(screen.getByTestId('orgs-admin-list')).toBeInTheDocument();
     expect(screen.getByTestId('admin-orgs-backlink')).toHaveTextContent(
       'false'
@@ -99,20 +112,28 @@ describe('AdminOrganizationsWindow', () => {
 
   it('navigates to detail view when organization is selected', async () => {
     const user = userEvent.setup();
-    render(<AdminOrganizationsWindow {...defaultProps} />);
+    render(
+      <MemoryRouter>
+        <AdminOrganizationsWindow {...defaultProps} />
+      </MemoryRouter>
+    );
 
     await user.click(screen.getByTestId('select-org-btn'));
 
     expect(screen.getByTestId('orgs-admin-detail')).toBeInTheDocument();
     expect(screen.getByTestId('detail-org-id')).toHaveTextContent('org-123');
     expect(screen.getByTestId('window-title')).toHaveTextContent(
-      'Edit Organization'
+      'Organization'
     );
   });
 
   it('navigates back to list when back button is clicked', async () => {
     const user = userEvent.setup();
-    render(<AdminOrganizationsWindow {...defaultProps} />);
+    render(
+      <MemoryRouter>
+        <AdminOrganizationsWindow {...defaultProps} />
+      </MemoryRouter>
+    );
 
     await user.click(screen.getByTestId('select-org-btn'));
     expect(screen.getByTestId('orgs-admin-detail')).toBeInTheDocument();
@@ -130,7 +151,11 @@ describe('AdminOrganizationsWindow', () => {
   it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<AdminOrganizationsWindow {...defaultProps} onClose={onClose} />);
+    render(
+      <MemoryRouter>
+        <AdminOrganizationsWindow {...defaultProps} onClose={onClose} />
+      </MemoryRouter>
+    );
 
     await user.click(screen.getByTestId('close-window'));
     expect(onClose).toHaveBeenCalled();
@@ -144,10 +169,12 @@ describe('AdminOrganizationsWindow', () => {
       y: 100
     };
     render(
-      <AdminOrganizationsWindow
-        {...defaultProps}
-        initialDimensions={initialDimensions}
-      />
+      <MemoryRouter>
+        <AdminOrganizationsWindow
+          {...defaultProps}
+          initialDimensions={initialDimensions}
+        />
+      </MemoryRouter>
     );
     const floatingWindow = screen.getByTestId('floating-window');
     expect(floatingWindow).toHaveAttribute(
@@ -157,7 +184,11 @@ describe('AdminOrganizationsWindow', () => {
   });
 
   it('renders menu bar with File and View menus', () => {
-    render(<AdminOrganizationsWindow {...defaultProps} />);
+    render(
+      <MemoryRouter>
+        <AdminOrganizationsWindow {...defaultProps} />
+      </MemoryRouter>
+    );
     expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
   });
@@ -165,7 +196,11 @@ describe('AdminOrganizationsWindow', () => {
   it('calls onClose from File menu Close option', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<AdminOrganizationsWindow {...defaultProps} onClose={onClose} />);
+    render(
+      <MemoryRouter>
+        <AdminOrganizationsWindow {...defaultProps} onClose={onClose} />
+      </MemoryRouter>
+    );
 
     await user.click(screen.getByRole('button', { name: 'File' }));
     await user.click(screen.getByRole('menuitem', { name: 'Close' }));

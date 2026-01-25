@@ -109,6 +109,7 @@ export function OrganizationsList({
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
             <tr>
+              <th className="px-3 py-2 text-left">ID</th>
               <th className="px-3 py-2 text-left">Name</th>
               <th className="px-3 py-2 text-left">Description</th>
             </tr>
@@ -128,6 +129,11 @@ export function OrganizationsList({
                   }
                 }}
               >
+                <td className="max-w-[120px] px-3 py-2">
+                  <span className="block truncate font-mono text-muted-foreground">
+                    {organization.id}
+                  </span>
+                </td>
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-3 w-3 shrink-0 text-muted-foreground" />

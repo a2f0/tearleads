@@ -11,8 +11,10 @@ import type {
   GroupMembersResponse,
   GroupsListResponse,
   Organization,
+  OrganizationGroupsResponse,
   OrganizationResponse,
   OrganizationsListResponse,
+  OrganizationUsersResponse,
   PingData,
   PostgresAdminInfoResponse,
   PostgresColumnsResponse,
@@ -314,6 +316,16 @@ export const api = {
         request<OrganizationResponse>(
           `/admin/organizations/${encodeURIComponent(id)}`,
           { eventName: 'api_get_admin_organization' }
+        ),
+      getUsers: (id: string) =>
+        request<OrganizationUsersResponse>(
+          `/admin/organizations/${encodeURIComponent(id)}/users`,
+          { eventName: 'api_get_admin_organization_users' }
+        ),
+      getGroups: (id: string) =>
+        request<OrganizationGroupsResponse>(
+          `/admin/organizations/${encodeURIComponent(id)}/groups`,
+          { eventName: 'api_get_admin_organization_groups' }
         ),
       create: (data: CreateOrganizationRequest) =>
         request<{ organization: Organization }>('/admin/organizations', {
