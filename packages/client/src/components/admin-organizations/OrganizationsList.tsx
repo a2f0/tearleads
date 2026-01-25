@@ -105,25 +105,41 @@ export function OrganizationsList({
 
   return (
     <>
-      <div className="space-y-2">
-        {organizations.map((organization) => (
-          <button
-            key={organization.id}
-            type="button"
-            onClick={() => onOrganizationSelect(organization.id)}
-            onContextMenu={(e) => handleContextMenu(e, organization)}
-            className="flex w-full items-center justify-between rounded-lg border bg-card p-4 text-left transition-colors hover:bg-accent"
-          >
-            <div className="min-w-0 flex-1">
-              <h3 className="truncate font-medium">{organization.name}</h3>
-              {organization.description && (
-                <p className="mt-1 truncate text-muted-foreground text-sm">
-                  {organization.description}
-                </p>
-              )}
-            </div>
-          </button>
-        ))}
+      <div className="overflow-auto rounded-lg border">
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 text-left">Name</th>
+              <th className="px-3 py-2 text-left">Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {organizations.map((organization) => (
+              <tr
+                key={organization.id}
+                className="cursor-pointer border-border/50 border-b hover:bg-accent/50"
+                onClick={() => onOrganizationSelect(organization.id)}
+                onContextMenu={(e) => handleContextMenu(e, organization)}
+              >
+                <td className="px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <span className="truncate font-medium">
+                      {organization.name}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  {organization.description ? (
+                    <span className="truncate">{organization.description}</span>
+                  ) : (
+                    <span className="text-muted-foreground/70">—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {contextMenu && (

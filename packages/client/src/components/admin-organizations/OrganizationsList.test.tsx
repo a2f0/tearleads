@@ -72,6 +72,13 @@ describe('OrganizationsList', () => {
       expect(screen.getByText('Acme')).toBeInTheDocument();
     });
 
+    expect(screen.getByRole('table')).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Name' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Description' })
+    ).toBeInTheDocument();
     expect(screen.getByText('Team')).toBeInTheDocument();
     expect(screen.getByText('Beta')).toBeInTheDocument();
   });
