@@ -13,8 +13,8 @@ interface SyncProps {
 export function Sync({ showBackLink = true }: SyncProps) {
   const { isAuthenticated, user, isLoading, logout } = useAuth();
 
-  const handleLogout = useCallback(() => {
-    logout();
+  const handleLogout = useCallback(async () => {
+    await logout();
   }, [logout]);
 
   if (isLoading) {
@@ -48,7 +48,11 @@ export function Sync({ showBackLink = true }: SyncProps) {
               <p className="text-muted-foreground text-sm">{user.email}</p>
             </div>
 
-            <Button onClick={handleLogout} variant="outline" className="w-full">
+            <Button
+              onClick={() => void handleLogout()}
+              variant="outline"
+              className="w-full"
+            >
               <LogOut className="mr-2 h-4 w-4" />
               Logout
             </Button>

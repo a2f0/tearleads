@@ -161,7 +161,12 @@ export const api = {
           fetchOptions: { method: 'DELETE' },
           eventName: 'api_delete_auth_session'
         }
-      )
+      ),
+    logout: () =>
+      request<{ loggedOut: boolean }>('/auth/logout', {
+        fetchOptions: { method: 'POST' },
+        eventName: 'api_post_auth_logout'
+      })
   },
   ping: {
     get: () => request<PingData>('/ping', { eventName: 'api_get_ping' })

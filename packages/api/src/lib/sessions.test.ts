@@ -303,6 +303,70 @@ describe('sessions', () => {
     });
   });
 
+  describe('deleteSession', () => {
+    it('deletes session and removes from user sessions set', async () => {
+      const { createSession, deleteSession, getSession } = await import(
+        './sessions.js'
+      );
+
+      await createSession('session-to-delete', {
+        userId: 'user-delete-test',
+        email: 'delete@test.com',
+        admin: false,
+        ipAddress: '127.0.0.1'
+      });
+
+      const sessionBefore = await getSession('session-to-delete');
+      expect(sessionBefore).not.toBeNull();
+
+      const deleted = await deleteSession(
+        'session-to-delete',
+        'user-delete-test'
+      );
+
+      expect(deleted).toBe(true);
+
+      const sessionAfter = await getSession('session-to-delete');
+      expect(sessionAfter).toBeNull();
+
+      expect(mockSRem).toHaveBeenCalledWith(
+        'user_sessions:user-delete-test',
+        'session-to-delete'
+      );
+    });
+
+    it('returns false when session does not exist', async () => {
+      const { deleteSession } = await import('./sessions.js');
+
+      const deleted = await deleteSession('nonexistent-session', 'user-1');
+
+      expect(deleted).toBe(false);
+    });
+
+    it('returns false when session belongs to different user', async () => {
+      const { createSession, deleteSession, getSession } = await import(
+        './sessions.js'
+      );
+
+      await createSession('session-wrong-user', {
+        userId: 'user-owner',
+        email: 'owner@test.com',
+        admin: false,
+        ipAddress: '127.0.0.1'
+      });
+
+      const deleted = await deleteSession(
+        'session-wrong-user',
+        'user-attacker'
+      );
+
+      expect(deleted).toBe(false);
+
+      const session = await getSession('session-wrong-user');
+      expect(session).not.toBeNull();
+    });
+  });
+
   describe('rotateTokensAtomically', () => {
     it('atomically rotates session and refresh tokens', async () => {
       const {

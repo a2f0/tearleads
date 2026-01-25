@@ -5,18 +5,27 @@ import { clearStoredAuth, setSessionExpiredError } from '@/lib/auth-storage';
 import { AuthProvider, useAuth } from './AuthContext';
 
 const mockLogin = vi.fn();
+const mockLogout = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
     auth: {
-      login: (...args: unknown[]) => mockLogin(...args)
+      login: (...args: unknown[]) => mockLogin(...args),
+      logout: () => mockLogout()
     }
   }
 }));
 
 function TestComponent() {
-  const { authError, isAuthenticated, user, isLoading, login, logout } =
-    useAuth();
+  const {
+    authError,
+    isAuthenticated,
+    user,
+    isLoading,
+    login,
+    logout,
+    clearAuthError
+  } = useAuth();
 
   const handleLogin = async () => {
     await login('test@example.com', 'password123');
@@ -38,6 +47,9 @@ function TestComponent() {
       </button>
       <button type="button" onClick={logout}>
         Logout
+      </button>
+      <button type="button" onClick={clearAuthError}>
+        Clear Error
       </button>
     </div>
   );
@@ -130,7 +142,8 @@ describe('AuthContext', () => {
     });
   });
 
-  it('handles logout', async () => {
+  it('handles logout and calls server API', async () => {
+    mockLogout.mockResolvedValueOnce({ loggedOut: true });
     localStorage.setItem('auth_token', 'saved-token');
     localStorage.setItem(
       'auth_user',
@@ -159,6 +172,42 @@ describe('AuthContext', () => {
       );
     });
 
+    expect(mockLogout).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem('auth_token')).toBeNull();
+    expect(localStorage.getItem('auth_user')).toBeNull();
+  });
+
+  it('clears local state even when logout API fails (offline support)', async () => {
+    mockLogout.mockRejectedValueOnce(new Error('Network error'));
+    localStorage.setItem('auth_token', 'saved-token');
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({ id: '123', email: 'saved@example.com' })
+    );
+
+    const user = userEvent.setup();
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'authenticated'
+      );
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Logout' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'not authenticated'
+      );
+    });
+
+    expect(mockLogout).toHaveBeenCalledTimes(1);
     expect(localStorage.getItem('auth_token')).toBeNull();
     expect(localStorage.getItem('auth_user')).toBeNull();
   });
@@ -234,6 +283,38 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('auth-error')).toHaveTextContent(
         'Session expired. Please sign in again.'
       );
+    });
+  });
+
+  it('clears auth error when clearAuthError is called', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'not authenticated'
+      );
+    });
+
+    act(() => {
+      setSessionExpiredError();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-error')).toHaveTextContent(
+        'Session expired. Please sign in again.'
+      );
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Clear Error' }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('auth-error')).toBeNull();
     });
   });
 
