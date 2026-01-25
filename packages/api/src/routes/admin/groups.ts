@@ -717,11 +717,12 @@ router.post(
 
       const pool = await getPostgresPool();
 
-      const groupExists = await pool.query(
-        'SELECT 1 FROM groups WHERE id = $1',
+      const groupResult = await pool.query<{ organization_id: string }>(
+        'SELECT organization_id FROM groups WHERE id = $1',
         [id]
       );
-      if (groupExists.rowCount === 0) {
+      const groupRow = groupResult.rows[0];
+      if (!groupRow) {
         res.status(404).json({ error: 'Group not found' });
         return;
       }
