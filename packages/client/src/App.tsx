@@ -12,7 +12,11 @@ import { Sidebar } from './components/Sidebar';
 import { Taskbar } from './components/taskbar';
 import { DesktopBackground } from './components/ui/desktop-background';
 import { FOOTER_HEIGHT } from './constants/layout';
+import { useKeyboardHeight } from './hooks/useKeyboardHeight';
 import { useSSEContext } from './sse';
+
+/** Extra padding to add when keyboard is open (matches pb-16 = 4rem = 64px) */
+const KEYBOARD_EXTRA_PADDING = 64;
 
 const sseTooltipKeys = {
   connected: 'sseConnected',
@@ -29,6 +33,7 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement | null>(null);
   const startButtonRef = useRef<HTMLButtonElement | null>(null);
+  const keyboardHeight = useKeyboardHeight();
 
   useEffect(() => {
     if (pathname) {
@@ -55,7 +60,7 @@ function App() {
 
   return (
     <div
-      className="safe-area-inset flex min-h-screen flex-col bg-background"
+      className="safe-area-inset flex h-dvh max-h-dvh flex-col bg-background"
       data-testid="app-container"
     >
       <div className="flex flex-1">
@@ -64,7 +69,7 @@ function App() {
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
         />
-        <div className="relative flex min-w-0 flex-1 flex-col">
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
           {isHome && <DesktopBackground />}
           <header className="w-full px-4 py-4">
             <div className="flex items-center justify-end gap-1">
@@ -73,8 +78,16 @@ function App() {
               <AccountSwitcher />
             </div>
           </header>
-          <main className="relative flex min-w-0 flex-1 flex-col pb-14">
-            <div className="container relative mx-auto flex max-w-2xl flex-1 flex-col px-4 pb-16 lg:max-w-none lg:px-8">
+          <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-auto pb-14">
+            <div
+              className="container relative mx-auto flex max-w-2xl flex-1 flex-col px-4 pb-16 lg:max-w-none lg:px-8"
+              style={{
+                paddingBottom:
+                  keyboardHeight > 0
+                    ? `${keyboardHeight + KEYBOARD_EXTRA_PADDING}px`
+                    : undefined
+              }}
+            >
               <Outlet />
             </div>
           </main>

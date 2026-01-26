@@ -1,7 +1,24 @@
-import { useCallback, useId, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
+
+/** Delay before scrolling input into view, allowing keyboard to fully appear */
+const SCROLL_INTO_VIEW_DELAY_MS = 300;
+
+/**
+ * Scroll an input element into view after keyboard appears.
+ * Uses a delay to allow the keyboard to fully open and viewport to resize.
+ */
+function scrollInputIntoView(element: HTMLInputElement) {
+  // Delay to let keyboard fully appear and viewport resize
+  setTimeout(() => {
+    // Check if scrollIntoView is available (not in jsdom test environment)
+    if (typeof element.scrollIntoView === 'function') {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, SCROLL_INTO_VIEW_DELAY_MS);
+}
 
 interface LoginFormProps {
   /** Title displayed above the form */
@@ -20,6 +37,17 @@ export function LoginForm({
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  const handleInputFocus = useCallback(
+    (ref: React.RefObject<HTMLInputElement | null>) => {
+      if (ref.current) {
+        scrollInputIntoView(ref.current);
+      }
+    },
+    []
+  );
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -72,10 +100,12 @@ export function LoginForm({
             Email
           </label>
           <Input
+            ref={emailRef}
             id={`${id}-email`}
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onFocus={() => handleInputFocus(emailRef)}
             placeholder="you@example.com"
             required
             disabled={isSubmitting}
@@ -88,10 +118,12 @@ export function LoginForm({
             Password
           </label>
           <Input
+            ref={passwordRef}
             id={`${id}-password`}
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onFocus={() => handleInputFocus(passwordRef)}
             placeholder="Enter your password"
             required
             disabled={isSubmitting}

@@ -1,6 +1,6 @@
 {
   "name": "@rapid/client",
-  "version": "0.0.262",
+  "version": "0.0.263",
   "description": "React client application for Rapid",
   "main": "out/main/main.js",
   "type": "module",
@@ -43,6 +43,7 @@
     "@capacitor/app": "8.0.0",
     "@capacitor/core": "8.0.0",
     "@capacitor/filesystem": "8.0.0",
+    "@capacitor/keyboard": "8.0.0",
     "@capacitor/preferences": "8.0.0",
     "@capacitor/share": "8.0.0",
     "@capawesome/capacitor-file-picker": "8.0.0",
