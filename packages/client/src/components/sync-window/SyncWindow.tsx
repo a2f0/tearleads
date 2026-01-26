@@ -41,9 +41,9 @@ export function SyncWindow({
       maxWidthPercent={1}
       maxHeightPercent={1}
     >
-      <div className="flex h-full flex-col">
+      <div className="flex h-full min-h-0 flex-col">
         <SyncWindowMenuBar onClose={onClose} />
-        <div className="flex-1 overflow-auto p-3">
+        <div className="min-h-0 flex-1 overflow-auto p-3">
           <MemoryRouter initialEntries={['/sync']}>
             <Sync showBackLink={false} />
           </MemoryRouter>

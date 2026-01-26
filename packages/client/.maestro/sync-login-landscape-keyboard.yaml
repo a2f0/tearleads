@@ -1,0 +1,155 @@
+appId: com.tearleads.rapid
+---
+# Test: Sync login form accessibility in landscape mode with keyboard open
+# Run with: maestro test .maestro/sync-login-landscape-keyboard.yaml
+
+- launchApp:
+    clearState: true
+
+- assertVisible: "Tearleads"
+
+# Wait for home to load
+- extendedWaitUntil:
+    visible: "Files"
+    timeout: 5000
+
+# Debug: Log initial viewport dimensions
+- evalScript: |
+    (() => {
+      const vv = window.visualViewport;
+      const info = {
+        innerHeight: window.innerHeight,
+        innerWidth: window.innerWidth,
+        visualViewportHeight: vv ? vv.height : 'N/A',
+        visualViewportWidth: vv ? vv.width : 'N/A'
+      };
+      console.log('VIEWPORT_DEBUG_INITIAL:', JSON.stringify(info));
+      return 'Initial viewport: ' + JSON.stringify(info);
+    })()
+
+# Navigate to Sync via URL
+- evalScript: |
+    (() => {
+      window.location.href = '/sync';
+      return 'navigated to /sync';
+    })()
+
+# Wait for the login form
+- extendedWaitUntil:
+    visible: "Email"
+    timeout: 5000
+
+# Debug: Log viewport before keyboard
+- evalScript: |
+    (() => {
+      const vv = window.visualViewport;
+      return 'Before keyboard - visualViewport.height: ' + (vv ? vv.height : 'N/A') + ', innerHeight: ' + window.innerHeight;
+    })()
+
+# Focus email input using Maestro tap
+- tapOn:
+    id: "email-input"
+    optional: true
+
+# Fallback: focus via JS if tap didn't work
+- evalScript: |
+    (() => {
+      const emailInput = document.querySelector('input[type="email"]');
+      if (emailInput) {
+        emailInput.focus();
+        emailInput.click();
+        return 'focused email via JS';
+      }
+      throw new Error('Email input not found');
+    })()
+
+# Type in the email field - this triggers keyboard
+- inputText: "test@example.com"
+
+# Small delay to let keyboard appear
+- extendedWaitUntil:
+    visible: "Email"
+    timeout: 1000
+
+# Debug: Log viewport AFTER keyboard should be visible
+- evalScript: |
+    (() => {
+      const vv = window.visualViewport;
+      const appContainer = document.querySelector('[data-testid="app-container"]');
+      const containerHeight = appContainer ? appContainer.getBoundingClientRect().height : 'N/A';
+      const info = {
+        visualViewportHeight: vv ? Math.round(vv.height) : 'N/A',
+        innerHeight: window.innerHeight,
+        containerHeight: containerHeight,
+        documentHeight: document.documentElement.clientHeight
+      };
+      console.log('VIEWPORT_DEBUG_AFTER_KEYBOARD:', JSON.stringify(info));
+      return 'After keyboard - ' + JSON.stringify(info);
+    })()
+
+# Try to focus password field
+- evalScript: |
+    (() => {
+      const passwordInput = document.querySelector('input[type="password"]');
+      if (!passwordInput) {
+        throw new Error('Password input not found');
+      }
+
+      // Get position info before scrolling
+      const rectBefore = passwordInput.getBoundingClientRect();
+      const vv = window.visualViewport;
+      const viewportHeight = vv ? vv.height : window.innerHeight;
+
+      const beforeInfo = 'BEFORE scroll - rect.top=' + Math.round(rectBefore.top) +
+        ', rect.bottom=' + Math.round(rectBefore.bottom) +
+        ', viewportHeight=' + Math.round(viewportHeight);
+      console.log(beforeInfo);
+
+      // Scroll into view
+      passwordInput.scrollIntoView({ behavior: 'instant', block: 'center' });
+      passwordInput.focus();
+
+      // Get position after scroll
+      const rectAfter = passwordInput.getBoundingClientRect();
+      const afterInfo = 'AFTER scroll - rect.top=' + Math.round(rectAfter.top) +
+        ', rect.bottom=' + Math.round(rectAfter.bottom);
+      console.log(afterInfo);
+
+      return beforeInfo + ' | ' + afterInfo;
+    })()
+
+# Type in password field
+- inputText: "testpassword"
+
+# Final verification: is password field visible?
+- evalScript: |
+    (() => {
+      const passwordInput = document.querySelector('input[type="password"]');
+      if (!passwordInput) {
+        throw new Error('Password input not found');
+      }
+
+      const rect = passwordInput.getBoundingClientRect();
+      const vv = window.visualViewport;
+      const viewportHeight = vv ? vv.height : window.innerHeight;
+
+      const info = 'rect.top=' + Math.round(rect.top) +
+        ', rect.bottom=' + Math.round(rect.bottom) +
+        ', viewportHeight=' + Math.round(viewportHeight) +
+        ', innerHeight=' + window.innerHeight;
+
+      // Check if password field is visible in viewport
+      if (rect.bottom > viewportHeight) {
+        throw new Error('FAIL: Password field bottom (' + Math.round(rect.bottom) + ') is below viewport (' + Math.round(viewportHeight) + '): ' + info);
+      }
+      if (rect.top < 0) {
+        throw new Error('FAIL: Password field top is above viewport: ' + info);
+      }
+
+      // Check if password field has value
+      if (passwordInput.value !== 'testpassword') {
+        throw new Error('Password field value incorrect: ' + passwordInput.value);
+      }
+
+      return 'SUCCESS - Password field visible and has correct value: ' + info;
+    })()
