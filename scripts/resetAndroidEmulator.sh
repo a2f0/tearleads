@@ -17,6 +17,16 @@ if [ -f "$AVD_CONFIG" ] && ! grep -Fxq "set.android.emulator.qt.window.on.top=fa
     rm -f "${AVD_CONFIG}.bak"
 fi
 
+# Disable quick-boot snapshot (force cold boot every time)
+if [ -f "$AVD_CONFIG" ]; then
+    echo "Disabling quick-boot snapshot..."
+    sed -i.bak '/^fastboot\.forceColdBoot=/d' "$AVD_CONFIG"
+    sed -i.bak '/^fastboot\.forceFastBoot=/d' "$AVD_CONFIG"
+    echo "fastboot.forceColdBoot=yes" >> "$AVD_CONFIG"
+    echo "fastboot.forceFastBoot=no" >> "$AVD_CONFIG"
+    rm -f "${AVD_CONFIG}.bak"
+fi
+
 # Kill any running emulator
 if adb devices 2>/dev/null | grep -q "emulator"; then
     echo "Stopping running emulator..."
