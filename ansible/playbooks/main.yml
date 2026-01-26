@@ -326,7 +326,7 @@
         group: root
         mode: "0755"
 
-    - name: Deploy tail scripts
+    - name: Deploy utility scripts
       ansible.builtin.copy:
         src: "files/scripts/{{ item }}.sh"
         dest: "/usr/local/bin/{{ item }}.sh"
@@ -334,6 +334,7 @@
         group: root
         mode: "0755"
       loop:
+        - apiCli
         - tailApi
         - tailSmtpListener
 
