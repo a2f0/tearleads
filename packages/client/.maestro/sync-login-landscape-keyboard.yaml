@@ -13,21 +13,35 @@ appId: com.tearleads.rapid
     visible: "Files"
     timeout: 5000
 
-# NOTE: This test requires Android API level 31 or lower.
-# - CI uses API 31 (android-maestro-release.yml) - test passes
-# - Local with API 33 (Android 13) - test fails due to WebView navigation changes
-# - Local with API 30/31 - test passes
-#
-# Root cause: Android 13 (API 33) introduced WebView behavior changes that block
-# window.location.href navigation in Capacitor's WebView context. Use an API 30/31
-# emulator for local testing: Maestro_Pixel_6_API_30_1
+# Navigate to Sync page using Maestro native swipe and tap
+# IMPORTANT: JavaScript navigation (window.location.href, Link.click()) does NOT work
+# reliably in Maestro's evalScript on Android API 33+. Use native Maestro commands instead.
+# Swipe up to reveal more icons (Sync is near the bottom of the icon grid)
+- swipe:
+    start: 50%, 80%
+    end: 50%, 30%
 
-# Navigate to Sync page
-- evalScript: |
-    (() => {
-      window.location.href = '/sync';
-      return 'navigating to /sync';
-    })()
+# Wait for swipe animation
+- extendedWaitUntil:
+    visible: "Sync"
+    timeout: 3000
+    optional: true
+
+# Try tapping on Sync icon
+- tapOn:
+    text: "Sync"
+    optional: true
+
+# If Sync not found, swipe again
+- swipe:
+    start: 50%, 80%
+    end: 50%, 20%
+    optional: true
+
+# Try tapping again
+- tapOn:
+    text: "Sync"
+    optional: true
 
 # Wait for the login form
 - extendedWaitUntil:
