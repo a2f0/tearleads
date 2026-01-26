@@ -1,10 +1,11 @@
-import { LogOut } from 'lucide-react';
+import { LogOut, Mail } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { LoginForm } from '@/components/auth';
 import { SessionList } from '@/components/sessions';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { api } from '@/lib/api';
 
 function formatTimeRemaining(ms: number): string {
   const seconds = Math.floor(ms / 1000);
@@ -37,6 +38,7 @@ export function Sync({ showBackLink = true }: SyncProps) {
     getTokenTimeRemaining
   } = useAuth();
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
+  const [emailDomain, setEmailDomain] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -57,6 +59,22 @@ export function Sync({ showBackLink = true }: SyncProps) {
     const interval = setInterval(updateTimeRemaining, 1000);
     return () => clearInterval(interval);
   }, [isAuthenticated, getTokenTimeRemaining]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setEmailDomain(null);
+      return;
+    }
+
+    api.ping
+      .get()
+      .then((data) => {
+        setEmailDomain(data.emailDomain ?? null);
+      })
+      .catch(() => {
+        setEmailDomain(null);
+      });
+  }, [isAuthenticated]);
 
   const handleLogout = useCallback(async () => {
     await logout();
@@ -92,6 +110,16 @@ export function Sync({ showBackLink = true }: SyncProps) {
               <p className="font-medium">Logged in as</p>
               <p className="text-muted-foreground text-sm">{user.email}</p>
             </div>
+
+            {emailDomain && (
+              <div>
+                <p className="font-medium">Email address</p>
+                <p className="flex items-center gap-1.5 text-muted-foreground text-sm">
+                  <Mail className="h-3.5 w-3.5" />
+                  {user.id}@{emailDomain}
+                </p>
+              </div>
+            )}
 
             <div>
               <p className="font-medium">Token expires</p>

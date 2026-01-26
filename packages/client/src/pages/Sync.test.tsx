@@ -8,12 +8,16 @@ import { Sync } from './Sync';
 
 const mockLogin = vi.fn();
 const mockLogout = vi.fn();
+const mockPingGet = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
     auth: {
       login: (...args: unknown[]) => mockLogin(...args),
       logout: () => mockLogout()
+    },
+    ping: {
+      get: () => mockPingGet()
     }
   }
 }));
@@ -32,6 +36,7 @@ describe('Sync', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    mockPingGet.mockResolvedValue({ version: '0.0.1', dbVersion: '0.0.1' });
   });
 
   afterEach(() => {
@@ -359,5 +364,46 @@ describe('Sync', () => {
     });
 
     expect(screen.getByText('Expired')).toBeInTheDocument();
+  });
+
+  it('displays email address when emailDomain is configured', async () => {
+    mockPingGet.mockResolvedValue({
+      version: '0.0.1',
+      dbVersion: '0.0.1',
+      emailDomain: 'email.example.com'
+    });
+    localStorage.setItem('auth_token', 'saved-token');
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({ id: 'user123', email: 'saved@example.com' })
+    );
+
+    renderSync();
+
+    await waitFor(() => {
+      expect(screen.getByText('Email address')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('user123@email.example.com')).toBeInTheDocument();
+  });
+
+  it('does not display email address when emailDomain is not configured', async () => {
+    mockPingGet.mockResolvedValue({
+      version: '0.0.1',
+      dbVersion: '0.0.1'
+    });
+    localStorage.setItem('auth_token', 'saved-token');
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({ id: 'user123', email: 'saved@example.com' })
+    );
+
+    renderSync();
+
+    await waitFor(() => {
+      expect(screen.getByText('Logged in as')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Email address')).not.toBeInTheDocument();
   });
 });
