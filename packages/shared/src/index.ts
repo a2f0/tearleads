@@ -26,6 +26,7 @@ export * from './openrouter.js';
 export interface PingData {
   version: string;
   dbVersion: string;
+  emailDomain?: string;
 }
 
 // Admin types

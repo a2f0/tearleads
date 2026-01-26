@@ -49,6 +49,10 @@ app.use(
  *           type: string
  *           description: Current database schema version
  *           example: "0.0.1"
+ *         emailDomain:
+ *           type: string
+ *           description: Domain for user email addresses (first from SMTP_RECIPIENT_DOMAINS)
+ *           example: "email.example.com"
  *       required:
  *         - version
  *         - dbVersion
@@ -79,9 +83,14 @@ app.use(
  *               $ref: '#/components/schemas/PingData'
  */
 app.get('/v1/ping', (_req: Request, res: Response) => {
+  const emailDomains = (process.env['SMTP_RECIPIENT_DOMAINS'] ?? '')
+    .split(',')
+    .map((d) => d.trim())
+    .filter((d) => d.length > 0);
   const pingData: PingData = {
     version: packageJson.version,
-    dbVersion: dbPackageJson.version
+    dbVersion: dbPackageJson.version,
+    ...(emailDomains[0] ? { emailDomain: emailDomains[0] } : {})
   };
   res.status(200).json(pingData);
 });

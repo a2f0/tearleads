@@ -8,7 +8,7 @@ describe('API', () => {
       const response = await request(app).get('/v1/ping');
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({
+      expect(response.body).toMatchObject({
         version: expect.any(String),
         dbVersion: expect.any(String)
       });
