@@ -8,6 +8,7 @@
 
 import { isRecord } from '@rapid/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getTestInstanceId, isTestMode } from '@/lib/test-instance';
 import type { InstanceMetadata } from './instance-registry';
 import {
   clearRegistry,
@@ -23,6 +24,14 @@ import {
   touchInstance,
   updateInstance
 } from './instance-registry';
+
+vi.mock('@/lib/test-instance', () => ({
+  getTestInstanceId: vi.fn(),
+  isTestMode: vi.fn()
+}));
+
+const mockIsTestMode = vi.mocked(isTestMode);
+const mockGetTestInstanceId = vi.mocked(getTestInstanceId);
 
 // Mock IndexedDB
 type StoreValue =
@@ -149,6 +158,8 @@ describe('instance-registry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockStore.clear();
+    mockIsTestMode.mockReturnValue(false);
+    mockGetTestInstanceId.mockReturnValue(null);
   });
 
   describe('getInstances', () => {
@@ -398,6 +409,32 @@ describe('instance-registry', () => {
       mockStore.set('active_instance', 'nonexistent');
 
       await expect(initializeRegistry()).rejects.toThrow();
+    });
+
+    it('prefers the worker test instance in test mode', async () => {
+      mockIsTestMode.mockReturnValue(true);
+      mockGetTestInstanceId.mockReturnValue('test-worker-2');
+      mockStore.set('instances', [
+        {
+          id: 'existing',
+          name: 'Instance 1',
+          createdAt: 1000,
+          lastAccessedAt: 2000
+        }
+      ]);
+      mockStore.set('active_instance', 'existing');
+
+      const instance = await initializeRegistry();
+
+      expect(instance.id).toBe('test-worker-2');
+      expect(instance.name).toBe('Test Worker 2');
+      expect(await getActiveInstanceId()).toBe('test-worker-2');
+
+      const storedInstances = getStoredInstances();
+      expect(storedInstances.map((stored) => stored.id)).toEqual([
+        'existing',
+        'test-worker-2'
+      ]);
     });
   });
 
