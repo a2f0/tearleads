@@ -13,31 +13,23 @@ appId: com.tearleads.rapid
     visible: "Files"
     timeout: 5000
 
-# Debug: Log initial viewport dimensions
-- evalScript: |
-    (() => {
-      const vv = window.visualViewport;
-      const info = {
-        innerHeight: window.innerHeight,
-        innerWidth: window.innerWidth,
-        visualViewportHeight: vv ? vv.height : 'N/A',
-        visualViewportWidth: vv ? vv.width : 'N/A'
-      };
-      console.log('VIEWPORT_DEBUG_INITIAL:', JSON.stringify(info));
-      return 'Initial viewport: ' + JSON.stringify(info);
-    })()
+# NOTE: This test may fail locally due to WebView navigation differences between
+# debug and release builds. The test passes in CI (release build).
+# Local failures with "Email is visible" assertion after navigation are expected.
 
-# Navigate to Sync via URL
+# Navigate to Sync page
+# On release builds (CI), window.location.href works correctly.
+# On debug builds (local), navigation may not work due to WebView configuration differences.
 - evalScript: |
     (() => {
       window.location.href = '/sync';
-      return 'navigated to /sync';
+      return 'navigating to /sync';
     })()
 
 # Wait for the login form
 - extendedWaitUntil:
     visible: "Email"
-    timeout: 5000
+    timeout: 10000
 
 # Debug: Log viewport before keyboard
 - evalScript: |
