@@ -14,21 +14,19 @@ const mockLPush = vi.fn();
 const mockLRange = vi.fn();
 const mockLRem = vi.fn();
 const mockSAdd = vi.fn();
-const mockSMembers = vi.fn();
+const mockEval = vi.fn();
 const mockCloseRedisClient = vi.fn();
 const mockMultiExec = vi.fn();
 const mockMultiSet = vi.fn().mockReturnThis();
 const mockMultiSAdd = vi.fn().mockReturnThis();
 const mockMultiLPush = vi.fn().mockReturnThis();
 const mockMultiLRem = vi.fn().mockReturnThis();
-const mockMultiDel = vi.fn().mockReturnThis();
 
 const mockMulti = {
   set: mockMultiSet,
   sAdd: mockMultiSAdd,
   lPush: mockMultiLPush,
   lRem: mockMultiLRem,
-  del: mockMultiDel,
   exec: mockMultiExec
 };
 
@@ -41,7 +39,7 @@ function createMockClient(): RedisClient {
     lRange: mockLRange,
     lRem: mockLRem,
     sAdd: mockSAdd,
-    sMembers: mockSMembers,
+    eval: mockEval,
     multi: () => mockMulti
   };
   if (!isRedisClient(mock)) throw new Error('Invalid mock');
@@ -149,24 +147,20 @@ describe('storage', () => {
 
   describe('delete', () => {
     it('should delete an email and return true', async () => {
-      mockSMembers.mockResolvedValue(['user-1']);
-      mockMultiExec.mockResolvedValue([[null, 1]]);
+      mockEval.mockResolvedValue(1);
 
       const storage = await createStorage('redis://localhost:6379');
       const result = await storage.delete('test-123');
 
-      expect(mockMultiDel).toHaveBeenCalledWith('smtp:email:test-123');
-      expect(mockMultiLRem).toHaveBeenCalledWith(
-        'smtp:emails:user-1',
-        1,
-        'test-123'
-      );
+      expect(mockEval).toHaveBeenCalledWith(expect.any(String), {
+        keys: ['smtp:email:users:test-123', 'smtp:email:test-123'],
+        arguments: ['smtp:emails:', 'test-123']
+      });
       expect(result).toBe(true);
     });
 
     it('should return false for non-existent email', async () => {
-      mockSMembers.mockResolvedValue([]);
-      mockMultiExec.mockResolvedValue([[null, 0]]);
+      mockEval.mockResolvedValue(0);
 
       const storage = await createStorage('redis://localhost:6379');
       const result = await storage.delete('non-existent');

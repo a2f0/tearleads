@@ -15,6 +15,28 @@ const getEmailListKey = (userId: string): string =>
 const getEmailUsersKey = (emailId: string): string =>
   `${EMAIL_USERS_PREFIX}${emailId}`;
 
+const EMAIL_DELETE_SCRIPT = `
+local usersKey = KEYS[1]
+local listKey = KEYS[2]
+local emailKey = KEYS[3]
+local userId = ARGV[1]
+local emailId = ARGV[2]
+
+if redis.call('SISMEMBER', usersKey, userId) == 0 then
+  return 0
+end
+
+redis.call('SREM', usersKey, userId)
+redis.call('LREM', listKey, 1, emailId)
+local remaining = redis.call('SCARD', usersKey)
+if remaining == 0 then
+  redis.call('DEL', emailKey)
+  redis.call('DEL', usersKey)
+end
+
+return 1
+`;
+
 interface EmailAddress {
   address: string;
   name?: string;
@@ -288,26 +310,14 @@ router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
       return;
     }
 
-    await client.sRem(usersKey, userId);
-    await client.lRem(getEmailListKey(userId), 1, id);
-    const remainingUsers = await client.sCard(usersKey);
-    let deletedCount = 0;
-    if (remainingUsers === 0) {
-      const results = await client.multi().del(key).del(usersKey).exec();
-      const delResult = results?.[0];
-      deletedCount =
-        typeof delResult === 'number'
-          ? delResult
-          : Array.isArray(delResult) && typeof delResult[1] === 'number'
-            ? delResult[1]
-            : 0;
-    }
-
-    if (remainingUsers > 0 || deletedCount > 0) {
+    const result = await client.eval(EMAIL_DELETE_SCRIPT, {
+      keys: [usersKey, getEmailListKey(userId), key],
+      arguments: [userId, id]
+    });
+    if (result === 1) {
       res.json({ success: true });
       return;
     }
-
     res.status(404).json({ error: 'Email not found' });
   } catch (error) {
     console.error('Failed to delete email:', error);

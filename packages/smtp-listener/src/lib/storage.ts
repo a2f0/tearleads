@@ -14,6 +14,23 @@ const getEmailListKey = (userId: string): string =>
 const getEmailUsersKey = (emailId: string): string =>
   `${EMAIL_USERS_PREFIX}${emailId}`;
 
+const EMAIL_DELETE_SCRIPT = `
+local usersKey = KEYS[1]
+local emailKey = KEYS[2]
+local listPrefix = ARGV[1]
+local emailId = ARGV[2]
+
+local users = redis.call('SMEMBERS', usersKey)
+for i, userId in ipairs(users) do
+  redis.call('LREM', listPrefix .. userId, 1, emailId)
+end
+
+local deleted = redis.call('DEL', emailKey)
+redis.call('DEL', usersKey)
+
+return deleted
+`;
+
 export interface EmailStorage {
   store(email: StoredEmail, userIds: string[]): Promise<void>;
   get(id: string): Promise<StoredEmail | null>;
@@ -57,24 +74,11 @@ export async function createStorage(redisUrl?: string): Promise<EmailStorage> {
     async delete(id: string): Promise<boolean> {
       const key = `${EMAIL_PREFIX}${id}`;
       const usersKey = getEmailUsersKey(id);
-      const userIds = await client.sMembers(usersKey);
-      const multi = client.multi();
-      multi.del(key);
-      if (userIds.length > 0) {
-        for (const userId of userIds) {
-          multi.lRem(getEmailListKey(userId), 1, id);
-        }
-      }
-      multi.del(usersKey);
-      const results = await multi.exec();
-      const deleteResult = results?.[0];
-      const deletedCount =
-        typeof deleteResult === 'number'
-          ? deleteResult
-          : Array.isArray(deleteResult) && typeof deleteResult[1] === 'number'
-            ? deleteResult[1]
-            : 0;
-      return deletedCount > 0;
+      const result = await client.eval(EMAIL_DELETE_SCRIPT, {
+        keys: [usersKey, key],
+        arguments: [EMAIL_LIST_PREFIX, id]
+      });
+      return result === 1;
     },
 
     async close(): Promise<void> {
