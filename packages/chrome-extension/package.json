@@ -15,13 +15,13 @@
     "@rapid/shared": "workspace:*"
   },
   "devDependencies": {
-    "@types/chrome": "0.0.287",
-    "@types/node": "25.0.3",
-    "@vitest/coverage-v8": "4.0.16",
+    "@types/chrome": "0.1.36",
+    "@types/node": "25.0.10",
+    "@vitest/coverage-v8": "4.0.18",
     "jsdom": "27.4.0",
     "typescript": "5.9.3",
-    "vite": "7.3.0",
-    "vitest": "4.0.16",
+    "vite": "7.3.1",
+    "vitest": "4.0.18",
     "vitest-fail-on-console": "0.10.1"
   }
 }

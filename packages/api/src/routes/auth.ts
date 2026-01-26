@@ -462,7 +462,7 @@ router.delete('/sessions/:sessionId', async (req: Request, res: Response) => {
   }
 
   const { sessionId } = req.params;
-  if (!sessionId) {
+  if (!sessionId || typeof sessionId !== 'string') {
     res.status(400).json({ error: 'Session ID is required' });
     return;
   }

@@ -298,7 +298,12 @@ router.get(
     const schema = req.params['schema'];
     const table = req.params['table'];
 
-    if (!schema || !table) {
+    if (
+      !schema ||
+      !table ||
+      typeof schema !== 'string' ||
+      typeof table !== 'string'
+    ) {
       res.status(400).json({ error: 'Schema and table are required' });
       return;
     }
