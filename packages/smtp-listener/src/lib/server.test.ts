@@ -267,10 +267,9 @@ describe('server', () => {
         expect(mockCallback).toHaveBeenCalledWith();
       });
 
-      expect(mockStorageStore).toHaveBeenCalledWith(
-        expect.any(Object),
-        ['user-1']
-      );
+      expect(mockStorageStore).toHaveBeenCalledWith(expect.any(Object), [
+        'user-1'
+      ]);
     });
 
     it('should call onEmail callback when provided', async () => {
@@ -343,10 +342,9 @@ describe('server', () => {
       endHandler();
 
       await vi.waitFor(() => {
-        expect(mockStorageStore).toHaveBeenCalledWith(
-          expect.any(Object),
-          ['user-1']
-        );
+        expect(mockStorageStore).toHaveBeenCalledWith(expect.any(Object), [
+          'user-1'
+        ]);
       });
     });
 
