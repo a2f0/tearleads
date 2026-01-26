@@ -66,9 +66,14 @@ export function Sync({ showBackLink = true }: SyncProps) {
       return;
     }
 
-    api.ping.get().then((data) => {
-      setEmailDomain(data.emailDomain ?? null);
-    });
+    api.ping
+      .get()
+      .then((data) => {
+        setEmailDomain(data.emailDomain ?? null);
+      })
+      .catch(() => {
+        setEmailDomain(null);
+      });
   }, [isAuthenticated]);
 
   const handleLogout = useCallback(async () => {
