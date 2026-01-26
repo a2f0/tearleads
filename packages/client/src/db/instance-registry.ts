@@ -258,10 +258,10 @@ export async function initializeRegistry(): Promise<InstanceMetadata> {
  * Initialize a test-specific instance with a deterministic ID.
  * Creates the instance if it doesn't exist, or returns existing one.
  *
- * Respects the stored active instance if it exists and is valid.
- * This matches real (non-test) build behavior where the active instance
- * persists across app restarts, enabling multi-instance tests to verify
- * that behavior correctly.
+ * IMPORTANT: Always uses the worker-specific instance ID to ensure parallel
+ * test isolation. Since all Playwright workers share the same origin (and
+ * therefore the same IndexedDB), respecting the stored active instance would
+ * cause all workers to use the same database, breaking test isolation.
  */
 async function initializeTestInstance(
   testInstanceId: string
@@ -281,17 +281,9 @@ async function initializeTestInstance(
     await setInStore(REGISTRY_KEY, instances);
   }
 
-  // Check if there's a stored active instance that still exists
-  const storedActiveId = await getActiveInstanceId();
-  if (storedActiveId) {
-    const storedActive = instances.find((inst) => inst.id === storedActiveId);
-    if (storedActive) {
-      // Respect the stored active instance (supports multi-instance tests)
-      return storedActive;
-    }
-  }
-
-  // No valid stored active instance - use the test worker instance
+  // Always use the worker-specific instance for parallel test isolation.
+  // Do NOT check the stored active instance - that would break isolation
+  // since all workers share the same IndexedDB on the same origin.
   await setActiveInstanceId(testInstanceId);
   return testInstance;
 }
