@@ -13,7 +13,24 @@ const mockDel = vi.fn();
 const mockLPush = vi.fn();
 const mockLRange = vi.fn();
 const mockLRem = vi.fn();
+const mockSAdd = vi.fn();
+const mockSMembers = vi.fn();
 const mockCloseRedisClient = vi.fn();
+const mockMultiExec = vi.fn();
+const mockMultiSet = vi.fn().mockReturnThis();
+const mockMultiSAdd = vi.fn().mockReturnThis();
+const mockMultiLPush = vi.fn().mockReturnThis();
+const mockMultiLRem = vi.fn().mockReturnThis();
+const mockMultiDel = vi.fn().mockReturnThis();
+
+const mockMulti = {
+  set: mockMultiSet,
+  sAdd: mockMultiSAdd,
+  lPush: mockMultiLPush,
+  lRem: mockMultiLRem,
+  del: mockMultiDel,
+  exec: mockMultiExec
+};
 
 function createMockClient(): RedisClient {
   const mock = {
@@ -22,7 +39,10 @@ function createMockClient(): RedisClient {
     del: mockDel,
     lPush: mockLPush,
     lRange: mockLRange,
-    lRem: mockLRem
+    lRem: mockLRem,
+    sAdd: mockSAdd,
+    sMembers: mockSMembers,
+    multi: () => mockMulti
   };
   if (!isRedisClient(mock)) throw new Error('Invalid mock');
   return mock;
@@ -50,6 +70,7 @@ describe('storage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCloseRedisClient.mockResolvedValue(undefined);
+    mockMultiExec.mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -76,17 +97,20 @@ describe('storage', () => {
 
   describe('store', () => {
     it('should store an email in redis', async () => {
-      mockSet.mockResolvedValue('OK');
-      mockLPush.mockResolvedValue(1);
-
       const storage = await createStorage('redis://localhost:6379');
-      await storage.store(testEmail);
+      await storage.store(testEmail, ['user-1']);
 
-      expect(mockSet).toHaveBeenCalledWith(
+      expect(mockMultiSet).toHaveBeenCalledWith(
         'smtp:email:test-123',
         JSON.stringify(testEmail)
       );
-      expect(mockLPush).toHaveBeenCalledWith('smtp:emails', 'test-123');
+      expect(mockMultiSAdd).toHaveBeenCalledWith('smtp:email:users:test-123', [
+        'user-1'
+      ]);
+      expect(mockMultiLPush).toHaveBeenCalledWith(
+        'smtp:emails:user-1',
+        'test-123'
+      );
     });
   });
 
@@ -116,34 +140,39 @@ describe('storage', () => {
       mockLRange.mockResolvedValue(['id1', 'id2', 'id3']);
 
       const storage = await createStorage('redis://localhost:6379');
-      const result = await storage.list();
+      const result = await storage.list('user-1');
 
-      expect(mockLRange).toHaveBeenCalledWith('smtp:emails', 0, -1);
+      expect(mockLRange).toHaveBeenCalledWith('smtp:emails:user-1', 0, -1);
       expect(result).toEqual(['id1', 'id2', 'id3']);
     });
   });
 
   describe('delete', () => {
     it('should delete an email and return true', async () => {
-      mockDel.mockResolvedValue(1);
-      mockLRem.mockResolvedValue(1);
+      mockSMembers.mockResolvedValue(['user-1']);
+      mockMultiExec.mockResolvedValue([[null, 1]]);
 
       const storage = await createStorage('redis://localhost:6379');
       const result = await storage.delete('test-123');
 
-      expect(mockDel).toHaveBeenCalledWith('smtp:email:test-123');
-      expect(mockLRem).toHaveBeenCalledWith('smtp:emails', 1, 'test-123');
+      expect(mockMultiDel).toHaveBeenCalledWith('smtp:email:test-123');
+      expect(mockMultiLRem).toHaveBeenCalledWith(
+        'smtp:emails:user-1',
+        1,
+        'test-123'
+      );
       expect(result).toBe(true);
     });
 
     it('should return false for non-existent email', async () => {
-      mockDel.mockResolvedValue(0);
+      mockSMembers.mockResolvedValue([]);
+      mockMultiExec.mockResolvedValue([[null, 0]]);
 
       const storage = await createStorage('redis://localhost:6379');
       const result = await storage.delete('non-existent');
 
       expect(result).toBe(false);
-      expect(mockLRem).not.toHaveBeenCalled();
+      expect(mockMultiLRem).not.toHaveBeenCalled();
     });
   });
 

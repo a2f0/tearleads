@@ -21,5 +21,6 @@ export interface SmtpListenerConfig {
   host?: string;
   redisUrl?: string;
   maxMessageSize?: number;
+  recipientDomains?: string[];
   onEmail?: (email: StoredEmail) => void | Promise<void>;
 }

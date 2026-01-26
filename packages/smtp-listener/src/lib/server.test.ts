@@ -217,7 +217,7 @@ describe('server', () => {
       const session = {
         envelope: {
           mailFrom: { address: 'sender@test.com' },
-          rcptTo: [{ address: 'recipient@test.com' }]
+          rcptTo: [{ address: 'user-1@test.com' }]
         }
       };
 
@@ -252,7 +252,7 @@ describe('server', () => {
       const session = {
         envelope: {
           mailFrom: { address: 'sender@test.com' },
-          rcptTo: [{ address: 'recipient@test.com' }]
+          rcptTo: [{ address: 'user-1@test.com' }]
         }
       };
 
@@ -267,7 +267,10 @@ describe('server', () => {
         expect(mockCallback).toHaveBeenCalledWith();
       });
 
-      expect(mockStorageStore).toHaveBeenCalled();
+      expect(mockStorageStore).toHaveBeenCalledWith(
+        expect.any(Object),
+        ['user-1']
+      );
     });
 
     it('should call onEmail callback when provided', async () => {
@@ -290,7 +293,7 @@ describe('server', () => {
       const session = {
         envelope: {
           mailFrom: { address: 'sender@test.com', args: {} },
-          rcptTo: [{ address: 'recipient@test.com', args: {} }]
+          rcptTo: [{ address: 'user-1@test.com', args: {} }]
         }
       };
 
@@ -303,9 +306,46 @@ describe('server', () => {
           expect.objectContaining({
             envelope: {
               mailFrom: { address: 'sender@test.com' },
-              rcptTo: [{ address: 'recipient@test.com' }]
+              rcptTo: [{ address: 'user-1@test.com' }]
             }
           })
+        );
+      });
+    });
+
+    it('should filter recipients by configured domains', async () => {
+      const listener = await createSmtpListener({
+        port: 2525,
+        recipientDomains: ['mail.test.com']
+      });
+      await listener.start();
+
+      const mockCallback = vi.fn();
+      let endHandler: () => void = () => {};
+
+      const mockStream = {
+        on: vi.fn((event: string, handler: unknown) => {
+          if (event === 'end') endHandler = handler as () => void;
+        })
+      };
+
+      const session = {
+        envelope: {
+          mailFrom: { address: 'sender@test.com' },
+          rcptTo: [
+            { address: 'user-1@mail.test.com' },
+            { address: 'user-2@other.test.com' }
+          ]
+        }
+      };
+
+      capturedOnDataRef.current?.(mockStream, session, mockCallback);
+      endHandler();
+
+      await vi.waitFor(() => {
+        expect(mockStorageStore).toHaveBeenCalledWith(
+          expect.any(Object),
+          ['user-1']
         );
       });
     });
@@ -326,7 +366,7 @@ describe('server', () => {
       const session = {
         envelope: {
           mailFrom: undefined,
-          rcptTo: [{ address: 'recipient@test.com' }]
+          rcptTo: [{ address: 'user-1@test.com' }]
         }
       };
 
@@ -338,9 +378,10 @@ describe('server', () => {
           expect.objectContaining({
             envelope: {
               mailFrom: false,
-              rcptTo: [{ address: 'recipient@test.com' }]
+              rcptTo: [{ address: 'user-1@test.com' }]
             }
-          })
+          }),
+          ['user-1']
         );
       });
     });
@@ -361,7 +402,7 @@ describe('server', () => {
       const session = {
         envelope: {
           mailFrom: { address: 'sender@test.com' },
-          rcptTo: []
+          rcptTo: [{ address: 'user-1@test.com' }]
         }
       };
 
@@ -390,7 +431,7 @@ describe('server', () => {
       const session = {
         envelope: {
           mailFrom: { address: 'sender@test.com' },
-          rcptTo: []
+          rcptTo: [{ address: 'user-1@test.com' }]
         }
       };
 

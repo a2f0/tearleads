@@ -11,6 +11,7 @@ The listener is configured via environment variables:
 | `SMTP_PORT` | `25` | Port to listen on |
 | `SMTP_HOST` | `0.0.0.0` | Host/interface to bind to |
 | `REDIS_URL` | `redis://localhost:6379` | Redis connection URL for email storage |
+| `SMTP_RECIPIENT_DOMAINS` | _none_ | Comma-separated list of domains that map local parts to user IDs (e.g. `email.example.com`) |
 
 ## Local Development
 

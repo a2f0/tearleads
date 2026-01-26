@@ -3,6 +3,10 @@ import { createSmtpListener } from './lib/server.js';
 const port = Number(process.env['SMTP_PORT']) || 25;
 const host = process.env['SMTP_HOST'] || '0.0.0.0';
 const redisUrl = process.env['REDIS_URL'] || 'redis://localhost:6379';
+const recipientDomains = (process.env['SMTP_RECIPIENT_DOMAINS'] ?? '')
+  .split(',')
+  .map((domain) => domain.trim())
+  .filter((domain) => domain.length > 0);
 
 async function main(): Promise<void> {
   console.log(`Starting SMTP listener on ${host}:${port}...`);
@@ -11,6 +15,7 @@ async function main(): Promise<void> {
     port,
     host,
     redisUrl,
+    recipientDomains,
     onEmail: (email) => {
       console.log(
         `Received email ${email.id} from ${
