@@ -20,10 +20,8 @@ fi
 # Disable quick-boot snapshot (force cold boot every time)
 if [ -f "$AVD_CONFIG" ]; then
     echo "Disabling quick-boot snapshot..."
-    sed -i.bak '/^fastboot\.forceColdBoot=/d' "$AVD_CONFIG"
-    sed -i.bak '/^fastboot\.forceFastBoot=/d' "$AVD_CONFIG"
-    echo "fastboot.forceColdBoot=yes" >> "$AVD_CONFIG"
-    echo "fastboot.forceFastBoot=no" >> "$AVD_CONFIG"
+    sed -i.bak -e '/^fastboot\.forceColdBoot=/d' -e '/^fastboot\.forceFastBoot=/d' "$AVD_CONFIG"
+    printf "%s\n" "fastboot.forceColdBoot=yes" "fastboot.forceFastBoot=no" >> "$AVD_CONFIG"
     rm -f "${AVD_CONFIG}.bak"
 fi
 
