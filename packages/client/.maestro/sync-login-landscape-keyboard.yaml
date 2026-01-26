@@ -13,13 +13,16 @@ appId: com.tearleads.rapid
     visible: "Files"
     timeout: 5000
 
-# NOTE: This test may fail locally due to WebView navigation differences between
-# debug and release builds. The test passes in CI (release build).
-# Local failures with "Email is visible" assertion after navigation are expected.
+# NOTE: This test requires Android API level 31 or lower.
+# - CI uses API 31 (android-maestro-release.yml) - test passes
+# - Local with API 33 (Android 13) - test fails due to WebView navigation changes
+# - Local with API 30/31 - test passes
+#
+# Root cause: Android 13 (API 33) introduced WebView behavior changes that block
+# window.location.href navigation in Capacitor's WebView context. Use an API 30/31
+# emulator for local testing: Maestro_Pixel_6_API_30_1
 
 # Navigate to Sync page
-# On release builds (CI), window.location.href works correctly.
-# On debug builds (local), navigation may not work due to WebView configuration differences.
 - evalScript: |
     (() => {
       window.location.href = '/sync';
