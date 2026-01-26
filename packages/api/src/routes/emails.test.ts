@@ -7,17 +7,15 @@ import { mockConsoleError } from '../test/console-mocks.js';
 const sessionStore = new Map<string, string>();
 const mockLRange = vi.fn();
 const mockLLen = vi.fn();
+const mockLRem = vi.fn();
 const mockGet = vi.fn();
 const mockMGet = vi.fn();
-const mockExec = vi.fn();
+const mockEval = vi.fn();
 const mockSet = vi.fn();
 const mockExpire = vi.fn();
-
-const createMockMulti = () => ({
-  del: vi.fn().mockReturnThis(),
-  lRem: vi.fn().mockReturnThis(),
-  exec: mockExec
-});
+const mockSIsMember = vi.fn();
+const mockSRem = vi.fn();
+const mockSCard = vi.fn();
 
 const userSessionsStore = new Map<string, Set<string>>();
 const mockTtl = new Map<string, number>();
@@ -32,6 +30,10 @@ const createMockClient = () => ({
     return mockGet(key);
   },
   mGet: mockMGet,
+  eval: mockEval,
+  sIsMember: mockSIsMember,
+  sCard: mockSCard,
+  lRem: mockLRem,
   set: (key: string, value: string, options?: { EX?: number }) => {
     sessionStore.set(key, value);
     mockSet(key, value);
@@ -56,6 +58,7 @@ const createMockClient = () => ({
     return Promise.resolve(1);
   },
   sRem: (key: string, member: string) => {
+    mockSRem(key, member);
     const set = userSessionsStore.get(key);
     if (set?.delete(member)) {
       return Promise.resolve(1);
@@ -65,8 +68,7 @@ const createMockClient = () => ({
   sMembers: (key: string) => {
     const set = userSessionsStore.get(key);
     return Promise.resolve(set ? Array.from(set) : []);
-  },
-  multi: createMockMulti
+  }
 });
 
 vi.mock('../lib/redis.js', () => ({
@@ -118,6 +120,10 @@ describe('Emails Routes', () => {
     mockLRange.mockResolvedValue([]);
     mockLLen.mockResolvedValue(0);
     mockMGet.mockResolvedValue([]);
+    mockSIsMember.mockResolvedValue(1);
+    mockSRem.mockResolvedValue(1);
+    mockSCard.mockResolvedValue(0);
+    mockEval.mockResolvedValue(1);
     authHeader = await createAuthHeader();
   });
 
@@ -255,7 +261,7 @@ describe('Emails Routes', () => {
         .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
-      expect(mockLRange).toHaveBeenCalledWith('smtp:emails', 10, 29);
+      expect(mockLRange).toHaveBeenCalledWith('smtp:emails:user-1', 10, 29);
       expect(response.body.total).toBe(100);
       expect(response.body.offset).toBe(10);
       expect(response.body.limit).toBe(20);
@@ -270,7 +276,7 @@ describe('Emails Routes', () => {
         .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
-      expect(mockLRange).toHaveBeenCalledWith('smtp:emails', 0, 99);
+      expect(mockLRange).toHaveBeenCalledWith('smtp:emails:user-1', 0, 99);
       expect(response.body.limit).toBe(100);
     });
 
@@ -283,7 +289,7 @@ describe('Emails Routes', () => {
         .set('Authorization', authHeader);
 
       expect(response.status).toBe(200);
-      expect(mockLRange).toHaveBeenCalledWith('smtp:emails', 0, 49);
+      expect(mockLRange).toHaveBeenCalledWith('smtp:emails:user-1', 0, 49);
       expect(response.body.offset).toBe(0);
     });
   });
@@ -291,6 +297,7 @@ describe('Emails Routes', () => {
   describe('GET /v1/emails/:id', () => {
     it('returns email by ID', async () => {
       mockGet.mockResolvedValue(JSON.stringify(mockStoredEmail));
+      mockSIsMember.mockResolvedValue(1);
 
       const response = await request(app)
         .get('/v1/emails/test-email-1')
@@ -309,6 +316,7 @@ describe('Emails Routes', () => {
     });
 
     it('returns 404 when email not found', async () => {
+      mockSIsMember.mockResolvedValue(0);
       mockGet.mockResolvedValue(null);
 
       const response = await request(app)
@@ -321,6 +329,7 @@ describe('Emails Routes', () => {
 
     it('handles error during fetch', async () => {
       mockConsoleError();
+      mockSIsMember.mockResolvedValue(1);
       mockGet.mockRejectedValue(new Error('Redis error'));
 
       const response = await request(app)
@@ -334,11 +343,8 @@ describe('Emails Routes', () => {
 
   describe('DELETE /v1/emails/:id', () => {
     it('deletes email by ID', async () => {
-      // Redis multi/exec returns [error, result] tuples for each command
-      mockExec.mockResolvedValue([
-        [null, 1],
-        [null, 1]
-      ]);
+      mockSIsMember.mockResolvedValue(1);
+      mockEval.mockResolvedValue(1);
 
       const response = await request(app)
         .delete('/v1/emails/test-email-1')
@@ -350,10 +356,8 @@ describe('Emails Routes', () => {
 
     it('returns 404 when email not found', async () => {
       // Redis multi/exec returns [error, result] tuples for each command
-      mockExec.mockResolvedValue([
-        [null, 0],
-        [null, 0]
-      ]);
+      mockSIsMember.mockResolvedValue(0);
+      mockEval.mockResolvedValue(0);
 
       const response = await request(app)
         .delete('/v1/emails/nonexistent')
@@ -365,7 +369,8 @@ describe('Emails Routes', () => {
 
     it('handles error during delete', async () => {
       mockConsoleError();
-      mockExec.mockRejectedValue(new Error('Redis error'));
+      mockSIsMember.mockResolvedValue(1);
+      mockEval.mockRejectedValue(new Error('Redis error'));
 
       const response = await request(app)
         .delete('/v1/emails/test-email-1')

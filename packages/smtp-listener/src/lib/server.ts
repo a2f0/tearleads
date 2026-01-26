@@ -28,11 +28,46 @@ function buildEnvelope(session: SMTPServerSession): EmailEnvelope {
   return { mailFrom, rcptTo };
 }
 
+function normalizeDomains(domains: string[] | undefined): Set<string> | null {
+  if (!domains || domains.length === 0) {
+    return null;
+  }
+  const normalized = domains
+    .map((domain) => domain.trim().toLowerCase())
+    .filter((domain) => domain.length > 0);
+  if (normalized.length === 0) {
+    return null;
+  }
+  return new Set(normalized);
+}
+
+function extractUserIds(
+  rcptTo: EmailAddress[],
+  allowedDomains: Set<string> | null
+): string[] {
+  const userIds = new Set<string>();
+  for (const recipient of rcptTo) {
+    const address = recipient.address.trim().toLowerCase();
+    const atIndex = address.lastIndexOf('@');
+    if (atIndex <= 0 || atIndex === address.length - 1) {
+      continue;
+    }
+    const localPart = address.slice(0, atIndex);
+    const domain = address.slice(atIndex + 1);
+    if (allowedDomains && !allowedDomains.has(domain)) {
+      continue;
+    }
+    userIds.add(localPart);
+  }
+  return Array.from(userIds);
+}
+
 export async function createSmtpListener(
   config: SmtpListenerConfig
 ): Promise<SmtpListener> {
   const redisUrl = config.redisUrl ?? 'redis://localhost:6379';
   let storage: EmailStorage | null = null;
+  const allowedDomains = normalizeDomains(config.recipientDomains);
 
   const server = new SMTPServer({
     authOptional: true,
@@ -50,9 +85,10 @@ export async function createSmtpListener(
           const rawData = Buffer.concat(chunks).toString('utf8');
           const envelope = buildEnvelope(session);
           const email = createStoredEmail(envelope, rawData);
+          const userIds = extractUserIds(envelope.rcptTo, allowedDomains);
 
           if (storage) {
-            await storage.store(email);
+            await storage.store(email, userIds);
           }
           if (config.onEmail) {
             await config.onEmail(email);

@@ -211,6 +211,17 @@
         mode: "0775"
         recurse: true
 
+    - name: Create SMTP Listener environment file
+      ansible.builtin.copy:
+        dest: /opt/rapid-smtp-listener/.env
+        content: |
+          SMTP_RECIPIENT_DOMAINS={{ lookup('env', 'SMTP_RECIPIENT_DOMAINS') | mandatory('SMTP_RECIPIENT_DOMAINS environment variable is required') }}
+        owner: "{{ ansible_user }}"
+        group: www-data
+        mode: "0640"
+      no_log: true
+      notify: Restart rapid-smtp-listener
+
     - name: Deploy rapid-smtp-listener systemd service
       ansible.builtin.template:
         src: rapid-smtp-listener.service.j2
@@ -218,7 +229,9 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Reload systemd
+      notify:
+        - Reload systemd
+        - Restart rapid-smtp-listener
 
     - name: Enable rapid-smtp-listener service
       ansible.builtin.systemd:
@@ -384,4 +397,9 @@
     - name: Restart rapid-api
       ansible.builtin.systemd:
         name: rapid-api
+        state: restarted
+
+    - name: Restart rapid-smtp-listener
+      ansible.builtin.systemd:
+        name: rapid-smtp-listener
         state: restarted

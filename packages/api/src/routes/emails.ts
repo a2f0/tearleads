@@ -7,7 +7,35 @@ import {
 import { getRedisClient } from '../lib/redis.js';
 
 const EMAIL_PREFIX = 'smtp:email:';
-const EMAIL_LIST_KEY = 'smtp:emails';
+const EMAIL_LIST_PREFIX = 'smtp:emails:';
+const EMAIL_USERS_PREFIX = 'smtp:email:users:';
+
+const getEmailListKey = (userId: string): string =>
+  `${EMAIL_LIST_PREFIX}${userId}`;
+const getEmailUsersKey = (emailId: string): string =>
+  `${EMAIL_USERS_PREFIX}${emailId}`;
+
+const EMAIL_DELETE_SCRIPT = `
+local usersKey = KEYS[1]
+local listKey = KEYS[2]
+local emailKey = KEYS[3]
+local userId = ARGV[1]
+local emailId = ARGV[2]
+
+if redis.call('SISMEMBER', usersKey, userId) == 0 then
+  return 0
+end
+
+redis.call('SREM', usersKey, userId)
+redis.call('LREM', listKey, 1, emailId)
+local remaining = redis.call('SCARD', usersKey)
+if remaining == 0 then
+  redis.call('DEL', emailKey)
+  redis.call('DEL', usersKey)
+end
+
+return 1
+`;
 
 interface EmailAddress {
   address: string;
@@ -119,6 +147,11 @@ const router: RouterType = Router();
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
+    const userId = req.authClaims?.sub;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
     const offset = Math.max(
       0,
       parseInt(req.query['offset'] as string, 10) || 0
@@ -129,9 +162,10 @@ router.get('/', async (req: Request, res: Response) => {
     );
 
     const client = await getRedisClient();
-    const total = await client.lLen(EMAIL_LIST_KEY);
+    const emailListKey = getEmailListKey(userId);
+    const total = await client.lLen(emailListKey);
     const emailIds = await client.lRange(
-      EMAIL_LIST_KEY,
+      emailListKey,
       offset,
       offset + limit - 1
     );
@@ -199,8 +233,19 @@ router.get('/', async (req: Request, res: Response) => {
  */
 router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
   try {
+    const userId = req.authClaims?.sub;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
     const { id } = req.params;
     const client = await getRedisClient();
+    const usersKey = getEmailUsersKey(id);
+    const hasAccess = await client.sIsMember(usersKey, userId);
+    if (hasAccess !== 1) {
+      res.status(404).json({ error: 'Email not found' });
+      return;
+    }
     const data = await client.get(`${EMAIL_PREFIX}${id}`);
 
     if (!data) {
@@ -249,29 +294,31 @@ router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
  */
 router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
   try {
+    const userId = req.authClaims?.sub;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
     const { id } = req.params;
     const client = await getRedisClient();
     const key = `${EMAIL_PREFIX}${id}`;
+    const usersKey = getEmailUsersKey(id);
+    const hasAccess = await client.sIsMember(usersKey, userId);
 
-    const results = await client
-      .multi()
-      .del(key)
-      .lRem(EMAIL_LIST_KEY, 1, id)
-      .exec();
-
-    const delResult = results?.[0];
-    const deletedCount =
-      typeof delResult === 'number'
-        ? delResult
-        : Array.isArray(delResult) && typeof delResult[1] === 'number'
-          ? delResult[1]
-          : 0;
-
-    if (deletedCount > 0) {
-      res.json({ success: true });
-    } else {
+    if (hasAccess !== 1) {
       res.status(404).json({ error: 'Email not found' });
+      return;
     }
+
+    const result = await client.eval(EMAIL_DELETE_SCRIPT, {
+      keys: [usersKey, getEmailListKey(userId), key],
+      arguments: [userId, id]
+    });
+    if (result === 1) {
+      res.json({ success: true });
+      return;
+    }
+    res.status(404).json({ error: 'Email not found' });
   } catch (error) {
     console.error('Failed to delete email:', error);
     res.status(500).json({ error: 'Failed to delete email' });
