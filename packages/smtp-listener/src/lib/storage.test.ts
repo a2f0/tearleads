@@ -110,6 +110,14 @@ describe('storage', () => {
         'test-123'
       );
     });
+
+    it('should skip storing when no user ids are provided', async () => {
+      const storage = await createStorage('redis://localhost:6379');
+      await storage.store(testEmail, []);
+
+      expect(mockMultiSet).not.toHaveBeenCalled();
+      expect(mockMultiExec).not.toHaveBeenCalled();
+    });
   });
 
   describe('get', () => {

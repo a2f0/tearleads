@@ -54,9 +54,6 @@ function extractUserIds(
     }
     const localPart = address.slice(0, atIndex);
     const domain = address.slice(atIndex + 1);
-    if (!localPart) {
-      continue;
-    }
     if (allowedDomains && !allowedDomains.has(domain)) {
       continue;
     }

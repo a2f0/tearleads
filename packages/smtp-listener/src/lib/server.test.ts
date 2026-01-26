@@ -348,6 +348,73 @@ describe('server', () => {
       });
     });
 
+    it('should allow all domains when recipient domains are blank', async () => {
+      const listener = await createSmtpListener({
+        port: 2525,
+        recipientDomains: ['   ']
+      });
+      await listener.start();
+
+      const mockCallback = vi.fn();
+      let endHandler: () => void = () => {};
+
+      const mockStream = {
+        on: vi.fn((event: string, handler: unknown) => {
+          if (event === 'end') endHandler = handler as () => void;
+        })
+      };
+
+      const session = {
+        envelope: {
+          mailFrom: { address: 'sender@test.com' },
+          rcptTo: [{ address: 'user-1@any.test.com' }]
+        }
+      };
+
+      capturedOnDataRef.current?.(mockStream, session, mockCallback);
+      endHandler();
+
+      await vi.waitFor(() => {
+        expect(mockStorageStore).toHaveBeenCalledWith(expect.any(Object), [
+          'user-1'
+        ]);
+      });
+    });
+
+    it('should ignore malformed recipient addresses', async () => {
+      const listener = await createSmtpListener({ port: 2525 });
+      await listener.start();
+
+      const mockCallback = vi.fn();
+      let endHandler: () => void = () => {};
+
+      const mockStream = {
+        on: vi.fn((event: string, handler: unknown) => {
+          if (event === 'end') endHandler = handler as () => void;
+        })
+      };
+
+      const session = {
+        envelope: {
+          mailFrom: { address: 'sender@test.com' },
+          rcptTo: [
+            { address: 'invalid' },
+            { address: 'user-1@test.com' },
+            { address: 'user-2@' }
+          ]
+        }
+      };
+
+      capturedOnDataRef.current?.(mockStream, session, mockCallback);
+      endHandler();
+
+      await vi.waitFor(() => {
+        expect(mockStorageStore).toHaveBeenCalledWith(expect.any(Object), [
+          'user-1'
+        ]);
+      });
+    });
+
     it('should handle missing mailFrom', async () => {
       const listener = await createSmtpListener({ port: 2525 });
       await listener.start();
