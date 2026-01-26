@@ -15,6 +15,9 @@ import { FOOTER_HEIGHT } from './constants/layout';
 import { useKeyboardHeight } from './hooks/useKeyboardHeight';
 import { useSSEContext } from './sse';
 
+/** Extra padding to add when keyboard is open (matches pb-16 = 4rem = 64px) */
+const KEYBOARD_EXTRA_PADDING = 64;
+
 const sseTooltipKeys = {
   connected: 'sseConnected',
   connecting: 'sseConnecting',
@@ -80,7 +83,9 @@ function App() {
               className="container relative mx-auto flex max-w-2xl flex-1 flex-col px-4 pb-16 lg:max-w-none lg:px-8"
               style={{
                 paddingBottom:
-                  keyboardHeight > 0 ? `${keyboardHeight + 64}px` : undefined
+                  keyboardHeight > 0
+                    ? `${keyboardHeight + KEYBOARD_EXTRA_PADDING}px`
+                    : undefined
               }}
             >
               <Outlet />

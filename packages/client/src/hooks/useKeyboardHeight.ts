@@ -16,17 +16,26 @@ export function useKeyboardHeight() {
       return;
     }
 
-    const showListener = Keyboard.addListener('keyboardWillShow', (info) => {
-      setKeyboardHeight(info.keyboardHeight);
-    });
+    const showListenerPromise = Keyboard.addListener(
+      'keyboardWillShow',
+      (info) => {
+        setKeyboardHeight(info.keyboardHeight);
+      }
+    );
 
-    const hideListener = Keyboard.addListener('keyboardWillHide', () => {
+    const hideListenerPromise = Keyboard.addListener('keyboardWillHide', () => {
       setKeyboardHeight(0);
     });
 
     return () => {
-      showListener.then((handle) => handle.remove());
-      hideListener.then((handle) => handle.remove());
+      // Asynchronously clean up listeners to prevent memory leaks
+      const cleanup = async () => {
+        const showListener = await showListenerPromise;
+        await showListener.remove();
+        const hideListener = await hideListenerPromise;
+        await hideListener.remove();
+      };
+      cleanup();
     };
   }, []);
 

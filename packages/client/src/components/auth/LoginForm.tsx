@@ -3,6 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 
+/** Delay before scrolling input into view, allowing keyboard to fully appear */
+const SCROLL_INTO_VIEW_DELAY_MS = 300;
+
 /**
  * Scroll an input element into view after keyboard appears.
  * Uses a delay to allow the keyboard to fully open and viewport to resize.
@@ -14,7 +17,7 @@ function scrollInputIntoView(element: HTMLInputElement) {
     if (typeof element.scrollIntoView === 'function') {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, 300);
+  }, SCROLL_INTO_VIEW_DELAY_MS);
 }
 
 interface LoginFormProps {
