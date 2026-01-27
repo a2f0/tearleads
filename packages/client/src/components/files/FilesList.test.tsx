@@ -24,11 +24,22 @@ vi.mock('@/db/hooks', () => ({
   })
 }));
 
+let mockFiles: Array<{
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  uploadDate: Date;
+  storagePath: string;
+  thumbnailPath: string | null;
+  deleted: boolean;
+}> = [];
+
 vi.mock('@/db', () => ({
   getDatabase: () => ({
     select: () => ({
       from: () => ({
-        orderBy: () => Promise.resolve([])
+        orderBy: () => Promise.resolve(mockFiles)
       })
     }),
     update: () => ({
@@ -53,9 +64,10 @@ vi.mock('@/storage/opfs', () => ({
   createRetrieveLogger: vi.fn()
 }));
 
+const mockUploadFile = vi.fn();
 vi.mock('@/hooks/useFileUpload', () => ({
   useFileUpload: () => ({
-    uploadFile: vi.fn()
+    uploadFile: mockUploadFile
   })
 }));
 
@@ -118,10 +130,16 @@ vi.mock('@/components/ui/VirtualListStatus', () => ({
   VirtualListStatus: () => <div data-testid="virtual-list-status">Status</div>
 }));
 
+const mockVirtualItems: Array<{
+  index: number;
+  start: number;
+  size: number;
+  key: number;
+}> = [];
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: () => ({
-    getVirtualItems: () => [],
-    getTotalSize: () => 0,
+    getVirtualItems: () => mockVirtualItems,
+    getTotalSize: () => mockVirtualItems.length * 56,
     measureElement: vi.fn()
   })
 }));
@@ -139,6 +157,8 @@ describe('FilesList', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFiles = [];
+    mockVirtualItems.length = 0;
   });
 
   it('renders header when showHeader is true', () => {
@@ -191,5 +211,86 @@ describe('FilesList', () => {
   it('shows loading state initially', () => {
     renderWithRouter(<FilesList showDeleted={false} />);
     expect(screen.getByText('Loading files...')).toBeInTheDocument();
+  });
+
+  describe('upload success badge', () => {
+    beforeEach(() => {
+      const fileId = 'test-file-id';
+      mockFiles = [
+        {
+          id: fileId,
+          name: 'test.txt',
+          size: 100,
+          mimeType: 'text/plain',
+          uploadDate: new Date(),
+          storagePath: '/test/path',
+          thumbnailPath: null,
+          deleted: false
+        }
+      ];
+      mockVirtualItems.push({
+        index: 0,
+        start: 0,
+        size: 56,
+        key: 0
+      });
+      mockUploadFile.mockResolvedValue({ id: fileId, isDuplicate: false });
+    });
+
+    it('dismisses upload badge on click', async () => {
+      const user = userEvent.setup();
+      renderWithRouter(<FilesList showDeleted={false} />);
+
+      // Trigger upload to show the success badge
+      await user.click(screen.getByTestId('dropzone'));
+
+      // Wait for the badge to appear
+      const badge = await screen.findByTestId('upload-success-badge');
+      expect(badge).toBeInTheDocument();
+
+      // Click the badge to dismiss
+      await user.click(badge);
+      expect(
+        screen.queryByTestId('upload-success-badge')
+      ).not.toBeInTheDocument();
+    });
+
+    it('dismisses upload badge on Enter key', async () => {
+      const user = userEvent.setup();
+      renderWithRouter(<FilesList showDeleted={false} />);
+
+      // Trigger upload to show the success badge
+      await user.click(screen.getByTestId('dropzone'));
+
+      // Wait for the badge to appear
+      const badge = await screen.findByTestId('upload-success-badge');
+      expect(badge).toBeInTheDocument();
+
+      // Focus the badge and press Enter
+      badge.focus();
+      await user.keyboard('{Enter}');
+      expect(
+        screen.queryByTestId('upload-success-badge')
+      ).not.toBeInTheDocument();
+    });
+
+    it('dismisses upload badge on Space key', async () => {
+      const user = userEvent.setup();
+      renderWithRouter(<FilesList showDeleted={false} />);
+
+      // Trigger upload to show the success badge
+      await user.click(screen.getByTestId('dropzone'));
+
+      // Wait for the badge to appear
+      const badge = await screen.findByTestId('upload-success-badge');
+      expect(badge).toBeInTheDocument();
+
+      // Focus the badge and press Space
+      badge.focus();
+      await user.keyboard(' ');
+      expect(
+        screen.queryByTestId('upload-success-badge')
+      ).not.toBeInTheDocument();
+    });
   });
 });

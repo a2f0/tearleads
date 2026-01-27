@@ -684,9 +684,9 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
                                   }}
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter' || e.key === ' ') {
-                                      e.stopPropagation();
                                       e.preventDefault();
-                                      clearRecentlyUploaded(file.id);
+                                      e.stopPropagation();
+                                      e.currentTarget.click();
                                     }
                                   }}
                                   className="absolute -top-1 -right-1 flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-success text-success-foreground"
