@@ -40,6 +40,8 @@ UNIT_TIME=$((UNIT_END - UNIT_START))
 
 echo "==> Running Playwright E2E tests..."
 PLAYWRIGHT_START=$(date +%s)
+# Check that test port is not already in use
+pnpm exec tsx ./scripts/checkPort.ts 3002
 # PW_OWN_SERVER=true ensures Playwright fully controls server lifecycle (no hanging)
 # BASE_URL uses port 3002 to avoid conflict with any running dev server on 3000
 BASE_URL=http://localhost:3002 PW_OWN_SERVER=true pnpm --filter @rapid/client test:e2e
