@@ -16,7 +16,8 @@ resource "hcloud_server" "tuxedo" {
       - name: ${var.server_username}
         groups: sudo, www-data
         shell: /bin/bash
-        sudo: ALL=(ALL) NOPASSWD:ALL
+        lock_passwd: false
+        sudo: ALL=(ALL) ALL
         ssh_authorized_keys:
           - ${data.hcloud_ssh_key.main.public_key}
     ssh_pwauth: false

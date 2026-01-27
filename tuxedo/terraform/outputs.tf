@@ -1,3 +1,7 @@
+locals {
+  full_dns_hostname = "${var.dns_hostname}.${var.domain}"
+}
+
 output "server_ip" {
   description = "Public IP address of the server"
   value       = hcloud_server.tuxedo.ipv4_address
@@ -15,12 +19,12 @@ output "server_name" {
 
 output "dns_hostname" {
   description = "DNS hostname pointing at the server"
-  value       = "${var.dns_hostname}.${var.domain}"
+  value       = local.full_dns_hostname
 }
 
 output "ssh_command" {
   description = "SSH command to connect to the server"
-  value       = "ssh ${var.server_username}@${var.dns_hostname}.${var.domain}"
+  value       = "ssh ${var.server_username}@${local.full_dns_hostname}"
 }
 
 output "server_username" {
