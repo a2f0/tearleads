@@ -9,6 +9,7 @@ const baseURL = process.env.BASE_URL || 'http://localhost:3000';
 const isHTTPS = baseURL.startsWith('https://');
 const parsedWorkers = Number(process.env.PW_WORKERS);
 const fullyParallel = process.env.PW_FULLY_PARALLEL === 'true';
+const useExternalServer = process.env.PW_EXTERNAL_SERVER === 'true';
 // Scale workers based on CPU cores (half cores, min 1, max 8)
 // Set PW_WORKERS to override (e.g., PW_WORKERS=1 for serial)
 // Each worker uses its own database instance via injected global (see tests/fixtures.ts)
@@ -68,7 +69,7 @@ export default defineConfig({
 
   // In CI with HTTPS, NGINX serves the built app (no webServer needed)
   // In development or CI with HTTP, use Vite dev server
-  ...(isCI && isHTTPS
+  ...(isCI && isHTTPS || useExternalServer
     ? {}
     : {
         webServer: {
@@ -76,10 +77,19 @@ export default defineConfig({
           command: (() => {
             const port = new URL(baseURL).port;
             const portFlag = port && port !== '3000' ? ` --port ${port}` : '';
-            return `VITE_API_URL=http://localhost:5001/v1 pnpm exec vite${portFlag}`;
+            // Use local Vite binary to avoid spawning pnpm.
+            return `./node_modules/.bin/vite${portFlag}`;
           })(),
+          env: {
+            ...process.env,
+            VITE_API_URL: 'http://localhost:5001/v1'
+          },
           url: baseURL,
           reuseExistingServer: !(isCI || ownServer),
+          gracefulShutdown: {
+            signal: 'SIGTERM',
+            timeout: 5000
+          },
           timeout: 120000,
         },
       }),

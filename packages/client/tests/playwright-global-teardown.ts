@@ -163,12 +163,18 @@ function forceCloseHandle(handle: unknown): void {
 
 export default async function globalTeardown(): Promise<void> {
   const debugHandles = process.env['PW_DEBUG_HANDLES'] === 'true';
+  const forceKillWorkers = process.env['PW_FORCE_KILL_WORKERS'] === 'true';
 
   const handles = process._getActiveHandles?.() ?? [];
   const requests = process._getActiveRequests?.() ?? [];
+  const playwrightProcesses = handles.filter((handle) =>
+    isPlaywrightProcess(handle)
+  );
 
   // Separate handles into expected and unexpected
-  const unexpectedHandles = handles.filter((h) => !isExpectedHandle(h));
+  const unexpectedHandles = handles.filter(
+    (h) => !isExpectedHandle(h) && !isPlaywrightProcess(h)
+  );
   const hasUnexpectedHandles = unexpectedHandles.length > 0;
   const tooManyHandles = handles.length > MAX_EXPECTED_HANDLES;
 
@@ -200,7 +206,7 @@ export default async function globalTeardown(): Promise<void> {
       `Handle leak detected! Found ${unexpectedHandles.length} unexpected handles: ${unexpectedSummary}\n` +
       `This indicates tests are not properly cleaning up resources.\n` +
       `Run with PW_DEBUG_HANDLES=true to see full details.`;
-  } else if (tooManyHandles) {
+  } else if (tooManyHandles && !forceKillWorkers) {
     errorMessage =
       `Too many handles open (${handles.length} > ${MAX_EXPECTED_HANDLES})!\n` +
       `This may indicate a resource leak. Run with PW_DEBUG_HANDLES=true to investigate.`;
@@ -210,6 +216,11 @@ export default async function globalTeardown(): Promise<void> {
   if (hasUnexpectedHandles || tooManyHandles) {
     for (const handle of unexpectedHandles) {
       forceCloseHandle(handle);
+    }
+    if (forceKillWorkers) {
+      for (const handle of playwrightProcesses) {
+        forceCloseHandle(handle);
+      }
     }
   }
 

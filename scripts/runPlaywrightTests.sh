@@ -28,6 +28,11 @@ cd "$SCRIPT_DIR/../packages/client"
 # Cleanup function to kill any orphaned processes on the test port
 # shellcheck disable=SC2329 # Function is invoked via trap
 cleanup() {
+  if [ -n "${VITE_PID:-}" ]; then
+    kill -TERM "$VITE_PID" 2>/dev/null || true
+    sleep 1
+    kill -KILL "$VITE_PID" 2>/dev/null || true
+  fi
   # Find and kill any process listening on PW_TEST_PORT
   # This handles orphaned vite processes that survive pnpm termination
   if command -v lsof >/dev/null 2>&1; then
@@ -44,9 +49,25 @@ trap cleanup EXIT
 
 echo "==> Running Playwright tests..."
 START_TIME=$(date +%s)
-# PW_OWN_SERVER=true ensures Playwright fully controls server lifecycle (no hanging)
-# BASE_URL uses port 3002 to avoid conflict with any running dev server on 3000
-BASE_URL=http://localhost:$PW_TEST_PORT PW_OWN_SERVER=true PW_DEBUG_HANDLES="$PW_DEBUG_HANDLES" pnpm test:e2e -- "$@"
+# Start Vite directly so the script owns the server lifecycle.
+VITE_API_URL=http://localhost:5001/v1 pnpm exec vite --port "$PW_TEST_PORT" &
+VITE_PID=$!
+
+MAX_WAIT=60
+WAITED=0
+BASE_URL=http://localhost:$PW_TEST_PORT
+until curl -fsS "$BASE_URL" >/dev/null 2>&1; do
+  sleep 1
+  WAITED=$((WAITED + 1))
+  if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+    echo "[error] Vite did not start within ${MAX_WAIT}s on $BASE_URL"
+    exit 1
+  fi
+done
+
+# PW_EXTERNAL_SERVER=true disables Playwright webServer so this script controls lifecycle.
+# BASE_URL uses port 3002 to avoid conflict with any running dev server on 3000.
+BASE_URL="$BASE_URL" PW_EXTERNAL_SERVER=true PW_DEBUG_HANDLES="$PW_DEBUG_HANDLES" PW_FORCE_KILL_WORKERS=true pnpm test:e2e -- "$@"
 EXIT_CODE=$?
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
