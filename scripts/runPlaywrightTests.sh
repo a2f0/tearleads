@@ -21,7 +21,9 @@ cd "$SCRIPT_DIR/../packages/client"
 
 echo "==> Running Playwright tests..."
 START_TIME=$(date +%s)
-PW_DEBUG_HANDLES="$PW_DEBUG_HANDLES" pnpm test:e2e -- "$@"
+# PW_OWN_SERVER=true ensures Playwright fully controls server lifecycle (no hanging)
+# BASE_URL uses port 3002 to avoid conflict with any running dev server on 3000
+BASE_URL=http://localhost:3002 PW_OWN_SERVER=true PW_DEBUG_HANDLES="$PW_DEBUG_HANDLES" pnpm test:e2e -- "$@"
 EXIT_CODE=$?
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
