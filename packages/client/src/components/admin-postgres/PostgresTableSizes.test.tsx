@@ -77,24 +77,32 @@ describe('PostgresTableSizes', () => {
     consoleSpy.mockRestore();
   });
 
-  it('sorts tables by total bytes descending', async () => {
+  it('sorts tables alphabetically by schema and name', async () => {
     mockGetTables.mockResolvedValue({
       tables: [
         {
           schema: 'public',
-          name: 'small_table',
+          name: 'zeta_table',
           rowCount: 5,
           totalBytes: 1024,
           tableBytes: 512,
           indexBytes: 512
         },
         {
-          schema: 'public',
-          name: 'large_table',
+          schema: 'admin',
+          name: 'alpha_table',
           rowCount: 100,
           totalBytes: 10240,
           tableBytes: 8192,
           indexBytes: 2048
+        },
+        {
+          schema: 'public',
+          name: 'alpha_table',
+          rowCount: 8,
+          totalBytes: 2048,
+          tableBytes: 1536,
+          indexBytes: 512
         }
       ]
     });
@@ -102,12 +110,15 @@ describe('PostgresTableSizes', () => {
     renderWithRouter(<PostgresTableSizes />);
 
     await waitFor(() => {
-      expect(screen.getByText('public.large_table')).toBeInTheDocument();
+      expect(screen.getByText('admin.alpha_table')).toBeInTheDocument();
     });
 
     const tableLabels = screen.getAllByText(/public\./);
-    expect(tableLabels[0]).toHaveTextContent('public.large_table');
-    expect(tableLabels[1]).toHaveTextContent('public.small_table');
+    expect(screen.getAllByText(/admin\./)[0]).toHaveTextContent(
+      'admin.alpha_table'
+    );
+    expect(tableLabels[0]).toHaveTextContent('public.alpha_table');
+    expect(tableLabels[1]).toHaveTextContent('public.zeta_table');
   });
 
   it('calls onTableSelect when table button is clicked', async () => {
