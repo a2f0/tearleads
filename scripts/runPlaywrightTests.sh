@@ -25,6 +25,23 @@ pnpm exec tsx "$SCRIPT_DIR/checkPort.ts" "$PW_TEST_PORT"
 
 cd "$SCRIPT_DIR/../packages/client"
 
+# Cleanup function to kill any orphaned processes on the test port
+# shellcheck disable=SC2329 # Function is invoked via trap
+cleanup() {
+  # Find and kill any process listening on PW_TEST_PORT
+  # This handles orphaned vite processes that survive pnpm termination
+  if command -v lsof >/dev/null 2>&1; then
+    PIDS=$(lsof -ti:"$PW_TEST_PORT" 2>/dev/null || true)
+    if [ -n "$PIDS" ]; then
+      echo "[cleanup] Killing orphaned processes on port $PW_TEST_PORT: $PIDS"
+      echo "$PIDS" | xargs kill -9 2>/dev/null || true
+    fi
+  fi
+}
+
+# Always run cleanup on exit (success or failure)
+trap cleanup EXIT
+
 echo "==> Running Playwright tests..."
 START_TIME=$(date +%s)
 # PW_OWN_SERVER=true ensures Playwright fully controls server lifecycle (no hanging)

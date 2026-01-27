@@ -44,7 +44,18 @@ PLAYWRIGHT_START=$(date +%s)
 pnpm exec tsx ./scripts/checkPort.ts 3002
 # PW_OWN_SERVER=true ensures Playwright fully controls server lifecycle (no hanging)
 # BASE_URL uses port 3002 to avoid conflict with any running dev server on 3000
-BASE_URL=http://localhost:3002 PW_OWN_SERVER=true pnpm --filter @rapid/client test:e2e
+BASE_URL=http://localhost:3002 PW_OWN_SERVER=true pnpm --filter @rapid/client test:e2e && PW_EXIT_CODE=0 || PW_EXIT_CODE=$?
+# Clean up any orphaned vite processes on test port
+if command -v lsof >/dev/null 2>&1; then
+  PIDS=$(lsof -ti:3002 2>/dev/null || true)
+  if [ -n "$PIDS" ]; then
+    echo "[cleanup] Killing orphaned processes on port 3002: $PIDS"
+    echo "$PIDS" | xargs kill -9 2>/dev/null || true
+  fi
+fi
+if [ "$PW_EXIT_CODE" -ne 0 ]; then
+  exit "$PW_EXIT_CODE"
+fi
 PLAYWRIGHT_END=$(date +%s)
 PLAYWRIGHT_TIME=$((PLAYWRIGHT_END - PLAYWRIGHT_START))
 
