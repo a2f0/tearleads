@@ -59,7 +59,8 @@ export const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
   '/cache-storage': 'cache-storage',
   '/local-storage': 'local-storage',
   '/sync': 'sync',
-  '/v86': 'v86'
+  '/v86': 'v86',
+  '/vfs': 'vfs'
 };
 
 export const ICON_SIZE = 64;

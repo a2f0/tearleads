@@ -13,6 +13,7 @@ import {
   FileIcon,
   FileText,
   Film,
+  FolderTree,
   HardDrive,
   Home,
   ImageIcon,
@@ -224,6 +225,13 @@ export const navItems: NavItem[] = [
     testId: 'v86-link'
   },
   {
+    path: '/vfs',
+    icon: FolderTree,
+    labelKey: 'vfs',
+    inMobileMenu: true,
+    testId: 'vfs-link'
+  },
+  {
     path: '/settings',
     icon: Settings,
     labelKey: 'settings',
@@ -264,7 +272,8 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/admin/users': 'admin-users',
   '/admin/organizations': 'admin-organizations',
   '/sync': 'sync',
-  '/v86': 'v86'
+  '/v86': 'v86',
+  '/vfs': 'vfs'
 };
 
 export interface SidebarProps {

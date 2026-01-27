@@ -40,7 +40,8 @@ export const ua = {
     settings: 'Налаштування',
     email: 'Пошта',
     sync: 'Синхронізація',
-    v86: 'v86'
+    v86: 'v86',
+    vfs: 'Провідник VFS'
   },
   audio: {
     play: 'Відтворити',

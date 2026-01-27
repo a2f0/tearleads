@@ -39,6 +39,7 @@ export interface MenuTranslations {
   email: string;
   sync: string;
   v86: string;
+  vfs: string;
 }
 
 export interface AudioTranslations {
