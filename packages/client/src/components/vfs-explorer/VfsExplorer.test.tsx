@@ -12,6 +12,17 @@ vi.mock('@/hooks/useVfsFolderContents', () => ({
   useVfsFolderContents: vi.fn()
 }));
 
+// Mock useVfsUnfiledItems hook
+vi.mock('@/hooks/useVfsUnfiledItems', () => ({
+  useVfsUnfiledItems: vi.fn(() => ({
+    items: [],
+    loading: false,
+    error: null,
+    hasFetched: true,
+    refetch: vi.fn()
+  }))
+}));
+
 import { useVfsFolderContents } from '@/hooks/useVfsFolderContents';
 import { useVfsFolders } from '@/hooks/useVfsFolders';
 

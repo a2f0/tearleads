@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   ChevronRight,
+  FileBox,
   Folder,
   FolderOpen,
   Loader2
@@ -8,6 +9,9 @@ import {
 import { useCallback, useRef, useState } from 'react';
 import { useVfsFolders, type VfsFolderNode } from '@/hooks/useVfsFolders';
 import { cn } from '@/lib/utils';
+
+// Special ID for the unfiled items virtual folder
+export const UNFILED_FOLDER_ID = '__unfiled__';
 
 export type { VfsFolderNode };
 
@@ -142,6 +146,23 @@ export function VfsTreePanel({
         </span>
       </div>
       <div className="flex-1 overflow-y-auto p-1">
+        {/* Unfiled Items - always shown */}
+        <button
+          type="button"
+          className={cn(
+            'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
+            selectedFolderId === UNFILED_FOLDER_ID
+              ? 'bg-accent text-accent-foreground'
+              : 'hover:bg-accent/50'
+          )}
+          style={{ paddingLeft: '8px' }}
+          onClick={() => onFolderSelect(UNFILED_FOLDER_ID)}
+        >
+          <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
+          <FileBox className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+          <span className="truncate">Unfiled Items</span>
+        </button>
+
         {loading && (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -150,11 +171,6 @@ export function VfsTreePanel({
         {error && (
           <div className="px-2 py-4 text-center text-destructive text-xs">
             {error}
-          </div>
-        )}
-        {!loading && !error && folders.length === 0 && (
-          <div className="px-2 py-4 text-center text-muted-foreground text-xs">
-            No folders yet
           </div>
         )}
         {!loading && !error && folders.map((folder) => renderFolder(folder, 0))}

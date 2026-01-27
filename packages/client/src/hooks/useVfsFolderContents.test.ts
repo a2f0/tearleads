@@ -204,4 +204,76 @@ describe('useVfsFolderContents', () => {
       expect(mockDb.where).toHaveBeenCalled();
     });
   });
+
+  it('fetches file and photo names correctly', async () => {
+    vi.mocked(useDatabaseContext).mockReturnValue({
+      isUnlocked: true,
+      currentInstanceId: 'test-instance'
+    } as ReturnType<typeof useDatabaseContext>);
+
+    const mockLinkRows = [
+      { linkId: 'link-1', childId: 'file-1' },
+      { linkId: 'link-2', childId: 'photo-1' }
+    ];
+
+    const mockRegistryRows = [
+      { id: 'file-1', objectType: 'file', createdAt: Date.now() },
+      { id: 'photo-1', objectType: 'photo', createdAt: Date.now() }
+    ];
+
+    const mockFileRows = [
+      { id: 'file-1', name: 'document.pdf' },
+      { id: 'photo-1', name: 'vacation.jpg' }
+    ];
+
+    mockDb.where
+      .mockResolvedValueOnce(mockLinkRows)
+      .mockResolvedValueOnce(mockRegistryRows)
+      .mockResolvedValueOnce(mockFileRows);
+
+    const { result } = renderHook(() => useVfsFolderContents('parent-folder'));
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    expect(result.current.items).toHaveLength(2);
+    expect(result.current.items.find((i) => i.id === 'file-1')?.name).toBe(
+      'document.pdf'
+    );
+    expect(result.current.items.find((i) => i.id === 'photo-1')?.name).toBe(
+      'vacation.jpg'
+    );
+  });
+
+  it('fetches contact names correctly', async () => {
+    vi.mocked(useDatabaseContext).mockReturnValue({
+      isUnlocked: true,
+      currentInstanceId: 'test-instance'
+    } as ReturnType<typeof useDatabaseContext>);
+
+    const mockLinkRows = [{ linkId: 'link-1', childId: 'contact-1' }];
+
+    const mockRegistryRows = [
+      { id: 'contact-1', objectType: 'contact', createdAt: Date.now() }
+    ];
+
+    const mockContactRows = [
+      { id: 'contact-1', firstName: 'John', lastName: 'Doe' }
+    ];
+
+    mockDb.where
+      .mockResolvedValueOnce(mockLinkRows)
+      .mockResolvedValueOnce(mockRegistryRows)
+      .mockResolvedValueOnce(mockContactRows);
+
+    const { result } = renderHook(() => useVfsFolderContents('parent-folder'));
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.items[0]?.name).toBe('John Doe');
+  });
 });

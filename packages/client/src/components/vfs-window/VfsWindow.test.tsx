@@ -47,6 +47,16 @@ vi.mock('@/components/vfs-explorer', () => ({
   )
 }));
 
+// Mock the useCreateVfsFolder hook used by NewFolderDialog
+const mockCreateFolder = vi.fn();
+vi.mock('@/hooks/useCreateVfsFolder', () => ({
+  useCreateVfsFolder: () => ({
+    createFolder: mockCreateFolder,
+    isCreating: false,
+    error: null
+  })
+}));
+
 describe('VfsWindow', () => {
   const defaultProps = {
     id: 'vfs-window',
@@ -189,5 +199,41 @@ describe('VfsWindow', () => {
     await user.click(screen.getByRole('menuitem', { name: 'List' }));
 
     expect(explorer).toHaveAttribute('data-view-mode', 'list');
+  });
+
+  it('opens New Folder dialog when New Folder menu item is clicked', async () => {
+    const user = userEvent.setup();
+    render(<VfsWindow {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'File' }));
+    await user.click(screen.getByRole('menuitem', { name: 'New Folder' }));
+
+    expect(screen.getByTestId('new-folder-dialog')).toBeInTheDocument();
+  });
+
+  it('refreshes explorer when folder is created', async () => {
+    mockCreateFolder.mockResolvedValue({
+      id: 'new-folder',
+      name: 'New Folder'
+    });
+    const user = userEvent.setup();
+    render(<VfsWindow {...defaultProps} />);
+
+    const explorerBefore = screen.getByTestId('vfs-explorer');
+    const initialToken = explorerBefore.getAttribute('data-refresh-token');
+
+    // Open dialog
+    await user.click(screen.getByRole('button', { name: 'File' }));
+    await user.click(screen.getByRole('menuitem', { name: 'New Folder' }));
+
+    // Type folder name and create
+    await user.type(screen.getByTestId('new-folder-name-input'), 'My Folder');
+    await user.click(screen.getByTestId('new-folder-dialog-create'));
+
+    // Wait for dialog to close and refresh
+    const explorerAfter = screen.getByTestId('vfs-explorer');
+    const newToken = explorerAfter.getAttribute('data-refresh-token');
+
+    expect(Number(newToken)).toBe(Number(initialToken) + 1);
   });
 });

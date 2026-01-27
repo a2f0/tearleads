@@ -1,4 +1,5 @@
 import {
+  FileBox,
   FileIcon,
   Folder,
   ImageIcon,
@@ -11,8 +12,10 @@ import {
   type VfsItem,
   type VfsObjectType
 } from '@/hooks/useVfsFolderContents';
+import { useVfsUnfiledItems } from '@/hooks/useVfsUnfiledItems';
 import { cn } from '@/lib/utils';
 import type { VfsViewMode } from './VfsExplorer';
+import { UNFILED_FOLDER_ID } from './VfsTreePanel';
 
 export type { VfsItem, VfsObjectType };
 
@@ -38,12 +41,31 @@ const OBJECT_TYPE_COLORS: Record<VfsObjectType, string> = {
   photo: 'text-green-600 dark:text-green-400'
 };
 
+// Convert unfiled items to the same shape as folder contents
+interface DisplayItem {
+  id: string;
+  objectType: VfsObjectType;
+  name: string;
+  createdAt: Date;
+}
+
 export function VfsDetailsPanel({
   folderId,
   viewMode = 'list',
   compact: _compact
 }: VfsDetailsPanelProps) {
-  const { items, loading, error } = useVfsFolderContents(folderId);
+  const isUnfiled = folderId === UNFILED_FOLDER_ID;
+
+  // Use the appropriate hook based on selection
+  const folderContents = useVfsFolderContents(isUnfiled ? null : folderId);
+  const unfiledItems = useVfsUnfiledItems();
+
+  // Select the appropriate data source
+  const items: DisplayItem[] = isUnfiled
+    ? unfiledItems.items
+    : folderContents.items;
+  const loading = isUnfiled ? unfiledItems.loading : folderContents.loading;
+  const error = isUnfiled ? unfiledItems.error : folderContents.error;
 
   if (!folderId) {
     return (
@@ -78,9 +100,23 @@ export function VfsDetailsPanel({
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground">
         <div className="text-center">
-          <Folder className="mx-auto h-12 w-12 opacity-50" />
-          <p className="mt-2 text-sm">This folder is empty</p>
-          <p className="mt-1 text-xs">Use &quot;Link Item&quot; to add items</p>
+          {isUnfiled ? (
+            <>
+              <FileBox className="mx-auto h-12 w-12 opacity-50" />
+              <p className="mt-2 text-sm">No unfiled items</p>
+              <p className="mt-1 text-xs">
+                Uploaded files will appear here until organized
+              </p>
+            </>
+          ) : (
+            <>
+              <Folder className="mx-auto h-12 w-12 opacity-50" />
+              <p className="mt-2 text-sm">This folder is empty</p>
+              <p className="mt-1 text-xs">
+                Use &quot;Link Item&quot; to add items
+              </p>
+            </>
+          )}
         </div>
       </div>
     );

@@ -96,7 +96,7 @@ describe('VfsTreePanel', () => {
     expect(screen.getByText('Failed to load folders')).toBeInTheDocument();
   });
 
-  it('shows empty state when no folders', () => {
+  it('shows unfiled items entry even when no folders', () => {
     vi.mocked(useVfsFolders).mockReturnValue({
       folders: [],
       loading: false,
@@ -105,7 +105,7 @@ describe('VfsTreePanel', () => {
       refetch: vi.fn()
     });
     render(<VfsTreePanel {...defaultProps} />);
-    expect(screen.getByText('No folders yet')).toBeInTheDocument();
+    expect(screen.getByText('Unfiled Items')).toBeInTheDocument();
   });
 
   it('calls onFolderSelect when folder is clicked', async () => {
@@ -242,6 +242,32 @@ describe('VfsTreePanel', () => {
     if (myDocsChevron instanceof HTMLElement) {
       myDocsChevron.focus();
       await user.keyboard(' ');
+    }
+
+    expect(screen.getByText('Work')).toBeInTheDocument();
+  });
+
+  it('calls onFolderSelect when Unfiled Items is clicked', async () => {
+    const user = userEvent.setup();
+    const onFolderSelect = vi.fn();
+    render(<VfsTreePanel {...defaultProps} onFolderSelect={onFolderSelect} />);
+
+    await user.click(screen.getByText('Unfiled Items'));
+    expect(onFolderSelect).toHaveBeenCalledWith('__unfiled__');
+  });
+
+  it('expands folder via chevron click', async () => {
+    const user = userEvent.setup();
+    render(<VfsTreePanel {...defaultProps} />);
+
+    expect(screen.queryByText('Work')).not.toBeInTheDocument();
+
+    // Find the chevron span by role button
+    const chevrons = document.querySelectorAll('[role="button"]');
+    const myDocsChevron = chevrons.item(0);
+
+    if (myDocsChevron instanceof HTMLElement) {
+      await user.click(myDocsChevron);
     }
 
     expect(screen.getByText('Work')).toBeInTheDocument();
