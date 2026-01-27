@@ -155,7 +155,7 @@ jobs:
           cache: 'pip'
 
       - name: Install ansible-lint
-        run: pip install ansible-lint ansible
+        run: pip install ansible-lint ansible passlib
 
       - name: Cache Ansible collections
         uses: actions/cache@v4
