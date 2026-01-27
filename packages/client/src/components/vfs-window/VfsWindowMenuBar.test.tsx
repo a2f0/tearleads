@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { VfsWindowMenuBar } from './VfsWindowMenuBar';
 
 describe('VfsWindowMenuBar', () => {
-  const defaultProps = {
-    viewMode: 'list' as const,
+  const defaultProps: Parameters<typeof VfsWindowMenuBar>[0] = {
+    viewMode: 'list',
     onViewModeChange: vi.fn(),
     onNewFolder: vi.fn(),
     onLinkItem: vi.fn(),

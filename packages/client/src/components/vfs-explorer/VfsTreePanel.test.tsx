@@ -92,7 +92,10 @@ describe('VfsTreePanel', () => {
 
     const resizeHandle = container.querySelector(
       '[class*="cursor-col-resize"]'
-    ) as Element;
+    );
+    if (!resizeHandle) {
+      throw new Error('Resize handle not found');
+    }
 
     fireEvent.mouseDown(resizeHandle, { clientX: 240 });
     fireEvent.mouseMove(document, { clientX: 300 });
@@ -109,7 +112,10 @@ describe('VfsTreePanel', () => {
 
     const resizeHandle = container.querySelector(
       '[class*="cursor-col-resize"]'
-    ) as Element;
+    );
+    if (!resizeHandle) {
+      throw new Error('Resize handle not found');
+    }
 
     fireEvent.mouseDown(resizeHandle, { clientX: 240 });
     fireEvent.mouseMove(document, { clientX: 50 });
@@ -128,9 +134,9 @@ describe('VfsTreePanel', () => {
     expect(screen.queryByText('Work')).not.toBeInTheDocument();
 
     const chevrons = document.querySelectorAll('[role="button"]');
-    const myDocsChevron = chevrons[0] as HTMLElement | undefined;
+    const myDocsChevron = chevrons.item(0);
 
-    if (myDocsChevron) {
+    if (myDocsChevron instanceof HTMLElement) {
       myDocsChevron.focus();
       await user.keyboard('{Enter}');
     }
@@ -145,9 +151,9 @@ describe('VfsTreePanel', () => {
     expect(screen.queryByText('Work')).not.toBeInTheDocument();
 
     const chevrons = document.querySelectorAll('[role="button"]');
-    const myDocsChevron = chevrons[0] as HTMLElement | undefined;
+    const myDocsChevron = chevrons.item(0);
 
-    if (myDocsChevron) {
+    if (myDocsChevron instanceof HTMLElement) {
       myDocsChevron.focus();
       await user.keyboard(' ');
     }

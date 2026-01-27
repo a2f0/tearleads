@@ -56,7 +56,7 @@ describe('VfsDetailsPanel', () => {
     expect(screen.getByText('vacation.jpg')).toBeInTheDocument();
   });
 
-  it('displays singular item text for single item', () => {
+  it('displays plural item text for multiple items', () => {
     render(<VfsDetailsPanel folderId="1" />);
     expect(screen.getByText('5 items')).toBeInTheDocument();
   });
