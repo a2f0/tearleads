@@ -7,14 +7,18 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FloatingWindow } from './FloatingWindow';
+import { FloatingWindow } from './FloatingWindow.js';
+
+// Test with footerHeight=56 to match original FOOTER_HEIGHT behavior
+const FOOTER_HEIGHT = 56;
 
 describe('FloatingWindow', () => {
   const defaultProps = {
     id: 'test-window',
     title: 'Test Window',
     onClose: vi.fn(),
-    children: <div data-testid="window-content">Content</div>
+    children: <div data-testid="window-content">Content</div>,
+    footerHeight: FOOTER_HEIGHT
   };
 
   beforeEach(() => {
@@ -510,7 +514,7 @@ describe('FloatingWindow', () => {
 
     it('sizes to fit content up to the maximized bounds', async () => {
       // Mocked values: scrollWidth=700, scrollHeight=900, offsetHeight=28
-      // FOOTER_HEIGHT=56, window: 1024x768
+      // footerHeight=56, window: 1024x768
       // maxHeight = (768 - 56) * 1 = 712
       // height = min(900 + 28, 712) = 712 (clamped)
       // width = 700 (fits within 1024)
