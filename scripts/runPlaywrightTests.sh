@@ -17,8 +17,8 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 # Port used for Playwright test server (different from dev server on 3000)
 PW_TEST_PORT=3002
 
-# Set PW_DEBUG_HANDLES=true to dump verbose handle info after tests complete.
-: "${PW_DEBUG_HANDLES:=false}"
+# Always dump handle info to help diagnose hanging issues
+PW_DEBUG_HANDLES=true
 
 # Check if test port is already in use
 pnpm exec tsx "$SCRIPT_DIR/checkPort.ts" "$PW_TEST_PORT"

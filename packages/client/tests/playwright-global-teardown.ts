@@ -213,6 +213,18 @@ export default async function globalTeardown(): Promise<void> {
     }
   }
 
+  // Log webServer processes - don't kill here as Playwright handles cleanup
+  // If hanging persists, the shell script cleanup will handle orphaned processes
+  for (const handle of handles) {
+    if (isPlaywrightProcess(handle)) {
+      const record = handle as Record<string, unknown>;
+      const pid = record['pid'];
+      if (debugHandles && pid) {
+        console.log(`[playwright] webServer process (pid: ${pid}) - Playwright will clean up`);
+      }
+    }
+  }
+
   // Throw after cleanup so process can exit
   if (errorMessage) {
     throw new Error(errorMessage);
