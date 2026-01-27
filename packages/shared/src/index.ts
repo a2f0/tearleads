@@ -2,6 +2,7 @@
  * Shared types and utilities
  */
 
+export * from './crypto/asymmetric.js';
 // Crypto utilities
 export * from './crypto/web-crypto.js';
 

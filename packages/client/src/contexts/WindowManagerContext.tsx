@@ -47,7 +47,8 @@ export type WindowType =
   | 'cache-storage'
   | 'local-storage'
   | 'sync'
-  | 'v86';
+  | 'v86'
+  | 'vfs';
 
 export interface WindowDimensions {
   width: number;

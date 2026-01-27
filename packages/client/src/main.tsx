@@ -170,6 +170,7 @@ const Tables = lazy(() =>
 const VideoDetail = lazy(() =>
   import('./pages/VideoDetail').then((m) => ({ default: m.VideoDetail }))
 );
+const Vfs = lazy(() => import('./pages/Vfs').then((m) => ({ default: m.Vfs })));
 const VideoPage = lazy(() =>
   import('./pages/Video').then((m) => ({ default: m.VideoPage }))
 );
@@ -390,6 +391,7 @@ if (rootElement) {
                                         element={<UsersAdminDetail />}
                                       />
                                       <Route path="sync" element={<Sync />} />
+                                      <Route path="vfs" element={<Vfs />} />
                                     </Route>
                                   </Routes>
                                 </Suspense>

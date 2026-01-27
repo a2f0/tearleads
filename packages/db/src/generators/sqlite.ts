@@ -37,8 +37,9 @@ function generateColumn(
   // References
   if (column.references) {
     const { table, column: columnName, onDelete } = column.references;
+    const tablePropertyName = getPropertyName(table);
     const options = onDelete ? `, { onDelete: '${onDelete}' }` : '';
-    result += `.references(() => ${table}.${columnName}${options})`;
+    result += `.references(() => ${tablePropertyName}.${columnName}${options})`;
   }
 
   // Default value
@@ -133,9 +134,39 @@ function collectDrizzleTypes(tables: TableDefinition[]): string[] {
 }
 
 /**
+ * Build a mapping from SQL table names to JavaScript property names.
+ */
+function buildTableNameMap(tables: TableDefinition[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const table of tables) {
+    map.set(table.name, table.propertyName);
+  }
+  return map;
+}
+
+// Module-level variable to hold the table name map during generation
+let tableNameMap: Map<string, string> = new Map();
+
+/**
+ * Get the JavaScript property name for a SQL table name.
+ */
+function getPropertyName(sqlTableName: string): string {
+  const propertyName = tableNameMap.get(sqlTableName);
+  if (!propertyName) {
+    throw new Error(
+      `Unknown table reference: ${sqlTableName}. Make sure the referenced table is defined in allTables.`
+    );
+  }
+  return propertyName;
+}
+
+/**
  * Generate a complete SQLite schema file from table definitions.
  */
 export function generateSqliteSchema(tables: TableDefinition[]): string {
+  // Build the table name map for reference resolution
+  tableNameMap = buildTableNameMap(tables);
+
   const lines: string[] = [];
 
   // Imports
