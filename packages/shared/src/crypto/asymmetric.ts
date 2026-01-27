@@ -269,8 +269,17 @@ function fromBase64(base64: string): Uint8Array {
 }
 
 /**
- * Serialize a keypair for storage.
- * WARNING: Private keys should be encrypted before storage!
+ * Serialize a keypair to base64 for storage or transmission.
+ *
+ * IMPORTANT: This returns RAW (unencrypted) private keys in base64 format.
+ * The private keys MUST be encrypted (e.g., with a password-derived key via Argon2)
+ * before being stored in the database's `encrypted_private_keys` field.
+ *
+ * Usage flow:
+ * 1. Generate keypair with generateKeyPair()
+ * 2. Serialize with serializeKeyPair() -> raw base64 keys
+ * 3. Encrypt the serialized private keys with user's password-derived key
+ * 4. Store encrypted blob in encrypted_private_keys, public keys stored as-is
  */
 export function serializeKeyPair(keyPair: VfsKeyPair): SerializedKeyPair {
   return {

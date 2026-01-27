@@ -649,10 +649,18 @@ export const userGroupsTable: TableDefinition = {
 // =============================================================================
 // VFS (Virtual Filesystem) Tables
 // =============================================================================
+// Design Note: Cryptographic keys are stored as TEXT (base64-encoded) rather than
+// BYTEA for the following reasons:
+// 1. Cross-database compatibility: Works identically on PostgreSQL and SQLite
+// 2. Human-readable in database tools for debugging and auditing
+// 3. Simpler application layer: No bytea encoding/decoding required
+// 4. Web API compatibility: Base64 is standard for transferring binary over JSON
+// Base64 encoding adds ~33% overhead but keys are small and the benefits outweigh this.
 
 /**
  * User cryptographic keys for VFS encryption and sharing.
  * Stores asymmetric keypairs (ML-KEM + X25519 hybrid) for key exchange.
+ * All binary key data is base64-encoded before storage.
  */
 export const userKeysTable: TableDefinition = {
   name: 'user_keys',
