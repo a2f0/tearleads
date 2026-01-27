@@ -54,9 +54,7 @@ function parseKeySetupPayload(body: unknown): VfsKeySetupRequest | null {
   // publicSigningKey can be null/empty for now (not yet implemented)
   if (
     typeof publicEncryptionKey !== 'string' ||
-    (publicSigningKey !== null &&
-      publicSigningKey !== undefined &&
-      typeof publicSigningKey !== 'string') ||
+    (publicSigningKey != null && typeof publicSigningKey !== 'string') ||
     typeof encryptedPrivateKeys !== 'string' ||
     typeof argon2Salt !== 'string'
   ) {
