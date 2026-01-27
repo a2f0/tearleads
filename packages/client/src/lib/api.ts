@@ -24,7 +24,11 @@ import type {
   RedisKeyValueResponse,
   SessionsResponse,
   UpdateGroupRequest,
-  UpdateOrganizationRequest
+  UpdateOrganizationRequest,
+  VfsKeySetupRequest,
+  VfsRegisterRequest,
+  VfsRegisterResponse,
+  VfsUserKeysResponse
 } from '@rapid/shared';
 import type { AnalyticsEventSlug } from '@/db/analytics';
 import { logApiEvent } from '@/db/analytics';
@@ -379,5 +383,29 @@ export const api = {
           }
         )
     }
+  },
+  vfs: {
+    getMyKeys: () =>
+      request<VfsUserKeysResponse>('/vfs/keys/me', {
+        eventName: 'api_get_vfs_keys'
+      }),
+    setupKeys: (data: VfsKeySetupRequest) =>
+      request<{ created: boolean }>('/vfs/keys', {
+        fetchOptions: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        },
+        eventName: 'api_post_vfs_keys'
+      }),
+    register: (data: VfsRegisterRequest) =>
+      request<VfsRegisterResponse>('/vfs/register', {
+        fetchOptions: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        },
+        eventName: 'api_post_vfs_register'
+      })
   }
 };

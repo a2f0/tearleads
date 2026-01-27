@@ -49,6 +49,10 @@ export type AnalyticsEventSlug =
   | 'api_post_auth_refresh'
   | 'api_get_auth_sessions'
   | 'api_delete_auth_session'
+  // VFS operations
+  | 'api_get_vfs_keys'
+  | 'api_post_vfs_keys'
+  | 'api_post_vfs_register'
   // LLM operations
   | 'llm_model_load'
   | 'llm_prompt_text'
@@ -99,6 +103,10 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_post_auth_refresh: 'API Auth Refresh',
   api_get_auth_sessions: 'API Get Sessions',
   api_delete_auth_session: 'API Delete Session',
+  // VFS
+  api_get_vfs_keys: 'API Get VFS Keys',
+  api_post_vfs_keys: 'API Setup VFS Keys',
+  api_post_vfs_register: 'API Register VFS Item',
   // LLM
   llm_model_load: 'LLM Model Load',
   llm_prompt_text: 'LLM Text Prompt',
@@ -240,6 +248,17 @@ export interface ApiDeleteAuthSessionDetail {
   deleted?: boolean;
 }
 
+// VFS events
+export interface ApiGetVfsKeysDetail {
+  hasKeys?: boolean;
+}
+export interface ApiPostVfsKeysDetail {
+  created?: boolean;
+}
+export interface ApiPostVfsRegisterDetail {
+  objectType?: string;
+}
+
 // LLM events
 export interface LlmModelLoadDetail {
   modelName?: string;
@@ -298,6 +317,9 @@ export interface EventDetailMap {
   api_post_auth_refresh: ApiPostAuthRefreshDetail;
   api_get_auth_sessions: ApiGetAuthSessionsDetail;
   api_delete_auth_session: ApiDeleteAuthSessionDetail;
+  api_get_vfs_keys: ApiGetVfsKeysDetail;
+  api_post_vfs_keys: ApiPostVfsKeysDetail;
+  api_post_vfs_register: ApiPostVfsRegisterDetail;
   llm_model_load: LlmModelLoadDetail;
   llm_prompt_text: LlmPromptTextDetail;
   llm_prompt_multimodal: LlmPromptMultimodalDetail;

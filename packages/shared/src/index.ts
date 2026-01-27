@@ -263,6 +263,32 @@ export interface SSEMessage {
   message: BroadcastMessage;
 }
 
+// VFS types
+export interface VfsUserKeysResponse {
+  publicEncryptionKey: string;
+  publicSigningKey: string;
+}
+
+export interface VfsKeySetupRequest {
+  publicEncryptionKey: string;
+  publicSigningKey: string;
+  encryptedPrivateKeys: string;
+  argon2Salt: string;
+}
+
+export type VfsObjectType = 'file' | 'folder' | 'contact' | 'note' | 'photo';
+
+export interface VfsRegisterRequest {
+  id: string;
+  objectType: VfsObjectType;
+  encryptedSessionKey: string;
+}
+
+export interface VfsRegisterResponse {
+  id: string;
+  createdAt: string;
+}
+
 // Utilities
 export function formatDate(date: Date): string {
   return date.toISOString();
