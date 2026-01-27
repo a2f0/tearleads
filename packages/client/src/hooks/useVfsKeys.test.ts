@@ -184,7 +184,7 @@ describe('useVfsKeys', () => {
       expect(keys.mlKemPublicKey).toBeInstanceOf(Uint8Array);
       expect(api.vfs.setupKeys).toHaveBeenCalledWith({
         publicEncryptionKey: 'combined-public-key',
-        publicSigningKey: '',
+        // publicSigningKey omitted - not yet implemented
         encryptedPrivateKeys: expect.any(String),
         argon2Salt: expect.any(String)
       });

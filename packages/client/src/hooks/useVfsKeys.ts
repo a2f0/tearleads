@@ -121,7 +121,7 @@ async function generateAndStoreKeys(): Promise<VfsKeyPair> {
   // Store on server
   await api.vfs.setupKeys({
     publicEncryptionKey,
-    publicSigningKey: '', // Not used yet, placeholder for future signing keys
+    // publicSigningKey omitted - not yet implemented
     encryptedPrivateKeys: encryptedBlob,
     argon2Salt
   });
