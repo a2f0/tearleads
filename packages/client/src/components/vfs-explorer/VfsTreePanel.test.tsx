@@ -1,7 +1,46 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VfsTreePanel } from './VfsTreePanel';
+
+// Mock useVfsFolders hook
+vi.mock('@/hooks/useVfsFolders', () => ({
+  useVfsFolders: vi.fn()
+}));
+
+import { useVfsFolders } from '@/hooks/useVfsFolders';
+
+const mockFolders = [
+  {
+    id: 'root-1',
+    name: 'My Documents',
+    parentId: null,
+    childCount: 2,
+    children: [
+      { id: 'folder-1', name: 'Work', parentId: 'root-1', childCount: 0 },
+      {
+        id: 'folder-2',
+        name: 'Personal',
+        parentId: 'root-1',
+        childCount: 1,
+        children: [
+          {
+            id: 'folder-3',
+            name: 'Photos',
+            parentId: 'folder-2',
+            childCount: 0
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'root-2',
+    name: 'Shared With Me',
+    parentId: null,
+    childCount: 0
+  }
+];
 
 describe('VfsTreePanel', () => {
   const defaultProps = {
@@ -11,15 +50,62 @@ describe('VfsTreePanel', () => {
     onFolderSelect: vi.fn()
   };
 
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useVfsFolders).mockReturnValue({
+      folders: mockFolders,
+      loading: false,
+      error: null,
+      hasFetched: true,
+      refetch: vi.fn()
+    });
+  });
+
   it('renders header with Folders title', () => {
     render(<VfsTreePanel {...defaultProps} />);
     expect(screen.getByText('Folders')).toBeInTheDocument();
   });
 
-  it('renders mock folders', () => {
+  it('renders folders from hook', () => {
     render(<VfsTreePanel {...defaultProps} />);
     expect(screen.getByText('My Documents')).toBeInTheDocument();
     expect(screen.getByText('Shared With Me')).toBeInTheDocument();
+  });
+
+  it('shows loading state', () => {
+    vi.mocked(useVfsFolders).mockReturnValue({
+      folders: [],
+      loading: true,
+      error: null,
+      hasFetched: false,
+      refetch: vi.fn()
+    });
+    render(<VfsTreePanel {...defaultProps} />);
+    expect(screen.queryByText('My Documents')).not.toBeInTheDocument();
+  });
+
+  it('shows error state', () => {
+    vi.mocked(useVfsFolders).mockReturnValue({
+      folders: [],
+      loading: false,
+      error: 'Failed to load folders',
+      hasFetched: true,
+      refetch: vi.fn()
+    });
+    render(<VfsTreePanel {...defaultProps} />);
+    expect(screen.getByText('Failed to load folders')).toBeInTheDocument();
+  });
+
+  it('shows empty state when no folders', () => {
+    vi.mocked(useVfsFolders).mockReturnValue({
+      folders: [],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      refetch: vi.fn()
+    });
+    render(<VfsTreePanel {...defaultProps} />);
+    expect(screen.getByText('No folders yet')).toBeInTheDocument();
   });
 
   it('calls onFolderSelect when folder is clicked', async () => {

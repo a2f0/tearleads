@@ -9,5 +9,9 @@ export {
   notes,
   secrets,
   syncMetadata,
-  userSettings
+  userSettings,
+  vfsAccess,
+  vfsFolders,
+  vfsLinks,
+  vfsRegistry
 } from '@rapid/db/sqlite';
