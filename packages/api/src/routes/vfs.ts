@@ -31,6 +31,10 @@ const VALID_OBJECT_TYPES: VfsObjectType[] = [
   'photo'
 ];
 
+/**
+ * Type guard to validate VFS object types at runtime.
+ * Used when parsing request payloads to ensure type safety.
+ */
 function isValidObjectType(value: unknown): value is VfsObjectType {
   return (
     typeof value === 'string' &&

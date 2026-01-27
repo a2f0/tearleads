@@ -35,7 +35,9 @@ let cachedKeyPair: VfsKeyPair | null = null;
  */
 export function clearVfsKeysCache(): void {
   if (cachedKeyPair) {
-    // Zero out sensitive data
+    // Security: Zero out private key data in-place before clearing reference.
+    // Using fill(0) intentionally modifies the original array to overwrite
+    // sensitive key material in memory, reducing exposure window.
     cachedKeyPair.x25519PrivateKey.fill(0);
     cachedKeyPair.mlKemPrivateKey.fill(0);
     cachedKeyPair = null;
