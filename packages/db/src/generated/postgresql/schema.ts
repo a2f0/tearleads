@@ -265,3 +265,109 @@ export const userGroups = pgTable(
   },
   (table) => [index('user_groups_group_idx').on(table.groupId)]
 );
+
+/**
+ * User cryptographic keys for VFS encryption and sharing.
+ * Stores asymmetric keypairs (ML-KEM + X25519 hybrid) for key exchange.
+ */
+export const userKeys = pgTable('user_keys', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  publicEncryptionKey: text('public_encryption_key').notNull(),
+  publicSigningKey: text('public_signing_key').notNull(),
+  encryptedPrivateKeys: text('encrypted_private_keys').notNull(),
+  argon2Salt: text('argon2_salt').notNull(),
+  recoveryKeyHash: text('recovery_key_hash'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+});
+
+/**
+ * VFS registry - identity layer for all items that can participate in the hierarchy.
+ * Every VFS item (folder, contact, photo, note, etc.) has an entry here.
+ */
+export const vfsRegistry = pgTable(
+  'vfs_registry',
+  {
+    id: text('id').primaryKey(),
+    objectType: text('object_type').notNull(),
+    ownerId: text('owner_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    encryptedSessionKey: text('encrypted_session_key'),
+    publicHierarchicalKey: text('public_hierarchical_key'),
+    encryptedPrivateHierarchicalKey: text('encrypted_private_hierarchical_key'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    index('vfs_registry_owner_idx').on(table.ownerId),
+    index('vfs_registry_type_idx').on(table.objectType)
+  ]
+);
+
+/**
+ * VFS folders - extends registry for folder-type items.
+ * Stores encrypted folder metadata.
+ */
+export const vfsFolders = pgTable('vfs_folders', {
+  id: text('id')
+    .primaryKey()
+    .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+  encryptedName: text('encrypted_name')
+});
+
+/**
+ * VFS links - flexible parent/child relationships with per-link key wrapping.
+ * Enables the same item to appear in multiple folders with different visibility.
+ */
+export const vfsLinks = pgTable(
+  'vfs_links',
+  {
+    id: text('id').primaryKey(),
+    parentId: text('parent_id')
+      .notNull()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    childId: text('child_id')
+      .notNull()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    wrappedSessionKey: text('wrapped_session_key').notNull(),
+    wrappedHierarchicalKey: text('wrapped_hierarchical_key'),
+    visibleChildren: jsonb('visible_children'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    index('vfs_links_parent_idx').on(table.parentId),
+    index('vfs_links_child_idx').on(table.childId),
+    uniqueIndex('vfs_links_parent_child_idx').on(table.parentId, table.childId)
+  ]
+);
+
+/**
+ * VFS access - direct access grants for sharing items with users.
+ * Stores wrapped keys encrypted with user's public key.
+ */
+export const vfsAccess = pgTable(
+  'vfs_access',
+  {
+    itemId: text('item_id')
+      .primaryKey()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    wrappedSessionKey: text('wrapped_session_key').notNull(),
+    wrappedHierarchicalKey: text('wrapped_hierarchical_key'),
+    permissionLevel: text('permission_level', {
+      enum: ['read', 'write', 'admin']
+    }).notNull(),
+    grantedBy: text('granted_by').references(() => users.id, {
+      onDelete: 'restrict'
+    }),
+    grantedAt: timestamp('granted_at', { withTimezone: true }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true })
+  },
+  (table) => [
+    index('vfs_access_user_idx').on(table.userId),
+    index('vfs_access_item_idx').on(table.itemId)
+  ]
+);
