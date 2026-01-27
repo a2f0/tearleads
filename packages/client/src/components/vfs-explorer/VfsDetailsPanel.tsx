@@ -1,17 +1,20 @@
-import { FileIcon, Folder, ImageIcon, StickyNote, User } from 'lucide-react';
+import {
+  FileIcon,
+  Folder,
+  ImageIcon,
+  Loader2,
+  StickyNote,
+  User
+} from 'lucide-react';
+import {
+  useVfsFolderContents,
+  type VfsItem,
+  type VfsObjectType
+} from '@/hooks/useVfsFolderContents';
 import { cn } from '@/lib/utils';
 import type { VfsViewMode } from './VfsExplorer';
 
-export type VfsObjectType = 'folder' | 'contact' | 'note' | 'file' | 'photo';
-
-export interface VfsItem {
-  id: string;
-  linkId: string;
-  objectType: VfsObjectType;
-  name: string;
-  createdAt: Date;
-  metadata?: Record<string, unknown>;
-}
+export type { VfsItem, VfsObjectType };
 
 interface VfsDetailsPanelProps {
   folderId: string | null;
@@ -40,46 +43,7 @@ export function VfsDetailsPanel({
   viewMode = 'list',
   compact: _compact
 }: VfsDetailsPanelProps) {
-  // Mock data for now - will be replaced with useVfsFolderContents hook
-  const items: VfsItem[] = folderId
-    ? [
-        {
-          id: '1',
-          linkId: 'link-1',
-          objectType: 'folder',
-          name: 'Subfolder',
-          createdAt: new Date()
-        },
-        {
-          id: '2',
-          linkId: 'link-2',
-          objectType: 'contact',
-          name: 'John Doe',
-          createdAt: new Date()
-        },
-        {
-          id: '3',
-          linkId: 'link-3',
-          objectType: 'note',
-          name: 'Meeting Notes',
-          createdAt: new Date()
-        },
-        {
-          id: '4',
-          linkId: 'link-4',
-          objectType: 'file',
-          name: 'document.pdf',
-          createdAt: new Date()
-        },
-        {
-          id: '5',
-          linkId: 'link-5',
-          objectType: 'photo',
-          name: 'vacation.jpg',
-          createdAt: new Date()
-        }
-      ]
-    : [];
+  const { items, loading, error } = useVfsFolderContents(folderId);
 
   if (!folderId) {
     return (
@@ -87,6 +51,24 @@ export function VfsDetailsPanel({
         <div className="text-center">
           <Folder className="mx-auto h-12 w-12 opacity-50" />
           <p className="mt-2 text-sm">Select a folder to view its contents</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-1 items-center justify-center text-destructive">
+        <div className="text-center">
+          <p className="text-sm">{error}</p>
         </div>
       </div>
     );

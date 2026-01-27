@@ -1,14 +1,15 @@
-import { ChevronDown, ChevronRight, Folder, FolderOpen } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Folder,
+  FolderOpen,
+  Loader2
+} from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
+import { useVfsFolders, type VfsFolderNode } from '@/hooks/useVfsFolders';
 import { cn } from '@/lib/utils';
 
-export interface VfsFolderNode {
-  id: string;
-  name: string;
-  parentId: string | null;
-  children?: VfsFolderNode[];
-  childCount: number;
-}
+export type { VfsFolderNode };
 
 interface VfsTreePanelProps {
   width: number;
@@ -25,45 +26,13 @@ export function VfsTreePanel({
   onFolderSelect,
   compact: _compact
 }: VfsTreePanelProps) {
+  const { folders, loading, error } = useVfsFolders();
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(
     new Set()
   );
   const isDragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
-
-  // Mock data for now - will be replaced with useVfsFolders hook
-  const folders: VfsFolderNode[] = [
-    {
-      id: 'root-1',
-      name: 'My Documents',
-      parentId: null,
-      childCount: 2,
-      children: [
-        { id: 'folder-1', name: 'Work', parentId: 'root-1', childCount: 0 },
-        {
-          id: 'folder-2',
-          name: 'Personal',
-          parentId: 'root-1',
-          childCount: 1,
-          children: [
-            {
-              id: 'folder-3',
-              name: 'Photos',
-              parentId: 'folder-2',
-              childCount: 0
-            }
-          ]
-        }
-      ]
-    },
-    {
-      id: 'root-2',
-      name: 'Shared With Me',
-      parentId: null,
-      childCount: 0
-    }
-  ];
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -173,7 +142,22 @@ export function VfsTreePanel({
         </span>
       </div>
       <div className="flex-1 overflow-y-auto p-1">
-        {folders.map((folder) => renderFolder(folder, 0))}
+        {loading && (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        {error && (
+          <div className="px-2 py-4 text-center text-destructive text-xs">
+            {error}
+          </div>
+        )}
+        {!loading && !error && folders.length === 0 && (
+          <div className="px-2 py-4 text-center text-muted-foreground text-xs">
+            No folders yet
+          </div>
+        )}
+        {!loading && !error && folders.map((folder) => renderFolder(folder, 0))}
       </div>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: Resize handle for panel width */}
       <div
