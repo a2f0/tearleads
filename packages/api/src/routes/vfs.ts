@@ -51,9 +51,10 @@ function parseKeySetupPayload(body: unknown): VfsKeySetupRequest | null {
   const encryptedPrivateKeys = body['encryptedPrivateKeys'];
   const argon2Salt = body['argon2Salt'];
 
+  // publicSigningKey can be null/empty for now (not yet implemented)
   if (
     typeof publicEncryptionKey !== 'string' ||
-    typeof publicSigningKey !== 'string' ||
+    (publicSigningKey != null && typeof publicSigningKey !== 'string') ||
     typeof encryptedPrivateKeys !== 'string' ||
     typeof argon2Salt !== 'string'
   ) {
@@ -62,7 +63,6 @@ function parseKeySetupPayload(body: unknown): VfsKeySetupRequest | null {
 
   if (
     !publicEncryptionKey.trim() ||
-    !publicSigningKey.trim() ||
     !encryptedPrivateKeys.trim() ||
     !argon2Salt.trim()
   ) {
@@ -71,7 +71,8 @@ function parseKeySetupPayload(body: unknown): VfsKeySetupRequest | null {
 
   return {
     publicEncryptionKey: publicEncryptionKey.trim(),
-    publicSigningKey: publicSigningKey.trim(),
+    publicSigningKey:
+      typeof publicSigningKey === 'string' ? publicSigningKey.trim() : '',
     encryptedPrivateKeys: encryptedPrivateKeys.trim(),
     argon2Salt: argon2Salt.trim()
   };

@@ -271,7 +271,7 @@ export interface VfsUserKeysResponse {
 
 export interface VfsKeySetupRequest {
   publicEncryptionKey: string;
-  publicSigningKey: string;
+  publicSigningKey?: string; // Optional for now, not yet implemented
   encryptedPrivateKeys: string;
   argon2Salt: string;
 }
