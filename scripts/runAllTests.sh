@@ -2,7 +2,6 @@
 set -eu
 
 HEADLESS=0
-ROOT_DIR="$(pwd)"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -34,23 +33,16 @@ BUILD_TIME=$((BUILD_END - BUILD_START))
 
 echo "==> Running unit tests..."
 UNIT_START=$(date +%s)
-echo "==> Rebuilding better-sqlite3-multiple-ciphers for Node..."
-NODE_GYP_REL=$(find node_modules/.pnpm -path '*/node-gyp/bin/node-gyp.js' -print -quit 2>/dev/null || true)
-SQLITE_MODULE_REL=$(find node_modules/.pnpm -path '*/better-sqlite3-multiple-ciphers' -print -quit 2>/dev/null || true)
-NODE_GYP_PATH="${ROOT_DIR}/${NODE_GYP_REL}"
-SQLITE_MODULE_DIR="${ROOT_DIR}/${SQLITE_MODULE_REL}"
-if [ -z "$NODE_GYP_PATH" ] || [ -z "$SQLITE_MODULE_DIR" ]; then
-  echo "Failed to locate node-gyp or better-sqlite3-multiple-ciphers for rebuild."
-  exit 1
-fi
-(cd "$SQLITE_MODULE_DIR" && node "$NODE_GYP_PATH" rebuild --release)
+./scripts/rebuildSqliteForVitest.sh
 pnpm test
 UNIT_END=$(date +%s)
 UNIT_TIME=$((UNIT_END - UNIT_START))
 
 echo "==> Running Playwright E2E tests..."
 PLAYWRIGHT_START=$(date +%s)
-pnpm --filter @rapid/client test:e2e
+# PW_OWN_SERVER=true ensures Playwright fully controls server lifecycle (no hanging)
+# BASE_URL uses port 3002 to avoid conflict with any running dev server on 3000
+BASE_URL=http://localhost:3002 PW_OWN_SERVER=true pnpm --filter @rapid/client test:e2e
 PLAYWRIGHT_END=$(date +%s)
 PLAYWRIGHT_TIME=$((PLAYWRIGHT_END - PLAYWRIGHT_START))
 

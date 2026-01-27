@@ -2,6 +2,9 @@ import { cpus } from 'node:os';
 import { defineConfig, devices } from '@playwright/test';
 
 const isCI = !!process.env.CI;
+// PW_OWN_SERVER=true makes Playwright fully own the server lifecycle (reuseExistingServer: false)
+// without forcing single worker like CI=true does. Use with BASE_URL to specify a different port.
+const ownServer = process.env.PW_OWN_SERVER === 'true';
 const baseURL = process.env.BASE_URL || 'http://localhost:3000';
 const isHTTPS = baseURL.startsWith('https://');
 const parsedWorkers = Number(process.env.PW_WORKERS);
@@ -69,9 +72,14 @@ export default defineConfig({
     ? {}
     : {
         webServer: {
-          command: 'VITE_API_URL=http://localhost:5001/v1 pnpm run dev',
+          // Use --port flag when BASE_URL specifies a non-default port
+          command: (() => {
+            const port = new URL(baseURL).port;
+            const portFlag = port && port !== '3000' ? ` --port ${port}` : '';
+            return `VITE_API_URL=http://localhost:5001/v1 pnpm exec vite${portFlag}`;
+          })(),
           url: baseURL,
-          reuseExistingServer: !isCI,
+          reuseExistingServer: !(isCI || ownServer),
           timeout: 120000,
         },
       }),

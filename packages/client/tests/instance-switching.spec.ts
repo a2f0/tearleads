@@ -283,6 +283,19 @@ const PAGE_ROUTES = {
   Files: '/files'
 } as const;
 
+// Helper for in-app navigation that preserves React state (including current instance)
+// Uses history.pushState + popstate event to trigger React Router navigation
+// without a full page reload. This is critical for instance switching tests
+// because page.goto() causes initializeRegistry() to reset to test-worker-N instance.
+async function navigateInApp(page: Page, path: string) {
+  await page.evaluate((route) => {
+    window.history.pushState({}, '', route);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, path);
+  // Give React time to process the navigation
+  await page.waitForTimeout(500);
+}
+
 // Helper to unlock via inline unlock component if database is locked after page navigation
 async function unlockIfNeeded(page: Page, password = TEST_PASSWORD): Promise<void> {
   // Wait for page to stabilize after navigation
@@ -307,9 +320,10 @@ async function navigateToPage(page: Page, pageName: 'SQLite' | 'Files') {
       .getByTestId(`${pageName.toLowerCase()}-link`)
       .click();
   } else {
-    // Use URL navigation for page testing on desktop
+    // Use in-app navigation to preserve React state (including current instance)
+    // page.goto() would cause a full reload, resetting instance to test-worker-N
     const route = PAGE_ROUTES[pageName];
-    await page.goto(route);
+    await navigateInApp(page, route);
     await unlockIfNeeded(page);
   }
 }
