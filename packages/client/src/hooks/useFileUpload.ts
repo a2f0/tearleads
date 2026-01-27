@@ -9,6 +9,8 @@ import { getDatabase } from '@/db';
 import { logEvent } from '@/db/analytics';
 import { getCurrentInstanceId, getKeyManager } from '@/db/crypto';
 import { files } from '@/db/schema';
+import { api } from '@/lib/api';
+import { isLoggedIn } from '@/lib/auth-storage';
 import { UnsupportedFileTypeError } from '@/lib/errors';
 import { computeContentHash, readFileAsUint8Array } from '@/lib/file-utils';
 import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
@@ -18,6 +20,7 @@ import {
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
+import { generateSessionKey, wrapSessionKey } from './useVfsKeys';
 
 export interface UploadResult {
   id: string;
@@ -132,6 +135,35 @@ export function useFileUpload() {
         storagePath,
         thumbnailPath
       });
+
+      // Register in VFS (server-side) if logged in
+      // This is atomic - if VFS registration fails, rollback local storage
+      if (isLoggedIn()) {
+        try {
+          const sessionKey = generateSessionKey();
+          const encryptedSessionKey = await wrapSessionKey(sessionKey);
+          await api.vfs.register({
+            id,
+            objectType: 'file',
+            encryptedSessionKey
+          });
+        } catch (err) {
+          // Rollback: delete from SQLite and OPFS
+          try {
+            await db.delete(files).where(eq(files.id, id));
+            await storage.delete(storagePath);
+            if (thumbnailPath) {
+              await storage.delete(thumbnailPath);
+            }
+          } catch (rollbackErr) {
+            console.error('Rollback failed:', rollbackErr);
+          }
+          throw new Error(
+            `VFS registration failed: ${err instanceof Error ? err.message : String(err)}`
+          );
+        }
+      }
+
       onProgress?.(100);
 
       return { id, isDuplicate: false };

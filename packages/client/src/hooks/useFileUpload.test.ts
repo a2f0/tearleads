@@ -45,10 +45,32 @@ vi.mock('@/storage/opfs', () => ({
   createStoreLogger: vi.fn(() => vi.fn())
 }));
 
+// Mock auth storage
+vi.mock('@/lib/auth-storage', () => ({
+  isLoggedIn: vi.fn()
+}));
+
+// Mock VFS keys
+vi.mock('./useVfsKeys', () => ({
+  generateSessionKey: vi.fn(),
+  wrapSessionKey: vi.fn()
+}));
+
+// Mock API
+vi.mock('@/lib/api', () => ({
+  api: {
+    vfs: {
+      register: vi.fn()
+    }
+  }
+}));
+
 import { fileTypeFromBuffer } from 'file-type';
 import { getDatabase } from '@/db';
 import { logEvent } from '@/db/analytics';
 import { getCurrentInstanceId, getKeyManager } from '@/db/crypto';
+import { api } from '@/lib/api';
+import { isLoggedIn } from '@/lib/auth-storage';
 import { computeContentHash, readFileAsUint8Array } from '@/lib/file-utils';
 import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
 import {
@@ -56,12 +78,14 @@ import {
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
+import { generateSessionKey, wrapSessionKey } from './useVfsKeys';
 
 describe('useFileUpload', () => {
   const mockEncryptionKey = new Uint8Array(32);
   const mockStorage = {
     store: vi.fn(),
-    measureStore: vi.fn()
+    measureStore: vi.fn(),
+    delete: vi.fn()
   };
 
   // Drizzle-style mock database with chainable methods
@@ -81,11 +105,19 @@ describe('useFileUpload', () => {
     return query;
   };
 
+  const createMockDeleteQuery = () => {
+    const query = {
+      where: vi.fn().mockResolvedValue(undefined)
+    };
+    return query;
+  };
+
   let mockSelectResult: unknown[] = [];
 
   const mockDb = {
     select: vi.fn(() => createMockSelectQuery(mockSelectResult)),
-    insert: vi.fn(() => createMockInsertQuery())
+    insert: vi.fn(() => createMockInsertQuery()),
+    delete: vi.fn(() => createMockDeleteQuery())
   };
 
   beforeEach(() => {
@@ -116,6 +148,15 @@ describe('useFileUpload', () => {
     // Mock crypto.randomUUID
     vi.stubGlobal('crypto', {
       randomUUID: () => 'test-uuid-1234'
+    });
+
+    // Default: user not logged in (no VFS registration)
+    vi.mocked(isLoggedIn).mockReturnValue(false);
+    vi.mocked(generateSessionKey).mockReturnValue(new Uint8Array(32));
+    vi.mocked(wrapSessionKey).mockResolvedValue('wrapped-key');
+    vi.mocked(api.vfs.register).mockResolvedValue({
+      id: 'test-uuid-1234',
+      createdAt: new Date().toISOString()
     });
   });
 
@@ -603,6 +644,78 @@ describe('useFileUpload', () => {
         expect.any(Error)
       );
       consoleSpy.mockRestore();
+    });
+  });
+
+  describe('VFS registration', () => {
+    beforeEach(() => {
+      vi.mocked(fileTypeFromBuffer).mockResolvedValue({
+        ext: 'png',
+        mime: 'image/png'
+      });
+    });
+
+    it('does not register in VFS when user is not logged in', async () => {
+      vi.mocked(isLoggedIn).mockReturnValue(false);
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+      await result.current.uploadFile(file);
+
+      expect(api.vfs.register).not.toHaveBeenCalled();
+    });
+
+    it('registers file in VFS when user is logged in', async () => {
+      vi.mocked(isLoggedIn).mockReturnValue(true);
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+      await result.current.uploadFile(file);
+
+      expect(generateSessionKey).toHaveBeenCalled();
+      expect(wrapSessionKey).toHaveBeenCalled();
+      expect(api.vfs.register).toHaveBeenCalledWith({
+        id: 'test-uuid-1234',
+        objectType: 'file',
+        encryptedSessionKey: 'wrapped-key'
+      });
+    });
+
+    it('rolls back local storage when VFS registration fails', async () => {
+      vi.mocked(isLoggedIn).mockReturnValue(true);
+      vi.mocked(api.vfs.register).mockRejectedValue(new Error('VFS error'));
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+      await expect(result.current.uploadFile(file)).rejects.toThrow(
+        'VFS registration failed: VFS error'
+      );
+
+      // Verify rollback was attempted
+      expect(mockDb.delete).toHaveBeenCalled();
+      expect(mockStorage.delete).toHaveBeenCalledWith('storage/path');
+    });
+
+    it('rolls back thumbnail when VFS registration fails', async () => {
+      vi.mocked(isLoggedIn).mockReturnValue(true);
+      vi.mocked(isThumbnailSupported).mockReturnValue(true);
+      vi.mocked(generateThumbnail).mockResolvedValue(new Uint8Array([4, 5, 6]));
+      vi.mocked(mockStorage.store).mockResolvedValue('thumb/path');
+      vi.mocked(api.vfs.register).mockRejectedValue(new Error('VFS error'));
+
+      const { result } = renderHook(() => useFileUpload());
+      const file = new File(['test'], 'test.png', { type: 'image/png' });
+
+      await expect(result.current.uploadFile(file)).rejects.toThrow(
+        'VFS registration failed'
+      );
+
+      // Verify thumbnail was also deleted in rollback
+      expect(mockStorage.delete).toHaveBeenCalledWith('storage/path');
+      expect(mockStorage.delete).toHaveBeenCalledWith('thumb/path');
     });
   });
 });

@@ -102,6 +102,13 @@ export function getStoredAuthToken(): string | null {
   }
 }
 
+/**
+ * Check if the user is logged in (has an auth token).
+ */
+export function isLoggedIn(): boolean {
+  return getStoredAuthToken() !== null;
+}
+
 export function getAuthHeaderValue(): string | null {
   const token = getStoredAuthToken();
   return token ? `Bearer ${token}` : null;

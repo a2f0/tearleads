@@ -19,6 +19,7 @@ import { authRouter } from './routes/auth.js';
 import { chatRouter } from './routes/chat.js';
 import { emailsRouter } from './routes/emails.js';
 import { closeAllSSEConnections, sseRouter } from './routes/sse.js';
+import { vfsRouter } from './routes/vfs.js';
 
 dotenv.config();
 
@@ -115,6 +116,9 @@ app.use('/v1/emails', emailsRouter);
 
 // SSE route
 app.use('/v1/sse', sseRouter);
+
+// VFS routes
+app.use('/v1/vfs', vfsRouter);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {
