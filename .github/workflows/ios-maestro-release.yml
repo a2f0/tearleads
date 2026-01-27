@@ -108,10 +108,12 @@ jobs:
           xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
 
       - name: Run Maestro tests
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000
         run: |
-          # Run Maestro tests
-          $HOME/.maestro/bin/maestro test .maestro/ --output maestro-debug/report.xml --debug-output maestro-debug --format junit || true
-          MAESTRO_EXIT=$?
+          # Run Maestro tests (capture exit code before || continues execution)
+          MAESTRO_EXIT=0
+          $HOME/.maestro/bin/maestro test .maestro/ --output maestro-debug/report.xml --debug-output maestro-debug --format junit || MAESTRO_EXIT=$?
 
           # Capture final screenshot
           xcrun simctl io "$SIMULATOR_UDID" screenshot maestro-debug/02-after-tests.png || true
