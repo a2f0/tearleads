@@ -56,28 +56,28 @@ export function useVfsFolders(): UseVfsFoldersResult {
 
       const folderIds = folderRows.map((f) => f.id);
 
-      // Get parent relationships for folders
-      const linkRows = await db
-        .select({
-          childId: vfsLinks.childId,
-          parentId: vfsLinks.parentId
-        })
-        .from(vfsLinks)
-        .where(inArray(vfsLinks.childId, folderIds));
+      // Get parent relationships and child counts in parallel
+      const [linkRows, childCountRows] = await Promise.all([
+        db
+          .select({
+            childId: vfsLinks.childId,
+            parentId: vfsLinks.parentId
+          })
+          .from(vfsLinks)
+          .where(inArray(vfsLinks.childId, folderIds)),
+        db
+          .select({
+            parentId: vfsLinks.parentId
+          })
+          .from(vfsLinks)
+          .where(inArray(vfsLinks.parentId, folderIds))
+      ]);
 
       // Build parent lookup map
       const parentMap = new Map<string, string>();
       for (const link of linkRows) {
         parentMap.set(link.childId, link.parentId);
       }
-
-      // Count children per folder (all children, not just folders)
-      const childCountRows = await db
-        .select({
-          parentId: vfsLinks.parentId
-        })
-        .from(vfsLinks)
-        .where(inArray(vfsLinks.parentId, folderIds));
 
       const childCountMap = new Map<string, number>();
       for (const row of childCountRows) {
@@ -105,8 +105,7 @@ export function useVfsFolders(): UseVfsFoldersResult {
         if (node.parentId && nodeMap.has(node.parentId)) {
           const parent = nodeMap.get(node.parentId);
           if (parent) {
-            parent.children = parent.children || [];
-            parent.children.push(node);
+            parent.children?.push(node);
           }
         } else {
           // Root folder (no parent or parent is not a folder)

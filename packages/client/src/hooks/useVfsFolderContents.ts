@@ -95,70 +95,89 @@ export function useVfsFolderContents(
         byType[row.objectType]?.push(row.id);
       }
 
-      // Lookup names from respective tables
+      // Lookup names from respective tables in parallel
       const nameMap = new Map<string, string>();
+      const nameLookups: Promise<void>[] = [];
 
       // Folders
       if (byType['folder']?.length) {
-        const folderNameRows = await db
-          .select({
-            id: vfsFolders.id,
-            name: vfsFolders.encryptedName
-          })
-          .from(vfsFolders)
-          .where(inArray(vfsFolders.id, byType['folder']));
-        for (const row of folderNameRows) {
-          nameMap.set(row.id, row.name || 'Unnamed Folder');
-        }
+        nameLookups.push(
+          db
+            .select({
+              id: vfsFolders.id,
+              name: vfsFolders.encryptedName
+            })
+            .from(vfsFolders)
+            .where(inArray(vfsFolders.id, byType['folder']))
+            .then((folderNameRows) => {
+              for (const row of folderNameRows) {
+                nameMap.set(row.id, row.name || 'Unnamed Folder');
+              }
+            })
+        );
       }
 
       // Contacts
       if (byType['contact']?.length) {
-        const contactRows = await db
-          .select({
-            id: contacts.id,
-            firstName: contacts.firstName,
-            lastName: contacts.lastName
-          })
-          .from(contacts)
-          .where(inArray(contacts.id, byType['contact']));
-        for (const row of contactRows) {
-          const name = row.lastName
-            ? `${row.firstName} ${row.lastName}`
-            : row.firstName;
-          nameMap.set(row.id, name);
-        }
+        nameLookups.push(
+          db
+            .select({
+              id: contacts.id,
+              firstName: contacts.firstName,
+              lastName: contacts.lastName
+            })
+            .from(contacts)
+            .where(inArray(contacts.id, byType['contact']))
+            .then((contactRows) => {
+              for (const row of contactRows) {
+                const name = row.lastName
+                  ? `${row.firstName} ${row.lastName}`
+                  : row.firstName;
+                nameMap.set(row.id, name);
+              }
+            })
+        );
       }
 
       // Notes
       if (byType['note']?.length) {
-        const noteRows = await db
-          .select({
-            id: notes.id,
-            title: notes.title
-          })
-          .from(notes)
-          .where(inArray(notes.id, byType['note']));
-        for (const row of noteRows) {
-          nameMap.set(row.id, row.title);
-        }
+        nameLookups.push(
+          db
+            .select({
+              id: notes.id,
+              title: notes.title
+            })
+            .from(notes)
+            .where(inArray(notes.id, byType['note']))
+            .then((noteRows) => {
+              for (const row of noteRows) {
+                nameMap.set(row.id, row.title);
+              }
+            })
+        );
       }
 
       // Files and Photos (both use files table)
       const fileTypes = ['file', 'photo'].filter((t) => byType[t]?.length);
       if (fileTypes.length > 0) {
         const fileIds = fileTypes.flatMap((t) => byType[t] || []);
-        const fileRows = await db
-          .select({
-            id: files.id,
-            name: files.name
-          })
-          .from(files)
-          .where(inArray(files.id, fileIds));
-        for (const row of fileRows) {
-          nameMap.set(row.id, row.name);
-        }
+        nameLookups.push(
+          db
+            .select({
+              id: files.id,
+              name: files.name
+            })
+            .from(files)
+            .where(inArray(files.id, fileIds))
+            .then((fileRows) => {
+              for (const row of fileRows) {
+                nameMap.set(row.id, row.name);
+              }
+            })
+        );
       }
+
+      await Promise.all(nameLookups);
 
       // Build final items list
       const resultItems: VfsItem[] = registryRows.map((row) => ({
