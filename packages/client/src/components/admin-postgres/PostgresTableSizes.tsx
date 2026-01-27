@@ -39,9 +39,13 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
     setError(null);
     try {
       const response = await api.admin.postgres.getTables();
-      const sorted = [...response.tables].sort(
-        (a, b) => b.totalBytes - a.totalBytes
-      );
+      const sorted = [...response.tables].sort((a, b) => {
+        const schemaCompare = a.schema.localeCompare(b.schema, undefined, {
+          sensitivity: 'base'
+        });
+        if (schemaCompare !== 0) return schemaCompare;
+        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+      });
       setTables(sorted);
     } catch (err) {
       console.error('Failed to fetch Postgres tables:', err);
