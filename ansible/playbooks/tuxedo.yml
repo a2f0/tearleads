@@ -244,6 +244,26 @@
             fi
           fi
 
+    - name: Ensure Claude Code config directory exists
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/.claude"
+        state: directory
+        mode: "0700"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Configure Claude Code dark theme
+      ansible.builtin.copy:
+        dest: "/home/{{ ansible_user }}/.claude.json"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0600"
+        force: false
+        content: |
+          {
+            "theme": "dark"
+          }
+
   handlers:
     - name: Restart sshd
       ansible.builtin.systemd:
