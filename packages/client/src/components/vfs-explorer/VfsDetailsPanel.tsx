@@ -64,6 +64,7 @@ export function VfsDetailsPanel({
   const unfiledItems = useVfsUnfiledItems();
 
   // Refetch when refreshToken changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refetch functions are stable, including full objects causes infinite loops
   useEffect(() => {
     if (refreshToken !== undefined && refreshToken > 0) {
       if (isUnfiled) {
@@ -72,7 +73,7 @@ export function VfsDetailsPanel({
         folderContents.refetch();
       }
     }
-  }, [refreshToken, isUnfiled, folderContents, unfiledItems]);
+  }, [refreshToken]);
 
   // Select the appropriate data source
   const items: DisplayItem[] = isUnfiled

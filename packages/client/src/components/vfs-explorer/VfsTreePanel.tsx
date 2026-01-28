@@ -35,11 +35,12 @@ export function VfsTreePanel({
   const { folders, loading, error, refetch } = useVfsFolders();
 
   // Refetch when refreshToken changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refetch is stable from useCallback
   useEffect(() => {
     if (refreshToken !== undefined && refreshToken > 0) {
       refetch();
     }
-  }, [refreshToken, refetch]);
+  }, [refreshToken]);
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(
     new Set()
   );
