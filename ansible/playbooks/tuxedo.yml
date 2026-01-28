@@ -172,6 +172,35 @@
       when: copy_terminfo_result.changed or not compiled_terminfo_stat.stat.exists
       changed_when: true
 
+    # tmux-256color with truecolor support (required for Claude Code colors in screen/tmux)
+    - name: Ensure user terminfo directory exists
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/.terminfo/t"
+        state: directory
+        mode: "0755"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Copy tmux-256color truecolor terminfo source
+      ansible.builtin.copy:
+        src: files/tmux-256color-tc.terminfo
+        dest: /tmp/tmux-256color-tc.terminfo
+        mode: "0644"
+      register: copy_tmux_terminfo_result
+
+    - name: Check for existing compiled tmux-256color terminfo
+      ansible.builtin.stat:
+        path: "/home/{{ ansible_user }}/.terminfo/t/tmux-256color"
+      register: compiled_tmux_terminfo_stat
+
+    - name: Compile tmux-256color truecolor terminfo for user
+      ansible.builtin.command:
+        cmd: "tic -x -o /home/{{ ansible_user }}/.terminfo /tmp/tmux-256color-tc.terminfo"
+      become: true
+      become_user: "{{ ansible_user }}"
+      when: copy_tmux_terminfo_result.changed or not compiled_tmux_terminfo_stat.stat.exists
+      changed_when: true
+
     - name: Create keyrings directory
       ansible.builtin.file:
         path: /etc/apt/keyrings

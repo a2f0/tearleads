@@ -8,6 +8,9 @@ shell -$SHELL
 truecolor on
 setenv COLORTERM truecolor
 
+# Signal dark terminal to apps (white-on-black: foreground=15, background=0)
+setenv COLORFGBG "15;0"
+
 # Pass TUXEDO_WORKSPACE through to the shell
 # Users should add this to ~/.zshenv (or ~/.bashrc for bash):
 #   if [ -n "$TUXEDO_WORKSPACE" ]; then
