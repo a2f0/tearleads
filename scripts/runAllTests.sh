@@ -2,7 +2,6 @@
 set -eu
 
 HEADLESS=0
-ROOT_DIR="$(pwd)"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -34,23 +33,58 @@ BUILD_TIME=$((BUILD_END - BUILD_START))
 
 echo "==> Running unit tests..."
 UNIT_START=$(date +%s)
-echo "==> Rebuilding better-sqlite3-multiple-ciphers for Node..."
-NODE_GYP_REL=$(find node_modules/.pnpm -path '*/node-gyp/bin/node-gyp.js' -print -quit 2>/dev/null || true)
-SQLITE_MODULE_REL=$(find node_modules/.pnpm -path '*/better-sqlite3-multiple-ciphers' -print -quit 2>/dev/null || true)
-NODE_GYP_PATH="${ROOT_DIR}/${NODE_GYP_REL}"
-SQLITE_MODULE_DIR="${ROOT_DIR}/${SQLITE_MODULE_REL}"
-if [ -z "$NODE_GYP_PATH" ] || [ -z "$SQLITE_MODULE_DIR" ]; then
-  echo "Failed to locate node-gyp or better-sqlite3-multiple-ciphers for rebuild."
-  exit 1
-fi
-(cd "$SQLITE_MODULE_DIR" && node "$NODE_GYP_PATH" rebuild --release)
+./scripts/rebuildSqliteForVitest.sh
 pnpm test
 UNIT_END=$(date +%s)
 UNIT_TIME=$((UNIT_END - UNIT_START))
 
 echo "==> Running Playwright E2E tests..."
 PLAYWRIGHT_START=$(date +%s)
-pnpm --filter @rapid/client test:e2e
+# Check that test port is not already in use
+pnpm exec tsx ./scripts/checkPort.ts 3002
+
+# Start vite dev server in background (same approach as runPlaywrightTests.sh)
+cd packages/client
+VITE_API_URL=http://localhost:5001/v1 pnpm exec vite --port 3002 &
+VITE_PID=$!
+cd ../..
+
+# Wait for vite to be ready
+MAX_WAIT=60
+WAITED=0
+echo "[playwright] Waiting for vite server on port 3002..."
+while ! nc -z localhost 3002 2>/dev/null; do
+  sleep 1
+  WAITED=$((WAITED + 1))
+  if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+    echo "[playwright] Timeout waiting for vite server"
+    kill -9 "$VITE_PID" 2>/dev/null || true
+    exit 1
+  fi
+done
+echo "[playwright] Vite server ready after ${WAITED}s"
+
+# PW_EXTERNAL_SERVER=true disables Playwright webServer so this script controls lifecycle.
+# BASE_URL uses port 3002 to avoid conflict with any running dev server on 3000.
+BASE_URL=http://localhost:3002 PW_EXTERNAL_SERVER=true PW_FORCE_EXIT=true pnpm --filter @rapid/client test:e2e && PW_EXIT_CODE=0 || PW_EXIT_CODE=$?
+
+# Clean up vite server
+echo "[playwright] Stopping vite server (pid: $VITE_PID)..."
+kill -TERM "$VITE_PID" 2>/dev/null || true
+sleep 1
+kill -KILL "$VITE_PID" 2>/dev/null || true
+
+# Clean up any orphaned vite processes on test port
+if command -v lsof >/dev/null 2>&1; then
+  PIDS=$(lsof -ti:3002 2>/dev/null || true)
+  if [ -n "$PIDS" ]; then
+    echo "[cleanup] Killing orphaned processes on port 3002: $PIDS"
+    echo "$PIDS" | xargs kill -9 2>/dev/null || true
+  fi
+fi
+if [ "$PW_EXIT_CODE" -ne 0 ]; then
+  exit "$PW_EXIT_CODE"
+fi
 PLAYWRIGHT_END=$(date +%s)
 PLAYWRIGHT_TIME=$((PLAYWRIGHT_END - PLAYWRIGHT_START))
 

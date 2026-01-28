@@ -103,7 +103,7 @@ jobs:
       - name: Run Maestro tests (Release)
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 31
+          api-level: 33
           arch: x86_64
           working-directory: packages/client
           emulator-boot-timeout: 900

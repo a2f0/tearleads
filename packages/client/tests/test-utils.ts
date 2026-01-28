@@ -91,9 +91,13 @@ export async function clearOriginStorage(
   page: Page,
   originOverride?: string
 ): Promise<void> {
+  // Use page URL if available, otherwise fall back to BASE_URL env var
+  const pageUrl = page.url();
   const origin =
     originOverride ??
-    new URL(process.env['BASE_URL'] ?? 'http://localhost:3000').origin;
+    (pageUrl && pageUrl !== 'about:blank'
+      ? new URL(pageUrl).origin
+      : new URL(process.env['BASE_URL'] ?? 'http://localhost:3000').origin);
   const client = await page.context().newCDPSession(page);
   try {
     await client.send('Storage.clearDataForOrigin', {

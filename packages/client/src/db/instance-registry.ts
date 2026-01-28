@@ -4,7 +4,11 @@
  * is visible before entering a password.
  */
 
-import { getTestInstanceId, isTestMode } from '@/lib/test-instance';
+import {
+  getTestInstanceId,
+  isTestInstance,
+  isTestMode
+} from '@/lib/test-instance';
 
 const REGISTRY_DB_NAME = 'rapid_instance_registry';
 const REGISTRY_STORE_NAME = 'registry';
@@ -258,15 +262,22 @@ export async function initializeRegistry(): Promise<InstanceMetadata> {
  * Initialize a test-specific instance with a deterministic ID.
  * Creates the instance if it doesn't exist, or returns existing one.
  *
- * Respects the stored active instance if it exists and is valid.
- * This matches real (non-test) build behavior where the active instance
- * persists across app restarts, enabling multi-instance tests to verify
- * that behavior correctly.
+ * For parallel test isolation, we need to ensure each worker uses its own
+ * test instance. However, within a single test, we want to respect the stored
+ * active instance (which may be a user-created instance with a random UUID).
+ *
+ * Rules:
+ * - If stored active instance is a DIFFERENT worker's test instance → ignore, use our test instance
+ * - If stored active instance is THIS worker's test instance → use it
+ * - If stored active instance is a non-test instance (UUID) → use it (within-test state)
+ * - If no stored active instance → use our test instance
  */
 async function initializeTestInstance(
   testInstanceId: string
 ): Promise<InstanceMetadata> {
   const instances = await getInstances();
+
+  // Ensure our worker's test instance exists
   let testInstance = instances.find((inst) => inst.id === testInstanceId);
 
   if (!testInstance) {
@@ -281,17 +292,33 @@ async function initializeTestInstance(
     await setInStore(REGISTRY_KEY, instances);
   }
 
-  // Check if there's a stored active instance that still exists
+  // Check if there's a stored active instance we should respect
   const storedActiveId = await getActiveInstanceId();
+
   if (storedActiveId) {
-    const storedActive = instances.find((inst) => inst.id === storedActiveId);
-    if (storedActive) {
-      // Respect the stored active instance (supports multi-instance tests)
-      return storedActive;
+    const activeExists = instances.some((inst) => inst.id === storedActiveId);
+
+    if (activeExists) {
+      // If the stored active instance is a test instance from a DIFFERENT worker,
+      // ignore it to maintain parallel isolation
+      if (isTestInstance(storedActiveId) && storedActiveId !== testInstanceId) {
+        // Different worker's test instance - override with our own
+        await setActiveInstanceId(testInstanceId);
+        return testInstance;
+      }
+
+      // Stored instance is either our test instance OR a non-test instance (UUID).
+      // Respect it to preserve within-test state (e.g., user-created instances).
+      const activeInstance = instances.find(
+        (inst) => inst.id === storedActiveId
+      );
+      if (activeInstance) {
+        return activeInstance;
+      }
     }
   }
 
-  // No valid stored active instance - use the test worker instance
+  // No valid stored active instance - use our test instance
   await setActiveInstanceId(testInstanceId);
   return testInstance;
 }
