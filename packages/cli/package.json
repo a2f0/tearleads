@@ -23,7 +23,7 @@
     "sqlite"
   ],
   "author": "",
-  "license": "Unlicensed",
+  "license": "UNLICENSED",
   "dependencies": {
     "@rapid/shared": "workspace:*",
     "better-sqlite3-multiple-ciphers": "12.6.2",
