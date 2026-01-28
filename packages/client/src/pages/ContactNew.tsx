@@ -17,7 +17,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
-import { contactEmails, contactPhones, contacts, vfsRegistry } from '@/db/schema';
+import {
+  contactEmails,
+  contactPhones,
+  contacts,
+  vfsRegistry
+} from '@/db/schema';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
 import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
 

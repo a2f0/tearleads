@@ -71,7 +71,10 @@ function writeOverrides(
     if (Object.keys(sanitized).length === 0) {
       localStorage.removeItem(FEATURE_FLAGS_STORAGE_KEY);
     } else {
-      localStorage.setItem(FEATURE_FLAGS_STORAGE_KEY, JSON.stringify(sanitized));
+      localStorage.setItem(
+        FEATURE_FLAGS_STORAGE_KEY,
+        JSON.stringify(sanitized)
+      );
     }
   } catch {
     return;

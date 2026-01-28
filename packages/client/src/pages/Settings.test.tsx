@@ -110,9 +110,7 @@ describe('Settings', () => {
     });
 
     it('renders the feature flags panel', () => {
-      expect(
-        screen.getByTestId('feature-flags-panel')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('feature-flags-panel')).toBeInTheDocument();
     });
 
     it('renders the icon depth toggle', () => {

@@ -2,8 +2,8 @@ import { AlertTriangle, ChevronRight, Download, Scale } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  FontSelector,
   FeatureFlags,
+  FontSelector,
   IconBackgroundToggle,
   IconDepthToggle,
   PatternSelector,

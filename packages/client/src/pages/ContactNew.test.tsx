@@ -3,8 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ContactNew } from './ContactNew';
 import { vfsRegistry } from '@/db/schema';
+import { ContactNew } from './ContactNew';
 
 const mockIsLoggedIn = vi.fn();
 const mockReadStoredAuth = vi.fn();
@@ -413,9 +413,7 @@ describe('ContactNew', () => {
     });
 
     it('still saves contact when session key wrapping fails', async () => {
-      const consoleSpy = vi
-        .spyOn(console, 'warn')
-        .mockImplementation(() => {});
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       mockIsLoggedIn.mockReturnValue(true);
       mockWrapSessionKey.mockRejectedValue(new Error('VFS error'));
