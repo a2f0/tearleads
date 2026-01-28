@@ -1,9 +1,7 @@
+import { notes } from '@rapid/db/sqlite';
+import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
 import { useCallback, useState } from 'react';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
-import { getDatabase } from '@/db';
-import { useDatabaseContext } from '@/db/hooks';
-import { notes } from '@/db/schema';
+import { useDatabaseState, useNotesContext } from '../context/NotesContext';
 import { NotesWindowDetail } from './NotesWindowDetail';
 import { NotesWindowList } from './NotesWindowList';
 import type { ViewMode } from './NotesWindowMenuBar';
@@ -29,7 +27,8 @@ export function NotesWindow({
   zIndex,
   initialDimensions
 }: NotesWindowProps) {
-  const { isUnlocked } = useDatabaseContext();
+  const { isUnlocked } = useDatabaseState();
+  const { getDatabase } = useNotesContext();
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
@@ -72,7 +71,7 @@ export function NotesWindow({
     } catch (err) {
       console.error('Failed to create note:', err);
     }
-  }, [isUnlocked]);
+  }, [isUnlocked, getDatabase]);
 
   return (
     <FloatingWindow

@@ -5,6 +5,7 @@ import {
   text,
   uniqueIndex
 } from 'drizzle-orm/sqlite-core';
+import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';
 
 /**
  * Sync metadata table for tracking entity sync status.
@@ -374,3 +375,35 @@ export const vfsAccess = sqliteTable(
     index('vfs_access_item_idx').on(table.itemId)
   ]
 );
+
+/**
+ * Schema object containing all table definitions.
+ */
+export const schema = {
+  syncMetadata,
+  userSettings,
+  users,
+  organizations,
+  userOrganizations,
+  userCredentials,
+  migrations,
+  secrets,
+  files,
+  contacts,
+  contactPhones,
+  contactEmails,
+  analyticsEvents,
+  notes,
+  groups,
+  userGroups,
+  userKeys,
+  vfsRegistry,
+  vfsFolders,
+  vfsLinks,
+  vfsAccess
+};
+
+/**
+ * Database type for SQLite with full schema.
+ */
+export type Database = SqliteRemoteDatabase<typeof schema>;

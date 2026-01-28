@@ -174,6 +174,9 @@ export function generateSqliteSchema(tables: TableDefinition[]): string {
   lines.push(
     `import { ${drizzleTypes.join(', ')} } from 'drizzle-orm/sqlite-core';`
   );
+  lines.push(
+    "import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';"
+  );
   lines.push('');
 
   // Tables
@@ -184,6 +187,26 @@ export function generateSqliteSchema(tables: TableDefinition[]): string {
     }
   });
 
+  lines.push('');
+
+  // Schema object collecting all tables
+  const tableNames = tables.map((t) => t.propertyName);
+  lines.push('/**');
+  lines.push(' * Schema object containing all table definitions.');
+  lines.push(' */');
+  lines.push('export const schema = {');
+  tableNames.forEach((name, i) => {
+    const comma = i < tableNames.length - 1 ? ',' : '';
+    lines.push(`  ${name}${comma}`);
+  });
+  lines.push('};');
+  lines.push('');
+
+  // Database type
+  lines.push('/**');
+  lines.push(' * Database type for SQLite with full schema.');
+  lines.push(' */');
+  lines.push('export type Database = SqliteRemoteDatabase<typeof schema>;');
   lines.push('');
 
   return lines.join('\n');

@@ -12,6 +12,8 @@
     { "path": "./packages/ui/tsconfig.test.json" },
     { "path": "./packages/window-manager" },
     { "path": "./packages/window-manager/tsconfig.test.json" },
+    { "path": "./packages/notes" },
+    { "path": "./packages/notes/tsconfig.test.json" },
     { "path": "./packages/api" },
     { "path": "./packages/api/tsconfig.test.json" },
     { "path": "./packages/cli" },
