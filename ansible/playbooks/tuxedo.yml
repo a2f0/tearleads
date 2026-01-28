@@ -123,6 +123,10 @@
           - ncurses-bin
           - ripgrep
           - software-properties-common
+          - autoconf
+          - automake
+          - libncurses-dev
+          - libpam0g-dev
         state: present
 
     # Neovim PPA for version 0.10+ (required for vim.uv API used in neovim.lua)
@@ -152,6 +156,39 @@
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
         mode: "0644"
+
+    # GNU screen 5.0+ with truecolor support (Ubuntu only ships 4.x which lacks truecolor)
+    - name: Check installed screen version
+      ansible.builtin.command:
+        cmd: /usr/local/bin/screen --version
+      register: screen_version_check
+      changed_when: false
+      failed_when: false
+
+    - name: Download GNU screen 5.0.0 source
+      ansible.builtin.get_url:
+        url: https://ftp.gnu.org/gnu/screen/screen-5.0.0.tar.gz
+        dest: /tmp/screen-5.0.0.tar.gz
+        mode: "0644"
+      when: screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout
+
+    - name: Extract screen source
+      ansible.builtin.unarchive:
+        src: /tmp/screen-5.0.0.tar.gz
+        dest: /tmp
+        remote_src: true
+      when: screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout
+
+    - name: Build and install screen 5.0.0
+      ansible.builtin.shell:
+        cmd: |
+          cd /tmp/screen-5.0.0
+          ./autogen.sh
+          ./configure --prefix=/usr/local
+          make -j$(nproc)
+          make install
+        creates: /usr/local/bin/screen
+      when: screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout
 
     # Ghostty terminal support
     - name: Copy Ghostty terminfo
