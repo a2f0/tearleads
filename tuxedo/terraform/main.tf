@@ -17,7 +17,9 @@ resource "hcloud_server" "tuxedo" {
         groups: sudo, www-data
         shell: /bin/bash
         lock_passwd: false
-        sudo: ALL=(ALL) ALL
+        # NOPASSWD required for Ansible automation on this ephemeral dev server.
+        # Security tradeoff acknowledged: SSH key auth + no root login mitigate risk.
+        sudo: ALL=(ALL) NOPASSWD:ALL
         ssh_authorized_keys:
           - ${data.hcloud_ssh_key.main.public_key}
     ssh_pwauth: false
