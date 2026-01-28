@@ -37,7 +37,7 @@
     "url": "https://github.com/a2f0/rapid.git"
   },
   "author": "",
-  "license": "Unlicense",
+  "license": "UNLICENSED",
   "description": "Monorepo for Rapid application",
   "devDependencies": {
     "@biomejs/biome": "2.3.13",

@@ -22,7 +22,7 @@
     "listener"
   ],
   "author": "",
-  "license": "Unlicensed",
+  "license": "UNLICENSED",
   "dependencies": {
     "@rapid/shared": "workspace:*",
     "smtp-server": "3.18.0"

@@ -40,7 +40,7 @@
     "postgresql"
   ],
   "author": "",
-  "license": "Unlicensed",
+  "license": "UNLICENSED",
   "dependencies": {
     "@rapid/shared": "workspace:*",
     "drizzle-orm": "0.45.1"
