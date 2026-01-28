@@ -27,6 +27,7 @@ interface AuthContextValue {
   authError: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   clearAuthError: () => void;
   getTokenTimeRemaining: () => number | null;
@@ -81,6 +82,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     storeAuth(response.accessToken, response.refreshToken, response.user);
   }, []);
 
+  const register = useCallback(async (email: string, password: string) => {
+    clearAuthError();
+    const response = await api.auth.register(email, password);
+
+    // Store in state (same as login - auto-login after registration)
+    setToken(response.accessToken);
+    setUser(response.user);
+    setAuthErrorState(null);
+
+    // Persist to localStorage
+    storeAuth(response.accessToken, response.refreshToken, response.user);
+  }, []);
+
   const logout = useCallback(async () => {
     // Invalidate session on server (best effort)
     try {
@@ -117,6 +131,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       authError,
       isLoading,
       login,
+      register,
       logout,
       clearAuthError: () => {
         setAuthErrorState(null);
@@ -131,6 +146,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       authError,
       isLoading,
       login,
+      register,
       logout,
       getTokenTimeRemaining
     ]

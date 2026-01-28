@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { isRecord } from '@rapid/shared';
+import { isRecord, type RegisterRequest } from '@rapid/shared';
 import {
   type Request,
   type Response,
@@ -11,7 +11,7 @@ import {
   getRefreshTokenTtlSeconds
 } from '../lib/authConfig.js';
 import { createJwt, verifyRefreshJwt } from '../lib/jwt.js';
-import { verifyPassword } from '../lib/passwords.js';
+import { hashPassword, verifyPassword } from '../lib/passwords.js';
 import { getPostgresPool } from '../lib/postgres.js';
 import { getClientIp } from '../lib/request-utils.js';
 import {
@@ -198,6 +198,227 @@ router.post('/login', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Login failed:', error);
     res.status(500).json({ error: 'Failed to authenticate' });
+  }
+});
+
+type RegisterPayload = RegisterRequest;
+
+const MIN_PASSWORD_LENGTH = 8;
+
+function parseRegisterPayload(body: unknown): RegisterPayload | null {
+  if (!isRecord(body)) {
+    return null;
+  }
+  const emailValue = body['email'];
+  const passwordValue = body['password'];
+  if (typeof emailValue !== 'string' || typeof passwordValue !== 'string') {
+    return null;
+  }
+  const email = emailValue.trim().toLowerCase();
+  const password = passwordValue.trim();
+  if (!email || !password) {
+    return null;
+  }
+  return { email, password };
+}
+
+function getAllowedEmailDomains(): string[] {
+  return (process.env['SMTP_RECIPIENT_DOMAINS'] ?? '')
+    .split(',')
+    .map((d) => d.trim().toLowerCase())
+    .filter((d) => d.length > 0);
+}
+
+/**
+ * @openapi
+ * /auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     description: Creates a new user account and returns access tokens for immediate login.
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *             required:
+ *               - email
+ *               - password
+ *     responses:
+ *       200:
+ *         description: Registration successful, user logged in
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 accessToken:
+ *                   type: string
+ *                 refreshToken:
+ *                   type: string
+ *                 tokenType:
+ *                   type: string
+ *                 expiresIn:
+ *                   type: integer
+ *                 refreshExpiresIn:
+ *                   type: integer
+ *                 user:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *       400:
+ *         description: Invalid request payload or email domain not allowed
+ *       409:
+ *         description: Email already registered
+ *       500:
+ *         description: Server error
+ */
+router.post('/register', async (req: Request, res: Response) => {
+  const payload = parseRegisterPayload(req.body);
+  if (!payload) {
+    res.status(400).json({ error: 'email and password are required' });
+    return;
+  }
+
+  // Validate email format (allows + for aliases like user+alias@example.com)
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!emailRegex.test(payload.email)) {
+    res.status(400).json({ error: 'Invalid email format' });
+    return;
+  }
+
+  // Validate email domain
+  const allowedDomains = getAllowedEmailDomains();
+  if (allowedDomains.length > 0) {
+    const emailDomain = payload.email.split('@')[1]?.toLowerCase();
+    if (!emailDomain || !allowedDomains.includes(emailDomain)) {
+      res.status(400).json({
+        error: `Email domain not allowed. Allowed domains: ${allowedDomains.join(', ')}`
+      });
+      return;
+    }
+  }
+
+  // Validate password length
+  if (payload.password.length < MIN_PASSWORD_LENGTH) {
+    res.status(400).json({
+      error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`
+    });
+    return;
+  }
+
+  const jwtSecret = process.env['JWT_SECRET'];
+  if (!jwtSecret) {
+    console.error('Authentication setup error: JWT_SECRET is not configured.');
+    res.status(500).json({ error: 'Failed to register' });
+    return;
+  }
+
+  try {
+    const pool = await getPostgresPool();
+
+    // Check if email already exists
+    const existingUser = await pool.query<{ id: string }>(
+      `SELECT id FROM users WHERE lower(email) = $1 LIMIT 1`,
+      [payload.email]
+    );
+    if (existingUser.rows[0]) {
+      res.status(409).json({ error: 'Email already registered' });
+      return;
+    }
+
+    // Hash password
+    const { salt, hash } = await hashPassword(payload.password);
+
+    // Create user and credentials in a transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const userId = randomUUID();
+      const now = new Date().toISOString();
+
+      // Insert user
+      await client.query(
+        `INSERT INTO users (id, email, email_confirmed, admin, created_at, updated_at)
+         VALUES ($1, $2, true, false, $3, $3)`,
+        [userId, payload.email, now]
+      );
+
+      // Insert credentials
+      await client.query(
+        `INSERT INTO user_credentials (user_id, password_hash, password_salt, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $4)`,
+        [userId, hash, salt, now]
+      );
+
+      await client.query('COMMIT');
+
+      // Create session and return tokens (same as login)
+      const sessionId = randomUUID();
+      const ipAddress = getClientIp(req);
+      await createSession(
+        sessionId,
+        {
+          userId,
+          email: payload.email,
+          admin: false,
+          ipAddress
+        },
+        REFRESH_TOKEN_TTL_SECONDS
+      );
+
+      const accessToken = createJwt(
+        { sub: userId, email: payload.email, jti: sessionId },
+        jwtSecret,
+        ACCESS_TOKEN_TTL_SECONDS
+      );
+
+      const refreshTokenId = randomUUID();
+      await storeRefreshToken(
+        refreshTokenId,
+        { sessionId, userId },
+        REFRESH_TOKEN_TTL_SECONDS
+      );
+
+      const refreshToken = createJwt(
+        { sub: userId, jti: refreshTokenId, sid: sessionId, type: 'refresh' },
+        jwtSecret,
+        REFRESH_TOKEN_TTL_SECONDS
+      );
+
+      res.json({
+        accessToken,
+        refreshToken,
+        tokenType: 'Bearer',
+        expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+        refreshExpiresIn: REFRESH_TOKEN_TTL_SECONDS,
+        user: {
+          id: userId,
+          email: payload.email
+        }
+      });
+    } catch (txError) {
+      await client.query('ROLLBACK');
+      throw txError;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Registration failed:', error);
+    res.status(500).json({ error: 'Failed to register' });
   }
 });
 
