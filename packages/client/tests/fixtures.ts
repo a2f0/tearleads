@@ -6,7 +6,7 @@
  * eliminating OPFS race conditions when running tests in parallel.
  */
 
-import { test as base } from '@playwright/test';
+import { test as base, type WorkerInfo } from '@playwright/test';
 
 /**
  * Global variable name used to pass worker index to the browser.
@@ -20,7 +20,12 @@ let lastTestActivity = Date.now();
 // Enable verbose worker logging with PW_DEBUG_WORKERS=true
 const debugWorkers = process.env['PW_DEBUG_WORKERS'] === 'true';
 
-export const test = base.extend({
+// Define custom fixture types
+type WorkerCleanupFixture = {
+  _workerCleanup: void;
+};
+
+export const test = base.extend<object, WorkerCleanupFixture>({
   /**
    * Auto-running worker fixture that cleans up handles after all tests complete.
    * This allows the worker process to exit even if handles are still open.
@@ -30,7 +35,7 @@ export const test = base.extend({
    * This works around a Playwright bug where some workers don't receive the cleanup signal.
    */
   _workerCleanup: [
-    async ({}, use, workerInfo) => {
+    async ({}, use: () => Promise<void>, workerInfo: WorkerInfo) => {
       const workerStart = Date.now();
       const workerIdx = workerInfo.workerIndex;
 
