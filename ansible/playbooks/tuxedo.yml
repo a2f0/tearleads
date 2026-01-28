@@ -265,6 +265,10 @@
         block: |
           export TUXEDO_BASE_DIR="$HOME/tuxedo"
 
+          # Terminal color settings for Claude Code (truecolor + dark terminal signal)
+          export COLORTERM=truecolor
+          export COLORFGBG="15;0"
+
           if [ -n "$TUXEDO_WORKSPACE" ]; then
             export PATH="$TUXEDO_WORKSPACE/scripts:$TUXEDO_WORKSPACE/scripts/agents:$PATH"
             # Only cd into workspace for screen sessions, to avoid changing dir in every new terminal
