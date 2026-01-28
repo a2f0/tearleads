@@ -7,10 +7,9 @@ import {
   useRef,
   useState
 } from 'react';
-import { FOOTER_HEIGHT } from '@/constants/layout';
-import type { Corner } from '@/hooks/useFloatingWindow';
-import { useFloatingWindow } from '@/hooks/useFloatingWindow';
-import { cn } from '@/lib/utils';
+import type { Corner } from '../hooks/useFloatingWindow.js';
+import { useFloatingWindow } from '../hooks/useFloatingWindow.js';
+import { cn } from '../lib/utils.js';
 
 const DESKTOP_BREAKPOINT = 768;
 const MAX_FIT_CONTENT_ATTEMPTS = 5;
@@ -88,6 +87,7 @@ export interface FloatingWindowProps {
   maxHeightPercent?: number | undefined;
   zIndex?: number | undefined;
   onFocus?: (() => void) | undefined;
+  footerHeight?: number | undefined;
 }
 
 interface PreMaximizeState {
@@ -115,7 +115,8 @@ export function FloatingWindow({
   maxHeightPercent = 0.8,
   zIndex = 50,
   onFocus,
-  fitContent
+  fitContent,
+  footerHeight = 0
 }: FloatingWindowProps) {
   const [isDesktop, setIsDesktop] = useState(
     typeof window !== 'undefined' && window.innerWidth >= DESKTOP_BREAKPOINT
@@ -213,7 +214,7 @@ export function FloatingWindow({
       const desiredHeight = Math.ceil(contentHeight + titleBarHeight);
       const desiredWidth = Math.ceil(contentWidth);
       const maxWidth = window.innerWidth * maxWidthPercent;
-      const maxHeight = (window.innerHeight - FOOTER_HEIGHT) * maxHeightPercent;
+      const maxHeight = (window.innerHeight - footerHeight) * maxHeightPercent;
 
       const nextWidth = Math.max(minWidth, Math.min(desiredWidth, maxWidth));
       const nextHeight = Math.max(
@@ -265,7 +266,8 @@ export function FloatingWindow({
     maxWidthPercent,
     maxHeightPercent,
     onDimensionsChange,
-    setDimensions
+    setDimensions,
+    footerHeight
   ]);
 
   useEffect(() => {
@@ -279,11 +281,18 @@ export function FloatingWindow({
   useEffect(() => {
     if (!isNearMaximized) return;
     const maxWidth = window.innerWidth * maxWidthPercent;
-    const maxHeight = (window.innerHeight - FOOTER_HEIGHT) * maxHeightPercent;
+    const maxHeight = (window.innerHeight - footerHeight) * maxHeightPercent;
     if (width <= maxWidth && height <= maxHeight) {
       setIsNearMaximized(false);
     }
-  }, [height, isNearMaximized, maxHeightPercent, maxWidthPercent, width]);
+  }, [
+    height,
+    isNearMaximized,
+    maxHeightPercent,
+    maxWidthPercent,
+    width,
+    footerHeight
+  ]);
 
   const handleWindowClick = () => {
     onFocus?.();
@@ -292,7 +301,7 @@ export function FloatingWindow({
   const handleMaximize = useCallback(() => {
     if (isMaximized) {
       const maxWidth = window.innerWidth;
-      const maxHeight = window.innerHeight - FOOTER_HEIGHT;
+      const maxHeight = window.innerHeight - footerHeight;
       const nextWidth = Math.max(minWidth, maxWidth - NEAR_MAXIMIZED_INSET * 2);
       const nextHeight = Math.max(
         minHeight,
@@ -315,7 +324,7 @@ export function FloatingWindow({
       // Save current state and maximize (leaving space for footer/taskbar)
       preMaximizeStateRef.current = { width, height, x, y };
       const maxWidth = window.innerWidth;
-      const maxHeight = window.innerHeight - FOOTER_HEIGHT;
+      const maxHeight = window.innerHeight - footerHeight;
       setDimensions(maxWidth, maxHeight, 0, 0);
       onDimensionsChange?.({
         width: maxWidth,
@@ -339,7 +348,8 @@ export function FloatingWindow({
     setDimensions,
     width,
     x,
-    y
+    y,
+    footerHeight
   ]);
 
   return (

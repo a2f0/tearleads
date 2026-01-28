@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useFloatingWindow } from './useFloatingWindow';
+import { useFloatingWindow } from './useFloatingWindow.js';
 
 describe('useFloatingWindow', () => {
   beforeEach(() => {

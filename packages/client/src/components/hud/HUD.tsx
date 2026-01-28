@@ -1,7 +1,6 @@
+import { type Corner, useFloatingWindow } from '@rapid/window-manager';
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { Corner } from '@/hooks/useFloatingWindow';
-import { useFloatingWindow } from '@/hooks/useFloatingWindow';
 import { cn } from '@/lib/utils';
 import { AnalyticsTab } from './AnalyticsTab';
 import {
@@ -15,7 +14,7 @@ import {
 } from './constants';
 import { LogsTab } from './LogsTab';
 
-export type { Corner } from '@/hooks/useFloatingWindow';
+export type { Corner } from '@rapid/window-manager';
 export { MIN_HEIGHT, MIN_WIDTH } from './constants';
 
 type TabId = 'analytics' | 'logs';

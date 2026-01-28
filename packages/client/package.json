@@ -57,6 +57,7 @@
     "@rapid/db": "workspace:*",
     "@rapid/shared": "workspace:*",
     "@rapid/ui": "workspace:*",
+    "@rapid/window-manager": "workspace:*",
     "@tanstack/react-table": "8.21.3",
     "@tanstack/react-virtual": "3.13.18",
     "@uiw/react-md-editor": "4.0.11",
