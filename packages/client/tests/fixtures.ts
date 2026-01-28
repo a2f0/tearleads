@@ -91,34 +91,39 @@ const formatHandle = (handle: unknown): string => {
 
 export const test = base.extend({
   /**
-   * Auto-running worker fixture that unrefs handles after all tests complete.
+   * Auto-running worker fixture that cleans up handles after all tests complete.
    * This allows the worker process to exit even if handles are still open.
-   * We only unref (not destroy) to avoid breaking Playwright IPC channels.
    */
   _workerCleanup: [
     async ({}, use, workerInfo) => {
-      await use();
-      const handles = process._getActiveHandles?.() ?? [];
+      const workerStart = Date.now();
+      console.log(`[worker ${workerInfo.workerIndex}] started (pid: ${process.pid})`);
 
-      // Debug logging if enabled
-      if (process.env['PW_DUMP_WORKER_HANDLES'] === 'true') {
-        const requests = process._getActiveRequests?.() ?? [];
-        console.log(`[worker ${workerInfo.workerIndex}] cleanup - handles:`, handles.length);
-        if (handles.length > 0) {
-          console.log(
-            `[worker ${workerInfo.workerIndex}] handle summary:`,
-            summarizeObjects(handles).join(', ')
-          );
-          handles.slice(0, 10).forEach((h, i) => {
-            console.log(`[worker ${workerInfo.workerIndex}] handle ${i + 1}:`, formatHandle(h));
-          });
-        }
-        if (requests.length > 0) {
-          console.log(`[worker ${workerInfo.workerIndex}] requests:`, requests.length);
-        }
+      await use();
+
+      const elapsed = ((Date.now() - workerStart) / 1000).toFixed(1);
+      console.log(`[worker ${workerInfo.workerIndex}] finished all tests in ${elapsed}s, cleaning up...`);
+
+      const handles = process._getActiveHandles?.() ?? [];
+      const requests = process._getActiveRequests?.() ?? [];
+
+      // Always log handle summary to help debug hangs
+      console.log(
+        `[worker ${workerInfo.workerIndex}] active handles: ${handles.length}, requests: ${requests.length}`
+      );
+
+      // Detailed logging if enabled
+      if (process.env['PW_DUMP_WORKER_HANDLES'] === 'true' && handles.length > 0) {
+        console.log(
+          `[worker ${workerInfo.workerIndex}] handle summary:`,
+          summarizeObjects(handles).join(', ')
+        );
+        handles.slice(0, 10).forEach((h, i) => {
+          console.log(`[worker ${workerInfo.workerIndex}] handle ${i + 1}:`, formatHandle(h));
+        });
       }
 
-      // Unref all handles to allow process to exit (don't destroy - breaks IPC)
+      // Unref all handles to allow process to exit
       for (const handle of handles) {
         if (!handle || typeof handle !== 'object') continue;
         const h = handle as Record<string, unknown>;
@@ -130,6 +135,8 @@ export const test = base.extend({
           // Ignore errors
         }
       }
+
+      console.log(`[worker ${workerInfo.workerIndex}] cleanup complete, should exit now`);
     },
     { scope: 'worker', auto: true }
   ],
