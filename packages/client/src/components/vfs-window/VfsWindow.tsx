@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { VfsExplorer } from '@/components/vfs-explorer';
+import { NewFolderDialog } from './NewFolderDialog';
 import type { VfsViewMode } from './VfsWindowMenuBar';
 import { VfsWindowMenuBar } from './VfsWindowMenuBar';
 
@@ -26,9 +27,16 @@ export function VfsWindow({
 }: VfsWindowProps) {
   const [viewMode, setViewMode] = useState<VfsViewMode>('list');
   const [refreshToken, setRefreshToken] = useState(0);
+  const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   const handleNewFolder = useCallback(() => {
-    // TODO: Open new folder dialog
+    setShowNewFolderDialog(true);
+  }, []);
+
+  const handleFolderCreated = useCallback((_id: string, _name: string) => {
+    // Refresh the folder list
+    setRefreshToken((t) => t + 1);
   }, []);
 
   const handleLinkItem = useCallback(() => {
@@ -64,9 +72,20 @@ export function VfsWindow({
           onClose={onClose}
         />
         <div className="flex-1 overflow-hidden">
-          <VfsExplorer viewMode={viewMode} refreshToken={refreshToken} />
+          <VfsExplorer
+            viewMode={viewMode}
+            refreshToken={refreshToken}
+            selectedFolderId={selectedFolderId}
+            onFolderSelect={setSelectedFolderId}
+          />
         </div>
       </div>
+      <NewFolderDialog
+        open={showNewFolderDialog}
+        onOpenChange={setShowNewFolderDialog}
+        parentFolderId={selectedFolderId}
+        onFolderCreated={handleFolderCreated}
+      />
     </FloatingWindow>
   );
 }

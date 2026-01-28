@@ -47,7 +47,8 @@ vi.mock('@/storage/opfs', () => ({
 
 // Mock auth storage
 vi.mock('@/lib/auth-storage', () => ({
-  isLoggedIn: vi.fn()
+  isLoggedIn: vi.fn(),
+  readStoredAuth: vi.fn(() => ({ user: { id: 'test-user-id' } }))
 }));
 
 // Mock VFS keys

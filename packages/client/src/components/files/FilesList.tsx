@@ -674,18 +674,27 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
                                 <FileIcon className="h-5 w-5 text-muted-foreground" />
                               )}
                               {isRecentlyUploaded && (
-                                <button
-                                  type="button"
+                                // biome-ignore lint/a11y/useSemanticElements: Cannot use button as it may be nested inside another button
+                                <span
+                                  role="button"
+                                  tabIndex={0}
                                   onClick={(e) => {
-                                    if (isClickable) e.stopPropagation();
+                                    e.stopPropagation();
                                     clearRecentlyUploaded(file.id);
                                   }}
-                                  className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-success text-success-foreground"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                      clearRecentlyUploaded(file.id);
+                                    }
+                                  }}
+                                  className="absolute -top-1 -right-1 flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-success text-success-foreground"
                                   title="Upload successful - click to dismiss"
                                   data-testid="upload-success-badge"
                                 >
                                   <Check className="h-3 w-3" />
-                                </button>
+                                </span>
                               )}
                             </div>
                             <div className="min-w-0 flex-1">

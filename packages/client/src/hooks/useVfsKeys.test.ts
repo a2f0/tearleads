@@ -192,7 +192,7 @@ describe('useVfsKeys', () => {
 
     it('throws when database is not unlocked', async () => {
       vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // biome-ignore lint/suspicious/noExplicitAny: Testing null return for getCurrentKey
       mockKeyManager.getCurrentKey.mockReturnValueOnce(null as any);
 
       await expect(ensureVfsKeys()).rejects.toThrow('Database is not unlocked');
