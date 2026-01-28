@@ -20,6 +20,10 @@ xcrun simctl shutdown "$UDID" 2>/dev/null || true
 echo "Erasing simulator data..."
 xcrun simctl erase "$UDID"
 
+# Disable audio integration to prevent crackling on host audio
+echo "Disabling audio integration..."
+defaults write com.apple.iphonesimulator MuteAudio -bool true
+
 # Boot the simulator
 echo "Booting simulator..."
 xcrun simctl boot "$UDID"
