@@ -67,6 +67,7 @@
           # Wrapper to launch tuxedo.sh with correct SCRIPT_PATH
           TUXEDO_SCRIPT_PATH="/home/{{ ansible_user }}/tuxedo/tuxedo-shared/tuxedo/tuxedo.sh"
           export TUXEDO_SCRIPT_PATH
+          cd "$(dirname "$TUXEDO_SCRIPT_PATH")"
           exec "$TUXEDO_SCRIPT_PATH" "$@"
 
     - name: Create tuxedoKill.sh wrapper in home directory
