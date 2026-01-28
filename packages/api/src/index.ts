@@ -30,7 +30,9 @@ const PORT = Number(process.env['PORT']) || 5001;
 
 // Middleware
 app.use(cors());
-app.use(morgan('dev'));
+if (process.env['NODE_ENV'] !== 'production') {
+  app.use(morgan('dev'));
+}
 app.use(
   express.json({
     limit: process.env['API_JSON_BODY_LIMIT'] ?? '10mb'
