@@ -26,7 +26,7 @@ pnpm exec tsx "$SCRIPT_DIR/checkPort.ts" "$PW_TEST_PORT"
 cd "$SCRIPT_DIR/../packages/client"
 
 # Cleanup function to kill any orphaned processes on the test port
-# shellcheck disable=SC2329 # Function is invoked via trap
+# shellcheck disable=SC2317,SC2329 # Function is invoked via trap
 cleanup() {
   if [ -n "${VITE_PID:-}" ]; then
     kill -TERM "$VITE_PID" 2>/dev/null || true
