@@ -4,6 +4,7 @@ import type { PingData } from '@rapid/shared';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { type Express, type Request, type Response } from 'express';
+import morgan from 'morgan';
 import packageJson from '../package.json' with { type: 'json' };
 import { closePostgresPool } from './lib/postgres.js';
 import { closeRedisClient } from './lib/redis.js';
@@ -29,6 +30,9 @@ const PORT = Number(process.env['PORT']) || 5001;
 
 // Middleware
 app.use(cors());
+if (process.env['NODE_ENV'] !== 'production') {
+  app.use(morgan('dev'));
+}
 app.use(
   express.json({
     limit: process.env['API_JSON_BODY_LIMIT'] ?? '10mb'
