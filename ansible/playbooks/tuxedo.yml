@@ -121,6 +121,7 @@
           - git
           - gnupg
           - ncurses-bin
+          - neovim
         state: present
 
     # Ghostty terminal support
@@ -194,6 +195,25 @@
         block: |
           alias frc='claude --dangerously-skip-permissions'
           alias frco='codex --sandbox danger-full-access --ask-for-approval never'
+
+    - name: Add tuxedo environment to bashrc
+      ansible.builtin.blockinfile:
+        path: "/home/{{ ansible_user }}/.bashrc"
+        create: true
+        mode: "0644"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        marker: "# {mark} ANSIBLE MANAGED - tuxedo environment"
+        block: |
+          export TUXEDO_BASE_DIR="$HOME/tuxedo"
+
+          if [ -n "$TUXEDO_WORKSPACE" ]; then
+            export PATH="$TUXEDO_WORKSPACE/scripts:$TUXEDO_WORKSPACE/scripts/agents:$PATH"
+            # Only cd into workspace for screen sessions, to avoid changing dir in every new terminal
+            if [ -n "$STY" ]; then
+              [ -d "$TUXEDO_WORKSPACE" ] && cd "$TUXEDO_WORKSPACE"
+            fi
+          fi
 
   handlers:
     - name: Restart sshd
