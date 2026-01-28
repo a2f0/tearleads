@@ -25,6 +25,14 @@ if [ -f "$AVD_CONFIG" ]; then
     rm -f "${AVD_CONFIG}.bak"
 fi
 
+# Disable audio to prevent crackling on host audio
+if [ -f "$AVD_CONFIG" ]; then
+    echo "Disabling audio integration..."
+    sed -i.bak -e '/^hw\.audioInput=/d' -e '/^hw\.audioOutput=/d' "$AVD_CONFIG"
+    printf "%s\n" "hw.audioInput=no" "hw.audioOutput=no" >> "$AVD_CONFIG"
+    rm -f "${AVD_CONFIG}.bak"
+fi
+
 # Kill any running emulator
 if adb devices 2>/dev/null | grep -q "emulator"; then
     echo "Stopping running emulator..."
