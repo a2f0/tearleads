@@ -76,12 +76,9 @@ function writeOverrides(
         JSON.stringify(sanitized)
       );
     }
+    window.dispatchEvent(new Event(FEATURE_FLAGS_CHANGE_EVENT));
   } catch {
     return;
-  } finally {
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event(FEATURE_FLAGS_CHANGE_EVENT));
-    }
   }
 }
 

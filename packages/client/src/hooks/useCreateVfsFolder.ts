@@ -28,14 +28,6 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const encodeSessionKey = useCallback((key: Uint8Array): string => {
-    let binary = '';
-    for (const byte of key) {
-      binary += String.fromCharCode(byte);
-    }
-    return btoa(binary);
-  }, []);
-
   const createFolder = useCallback(
     async (
       name: string,
@@ -57,13 +49,11 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
         const auth = readStoredAuth();
         const ownerId = auth.user?.id || 'unknown';
 
-        const sessionKey = generateSessionKey();
-        let encryptedSessionKey = encodeSessionKey(sessionKey);
-        let serverSessionKey: string | null = null;
+        let encryptedSessionKey: string | null = null;
         if (isLoggedIn()) {
           try {
+            const sessionKey = generateSessionKey();
             encryptedSessionKey = await wrapSessionKey(sessionKey);
-            serverSessionKey = encryptedSessionKey;
           } catch (err) {
             console.warn('Failed to wrap folder session key:', err);
           }
@@ -86,8 +76,8 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
             encryptedName: name.trim()
           });
 
-          // If parent folder specified, create link
-          if (parentId) {
+          // If parent folder specified and we have an encrypted key, create link
+          if (parentId && encryptedSessionKey) {
             const linkId = crypto.randomUUID();
             await tx.insert(vfsLinks).values({
               id: linkId,
@@ -102,13 +92,13 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
         if (
           isLoggedIn() &&
           getFeatureFlagValue('vfsServerRegistration') &&
-          serverSessionKey
+          encryptedSessionKey
         ) {
           try {
             await api.vfs.register({
               id,
               objectType: 'folder',
-              encryptedSessionKey: serverSessionKey
+              encryptedSessionKey
             });
           } catch (err) {
             console.warn('Failed to register folder on server:', err);
@@ -124,7 +114,7 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
         setIsCreating(false);
       }
     },
-    [encodeSessionKey]
+    []
   );
 
   return {
