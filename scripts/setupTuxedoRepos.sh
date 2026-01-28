@@ -2,7 +2,7 @@
 set -eu
 
 BASE_DIR="${TUXEDO_BASE_DIR:-$HOME/tuxedo}"
-REPO_SSH_URL="git@github.com:a2f0/rapid.git"
+REPO_SSH_URL="git@github.com-tuxedo:a2f0/rapid.git"
 WORKSPACE_COUNT="${TUXEDO_WORKSPACE_COUNT:-10}"
 
 clone_or_update() {

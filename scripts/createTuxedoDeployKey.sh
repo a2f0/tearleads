@@ -59,33 +59,34 @@ env["GH_NO_UPDATE_NOTIFIER"] = "1"
 cmd = ["gh", "api", "--paginate", f"/repos/{repo}/keys"]
 existing = json.loads(subprocess.check_output(cmd, text=True, env=env))
 
-for item in existing:
-  if item.get("title") == old_title:
-    key_id = item.get("id")
-    if key_id:
-      subprocess.run(
-        ["gh", "api", "-X", "DELETE", f"/repos/{repo}/keys/{key_id}"],
-        check=True,
-        env=env,
-        stdout=subprocess.DEVNULL,
-      )
+ids_to_delete = []
+found_matching_key = False
 
 for item in existing:
-  if item.get("title") == title:
+  item_id = item.get("id")
+  if not item_id:
+    continue
+  item_title = item.get("title")
+  if item_title == old_title:
+    ids_to_delete.append(item_id)
+    continue
+  if item_title == title:
     if item.get("key") == pub_key:
-      print("Deploy key already exists and matches public key.")
-      sys.exit(0)
-    key_id = item.get("id")
-    if not key_id:
-      print("Deploy key title exists but id is missing; cannot update.")
-      sys.exit(1)
-    subprocess.run(
-      ["gh", "api", "-X", "DELETE", f"/repos/{repo}/keys/{key_id}"],
-      check=True,
-      env=env,
-      stdout=subprocess.DEVNULL,
-    )
-    break
+      found_matching_key = True
+    else:
+      ids_to_delete.append(item_id)
+
+for key_id in ids_to_delete:
+  subprocess.run(
+    ["gh", "api", "-X", "DELETE", f"/repos/{repo}/keys/{key_id}"],
+    check=True,
+    env=env,
+    stdout=subprocess.DEVNULL,
+  )
+
+if found_matching_key:
+  print("Deploy key already exists and matches public key.")
+  sys.exit(0)
 
 payload = json.dumps({"title": title, "key": pub_key, "read_only": False})
 create_cmd = ["gh", "api", "-X", "POST", f"/repos/{repo}/keys", "--input", "-"]
