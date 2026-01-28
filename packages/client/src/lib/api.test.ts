@@ -112,6 +112,65 @@ describe('api', () => {
       expect(getAuthError()).toBeNull();
     });
 
+    it('registers a new user', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            accessToken: 'new-token',
+            refreshToken: 'new-refresh',
+            tokenType: 'Bearer',
+            expiresIn: 3600,
+            refreshExpiresIn: 604800,
+            user: { id: 'user-1', email: 'new@example.com' }
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      const { api } = await import('./api');
+      const result = await api.auth.register('new@example.com', 'password123');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/auth/register',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            email: 'new@example.com',
+            password: 'password123'
+          })
+        })
+      );
+      expect(result).toEqual({
+        accessToken: 'new-token',
+        refreshToken: 'new-refresh',
+        tokenType: 'Bearer',
+        expiresIn: 3600,
+        refreshExpiresIn: 604800,
+        user: { id: 'user-1', email: 'new@example.com' }
+      });
+    });
+
+    it('does not trigger session expired error on register 401', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Invalid request' }), {
+          status: 401
+        })
+      );
+
+      const { api } = await import('./api');
+      const { getAuthError } = await import('./auth-storage');
+
+      await expect(
+        api.auth.register('test@example.com', 'password123')
+      ).rejects.toThrow('API error: 401');
+
+      // Should NOT set session expired error for registration failures
+      expect(getAuthError()).toBeNull();
+    });
+
     it('handles network errors', async () => {
       vi.mocked(global.fetch).mockRejectedValue(new Error('Network error'));
 

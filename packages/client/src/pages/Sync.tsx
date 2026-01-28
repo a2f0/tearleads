@@ -1,11 +1,13 @@
 import { LogOut, Mail } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { LoginForm } from '@/components/auth';
+import { LoginForm, RegisterForm } from '@/components/auth';
 import { SessionList } from '@/components/sessions';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
+
+type AuthMode = 'login' | 'register';
 
 function formatTimeRemaining(ms: number): string {
   const seconds = Math.floor(ms / 1000);
@@ -39,6 +41,7 @@ export function Sync({ showBackLink = true }: SyncProps) {
   } = useAuth();
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
   const [emailDomain, setEmailDomain] = useState<string | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>('login');
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -60,12 +63,8 @@ export function Sync({ showBackLink = true }: SyncProps) {
     return () => clearInterval(interval);
   }, [isAuthenticated, getTokenTimeRemaining]);
 
+  // Fetch email domain on mount (for registration form hint)
   useEffect(() => {
-    if (!isAuthenticated) {
-      setEmailDomain(null);
-      return;
-    }
-
     api.ping
       .get()
       .then((data) => {
@@ -74,7 +73,7 @@ export function Sync({ showBackLink = true }: SyncProps) {
       .catch(() => {
         setEmailDomain(null);
       });
-  }, [isAuthenticated]);
+  }, []);
 
   const handleLogout = useCallback(async () => {
     await logout();
@@ -169,10 +168,44 @@ export function Sync({ showBackLink = true }: SyncProps) {
         <h1 className="font-bold text-2xl tracking-tight">Sync</h1>
       </div>
 
-      <LoginForm
-        title="Login"
-        description="Sign in to sync your data across devices"
-      />
+      {authMode === 'login' ? (
+        <LoginForm
+          title="Login"
+          description="Sign in to sync your data across devices"
+        />
+      ) : (
+        <RegisterForm
+          title="Create Account"
+          description="Register to sync your data across devices"
+          emailDomain={emailDomain ?? undefined}
+        />
+      )}
+
+      <div className="text-center text-muted-foreground text-sm">
+        {authMode === 'login' ? (
+          <>
+            Don&apos;t have an account?{' '}
+            <button
+              type="button"
+              onClick={() => setAuthMode('register')}
+              className="font-medium text-primary hover:underline"
+            >
+              Create one
+            </button>
+          </>
+        ) : (
+          <>
+            Already have an account?{' '}
+            <button
+              type="button"
+              onClick={() => setAuthMode('login')}
+              className="font-medium text-primary hover:underline"
+            >
+              Sign in
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

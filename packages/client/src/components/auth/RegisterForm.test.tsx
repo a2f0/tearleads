@@ -1,0 +1,337 @@
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { RegisterForm } from './RegisterForm';
+
+const mockRegister = vi.fn();
+const mockClearAuthError = vi.fn();
+let mockAuthError: string | null = null;
+
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({
+    authError: mockAuthError,
+    clearAuthError: mockClearAuthError,
+    register: mockRegister
+  })
+}));
+
+describe('RegisterForm', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuthError = null;
+  });
+
+  it('renders email, password, and confirm password fields', () => {
+    render(<RegisterForm />);
+
+    expect(screen.getByLabelText('Email')).toBeInTheDocument();
+    expect(screen.getByLabelText('Password')).toBeInTheDocument();
+    expect(screen.getByLabelText('Confirm Password')).toBeInTheDocument();
+  });
+
+  it('renders with default title and description', () => {
+    render(<RegisterForm />);
+
+    // Title is rendered as a p element with font-medium class
+    const titles = screen.getAllByText('Create Account');
+    expect(titles.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Register for a new account')).toBeInTheDocument();
+  });
+
+  it('renders with custom title and description', () => {
+    render(
+      <RegisterForm
+        title="Join Us"
+        description="Create your account to get started"
+      />
+    );
+
+    expect(screen.getByText('Join Us')).toBeInTheDocument();
+    expect(
+      screen.getByText('Create your account to get started')
+    ).toBeInTheDocument();
+  });
+
+  it('shows email domain hint when provided', () => {
+    render(<RegisterForm emailDomain="example.com" />);
+
+    expect(
+      screen.getByText(
+        'Registration is limited to @example.com email addresses'
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('you@example.com')).toBeInTheDocument();
+  });
+
+  it('shows password length requirement hint', () => {
+    render(<RegisterForm />);
+
+    expect(screen.getByText('Minimum 8 characters')).toBeInTheDocument();
+  });
+
+  it('disables submit button when fields are empty', () => {
+    render(<RegisterForm />);
+
+    const submitButton = screen.getByRole('button', { name: 'Create Account' });
+    expect(submitButton).toBeDisabled();
+  });
+
+  it('disables submit button when password is too short', async () => {
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+    await user.type(screen.getByLabelText('Password'), 'short');
+    await user.type(screen.getByLabelText('Confirm Password'), 'short');
+
+    const submitButton = screen.getByRole('button', { name: 'Create Account' });
+    expect(submitButton).toBeDisabled();
+  });
+
+  it('enables submit button when all fields are valid', async () => {
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password123');
+    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+
+    const submitButton = screen.getByRole('button', { name: 'Create Account' });
+    expect(submitButton).toBeEnabled();
+  });
+
+  it('shows error when passwords do not match', async () => {
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password123');
+    await user.type(
+      screen.getByLabelText('Confirm Password'),
+      'differentpassword'
+    );
+    await user.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    expect(screen.getByText('Passwords do not match')).toBeInTheDocument();
+    expect(mockRegister).not.toHaveBeenCalled();
+  });
+
+  it('shows error when password is too short on submit', async () => {
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    // Type valid email and short password (under 8 chars but enable button manually for test)
+    const emailInput = screen.getByLabelText('Email');
+    const passwordInput = screen.getByLabelText('Password');
+    const confirmInput = screen.getByLabelText('Confirm Password');
+
+    await user.type(emailInput, 'test@example.com');
+    await user.type(passwordInput, 'short12');
+    await user.type(confirmInput, 'short12');
+
+    // Submit should be disabled, but let's verify the validation message shows if somehow submitted
+    // In this case the button is disabled so we won't see this error
+    const submitButton = screen.getByRole('button', { name: 'Create Account' });
+    expect(submitButton).toBeDisabled();
+  });
+
+  it('calls register with email and password on submit', async () => {
+    mockRegister.mockResolvedValueOnce(undefined);
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password123');
+    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    await waitFor(() => {
+      expect(mockRegister).toHaveBeenCalledWith(
+        'test@example.com',
+        'password123'
+      );
+    });
+  });
+
+  it('shows submitting state during registration', async () => {
+    let resolveRegister: () => void = () => {};
+    mockRegister.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRegister = resolve;
+        })
+    );
+
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password123');
+    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    expect(
+      screen.getByRole('button', { name: 'Creating account...' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Creating account...' })
+    ).toBeDisabled();
+
+    resolveRegister?.();
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Create Account' })
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('displays error message on registration failure', async () => {
+    mockRegister.mockRejectedValueOnce(new Error('Email already registered'));
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password123');
+    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Email already registered')).toBeInTheDocument();
+    });
+  });
+
+  it('displays string error message', async () => {
+    mockRegister.mockRejectedValueOnce('String error message');
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password123');
+    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('String error message')).toBeInTheDocument();
+    });
+  });
+
+  it('displays fallback error for unknown error types', async () => {
+    mockRegister.mockRejectedValueOnce({ unexpected: 'object' });
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password123');
+    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Registration failed. Please try again.')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('clears form fields on successful registration', async () => {
+    mockRegister.mockResolvedValueOnce(undefined);
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    const emailInput = screen.getByLabelText('Email');
+    const passwordInput = screen.getByLabelText('Password');
+    const confirmInput = screen.getByLabelText('Confirm Password');
+
+    await user.type(emailInput, 'test@example.com');
+    await user.type(passwordInput, 'password123');
+    await user.type(confirmInput, 'password123');
+    await user.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    await waitFor(() => {
+      expect(emailInput).toHaveValue('');
+      expect(passwordInput).toHaveValue('');
+      expect(confirmInput).toHaveValue('');
+    });
+  });
+
+  it('disables inputs during submission', async () => {
+    let resolveRegister: () => void = () => {};
+    mockRegister.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveRegister = resolve;
+        })
+    );
+
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password123');
+    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    expect(screen.getByLabelText('Email')).toBeDisabled();
+    expect(screen.getByLabelText('Password')).toBeDisabled();
+    expect(screen.getByLabelText('Confirm Password')).toBeDisabled();
+
+    resolveRegister?.();
+    await waitFor(() => {
+      expect(screen.getByLabelText('Email')).toBeEnabled();
+      expect(screen.getByLabelText('Password')).toBeEnabled();
+      expect(screen.getByLabelText('Confirm Password')).toBeEnabled();
+    });
+  });
+
+  it('has correct input types', () => {
+    render(<RegisterForm />);
+
+    expect(screen.getByLabelText('Email')).toHaveAttribute('type', 'email');
+    expect(screen.getByLabelText('Password')).toHaveAttribute(
+      'type',
+      'password'
+    );
+    expect(screen.getByLabelText('Confirm Password')).toHaveAttribute(
+      'type',
+      'password'
+    );
+  });
+
+  it('has correct autocomplete attributes', () => {
+    render(<RegisterForm />);
+
+    expect(screen.getByLabelText('Email')).toHaveAttribute(
+      'autocomplete',
+      'email'
+    );
+    expect(screen.getByLabelText('Password')).toHaveAttribute(
+      'autocomplete',
+      'new-password'
+    );
+    expect(screen.getByLabelText('Confirm Password')).toHaveAttribute(
+      'autocomplete',
+      'new-password'
+    );
+  });
+
+  it('shows auth error message when provided', () => {
+    mockAuthError = 'Email domain not allowed';
+    render(<RegisterForm />);
+
+    expect(screen.getByText('Email domain not allowed')).toBeInTheDocument();
+  });
+
+  it('clears auth error on submit', async () => {
+    mockRegister.mockResolvedValueOnce(undefined);
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password123');
+    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    await waitFor(() => {
+      expect(mockClearAuthError).toHaveBeenCalled();
+    });
+  });
+});

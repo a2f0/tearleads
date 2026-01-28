@@ -45,6 +45,7 @@ export type AnalyticsEventSlug =
   | 'api_put_admin_organization'
   | 'api_delete_admin_organization'
   | 'api_post_auth_login'
+  | 'api_post_auth_register'
   | 'api_post_auth_logout'
   | 'api_post_auth_refresh'
   | 'api_get_auth_sessions'
@@ -99,6 +100,7 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_put_admin_organization: 'API Update Organization',
   api_delete_admin_organization: 'API Delete Organization',
   api_post_auth_login: 'API Auth Login',
+  api_post_auth_register: 'API Auth Register',
   api_post_auth_logout: 'API Auth Logout',
   api_post_auth_refresh: 'API Auth Refresh',
   api_get_auth_sessions: 'API Get Sessions',
@@ -235,6 +237,9 @@ export interface ApiDeleteAdminOrganizationDetail {
 export interface ApiPostAuthLoginDetail {
   email?: string;
 }
+export interface ApiPostAuthRegisterDetail {
+  email?: string;
+}
 export interface ApiPostAuthLogoutDetail {
   loggedOut?: boolean;
 }
@@ -313,6 +318,7 @@ export interface EventDetailMap {
   api_put_admin_organization: ApiPutAdminOrganizationDetail;
   api_delete_admin_organization: ApiDeleteAdminOrganizationDetail;
   api_post_auth_login: ApiPostAuthLoginDetail;
+  api_post_auth_register: ApiPostAuthRegisterDetail;
   api_post_auth_logout: ApiPostAuthLogoutDetail;
   api_post_auth_refresh: ApiPostAuthRefreshDetail;
   api_get_auth_sessions: ApiGetAuthSessionsDetail;

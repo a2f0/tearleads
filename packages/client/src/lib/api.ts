@@ -169,6 +169,16 @@ export const api = {
         eventName: 'api_post_auth_login',
         skipTokenRefresh: true
       }),
+    register: (email: string, password: string) =>
+      request<AuthResponse>('/auth/register', {
+        fetchOptions: {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        },
+        eventName: 'api_post_auth_register',
+        skipTokenRefresh: true
+      }),
     getSessions: () =>
       request<SessionsResponse>('/auth/sessions', {
         eventName: 'api_get_auth_sessions'
