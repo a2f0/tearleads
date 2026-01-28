@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
+import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
@@ -36,7 +37,8 @@ const notesUIComponents: NotesUIComponents = {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  WindowOptionsMenuItem
+  WindowOptionsMenuItem,
+  AboutMenuItem
 };
 
 interface ClientNotesProviderProps {

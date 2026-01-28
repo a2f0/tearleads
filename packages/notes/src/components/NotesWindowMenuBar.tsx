@@ -32,7 +32,8 @@ export function NotesWindowMenuBar({
     DropdownMenu,
     DropdownMenuItem,
     DropdownMenuSeparator,
-    WindowOptionsMenuItem
+    WindowOptionsMenuItem,
+    AboutMenuItem
   } = useNotesUI();
 
   return (
@@ -88,6 +89,9 @@ export function NotesWindowMenuBar({
         )}
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
+      </DropdownMenu>
+      <DropdownMenu trigger="Help">
+        <AboutMenuItem />
       </DropdownMenu>
     </div>
   );

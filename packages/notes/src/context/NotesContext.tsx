@@ -109,6 +109,8 @@ export type DropdownMenuSeparatorProps = Record<string, never>;
 
 export type WindowOptionsMenuItemProps = Record<string, never>;
 
+export type AboutMenuItemProps = Record<string, never>;
+
 /**
  * UI components that the notes package requires from the consumer
  */
@@ -126,6 +128,7 @@ export interface NotesUIComponents {
   DropdownMenuItem: ComponentType<DropdownMenuItemProps>;
   DropdownMenuSeparator: ComponentType<DropdownMenuSeparatorProps>;
   WindowOptionsMenuItem: ComponentType<WindowOptionsMenuItemProps>;
+  AboutMenuItem: ComponentType<AboutMenuItemProps>;
 }
 
 /**
