@@ -8,9 +8,14 @@ import { ContactNew } from './ContactNew';
 
 const mockIsLoggedIn = vi.fn();
 const mockReadStoredAuth = vi.fn();
+const mockGetFeatureFlagValue = vi.fn();
 vi.mock('@/lib/auth-storage', () => ({
   isLoggedIn: () => mockIsLoggedIn(),
   readStoredAuth: () => mockReadStoredAuth()
+}));
+
+vi.mock('@/lib/feature-flags', () => ({
+  getFeatureFlagValue: () => mockGetFeatureFlagValue()
 }));
 
 const mockGenerateSessionKey = vi.fn();
@@ -86,6 +91,7 @@ describe('ContactNew', () => {
     mockDelete.mockImplementation(createMockDeleteChain());
     mockIsLoggedIn.mockReturnValue(false);
     mockReadStoredAuth.mockReturnValue({ user: { id: 'user-123' } });
+    mockGetFeatureFlagValue.mockReturnValue(false);
     mockGenerateSessionKey.mockReturnValue(new Uint8Array(32));
     mockWrapSessionKey.mockResolvedValue('encrypted-session-key');
   });

@@ -5,7 +5,9 @@
 import { useCallback, useState } from 'react';
 import { getDatabase } from '@/db';
 import { vfsFolders, vfsLinks, vfsRegistry } from '@/db/schema';
+import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
+import { getFeatureFlagValue } from '@/lib/feature-flags';
 import { generateSessionKey, wrapSessionKey } from './useVfsKeys';
 
 export interface CreateFolderResult {
@@ -57,9 +59,11 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
 
         const sessionKey = generateSessionKey();
         let encryptedSessionKey = encodeSessionKey(sessionKey);
+        let serverSessionKey: string | null = null;
         if (isLoggedIn()) {
           try {
             encryptedSessionKey = await wrapSessionKey(sessionKey);
+            serverSessionKey = encryptedSessionKey;
           } catch (err) {
             console.warn('Failed to wrap folder session key:', err);
           }
@@ -94,6 +98,22 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
             });
           }
         });
+
+        if (
+          isLoggedIn() &&
+          getFeatureFlagValue('vfsServerRegistration') &&
+          serverSessionKey
+        ) {
+          try {
+            await api.vfs.register({
+              id,
+              objectType: 'folder',
+              encryptedSessionKey: serverSessionKey
+            });
+          } catch (err) {
+            console.warn('Failed to register folder on server:', err);
+          }
+        }
 
         return { id, name: name.trim() };
       } catch (err) {

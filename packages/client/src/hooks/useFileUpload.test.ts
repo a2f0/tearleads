@@ -51,6 +51,10 @@ vi.mock('@/lib/auth-storage', () => ({
   readStoredAuth: vi.fn(() => ({ user: { id: 'test-user-id' } }))
 }));
 
+vi.mock('@/lib/feature-flags', () => ({
+  getFeatureFlagValue: vi.fn(() => false)
+}));
+
 // Mock VFS keys
 vi.mock('./useVfsKeys', () => ({
   generateSessionKey: vi.fn(),
