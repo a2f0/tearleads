@@ -26,6 +26,14 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const encodeSessionKey = useCallback((key: Uint8Array): string => {
+    let binary = '';
+    for (const byte of key) {
+      binary += String.fromCharCode(byte);
+    }
+    return btoa(binary);
+  }, []);
+
   const createFolder = useCallback(
     async (
       name: string,
@@ -47,10 +55,10 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
         const auth = readStoredAuth();
         const ownerId = auth.user?.id || 'unknown';
 
-        let encryptedSessionKey: string | null = null;
+        const sessionKey = generateSessionKey();
+        let encryptedSessionKey = encodeSessionKey(sessionKey);
         if (isLoggedIn()) {
           try {
-            const sessionKey = generateSessionKey();
             encryptedSessionKey = await wrapSessionKey(sessionKey);
           } catch (err) {
             console.warn('Failed to wrap folder session key:', err);
@@ -96,7 +104,7 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
         setIsCreating(false);
       }
     },
-    []
+    [encodeSessionKey]
   );
 
   return {
