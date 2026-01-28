@@ -8,4 +8,4 @@ esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
 "$SCRIPT_DIR/../tuxedo/terraform/scripts/init.sh"
-ansible-playbook -i "$SCRIPT_DIR/../ansible/inventories/tuxedo.sh" "$SCRIPT_DIR/../ansible/playbooks/main.yml"
+ansible-playbook -i "$SCRIPT_DIR/../ansible/inventories/tuxedo.sh" "$SCRIPT_DIR/../ansible/playbooks/tuxedo.yml"

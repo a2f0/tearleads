@@ -20,6 +20,8 @@
     patch_time: "03:00"
     patch_timezone: "UTC"
     postgresql_version: 16
+    tuxedo_github_deploy_key_name: tuxedoGithubDeployKey
+    tuxedo_github_deploy_key_path: "{{ playbook_dir }}/../../.secrets/tuxedoGithubDeployKey"
 
   tasks:
     - name: Add GitHub Actions deploy key to authorized_keys
@@ -27,6 +29,36 @@
         user: "{{ ansible_user }}"
         state: present
         key: "{{ deploy_public_key }}"
+
+    - name: Ensure SSH directory exists for deploy key
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/.ssh"
+        state: directory
+        mode: "0700"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Install GitHub deploy key for tuxedo
+      ansible.builtin.copy:
+        src: "{{ tuxedo_github_deploy_key_path }}"
+        dest: "/home/{{ ansible_user }}/.ssh/{{ tuxedo_github_deploy_key_name }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0600"
+
+    - name: Configure GitHub SSH host alias for tuxedo deploy key
+      ansible.builtin.blockinfile:
+        path: "/home/{{ ansible_user }}/.ssh/config"
+        create: true
+        mode: "0600"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        block: |
+          Host github.com-tuxedo
+            HostName github.com
+            User git
+            IdentityFile /home/{{ ansible_user }}/.ssh/{{ tuxedo_github_deploy_key_name }}
+            IdentitiesOnly yes
 
     - name: Add server user to systemd-journal group
       ansible.builtin.user:

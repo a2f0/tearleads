@@ -1,0 +1,109 @@
+---
+- name: Configure tuxedo dev server
+  hosts: all
+  become: true
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    nodejs_major_version: 22
+    tuxedo_github_deploy_key_name: tuxedoGithubDeployKey
+    tuxedo_github_deploy_key_path: "{{ playbook_dir }}/../../.secrets/tuxedoGithubDeployKey"
+
+  tasks:
+    - name: Ensure SSH directory exists for deploy key
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/.ssh"
+        state: directory
+        mode: "0700"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Install GitHub deploy key for tuxedo
+      ansible.builtin.copy:
+        src: "{{ tuxedo_github_deploy_key_path }}"
+        dest: "/home/{{ ansible_user }}/.ssh/{{ tuxedo_github_deploy_key_name }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0600"
+
+    - name: Configure GitHub SSH host alias for tuxedo deploy key
+      ansible.builtin.blockinfile:
+        path: "/home/{{ ansible_user }}/.ssh/config"
+        create: true
+        mode: "0600"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        block: |
+          Host github.com-tuxedo
+            HostName github.com
+            User git
+            IdentityFile /home/{{ ansible_user }}/.ssh/{{ tuxedo_github_deploy_key_name }}
+            IdentitiesOnly yes
+
+    - name: Copy tuxedo repo setup script
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../scripts/setupTuxedoRepos.sh"
+        dest: "/home/{{ ansible_user }}/setupTuxedoRepos.sh"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+
+    - name: Disable root SSH login
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin no'
+        validate: 'sshd -t -f %s'
+      notify: Restart sshd
+
+    - name: Update apt cache and upgrade all packages
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+        upgrade: dist
+
+    - name: Install dev packages
+      ansible.builtin.apt:
+        name:
+          - build-essential
+          - ca-certificates
+          - curl
+          - git
+          - gnupg
+          - ncurses-bin
+        state: present
+
+    - name: Create keyrings directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Download and dearmor NodeSource GPG key
+      ansible.builtin.shell:
+        cmd: set -o pipefail && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+        executable: /bin/bash
+        creates: /etc/apt/keyrings/nodesource.gpg
+
+    - name: Set permissions on NodeSource GPG key
+      ansible.builtin.file:
+        path: /etc/apt/keyrings/nodesource.gpg
+        mode: "0644"
+
+    - name: Add NodeSource repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_{{ nodejs_major_version }}.x nodistro main"
+        state: present
+        filename: nodesource
+
+    - name: Install Node.js
+      ansible.builtin.apt:
+        name: nodejs
+        state: present
+        update_cache: true
+
+  handlers:
+    - name: Restart sshd
+      ansible.builtin.systemd:
+        name: ssh
+        state: restarted
