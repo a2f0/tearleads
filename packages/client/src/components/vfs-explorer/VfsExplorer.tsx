@@ -17,7 +17,7 @@ export function VfsExplorer({
   className,
   compact,
   viewMode = 'list',
-  refreshToken: _refreshToken,
+  refreshToken,
   selectedFolderId: controlledSelectedFolderId,
   onFolderSelect
 }: VfsExplorerProps) {
@@ -51,11 +51,13 @@ export function VfsExplorer({
         selectedFolderId={selectedFolderId}
         onFolderSelect={handleFolderSelect}
         compact={compact}
+        refreshToken={refreshToken}
       />
       <VfsDetailsPanel
         folderId={selectedFolderId}
         viewMode={viewMode}
         compact={compact}
+        refreshToken={refreshToken}
       />
     </div>
   );

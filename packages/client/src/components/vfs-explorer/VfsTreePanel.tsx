@@ -6,7 +6,7 @@ import {
   FolderOpen,
   Loader2
 } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsFolders, type VfsFolderNode } from '@/hooks/useVfsFolders';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +21,7 @@ interface VfsTreePanelProps {
   selectedFolderId: string | null;
   onFolderSelect: (folderId: string | null) => void;
   compact?: boolean | undefined;
+  refreshToken?: number | undefined;
 }
 
 export function VfsTreePanel({
@@ -28,9 +29,17 @@ export function VfsTreePanel({
   onWidthChange,
   selectedFolderId,
   onFolderSelect,
-  compact: _compact
+  compact: _compact,
+  refreshToken
 }: VfsTreePanelProps) {
-  const { folders, loading, error } = useVfsFolders();
+  const { folders, loading, error, refetch } = useVfsFolders();
+
+  // Refetch when refreshToken changes
+  useEffect(() => {
+    if (refreshToken !== undefined && refreshToken > 0) {
+      refetch();
+    }
+  }, [refreshToken, refetch]);
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(
     new Set()
   );

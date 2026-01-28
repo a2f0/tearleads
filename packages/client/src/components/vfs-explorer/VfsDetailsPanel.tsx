@@ -7,6 +7,7 @@ import {
   StickyNote,
   User
 } from 'lucide-react';
+import { useEffect } from 'react';
 import {
   useVfsFolderContents,
   type VfsItem,
@@ -23,6 +24,7 @@ interface VfsDetailsPanelProps {
   folderId: string | null;
   viewMode?: VfsViewMode | undefined;
   compact?: boolean | undefined;
+  refreshToken?: number | undefined;
 }
 
 const OBJECT_TYPE_ICONS: Record<VfsObjectType, typeof Folder> = {
@@ -52,13 +54,25 @@ interface DisplayItem {
 export function VfsDetailsPanel({
   folderId,
   viewMode = 'list',
-  compact: _compact
+  compact: _compact,
+  refreshToken
 }: VfsDetailsPanelProps) {
   const isUnfiled = folderId === UNFILED_FOLDER_ID;
 
   // Use the appropriate hook based on selection
   const folderContents = useVfsFolderContents(isUnfiled ? null : folderId);
   const unfiledItems = useVfsUnfiledItems();
+
+  // Refetch when refreshToken changes
+  useEffect(() => {
+    if (refreshToken !== undefined && refreshToken > 0) {
+      if (isUnfiled) {
+        unfiledItems.refetch();
+      } else {
+        folderContents.refetch();
+      }
+    }
+  }, [refreshToken, isUnfiled, folderContents, unfiledItems]);
 
   // Select the appropriate data source
   const items: DisplayItem[] = isUnfiled

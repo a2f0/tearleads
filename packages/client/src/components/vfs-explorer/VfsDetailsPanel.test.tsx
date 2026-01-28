@@ -246,5 +246,49 @@ describe('VfsDetailsPanel', () => {
       expect(screen.getByText('unfiled-document.pdf')).toBeInTheDocument();
       expect(screen.getByText('1 item')).toBeInTheDocument();
     });
+
+    it('calls refetch when refreshToken changes', () => {
+      const mockRefetch = vi.fn();
+      vi.mocked(useVfsUnfiledItems).mockReturnValue({
+        items: [],
+        loading: false,
+        error: null,
+        hasFetched: true,
+        refetch: mockRefetch
+      });
+
+      const { rerender } = render(
+        <VfsDetailsPanel folderId={UNFILED_FOLDER_ID} refreshToken={0} />
+      );
+
+      expect(mockRefetch).not.toHaveBeenCalled();
+
+      rerender(
+        <VfsDetailsPanel folderId={UNFILED_FOLDER_ID} refreshToken={1} />
+      );
+
+      expect(mockRefetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('calls folder contents refetch when refreshToken changes', () => {
+    const mockRefetch = vi.fn();
+    vi.mocked(useVfsFolderContents).mockReturnValue({
+      items: [],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      refetch: mockRefetch
+    });
+
+    const { rerender } = render(
+      <VfsDetailsPanel folderId="folder-1" refreshToken={0} />
+    );
+
+    expect(mockRefetch).not.toHaveBeenCalled();
+
+    rerender(<VfsDetailsPanel folderId="folder-1" refreshToken={1} />);
+
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
   });
 });

@@ -272,4 +272,25 @@ describe('VfsTreePanel', () => {
 
     expect(screen.getByText('Work')).toBeInTheDocument();
   });
+
+  it('calls refetch when refreshToken changes', () => {
+    const mockRefetch = vi.fn();
+    vi.mocked(useVfsFolders).mockReturnValue({
+      folders: mockFolders,
+      loading: false,
+      error: null,
+      hasFetched: true,
+      refetch: mockRefetch
+    });
+
+    const { rerender } = render(
+      <VfsTreePanel {...defaultProps} refreshToken={0} />
+    );
+
+    expect(mockRefetch).not.toHaveBeenCalled();
+
+    rerender(<VfsTreePanel {...defaultProps} refreshToken={1} />);
+
+    expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
 });
