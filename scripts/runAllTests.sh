@@ -66,7 +66,7 @@ echo "[playwright] Vite server ready after ${WAITED}s"
 
 # PW_EXTERNAL_SERVER=true disables Playwright webServer so this script controls lifecycle.
 # BASE_URL uses port 3002 to avoid conflict with any running dev server on 3000.
-BASE_URL=http://localhost:3002 PW_EXTERNAL_SERVER=true PW_FORCE_KILL_WORKERS=true PW_FORCE_EXIT=true pnpm --filter @rapid/client test:e2e && PW_EXIT_CODE=0 || PW_EXIT_CODE=$?
+BASE_URL=http://localhost:3002 PW_EXTERNAL_SERVER=true PW_FORCE_EXIT=true pnpm --filter @rapid/client test:e2e && PW_EXIT_CODE=0 || PW_EXIT_CODE=$?
 
 # Clean up vite server
 echo "[playwright] Stopping vite server (pid: $VITE_PID)..."
