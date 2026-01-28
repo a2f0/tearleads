@@ -10,6 +10,7 @@ export {
 
 // Context
 export {
+  type AboutMenuItemProps,
   type ButtonProps,
   type ContextMenuItemProps,
   type ContextMenuProps,
