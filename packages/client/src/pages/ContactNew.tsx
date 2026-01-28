@@ -1,4 +1,3 @@
-import { eq } from 'drizzle-orm';
 import {
   ArrowLeft,
   Cake,
@@ -204,37 +203,19 @@ export function ContactNew() {
           });
         }
 
-        await adapter.commitTransaction();
-
         // Register in VFS (server-side) if logged in
-        // This is atomic - if VFS registration fails, rollback local storage
+        // Done before commit so transaction rollback handles cleanup on failure
         if (isLoggedIn()) {
-          try {
-            const sessionKey = generateSessionKey();
-            const encryptedSessionKey = await wrapSessionKey(sessionKey);
-            await api.vfs.register({
-              id: contactId,
-              objectType: 'contact',
-              encryptedSessionKey
-            });
-          } catch (err) {
-            // Rollback: delete from SQLite
-            try {
-              await db
-                .delete(contactEmails)
-                .where(eq(contactEmails.contactId, contactId));
-              await db
-                .delete(contactPhones)
-                .where(eq(contactPhones.contactId, contactId));
-              await db.delete(contacts).where(eq(contacts.id, contactId));
-            } catch (rollbackErr) {
-              console.error('Rollback failed:', rollbackErr);
-            }
-            throw new Error(
-              `VFS registration failed: ${err instanceof Error ? err.message : String(err)}`
-            );
-          }
+          const sessionKey = generateSessionKey();
+          const encryptedSessionKey = await wrapSessionKey(sessionKey);
+          await api.vfs.register({
+            id: contactId,
+            objectType: 'contact',
+            encryptedSessionKey
+          });
         }
+
+        await adapter.commitTransaction();
 
         navigate(`/contacts/${contactId}`);
       } catch (err) {

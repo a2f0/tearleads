@@ -421,7 +421,7 @@ describe('ContactNew', () => {
       expect(mockVfsRegister).not.toHaveBeenCalled();
     });
 
-    it('rolls back contact on VFS registration failure', async () => {
+    it('rolls back via transaction on VFS registration failure', async () => {
       const consoleSpy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => {});
@@ -436,12 +436,11 @@ describe('ContactNew', () => {
       await user.click(screen.getByTestId('save-button'));
 
       await waitFor(() => {
-        expect(
-          screen.getByText('VFS registration failed: VFS error')
-        ).toBeInTheDocument();
+        expect(screen.getByText('VFS error')).toBeInTheDocument();
       });
 
-      expect(mockDelete).toHaveBeenCalledTimes(3);
+      // Transaction rollback handles cleanup, no manual delete needed
+      expect(mockDelete).not.toHaveBeenCalled();
       expect(mockNavigate).not.toHaveBeenCalled();
 
       consoleSpy.mockRestore();
