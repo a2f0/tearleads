@@ -149,6 +149,18 @@
         global: true
         state: present
 
+    - name: Add CLI aliases to bashrc
+      ansible.builtin.blockinfile:
+        path: "/home/{{ ansible_user }}/.bashrc"
+        create: true
+        mode: "0644"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        marker: "# {mark} ANSIBLE MANAGED - CLI aliases"
+        block: |
+          alias frc='claude --dangerously-skip-permissions'
+          alias frco='codex --sandbox danger-full-access --ask-for-approval never'
+
   handlers:
     - name: Restart sshd
       ansible.builtin.systemd:
