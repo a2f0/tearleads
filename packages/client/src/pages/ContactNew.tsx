@@ -18,6 +18,9 @@ import { Input } from '@/components/ui/input';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
+import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
+import { api } from '@/lib/api';
+import { isLoggedIn } from '@/lib/auth-storage';
 
 interface ContactFormData {
   firstName: string;
@@ -197,6 +200,18 @@ export function ContactNew() {
             phoneNumber: phone.phoneNumber.trim(),
             label: phone.label.trim() || null,
             isPrimary: phone.isPrimary
+          });
+        }
+
+        // Register in VFS (server-side) if logged in
+        // Done before commit so transaction rollback handles cleanup on failure
+        if (isLoggedIn()) {
+          const sessionKey = generateSessionKey();
+          const encryptedSessionKey = await wrapSessionKey(sessionKey);
+          await api.vfs.register({
+            id: contactId,
+            objectType: 'contact',
+            encryptedSessionKey
           });
         }
 
