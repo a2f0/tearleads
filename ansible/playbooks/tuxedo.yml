@@ -267,11 +267,27 @@
         state: present
         update_cache: true
 
-    - name: Install Claude Code CLI
-      community.general.npm:
-        name: "@anthropic-ai/claude-code"
-        global: true
-        state: present
+    - name: Check if Claude Code is installed
+      ansible.builtin.stat:
+        path: "/home/{{ ansible_user }}/.claude/local/claude"
+      register: claude_code_stat
+
+    - name: Download Claude Code installer script
+      ansible.builtin.get_url:
+        url: https://claude.ai/install.sh
+        dest: /tmp/claude-install.sh
+        mode: "0755"
+      when: not claude_code_stat.stat.exists
+
+    - name: Install Claude Code CLI via native installer
+      ansible.builtin.command:
+        cmd: /tmp/claude-install.sh
+      become: true
+      become_user: "{{ ansible_user }}"
+      environment:
+        HOME: "/home/{{ ansible_user }}"
+      when: not claude_code_stat.stat.exists
+      changed_when: true
 
     - name: Install OpenAI Codex CLI
       community.general.npm:
