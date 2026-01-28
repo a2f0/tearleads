@@ -7,30 +7,26 @@ AVD_CONFIG="$AVD_DIR/config.ini"
 
 echo "Resetting Android emulator: $DEVICE"
 
-# Disable "always on top" behavior
-if [ -f "$AVD_CONFIG" ] && ! grep -Fxq "set.android.emulator.qt.window.on.top=false" "$AVD_CONFIG"; then
-    echo "Disabling always-on-top window behavior..."
-    # Remove any existing line and append the correct one to ensure the setting is correct.
-    # The .bak extension for sed -i is for macOS compatibility.
-    sed -i.bak '/^set\.android\.emulator\.qt\.window\.on\.top=/d' "$AVD_CONFIG"
-    echo "set.android.emulator.qt.window.on.top=false" >> "$AVD_CONFIG"
-    rm -f "${AVD_CONFIG}.bak"
-fi
-
-# Disable quick-boot snapshot (force cold boot every time)
+# Configure emulator settings in config.ini
 if [ -f "$AVD_CONFIG" ]; then
-    echo "Disabling quick-boot snapshot..."
-    sed -i.bak -e '/^fastboot\.forceColdBoot=/d' -e '/^fastboot\.forceFastBoot=/d' "$AVD_CONFIG"
-    printf "%s\n" "fastboot.forceColdBoot=yes" "fastboot.forceFastBoot=no" >> "$AVD_CONFIG"
+    echo "Configuring emulator settings..."
+    # Remove existing settings to ensure correct values (sed -i.bak for macOS compatibility)
+    sed -i.bak \
+        -e '/^set\.android\.emulator\.qt\.window\.on\.top=/d' \
+        -e '/^fastboot\.forceColdBoot=/d' \
+        -e '/^fastboot\.forceFastBoot=/d' \
+        -e '/^hw\.audioInput=/d' \
+        -e '/^hw\.audioOutput=/d' \
+        "$AVD_CONFIG"
     rm -f "${AVD_CONFIG}.bak"
-fi
-
-# Disable audio to prevent crackling on host audio
-if [ -f "$AVD_CONFIG" ]; then
-    echo "Disabling audio integration..."
-    sed -i.bak -e '/^hw\.audioInput=/d' -e '/^hw\.audioOutput=/d' "$AVD_CONFIG"
-    printf "%s\n" "hw.audioInput=no" "hw.audioOutput=no" >> "$AVD_CONFIG"
-    rm -f "${AVD_CONFIG}.bak"
+    # Append desired settings
+    cat >> "$AVD_CONFIG" <<'SETTINGS'
+set.android.emulator.qt.window.on.top=false
+fastboot.forceColdBoot=yes
+fastboot.forceFastBoot=no
+hw.audioInput=no
+hw.audioOutput=no
+SETTINGS
 fi
 
 # Kill any running emulator
