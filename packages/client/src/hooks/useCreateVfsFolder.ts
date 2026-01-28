@@ -52,32 +52,35 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
         const sessionKey = generateSessionKey();
         const encryptedSessionKey = await wrapSessionKey(sessionKey);
 
-        // Insert into local vfs_registry
-        await db.insert(vfsRegistry).values({
-          id,
-          objectType: 'folder',
-          ownerId,
-          encryptedSessionKey,
-          createdAt: now
-        });
-
-        // Insert into local vfs_folders
-        await db.insert(vfsFolders).values({
-          id,
-          encryptedName: name.trim()
-        });
-
-        // If parent folder specified, create link
-        if (parentId) {
-          const linkId = crypto.randomUUID();
-          await db.insert(vfsLinks).values({
-            id: linkId,
-            parentId,
-            childId: id,
-            wrappedSessionKey: encryptedSessionKey,
+        // Use transaction to ensure atomicity
+        await db.transaction(async (tx) => {
+          // Insert into local vfs_registry
+          await tx.insert(vfsRegistry).values({
+            id,
+            objectType: 'folder',
+            ownerId,
+            encryptedSessionKey,
             createdAt: now
           });
-        }
+
+          // Insert into local vfs_folders
+          await tx.insert(vfsFolders).values({
+            id,
+            encryptedName: name.trim()
+          });
+
+          // If parent folder specified, create link
+          if (parentId) {
+            const linkId = crypto.randomUUID();
+            await tx.insert(vfsLinks).values({
+              id: linkId,
+              parentId,
+              childId: id,
+              wrappedSessionKey: encryptedSessionKey,
+              createdAt: now
+            });
+          }
+        });
 
         // Register on server if logged in
         if (isLoggedIn()) {

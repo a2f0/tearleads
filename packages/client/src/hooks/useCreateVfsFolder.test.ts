@@ -5,9 +5,16 @@ import { useCreateVfsFolder } from './useCreateVfsFolder';
 const mockInsert = vi.fn(() => ({
   values: vi.fn().mockResolvedValue(undefined)
 }));
+// Transaction mock that passes through to callback with same db interface
+const mockTransaction = vi.fn(async (callback) => {
+  await callback({
+    insert: mockInsert
+  });
+});
 vi.mock('@/db', () => ({
   getDatabase: vi.fn(() => ({
-    insert: mockInsert
+    insert: mockInsert,
+    transaction: mockTransaction
   }))
 }));
 
@@ -168,7 +175,7 @@ describe('useCreateVfsFolder', () => {
   });
 
   it('sets error state on failure', async () => {
-    mockInsert.mockImplementationOnce(() => {
+    mockTransaction.mockImplementationOnce(async () => {
       throw new Error('Database error');
     });
 
