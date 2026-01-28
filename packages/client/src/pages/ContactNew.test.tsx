@@ -5,6 +5,27 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContactNew } from './ContactNew';
 
+const mockIsLoggedIn = vi.fn();
+vi.mock('@/lib/auth-storage', () => ({
+  isLoggedIn: () => mockIsLoggedIn()
+}));
+
+const mockGenerateSessionKey = vi.fn();
+const mockWrapSessionKey = vi.fn();
+vi.mock('@/hooks/useVfsKeys', () => ({
+  generateSessionKey: () => mockGenerateSessionKey(),
+  wrapSessionKey: (key: Uint8Array) => mockWrapSessionKey(key)
+}));
+
+const mockVfsRegister = vi.fn();
+vi.mock('@/lib/api', () => ({
+  api: {
+    vfs: {
+      register: (params: unknown) => mockVfsRegister(params)
+    }
+  }
+}));
+
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -20,10 +41,12 @@ vi.mock('@/db/hooks', () => ({
 }));
 
 const mockInsert = vi.fn();
+const mockDelete = vi.fn();
 
 vi.mock('@/db', () => ({
   getDatabase: () => ({
-    insert: mockInsert
+    insert: mockInsert,
+    delete: mockDelete
   }),
   getDatabaseAdapter: () => ({
     beginTransaction: vi.fn().mockResolvedValue(undefined),
@@ -35,6 +58,12 @@ vi.mock('@/db', () => ({
 function createMockInsertChain() {
   return vi.fn().mockReturnValue({
     values: vi.fn().mockResolvedValue(undefined)
+  });
+}
+
+function createMockDeleteChain() {
+  return vi.fn().mockReturnValue({
+    where: vi.fn().mockResolvedValue(undefined)
   });
 }
 
@@ -60,6 +89,11 @@ describe('ContactNew', () => {
       isLoading: false
     });
     mockInsert.mockImplementation(createMockInsertChain());
+    mockDelete.mockImplementation(createMockDeleteChain());
+    mockIsLoggedIn.mockReturnValue(false);
+    mockGenerateSessionKey.mockReturnValue(new Uint8Array(32));
+    mockWrapSessionKey.mockResolvedValue('encrypted-session-key');
+    mockVfsRegister.mockResolvedValue(undefined);
   });
 
   describe('rendering', () => {
@@ -338,6 +372,77 @@ describe('ContactNew', () => {
       await waitFor(() => {
         expect(screen.getByText('Database error')).toBeInTheDocument();
       });
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('VFS registration', () => {
+    it('registers contact in VFS when logged in', async () => {
+      mockIsLoggedIn.mockReturnValue(true);
+
+      const user = userEvent.setup();
+      renderContactNew();
+
+      await user.type(screen.getByTestId('new-first-name'), 'John');
+      await user.click(screen.getByTestId('save-button'));
+
+      await waitFor(() => {
+        expect(mockVfsRegister).toHaveBeenCalledWith(
+          expect.objectContaining({
+            objectType: 'contact',
+            encryptedSessionKey: 'encrypted-session-key'
+          })
+        );
+      });
+
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith(
+          expect.stringMatching(/^\/contacts\/[a-f0-9-]+$/)
+        );
+      });
+    });
+
+    it('does not register contact in VFS when not logged in', async () => {
+      mockIsLoggedIn.mockReturnValue(false);
+
+      const user = userEvent.setup();
+      renderContactNew();
+
+      await user.type(screen.getByTestId('new-first-name'), 'John');
+      await user.click(screen.getByTestId('save-button'));
+
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith(
+          expect.stringMatching(/^\/contacts\/[a-f0-9-]+$/)
+        );
+      });
+
+      expect(mockVfsRegister).not.toHaveBeenCalled();
+    });
+
+    it('rolls back contact on VFS registration failure', async () => {
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      mockIsLoggedIn.mockReturnValue(true);
+      mockVfsRegister.mockRejectedValue(new Error('VFS error'));
+
+      const user = userEvent.setup();
+      renderContactNew();
+
+      await user.type(screen.getByTestId('new-first-name'), 'John');
+      await user.click(screen.getByTestId('save-button'));
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('VFS registration failed: VFS error')
+        ).toBeInTheDocument();
+      });
+
+      expect(mockDelete).toHaveBeenCalledTimes(3);
+      expect(mockNavigate).not.toHaveBeenCalled();
 
       consoleSpy.mockRestore();
     });
