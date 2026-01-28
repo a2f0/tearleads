@@ -69,6 +69,19 @@
           export TUXEDO_SCRIPT_PATH
           exec "$TUXEDO_SCRIPT_PATH" "$@"
 
+    - name: Create tuxedoKill.sh wrapper in home directory
+      ansible.builtin.copy:
+        dest: "/home/{{ ansible_user }}/tuxedoKill.sh"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          # Wrapper to launch tuxedoKill.sh with correct SCRIPT_PATH
+          TUXEDO_SCRIPT_PATH="/home/{{ ansible_user }}/tuxedo/tuxedo-shared/tuxedo/tuxedoKill.sh"
+          export TUXEDO_SCRIPT_PATH
+          exec "$TUXEDO_SCRIPT_PATH" "$@"
+
     - name: Disable root SSH login
       ansible.builtin.lineinfile:
         path: /etc/ssh/sshd_config
