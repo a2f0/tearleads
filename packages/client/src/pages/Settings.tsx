@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FontSelector,
+  FeatureFlags,
   IconBackgroundToggle,
   IconDepthToggle,
   PatternSelector,
@@ -137,6 +138,10 @@ export function Settings({ showBackLink = true }: SettingsProps) {
 
       <SettingsSection>
         <TooltipsToggle />
+      </SettingsSection>
+
+      <SettingsSection>
+        <FeatureFlags />
       </SettingsSection>
 
       {/* Backup & Restore Section */}

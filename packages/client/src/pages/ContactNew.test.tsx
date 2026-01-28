@@ -4,10 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContactNew } from './ContactNew';
+import { vfsRegistry } from '@/db/schema';
 
 const mockIsLoggedIn = vi.fn();
+const mockReadStoredAuth = vi.fn();
 vi.mock('@/lib/auth-storage', () => ({
-  isLoggedIn: () => mockIsLoggedIn()
+  isLoggedIn: () => mockIsLoggedIn(),
+  readStoredAuth: () => mockReadStoredAuth()
 }));
 
 const mockGenerateSessionKey = vi.fn();
@@ -15,15 +18,6 @@ const mockWrapSessionKey = vi.fn();
 vi.mock('@/hooks/useVfsKeys', () => ({
   generateSessionKey: () => mockGenerateSessionKey(),
   wrapSessionKey: (key: Uint8Array) => mockWrapSessionKey(key)
-}));
-
-const mockVfsRegister = vi.fn();
-vi.mock('@/lib/api', () => ({
-  api: {
-    vfs: {
-      register: (params: unknown) => mockVfsRegister(params)
-    }
-  }
 }));
 
 const mockNavigate = vi.fn();
@@ -91,9 +85,9 @@ describe('ContactNew', () => {
     mockInsert.mockImplementation(createMockInsertChain());
     mockDelete.mockImplementation(createMockDeleteChain());
     mockIsLoggedIn.mockReturnValue(false);
+    mockReadStoredAuth.mockReturnValue({ user: { id: 'user-123' } });
     mockGenerateSessionKey.mockReturnValue(new Uint8Array(32));
     mockWrapSessionKey.mockResolvedValue('encrypted-session-key');
-    mockVfsRegister.mockResolvedValue(undefined);
   });
 
   describe('rendering', () => {
@@ -331,7 +325,7 @@ describe('ContactNew', () => {
       await user.click(screen.getByTestId('save-button'));
 
       await waitFor(() => {
-        expect(mockInsert).toHaveBeenCalledTimes(2);
+        expect(mockInsert).toHaveBeenCalledTimes(3);
       });
     });
 
@@ -348,7 +342,7 @@ describe('ContactNew', () => {
       await user.click(screen.getByTestId('save-button'));
 
       await waitFor(() => {
-        expect(mockInsert).toHaveBeenCalledTimes(2);
+        expect(mockInsert).toHaveBeenCalledTimes(3);
       });
     });
   });
@@ -378,7 +372,7 @@ describe('ContactNew', () => {
   });
 
   describe('VFS registration', () => {
-    it('registers contact in VFS when logged in', async () => {
+    it('registers contact locally in VFS when logged in', async () => {
       mockIsLoggedIn.mockReturnValue(true);
 
       const user = userEvent.setup();
@@ -388,12 +382,7 @@ describe('ContactNew', () => {
       await user.click(screen.getByTestId('save-button'));
 
       await waitFor(() => {
-        expect(mockVfsRegister).toHaveBeenCalledWith(
-          expect.objectContaining({
-            objectType: 'contact',
-            encryptedSessionKey: 'encrypted-session-key'
-          })
-        );
+        expect(mockInsert).toHaveBeenCalledWith(vfsRegistry);
       });
 
       await waitFor(() => {
@@ -403,7 +392,7 @@ describe('ContactNew', () => {
       });
     });
 
-    it('does not register contact in VFS when not logged in', async () => {
+    it('registers contact locally in VFS when not logged in', async () => {
       mockIsLoggedIn.mockReturnValue(false);
 
       const user = userEvent.setup();
@@ -418,16 +407,18 @@ describe('ContactNew', () => {
         );
       });
 
-      expect(mockVfsRegister).not.toHaveBeenCalled();
+      await waitFor(() => {
+        expect(mockInsert).toHaveBeenCalledWith(vfsRegistry);
+      });
     });
 
-    it('rolls back via transaction on VFS registration failure', async () => {
+    it('still saves contact when session key wrapping fails', async () => {
       const consoleSpy = vi
-        .spyOn(console, 'error')
+        .spyOn(console, 'warn')
         .mockImplementation(() => {});
 
       mockIsLoggedIn.mockReturnValue(true);
-      mockVfsRegister.mockRejectedValue(new Error('VFS error'));
+      mockWrapSessionKey.mockRejectedValue(new Error('VFS error'));
 
       const user = userEvent.setup();
       renderContactNew();
@@ -436,12 +427,10 @@ describe('ContactNew', () => {
       await user.click(screen.getByTestId('save-button'));
 
       await waitFor(() => {
-        expect(screen.getByText('VFS error')).toBeInTheDocument();
+        expect(mockNavigate).toHaveBeenCalledWith(
+          expect.stringMatching(/^\/contacts\/[a-f0-9-]+$/)
+        );
       });
-
-      // Transaction rollback handles cleanup, no manual delete needed
-      expect(mockDelete).not.toHaveBeenCalled();
-      expect(mockNavigate).not.toHaveBeenCalled();
 
       consoleSpy.mockRestore();
     });

@@ -39,26 +39,14 @@ vi.mock('./useVfsKeys', () => ({
   wrapSessionKey: vi.fn(async () => 'wrapped-session-key')
 }));
 
-// Mock API
-vi.mock('@/lib/api', () => ({
-  api: {
-    vfs: {
-      register: vi.fn().mockResolvedValue({
-        id: 'test-id',
-        createdAt: new Date().toISOString()
-      })
-    }
-  }
-}));
-
 // Mock crypto.randomUUID
 vi.stubGlobal('crypto', {
   randomUUID: vi.fn(() => 'test-uuid-1234')
 });
 
 import { act, renderHook } from '@testing-library/react';
-import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
+import { wrapSessionKey } from './useVfsKeys';
 
 describe('useCreateVfsFolder', () => {
   beforeEach(() => {
@@ -134,28 +122,10 @@ describe('useCreateVfsFolder', () => {
     expect(mockInsert).toHaveBeenCalledTimes(3);
   });
 
-  it('registers on server when logged in', async () => {
+  it('still creates folder when session key wrapping fails', async () => {
     vi.mocked(isLoggedIn).mockReturnValue(true);
-
-    const { result } = renderHook(() => useCreateVfsFolder());
-
-    await act(async () => {
-      await result.current.createFolder('Server Folder');
-    });
-
-    expect(api.vfs.register).toHaveBeenCalledWith({
-      id: 'test-uuid-1234',
-      objectType: 'folder',
-      encryptedSessionKey: 'wrapped-session-key'
-    });
-  });
-
-  it('continues if server registration fails', async () => {
-    vi.mocked(isLoggedIn).mockReturnValue(true);
-    vi.mocked(api.vfs.register).mockRejectedValueOnce(
-      new Error('Server error')
-    );
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.mocked(wrapSessionKey).mockRejectedValueOnce(new Error('VFS error'));
 
     const { result } = renderHook(() => useCreateVfsFolder());
 
@@ -167,7 +137,7 @@ describe('useCreateVfsFolder', () => {
 
     expect(folderResult?.name).toBe('Offline Folder');
     expect(warnSpy).toHaveBeenCalledWith(
-      'Failed to register folder on server:',
+      'Failed to wrap folder session key:',
       expect.any(Error)
     );
 

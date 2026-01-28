@@ -9,7 +9,6 @@ import { getDatabase } from '@/db';
 import { logEvent } from '@/db/analytics';
 import { getCurrentInstanceId, getKeyManager } from '@/db/crypto';
 import { files, vfsRegistry } from '@/db/schema';
-import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
 import { UnsupportedFileTypeError } from '@/lib/errors';
 import { computeContentHash, readFileAsUint8Array } from '@/lib/file-utils';
@@ -136,49 +135,26 @@ export function useFileUpload() {
         thumbnailPath
       });
 
-      // Register in VFS (local and server-side) if logged in
-      // This is atomic - if registration fails, rollback local storage
+      let encryptedSessionKey: string | null = null;
       if (isLoggedIn()) {
         try {
           const sessionKey = generateSessionKey();
-          const encryptedSessionKey = await wrapSessionKey(sessionKey);
-
-          // Get current user ID
-          const auth = readStoredAuth();
-          const ownerId = auth.user?.id || 'unknown';
-
-          // Register in local VFS registry
-          await db.insert(vfsRegistry).values({
-            id,
-            objectType: 'file',
-            ownerId,
-            encryptedSessionKey,
-            createdAt: new Date()
-          });
-
-          // Register on server
-          await api.vfs.register({
-            id,
-            objectType: 'file',
-            encryptedSessionKey
-          });
+          encryptedSessionKey = await wrapSessionKey(sessionKey);
         } catch (err) {
-          // Rollback: delete from SQLite (files + vfs_registry) and OPFS
-          try {
-            await db.delete(vfsRegistry).where(eq(vfsRegistry.id, id));
-            await db.delete(files).where(eq(files.id, id));
-            await storage.delete(storagePath);
-            if (thumbnailPath) {
-              await storage.delete(thumbnailPath);
-            }
-          } catch (rollbackErr) {
-            console.error('Rollback failed:', rollbackErr);
-          }
-          throw new Error(
-            `VFS registration failed: ${err instanceof Error ? err.message : String(err)}`
-          );
+          console.warn('Failed to wrap file session key:', err);
         }
       }
+
+      // Register in local VFS registry (device-first)
+      const auth = readStoredAuth();
+      const ownerId = auth.user?.id || 'unknown';
+      await db.insert(vfsRegistry).values({
+        id,
+        objectType: 'file',
+        ownerId,
+        encryptedSessionKey,
+        createdAt: new Date()
+      });
 
       onProgress?.(100);
 

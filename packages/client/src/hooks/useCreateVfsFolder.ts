@@ -5,7 +5,6 @@
 import { useCallback, useState } from 'react';
 import { getDatabase } from '@/db';
 import { vfsFolders, vfsLinks, vfsRegistry } from '@/db/schema';
-import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
 import { generateSessionKey, wrapSessionKey } from './useVfsKeys';
 
@@ -48,9 +47,15 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
         const auth = readStoredAuth();
         const ownerId = auth.user?.id || 'unknown';
 
-        // Generate session key for encryption
-        const sessionKey = generateSessionKey();
-        const encryptedSessionKey = await wrapSessionKey(sessionKey);
+        let encryptedSessionKey: string | null = null;
+        if (isLoggedIn()) {
+          try {
+            const sessionKey = generateSessionKey();
+            encryptedSessionKey = await wrapSessionKey(sessionKey);
+          } catch (err) {
+            console.warn('Failed to wrap folder session key:', err);
+          }
+        }
 
         // Use transaction to ensure atomicity
         await db.transaction(async (tx) => {
@@ -81,20 +86,6 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
             });
           }
         });
-
-        // Register on server if logged in
-        if (isLoggedIn()) {
-          try {
-            await api.vfs.register({
-              id,
-              objectType: 'folder',
-              encryptedSessionKey
-            });
-          } catch (serverErr) {
-            console.warn('Failed to register folder on server:', serverErr);
-            // Continue - local folder was created successfully
-          }
-        }
 
         return { id, name: name.trim() };
       } catch (err) {
