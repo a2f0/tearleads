@@ -48,6 +48,14 @@
         group: "{{ ansible_user }}"
         mode: "0755"
 
+    - name: Run tuxedo repo setup script
+      ansible.builtin.command:
+        cmd: "/home/{{ ansible_user }}/setupTuxedoRepos.sh"
+      become: true
+      become_user: "{{ ansible_user }}"
+      register: setup_repos_result
+      changed_when: setup_repos_result.stderr | length > 0
+
     - name: Disable root SSH login
       ansible.builtin.lineinfile:
         path: /etc/ssh/sshd_config
@@ -101,6 +109,18 @@
         name: nodejs
         state: present
         update_cache: true
+
+    - name: Install Claude Code CLI
+      community.general.npm:
+        name: "@anthropic-ai/claude-code"
+        global: true
+        state: present
+
+    - name: Install OpenAI Codex CLI
+      community.general.npm:
+        name: "@openai/codex"
+        global: true
+        state: present
 
   handlers:
     - name: Restart sshd

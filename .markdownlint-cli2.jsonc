@@ -11,7 +11,7 @@
     "dist",
     "**/dist",
     ".git",
-    "terraform/.terraform",
+    "**/.terraform",
     "**/vendor",
     "**/Pods",
     "**/fastlane/README.md",

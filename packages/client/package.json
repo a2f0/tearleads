@@ -1,6 +1,6 @@
 {
   "name": "@rapid/client",
-  "version": "0.0.274",
+  "version": "0.0.275",
   "description": "React client application for Rapid",
   "main": "out/main/main.js",
   "type": "module",
@@ -55,9 +55,9 @@
     "@ionic/core": "8.7.17",
     "@radix-ui/react-slot": "1.2.4",
     "@rapid/db": "workspace:*",
+    "@rapid/notes": "workspace:*",
     "@rapid/shared": "workspace:*",
     "@rapid/ui": "workspace:*",
-    "@rapid/notes": "workspace:*",
     "@rapid/window-manager": "workspace:*",
     "@tanstack/react-table": "8.21.3",
     "@tanstack/react-virtual": "3.13.18",
