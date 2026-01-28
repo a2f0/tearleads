@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { isRecord } from '@rapid/shared';
+import { isRecord, type RegisterRequest } from '@rapid/shared';
 import {
   type Request,
   type Response,
@@ -201,10 +201,7 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 });
 
-type RegisterPayload = {
-  email: string;
-  password: string;
-};
+type RegisterPayload = RegisterRequest;
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -230,19 +227,6 @@ function getAllowedEmailDomains(): string[] {
     .split(',')
     .map((d) => d.trim().toLowerCase())
     .filter((d) => d.length > 0);
-}
-
-function isEmailDomainAllowed(email: string): boolean {
-  const allowedDomains = getAllowedEmailDomains();
-  if (allowedDomains.length === 0) {
-    // If no domains configured, allow any
-    return true;
-  }
-  const emailDomain = email.split('@')[1]?.toLowerCase();
-  if (!emailDomain) {
-    return false;
-  }
-  return allowedDomains.includes(emailDomain);
 }
 
 /**
@@ -308,20 +292,23 @@ router.post('/register', async (req: Request, res: Response) => {
     return;
   }
 
-  // Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // Validate email format (allows + for aliases like user+alias@example.com)
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   if (!emailRegex.test(payload.email)) {
     res.status(400).json({ error: 'Invalid email format' });
     return;
   }
 
   // Validate email domain
-  if (!isEmailDomainAllowed(payload.email)) {
-    const allowedDomains = getAllowedEmailDomains();
-    res.status(400).json({
-      error: `Email domain not allowed. Allowed domains: ${allowedDomains.join(', ')}`
-    });
-    return;
+  const allowedDomains = getAllowedEmailDomains();
+  if (allowedDomains.length > 0) {
+    const emailDomain = payload.email.split('@')[1]?.toLowerCase();
+    if (!emailDomain || !allowedDomains.includes(emailDomain)) {
+      res.status(400).json({
+        error: `Email domain not allowed. Allowed domains: ${allowedDomains.join(', ')}`
+      });
+      return;
+    }
   }
 
   // Validate password length
