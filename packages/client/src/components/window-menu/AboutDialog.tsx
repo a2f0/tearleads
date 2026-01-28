@@ -35,7 +35,7 @@ export function AboutDialog({ open, onOpenChange, version }: AboutDialogProps) {
       if (e.key === 'Tab') {
         const focusableElements =
           dialogRef.current?.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            'a[href]:not([disabled]), button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
           );
         if (!focusableElements || focusableElements.length === 0) return;
 
