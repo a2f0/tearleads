@@ -269,6 +269,7 @@ export function NotesWindowDetail({
               hideToolbar={!showToolbar}
               visibleDragbar={false}
               commandsFilter={markdownToolbarCommandsFilter}
+              autoFocus
             />
           </div>
 
