@@ -17,10 +17,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
-import { contactEmails, contactPhones, contacts } from '@/db/schema';
+import {
+  contactEmails,
+  contactPhones,
+  contacts,
+  vfsRegistry
+} from '@/db/schema';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
 import { api } from '@/lib/api';
-import { isLoggedIn } from '@/lib/auth-storage';
+import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
+import { getFeatureFlagValue } from '@/lib/feature-flags';
 
 interface ContactFormData {
   firstName: string;
@@ -203,19 +209,44 @@ export function ContactNew() {
           });
         }
 
-        // Register in VFS (server-side) if logged in
-        // Done before commit so transaction rollback handles cleanup on failure
+        const auth = readStoredAuth();
+        const ownerId = auth.user?.id || 'unknown';
+        let encryptedSessionKey: string | null = null;
         if (isLoggedIn()) {
-          const sessionKey = generateSessionKey();
-          const encryptedSessionKey = await wrapSessionKey(sessionKey);
-          await api.vfs.register({
-            id: contactId,
-            objectType: 'contact',
-            encryptedSessionKey
-          });
+          try {
+            const sessionKey = generateSessionKey();
+            encryptedSessionKey = await wrapSessionKey(sessionKey);
+          } catch (err) {
+            console.warn('Failed to wrap contact session key:', err);
+          }
         }
 
+        // Register in local VFS regardless of auth state (device-first)
+        await db.insert(vfsRegistry).values({
+          id: contactId,
+          objectType: 'contact',
+          ownerId,
+          encryptedSessionKey,
+          createdAt: now
+        });
+
         await adapter.commitTransaction();
+
+        if (
+          isLoggedIn() &&
+          getFeatureFlagValue('vfsServerRegistration') &&
+          encryptedSessionKey
+        ) {
+          try {
+            await api.vfs.register({
+              id: contactId,
+              objectType: 'contact',
+              encryptedSessionKey
+            });
+          } catch (err) {
+            console.warn('Failed to register contact on server:', err);
+          }
+        }
 
         navigate(`/contacts/${contactId}`);
       } catch (err) {

@@ -2,6 +2,7 @@ import { AlertTriangle, ChevronRight, Download, Scale } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  FeatureFlags,
   FontSelector,
   IconBackgroundToggle,
   IconDepthToggle,
@@ -137,6 +138,10 @@ export function Settings({ showBackLink = true }: SettingsProps) {
 
       <SettingsSection>
         <TooltipsToggle />
+      </SettingsSection>
+
+      <SettingsSection>
+        <FeatureFlags />
       </SettingsSection>
 
       {/* Backup & Restore Section */}

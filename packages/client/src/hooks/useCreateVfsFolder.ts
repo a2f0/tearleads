@@ -7,6 +7,7 @@ import { getDatabase } from '@/db';
 import { vfsFolders, vfsLinks, vfsRegistry } from '@/db/schema';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
+import { getFeatureFlagValue } from '@/lib/feature-flags';
 import { generateSessionKey, wrapSessionKey } from './useVfsKeys';
 
 export interface CreateFolderResult {
@@ -48,9 +49,15 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
         const auth = readStoredAuth();
         const ownerId = auth.user?.id || 'unknown';
 
-        // Generate session key for encryption
-        const sessionKey = generateSessionKey();
-        const encryptedSessionKey = await wrapSessionKey(sessionKey);
+        let encryptedSessionKey: string | null = null;
+        if (isLoggedIn()) {
+          try {
+            const sessionKey = generateSessionKey();
+            encryptedSessionKey = await wrapSessionKey(sessionKey);
+          } catch (err) {
+            console.warn('Failed to wrap folder session key:', err);
+          }
+        }
 
         // Use transaction to ensure atomicity
         await db.transaction(async (tx) => {
@@ -69,8 +76,8 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
             encryptedName: name.trim()
           });
 
-          // If parent folder specified, create link
-          if (parentId) {
+          // If parent folder specified and we have an encrypted key, create link
+          if (parentId && encryptedSessionKey) {
             const linkId = crypto.randomUUID();
             await tx.insert(vfsLinks).values({
               id: linkId,
@@ -82,17 +89,19 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
           }
         });
 
-        // Register on server if logged in
-        if (isLoggedIn()) {
+        if (
+          isLoggedIn() &&
+          getFeatureFlagValue('vfsServerRegistration') &&
+          encryptedSessionKey
+        ) {
           try {
             await api.vfs.register({
               id,
               objectType: 'folder',
               encryptedSessionKey
             });
-          } catch (serverErr) {
-            console.warn('Failed to register folder on server:', serverErr);
-            // Continue - local folder was created successfully
+          } catch (err) {
+            console.warn('Failed to register folder on server:', err);
           }
         }
 

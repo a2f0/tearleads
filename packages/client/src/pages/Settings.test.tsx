@@ -109,6 +109,10 @@ describe('Settings', () => {
       ).toBeInTheDocument();
     });
 
+    it('renders the feature flags panel', () => {
+      expect(screen.getByTestId('feature-flags-panel')).toBeInTheDocument();
+    });
+
     it('renders the icon depth toggle', () => {
       expect(
         screen.getByTestId('icon-depth-toggle-container')

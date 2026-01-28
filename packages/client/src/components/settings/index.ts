@@ -1,4 +1,5 @@
 export { DisplayPropertiesWindow } from './DisplayPropertiesWindow';
+export { FeatureFlags } from './FeatureFlags';
 export { FontSelector } from './FontSelector';
 export { IconBackgroundToggle } from './IconBackgroundToggle';
 export { IconDepthToggle } from './IconDepthToggle';

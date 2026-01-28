@@ -33,22 +33,14 @@ vi.mock('@/lib/auth-storage', () => ({
   }))
 }));
 
+vi.mock('@/lib/feature-flags', () => ({
+  getFeatureFlagValue: vi.fn(() => false)
+}));
+
 // Mock VFS keys
 vi.mock('./useVfsKeys', () => ({
   generateSessionKey: vi.fn(() => new Uint8Array(32)),
   wrapSessionKey: vi.fn(async () => 'wrapped-session-key')
-}));
-
-// Mock API
-vi.mock('@/lib/api', () => ({
-  api: {
-    vfs: {
-      register: vi.fn().mockResolvedValue({
-        id: 'test-id',
-        createdAt: new Date().toISOString()
-      })
-    }
-  }
 }));
 
 // Mock crypto.randomUUID
@@ -57,8 +49,8 @@ vi.stubGlobal('crypto', {
 });
 
 import { act, renderHook } from '@testing-library/react';
-import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
+import { wrapSessionKey } from './useVfsKeys';
 
 describe('useCreateVfsFolder', () => {
   beforeEach(() => {
@@ -123,7 +115,9 @@ describe('useCreateVfsFolder', () => {
     expect(folderResult?.name).toBe('Trimmed Name');
   });
 
-  it('creates folder with parent link when parentId is provided', async () => {
+  it('creates folder with parent link when parentId is provided and logged in', async () => {
+    vi.mocked(isLoggedIn).mockReturnValue(true);
+
     const { result } = renderHook(() => useCreateVfsFolder());
 
     await act(async () => {
@@ -134,28 +128,23 @@ describe('useCreateVfsFolder', () => {
     expect(mockInsert).toHaveBeenCalledTimes(3);
   });
 
-  it('registers on server when logged in', async () => {
-    vi.mocked(isLoggedIn).mockReturnValue(true);
+  it('creates folder without parent link when not logged in', async () => {
+    vi.mocked(isLoggedIn).mockReturnValue(false);
 
     const { result } = renderHook(() => useCreateVfsFolder());
 
     await act(async () => {
-      await result.current.createFolder('Server Folder');
+      await result.current.createFolder('Child Folder', 'parent-folder-id');
     });
 
-    expect(api.vfs.register).toHaveBeenCalledWith({
-      id: 'test-uuid-1234',
-      objectType: 'folder',
-      encryptedSessionKey: 'wrapped-session-key'
-    });
+    // Should have 2 inserts: registry, folders (no link when not logged in)
+    expect(mockInsert).toHaveBeenCalledTimes(2);
   });
 
-  it('continues if server registration fails', async () => {
+  it('still creates folder when session key wrapping fails', async () => {
     vi.mocked(isLoggedIn).mockReturnValue(true);
-    vi.mocked(api.vfs.register).mockRejectedValueOnce(
-      new Error('Server error')
-    );
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.mocked(wrapSessionKey).mockRejectedValueOnce(new Error('VFS error'));
 
     const { result } = renderHook(() => useCreateVfsFolder());
 
@@ -167,7 +156,7 @@ describe('useCreateVfsFolder', () => {
 
     expect(folderResult?.name).toBe('Offline Folder');
     expect(warnSpy).toHaveBeenCalledWith(
-      'Failed to register folder on server:',
+      'Failed to wrap folder session key:',
       expect.any(Error)
     );
 
