@@ -354,6 +354,8 @@ export type TokenRotationParams = {
   sessionData: Omit<SessionData, 'createdAt' | 'lastActiveAt'>;
   sessionTtlSeconds: number;
   refreshTokenTtlSeconds: number;
+  /** Original session creation time to preserve across token rotations */
+  originalCreatedAt?: string;
 };
 
 export async function rotateTokensAtomically(
@@ -370,7 +372,7 @@ export async function rotateTokensAtomically(
 
   const newSessionData: SessionData = {
     ...params.sessionData,
-    createdAt: now,
+    createdAt: params.originalCreatedAt ?? now,
     lastActiveAt: now
   };
 

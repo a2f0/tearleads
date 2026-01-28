@@ -575,5 +575,111 @@ describe('sessions', () => {
         userId: 'user-atomic'
       });
     });
+
+    it('preserves original createdAt when provided', async () => {
+      vi.useFakeTimers();
+      const {
+        createSession,
+        storeRefreshToken,
+        getSession,
+        rotateTokensAtomically
+      } = await import('./sessions.js');
+
+      const originalCreatedAt = '2024-01-01T00:00:00.000Z';
+      vi.setSystemTime(new Date(originalCreatedAt));
+
+      await createSession('old-session-preserve', {
+        userId: 'user-preserve',
+        email: 'preserve@test.com',
+        admin: false,
+        ipAddress: '127.0.0.1'
+      });
+
+      await storeRefreshToken(
+        'old-refresh-preserve',
+        { sessionId: 'old-session-preserve', userId: 'user-preserve' },
+        3600
+      );
+
+      // Advance time to simulate token rotation happening later
+      vi.setSystemTime(new Date('2024-01-15T12:00:00.000Z'));
+
+      await rotateTokensAtomically({
+        oldRefreshTokenId: 'old-refresh-preserve',
+        oldSessionId: 'old-session-preserve',
+        newSessionId: 'new-session-preserve',
+        newRefreshTokenId: 'new-refresh-preserve',
+        sessionData: {
+          userId: 'user-preserve',
+          email: 'preserve@test.com',
+          admin: false,
+          ipAddress: '192.168.1.1'
+        },
+        sessionTtlSeconds: 3600,
+        refreshTokenTtlSeconds: 604800,
+        originalCreatedAt
+      });
+
+      const newSession = await getSession('new-session-preserve');
+      expect(newSession).not.toBeNull();
+      // createdAt should be preserved from original session
+      expect(newSession?.createdAt).toBe(originalCreatedAt);
+      // lastActiveAt should be updated to current time
+      expect(newSession?.lastActiveAt).toBe('2024-01-15T12:00:00.000Z');
+
+      vi.useRealTimers();
+    });
+
+    it('uses current time for createdAt when originalCreatedAt not provided', async () => {
+      vi.useFakeTimers();
+      const {
+        createSession,
+        storeRefreshToken,
+        getSession,
+        rotateTokensAtomically
+      } = await import('./sessions.js');
+
+      vi.setSystemTime(new Date('2024-01-01T00:00:00.000Z'));
+
+      await createSession('old-session-new-created', {
+        userId: 'user-new-created',
+        email: 'new-created@test.com',
+        admin: false,
+        ipAddress: '127.0.0.1'
+      });
+
+      await storeRefreshToken(
+        'old-refresh-new-created',
+        { sessionId: 'old-session-new-created', userId: 'user-new-created' },
+        3600
+      );
+
+      // Advance time
+      vi.setSystemTime(new Date('2024-01-15T12:00:00.000Z'));
+
+      // Don't pass originalCreatedAt
+      await rotateTokensAtomically({
+        oldRefreshTokenId: 'old-refresh-new-created',
+        oldSessionId: 'old-session-new-created',
+        newSessionId: 'new-session-new-created',
+        newRefreshTokenId: 'new-refresh-new-created',
+        sessionData: {
+          userId: 'user-new-created',
+          email: 'new-created@test.com',
+          admin: false,
+          ipAddress: '192.168.1.1'
+        },
+        sessionTtlSeconds: 3600,
+        refreshTokenTtlSeconds: 604800
+      });
+
+      const newSession = await getSession('new-session-new-created');
+      expect(newSession).not.toBeNull();
+      // Both createdAt and lastActiveAt should be current time when originalCreatedAt not provided
+      expect(newSession?.createdAt).toBe('2024-01-15T12:00:00.000Z');
+      expect(newSession?.lastActiveAt).toBe('2024-01-15T12:00:00.000Z');
+
+      vi.useRealTimers();
+    });
   });
 });

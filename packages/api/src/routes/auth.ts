@@ -317,7 +317,8 @@ router.post('/refresh', async (req: Request, res: Response) => {
         ipAddress
       },
       sessionTtlSeconds: REFRESH_TOKEN_TTL_SECONDS,
-      refreshTokenTtlSeconds: REFRESH_TOKEN_TTL_SECONDS
+      refreshTokenTtlSeconds: REFRESH_TOKEN_TTL_SECONDS,
+      originalCreatedAt: session.createdAt
     });
 
     const accessToken = createJwt(
