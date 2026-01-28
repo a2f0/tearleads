@@ -56,13 +56,18 @@
       register: setup_repos_result
       changed_when: setup_repos_result.stderr | length > 0
 
-    - name: Symlink tuxedo.sh to home directory
-      ansible.builtin.file:
-        src: "/home/{{ ansible_user }}/tuxedo/tuxedo-shared/tuxedo/tuxedo.sh"
+    - name: Create tuxedo.sh wrapper in home directory
+      ansible.builtin.copy:
         dest: "/home/{{ ansible_user }}/tuxedo.sh"
-        state: link
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          # Wrapper to launch tuxedo.sh with correct SCRIPT_PATH
+          TUXEDO_SCRIPT_PATH="/home/{{ ansible_user }}/tuxedo/tuxedo-shared/tuxedo/tuxedo.sh"
+          export TUXEDO_SCRIPT_PATH
+          exec "$TUXEDO_SCRIPT_PATH" "$@"
 
     - name: Disable root SSH login
       ansible.builtin.lineinfile:
