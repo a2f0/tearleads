@@ -83,6 +83,8 @@ type ApiEventSlug = Extract<AnalyticsEventSlug, `api_${string}`>;
 interface RequestParams {
   fetchOptions?: RequestInit;
   eventName: ApiEventSlug;
+  /** Skip token refresh on 401 (e.g., for login requests where 401 means invalid credentials) */
+  skipTokenRefresh?: boolean;
 }
 
 async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
@@ -90,7 +92,7 @@ async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
     throw new Error('VITE_API_URL environment variable is not set');
   }
 
-  const { fetchOptions, eventName } = params;
+  const { fetchOptions, eventName, skipTokenRefresh } = params;
   const startTime = performance.now();
   let success = false;
   const authHeader = getAuthHeaderValue();
@@ -107,6 +109,11 @@ async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, requestInit);
 
     if (response.status === 401) {
+      // For login requests, 401 means invalid credentials - don't trigger session expired flow
+      if (skipTokenRefresh) {
+        throw new Error('API error: 401');
+      }
+
       if (!refreshPromise) {
         refreshPromise = attemptTokenRefresh().finally(() => {
           refreshPromise = null;
@@ -159,7 +166,8 @@ export const api = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password })
         },
-        eventName: 'api_post_auth_login'
+        eventName: 'api_post_auth_login',
+        skipTokenRefresh: true
       }),
     getSessions: () =>
       request<SessionsResponse>('/auth/sessions', {

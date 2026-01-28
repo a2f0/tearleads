@@ -94,6 +94,24 @@ describe('api', () => {
       expect(getAuthError()).toBe('Session expired. Please sign in again.');
     });
 
+    it('does not trigger session expired error on login 401 (invalid credentials)', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Invalid email or password' }), {
+          status: 401
+        })
+      );
+
+      const { api } = await import('./api');
+      const { getAuthError } = await import('./auth-storage');
+
+      await expect(
+        api.auth.login('test@example.com', 'wrongpassword')
+      ).rejects.toThrow('API error: 401');
+
+      // Should NOT set session expired error for login failures
+      expect(getAuthError()).toBeNull();
+    });
+
     it('handles network errors', async () => {
       vi.mocked(global.fetch).mockRejectedValue(new Error('Network error'));
 
