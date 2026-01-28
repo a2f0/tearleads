@@ -254,10 +254,29 @@ export default async function globalTeardown(): Promise<void> {
 
   console.log('[teardown] Teardown complete, forceExit:', forceExit);
   if (forceExit) {
-    // Use setImmediate to allow any pending I/O to flush before exiting
-    console.log('[teardown] Forcing exit...');
-    setImmediate(() => {
-      process.exit(process.exitCode ?? 0);
-    });
+    // Kill all Playwright processes to ensure clean exit
+    console.log('[teardown] Killing Playwright processes before exit...');
+    for (const handle of playwrightProcesses) {
+      forceCloseHandle(handle);
+    }
+
+    // Also unref all remaining handles to prevent blocking
+    const remainingHandles = process._getActiveHandles?.() ?? [];
+    for (const handle of remainingHandles) {
+      if (handle && typeof handle === 'object') {
+        const h = handle as Record<string, unknown>;
+        try {
+          if (typeof h['unref'] === 'function') {
+            (h['unref'] as () => void)();
+          }
+        } catch {
+          // Ignore
+        }
+      }
+    }
+
+    // Exit synchronously - don't use setImmediate as it may never run
+    console.log('[teardown] Forcing exit now...');
+    process.exit(process.exitCode ?? 0);
   }
 }
