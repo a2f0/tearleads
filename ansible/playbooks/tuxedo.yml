@@ -40,6 +40,14 @@
             IdentityFile /home/{{ ansible_user }}/.ssh/{{ tuxedo_github_deploy_key_name }}
             IdentitiesOnly yes
 
+    - name: Copy tuxedo repo setup script
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../scripts/setupTuxedoRepos.sh"
+        dest: "/home/{{ ansible_user }}/setupTuxedoRepos.sh"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+
     - name: Disable root SSH login
       ansible.builtin.lineinfile:
         path: /etc/ssh/sshd_config
