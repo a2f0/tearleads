@@ -21,8 +21,10 @@ export function NotesWindow({
   id,
   onClose,
   onMinimize,
+  onDimensionsChange,
   onFocus,
-  zIndex
+  zIndex,
+  initialDimensions
 }: NotesWindowProps) {
   return (
     <ClientNotesProvider>
@@ -30,8 +32,10 @@ export function NotesWindow({
         id={id}
         onClose={onClose}
         onMinimize={onMinimize}
+        onDimensionsChange={onDimensionsChange}
         onFocus={onFocus}
         zIndex={zIndex}
+        initialDimensions={initialDimensions}
       />
     </ClientNotesProvider>
   );

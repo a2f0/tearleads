@@ -46,6 +46,7 @@ export function NotesWindowDetail({
   const [deleting, setDeleting] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedContentRef = useRef<string>('');
+  const contentRef = useRef<string>('');
 
   const markdownToolbarCommandsFilter =
     createMarkdownToolbarFilter(tooltipZIndex);
@@ -86,6 +87,7 @@ export function NotesWindowDetail({
       };
       setNote(noteInfo);
       setContent(noteInfo.content);
+      contentRef.current = noteInfo.content;
       lastSavedContentRef.current = noteInfo.content;
     } catch (err) {
       console.error('Failed to fetch note:', err);
@@ -128,6 +130,7 @@ export function NotesWindowDetail({
     (value: string | undefined) => {
       const newContent = value ?? '';
       setContent(newContent);
+      contentRef.current = newContent;
 
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -149,22 +152,18 @@ export function NotesWindowDetail({
   }, []);
 
   useEffect(() => {
-    const currentContent = content;
-    const currentNoteId = noteId;
-    const currentGetDatabase = getDatabase;
-
     return () => {
-      if (currentContent !== lastSavedContentRef.current && currentNoteId) {
-        const db = currentGetDatabase();
+      if (contentRef.current !== lastSavedContentRef.current && noteId) {
+        const db = getDatabase();
         db.update(notes)
-          .set({ content: currentContent, updatedAt: new Date() })
-          .where(eq(notes.id, currentNoteId))
+          .set({ content: contentRef.current, updatedAt: new Date() })
+          .where(eq(notes.id, noteId))
           .catch((err: unknown) =>
             console.error('Failed to save on unmount:', err)
           );
       }
     };
-  }, [content, noteId, getDatabase]);
+  }, [noteId, getDatabase]);
 
   const handleDelete = useCallback(async () => {
     if (!note) return;
