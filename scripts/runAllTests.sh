@@ -44,7 +44,7 @@ PLAYWRIGHT_START=$(date +%s)
 pnpm exec tsx ./scripts/checkPort.ts 3002
 # PW_EXTERNAL_SERVER=true disables Playwright webServer so this script controls lifecycle.
 # BASE_URL uses port 3002 to avoid conflict with any running dev server on 3000.
-BASE_URL=http://localhost:3002 PW_EXTERNAL_SERVER=true PW_FORCE_KILL_WORKERS=true pnpm --filter @rapid/client test:e2e && PW_EXIT_CODE=0 || PW_EXIT_CODE=$?
+BASE_URL=http://localhost:3002 PW_EXTERNAL_SERVER=true PW_FORCE_KILL_WORKERS=true PW_FORCE_EXIT=true pnpm --filter @rapid/client test:e2e && PW_EXIT_CODE=0 || PW_EXIT_CODE=$?
 # Clean up any orphaned vite processes on test port
 if command -v lsof >/dev/null 2>&1; then
   PIDS=$(lsof -ti:3002 2>/dev/null || true)

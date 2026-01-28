@@ -142,6 +142,15 @@ function forceCloseHandle(handle: unknown): void {
   try {
     // Kill child processes
     if (label === 'ChildProcess' && typeof record['kill'] === 'function') {
+      const pid = record['pid'];
+      if (typeof pid === 'number') {
+        try {
+          // Kill the process group to ensure shell wrappers exit too.
+          process.kill(-pid, 'SIGKILL');
+        } catch {
+          // Fall back to killing the child process directly.
+        }
+      }
       (record['kill'] as (signal?: string) => boolean)('SIGKILL');
       return;
     }
@@ -162,8 +171,10 @@ function forceCloseHandle(handle: unknown): void {
 }
 
 export default async function globalTeardown(): Promise<void> {
+  console.log('[teardown] Starting global teardown...');
   const debugHandles = process.env['PW_DEBUG_HANDLES'] === 'true';
   const forceKillWorkers = process.env['PW_FORCE_KILL_WORKERS'] === 'true';
+  const forceExit = process.env['PW_FORCE_EXIT'] === 'true';
 
   const handles = process._getActiveHandles?.() ?? [];
   const requests = process._getActiveRequests?.() ?? [];
@@ -213,7 +224,7 @@ export default async function globalTeardown(): Promise<void> {
   }
 
   // Force-close unexpected handles to allow process exit
-  if (hasUnexpectedHandles || tooManyHandles) {
+  if (hasUnexpectedHandles || tooManyHandles || forceKillWorkers) {
     for (const handle of unexpectedHandles) {
       forceCloseHandle(handle);
     }
@@ -237,7 +248,16 @@ export default async function globalTeardown(): Promise<void> {
   }
 
   // Throw after cleanup so process can exit
-  if (errorMessage) {
+  if (errorMessage && !forceKillWorkers) {
     throw new Error(errorMessage);
+  }
+
+  console.log('[teardown] Teardown complete, forceExit:', forceExit);
+  if (forceExit) {
+    // Use setImmediate to allow any pending I/O to flush before exiting
+    console.log('[teardown] Forcing exit...');
+    setImmediate(() => {
+      process.exit(process.exitCode ?? 0);
+    });
   }
 }

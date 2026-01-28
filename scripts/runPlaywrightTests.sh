@@ -67,7 +67,7 @@ done
 
 # PW_EXTERNAL_SERVER=true disables Playwright webServer so this script controls lifecycle.
 # BASE_URL uses port 3002 to avoid conflict with any running dev server on 3000.
-BASE_URL="$BASE_URL" PW_EXTERNAL_SERVER=true PW_DEBUG_HANDLES="$PW_DEBUG_HANDLES" PW_FORCE_KILL_WORKERS=true pnpm test:e2e -- "$@"
+BASE_URL="$BASE_URL" PW_EXTERNAL_SERVER=true PW_DEBUG_HANDLES="$PW_DEBUG_HANDLES" PW_FORCE_KILL_WORKERS=true PW_FORCE_EXIT=true pnpm test:e2e -- "$@"
 EXIT_CODE=$?
 END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
