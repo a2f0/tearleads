@@ -58,6 +58,15 @@ jobs:
         run: ./packages/client/scripts/buildElectronImageAssets.sh
         shell: bash
 
+      - name: Build API (for OpenAPI spec)
+        run: pnpm --filter @rapid/api build
+
+      - name: Build window-manager
+        run: pnpm --filter @rapid/window-manager build
+
+      - name: Build notes
+        run: pnpm --filter @rapid/notes build
+
       - name: Setup App Store Connect API Key (macOS)
         if: runner.os == 'macOS'
         run: |

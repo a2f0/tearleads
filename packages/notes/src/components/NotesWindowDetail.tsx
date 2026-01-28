@@ -1,16 +1,17 @@
+import { notes } from '@rapid/db/sqlite';
 import { useTheme } from '@rapid/ui';
 import MDEditor from '@uiw/react-md-editor';
+
 import { and, eq } from 'drizzle-orm';
 import { ArrowLeft, Calendar, Loader2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { Button } from '@/components/ui/button';
-import { EditableTitle } from '@/components/ui/editable-title';
-import { getDatabase } from '@/db';
-import { useDatabaseContext } from '@/db/hooks';
-import { notes } from '@/db/schema';
-import { markdownToolbarCommandsFilter } from '@/lib/markdown-toolbar';
-import { formatDate } from '@/lib/utils';
+import {
+  useDatabaseState,
+  useNotesContext,
+  useNotesUI
+} from '../context/NotesContext';
+import { createMarkdownToolbarFilter } from '../lib/markdown-toolbar';
+import { formatDate } from '../lib/utils';
 
 interface NoteInfo {
   id: string;
@@ -33,7 +34,9 @@ export function NotesWindowDetail({
   onDeleted,
   showToolbar = true
 }: NotesWindowDetailProps) {
-  const { isUnlocked, isLoading } = useDatabaseContext();
+  const { isUnlocked, isLoading } = useDatabaseState();
+  const { getDatabase, tooltipZIndex } = useNotesContext();
+  const { Button, InlineUnlock, EditableTitle } = useNotesUI();
   const { resolvedTheme } = useTheme();
   const editorColorMode = resolvedTheme === 'light' ? 'light' : 'dark';
   const [note, setNote] = useState<NoteInfo | null>(null);
@@ -43,6 +46,10 @@ export function NotesWindowDetail({
   const [deleting, setDeleting] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedContentRef = useRef<string>('');
+  const contentRef = useRef<string>('');
+
+  const markdownToolbarCommandsFilter =
+    createMarkdownToolbarFilter(tooltipZIndex);
 
   const fetchNote = useCallback(async () => {
     if (!isUnlocked || !noteId) return;
@@ -80,6 +87,7 @@ export function NotesWindowDetail({
       };
       setNote(noteInfo);
       setContent(noteInfo.content);
+      contentRef.current = noteInfo.content;
       lastSavedContentRef.current = noteInfo.content;
     } catch (err) {
       console.error('Failed to fetch note:', err);
@@ -87,7 +95,7 @@ export function NotesWindowDetail({
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, noteId]);
+  }, [isUnlocked, noteId, getDatabase]);
 
   useEffect(() => {
     if (isUnlocked && noteId) {
@@ -115,13 +123,14 @@ export function NotesWindowDetail({
         setError(err instanceof Error ? err.message : String(err));
       }
     },
-    [noteId]
+    [noteId, getDatabase]
   );
 
   const handleContentChange = useCallback(
     (value: string | undefined) => {
       const newContent = value ?? '';
       setContent(newContent);
+      contentRef.current = newContent;
 
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -144,15 +153,17 @@ export function NotesWindowDetail({
 
   useEffect(() => {
     return () => {
-      if (content !== lastSavedContentRef.current && noteId) {
+      if (contentRef.current !== lastSavedContentRef.current && noteId) {
         const db = getDatabase();
         db.update(notes)
-          .set({ content, updatedAt: new Date() })
+          .set({ content: contentRef.current, updatedAt: new Date() })
           .where(eq(notes.id, noteId))
-          .catch((err) => console.error('Failed to save on unmount:', err));
+          .catch((err: unknown) =>
+            console.error('Failed to save on unmount:', err)
+          );
       }
     };
-  }, [content, noteId]);
+  }, [noteId, getDatabase]);
 
   const handleDelete = useCallback(async () => {
     if (!note) return;
@@ -171,7 +182,7 @@ export function NotesWindowDetail({
       setError(err instanceof Error ? err.message : String(err));
       setDeleting(false);
     }
-  }, [note, onDeleted]);
+  }, [note, onDeleted, getDatabase]);
 
   const handleUpdateTitle = useCallback(
     async (newTitle: string) => {
@@ -187,7 +198,7 @@ export function NotesWindowDetail({
         prev ? { ...prev, title: newTitle, updatedAt: new Date() } : prev
       );
     },
-    [noteId]
+    [noteId, getDatabase]
   );
 
   return (

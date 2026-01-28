@@ -1,3 +1,4 @@
+import { createMarkdownToolbarFilter } from '@rapid/notes';
 import { useTheme } from '@rapid/ui';
 import MDEditor, { commands } from '@uiw/react-md-editor';
 import { and, eq } from 'drizzle-orm';
@@ -9,11 +10,15 @@ import { ActionToolbar, type ActionType } from '@/components/ui/action-toolbar';
 import { BackLink } from '@/components/ui/back-link';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { EditableTitle } from '@/components/ui/editable-title';
+import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { notes } from '@/db/schema';
-import { markdownToolbarCommandsFilter } from '@/lib/markdown-toolbar';
 import { formatDate } from '@/lib/utils';
+
+const markdownToolbarCommandsFilter = createMarkdownToolbarFilter(
+  zIndex.tooltip
+);
 
 interface NoteInfo {
   id: string;

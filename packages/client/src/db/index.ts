@@ -4,16 +4,16 @@
  * Supports multi-instance with namespaced database files.
  */
 
-import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';
+import type { Database } from '@rapid/db/sqlite';
+import { schema } from '@rapid/db/sqlite';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import type { DatabaseAdapter, PlatformInfo } from './adapters';
 import { createAdapter, getPlatformInfo } from './adapters';
 import { logEvent } from './analytics';
 import { getKeyManagerForInstance, setCurrentInstanceId } from './crypto';
 import { runMigrations } from './migrations';
-import * as schema from './schema';
 
-export type Database = SqliteRemoteDatabase<typeof schema>;
+export type { Database };
 
 let databaseInstance: Database | null = null;
 let adapterInstance: DatabaseAdapter | null = null;

@@ -1,28 +1,15 @@
+import { notes } from '@rapid/db/sqlite';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { desc, eq } from 'drizzle-orm';
 import { Info, Loader2, Plus, StickyNote, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { Button } from '@/components/ui/button';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
-import { Input } from '@/components/ui/input';
-import { ListRow } from '@/components/ui/list-row';
-import { RefreshButton } from '@/components/ui/refresh-button';
-import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
-import { getDatabase } from '@/db';
-import { useDatabaseContext } from '@/db/hooks';
-import { notes } from '@/db/schema';
-import { useTypedTranslation } from '@/i18n';
-import { formatDate } from '@/lib/utils';
-
-interface NoteInfo {
-  id: string;
-  title: string;
-  content: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deleted: boolean;
-}
+import {
+  type NoteInfo,
+  useDatabaseState,
+  useNotesContext,
+  useNotesUI
+} from '../context/NotesContext';
+import { formatDate } from '../lib/utils';
 
 type MenuPosition = { x: number; y: number };
 
@@ -37,8 +24,18 @@ export function NotesWindowList({
   onSelectNote,
   showDeleted
 }: NotesWindowListProps) {
-  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
-  const { t } = useTypedTranslation('contextMenu');
+  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseState();
+  const { getDatabase, t } = useNotesContext();
+  const {
+    Button,
+    Input,
+    ContextMenu,
+    ContextMenuItem,
+    ListRow,
+    RefreshButton,
+    VirtualListStatus,
+    InlineUnlock
+  } = useNotesUI();
   const [notesList, setNotesList] = useState<NoteInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,7 +109,7 @@ export function NotesWindowList({
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, showDeleted]);
+  }, [isUnlocked, showDeleted, getDatabase]);
 
   const fetchedForInstanceRef = useRef<string | null>(null);
   const lastShowDeletedRef = useRef(showDeleted);
@@ -199,7 +196,7 @@ export function NotesWindowList({
     } finally {
       setContextMenu(null);
     }
-  }, [contextMenu]);
+  }, [contextMenu, getDatabase]);
 
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);
@@ -230,7 +227,7 @@ export function NotesWindowList({
       console.error('Failed to create note:', err);
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [onSelectNote]);
+  }, [onSelectNote, getDatabase]);
 
   const handleCreateNoteFromMenu = useCallback(() => {
     setBlankSpaceMenu(null);
