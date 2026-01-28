@@ -56,6 +56,33 @@
       register: setup_repos_result
       changed_when: setup_repos_result.stderr | length > 0
 
+    - name: Create tuxedo.sh wrapper in home directory
+      ansible.builtin.copy:
+        dest: "/home/{{ ansible_user }}/tuxedo.sh"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          # Wrapper to launch tuxedo.sh with correct SCRIPT_PATH
+          TUXEDO_SCRIPT_PATH="/home/{{ ansible_user }}/tuxedo/tuxedo-shared/tuxedo/tuxedo.sh"
+          export TUXEDO_SCRIPT_PATH
+          cd "$(dirname "$TUXEDO_SCRIPT_PATH")"
+          exec "$TUXEDO_SCRIPT_PATH" "$@"
+
+    - name: Create tuxedoKill.sh wrapper in home directory
+      ansible.builtin.copy:
+        dest: "/home/{{ ansible_user }}/tuxedoKill.sh"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+        content: |
+          #!/bin/sh
+          # Wrapper to launch tuxedoKill.sh with correct SCRIPT_PATH
+          TUXEDO_SCRIPT_PATH="/home/{{ ansible_user }}/tuxedo/tuxedo-shared/tuxedo/tuxedoKill.sh"
+          export TUXEDO_SCRIPT_PATH
+          exec "$TUXEDO_SCRIPT_PATH" "$@"
+
     - name: Disable root SSH login
       ansible.builtin.lineinfile:
         path: /etc/ssh/sshd_config
@@ -80,6 +107,25 @@
           - gnupg
           - ncurses-bin
         state: present
+
+    # Ghostty terminal support
+    - name: Copy Ghostty terminfo
+      ansible.builtin.copy:
+        src: files/ghostty.terminfo
+        dest: /tmp/ghostty.terminfo
+        mode: "0644"
+      register: copy_terminfo_result
+
+    - name: Check for existing compiled Ghostty terminfo
+      ansible.builtin.stat:
+        path: /usr/share/terminfo/g/ghostty
+      register: compiled_terminfo_stat
+
+    - name: Compile Ghostty terminfo system-wide
+      ansible.builtin.command:
+        cmd: tic -x -o /usr/share/terminfo /tmp/ghostty.terminfo
+      when: copy_terminfo_result.changed or not compiled_terminfo_stat.stat.exists
+      changed_when: true
 
     - name: Create keyrings directory
       ansible.builtin.file:
@@ -121,6 +167,18 @@
         name: "@openai/codex"
         global: true
         state: present
+
+    - name: Add CLI aliases to bashrc
+      ansible.builtin.blockinfile:
+        path: "/home/{{ ansible_user }}/.bashrc"
+        create: true
+        mode: "0644"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        marker: "# {mark} ANSIBLE MANAGED - CLI aliases"
+        block: |
+          alias frc='claude --dangerously-skip-permissions'
+          alias frco='codex --sandbox danger-full-access --ask-for-approval never'
 
   handlers:
     - name: Restart sshd
