@@ -110,6 +110,14 @@ export const usersTable: TableDefinition = {
       sqlName: 'admin',
       notNull: true,
       defaultValue: false
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at'
+    },
+    updatedAt: {
+      type: 'timestamp',
+      sqlName: 'updated_at'
     }
   },
   indexes: [{ name: 'users_email_idx', columns: ['email'] }]

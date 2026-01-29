@@ -8,6 +8,7 @@ import { v005 } from './v005.js';
 import { v006 } from './v006.js';
 import { v007 } from './v007.js';
 import { v008 } from './v008.js';
+import { v009 } from './v009.js';
 
 export type { Migration, MigrationFn } from './types.js';
 
@@ -23,7 +24,8 @@ export const migrations: Migration[] = [
   v005,
   v006,
   v007,
-  v008
+  v008,
+  v009
 ];
 
 /**
