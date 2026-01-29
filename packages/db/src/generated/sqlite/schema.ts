@@ -52,7 +52,9 @@ export const users = sqliteTable(
     emailConfirmed: integer('email_confirmed', { mode: 'boolean' })
       .notNull()
       .default(false),
-    admin: integer('admin', { mode: 'boolean' }).notNull().default(false)
+    admin: integer('admin', { mode: 'boolean' }).notNull().default(false),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
   },
   (table) => [index('users_email_idx').on(table.email)]
 );

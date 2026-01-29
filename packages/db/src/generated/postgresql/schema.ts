@@ -52,7 +52,9 @@ export const users = pgTable(
     id: text('id').primaryKey(),
     email: text('email').notNull(),
     emailConfirmed: boolean('email_confirmed').notNull().default(false),
-    admin: boolean('admin').notNull().default(false)
+    admin: boolean('admin').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
   },
   (table) => [index('users_email_idx').on(table.email)]
 );
