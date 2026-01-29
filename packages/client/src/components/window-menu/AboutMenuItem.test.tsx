@@ -2,18 +2,17 @@ import { ThemeProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as useAppVersionModule from '@/hooks/useAppVersion';
 import { AboutMenuItem } from './AboutMenuItem';
 
-const mockVersion = '1.2.3';
-
 vi.mock('@/hooks/useAppVersion', () => ({
-  useAppVersion: () => mockVersion
+  useAppVersion: vi.fn(() => '1.2.3')
 }));
 
-function renderMenuItem() {
+function renderMenuItem(props: { appName?: string; version?: string } = {}) {
   return render(
     <ThemeProvider>
-      <AboutMenuItem />
+      <AboutMenuItem {...props} />
     </ThemeProvider>
   );
 }
@@ -72,5 +71,52 @@ describe('AboutMenuItem', () => {
     await user.click(screen.getByTestId('about-backdrop'));
 
     expect(screen.queryByTestId('about-dialog')).not.toBeInTheDocument();
+  });
+
+  it('displays custom app name when provided', async () => {
+    const user = userEvent.setup();
+    renderMenuItem({ appName: 'VFS Explorer' });
+
+    await user.click(screen.getByText('About'));
+
+    expect(screen.getByText('About VFS Explorer')).toBeInTheDocument();
+  });
+
+  it('displays custom version when provided', async () => {
+    const user = userEvent.setup();
+    renderMenuItem({ version: '0.0.8' });
+
+    await user.click(screen.getByText('About'));
+
+    expect(screen.getByTestId('about-version')).toHaveTextContent('0.0.8');
+  });
+
+  it('prefers provided version over hook version', async () => {
+    const user = userEvent.setup();
+    renderMenuItem({ version: '9.9.9' });
+
+    await user.click(screen.getByText('About'));
+
+    expect(screen.getByTestId('about-version')).toHaveTextContent('9.9.9');
+  });
+
+  it('displays both custom app name and version together', async () => {
+    const user = userEvent.setup();
+    renderMenuItem({ appName: 'Email', version: '0.0.8' });
+
+    await user.click(screen.getByText('About'));
+
+    expect(screen.getByText('About Email')).toBeInTheDocument();
+    expect(screen.getByTestId('about-version')).toHaveTextContent('0.0.8');
+  });
+
+  it('displays Unknown when hook returns undefined and no version prop', async () => {
+    vi.mocked(useAppVersionModule.useAppVersion).mockReturnValue(undefined);
+    const user = userEvent.setup();
+    renderMenuItem();
+
+    await user.click(screen.getByText('About'));
+
+    expect(screen.getByTestId('about-version')).toHaveTextContent('Unknown');
   });
 });

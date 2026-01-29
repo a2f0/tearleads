@@ -3,6 +3,7 @@
  * to the @rapid/notes package components.
  */
 import { NotesProvider, type NotesUIComponents } from '@rapid/notes';
+import notesPackageJson from '@rapid/notes/package.json';
 import type { ReactNode } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,10 @@ import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { useTypedTranslation } from '@/i18n';
 
+export function NotesAboutMenuItem() {
+  return <AboutMenuItem appName="Notes" version={notesPackageJson.version} />;
+}
+
 const notesUIComponents: NotesUIComponents = {
   Button,
   Input,
@@ -38,7 +43,7 @@ const notesUIComponents: NotesUIComponents = {
   DropdownMenuItem,
   DropdownMenuSeparator,
   WindowOptionsMenuItem,
-  AboutMenuItem
+  AboutMenuItem: NotesAboutMenuItem
 };
 
 interface ClientNotesProviderProps {

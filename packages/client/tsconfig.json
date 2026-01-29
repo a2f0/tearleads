@@ -10,7 +10,10 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@rapid/email/package.json": ["../email/package.json"],
+      "@rapid/notes/package.json": ["../notes/package.json"],
+      "@rapid/vfs-explorer/package.json": ["../vfs-explorer/package.json"]
     }
   },
   "include": ["src"],
