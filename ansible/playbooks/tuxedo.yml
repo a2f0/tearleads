@@ -8,6 +8,8 @@
     nodejs_major_version: 22
     tuxedo_github_deploy_key_name: tuxedoGithubDeployKey
     tuxedo_github_deploy_key_path: "{{ playbook_dir }}/../../.secrets/tuxedoGithubDeployKey"
+    # GPG signing key for git commits
+    gpg_signing_key_path: "{{ playbook_dir }}/../../.secrets/gpgSigningKey.asc"
     # Tuxedo workspace configuration (server uses tuxedo1, tuxedo2, ... naming)
     tuxedo_base_dir: "/home/{{ ansible_user }}/tuxedo"
     tuxedo_workspace_prefix: "tuxedo"
@@ -67,6 +69,91 @@
         name: github.com
         key: "{{ item }}"
       loop: "{{ github_ssh_host_keys }}"
+
+    # GPG signing key for git commits
+    - name: Copy GPG signing key
+      ansible.builtin.copy:
+        src: "{{ gpg_signing_key_path }}"
+        dest: "/tmp/gpgSigningKey.asc"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0600"
+
+    - name: Import GPG signing key
+      ansible.builtin.command:
+        cmd: gpg --batch --import /tmp/gpgSigningKey.asc
+      become: true
+      become_user: "{{ ansible_user }}"
+      register: gpg_import_result
+      changed_when: "'imported' in gpg_import_result.stderr"
+      failed_when: >-
+        gpg_import_result.rc != 0 and
+        'already in secret keyring' not in gpg_import_result.stderr
+
+    - name: Get imported GPG key ID
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          gpg --list-secret-keys --keyid-format LONG 2>/dev/null | \
+            grep '^sec' | sed 's/.*\///' | awk '{print $1}' | head -1
+        executable: /bin/bash
+      become: true
+      become_user: "{{ ansible_user }}"
+      register: gpg_key_id_result
+      changed_when: false
+
+    - name: Trust imported GPG key ultimately
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          echo "{{ gpg_key_id_result.stdout }}:6:" | gpg --import-ownertrust
+        executable: /bin/bash
+      become: true
+      become_user: "{{ ansible_user }}"
+      when: gpg_import_result.changed and gpg_key_id_result.stdout | length > 0
+      changed_when: true
+
+    - name: Remove temporary GPG key file
+      ansible.builtin.file:
+        path: /tmp/gpgSigningKey.asc
+        state: absent
+
+    - name: Copy gitconfig from local machine
+      ansible.builtin.copy:
+        src: ~/.gitconfig
+        dest: "/home/{{ ansible_user }}/.gitconfig"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0644"
+
+    - name: Ensure GPG directory exists
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/.gnupg"
+        state: directory
+        mode: "0700"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Configure GPG agent with long cache timeout
+      ansible.builtin.copy:
+        dest: "/home/{{ ansible_user }}/.gnupg/gpg-agent.conf"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0600"
+        content: |
+          pinentry-program /usr/bin/pinentry-tty
+          default-cache-ttl 315360000
+          max-cache-ttl 315360000
+          allow-loopback-pinentry
+
+    - name: Configure GPG for loopback pinentry
+      ansible.builtin.copy:
+        dest: "/home/{{ ansible_user }}/.gnupg/gpg.conf"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0600"
+        content: |
+          pinentry-mode loopback
 
     - name: Run tuxedo repo setup script
       ansible.builtin.command:
@@ -335,6 +422,9 @@
           # Terminal color settings for Claude Code (truecolor + dark terminal signal)
           export COLORTERM=truecolor
           export COLORFGBG="15;0"
+
+          # GPG signing requires TTY for passphrase prompts
+          export GPG_TTY=$(tty)
 
           if [ -n "$TUXEDO_WORKSPACE" ]; then
             export PATH="$TUXEDO_WORKSPACE/scripts:$TUXEDO_WORKSPACE/scripts/agents:$PATH"
