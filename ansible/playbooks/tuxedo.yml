@@ -159,6 +159,8 @@
         value: "true"
       become: true
       become_user: "{{ ansible_user }}"
+      become: true
+      become_user: "{{ ansible_user }}"
 
     - name: Ensure GPG directory exists
       ansible.builtin.file:
