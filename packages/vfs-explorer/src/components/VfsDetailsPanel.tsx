@@ -34,6 +34,8 @@ interface VfsDetailsPanelProps {
   onFolderSelect?: ((folderId: string) => void) | undefined;
   /** Callback when a non-folder item is double-clicked (to open it) */
   onItemOpen?: ((item: DisplayItem) => void) | undefined;
+  /** Callback when items change (for status bar) */
+  onItemsChange?: ((items: DisplayItem[]) => void) | undefined;
 }
 
 export function VfsDetailsPanel({
@@ -44,7 +46,8 @@ export function VfsDetailsPanel({
   selectedItemId,
   onItemSelect,
   onFolderSelect,
-  onItemOpen
+  onItemOpen,
+  onItemsChange
 }: VfsDetailsPanelProps) {
   const isUnfiled = folderId === UNFILED_FOLDER_ID;
 
@@ -94,6 +97,11 @@ export function VfsDetailsPanel({
     : folderContents.items;
   const loading = isUnfiled ? unfiledItems.loading : folderContents.loading;
   const error = isUnfiled ? unfiledItems.error : folderContents.error;
+
+  // Report items to parent for status bar
+  useEffect(() => {
+    onItemsChange?.(items);
+  }, [items, onItemsChange]);
 
   if (!folderId) {
     return (

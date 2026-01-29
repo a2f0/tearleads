@@ -4,11 +4,12 @@ import {
   type DragStartEvent,
   pointerWithin
 } from '@dnd-kit/core';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMoveVfsItem } from '../hooks';
 import { type DisplayItem, VfsDetailsPanel } from './VfsDetailsPanel';
 import type { DragItemData } from './VfsDraggableItem';
 import { VfsDragOverlay } from './VfsDragOverlay';
+import { VfsStatusBar } from './VfsStatusBar';
 import { UNFILED_FOLDER_ID, VfsTreePanel } from './VfsTreePanel';
 
 export type VfsViewMode = 'list' | 'table';
@@ -44,7 +45,15 @@ export function VfsExplorer({
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [treePanelWidth, setTreePanelWidth] = useState(240);
   const [activeItem, setActiveItem] = useState<DragItemData | null>(null);
+  const [items, setItems] = useState<DisplayItem[]>([]);
   const { moveItem } = useMoveVfsItem();
+
+  // Get selected item name for status bar
+  const selectedItemName = useMemo(() => {
+    if (!selectedItemId) return null;
+    const item = items.find((i) => i.id === selectedItemId);
+    return item?.name ?? null;
+  }, [selectedItemId, items]);
 
   // Use controlled state if provided, otherwise use internal state
   const selectedFolderId =
@@ -115,24 +124,31 @@ export function VfsExplorer({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className={`flex h-full ${className ?? ''}`}>
-        <VfsTreePanel
-          width={treePanelWidth}
-          onWidthChange={setTreePanelWidth}
-          selectedFolderId={selectedFolderId}
-          onFolderSelect={handleFolderSelect}
-          compact={compact}
-          refreshToken={refreshToken}
-        />
-        <VfsDetailsPanel
-          folderId={selectedFolderId}
-          viewMode={viewMode}
-          compact={compact}
-          refreshToken={refreshToken}
-          selectedItemId={selectedItemId}
-          onItemSelect={setSelectedItemId}
-          onFolderSelect={handleFolderSelect}
-          onItemOpen={onItemOpen}
+      <div className={`flex h-full flex-col ${className ?? ''}`}>
+        <div className="flex min-h-0 flex-1">
+          <VfsTreePanel
+            width={treePanelWidth}
+            onWidthChange={setTreePanelWidth}
+            selectedFolderId={selectedFolderId}
+            onFolderSelect={handleFolderSelect}
+            compact={compact}
+            refreshToken={refreshToken}
+          />
+          <VfsDetailsPanel
+            folderId={selectedFolderId}
+            viewMode={viewMode}
+            compact={compact}
+            refreshToken={refreshToken}
+            selectedItemId={selectedItemId}
+            onItemSelect={setSelectedItemId}
+            onFolderSelect={handleFolderSelect}
+            onItemOpen={onItemOpen}
+            onItemsChange={setItems}
+          />
+        </div>
+        <VfsStatusBar
+          itemCount={items.length}
+          selectedItemName={selectedItemName}
         />
       </div>
       <VfsDragOverlay activeItem={activeItem} />
