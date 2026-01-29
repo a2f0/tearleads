@@ -1,3 +1,4 @@
+import type { Database } from '@rapid/db/sqlite';
 import {
   act,
   render,
@@ -7,7 +8,7 @@ import {
 } from '@testing-library/react';
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { VfsExplorerProvider } from '../context';
+import { VfsExplorerProvider, type VfsExplorerUIComponents } from '../context';
 import {
   createMockDatabase,
   createMockDatabaseState,
@@ -252,8 +253,8 @@ describe('useVfsUnfiledItems', () => {
             isLoading: false,
             currentInstanceId: instanceId
           }}
-          getDatabase={() => mockDb as ReturnType<() => unknown>}
-          ui={ui as Parameters<typeof VfsExplorerProvider>[0]['ui']}
+          getDatabase={() => mockDb as unknown as Database}
+          ui={ui as unknown as VfsExplorerUIComponents}
           vfsKeys={{
             generateSessionKey: vi.fn(() => new Uint8Array(32)),
             wrapSessionKey: vi.fn(async () => 'wrapped-key')

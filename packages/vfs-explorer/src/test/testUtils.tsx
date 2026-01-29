@@ -1,9 +1,13 @@
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
-import { VfsExplorerProvider, type VfsExplorerProviderProps } from '../context';
+import {
+  type DatabaseState,
+  VfsExplorerProvider,
+  type VfsExplorerProviderProps
+} from '../context';
 
 // Default mock implementations
-export const createMockDatabaseState = () => ({
+export const createMockDatabaseState = (): DatabaseState => ({
   isUnlocked: true,
   isLoading: false,
   currentInstanceId: 'test-instance'
@@ -45,7 +49,7 @@ export const createMockVfsKeys = () => ({
 
 export const createMockAuth = () => ({
   isLoggedIn: vi.fn(() => false),
-  readStoredAuth: vi.fn(() => ({
+  readStoredAuth: vi.fn((): { user: { id: string } | null } => ({
     user: { id: 'test-user-id' }
   }))
 });
@@ -77,7 +81,7 @@ export const createMockUI = () => ({
 });
 
 export interface MockContextOptions {
-  databaseState?: Partial<ReturnType<typeof createMockDatabaseState>>;
+  databaseState?: Partial<DatabaseState>;
   database?: ReturnType<typeof createMockDatabase>;
   vfsKeys?: Partial<ReturnType<typeof createMockVfsKeys>>;
   auth?: Partial<ReturnType<typeof createMockAuth>>;
