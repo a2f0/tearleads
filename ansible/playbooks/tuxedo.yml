@@ -10,6 +10,9 @@
     tuxedo_github_deploy_key_path: "{{ playbook_dir }}/../../.secrets/tuxedoGithubDeployKey"
     # GPG signing key for git commits
     gpg_signing_key_path: "{{ playbook_dir }}/../../.secrets/gpgSigningKey.asc"
+    # Git user config (from environment variables)
+    git_user_name: "{{ lookup('env', 'TUXEDO_GIT_NAME') }}"
+    git_user_email: "{{ lookup('env', 'TUXEDO_GIT_EMAIL') }}"
     # Tuxedo workspace configuration (server uses tuxedo1, tuxedo2, ... naming)
     tuxedo_base_dir: "/home/{{ ansible_user }}/tuxedo"
     tuxedo_workspace_prefix: "tuxedo"
@@ -121,6 +124,24 @@
           ansible.builtin.file:
             path: /tmp/gpgSigningKey.asc
             state: absent
+
+    - name: Configure git user name
+      community.general.git_config:
+        name: user.name
+        scope: global
+        value: "{{ git_user_name }}"
+      become: true
+      become_user: "{{ ansible_user }}"
+      when: git_user_name | length > 0
+
+    - name: Configure git user email
+      community.general.git_config:
+        name: user.email
+        scope: global
+        value: "{{ git_user_email }}"
+      become: true
+      become_user: "{{ ansible_user }}"
+      when: git_user_email | length > 0
 
     - name: Configure git to use GPG signing key
       community.general.git_config:
