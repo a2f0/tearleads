@@ -22,6 +22,9 @@ Track the following state during execution:
 - `has_waited_for_gemini`: Boolean, starts `false`. Set to `true` after first Gemini review wait. Prevents redundant waits on subsequent loop iterations.
 - `gemini_can_review`: Boolean, starts `true`. Set to `false` if PR contains only non-code files. Allows skipping Gemini wait entirely.
 - `associated_issue_number`: Number or null. The issue number associated with this PR (either extracted from PR body or newly created). All PRs should have an associated issue that gets marked `needs-qa` after merge.
+- `is_rollup_pr`: Boolean, starts `false`. Set to `true` if base branch is not `main`/`master`. Roll-up PRs must wait for their base PR to merge first.
+- `base_pr_number`: Number or null. For roll-up PRs, the PR number associated with the base branch.
+- `original_base_ref`: String or null. For roll-up PRs, stores the original base branch name before retargeting to main.
 
 ## Polling with Jitter
 
@@ -36,6 +39,16 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 ## Steps
 
 1. **Verify PR exists and check file types**: Run `gh pr view --json number,title,headRefName,baseRefName,url,state,labels,files,body` to get PR info. If no PR exists, abort with a message. Store the `baseRefName` for use in subsequent steps. Also check if this PR has the `high-priority` label.
+
+   **Roll-up PR detection**: Check if `baseRefName` is `main` or `master`. If NOT:
+   - This is a **roll-up PR** that depends on another PR merging first
+   - Set `is_rollup_pr = true` and `original_base_ref = baseRefName`
+   - Find the base PR: `gh pr list --head <baseRefName> --state open --json number --jq '.[0].number'`
+   - If a PR is found, store it as `base_pr_number`
+   - If no open PR is found for the base branch, check if it was already merged:
+     - `gh pr list --head <baseRefName> --state merged --json number --jq '.[0].number'`
+     - If merged, proceed as normal (the roll-up PR's base will be updated by GitHub)
+   - Log: "Roll-up PR detected. Base PR: #<base_pr_number> (<baseRefName>)"
 
    **Early Gemini skip detection**: Check the file extensions in the PR. If ALL files are non-code types, set `gemini_can_review = false`:
    - Config files: `.json`, `.yaml`, `.yml`, `.toml`, `.ini`, `.env*`
@@ -66,7 +79,45 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
 4. **Main loop** - Repeat until PR is merged:
 
-   ### 4a. Yield to high-priority PRs
+   ### 4a. Wait for base PR (roll-up PRs only)
+
+   **Skip this step if `is_rollup_pr` is `false`.**
+
+   If this is a roll-up PR, the base PR must merge before this PR can proceed:
+
+   ```bash
+   gh pr view <base_pr_number> --json state,mergeStateStatus
+   ```
+
+   **If base PR `state` is `MERGED`**:
+   - Log: "Base PR #<base_pr_number> has merged. Retargeting to main."
+   - GitHub automatically retargets the roll-up PR to `main` when the base PR merges
+   - Refresh PR info to get updated `baseRefName`: `gh pr view --json baseRefName`
+   - Set `is_rollup_pr = false` (now a normal PR targeting main)
+   - Rebase onto main to incorporate base PR changes:
+
+     ```bash
+     git fetch origin main >/dev/null
+     git rebase origin/main >/dev/null
+     git push --force-with-lease >/dev/null
+     ```
+
+   - Continue to step 4b
+
+   **If base PR `state` is `OPEN`**:
+   - Check `mergeStateStatus`:
+     - If `CLEAN` or `BLOCKED` or `UNKNOWN`: Base PR is progressing, wait for it
+     - If `DIRTY`: Base PR has conflicts - alert user: "Base PR #<base_pr_number> has conflicts. Please resolve before this roll-up can proceed."
+     - If `BEHIND`: Base PR needs to update - this is normal, wait for it
+   - Log: "Waiting for base PR #<base_pr_number> to merge (status: <mergeStateStatus>)"
+   - Wait 2 minutes (with jitter) and repeat this step
+
+   **If base PR `state` is `CLOSED`** (not merged):
+   - Alert user: "Base PR #<base_pr_number> was closed without merging. This roll-up PR cannot proceed."
+   - Clear queued status with `clearQueued.sh`
+   - Stop and ask user for guidance
+
+   ### 4b. Yield to high-priority PRs
 
    If the current PR does NOT have the `high-priority` label, check if any other open PRs do.
 
@@ -93,18 +144,18 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
      - All high-priority PRs have `mergeStateStatus` of `DIRTY` (conflicts that need manual resolution)
    - **Skip this check entirely** if the current PR has the `high-priority` label
 
-   ### 4b. Check PR state
+   ### 4c. Check PR state
 
    ```bash
    gh pr view --json state,mergeStateStatus,mergeable
    ```
 
    - If `state` is `MERGED`: Exit loop and proceed to step 5
-   - If `mergeStateStatus` is `BEHIND`: Update from base and bump version (step 4c)
-   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Address Gemini feedback while waiting for CI (step 4d/4e)
-   - If `mergeStateStatus` is `CLEAN`: Enable auto-merge (step 4f)
+   - If `mergeStateStatus` is `BEHIND`: Update from base and bump version (step 4d)
+   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Address Gemini feedback while waiting for CI (step 4e/4f)
+   - If `mergeStateStatus` is `CLEAN`: Enable auto-merge (step 4g)
 
-   ### 4c. Update from base branch (rebase) and bump version
+   ### 4d. Update from base branch (rebase) and bump version
 
    Use rebase to keep the branch history clean (no merge commits for updates):
 
@@ -141,9 +192,9 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    git push --force-with-lease
    ```
 
-   Continue to step 4d.
+   Continue to step 4e.
 
-   ### 4d. Address Gemini feedback (parallel with CI)
+   ### 4e. Address Gemini feedback (parallel with CI)
 
    **IMPORTANT**: Do NOT wait for CI to complete before addressing Gemini feedback. Handle Gemini feedback while CI is running to maximize efficiency.
 
@@ -167,7 +218,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    If Gemini's review contains:
    > "Gemini is unable to generate a review for this pull request due to the file types involved not being currently supported."
 
-   Set `gemini_can_review = false` and proceed directly to step 4e (wait for CI).
+   Set `gemini_can_review = false` and proceed directly to step 4f (wait for CI).
 
    **Address feedback while CI runs**: All conversation threads must be resolved before the PR can merge.
 
@@ -188,9 +239,9 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - If no confirmations yet, wait for Gemini's response (polling every 30 seconds, up to 5 minutes)
    - When Gemini confirms a fix is satisfactory, resolve the thread (see "Resolving Conversation Threads" below)
    - If Gemini requests further changes, continue addressing feedback
-   - **Do NOT wait for all threads to be resolved before proceeding to CI monitoring** - continue to step 4e and handle remaining Gemini feedback in parallel
+   - **Do NOT wait for all threads to be resolved before proceeding to CI monitoring** - continue to step 4f and handle remaining Gemini feedback in parallel
 
-   ### 4e. Wait for CI (with adaptive polling and branch freshness checks)
+   ### 4f. Wait for CI (with adaptive polling and branch freshness checks)
 
    **Important**: Check if branch is behind BEFORE waiting for CI, and periodically during CI. This prevents wasting time on CI runs that will be obsolete.
 
@@ -206,11 +257,11 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    **While CI is running**:
    - At each poll, also check if branch is behind: `gh pr view --json mergeStateStatus`
-   - If `mergeStateStatus` is `BEHIND`: **Immediately** go back to step 4c (don't wait for CI to finish)
+   - If `mergeStateStatus` is `BEHIND`: **Immediately** go back to step 4d (don't wait for CI to finish)
    - This avoids wasting 15-20 minutes on a CI run that will need to be rerun anyway
 
    **When CI completes**:
-   - If CI **passes**: Continue to step 4f (enable auto-merge)
+   - If CI **passes**: Continue to step 4g (enable auto-merge)
    - If CI is **cancelled**: Rerun CI using the CLI (do NOT push empty commits):
 
      ```bash
@@ -222,9 +273,9 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
      2. If the failure is coverage-related, add tests to raise coverage and re-run the relevant `test:coverage` target locally
      3. Return to monitoring CI status
 
-   ### 4f. Enable auto-merge and wait
+   ### 4g. Enable auto-merge and wait
 
-   **Version bump note**: If `has_bumped_version` is still `false` at this point (a rare edge case, e.g., if the PR started `CLEAN`), perform the version bump now. Run the bump script, stage the version files, amend the last commit, and **force push** the changes. Then, return to step 4e to wait for the new CI run.
+   **Version bump note**: If `has_bumped_version` is still `false` at this point (a rare edge case, e.g., if the PR started `CLEAN`), perform the version bump now. Run the bump script, stage the version files, amend the last commit, and **force push** the changes. Then, return to step 4f to wait for the new CI run.
 
    Enable auto-merge:
 
@@ -239,7 +290,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    ```
 
    - If `state` is `MERGED`: Exit loop
-   - If `mergeStateStatus` is `BEHIND`: Go back to step 4c
+   - If `mergeStateStatus` is `BEHIND`: Go back to step 4d
    - Otherwise: Wait and check again
 
 5. **Refresh workspace**: Once the PR is merged, run:
@@ -329,6 +380,7 @@ git rebase origin/main      # Can be noisy and waste tokens
 - If stuck (same fix attempted twice), ask user for help
 - Gemini confirmation detection: positive phrases ("looks good", "lgtm", etc.) WITHOUT negative qualifiers ("but", "however", "still")
 - Only resolve threads after explicit Gemini confirmation
+- **Roll-up PRs**: PRs targeting a non-main branch wait for their base PR to merge first. Once merged, GitHub auto-retargets to main and the roll-up continues normally.
 
 ## Keeping PR Description Updated
 
