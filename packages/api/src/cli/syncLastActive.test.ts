@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  runSyncLastActive,
-  runSyncLastActiveFromArgv
-} from './syncLastActive.js';
+import { runSyncLastActive } from './syncLastActive.js';
 
 const mockGetPostgresPool = vi.fn();
 const mockGetPostgresConnectionInfo = vi.fn();
@@ -42,8 +39,7 @@ describe('sync-last-active cli', () => {
 
   it('handles no users to sync', async () => {
     const mockPool = {
-      query: vi.fn().mockResolvedValue({ rows: [] }),
-      connect: vi.fn()
+      query: vi.fn().mockResolvedValue({ rows: [{ count: '0' }] })
     };
     mockGetPostgresPool.mockResolvedValue(mockPool);
 
@@ -54,38 +50,29 @@ describe('sync-last-active cli', () => {
     expect(result.processed).toBe(0);
     expect(result.updated).toBe(0);
     expect(mockPool.query).toHaveBeenCalledWith(
-      'SELECT id FROM users ORDER BY id'
+      'SELECT COUNT(*) as count FROM users'
     );
     consoleLog.mockRestore();
   });
 
-  it('updates users with Redis activity', async () => {
-    const mockClient = {
-      query: vi.fn(),
-      release: vi.fn()
-    };
+  it('updates users with Redis activity using batch update', async () => {
     const mockPool = {
-      query: vi.fn().mockResolvedValue({
-        rows: [{ id: 'user-1' }, { id: 'user-2' }, { id: 'user-3' }]
-      }),
-      connect: vi.fn().mockResolvedValue(mockClient)
+      query: vi.fn()
     };
     mockGetPostgresPool.mockResolvedValue(mockPool);
+
+    // Mock COUNT query, then SELECT batch, then UPDATE
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [{ count: '3' }] }) // COUNT
+      .mockResolvedValueOnce({
+        rows: [{ id: 'user-1' }, { id: 'user-2' }, { id: 'user-3' }]
+      }) // SELECT batch
+      .mockResolvedValueOnce({ rowCount: 2 }); // UPDATE
 
     mockGetLatestLastActiveByUserIds.mockResolvedValue({
       'user-1': '2024-01-15T10:00:00.000Z',
       'user-2': null,
       'user-3': '2024-01-15T11:00:00.000Z'
-    });
-
-    mockClient.query.mockImplementation((sql: string) => {
-      if (sql === 'BEGIN' || sql === 'COMMIT') {
-        return Promise.resolve({ rows: [] });
-      }
-      if (sql.includes('UPDATE users SET last_active_at')) {
-        return Promise.resolve({ rowCount: 1 });
-      }
-      return Promise.resolve({ rows: [] });
     });
 
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -94,35 +81,35 @@ describe('sync-last-active cli', () => {
 
     expect(result.processed).toBe(3);
     expect(result.updated).toBe(2);
-    expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
-    expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
-    expect(mockClient.release).toHaveBeenCalled();
+
+    // Verify batch UPDATE was called with unnest
+    const updateCall = mockPool.query.mock.calls.find(
+      ([sql]) => typeof sql === 'string' && sql.includes('unnest')
+    );
+    expect(updateCall).toBeDefined();
+    expect(updateCall?.[1]).toEqual([
+      ['user-1', 'user-3'],
+      ['2024-01-15T10:00:00.000Z', '2024-01-15T11:00:00.000Z']
+    ]);
+
     consoleLog.mockRestore();
   });
 
   it('skips users without Redis activity', async () => {
-    const mockClient = {
-      query: vi.fn(),
-      release: vi.fn()
-    };
     const mockPool = {
-      query: vi.fn().mockResolvedValue({
-        rows: [{ id: 'user-1' }, { id: 'user-2' }]
-      }),
-      connect: vi.fn().mockResolvedValue(mockClient)
+      query: vi.fn()
     };
     mockGetPostgresPool.mockResolvedValue(mockPool);
+
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [{ count: '2' }] })
+      .mockResolvedValueOnce({
+        rows: [{ id: 'user-1' }, { id: 'user-2' }]
+      });
 
     mockGetLatestLastActiveByUserIds.mockResolvedValue({
       'user-1': null,
       'user-2': null
-    });
-
-    mockClient.query.mockImplementation((sql: string) => {
-      if (sql === 'BEGIN' || sql === 'COMMIT') {
-        return Promise.resolve({ rows: [] });
-      }
-      return Promise.resolve({ rows: [] });
     });
 
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -132,37 +119,26 @@ describe('sync-last-active cli', () => {
     expect(result.processed).toBe(2);
     expect(result.updated).toBe(0);
 
-    const updateCalls = mockClient.query.mock.calls.filter(
-      ([sql]) =>
-        typeof sql === 'string' &&
-        sql.includes('UPDATE users SET last_active_at')
+    // No UPDATE should be called
+    const updateCalls = mockPool.query.mock.calls.filter(
+      ([sql]) => typeof sql === 'string' && sql.includes('UPDATE')
     );
     expect(updateCalls).toHaveLength(0);
     consoleLog.mockRestore();
   });
 
   it('dry run mode does not update database', async () => {
-    const mockClient = {
-      query: vi.fn(),
-      release: vi.fn()
-    };
     const mockPool = {
-      query: vi.fn().mockResolvedValue({
-        rows: [{ id: 'user-1' }]
-      }),
-      connect: vi.fn().mockResolvedValue(mockClient)
+      query: vi.fn()
     };
     mockGetPostgresPool.mockResolvedValue(mockPool);
 
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [{ count: '1' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 'user-1' }] });
+
     mockGetLatestLastActiveByUserIds.mockResolvedValue({
       'user-1': '2024-01-15T10:00:00.000Z'
-    });
-
-    mockClient.query.mockImplementation((sql: string) => {
-      if (sql === 'BEGIN' || sql === 'COMMIT') {
-        return Promise.resolve({ rows: [] });
-      }
-      return Promise.resolve({ rows: [] });
     });
 
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -172,76 +148,33 @@ describe('sync-last-active cli', () => {
     expect(result.processed).toBe(1);
     expect(result.updated).toBe(1);
 
-    const updateCalls = mockClient.query.mock.calls.filter(
-      ([sql]) =>
-        typeof sql === 'string' &&
-        sql.includes('UPDATE users SET last_active_at')
+    // No UPDATE should be called in dry run
+    const updateCalls = mockPool.query.mock.calls.filter(
+      ([sql]) => typeof sql === 'string' && sql.includes('UPDATE')
     );
     expect(updateCalls).toHaveLength(0);
     consoleLog.mockRestore();
   });
 
-  it('rolls back on error', async () => {
-    const mockClient = {
-      query: vi.fn(),
-      release: vi.fn()
-    };
+  it('processes users in batches using cursor-based pagination', async () => {
     const mockPool = {
-      query: vi.fn().mockResolvedValue({
-        rows: [{ id: 'user-1' }]
-      }),
-      connect: vi.fn().mockResolvedValue(mockClient)
+      query: vi.fn()
     };
     mockGetPostgresPool.mockResolvedValue(mockPool);
 
-    mockGetLatestLastActiveByUserIds.mockResolvedValue({
-      'user-1': '2024-01-15T10:00:00.000Z'
-    });
-
-    mockClient.query.mockImplementation((sql: string) => {
-      if (sql === 'BEGIN') {
-        return Promise.resolve({ rows: [] });
-      }
-      if (sql === 'ROLLBACK') {
-        return Promise.resolve({ rows: [] });
-      }
-      if (sql.includes('UPDATE users SET last_active_at')) {
-        throw new Error('Database error');
-      }
-      return Promise.resolve({ rows: [] });
-    });
-
-    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const consoleError = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {});
-
-    await expect(runSyncLastActive({})).rejects.toThrow('Database error');
-
-    expect(mockClient.query).toHaveBeenCalledWith('ROLLBACK');
-    expect(mockClient.release).toHaveBeenCalled();
-    consoleLog.mockRestore();
-    consoleError.mockRestore();
-  });
-
-  it('processes users in batches', async () => {
-    const mockClient = {
-      query: vi.fn(),
-      release: vi.fn()
-    };
-    const mockPool = {
-      query: vi.fn().mockResolvedValue({
-        rows: [
-          { id: 'user-1' },
-          { id: 'user-2' },
-          { id: 'user-3' },
-          { id: 'user-4' },
-          { id: 'user-5' }
-        ]
-      }),
-      connect: vi.fn().mockResolvedValue(mockClient)
-    };
-    mockGetPostgresPool.mockResolvedValue(mockPool);
+    // COUNT, then 3 batches of SELECT, then 3 batch UPDATEs
+    mockPool.query
+      .mockResolvedValueOnce({ rows: [{ count: '5' }] }) // COUNT
+      .mockResolvedValueOnce({
+        rows: [{ id: 'user-1' }, { id: 'user-2' }]
+      }) // Batch 1
+      .mockResolvedValueOnce({ rowCount: 2 }) // UPDATE 1
+      .mockResolvedValueOnce({
+        rows: [{ id: 'user-3' }, { id: 'user-4' }]
+      }) // Batch 2
+      .mockResolvedValueOnce({ rowCount: 2 }) // UPDATE 2
+      .mockResolvedValueOnce({ rows: [{ id: 'user-5' }] }) // Batch 3
+      .mockResolvedValueOnce({ rowCount: 1 }); // UPDATE 3
 
     mockGetLatestLastActiveByUserIds.mockResolvedValue({
       'user-1': '2024-01-15T10:00:00.000Z',
@@ -251,16 +184,6 @@ describe('sync-last-active cli', () => {
       'user-5': '2024-01-15T10:00:00.000Z'
     });
 
-    mockClient.query.mockImplementation((sql: string) => {
-      if (sql === 'BEGIN' || sql === 'COMMIT') {
-        return Promise.resolve({ rows: [] });
-      }
-      if (sql.includes('UPDATE users SET last_active_at')) {
-        return Promise.resolve({ rowCount: 1 });
-      }
-      return Promise.resolve({ rows: [] });
-    });
-
     const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     const result = await runSyncLastActive({ batchSize: '2' });
@@ -268,20 +191,16 @@ describe('sync-last-active cli', () => {
     expect(result.processed).toBe(5);
     expect(result.updated).toBe(5);
 
-    // Should have 3 batches: [user-1, user-2], [user-3, user-4], [user-5]
+    // Should have 3 batches
     expect(mockGetLatestLastActiveByUserIds).toHaveBeenCalledTimes(3);
-    expect(mockPool.connect).toHaveBeenCalledTimes(3);
 
-    consoleLog.mockRestore();
-  });
+    // Verify cursor-based pagination - second SELECT should have WHERE id > 'user-2'
+    const selectCalls = mockPool.query.mock.calls.filter(
+      ([sql]) => typeof sql === 'string' && sql.includes('SELECT id FROM users')
+    );
+    expect(selectCalls).toHaveLength(3);
+    expect(selectCalls[1]?.[1]).toEqual(['user-2', 2]); // lastId, batchSize
 
-  it('prints help from argv and closes connections', async () => {
-    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
-
-    await runSyncLastActiveFromArgv(['--help']);
-
-    expect(mockCloseRedisClient).toHaveBeenCalled();
-    expect(mockClosePostgresPool).toHaveBeenCalled();
     consoleLog.mockRestore();
   });
 

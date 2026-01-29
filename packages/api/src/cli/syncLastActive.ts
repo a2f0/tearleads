@@ -7,12 +7,6 @@ import {
 import { closeRedisClient } from '../lib/redis.js';
 import { getLatestLastActiveByUserIds } from '../lib/sessions.js';
 
-type ParsedArgs = {
-  dryRun: boolean;
-  batchSize: number;
-  help: boolean;
-};
-
 type SyncLastActiveOptions = {
   dryRun?: boolean;
   batchSize?: string;
@@ -24,75 +18,6 @@ type SyncLastActiveResult = {
 };
 
 const DEFAULT_BATCH_SIZE = 100;
-
-function printUsage(): void {
-  console.log(
-    [
-      'Usage:',
-      '  pnpm --filter @rapid/api cli sync-last-active',
-      '  pnpm --filter @rapid/api cli sync-last-active -- --dry-run',
-      '  pnpm --filter @rapid/api cli sync-last-active -- --batch-size 50',
-      '',
-      'Options:',
-      '  --dry-run             Show what would be updated without making changes.',
-      '  --batch-size <size>   Number of users to process per batch (default: 100).',
-      '  --help, -h            Show this help message.',
-      '',
-      'Environment:',
-      '  DATABASE_URL or POSTGRES_URL take precedence.',
-      '  Otherwise PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE are used.',
-      '  REDIS_URL for Redis connection (default: redis://localhost:6379).'
-    ].join('\n')
-  );
-}
-
-function parseArgs(argv: string[]): ParsedArgs {
-  let dryRun = false;
-  let batchSize = DEFAULT_BATCH_SIZE;
-  let help = false;
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (!arg) {
-      continue;
-    }
-
-    if (arg === '--help' || arg === '-h') {
-      help = true;
-      continue;
-    }
-
-    if (arg === '--dry-run') {
-      dryRun = true;
-      continue;
-    }
-
-    if (arg.startsWith('--batch-size=')) {
-      batchSize = parseInt(arg.slice('--batch-size='.length), 10);
-      if (Number.isNaN(batchSize) || batchSize <= 0) {
-        throw new Error('Invalid batch size. Must be a positive integer.');
-      }
-      continue;
-    }
-
-    if (arg === '--batch-size') {
-      const value = argv[index + 1];
-      if (!value || value.startsWith('-')) {
-        throw new Error('Missing value for --batch-size.');
-      }
-      batchSize = parseInt(value, 10);
-      if (Number.isNaN(batchSize) || batchSize <= 0) {
-        throw new Error('Invalid batch size. Must be a positive integer.');
-      }
-      index += 1;
-      continue;
-    }
-
-    throw new Error(`Unknown argument: ${arg}`);
-  }
-
-  return { dryRun, batchSize, help };
-}
 
 function buildConnectionLabel(): string {
   const info = getPostgresConnectionInfo();
@@ -122,60 +47,72 @@ async function syncLastActive(
 
   const pool = await getPostgresPool();
 
-  const usersResult = await pool.query<{ id: string }>(
-    'SELECT id FROM users ORDER BY id'
+  // Get total count for progress reporting
+  const countResult = await pool.query<{ count: string }>(
+    'SELECT COUNT(*) as count FROM users'
   );
-  const userIds = usersResult.rows.map((row) => row.id);
+  const totalUsers = parseInt(countResult.rows[0]?.count ?? '0', 10);
+  console.log(`Found ${totalUsers} users to process`);
 
-  console.log(`Found ${userIds.length} users to process`);
-
-  if (userIds.length === 0) {
+  if (totalUsers === 0) {
     return { processed: 0, updated: 0 };
   }
 
   let processed = 0;
   let updated = 0;
+  let lastId: string | null = null;
 
-  for (let i = 0; i < userIds.length; i += batchSize) {
-    const batch = userIds.slice(i, i + batchSize);
-    const lastActiveByUser = await getLatestLastActiveByUserIds(batch);
+  // Process users in batches using cursor-based pagination
+  while (processed < totalUsers) {
+    // Fetch next batch of user IDs using keyset pagination
+    const batchQuery: string = lastId
+      ? 'SELECT id FROM users WHERE id > $1 ORDER BY id LIMIT $2'
+      : 'SELECT id FROM users ORDER BY id LIMIT $1';
+    const batchParams: (string | number)[] = lastId
+      ? [lastId, batchSize]
+      : [batchSize];
 
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
+    const batchResult = await pool.query<{ id: string }>(
+      batchQuery,
+      batchParams
+    );
+    const batch: string[] = batchResult.rows.map((row) => row.id);
 
-      for (const userId of batch) {
-        const lastActiveAt = lastActiveByUser[userId];
-        if (lastActiveAt) {
-          if (!dryRun) {
-            const result = await client.query(
-              `UPDATE users SET last_active_at = $1
-               WHERE id = $2 AND (last_active_at IS NULL OR last_active_at < $1)`,
-              [lastActiveAt, userId]
-            );
-            if (result.rowCount && result.rowCount > 0) {
-              updated += 1;
-            }
-          } else {
-            updated += 1;
-          }
-        }
-        processed += 1;
-      }
-
-      await client.query('COMMIT');
-    } catch (error) {
-      try {
-        await client.query('ROLLBACK');
-      } catch (rollbackError) {
-        console.error('Failed to rollback transaction:', rollbackError);
-      }
-      throw error;
-    } finally {
-      client.release();
+    if (batch.length === 0) {
+      break;
     }
 
-    console.log(`Processed ${processed}/${userIds.length} users`);
+    lastId = batch[batch.length - 1] ?? null;
+    const lastActiveByUser = await getLatestLastActiveByUserIds(batch);
+
+    // Build arrays for batch update
+    const userIdsToUpdate: string[] = [];
+    const timestampsToUpdate: string[] = [];
+
+    for (const userId of batch) {
+      const lastActiveAt = lastActiveByUser[userId];
+      if (lastActiveAt) {
+        userIdsToUpdate.push(userId);
+        timestampsToUpdate.push(lastActiveAt);
+      }
+      processed += 1;
+    }
+
+    if (userIdsToUpdate.length > 0 && !dryRun) {
+      // Batch update using unnest for efficiency
+      const result = await pool.query(
+        `UPDATE users AS u
+         SET last_active_at = v.last_active_at
+         FROM (SELECT unnest($1::text[]) AS id, unnest($2::timestamptz[]) AS last_active_at) AS v
+         WHERE u.id = v.id AND (u.last_active_at IS NULL OR u.last_active_at < v.last_active_at)`,
+        [userIdsToUpdate, timestampsToUpdate]
+      );
+      updated += result.rowCount ?? 0;
+    } else if (dryRun) {
+      updated += userIdsToUpdate.length;
+    }
+
+    console.log(`Processed ${processed}/${totalUsers} users`);
   }
 
   return { processed, updated };
@@ -194,31 +131,6 @@ export async function runSyncLastActive(
   }
 
   return syncLastActive(dryRun, batchSize);
-}
-
-export async function runSyncLastActiveFromArgv(argv: string[]): Promise<void> {
-  try {
-    const parsed = parseArgs(argv);
-    if (parsed.help) {
-      printUsage();
-      return;
-    }
-
-    const result = await syncLastActive(parsed.dryRun, parsed.batchSize);
-
-    if (parsed.dryRun) {
-      console.log(
-        `[Dry run] Would update ${result.updated}/${result.processed} users`
-      );
-    } else {
-      console.log(
-        `Sync complete: ${result.updated}/${result.processed} users updated`
-      );
-    }
-  } finally {
-    await closeRedisClient();
-    await closePostgresPool();
-  }
 }
 
 export function syncLastActiveCommand(program: Command): void {
