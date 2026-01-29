@@ -235,6 +235,40 @@
         validate: 'sshd -t -f %s'
       notify: Restart sshd
 
+    - name: Install UFW
+      ansible.builtin.apt:
+        name: ufw
+        state: present
+        update_cache: true
+
+    - name: Set UFW default deny incoming
+      community.general.ufw:
+        direction: incoming
+        policy: deny
+
+    - name: Set UFW default allow outgoing
+      community.general.ufw:
+        direction: outgoing
+        policy: allow
+
+    - name: Allow SSH through UFW
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+
+    - name: Deploy upgradeAndRestart script
+      ansible.builtin.template:
+        src: templates/upgradeAndRestart.sh.j2
+        dest: "/home/{{ ansible_user }}/upgradeAndRestart.sh"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+
     - name: Update apt cache and upgrade all packages
       ansible.builtin.apt:
         update_cache: true
