@@ -26,9 +26,11 @@ export default defineConfig(({ mode }) => ({
       '@rapid/ui/styles.css': path.resolve(__dirname, '../ui/src/styles/index.css'),
       '@rapid/ui/theme.css': path.resolve(__dirname, '../ui/src/styles/theme.css'),
       '@rapid/ui/logo.svg': path.resolve(__dirname, '../ui/src/images/logo.svg'),
-      '@rapid/ui': path.resolve(__dirname, '../ui/src/index.ts'),
-      '@rapid/window-manager': path.resolve(__dirname, '../window-manager/src/index.ts'),
+      '@rapid/email': path.resolve(__dirname, '../email/src/index.ts'),
       '@rapid/notes': path.resolve(__dirname, '../notes/src/index.ts'),
+      '@rapid/ui': path.resolve(__dirname, '../ui/src/index.ts'),
+      '@rapid/vfs-explorer': path.resolve(__dirname, '../vfs-explorer/src/index.ts'),
+      '@rapid/window-manager': path.resolve(__dirname, '../window-manager/src/index.ts'),
       '@rapid/api/dist/openapi.json': path.resolve(
         __dirname,
         '../api/dist/openapi.json'
