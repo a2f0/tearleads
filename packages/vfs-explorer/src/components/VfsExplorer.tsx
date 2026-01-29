@@ -1,13 +1,8 @@
-import {
-  DndContext,
-  type DragEndEvent,
-  type DragStartEvent
-} from '@dnd-kit/core';
+import { DndContext, type DragEndEvent, pointerWithin } from '@dnd-kit/core';
 import { useCallback, useEffect, useState } from 'react';
 import { useMoveVfsItem } from '../hooks';
 import { type DisplayItem, VfsDetailsPanel } from './VfsDetailsPanel';
 import type { DragItemData } from './VfsDraggableItem';
-import { VfsDragOverlay } from './VfsDragOverlay';
 import { UNFILED_FOLDER_ID, VfsTreePanel } from './VfsTreePanel';
 
 export type VfsViewMode = 'list' | 'table';
@@ -42,7 +37,6 @@ export function VfsExplorer({
   >(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [treePanelWidth, setTreePanelWidth] = useState(240);
-  const [activeItem, setActiveItem] = useState<DragItemData | null>(null);
   const { moveItem } = useMoveVfsItem();
 
   // Use controlled state if provided, otherwise use internal state
@@ -68,17 +62,8 @@ export function VfsExplorer({
     [onFolderSelect]
   );
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const data = event.active.data.current as DragItemData | undefined;
-    if (data) {
-      setActiveItem(data);
-    }
-  }, []);
-
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
-      setActiveItem(null);
-
       const { active, over } = event;
       if (!over) return;
 
@@ -110,7 +95,7 @@ export function VfsExplorer({
   );
 
   return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
       <div className={`flex h-full ${className ?? ''}`}>
         <VfsTreePanel
           width={treePanelWidth}
@@ -131,7 +116,6 @@ export function VfsExplorer({
           onItemOpen={onItemOpen}
         />
       </div>
-      <VfsDragOverlay activeItem={activeItem} />
     </DndContext>
   );
 }
