@@ -1,0 +1,12 @@
+[Unit]
+Description=Sync lastActiveAt from Redis to PostgreSQL
+After=network-online.target redis-server.service postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/apiCli.sh sync-last-active
+StandardOutput=journal
+StandardError=journal
+User={{ ansible_user }}
+Group=www-data
