@@ -1,14 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '@/test/console-mocks';
+import { mockConsoleError } from '../test/console-mocks';
+import { TestEmailProvider } from '../test/test-utils';
 import { EmailWindow } from './EmailWindow';
 
-vi.mock('@/lib/api', () => ({
-  API_BASE_URL: 'http://localhost:5001/v1'
-}));
-
-vi.mock('@/components/floating-window', () => ({
+vi.mock('@rapid/window-manager', () => ({
   FloatingWindow: ({
     children,
     title,
@@ -100,6 +97,14 @@ describe('EmailWindow', () => {
     zIndex: 100
   };
 
+  const renderWithProvider = (props = defaultProps) => {
+    return render(
+      <TestEmailProvider>
+        <EmailWindow {...props} />
+      </TestEmailProvider>
+    );
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     global.fetch = vi.fn();
@@ -110,7 +115,7 @@ describe('EmailWindow', () => {
       () => new Promise(() => {})
     );
 
-    render(<EmailWindow {...defaultProps} />);
+    renderWithProvider();
 
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
     expect(screen.getByTestId('window-title')).toHaveTextContent('Inbox');
@@ -122,7 +127,7 @@ describe('EmailWindow', () => {
       json: async () => ({ emails: mockEmails })
     });
 
-    render(<EmailWindow {...defaultProps} />);
+    renderWithProvider();
 
     await waitFor(() => {
       expect(screen.getByText('Test Subject')).toBeInTheDocument();
@@ -137,7 +142,7 @@ describe('EmailWindow', () => {
       json: async () => ({ emails: [] })
     });
 
-    render(<EmailWindow {...defaultProps} />);
+    renderWithProvider();
 
     await waitFor(() => {
       expect(screen.getByText('No emails yet')).toBeInTheDocument();
@@ -151,7 +156,7 @@ describe('EmailWindow', () => {
     });
     const consoleSpy = mockConsoleError();
 
-    render(<EmailWindow {...defaultProps} />);
+    renderWithProvider();
 
     await waitFor(() => {
       expect(screen.getByText(/Failed to fetch emails/)).toBeInTheDocument();
@@ -170,7 +175,7 @@ describe('EmailWindow', () => {
       json: async () => ({ emails: [] })
     });
 
-    render(<EmailWindow {...defaultProps} />);
+    renderWithProvider();
 
     await user.click(screen.getByTestId('close-window'));
 
@@ -184,7 +189,7 @@ describe('EmailWindow', () => {
       json: async () => ({ emails: mockEmails })
     });
 
-    render(<EmailWindow {...defaultProps} />);
+    renderWithProvider();
 
     await waitFor(() => {
       expect(screen.getByText('Test Subject')).toBeInTheDocument();
@@ -208,7 +213,7 @@ describe('EmailWindow', () => {
       json: async () => ({ emails: mockEmails })
     });
 
-    render(<EmailWindow {...defaultProps} />);
+    renderWithProvider();
 
     await waitFor(() => {
       expect(screen.getByText('Test Subject')).toBeInTheDocument();
@@ -236,7 +241,7 @@ describe('EmailWindow', () => {
       json: async () => ({ emails: mockEmails })
     });
 
-    render(<EmailWindow {...defaultProps} />);
+    renderWithProvider();
 
     await waitFor(() => {
       expect(screen.getByText('Test Subject')).toBeInTheDocument();
@@ -269,7 +274,7 @@ describe('EmailWindow', () => {
       json: async () => ({ emails: mockEmails })
     });
 
-    render(<EmailWindow {...defaultProps} />);
+    renderWithProvider();
 
     await waitFor(() => {
       expect(screen.getByText('Test Subject')).toBeInTheDocument();
@@ -292,7 +297,7 @@ describe('EmailWindow', () => {
       json: async () => ({ emails: [mockEmailLargeSize] })
     });
 
-    render(<EmailWindow {...defaultProps} />);
+    renderWithProvider();
 
     await waitFor(() => {
       expect(screen.getByText('Large Email')).toBeInTheDocument();
@@ -311,7 +316,7 @@ describe('EmailWindow', () => {
       json: async () => ({ emails: [mockEmailSmallSize] })
     });
 
-    render(<EmailWindow {...defaultProps} />);
+    renderWithProvider();
 
     await waitFor(() => {
       expect(screen.getByText('Small Email')).toBeInTheDocument();
@@ -331,7 +336,7 @@ describe('EmailWindow', () => {
       json: async () => ({ emails: mockEmails })
     });
 
-    render(<EmailWindow {...defaultProps} />);
+    renderWithProvider();
 
     await waitFor(() => {
       expect(screen.getByTestId('menu-bar')).toBeInTheDocument();

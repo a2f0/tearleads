@@ -1,10 +1,8 @@
+import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
 import { Loader2, Mail } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
-import { API_BASE_URL } from '@/lib/api';
-import { getAuthHeaderValue } from '@/lib/auth-storage';
-import { type EmailItem, formatEmailDate, formatEmailSize } from '@/lib/email';
+import { useEffect, useState } from 'react';
+import { useEmails } from '../hooks';
+import { formatEmailDate, formatEmailSize } from '../lib';
 import type { ViewMode } from './EmailWindowMenuBar';
 import { EmailWindowMenuBar } from './EmailWindowMenuBar';
 
@@ -27,34 +25,9 @@ export function EmailWindow({
   zIndex,
   initialDimensions
 }: EmailWindowProps) {
-  const [emails, setEmails] = useState<EmailItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { emails, loading, error, fetchEmails } = useEmails();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
-
-  const fetchEmails = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const authHeader = getAuthHeaderValue();
-      const response = await fetch(
-        `${API_BASE_URL}/emails`,
-        authHeader ? { headers: { Authorization: authHeader } } : {}
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to fetch emails: ${response.statusText}`);
-      }
-      const data = await response.json();
-      setEmails(data.emails ?? []);
-    } catch (err) {
-      console.error('Failed to fetch emails:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
     fetchEmails();

@@ -1,32 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '@/test/console-mocks';
+import { mockConsoleError } from '../test/console-mocks';
+import { TestEmailProvider } from '../test/test-utils';
 import { Email } from './Email';
-
-vi.mock('@/lib/api', () => ({
-  API_BASE_URL: 'http://localhost:5001/v1'
-}));
-
-vi.mock('@/components/ui/refresh-button', () => ({
-  RefreshButton: ({
-    onClick,
-    loading
-  }: {
-    onClick: () => void;
-    loading: boolean;
-  }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      data-testid="refresh-button"
-      data-loading={loading}
-    >
-      Refresh
-    </button>
-  )
-}));
 
 const mockEmails = [
   {
@@ -45,8 +22,12 @@ describe('Email', () => {
     global.fetch = vi.fn();
   });
 
-  const renderWithRouter = (component: React.ReactNode) => {
-    return render(<BrowserRouter>{component}</BrowserRouter>);
+  const renderWithProvider = () => {
+    return render(
+      <TestEmailProvider>
+        <Email />
+      </TestEmailProvider>
+    );
   };
 
   it('renders email list after loading', async () => {
@@ -55,7 +36,7 @@ describe('Email', () => {
       json: async () => ({ emails: mockEmails })
     });
 
-    renderWithRouter(<Email />);
+    renderWithProvider();
 
     await waitFor(() => {
       expect(screen.getByText('Test Email Subject')).toBeInTheDocument();
@@ -70,7 +51,7 @@ describe('Email', () => {
       json: async () => ({ emails: [] })
     });
 
-    renderWithRouter(<Email />);
+    renderWithProvider();
 
     await waitFor(() => {
       expect(screen.getByText('No emails yet')).toBeInTheDocument();
@@ -84,7 +65,7 @@ describe('Email', () => {
     });
     const consoleSpy = mockConsoleError();
 
-    renderWithRouter(<Email />);
+    renderWithProvider();
 
     await waitFor(() => {
       expect(screen.getByText(/Failed to fetch emails/)).toBeInTheDocument();
@@ -103,7 +84,7 @@ describe('Email', () => {
       json: async () => ({ emails: [] })
     });
 
-    renderWithRouter(<Email />);
+    renderWithProvider();
 
     expect(screen.getByRole('heading', { name: 'Email' })).toBeInTheDocument();
     expect(screen.getByTestId('back-link')).toBeInTheDocument();
@@ -121,7 +102,7 @@ describe('Email', () => {
       json: async () => ({ emails: mockEmails })
     });
 
-    renderWithRouter(<Email />);
+    renderWithProvider();
 
     await waitFor(() => {
       expect(screen.getByText('Test Email Subject')).toBeInTheDocument();
