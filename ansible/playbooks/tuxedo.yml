@@ -121,8 +121,37 @@
           - git
           - gnupg
           - ncurses-bin
-          - neovim
+          - ripgrep
+          - software-properties-common
         state: present
+
+    # Neovim PPA for version 0.10+ (required for vim.uv API used in neovim.lua)
+    - name: Add Neovim PPA
+      ansible.builtin.apt_repository:
+        repo: ppa:neovim-ppa/unstable
+        state: present
+        update_cache: true
+
+    - name: Install Neovim from PPA
+      ansible.builtin.apt:
+        name: neovim
+        state: present
+
+    - name: Create Neovim config directory
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/.config/nvim"
+        state: directory
+        mode: "0755"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Deploy Neovim configuration
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../tuxedo/config/neovim.lua"
+        dest: "/home/{{ ansible_user }}/.config/nvim/init.lua"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0644"
 
     # Ghostty terminal support
     - name: Copy Ghostty terminfo
