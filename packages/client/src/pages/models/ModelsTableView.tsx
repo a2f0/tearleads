@@ -173,8 +173,7 @@ export function ModelsTableView({
                             {isLoaded ? (
                               <Button
                                 variant="outline"
-                                size="icon"
-                                className="h-7 w-7"
+                                size="icon-sm"
                                 onClick={onUnload}
                                 disabled={isBusy}
                                 aria-label={isRemote ? 'Disconnect' : 'Unload'}
@@ -184,8 +183,7 @@ export function ModelsTableView({
                             ) : isDownloading ? (
                               <Button
                                 variant="outline"
-                                size="icon"
-                                className="h-7 w-7"
+                                size="icon-sm"
                                 disabled
                                 aria-label="Loading"
                               >
@@ -195,8 +193,7 @@ export function ModelsTableView({
                               <>
                                 <Button
                                   variant="default"
-                                  size="icon"
-                                  className="h-7 w-7"
+                                  size="icon-sm"
                                   onClick={() => onLoad(model.id)}
                                   disabled={isBusy}
                                   aria-label="Load"
@@ -205,8 +202,7 @@ export function ModelsTableView({
                                 </Button>
                                 <Button
                                   variant="outline"
-                                  size="icon"
-                                  className="h-7 w-7"
+                                  size="icon-sm"
                                   onClick={() => onDelete(model.id)}
                                   disabled={isBusy}
                                   aria-label="Delete from cache"
@@ -217,8 +213,7 @@ export function ModelsTableView({
                             ) : isRemote ? (
                               <Button
                                 variant="default"
-                                size="icon"
-                                className="h-7 w-7"
+                                size="icon-sm"
                                 onClick={() => onLoad(model.id)}
                                 disabled={isBusy}
                                 aria-label="Use"
@@ -228,8 +223,7 @@ export function ModelsTableView({
                             ) : (
                               <Button
                                 variant="default"
-                                size="icon"
-                                className="h-7 w-7"
+                                size="icon-sm"
                                 onClick={() => onLoad(model.id)}
                                 disabled={isBusy}
                                 aria-label="Download"
