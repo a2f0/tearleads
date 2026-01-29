@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type React from 'react';
-import { beforeEach, describe, expect, it, vi, waitFor } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VideoWindow } from './VideoWindow';
 
 const mockUploadFile = vi.fn();
