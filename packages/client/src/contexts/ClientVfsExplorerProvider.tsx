@@ -30,14 +30,17 @@ import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
 import { getFeatureFlagValue } from '@/lib/feature-flags';
 
 const vfsExplorerUIComponents: VfsExplorerUIComponents = {
+  AboutMenuItem,
   Button,
-  Input,
+  ContextMenu,
+  ContextMenuItem,
+  ContextMenuSeparator,
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  WindowOptionsMenuItem,
-  AboutMenuItem,
-  FloatingWindow
+  FloatingWindow,
+  Input,
+  WindowOptionsMenuItem
 };
 
 interface ClientVfsExplorerProviderProps {
