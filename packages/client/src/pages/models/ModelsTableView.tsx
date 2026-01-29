@@ -84,15 +84,19 @@ export function ModelsTableView({
             </div>
             <div className="overflow-x-auto rounded-md border">
               <table
-                className="w-full border-collapse text-xs"
+                className="w-full table-fixed border-collapse text-xs"
                 aria-label={`${section.title} table`}
               >
                 <thead className="bg-muted/40 text-muted-foreground">
                   <tr>
                     <th className="px-2 py-2 text-left font-medium">Model</th>
-                    <th className="px-2 py-2 text-left font-medium">Size</th>
-                    <th className="px-2 py-2 text-left font-medium">Status</th>
-                    <th className="px-2 py-2 text-right font-medium">
+                    <th className="w-24 px-2 py-2 text-left font-medium">
+                      Size
+                    </th>
+                    <th className="w-32 px-2 py-2 text-left font-medium">
+                      Status
+                    </th>
+                    <th className="w-20 px-2 py-2 text-right font-medium">
                       Actions
                     </th>
                   </tr>
@@ -169,33 +173,36 @@ export function ModelsTableView({
                             {isLoaded ? (
                               <Button
                                 variant="outline"
-                                size="sm"
+                                size="icon-sm"
                                 onClick={onUnload}
                                 disabled={isBusy}
+                                aria-label={isRemote ? 'Disconnect' : 'Unload'}
                               >
                                 <Square className="h-3 w-3" />
-                                {isRemote ? 'Disconnect' : 'Unload'}
                               </Button>
                             ) : isDownloading ? (
-                              <Button variant="outline" size="sm" disabled>
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                disabled
+                                aria-label="Loading"
+                              >
                                 <Loader2 className="h-3 w-3 animate-spin" />
-                                Loading...
                               </Button>
                             ) : isCached ? (
                               <>
                                 <Button
                                   variant="default"
-                                  size="sm"
+                                  size="icon-sm"
                                   onClick={() => onLoad(model.id)}
                                   disabled={isBusy}
+                                  aria-label="Load"
                                 >
                                   <Play className="h-3 w-3" />
-                                  Load
                                 </Button>
                                 <Button
                                   variant="outline"
-                                  size="sm"
-                                  className="px-2"
+                                  size="icon-sm"
                                   onClick={() => onDelete(model.id)}
                                   disabled={isBusy}
                                   aria-label="Delete from cache"
@@ -206,22 +213,22 @@ export function ModelsTableView({
                             ) : isRemote ? (
                               <Button
                                 variant="default"
-                                size="sm"
+                                size="icon-sm"
                                 onClick={() => onLoad(model.id)}
                                 disabled={isBusy}
+                                aria-label="Use"
                               >
                                 <Play className="h-3 w-3" />
-                                Use
                               </Button>
                             ) : (
                               <Button
                                 variant="default"
-                                size="sm"
+                                size="icon-sm"
                                 onClick={() => onLoad(model.id)}
                                 disabled={isBusy}
+                                aria-label="Download"
                               >
                                 <Download className="h-3 w-3" />
-                                Download
                               </Button>
                             )}
                           </div>
