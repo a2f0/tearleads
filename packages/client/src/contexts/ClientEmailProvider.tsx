@@ -1,4 +1,5 @@
 import { EmailProvider, type EmailUIComponents } from '@rapid/email';
+import emailPackageJson from '@rapid/email/package.json';
 import type { ReactNode } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import {
@@ -11,7 +12,6 @@ import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { API_BASE_URL } from '@/lib/api';
 import { getAuthHeaderValue } from '@/lib/auth-storage';
-import emailPackageJson from '../../../email/package.json';
 
 export function EmailAboutMenuItem() {
   return <AboutMenuItem appName="Email" version={emailPackageJson.version} />;

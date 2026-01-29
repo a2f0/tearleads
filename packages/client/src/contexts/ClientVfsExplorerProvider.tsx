@@ -6,6 +6,7 @@ import {
   VfsExplorerProvider,
   type VfsExplorerUIComponents
 } from '@rapid/vfs-explorer';
+import vfsExplorerPackageJson from '@rapid/vfs-explorer/package.json';
 import type { ReactNode } from 'react';
 import { FloatingWindow } from '@/components/floating-window';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,6 @@ import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
 import { getFeatureFlagValue } from '@/lib/feature-flags';
-import vfsExplorerPackageJson from '../../../vfs-explorer/package.json';
 
 export function VfsExplorerAboutMenuItem() {
   return (
