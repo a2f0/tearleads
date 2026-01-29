@@ -130,12 +130,12 @@
       ansible.builtin.apt_repository:
         repo: ppa:neovim-ppa/unstable
         state: present
+        update_cache: true
 
     - name: Install Neovim from PPA
       ansible.builtin.apt:
         name: neovim
         state: present
-        update_cache: true
 
     - name: Create Neovim config directory
       ansible.builtin.file:
