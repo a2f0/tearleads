@@ -10,7 +10,7 @@ import {
   vfsLinks,
   vfsRegistry
 } from '@rapid/db/sqlite';
-import { inArray, notInArray } from 'drizzle-orm';
+import { eq, inArray, isNull } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 
@@ -49,35 +49,17 @@ export function useVfsUnfiledItems(): UseVfsUnfiledItemsResult {
     try {
       const db = getDatabase();
 
-      // Get IDs of all items that have a parent link
-      const linkedItemIds = await db
-        .select({ childId: vfsLinks.childId })
-        .from(vfsLinks);
-
-      const linkedIds = linkedItemIds.map((r) => r.childId);
-
-      // Get all registry items that are NOT in the linked set
-      // We use a subquery approach for efficiency
-      let registryRows: { id: string; objectType: string; createdAt: Date }[];
-      if (linkedIds.length > 0) {
-        registryRows = await db
-          .select({
-            id: vfsRegistry.id,
-            objectType: vfsRegistry.objectType,
-            createdAt: vfsRegistry.createdAt
-          })
-          .from(vfsRegistry)
-          .where(notInArray(vfsRegistry.id, linkedIds));
-      } else {
-        // No linked items, get all
-        registryRows = await db
-          .select({
-            id: vfsRegistry.id,
-            objectType: vfsRegistry.objectType,
-            createdAt: vfsRegistry.createdAt
-          })
-          .from(vfsRegistry);
-      }
+      // Get all registry items that have no parent link using LEFT JOIN
+      // This is more efficient than loading all linked IDs into memory
+      const registryRows = await db
+        .select({
+          id: vfsRegistry.id,
+          objectType: vfsRegistry.objectType,
+          createdAt: vfsRegistry.createdAt
+        })
+        .from(vfsRegistry)
+        .leftJoin(vfsLinks, eq(vfsRegistry.id, vfsLinks.childId))
+        .where(isNull(vfsLinks.childId));
 
       if (registryRows.length === 0) {
         setItems([]);

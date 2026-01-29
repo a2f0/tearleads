@@ -61,11 +61,8 @@ describe('useVfsUnfiledItems', () => {
   });
 
   it('fetches items when unlocked', async () => {
-    // Mock vfs_links query - no linked items
-    mockDb.from.mockResolvedValueOnce([]);
-
-    // Mock vfs_registry query - one folder
-    mockDb.from.mockResolvedValueOnce([
+    // Mock LEFT JOIN query for unfiled items - returns one folder
+    mockDb.where.mockResolvedValueOnce([
       { id: 'folder-1', objectType: 'folder', createdAt: new Date() }
     ]);
 
@@ -85,11 +82,8 @@ describe('useVfsUnfiledItems', () => {
   });
 
   it('handles empty registry', async () => {
-    // Mock vfs_links query - no linked items
-    mockDb.from.mockResolvedValueOnce([]);
-
-    // Mock vfs_registry query - no items
-    mockDb.from.mockResolvedValueOnce([]);
+    // Mock LEFT JOIN query - no unfiled items
+    mockDb.where.mockResolvedValueOnce([]);
 
     const wrapper = createWrapper({
       databaseState: createMockDatabaseState(),
@@ -110,8 +104,8 @@ describe('useVfsUnfiledItems', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => {});
 
-    // Mock vfs_links query to throw error
-    mockDb.from.mockRejectedValueOnce(new Error('Database error'));
+    // Mock LEFT JOIN query to throw error
+    mockDb.where.mockRejectedValueOnce(new Error('Database error'));
 
     const wrapper = createWrapper({
       databaseState: createMockDatabaseState(),
@@ -129,9 +123,8 @@ describe('useVfsUnfiledItems', () => {
   });
 
   it('refetch function works', async () => {
-    // Initial fetch
-    mockDb.from.mockResolvedValueOnce([]);
-    mockDb.from.mockResolvedValueOnce([]);
+    // Initial fetch - LEFT JOIN returns empty
+    mockDb.where.mockResolvedValueOnce([]);
 
     const wrapper = createWrapper({
       databaseState: createMockDatabaseState(),
@@ -144,9 +137,8 @@ describe('useVfsUnfiledItems', () => {
       expect(result.current.hasFetched).toBe(true);
     });
 
-    // Setup for refetch
-    mockDb.from.mockResolvedValueOnce([]);
-    mockDb.from.mockResolvedValueOnce([]);
+    // Setup for refetch - LEFT JOIN returns empty
+    mockDb.where.mockResolvedValueOnce([]);
 
     await act(async () => {
       await result.current.refetch();
@@ -172,13 +164,7 @@ describe('useVfsUnfiledItems', () => {
   });
 
   it('handles linked items filtering', async () => {
-    // Mock vfs_links query - some linked items
-    mockDb.from.mockResolvedValueOnce([
-      { childId: 'linked-folder-1' },
-      { childId: 'linked-folder-2' }
-    ]);
-
-    // Mock vfs_registry query with where clause (filtering out linked)
+    // Mock LEFT JOIN query - only unfiled items returned (linked items excluded by DB)
     mockDb.where.mockResolvedValueOnce([
       { id: 'unlinked-folder', objectType: 'folder', createdAt: new Date() }
     ]);
@@ -205,8 +191,8 @@ describe('useVfsUnfiledItems', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => {});
 
-    // Mock vfs_links query to throw non-Error
-    mockDb.from.mockRejectedValueOnce('String error');
+    // Mock LEFT JOIN query to throw non-Error
+    mockDb.where.mockRejectedValueOnce('String error');
 
     const wrapper = createWrapper({
       databaseState: createMockDatabaseState(),
@@ -275,14 +261,12 @@ describe('useVfsUnfiledItems', () => {
       );
     }
 
-    // Mock initial fetch for instance-1
-    // 1. vfs_links query (no linked items)
-    mockDb.from.mockResolvedValueOnce([]);
-    // 2. vfs_registry query (one folder)
-    mockDb.from.mockResolvedValueOnce([
+    // Mock initial fetch for instance-1 using LEFT JOIN
+    // 1. LEFT JOIN query returns one folder
+    mockDb.where.mockResolvedValueOnce([
       { id: 'folder-1', objectType: 'folder', createdAt: new Date() }
     ]);
-    // 3. folder name lookup
+    // 2. folder name lookup
     mockDb.where.mockResolvedValueOnce([{ id: 'folder-1', name: 'My Folder' }]);
 
     render(<TestWrapper />);
@@ -297,10 +281,8 @@ describe('useVfsUnfiledItems', () => {
     );
 
     // Mock fetch for instance-2 (no items)
-    // 1. vfs_links query
-    mockDb.from.mockResolvedValueOnce([]);
-    // 2. vfs_registry query (no items)
-    mockDb.from.mockResolvedValueOnce([]);
+    // LEFT JOIN query returns empty
+    mockDb.where.mockResolvedValueOnce([]);
 
     // Trigger instance change
     act(() => {
