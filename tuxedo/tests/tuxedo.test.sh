@@ -103,6 +103,9 @@ UPDATE_LOG="$TEMP_DIR/update.log"
         echo "$1" >> "$UPDATE_LOG"
     }
     BASE_DIR="$TEMP_DIR/base"
+    WORKSPACE_PREFIX="rapid"
+    WORKSPACE_START=2
+    MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
     NUM_WORKSPACES=3
     update_all_workspaces
 )
@@ -116,6 +119,9 @@ TITLE_LOG="$TEMP_DIR/title.log"
         echo "$1:$2" >> "$TITLE_LOG"
     }
     BASE_DIR="$TEMP_DIR/base"
+    WORKSPACE_PREFIX="rapid"
+    WORKSPACE_START=2
+    MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
     NUM_WORKSPACES=3
     sync_all_titles
 )
@@ -124,11 +130,14 @@ assert_contains "$(cat "$TITLE_LOG")" "$TEMP_DIR/base/rapid2:rapid2"
 assert_contains "$(cat "$TITLE_LOG")" "$TEMP_DIR/base/rapid3:rapid3"
 
 BASE_DIR="$TEMP_DIR"
-SHARED_DIR="$BASE_DIR/rapid-shared"
+WORKSPACE_PREFIX="rapid"
+WORKSPACE_START=2
+SHARED_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-shared"
+MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
 NUM_WORKSPACES=2
 SESSION_NAME="tuxedo"
 WORKSPACE_DIR="$BASE_DIR/rapid2"
-mkdir -p "$SHARED_DIR/.secrets" "$SHARED_DIR/.test_files" "$WORKSPACE_DIR" "$BASE_DIR/rapid-main"
+mkdir -p "$SHARED_DIR/.secrets" "$SHARED_DIR/.test_files" "$WORKSPACE_DIR" "$MAIN_DIR"
 mkdir -p "$WORKSPACE_DIR/.secrets"
 
 ensure_symlinks "$WORKSPACE_DIR"
@@ -139,7 +148,7 @@ assert_eq "../rapid-shared/.secrets" "$(readlink "$WORKSPACE_DIR/.secrets")"
 assert_eq "../rapid-shared/.test_files" "$(readlink "$WORKSPACE_DIR/.test_files")"
 
 tuxedo_prepare_shared_dirs
-[ -L "$BASE_DIR/rapid-main/.secrets" ] || fail "expected rapid-main .secrets symlink"
+[ -L "$MAIN_DIR/.secrets" ] || fail "expected rapid-main .secrets symlink"
 [ -L "$BASE_DIR/rapid2/.test_files" ] || fail "expected rapid2 .test_files symlink"
 [ -d "$SHARED_DIR/packages/api" ] || fail "expected shared packages/api directory"
 
@@ -218,7 +227,10 @@ chmod +x "$TEMP_DIR/bin/tmux"
 
 PATH="$TEMP_DIR/bin:$PATH_BACKUP"
 BASE_DIR="$TEMP_DIR/tmux-base"
-SHARED_DIR="$BASE_DIR/rapid-shared"
+WORKSPACE_PREFIX="rapid"
+WORKSPACE_START=2
+SHARED_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-shared"
+MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
 NUM_WORKSPACES=2
 SESSION_NAME="tuxedo"
 TMUX_CONF="/tmp/tmux.conf"
@@ -229,7 +241,7 @@ sync_all_titles() {
 }
 tuxedo_attach_or_create
 assert_contains "$(cat "$TMUX_CALLS")" "new-session -d -s tuxedo -c $SHARED_DIR -n rapid-shared -e PATH="
-assert_contains "$(cat "$TMUX_CALLS")" "new-window -t tuxedo -c $BASE_DIR/rapid-main -n rapid-main -e PATH="
+assert_contains "$(cat "$TMUX_CALLS")" "new-window -t tuxedo: -c $MAIN_DIR -n rapid-main -e PATH="
 assert_contains "$(cat "$TMUX_CALLS")" "attach-session -t tuxedo"
 
 test_tmux_attach_existing_session() {

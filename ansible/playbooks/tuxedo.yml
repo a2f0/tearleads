@@ -8,6 +8,11 @@
     nodejs_major_version: 22
     tuxedo_github_deploy_key_name: tuxedoGithubDeployKey
     tuxedo_github_deploy_key_path: "{{ playbook_dir }}/../../.secrets/tuxedoGithubDeployKey"
+    # Tuxedo workspace configuration (server uses tuxedo1, tuxedo2, ... naming)
+    tuxedo_base_dir: "/home/{{ ansible_user }}/tuxedo"
+    tuxedo_workspace_prefix: "tuxedo"
+    tuxedo_workspace_start: "1"
+    tuxedo_workspace_count: "10"
     # Official GitHub SSH host keys from https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints
     # NOTE: These keys may be rotated. If SSH connections to GitHub fail, re-verify them against the URL above.
     # yamllint disable rule:line-length
@@ -78,10 +83,13 @@
         group: "{{ ansible_user }}"
         mode: "0755"
         content: |
-          #!/bin/sh
-          # Wrapper to launch tuxedo.sh with correct SCRIPT_PATH
-          TUXEDO_SCRIPT_PATH="/home/{{ ansible_user }}/tuxedo/tuxedo-shared/tuxedo/tuxedo.sh"
-          export TUXEDO_SCRIPT_PATH
+          #!/usr/bin/env bash
+          # Wrapper to launch tuxedo.sh with correct SCRIPT_PATH and workspace config
+          export TUXEDO_SCRIPT_PATH="/home/{{ ansible_user }}/tuxedo/tuxedo-shared/tuxedo/tuxedo.sh"
+          export TUXEDO_BASE_DIR="{{ tuxedo_base_dir }}"
+          export TUXEDO_WORKSPACE_PREFIX="{{ tuxedo_workspace_prefix }}"
+          export TUXEDO_WORKSPACE_START="{{ tuxedo_workspace_start }}"
+          export TUXEDO_WORKSPACES="{{ tuxedo_workspace_count }}"
           cd "$(dirname "$TUXEDO_SCRIPT_PATH")"
           exec "$TUXEDO_SCRIPT_PATH" "$@"
 
@@ -92,7 +100,7 @@
         group: "{{ ansible_user }}"
         mode: "0755"
         content: |
-          #!/bin/sh
+          #!/usr/bin/env bash
           # Wrapper to launch tuxedoKill.sh with correct SCRIPT_PATH
           TUXEDO_SCRIPT_PATH="/home/{{ ansible_user }}/tuxedo/tuxedo-shared/tuxedo/tuxedoKill.sh"
           export TUXEDO_SCRIPT_PATH
@@ -123,6 +131,10 @@
           - ncurses-bin
           - ripgrep
           - software-properties-common
+          - autoconf
+          - automake
+          - libncurses-dev
+          - libpam0g-dev
         state: present
 
     # Neovim PPA for version 0.10+ (required for vim.uv API used in neovim.lua)
@@ -153,6 +165,40 @@
         group: "{{ ansible_user }}"
         mode: "0644"
 
+    # GNU screen 5.0+ with truecolor support (Ubuntu only ships 4.x which lacks truecolor)
+    - name: Check installed screen version
+      ansible.builtin.command:
+        cmd: /usr/local/bin/screen --version
+      register: screen_version_check
+      changed_when: false
+      failed_when: false
+
+    - name: Download GNU screen 5.0.0 source
+      ansible.builtin.get_url:
+        url: https://ftp.gnu.org/gnu/screen/screen-5.0.0.tar.gz
+        dest: /tmp/screen-5.0.0.tar.gz
+        mode: "0644"
+        checksum: "sha256:f04a39d00a0e5c7c86a55338808903082ad5df4d73df1a2fd3425976aed94971"
+      when: screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout
+
+    - name: Extract screen source
+      ansible.builtin.unarchive:
+        src: /tmp/screen-5.0.0.tar.gz
+        dest: /tmp
+        remote_src: true
+      when: screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout
+
+    - name: Build and install screen 5.0.0
+      ansible.builtin.shell:
+        cmd: |
+          cd /tmp/screen-5.0.0
+          ./autogen.sh
+          ./configure --prefix=/usr/local
+          make -j$(nproc)
+          make install
+        creates: /usr/local/bin/screen
+      when: screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout
+
     # Ghostty terminal support
     - name: Copy Ghostty terminfo
       ansible.builtin.copy:
@@ -170,6 +216,35 @@
       ansible.builtin.command:
         cmd: tic -x -o /usr/share/terminfo /tmp/ghostty.terminfo
       when: copy_terminfo_result.changed or not compiled_terminfo_stat.stat.exists
+      changed_when: true
+
+    # tmux-256color with truecolor support (required for Claude Code colors in screen/tmux)
+    - name: Ensure user terminfo directory exists
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/.terminfo/t"
+        state: directory
+        mode: "0755"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Copy tmux-256color truecolor terminfo source
+      ansible.builtin.copy:
+        src: files/tmux-256color-tc.terminfo
+        dest: /tmp/tmux-256color-tc.terminfo
+        mode: "0644"
+      register: copy_tmux_terminfo_result
+
+    - name: Check for existing compiled tmux-256color terminfo
+      ansible.builtin.stat:
+        path: "/home/{{ ansible_user }}/.terminfo/t/tmux-256color"
+      register: compiled_tmux_terminfo_stat
+
+    - name: Compile tmux-256color truecolor terminfo for user
+      ansible.builtin.command:
+        cmd: "tic -x -o /home/{{ ansible_user }}/.terminfo /tmp/tmux-256color-tc.terminfo"
+      become: true
+      become_user: "{{ ansible_user }}"
+      when: copy_tmux_terminfo_result.changed or not compiled_tmux_terminfo_stat.stat.exists
       changed_when: true
 
     - name: Create keyrings directory
@@ -201,11 +276,32 @@
         state: present
         update_cache: true
 
-    - name: Install Claude Code CLI
-      community.general.npm:
-        name: "@anthropic-ai/claude-code"
-        global: true
-        state: present
+    - name: Check if Claude Code is installed
+      ansible.builtin.stat:
+        path: "/home/{{ ansible_user }}/.claude/local/claude"
+      register: claude_code_stat
+
+    # SECURITY NOTE: The Claude Code installer script is dynamically maintained by Anthropic
+    # and changes with each release. A pinned checksum would break on every update, requiring
+    # manual intervention. We accept the risk of using an official Anthropic endpoint without
+    # checksum verification, similar to other official installers (nvm, rustup, etc.).
+    # Periodically review https://claude.ai/install.sh to verify its integrity.
+    - name: Download Claude Code installer script
+      ansible.builtin.get_url:
+        url: https://claude.ai/install.sh
+        dest: /tmp/claude-install.sh
+        mode: "0755"
+      when: not claude_code_stat.stat.exists
+
+    - name: Install Claude Code CLI via native installer
+      ansible.builtin.command:
+        cmd: /tmp/claude-install.sh
+      become: true
+      become_user: "{{ ansible_user }}"
+      environment:
+        HOME: "/home/{{ ansible_user }}"
+      when: not claude_code_stat.stat.exists
+      changed_when: true
 
     - name: Install OpenAI Codex CLI
       community.general.npm:
@@ -236,6 +332,10 @@
         block: |
           export TUXEDO_BASE_DIR="$HOME/tuxedo"
 
+          # Terminal color settings for Claude Code (truecolor + dark terminal signal)
+          export COLORTERM=truecolor
+          export COLORFGBG="15;0"
+
           if [ -n "$TUXEDO_WORKSPACE" ]; then
             export PATH="$TUXEDO_WORKSPACE/scripts:$TUXEDO_WORKSPACE/scripts/agents:$PATH"
             # Only cd into workspace for screen sessions, to avoid changing dir in every new terminal
@@ -243,6 +343,26 @@
               [ -d "$TUXEDO_WORKSPACE" ] && cd "$TUXEDO_WORKSPACE"
             fi
           fi
+
+    - name: Ensure Claude Code config directory exists
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/.claude"
+        state: directory
+        mode: "0700"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Configure Claude Code dark theme
+      ansible.builtin.copy:
+        dest: "/home/{{ ansible_user }}/.claude.json"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0600"
+        force: false
+        content: |
+          {
+            "theme": "dark"
+          }
 
   handlers:
     - name: Restart sshd

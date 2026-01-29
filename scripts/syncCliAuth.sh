@@ -40,11 +40,11 @@ echo "==> Syncing to $REMOTE_HOST..."
 # Create directories on remote
 ssh "$REMOTE_HOST" 'mkdir -p ~/.claude ~/.codex && chmod 700 ~/.claude ~/.codex'
 
-# Copy Claude credentials (stored in ~/.claude/.credentials on Linux)
+# Copy Claude credentials (stored in ~/.claude/.credentials.json on Linux)
 if [ -f "$TEMP_DIR/claude-credentials.json" ]; then
-  scp -q "$TEMP_DIR/claude-credentials.json" "$REMOTE_HOST:~/.claude/.credentials"
-  ssh "$REMOTE_HOST" 'chmod 600 ~/.claude/.credentials'
-  echo "    Claude credentials synced to ~/.claude/.credentials"
+  scp -q "$TEMP_DIR/claude-credentials.json" "$REMOTE_HOST:~/.claude/.credentials.json"
+  ssh "$REMOTE_HOST" 'chmod 600 ~/.claude/.credentials.json'
+  echo "    Claude credentials synced to ~/.claude/.credentials.json"
 fi
 
 # Copy Codex auth
@@ -56,5 +56,5 @@ fi
 
 echo "==> Done!"
 echo ""
-echo "Note: Claude Code on Linux reads credentials from ~/.claude/.credentials"
+echo "Note: Claude Code on Linux reads credentials from ~/.claude/.credentials.json"
 echo "      Codex reads from ~/.codex/auth.json"
