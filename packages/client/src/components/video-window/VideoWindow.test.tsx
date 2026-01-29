@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, waitFor } from 'vitest';
 import { VideoWindow } from './VideoWindow';
+
+const mockUploadFile = vi.fn();
 
 vi.mock('@/components/floating-window', () => ({
   FloatingWindow: ({
@@ -29,6 +31,10 @@ vi.mock('@/components/floating-window', () => ({
       {children}
     </div>
   )
+}));
+
+vi.mock('@/hooks/useFileUpload', () => ({
+  useFileUpload: () => ({ uploadFile: mockUploadFile })
 }));
 
 vi.mock('@/pages/Video', async () => {
@@ -92,6 +98,10 @@ describe('VideoWindow', () => {
     onFocus: vi.fn(),
     zIndex: 100
   };
+
+  beforeEach(() => {
+    mockUploadFile.mockClear();
+  });
 
   it('renders in FloatingWindow', () => {
     render(<VideoWindow {...defaultProps} />);
@@ -174,5 +184,35 @@ describe('VideoWindow', () => {
       'data-initial-dimensions',
       JSON.stringify(initialDimensions)
     );
+  });
+
+  it('uploads selected files from the file input', async () => {
+    const user = userEvent.setup();
+    render(<VideoWindow {...defaultProps} />);
+
+    const fileInput = screen.getByTestId(
+      'video-file-input'
+    ) as HTMLInputElement;
+    const file = new File(['video'], 'clip.mp4', { type: 'video/mp4' });
+
+    await user.upload(fileInput, file);
+
+    await waitFor(() => {
+      expect(mockUploadFile).toHaveBeenCalledWith(file);
+    });
+  });
+
+  it('opens the file picker from the menu upload action', async () => {
+    const user = userEvent.setup();
+    const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click');
+
+    render(<VideoWindow {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'File' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Upload' }));
+
+    expect(clickSpy).toHaveBeenCalled();
+
+    clickSpy.mockRestore();
   });
 });

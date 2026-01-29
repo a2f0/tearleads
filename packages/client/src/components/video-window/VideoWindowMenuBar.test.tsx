@@ -8,6 +8,7 @@ describe('VideoWindowMenuBar', () => {
   const defaultProps = {
     viewMode: 'list',
     onViewModeChange: vi.fn(),
+    onUpload: vi.fn(),
     onClose: vi.fn()
   } satisfies ComponentProps<typeof VideoWindowMenuBar>;
 
@@ -17,12 +18,13 @@ describe('VideoWindowMenuBar', () => {
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
   });
 
-  it('shows Close option in the File menu', async () => {
+  it('shows Upload and Close options in the File menu', async () => {
     const user = userEvent.setup();
     render(<VideoWindowMenuBar {...defaultProps} />);
 
     await user.click(screen.getByRole('button', { name: 'File' }));
 
+    expect(screen.getByRole('menuitem', { name: 'Upload' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Close' })).toBeInTheDocument();
   });
 
@@ -77,5 +79,16 @@ describe('VideoWindowMenuBar', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Close' }));
 
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('calls onUpload when Upload is selected', async () => {
+    const user = userEvent.setup();
+    const onUpload = vi.fn();
+    render(<VideoWindowMenuBar {...defaultProps} onUpload={onUpload} />);
+
+    await user.click(screen.getByRole('button', { name: 'File' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Upload' }));
+
+    expect(onUpload).toHaveBeenCalled();
   });
 });

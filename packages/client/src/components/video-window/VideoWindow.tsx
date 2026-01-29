@@ -1,7 +1,10 @@
-import { useCallback, useState } from 'react';
+import type { ChangeEvent } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { useFileUpload } from '@/hooks/useFileUpload';
+import { isVideoMimeType } from '@/lib/thumbnail';
 import { VideoPage } from '@/pages/Video';
 import { VideoDetail } from '@/pages/VideoDetail';
 import type { ViewMode } from './VideoWindowMenuBar';
@@ -29,6 +32,9 @@ export function VideoWindow({
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [autoPlay, setAutoPlay] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadFile } = useFileUpload();
 
   const handleOpenVideo = useCallback(
     (videoId: string, options?: { autoPlay?: boolean | undefined }) => {
@@ -49,6 +55,47 @@ export function VideoWindow({
     setAutoPlay(false);
   }, []);
 
+  const handleUpload = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleUploadFiles = useCallback(
+    async (files: File[]) => {
+      await Promise.all(
+        files.map(async (file) => {
+          if (!isVideoMimeType(file.type)) {
+            console.error(
+              `Failed to upload ${file.name}:`,
+              new Error(
+                `"${file.name}" has an unsupported video format. Supported formats: MP4, WebM, OGG, MOV, AVI, MKV, MPEG, 3GP.`
+              )
+            );
+            return;
+          }
+
+          try {
+            await uploadFile(file);
+          } catch (err) {
+            console.error(`Failed to upload ${file.name}:`, err);
+          }
+        })
+      );
+      setRefreshToken((value) => value + 1);
+    },
+    [uploadFile]
+  );
+
+  const handleFileInputChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files ?? []);
+      if (files.length > 0) {
+        void handleUploadFiles(files);
+      }
+      event.target.value = '';
+    },
+    [handleUploadFiles]
+  );
+
   return (
     <FloatingWindow
       id={id}
@@ -68,6 +115,7 @@ export function VideoWindow({
         <VideoWindowMenuBar
           viewMode={viewMode}
           onViewModeChange={handleViewModeChange}
+          onUpload={handleUpload}
           onClose={onClose}
         />
         <div className="flex-1 overflow-hidden">
@@ -83,6 +131,7 @@ export function VideoWindow({
             ) : (
               <div className="h-full overflow-auto p-3">
                 <VideoPage
+                  key={refreshToken}
                   onOpenVideo={handleOpenVideo}
                   hideBackLink
                   viewMode={viewMode}
@@ -92,6 +141,15 @@ export function VideoWindow({
           </MemoryRouter>
         </div>
       </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*"
+        multiple={false}
+        className="hidden"
+        onChange={handleFileInputChange}
+        data-testid="video-file-input"
+      />
     </FloatingWindow>
   );
 }
