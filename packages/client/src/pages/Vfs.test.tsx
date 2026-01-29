@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { Vfs } from './Vfs';
@@ -13,11 +14,17 @@ vi.mock('@/components/ui/back-link', () => ({
   }) => <a href={defaultTo}>{defaultLabel}</a>
 }));
 
-vi.mock('@/components/vfs-explorer', () => ({
+vi.mock('@rapid/vfs-explorer', () => ({
   VfsExplorer: ({ className }: { className: string }) => (
     <div data-testid="vfs-explorer" className={className}>
       VFS Explorer Component
     </div>
+  )
+}));
+
+vi.mock('@/contexts/ClientVfsExplorerProvider', () => ({
+  ClientVfsExplorerProvider: ({ children }: { children: ReactNode }) => (
+    <>{children}</>
   )
 }));
 

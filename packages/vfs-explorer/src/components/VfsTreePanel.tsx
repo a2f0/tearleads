@@ -7,8 +7,8 @@ import {
   Loader2
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useVfsFolders, type VfsFolderNode } from '@/hooks/useVfsFolders';
-import { cn } from '@/lib/utils';
+import { useVfsFolders, type VfsFolderNode } from '../hooks';
+import { cn } from '../lib';
 
 // Special ID for the unfiled items virtual folder
 export const UNFILED_FOLDER_ID = '__unfiled__';

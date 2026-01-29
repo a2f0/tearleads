@@ -1,6 +1,6 @@
 {
   "name": "@rapid/client",
-  "version": "0.0.271",
+  "version": "0.0.272",
   "description": "React client application for Rapid",
   "main": "out/main/main.js",
   "type": "module",
@@ -57,6 +57,7 @@
     "@rapid/db": "workspace:*",
     "@rapid/email": "workspace:*",
     "@rapid/notes": "workspace:*",
+    "@rapid/vfs-explorer": "workspace:*",
     "@rapid/shared": "workspace:*",
     "@rapid/ui": "workspace:*",
     "@rapid/window-manager": "workspace:*",

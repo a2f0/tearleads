@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useCreateVfsFolder } from '@/hooks/useCreateVfsFolder';
+import { useVfsExplorerContext } from '../context';
+import { useCreateVfsFolder } from '../hooks';
 
 export interface NewFolderDialogProps {
   open: boolean;
@@ -16,6 +15,9 @@ export function NewFolderDialog({
   parentFolderId,
   onFolderCreated
 }: NewFolderDialogProps) {
+  const {
+    ui: { Button, Input }
+  } = useVfsExplorerContext();
   const [folderName, setFolderName] = useState('');
   const { createFolder, isCreating } = useCreateVfsFolder();
   const dialogRef = useRef<HTMLDivElement>(null);

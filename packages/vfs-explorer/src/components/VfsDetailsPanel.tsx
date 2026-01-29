@@ -10,11 +10,11 @@ import {
 import { useEffect } from 'react';
 import {
   useVfsFolderContents,
+  useVfsUnfiledItems,
   type VfsItem,
   type VfsObjectType
-} from '@/hooks/useVfsFolderContents';
-import { useVfsUnfiledItems } from '@/hooks/useVfsUnfiledItems';
-import { cn } from '@/lib/utils';
+} from '../hooks';
+import { cn } from '../lib';
 import type { VfsViewMode } from './VfsExplorer';
 import { UNFILED_FOLDER_ID } from './VfsTreePanel';
 

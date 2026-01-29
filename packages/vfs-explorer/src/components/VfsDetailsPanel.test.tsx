@@ -1,14 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { VfsDetailsPanel } from './VfsDetailsPanel';
 
-// Mock useVfsFolderContents hook
-vi.mock('@/hooks/useVfsFolderContents', () => ({
-  useVfsFolderContents: vi.fn()
-}));
-
-// Mock useVfsUnfiledItems hook
-vi.mock('@/hooks/useVfsUnfiledItems', () => ({
+// Mock the hooks
+vi.mock('../hooks', () => ({
+  useVfsFolderContents: vi.fn(),
   useVfsUnfiledItems: vi.fn(() => ({
     items: [],
     loading: false,
@@ -18,8 +13,8 @@ vi.mock('@/hooks/useVfsUnfiledItems', () => ({
   }))
 }));
 
-import { useVfsFolderContents } from '@/hooks/useVfsFolderContents';
-import { useVfsUnfiledItems } from '@/hooks/useVfsUnfiledItems';
+import { useVfsFolderContents, useVfsUnfiledItems } from '../hooks';
+import { VfsDetailsPanel } from './VfsDetailsPanel';
 import { UNFILED_FOLDER_ID } from './VfsTreePanel';
 
 const mockItems = [

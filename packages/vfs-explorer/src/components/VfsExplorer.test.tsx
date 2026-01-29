@@ -1,19 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { VfsExplorer } from './VfsExplorer';
 
-// Mock useVfsFolders hook
-vi.mock('@/hooks/useVfsFolders', () => ({
-  useVfsFolders: vi.fn()
-}));
-
-// Mock useVfsFolderContents hook
-vi.mock('@/hooks/useVfsFolderContents', () => ({
-  useVfsFolderContents: vi.fn()
-}));
-
-// Mock useVfsUnfiledItems hook
-vi.mock('@/hooks/useVfsUnfiledItems', () => ({
+// Mock the hooks
+vi.mock('../hooks', () => ({
+  useVfsFolders: vi.fn(),
+  useVfsFolderContents: vi.fn(),
   useVfsUnfiledItems: vi.fn(() => ({
     items: [],
     loading: false,
@@ -23,8 +14,8 @@ vi.mock('@/hooks/useVfsUnfiledItems', () => ({
   }))
 }));
 
-import { useVfsFolderContents } from '@/hooks/useVfsFolderContents';
-import { useVfsFolders } from '@/hooks/useVfsFolders';
+import { useVfsFolderContents, useVfsFolders } from '../hooks';
+import { VfsExplorer } from './VfsExplorer';
 
 describe('VfsExplorer', () => {
   beforeEach(() => {

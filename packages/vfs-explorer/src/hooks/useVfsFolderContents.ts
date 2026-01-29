@@ -1,11 +1,3 @@
-/**
- * Hook for querying VFS items that are not linked to any folder.
- */
-
-import { inArray, notInArray } from 'drizzle-orm';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { getDatabase } from '@/db';
-import { useDatabaseContext } from '@/db/hooks';
 import {
   contacts,
   files,
@@ -13,35 +5,52 @@ import {
   vfsFolders,
   vfsLinks,
   vfsRegistry
-} from '@/db/schema';
+} from '@rapid/db/sqlite';
+import { eq, inArray } from 'drizzle-orm';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useVfsExplorerContext } from '../context';
 
 export type VfsObjectType = 'folder' | 'contact' | 'note' | 'file' | 'photo';
 
-export interface VfsUnfiledItem {
+export interface VfsItem {
   id: string;
+  linkId: string;
   objectType: VfsObjectType;
   name: string;
   createdAt: Date;
 }
 
-export interface UseVfsUnfiledItemsResult {
-  items: VfsUnfiledItem[];
+export interface UseVfsFolderContentsResult {
+  items: VfsItem[];
   loading: boolean;
   error: string | null;
   hasFetched: boolean;
   refetch: () => Promise<void>;
 }
 
-export function useVfsUnfiledItems(): UseVfsUnfiledItemsResult {
-  const { isUnlocked, currentInstanceId } = useDatabaseContext();
-  const [items, setItems] = useState<VfsUnfiledItem[]>([]);
+export function useVfsFolderContents(
+  folderId: string | null
+): UseVfsFolderContentsResult {
+  const { databaseState, getDatabase } = useVfsExplorerContext();
+  const { isUnlocked, currentInstanceId } = databaseState;
+  const [items, setItems] = useState<VfsItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
-  const fetchedForInstanceRef = useRef<string | null>(null);
+  const fetchedForRef = useRef<{
+    instanceId: string | null;
+    folderId: string | null;
+  }>({
+    instanceId: null,
+    folderId: null
+  });
 
-  const fetchItems = useCallback(async () => {
-    if (!isUnlocked) return;
+  const fetchContents = useCallback(async () => {
+    if (!isUnlocked || !folderId) {
+      setItems([]);
+      setHasFetched(true);
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -49,41 +58,33 @@ export function useVfsUnfiledItems(): UseVfsUnfiledItemsResult {
     try {
       const db = getDatabase();
 
-      // Get IDs of all items that have a parent link
-      const linkedItemIds = await db
-        .select({ childId: vfsLinks.childId })
-        .from(vfsLinks);
+      // Get all links where this folder is the parent
+      const linkRows = await db
+        .select({
+          linkId: vfsLinks.id,
+          childId: vfsLinks.childId
+        })
+        .from(vfsLinks)
+        .where(eq(vfsLinks.parentId, folderId));
 
-      const linkedIds = linkedItemIds.map((r) => r.childId);
-
-      // Get all registry items that are NOT in the linked set
-      // We use a subquery approach for efficiency
-      let registryRows: { id: string; objectType: string; createdAt: Date }[];
-      if (linkedIds.length > 0) {
-        registryRows = await db
-          .select({
-            id: vfsRegistry.id,
-            objectType: vfsRegistry.objectType,
-            createdAt: vfsRegistry.createdAt
-          })
-          .from(vfsRegistry)
-          .where(notInArray(vfsRegistry.id, linkedIds));
-      } else {
-        // No linked items, get all
-        registryRows = await db
-          .select({
-            id: vfsRegistry.id,
-            objectType: vfsRegistry.objectType,
-            createdAt: vfsRegistry.createdAt
-          })
-          .from(vfsRegistry);
-      }
-
-      if (registryRows.length === 0) {
+      if (linkRows.length === 0) {
         setItems([]);
         setHasFetched(true);
         return;
       }
+
+      const childIds = linkRows.map((l) => l.childId);
+      const linkMap = new Map(linkRows.map((l) => [l.childId, l.linkId]));
+
+      // Get registry info for all children
+      const registryRows = await db
+        .select({
+          id: vfsRegistry.id,
+          objectType: vfsRegistry.objectType,
+          createdAt: vfsRegistry.createdAt
+        })
+        .from(vfsRegistry)
+        .where(inArray(vfsRegistry.id, childIds));
 
       // Group by object type for efficient name lookups
       const byType: Record<string, string[]> = {};
@@ -179,8 +180,9 @@ export function useVfsUnfiledItems(): UseVfsUnfiledItemsResult {
       await Promise.all(nameLookups);
 
       // Build final items list
-      const resultItems: VfsUnfiledItem[] = registryRows.map((row) => ({
+      const resultItems: VfsItem[] = registryRows.map((row) => ({
         id: row.id,
+        linkId: linkMap.get(row.id) || row.id,
         objectType: row.objectType as VfsObjectType,
         name: nameMap.get(row.id) || 'Unknown',
         createdAt: new Date(row.createdAt)
@@ -196,44 +198,53 @@ export function useVfsUnfiledItems(): UseVfsUnfiledItemsResult {
       setItems(resultItems);
       setHasFetched(true);
     } catch (err) {
-      console.error('Failed to fetch VFS unfiled items:', err);
+      console.error('Failed to fetch VFS folder contents:', err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked]);
+  }, [isUnlocked, folderId, getDatabase]);
 
   useEffect(() => {
     const needsFetch =
       isUnlocked &&
       !loading &&
-      (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
+      (!hasFetched ||
+        fetchedForRef.current.instanceId !== currentInstanceId ||
+        fetchedForRef.current.folderId !== folderId);
 
     if (needsFetch) {
       if (
-        fetchedForInstanceRef.current !== currentInstanceId &&
-        fetchedForInstanceRef.current !== null
+        fetchedForRef.current.instanceId !== currentInstanceId &&
+        fetchedForRef.current.instanceId !== null
       ) {
         setItems([]);
         setError(null);
       }
 
-      fetchedForInstanceRef.current = currentInstanceId;
+      fetchedForRef.current = { instanceId: currentInstanceId, folderId };
 
       const timeoutId = setTimeout(() => {
-        fetchItems();
+        fetchContents();
       }, 0);
 
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchItems]);
+  }, [
+    isUnlocked,
+    loading,
+    hasFetched,
+    currentInstanceId,
+    folderId,
+    fetchContents
+  ]);
 
   return {
     items,
     loading,
     error,
     hasFetched,
-    refetch: fetchItems
+    refetch: fetchContents
   };
 }

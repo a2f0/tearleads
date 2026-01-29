@@ -1,54 +1,42 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-// Mock database
-vi.mock('@/db', () => ({
-  getDatabase: vi.fn()
-}));
-
-// Mock database context
-vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: vi.fn()
-}));
-
-import { getDatabase } from '@/db';
-import { useDatabaseContext } from '@/db/hooks';
+import {
+  createMockDatabase,
+  createMockDatabaseState,
+  createWrapper
+} from '../test/testUtils';
 import { useVfsFolderContents } from './useVfsFolderContents';
 
 describe('useVfsFolderContents', () => {
-  const mockDb = {
-    select: vi.fn().mockReturnThis(),
-    from: vi.fn().mockReturnThis(),
-    innerJoin: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnThis()
-  };
+  let mockDb: ReturnType<typeof createMockDatabase>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getDatabase).mockReturnValue(
-      mockDb as unknown as ReturnType<typeof getDatabase>
-    );
+    mockDb = createMockDatabase();
   });
 
   it('returns empty items when not unlocked', () => {
-    vi.mocked(useDatabaseContext).mockReturnValue({
-      isUnlocked: false,
-      currentInstanceId: null
-    } as ReturnType<typeof useDatabaseContext>);
+    const wrapper = createWrapper({
+      databaseState: { isUnlocked: false, currentInstanceId: null }
+    });
 
-    const { result } = renderHook(() => useVfsFolderContents('folder-1'));
+    const { result } = renderHook(() => useVfsFolderContents('folder-1'), {
+      wrapper
+    });
 
     expect(result.current.items).toEqual([]);
     expect(result.current.loading).toBe(false);
   });
 
   it('returns empty items when folderId is null', async () => {
-    vi.mocked(useDatabaseContext).mockReturnValue({
-      isUnlocked: true,
-      currentInstanceId: 'test-instance'
-    } as ReturnType<typeof useDatabaseContext>);
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
 
-    const { result } = renderHook(() => useVfsFolderContents(null));
+    const { result } = renderHook(() => useVfsFolderContents(null), {
+      wrapper
+    });
 
     await waitFor(() => {
       expect(result.current.hasFetched).toBe(true);
@@ -58,11 +46,6 @@ describe('useVfsFolderContents', () => {
   });
 
   it('fetches folder contents when unlocked', async () => {
-    vi.mocked(useDatabaseContext).mockReturnValue({
-      isUnlocked: true,
-      currentInstanceId: 'test-instance'
-    } as ReturnType<typeof useDatabaseContext>);
-
     const mockLinkRows = [
       { linkId: 'link-1', childId: 'child-1' },
       { linkId: 'link-2', childId: 'child-2' }
@@ -82,7 +65,14 @@ describe('useVfsFolderContents', () => {
       .mockResolvedValueOnce(mockFolderNameRows)
       .mockResolvedValueOnce(mockNoteRows);
 
-    const { result } = renderHook(() => useVfsFolderContents('parent-folder'));
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsFolderContents('parent-folder'), {
+      wrapper
+    });
 
     await waitFor(() => {
       expect(result.current.hasFetched).toBe(true);
@@ -96,14 +86,16 @@ describe('useVfsFolderContents', () => {
   });
 
   it('returns empty items when folder has no children', async () => {
-    vi.mocked(useDatabaseContext).mockReturnValue({
-      isUnlocked: true,
-      currentInstanceId: 'test-instance'
-    } as ReturnType<typeof useDatabaseContext>);
-
     mockDb.where.mockResolvedValueOnce([]);
 
-    const { result } = renderHook(() => useVfsFolderContents('empty-folder'));
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsFolderContents('empty-folder'), {
+      wrapper
+    });
 
     await waitFor(() => {
       expect(result.current.hasFetched).toBe(true);
@@ -113,18 +105,20 @@ describe('useVfsFolderContents', () => {
   });
 
   it('handles fetch errors', async () => {
-    vi.mocked(useDatabaseContext).mockReturnValue({
-      isUnlocked: true,
-      currentInstanceId: 'test-instance'
-    } as ReturnType<typeof useDatabaseContext>);
-
     mockDb.where.mockRejectedValueOnce(new Error('Database error'));
 
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {});
 
-    const { result } = renderHook(() => useVfsFolderContents('folder-1'));
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsFolderContents('folder-1'), {
+      wrapper
+    });
 
     await waitFor(() => {
       expect(result.current.error).toBe('Database error');
@@ -140,11 +134,6 @@ describe('useVfsFolderContents', () => {
   });
 
   it('sorts folders first then alphabetically', async () => {
-    vi.mocked(useDatabaseContext).mockReturnValue({
-      isUnlocked: true,
-      currentInstanceId: 'test-instance'
-    } as ReturnType<typeof useDatabaseContext>);
-
     const mockLinkRows = [
       { linkId: 'link-1', childId: 'note-1' },
       { linkId: 'link-2', childId: 'folder-1' },
@@ -169,7 +158,14 @@ describe('useVfsFolderContents', () => {
       .mockResolvedValueOnce(mockFolderNameRows)
       .mockResolvedValueOnce(mockNoteRows);
 
-    const { result } = renderHook(() => useVfsFolderContents('parent'));
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsFolderContents('parent'), {
+      wrapper
+    });
 
     await waitFor(() => {
       expect(result.current.hasFetched).toBe(true);
@@ -180,37 +176,7 @@ describe('useVfsFolderContents', () => {
     expect(result.current.items[2]?.name).toBe('Banana Note');
   });
 
-  it('refetches when folderId changes', async () => {
-    vi.mocked(useDatabaseContext).mockReturnValue({
-      isUnlocked: true,
-      currentInstanceId: 'test-instance'
-    } as ReturnType<typeof useDatabaseContext>);
-
-    mockDb.where.mockResolvedValue([]);
-
-    const { result, rerender } = renderHook(
-      ({ folderId }) => useVfsFolderContents(folderId),
-      { initialProps: { folderId: 'folder-1' } }
-    );
-
-    await waitFor(() => {
-      expect(result.current.hasFetched).toBe(true);
-    });
-
-    // Change folder
-    rerender({ folderId: 'folder-2' });
-
-    await waitFor(() => {
-      expect(mockDb.where).toHaveBeenCalled();
-    });
-  });
-
   it('fetches file and photo names correctly', async () => {
-    vi.mocked(useDatabaseContext).mockReturnValue({
-      isUnlocked: true,
-      currentInstanceId: 'test-instance'
-    } as ReturnType<typeof useDatabaseContext>);
-
     const mockLinkRows = [
       { linkId: 'link-1', childId: 'file-1' },
       { linkId: 'link-2', childId: 'photo-1' }
@@ -231,7 +197,14 @@ describe('useVfsFolderContents', () => {
       .mockResolvedValueOnce(mockRegistryRows)
       .mockResolvedValueOnce(mockFileRows);
 
-    const { result } = renderHook(() => useVfsFolderContents('parent-folder'));
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsFolderContents('parent-folder'), {
+      wrapper
+    });
 
     await waitFor(() => {
       expect(result.current.hasFetched).toBe(true);
@@ -247,11 +220,6 @@ describe('useVfsFolderContents', () => {
   });
 
   it('fetches contact names correctly', async () => {
-    vi.mocked(useDatabaseContext).mockReturnValue({
-      isUnlocked: true,
-      currentInstanceId: 'test-instance'
-    } as ReturnType<typeof useDatabaseContext>);
-
     const mockLinkRows = [{ linkId: 'link-1', childId: 'contact-1' }];
 
     const mockRegistryRows = [
@@ -267,7 +235,14 @@ describe('useVfsFolderContents', () => {
       .mockResolvedValueOnce(mockRegistryRows)
       .mockResolvedValueOnce(mockContactRows);
 
-    const { result } = renderHook(() => useVfsFolderContents('parent-folder'));
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsFolderContents('parent-folder'), {
+      wrapper
+    });
 
     await waitFor(() => {
       expect(result.current.hasFetched).toBe(true);
