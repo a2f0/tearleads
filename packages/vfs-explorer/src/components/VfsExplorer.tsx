@@ -2,7 +2,10 @@ import {
   DndContext,
   type DragEndEvent,
   type DragStartEvent,
-  pointerWithin
+  PointerSensor,
+  pointerWithin,
+  useSensor,
+  useSensors
 } from '@dnd-kit/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMoveVfsItem } from '../hooks';
@@ -50,6 +53,15 @@ export function VfsExplorer({
   const [activeItem, setActiveItem] = useState<DragItemData | null>(null);
   const [items, setItems] = useState<DisplayItem[]>([]);
   const { moveItem } = useMoveVfsItem();
+
+  // Configure pointer sensor with distance constraint to allow double-clicks
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8
+      }
+    })
+  );
 
   // Get selected item name for status bar
   const selectedItemName = useMemo(() => {
@@ -123,6 +135,7 @@ export function VfsExplorer({
 
   return (
     <DndContext
+      sensors={sensors}
       collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
