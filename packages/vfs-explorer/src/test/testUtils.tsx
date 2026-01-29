@@ -77,6 +77,7 @@ export const createMockUI = () => ({
   ),
   DropdownMenuSeparator: () => <hr />,
   WindowOptionsMenuItem: () => <div>Options</div>,
+  AboutMenuItem: () => <div>About</div>,
   FloatingWindow: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   )

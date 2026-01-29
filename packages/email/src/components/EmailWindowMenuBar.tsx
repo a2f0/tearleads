@@ -17,6 +17,7 @@ export function EmailWindowMenuBar({
   onClose
 }: EmailWindowMenuBarProps) {
   const {
+    AboutMenuItem,
     DropdownMenu,
     DropdownMenuItem,
     DropdownMenuSeparator,
@@ -52,6 +53,9 @@ export function EmailWindowMenuBar({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
+      </DropdownMenu>
+      <DropdownMenu trigger="Help">
+        <AboutMenuItem />
       </DropdownMenu>
     </div>
   );

@@ -6,12 +6,13 @@ import { mockConsoleError } from '../test/console-mocks';
 import { useEmails } from './useEmails';
 
 const mockUIComponents: EmailUIComponents = {
+  AboutMenuItem: () => null,
+  BackLink: () => null,
   DropdownMenu: () => null,
   DropdownMenuItem: () => null,
   DropdownMenuSeparator: () => null,
-  WindowOptionsMenuItem: () => null,
-  BackLink: () => null,
-  RefreshButton: () => null
+  RefreshButton: () => null,
+  WindowOptionsMenuItem: () => null
 };
 
 const mockEmails = [

@@ -64,6 +64,7 @@ vi.mock('../context', () => ({
       ),
       DropdownMenuSeparator: () => <hr />,
       WindowOptionsMenuItem: () => <div>Options</div>,
+      AboutMenuItem: () => <div>About</div>,
       Button: ({ children, ...props }: { children: ReactNode }) => (
         <button {...props}>{children}</button>
       ),
@@ -178,10 +179,11 @@ describe('VfsWindow', () => {
     );
   });
 
-  it('renders menu bar with File and View menus', () => {
+  it('renders menu bar with File, View, and Help menus', () => {
     render(<VfsWindow {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Help' })).toBeInTheDocument();
   });
 
   it('passes list view mode to VfsExplorer by default', () => {

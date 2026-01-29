@@ -3,6 +3,7 @@ export { EmailWindow, EmailWindowMenuBar, type ViewMode } from './components';
 
 // Context
 export {
+  type AboutMenuItemProps,
   type BackLinkProps,
   type DropdownMenuItemProps,
   type DropdownMenuProps,

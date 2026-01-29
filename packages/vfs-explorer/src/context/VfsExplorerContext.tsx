@@ -108,6 +108,8 @@ export type ContextMenuSeparatorProps = Record<string, never>;
 
 export type WindowOptionsMenuItemProps = Record<string, never>;
 
+export type AboutMenuItemProps = Record<string, never>;
+
 export interface FloatingWindowProps {
   id: string;
   title: string;
@@ -143,6 +145,7 @@ export interface VfsExplorerUIComponents {
   DropdownMenuItem: ComponentType<DropdownMenuItemProps>;
   DropdownMenuSeparator: ComponentType<DropdownMenuSeparatorProps>;
   WindowOptionsMenuItem: ComponentType<WindowOptionsMenuItemProps>;
+  AboutMenuItem: ComponentType<AboutMenuItemProps>;
   FloatingWindow: ComponentType<FloatingWindowProps>;
   ContextMenu: ComponentType<ContextMenuProps>;
   ContextMenuItem: ComponentType<ContextMenuItemProps>;

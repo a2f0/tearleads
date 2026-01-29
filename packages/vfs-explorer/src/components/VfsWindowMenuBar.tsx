@@ -22,6 +22,7 @@ export function VfsWindowMenuBar({
 }: VfsWindowMenuBarProps) {
   const {
     ui: {
+      AboutMenuItem,
       DropdownMenu,
       DropdownMenuItem,
       DropdownMenuSeparator,
@@ -71,6 +72,9 @@ export function VfsWindowMenuBar({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
+      </DropdownMenu>
+      <DropdownMenu trigger="Help">
+        <AboutMenuItem />
       </DropdownMenu>
     </div>
   );
