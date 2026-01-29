@@ -49,7 +49,7 @@ export function VfsDraggableItem({
       : 'hover:bg-accent/50'
   );
 
-  const cursorStyle = isSelected ? 'grab' : 'default';
+  const cursorStyle = 'default';
 
   if (asTableRow) {
     return (
