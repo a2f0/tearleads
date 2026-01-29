@@ -1,14 +1,14 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { VfsTreePanel } from './VfsTreePanel';
 
 // Mock useVfsFolders hook
-vi.mock('@/hooks/useVfsFolders', () => ({
+vi.mock('../hooks', () => ({
   useVfsFolders: vi.fn()
 }));
 
-import { useVfsFolders } from '@/hooks/useVfsFolders';
+import { useVfsFolders } from '../hooks';
+import { VfsTreePanel } from './VfsTreePanel';
 
 const mockFolders = [
   {

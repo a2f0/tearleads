@@ -57,6 +57,7 @@
     "@rapid/db": "workspace:*",
     "@rapid/email": "workspace:*",
     "@rapid/notes": "workspace:*",
+    "@rapid/vfs-explorer": "workspace:*",
     "@rapid/shared": "workspace:*",
     "@rapid/ui": "workspace:*",
     "@rapid/window-manager": "workspace:*",

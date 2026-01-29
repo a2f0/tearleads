@@ -1,8 +1,7 @@
+import { vfsFolders, vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
 import { eq, inArray } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getDatabase } from '@/db';
-import { useDatabaseContext } from '@/db/hooks';
-import { vfsFolders, vfsLinks, vfsRegistry } from '@/db/schema';
+import { useVfsExplorerContext } from '../context';
 
 export interface VfsFolderNode {
   id: string;
@@ -21,7 +20,8 @@ export interface UseVfsFoldersResult {
 }
 
 export function useVfsFolders(): UseVfsFoldersResult {
-  const { isUnlocked, currentInstanceId } = useDatabaseContext();
+  const { databaseState, getDatabase } = useVfsExplorerContext();
+  const { isUnlocked, currentInstanceId } = databaseState;
   const [folders, setFolders] = useState<VfsFolderNode[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -132,7 +132,7 @@ export function useVfsFolders(): UseVfsFoldersResult {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked]);
+  }, [isUnlocked, getDatabase]);
 
   useEffect(() => {
     const needsFetch =

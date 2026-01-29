@@ -1,0 +1,138 @@
+import type { ReactNode } from 'react';
+import { vi } from 'vitest';
+import { VfsExplorerProvider, type VfsExplorerProviderProps } from '../context';
+
+// Default mock implementations
+export const createMockDatabaseState = () => ({
+  isUnlocked: true,
+  isLoading: false,
+  currentInstanceId: 'test-instance'
+});
+
+interface MockDb {
+  select: ReturnType<typeof vi.fn>;
+  from: ReturnType<typeof vi.fn>;
+  innerJoin: ReturnType<typeof vi.fn>;
+  where: ReturnType<typeof vi.fn>;
+  insert: ReturnType<typeof vi.fn>;
+  transaction: ReturnType<typeof vi.fn>;
+}
+
+export const createMockDatabase = (): MockDb => {
+  const mockDb: MockDb = {
+    select: vi.fn().mockReturnThis(),
+    from: vi.fn().mockReturnThis(),
+    innerJoin: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    insert: vi.fn(() => ({
+      values: vi.fn().mockResolvedValue(undefined)
+    })),
+    transaction: vi.fn(async (callback: (tx: unknown) => Promise<void>) => {
+      await callback({
+        insert: vi.fn(() => ({
+          values: vi.fn().mockResolvedValue(undefined)
+        }))
+      });
+    })
+  };
+  return mockDb;
+};
+
+export const createMockVfsKeys = () => ({
+  generateSessionKey: vi.fn(() => new Uint8Array(32)),
+  wrapSessionKey: vi.fn(async () => 'wrapped-session-key')
+});
+
+export const createMockAuth = () => ({
+  isLoggedIn: vi.fn(() => false),
+  readStoredAuth: vi.fn(() => ({
+    user: { id: 'test-user-id' }
+  }))
+});
+
+export const createMockFeatureFlags = () => ({
+  getFeatureFlagValue: vi.fn(() => false)
+});
+
+export const createMockVfsApi = () => ({
+  register: vi.fn(async () => {})
+});
+
+export const createMockUI = () => ({
+  Button: ({ children, ...props }: { children: ReactNode }) => (
+    <button {...props}>{children}</button>
+  ),
+  Input: (props: Record<string, unknown>) => <input {...props} />,
+  DropdownMenu: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuItem: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuSeparator: () => <hr />,
+  WindowOptionsMenuItem: () => <div>Options</div>,
+  FloatingWindow: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  )
+});
+
+export interface MockContextOptions {
+  databaseState?: Partial<ReturnType<typeof createMockDatabaseState>>;
+  database?: ReturnType<typeof createMockDatabase>;
+  vfsKeys?: Partial<ReturnType<typeof createMockVfsKeys>>;
+  auth?: Partial<ReturnType<typeof createMockAuth>>;
+  featureFlags?: Partial<ReturnType<typeof createMockFeatureFlags>>;
+  vfsApi?: Partial<ReturnType<typeof createMockVfsApi>>;
+}
+
+export function createMockContextValue(options: MockContextOptions = {}) {
+  const database = options.database ?? createMockDatabase();
+
+  return {
+    databaseState: {
+      ...createMockDatabaseState(),
+      ...options.databaseState
+    },
+    getDatabase: () =>
+      database as unknown as ReturnType<
+        VfsExplorerProviderProps['getDatabase']
+      >,
+    ui: createMockUI() as unknown as VfsExplorerProviderProps['ui'],
+    vfsKeys: {
+      ...createMockVfsKeys(),
+      ...options.vfsKeys
+    },
+    auth: {
+      ...createMockAuth(),
+      ...options.auth
+    },
+    featureFlags: {
+      ...createMockFeatureFlags(),
+      ...options.featureFlags
+    },
+    vfsApi: {
+      ...createMockVfsApi(),
+      ...options.vfsApi
+    }
+  };
+}
+
+export function createWrapper(options: MockContextOptions = {}) {
+  const contextValue = createMockContextValue(options);
+
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <VfsExplorerProvider
+        databaseState={contextValue.databaseState}
+        getDatabase={contextValue.getDatabase}
+        ui={contextValue.ui}
+        vfsKeys={contextValue.vfsKeys}
+        auth={contextValue.auth}
+        featureFlags={contextValue.featureFlags}
+        vfsApi={contextValue.vfsApi}
+      >
+        {children}
+      </VfsExplorerProvider>
+    );
+  };
+}

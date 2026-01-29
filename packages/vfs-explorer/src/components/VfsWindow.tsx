@@ -1,8 +1,7 @@
 import { useCallback, useState } from 'react';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
-import { VfsExplorer } from '@/components/vfs-explorer';
+import { useVfsExplorerContext, type WindowDimensions } from '../context';
 import { NewFolderDialog } from './NewFolderDialog';
+import { VfsExplorer } from './VfsExplorer';
 import type { VfsViewMode } from './VfsWindowMenuBar';
 import { VfsWindowMenuBar } from './VfsWindowMenuBar';
 
@@ -25,6 +24,9 @@ export function VfsWindow({
   zIndex,
   initialDimensions
 }: VfsWindowProps) {
+  const {
+    ui: { FloatingWindow }
+  } = useVfsExplorerContext();
   const [viewMode, setViewMode] = useState<VfsViewMode>('list');
   const [refreshToken, setRefreshToken] = useState(0);
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
