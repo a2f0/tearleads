@@ -24,7 +24,9 @@ describe('VideoWindowMenuBar', () => {
 
     await user.click(screen.getByRole('button', { name: 'File' }));
 
-    expect(screen.getByRole('menuitem', { name: 'Upload' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: 'Upload' })
+    ).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Close' })).toBeInTheDocument();
   });
 
