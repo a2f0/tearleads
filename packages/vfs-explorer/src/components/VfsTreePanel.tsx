@@ -126,6 +126,14 @@ export function VfsTreePanel({
     onFolderChanged?.();
   }, [refetch, onFolderChanged]);
 
+  const expandFolder = useCallback((folderId: string) => {
+    setExpandedFolderIds((prev) => {
+      const next = new Set(prev);
+      next.add(folderId);
+      return next;
+    });
+  }, []);
+
   const handleFolderDeleted = useCallback(
     (deletedId: string) => {
       // If the deleted folder was selected, clear selection
@@ -265,7 +273,12 @@ export function VfsTreePanel({
           if (!open) setNewSubfolderParent(null);
         }}
         parentFolderId={newSubfolderParent?.id ?? null}
-        onFolderCreated={handleFolderChanged}
+        onFolderCreated={() => {
+          if (newSubfolderParent) {
+            expandFolder(newSubfolderParent.id);
+          }
+          handleFolderChanged();
+        }}
       />
 
       {/* Rename Dialog */}
