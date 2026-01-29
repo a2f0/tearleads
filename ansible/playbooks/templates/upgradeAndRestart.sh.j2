@@ -1,0 +1,31 @@
+#!/bin/bash
+set -e
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
+log "Starting system upgrade"
+
+# Wait for any other package manager to finish
+while fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
+    log "Waiting for other package manager to finish..."
+    sleep 5
+done
+
+log "Updating package lists"
+sudo apt-get update
+
+log "Upgrading packages"
+sudo DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -y \
+    -o Dpkg::Options::="--force-confdef" \
+    -o Dpkg::Options::="--force-confold"
+
+log "Removing unused packages"
+sudo apt-get autoremove -y
+
+log "Cleaning package cache"
+sudo apt-get autoclean
+
+log "Rebooting system"
+sudo shutdown -r now "System rebooting after upgrade"
