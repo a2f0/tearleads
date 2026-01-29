@@ -8,10 +8,10 @@ appId: com.tearleads.rapid
 
 - assertVisible: "Tearleads"
 
-# Wait for home to load
+# Wait for home to load (extended timeout for CI environments)
 - extendedWaitUntil:
     visible: "Files"
-    timeout: 5000
+    timeout: 15000
 
 # Navigate to Sync page using Maestro native swipe and tap
 # IMPORTANT: JavaScript navigation (window.location.href, Link.click()) does NOT work
