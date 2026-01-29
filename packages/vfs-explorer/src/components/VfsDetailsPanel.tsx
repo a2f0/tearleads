@@ -1,5 +1,5 @@
 import { FileBox, Folder, Loader2 } from 'lucide-react';
-import { useEffect } from 'react';
+import { type MouseEvent, useCallback, useEffect } from 'react';
 import {
   useVfsFolderContents,
   useVfsUnfiledItems,
@@ -13,28 +13,64 @@ import { UNFILED_FOLDER_ID } from './VfsTreePanel';
 
 export type { VfsItem, VfsObjectType };
 
-interface VfsDetailsPanelProps {
-  folderId: string | null;
-  viewMode?: VfsViewMode | undefined;
-  compact?: boolean | undefined;
-  refreshToken?: number | undefined;
-}
-
-// Convert unfiled items to the same shape as folder contents
-interface DisplayItem {
+// Item shape used in the details panel (shared between folder contents and unfiled items)
+export interface DisplayItem {
   id: string;
   objectType: VfsObjectType;
   name: string;
   createdAt: Date;
 }
 
+interface VfsDetailsPanelProps {
+  folderId: string | null;
+  viewMode?: VfsViewMode | undefined;
+  compact?: boolean | undefined;
+  refreshToken?: number | undefined;
+  /** Currently selected item ID */
+  selectedItemId?: string | null | undefined;
+  /** Callback when an item is selected */
+  onItemSelect?: ((itemId: string | null) => void) | undefined;
+  /** Callback when a folder item is double-clicked (to navigate into it) */
+  onFolderSelect?: ((folderId: string) => void) | undefined;
+  /** Callback when a non-folder item is double-clicked (to open it) */
+  onItemOpen?: ((item: DisplayItem) => void) | undefined;
+}
+
 export function VfsDetailsPanel({
   folderId,
   viewMode = 'list',
   compact: _compact,
-  refreshToken
+  refreshToken,
+  selectedItemId,
+  onItemSelect,
+  onFolderSelect,
+  onItemOpen
 }: VfsDetailsPanelProps) {
   const isUnfiled = folderId === UNFILED_FOLDER_ID;
+
+  const handleItemClick = useCallback(
+    (e: MouseEvent, itemId: string) => {
+      e.stopPropagation();
+      onItemSelect?.(itemId);
+    },
+    [onItemSelect]
+  );
+
+  const handleItemDoubleClick = useCallback(
+    (e: MouseEvent, item: DisplayItem) => {
+      e.stopPropagation();
+      if (item.objectType === 'folder') {
+        onFolderSelect?.(item.id);
+      } else {
+        onItemOpen?.(item);
+      }
+    },
+    [onFolderSelect, onItemOpen]
+  );
+
+  const handleContainerClick = useCallback(() => {
+    onItemSelect?.(null);
+  }, [onItemSelect]);
 
   // Use the appropriate hook based on selection
   const folderContents = useVfsFolderContents(isUnfiled ? null : folderId);
@@ -121,7 +157,9 @@ export function VfsDetailsPanel({
           {items.length} item{items.length !== 1 ? 's' : ''}
         </span>
       </div>
-      <div className="flex-1 overflow-y-auto">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: click-to-deselect on container background */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard navigation is a separate enhancement */}
+      <div className="flex-1 overflow-y-auto" onClick={handleContainerClick}>
         {viewMode === 'table' ? (
           <table className="w-full">
             <thead className="sticky top-0 bg-background">
@@ -140,7 +178,10 @@ export function VfsDetailsPanel({
                     key={item.id}
                     item={item}
                     asTableRow
-                    className="cursor-grab border-b hover:bg-accent/50"
+                    className="border-b"
+                    isSelected={item.id === selectedItemId}
+                    onClick={(e) => handleItemClick(e, item.id)}
+                    onDoubleClick={(e) => handleItemDoubleClick(e, item)}
                   >
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
@@ -172,7 +213,10 @@ export function VfsDetailsPanel({
                 <VfsDraggableItem
                   key={item.id}
                   item={item}
-                  className="flex cursor-grab items-center gap-3 rounded-md px-3 py-2 hover:bg-accent/50"
+                  className="flex items-center gap-3 rounded-md px-3 py-2"
+                  isSelected={item.id === selectedItemId}
+                  onClick={(e) => handleItemClick(e, item.id)}
+                  onDoubleClick={(e) => handleItemDoubleClick(e, item)}
                 >
                   <Icon className={cn('h-5 w-5 shrink-0', colorClass)} />
                   <div className="min-w-0 flex-1">

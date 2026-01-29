@@ -5,6 +5,7 @@ export type {
   VfsFolderNode,
   VfsItem,
   VfsObjectType,
+  VfsOpenItem,
   VfsViewMode
 } from './components';
 // Components

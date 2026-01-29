@@ -3,14 +3,17 @@ import {
   type DragEndEvent,
   type DragStartEvent
 } from '@dnd-kit/core';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useMoveVfsItem } from '../hooks';
-import { VfsDetailsPanel } from './VfsDetailsPanel';
+import { type DisplayItem, VfsDetailsPanel } from './VfsDetailsPanel';
 import type { DragItemData } from './VfsDraggableItem';
 import { VfsDragOverlay } from './VfsDragOverlay';
 import { UNFILED_FOLDER_ID, VfsTreePanel } from './VfsTreePanel';
 
 export type VfsViewMode = 'list' | 'table';
+
+/** Item data passed to onItemOpen callback */
+export type VfsOpenItem = DisplayItem;
 
 interface VfsExplorerProps {
   className?: string;
@@ -20,6 +23,8 @@ interface VfsExplorerProps {
   selectedFolderId?: string | null | undefined;
   onFolderSelect?: ((folderId: string | null) => void) | undefined;
   onItemMoved?: (() => void) | undefined;
+  /** Callback when a non-folder item is double-clicked */
+  onItemOpen?: ((item: VfsOpenItem) => void) | undefined;
 }
 
 export function VfsExplorer({
@@ -29,11 +34,13 @@ export function VfsExplorer({
   refreshToken,
   selectedFolderId: controlledSelectedFolderId,
   onFolderSelect,
-  onItemMoved
+  onItemMoved,
+  onItemOpen
 }: VfsExplorerProps) {
   const [internalSelectedFolderId, setInternalSelectedFolderId] = useState<
     string | null
   >(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [treePanelWidth, setTreePanelWidth] = useState(240);
   const [activeItem, setActiveItem] = useState<DragItemData | null>(null);
   const { moveItem } = useMoveVfsItem();
@@ -43,6 +50,12 @@ export function VfsExplorer({
     controlledSelectedFolderId !== undefined
       ? controlledSelectedFolderId
       : internalSelectedFolderId;
+
+  // Clear item selection when folder changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional - we want to clear selection when folder changes
+  useEffect(() => {
+    setSelectedItemId(null);
+  }, [selectedFolderId]);
 
   const handleFolderSelect = useCallback(
     (folderId: string | null) => {
@@ -112,6 +125,10 @@ export function VfsExplorer({
           viewMode={viewMode}
           compact={compact}
           refreshToken={refreshToken}
+          selectedItemId={selectedItemId}
+          onItemSelect={setSelectedItemId}
+          onFolderSelect={handleFolderSelect}
+          onItemOpen={onItemOpen}
         />
       </div>
       <VfsDragOverlay activeItem={activeItem} />
