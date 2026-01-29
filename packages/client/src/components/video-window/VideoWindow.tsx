@@ -145,7 +145,7 @@ export function VideoWindow({
         ref={fileInputRef}
         type="file"
         accept="video/*"
-        multiple={false}
+        multiple
         className="hidden"
         onChange={handleFileInputChange}
         data-testid="video-file-input"
