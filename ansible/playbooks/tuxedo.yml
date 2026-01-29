@@ -8,6 +8,11 @@
     nodejs_major_version: 22
     tuxedo_github_deploy_key_name: tuxedoGithubDeployKey
     tuxedo_github_deploy_key_path: "{{ playbook_dir }}/../../.secrets/tuxedoGithubDeployKey"
+    # Tuxedo workspace configuration (server uses tuxedo1, tuxedo2, ... naming)
+    tuxedo_base_dir: "/home/{{ ansible_user }}/tuxedo"
+    tuxedo_workspace_prefix: "tuxedo"
+    tuxedo_workspace_start: "1"
+    tuxedo_workspace_count: "10"
     # Official GitHub SSH host keys from https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints
     # NOTE: These keys may be rotated. If SSH connections to GitHub fail, re-verify them against the URL above.
     # yamllint disable rule:line-length
@@ -79,9 +84,12 @@
         mode: "0755"
         content: |
           #!/bin/sh
-          # Wrapper to launch tuxedo.sh with correct SCRIPT_PATH
-          TUXEDO_SCRIPT_PATH="/home/{{ ansible_user }}/tuxedo/tuxedo-shared/tuxedo/tuxedo.sh"
-          export TUXEDO_SCRIPT_PATH
+          # Wrapper to launch tuxedo.sh with correct SCRIPT_PATH and workspace config
+          export TUXEDO_SCRIPT_PATH="/home/{{ ansible_user }}/tuxedo/tuxedo-shared/tuxedo/tuxedo.sh"
+          export TUXEDO_BASE_DIR="{{ tuxedo_base_dir }}"
+          export TUXEDO_WORKSPACE_PREFIX="{{ tuxedo_workspace_prefix }}"
+          export TUXEDO_WORKSPACE_START="{{ tuxedo_workspace_start }}"
+          export TUXEDO_WORKSPACES="{{ tuxedo_workspace_count }}"
           cd "$(dirname "$TUXEDO_SCRIPT_PATH")"
           exec "$TUXEDO_SCRIPT_PATH" "$@"
 
