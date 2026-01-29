@@ -1,44 +1,18 @@
 import { Loader2, Mail } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import { useEmailApi, useEmailUI } from '../context';
-import { type EmailItem, formatEmailDate, formatEmailSize } from '../lib';
+import { useEffect, useState } from 'react';
+import { useEmailUI } from '../context';
+import { useEmails } from '../hooks';
+import { formatEmailDate, formatEmailSize } from '../lib';
 
 export function Email() {
-  const { apiBaseUrl, getAuthHeader } = useEmailApi();
   const { BackLink, RefreshButton } = useEmailUI();
-  const [emails, setEmails] = useState<EmailItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { emails, loading, error, fetchEmails } = useEmails();
   const [hasFetched, setHasFetched] = useState(false);
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
 
-  const fetchEmails = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setHasFetched(true);
-
-    try {
-      const authHeader = getAuthHeader?.();
-      const response = await fetch(
-        `${apiBaseUrl}/emails`,
-        authHeader ? { headers: { Authorization: authHeader } } : {}
-      );
-      if (!response.ok) {
-        throw new Error(`Failed to fetch emails: ${response.statusText}`);
-      }
-      const data = await response.json();
-      setEmails(data.emails ?? []);
-      setHasFetched(true);
-    } catch (err) {
-      console.error('Failed to fetch emails:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [apiBaseUrl, getAuthHeader]);
-
   useEffect(() => {
     if (!hasFetched) {
+      setHasFetched(true);
       fetchEmails();
     }
   }, [hasFetched, fetchEmails]);

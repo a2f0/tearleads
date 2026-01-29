@@ -18,6 +18,9 @@ export {
   type WindowOptionsMenuItemProps
 } from './context';
 
+// Hooks
+export { useEmails } from './hooks';
+
 // Lib
 export { type EmailItem, formatEmailDate, formatEmailSize } from './lib';
 
