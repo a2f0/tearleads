@@ -91,6 +91,21 @@ export interface DropdownMenuItemProps {
 
 export type DropdownMenuSeparatorProps = Record<string, never>;
 
+export interface ContextMenuProps {
+  x: number;
+  y: number;
+  onClose: () => void;
+  children: ReactNode;
+}
+
+export interface ContextMenuItemProps {
+  icon?: ReactNode;
+  onClick: () => void;
+  children: ReactNode;
+}
+
+export type ContextMenuSeparatorProps = Record<string, never>;
+
 export type WindowOptionsMenuItemProps = Record<string, never>;
 
 export interface FloatingWindowProps {
@@ -129,6 +144,9 @@ export interface VfsExplorerUIComponents {
   DropdownMenuSeparator: ComponentType<DropdownMenuSeparatorProps>;
   WindowOptionsMenuItem: ComponentType<WindowOptionsMenuItemProps>;
   FloatingWindow: ComponentType<FloatingWindowProps>;
+  ContextMenu: ComponentType<ContextMenuProps>;
+  ContextMenuItem: ComponentType<ContextMenuItemProps>;
+  ContextMenuSeparator: ComponentType<ContextMenuSeparatorProps>;
 }
 
 /**

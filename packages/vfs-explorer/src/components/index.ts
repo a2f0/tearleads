@@ -1,7 +1,16 @@
+export type { DeleteFolderDialogProps } from './DeleteFolderDialog';
+export { DeleteFolderDialog } from './DeleteFolderDialog';
+export { FolderContextMenu } from './FolderContextMenu';
 export type { NewFolderDialogProps } from './NewFolderDialog';
 export { NewFolderDialog } from './NewFolderDialog';
+export type { RenameFolderDialogProps } from './RenameFolderDialog';
+export { RenameFolderDialog } from './RenameFolderDialog';
 export type { VfsItem, VfsObjectType } from './VfsDetailsPanel';
 export { VfsDetailsPanel } from './VfsDetailsPanel';
+export type { DragItemData } from './VfsDraggableItem';
+export { VfsDraggableItem } from './VfsDraggableItem';
+export { VfsDragOverlay } from './VfsDragOverlay';
+export { VfsDroppableFolder } from './VfsDroppableFolder';
 export type { VfsViewMode } from './VfsExplorer';
 export { VfsExplorer } from './VfsExplorer';
 export type { VfsFolderNode } from './VfsTreePanel';

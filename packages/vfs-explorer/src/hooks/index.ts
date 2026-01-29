@@ -3,6 +3,12 @@ export type {
   UseCreateVfsFolderResult
 } from './useCreateVfsFolder';
 export { useCreateVfsFolder } from './useCreateVfsFolder';
+export type { UseDeleteVfsFolderResult } from './useDeleteVfsFolder';
+export { useDeleteVfsFolder } from './useDeleteVfsFolder';
+export type { UseMoveVfsItemResult } from './useMoveVfsItem';
+export { useMoveVfsItem } from './useMoveVfsItem';
+export type { UseRenameVfsFolderResult } from './useRenameVfsFolder';
+export { useRenameVfsFolder } from './useRenameVfsFolder';
 export type {
   UseVfsFolderContentsResult,
   VfsItem,
