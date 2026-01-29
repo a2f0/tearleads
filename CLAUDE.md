@@ -1,6 +1,6 @@
-# Agent Notes (Claude Code + Codex)
+# Agent Notes (Claude Code)
 
-This file is shared by Claude Code and Codex.
+This file is for Claude Code. Codex uses AGENTS.md.
 
 ## Repository Identification (CRITICAL)
 
@@ -23,10 +23,12 @@ gh pr view 123 -R "$REPO"
 
 ## Issue Tracking
 
-When the user requests a change or new feature:
+**Do NOT create issues automatically.** Only create GitHub issues when the user explicitly asks for one.
+
+When the user explicitly requests an issue:
 
 1. **Check for existing issue**: Search for a related open issue first
-2. **Create an issue if none exists**: Before starting work, create a GitHub issue to track the request. This issue describes the actual work (not a "QA" issue). After merge, `/enter-merge-queue` adds "Needs QA" label to this issue.
+2. **Create an issue if none exists**: Use the template below. After merge, `/enter-merge-queue` adds "Needs QA" label to this issue.
 3. **Do NOT auto-close issues**: Never use `Closes #`, `Fixes #`, or `Resolves #` in PR descriptions. Issues are marked "Needs QA" after merge for verification before manual closure.
 
 ```bash
@@ -56,13 +58,7 @@ Issue-writing guidelines:
 Issue update guidelines:
 
 - Avoid verbose comment threading; prefer updating the issue description with new info.
-- If comments are needed, batch updates into larger chunks (milestones, decisions, blockers).
-
-Skip issue creation for:
-
-- Trivial fixes (typos, formatting)
-- Questions or research tasks
-- Tasks that are part of an existing issue/PR
+- If comments are needed, batch updates into larger chunks (milestones, decisions, blockers)
 
 ## Commit Guidelines
 

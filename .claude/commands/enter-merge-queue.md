@@ -45,7 +45,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    This avoids waiting 5 minutes for Gemini to respond with "unsupported file types".
 
-   **Issue tracking (always performed)**: All PRs should have an associated issue that gets marked `needs-qa` after merge. The issue should already exist from when work started (created per CLAUDE.md guidelines). Do NOT create separate "QA: ..." issues.
+   **Issue tracking (if applicable)**: If a PR has an associated issue, it gets marked `needs-qa` after merge. Issues are NOT created automatically - only when the user explicitly requests one. Do NOT create separate "QA: ..." issues.
 
    1. **Check for auto-close language**: Scan the PR body for patterns like `Closes #`, `Fixes #`, `Resolves #` (case-insensitive). If found:
       - Extract the issue number(s) from the pattern
@@ -323,7 +323,7 @@ git rebase origin/main      # Can be noisy and waste tokens
 - Loops until PR is **actually merged**, not just auto-merge enabled
 - Non-high-priority PRs yield to high-priority ones unless all are `DIRTY` (check every 2 min with jitter)
 - Auto-close language is removed from PR bodies; associated issues get `needs-qa` label after merge
-- Do NOT create "QA: ..." issues - issues should be created when work starts (per CLAUDE.md)
+- Do NOT create "QA: ..." issues - issues are only created when explicitly requested by the user
 - Prioritize staying up-to-date over waiting for CI in congested queues
 - Fixable: lint/type errors, test failures. Non-fixable: merge conflicts, infra failures
 - If stuck (same fix attempted twice), ask user for help

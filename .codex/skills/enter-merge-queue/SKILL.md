@@ -46,12 +46,11 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
      - Assets: `.png`, `.jpg`, `.svg`, `.ico`, `.gif`
      - Build/CI: `Dockerfile`, `.dockerignore`, `.gitignore`
 
-   Handle issue tracking:
+   Handle issue tracking (if applicable):
 
    - Remove auto-close language from PR body (`Closes #`, `Fixes #`, `Resolves #`).
-   - If no issue is referenced, search for an open issue referencing the PR number; create one if missing.
-   - When creating the issue, describe the work from the PR and add the `needs-qa` label immediately.
-   - Store the issue number as `associated_issue_number`.
+   - If an issue is referenced, store the issue number as `associated_issue_number`.
+   - Do NOT create issues automatically - issues are only created when the user explicitly requests one.
 
 2. Ensure you are on the PR head branch, not `main`.
 
