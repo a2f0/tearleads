@@ -402,6 +402,30 @@
         state: started
         daemon_reload: true
 
+    # Daily sync of lastActiveAt from Redis to PostgreSQL
+    - name: Deploy sync-last-active systemd service
+      ansible.builtin.template:
+        src: sync-last-active.service.j2
+        dest: /etc/systemd/system/sync-last-active.service
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Deploy sync-last-active systemd timer
+      ansible.builtin.template:
+        src: sync-last-active.timer.j2
+        dest: /etc/systemd/system/sync-last-active.timer
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Enable and start sync-last-active timer
+      ansible.builtin.systemd:
+        name: sync-last-active.timer
+        enabled: true
+        state: started
+        daemon_reload: true
+
   handlers:
     - name: Reload nginx
       ansible.builtin.systemd:

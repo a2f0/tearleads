@@ -118,6 +118,10 @@ export const usersTable: TableDefinition = {
     updatedAt: {
       type: 'timestamp',
       sqlName: 'updated_at'
+    },
+    lastActiveAt: {
+      type: 'timestamp',
+      sqlName: 'last_active_at'
     }
   },
   indexes: [{ name: 'users_email_idx', columns: ['email'] }]

@@ -8,10 +8,11 @@
  *   apiCli.ts <command> [options]
  *
  * Commands:
- *   migrate         Run database migrations
- *   create-account  Create an account in the database
- *   delete-account  Delete an account from the database
- *   make-admin      Grant admin privileges to an existing account
+ *   migrate           Run database migrations
+ *   create-account    Create an account in the database
+ *   delete-account    Delete an account from the database
+ *   make-admin        Grant admin privileges to an existing account
+ *   sync-last-active  Sync lastActiveAt from Redis sessions to PostgreSQL
  *
  * Environment variables:
  *   NODE_ENV - Set to 'production' for production mode
@@ -25,6 +26,7 @@ import { createAccountCommand } from './cli/createAccount.js';
 import { deleteAccountCommand } from './cli/deleteAccount.js';
 import { makeAdminCommand } from './cli/makeAdmin.js';
 import { migrateCommand } from './cli/migrate.js';
+import { syncLastActiveCommand } from './cli/syncLastActive.js';
 
 const version = '0.0.1';
 
@@ -38,5 +40,6 @@ migrateCommand(program);
 createAccountCommand(program);
 deleteAccountCommand(program);
 makeAdminCommand(program);
+syncLastActiveCommand(program);
 
 program.parse();
