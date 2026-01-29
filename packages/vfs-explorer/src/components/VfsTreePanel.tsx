@@ -126,18 +126,13 @@ export function VfsTreePanel({
     onFolderChanged?.();
   }, [refetch, onFolderChanged]);
 
-  const handleSubfolderCreated = useCallback(
-    (parentId: string) => {
-      // Auto-expand the parent folder to show the new subfolder
-      setExpandedFolderIds((prev) => {
-        const next = new Set(prev);
-        next.add(parentId);
-        return next;
-      });
-      handleFolderChanged();
-    },
-    [handleFolderChanged]
-  );
+  const expandFolder = useCallback((folderId: string) => {
+    setExpandedFolderIds((prev) => {
+      const next = new Set(prev);
+      next.add(folderId);
+      return next;
+    });
+  }, []);
 
   const handleFolderDeleted = useCallback(
     (deletedId: string) => {
@@ -280,8 +275,9 @@ export function VfsTreePanel({
         parentFolderId={newSubfolderParent?.id ?? null}
         onFolderCreated={() => {
           if (newSubfolderParent) {
-            handleSubfolderCreated(newSubfolderParent.id);
+            expandFolder(newSubfolderParent.id);
           }
+          handleFolderChanged();
         }}
       />
 
