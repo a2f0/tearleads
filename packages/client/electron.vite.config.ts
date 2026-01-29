@@ -58,6 +58,12 @@ export default defineConfig({
           __dirname,
           '../api/dist/openapi.json'
         ),
+        '@rapid/email/package.json': path.resolve(__dirname, '../email/package.json'),
+        '@rapid/notes/package.json': path.resolve(__dirname, '../notes/package.json'),
+        '@rapid/vfs-explorer/package.json': path.resolve(
+          __dirname,
+          '../vfs-explorer/package.json'
+        ),
       },
     },
     plugins: [react(), tailwindcss(), VitePWA(pwaOptions)],
