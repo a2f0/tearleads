@@ -165,7 +165,7 @@ describe('ModelsTableView', () => {
 
     expect(screen.getByText('Downloading')).toBeInTheDocument();
     expect(screen.getByText('Fetching')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Loading...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Loading' })).toBeDisabled();
   });
 
   it('shows Disconnect when an OpenRouter model is loaded', () => {
