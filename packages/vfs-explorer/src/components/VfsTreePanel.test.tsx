@@ -7,6 +7,23 @@ vi.mock('../hooks', () => ({
   useVfsFolders: vi.fn()
 }));
 
+// Mock dialog components that require VfsExplorerContext
+vi.mock('./NewFolderDialog', () => ({
+  NewFolderDialog: () => null
+}));
+
+vi.mock('./RenameFolderDialog', () => ({
+  RenameFolderDialog: () => null
+}));
+
+vi.mock('./DeleteFolderDialog', () => ({
+  DeleteFolderDialog: () => null
+}));
+
+vi.mock('./FolderContextMenu', () => ({
+  FolderContextMenu: () => null
+}));
+
 import { useVfsFolders } from '../hooks';
 import { VfsTreePanel } from './VfsTreePanel';
 

@@ -1,6 +1,9 @@
 export type {
   AuthFunctions,
   ButtonProps,
+  ContextMenuItemProps,
+  ContextMenuProps,
+  ContextMenuSeparatorProps,
   DatabaseState,
   DropdownMenuItemProps,
   DropdownMenuProps,

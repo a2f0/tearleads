@@ -20,6 +20,9 @@ export {
 export type {
   AuthFunctions,
   ButtonProps,
+  ContextMenuItemProps,
+  ContextMenuProps,
+  ContextMenuSeparatorProps,
   DatabaseState,
   DropdownMenuItemProps,
   DropdownMenuProps,
@@ -44,6 +47,9 @@ export {
 export type {
   CreateFolderResult,
   UseCreateVfsFolderResult,
+  UseDeleteVfsFolderResult,
+  UseMoveVfsItemResult,
+  UseRenameVfsFolderResult,
   UseVfsFolderContentsResult,
   UseVfsFoldersResult,
   UseVfsUnfiledItemsResult,
@@ -52,6 +58,9 @@ export type {
 // Hooks
 export {
   useCreateVfsFolder,
+  useDeleteVfsFolder,
+  useMoveVfsItem,
+  useRenameVfsFolder,
   useVfsFolderContents,
   useVfsFolders,
   useVfsUnfiledItems

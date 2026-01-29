@@ -11,7 +11,29 @@ vi.mock('../hooks', () => ({
     error: null,
     hasFetched: true,
     refetch: vi.fn()
+  })),
+  useMoveVfsItem: vi.fn(() => ({
+    moveItem: vi.fn(),
+    isMoving: false,
+    error: null
   }))
+}));
+
+// Mock dialog components that require VfsExplorerContext
+vi.mock('./NewFolderDialog', () => ({
+  NewFolderDialog: () => null
+}));
+
+vi.mock('./RenameFolderDialog', () => ({
+  RenameFolderDialog: () => null
+}));
+
+vi.mock('./DeleteFolderDialog', () => ({
+  DeleteFolderDialog: () => null
+}));
+
+vi.mock('./FolderContextMenu', () => ({
+  FolderContextMenu: () => null
 }));
 
 import { useVfsFolderContents, useVfsFolders } from '../hooks';

@@ -1,12 +1,4 @@
-import {
-  FileBox,
-  FileIcon,
-  Folder,
-  ImageIcon,
-  Loader2,
-  StickyNote,
-  User
-} from 'lucide-react';
+import { FileBox, Folder, Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
 import {
   useVfsFolderContents,
@@ -14,7 +6,8 @@ import {
   type VfsItem,
   type VfsObjectType
 } from '../hooks';
-import { cn } from '../lib';
+import { cn, OBJECT_TYPE_COLORS, OBJECT_TYPE_ICONS } from '../lib';
+import { VfsDraggableItem } from './VfsDraggableItem';
 import type { VfsViewMode } from './VfsExplorer';
 import { UNFILED_FOLDER_ID } from './VfsTreePanel';
 
@@ -26,22 +19,6 @@ interface VfsDetailsPanelProps {
   compact?: boolean | undefined;
   refreshToken?: number | undefined;
 }
-
-const OBJECT_TYPE_ICONS: Record<VfsObjectType, typeof Folder> = {
-  folder: Folder,
-  contact: User,
-  note: StickyNote,
-  file: FileIcon,
-  photo: ImageIcon
-};
-
-const OBJECT_TYPE_COLORS: Record<VfsObjectType, string> = {
-  folder: 'text-yellow-600 dark:text-yellow-500',
-  contact: 'text-blue-600 dark:text-blue-400',
-  note: 'text-amber-600 dark:text-amber-400',
-  file: 'text-gray-600 dark:text-gray-400',
-  photo: 'text-green-600 dark:text-green-400'
-};
 
 // Convert unfiled items to the same shape as folder contents
 interface DisplayItem {
@@ -159,9 +136,11 @@ export function VfsDetailsPanel({
                 const Icon = OBJECT_TYPE_ICONS[item.objectType];
                 const colorClass = OBJECT_TYPE_COLORS[item.objectType];
                 return (
-                  <tr
+                  <VfsDraggableItem
                     key={item.id}
-                    className="cursor-pointer border-b hover:bg-accent/50"
+                    item={item}
+                    asTableRow
+                    className="cursor-grab border-b hover:bg-accent/50"
                   >
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
@@ -179,7 +158,7 @@ export function VfsDetailsPanel({
                         {item.createdAt.toLocaleDateString()}
                       </span>
                     </td>
-                  </tr>
+                  </VfsDraggableItem>
                 );
               })}
             </tbody>
@@ -190,9 +169,10 @@ export function VfsDetailsPanel({
               const Icon = OBJECT_TYPE_ICONS[item.objectType];
               const colorClass = OBJECT_TYPE_COLORS[item.objectType];
               return (
-                <div
+                <VfsDraggableItem
                   key={item.id}
-                  className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 hover:bg-accent/50"
+                  item={item}
+                  className="flex cursor-grab items-center gap-3 rounded-md px-3 py-2 hover:bg-accent/50"
                 >
                   <Icon className={cn('h-5 w-5 shrink-0', colorClass)} />
                   <div className="min-w-0 flex-1">
@@ -204,7 +184,7 @@ export function VfsDetailsPanel({
                       {item.createdAt.toLocaleDateString()}
                     </div>
                   </div>
-                </div>
+                </VfsDraggableItem>
               );
             })}
           </div>

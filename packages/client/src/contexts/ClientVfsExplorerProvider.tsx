@@ -10,6 +10,11 @@ import type { ReactNode } from 'react';
 import { FloatingWindow } from '@/components/floating-window';
 import { Button } from '@/components/ui/button';
 import {
+  ContextMenu,
+  ContextMenuItem,
+  ContextMenuSeparator
+} from '@/components/ui/context-menu';
+import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator
@@ -30,7 +35,10 @@ const vfsExplorerUIComponents: VfsExplorerUIComponents = {
   DropdownMenuItem,
   DropdownMenuSeparator,
   WindowOptionsMenuItem,
-  FloatingWindow
+  FloatingWindow,
+  ContextMenu,
+  ContextMenuItem,
+  ContextMenuSeparator
 };
 
 interface ClientVfsExplorerProviderProps {

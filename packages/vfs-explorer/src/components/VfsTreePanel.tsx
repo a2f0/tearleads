@@ -9,11 +9,22 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsFolders, type VfsFolderNode } from '../hooks';
 import { cn } from '../lib';
+import { DeleteFolderDialog } from './DeleteFolderDialog';
+import { FolderContextMenu } from './FolderContextMenu';
+import { NewFolderDialog } from './NewFolderDialog';
+import { RenameFolderDialog } from './RenameFolderDialog';
+import { VfsDroppableFolder } from './VfsDroppableFolder';
 
 // Special ID for the unfiled items virtual folder
 export const UNFILED_FOLDER_ID = '__unfiled__';
 
 export type { VfsFolderNode };
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  folder: VfsFolderNode;
+}
 
 interface VfsTreePanelProps {
   width: number;
@@ -22,6 +33,7 @@ interface VfsTreePanelProps {
   onFolderSelect: (folderId: string | null) => void;
   compact?: boolean | undefined;
   refreshToken?: number | undefined;
+  onFolderChanged?: (() => void) | undefined;
 }
 
 export function VfsTreePanel({
@@ -30,7 +42,8 @@ export function VfsTreePanel({
   selectedFolderId,
   onFolderSelect,
   compact: _compact,
-  refreshToken
+  refreshToken,
+  onFolderChanged
 }: VfsTreePanelProps) {
   const { folders, loading, error, refetch } = useVfsFolders();
 
@@ -47,6 +60,17 @@ export function VfsTreePanel({
   const isDragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  // Dialog states
+  const [renameDialogFolder, setRenameDialogFolder] =
+    useState<VfsFolderNode | null>(null);
+  const [deleteDialogFolder, setDeleteDialogFolder] =
+    useState<VfsFolderNode | null>(null);
+  const [newSubfolderParent, setNewSubfolderParent] =
+    useState<VfsFolderNode | null>(null);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -88,6 +112,31 @@ export function VfsTreePanel({
     });
   }, []);
 
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, folder: VfsFolderNode) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({ x: e.clientX, y: e.clientY, folder });
+    },
+    []
+  );
+
+  const handleFolderChanged = useCallback(() => {
+    refetch();
+    onFolderChanged?.();
+  }, [refetch, onFolderChanged]);
+
+  const handleFolderDeleted = useCallback(
+    (deletedId: string) => {
+      // If the deleted folder was selected, clear selection
+      if (selectedFolderId === deletedId) {
+        onFolderSelect(null);
+      }
+      handleFolderChanged();
+    },
+    [selectedFolderId, onFolderSelect, handleFolderChanged]
+  );
+
   const renderFolder = (folder: VfsFolderNode, depth: number) => {
     const isSelected = folder.id === selectedFolderId;
     const isExpanded = expandedFolderIds.has(folder.id);
@@ -97,45 +146,48 @@ export function VfsTreePanel({
 
     return (
       <div key={folder.id}>
-        <button
-          type="button"
-          className={cn(
-            'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
-            isSelected
-              ? 'bg-accent text-accent-foreground'
-              : 'hover:bg-accent/50'
-          )}
-          style={{ paddingLeft: `${depth * 16 + 8}px` }}
-          onClick={() => onFolderSelect(folder.id)}
-          onDoubleClick={() => toggleExpand(folder.id)}
-        >
-          {/* biome-ignore lint/a11y/useSemanticElements: span with role=button used to avoid nested button elements */}
-          <span
-            role="button"
-            tabIndex={0}
-            className="flex h-4 w-4 shrink-0 items-center justify-center"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleExpand(folder.id);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
+        <VfsDroppableFolder folderId={folder.id}>
+          <button
+            type="button"
+            className={cn(
+              'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
+              isSelected
+                ? 'bg-accent text-accent-foreground'
+                : 'hover:bg-accent/50'
+            )}
+            style={{ paddingLeft: `${depth * 16 + 8}px` }}
+            onClick={() => onFolderSelect(folder.id)}
+            onDoubleClick={() => toggleExpand(folder.id)}
+            onContextMenu={(e) => handleContextMenu(e, folder)}
+          >
+            {/* biome-ignore lint/a11y/useSemanticElements: span with role=button used to avoid nested button elements */}
+            <span
+              role="button"
+              tabIndex={0}
+              className="flex h-4 w-4 shrink-0 items-center justify-center"
+              onClick={(e) => {
                 e.stopPropagation();
                 toggleExpand(folder.id);
-              }
-            }}
-          >
-            {hasChildren ? (
-              isExpanded ? (
-                <ChevronDown className="h-3 w-3" />
-              ) : (
-                <ChevronRight className="h-3 w-3" />
-              )
-            ) : null}
-          </span>
-          <FolderIcon className="h-4 w-4 shrink-0 text-yellow-600 dark:text-yellow-500" />
-          <span className="truncate">{folder.name}</span>
-        </button>
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.stopPropagation();
+                  toggleExpand(folder.id);
+                }
+              }}
+            >
+              {hasChildren ? (
+                isExpanded ? (
+                  <ChevronDown className="h-3 w-3" />
+                ) : (
+                  <ChevronRight className="h-3 w-3" />
+                )
+              ) : null}
+            </span>
+            <FolderIcon className="h-4 w-4 shrink-0 text-yellow-600 dark:text-yellow-500" />
+            <span className="truncate">{folder.name}</span>
+          </button>
+        </VfsDroppableFolder>
         {isExpanded && folder.children && folder.children.length > 0 && (
           <div>
             {folder.children.map((child) => renderFolder(child, depth + 1))}
@@ -156,22 +208,24 @@ export function VfsTreePanel({
         </span>
       </div>
       <div className="flex-1 overflow-y-auto p-1">
-        {/* Unfiled Items - always shown */}
-        <button
-          type="button"
-          className={cn(
-            'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
-            selectedFolderId === UNFILED_FOLDER_ID
-              ? 'bg-accent text-accent-foreground'
-              : 'hover:bg-accent/50'
-          )}
-          style={{ paddingLeft: '8px' }}
-          onClick={() => onFolderSelect(UNFILED_FOLDER_ID)}
-        >
-          <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
-          <FileBox className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-          <span className="truncate">Unfiled Items</span>
-        </button>
+        {/* Unfiled Items - always shown, not a drop target */}
+        <VfsDroppableFolder folderId={UNFILED_FOLDER_ID} disabled>
+          <button
+            type="button"
+            className={cn(
+              'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
+              selectedFolderId === UNFILED_FOLDER_ID
+                ? 'bg-accent text-accent-foreground'
+                : 'hover:bg-accent/50'
+            )}
+            style={{ paddingLeft: '8px' }}
+            onClick={() => onFolderSelect(UNFILED_FOLDER_ID)}
+          >
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
+            <FileBox className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+            <span className="truncate">Unfiled Items</span>
+          </button>
+        </VfsDroppableFolder>
 
         {loading && (
           <div className="flex items-center justify-center py-4">
@@ -189,6 +243,49 @@ export function VfsTreePanel({
       <div
         className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-accent"
         onMouseDown={handleMouseDown}
+      />
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <FolderContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          folder={contextMenu.folder}
+          onClose={() => setContextMenu(null)}
+          onNewSubfolder={(folder) => setNewSubfolderParent(folder)}
+          onRename={(folder) => setRenameDialogFolder(folder)}
+          onDelete={(folder) => setDeleteDialogFolder(folder)}
+        />
+      )}
+
+      {/* New Subfolder Dialog */}
+      <NewFolderDialog
+        open={newSubfolderParent !== null}
+        onOpenChange={(open) => {
+          if (!open) setNewSubfolderParent(null);
+        }}
+        parentFolderId={newSubfolderParent?.id ?? null}
+        onFolderCreated={handleFolderChanged}
+      />
+
+      {/* Rename Dialog */}
+      <RenameFolderDialog
+        open={renameDialogFolder !== null}
+        onOpenChange={(open) => {
+          if (!open) setRenameDialogFolder(null);
+        }}
+        folder={renameDialogFolder}
+        onFolderRenamed={handleFolderChanged}
+      />
+
+      {/* Delete Dialog */}
+      <DeleteFolderDialog
+        open={deleteDialogFolder !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteDialogFolder(null);
+        }}
+        folder={deleteDialogFolder}
+        onFolderDeleted={handleFolderDeleted}
       />
     </div>
   );
