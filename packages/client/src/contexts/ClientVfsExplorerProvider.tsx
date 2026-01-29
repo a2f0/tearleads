@@ -63,7 +63,7 @@ export function ClientVfsExplorerProvider({
       }}
       featureFlags={{
         getFeatureFlagValue: (key: string) =>
-          getFeatureFlagValue(key as 'vfsServerRegistration')
+          key === 'vfsServerRegistration' ? getFeatureFlagValue(key) : false
       }}
       vfsApi={{
         register: async (params: {
@@ -71,9 +71,14 @@ export function ClientVfsExplorerProvider({
           objectType: string;
           encryptedSessionKey: string;
         }) => {
+          if (params.objectType !== 'folder') {
+            throw new Error(
+              `Unsupported VFS object type: ${params.objectType}`
+            );
+          }
           await api.vfs.register({
             id: params.id,
-            objectType: params.objectType as 'folder',
+            objectType: params.objectType,
             encryptedSessionKey: params.encryptedSessionKey
           });
         }

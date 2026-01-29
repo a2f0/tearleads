@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createMockDatabase,
@@ -130,5 +130,49 @@ describe('useVfsFolders', () => {
     });
 
     expect(result.current.folders).toEqual([]);
+  });
+
+  it('provides refetch function that reloads data', async () => {
+    const mockFolderRows = [
+      { id: 'folder-1', name: 'Folder 1', createdAt: Date.now() }
+    ];
+
+    const mockLinkRows: { childId: string; parentId: string }[] = [];
+    const mockChildCountRows: { parentId: string }[] = [];
+
+    mockDb.where
+      .mockResolvedValueOnce(mockFolderRows)
+      .mockResolvedValueOnce(mockLinkRows)
+      .mockResolvedValueOnce(mockChildCountRows)
+      // Second fetch after refetch call
+      .mockResolvedValueOnce(mockFolderRows)
+      .mockResolvedValueOnce(mockLinkRows)
+      .mockResolvedValueOnce(mockChildCountRows);
+
+    const wrapper = createWrapper({
+      databaseState: {
+        isUnlocked: true,
+        isLoading: false,
+        currentInstanceId: 'instance-1'
+      },
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsFolders(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    // Should have fetched once
+    expect(mockDb.where).toHaveBeenCalledTimes(3);
+
+    // Call refetch
+    await act(async () => {
+      await result.current.refetch();
+    });
+
+    // Should have fetched again
+    expect(mockDb.where).toHaveBeenCalledTimes(6);
   });
 });

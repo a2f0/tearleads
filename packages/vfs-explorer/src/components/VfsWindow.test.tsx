@@ -58,7 +58,6 @@ vi.mock('../context', () => ({
         onClick?: () => void;
       }) => (
         // biome-ignore lint/a11y/useKeyWithClickEvents: Test mock
-        // biome-ignore lint/a11y/useFocusableInteractive: Test mock
         <div role="menuitem" tabIndex={0} onClick={onClick}>
           {children}
         </div>
@@ -249,5 +248,30 @@ describe('VfsWindow', () => {
     await user.click(screen.getByRole('menuitem', { name: 'New Folder' }));
 
     expect(screen.getByTestId('new-folder-dialog')).toBeInTheDocument();
+  });
+
+  it('refreshes explorer when folder is created', async () => {
+    const user = userEvent.setup();
+    render(<VfsWindow {...defaultProps} />);
+
+    // Initial refresh token is 0
+    expect(screen.getByTestId('vfs-explorer')).toHaveAttribute(
+      'data-refresh-token',
+      '0'
+    );
+
+    // Open new folder dialog
+    await user.click(screen.getByRole('menuitem', { name: 'New Folder' }));
+
+    // Fill in folder name and submit
+    const input = screen.getByRole('textbox');
+    await user.type(input, 'Test Folder');
+    await user.click(screen.getByRole('button', { name: /create/i }));
+
+    // Refresh token should have incremented
+    expect(screen.getByTestId('vfs-explorer')).toHaveAttribute(
+      'data-refresh-token',
+      '1'
+    );
   });
 });
