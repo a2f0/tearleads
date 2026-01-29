@@ -71,60 +71,73 @@
       loop: "{{ github_ssh_host_keys }}"
 
     # GPG signing key for git commits
-    - name: Copy GPG signing key
-      ansible.builtin.copy:
-        src: "{{ gpg_signing_key_path }}"
-        dest: "/tmp/gpgSigningKey.asc"
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: "0600"
+    - name: Configure GPG signing key
+      block:
+        - name: Copy GPG signing key
+          ansible.builtin.copy:
+            src: "{{ gpg_signing_key_path }}"
+            dest: "/tmp/gpgSigningKey.asc"
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: "0600"
+          no_log: true
 
-    - name: Import GPG signing key
-      ansible.builtin.command:
-        cmd: gpg --batch --import /tmp/gpgSigningKey.asc
+        - name: Import GPG signing key
+          ansible.builtin.command:
+            cmd: gpg --batch --import /tmp/gpgSigningKey.asc
+          become: true
+          become_user: "{{ ansible_user }}"
+          register: gpg_import_result
+          changed_when: "'imported' in gpg_import_result.stderr"
+          failed_when: >-
+            gpg_import_result.rc != 0 and
+            'already in secret keyring' not in gpg_import_result.stderr
+          no_log: true
+
+        - name: Get imported GPG key ID
+          ansible.builtin.shell:
+            cmd: |
+              set -o pipefail
+              gpg --with-colons --list-secret-keys 2>/dev/null | \
+                awk -F: '$1 == "sec" { print $5; exit }'
+            executable: /bin/bash
+          become: true
+          become_user: "{{ ansible_user }}"
+          register: gpg_key_id_result
+          changed_when: false
+
+        - name: Trust imported GPG key ultimately
+          ansible.builtin.shell:
+            cmd: |
+              set -o pipefail
+              echo "{{ gpg_key_id_result.stdout }}:6:" | gpg --import-ownertrust
+            executable: /bin/bash
+          become: true
+          become_user: "{{ ansible_user }}"
+          when: gpg_import_result.changed and gpg_key_id_result.stdout | length > 0
+          changed_when: true
+      always:
+        - name: Remove temporary GPG key file
+          ansible.builtin.file:
+            path: /tmp/gpgSigningKey.asc
+            state: absent
+
+    - name: Configure git to use GPG signing key
+      community.general.git_config:
+        name: user.signingkey
+        scope: global
+        value: "{{ gpg_key_id_result.stdout }}"
+      when: gpg_key_id_result.stdout | length > 0
       become: true
       become_user: "{{ ansible_user }}"
-      register: gpg_import_result
-      changed_when: "'imported' in gpg_import_result.stderr"
-      failed_when: >-
-        gpg_import_result.rc != 0 and
-        'already in secret keyring' not in gpg_import_result.stderr
 
-    - name: Get imported GPG key ID
-      ansible.builtin.shell:
-        cmd: |
-          set -o pipefail
-          gpg --list-secret-keys --keyid-format LONG 2>/dev/null | \
-            grep '^sec' | sed 's/.*\///' | awk '{print $1}' | head -1
-        executable: /bin/bash
+    - name: Configure git to sign commits by default
+      community.general.git_config:
+        name: commit.gpgsign
+        scope: global
+        value: "true"
       become: true
       become_user: "{{ ansible_user }}"
-      register: gpg_key_id_result
-      changed_when: false
-
-    - name: Trust imported GPG key ultimately
-      ansible.builtin.shell:
-        cmd: |
-          set -o pipefail
-          echo "{{ gpg_key_id_result.stdout }}:6:" | gpg --import-ownertrust
-        executable: /bin/bash
-      become: true
-      become_user: "{{ ansible_user }}"
-      when: gpg_import_result.changed and gpg_key_id_result.stdout | length > 0
-      changed_when: true
-
-    - name: Remove temporary GPG key file
-      ansible.builtin.file:
-        path: /tmp/gpgSigningKey.asc
-        state: absent
-
-    - name: Copy gitconfig from local machine
-      ansible.builtin.copy:
-        src: ~/.gitconfig
-        dest: "/home/{{ ansible_user }}/.gitconfig"
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: "0644"
 
     - name: Ensure GPG directory exists
       ansible.builtin.file:
@@ -424,7 +437,9 @@
           export COLORFGBG="15;0"
 
           # GPG signing requires TTY for passphrase prompts
-          export GPG_TTY=$(tty)
+          if [[ -t 0 ]]; then
+            export GPG_TTY=$(tty)
+          fi
 
           if [ -n "$TUXEDO_WORKSPACE" ]; then
             export PATH="$TUXEDO_WORKSPACE/scripts:$TUXEDO_WORKSPACE/scripts/agents:$PATH"
