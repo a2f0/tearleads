@@ -135,26 +135,17 @@ tuxedo_set_screen_flag() {
 
 # Get or create a screen session for a workspace
 # Returns the command to run in a tmux pane
+# Note: TUXEDO_WORKSPACE is passed via tmux -e flag, not via command prefix
 screen_cmd() {
     screen_name="$1"
-    workspace="${2:-}"
     if [ "$USE_SCREEN" = true ]; then
         # -d -RR: detach from elsewhere if attached, reattach or create new
         # -c $CONFIG_DIR/screenrc: use our config for scrollback and mouse support
         # -T tmux-256color: enable true color support for proper terminal colors
-        # TUXEDO_WORKSPACE: set so shell init can add scripts to PATH
-        if [ -n "$workspace" ]; then
-            echo "TUXEDO_WORKSPACE='$workspace' screen -T tmux-256color -d -RR $screen_name -c \"$CONFIG_DIR/screenrc\""
-        else
-            echo "screen -T tmux-256color -d -RR $screen_name -c \"$CONFIG_DIR/screenrc\""
-        fi
+        echo "screen -T tmux-256color -d -RR $screen_name -c \"$CONFIG_DIR/screenrc\""
     else
-        # Fallback: export TUXEDO_WORKSPACE for non-screen shells too
-        if [ -n "$workspace" ]; then
-            echo "export TUXEDO_WORKSPACE='$workspace'; exec \$SHELL"
-        else
-            echo ""
-        fi
+        # Fallback: tmux will start default shell (TUXEDO_WORKSPACE comes from tmux -e)
+        echo ""
     fi
 }
 
@@ -277,24 +268,24 @@ tuxedo_attach_or_create() {
 
     # Create session starting with rapid-shared (source of truth)
     # Terminal pane runs in a persistent screen session
-    screen_shared=$(screen_cmd tux-shared "$SHARED_DIR")
+    screen_shared=$(screen_cmd tux-shared)
     shared_path=$(workspace_path "$SHARED_DIR")
     if [ -n "$screen_shared" ]; then
-        tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n rapid-shared -e "PATH=$shared_path" "$screen_shared"
+        tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n rapid-shared -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$screen_shared"
     else
-        tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n rapid-shared -e "PATH=$shared_path"
+        tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n rapid-shared -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR"
     fi
-    tmux split-window -h -t "$SESSION_NAME:rapid-shared" -c "$SHARED_DIR" -e "PATH=$shared_path" "$EDITOR"
+    tmux split-window -h -t "$SESSION_NAME:rapid-shared" -c "$SHARED_DIR" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$EDITOR"
 
     # Add rapid-main as second window
-    screen_main=$(screen_cmd tux-main "$BASE_DIR/rapid-main")
+    screen_main=$(screen_cmd tux-main)
     main_path=$(workspace_path "$BASE_DIR/rapid-main")
     if [ -n "$screen_main" ]; then
-        tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main -e "PATH=$main_path" "$screen_main"
+        tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$BASE_DIR/rapid-main" "$screen_main"
     else
-        tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main -e "PATH=$main_path"
+        tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$BASE_DIR/rapid-main"
     fi
-    tmux split-window -h -t "$SESSION_NAME:rapid-main" -c "$BASE_DIR/rapid-main" -e "PATH=$main_path" "$EDITOR"
+    tmux split-window -h -t "$SESSION_NAME:rapid-main" -c "$BASE_DIR/rapid-main" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$BASE_DIR/rapid-main" "$EDITOR"
 
     i=2
     while [ "$i" -le "$NUM_WORKSPACES" ]; do
@@ -302,13 +293,13 @@ tuxedo_attach_or_create() {
         ws_path=$(workspace_path "$workspace_dir")
         # Zero-pad screen session names to avoid prefix collisions (tux-2 vs tux-20)
         screen_name=$(printf "tux-%02d" "$i")
-        screen_i=$(screen_cmd "$screen_name" "$workspace_dir")
+        screen_i=$(screen_cmd "$screen_name")
         if [ -n "$screen_i" ]; then
-            tmux new-window -t "$SESSION_NAME" -c "$workspace_dir" -n "rapid${i}" -e "PATH=$ws_path" "$screen_i"
+            tmux new-window -t "$SESSION_NAME" -c "$workspace_dir" -n "rapid${i}" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$screen_i"
         else
-            tmux new-window -t "$SESSION_NAME" -c "$workspace_dir" -n "rapid${i}" -e "PATH=$ws_path"
+            tmux new-window -t "$SESSION_NAME" -c "$workspace_dir" -n "rapid${i}" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir"
         fi
-        tmux split-window -h -t "$SESSION_NAME:rapid${i}" -c "$workspace_dir" -e "PATH=$ws_path" "$EDITOR"
+        tmux split-window -h -t "$SESSION_NAME:rapid${i}" -c "$workspace_dir" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$EDITOR"
         i=$((i + 1))
     done
 
