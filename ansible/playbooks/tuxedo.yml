@@ -94,12 +94,12 @@
             'already in secret keyring' not in gpg_import_result.stderr
           no_log: true
 
-        - name: Get imported GPG key ID
+        - name: Get imported GPG key fingerprint
           ansible.builtin.shell:
             cmd: |
               set -o pipefail
               gpg --with-colons --list-secret-keys 2>/dev/null | \
-                awk -F: '$1 == "sec" { print $5; exit }'
+                awk -F: '$1 == "fpr" { print $10; exit }'
             executable: /bin/bash
           become: true
           become_user: "{{ ansible_user }}"
