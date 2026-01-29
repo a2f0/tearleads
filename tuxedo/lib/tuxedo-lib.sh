@@ -286,13 +286,15 @@ tuxedo_attach_or_create() {
     tmux split-window -h -t "$SESSION_NAME:$shared_window_name" -c "$SHARED_DIR" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$EDITOR"
 
     # Add main workspace as second window
+    # Note: Use "$SESSION_NAME:" (with colon) to explicitly target the session,
+    # avoiding tmux confusion when window names share a prefix with the session name
     main_window_name="${WORKSPACE_PREFIX}-main"
     screen_main=$(screen_cmd tux-main)
     main_path=$(workspace_path "$MAIN_DIR")
     if [ -n "$screen_main" ]; then
-        tmux new-window -t "$SESSION_NAME" -c "$MAIN_DIR" -n "$main_window_name" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR" "$screen_main"
+        tmux new-window -t "$SESSION_NAME:" -c "$MAIN_DIR" -n "$main_window_name" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR" "$screen_main"
     else
-        tmux new-window -t "$SESSION_NAME" -c "$MAIN_DIR" -n "$main_window_name" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR"
+        tmux new-window -t "$SESSION_NAME:" -c "$MAIN_DIR" -n "$main_window_name" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR"
     fi
     tmux split-window -h -t "$SESSION_NAME:$main_window_name" -c "$MAIN_DIR" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR" "$EDITOR"
 
@@ -305,9 +307,9 @@ tuxedo_attach_or_create() {
         screen_name=$(printf "tux-%02d" "$i")
         screen_i=$(screen_cmd "$screen_name")
         if [ -n "$screen_i" ]; then
-            tmux new-window -t "$SESSION_NAME" -c "$workspace_dir" -n "$window_name" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$screen_i"
+            tmux new-window -t "$SESSION_NAME:" -c "$workspace_dir" -n "$window_name" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$screen_i"
         else
-            tmux new-window -t "$SESSION_NAME" -c "$workspace_dir" -n "$window_name" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir"
+            tmux new-window -t "$SESSION_NAME:" -c "$workspace_dir" -n "$window_name" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir"
         fi
         tmux split-window -h -t "$SESSION_NAME:$window_name" -c "$workspace_dir" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$EDITOR"
         i=$((i + 1))

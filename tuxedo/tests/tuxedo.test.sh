@@ -241,7 +241,7 @@ sync_all_titles() {
 }
 tuxedo_attach_or_create
 assert_contains "$(cat "$TMUX_CALLS")" "new-session -d -s tuxedo -c $SHARED_DIR -n rapid-shared -e PATH="
-assert_contains "$(cat "$TMUX_CALLS")" "new-window -t tuxedo -c $MAIN_DIR -n rapid-main -e PATH="
+assert_contains "$(cat "$TMUX_CALLS")" "new-window -t tuxedo: -c $MAIN_DIR -n rapid-main -e PATH="
 assert_contains "$(cat "$TMUX_CALLS")" "attach-session -t tuxedo"
 
 test_tmux_attach_existing_session() {
