@@ -1,6 +1,8 @@
 export type { DeleteFolderDialogProps } from './DeleteFolderDialog';
 export { DeleteFolderDialog } from './DeleteFolderDialog';
 export { FolderContextMenu } from './FolderContextMenu';
+export type { ItemContextMenuProps } from './ItemContextMenu';
+export { ItemContextMenu } from './ItemContextMenu';
 export type { NewFolderDialogProps } from './NewFolderDialog';
 export { NewFolderDialog } from './NewFolderDialog';
 export type { RenameFolderDialogProps } from './RenameFolderDialog';

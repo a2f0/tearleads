@@ -1,5 +1,5 @@
 import { FileBox, Folder, Loader2 } from 'lucide-react';
-import { type MouseEvent, useCallback, useEffect } from 'react';
+import { type MouseEvent, useCallback, useEffect, useState } from 'react';
 import {
   useVfsFolderContents,
   useVfsUnfiledItems,
@@ -7,6 +7,7 @@ import {
   type VfsObjectType
 } from '../hooks';
 import { cn, OBJECT_TYPE_COLORS, OBJECT_TYPE_ICONS } from '../lib';
+import { ItemContextMenu } from './ItemContextMenu';
 import { VfsDraggableItem } from './VfsDraggableItem';
 import type { VfsViewMode } from './VfsExplorer';
 import { UNFILED_FOLDER_ID } from './VfsTreePanel';
@@ -36,6 +37,14 @@ interface VfsDetailsPanelProps {
   onItemOpen?: ((item: DisplayItem) => void) | undefined;
   /** Callback when items change (for status bar) */
   onItemsChange?: ((items: DisplayItem[]) => void) | undefined;
+  /** Callback when download is requested via context menu */
+  onItemDownload?: ((item: DisplayItem) => void) | undefined;
+}
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  item: DisplayItem;
 }
 
 export function VfsDetailsPanel({
@@ -47,9 +56,11 @@ export function VfsDetailsPanel({
   onItemSelect,
   onFolderSelect,
   onItemOpen,
-  onItemsChange
+  onItemsChange,
+  onItemDownload
 }: VfsDetailsPanelProps) {
   const isUnfiled = folderId === UNFILED_FOLDER_ID;
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   const handleItemClick = useCallback(
     (e: MouseEvent, itemId: string) => {
@@ -73,7 +84,40 @@ export function VfsDetailsPanel({
 
   const handleContainerClick = useCallback(() => {
     onItemSelect?.(null);
+    setContextMenu(null);
   }, [onItemSelect]);
+
+  const handleContextMenu = useCallback(
+    (e: MouseEvent, item: DisplayItem) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onItemSelect?.(item.id);
+      setContextMenu({ x: e.clientX, y: e.clientY, item });
+    },
+    [onItemSelect]
+  );
+
+  const handleContextMenuClose = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  const handleContextMenuOpen = useCallback(
+    (item: DisplayItem) => {
+      if (item.objectType === 'folder') {
+        onFolderSelect?.(item.id);
+      } else {
+        onItemOpen?.(item);
+      }
+    },
+    [onFolderSelect, onItemOpen]
+  );
+
+  const handleContextMenuDownload = useCallback(
+    (item: DisplayItem) => {
+      onItemDownload?.(item);
+    },
+    [onItemDownload]
+  );
 
   // Use the appropriate hook based on selection
   const folderContents = useVfsFolderContents(isUnfiled ? null : folderId);
@@ -190,6 +234,7 @@ export function VfsDetailsPanel({
                     isSelected={item.id === selectedItemId}
                     onClick={(e) => handleItemClick(e, item.id)}
                     onDoubleClick={(e) => handleItemDoubleClick(e, item)}
+                    onContextMenu={(e) => handleContextMenu(e, item)}
                   >
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
@@ -225,6 +270,7 @@ export function VfsDetailsPanel({
                   isSelected={item.id === selectedItemId}
                   onClick={(e) => handleItemClick(e, item.id)}
                   onDoubleClick={(e) => handleItemDoubleClick(e, item)}
+                  onContextMenu={(e) => handleContextMenu(e, item)}
                 >
                   <Icon className={cn('h-5 w-5 shrink-0', colorClass)} />
                   <div className="min-w-0 flex-1">
@@ -242,6 +288,16 @@ export function VfsDetailsPanel({
           </div>
         )}
       </div>
+      {contextMenu && (
+        <ItemContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          item={contextMenu.item}
+          onClose={handleContextMenuClose}
+          onOpen={handleContextMenuOpen}
+          onDownload={handleContextMenuDownload}
+        />
+      )}
     </div>
   );
 }

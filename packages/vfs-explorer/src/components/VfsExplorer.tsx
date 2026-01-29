@@ -27,6 +27,8 @@ interface VfsExplorerProps {
   onItemMoved?: (() => void) | undefined;
   /** Callback when a non-folder item is double-clicked */
   onItemOpen?: ((item: VfsOpenItem) => void) | undefined;
+  /** Callback when download is requested via context menu */
+  onItemDownload?: ((item: VfsOpenItem) => void) | undefined;
 }
 
 export function VfsExplorer({
@@ -37,7 +39,8 @@ export function VfsExplorer({
   selectedFolderId: controlledSelectedFolderId,
   onFolderSelect,
   onItemMoved,
-  onItemOpen
+  onItemOpen,
+  onItemDownload
 }: VfsExplorerProps) {
   const [internalSelectedFolderId, setInternalSelectedFolderId] = useState<
     string | null
@@ -143,6 +146,7 @@ export function VfsExplorer({
             onItemSelect={setSelectedItemId}
             onFolderSelect={handleFolderSelect}
             onItemOpen={onItemOpen}
+            onItemDownload={onItemDownload}
             onItemsChange={setItems}
           />
         </div>

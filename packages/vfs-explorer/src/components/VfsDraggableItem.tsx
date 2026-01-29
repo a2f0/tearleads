@@ -21,6 +21,8 @@ interface VfsDraggableItemProps {
   onClick?: (e: MouseEvent) => void;
   /** Double-click handler for opening */
   onDoubleClick?: (e: MouseEvent) => void;
+  /** Context menu handler */
+  onContextMenu?: (e: MouseEvent) => void;
 }
 
 export function VfsDraggableItem({
@@ -30,7 +32,8 @@ export function VfsDraggableItem({
   asTableRow = false,
   isSelected = false,
   onClick,
-  onDoubleClick
+  onDoubleClick,
+  onContextMenu
 }: VfsDraggableItemProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `item-${item.id}`,
@@ -56,6 +59,7 @@ export function VfsDraggableItem({
         style={{ cursor: cursorStyle }}
         onClick={onClick}
         onDoubleClick={onDoubleClick}
+        onContextMenu={onContextMenu}
       >
         {children}
       </tr>
@@ -73,6 +77,7 @@ export function VfsDraggableItem({
       style={{ cursor: cursorStyle }}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
+      onContextMenu={onContextMenu}
     >
       {children}
     </div>
