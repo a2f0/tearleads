@@ -29,6 +29,8 @@ export default defineConfig(({ mode }) => ({
       '@rapid/ui': path.resolve(__dirname, '../ui/src/index.ts'),
       '@rapid/window-manager': path.resolve(__dirname, '../window-manager/src/index.ts'),
       '@rapid/notes': path.resolve(__dirname, '../notes/src/index.ts'),
+      '@rapid/vfs-explorer': path.resolve(__dirname, '../vfs-explorer/src/index.ts'),
+      '@rapid/email': path.resolve(__dirname, '../email/src/index.ts'),
       '@rapid/api/dist/openapi.json': path.resolve(
         __dirname,
         '../api/dist/openapi.json'
