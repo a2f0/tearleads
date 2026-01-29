@@ -1,10 +1,8 @@
+import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
 import { Loader2, Mail } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
-import { API_BASE_URL } from '@/lib/api';
-import { getAuthHeaderValue } from '@/lib/auth-storage';
-import { type EmailItem, formatEmailDate, formatEmailSize } from '@/lib/email';
+import { useEmailApi } from '../context';
+import { type EmailItem, formatEmailDate, formatEmailSize } from '../lib';
 import type { ViewMode } from './EmailWindowMenuBar';
 import { EmailWindowMenuBar } from './EmailWindowMenuBar';
 
@@ -27,6 +25,7 @@ export function EmailWindow({
   zIndex,
   initialDimensions
 }: EmailWindowProps) {
+  const { apiBaseUrl, getAuthHeader } = useEmailApi();
   const [emails, setEmails] = useState<EmailItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,9 +37,9 @@ export function EmailWindow({
     setError(null);
 
     try {
-      const authHeader = getAuthHeaderValue();
+      const authHeader = getAuthHeader?.();
       const response = await fetch(
-        `${API_BASE_URL}/emails`,
+        `${apiBaseUrl}/emails`,
         authHeader ? { headers: { Authorization: authHeader } } : {}
       );
       if (!response.ok) {
@@ -54,7 +53,7 @@ export function EmailWindow({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [apiBaseUrl, getAuthHeader]);
 
   useEffect(() => {
     fetchEmails();

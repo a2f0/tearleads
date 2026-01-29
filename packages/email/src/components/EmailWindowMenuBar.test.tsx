@@ -1,43 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { TestEmailProvider } from '../test/test-utils';
 import { EmailWindowMenuBar } from './EmailWindowMenuBar';
-
-vi.mock('@/components/ui/dropdown-menu', () => ({
-  DropdownMenu: ({
-    trigger,
-    children
-  }: {
-    trigger: React.ReactNode;
-    children: React.ReactNode;
-  }) => (
-    <div data-testid={`dropdown-${trigger}`}>
-      <button type="button" data-testid={`trigger-${trigger}`}>
-        {trigger}
-      </button>
-      <div data-testid={`menu-${trigger}`}>{children}</div>
-    </div>
-  ),
-  DropdownMenuItem: ({
-    children,
-    onClick,
-    checked
-  }: {
-    children: React.ReactNode;
-    onClick: () => void;
-    checked?: boolean;
-  }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      data-checked={checked}
-      data-testid={`menuitem-${children}`}
-    >
-      {children}
-    </button>
-  ),
-  DropdownMenuSeparator: () => <hr data-testid="separator" />
-}));
 
 describe('EmailWindowMenuBar', () => {
   const defaultProps = {
@@ -47,8 +12,16 @@ describe('EmailWindowMenuBar', () => {
     onClose: vi.fn()
   };
 
+  const renderWithProvider = (props = defaultProps) => {
+    return render(
+      <TestEmailProvider>
+        <EmailWindowMenuBar {...props} />
+      </TestEmailProvider>
+    );
+  };
+
   it('renders File and View menus', () => {
-    render(<EmailWindowMenuBar {...defaultProps} />);
+    renderWithProvider();
 
     expect(screen.getByTestId('trigger-File')).toBeInTheDocument();
     expect(screen.getByTestId('trigger-View')).toBeInTheDocument();
@@ -56,7 +29,7 @@ describe('EmailWindowMenuBar', () => {
 
   it('calls onRefresh when Refresh is clicked', async () => {
     const user = userEvent.setup();
-    render(<EmailWindowMenuBar {...defaultProps} />);
+    renderWithProvider();
 
     await user.click(screen.getByTestId('menuitem-Refresh'));
 
@@ -65,7 +38,7 @@ describe('EmailWindowMenuBar', () => {
 
   it('calls onClose when Close is clicked', async () => {
     const user = userEvent.setup();
-    render(<EmailWindowMenuBar {...defaultProps} />);
+    renderWithProvider();
 
     await user.click(screen.getByTestId('menuitem-Close'));
 
@@ -74,7 +47,7 @@ describe('EmailWindowMenuBar', () => {
 
   it('calls onViewModeChange with list when List is clicked', async () => {
     const user = userEvent.setup();
-    render(<EmailWindowMenuBar {...defaultProps} />);
+    renderWithProvider();
 
     await user.click(screen.getByTestId('menuitem-List'));
 
@@ -83,7 +56,7 @@ describe('EmailWindowMenuBar', () => {
 
   it('calls onViewModeChange with table when Table is clicked', async () => {
     const user = userEvent.setup();
-    render(<EmailWindowMenuBar {...defaultProps} />);
+    renderWithProvider();
 
     await user.click(screen.getByTestId('menuitem-Table'));
 
@@ -91,7 +64,7 @@ describe('EmailWindowMenuBar', () => {
   });
 
   it('marks current view mode as checked', () => {
-    const { rerender } = render(<EmailWindowMenuBar {...defaultProps} />);
+    const { rerender } = renderWithProvider();
 
     expect(screen.getByTestId('menuitem-List')).toHaveAttribute(
       'data-checked',
@@ -102,7 +75,11 @@ describe('EmailWindowMenuBar', () => {
       'false'
     );
 
-    rerender(<EmailWindowMenuBar {...defaultProps} viewMode="table" />);
+    rerender(
+      <TestEmailProvider>
+        <EmailWindowMenuBar {...defaultProps} viewMode="table" />
+      </TestEmailProvider>
+    );
 
     expect(screen.getByTestId('menuitem-List')).toHaveAttribute(
       'data-checked',
