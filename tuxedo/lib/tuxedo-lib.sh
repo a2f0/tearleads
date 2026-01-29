@@ -9,8 +9,14 @@ tuxedo_init() {
 
     BASE_DIR="${TUXEDO_BASE_DIR:-$HOME/github}"
     NUM_WORKSPACES="${TUXEDO_WORKSPACES:-20}"
+    # Workspace naming: prefix-main, prefix-shared, prefix1, prefix2, etc.
+    # Defaults to "rapid" for backward compatibility (rapid-main, rapid2, ...)
+    WORKSPACE_PREFIX="${TUXEDO_WORKSPACE_PREFIX:-rapid}"
+    # Starting index for numbered workspaces (default 2 for rapid2, use 1 for tuxedo1)
+    WORKSPACE_START="${TUXEDO_WORKSPACE_START:-2}"
     SESSION_NAME="tuxedo"
-    SHARED_DIR="$BASE_DIR/rapid-shared"
+    SHARED_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-shared"
+    MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
 
     TMUX_CONF="$CONFIG_DIR/tmux.conf"
     NVIM_INIT="$CONFIG_DIR/neovim.lua"
@@ -29,7 +35,7 @@ tuxedo_maybe_launch_ghostty() {
     fi
 }
 
-# Ensure symlinks from a workspace to rapid-shared for shared directories
+# Ensure symlinks from a workspace to the shared directory
 # (CLAUDE.md is version controlled, so not symlinked)
 ensure_symlinks() {
     workspace="$1"
@@ -37,14 +43,15 @@ ensure_symlinks() {
     # Skip if workspace doesn't exist
     [ -d "$workspace" ] || return 0
 
-    # Skip rapid-shared itself
+    # Skip shared dir itself
     [ "$workspace" = "$SHARED_DIR" ] && return 0
 
     # Symlink these directories (not version controlled in workspaces)
+    shared_basename=$(basename "$SHARED_DIR")
     for item in .secrets .test_files; do
         target="$SHARED_DIR/$item"
         link="$workspace/$item"
-        relative_path="../rapid-shared/$item"
+        relative_path="../${shared_basename}/$item"
 
         # Skip if shared folder doesn't exist
         [ -d "$target" ] || continue
@@ -77,10 +84,10 @@ ensure_symlinks() {
         link="$workspace/$item"
         # Dynamically calculate relative path depth based on item path
         depth=$(echo "$item" | tr -cd '/' | wc -c | tr -d ' ')
-        # Add 1 for the workspace directory itself (e.g., rapid-main -> github)
+        # Add 1 for the workspace directory itself
         depth=$((depth + 1))
         relative_prefix=$(printf '../%.0s' $(seq 1 $depth))
-        relative_path="${relative_prefix}rapid-shared/$item"
+        relative_path="${relative_prefix}${shared_basename}/$item"
 
         # Skip if shared file doesn't exist
         [ -f "$target" ] || continue
@@ -181,10 +188,10 @@ update_from_main() {
 # Update all workspaces that are on main with no uncommitted changes (parallel)
 update_all_workspaces() {
     echo "Checking workspaces for updates..."
-    update_from_main "$BASE_DIR/rapid-main" &
-    i=2
+    update_from_main "$MAIN_DIR" &
+    i=$WORKSPACE_START
     while [ "$i" -le "$NUM_WORKSPACES" ]; do
-        update_from_main "$BASE_DIR/rapid${i}" &
+        update_from_main "$BASE_DIR/${WORKSPACE_PREFIX}${i}" &
         i=$((i + 1))
     done
     wait  # Wait for all background updates to complete
@@ -227,10 +234,10 @@ sync_vscode_title() {
 
 # Sync all workspace titles from VS Code to tmux
 sync_all_titles() {
-    sync_vscode_title "$BASE_DIR/rapid-main" "rapid-main"
-    i=2
+    sync_vscode_title "$MAIN_DIR" "${WORKSPACE_PREFIX}-main"
+    i=$WORKSPACE_START
     while [ "$i" -le "$NUM_WORKSPACES" ]; do
-        sync_vscode_title "$BASE_DIR/rapid${i}" "rapid${i}"
+        sync_vscode_title "$BASE_DIR/${WORKSPACE_PREFIX}${i}" "${WORKSPACE_PREFIX}${i}"
         i=$((i + 1))
     done
 }
@@ -249,10 +256,10 @@ tuxedo_prepare_shared_dirs() {
         # Touch package-specific env files if they don't exist
         [ -f "$SHARED_DIR/packages/api/.env" ] || touch "$SHARED_DIR/packages/api/.env"
 
-        ensure_symlinks "$BASE_DIR/rapid-main"
-        i=2
+        ensure_symlinks "$MAIN_DIR"
+        i=$WORKSPACE_START
         while [ "$i" -le "$NUM_WORKSPACES" ]; do
-            ensure_symlinks "$BASE_DIR/rapid${i}"
+            ensure_symlinks "$BASE_DIR/${WORKSPACE_PREFIX}${i}"
             i=$((i + 1))
         done
     fi
@@ -266,40 +273,43 @@ tuxedo_attach_or_create() {
         return 0
     fi
 
-    # Create session starting with rapid-shared (source of truth)
+    # Create session starting with shared dir (source of truth)
     # Terminal pane runs in a persistent screen session
+    shared_window_name="${WORKSPACE_PREFIX}-shared"
     screen_shared=$(screen_cmd tux-shared)
     shared_path=$(workspace_path "$SHARED_DIR")
     if [ -n "$screen_shared" ]; then
-        tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n rapid-shared -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$screen_shared"
+        tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n "$shared_window_name" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$screen_shared"
     else
-        tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n rapid-shared -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR"
+        tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n "$shared_window_name" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR"
     fi
-    tmux split-window -h -t "$SESSION_NAME:rapid-shared" -c "$SHARED_DIR" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$EDITOR"
+    tmux split-window -h -t "$SESSION_NAME:$shared_window_name" -c "$SHARED_DIR" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$EDITOR"
 
-    # Add rapid-main as second window
+    # Add main workspace as second window
+    main_window_name="${WORKSPACE_PREFIX}-main"
     screen_main=$(screen_cmd tux-main)
-    main_path=$(workspace_path "$BASE_DIR/rapid-main")
+    main_path=$(workspace_path "$MAIN_DIR")
     if [ -n "$screen_main" ]; then
-        tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$BASE_DIR/rapid-main" "$screen_main"
+        tmux new-window -t "$SESSION_NAME" -c "$MAIN_DIR" -n "$main_window_name" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR" "$screen_main"
     else
-        tmux new-window -t "$SESSION_NAME" -c "$BASE_DIR/rapid-main" -n rapid-main -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$BASE_DIR/rapid-main"
+        tmux new-window -t "$SESSION_NAME" -c "$MAIN_DIR" -n "$main_window_name" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR"
     fi
-    tmux split-window -h -t "$SESSION_NAME:rapid-main" -c "$BASE_DIR/rapid-main" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$BASE_DIR/rapid-main" "$EDITOR"
+    tmux split-window -h -t "$SESSION_NAME:$main_window_name" -c "$MAIN_DIR" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR" "$EDITOR"
 
-    i=2
+    i=$WORKSPACE_START
     while [ "$i" -le "$NUM_WORKSPACES" ]; do
-        workspace_dir="$BASE_DIR/rapid${i}"
+        workspace_dir="$BASE_DIR/${WORKSPACE_PREFIX}${i}"
+        window_name="${WORKSPACE_PREFIX}${i}"
         ws_path=$(workspace_path "$workspace_dir")
         # Zero-pad screen session names to avoid prefix collisions (tux-2 vs tux-20)
         screen_name=$(printf "tux-%02d" "$i")
         screen_i=$(screen_cmd "$screen_name")
         if [ -n "$screen_i" ]; then
-            tmux new-window -t "$SESSION_NAME" -c "$workspace_dir" -n "rapid${i}" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$screen_i"
+            tmux new-window -t "$SESSION_NAME" -c "$workspace_dir" -n "$window_name" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$screen_i"
         else
-            tmux new-window -t "$SESSION_NAME" -c "$workspace_dir" -n "rapid${i}" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir"
+            tmux new-window -t "$SESSION_NAME" -c "$workspace_dir" -n "$window_name" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir"
         fi
-        tmux split-window -h -t "$SESSION_NAME:rapid${i}" -c "$workspace_dir" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$EDITOR"
+        tmux split-window -h -t "$SESSION_NAME:$window_name" -c "$workspace_dir" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$EDITOR"
         i=$((i + 1))
     done
 
