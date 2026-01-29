@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 import { useDeleteVfsFolder, type VfsFolderNode } from '../hooks';
 
@@ -21,10 +21,13 @@ export function DeleteFolderDialog({
   const { deleteFolder, isDeleting } = useDeleteVfsFolder();
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
       previousActiveElement.current = document.activeElement as HTMLElement;
+      setErrorMessage(null);
+      setTimeout(() => dialogRef.current?.focus(), 0);
     } else {
       previousActiveElement.current?.focus();
     }
@@ -63,13 +66,16 @@ export function DeleteFolderDialog({
 
   const handleDelete = async () => {
     if (isDeleting || !folder) return;
+    setErrorMessage(null);
 
     try {
       await deleteFolder(folder.id);
       onFolderDeleted?.(folder.id);
       onOpenChange(false);
-    } catch (_error) {
-      // Error is handled by the hook
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error ? err.message : 'Failed to delete folder'
+      );
     }
   };
 
@@ -109,6 +115,15 @@ export function DeleteFolderDialog({
           Are you sure you want to delete &quot;{folder.name}&quot;? Items in
           this folder will become unfiled.
         </p>
+        {errorMessage && (
+          <p
+            className="mt-2 text-destructive text-sm"
+            role="alert"
+            data-testid="delete-folder-dialog-error"
+          >
+            {errorMessage}
+          </p>
+        )}
         <div className="mt-6 flex justify-end gap-3">
           <Button
             type="button"

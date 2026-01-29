@@ -69,11 +69,11 @@ export function VfsExplorer({
       const { active, over } = event;
       if (!over) return;
 
-      // Extract folder ID from droppable ID (format: "folder-{id}")
-      const droppableId = String(over.id);
-      if (!droppableId.startsWith('folder-')) return;
-
-      const targetFolderId = droppableId.replace('folder-', '');
+      // Extract folder ID from droppable data
+      const targetFolderId = over.data.current?.['folderId'] as
+        | string
+        | undefined;
+      if (!targetFolderId) return;
 
       // Don't allow dropping on unfiled folder
       if (targetFolderId === UNFILED_FOLDER_ID) return;

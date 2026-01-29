@@ -1,12 +1,4 @@
-import {
-  FileBox,
-  FileIcon,
-  Folder,
-  ImageIcon,
-  Loader2,
-  StickyNote,
-  User
-} from 'lucide-react';
+import { FileBox, Folder, Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
 import {
   useVfsFolderContents,
@@ -14,7 +6,7 @@ import {
   type VfsItem,
   type VfsObjectType
 } from '../hooks';
-import { cn } from '../lib';
+import { cn, OBJECT_TYPE_COLORS, OBJECT_TYPE_ICONS } from '../lib';
 import { VfsDraggableItem } from './VfsDraggableItem';
 import type { VfsViewMode } from './VfsExplorer';
 import { UNFILED_FOLDER_ID } from './VfsTreePanel';
@@ -27,22 +19,6 @@ interface VfsDetailsPanelProps {
   compact?: boolean | undefined;
   refreshToken?: number | undefined;
 }
-
-const OBJECT_TYPE_ICONS: Record<VfsObjectType, typeof Folder> = {
-  folder: Folder,
-  contact: User,
-  note: StickyNote,
-  file: FileIcon,
-  photo: ImageIcon
-};
-
-const OBJECT_TYPE_COLORS: Record<VfsObjectType, string> = {
-  folder: 'text-yellow-600 dark:text-yellow-500',
-  contact: 'text-blue-600 dark:text-blue-400',
-  note: 'text-amber-600 dark:text-amber-400',
-  file: 'text-gray-600 dark:text-gray-400',
-  photo: 'text-green-600 dark:text-green-400'
-};
 
 // Convert unfiled items to the same shape as folder contents
 interface DisplayItem {
