@@ -178,6 +178,7 @@
         url: https://ftp.gnu.org/gnu/screen/screen-5.0.0.tar.gz
         dest: /tmp/screen-5.0.0.tar.gz
         mode: "0644"
+        checksum: "sha256:f04a39d00a0e5c7c86a55338808903082ad5df4d73df1a2fd3425976aed94971"
       when: screen_version_check.rc != 0 or 'version 5' not in screen_version_check.stdout
 
     - name: Extract screen source
