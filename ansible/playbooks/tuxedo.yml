@@ -83,7 +83,7 @@
         group: "{{ ansible_user }}"
         mode: "0755"
         content: |
-          #!/bin/sh
+          #!/usr/bin/env bash
           # Wrapper to launch tuxedo.sh with correct SCRIPT_PATH and workspace config
           export TUXEDO_SCRIPT_PATH="/home/{{ ansible_user }}/tuxedo/tuxedo-shared/tuxedo/tuxedo.sh"
           export TUXEDO_BASE_DIR="{{ tuxedo_base_dir }}"
@@ -100,7 +100,7 @@
         group: "{{ ansible_user }}"
         mode: "0755"
         content: |
-          #!/bin/sh
+          #!/usr/bin/env bash
           # Wrapper to launch tuxedoKill.sh with correct SCRIPT_PATH
           TUXEDO_SCRIPT_PATH="/home/{{ ansible_user }}/tuxedo/tuxedo-shared/tuxedo/tuxedoKill.sh"
           export TUXEDO_SCRIPT_PATH

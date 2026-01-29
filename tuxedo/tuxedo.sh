@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Tuxedo - tmux session manager for rapid development
 #
 # Configurable via environment variables:

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # tuxedoKill - fully terminate tuxedo.sh (neovim, screen, and tmux sessions)
 #
 # Usage:
