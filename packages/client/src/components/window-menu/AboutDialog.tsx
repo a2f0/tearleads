@@ -7,9 +7,15 @@ export interface AboutDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   version: string;
+  appName?: string | undefined;
 }
 
-export function AboutDialog({ open, onOpenChange, version }: AboutDialogProps) {
+export function AboutDialog({
+  open,
+  onOpenChange,
+  version,
+  appName = 'Notes'
+}: AboutDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -87,7 +93,7 @@ export function AboutDialog({ open, onOpenChange, version }: AboutDialogProps) {
         onKeyDown={handleKeyDown}
       >
         <h2 id="about-title" className="font-semibold text-lg">
-          About Notes
+          About {appName}
         </h2>
         <div className="mt-4 space-y-2">
           <p className="text-muted-foreground text-sm">

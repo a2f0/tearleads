@@ -28,9 +28,19 @@ import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
 import { getFeatureFlagValue } from '@/lib/feature-flags';
+import vfsExplorerPackageJson from '../../../vfs-explorer/package.json';
+
+export function VfsExplorerAboutMenuItem() {
+  return (
+    <AboutMenuItem
+      appName="VFS Explorer"
+      version={vfsExplorerPackageJson.version}
+    />
+  );
+}
 
 const vfsExplorerUIComponents: VfsExplorerUIComponents = {
-  AboutMenuItem,
+  AboutMenuItem: VfsExplorerAboutMenuItem,
   Button,
   ContextMenu,
   ContextMenuItem,

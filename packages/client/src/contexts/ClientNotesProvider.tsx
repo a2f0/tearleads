@@ -23,6 +23,11 @@ import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { useTypedTranslation } from '@/i18n';
+import notesPackageJson from '../../../notes/package.json';
+
+export function NotesAboutMenuItem() {
+  return <AboutMenuItem appName="Notes" version={notesPackageJson.version} />;
+}
 
 const notesUIComponents: NotesUIComponents = {
   Button,
@@ -38,7 +43,7 @@ const notesUIComponents: NotesUIComponents = {
   DropdownMenuItem,
   DropdownMenuSeparator,
   WindowOptionsMenuItem,
-  AboutMenuItem
+  AboutMenuItem: NotesAboutMenuItem
 };
 
 interface ClientNotesProviderProps {

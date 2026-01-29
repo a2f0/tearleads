@@ -8,6 +8,7 @@ function renderDialog(props: {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   version?: string;
+  appName?: string;
 }) {
   const defaultProps = {
     open: true,
@@ -41,6 +42,11 @@ describe('AboutDialog', () => {
     renderDialog({ version: '2.0.0' });
     expect(screen.getByText('About Notes')).toBeInTheDocument();
     expect(screen.getByTestId('about-version')).toHaveTextContent('2.0.0');
+  });
+
+  it('displays custom app name', () => {
+    renderDialog({ appName: 'VFS Explorer' });
+    expect(screen.getByText('About VFS Explorer')).toBeInTheDocument();
   });
 
   it('closes when OK is clicked', async () => {

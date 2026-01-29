@@ -11,13 +11,18 @@ import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { API_BASE_URL } from '@/lib/api';
 import { getAuthHeaderValue } from '@/lib/auth-storage';
+import emailPackageJson from '../../../email/package.json';
+
+export function EmailAboutMenuItem() {
+  return <AboutMenuItem appName="Email" version={emailPackageJson.version} />;
+}
 
 const emailUIComponents: EmailUIComponents = {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
   WindowOptionsMenuItem,
-  AboutMenuItem,
+  AboutMenuItem: EmailAboutMenuItem,
   BackLink,
   RefreshButton
 };
