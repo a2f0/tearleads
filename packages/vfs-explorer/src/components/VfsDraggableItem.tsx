@@ -40,7 +40,7 @@ export function VfsDraggableItem({
 
   const combinedClassName = cn(
     className,
-    isDragging && 'opacity-50',
+    isDragging && 'opacity-0',
     isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
   );
 
