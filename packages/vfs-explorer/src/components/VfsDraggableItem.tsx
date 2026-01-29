@@ -44,7 +44,9 @@ export function VfsDraggableItem({
   const combinedClassName = cn(
     className,
     isDragging && 'opacity-0',
-    isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
+    isSelected
+      ? 'bg-accent text-accent-foreground hover:bg-accent/70'
+      : 'hover:bg-accent/50'
   );
 
   const cursorStyle = isSelected ? 'grab' : 'default';
