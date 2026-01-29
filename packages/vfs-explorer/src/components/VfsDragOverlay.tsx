@@ -17,8 +17,9 @@ export function VfsDragOverlay({ activeItem }: VfsDragOverlayProps) {
 
   return (
     <DragOverlay modifiers={[snapCenterToCursor]}>
-      <div className="rounded-md bg-background/90 p-1.5 shadow-md">
-        <Icon className={cn('h-5 w-5', colorClass)} />
+      <div className="flex max-w-48 items-center gap-2 rounded-md border bg-background px-2 py-1.5 shadow-md">
+        <Icon className={cn('h-4 w-4 shrink-0', colorClass)} />
+        <span className="truncate text-sm">{activeItem.name}</span>
       </div>
     </DragOverlay>
   );
