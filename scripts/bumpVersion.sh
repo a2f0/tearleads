@@ -26,7 +26,10 @@ API_PACKAGE="$REPO_ROOT/packages/api/package.json"
 CLIENT_PACKAGE="$REPO_ROOT/packages/client/package.json"
 CHROME_EXT_PACKAGE="$REPO_ROOT/packages/chrome-extension/package.json"
 CHROME_EXT_MANIFEST="$REPO_ROOT/packages/chrome-extension/public/manifest.json"
+EMAIL_PACKAGE="$REPO_ROOT/packages/email/package.json"
+NOTES_PACKAGE="$REPO_ROOT/packages/notes/package.json"
 UI_PACKAGE="$REPO_ROOT/packages/ui/package.json"
+VFS_EXPLORER_PACKAGE="$REPO_ROOT/packages/vfs-explorer/package.json"
 WEBSITE_PACKAGE="$REPO_ROOT/packages/website/package.json"
 
 has_changes() {
@@ -34,15 +37,21 @@ has_changes() {
 }
 
 API_CHANGED=false
-CLIENT_CHANGED=false
-UI_CHANGED=false
 CHROME_EXT_CHANGED=false
+CLIENT_CHANGED=false
+EMAIL_CHANGED=false
+NOTES_CHANGED=false
+UI_CHANGED=false
+VFS_EXPLORER_CHANGED=false
 WEBSITE_CHANGED=false
 
 has_changes "packages/api" && API_CHANGED=true
-has_changes "packages/client" && CLIENT_CHANGED=true
-has_changes "packages/ui" && UI_CHANGED=true
 has_changes "packages/chrome-extension" && CHROME_EXT_CHANGED=true
+has_changes "packages/client" && CLIENT_CHANGED=true
+has_changes "packages/email" && EMAIL_CHANGED=true
+has_changes "packages/notes" && NOTES_CHANGED=true
+has_changes "packages/ui" && UI_CHANGED=true
+has_changes "packages/vfs-explorer" && VFS_EXPLORER_CHANGED=true
 has_changes "packages/website" && WEBSITE_CHANGED=true
 
 bump_npm_package_version() {
@@ -121,7 +130,10 @@ else
 fi
 
 bump_npm_package_version "API" "$API_PACKAGE" "$API_CHANGED"
+bump_npm_package_version "Email" "$EMAIL_PACKAGE" "$EMAIL_CHANGED"
+bump_npm_package_version "Notes" "$NOTES_PACKAGE" "$NOTES_CHANGED"
 bump_npm_package_version "UI" "$UI_PACKAGE" "$UI_CHANGED"
+bump_npm_package_version "VFS Explorer" "$VFS_EXPLORER_PACKAGE" "$VFS_EXPLORER_CHANGED"
 bump_npm_package_version "Website" "$WEBSITE_PACKAGE" "$WEBSITE_CHANGED"
 
 if [ "$CHROME_EXT_CHANGED" = "true" ]; then

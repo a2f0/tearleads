@@ -20,11 +20,13 @@ describe('EmailWindowMenuBar', () => {
     );
   };
 
-  it('renders File and View menus', () => {
+  it('renders File, View, and Help menus', () => {
     renderWithProvider();
 
     expect(screen.getByTestId('trigger-File')).toBeInTheDocument();
     expect(screen.getByTestId('trigger-View')).toBeInTheDocument();
+    expect(screen.getByTestId('trigger-Help')).toBeInTheDocument();
+    expect(screen.getByTestId('about-menu-item')).toBeInTheDocument();
   });
 
   it('calls onRefresh when Refresh is clicked', async () => {

@@ -1,4 +1,5 @@
 export type {
+  AboutMenuItemProps,
   AuthFunctions,
   ButtonProps,
   ContextMenuItemProps,

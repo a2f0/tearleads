@@ -7,6 +7,7 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { API_BASE_URL } from '@/lib/api';
 import { getAuthHeaderValue } from '@/lib/auth-storage';
@@ -16,6 +17,7 @@ const emailUIComponents: EmailUIComponents = {
   DropdownMenuItem,
   DropdownMenuSeparator,
   WindowOptionsMenuItem,
+  AboutMenuItem,
   BackLink,
   RefreshButton
 };

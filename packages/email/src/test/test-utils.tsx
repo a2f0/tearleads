@@ -22,6 +22,7 @@ export const mockUIComponents: EmailUIComponents = {
   ),
   DropdownMenuSeparator: () => <hr data-testid="separator" />,
   WindowOptionsMenuItem: () => <div data-testid="window-options" />,
+  AboutMenuItem: () => <div data-testid="about-menu-item" />,
   BackLink: ({ defaultLabel }) => (
     <a href="/" data-testid="back-link">
       {defaultLabel}

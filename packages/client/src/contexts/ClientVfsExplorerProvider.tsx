@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
@@ -35,10 +36,8 @@ const vfsExplorerUIComponents: VfsExplorerUIComponents = {
   DropdownMenuItem,
   DropdownMenuSeparator,
   WindowOptionsMenuItem,
-  FloatingWindow,
-  ContextMenu,
-  ContextMenuItem,
-  ContextMenuSeparator
+  AboutMenuItem,
+  FloatingWindow
 };
 
 interface ClientVfsExplorerProviderProps {

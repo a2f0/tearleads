@@ -20,6 +20,8 @@ export type DropdownMenuSeparatorProps = Record<string, never>;
 
 export type WindowOptionsMenuItemProps = Record<string, never>;
 
+export type AboutMenuItemProps = Record<string, never>;
+
 export interface BackLinkProps {
   defaultTo: string;
   defaultLabel: string;
@@ -38,6 +40,7 @@ export interface EmailUIComponents {
   DropdownMenuItem: ComponentType<DropdownMenuItemProps>;
   DropdownMenuSeparator: ComponentType<DropdownMenuSeparatorProps>;
   WindowOptionsMenuItem: ComponentType<WindowOptionsMenuItemProps>;
+  AboutMenuItem: ComponentType<AboutMenuItemProps>;
   BackLink: ComponentType<BackLinkProps>;
   RefreshButton: ComponentType<RefreshButtonProps>;
 }

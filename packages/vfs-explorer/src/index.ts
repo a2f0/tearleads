@@ -18,6 +18,7 @@ export {
   VfsWindowMenuBar
 } from './components';
 export type {
+  AboutMenuItemProps,
   AuthFunctions,
   ButtonProps,
   ContextMenuItemProps,
