@@ -1,8 +1,17 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
+import {
+  act,
+  render,
+  renderHook,
+  screen,
+  waitFor
+} from '@testing-library/react';
+import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { VfsExplorerProvider } from '../context';
 import {
   createMockDatabase,
   createMockDatabaseState,
+  createMockUI,
   createWrapper
 } from '../test/testUtils';
 import { useVfsUnfiledItems } from './useVfsUnfiledItems';
@@ -210,5 +219,97 @@ describe('useVfsUnfiledItems', () => {
     });
 
     consoleError.mockRestore();
+  });
+
+  it('clears and refetches items when currentInstanceId changes', async () => {
+    // This tests the automatic refetch behavior when instance changes.
+    // We use a test component with state in the wrapper to change the instanceId.
+    let setInstanceId: (id: string) => void = () => {};
+
+    function TestComponent() {
+      const result = useVfsUnfiledItems();
+      return (
+        <div>
+          <span data-testid="items-count">{result.items.length}</span>
+          <span data-testid="first-item-name">
+            {result.items[0]?.name ?? 'none'}
+          </span>
+          <span data-testid="has-fetched">{String(result.hasFetched)}</span>
+        </div>
+      );
+    }
+
+    function TestWrapper() {
+      const [instanceId, _setInstanceId] = useState('instance-1');
+      setInstanceId = _setInstanceId;
+
+      const ui = createMockUI();
+
+      return (
+        <VfsExplorerProvider
+          databaseState={{
+            isUnlocked: true,
+            isLoading: false,
+            currentInstanceId: instanceId
+          }}
+          getDatabase={() => mockDb as ReturnType<() => unknown>}
+          ui={ui as Parameters<typeof VfsExplorerProvider>[0]['ui']}
+          vfsKeys={{
+            generateSessionKey: vi.fn(() => new Uint8Array(32)),
+            wrapSessionKey: vi.fn(async () => 'wrapped-key')
+          }}
+          auth={{
+            isLoggedIn: vi.fn(() => false),
+            readStoredAuth: vi.fn(() => ({ user: { id: 'test' } }))
+          }}
+          featureFlags={{
+            getFeatureFlagValue: vi.fn(() => false)
+          }}
+          vfsApi={{
+            register: vi.fn(async () => {})
+          }}
+        >
+          <TestComponent />
+        </VfsExplorerProvider>
+      );
+    }
+
+    // Mock initial fetch for instance-1
+    // 1. vfs_links query (no linked items)
+    mockDb.from.mockResolvedValueOnce([]);
+    // 2. vfs_registry query (one folder)
+    mockDb.from.mockResolvedValueOnce([
+      { id: 'folder-1', objectType: 'folder', createdAt: new Date() }
+    ]);
+    // 3. folder name lookup
+    mockDb.where.mockResolvedValueOnce([{ id: 'folder-1', name: 'My Folder' }]);
+
+    render(<TestWrapper />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('has-fetched')).toHaveTextContent('true');
+    });
+
+    expect(screen.getByTestId('items-count')).toHaveTextContent('1');
+    expect(screen.getByTestId('first-item-name')).toHaveTextContent(
+      'My Folder'
+    );
+
+    // Mock fetch for instance-2 (no items)
+    // 1. vfs_links query
+    mockDb.from.mockResolvedValueOnce([]);
+    // 2. vfs_registry query (no items)
+    mockDb.from.mockResolvedValueOnce([]);
+
+    // Trigger instance change
+    act(() => {
+      setInstanceId('instance-2');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('items-count')).toHaveTextContent('0');
+    });
+
+    expect(screen.getByTestId('first-item-name')).toHaveTextContent('none');
   });
 });
