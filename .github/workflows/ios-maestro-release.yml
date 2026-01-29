@@ -51,6 +51,9 @@ jobs:
       - name: Build notes
         run: pnpm --filter @rapid/notes build
 
+      - name: Build vfs-explorer
+        run: pnpm --filter @rapid/vfs-explorer build
+
       - name: Build web assets
         run: pnpm --filter @rapid/client build
 
