@@ -22,7 +22,9 @@ import {
   vfsRegistry
 } from '@/db/schema';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
+import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
+import { getFeatureFlagValue } from '@/lib/feature-flags';
 
 interface ContactFormData {
   firstName: string;
@@ -230,6 +232,23 @@ export function ContactsWindowNew({
         });
 
         await adapter.commitTransaction();
+
+        // Server-side VFS registration
+        if (
+          isLoggedIn() &&
+          getFeatureFlagValue('vfsServerRegistration') &&
+          encryptedSessionKey
+        ) {
+          try {
+            await api.vfs.register({
+              id: contactId,
+              objectType: 'contact',
+              encryptedSessionKey
+            });
+          } catch (err) {
+            console.warn('Failed to register contact on server:', err);
+          }
+        }
 
         onCreated(contactId);
       } catch (err) {

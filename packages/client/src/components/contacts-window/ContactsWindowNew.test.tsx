@@ -34,6 +34,18 @@ vi.mock('@/hooks/useVfsKeys', () => ({
   wrapSessionKey: vi.fn().mockResolvedValue('wrapped-key')
 }));
 
+vi.mock('@/lib/feature-flags', () => ({
+  getFeatureFlagValue: vi.fn().mockReturnValue(false)
+}));
+
+vi.mock('@/lib/api', () => ({
+  api: {
+    vfs: {
+      register: vi.fn().mockResolvedValue(undefined)
+    }
+  }
+}));
+
 const mockDb = {
   insert: vi.fn().mockReturnThis(),
   values: vi.fn().mockResolvedValue(undefined)
@@ -544,5 +556,26 @@ describe('ContactsWindowNew', () => {
       await user.type(phoneInput, '+1234567890');
       expect(phoneInput).toHaveValue('+1234567890');
     }
+  });
+
+  it('registers contact on server when feature flag is enabled', async () => {
+    const { getFeatureFlagValue } = await import('@/lib/feature-flags');
+    const { api } = await import('@/lib/api');
+    vi.mocked(getFeatureFlagValue).mockReturnValue(true);
+
+    const user = userEvent.setup();
+    const onCreated = vi.fn();
+    render(<ContactsWindowNew {...defaultProps} onCreated={onCreated} />);
+
+    const firstNameInput = screen.getByTestId('window-new-first-name');
+    await user.type(firstNameInput, 'John');
+
+    await user.click(screen.getByTestId('window-new-contact-save'));
+
+    await waitFor(() => {
+      expect(onCreated).toHaveBeenCalled();
+    });
+
+    expect(api.vfs.register).toHaveBeenCalled();
   });
 });

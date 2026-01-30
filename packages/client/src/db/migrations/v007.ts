@@ -24,8 +24,8 @@ export const v007: Migration = {
         "created_at" INTEGER NOT NULL
       )`,
 
-      // Copy existing data
-      `INSERT INTO "vfs_registry_new" SELECT * FROM "vfs_registry"`,
+      // Copy existing data with explicit columns
+      `INSERT INTO "vfs_registry_new" ("id", "object_type", "owner_id", "encrypted_session_key", "public_hierarchical_key", "encrypted_private_hierarchical_key", "created_at") SELECT "id", "object_type", "owner_id", "encrypted_session_key", "public_hierarchical_key", "encrypted_private_hierarchical_key", "created_at" FROM "vfs_registry"`,
 
       // Drop old table
       `DROP TABLE "vfs_registry"`,
