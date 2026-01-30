@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { ClientNotesProvider, NotesAboutMenuItem } from './ClientNotesProvider';
 
@@ -110,9 +111,11 @@ vi.mock('@/lib/feature-flags', () => ({
 describe('ClientNotesProvider', () => {
   it('renders children within NotesProvider', () => {
     render(
-      <ClientNotesProvider>
-        <div data-testid="child">Child content</div>
-      </ClientNotesProvider>
+      <MemoryRouter>
+        <ClientNotesProvider>
+          <div data-testid="child">Child content</div>
+        </ClientNotesProvider>
+      </MemoryRouter>
     );
 
     expect(screen.getByTestId('notes-provider')).toBeInTheDocument();

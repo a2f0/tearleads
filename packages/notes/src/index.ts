@@ -1,5 +1,6 @@
 // Components
 export {
+  AddNoteCard,
   NotesWindow,
   NotesWindowDetail,
   NotesWindowList,
@@ -11,6 +12,7 @@ export {
 // Context
 export {
   type AboutMenuItemProps,
+  type BackLinkProps,
   type ButtonProps,
   type ContextMenuItemProps,
   type ContextMenuProps,
@@ -22,6 +24,8 @@ export {
   type InlineUnlockProps,
   type InputProps,
   type ListRowProps,
+  type NavigateToNote,
+  type NavigateToNoteOptions,
   type NoteInfo,
   type NotesContextValue,
   NotesProvider,
@@ -35,7 +39,6 @@ export {
   type VirtualListStatusProps,
   type WindowOptionsMenuItemProps
 } from './context/index';
-
 // Utilities
 export {
   cn,
@@ -43,3 +46,5 @@ export {
   formatDate,
   markdownToolbarCommandsFilter
 } from './lib/index';
+// Pages
+export { Notes } from './pages/index';
