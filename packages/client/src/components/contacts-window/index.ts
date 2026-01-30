@@ -1,1 +1,0 @@
-export { ContactsWindow } from './ContactsWindow';

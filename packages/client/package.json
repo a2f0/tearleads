@@ -55,6 +55,7 @@
     "@ionic/core": "8.7.17",
     "@radix-ui/react-slot": "1.2.4",
     "@rapid/db": "workspace:*",
+    "@rapid/contacts": "workspace:*",
     "@rapid/email": "workspace:*",
     "@rapid/notes": "workspace:*",
     "@rapid/vfs-explorer": "workspace:*",
