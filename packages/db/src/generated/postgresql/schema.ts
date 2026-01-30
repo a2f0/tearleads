@@ -644,9 +644,9 @@ export const mlsMessages = pgTable(
     groupId: text('group_id')
       .notNull()
       .references(() => mlsGroups.id, { onDelete: 'cascade' }),
-    senderUserId: text('sender_user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'restrict' }),
+    senderUserId: text('sender_user_id').references(() => users.id, {
+      onDelete: 'set null'
+    }),
     epoch: integer('epoch').notNull(),
     ciphertext: text('ciphertext').notNull(),
     messageType: text('message_type', {
