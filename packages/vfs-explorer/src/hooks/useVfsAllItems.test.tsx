@@ -270,4 +270,50 @@ describe('useVfsAllItems', () => {
 
     expect(screen.getByTestId('first-item-name')).toHaveTextContent('none');
   });
+
+  it('skips fetch when enabled is false', async () => {
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsAllItems({ enabled: false }), {
+      wrapper
+    });
+
+    // Wait a tick to ensure any potential fetch would have been triggered
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+
+    // Should not have called database select when disabled
+    expect(mockDb.select).not.toHaveBeenCalled();
+    expect(result.current.hasFetched).toBe(false);
+  });
+
+  it('fetches when enabled changes from false to true', async () => {
+    // Mock vfsRegistry query - returns one folder
+    mockDb.from.mockResolvedValueOnce([
+      { id: 'folder-1', objectType: 'folder', createdAt: new Date() }
+    ]);
+
+    // Mock folders name lookup
+    mockDb.where.mockResolvedValueOnce([{ id: 'folder-1', name: 'My Folder' }]);
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    // Start with enabled=true (default)
+    const { result } = renderHook(() => useVfsAllItems(), {
+      wrapper
+    });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    expect(result.current.items).toHaveLength(1);
+  });
 });

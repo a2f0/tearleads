@@ -30,7 +30,14 @@ export interface UseVfsAllItemsResult {
   refetch: () => Promise<void>;
 }
 
-export function useVfsAllItems(): UseVfsAllItemsResult {
+interface UseVfsAllItemsOptions {
+  enabled?: boolean;
+}
+
+export function useVfsAllItems(
+  options: UseVfsAllItemsOptions = {}
+): UseVfsAllItemsResult {
+  const { enabled = true } = options;
   const { databaseState, getDatabase } = useVfsExplorerContext();
   const { isUnlocked, currentInstanceId } = databaseState;
   const [items, setItems] = useState<VfsAllItem[]>([]);
@@ -40,7 +47,7 @@ export function useVfsAllItems(): UseVfsAllItemsResult {
   const fetchedForInstanceRef = useRef<string | null>(null);
 
   const fetchItems = useCallback(async () => {
-    if (!isUnlocked) return;
+    if (!isUnlocked || !enabled) return;
 
     setLoading(true);
     setError(null);
@@ -179,10 +186,11 @@ export function useVfsAllItems(): UseVfsAllItemsResult {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, getDatabase]);
+  }, [isUnlocked, enabled, getDatabase]);
 
   useEffect(() => {
     const needsFetch =
+      enabled &&
       isUnlocked &&
       !loading &&
       (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
@@ -205,7 +213,7 @@ export function useVfsAllItems(): UseVfsAllItemsResult {
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchItems]);
+  }, [enabled, isUnlocked, loading, hasFetched, currentInstanceId, fetchItems]);
 
   return {
     items,

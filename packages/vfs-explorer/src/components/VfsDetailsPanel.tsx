@@ -126,7 +126,7 @@ export function VfsDetailsPanel({
     isUnfiled || isAllItems ? null : folderId
   );
   const unfiledItems = useVfsUnfiledItems();
-  const allItems = useVfsAllItems();
+  const allItems = useVfsAllItems({ enabled: isAllItems });
 
   // Refetch when refreshToken changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: refetch functions are stable, including full objects causes infinite loops
