@@ -123,7 +123,7 @@ export function ColumnMapper({
           <div className="flex flex-wrap gap-2">
             {data.headers.map((header, index) => (
               <DraggableColumn
-                key={header}
+                key={`${header}-${index}`}
                 index={index}
                 header={header}
                 disabled={mappedIndices.has(index)}

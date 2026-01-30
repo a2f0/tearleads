@@ -242,7 +242,7 @@ export function ContactsWindowNew({
                 value={formData.firstName}
                 onChange={(e) => handleFormChange('firstName', e.target.value)}
                 placeholder="First name *"
-                className="h-8 text-sm"
+                className="h-8 text-base"
                 data-testid="window-new-first-name"
               />
               <Input
@@ -250,7 +250,7 @@ export function ContactsWindowNew({
                 value={formData.lastName}
                 onChange={(e) => handleFormChange('lastName', e.target.value)}
                 placeholder="Last name"
-                className="h-8 text-sm"
+                className="h-8 text-base"
                 data-testid="window-new-last-name"
               />
               <div className="flex items-center gap-2">
@@ -260,7 +260,7 @@ export function ContactsWindowNew({
                   value={formData.birthday}
                   onChange={(e) => handleFormChange('birthday', e.target.value)}
                   placeholder="Birthday (YYYY-MM-DD)"
-                  className="h-8 flex-1 text-sm"
+                  className="h-8 flex-1 text-base"
                   data-testid="window-new-birthday"
                 />
               </div>
@@ -286,7 +286,7 @@ export function ContactsWindowNew({
                       handleEmailChange(email.id, 'email', e.target.value)
                     }
                     placeholder="Email"
-                    className="h-7 min-w-0 flex-1 text-xs"
+                    className="h-7 min-w-0 flex-1 text-base"
                     data-testid={`window-new-email-${email.id}`}
                   />
                   <Input
@@ -296,7 +296,7 @@ export function ContactsWindowNew({
                       handleEmailChange(email.id, 'label', e.target.value)
                     }
                     placeholder="Label"
-                    className="h-7 w-16 text-xs"
+                    className="h-7 w-16 text-base"
                   />
                   <label className="flex shrink-0 items-center gap-1">
                     <input
@@ -351,7 +351,7 @@ export function ContactsWindowNew({
                       handlePhoneChange(phone.id, 'phoneNumber', e.target.value)
                     }
                     placeholder="Phone"
-                    className="h-7 min-w-0 flex-1 text-xs"
+                    className="h-7 min-w-0 flex-1 text-base"
                     data-testid={`window-new-phone-${phone.id}`}
                   />
                   <Input
@@ -361,7 +361,7 @@ export function ContactsWindowNew({
                       handlePhoneChange(phone.id, 'label', e.target.value)
                     }
                     placeholder="Label"
-                    className="h-7 w-16 text-xs"
+                    className="h-7 w-16 text-base"
                   />
                   <label className="flex shrink-0 items-center gap-1">
                     <input
