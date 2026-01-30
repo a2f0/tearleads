@@ -10,9 +10,44 @@ import {
   type PreTrainedTokenizer,
   type Processor,
   RawImage,
+  type Tensor,
   TextStreamer
 } from '@huggingface/transformers';
 import { getModelType, type ModelType, softmax } from './llm-worker-utils';
+
+/**
+ * Generation options supported by Transformers.js generate() method.
+ * These can be passed directly to generate() as kwargs per the library docs.
+ */
+interface GenerationOptions {
+  max_new_tokens?: number;
+  do_sample?: boolean;
+  temperature?: number;
+  top_k?: number;
+  top_p?: number;
+  repetition_penalty?: number;
+  streamer?: TextStreamer;
+}
+
+/**
+ * Input tensors from tokenizer/processor that can be spread into generate().
+ */
+interface ModelInputs {
+  input_ids?: Tensor;
+  attention_mask?: Tensor;
+  pixel_values?: Tensor;
+  [key: string]: Tensor | undefined;
+}
+
+/**
+ * Multimodal message format used by vision models (e.g., SmolVLM).
+ * The library's Message type only supports string content, but vision models
+ * accept an array of content parts for mixed text/image input.
+ */
+interface MultimodalMessage {
+  role: string;
+  content: string | Array<{ type: 'image' | 'text'; text?: string }>;
+}
 
 // Disable local model check since we're always fetching from HuggingFace
 env.allowLocalModels = false;
@@ -234,12 +269,12 @@ async function generate(
       inputs = await processor(image, prompt);
 
       // PaliGemma doesn't stream well, generate and decode the full output
-      const output = await model.generate({
-        ...inputs,
-        // @ts-expect-error - Transformers.js types don't include all generation options
+      const generateParams = {
+        ...(inputs as ModelInputs),
         max_new_tokens: 256,
         do_sample: false
-      });
+      } as ModelInputs & GenerationOptions;
+      const output = (await model.generate(generateParams)) as Tensor;
 
       if (abortController.signal.aborted) {
         const durationMs = performance.now() - startTime;
@@ -248,10 +283,13 @@ async function generate(
       }
 
       // Slice to get only the generated tokens (not the prompt)
-      // @ts-expect-error - output.slice exists on Tensor
-      const inputLength = inputs.input_ids.dims[1];
-      // @ts-expect-error - output.slice exists on Tensor
-      const generatedIds = output.slice(null, [inputLength, null]);
+      // The slice API accepts [start, null] to mean "from start to end", but types don't reflect this
+      const inputTensor = (inputs as ModelInputs).input_ids as Tensor;
+      const inputLength = inputTensor.dims[1] ?? 0;
+      const generatedIds = output.slice(null, [
+        inputLength,
+        null
+      ] as unknown as number[]);
 
       // Decode the generated tokens
       const decoded = processor.batch_decode(generatedIds, {
@@ -272,9 +310,9 @@ async function generate(
 
       // Format messages with multimodal content structure
       // Include image marker only when an image is provided
-      const formattedMessages = messages.map((m) => {
+      const formattedMessages: MultimodalMessage[] = messages.map((m) => {
         if (m.role === 'user') {
-          const content: Array<{ type: string; text?: string }> = [];
+          const content: Array<{ type: 'image' | 'text'; text?: string }> = [];
           if (hasImage) {
             content.push({ type: 'image' });
           }
@@ -284,10 +322,13 @@ async function generate(
         return m;
       });
 
-      // @ts-expect-error - SmolVLM uses multimodal content format
-      const text = processor.apply_chat_template(formattedMessages, {
-        add_generation_prompt: true
-      });
+      // Vision models accept multimodal message format (cast needed as library types only support string content)
+      const text = processor.apply_chat_template(
+        formattedMessages as Parameters<
+          typeof processor.apply_chat_template
+        >[0],
+        { add_generation_prompt: true }
+      );
 
       // Process with or without images
       inputs = image ? await processor(text, [image]) : await processor(text);
@@ -313,14 +354,14 @@ async function generate(
     });
 
     // Generate with streaming
-    await model.generate({
-      ...inputs,
-      // @ts-expect-error - Transformers.js types don't include all generation options
+    const generateParams = {
+      ...(inputs as ModelInputs),
       max_new_tokens: 512,
       do_sample: true,
       temperature: 0.7,
       streamer
-    });
+    } as ModelInputs & GenerationOptions;
+    await model.generate(generateParams);
 
     const durationMs = performance.now() - startTime;
     const promptType = isMultimodal ? 'multimodal' : 'text';

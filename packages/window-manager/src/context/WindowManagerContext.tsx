@@ -9,48 +9,52 @@ import {
 import type { WindowDimensions } from '../components/FloatingWindow.js';
 import { generateUniqueId } from '../lib/utils.js';
 
-export interface WindowInstance<T extends string = string> {
+export interface WindowInstance {
   id: string;
-  type: T;
+  type: string;
   zIndex: number;
   isMinimized: boolean;
   dimensions?: WindowDimensions;
 }
 
-export interface WindowManagerContextValue<T extends string = string> {
-  windows: WindowInstance<T>[];
-  openWindow: (type: T, id?: string) => string;
+export interface WindowManagerContextValue {
+  windows: WindowInstance[];
+  openWindow: (type: string, id?: string) => string;
   closeWindow: (id: string) => void;
   focusWindow: (id: string) => void;
   minimizeWindow: (id: string, dimensions?: WindowDimensions) => void;
   restoreWindow: (id: string) => void;
   updateWindowDimensions: (id: string, dimensions: WindowDimensions) => void;
-  saveWindowDimensionsForType: (type: T, dimensions: WindowDimensions) => void;
-  isWindowOpen: (type: T, id?: string) => boolean;
-  getWindow: (id: string) => WindowInstance<T> | undefined;
+  saveWindowDimensionsForType: (
+    type: string,
+    dimensions: WindowDimensions
+  ) => void;
+  isWindowOpen: (type: string, id?: string) => boolean;
+  getWindow: (id: string) => WindowInstance | undefined;
 }
 
-const WindowManagerContext =
-  createContext<WindowManagerContextValue<string> | null>(null);
+const WindowManagerContext = createContext<WindowManagerContextValue | null>(
+  null
+);
 
 const BASE_Z_INDEX = 100;
 
-export interface WindowManagerProviderProps<T extends string = string> {
+export interface WindowManagerProviderProps {
   children: ReactNode;
-  loadDimensions?: (type: T) => WindowDimensions | null;
-  saveDimensions?: (type: T, dimensions: WindowDimensions) => void;
+  loadDimensions?: (type: string) => WindowDimensions | null;
+  saveDimensions?: (type: string, dimensions: WindowDimensions) => void;
   shouldPreserveState?: () => boolean;
 }
 
-export function WindowManagerProvider<T extends string = string>({
+export function WindowManagerProvider({
   children,
   loadDimensions,
   saveDimensions,
   shouldPreserveState
-}: WindowManagerProviderProps<T>) {
-  const [windows, setWindows] = useState<WindowInstance<T>[]>([]);
+}: WindowManagerProviderProps) {
+  const [windows, setWindows] = useState<WindowInstance[]>([]);
 
-  const getNextZIndex = useCallback((currentWindows: WindowInstance<T>[]) => {
+  const getNextZIndex = useCallback((currentWindows: WindowInstance[]) => {
     if (currentWindows.length === 0) {
       return BASE_Z_INDEX;
     }
@@ -78,7 +82,7 @@ export function WindowManagerProvider<T extends string = string>({
   }, []);
 
   const openWindow = useCallback(
-    (type: T, customId?: string): string => {
+    (type: string, customId?: string): string => {
       const id = customId ?? generateUniqueId(type);
       const existingWindow = customId
         ? undefined
@@ -162,7 +166,7 @@ export function WindowManagerProvider<T extends string = string>({
   );
 
   const saveWindowDimensionsForType = useCallback(
-    (type: T, dimensions: WindowDimensions) => {
+    (type: string, dimensions: WindowDimensions) => {
       const { width, height, x, y } = dimensions;
       const preserveState = shouldPreserveState?.() ?? true;
       if (!preserveState || !saveDimensions) {
@@ -174,7 +178,7 @@ export function WindowManagerProvider<T extends string = string>({
   );
 
   const isWindowOpen = useCallback(
-    (type: T, id?: string): boolean => {
+    (type: string, id?: string): boolean => {
       if (id) {
         return windows.some((w) => w.id === id);
       }
@@ -184,7 +188,7 @@ export function WindowManagerProvider<T extends string = string>({
   );
 
   const getWindow = useCallback(
-    (id: string): WindowInstance<T> | undefined => {
+    (id: string): WindowInstance | undefined => {
       return windows.find((w) => w.id === id);
     },
     [windows]
@@ -218,22 +222,18 @@ export function WindowManagerProvider<T extends string = string>({
   );
 
   return (
-    <WindowManagerContext.Provider
-      value={value as unknown as WindowManagerContextValue<string>}
-    >
+    <WindowManagerContext.Provider value={value}>
       {children}
     </WindowManagerContext.Provider>
   );
 }
 
-export function useWindowManager<
-  T extends string = string
->(): WindowManagerContextValue<T> {
+export function useWindowManager(): WindowManagerContextValue {
   const context = useContext(WindowManagerContext);
   if (!context) {
     throw new Error(
       'useWindowManager must be used within a WindowManagerProvider'
     );
   }
-  return context as unknown as WindowManagerContextValue<T>;
+  return context;
 }
