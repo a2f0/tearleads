@@ -59,6 +59,12 @@ function isValidCipherSuite(value: unknown): value is MlsCipherSuite {
   );
 }
 
+function toSafeCipherSuite(value: unknown): MlsCipherSuite {
+  return isValidCipherSuite(value)
+    ? value
+    : MLS_CIPHERSUITES.X25519_CHACHA20_SHA256_ED25519;
+}
+
 function isValidMessageType(value: unknown): value is MlsMessageType {
   return (
     typeof value === 'string' &&
@@ -390,7 +396,7 @@ router.get('/key-packages/me', async (req: Request, res: Response) => {
       userId: claims.sub,
       keyPackageData: row.key_package_data,
       keyPackageRef: row.key_package_ref,
-      cipherSuite: row.cipher_suite as MlsCipherSuite,
+      cipherSuite: toSafeCipherSuite(row.cipher_suite),
       createdAt: row.created_at.toISOString(),
       consumed: row.consumed_at !== null
     }));
@@ -459,7 +465,7 @@ router.get('/key-packages/:userId', async (req: Request, res: Response) => {
       userId,
       keyPackageData: row.key_package_data,
       keyPackageRef: row.key_package_ref,
-      cipherSuite: row.cipher_suite as MlsCipherSuite,
+      cipherSuite: toSafeCipherSuite(row.cipher_suite),
       createdAt: row.created_at.toISOString(),
       consumed: false
     }));
@@ -668,7 +674,7 @@ router.get('/groups', async (req: Request, res: Response) => {
       description: row.description,
       creatorUserId: row.creator_user_id,
       currentEpoch: row.current_epoch,
-      cipherSuite: row.cipher_suite as MlsCipherSuite,
+      cipherSuite: toSafeCipherSuite(row.cipher_suite),
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString(),
       memberCount: parseInt(row.member_count, 10),
@@ -784,7 +790,7 @@ router.get('/groups/:groupId', async (req: Request, res: Response) => {
       description: row.description,
       creatorUserId: row.creator_user_id,
       currentEpoch: row.current_epoch,
-      cipherSuite: row.cipher_suite as MlsCipherSuite,
+      cipherSuite: toSafeCipherSuite(row.cipher_suite),
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString()
     };
@@ -918,7 +924,7 @@ router.patch('/groups/:groupId', async (req: Request, res: Response) => {
       description: row.description,
       creatorUserId: row.creator_user_id,
       currentEpoch: row.current_epoch,
-      cipherSuite: row.cipher_suite as MlsCipherSuite,
+      cipherSuite: toSafeCipherSuite(row.cipher_suite),
       createdAt: row.created_at.toISOString(),
       updatedAt: row.updated_at.toISOString()
     };
@@ -1436,20 +1442,21 @@ router.post(
         return;
       }
 
-      // Get next sequence number
-      const seqResult = await pool.query<{ max_seq: string | null }>(
-        `SELECT MAX(sequence_number)::text as max_seq FROM mls_messages WHERE group_id = $1`,
-        [groupId]
-      );
-      const nextSeq = parseInt(seqResult.rows[0]?.max_seq ?? '0', 10) + 1;
-
-      // Insert message
+      // Insert message with atomic sequence number assignment
+      // Uses subquery to avoid race condition on concurrent inserts
       const id = randomUUID();
-      const result = await pool.query<{ created_at: Date }>(
+      const result = await pool.query<{
+        sequence_number: number;
+        created_at: Date;
+      }>(
         `INSERT INTO mls_messages (
           id, group_id, sender_user_id, epoch, ciphertext, message_type, content_type, sequence_number, created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-        RETURNING created_at`,
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7,
+          COALESCE((SELECT MAX(sequence_number) FROM mls_messages WHERE group_id = $2), 0) + 1,
+          NOW()
+        )
+        RETURNING sequence_number, created_at`,
         [
           id,
           groupId,
@@ -1457,13 +1464,14 @@ router.post(
           payload.epoch,
           payload.ciphertext,
           payload.messageType,
-          payload.contentType ?? 'text/plain',
-          nextSeq
+          payload.contentType ?? 'text/plain'
         ]
       );
 
-      const createdAt = result.rows[0]?.created_at ?? new Date();
-      const createdAtStr = createdAt.toISOString();
+      const row = result.rows[0];
+      if (!row) {
+        throw new Error('Failed to insert message');
+      }
 
       const message: MlsMessage = {
         id,
@@ -1473,16 +1481,16 @@ router.post(
         ciphertext: payload.ciphertext,
         messageType: payload.messageType,
         contentType: payload.contentType ?? 'text/plain',
-        sequenceNumber: nextSeq,
-        sentAt: createdAtStr,
-        createdAt: createdAtStr
+        sequenceNumber: row.sequence_number,
+        sentAt: row.created_at.toISOString(),
+        createdAt: row.created_at.toISOString()
       };
 
       // Broadcast to group channel
       await broadcast(`mls:group:${groupId}`, {
         type: 'mls:message',
         payload: message,
-        timestamp: createdAt.toISOString()
+        timestamp: row.created_at.toISOString()
       });
 
       const response: SendMlsMessageResponse = { message };

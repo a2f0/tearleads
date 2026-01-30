@@ -657,7 +657,10 @@ export const mlsMessages = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull()
   },
   (table) => [
-    index('mls_messages_group_seq_idx').on(table.groupId, table.sequenceNumber),
+    uniqueIndex('mls_messages_group_seq_unique').on(
+      table.groupId,
+      table.sequenceNumber
+    ),
     index('mls_messages_group_epoch_idx').on(table.groupId, table.epoch),
     index('mls_messages_created_idx').on(table.createdAt)
   ]
@@ -712,7 +715,10 @@ export const mlsGroupState = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull()
   },
   (table) => [
-    index('mls_group_state_user_group_idx').on(table.userId, table.groupId),
+    uniqueIndex('mls_group_state_user_group_unique').on(
+      table.groupId,
+      table.userId
+    ),
     index('mls_group_state_epoch_idx').on(table.groupId, table.epoch)
   ]
 );

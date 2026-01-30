@@ -1623,11 +1623,10 @@ export const mlsMessagesTable: TableDefinition = {
     senderUserId: {
       type: 'text',
       sqlName: 'sender_user_id',
-      notNull: true,
       references: {
         table: 'users',
         column: 'id',
-        onDelete: 'restrict'
+        onDelete: 'set null'
       }
     },
     epoch: {
@@ -1664,8 +1663,9 @@ export const mlsMessagesTable: TableDefinition = {
   },
   indexes: [
     {
-      name: 'mls_messages_group_seq_idx',
-      columns: ['groupId', 'sequenceNumber']
+      name: 'mls_messages_group_seq_unique',
+      columns: ['groupId', 'sequenceNumber'],
+      unique: true
     },
     { name: 'mls_messages_group_epoch_idx', columns: ['groupId', 'epoch'] },
     { name: 'mls_messages_created_idx', columns: ['createdAt'] }
@@ -1800,7 +1800,11 @@ export const mlsGroupStateTable: TableDefinition = {
     }
   },
   indexes: [
-    { name: 'mls_group_state_user_group_idx', columns: ['userId', 'groupId'] },
+    {
+      name: 'mls_group_state_user_group_unique',
+      columns: ['groupId', 'userId'],
+      unique: true
+    },
     { name: 'mls_group_state_epoch_idx', columns: ['groupId', 'epoch'] }
   ]
 };

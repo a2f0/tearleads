@@ -650,9 +650,9 @@ export const mlsMessages = sqliteTable(
     groupId: text('group_id')
       .notNull()
       .references(() => mlsGroups.id, { onDelete: 'cascade' }),
-    senderUserId: text('sender_user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'restrict' }),
+    senderUserId: text('sender_user_id').references(() => users.id, {
+      onDelete: 'set null'
+    }),
     epoch: integer('epoch').notNull(),
     ciphertext: text('ciphertext').notNull(),
     messageType: text('message_type', {
@@ -663,7 +663,10 @@ export const mlsMessages = sqliteTable(
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
   },
   (table) => [
-    index('mls_messages_group_seq_idx').on(table.groupId, table.sequenceNumber),
+    uniqueIndex('mls_messages_group_seq_unique').on(
+      table.groupId,
+      table.sequenceNumber
+    ),
     index('mls_messages_group_epoch_idx').on(table.groupId, table.epoch),
     index('mls_messages_created_idx').on(table.createdAt)
   ]
@@ -718,7 +721,10 @@ export const mlsGroupState = sqliteTable(
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
   },
   (table) => [
-    index('mls_group_state_user_group_idx').on(table.userId, table.groupId),
+    uniqueIndex('mls_group_state_user_group_unique').on(
+      table.groupId,
+      table.userId
+    ),
     index('mls_group_state_epoch_idx').on(table.groupId, table.epoch)
   ]
 );

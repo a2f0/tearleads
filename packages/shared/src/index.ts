@@ -388,6 +388,8 @@ export interface ShareTargetSearchResponse {
 export const MLS_CIPHERSUITES = {
   /** MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519 */
   X25519_AES128GCM: 1,
+  /** MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519 */
+  X25519_CHACHA20_SHA256_ED25519: 3,
   /** X-Wing hybrid: ML-KEM-768 + X25519 for post-quantum security */
   XWING_HYBRID: 65535
 } as const;
@@ -440,7 +442,7 @@ export type MlsMessageType = 'application' | 'commit' | 'proposal';
 export interface MlsMessage {
   id: string;
   groupId: string;
-  senderUserId: string;
+  senderUserId: string | null; // null if sender was deleted
   senderEmail?: string;
   epoch: number;
   ciphertext: string; // base64

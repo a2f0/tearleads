@@ -40,7 +40,7 @@ export const MlsMessage: FC<MlsMessageProps> = ({ message }) => {
   return (
     <div className="flex gap-3">
       <Avatar
-        userId={message.senderUserId}
+        userId={message.senderUserId ?? 'deleted-user'}
         email={message.senderEmail}
         size="sm"
       />

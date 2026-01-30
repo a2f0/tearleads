@@ -9,7 +9,7 @@
 export interface DecryptedMessage {
   id: string;
   groupId: string;
-  senderUserId: string;
+  senderUserId: string | null;
   senderEmail?: string | undefined;
   plaintext: string;
   contentType: string;

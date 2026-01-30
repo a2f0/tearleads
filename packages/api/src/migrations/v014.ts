@@ -67,7 +67,7 @@ export const v014: Migration = {
       const createMlsMessagesTable = `CREATE TABLE IF NOT EXISTS "mls_messages" (
         "id" TEXT PRIMARY KEY,
         "group_id" TEXT NOT NULL REFERENCES "mls_groups"("id") ON DELETE CASCADE,
-        "sender_user_id" TEXT NOT NULL REFERENCES "users"("id") ON DELETE RESTRICT,
+        "sender_user_id" TEXT REFERENCES "users"("id") ON DELETE SET NULL,
         "epoch" INTEGER NOT NULL,
         "ciphertext" TEXT NOT NULL,
         "message_type" TEXT NOT NULL CHECK ("message_type" IN ('application', 'commit', 'proposal')),
@@ -75,8 +75,8 @@ export const v014: Migration = {
         "sequence_number" INTEGER NOT NULL,
         "created_at" TIMESTAMPTZ NOT NULL
       )`;
-      const createMlsMessagesGroupSeqIndex =
-        'CREATE INDEX IF NOT EXISTS "mls_messages_group_seq_idx" ON "mls_messages" ("group_id", "sequence_number")';
+      const createMlsMessagesGroupSeqUnique =
+        'CREATE UNIQUE INDEX IF NOT EXISTS "mls_messages_group_seq_unique" ON "mls_messages" ("group_id", "sequence_number")';
       const createMlsMessagesGroupEpochIndex =
         'CREATE INDEX IF NOT EXISTS "mls_messages_group_epoch_idx" ON "mls_messages" ("group_id", "epoch")';
       const createMlsMessagesCreatedIndex =
@@ -108,8 +108,8 @@ export const v014: Migration = {
         "state_hash" TEXT NOT NULL,
         "created_at" TIMESTAMPTZ NOT NULL
       )`;
-      const createMlsGroupStateUserGroupIndex =
-        'CREATE INDEX IF NOT EXISTS "mls_group_state_user_group_idx" ON "mls_group_state" ("user_id", "group_id")';
+      const createMlsGroupStateUserGroupUnique =
+        'CREATE UNIQUE INDEX IF NOT EXISTS "mls_group_state_user_group_unique" ON "mls_group_state" ("group_id", "user_id")';
       const createMlsGroupStateEpochIndex =
         'CREATE INDEX IF NOT EXISTS "mls_group_state_epoch_idx" ON "mls_group_state" ("group_id", "epoch")';
 
@@ -125,7 +125,7 @@ export const v014: Migration = {
       await pool.query(createMlsGroupMembersActiveIndex);
 
       await pool.query(createMlsMessagesTable);
-      await pool.query(createMlsMessagesGroupSeqIndex);
+      await pool.query(createMlsMessagesGroupSeqUnique);
       await pool.query(createMlsMessagesGroupEpochIndex);
       await pool.query(createMlsMessagesCreatedIndex);
 
@@ -134,7 +134,7 @@ export const v014: Migration = {
       await pool.query(createMlsWelcomeGroupIndex);
 
       await pool.query(createMlsGroupStateTable);
-      await pool.query(createMlsGroupStateUserGroupIndex);
+      await pool.query(createMlsGroupStateUserGroupUnique);
       await pool.query(createMlsGroupStateEpochIndex);
 
       await pool.query('COMMIT');
