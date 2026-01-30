@@ -1,5 +1,6 @@
 export {
   type AboutMenuItemProps,
+  type BackLinkProps,
   type ButtonProps,
   type ContextMenuItemProps,
   type ContextMenuProps,
@@ -11,6 +12,8 @@ export {
   type InlineUnlockProps,
   type InputProps,
   type ListRowProps,
+  type NavigateToNote,
+  type NavigateToNoteOptions,
   type NoteInfo,
   type NotesContextValue,
   NotesProvider,

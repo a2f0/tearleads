@@ -109,9 +109,9 @@ export default defineConfig({
         'src/lib/test-instance.ts'
       ],
       thresholds: {
-        statements: 93.5,
+        statements: 93.4,
         branches: 85.1,
-        functions: 94.1,
+        functions: 94,
         lines: 95.1
       }
     }

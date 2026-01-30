@@ -2,10 +2,15 @@
  * Client-side NotesProvider wrapper that supplies all dependencies
  * to the @rapid/notes package components.
  */
-import { NotesProvider, type NotesUIComponents } from '@rapid/notes';
+import {
+  type NavigateToNote,
+  NotesProvider,
+  type NotesUIComponents
+} from '@rapid/notes';
 import notesPackageJson from '@rapid/notes/package.json';
-import type { ReactNode } from 'react';
+import { type ReactNode, useCallback } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import {
@@ -28,6 +33,7 @@ import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
 import { getFeatureFlagValue } from '@/lib/feature-flags';
+import { useNavigateWithFrom } from '@/lib/navigation';
 
 export function NotesAboutMenuItem() {
   return <AboutMenuItem appName="Notes" version={notesPackageJson.version} />;
@@ -47,7 +53,8 @@ const notesUIComponents: NotesUIComponents = {
   DropdownMenuItem,
   DropdownMenuSeparator,
   WindowOptionsMenuItem,
-  AboutMenuItem: NotesAboutMenuItem
+  AboutMenuItem: NotesAboutMenuItem,
+  BackLink
 };
 
 interface ClientNotesProviderProps {
@@ -57,12 +64,23 @@ interface ClientNotesProviderProps {
 export function ClientNotesProvider({ children }: ClientNotesProviderProps) {
   const databaseContext = useDatabaseContext();
   const { t } = useTypedTranslation('contextMenu');
+  const navigateWithFrom = useNavigateWithFrom();
 
   const databaseState = {
     isUnlocked: databaseContext.isUnlocked,
     isLoading: databaseContext.isLoading,
     currentInstanceId: databaseContext.currentInstanceId
   };
+
+  const navigateToNote: NavigateToNote = useCallback(
+    (noteId, options) => {
+      navigateWithFrom(
+        `/notes/${noteId}`,
+        options?.fromLabel ? { fromLabel: options.fromLabel } : undefined
+      );
+    },
+    [navigateWithFrom]
+  );
 
   return (
     <NotesProvider
@@ -88,6 +106,7 @@ export function ClientNotesProvider({ children }: ClientNotesProviderProps) {
           await api.vfs.register(params);
         }
       }}
+      navigateToNote={navigateToNote}
     >
       {children}
     </NotesProvider>

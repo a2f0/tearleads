@@ -150,6 +150,11 @@ export type WindowOptionsMenuItemProps = Record<string, never>;
 
 export type AboutMenuItemProps = Record<string, never>;
 
+export interface BackLinkProps {
+  defaultTo: string;
+  defaultLabel: string;
+}
+
 /**
  * UI components that the notes package requires from the consumer
  */
@@ -168,6 +173,7 @@ export interface NotesUIComponents {
   DropdownMenuSeparator: ComponentType<DropdownMenuSeparatorProps>;
   WindowOptionsMenuItem: ComponentType<WindowOptionsMenuItemProps>;
   AboutMenuItem: ComponentType<AboutMenuItemProps>;
+  BackLink: ComponentType<BackLinkProps>;
 }
 
 /**
@@ -179,6 +185,21 @@ export type NotesTranslationKey = 'getInfo' | 'delete' | 'newNote';
  * Translation function type - accepts notes-specific keys
  */
 export type TranslationFunction = (key: NotesTranslationKey) => string;
+
+/**
+ * Navigation options for note navigation
+ */
+export interface NavigateToNoteOptions {
+  fromLabel?: string;
+}
+
+/**
+ * Navigation function type for navigating to a specific note
+ */
+export type NavigateToNote = (
+  noteId: string,
+  options?: NavigateToNoteOptions
+) => void;
 
 /**
  * Context value interface
@@ -202,6 +223,8 @@ export interface NotesContextValue {
   featureFlags?: FeatureFlagFunctions;
   /** VFS API functions (optional - for server registration) */
   vfsApi?: VfsApiFunctions;
+  /** Navigate to a specific note (for page component) */
+  navigateToNote?: NavigateToNote;
 }
 
 const NotesContext = createContext<NotesContextValue | null>(null);
@@ -221,6 +244,7 @@ export interface NotesProviderProps {
   featureFlags?: FeatureFlagFunctions;
   /** VFS API functions (optional - for server registration) */
   vfsApi?: VfsApiFunctions;
+  navigateToNote?: NavigateToNote;
 }
 
 /**
@@ -236,7 +260,8 @@ export function NotesProvider({
   vfsKeys,
   auth,
   featureFlags,
-  vfsApi
+  vfsApi,
+  navigateToNote
 }: NotesProviderProps) {
   const value: NotesContextValue = {
     databaseState,
@@ -247,7 +272,8 @@ export function NotesProvider({
     ...(vfsKeys && { vfsKeys }),
     ...(auth && { auth }),
     ...(featureFlags && { featureFlags }),
-    ...(vfsApi && { vfsApi })
+    ...(vfsApi && { vfsApi }),
+    ...(navigateToNote && { navigateToNote })
   };
 
   return (
