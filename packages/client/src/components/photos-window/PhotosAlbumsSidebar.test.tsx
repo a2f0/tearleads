@@ -266,7 +266,9 @@ describe('PhotosAlbumsSidebar', () => {
     await user.click(screen.getByTestId('album-context-menu-backdrop'));
 
     await waitFor(() => {
-      expect(screen.queryByTestId('album-context-menu')).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId('album-context-menu')
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -396,7 +398,9 @@ describe('PhotosAlbumsSidebar', () => {
     await user.click(screen.getByText('Close'));
 
     await waitFor(() => {
-      expect(screen.queryByTestId('rename-album-dialog')).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId('rename-album-dialog')
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -418,7 +422,9 @@ describe('PhotosAlbumsSidebar', () => {
     await user.click(screen.getByText('Cancel'));
 
     await waitFor(() => {
-      expect(screen.queryByTestId('delete-album-dialog')).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId('delete-album-dialog')
+      ).not.toBeInTheDocument();
     });
   });
 });
