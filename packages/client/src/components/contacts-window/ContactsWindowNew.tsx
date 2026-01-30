@@ -15,7 +15,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { getDatabase, getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
-import { contactEmails, contactPhones, contacts } from '@/db/schema';
+import {
+  contactEmails,
+  contactPhones,
+  contacts,
+  vfsRegistry
+} from '@/db/schema';
+import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
+import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
 
 interface ContactFormData {
   firstName: string;
@@ -200,6 +207,27 @@ export function ContactsWindowNew({
             isPrimary: phone.isPrimary
           });
         }
+
+        // VFS Registration
+        const auth = readStoredAuth();
+        let encryptedSessionKey: string | null = null;
+        if (isLoggedIn()) {
+          try {
+            const sessionKey = generateSessionKey();
+            encryptedSessionKey = await wrapSessionKey(sessionKey);
+          } catch (err) {
+            console.warn('Failed to wrap contact session key:', err);
+          }
+        }
+
+        // Register in local VFS
+        await db.insert(vfsRegistry).values({
+          id: contactId,
+          objectType: 'contact',
+          ownerId: auth.user?.id ?? null,
+          encryptedSessionKey,
+          createdAt: now
+        });
 
         await adapter.commitTransaction();
 

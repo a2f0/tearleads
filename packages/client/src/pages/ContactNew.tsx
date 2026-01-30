@@ -210,7 +210,6 @@ export function ContactNew() {
         }
 
         const auth = readStoredAuth();
-        const ownerId = auth.user?.id || 'unknown';
         let encryptedSessionKey: string | null = null;
         if (isLoggedIn()) {
           try {
@@ -225,7 +224,7 @@ export function ContactNew() {
         await db.insert(vfsRegistry).values({
           id: contactId,
           objectType: 'contact',
-          ownerId,
+          ownerId: auth.user?.id ?? null,
           encryptedSessionKey,
           createdAt: now
         });

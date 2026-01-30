@@ -37,7 +37,7 @@ interface VfsExplorerProps {
 export function VfsExplorer({
   className,
   compact,
-  viewMode = 'list',
+  viewMode = 'table',
   refreshToken,
   selectedFolderId: controlledSelectedFolderId,
   onFolderSelect,

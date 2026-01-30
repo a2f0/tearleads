@@ -45,7 +45,6 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
 
         // Get current user ID
         const authData = auth.readStoredAuth();
-        const ownerId = authData.user?.id || 'unknown';
 
         let encryptedSessionKey: string | null = null;
         if (auth.isLoggedIn()) {
@@ -63,7 +62,7 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
           await tx.insert(vfsRegistry).values({
             id,
             objectType: 'folder',
-            ownerId,
+            ownerId: authData.user?.id ?? null,
             encryptedSessionKey,
             createdAt: now
           });

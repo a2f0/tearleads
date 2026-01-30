@@ -24,6 +24,16 @@ vi.mock('@/lib/utils', () => ({
   cn: (...args: unknown[]) => args.filter(Boolean).join(' ')
 }));
 
+vi.mock('@/lib/auth-storage', () => ({
+  isLoggedIn: () => true,
+  readStoredAuth: () => ({ user: { id: 'test-user-id' } })
+}));
+
+vi.mock('@/hooks/useVfsKeys', () => ({
+  generateSessionKey: () => new Uint8Array(32),
+  wrapSessionKey: vi.fn().mockResolvedValue('wrapped-key')
+}));
+
 const mockDb = {
   insert: vi.fn().mockReturnThis(),
   values: vi.fn().mockResolvedValue(undefined)

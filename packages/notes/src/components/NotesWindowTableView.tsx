@@ -1,4 +1,4 @@
-import { notes } from '@rapid/db/sqlite';
+import { notes, vfsRegistry } from '@rapid/db/sqlite';
 import { asc, desc, eq } from 'drizzle-orm';
 import {
   ChevronDown,
@@ -70,7 +70,8 @@ export function NotesWindowTableView({
   showDeleted
 }: NotesWindowTableViewProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseState();
-  const { getDatabase, t } = useNotesContext();
+  const { getDatabase, t, vfsKeys, auth, featureFlags, vfsApi } =
+    useNotesContext();
   const { Button, ContextMenu, ContextMenuItem, RefreshButton, InlineUnlock } =
     useNotesUI();
   const [notesList, setNotesList] = useState<NoteInfo[]>([]);
@@ -248,12 +249,53 @@ export function NotesWindowTableView({
         deleted: false
       });
 
+      // Register in VFS if dependencies are available
+      if (vfsKeys && auth) {
+        const authData = auth.readStoredAuth();
+        let encryptedSessionKey: string | null = null;
+
+        if (auth.isLoggedIn()) {
+          try {
+            const sessionKey = vfsKeys.generateSessionKey();
+            encryptedSessionKey = await vfsKeys.wrapSessionKey(sessionKey);
+          } catch (err) {
+            console.warn('Failed to wrap note session key:', err);
+          }
+        }
+
+        await db.insert(vfsRegistry).values({
+          id,
+          objectType: 'note',
+          ownerId: authData.user?.id ?? null,
+          encryptedSessionKey,
+          createdAt: now
+        });
+
+        // Register on server if logged in and feature flag enabled
+        if (
+          auth.isLoggedIn() &&
+          featureFlags?.getFeatureFlagValue('vfsServerRegistration') &&
+          encryptedSessionKey &&
+          vfsApi
+        ) {
+          try {
+            await vfsApi.register({
+              id,
+              objectType: 'note',
+              encryptedSessionKey
+            });
+          } catch (err) {
+            console.warn('Failed to register note on server:', err);
+          }
+        }
+      }
+
       onSelectNote(id);
     } catch (err) {
       console.error('Failed to create note:', err);
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [onSelectNote, getDatabase]);
+  }, [onSelectNote, getDatabase, vfsKeys, auth, featureFlags, vfsApi]);
 
   const handleCreateNoteFromMenu = useCallback(() => {
     setBlankSpaceMenu(null);

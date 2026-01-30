@@ -24,6 +24,45 @@ export interface DatabaseState {
 }
 
 /**
+ * VFS key management functions for registering notes in VFS
+ */
+export interface VfsKeyFunctions {
+  generateSessionKey: () => Uint8Array;
+  wrapSessionKey: (key: Uint8Array) => Promise<string>;
+}
+
+/**
+ * Auth functions for VFS registration
+ */
+export interface AuthFunctions {
+  isLoggedIn: () => boolean;
+  readStoredAuth: () => { user: { id: string } | null };
+}
+
+/**
+ * Feature flag functions
+ */
+export interface FeatureFlagFunctions {
+  getFeatureFlagValue: (key: string) => boolean;
+}
+
+/**
+ * VFS object type (matches @rapid/shared VfsObjectType)
+ */
+export type VfsObjectType = 'file' | 'folder' | 'contact' | 'note' | 'photo';
+
+/**
+ * VFS API functions for server registration
+ */
+export interface VfsApiFunctions {
+  register: (params: {
+    id: string;
+    objectType: VfsObjectType;
+    encryptedSessionKey: string;
+  }) => Promise<void>;
+}
+
+/**
  * UI component props interfaces
  */
 export interface ButtonProps {
@@ -155,6 +194,14 @@ export interface NotesContextValue {
   t: TranslationFunction;
   /** Z-index for tooltips */
   tooltipZIndex: number;
+  /** VFS key management functions (optional - for VFS registration) */
+  vfsKeys?: VfsKeyFunctions;
+  /** Auth functions (optional - for VFS registration) */
+  auth?: AuthFunctions;
+  /** Feature flag functions (optional - for VFS registration) */
+  featureFlags?: FeatureFlagFunctions;
+  /** VFS API functions (optional - for server registration) */
+  vfsApi?: VfsApiFunctions;
 }
 
 const NotesContext = createContext<NotesContextValue | null>(null);
@@ -166,6 +213,14 @@ export interface NotesProviderProps {
   ui: NotesUIComponents;
   t: TranslationFunction;
   tooltipZIndex?: number;
+  /** VFS key management functions (optional - for VFS registration) */
+  vfsKeys?: VfsKeyFunctions;
+  /** Auth functions (optional - for VFS registration) */
+  auth?: AuthFunctions;
+  /** Feature flag functions (optional - for VFS registration) */
+  featureFlags?: FeatureFlagFunctions;
+  /** VFS API functions (optional - for server registration) */
+  vfsApi?: VfsApiFunctions;
 }
 
 /**
@@ -177,20 +232,26 @@ export function NotesProvider({
   getDatabase,
   ui,
   t,
-  tooltipZIndex = 10050
+  tooltipZIndex = 10050,
+  vfsKeys,
+  auth,
+  featureFlags,
+  vfsApi
 }: NotesProviderProps) {
+  const value: NotesContextValue = {
+    databaseState,
+    getDatabase,
+    ui,
+    t,
+    tooltipZIndex,
+    ...(vfsKeys && { vfsKeys }),
+    ...(auth && { auth }),
+    ...(featureFlags && { featureFlags }),
+    ...(vfsApi && { vfsApi })
+  };
+
   return (
-    <NotesContext.Provider
-      value={{
-        databaseState,
-        getDatabase,
-        ui,
-        t,
-        tooltipZIndex
-      }}
-    >
-      {children}
-    </NotesContext.Provider>
+    <NotesContext.Provider value={value}>{children}</NotesContext.Provider>
   );
 }
 
