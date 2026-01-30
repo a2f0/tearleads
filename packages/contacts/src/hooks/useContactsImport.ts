@@ -1,4 +1,5 @@
 import { contactEmails, contactPhones, contacts } from '@rapid/db/sqlite';
+import Papa from 'papaparse';
 import { useCallback, useState } from 'react';
 import { useContactsContext } from '../context';
 
@@ -33,97 +34,32 @@ export interface ImportResult {
 }
 
 /**
- * Parse a CSV line, handling quoted fields with commas
- */
-function parseCSVLine(line: string): string[] {
-  const result: string[] = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        // Escaped quote
-        current += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === ',' && !inQuotes) {
-      result.push(current.trim());
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-
-  result.push(current.trim());
-  return result;
-}
-
-/**
- * Parse CSV file into memory (headers + rows)
- * Handles multiline quoted fields (e.g., addresses spanning multiple lines)
+ * Parse CSV text using papaparse library.
+ * Handles quoted fields, multiline values, and various CSV edge cases.
  */
 export function parseCSV(text: string): ParsedCSV {
-  // First, split into logical lines handling multiline quoted fields
-  const logicalLines: string[] = [];
-  let currentLine = '';
-  let inQuotes = false;
+  const result = Papa.parse<string[]>(text, {
+    header: false,
+    skipEmptyLines: true,
+    transformHeader: (header) => header.trim()
+  });
 
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-
-    if (char === '"') {
-      // Check for escaped quote
-      if (inQuotes && text[i + 1] === '"') {
-        currentLine += '""';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-        currentLine += char;
-      }
-    } else if ((char === '\n' || char === '\r') && !inQuotes) {
-      // End of logical line (not inside quotes)
-      if (currentLine.trim()) {
-        logicalLines.push(currentLine);
-      }
-      currentLine = '';
-      // Skip \r\n as single newline
-      if (char === '\r' && text[i + 1] === '\n') {
-        i++;
-      }
-    } else {
-      currentLine += char;
-    }
+  if (result.errors.length > 0) {
+    const errorMessages = result.errors
+      .map((e) => `Row ${e.row}: ${e.message}`)
+      .join('; ');
+    throw new Error(`CSV parsing error: ${errorMessages}`);
   }
 
-  // Check for malformed CSV with unclosed quote
-  if (inQuotes) {
-    throw new Error('Malformed CSV: unclosed quote at end of file.');
-  }
-
-  // Don't forget the last line
-  if (currentLine.trim()) {
-    logicalLines.push(currentLine);
-  }
-
-  const headerLine = logicalLines[0];
-  if (!headerLine) {
+  const data = result.data;
+  if (data.length === 0) {
     return { headers: [], rows: [] };
   }
 
-  const headers = parseCSVLine(headerLine);
-  const rows: string[][] = [];
-
-  for (let i = 1; i < logicalLines.length; i++) {
-    const line = logicalLines[i];
-    if (line) {
-      rows.push(parseCSVLine(line));
-    }
-  }
+  const headers = (data[0] ?? []).map((h) => (h ?? '').trim());
+  const rows = data
+    .slice(1)
+    .map((row) => row.map((cell) => (cell ?? '').trim()));
 
   return { headers, rows };
 }

@@ -1,4 +1,9 @@
 export {
+  type SaveContactParams,
+  type SaveContactResult,
+  useContactSave
+} from './useContactSave';
+export {
   type ContactInfo,
   type SortColumn,
   type SortDirection,

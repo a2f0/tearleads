@@ -17,26 +17,10 @@ interface ContactsWindowProps {
  * This provides all the dependencies (database, UI components, translations)
  * required by the @rapid/contacts package.
  */
-export function ContactsWindow({
-  id,
-  onClose,
-  onMinimize,
-  onDimensionsChange,
-  onFocus,
-  zIndex,
-  initialDimensions
-}: ContactsWindowProps) {
+export function ContactsWindow(props: ContactsWindowProps) {
   return (
     <ClientContactsProvider>
-      <ContactsWindowBase
-        id={id}
-        onClose={onClose}
-        onMinimize={onMinimize}
-        onDimensionsChange={onDimensionsChange}
-        onFocus={onFocus}
-        zIndex={zIndex}
-        initialDimensions={initialDimensions}
-      />
+      <ContactsWindowBase {...props} />
     </ClientContactsProvider>
   );
 }

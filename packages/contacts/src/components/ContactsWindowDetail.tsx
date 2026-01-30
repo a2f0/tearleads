@@ -1,5 +1,5 @@
 import { contactEmails, contactPhones, contacts } from '@rapid/db/sqlite';
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import {
   ArrowLeft,
   Cake,
@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useContactsContext, useContactsUI } from '../context';
+import { useContactSave } from '../hooks';
+import { validateContactForm } from '../lib';
 
 interface ContactInfo {
   id: string;
@@ -77,10 +79,10 @@ export function ContactsWindowDetail({
   onBack,
   onDeleted
 }: ContactsWindowDetailProps) {
-  const { databaseState, getDatabase, getDatabaseAdapter, formatDate } =
-    useContactsContext();
+  const { databaseState, getDatabase, formatDate } = useContactsContext();
   const { isUnlocked, isLoading } = databaseState;
   const { Button, Input, InlineUnlock } = useContactsUI();
+  const { updateContact, saving } = useContactSave();
 
   const [contact, setContact] = useState<ContactInfo | null>(null);
   const [emails, setEmails] = useState<ContactEmail[]>([]);
@@ -93,7 +95,6 @@ export function ContactsWindowDetail({
   const [formData, setFormData] = useState<ContactFormData | null>(null);
   const [emailsForm, setEmailsForm] = useState<EmailFormData[]>([]);
   const [phonesForm, setPhonesForm] = useState<PhoneFormData[]>([]);
-  const [saving, setSaving] = useState(false);
 
   const fetchContact = useCallback(async () => {
     if (!isUnlocked || !contactId) return;
@@ -301,159 +302,28 @@ export function ContactsWindowDetail({
   const handleSave = useCallback(async () => {
     if (!contact || !formData || !contactId) return;
 
-    if (!formData.firstName.trim()) {
-      setError('First name is required');
+    const validation = validateContactForm(formData, emailsForm, phonesForm);
+    if (!validation.isValid) {
+      setError(validation.errors.join('\n'));
       return;
     }
 
-    const activeEmails = emailsForm.filter((e) => !e.isDeleted);
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    for (const email of activeEmails) {
-      if (!email.email.trim()) {
-        setError('Email address cannot be empty');
-        return;
-      }
-      if (!emailRegex.test(email.email.trim())) {
-        setError('Please enter a valid email address');
-        return;
-      }
-    }
-
-    const activePhones = phonesForm.filter((p) => !p.isDeleted);
-    for (const phone of activePhones) {
-      if (!phone.phoneNumber.trim()) {
-        setError('Phone number cannot be empty');
-        return;
-      }
-    }
-
-    setSaving(true);
     setError(null);
+    const result = await updateContact({
+      contactId,
+      formData,
+      emails: emailsForm,
+      phones: phonesForm
+    });
 
-    try {
-      const adapter = getDatabaseAdapter();
-      await adapter.beginTransaction();
-
-      try {
-        const db = getDatabase();
-        const now = new Date();
-
-        await db
-          .update(contacts)
-          .set({
-            firstName: formData.firstName.trim(),
-            lastName: formData.lastName.trim() || null,
-            birthday: formData.birthday.trim() || null,
-            updatedAt: now
-          })
-          .where(eq(contacts.id, contactId));
-
-        const emailsToDelete = emailsForm.filter(
-          (e) => e.isDeleted && !e.isNew
-        );
-        const emailsToInsert = emailsForm.filter(
-          (e) => e.isNew && !e.isDeleted
-        );
-        const emailsToUpdate = emailsForm.filter(
-          (e) => !e.isNew && !e.isDeleted
-        );
-
-        // Batch delete emails
-        if (emailsToDelete.length > 0) {
-          await db.delete(contactEmails).where(
-            inArray(
-              contactEmails.id,
-              emailsToDelete.map((e) => e.id)
-            )
-          );
-        }
-
-        // Batch insert emails
-        if (emailsToInsert.length > 0) {
-          await db.insert(contactEmails).values(
-            emailsToInsert.map((email) => ({
-              id: email.id,
-              contactId,
-              email: email.email.trim(),
-              label: email.label.trim() || null,
-              isPrimary: email.isPrimary
-            }))
-          );
-        }
-
-        // Updates still need to be individual (different values per row)
-        for (const email of emailsToUpdate) {
-          await db
-            .update(contactEmails)
-            .set({
-              email: email.email.trim(),
-              label: email.label.trim() || null,
-              isPrimary: email.isPrimary
-            })
-            .where(eq(contactEmails.id, email.id));
-        }
-
-        const phonesToDelete = phonesForm.filter(
-          (p) => p.isDeleted && !p.isNew
-        );
-        const phonesToInsert = phonesForm.filter(
-          (p) => p.isNew && !p.isDeleted
-        );
-        const phonesToUpdate = phonesForm.filter(
-          (p) => !p.isNew && !p.isDeleted
-        );
-
-        // Batch delete phones
-        if (phonesToDelete.length > 0) {
-          await db.delete(contactPhones).where(
-            inArray(
-              contactPhones.id,
-              phonesToDelete.map((p) => p.id)
-            )
-          );
-        }
-
-        // Batch insert phones
-        if (phonesToInsert.length > 0) {
-          await db.insert(contactPhones).values(
-            phonesToInsert.map((phone) => ({
-              id: phone.id,
-              contactId,
-              phoneNumber: phone.phoneNumber.trim(),
-              label: phone.label.trim() || null,
-              isPrimary: phone.isPrimary
-            }))
-          );
-        }
-
-        // Updates still need to be individual (different values per row)
-        for (const phone of phonesToUpdate) {
-          await db
-            .update(contactPhones)
-            .set({
-              phoneNumber: phone.phoneNumber.trim(),
-              label: phone.label.trim() || null,
-              isPrimary: phone.isPrimary
-            })
-            .where(eq(contactPhones.id, phone.id));
-        }
-
-        await adapter.commitTransaction();
-
-        await fetchContact();
-        setIsEditing(false);
-        setFormData(null);
-        setEmailsForm([]);
-        setPhonesForm([]);
-      } catch (err) {
-        await adapter.rollbackTransaction();
-        throw err;
-      }
-    } catch (err) {
-      console.error('Failed to save contact:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
+    if (result.success) {
+      await fetchContact();
+      setIsEditing(false);
+      setFormData(null);
+      setEmailsForm([]);
+      setPhonesForm([]);
+    } else if (result.error) {
+      setError(result.error);
     }
   }, [
     contact,
@@ -462,8 +332,7 @@ export function ContactsWindowDetail({
     emailsForm,
     phonesForm,
     fetchContact,
-    getDatabase,
-    getDatabaseAdapter
+    updateContact
   ]);
 
   const handleDelete = useCallback(async () => {
@@ -562,7 +431,7 @@ export function ContactsWindowDetail({
       )}
 
       {error && (
-        <div className="mt-3 rounded-lg border border-destructive bg-destructive/10 p-2 text-destructive text-xs">
+        <div className="mt-3 whitespace-pre-line rounded-lg border border-destructive bg-destructive/10 p-2 text-destructive text-xs">
           {error}
         </div>
       )}

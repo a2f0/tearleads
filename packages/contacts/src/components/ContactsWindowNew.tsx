@@ -1,4 +1,3 @@
-import { contactEmails, contactPhones, contacts } from '@rapid/db/sqlite';
 import {
   ArrowLeft,
   Cake,
@@ -12,6 +11,8 @@ import {
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useContactsContext, useContactsUI } from '../context';
+import { useContactSave } from '../hooks';
+import { validateContactForm } from '../lib';
 
 interface ContactFormData {
   firstName: string;
@@ -42,12 +43,11 @@ export function ContactsWindowNew({
   onBack,
   onCreated
 }: ContactsWindowNewProps) {
-  const { databaseState, getDatabase, getDatabaseAdapter } =
-    useContactsContext();
+  const { databaseState } = useContactsContext();
   const { isUnlocked, isLoading } = databaseState;
   const { Button, Input, InlineUnlock } = useContactsUI();
+  const { createContact, saving } = useContactSave();
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState<ContactFormData>({
     firstName: '',
@@ -163,100 +163,25 @@ export function ContactsWindowNew({
   }, []);
 
   const handleSave = useCallback(async () => {
-    if (!formData.firstName.trim()) {
-      setError('First name is required');
+    const validation = validateContactForm(formData, emailsForm, phonesForm);
+    if (!validation.isValid) {
+      setError(validation.errors.join('\n'));
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    for (const email of emailsForm) {
-      if (!email.email.trim()) {
-        setError('Email address cannot be empty');
-        return;
-      }
-      if (!emailRegex.test(email.email)) {
-        setError('Please enter a valid email address');
-        return;
-      }
-    }
-
-    for (const phone of phonesForm) {
-      if (!phone.phoneNumber.trim()) {
-        setError('Phone number cannot be empty');
-        return;
-      }
-    }
-
-    setSaving(true);
     setError(null);
+    const result = await createContact({
+      formData,
+      emails: emailsForm,
+      phones: phonesForm
+    });
 
-    const contactId = crypto.randomUUID();
-
-    try {
-      const adapter = getDatabaseAdapter();
-      await adapter.beginTransaction();
-
-      try {
-        const db = getDatabase();
-        const now = new Date();
-
-        await db.insert(contacts).values({
-          id: contactId,
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim() || null,
-          birthday: formData.birthday.trim() || null,
-          createdAt: now,
-          updatedAt: now,
-          deleted: false
-        });
-
-        // Batch insert emails
-        if (emailsForm.length > 0) {
-          await db.insert(contactEmails).values(
-            emailsForm.map((email) => ({
-              id: email.id,
-              contactId,
-              email: email.email.trim(),
-              label: email.label.trim() || null,
-              isPrimary: email.isPrimary
-            }))
-          );
-        }
-
-        // Batch insert phones
-        if (phonesForm.length > 0) {
-          await db.insert(contactPhones).values(
-            phonesForm.map((phone) => ({
-              id: phone.id,
-              contactId,
-              phoneNumber: phone.phoneNumber.trim(),
-              label: phone.label.trim() || null,
-              isPrimary: phone.isPrimary
-            }))
-          );
-        }
-
-        await adapter.commitTransaction();
-
-        onCreated(contactId);
-      } catch (err) {
-        await adapter.rollbackTransaction();
-        throw err;
-      }
-    } catch (err) {
-      console.error('Failed to create contact:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setSaving(false);
+    if (result.success && result.contactId) {
+      onCreated(result.contactId);
+    } else if (result.error) {
+      setError(result.error);
     }
-  }, [
-    formData,
-    emailsForm,
-    phonesForm,
-    onCreated,
-    getDatabase,
-    getDatabaseAdapter
-  ]);
+  }, [formData, emailsForm, phonesForm, onCreated, createContact]);
 
   return (
     <div className="flex h-full flex-col overflow-auto p-3">
@@ -299,7 +224,7 @@ export function ContactsWindowNew({
       )}
 
       {error && (
-        <div className="mt-3 rounded-lg border border-destructive bg-destructive/10 p-2 text-destructive text-xs">
+        <div className="mt-3 whitespace-pre-line rounded-lg border border-destructive bg-destructive/10 p-2 text-destructive text-xs">
           {error}
         </div>
       )}
