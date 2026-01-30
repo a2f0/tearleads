@@ -20,13 +20,15 @@ interface PhotosWindowContentProps {
   refreshToken: number;
   showDropzone?: boolean;
   onUploadFiles?: (files: File[]) => void | Promise<void>;
+  selectedAlbumId?: string | null;
 }
 
 export function PhotosWindowContent({
   onSelectPhoto,
   refreshToken,
   showDropzone = false,
-  onUploadFiles
+  onUploadFiles,
+  selectedAlbumId
 }: PhotosWindowContentProps) {
   const { t } = useTypedTranslation('contextMenu');
   const {
@@ -39,7 +41,7 @@ export function PhotosWindowContent({
     deletePhoto,
     downloadPhoto,
     sharePhoto
-  } = usePhotosWindowData({ refreshToken });
+  } = usePhotosWindowData({ refreshToken, selectedAlbumId });
   const [contextMenu, setContextMenu] = useState<{
     photo: PhotoWithUrl;
     x: number;

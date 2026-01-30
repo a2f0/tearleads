@@ -1,7 +1,13 @@
 import {
+  albums,
+  contactGroups,
   contacts,
+  emailFolders,
+  emails,
   files,
   notes,
+  playlists,
+  tags,
   vfsFolders,
   vfsLinks,
   vfsRegistry
@@ -10,7 +16,22 @@ import { eq, inArray } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 
-export type VfsObjectType = 'folder' | 'contact' | 'note' | 'file' | 'photo';
+export type VfsObjectType =
+  // Entities
+  | 'file'
+  | 'photo'
+  | 'audio'
+  | 'video'
+  | 'contact'
+  | 'note'
+  | 'email'
+  // Collections
+  | 'folder'
+  | 'playlist'
+  | 'album'
+  | 'contactGroup'
+  | 'emailFolder'
+  | 'tag';
 
 export interface VfsItem {
   id: string;
@@ -157,8 +178,10 @@ export function useVfsFolderContents(
         );
       }
 
-      // Files and Photos (both use files table)
-      const fileTypes = ['file', 'photo'].filter((t) => byType[t]?.length);
+      // Files, Photos, Audio, Video (all use files table)
+      const fileTypes = ['file', 'photo', 'audio', 'video'].filter(
+        (t) => byType[t]?.length
+      );
       if (fileTypes.length > 0) {
         const fileIds = fileTypes.flatMap((t) => byType[t] || []);
         nameLookups.push(
@@ -172,6 +195,114 @@ export function useVfsFolderContents(
             .then((fileRows) => {
               for (const row of fileRows) {
                 nameMap.set(row.id, row.name);
+              }
+            })
+        );
+      }
+
+      // Playlists
+      if (byType['playlist']?.length) {
+        nameLookups.push(
+          db
+            .select({
+              id: playlists.id,
+              name: playlists.encryptedName
+            })
+            .from(playlists)
+            .where(inArray(playlists.id, byType['playlist']))
+            .then((playlistRows) => {
+              for (const row of playlistRows) {
+                nameMap.set(row.id, row.name || 'Unnamed Playlist');
+              }
+            })
+        );
+      }
+
+      // Albums
+      if (byType['album']?.length) {
+        nameLookups.push(
+          db
+            .select({
+              id: albums.id,
+              name: albums.encryptedName
+            })
+            .from(albums)
+            .where(inArray(albums.id, byType['album']))
+            .then((albumRows) => {
+              for (const row of albumRows) {
+                nameMap.set(row.id, row.name || 'Unnamed Album');
+              }
+            })
+        );
+      }
+
+      // Contact Groups
+      if (byType['contactGroup']?.length) {
+        nameLookups.push(
+          db
+            .select({
+              id: contactGroups.id,
+              name: contactGroups.encryptedName
+            })
+            .from(contactGroups)
+            .where(inArray(contactGroups.id, byType['contactGroup']))
+            .then((groupRows) => {
+              for (const row of groupRows) {
+                nameMap.set(row.id, row.name || 'Unnamed Group');
+              }
+            })
+        );
+      }
+
+      // Email Folders
+      if (byType['emailFolder']?.length) {
+        nameLookups.push(
+          db
+            .select({
+              id: emailFolders.id,
+              name: emailFolders.encryptedName
+            })
+            .from(emailFolders)
+            .where(inArray(emailFolders.id, byType['emailFolder']))
+            .then((folderRows) => {
+              for (const row of folderRows) {
+                nameMap.set(row.id, row.name || 'Unnamed Folder');
+              }
+            })
+        );
+      }
+
+      // Tags
+      if (byType['tag']?.length) {
+        nameLookups.push(
+          db
+            .select({
+              id: tags.id,
+              name: tags.encryptedName
+            })
+            .from(tags)
+            .where(inArray(tags.id, byType['tag']))
+            .then((tagRows) => {
+              for (const row of tagRows) {
+                nameMap.set(row.id, row.name || 'Unnamed Tag');
+              }
+            })
+        );
+      }
+
+      // Emails
+      if (byType['email']?.length) {
+        nameLookups.push(
+          db
+            .select({
+              id: emails.id,
+              subject: emails.encryptedSubject
+            })
+            .from(emails)
+            .where(inArray(emails.id, byType['email']))
+            .then((emailRows) => {
+              for (const row of emailRows) {
+                nameMap.set(row.id, row.subject || '(No Subject)');
               }
             })
         );

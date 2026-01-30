@@ -1,6 +1,6 @@
 import { assertPlainArrayBuffer } from '@rapid/shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { and, desc, eq, like } from 'drizzle-orm';
+import { and, desc, eq, inArray, like } from 'drizzle-orm';
 import {
   Download,
   ImageIcon,
@@ -10,6 +10,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ALL_PHOTOS_ID } from '@/components/photos-window/PhotosAlbumsSidebar';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
@@ -19,7 +20,7 @@ import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
-import { files } from '@/db/schema';
+import { files, vfsLinks } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useTypedTranslation } from '@/i18n';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
@@ -89,13 +90,15 @@ interface PhotosProps {
   refreshToken?: number | undefined;
   showBackLink?: boolean | undefined;
   showDropzone?: boolean | undefined;
+  selectedAlbumId?: string | null | undefined;
 }
 
 export function Photos({
   onSelectPhoto,
   refreshToken,
   showBackLink = true,
-  showDropzone = true
+  showDropzone = true,
+  selectedAlbumId
 }: PhotosProps = {}) {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
@@ -276,6 +279,33 @@ export function Photos({
     try {
       const db = getDatabase();
 
+      // If a specific album is selected, get the photo IDs in that album
+      let photoIdsInAlbum: string[] | null = null;
+      if (selectedAlbumId && selectedAlbumId !== ALL_PHOTOS_ID) {
+        const albumLinks = await db
+          .select({ childId: vfsLinks.childId })
+          .from(vfsLinks)
+          .where(eq(vfsLinks.parentId, selectedAlbumId));
+        photoIdsInAlbum = albumLinks.map((l) => l.childId);
+
+        // If album is empty, return early
+        if (photoIdsInAlbum.length === 0) {
+          setPhotos([]);
+          setHasFetched(true);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Build the where clause
+      const baseConditions = and(
+        like(files.mimeType, 'image/%'),
+        eq(files.deleted, false)
+      );
+      const whereClause = photoIdsInAlbum
+        ? and(baseConditions, inArray(files.id, photoIdsInAlbum))
+        : baseConditions;
+
       const result = await db
         .select({
           id: files.id,
@@ -287,7 +317,7 @@ export function Photos({
           thumbnailPath: files.thumbnailPath
         })
         .from(files)
-        .where(and(like(files.mimeType, 'image/%'), eq(files.deleted, false)))
+        .where(whereClause)
         .orderBy(desc(files.uploadDate));
 
       const photoList: PhotoInfo[] = result.map((row) => ({
@@ -341,7 +371,7 @@ export function Photos({
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, currentInstanceId]);
+  }, [isUnlocked, currentInstanceId, selectedAlbumId]);
 
   // Track the instance ID for which we've fetched photos
   // Using a ref avoids React's state batching issues

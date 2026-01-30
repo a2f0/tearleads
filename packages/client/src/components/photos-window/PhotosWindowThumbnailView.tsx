@@ -5,12 +5,14 @@ interface PhotosWindowThumbnailViewProps {
   refreshToken: number;
   onSelectPhoto?: (photoId: string) => void;
   showDropzone?: boolean;
+  selectedAlbumId?: string | null;
 }
 
 export function PhotosWindowThumbnailView({
   refreshToken,
   onSelectPhoto,
-  showDropzone
+  showDropzone,
+  selectedAlbumId
 }: PhotosWindowThumbnailViewProps) {
   return (
     <MemoryRouter>
@@ -20,6 +22,7 @@ export function PhotosWindowThumbnailView({
           refreshToken={refreshToken}
           showBackLink={false}
           showDropzone={showDropzone}
+          selectedAlbumId={selectedAlbumId}
         />
       </div>
     </MemoryRouter>

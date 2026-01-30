@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { ALL_PHOTOS_ID, PhotosAlbumsSidebar } from './PhotosAlbumsSidebar';
 import { PhotosWindowContent } from './PhotosWindowContent';
 import { PhotosWindowDetail } from './PhotosWindowDetail';
 import type { ViewMode } from './PhotosWindowMenuBar';
@@ -33,6 +34,10 @@ export function PhotosWindow({
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [refreshToken, setRefreshToken] = useState(0);
   const [showDropzone, setShowDropzone] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(200);
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(
+    ALL_PHOTOS_ID
+  );
   const { uploadFile } = useFileUpload();
 
   const handleUpload = useCallback(() => {
@@ -108,42 +113,55 @@ export function PhotosWindow({
           showDropzone={showDropzone}
           onShowDropzoneChange={setShowDropzone}
         />
-        <div className="flex-1 overflow-hidden">
-          {selectedPhotoId ? (
-            <PhotosWindowDetail
-              photoId={selectedPhotoId}
-              onBack={handleBack}
-              onDeleted={handleDeleted}
-            />
-          ) : (
-            <>
-              {(viewMode === 'list' || viewMode === 'table') && (
-                <div className="h-full overflow-auto p-2">
-                  {viewMode === 'list' && (
-                    <PhotosWindowContent
-                      onSelectPhoto={handleSelectPhoto}
-                      refreshToken={refreshToken}
-                      showDropzone={showDropzone}
-                      onUploadFiles={handleUploadFiles}
-                    />
-                  )}
-                  {viewMode === 'table' && (
-                    <PhotosWindowTableView
-                      onSelectPhoto={handleSelectPhoto}
-                      refreshToken={refreshToken}
-                    />
-                  )}
-                </div>
-              )}
-              {viewMode === 'thumbnail' && (
-                <PhotosWindowThumbnailView
-                  onSelectPhoto={handleSelectPhoto}
-                  refreshToken={refreshToken}
-                  showDropzone={showDropzone}
-                />
-              )}
-            </>
-          )}
+        <div className="flex flex-1 overflow-hidden">
+          <PhotosAlbumsSidebar
+            width={sidebarWidth}
+            onWidthChange={setSidebarWidth}
+            selectedAlbumId={selectedAlbumId}
+            onAlbumSelect={setSelectedAlbumId}
+            refreshToken={refreshToken}
+            onAlbumChanged={handleRefresh}
+          />
+          <div className="flex-1 overflow-hidden">
+            {selectedPhotoId ? (
+              <PhotosWindowDetail
+                photoId={selectedPhotoId}
+                onBack={handleBack}
+                onDeleted={handleDeleted}
+              />
+            ) : (
+              <>
+                {(viewMode === 'list' || viewMode === 'table') && (
+                  <div className="h-full overflow-auto p-2">
+                    {viewMode === 'list' && (
+                      <PhotosWindowContent
+                        onSelectPhoto={handleSelectPhoto}
+                        refreshToken={refreshToken}
+                        showDropzone={showDropzone}
+                        onUploadFiles={handleUploadFiles}
+                        selectedAlbumId={selectedAlbumId}
+                      />
+                    )}
+                    {viewMode === 'table' && (
+                      <PhotosWindowTableView
+                        onSelectPhoto={handleSelectPhoto}
+                        refreshToken={refreshToken}
+                        selectedAlbumId={selectedAlbumId}
+                      />
+                    )}
+                  </div>
+                )}
+                {viewMode === 'thumbnail' && (
+                  <PhotosWindowThumbnailView
+                    onSelectPhoto={handleSelectPhoto}
+                    refreshToken={refreshToken}
+                    showDropzone={showDropzone}
+                    selectedAlbumId={selectedAlbumId}
+                  />
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
       <input

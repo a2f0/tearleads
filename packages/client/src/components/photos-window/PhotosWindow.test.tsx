@@ -154,6 +154,13 @@ vi.mock('./PhotosWindowThumbnailView', () => ({
   )
 }));
 
+vi.mock('./PhotosAlbumsSidebar', () => ({
+  ALL_PHOTOS_ID: '__all__',
+  PhotosAlbumsSidebar: () => (
+    <div data-testid="photos-albums-sidebar">Albums Sidebar</div>
+  )
+}));
+
 vi.mock('@/hooks/useFileUpload', () => ({
   useFileUpload: () => ({
     uploadFile: mockUploadFile

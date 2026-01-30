@@ -281,7 +281,22 @@ export interface VfsKeySetupRequest {
   argon2Salt: string;
 }
 
-export type VfsObjectType = 'file' | 'folder' | 'contact' | 'note' | 'photo';
+export type VfsObjectType =
+  // Entities
+  | 'file'
+  | 'photo'
+  | 'audio'
+  | 'video'
+  | 'contact'
+  | 'note'
+  | 'email'
+  // Collections
+  | 'folder'
+  | 'playlist'
+  | 'album'
+  | 'contactGroup'
+  | 'emailFolder'
+  | 'tag';
 
 export interface VfsRegisterRequest {
   id: string;
