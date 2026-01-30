@@ -395,8 +395,8 @@ if (rootElement) {
                                     </Route>
                                   </Routes>
                                 </Suspense>
+                                <WindowRenderer />
                               </BrowserRouter>
-                              <WindowRenderer />
                             </WindowManagerProvider>
                           </SSEProvider>
                         </AuthProvider>

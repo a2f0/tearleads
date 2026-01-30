@@ -53,7 +53,7 @@ function analyzeTree(node: React.ReactNode) {
 }
 
 describe('main', () => {
-  it('keeps WindowRenderer outside BrowserRouter', async () => {
+  it('keeps WindowRenderer inside BrowserRouter for router hook access', async () => {
     document.body.innerHTML = '<div id="root"></div>';
     renderSpy.mockClear();
 
@@ -65,6 +65,8 @@ describe('main', () => {
 
     expect(result.hasBrowserRouter).toBe(true);
     expect(result.hasWindowRenderer).toBe(true);
-    expect(result.hasWindowRendererInRouter).toBe(false);
+    // WindowRenderer must be inside BrowserRouter so window components
+    // can use router hooks like useNavigate (e.g., ClientNotesProvider)
+    expect(result.hasWindowRendererInRouter).toBe(true);
   });
 });
