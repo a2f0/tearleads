@@ -12,6 +12,13 @@ vi.mock('../hooks', () => ({
     hasFetched: true,
     refetch: vi.fn()
   })),
+  useVfsAllItems: vi.fn(() => ({
+    items: [],
+    loading: false,
+    error: null,
+    hasFetched: true,
+    refetch: vi.fn()
+  })),
   useMoveVfsItem: vi.fn(() => ({
     moveItem: vi.fn(),
     isMoving: false,

@@ -4,6 +4,7 @@ import {
   FileBox,
   Folder,
   FolderOpen,
+  Layers,
   Loader2
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -17,6 +18,8 @@ import { VfsDroppableFolder } from './VfsDroppableFolder';
 
 // Special ID for the unfiled items virtual folder
 export const UNFILED_FOLDER_ID = '__unfiled__';
+// Special ID for the all items virtual folder
+export const ALL_ITEMS_FOLDER_ID = '__all__';
 
 export type { VfsFolderNode };
 
@@ -232,6 +235,25 @@ export function VfsTreePanel({
             <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
             <FileBox className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
             <span className="truncate">Unfiled Items</span>
+          </button>
+        </VfsDroppableFolder>
+
+        {/* All Items - always shown, not a drop target */}
+        <VfsDroppableFolder folderId={ALL_ITEMS_FOLDER_ID} disabled>
+          <button
+            type="button"
+            className={cn(
+              'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
+              selectedFolderId === ALL_ITEMS_FOLDER_ID
+                ? 'bg-accent text-accent-foreground'
+                : 'hover:bg-accent/50'
+            )}
+            style={{ paddingLeft: '8px' }}
+            onClick={() => onFolderSelect(ALL_ITEMS_FOLDER_ID)}
+          >
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
+            <Layers className="h-4 w-4 shrink-0 text-purple-600 dark:text-purple-400" />
+            <span className="truncate">All Items</span>
           </button>
         </VfsDroppableFolder>
 
