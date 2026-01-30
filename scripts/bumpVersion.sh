@@ -32,8 +32,86 @@ UI_PACKAGE="$REPO_ROOT/packages/ui/package.json"
 VFS_EXPLORER_PACKAGE="$REPO_ROOT/packages/vfs-explorer/package.json"
 WEBSITE_PACKAGE="$REPO_ROOT/packages/website/package.json"
 
+is_version_only_change() {
+  FILE_PATH="$1"
+
+  case "$FILE_PATH" in
+    */package.json|*/manifest.json)
+      NORMALIZE_CMD="jq -S 'del(.version)'"
+      ;;
+    */android/app/build.gradle)
+      NORMALIZE_CMD="sed -E '/versionCode [0-9]+/d; /versionName \"[^\"]+\"/d'"
+      ;;
+    */ios/App/App.xcodeproj/project.pbxproj)
+      NORMALIZE_CMD="sed -E '/CURRENT_PROJECT_VERSION = [0-9]+/d'"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  if ! git cat-file -e "$BASE_BRANCH:$FILE_PATH" 2>/dev/null; then
+    return 1
+  fi
+
+  if [ ! -f "$REPO_ROOT/$FILE_PATH" ]; then
+    return 1
+  fi
+
+  BASE_TMP=$(mktemp)
+  HEAD_TMP=$(mktemp)
+
+  if ! git show "$BASE_BRANCH:$FILE_PATH" | sh -c "$NORMALIZE_CMD" > "$BASE_TMP"; then
+    rm -f "$BASE_TMP" "$HEAD_TMP"
+    return 1
+  fi
+
+  if ! sh -c "$NORMALIZE_CMD" < "$REPO_ROOT/$FILE_PATH" > "$HEAD_TMP"; then
+    rm -f "$BASE_TMP" "$HEAD_TMP"
+    return 1
+  fi
+
+  if cmp -s "$BASE_TMP" "$HEAD_TMP"; then
+    rm -f "$BASE_TMP" "$HEAD_TMP"
+    return 0
+  fi
+
+  rm -f "$BASE_TMP" "$HEAD_TMP"
+  return 1
+}
+
 has_changes() {
-  git diff --name-only "$BASE_BRANCH"...HEAD -- "$1" | grep -q .
+  TARGET_DIR="$1"
+  shift
+
+  CHANGED_FILES=$(git diff --name-only "$BASE_BRANCH"...HEAD -- "$TARGET_DIR")
+
+  if [ -z "$CHANGED_FILES" ]; then
+    return 1
+  fi
+
+  OLD_IFS="$IFS"
+  IFS='
+'
+  for FILE_PATH in $CHANGED_FILES; do
+    SHOULD_IGNORE=false
+    for VERSION_FILE in "$@"; do
+      if [ "$FILE_PATH" = "$VERSION_FILE" ]; then
+        SHOULD_IGNORE=true
+        break
+      fi
+    done
+
+    if [ "$SHOULD_IGNORE" = "true" ] && is_version_only_change "$FILE_PATH"; then
+      continue
+    fi
+
+    IFS="$OLD_IFS"
+    return 0
+  done
+
+  IFS="$OLD_IFS"
+  return 1
 }
 
 API_CHANGED=false
@@ -45,14 +123,19 @@ UI_CHANGED=false
 VFS_EXPLORER_CHANGED=false
 WEBSITE_CHANGED=false
 
-has_changes "packages/api" && API_CHANGED=true
-has_changes "packages/chrome-extension" && CHROME_EXT_CHANGED=true
-has_changes "packages/client" && CLIENT_CHANGED=true
-has_changes "packages/email" && EMAIL_CHANGED=true
-has_changes "packages/notes" && NOTES_CHANGED=true
-has_changes "packages/ui" && UI_CHANGED=true
-has_changes "packages/vfs-explorer" && VFS_EXPLORER_CHANGED=true
-has_changes "packages/website" && WEBSITE_CHANGED=true
+has_changes "packages/api" "packages/api/package.json" && API_CHANGED=true
+has_changes "packages/chrome-extension" \
+  "packages/chrome-extension/package.json" \
+  "packages/chrome-extension/public/manifest.json" && CHROME_EXT_CHANGED=true
+has_changes "packages/client" \
+  "packages/client/package.json" \
+  "packages/client/android/app/build.gradle" \
+  "packages/client/ios/App/App.xcodeproj/project.pbxproj" && CLIENT_CHANGED=true
+has_changes "packages/email" "packages/email/package.json" && EMAIL_CHANGED=true
+has_changes "packages/notes" "packages/notes/package.json" && NOTES_CHANGED=true
+has_changes "packages/ui" "packages/ui/package.json" && UI_CHANGED=true
+has_changes "packages/vfs-explorer" "packages/vfs-explorer/package.json" && VFS_EXPLORER_CHANGED=true
+has_changes "packages/website" "packages/website/package.json" && WEBSITE_CHANGED=true
 
 bump_npm_package_version() {
   PKG_LABEL="$1"
