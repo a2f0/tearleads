@@ -8,6 +8,7 @@ import { v004 } from './v004';
 import { v005 } from './v005';
 import { v006 } from './v006';
 import { v007 } from './v007';
+import { v008 } from './v008';
 
 export type { Migration, MigrationFn } from './types';
 export { addColumnIfNotExists } from './utils';
@@ -23,7 +24,8 @@ export const migrations: Migration[] = [
   v004,
   v005,
   v006,
-  v007
+  v007,
+  v008
 ];
 
 /**

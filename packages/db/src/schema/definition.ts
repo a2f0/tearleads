@@ -793,6 +793,26 @@ export const vfsFoldersTable: TableDefinition = {
     encryptedName: {
       type: 'text',
       sqlName: 'encrypted_name'
+    },
+    color: {
+      type: 'text',
+      sqlName: 'color'
+    },
+    icon: {
+      type: 'text',
+      sqlName: 'icon'
+    },
+    viewMode: {
+      type: 'text',
+      sqlName: 'view_mode'
+    },
+    defaultSort: {
+      type: 'text',
+      sqlName: 'default_sort'
+    },
+    sortDirection: {
+      type: 'text',
+      sqlName: 'sort_direction'
     }
   }
 };
@@ -845,6 +865,10 @@ export const vfsLinksTable: TableDefinition = {
       type: 'json',
       sqlName: 'visible_children'
     },
+    position: {
+      type: 'integer',
+      sqlName: 'position'
+    },
     createdAt: {
       type: 'timestamp',
       sqlName: 'created_at',
@@ -860,6 +884,276 @@ export const vfsLinksTable: TableDefinition = {
       unique: true
     }
   ]
+};
+
+/**
+ * Playlists - extends registry for playlist-type items.
+ * Stores encrypted playlist metadata.
+ */
+export const playlistsTable: TableDefinition = {
+  name: 'playlists',
+  propertyName: 'playlists',
+  comment:
+    'Playlists - extends registry for playlist-type items.\nStores encrypted playlist metadata.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true,
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    encryptedName: {
+      type: 'text',
+      sqlName: 'encrypted_name'
+    },
+    encryptedDescription: {
+      type: 'text',
+      sqlName: 'encrypted_description'
+    },
+    coverImageId: {
+      type: 'text',
+      sqlName: 'cover_image_id',
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'set null'
+      }
+    },
+    shuffleMode: {
+      type: 'integer',
+      sqlName: 'shuffle_mode',
+      notNull: true,
+      defaultValue: 0
+    }
+  }
+};
+
+/**
+ * Albums - extends registry for album-type items.
+ * Stores encrypted album metadata for photo collections.
+ */
+export const albumsTable: TableDefinition = {
+  name: 'albums',
+  propertyName: 'albums',
+  comment:
+    'Albums - extends registry for album-type items.\nStores encrypted album metadata for photo collections.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true,
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    encryptedName: {
+      type: 'text',
+      sqlName: 'encrypted_name'
+    },
+    encryptedDescription: {
+      type: 'text',
+      sqlName: 'encrypted_description'
+    },
+    coverPhotoId: {
+      type: 'text',
+      sqlName: 'cover_photo_id',
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'set null'
+      }
+    }
+  }
+};
+
+/**
+ * Contact groups - extends registry for contactGroup-type items.
+ * Stores encrypted contact group metadata.
+ */
+export const contactGroupsTable: TableDefinition = {
+  name: 'contact_groups',
+  propertyName: 'contactGroups',
+  comment:
+    'Contact groups - extends registry for contactGroup-type items.\nStores encrypted contact group metadata.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true,
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    encryptedName: {
+      type: 'text',
+      sqlName: 'encrypted_name'
+    },
+    color: {
+      type: 'text',
+      sqlName: 'color'
+    },
+    icon: {
+      type: 'text',
+      sqlName: 'icon'
+    }
+  }
+};
+
+/**
+ * Email folders - extends registry for emailFolder-type items.
+ * Stores email folder metadata including sync state for IMAP.
+ */
+export const emailFoldersTable: TableDefinition = {
+  name: 'email_folders',
+  propertyName: 'emailFolders',
+  comment:
+    'Email folders - extends registry for emailFolder-type items.\nStores email folder metadata including sync state for IMAP.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true,
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    encryptedName: {
+      type: 'text',
+      sqlName: 'encrypted_name'
+    },
+    folderType: {
+      type: 'text',
+      sqlName: 'folder_type',
+      enumValues: [
+        'inbox',
+        'sent',
+        'drafts',
+        'trash',
+        'spam',
+        'custom'
+      ] as const
+    },
+    unreadCount: {
+      type: 'integer',
+      sqlName: 'unread_count',
+      notNull: true,
+      defaultValue: 0
+    },
+    syncUidValidity: {
+      type: 'integer',
+      sqlName: 'sync_uid_validity'
+    },
+    syncLastUid: {
+      type: 'integer',
+      sqlName: 'sync_last_uid'
+    }
+  }
+};
+
+/**
+ * Tags - extends registry for tag-type items.
+ * Stores tag metadata for cross-cutting organization.
+ */
+export const tagsTable: TableDefinition = {
+  name: 'tags',
+  propertyName: 'tags',
+  comment:
+    'Tags - extends registry for tag-type items.\nStores tag metadata for cross-cutting organization.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true,
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    encryptedName: {
+      type: 'text',
+      sqlName: 'encrypted_name'
+    },
+    color: {
+      type: 'text',
+      sqlName: 'color'
+    },
+    icon: {
+      type: 'text',
+      sqlName: 'icon'
+    }
+  }
+};
+
+/**
+ * Emails - extends registry for email-type items.
+ * Stores encrypted email metadata.
+ */
+export const emailsTable: TableDefinition = {
+  name: 'emails',
+  propertyName: 'emails',
+  comment:
+    'Emails - extends registry for email-type items.\nStores encrypted email metadata.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true,
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    encryptedSubject: {
+      type: 'text',
+      sqlName: 'encrypted_subject'
+    },
+    encryptedFrom: {
+      type: 'text',
+      sqlName: 'encrypted_from'
+    },
+    encryptedTo: {
+      type: 'json',
+      sqlName: 'encrypted_to'
+    },
+    encryptedCc: {
+      type: 'json',
+      sqlName: 'encrypted_cc'
+    },
+    encryptedBodyPath: {
+      type: 'text',
+      sqlName: 'encrypted_body_path'
+    },
+    receivedAt: {
+      type: 'timestamp',
+      sqlName: 'received_at',
+      notNull: true
+    },
+    isRead: {
+      type: 'boolean',
+      sqlName: 'is_read',
+      notNull: true,
+      defaultValue: false
+    },
+    isStarred: {
+      type: 'boolean',
+      sqlName: 'is_starred',
+      notNull: true,
+      defaultValue: false
+    }
+  },
+  indexes: [{ name: 'emails_received_at_idx', columns: ['receivedAt'] }]
 };
 
 /**
@@ -957,5 +1251,11 @@ export const allTables: TableDefinition[] = [
   vfsRegistryTable,
   vfsFoldersTable,
   vfsLinksTable,
+  playlistsTable,
+  albumsTable,
+  contactGroupsTable,
+  emailFoldersTable,
+  tagsTable,
+  emailsTable,
   vfsAccessTable
 ];

@@ -24,11 +24,21 @@ const router: RouterType = Router();
 
 // Valid VFS object types
 const VALID_OBJECT_TYPES: VfsObjectType[] = [
+  // Entities
   'file',
-  'folder',
+  'photo',
+  'audio',
+  'video',
   'contact',
   'note',
-  'photo'
+  'email',
+  // Collections
+  'folder',
+  'playlist',
+  'album',
+  'contactGroup',
+  'emailFolder',
+  'tag'
 ];
 
 /**

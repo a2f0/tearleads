@@ -21,6 +21,7 @@ type SortDirection = 'asc' | 'desc';
 interface PhotosWindowTableViewProps {
   onSelectPhoto?: (photoId: string) => void;
   refreshToken: number;
+  selectedAlbumId?: string | null;
 }
 
 interface SortHeaderProps {
@@ -83,7 +84,8 @@ function getPhotoTypeDisplay(mimeType: string): string {
 
 export function PhotosWindowTableView({
   onSelectPhoto,
-  refreshToken
+  refreshToken,
+  selectedAlbumId
 }: PhotosWindowTableViewProps) {
   const { t } = useTypedTranslation('contextMenu');
   const {
@@ -96,7 +98,7 @@ export function PhotosWindowTableView({
     deletePhoto,
     downloadPhoto,
     sharePhoto
-  } = usePhotosWindowData({ refreshToken });
+  } = usePhotosWindowData({ refreshToken, selectedAlbumId });
   const [contextMenu, setContextMenu] = useState<{
     photo: PhotoWithUrl;
     x: number;

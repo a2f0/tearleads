@@ -319,7 +319,12 @@ export const vfsFolders = sqliteTable('vfs_folders', {
   id: text('id')
     .primaryKey()
     .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
-  encryptedName: text('encrypted_name')
+  encryptedName: text('encrypted_name'),
+  color: text('color'),
+  icon: text('icon'),
+  viewMode: text('view_mode'),
+  defaultSort: text('default_sort'),
+  sortDirection: text('sort_direction')
 });
 
 /**
@@ -339,6 +344,7 @@ export const vfsLinks = sqliteTable(
     wrappedSessionKey: text('wrapped_session_key').notNull(),
     wrappedHierarchicalKey: text('wrapped_hierarchical_key'),
     visibleChildren: text('visible_children'),
+    position: integer('position'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
   },
   (table) => [
@@ -346,6 +352,104 @@ export const vfsLinks = sqliteTable(
     index('vfs_links_child_idx').on(table.childId),
     uniqueIndex('vfs_links_parent_child_idx').on(table.parentId, table.childId)
   ]
+);
+
+/**
+ * Playlists - extends registry for playlist-type items.
+ * Stores encrypted playlist metadata.
+ */
+export const playlists = sqliteTable('playlists', {
+  id: text('id')
+    .primaryKey()
+    .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+  encryptedName: text('encrypted_name'),
+  encryptedDescription: text('encrypted_description'),
+  coverImageId: text('cover_image_id').references(() => vfsRegistry.id, {
+    onDelete: 'set null'
+  }),
+  shuffleMode: integer('shuffle_mode').notNull().default(0)
+});
+
+/**
+ * Albums - extends registry for album-type items.
+ * Stores encrypted album metadata for photo collections.
+ */
+export const albums = sqliteTable('albums', {
+  id: text('id')
+    .primaryKey()
+    .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+  encryptedName: text('encrypted_name'),
+  encryptedDescription: text('encrypted_description'),
+  coverPhotoId: text('cover_photo_id').references(() => vfsRegistry.id, {
+    onDelete: 'set null'
+  })
+});
+
+/**
+ * Contact groups - extends registry for contactGroup-type items.
+ * Stores encrypted contact group metadata.
+ */
+export const contactGroups = sqliteTable('contact_groups', {
+  id: text('id')
+    .primaryKey()
+    .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+  encryptedName: text('encrypted_name'),
+  color: text('color'),
+  icon: text('icon')
+});
+
+/**
+ * Email folders - extends registry for emailFolder-type items.
+ * Stores email folder metadata including sync state for IMAP.
+ */
+export const emailFolders = sqliteTable('email_folders', {
+  id: text('id')
+    .primaryKey()
+    .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+  encryptedName: text('encrypted_name'),
+  folderType: text('folder_type', {
+    enum: ['inbox', 'sent', 'drafts', 'trash', 'spam', 'custom']
+  }),
+  unreadCount: integer('unread_count').notNull().default(0),
+  syncUidValidity: integer('sync_uid_validity'),
+  syncLastUid: integer('sync_last_uid')
+});
+
+/**
+ * Tags - extends registry for tag-type items.
+ * Stores tag metadata for cross-cutting organization.
+ */
+export const tags = sqliteTable('tags', {
+  id: text('id')
+    .primaryKey()
+    .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+  encryptedName: text('encrypted_name'),
+  color: text('color'),
+  icon: text('icon')
+});
+
+/**
+ * Emails - extends registry for email-type items.
+ * Stores encrypted email metadata.
+ */
+export const emails = sqliteTable(
+  'emails',
+  {
+    id: text('id')
+      .primaryKey()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    encryptedSubject: text('encrypted_subject'),
+    encryptedFrom: text('encrypted_from'),
+    encryptedTo: text('encrypted_to'),
+    encryptedCc: text('encrypted_cc'),
+    encryptedBodyPath: text('encrypted_body_path'),
+    receivedAt: integer('received_at', { mode: 'timestamp_ms' }).notNull(),
+    isRead: integer('is_read', { mode: 'boolean' }).notNull().default(false),
+    isStarred: integer('is_starred', { mode: 'boolean' })
+      .notNull()
+      .default(false)
+  },
+  (table) => [index('emails_received_at_idx').on(table.receivedAt)]
 );
 
 /**
@@ -402,6 +506,12 @@ export const schema = {
   vfsRegistry,
   vfsFolders,
   vfsLinks,
+  playlists,
+  albums,
+  contactGroups,
+  emailFolders,
+  tags,
+  emails,
   vfsAccess
 };
 

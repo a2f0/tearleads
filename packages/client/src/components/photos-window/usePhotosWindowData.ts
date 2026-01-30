@@ -1,15 +1,16 @@
 import { assertPlainArrayBuffer } from '@rapid/shared';
-import { and, desc, eq, like } from 'drizzle-orm';
+import { and, desc, eq, inArray, like } from 'drizzle-orm';
 import { useCallback, useEffect, useState } from 'react';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
-import { files } from '@/db/schema';
+import { files, vfsLinks } from '@/db/schema';
 import {
   getFileStorage,
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
+import { ALL_PHOTOS_ID } from './PhotosAlbumsSidebar';
 
 export interface PhotoInfo {
   id: string;
@@ -27,10 +28,12 @@ export interface PhotoWithUrl extends PhotoInfo {
 
 interface UsePhotosWindowDataProps {
   refreshToken: number;
+  selectedAlbumId?: string | null | undefined;
 }
 
 export function usePhotosWindowData({
-  refreshToken
+  refreshToken,
+  selectedAlbumId
 }: UsePhotosWindowDataProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [photos, setPhotos] = useState<PhotoWithUrl[]>([]);
@@ -47,6 +50,33 @@ export function usePhotosWindowData({
     try {
       const db = getDatabase();
 
+      // If a specific album is selected, get the photo IDs in that album
+      let photoIdsInAlbum: string[] | null = null;
+      if (selectedAlbumId && selectedAlbumId !== ALL_PHOTOS_ID) {
+        const albumLinks = await db
+          .select({ childId: vfsLinks.childId })
+          .from(vfsLinks)
+          .where(eq(vfsLinks.parentId, selectedAlbumId));
+        photoIdsInAlbum = albumLinks.map((l) => l.childId);
+
+        // If album is empty, return early
+        if (photoIdsInAlbum.length === 0) {
+          setPhotos([]);
+          setHasFetched(true);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Build the where clause
+      const baseConditions = and(
+        like(files.mimeType, 'image/%'),
+        eq(files.deleted, false)
+      );
+      const whereClause = photoIdsInAlbum
+        ? and(baseConditions, inArray(files.id, photoIdsInAlbum))
+        : baseConditions;
+
       const result = await db
         .select({
           id: files.id,
@@ -58,7 +88,7 @@ export function usePhotosWindowData({
           thumbnailPath: files.thumbnailPath
         })
         .from(files)
-        .where(and(like(files.mimeType, 'image/%'), eq(files.deleted, false)))
+        .where(whereClause)
         .orderBy(desc(files.uploadDate));
 
       const photoList: PhotoInfo[] = result.map((row) => ({
@@ -110,7 +140,7 @@ export function usePhotosWindowData({
     } finally {
       setLoading(false);
     }
-  }, [currentInstanceId, isUnlocked]);
+  }, [currentInstanceId, isUnlocked, selectedAlbumId]);
 
   useEffect(() => {
     if (!isUnlocked) return;
