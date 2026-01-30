@@ -186,20 +186,20 @@ describe('VfsWindow', () => {
     expect(screen.getByRole('button', { name: 'Help' })).toBeInTheDocument();
   });
 
-  it('passes list view mode to VfsExplorer by default', () => {
+  it('passes table view mode to VfsExplorer by default', () => {
     render(<VfsWindow {...defaultProps} />);
     const explorer = screen.getByTestId('vfs-explorer');
-    expect(explorer).toHaveAttribute('data-view-mode', 'list');
+    expect(explorer).toHaveAttribute('data-view-mode', 'table');
   });
 
-  it('changes view mode when Table menu item is clicked', async () => {
+  it('changes view mode when List menu item is clicked', async () => {
     const user = userEvent.setup();
     render(<VfsWindow {...defaultProps} />);
 
-    await user.click(screen.getByRole('menuitem', { name: 'Table' }));
+    await user.click(screen.getByRole('menuitem', { name: 'List' }));
 
     const explorer = screen.getByTestId('vfs-explorer');
-    expect(explorer).toHaveAttribute('data-view-mode', 'table');
+    expect(explorer).toHaveAttribute('data-view-mode', 'list');
   });
 
   it('increments refresh token when Refresh menu item is clicked', async () => {

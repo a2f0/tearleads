@@ -288,15 +288,14 @@ export const userKeys = pgTable('user_keys', {
 /**
  * VFS registry - identity layer for all items that can participate in the hierarchy.
  * Every VFS item (folder, contact, photo, note, etc.) has an entry here.
+ * Device-first: ownerId is optional and not FK-constrained to support offline creation.
  */
 export const vfsRegistry = pgTable(
   'vfs_registry',
   {
     id: text('id').primaryKey(),
     objectType: text('object_type').notNull(),
-    ownerId: text('owner_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+    ownerId: text('owner_id'),
     encryptedSessionKey: text('encrypted_session_key'),
     publicHierarchicalKey: text('public_hierarchical_key'),
     encryptedPrivateHierarchicalKey: text('encrypted_private_hierarchical_key'),

@@ -730,7 +730,7 @@ export const vfsRegistryTable: TableDefinition = {
   name: 'vfs_registry',
   propertyName: 'vfsRegistry',
   comment:
-    'VFS registry - identity layer for all items that can participate in the hierarchy.\nEvery VFS item (folder, contact, photo, note, etc.) has an entry here.',
+    'VFS registry - identity layer for all items that can participate in the hierarchy.\nEvery VFS item (folder, contact, photo, note, etc.) has an entry here.\nDevice-first: ownerId is optional and not FK-constrained to support offline creation.',
   columns: {
     id: {
       type: 'text',
@@ -744,13 +744,7 @@ export const vfsRegistryTable: TableDefinition = {
     },
     ownerId: {
       type: 'text',
-      sqlName: 'owner_id',
-      notNull: true,
-      references: {
-        table: 'users',
-        column: 'id',
-        onDelete: 'cascade'
-      }
+      sqlName: 'owner_id'
     },
     encryptedSessionKey: {
       type: 'text',

@@ -121,7 +121,7 @@ jobs:
 
       - name: Run Maestro tests
         env:
-          MAESTRO_DRIVER_STARTUP_TIMEOUT: 120000
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 240000
         run: |
           # Run Maestro tests (capture exit code before || continues execution)
           MAESTRO_EXIT=0
@@ -132,6 +132,10 @@ jobs:
 
           # Get device logs
           xcrun simctl spawn "$SIMULATOR_UDID" log show --last 5m --predicate 'subsystem contains "com.tearleads"' > maestro-debug/device-logs.txt 2>&1 || true
+
+          # Copy crash reports from DiagnosticReports
+          mkdir -p maestro-debug/crash-reports
+          cp -r ~/Library/Logs/DiagnosticReports/* maestro-debug/crash-reports/ 2>/dev/null || true
 
           exit $MAESTRO_EXIT
         working-directory: packages/client

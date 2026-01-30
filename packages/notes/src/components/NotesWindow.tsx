@@ -1,7 +1,7 @@
-import { notes } from '@rapid/db/sqlite';
+import { notes, vfsRegistry } from '@rapid/db/sqlite';
 import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
 import { useCallback, useState } from 'react';
-import { useDatabaseState, useNotesContext } from '../context/NotesContext';
+import { useNotesContext } from '../context/NotesContext';
 import { NotesWindowDetail } from './NotesWindowDetail';
 import { NotesWindowList } from './NotesWindowList';
 import type { ViewMode } from './NotesWindowMenuBar';
@@ -27,8 +27,9 @@ export function NotesWindow({
   zIndex,
   initialDimensions
 }: NotesWindowProps) {
-  const { isUnlocked } = useDatabaseState();
-  const { getDatabase } = useNotesContext();
+  const { databaseState, getDatabase, vfsKeys, auth, featureFlags, vfsApi } =
+    useNotesContext();
+  const { isUnlocked } = databaseState;
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
@@ -67,11 +68,52 @@ export function NotesWindow({
         deleted: false
       });
 
+      // Register in VFS if dependencies are available
+      if (vfsKeys && auth) {
+        const authData = auth.readStoredAuth();
+        let encryptedSessionKey: string | null = null;
+
+        if (auth.isLoggedIn()) {
+          try {
+            const sessionKey = vfsKeys.generateSessionKey();
+            encryptedSessionKey = await vfsKeys.wrapSessionKey(sessionKey);
+          } catch (err) {
+            console.warn('Failed to wrap note session key:', err);
+          }
+        }
+
+        await db.insert(vfsRegistry).values({
+          id: noteId,
+          objectType: 'note',
+          ownerId: authData.user?.id ?? null,
+          encryptedSessionKey,
+          createdAt: now
+        });
+
+        // Register on server if logged in and feature flag enabled
+        if (
+          auth.isLoggedIn() &&
+          featureFlags?.getFeatureFlagValue('vfsServerRegistration') &&
+          encryptedSessionKey &&
+          vfsApi
+        ) {
+          try {
+            await vfsApi.register({
+              id: noteId,
+              objectType: 'note',
+              encryptedSessionKey
+            });
+          } catch (err) {
+            console.warn('Failed to register note on server:', err);
+          }
+        }
+      }
+
       setSelectedNoteId(noteId);
     } catch (err) {
       console.error('Failed to create note:', err);
     }
-  }, [isUnlocked, getDatabase]);
+  }, [isUnlocked, getDatabase, vfsKeys, auth, featureFlags, vfsApi]);
 
   return (
     <FloatingWindow

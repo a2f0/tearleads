@@ -27,7 +27,7 @@ export function VfsWindow({
   const {
     ui: { FloatingWindow }
   } = useVfsExplorerContext();
-  const [viewMode, setViewMode] = useState<VfsViewMode>('list');
+  const [viewMode, setViewMode] = useState<VfsViewMode>('table');
   const [refreshToken, setRefreshToken] = useState(0);
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);

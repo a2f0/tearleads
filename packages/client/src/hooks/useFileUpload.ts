@@ -149,11 +149,11 @@ export function useFileUpload() {
 
       // Register in local VFS registry (device-first)
       const auth = readStoredAuth();
-      const ownerId = auth.user?.id || 'unknown';
+
       await db.insert(vfsRegistry).values({
         id,
         objectType: 'file',
-        ownerId,
+        ownerId: auth.user?.id ?? null,
         encryptedSessionKey,
         createdAt: new Date()
       });

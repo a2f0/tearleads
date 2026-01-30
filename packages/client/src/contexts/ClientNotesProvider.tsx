@@ -23,7 +23,11 @@ import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMen
 import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
+import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
 import { useTypedTranslation } from '@/i18n';
+import { api } from '@/lib/api';
+import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
+import { getFeatureFlagValue } from '@/lib/feature-flags';
 
 export function NotesAboutMenuItem() {
   return <AboutMenuItem appName="Notes" version={notesPackageJson.version} />;
@@ -67,6 +71,23 @@ export function ClientNotesProvider({ children }: ClientNotesProviderProps) {
       ui={notesUIComponents}
       t={t}
       tooltipZIndex={zIndex.tooltip}
+      vfsKeys={{
+        generateSessionKey,
+        wrapSessionKey
+      }}
+      auth={{
+        isLoggedIn,
+        readStoredAuth
+      }}
+      featureFlags={{
+        getFeatureFlagValue: (key: string) =>
+          key === 'vfsServerRegistration' ? getFeatureFlagValue(key) : false
+      }}
+      vfsApi={{
+        register: async (params) => {
+          await api.vfs.register(params);
+        }
+      }}
     >
       {children}
     </NotesProvider>
