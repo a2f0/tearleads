@@ -18,6 +18,8 @@
     { "path": "./packages/vfs-explorer/tsconfig.test.json" },
     { "path": "./packages/email" },
     { "path": "./packages/email/tsconfig.test.json" },
+    { "path": "./packages/contacts" },
+    { "path": "./packages/contacts/tsconfig.test.json" },
     { "path": "./packages/api" },
     { "path": "./packages/api/tsconfig.test.json" },
     { "path": "./packages/cli" },

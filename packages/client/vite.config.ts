@@ -26,6 +26,8 @@ export default defineConfig(({ mode }) => ({
       '@rapid/ui/styles.css': path.resolve(__dirname, '../ui/src/styles/index.css'),
       '@rapid/ui/theme.css': path.resolve(__dirname, '../ui/src/styles/theme.css'),
       '@rapid/ui/logo.svg': path.resolve(__dirname, '../ui/src/images/logo.svg'),
+      '@rapid/contacts/package.json': path.resolve(__dirname, '../contacts/package.json'),
+      '@rapid/contacts': path.resolve(__dirname, '../contacts/src/index.ts'),
       '@rapid/email/package.json': path.resolve(__dirname, '../email/package.json'),
       '@rapid/email': path.resolve(__dirname, '../email/src/index.ts'),
       '@rapid/notes/package.json': path.resolve(__dirname, '../notes/package.json'),

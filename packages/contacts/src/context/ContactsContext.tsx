@@ -1,0 +1,291 @@
+import type { Database } from '@rapid/db/sqlite';
+import type { ComponentType, ReactNode } from 'react';
+import { createContext, useContext } from 'react';
+
+/**
+ * Contact data structure matching the contacts table schema
+ */
+export interface ContactInfo {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  birthday: string | null;
+  primaryEmail: string | null;
+  primaryPhone: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Database context state
+ */
+export interface DatabaseState {
+  isUnlocked: boolean;
+  isLoading: boolean;
+  currentInstanceId: string | null;
+}
+
+/**
+ * Navigation options for navigateWithFrom
+ */
+export interface NavigateOptions {
+  fromLabel?: string;
+  state?: Record<string, unknown>;
+}
+
+/**
+ * UI component props interfaces
+ */
+export interface ButtonProps {
+  variant?:
+    | 'default'
+    | 'ghost'
+    | 'destructive'
+    | 'outline'
+    | 'secondary'
+    | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+  className?: string;
+  disabled?: boolean;
+  onClick?: () => void;
+  children?: ReactNode;
+  'data-testid'?: string;
+}
+
+export interface InputProps {
+  type?: string;
+  placeholder?: string;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  className?: string;
+  'data-testid'?: string;
+}
+
+export interface ContextMenuProps {
+  x: number;
+  y: number;
+  onClose: () => void;
+  children: ReactNode;
+}
+
+export interface ContextMenuItemProps {
+  icon?: ReactNode;
+  onClick: () => void;
+  children: ReactNode;
+}
+
+export interface ListRowProps {
+  className?: string;
+  onContextMenu?: ((e: React.MouseEvent) => void) | undefined;
+  children: ReactNode;
+}
+
+export interface RefreshButtonProps {
+  onClick: () => void;
+  loading: boolean;
+  size?: 'sm' | 'default';
+}
+
+export interface VirtualListStatusProps {
+  firstVisible: number;
+  lastVisible: number;
+  loadedCount: number;
+  itemLabel: string;
+  searchQuery?: string;
+}
+
+export interface InlineUnlockProps {
+  description: string;
+}
+
+export interface DropdownMenuProps {
+  trigger: string;
+  children: ReactNode;
+}
+
+export interface DropdownMenuItemProps {
+  onClick: () => void;
+  checked?: boolean;
+  icon?: ReactNode;
+  disabled?: boolean;
+  children: ReactNode;
+}
+
+export type DropdownMenuSeparatorProps = Record<string, never>;
+
+export type WindowOptionsMenuItemProps = Record<string, never>;
+
+export type AboutMenuItemProps = Record<string, never>;
+
+export interface BackLinkProps {
+  defaultTo: string;
+  defaultLabel: string;
+}
+
+export interface DropzoneProps {
+  onFilesSelected: (files: File[]) => void;
+  accept?: string;
+  multiple?: boolean;
+  disabled?: boolean;
+}
+
+/**
+ * UI components that the contacts package requires from the consumer
+ */
+export interface ContactsUIComponents {
+  Button: ComponentType<ButtonProps>;
+  Input: ComponentType<InputProps>;
+  ContextMenu: ComponentType<ContextMenuProps>;
+  ContextMenuItem: ComponentType<ContextMenuItemProps>;
+  ListRow: ComponentType<ListRowProps>;
+  RefreshButton: ComponentType<RefreshButtonProps>;
+  VirtualListStatus: ComponentType<VirtualListStatusProps>;
+  InlineUnlock: ComponentType<InlineUnlockProps>;
+  DropdownMenu: ComponentType<DropdownMenuProps>;
+  DropdownMenuItem: ComponentType<DropdownMenuItemProps>;
+  DropdownMenuSeparator: ComponentType<DropdownMenuSeparatorProps>;
+  WindowOptionsMenuItem: ComponentType<WindowOptionsMenuItemProps>;
+  AboutMenuItem: ComponentType<AboutMenuItemProps>;
+  BackLink: ComponentType<BackLinkProps>;
+  Dropzone: ComponentType<DropzoneProps>;
+}
+
+/**
+ * Translation keys used by the contacts package
+ */
+export type ContactsTranslationKey =
+  | 'getInfo'
+  | 'edit'
+  | 'delete'
+  | 'exportVCard';
+
+/**
+ * Translation function type - accepts contacts-specific keys
+ */
+export type TranslationFunction = (key: ContactsTranslationKey) => string;
+
+/**
+ * File save function type for exporting vCards
+ */
+export type SaveFileFunction = (
+  content: string,
+  filename: string,
+  mimeType: string
+) => Promise<void>;
+
+/**
+ * Context value interface
+ */
+/**
+ * Database adapter interface for transaction support.
+ * This is a simplified interface that matches what's needed for contacts operations.
+ */
+export interface DatabaseAdapter {
+  beginTransaction: () => Promise<void>;
+  commitTransaction: () => Promise<void>;
+  rollbackTransaction: () => Promise<void>;
+}
+
+export interface ContactsContextValue {
+  /** Database state */
+  databaseState: DatabaseState;
+  /** Get the database instance for queries */
+  getDatabase: () => Database;
+  /** Get the database adapter for transactions */
+  getDatabaseAdapter: () => DatabaseAdapter;
+  /** Save file function for exports */
+  saveFile: SaveFileFunction;
+  /** UI components */
+  ui: ContactsUIComponents;
+  /** Translation function for context menu labels */
+  t: TranslationFunction;
+  /** Z-index for tooltips */
+  tooltipZIndex: number;
+  /** Navigate to a route */
+  navigate: (to: string) => void;
+  /** Navigate with from state for back links */
+  navigateWithFrom: (to: string, options?: NavigateOptions) => void;
+  /** Format date utility */
+  formatDate: (date: Date) => string;
+}
+
+const ContactsContext = createContext<ContactsContextValue | null>(null);
+
+export interface ContactsProviderProps {
+  children: ReactNode;
+  databaseState: DatabaseState;
+  getDatabase: () => Database;
+  getDatabaseAdapter: () => DatabaseAdapter;
+  saveFile: SaveFileFunction;
+  ui: ContactsUIComponents;
+  t: TranslationFunction;
+  tooltipZIndex?: number;
+  navigate: (to: string) => void;
+  navigateWithFrom: (to: string, options?: NavigateOptions) => void;
+  formatDate: (date: Date) => string;
+}
+
+/**
+ * Provider component that supplies all dependencies to contacts components
+ */
+export function ContactsProvider({
+  children,
+  databaseState,
+  getDatabase,
+  getDatabaseAdapter,
+  saveFile,
+  ui,
+  t,
+  tooltipZIndex = 10050,
+  navigate,
+  navigateWithFrom,
+  formatDate
+}: ContactsProviderProps) {
+  return (
+    <ContactsContext.Provider
+      value={{
+        databaseState,
+        getDatabase,
+        getDatabaseAdapter,
+        saveFile,
+        ui,
+        t,
+        tooltipZIndex,
+        navigate,
+        navigateWithFrom,
+        formatDate
+      }}
+    >
+      {children}
+    </ContactsContext.Provider>
+  );
+}
+
+/**
+ * Hook to access contacts context
+ * @throws Error if used outside ContactsProvider
+ */
+export function useContactsContext(): ContactsContextValue {
+  const context = useContext(ContactsContext);
+  if (!context) {
+    throw new Error(
+      'useContactsContext must be used within a ContactsProvider'
+    );
+  }
+  return context;
+}
+
+/**
+ * Hook to access database state
+ */
+export function useDatabaseState(): DatabaseState {
+  const { databaseState } = useContactsContext();
+  return databaseState;
+}
+
+/**
+ * Hook to access UI components
+ */
+export function useContactsUI(): ContactsUIComponents {
+  const { ui } = useContactsContext();
+  return ui;
+}
