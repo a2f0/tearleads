@@ -141,8 +141,8 @@ export function TableSizes({ onTableSelect }: TableSizesProps) {
         })
       );
 
-      // Sort by size descending
-      sizes.sort((a, b) => b.size - a.size);
+      // Sort alphabetically by table name
+      sizes.sort((a, b) => a.name.localeCompare(b.name));
       setTableSizes(sizes);
 
       // On iOS with Capacitor SQLite (SQLCipher), PRAGMA page_count may return 0.
