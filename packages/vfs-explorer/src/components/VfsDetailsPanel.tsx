@@ -1,5 +1,5 @@
 import { FileBox, Folder, Layers, Loader2 } from 'lucide-react';
-import { useEffect } from 'react';
+import { type MouseEvent, useCallback, useEffect, useState } from 'react';
 import {
   useVfsAllItems,
   useVfsFolderContents,
@@ -62,6 +62,64 @@ export function VfsDetailsPanel({
 }: VfsDetailsPanelProps) {
   const isUnfiled = folderId === UNFILED_FOLDER_ID;
   const isAllItems = folderId === ALL_ITEMS_FOLDER_ID;
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  const handleItemClick = useCallback(
+    (e: MouseEvent, itemId: string) => {
+      e.stopPropagation();
+      onItemSelect?.(itemId);
+    },
+    [onItemSelect]
+  );
+
+  const handleItemDoubleClick = useCallback(
+    (e: MouseEvent, item: DisplayItem) => {
+      e.stopPropagation();
+      if (item.objectType === 'folder') {
+        onFolderSelect?.(item.id);
+      } else {
+        onItemOpen?.(item);
+      }
+    },
+    [onFolderSelect, onItemOpen]
+  );
+
+  const handleContainerClick = useCallback(() => {
+    onItemSelect?.(null);
+    setContextMenu(null);
+  }, [onItemSelect]);
+
+  const handleContextMenu = useCallback(
+    (e: MouseEvent, item: DisplayItem) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onItemSelect?.(item.id);
+      setContextMenu({ x: e.clientX, y: e.clientY, item });
+    },
+    [onItemSelect]
+  );
+
+  const handleContextMenuClose = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  const handleContextMenuOpen = useCallback(
+    (item: DisplayItem) => {
+      if (item.objectType === 'folder') {
+        onFolderSelect?.(item.id);
+      } else {
+        onItemOpen?.(item);
+      }
+    },
+    [onFolderSelect, onItemOpen]
+  );
+
+  const handleContextMenuDownload = useCallback(
+    (item: DisplayItem) => {
+      onItemDownload?.(item);
+    },
+    [onItemDownload]
+  );
 
   // Use the appropriate hook based on selection
   const folderContents = useVfsFolderContents(
@@ -85,21 +143,11 @@ export function VfsDetailsPanel({
   }, [refreshToken]);
 
   // Select the appropriate data source
-  const items: DisplayItem[] = isAllItems
-    ? allItems.items
+  const { items, loading, error } = isAllItems
+    ? allItems
     : isUnfiled
-      ? unfiledItems.items
-      : folderContents.items;
-  const loading = isAllItems
-    ? allItems.loading
-    : isUnfiled
-      ? unfiledItems.loading
-      : folderContents.loading;
-  const error = isAllItems
-    ? allItems.error
-    : isUnfiled
-      ? unfiledItems.error
-      : folderContents.error;
+      ? unfiledItems
+      : folderContents;
 
   // Report items to parent for status bar
   useEffect(() => {
