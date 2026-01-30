@@ -83,7 +83,22 @@ export function ContactsWindowNew({
   }, []);
 
   const handleDeleteEmail = useCallback((emailId: string) => {
-    setEmailsForm((prev) => prev.filter((e) => e.id !== emailId));
+    setEmailsForm((prev) => {
+      const isPrimaryDeleted = prev.find((e) => e.id === emailId)?.isPrimary;
+      const remaining = prev.filter((e) => e.id !== emailId);
+
+      if (isPrimaryDeleted && remaining.length > 0) {
+        const first = remaining[0];
+        if (first) {
+          return remaining.map((e) => ({
+            ...e,
+            isPrimary: e.id === first.id
+          }));
+        }
+      }
+
+      return remaining;
+    });
   }, []);
 
   const handleAddEmail = useCallback(() => {
@@ -117,7 +132,22 @@ export function ContactsWindowNew({
   }, []);
 
   const handleDeletePhone = useCallback((phoneId: string) => {
-    setPhonesForm((prev) => prev.filter((p) => p.id !== phoneId));
+    setPhonesForm((prev) => {
+      const isPrimaryDeleted = prev.find((p) => p.id === phoneId)?.isPrimary;
+      const remaining = prev.filter((p) => p.id !== phoneId);
+
+      if (isPrimaryDeleted && remaining.length > 0) {
+        const first = remaining[0];
+        if (first) {
+          return remaining.map((p) => ({
+            ...p,
+            isPrimary: p.id === first.id
+          }));
+        }
+      }
+
+      return remaining;
+    });
   }, []);
 
   const handleAddPhone = useCallback(() => {
