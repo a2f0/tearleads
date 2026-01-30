@@ -163,6 +163,72 @@ export function useContactsImport() {
       setProgress(0);
 
       const adapter = getDatabaseAdapter();
+      const db = getDatabase();
+
+      // Extract grouped values (emails/phones) with labels from a row
+      const extractGroupedValues = (
+        row: string[],
+        groups: ReadonlyArray<{
+          valueKey: keyof ColumnMapping;
+          labelKey: keyof ColumnMapping;
+        }>
+      ) => {
+        const results: { value: string; label: string | null }[] = [];
+        for (const group of groups) {
+          const valueIndex = mapping[group.valueKey];
+          if (valueIndex !== null) {
+            const value = row[valueIndex]?.trim();
+            if (value) {
+              const labelIndex = mapping[group.labelKey];
+              const label =
+                labelIndex !== null ? row[labelIndex]?.trim() || null : null;
+              results.push({ value, label });
+            }
+          }
+        }
+        return results;
+      };
+
+      const emailGroups: ReadonlyArray<{
+        valueKey: keyof ColumnMapping;
+        labelKey: keyof ColumnMapping;
+      }> = [
+        { valueKey: 'email1Value', labelKey: 'email1Label' },
+        { valueKey: 'email2Value', labelKey: 'email2Label' }
+      ];
+
+      const phoneGroups: ReadonlyArray<{
+        valueKey: keyof ColumnMapping;
+        labelKey: keyof ColumnMapping;
+      }> = [
+        { valueKey: 'phone1Value', labelKey: 'phone1Label' },
+        { valueKey: 'phone2Value', labelKey: 'phone2Label' },
+        { valueKey: 'phone3Value', labelKey: 'phone3Label' }
+      ];
+
+      // Collect all data for batch insert
+      const contactsToInsert: {
+        id: string;
+        firstName: string;
+        lastName: string | null;
+        birthday: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+      }[] = [];
+      const emailsToInsert: {
+        id: string;
+        contactId: string;
+        email: string;
+        label: string | null;
+        isPrimary: boolean;
+      }[] = [];
+      const phonesToInsert: {
+        id: string;
+        contactId: string;
+        phoneNumber: string;
+        label: string | null;
+        isPrimary: boolean;
+      }[] = [];
 
       let processedCount = 0;
       for (const row of data.rows) {
@@ -184,103 +250,77 @@ export function useContactsImport() {
             ? row[mapping.birthday]?.trim() || null
             : null;
 
-        // Extract grouped values (emails/phones) with labels
-        const extractGroupedValues = (
-          groups: ReadonlyArray<{
-            valueKey: keyof ColumnMapping;
-            labelKey: keyof ColumnMapping;
-          }>
-        ) => {
-          const results: { value: string; label: string | null }[] = [];
-          for (const group of groups) {
-            const valueIndex = mapping[group.valueKey];
-            if (valueIndex !== null) {
-              const value = row[valueIndex]?.trim();
-              if (value) {
-                const labelIndex = mapping[group.labelKey];
-                const label =
-                  labelIndex !== null ? row[labelIndex]?.trim() || null : null;
-                results.push({ value, label });
-              }
-            }
+        const emails = extractGroupedValues(row, emailGroups);
+        const phones = extractGroupedValues(row, phoneGroups);
+
+        const contactId = crypto.randomUUID();
+        const now = new Date();
+
+        contactsToInsert.push({
+          id: contactId,
+          firstName,
+          lastName,
+          birthday,
+          createdAt: now,
+          updatedAt: now
+        });
+
+        for (let i = 0; i < emails.length; i++) {
+          const email = emails[i];
+          if (email) {
+            emailsToInsert.push({
+              id: crypto.randomUUID(),
+              contactId,
+              email: email.value,
+              label: email.label,
+              isPrimary: i === 0
+            });
           }
-          return results;
-        };
-
-        const emailGroups: ReadonlyArray<{
-          valueKey: keyof ColumnMapping;
-          labelKey: keyof ColumnMapping;
-        }> = [
-          { valueKey: 'email1Value', labelKey: 'email1Label' },
-          { valueKey: 'email2Value', labelKey: 'email2Label' }
-        ];
-        const emails = extractGroupedValues(emailGroups);
-
-        const phoneGroups: ReadonlyArray<{
-          valueKey: keyof ColumnMapping;
-          labelKey: keyof ColumnMapping;
-        }> = [
-          { valueKey: 'phone1Value', labelKey: 'phone1Label' },
-          { valueKey: 'phone2Value', labelKey: 'phone2Label' },
-          { valueKey: 'phone3Value', labelKey: 'phone3Label' }
-        ];
-        const phones = extractGroupedValues(phoneGroups);
-
-        try {
-          await adapter.beginTransaction();
-
-          const db = getDatabase();
-          const contactId = crypto.randomUUID();
-          const now = new Date();
-
-          // Insert contact
-          await db.insert(contacts).values({
-            id: contactId,
-            firstName,
-            lastName,
-            birthday,
-            createdAt: now,
-            updatedAt: now
-          });
-
-          // Batch insert emails for better performance
-          if (emails.length > 0) {
-            await db.insert(contactEmails).values(
-              emails.map((email, i) => ({
-                id: crypto.randomUUID(),
-                contactId,
-                email: email.value,
-                label: email.label,
-                isPrimary: i === 0
-              }))
-            );
-          }
-
-          // Batch insert phones for better performance
-          if (phones.length > 0) {
-            await db.insert(contactPhones).values(
-              phones.map((phone, i) => ({
-                id: crypto.randomUUID(),
-                contactId,
-                phoneNumber: phone.value,
-                label: phone.label,
-                isPrimary: i === 0
-              }))
-            );
-          }
-
-          await adapter.commitTransaction();
-          result.imported++;
-        } catch (err) {
-          await adapter.rollbackTransaction();
-          result.skipped++;
-          result.errors.push(
-            `Failed to import ${firstName}: ${err instanceof Error ? err.message : 'Unknown error'}`
-          );
         }
 
+        for (let i = 0; i < phones.length; i++) {
+          const phone = phones[i];
+          if (phone) {
+            phonesToInsert.push({
+              id: crypto.randomUUID(),
+              contactId,
+              phoneNumber: phone.value,
+              label: phone.label,
+              isPrimary: i === 0
+            });
+          }
+        }
+
+        result.imported++;
         processedCount++;
         setProgress(Math.round((processedCount / data.rows.length) * 100));
+      }
+
+      // Perform batch inserts in a single transaction
+      try {
+        await adapter.beginTransaction();
+
+        if (contactsToInsert.length > 0) {
+          await db.insert(contacts).values(contactsToInsert);
+        }
+
+        if (emailsToInsert.length > 0) {
+          await db.insert(contactEmails).values(emailsToInsert);
+        }
+
+        if (phonesToInsert.length > 0) {
+          await db.insert(contactPhones).values(phonesToInsert);
+        }
+
+        await adapter.commitTransaction();
+      } catch (err) {
+        await adapter.rollbackTransaction();
+        // Reset counts since the entire batch failed
+        result.imported = 0;
+        result.skipped = data.rows.length;
+        result.errors.push(
+          `Failed to import contacts: ${err instanceof Error ? err.message : 'Unknown error'}`
+        );
       }
 
       setImporting(false);

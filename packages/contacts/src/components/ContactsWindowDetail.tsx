@@ -1,5 +1,5 @@
 import { contactEmails, contactPhones, contacts } from '@rapid/db/sqlite';
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import {
   ArrowLeft,
   Cake,
@@ -277,9 +277,14 @@ export function ContactsWindowDetail({
     }
 
     const activeEmails = emailsForm.filter((e) => !e.isDeleted);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     for (const email of activeEmails) {
       if (!email.email.trim()) {
         setError('Email address cannot be empty');
+        return;
+      }
+      if (!emailRegex.test(email.email.trim())) {
+        setError('Please enter a valid email address');
         return;
       }
     }
@@ -323,20 +328,30 @@ export function ContactsWindowDetail({
           (e) => !e.isNew && !e.isDeleted
         );
 
-        for (const email of emailsToDelete) {
-          await db.delete(contactEmails).where(eq(contactEmails.id, email.id));
+        // Batch delete emails
+        if (emailsToDelete.length > 0) {
+          await db.delete(contactEmails).where(
+            inArray(
+              contactEmails.id,
+              emailsToDelete.map((e) => e.id)
+            )
+          );
         }
 
-        for (const email of emailsToInsert) {
-          await db.insert(contactEmails).values({
-            id: email.id,
-            contactId,
-            email: email.email.trim(),
-            label: email.label.trim() || null,
-            isPrimary: email.isPrimary
-          });
+        // Batch insert emails
+        if (emailsToInsert.length > 0) {
+          await db.insert(contactEmails).values(
+            emailsToInsert.map((email) => ({
+              id: email.id,
+              contactId,
+              email: email.email.trim(),
+              label: email.label.trim() || null,
+              isPrimary: email.isPrimary
+            }))
+          );
         }
 
+        // Updates still need to be individual (different values per row)
         for (const email of emailsToUpdate) {
           await db
             .update(contactEmails)
@@ -358,20 +373,30 @@ export function ContactsWindowDetail({
           (p) => !p.isNew && !p.isDeleted
         );
 
-        for (const phone of phonesToDelete) {
-          await db.delete(contactPhones).where(eq(contactPhones.id, phone.id));
+        // Batch delete phones
+        if (phonesToDelete.length > 0) {
+          await db.delete(contactPhones).where(
+            inArray(
+              contactPhones.id,
+              phonesToDelete.map((p) => p.id)
+            )
+          );
         }
 
-        for (const phone of phonesToInsert) {
-          await db.insert(contactPhones).values({
-            id: phone.id,
-            contactId,
-            phoneNumber: phone.phoneNumber.trim(),
-            label: phone.label.trim() || null,
-            isPrimary: phone.isPrimary
-          });
+        // Batch insert phones
+        if (phonesToInsert.length > 0) {
+          await db.insert(contactPhones).values(
+            phonesToInsert.map((phone) => ({
+              id: phone.id,
+              contactId,
+              phoneNumber: phone.phoneNumber.trim(),
+              label: phone.label.trim() || null,
+              isPrimary: phone.isPrimary
+            }))
+          );
         }
 
+        // Updates still need to be individual (different values per row)
         for (const phone of phonesToUpdate) {
           await db
             .update(contactPhones)

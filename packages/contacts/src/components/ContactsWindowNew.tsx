@@ -138,7 +138,7 @@ export function ContactsWindowNew({
       return;
     }
 
-    const emailRegex = /\S+@\S+\.\S+/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     for (const email of emailsForm) {
       if (!email.email.trim()) {
         setError('Email address cannot be empty');
@@ -180,24 +180,30 @@ export function ContactsWindowNew({
           deleted: false
         });
 
-        for (const email of emailsForm) {
-          await db.insert(contactEmails).values({
-            id: email.id,
-            contactId,
-            email: email.email.trim(),
-            label: email.label.trim() || null,
-            isPrimary: email.isPrimary
-          });
+        // Batch insert emails
+        if (emailsForm.length > 0) {
+          await db.insert(contactEmails).values(
+            emailsForm.map((email) => ({
+              id: email.id,
+              contactId,
+              email: email.email.trim(),
+              label: email.label.trim() || null,
+              isPrimary: email.isPrimary
+            }))
+          );
         }
 
-        for (const phone of phonesForm) {
-          await db.insert(contactPhones).values({
-            id: phone.id,
-            contactId,
-            phoneNumber: phone.phoneNumber.trim(),
-            label: phone.label.trim() || null,
-            isPrimary: phone.isPrimary
-          });
+        // Batch insert phones
+        if (phonesForm.length > 0) {
+          await db.insert(contactPhones).values(
+            phonesForm.map((phone) => ({
+              id: phone.id,
+              contactId,
+              phoneNumber: phone.phoneNumber.trim(),
+              label: phone.label.trim() || null,
+              isPrimary: phone.isPrimary
+            }))
+          );
         }
 
         await adapter.commitTransaction();

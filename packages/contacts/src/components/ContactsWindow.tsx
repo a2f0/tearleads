@@ -106,6 +106,52 @@ export function ContactsWindow({
     }
   };
 
+  const renderContent = () => {
+    if (currentView === 'import') {
+      return (
+        <ContactsWindowImport
+          file={importFile}
+          onDone={handleImportDone}
+          onImported={handleImportComplete}
+        />
+      );
+    }
+
+    if (currentView === 'detail' && selectedContactId) {
+      return (
+        <ContactsWindowDetail
+          contactId={selectedContactId}
+          onBack={handleBack}
+          onDeleted={handleDeleted}
+        />
+      );
+    }
+
+    if (currentView === 'create') {
+      return (
+        <ContactsWindowNew onBack={handleBack} onCreated={handleCreated} />
+      );
+    }
+
+    if (viewMode === 'table') {
+      return (
+        <ContactsWindowTableView
+          onSelectContact={handleSelectContact}
+          onCreateContact={handleNewContact}
+          refreshToken={refreshToken}
+        />
+      );
+    }
+
+    return (
+      <ContactsWindowList
+        onSelectContact={handleSelectContact}
+        onCreateContact={handleNewContact}
+        refreshToken={refreshToken}
+      />
+    );
+  };
+
   return (
     <>
       <FloatingWindow
@@ -132,38 +178,7 @@ export function ContactsWindow({
             isNewContactDisabled={currentView === 'create'}
             isImportDisabled={!isUnlocked}
           />
-          <div className="flex-1 overflow-hidden">
-            {currentView === 'import' ? (
-              <ContactsWindowImport
-                file={importFile}
-                onDone={handleImportDone}
-                onImported={handleImportComplete}
-              />
-            ) : currentView === 'detail' && selectedContactId ? (
-              <ContactsWindowDetail
-                contactId={selectedContactId}
-                onBack={handleBack}
-                onDeleted={handleDeleted}
-              />
-            ) : currentView === 'create' ? (
-              <ContactsWindowNew
-                onBack={handleBack}
-                onCreated={handleCreated}
-              />
-            ) : viewMode === 'table' ? (
-              <ContactsWindowTableView
-                onSelectContact={handleSelectContact}
-                onCreateContact={handleNewContact}
-                refreshToken={refreshToken}
-              />
-            ) : (
-              <ContactsWindowList
-                onSelectContact={handleSelectContact}
-                onCreateContact={handleNewContact}
-                refreshToken={refreshToken}
-              />
-            )}
-          </div>
+          <div className="flex-1 overflow-hidden">{renderContent()}</div>
         </div>
       </FloatingWindow>
       <input
